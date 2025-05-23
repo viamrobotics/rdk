@@ -126,7 +126,7 @@ are the same, so the final composed transformation is only made up of one transl
 world
 
 transform the point that is in the world frame is at (5, 7, 0) from frame1 to frame2.
-frame1 has its origin at (0, 7, 0) in the world  and frame2 has its origin at (5, 1, 0).
+frame1 has its origin at (0, 7, 0) in the world frame and frame2 has its origin at (5, 1, 0) frame.
 frame3 is an intermediate frame at (0, 4, 0) in the world
 All 4 frames have the same orientation.
 */

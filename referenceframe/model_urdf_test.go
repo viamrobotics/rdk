@@ -49,5 +49,5 @@ func TestWorldStateConversion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	bytes, err := xml.MarshalIndent(cfg, "", "  ")
 	test.That(t, err, test.ShouldBeNil)
-	_ = bytes
+	test.That(t, bytes, test.ShouldNotBeNil)
 }

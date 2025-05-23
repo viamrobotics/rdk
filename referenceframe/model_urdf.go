@@ -12,8 +12,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// ModelConfigXML represents all supported fields in a Universal Robot Description Format (URDF) file.
-type ModelConfigXML struct {
+// ModelConfigURDF represents all supported fields in a Universal Robot Description Format (URDF) file.
+type ModelConfigURDF struct {
 	XMLName xml.Name   `xml:"robot"`
 	Name    string     `xml:"name,attr"`
 	Links   []linkXML  `xml:"link"`
@@ -39,9 +39,9 @@ type jointXML struct {
 	Limit   *limit   `xml:"limit,omitempty"`
 }
 
-// NewModelFromWorldState creates a ModelConfigXML struct which can be marshalled into xml and will be a
+// NewModelFromWorldState creates a ModelConfigURDF struct which can be marshalled into xml and will be a
 // valid .urdf file representing the geometries in the given worldstate.
-func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigXML, error) {
+func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, error) {
 	// the link we initialize this list with represents the world frame
 	links := []linkXML{{Name: World}}
 	joints := make([]jointXML, 0)
@@ -66,7 +66,7 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigXML, error
 			Child:  frame{g.Label()},
 		})
 	}
-	return &ModelConfigXML{
+	return &ModelConfigURDF{
 		Name:   name,
 		Links:  links,
 		Joints: joints,
@@ -78,7 +78,7 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigXML, error
 // between the two kinematics encoding schemes.
 func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, error) {
 	// Unmarshal into a URDF ModelConfig
-	urdf := &ModelConfigXML{}
+	urdf := &ModelConfigURDF{}
 	err := xml.Unmarshal(xmlData, urdf)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to convert URDF data to equivalent URDFConfig struct")
