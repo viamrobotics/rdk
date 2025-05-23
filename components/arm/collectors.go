@@ -80,7 +80,7 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 		}
 		// its ok to be ignoring the error from this function because the appropriate warning will have been
 		// logged with the above JointPositions call
-		// nolint:errcheck
+		//nolint:errcheck
 		k, _ := arm.Kinematics(ctx)
 		jp, err := referenceframe.JointPositionsFromInputs(k, v)
 		if err != nil {
