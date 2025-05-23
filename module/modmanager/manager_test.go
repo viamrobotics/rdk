@@ -653,7 +653,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// Run 'kill_module' command through helper resource to cause module to
-		// exit with error. Assert that after three restart errors occur, helper is
+		// exit with error. Assert that after the first restart attempt, helper is
 		// not modularly managed and commands return error.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -678,7 +678,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
 			test.ShouldEqual, 0)
 		test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
-			test.ShouldEqual, 3)
+			test.ShouldBeGreaterThanOrEqualTo, 1)
 
 		// Assert that RemoveOrphanedResources was called once.
 		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
@@ -720,7 +720,7 @@ func TestModuleReloading(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("Removed resources after failed module restart").Len(),
+			test.That(tb, logs.FilterMessageSnippet("Restart context canceled, abandoning restart attempt").Len(),
 				test.ShouldEqual, 1)
 		})
 
@@ -736,11 +736,15 @@ func TestModuleReloading(t *testing.T) {
 			test.ShouldEqual, 1)
 		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
 			test.ShouldEqual, 0)
-		test.That(t, logs.FilterMessageSnippet("Will not attempt to restart crashed module").Len(),
+		test.That(t, logs.FilterMessageSnippet("Restart context canceled, abandoning restart attempt").Len(),
 			test.ShouldEqual, 1)
-
-		// Assert that RemoveOrphanedResources was called once.
-		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
+		// Call Stop on the module's ManagedProcess here to absorb the error from
+		// the non-zero exit, otherwise it will end up in the return of mgr.Close
+		// and fail the test during cleanup.
+		mod, _ := mgr.(*Manager).modules.Load(modCfg.Name)
+		err = mod.process.Stop()
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, "exit status 1")
 	})
 	t.Run("timed out module process is stopped", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
@@ -1133,7 +1137,7 @@ func TestTwoModulesRestart(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 	}
 
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*200, 50, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessageSnippet("Module resources successfully re-added after module restart").Len(),
 			test.ShouldEqual, 2)
@@ -1487,6 +1491,17 @@ func TestBadModuleFailsFast(t *testing.T) {
 // process information (e.g: CPU usage) is in sync with the Process IDs (PIDs) that are actually
 // running.
 func TestFTDCAfterModuleCrash(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip(t.Name(), "only runs on Linux due to a dependency on the /proc filesystem")
+	}
+
+	// The module restart handler has a 5 second backoff by default. Temporarily
+	// set it to 0 so this test can run faster.
+	originalRestartInterval := oueRestartInterval
+	oueRestartInterval = 0
+	t.Cleanup(func() {
+		oueRestartInterval = originalRestartInterval
+	})
 	logger := logging.NewTestLogger(t)
 	modCfgs := []config.Module{
 		{
