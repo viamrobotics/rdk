@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -100,4 +101,16 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 		return nil, ErrGeometriesNil(req.GetName())
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
+}
+
+func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
+	g, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	model, err := g.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.KinematicModelToProtobuf(model), nil
 }

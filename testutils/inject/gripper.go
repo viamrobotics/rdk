@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -19,6 +20,7 @@ type Gripper struct {
 	IsMovingFunc   func(context.Context) (bool, error)
 	CloseFunc      func(ctx context.Context) error
 	GeometriesFunc func(ctx context.Context) ([]spatialmath.Geometry, error)
+	KinematicsFunc func(ctx context.Context) (referenceframe.Model, error)
 }
 
 // NewGripper returns a new injected gripper.
@@ -88,4 +90,12 @@ func (g *Gripper) Geometries(ctx context.Context, extra map[string]interface{}) 
 		return g.Gripper.Geometries(ctx, extra)
 	}
 	return g.GeometriesFunc(ctx)
+}
+
+// Kinematics calls the injected Kinematics or the real version.
+func (g *Gripper) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	if g.KinematicsFunc == nil {
+		return g.Gripper.Kinematics(ctx)
+	}
+	return g.KinematicsFunc(ctx)
 }

@@ -716,7 +716,7 @@ func TestMoveToPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestModelFrame(t *testing.T) {
+func TestKinematics(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	deps := createFakeDepsForTestNewSingleAxis(t)
@@ -733,7 +733,8 @@ func TestModelFrame(t *testing.T) {
 		},
 	}
 	fakegantry, _ := newSingleAxis(ctx, deps, fakecfg, logger)
-	m := fakegantry.ModelFrame()
+	m, err := fakegantry.Kinematics(ctx)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m, test.ShouldNotBeNil)
 }
 

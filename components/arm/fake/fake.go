@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -48,7 +47,7 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 	case conf.ArmModel != "" && conf.ModelFilePath == "":
 		_, err = modelFromName(conf.ArmModel, "")
 	case conf.ArmModel == "" && conf.ModelFilePath != "":
-		_, err = modelFromPath(conf.ModelFilePath, "")
+		_, err = referenceframe.KinematicModelFromFile(conf.ModelFilePath, "")
 	}
 	return nil, nil, err
 }
@@ -85,7 +84,7 @@ func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, err
 	case armModel != "":
 		model, err = modelFromName(armModel, cfg.Name)
 	case modelPath != "":
-		model, err = modelFromPath(modelPath, cfg.Name)
+		model, err = referenceframe.KinematicModelFromFile(modelPath, cfg.Name)
 	default:
 		// if no arm model is specified, we return a fake arm with 1 dof and 0 spatial transformation
 		model, err = modelFromName(Model.Name, cfg.Name)
@@ -130,13 +129,6 @@ func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 	a.model = model
 
 	return nil
-}
-
-// ModelFrame returns the dynamic frame of the model.
-func (a *Arm) ModelFrame() referenceframe.Model {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	return a.model
 }
 
 // EndPosition returns the set position.
@@ -218,6 +210,13 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+// Kinematics returns the kinematic model supplied for the fake arm.
+func (a *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.model, nil
+}
+
 // CurrentInputs returns the current inputs of the fake arm.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	a.mu.RLock()
@@ -262,16 +261,5 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:
 		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
-	}
-}
-
-func modelFromPath(modelPath, name string) (referenceframe.Model, error) {
-	switch {
-	case strings.HasSuffix(modelPath, ".urdf"):
-		return urdf.ParseModelXMLFile(modelPath, name)
-	case strings.HasSuffix(modelPath, ".json"):
-		return referenceframe.ParseModelJSONFile(modelPath, name)
-	default:
-		return nil, errors.New("only files with .json and .urdf file extensions are supported")
 	}
 }

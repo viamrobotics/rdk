@@ -63,6 +63,7 @@ type ptgGroupFrame struct {
 
 // NewPTGFrameFromKinematicOptions will create a new Frame which is also a PTGProvider. It will precompute the default set of
 // trajectories out to a given distance, or a default distance if the given distance is <= 0.
+// NOTE: although this returns a Model, this is a hack -- none of the Model specific methods are implemented usefully.
 func NewPTGFrameFromKinematicOptions(
 	name string,
 	logger logging.Logger,
@@ -71,7 +72,7 @@ func NewPTGFrameFromKinematicOptions(
 	geoms []spatialmath.Geometry,
 	diffDriveOnly bool,
 	canRotateInPlace bool,
-) (referenceframe.Frame, error) {
+) (referenceframe.Model, error) {
 	if turnRadMeters <= 0 {
 		return nil, fmt.Errorf("cannot create ptg frame, turning radius %f must be >0", turnRadMeters)
 	}
@@ -147,6 +148,14 @@ func (pf *ptgGroupFrame) DoF() []referenceframe.Limit {
 
 func (pf *ptgGroupFrame) Name() string {
 	return pf.name
+}
+
+func (pf *ptgGroupFrame) ModelConfig() *referenceframe.ModelConfigJSON {
+	return nil
+}
+
+func (pf *ptgGroupFrame) ModelPieceFrames([]referenceframe.Input) (map[string]referenceframe.Frame, error) {
+	return nil, errors.New("ModelPieceFrames unimplemented")
 }
 
 // TODO: Define some sort of config struct for a PTG frame.

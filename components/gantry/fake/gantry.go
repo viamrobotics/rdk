@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/golang/geo/r3"
 
@@ -91,15 +90,15 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// ModelFrame returns a Gantry frame.
-func (g *Gantry) ModelFrame() referenceframe.Model {
+// Kinematics returns the kinematic model associated with the gantry.
+func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	m := referenceframe.NewSimpleModel("")
 	f, err := referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{0, g.lengthMeters})
 	if err != nil {
-		panic(fmt.Errorf("error creating frame: %w", err))
+		return nil, err
 	}
 	m.OrdTransforms = append(m.OrdTransforms, f)
-	return m
+	return m, nil
 }
 
 // CurrentInputs returns positions in the Gantry frame model..

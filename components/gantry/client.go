@@ -3,6 +3,7 @@ package gantry
 
 import (
 	"context"
+	"errors"
 
 	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/utils/protoutils"
@@ -117,9 +118,8 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return err
 }
 
-func (c *client) ModelFrame() referenceframe.Model {
-	// TODO(erh): this feels wrong
-	return nil
+func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	return nil, errors.New("unimplemented")
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {

@@ -257,8 +257,10 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
+		k, err := mr.kinematicBase.Kinematics(ctx)
+		test.That(t, err, test.ShouldBeNil)
 		currentInputs := referenceframe.FrameSystemInputs{
-			mr.kinematicBase.Kinematics().Name(): {
+			k.Name(): {
 				{Value: 0}, // ptg index
 				{Value: 0}, // trajectory alpha within ptg
 				{Value: 0}, // start distance along trajectory index
@@ -286,7 +288,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
+		augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(ctx, baseExecutionState)
 		test.That(t, err, test.ShouldBeNil)
 
 		wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)

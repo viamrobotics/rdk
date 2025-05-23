@@ -2,6 +2,7 @@ package gripper_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 
@@ -57,6 +58,9 @@ func TestClient(t *testing.T) {
 	}
 	injectGripper.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return expectedGeometries, nil
+	}
+	injectGripper.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errors.New("kinematics unimplmented")
 	}
 
 	injectGripper2 := &inject.Gripper{}
@@ -132,7 +136,8 @@ func TestClient(t *testing.T) {
 			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
 		}
 
-		m := gripper1Client.ModelFrame()
+		m, err := gripper1Client.Kinematics(context.Background())
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m, test.ShouldNotBeNil)
 		gsInFrame, err := m.Geometries(make([]referenceframe.Input, len(m.DoF())))
 		test.That(t, err, test.ShouldBeNil)

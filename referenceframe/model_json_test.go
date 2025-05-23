@@ -16,17 +16,17 @@ func TestParseJSONFile(t *testing.T) {
 	goodFiles := []string{
 		"components/arm/example_kinematics/xarm6_kinematics_test.json",
 		"components/arm/example_kinematics/xarm7_kinematics_test.json",
-		"referenceframe/testjson/ur5eDH.json",
+		"referenceframe/testfiles/ur5eDH.json",
 		"components/arm/universalrobots/ur5e.json",
 		"components/arm/fake/dofbot.json",
 	}
 
 	badFiles := []string{
-		"referenceframe/testjson/kinematicsloop.json",
-		"referenceframe/testjson/worldjoint.json",
-		"referenceframe/testjson/worldlink.json",
-		"referenceframe/testjson/worldDH.json",
-		"referenceframe/testjson/missinglink.json",
+		"referenceframe/testfiles/kinematicsloop.json",
+		"referenceframe/testfiles/worldjoint.json",
+		"referenceframe/testfiles/worldlink.json",
+		"referenceframe/testfiles/worldDH.json",
+		"referenceframe/testfiles/missinglink.json",
 	}
 
 	badFilesErrors := []error{

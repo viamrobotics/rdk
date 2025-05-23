@@ -255,7 +255,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	segment := ik.Segment{
 		StartConfiguration: startInputs,
 		StartPosition:      runningPose,
-		Frame:              ptgk.Kinematics(),
+		Frame:              ptgk.planningModel,
 	}
 	// Trajectory distance is either length in mm, or if linear distance is not increasing, number of degrees to rotate in place.
 	lastLinVel := r3.Vector{0, traj[0].LinVel * ptgk.linVelocityMMPerSecond, 0}
@@ -292,7 +292,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 			}
 			nextStep.arcSegment.EndConfiguration = stepEndInputs
 
-			arcPose, err := ptgk.Kinematics().Transform(stepEndInputs)
+			arcPose, err := ptgk.planningModel.Transform(stepEndInputs)
 			if err != nil {
 				return nil, err
 			}
@@ -309,7 +309,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 			segment = ik.Segment{
 				StartConfiguration: stepStartInputs,
 				StartPosition:      runningPose,
-				Frame:              ptgk.Kinematics(),
+				Frame:              ptgk.planningModel,
 			}
 			nextStep = arcStep{
 				linVelMMps:      nextLinVel,
@@ -330,7 +330,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 		{curDist},
 	}
 	nextStep.arcSegment.EndConfiguration = finalInputs
-	arcPose, err := ptgk.Kinematics().Transform(finalInputs)
+	arcPose, err := ptgk.planningModel.Transform(finalInputs)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +354,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 		return nil, err
 	}
 	// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
-	trajPose, err := ptgk.Kinematics().Transform(currentInputs)
+	trajPose, err := ptgk.planningModel.Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}
@@ -445,7 +445,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 				connectionPointDeepCopy.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex],
 				{startVal},
 			}
-			skippedPose, err := ptgk.Kinematics().Transform(skippedSegment)
+			skippedPose, err := ptgk.planningModel.Transform(skippedSegment)
 			if err != nil {
 				return nil, err
 			}
@@ -570,7 +570,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 				{steps[i].subTraj[goalTrajPtIdx].Dist},
 			}
 
-			arcPose, err := ptgk.Kinematics().Transform(arcTrajInputs)
+			arcPose, err := ptgk.planningModel.Transform(arcTrajInputs)
 			if err != nil {
 				return []courseCorrectionGoal{}
 			}
@@ -597,9 +597,9 @@ func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) 
 	traj := motionplan.Trajectory{}
 	path := motionplan.Path{}
 	for _, step := range steps {
-		traj = append(traj, referenceframe.FrameSystemInputs{ptgk.Kinematics().Name(): step.arcSegment.EndConfiguration})
+		traj = append(traj, referenceframe.FrameSystemInputs{ptgk.planningModel.Name(): step.arcSegment.EndConfiguration})
 		path = append(path, map[string]*referenceframe.PoseInFrame{
-			ptgk.Kinematics().Name(): referenceframe.NewPoseInFrame(parentFrame, step.arcSegment.EndPosition),
+			ptgk.planningModel.Name(): referenceframe.NewPoseInFrame(parentFrame, step.arcSegment.EndPosition),
 		})
 	}
 

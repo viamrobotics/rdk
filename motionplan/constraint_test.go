@@ -21,7 +21,7 @@ import (
 func TestIKTolerances(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/ur5eDH.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/ur5eDH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs := frame.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())

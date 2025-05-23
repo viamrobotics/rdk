@@ -117,7 +117,6 @@ func Named(name string) resource.Name {
 // [JointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#getjointpositions
 type Arm interface {
 	resource.Resource
-	referenceframe.ModelFramer
 	resource.Shaped
 	resource.Actuator
 	framesystem.InputEnabled
@@ -164,7 +163,10 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []refe
 	if err != nil {
 		return err
 	}
-	model := a.ModelFrame()
+	model, err := a.Kinematics(ctx)
+	if err != nil {
+		return err
+	}
 	limits := model.DoF()
 	for i, val := range desiredInputs {
 		max := limits[i].Max

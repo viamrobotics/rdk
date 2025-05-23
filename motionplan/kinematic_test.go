@@ -11,7 +11,6 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 
 	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/referenceframe/urdf"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -279,7 +278,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 func TestSVAvsDH(t *testing.T) {
 	mSVA, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mDH, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/ur5eDH.json"), "")
+	mDH, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/ur5eDH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	numTests := 10000
@@ -301,7 +300,7 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 
 	mJSON, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mURDF, err := urdf.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "")
+	mURDF, err := frame.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	seed := rand.New(rand.NewSource(50))

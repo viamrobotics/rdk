@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -63,7 +64,7 @@ type Gripper interface {
 	resource.Resource
 	resource.Shaped
 	resource.Actuator
-	referenceframe.ModelFramer
+	framesystem.InputEnabled
 
 	// Open opens the gripper.
 	// This will block until done or a new operation cancels this one.
@@ -96,7 +97,7 @@ func MakeModel(name string, geometries []spatialmath.Geometry) (referenceframe.M
 	if len(geometries) == 0 {
 		return referenceframe.NewSimpleModel(name), nil
 	}
-	cfg := &referenceframe.ModelConfig{
+	cfg := &referenceframe.ModelConfigJSON{
 		Name:  name,
 		Links: []referenceframe.LinkConfig{},
 	}
