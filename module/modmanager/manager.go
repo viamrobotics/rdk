@@ -902,11 +902,6 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		// module struct, so are safe to call before checking if we should abandon
 		// the restart attempt.
 
-		// The process is already stopped, but call this here to absorb the error
-		// and prevent it from being returned during modmanager shutdown.
-		err := mod.process.Stop()
-		mod.logger.Infow("Crashed module process stop result", "err", err)
-
 		// deregister crashed module's resources, and let later checkReady reset m.handles
 		// before reregistering.
 		mod.deregisterResources()

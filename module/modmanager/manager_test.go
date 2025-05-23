@@ -738,6 +738,13 @@ func TestModuleReloading(t *testing.T) {
 			test.ShouldEqual, 0)
 		test.That(t, logs.FilterMessageSnippet("Restart context canceled, abandoning restart attempt").Len(),
 			test.ShouldEqual, 1)
+		// Call Stop on the module's ManagedProcess here to absorb the error from
+		// the non-zero exit, otherwise it will end up in the return of mgr.Close
+		// and fail the test during cleanup.
+		mod, _ := mgr.(*Manager).modules.Load(modCfg.Name)
+		err = mod.process.Stop()
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldEqual, "exit status 1")
 	})
 	t.Run("timed out module process is stopped", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
