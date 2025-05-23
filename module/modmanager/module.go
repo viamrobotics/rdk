@@ -53,6 +53,8 @@ type module struct {
 
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
+	// restartCtx     context.Context
+	restartCancel context.CancelFunc
 
 	logger logging.Logger
 	ftdc   *ftdc.FTDC
@@ -274,6 +276,11 @@ func (m *module) stopProcess() error {
 	}
 
 	m.logger.Infof("Stopping module: %s process", m.cfg.Name)
+
+	// Make sure the restart handler won't try to keep the process alive.
+	if m.restartCancel != nil {
+		m.restartCancel()
+	}
 
 	// Attempt to remove module's .sock file if module did not remove it
 	// already.

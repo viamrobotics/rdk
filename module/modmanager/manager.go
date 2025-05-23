@@ -354,7 +354,9 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
-	if err := mgr.startModuleProcess(mod, mgr.newOnUnexpectedExitHandler(mod)); err != nil {
+	var restartCtx context.Context
+	restartCtx, mod.restartCancel = context.WithCancel(mgr.restartCtx)
+	if err := mgr.startModuleProcess(mod, mgr.newOnUnexpectedExitHandler(restartCtx, mod)); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
@@ -870,7 +872,7 @@ var oueRestartInterval = 5 * time.Second
 
 // newOnUnexpectedExitHandler returns the appropriate OnUnexpectedExit function
 // for the passed-in module to include in the pexec.ProcessConfig.
-func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExitHandler {
+func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module) pexec.UnexpectedExitHandler {
 	return func(exitCode int) (continueAttemptingRestart bool) {
 		// Log error immediately, as this is unexpected behavior.
 		mod.logger.Errorw(
@@ -889,21 +891,21 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 		// nothing for us to do.
 		mgr.mu.Lock()
 		locked := true
-		defer func() {
+		unlock := func() {
 			if locked {
 				mgr.mu.Unlock()
+				locked = false
 			}
-		}()
+		}
+		defer unlock()
 
 		if mod.pendingRemoval {
 			mod.logger.Infow("Module marked for removal, abandoning restart attempt")
 			return
 		}
 
-		// Something else already started a new process while we were waiting on the
-		// lock, so no restart is needed.
-		if err := mod.process.Status(); err == nil {
-			mod.logger.Infow("Module process already running, abandoning restart attempt")
+		if err := ctx.Err(); err != nil {
+			mod.logger.Infow("Restart context canceled, abandoning restart attempt", "err", err)
 			return
 		}
 
@@ -920,13 +922,12 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 		// and we should remove orphaned resources. Since we handle process
 		// restarting ourselves, return false here so goutils knows not to attempt
 		// a process restart.
-		if orphanedResourceNames := mgr.attemptRestart(mgr.restartCtx, mod); orphanedResourceNames != nil {
+		if orphanedResourceNames := mgr.attemptRestart(ctx, mod); orphanedResourceNames != nil {
 			if mgr.removeOrphanedResources != nil {
 				// removeOrphanedResources might try to lock a parent object and cause
 				// a deadlock (such is the case on localRobot). Drop the lock here to
 				// prevent that.
-				mgr.mu.Unlock()
-				locked = false
+				unlock()
 				mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 				mod.logger.Debugw(
 					"Removed resources after failed module restart",
@@ -959,6 +960,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(mod *module) pexec.UnexpectedExit
 			}
 		}
 		if len(orphanedResourceNames) > 0 && mgr.removeOrphanedResources != nil {
+			unlock()
 			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
@@ -1022,7 +1024,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 			)
 			return false
 		}
-		return mgr.newOnUnexpectedExitHandler(mod)(exitCode)
+		return mgr.newOnUnexpectedExitHandler(ctx, mod)(exitCode)
 	}
 
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
