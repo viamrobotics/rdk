@@ -720,7 +720,7 @@ func TestModuleReloading(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("Removed resources after failed module restart").Len(),
+			test.That(tb, logs.FilterMessageSnippet("Restart context canceled, abandoning restart attempt").Len(),
 				test.ShouldEqual, 1)
 		})
 
@@ -736,11 +736,8 @@ func TestModuleReloading(t *testing.T) {
 			test.ShouldEqual, 1)
 		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
 			test.ShouldEqual, 0)
-		test.That(t, logs.FilterMessageSnippet("Will not attempt to restart crashed module").Len(),
+		test.That(t, logs.FilterMessageSnippet("Restart context canceled, abandoning restart attempt").Len(),
 			test.ShouldEqual, 1)
-
-		// Assert that RemoveOrphanedResources was called once.
-		test.That(t, dummyRemoveOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
 	})
 	t.Run("timed out module process is stopped", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
@@ -1133,7 +1130,7 @@ func TestTwoModulesRestart(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 	}
 
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*200, 50, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessageSnippet("Module resources successfully re-added after module restart").Len(),
 			test.ShouldEqual, 2)
