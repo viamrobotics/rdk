@@ -3,6 +3,8 @@ package gripper
 
 import (
 	"context"
+	"errors"
+	"sync"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
@@ -24,7 +26,9 @@ type client struct {
 	name   string
 	client pb.GripperServiceClient
 	logger logging.Logger
-	model  referenceframe.Model
+
+	mu    sync.Mutex
+	model referenceframe.Model
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -110,6 +114,9 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 }
 
 func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	// if a model has been cached just return that
 	if c.model != nil {
 		return c.model, nil
@@ -134,11 +141,19 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	c.logger.Warn("gripper.CurrentInputs is unimplemented!")
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.model != nil && len(c.model.DoF()) != 0 {
+		return nil, errors.New("CurrentInputs is unimplemented for gripper models with DoF != 0")
+	}
 	return []referenceframe.Input{}, nil
 }
 
 func (c *client) GoToInputs(context.Context, ...[]referenceframe.Input) error {
-	c.logger.Warn("gripper.GoToInputs is unimplemented!")
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.model != nil && len(c.model.DoF()) != 0 {
+		return errors.New("GoToInputs is unimplemented for gripper models with DoF != 0")
+	}
 	return nil
 }
