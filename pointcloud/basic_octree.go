@@ -70,6 +70,47 @@ type basicOctreeNode struct {
 	maxVal   int
 }
 
+// NewFromMesh returns an octree representation of the Mesh geometry.
+func NewFromMesh(mesh *spatialmath.Mesh) (*BasicOctree, error) {
+	meshPts := mesh.ToPoints(0)
+	pc := NewBasicPointCloud(len(meshPts))
+	for _, pt := range meshPts {
+		if err := pc.Set(pt, NewBasicData()); err != nil {
+			return nil, err
+		}
+	}
+	octree, err := ToBasicOctree(pc, 0)
+	if err != nil {
+		return nil, err
+	}
+	octree.SetLabel(mesh.Label())
+	return octree, nil
+}
+
+// ToBasicOctree takes a pointcloud object and converts it into a basic octree.
+func ToBasicOctree(cloud PointCloud, confidenceThreshold int) (*BasicOctree, error) {
+	if basicOctree, ok := cloud.(*BasicOctree); ok && (basicOctree.confidenceThreshold == confidenceThreshold) {
+		return basicOctree, nil
+	}
+
+	meta := cloud.MetaData()
+	center := meta.Center()
+	maxSideLength := meta.MaxSideLength()
+	basicOctree := newBasicOctree(center, maxSideLength, defaultConfidenceThreshold)
+
+	var err error
+	cloud.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		if err = basicOctree.Set(p, d); err != nil {
+			return false
+		}
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	return basicOctree, nil
+}
+
 func newBasicOctree(center r3.Vector, sideLength float64, confidenceThreshold int) *BasicOctree {
 	if sideLength <= 0 && sideLength != octreeMagicSideLength {
 		sideLength = 1

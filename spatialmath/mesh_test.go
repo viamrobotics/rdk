@@ -155,9 +155,7 @@ func TestMeshDistanceFrom(t *testing.T) {
 
 func TestMeshToPoints(t *testing.T) {
 	mesh := makeSimpleTriangleMesh()
-
-	points := mesh.ToPoints(1)
-	test.That(t, len(points), test.ShouldEqual, 7)
+	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 3)
 
 	// Verify points match triangle vertices
 	expectedPoints := []r3.Vector{
@@ -168,8 +166,13 @@ func TestMeshToPoints(t *testing.T) {
 		{X: 0, Y: 0, Z: 10},
 		{X: 1, Y: 0, Z: 10},
 		{X: 0, Y: 1, Z: 10},
+		mesh.Triangles()[0].Centroid(),
+		mesh.Triangles()[1].Centroid(),
+		mesh.Triangles()[2].Centroid(),
 	}
 
+	points := mesh.ToPoints(1)
+	test.That(t, len(points), test.ShouldEqual, len(expectedPoints))
 	for _, expected := range expectedPoints {
 		found := false
 		for _, actual := range points {
