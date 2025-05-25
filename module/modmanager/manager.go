@@ -444,12 +444,13 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 
 	handledResources := mod.resources
 
-	// Always mark pendingRemoval even if there is no more work to do because the
-	// restart handler checks it to avoid restarting a removed module.
 	mod.pendingRemoval = true
+	mod.restartCancel()
 
-	// If module handles no resources, remove it now.
-	if len(handledResources) == 0 {
+	// If module handles no resources, remove it now. If the module is marked as
+	// failed then the resources were already passed to removeOrphanedResources
+	// after the first failed restart attempt so we can also remove it now.
+	if len(handledResources) == 0 || mod.crashed {
 		return nil, mgr.closeModule(mod, false)
 	}
 
@@ -913,11 +914,6 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		// Attempt to remove module's .sock file if module did not remove it already.
 		rutils.RemoveFileNoError(mod.addr)
 
-		if mod.pendingRemoval {
-			mod.logger.Infow("Module marked for removal, abandoning restart attempt")
-			return
-		}
-
 		if err := ctx.Err(); err != nil {
 			mod.logger.Infow("Restart context canceled, abandoning restart attempt", "err", err)
 			return
@@ -931,8 +927,11 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		// and we should remove orphaned resources. Since we handle process
 		// restarting ourselves, return false here so goutils knows not to attempt
 		// a process restart.
+		firstFailure := !mod.crashed
 		if orphanedResourceNames := mgr.attemptRestart(ctx, mod); orphanedResourceNames != nil {
-			if mgr.removeOrphanedResources != nil {
+			// Only spend time removing orphaned resources after the first failed
+			// restart attempt.
+			if firstFailure && mgr.removeOrphanedResources != nil {
 				// removeOrphanedResources might try to lock a parent object and cause
 				// a deadlock (such is the case on localRobot). Drop the lock here to
 				// prevent that.
@@ -991,6 +990,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 
 	var success, processRestarted bool
 	defer func() {
+		mod.crashed = !success
 		if !success {
 			if processRestarted {
 				if err := mod.stopProcess(); err != nil {
