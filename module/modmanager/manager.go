@@ -889,14 +889,18 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		//
 		// For the second scenario, we check our assumptions after acquiring the modmanager mutex.  If the module process is running, there is
 		// nothing for us to do.
-		mgr.mu.Lock()
-		locked := true
+		locked := false
+		lock := func() {
+			mgr.mu.Lock()
+			locked = true
+		}
 		unlock := func() {
 			if locked {
 				mgr.mu.Unlock()
 				locked = false
 			}
 		}
+		lock()
 		defer unlock()
 
 		// The following calls all deal with resouces specific to each instance of a
@@ -927,11 +931,15 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		// and we should remove orphaned resources. Since we handle process
 		// restarting ourselves, return false here so goutils knows not to attempt
 		// a process restart.
-		firstFailure := !mod.crashed
-		if orphanedResourceNames := mgr.attemptRestart(ctx, mod); orphanedResourceNames != nil {
+		orphanedResourcesRemoved := false
+		for {
+			orphanedResourceNames := mgr.attemptRestart(ctx, mod)
+			if orphanedResourceNames == nil {
+				break
+			}
 			// Only spend time removing orphaned resources after the first failed
 			// restart attempt.
-			if firstFailure && mgr.removeOrphanedResources != nil {
+			if !orphanedResourcesRemoved && mgr.removeOrphanedResources != nil {
 				// removeOrphanedResources might try to lock a parent object and cause
 				// a deadlock (such is the case on localRobot). Drop the lock here to
 				// prevent that.
@@ -943,7 +951,15 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 					"resources", resource.NamesToStrings(orphanedResourceNames),
 				)
 			}
-			return
+			orphanedResourcesRemoved = true
+
+			unlock()
+			utils.SelectContextOrWait(ctx, oueRestartInterval)
+			lock()
+			if err := ctx.Err(); err != nil {
+				mod.logger.Infow("Restart context canceled, abandoning restart attempt", "err", err)
+				return
+			}
 		}
 		mod.logger.Infow("Module successfully restarted, re-adding resources", "module", mod.cfg.Name)
 
@@ -1011,12 +1027,10 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		ctx, "Waiting for module to complete restart and re-registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
-	restartBackoff := time.NewTimer(oueRestartInterval)
+	blockRestart := make(chan struct{})
 	oue := func(exitCode int) bool {
-		if !utils.SelectContextOrWaitChan(ctx, restartBackoff.C) {
-			mgr.logger.CInfow(
-				ctx, "Restart context canceled, abandoning restart attempt", "module", mod.cfg.Name, "reason", ctx.Err().Error(),
-			)
+		<-blockRestart
+		if !success {
 			return false
 		}
 		return mgr.newOnUnexpectedExitHandler(ctx, mod)(exitCode)

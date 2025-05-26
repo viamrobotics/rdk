@@ -55,7 +55,7 @@ type module struct {
 	pendingRemoval bool
 	// restartCtx     context.Context
 	restartCancel context.CancelFunc
-	crashed        bool
+	crashed       bool
 
 	logger logging.Logger
 	ftdc   *ftdc.FTDC
