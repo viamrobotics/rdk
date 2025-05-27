@@ -1005,11 +1005,9 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	)
 
 	var success, processRestarted bool
-	newCtx, newCancel := context.WithCancel(ctx)
 	defer func() {
 		mod.crashed = !success
 		if !success {
-			newCancel()
 			if processRestarted {
 				if err := mod.stopProcess(); err != nil {
 					msg := "Error while stopping process of crashed module"
@@ -1017,8 +1015,6 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 				}
 			}
 			mod.cleanupAfterCrash(mgr)
-		} else {
-			mod.restartCancel = newCancel
 		}
 	}()
 
@@ -1031,7 +1027,16 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 		ctx, "Waiting for module to complete restart and re-registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
-	oue := mgr.newOnUnexpectedExitHandler(newCtx, mod)
+	blockRestart := make(chan struct{})
+	defer close(blockRestart)
+	oue := func(exitCode int) bool {
+		<-blockRestart
+		if !success {
+			return false
+		}
+		return mgr.newOnUnexpectedExitHandler(ctx, mod)(exitCode)
+	}
+
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
 		mgr.logger.Errorw("Error while restarting crashed module",
 			"module", mod.cfg.Name, "error", err)
