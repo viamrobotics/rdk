@@ -579,8 +579,12 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 	orientConstraintFromProto := func(orientConstraints []*motionpb.OrientationConstraint) []OrientationConstraint {
 		toRet := make([]OrientationConstraint, 0, len(orientConstraints))
 		for _, orientConstraint := range orientConstraints {
+			orientTol := 0.
+			if orientConstraint.OrientationToleranceDegs != nil {
+				orientTol = float64(*orientConstraint.OrientationToleranceDegs)
+			}
 			toRet = append(toRet, OrientationConstraint{
-				OrientationToleranceDegs: float64(*orientConstraint.OrientationToleranceDegs),
+				OrientationToleranceDegs: orientTol,
 			})
 		}
 		return toRet
