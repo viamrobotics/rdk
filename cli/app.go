@@ -2359,6 +2359,34 @@ Copy multiple files from the machine to a local destination with recursion and k
 							Action: createCommandWithT[machinesPartCopyFilesArgs](MachinesPartCopyFilesAction),
 						},
 						{
+							Name:  "get-ftdc",
+							Usage: "download ftdc data from a machine part",
+							Description: `
+In order to use the get-ftdc command, the machine must have a valid shell type service.
+Organization and location are required flags if using name (rather than ID) for the part.
+Note: There is no progress meter while copying is in progress.
+
+Download FTDC data to the current working directory:
+'viam machine part get-ftdc --organization "org" --location "location" --machine "m1" --part "m1-main"
+
+Download FTDC data to an absolute path:
+'viam machine part get-ftdc --part "m1-main" -r $HOME/Downloads'
+`,
+							UsageText: createUsageText(
+								"machines part get-ftdc",
+								[]string{generalFlagPart},
+								true, false,
+								"<target>"),
+							Flags: append(commonPartFlags, []cli.Flag{
+								&cli.BoolFlag{
+									Name:    generalFlagNoProgress,
+									Aliases: []string{"n"},
+									Usage:   "hide progress of the file transfer",
+								},
+							}...),
+							Action: createCommandWithT(MachinesPartGetFTDCAction),
+						},
+						{
 							Name:  "tunnel",
 							Usage: "tunnel connections to the specified port on a machine part",
 							UsageText: createUsageText("machines part tunnel", []string{

@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
@@ -1294,6 +1295,43 @@ type machinesPartCopyFilesArgs struct {
 	NoProgress   bool
 }
 
+type wrongNumArgsError struct {
+	want int
+	have int
+}
+
+func (err wrongNumArgsError) Error() string {
+	noun := "argument"
+	if err.want > 1 {
+		noun = "arguments"
+	}
+	return fmt.Sprintf("expected %d %s but got %d", err.want, noun, err.have)
+}
+
+type machinesPartGetFTDCArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+	NoProgress   bool
+}
+
+// MachinesPartGetFTDCAction is the corresponding Action for 'machines part get-ftdc'.
+func MachinesPartGetFTDCAction(c *cli.Context, args machinesPartGetFTDCArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
+	logger := globalArgs.createLogger()
+
+	return client.machinesPartGetFTDCAction(c, args, logger)
+}
+
 // MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
 func MachinesPartCopyFilesAction(c *cli.Context, args machinesPartCopyFilesArgs) error {
 	client, err := newViamClient(c)
@@ -1402,6 +1440,48 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		)
 	}
 	if err := doCopy(); err != nil {
+		if statusErr := status.Convert(err); statusErr != nil &&
+			statusErr.Code() == codes.InvalidArgument &&
+			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
+			return errDirectoryCopyRequestNoRecursion
+		}
+		return err
+	}
+	return nil
+}
+
+func (c *viamClient) machinesPartGetFTDCAction(
+	ctx *cli.Context,
+	flagArgs machinesPartGetFTDCArgs,
+	logger logging.Logger,
+) error {
+	args := ctx.Args().Slice()
+	if len(args) != 1 {
+		return wrongNumArgsError{1, len(args)}
+	}
+
+	globalArgs, err := getGlobalArgs(ctx)
+	if err != nil {
+		return err
+	}
+
+	part, err := c.robotPart(flagArgs.Organization, flagArgs.Location, flagArgs.Machine, flagArgs.Part)
+	if err != nil {
+		return err
+	}
+	src := path.Join("~", ".viam", "diagnostics.data", part.Id)
+	if err := c.copyFilesFromMachine(
+		flagArgs.Organization,
+		flagArgs.Location,
+		flagArgs.Machine,
+		flagArgs.Part,
+		globalArgs.Debug,
+		true,
+		false,
+		[]string{src},
+		args[0],
+		logger,
+	); err != nil {
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
