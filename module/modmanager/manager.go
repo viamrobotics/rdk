@@ -1028,6 +1028,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	defer cleanup()
 
 	blockRestart := make(chan struct{})
+	defer close(blockRestart)
 	oue := func(exitCode int) bool {
 		<-blockRestart
 		if !success {

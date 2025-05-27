@@ -1495,13 +1495,6 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 		t.Skip(t.Name(), "only runs on Linux due to a dependency on the /proc filesystem")
 	}
 
-	// The module restart handler has a 5 second backoff by default. Temporarily
-	// set it to 0 so this test can run faster.
-	originalRestartInterval := oueRestartInterval
-	oueRestartInterval = 0
-	t.Cleanup(func() {
-		oueRestartInterval = originalRestartInterval
-	})
 	logger := logging.NewTestLogger(t)
 	modCfgs := []config.Module{
 		{
