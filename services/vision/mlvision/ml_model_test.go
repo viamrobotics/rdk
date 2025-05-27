@@ -2,6 +2,7 @@ package mlvision
 
 import (
 	"context"
+	"math"
 	"sync"
 	"testing"
 
@@ -268,8 +269,21 @@ func TestMLDetectorBboxResized(t *testing.T) {
 	gotDetections, err := gotDetector(ctx, pic)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gotDetections, test.ShouldNotBeNil)
-	test.That(t, gotDetections[0].NormalizedBoundingBox(), test.ShouldResemble, []float64{0.2, 0, 0.6, 0.4})
-	test.That(t, gotDetections[0].BoundingBox().Min.X, test.ShouldEqual, 100)
+
+	// There's some floating point math, so check that the numbers are basically desiredValues (within a delta)
+	desiredNDelta := 0.01
+	desiredNValues := []float64{0.2, 0.3, 0.8, 0.5}
+	test.That(t, math.Abs(gotDetections[0].NormalizedBoundingBox()[0]-desiredNValues[0]), test.ShouldBeLessThan, desiredNDelta)
+	test.That(t, math.Abs(gotDetections[0].NormalizedBoundingBox()[1]-desiredNValues[1]), test.ShouldBeLessThan, desiredNDelta)
+	test.That(t, math.Abs(gotDetections[0].NormalizedBoundingBox()[2]-desiredNValues[2]), test.ShouldBeLessThan, desiredNDelta)
+	test.That(t, math.Abs(gotDetections[0].NormalizedBoundingBox()[3]-desiredNValues[3]), test.ShouldBeLessThan, desiredNDelta)
+
+	desiredDelta := 0.5
+	desiredValues := []float64{100, 100, 400, 166}
+	test.That(t, math.Abs(float64(gotDetections[0].BoundingBox().Min.X)-desiredValues[0]), test.ShouldBeLessThan, desiredDelta)
+	test.That(t, math.Abs(float64(gotDetections[0].BoundingBox().Min.Y)-desiredValues[1]), test.ShouldBeLessThan, desiredDelta)
+	test.That(t, math.Abs(float64(gotDetections[0].BoundingBox().Max.X)-desiredValues[2]), test.ShouldBeLessThan, desiredDelta)
+	test.That(t, math.Abs(float64(gotDetections[0].BoundingBox().Max.Y)-desiredValues[3]), test.ShouldBeLessThan, desiredDelta)
 }
 
 func TestMLDetectorWithNoCategory(t *testing.T) {

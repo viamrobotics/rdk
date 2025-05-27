@@ -274,7 +274,7 @@ func mockSuperFakeModel(name string) mlmodel.Service {
 	}
 
 	location := []float32{
-		0, 100, 200, 300,
+		150, 100, 250, 400,
 		0, 100, 400, 450,
 		100, 200, 450, 499,
 		100, 300, 499, 499,
