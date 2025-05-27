@@ -11,6 +11,7 @@ namespace viam::gen {
 class Generator {
    public:
     static Generator create(llvm::StringRef className,
+                            llvm::StringRef componentName,
                             llvm::StringRef buildDir,
                             llvm::StringRef sourceDir,
                             llvm::raw_ostream& moduleFile);
@@ -28,16 +29,18 @@ class Generator {
 
     Generator(GeneratorCompDB db,
               std::string className,
-              std::string classPath,
+              std::string componentName,
+              std::string componentPath,
               llvm::raw_ostream& moduleFile);
 
-    static llvm::StringRef classNameToSource(llvm::StringRef className);
+    static llvm::StringRef componentNameToSource(llvm::StringRef className);
 
     GeneratorCompDB db_;
 
     std::string className_;
+    std::string componentName_;
 
-    std::string classPath_;
+    std::string componentPath_;
 
     llvm::raw_ostream& moduleFile_;
 };

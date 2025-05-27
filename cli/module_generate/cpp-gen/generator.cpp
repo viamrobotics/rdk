@@ -19,6 +19,7 @@
 namespace viam::gen {
 
 Generator Generator::create(llvm::StringRef className,
+                            llvm::StringRef componentName,
                             llvm::StringRef buildDir,
                             llvm::StringRef sourceDir,
                             llvm::raw_ostream& moduleFile) {
@@ -30,7 +31,8 @@ Generator Generator::create(llvm::StringRef className,
 
     return Generator(GeneratorCompDB(*jsonDb, getCompilersDefaultIncludeDir(*jsonDb, true)),
                      className.str(),
-                     (sourceDir + classNameToSource(className)).str(),
+                     componentName.str(),
+                     (sourceDir + componentNameToSource(componentName)).str(),
                      moduleFile);
 }
 
@@ -38,20 +40,21 @@ Generator Generator::createFromCommandLine(const clang::tooling::CompilationData
                                            llvm::StringRef sourceFile,
                                            llvm::raw_ostream& moduleFile) {
     llvm::SmallVector<llvm::StringRef, 3> splits;
-    auto classFilename = llvm::sys::path::filename(sourceFile);
+    auto componentFileName = llvm::sys::path::filename(sourceFile);
 
-    classFilename.substr(0, classFilename.find('.')).split(splits, '_');
+    componentFileName.substr(0, componentFileName.find('.')).split(splits, '_');
 
-    std::string className;
+    std::string componentName;
 
-    llvm::raw_string_ostream os(className);
+    llvm::raw_string_ostream os(componentName);
 
     for (llvm::StringRef component : splits) {
         os << static_cast<char>(std::toupper(*component.bytes_begin())) << component.drop_front();
     }
 
     return Generator(GeneratorCompDB(compDb, getCompilersDefaultIncludeDir(compDb, true)),
-                     className,
+                     "My" + componentName,
+                     componentName,
                      sourceFile.str(),
                      moduleFile);
 }
@@ -64,15 +67,15 @@ int Generator::run() {
 
     const char* fmt =
         R"--(
-class My{0} : public viam::sdk::{0}, public viam::sdk::Reconfigurable {{
+class {0} : public viam::sdk::{1}, public viam::sdk::Reconfigurable {{
 public:
-    My{0}(const viam::sdk::Dependencies& deps, const viam::sdk::ResourceConfig& cfg) : {0}(cfg.name()) {{
+    {0}(const viam::sdk::Dependencies& deps, const viam::sdk::ResourceConfig& cfg) : {1}(cfg.name()) {{
         this->reconfigure(deps, cfg);
     }
 
 )--";
 
-    moduleFile_ << llvm::formatv(fmt, className_);
+    moduleFile_ << llvm::formatv(fmt, className_, componentName_);
 
     moduleFile_ << R"--(
     static std::vector<std::string> validate(const viam::sdk::ResourceConfig&)
@@ -107,27 +110,29 @@ void Generator::include_stmts() {
 #include <vector>
 
 #include <viam/sdk/common/exception.hpp>
+#include <viam/sdk/common/instance.hpp>
 #include <viam/sdk/common/proto_value.hpp>
 #include <viam/sdk/components/{0}.hpp
 #include <viam/sdk/config/resource.hpp>
+#include <viam/sdk/log/logging.hpp>
 #include <viam/sdk/module/service.hpp>
 #include <viam/sdk/registry/registry.hpp>
 #include <viam/sdk/resource/reconfigurable.hpp>
 
     )--";
 
-    llvm::StringRef cppFilename = classNameToSource(className_);
+    llvm::StringRef cppFilename = componentNameToSource(componentName_);
 
     moduleFile_ << llvm::formatv(fmt,
                                  llvm::StringRef(cppFilename).substr(0, cppFilename.find('.')));
 }
 
 int Generator::do_stubs() {
-    clang::tooling::ClangTool tool(db_, classPath_);
+    clang::tooling::ClangTool tool(db_, componentPath_);
 
     using namespace clang::ast_matchers;
 
-    std::string qualName = ("viam::sdk::" + className_);
+    std::string qualName = ("viam::sdk::" + componentName_);
 
     DeclarationMatcher methodMatcher =
         cxxMethodDecl(isPure(), hasParent(cxxRecordDecl(hasName(qualName)))).bind("method");
@@ -188,16 +193,21 @@ int Generator::do_stubs() {
 }
 
 void Generator::main_fn() {
-    std::string myClass = "My" + className_;
-
-    llvm::StringRef cppFilename = classNameToSource(className_);
+    llvm::StringRef cppFilename = componentNameToSource(componentName_);
 
     llvm::StringRef c1 = cppFilename.substr(0, cppFilename.find('.'));
 
-    std::string c2 = ("my" + c1).str();
+    std::string c2 = ("my_" + c1).str();
 
     moduleFile_ << "int main(int argc, char** argv) try {\n"
                 << llvm::formatv(R"--(
+    // Every Viam C++ SDK program must have one and only one Instance object which is created before
+    // any other SDK objects and stays alive until all of them are destroyed.
+    viam::sdk::Instance inst;
+
+    // Write general log statements using the VIAM_SDK_LOG macro.
+    VIAM_SDK_LOG(info) << "Starting up {1} module";
+
     Model model("viam", "{0}", "{1}");)--",
                                  c1,
                                  c2)
@@ -212,8 +222,8 @@ void Generator::main_fn() {
         },
         &{1}::validate);
 )--",
-                       className_,
-                       myClass)
+                       componentName_,
+                       className_)
                 << "\n\n"
                 <<
         R"--(
@@ -231,14 +241,16 @@ void Generator::main_fn() {
 
 Generator::Generator(GeneratorCompDB db,
                      std::string className,
-                     std::string classPath,
+                     std::string componentName,
+                     std::string componentPath,
                      llvm::raw_ostream& moduleFile)
     : db_(std::move(db)),
       className_(std::move(className)),
-      classPath_(std::move(classPath)),
+      componentName_(std::move(componentName)),
+      componentPath_(std::move(componentPath)),
       moduleFile_(moduleFile) {}
 
-llvm::StringRef Generator::classNameToSource(llvm::StringRef className) {
+llvm::StringRef Generator::componentNameToSource(llvm::StringRef componentName) {
     static std::unordered_map<std::string_view, std::string_view> correspondence{
         {"Arm", "arm.cpp"},
         {"Base", "base.cpp"},
@@ -256,7 +268,7 @@ llvm::StringRef Generator::classNameToSource(llvm::StringRef className) {
         {"Sensor", "sensor.cpp"},
         {"Servo", "servo.cpp"}};
 
-    return correspondence.at(className);
+    return correspondence.at(componentName);
 }
 
 }  // namespace viam::gen
