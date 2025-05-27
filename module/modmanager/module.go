@@ -53,9 +53,7 @@ type module struct {
 
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
-	// restartCtx     context.Context
 	restartCancel context.CancelFunc
-	crashed       bool
 
 	logger logging.Logger
 	ftdc   *ftdc.FTDC
@@ -378,15 +376,15 @@ func (m *module) cleanupAfterStartupFailure() {
 	utils.UncheckedError(m.sharedConn.Close())
 }
 
-func (m *module) cleanupAfterCrash(mgr *Manager) {
+// cleanupAfterCrash cleans up resources associated with a specific instance
+// of a module after that module's process has crashed. The module may still
+// be restarted or reconfigured later.
+func (m *module) cleanupAfterCrash() {
+	m.deregisterResources()
 	if err := m.sharedConn.Close(); err != nil {
 		m.logger.Warnw("Error closing connection to crashed module", "error", err)
 	}
-	for r, mod := range mgr.rMap.Range {
-		if mod == m {
-			mgr.rMap.Delete(r)
-		}
-	}
+	rutils.RemoveFileNoError(m.addr)
 }
 
 func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {

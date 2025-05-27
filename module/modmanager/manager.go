@@ -4,7 +4,6 @@ package modmanager
 import (
 	"context"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -447,10 +446,8 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 	mod.pendingRemoval = true
 	mod.restartCancel()
 
-	// If module handles no resources, remove it now. If the module is marked as
-	// failed then the resources were already passed to removeOrphanedResources
-	// after the first failed restart attempt so we can also remove it now.
-	if len(handledResources) == 0 || mod.crashed {
+	// If module handles no resources, remove it now.
+	if len(handledResources) == 0 {
 		return nil, mgr.closeModule(mod, false)
 	}
 
@@ -879,16 +876,15 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
 
-		// Note that a module process can be restarted while preserving the same `module` object. And consider the case where a module is being
-		// restarted due to a configuration change concurrently with the existing module process crashing. There are two acceptable
-		// interleavings:
-		// 1. The `onUnexpectedExitHandler` restarts the module process with the old configuration.
-		//   1a) and the Reconfigure then shuts down + restarts the (freshly launched) module process with one using the updated configuration.
-		// 2. Or, the `Reconfigure` executes and starts the module process with the updated config. The `onUnexpectedExitHandler` will still
-		//    run. But will become a no-op.
-		//
-		// For the second scenario, we check our assumptions after acquiring the modmanager mutex.  If the module process is running, there is
-		// nothing for us to do.
+		// There are two relevant calls that may race with a crashing module:
+		// 1. mgr.Remove, which wants to stop the module and remove it entirely
+		// 2. mgr.Reconfigure, which wants to stop the module and replace it with
+		//    a new instance using a different configuration.
+		// Both lock the manager mutex and then cancel the restart context for the
+		// module. To avoid racing we lock the mutex and then check the context is
+		// cancelled, exiting early if so. If we win the race we may restart the
+		// module and it will immediately shut down when we release the lock and
+		// Remove/Reconfigure runs, which is acceptable.
 		locked := false
 		lock := func() {
 			mgr.mu.Lock()
@@ -903,110 +899,75 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		lock()
 		defer unlock()
 
-		// The following calls all deal with resouces specific to each instance of a
-		// module struct, so are safe to call before checking if we should abandon
-		// the restart attempt.
+		mod.cleanupAfterCrash()
 
-		// deregister crashed module's resources, and let later checkReady reset m.handles
-		// before reregistering.
-		mod.deregisterResources()
-
-		// Call this to ensure the module's resources are removed from mgr.rMap.
-		// Thep will be re-added if and when the restart succeeds.
-		mod.cleanupAfterCrash(mgr)
-
-		// Attempt to remove module's .sock file if module did not remove it already.
-		rutils.RemoveFileNoError(mod.addr)
-
-		if err := ctx.Err(); err != nil {
-			mod.logger.Infow("Restart context canceled, abandoning restart attempt", "err", err)
-			return
-		}
-
-		if mgr.ftdc != nil {
-			mgr.ftdc.Remove(mod.getFTDCName())
-		}
-
-		// If attemptRestart returns any orphaned resource names, restart failed,
-		// and we should remove orphaned resources. Since we handle process
-		// restarting ourselves, return false here so goutils knows not to attempt
-		// a process restart.
-		orphanedResourcesRemoved := false
+		// Enter a loop trying to restart the module every 5 seconds. If the restart
+		// succeeds we return, this goroutine ends, and the management goroutine
+		// started by the new module managedProcess handles any future crashes. If
+		// the startup fails we kill the new process and its management goroutine
+		// returns without doing anything, and we continue to loop until we succeed
+		// or our context is cancelled.
+		ftdcRemoved := false
 		for {
-			orphanedResourceNames := mgr.attemptRestart(ctx, mod)
-			if orphanedResourceNames == nil {
-				break
-			}
-			// Only spend time removing orphaned resources after the first failed
-			// restart attempt.
-			if !orphanedResourcesRemoved && mgr.removeOrphanedResources != nil {
-				// removeOrphanedResources might try to lock a parent object and cause
-				// a deadlock (such is the case on localRobot). Drop the lock here to
-				// prevent that.
-				unlock()
-				mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
-				mod.logger.Debugw(
-					"Removed resources after failed module restart",
-					"module", mod.cfg.Name,
-					"resources", resource.NamesToStrings(orphanedResourceNames),
-				)
-			}
-			orphanedResourcesRemoved = true
-
-			unlock()
-			utils.SelectContextOrWait(ctx, oueRestartInterval)
-			lock()
 			if err := ctx.Err(); err != nil {
 				mod.logger.Infow("Restart context canceled, abandoning restart attempt", "err", err)
 				return
 			}
+
+			if mgr.ftdc != nil && !ftdcRemoved {
+				mgr.ftdc.Remove(mod.getFTDCName())
+				ftdcRemoved = true
+			}
+
+			err := mgr.attemptRestart(ctx, mod)
+			if err == nil {
+				break
+			}
+			unlock()
+			utils.SelectContextOrWait(ctx, oueRestartInterval)
+			lock()
 		}
 		mod.logger.Infow("Module successfully restarted, re-adding resources", "module", mod.cfg.Name)
 
-		// Otherwise, add old module process' resources to new module; warn if new
-		// module cannot handle old resource and remove it from mod.resources.
-		// Finally, handle orphaned resources.
 		var orphanedResourceNames []resource.Name
+		var restoredResourceNamesStr []string
 		for name, res := range mod.resources {
-			// The `addResource` method might still be executing for this resource with a
-			// read lock, so we execute it here with a write lock to make sure it doesn't
-			// run concurrently.
-			if _, err := mgr.addResource(mgr.restartCtx, res.conf, res.deps); err != nil {
-				mod.logger.Warnw("Error while re-adding resource to module",
-					"resource", name, "module", mod.cfg.Name, "error", err)
-				mgr.rMap.Delete(name)
-
-				mod.resourcesMu.Lock()
-				delete(mod.resources, name)
-				mod.resourcesMu.Unlock()
-
+			confProto, err := config.ComponentConfigToProto(&res.conf)
+			if err != nil {
 				orphanedResourceNames = append(orphanedResourceNames, name)
+				continue
 			}
+			_, err = mod.client.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: res.deps})
+			if err != nil {
+				orphanedResourceNames = append(orphanedResourceNames, name)
+				continue
+			}
+			restoredResourceNamesStr = append(restoredResourceNamesStr, name.String())
 		}
 		if len(orphanedResourceNames) > 0 && mgr.removeOrphanedResources != nil {
+			orphanedResourceNamesStr := make([]string, len(orphanedResourceNames))
+			for _, n := range orphanedResourceNames {
+				orphanedResourceNamesStr = append(orphanedResourceNamesStr, n.String())
+			}
+			mod.logger.Warnw("Some modules failed to re-add after crashed module restart and will be removed",
+				"module", mod.cfg.Name,
+				"orphanedResources", orphanedResourceNamesStr)
 			unlock()
 			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
-		mod.logger.Infow("Module resources successfully re-added after module restart", "module", mod.cfg.Name)
+		mod.logger.Warnw("Module resources successfully re-added after module restart",
+			"module", mod.cfg.Name,
+			"resources", restoredResourceNamesStr)
 		return
 	}
 }
 
 // attemptRestart will attempt to restart the module up to three times and
 // return the names of now orphaned resources.
-func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.Name {
-	// NOTE: a nil return indicates that the restart succeeded so make sure to
-	// return an empty slice instead of a nil slice if a module with no resources
-	// fails to restart.
-	orphanedResourceNames := slices.AppendSeq(
-		make([]resource.Name, len(mod.resources)),
-		maps.Keys(mod.resources),
-	)
-
+func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	var success, processRestarted bool
 	defer func() {
-		mod.crashed = !success
 		if !success {
 			if processRestarted {
 				if err := mod.stopProcess(); err != nil {
@@ -1014,7 +975,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 					mgr.logger.Errorw(msg, "module", mod.cfg.Name, "error", err)
 				}
 			}
-			mod.cleanupAfterCrash(mgr)
+			mod.cleanupAfterCrash()
 		}
 	}()
 
@@ -1040,27 +1001,25 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) []resource.
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
 		mgr.logger.Errorw("Error while restarting crashed module",
 			"module", mod.cfg.Name, "error", err)
-		return orphanedResourceNames
+		return err
 	}
 	processRestarted = true
 
 	if err := mod.dial(); err != nil {
 		mgr.logger.CErrorw(ctx, "Error while dialing restarted module",
 			"module", mod.cfg.Name, "error", err)
-		return orphanedResourceNames
+		return err
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
 		mgr.logger.CErrorw(ctx, "Error while waiting for restarted module to be ready",
 			"module", mod.cfg.Name, "error", err)
-		return orphanedResourceNames
+		return err
 	}
 
 	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
-
-	mod.registerResources(mgr)
 
 	success = true
 	return nil
