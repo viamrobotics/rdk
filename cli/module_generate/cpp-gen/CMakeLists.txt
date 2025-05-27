@@ -65,6 +65,12 @@ target_link_libraries(generator PUBLIC
 target_compile_features(generator PUBLIC cxx_std_17)
 target_compile_options(generator PUBLIC "-fno-rtti")
 
+add_library(generator_api
+    gen_api.cpp
+)
+
+target_link_libraries(generator_api PRIVATE generator)
+
 add_executable(cl_gen
     main.cpp
 )
