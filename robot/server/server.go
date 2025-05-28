@@ -6,8 +6,10 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"strconv"
 	"sync"
@@ -113,16 +115,60 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 			close(rsDone)
 			wg.Done()
 		}()
-		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
-		sendFunc := func(data []byte) error { return srv.Send(&pb.TunnelResponse{Data: data}) }
+		// a max of 1MB will be sent per message
+		sendFunc := func(data []byte) error {
+			sendTime := time.Now().UnixMilli()
+			bytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(bytes, uint64(sendTime))
+			bytes = append(bytes, data...)
+			return srv.Send(&pb.TunnelResponse{Data: bytes})
+		}
 		readerSenderErr = tunnel.ReaderSenderLoop(srv.Context(), conn, sendFunc, connClosed, s.robot.Logger().WithFields("loop", "reader/sender"))
 	})
+
+	var statsMu sync.Mutex
+	type stats struct {
+		latencies []int64
+		max       int64
+		min       int64
+	}
+	stat := stats{
+		latencies: make([]int64, 0),
+		max:       math.MinInt64,
+		min:       math.MaxInt64,
+	}
 	recvFunc := func() ([]byte, error) {
 		req, err := srv.Recv()
 		if err != nil {
 			return nil, err
 		}
-		return req.Data, nil
+		sentTime := req.Data[:8]
+		sentMilli := int64(binary.LittleEndian.Uint64(sentTime))
+		recTime := time.Now().UnixMilli()
+		latency := recTime - sentMilli
+		statsMu.Lock()
+		if stat.max < latency {
+			stat.max = latency
+		}
+		if stat.min > latency {
+			stat.min = latency
+		}
+		stat.latencies = append(stat.latencies, latency)
+		if len(stat.latencies) == 10 {
+			var total int64
+			for _, lat := range stat.latencies {
+				total += lat
+			}
+			mean := float64(total) / float64(10)
+			s.robot.Logger().CInfow(srv.Context(), "latency over last 10 messages (ms)", "avg", mean, "min", stat.min, "max", stat.max)
+			stat = stats{
+				latencies: make([]int64, 0),
+				max:       math.MinInt64,
+				min:       math.MaxInt64,
+			}
+		}
+		statsMu.Unlock()
+		return req.Data[8:], nil
 	}
 	recvWriterErr := tunnel.RecvWriterLoop(srv.Context(), recvFunc, conn, rsDone, s.robot.Logger().WithFields("loop", "recv/writer"))
 	// close the connection to unblock the read

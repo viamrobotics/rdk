@@ -3,9 +3,11 @@ package client
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1225,17 +1227,61 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 			timerMu.Unlock()
 			wg.Done()
 		}()
-		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
-		sendFunc := func(data []byte) error { return client.Send(&pb.TunnelRequest{Data: data}) }
+		// a max of 1MB will be sent per message
+		sendFunc := func(data []byte) error {
+			sendTime := time.Now().UnixMilli()
+			b := make([]byte, 8)
+			binary.LittleEndian.PutUint64(b, uint64(sendTime))
+			b = append(b, data...)
+			return client.Send(&pb.TunnelRequest{Data: b})
+		}
 		readerSenderErr = tunnel.ReaderSenderLoop(ctx, conn, sendFunc, connClosed, rc.logger.WithFields("loop", "reader/sender"))
 	})
+
+	var statsMu sync.Mutex
+	type stats struct {
+		latencies []int64
+		max       int64
+		min       int64
+	}
+	stat := stats{
+		latencies: make([]int64, 0),
+		max:       math.MinInt64,
+		min:       math.MaxInt64,
+	}
 
 	recvFunc := func() ([]byte, error) {
 		resp, err := client.Recv()
 		if err != nil {
 			return nil, err
 		}
-		return resp.Data, nil
+		sentTime := resp.Data[:8]
+		sentMilli := int64(binary.LittleEndian.Uint64(sentTime))
+		recTime := time.Now().UnixMilli()
+		latency := recTime - sentMilli
+		statsMu.Lock()
+		if stat.max < latency {
+			stat.max = latency
+		}
+		if stat.min > latency {
+			stat.min = latency
+		}
+		stat.latencies = append(stat.latencies, latency)
+		if len(stat.latencies) == 10 {
+			var total int64
+			for _, lat := range stat.latencies {
+				total += lat
+			}
+			mean := float64(total) / float64(10)
+			rc.logger.CInfow(client.Context(), "latency over last 10 messages (ms)", "avg", mean, "min", stat.min, "max", stat.max)
+			stat = stats{
+				latencies: make([]int64, 0),
+				max:       math.MinInt64,
+				min:       math.MaxInt64,
+			}
+		}
+		statsMu.Unlock()
+		return resp.Data[8:], nil
 	}
 	recvWriterErr := tunnel.RecvWriterLoop(ctx, recvFunc, conn, rsDone, rc.logger.WithFields("loop", "recv/writer"))
 	timerMu.Lock()
