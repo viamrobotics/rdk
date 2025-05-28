@@ -720,7 +720,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "connection refused")
 
 		// Assert that logs reflect that test-module crashed and was not
 		// restarted.
