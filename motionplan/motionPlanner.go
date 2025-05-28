@@ -119,7 +119,6 @@ func (req *PlanRequest) validatePlanRequest() error {
 					if err != nil {
 						return err
 					}
-					octree.SetLabel(geometry.Label())
 					geometry = octree
 				}
 				pcdGeometries = append(pcdGeometries, geometry)
