@@ -353,9 +353,9 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
-	var restartCtx context.Context
-	restartCtx, mod.restartCancel = context.WithCancel(mgr.restartCtx)
-	if err := mgr.startModuleProcess(mod, mgr.newOnUnexpectedExitHandler(restartCtx, mod)); err != nil {
+	var moduleRestartCtx context.Context
+	moduleRestartCtx, mod.restartCancel = context.WithCancel(mgr.restartCtx)
+	if err := mgr.startModuleProcess(mod, mgr.newOnUnexpectedExitHandler(moduleRestartCtx, mod)); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
@@ -961,8 +961,10 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 	}
 }
 
-// attemptRestart will attempt to restart the module up to three times and
-// return the names of now orphaned resources.
+// attemptRestart will attempt to restart the module process. It returns nil
+// on success and an error in case of failure. In the failure case it ensures
+// that the failed process is killed and will not be restarted by pexec or an
+// OUE handler.
 func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	var success, processRestarted bool
 	defer func() {
@@ -986,6 +988,13 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 		ctx, "Waiting for module to complete restart and re-registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
+	// There is a potential race here where the process starts but then crashes,
+	// causing its OUE handler to spawn another restart attempt even though we've
+	// determined the startup to be a failure and want the new process to stay
+	// dead. To prevent this we wrap the new OUE handler in another function and
+	// block its execution until we have determined startup success or failure,
+	// at which point it exits early w/o attempting a restart on failure or
+	// continues with the normal OUE execution on success.
 	blockRestart := make(chan struct{})
 	defer close(blockRestart)
 	oue := func(exitCode int) bool {
