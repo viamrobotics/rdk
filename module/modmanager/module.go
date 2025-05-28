@@ -376,15 +376,15 @@ func (m *module) cleanupAfterStartupFailure() {
 	utils.UncheckedError(m.sharedConn.Close())
 }
 
-// cleanupAfterCrash cleans up resources associated with a specific instance
-// of a module after that module's process has crashed. The module may still
-// be restarted or reconfigured later.
-func (m *module) cleanupAfterCrash() {
+func (m *module) cleanupAfterCrash(mgr *Manager) {
 	m.deregisterResources()
 	if err := m.sharedConn.Close(); err != nil {
 		m.logger.Warnw("Error closing connection to crashed module", "error", err)
 	}
 	rutils.RemoveFileNoError(m.addr)
+	if mgr.ftdc != nil {
+		mgr.ftdc.Remove(m.getFTDCName())
+	}
 }
 
 func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {

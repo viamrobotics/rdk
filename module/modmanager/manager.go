@@ -881,8 +881,8 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		// 2. mgr.Reconfigure, which wants to stop the module and replace it with
 		//    a new instance using a different configuration.
 		// Both lock the manager mutex and then cancel the restart context for the
-		// module. To avoid racing we lock the mutex and then check the context is
-		// cancelled, exiting early if so. If we win the race we may restart the
+		// module. To avoid racing we lock the mutex and then check if the context
+		// is cancelled, exiting early if so. If we win the race we may restart the
 		// module and it will immediately shut down when we release the lock and
 		// Remove/Reconfigure runs, which is acceptable.
 		locked := false
@@ -899,24 +899,22 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		lock()
 		defer unlock()
 
-		mod.cleanupAfterCrash()
-
-		// Enter a loop trying to restart the module every 5 seconds. If the restart
-		// succeeds we return, this goroutine ends, and the management goroutine
-		// started by the new module managedProcess handles any future crashes. If
-		// the startup fails we kill the new process and its management goroutine
-		// returns without doing anything, and we continue to loop until we succeed
-		// or our context is cancelled.
-		ftdcRemoved := false
+		// Enter a loop trying to restart the module every 5 seconds. If the
+		// restart succeeds we return, this goroutine ends, and the management
+		// goroutine started by the new module managedProcess handles any future
+		// crashes. If the startup fails we kill the new process, its management
+		// goroutine returns without doing anything, and we continue to loop until
+		// we succeed or our context is cancelled.
+		cleanupPerformed := false
 		for {
 			if err := ctx.Err(); err != nil {
 				mod.logger.Infow("Restart context canceled, abandoning restart attempt", "err", err)
 				return
 			}
 
-			if mgr.ftdc != nil && !ftdcRemoved {
-				mgr.ftdc.Remove(mod.getFTDCName())
-				ftdcRemoved = true
+			if !cleanupPerformed {
+				mod.cleanupAfterCrash(mgr)
+				cleanupPerformed = true
 			}
 
 			err := mgr.attemptRestart(ctx, mod)
@@ -975,7 +973,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 					mgr.logger.Errorw(msg, "module", mod.cfg.Name, "error", err)
 				}
 			}
-			mod.cleanupAfterCrash()
+			mod.cleanupAfterCrash(mgr)
 		}
 	}()
 
