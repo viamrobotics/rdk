@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -568,10 +569,11 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
 	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
 	// the state that observed the worldState should ultimately be included as part of the worldState message
-	worldGeometries, err := worldState.ObstaclesInWorldFrame(pm.fs, seedMap)
+	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(pm.fs, seedMap)
 	if err != nil {
 		return nil, err
 	}
+	worldGeometries := obstaclesInFrame.Geometries()
 
 	frameNames := map[string]bool{}
 	for _, fName := range pm.fs.FrameNames() {
@@ -588,11 +590,36 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		return nil, err
 	}
 
+	// If we are planning on a SLAM map we want to not allow a collision with the pointcloud to start our move call
+	// Typically starting collisions are whitelisted,
+	// TODO: This is not the most robust way to deal with this but is better than driving through walls.
+	if opt.useTPspace {
+		var zeroCG *collisionGraph
+		for _, geom := range worldGeometries {
+			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
+				if zeroCG == nil {
+					zeroCG, err = setupZeroCG(movingRobotGeometries, worldGeometries, allowedCollisions, false, collisionBufferMM)
+					if err != nil {
+						return nil, err
+					}
+				}
+				// Check if a moving geometry is in collision with a pointcloud. If so, error.
+				for _, collision := range zeroCG.collisions(collisionBufferMM) {
+					if collision.name1 == octree.Label() {
+						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name2)
+					} else if collision.name2 == octree.Label() {
+						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name1)
+					}
+				}
+			}
+		}
+	}
+
 	// add collision constraints
 	fsCollisionConstraints, stateCollisionConstraints, err := createAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
-		worldGeometries.Geometries(),
+		worldGeometries,
 		boundingRegions,
 		allowedCollisions,
 		collisionBufferMM,

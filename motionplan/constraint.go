@@ -133,12 +133,24 @@ func createAllCollisionConstraints(
 		}
 
 		// create constraint to keep moving geometries from hitting world state obstacles
-		obstacleConstraint, err := NewCollisionConstraint(movingRobotGeometries, worldGeometries, allowedCollisions, false, collisionBufferMM)
+		obstacleConstraint, err := NewCollisionConstraint(
+			movingRobotGeometries,
+			worldGeometries,
+			allowedCollisions,
+			false,
+			collisionBufferMM,
+		)
 		if err != nil {
 			return nil, nil, err
 		}
 		// create constraint to keep moving geometries from hitting world state obstacles
-		obstacleConstraintFS, err := NewCollisionConstraintFS(movingRobotGeometries, worldGeometries, allowedCollisions, false, collisionBufferMM)
+		obstacleConstraintFS, err := NewCollisionConstraintFS(
+			movingRobotGeometries,
+			worldGeometries,
+			allowedCollisions,
+			false,
+			collisionBufferMM,
+		)
 		if err != nil {
 			return nil, nil, err
 		}
