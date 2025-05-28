@@ -635,7 +635,7 @@ func (c *viamClient) downloadBinary(dst, id string, timeout uint) error {
 	if err != nil {
 		debugf(c.c.App.Writer, args.Debug, "Failed creating file %s: %s", id, err)
 		//nolint:deprecated,staticcheck
-		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId())) //nolint:govet
+		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId()))
 	}
 	//nolint:gosec
 	if _, err := io.Copy(dataFile, r); err != nil {
