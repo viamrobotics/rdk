@@ -1830,30 +1830,26 @@ func TestOrphanedResources(t *testing.T) {
 			test.That(tb, logs.FilterMessage("Error while restarting crashed module").Len(),
 				test.ShouldBeGreaterThanOrEqualTo, 1)
 		})
-		time.Sleep(2 * time.Second)
 
-		_, err = r.ResourceByName(generic.Named("h"))
+		// Check that h is still present but commands fail
+		h, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldBeNil)
+		_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError,
-			resource.NewNotFoundError(generic.Named("h")))
 
-		// Assert that restoring testmodule, removing testmodule from config and
-		// adding it back re-adds 'h'.
+		// Assert that restoring the testmodule binary makes h start working again
+		// after the auto-restart code succeeds.
 		err = os.Rename(testPath+".disabled", testPath)
 		test.That(t, err, test.ShouldBeNil)
-		cfg2 := &config.Config{
-			Components: []resource.Config{
-				{
-					Name:  "h",
-					Model: helperModel,
-					API:   generic.API,
-				},
-			},
-		}
-		r.Reconfigure(ctx, cfg2)
-		r.Reconfigure(ctx, cfg)
+		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessage("Module resources successfully re-added after module restart").Len(),
+				test.ShouldEqual, 1)
+		})
 
 		h, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldBeNil)
+		_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 		test.That(t, err, test.ShouldBeNil)
 
 		// Assert that replacing testmodule binary with disguised simplemodule
@@ -1869,7 +1865,7 @@ func TestOrphanedResources(t *testing.T) {
 		// Wait for restart attempt in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessage("Error while restarting crashed module").Len(),
+			test.That(tb, logs.FilterMessage("Some modules failed to re-add after crashed module restart and will be removed").Len(),
 				test.ShouldBeGreaterThanOrEqualTo, 1)
 		})
 		time.Sleep(2 * time.Second)
