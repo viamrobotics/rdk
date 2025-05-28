@@ -1567,7 +1567,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	})
 }
 
-func TestDefaultExtras(t *testing.T) {
+func TestConfiguredDefaultExtras(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 

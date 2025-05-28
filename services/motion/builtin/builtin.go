@@ -102,15 +102,15 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 
 type builtIn struct {
 	resource.Named
-	mu              sync.RWMutex
-	fsService       framesystem.Service
-	movementSensors map[resource.Name]movementsensor.MovementSensor
-	slamServices    map[resource.Name]slam.Service
-	visionServices  map[resource.Name]vision.Service
-	components      map[resource.Name]resource.Resource
-	logger          logging.Logger
-	state           *state.State
-	defaultExtra    map[string]any
+	mu                      sync.RWMutex
+	fsService               framesystem.Service
+	movementSensors         map[resource.Name]movementsensor.MovementSensor
+	slamServices            map[resource.Name]slam.Service
+	visionServices          map[resource.Name]vision.Service
+	components              map[resource.Name]resource.Resource
+	logger                  logging.Logger
+	state                   *state.State
+	configuredDefaultExtras map[string]any
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -118,9 +118,9 @@ func NewBuiltIn(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (motion.Service, error) {
 	ms := &builtIn{
-		Named:        conf.ResourceName().AsNamed(),
-		logger:       logger,
-		defaultExtra: make(map[string]any),
+		Named:                   conf.ResourceName().AsNamed(),
+		logger:                  logger,
+		configuredDefaultExtras: make(map[string]any),
 	}
 
 	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
@@ -147,7 +147,7 @@ func (ms *builtIn) Reconfigure(
 		ms.logger.AddAppender(fileAppender)
 	}
 	if config.NumThreads > 0 {
-		ms.defaultExtra["num_threads"] = config.NumThreads
+		ms.configuredDefaultExtras["num_threads"] = config.NumThreads
 	}
 
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
@@ -597,7 +597,7 @@ func (ms *builtIn) applyDefaultExtras(extras map[string]any) {
 	if extras == nil {
 		extras = make(map[string]any)
 	}
-	for key, val := range ms.defaultExtra {
+	for key, val := range ms.configuredDefaultExtras {
 		if _, ok := extras[key]; !ok {
 			extras[key] = val
 		}
