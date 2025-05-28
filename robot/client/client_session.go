@@ -26,19 +26,6 @@ type ctxKey byte
 
 const ctxKeyInSessionMDReq = ctxKey(iota)
 
-var exemptFromSession = map[string]bool{
-	"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": true,
-	"/proto.rpc.webrtc.v1.SignalingService/Call":                     true,
-	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":               true,
-	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig":     true,
-	"/proto.rpc.v1.AuthService/Authenticate":                         true,
-	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":               true,
-	"/viam.robot.v1.RobotService/ResourceNames":                      true,
-	"/viam.robot.v1.RobotService/ResourceRPCSubtypes":                true,
-	"/viam.robot.v1.RobotService/StartSession":                       true,
-	"/viam.robot.v1.RobotService/SendSessionHeartbeat":               true,
-}
-
 func (rc *RobotClient) sessionReset() {
 	rc.sessionMu.Lock()
 	rc.sessionsSupported = nil
@@ -188,8 +175,7 @@ func isSafetyHeartbeatMonitored(method string) bool {
 }
 
 func (rc *RobotClient) useSessionInRequest(ctx context.Context, method string) bool {
-	return !rc.sessionsDisabled && !exemptFromSession[method] &&
-		ctx.Value(ctxKeyInSessionMDReq) == nil && isSafetyHeartbeatMonitored(method)
+	return !rc.sessionsDisabled && ctx.Value(ctxKeyInSessionMDReq) == nil && isSafetyHeartbeatMonitored(method)
 }
 
 func (rc *RobotClient) sessionUnaryClientInterceptor(
