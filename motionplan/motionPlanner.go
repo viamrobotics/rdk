@@ -66,6 +66,8 @@ type PlanRequest struct {
 
 // validatePlanRequest ensures PlanRequests are not malformed.
 func (req *PlanRequest) validatePlanRequest() error {
+	req.Logger.Info("validatePlanRequest start")
+	defer req.Logger.Info("validatePlanRequest end")
 	if req == nil {
 		return errors.New("PlanRequest cannot be nil")
 	}
@@ -201,6 +203,8 @@ func PlanFrameMotion(ctx context.Context,
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
 // passed-in plan multiplied by `replanCostFactor`.
 func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
+	request.Logger.Info("replan start")
+	defer request.Logger.Info("replan end")
 	// Make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
@@ -212,19 +216,25 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if seed, ok := request.Options["rseed"].(int); ok {
 		rseed = seed
 	}
+	request.Logger.Info("before newPlanManager")
 	sfPlanner, err := newPlanManager(request.FrameSystem, request.Logger, rseed)
 	if err != nil {
 		return nil, err
 	}
+	request.Logger.Info("after newPlanManager")
 
 	newPlan, err := sfPlanner.planMultiWaypoint(ctx, request, currentPlan)
 	if err != nil {
 		return nil, err
 	}
+	request.Logger.Info("after planMultiWaypoint")
 
 	if replanCostFactor > 0 && currentPlan != nil {
+		request.Logger.Infof("replanning, replanCostFactor: %d, currentPlan: %p", replanCostFactor, currentPlan)
 		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.opt().scoreFunc)
+		request.Logger.Infof("after first evaluate cost")
 		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.opt().scoreFunc)
+		request.Logger.Infof("after second evaluate cost")
 		request.Logger.CDebugf(ctx,
 			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
 			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,

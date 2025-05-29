@@ -35,6 +35,7 @@ func CreateCombinedIKSolver(
 	if nCPU == 0 {
 		nCPU = 1
 	}
+	logger.Info("CreateCombinedIKSolver ncpu: %d", nCPU)
 	for i := 1; i <= nCPU; i++ {
 		solver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
 		nlopt := solver.(*nloptIK)
@@ -56,6 +57,8 @@ func (ik *combinedIK) Solve(ctx context.Context,
 	m func([]float64) float64,
 	rseed int,
 ) error {
+	ik.logger.Info("solve start")
+	defer ik.logger.Info("solve end")
 	var err error
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -63,6 +66,7 @@ func (ik *combinedIK) Solve(ctx context.Context,
 	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(int64(rseed)))
 
+	ik.logger.Info("len(ik.solvers) %d", len(ik.solvers))
 	errChan := make(chan error, len(ik.solvers))
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
@@ -79,10 +83,13 @@ func (ik *combinedIK) Solve(ctx context.Context,
 			seedFloats = generateRandomPositions(randSeed, lowerBound, upperBound)
 		}
 
+		tmpi := i
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
+			ik.logger.Infof("solve %d start", tmpi)
 			errChan <- thisSolver.Solve(ctxWithCancel, c, seedFloats, m, parseed)
+			ik.logger.Infof("solve %d end", tmpi)
 		})
 	}
 
@@ -96,6 +103,7 @@ func (ik *combinedIK) Solve(ctx context.Context,
 	for !done {
 		select {
 		case <-ctx.Done():
+			ik.logger.Info("ctx done, waiting for activeSolvers")
 			activeSolvers.Wait()
 			return ctx.Err()
 		default:
@@ -103,17 +111,20 @@ func (ik *combinedIK) Solve(ctx context.Context,
 
 		select {
 		case err = <-errChan:
+			ik.logger.Info("got error from errChan, returned: %d", returned)
 			returned++
 			if err != nil {
 				collectedErrs = multierr.Combine(collectedErrs, err)
 			}
 		default:
 			if returned == len(ik.solvers) {
+				ik.logger.Info("done!")
 				done = true
 			}
 		}
 	}
 	cancel()
+	ik.logger.Info("past solutions, collecting errors from all solvers")
 	for returned < len(ik.solvers) {
 		// Collect return errors from all solvers
 		select {
@@ -129,7 +140,10 @@ func (ik *combinedIK) Solve(ctx context.Context,
 			collectedErrs = multierr.Combine(collectedErrs, err)
 		}
 	}
+
+	ik.logger.Info("past second loop, waiting for active solvers")
 	activeSolvers.Wait()
+	ik.logger.Info("active solvers done")
 	return collectedErrs
 }
 

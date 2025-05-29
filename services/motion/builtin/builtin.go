@@ -424,12 +424,15 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 }
 
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
+	ms.logger.Info("plan start")
+	defer ms.logger.Info("plan end")
 	frameSys, err := ms.fsService.FrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
 	}
 
 	// build maps of relevant components and inputs from initial inputs
+	ms.logger.Info("before fsService.CurrentInputs")
 	fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
@@ -441,6 +444,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName.ShortName())
 	}
 
+	ms.logger.Info("before waypointsFromRequest")
 	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
 	if err != nil {
 		return nil, err
@@ -455,6 +459,8 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		req.Extra["waypoints"] = nil
 	}
 
+	ms.logger.Info("after waypointsFromRequest")
+
 	// re-evaluate goal poses to be in the frame of World
 	// TODO (RSDK-8847) : this is a workaround to help account for us not yet being able to properly synchronize simultaneous motion across
 	// multiple components. If we are moving component1, mounted on arm2, to a goal in frame of component2, which is mounted on arm2, then
@@ -462,6 +468,8 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	// collision-free until RSDK-8847 is complete. By transforming goals to world, only one arm should move for such a plan.
 	worldWaypoints := []*motionplan.PlanState{}
 	solvingFrame := referenceframe.World
+
+	ms.logger.Infof("waypoints len: %d", len(waypoints))
 	for _, wp := range waypoints {
 		if wp.Poses() != nil {
 			step := referenceframe.FrameSystemPoses{}
@@ -478,6 +486,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 			worldWaypoints = append(worldWaypoints, wp)
 		}
 	}
+	ms.logger.Infof("after waypoints")
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
@@ -492,12 +501,16 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
+	ms.logger.Infof("before execute")
+	defer ms.logger.Infof("after execute")
+
 	// build maps of relevant components from initial inputs
 	_, resources, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return err
 	}
 
+	ms.logger.Infof("trajectory len: %d", len(trajectory))
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
@@ -554,8 +567,10 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 		}
 	}
 	combinedSteps = append(combinedSteps, currStep)
+	ms.logger.Infof("combinedSteps len: %d", len(combinedSteps))
 
 	for _, step := range combinedSteps {
+		ms.logger.Infof("step len: %d", len(step))
 		for name, inputs := range step {
 			if len(inputs) == 0 {
 				continue
@@ -564,6 +579,7 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			if !ok {
 				return fmt.Errorf("plan had step for resource %s but no resource with that name found in framesystem", name)
 			}
+			ms.logger.Infof("GoToInputs len: %d", len(inputs))
 			if err := r.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if actuator, ok := r.(inputEnabledActuator); ok {
