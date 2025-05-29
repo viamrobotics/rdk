@@ -2,16 +2,21 @@ package client
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	common "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
@@ -20,19 +25,6 @@ import (
 type ctxKey byte
 
 const ctxKeyInSessionMDReq = ctxKey(iota)
-
-var exemptFromSession = map[string]bool{
-	"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": true,
-	"/proto.rpc.webrtc.v1.SignalingService/Call":                     true,
-	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":               true,
-	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig":     true,
-	"/proto.rpc.v1.AuthService/Authenticate":                         true,
-	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":               true,
-	"/viam.robot.v1.RobotService/ResourceNames":                      true,
-	"/viam.robot.v1.RobotService/ResourceRPCSubtypes":                true,
-	"/viam.robot.v1.RobotService/StartSession":                       true,
-	"/viam.robot.v1.RobotService/SendSessionHeartbeat":               true,
-}
 
 func (rc *RobotClient) sessionReset() {
 	rc.sessionMu.Lock()
@@ -165,8 +157,25 @@ func (rc *RobotClient) safetyMonitorFromHeaders(ctx context.Context, hdr metadat
 	}
 }
 
+// isSafetyHeartbeatMonitored checks if the provided RPC method has the safety_heartbeat_monitored option,
+// and if so, returns its bool value.
+func isSafetyHeartbeatMonitored(method string) bool {
+	// reformat "/viam.component.base.v1.BaseService/MoveStraight" -> "viam.component.base.v1.BaseService.MoveStraight"
+	method = strings.TrimPrefix(method, "/")
+	method = strings.ReplaceAll(method, "/", ".")
+	// err is NotFound if not present. We just need to return false in this case.
+	desc, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(method))
+	if err == nil {
+		methodOpts := desc.(protoreflect.MethodDescriptor).Options()
+		if proto.HasExtension(methodOpts, common.E_SafetyHeartbeatMonitored) {
+			return proto.GetExtension(methodOpts, common.E_SafetyHeartbeatMonitored).(bool)
+		}
+	}
+	return false
+}
+
 func (rc *RobotClient) useSessionInRequest(ctx context.Context, method string) bool {
-	return !rc.sessionsDisabled && !exemptFromSession[method] && ctx.Value(ctxKeyInSessionMDReq) == nil
+	return !rc.sessionsDisabled && ctx.Value(ctxKeyInSessionMDReq) == nil && isSafetyHeartbeatMonitored(method)
 }
 
 func (rc *RobotClient) sessionUnaryClientInterceptor(
