@@ -78,7 +78,10 @@ const (
 	yellow = "\033[1;33m%s\033[0m"
 )
 
-var errNoShellService = errors.New("shell service is not enabled on this machine part")
+var (
+	errNoShellService = errors.New("shell service is not enabled on this machine part")
+	ftdcPath          = path.Join("~", ".viam", "diagnostics.data")
+)
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app and data services but not directly to robot parts.
@@ -1469,7 +1472,10 @@ func (c *viamClient) machinesPartGetFTDCAction(
 	if err != nil {
 		return err
 	}
-	src := path.Join("~", ".viam", "diagnostics.data", part.Id)
+	// Intentional use of path instead of filepath: Windows understands both / and
+	// / as path separators, and we don't want a cli running on Windows to send
+	// a path using \ to a *NIX machine.
+	src := path.Join(ftdcPath, part.Id)
 	if err := c.copyFilesFromMachine(
 		flagArgs.Organization,
 		flagArgs.Location,
