@@ -489,7 +489,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	ms.logger.Infof("after waypoints")
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
+	plan, err := motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
 		Logger:      logger,
 		Goals:       worldWaypoints,
 		StartState:  startState,
@@ -498,6 +498,11 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		Constraints: req.Constraints,
 		Options:     req.Extra,
 	})
+	if err != nil {
+		return nil, err
+	}
+	ms.logger.Warn("the plan we got is:", plan.Trajectory())
+	return plan, nil
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
