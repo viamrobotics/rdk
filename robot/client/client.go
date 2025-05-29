@@ -1303,9 +1303,9 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 			rc.logger.
 				CInfow(client.Context(),
 					"latency over last 10 messages (ms)",
-					"avg", fmt.Sprintf("%.2f", (mean-drift)/1000000),
-					"min", fmt.Sprintf("%.2f", (float64(stat.min)-drift)/1000000),
-					"max", fmt.Sprintf("%.2f", (float64(stat.max)-drift)/1000000),
+					"avg", fmt.Sprintf("%.2f", (mean/1000000)+drift),
+					"min", fmt.Sprintf("%.2f", float64(stat.min/1000000)+drift),
+					"max", fmt.Sprintf("%.2f", float64(stat.max/1000000)+drift),
 				)
 			stat = stats{
 				latencies: make([]int64, 0),
