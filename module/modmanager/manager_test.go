@@ -653,7 +653,7 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		testutils.WaitForAssertionWithSleep(t, time.Second, 50000, func(tb testing.TB) {
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
 				test.ShouldBeGreaterThanOrEqualTo, 1)
@@ -1129,7 +1129,7 @@ func TestTwoModulesRestart(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 	}
 
-	testutils.WaitForAssertionWithSleep(t, time.Millisecond*200, 50, func(tb testing.TB) {
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessageSnippet("Module resources successfully re-added after module restart").Len(),
 			test.ShouldEqual, 2)
