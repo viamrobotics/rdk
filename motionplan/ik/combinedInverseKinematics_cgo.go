@@ -6,6 +6,7 @@ import (
 	"context"
 	"math/rand"
 	"sync"
+	"time"
 
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -60,7 +61,7 @@ func (ik *combinedIK) Solve(ctx context.Context,
 	ik.logger.Info("solve start")
 	defer ik.logger.Info("solve end")
 	var err error
-	ctxWithCancel, cancel := context.WithCancel(ctx)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, time.Second*3)
 	defer cancel()
 
 	//nolint: gosec
@@ -88,7 +89,7 @@ func (ik *combinedIK) Solve(ctx context.Context,
 			defer activeSolvers.Done()
 
 			ik.logger.Infof("solve %d start", tmpi)
-			errChan <- thisSolver.Solve(ctxWithCancel, c, seedFloats, m, parseed)
+			errChan <- thisSolver.Solve(ctxWithTimeout, c, seedFloats, m, parseed)
 			ik.logger.Infof("solve %d end", tmpi)
 		})
 	}
@@ -98,8 +99,8 @@ func (ik *combinedIK) Solve(ctx context.Context,
 
 	var collectedErrs error
 
-	// Wait until either 1) we have a success or 2) all solvers have returned false
-	// Multiple selects are necessary in the case where we get a ctx.Done() while there is also an error waiting
+	// Wait until either 1) all solvers have returned success or error or 2) all solvers have returned false
+	// Multiple selects are necessary in the case where we get a ctxWithTimeout.Done() while there is also an error waiting
 	for !done {
 		select {
 		case <-ctx.Done():
@@ -110,6 +111,9 @@ func (ik *combinedIK) Solve(ctx context.Context,
 		}
 
 		select {
+		case <-ctxWithTimeout.Done():
+			activeSolvers.Wait()
+			done = true
 		case err = <-errChan:
 			ik.logger.Info("got error from errChan, returned: %d", returned)
 			returned++
@@ -144,7 +148,10 @@ func (ik *combinedIK) Solve(ctx context.Context,
 	ik.logger.Info("past second loop, waiting for active solvers")
 	activeSolvers.Wait()
 	ik.logger.Info("active solvers done")
-	return collectedErrs
+	if !done {
+		return collectedErrs
+	}
+	return nil
 }
 
 // DoF returns the DoF of the solver.
