@@ -6,6 +6,7 @@ import (
 	"context"
 	"math/rand"
 	"sync"
+	"time"
 
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -57,7 +58,7 @@ func (ik *combinedIK) Solve(ctx context.Context,
 	rseed int,
 ) error {
 	var err error
-	ctxWithCancel, cancel := context.WithCancel(ctx)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, time.Second*3)
 	defer cancel()
 
 	//nolint: gosec
@@ -82,7 +83,7 @@ func (ik *combinedIK) Solve(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			errChan <- thisSolver.Solve(ctxWithCancel, c, seedFloats, m, parseed)
+			errChan <- thisSolver.Solve(ctxWithTimeout, c, seedFloats, m, parseed)
 		})
 	}
 
@@ -91,8 +92,8 @@ func (ik *combinedIK) Solve(ctx context.Context,
 
 	var collectedErrs error
 
-	// Wait until either 1) we have a success or 2) all solvers have returned false
-	// Multiple selects are necessary in the case where we get a ctx.Done() while there is also an error waiting
+	// Wait until either 1) all solvers have returned success or error or 2) all solvers have returned false
+	// Multiple selects are necessary in the case where we get a ctxWithTimeout.Done() while there is also an error waiting
 	for !done {
 		select {
 		case <-ctx.Done():
@@ -102,6 +103,9 @@ func (ik *combinedIK) Solve(ctx context.Context,
 		}
 
 		select {
+		case <-ctxWithTimeout.Done():
+			activeSolvers.Wait()
+			done = true
 		case err = <-errChan:
 			returned++
 			if err != nil {
