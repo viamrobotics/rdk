@@ -1566,3 +1566,49 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		test.That(t, finalArmConfig, test.ShouldResemble, referenceframe.FloatsToInputs(goalConfig))
 	})
 }
+
+func TestConfiguredDefaultExtras(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	t.Run("number of threads not configured", func(t *testing.T) {
+		// test configuring the number of threads to be zero
+		ms, err := NewBuiltIn(ctx, nil, resource.Config{ConvertedAttributes: &Config{}}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer test.That(t, ms.Close(ctx), test.ShouldBeNil)
+
+		// test that we can override the number of threads with user input
+		extras := map[string]any{"num_threads": 1}
+		ms.(*builtIn).applyDefaultExtras(extras)
+		test.That(t, extras["num_threads"], test.ShouldEqual, 1)
+
+		// test that if nothing is provided nothing is set
+		extras = map[string]any{}
+		ms.(*builtIn).applyDefaultExtras(extras)
+		test.That(t, extras["num_threads"], test.ShouldBeNil)
+	})
+
+	t.Run("configure number of threads", func(t *testing.T) {
+		// test configuring the number of threads to be a nonzero number
+		ms, err := NewBuiltIn(ctx, nil, resource.Config{ConvertedAttributes: &Config{NumThreads: 10}}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer test.That(t, ms.Close(ctx), test.ShouldBeNil)
+
+		// test that we can override the number of threads with user input
+		extras := map[string]any{"num_threads": 1}
+		ms.(*builtIn).applyDefaultExtras(extras)
+		test.That(t, extras["num_threads"], test.ShouldEqual, 1)
+
+		// test that if nothing is provided we use the default
+		extras = map[string]any{}
+		ms.(*builtIn).applyDefaultExtras(extras)
+		test.That(t, extras["num_threads"], test.ShouldEqual, 10)
+	})
+
+	t.Run("number of threads configured poorly", func(t *testing.T) {
+		// test configuring the number of threads to be negative
+		cfg := &Config{NumThreads: -1}
+		_, _, err := cfg.Validate("")
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+}
