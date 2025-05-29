@@ -887,8 +887,10 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		// Remove/Reconfigure runs, which is acceptable.
 		locked := false
 		lock := func() {
-			mgr.mu.Lock()
-			locked = true
+			if !locked {
+				mgr.mu.Lock()
+				locked = true
+			}
 		}
 		unlock := func() {
 			if locked {
@@ -896,7 +898,6 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 				locked = false
 			}
 		}
-		lock()
 		defer unlock()
 
 		// Enter a loop trying to restart the module every 5 seconds. If the
@@ -907,6 +908,10 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		// we succeed or our context is cancelled.
 		cleanupPerformed := false
 		for {
+			lock()
+			// It's possible the module has been removed or replaced while we were
+			// waiting on the lock. Check for a context cancellation to avoid double
+			// starting and/or leaking a module process.
 			if err := ctx.Err(); err != nil {
 				mod.logger.Infow("Restart context canceled, abandoning restart attempt", "err", err)
 				return
@@ -923,7 +928,6 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			}
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
-			lock()
 		}
 		mod.logger.Infow("Module successfully restarted, re-adding resources", "module", mod.cfg.Name)
 
@@ -954,7 +958,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
-		mod.logger.Warnw("Module resources successfully re-added after module restart",
+		mod.logger.Infow("Module resources successfully re-added after module restart",
 			"module", mod.cfg.Name,
 			"resources", restoredResourceNamesStr)
 		return
