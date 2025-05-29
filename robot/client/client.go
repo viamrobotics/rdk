@@ -1192,6 +1192,33 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 		return err
 	}
 
+	var diff float64
+	for range 5 {
+		sendTime := time.Now().UnixNano()
+		bytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(bytes, uint64(sendTime))
+		client.Send(&pb.TunnelRequest{Data: bytes})
+
+		timeMsg, err := client.Recv()
+		if err != nil {
+			return fmt.Errorf("failed to receive message from stream: %w", err)
+		}
+		srvTime := int64(binary.LittleEndian.Uint64(timeMsg.Data))
+		recTime := time.Now().UnixNano()
+		rTT := float64(recTime - sendTime)
+		tripTime := rTT / 2
+		expectedSrvTime := float64(sendTime) + tripTime
+		difference := float64(srvTime) - expectedSrvTime
+		diff += difference / 1000000
+	}
+	sendTime := time.Now().UnixNano()
+	bytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bytes, uint64(sendTime))
+
+	client.Send(&pb.TunnelRequest{Data: bytes})
+	drift := diff / float64(5)
+	rc.logger.CInfof(ctx, "measured clock drift of %.2f ms", drift)
+
 	if err := client.Send(&pb.TunnelRequest{
 		DestinationPort: uint32(dest),
 	}); err != nil {
@@ -1229,7 +1256,7 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 		}()
 		// a max of 1MB will be sent per message
 		sendFunc := func(data []byte) error {
-			sendTime := time.Now().UnixMilli()
+			sendTime := time.Now().UnixNano()
 			b := make([]byte, 8)
 			binary.LittleEndian.PutUint64(b, uint64(sendTime))
 			b = append(b, data...)
@@ -1257,7 +1284,7 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 		}
 		sentTime := resp.Data[:8]
 		sentMilli := int64(binary.LittleEndian.Uint64(sentTime))
-		recTime := time.Now().UnixMilli()
+		recTime := time.Now().UnixNano()
 		latency := recTime - sentMilli
 		statsMu.Lock()
 		if stat.max < latency {
@@ -1273,7 +1300,13 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 				total += lat
 			}
 			mean := float64(total) / float64(10)
-			rc.logger.CInfow(client.Context(), "latency over last 10 messages (ms)", "avg", mean, "min", stat.min, "max", stat.max)
+			rc.logger.
+				CInfow(client.Context(),
+					"latency over last 10 messages (ms)",
+					"avg", fmt.Sprintf("%.2f", (mean-drift)/1000000),
+					"min", fmt.Sprintf("%.2f", (float64(stat.min)-drift)/1000000),
+					"max", fmt.Sprintf("%.2f", (float64(stat.max)-drift)/1000000),
+				)
 			stat = stats{
 				latencies: make([]int64, 0),
 				max:       math.MinInt64,

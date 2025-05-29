@@ -72,6 +72,39 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 		return fmt.Errorf("failed to receive first message from stream: %w", err)
 	}
 
+	var diff float64
+	for range 5 {
+		sendTime := time.Now().UnixNano()
+		bytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(bytes, uint64(sendTime))
+		srv.Send(&pb.TunnelResponse{Data: bytes})
+
+		timeMsg, err := srv.Recv()
+		if err != nil {
+			return fmt.Errorf("failed to receive message from stream: %w", err)
+		}
+		clientTime := int64(binary.LittleEndian.Uint64(timeMsg.Data))
+		recTime := time.Now().UnixNano()
+		rTT := float64(recTime - sendTime)
+		tripTime := rTT / 2
+		expectedClientTime := float64(sendTime) + tripTime
+		difference := float64(clientTime) - expectedClientTime
+		diff += difference / 1000000
+	}
+	sendTime := time.Now().UnixNano()
+	bytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bytes, uint64(sendTime))
+	srv.Send(&pb.TunnelResponse{Data: bytes})
+
+	drift := diff / float64(5)
+	s.robot.Logger().CInfof(srv.Context(), "measured drift of %.2f ms", drift)
+
+	// regular operation
+	req, err = srv.Recv()
+	if err != nil {
+		return fmt.Errorf("failed to receive first message from stream: %w", err)
+	}
+
 	dialTimeout := defaultTunnelConnectionTimeout
 
 	// Ensure destination port is available; otherwise error.
@@ -117,7 +150,7 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 		}()
 		// a max of 1MB will be sent per message
 		sendFunc := func(data []byte) error {
-			sendTime := time.Now().UnixMilli()
+			sendTime := time.Now().UnixNano()
 			bytes := make([]byte, 8)
 			binary.LittleEndian.PutUint64(bytes, uint64(sendTime))
 			bytes = append(bytes, data...)
@@ -143,9 +176,9 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 			return nil, err
 		}
 		sentTime := req.Data[:8]
-		sentMilli := int64(binary.LittleEndian.Uint64(sentTime))
-		recTime := time.Now().UnixMilli()
-		latency := recTime - sentMilli
+		sentNano := int64(binary.LittleEndian.Uint64(sentTime))
+		recTime := time.Now().UnixNano()
+		latency := recTime - sentNano
 		statsMu.Lock()
 		if stat.max < latency {
 			stat.max = latency
@@ -160,7 +193,13 @@ func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
 				total += lat
 			}
 			mean := float64(total) / float64(10)
-			s.robot.Logger().CInfow(srv.Context(), "latency over last 10 messages (ms)", "avg", mean, "min", stat.min, "max", stat.max)
+			s.robot.Logger().
+				CInfow(srv.Context(),
+					"latency over last 10 messages (ms)",
+					"avg", fmt.Sprintf("%.2f", (mean-drift)/1000000),
+					"min", fmt.Sprintf("%.2f", (float64(stat.min)-drift)/1000000),
+					"max", fmt.Sprintf("%.2f", (float64(stat.max)-drift)/1000000),
+				)
 			stat = stats{
 				latencies: make([]int64, 0),
 				max:       math.MinInt64,

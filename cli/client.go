@@ -1434,6 +1434,7 @@ func RobotsPartTunnelAction(c *cli.Context, args robotsPartTunnelArgs) error {
 func tunnelTraffic(ctx *cli.Context, robotClient *client.RobotClient, local, dest int) error {
 	// don't block tunnel attempt if ListTunnels fails in any way - it may be unimplemented.
 	// TODO: early return if ListTunnels fails.
+	startTime := time.Now()
 	if tunnels, err := robotClient.ListTunnels(ctx.Context); err == nil {
 		allowed := false
 		for _, t := range tunnels {
@@ -1455,7 +1456,14 @@ func tunnelTraffic(ctx *cli.Context, robotClient *client.RobotClient, local, des
 	if err != nil {
 		return fmt.Errorf("failed to create listener %w", err)
 	}
-	infof(ctx.App.Writer, "tunneling connections from local port %v to destination port %v on machine part...", local, dest)
+
+	infof(
+		ctx.App.Writer,
+		"tunneling connections from local port %v to destination port %v on machine part with measured network latency %.2fms...",
+		local,
+		dest,
+		float32(time.Since(startTime).Nanoseconds()/2000)/1000,
+	)
 	defer func() {
 		if err := li.Close(); err != nil {
 			warningf(ctx.App.ErrWriter, "error closing listener: %s", err)
