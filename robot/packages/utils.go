@@ -181,7 +181,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.Mkdir(path, info.Mode()); err != nil {
+			if err := os.MkdirAll(path, info.Mode()); err != nil {
 				return fmt.Errorf("failed to create directory %q %w", path, err)
 			}
 
