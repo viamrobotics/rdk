@@ -1220,19 +1220,12 @@ func TestShellGetFTDC(t *testing.T) {
 		"part":         "main",
 	}
 
-	t.Run("no arguments or files", func(t *testing.T) {
-		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token")
-		test.That(t,
-			viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), logger),
-			test.ShouldBeError, wrongNumArgsError{1, 0})
-	})
-
 	t.Run("too many arguments", func(t *testing.T) {
 		args := []string{"foo", "bar"}
 		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token", args...)
 		test.That(t,
 			viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), logger),
-			test.ShouldBeError, wrongNumArgsError{1, 2})
+			test.ShouldBeError, wrongNumArgsError{2, 0, 1})
 	})
 
 	tfs := shelltestutils.SetupTestFileSystem(t)
@@ -1259,13 +1252,11 @@ func TestShellGetFTDC(t *testing.T) {
 	})
 
 	t.Run("ftdc data exists", func(t *testing.T) {
-		tempDir := t.TempDir()
-
 		tmpPartFtdcPath := filepath.Join(tfs.Root, partID)
 		err := os.Mkdir(tmpPartFtdcPath, 0o750)
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() {
-			os.RemoveAll(tmpPartFtdcPath)
+			err = os.RemoveAll(tmpPartFtdcPath)
 			test.That(t, err, test.ShouldBeNil)
 		})
 		err = os.WriteFile(filepath.Join(tfs.Root, partID, "foo"), nil, 0o640)
@@ -1276,24 +1267,42 @@ func TestShellGetFTDC(t *testing.T) {
 			ftdcPath = originalFTDCPath
 		})
 
-		args := []string{tempDir}
-		cCtx, viamClient, _, _ := setupWithRunningPart(
-			t, asc, nil, nil, partFlags, "token", partFqdn, args...)
-		test.That(t,
-			viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), logger),
-			test.ShouldBeNil)
+		testDownload := func(t *testing.T, targetPath string) {
+			args := []string{}
+			if targetPath != "" {
+				args = append(args, targetPath)
+			} else {
+				targetPath = "."
+			}
+			cCtx, viamClient, _, _ := setupWithRunningPart(
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+			test.That(t,
+				viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), logger),
+				test.ShouldBeNil)
 
-		entries, err := os.ReadDir(tempDir)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, entries, test.ShouldHaveLength, 1)
-		subdirEntry := entries[0]
-		test.That(t, subdirEntry.Name(), test.ShouldEqual, partID)
-		test.That(t, subdirEntry.IsDir(), test.ShouldBeTrue)
-		subdirEntries, err := os.ReadDir(filepath.Join(tempDir, subdirEntry.Name()))
-		test.That(t, subdirEntries, test.ShouldHaveLength, 1)
-		ftdcFile := subdirEntries[0]
-		test.That(t, ftdcFile.Name(), test.ShouldEqual, "foo")
-		test.That(t, ftdcFile.IsDir(), test.ShouldBeFalse)
+			entries, err := os.ReadDir(filepath.Join(targetPath, partID))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, entries, test.ShouldHaveLength, 1)
+			ftdcFile := entries[0]
+			test.That(t, ftdcFile.Name(), test.ShouldEqual, "foo")
+			test.That(t, ftdcFile.IsDir(), test.ShouldBeFalse)
+		}
+
+		t.Run("download to cwd", func(t *testing.T) {
+			tempDir := t.TempDir()
+			originalWd, err := os.Getwd()
+			test.That(t, err, test.ShouldBeNil)
+			err = os.Chdir(tempDir)
+			test.That(t, err, test.ShouldBeNil)
+			t.Cleanup(func() {
+				os.Chdir(originalWd)
+			})
+
+			testDownload(t, "")
+		})
+		t.Run("download to specified path", func(t *testing.T) {
+			testDownload(t, t.TempDir())
+		})
 	})
 }
 

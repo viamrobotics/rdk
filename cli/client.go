@@ -1299,16 +1299,20 @@ type machinesPartCopyFilesArgs struct {
 }
 
 type wrongNumArgsError struct {
-	want int
 	have int
+	min  int
+	max  int
 }
 
 func (err wrongNumArgsError) Error() string {
-	noun := "argument"
-	if err.want > 1 {
-		noun = "arguments"
+	if err.min != err.max && err.max == 0 {
+		noun := "arguments"
+		if err.min == 1 {
+			noun = "argument"
+		}
+		return fmt.Sprintf("expected %d %s but got %d", err.min, noun, err.have)
 	}
-	return fmt.Sprintf("expected %d %s but got %d", err.want, noun, err.have)
+	return fmt.Sprintf("expected %d-%d arguments but got %d", err.min, err.max, err.have)
 }
 
 type machinesPartGetFTDCArgs struct {
@@ -1459,8 +1463,18 @@ func (c *viamClient) machinesPartGetFTDCAction(
 	logger logging.Logger,
 ) error {
 	args := ctx.Args().Slice()
-	if len(args) != 1 {
-		return wrongNumArgsError{1, len(args)}
+	var targetPath string
+	switch numArgs := len(args); numArgs {
+	case 0:
+		var err error
+		targetPath, err = os.Getwd()
+		if err != nil {
+			return err
+		}
+	case 1:
+		targetPath = args[0]
+	default:
+		return wrongNumArgsError{numArgs, 0, 1}
 	}
 
 	globalArgs, err := getGlobalArgs(ctx)
@@ -1485,7 +1499,7 @@ func (c *viamClient) machinesPartGetFTDCAction(
 		true,
 		false,
 		[]string{src},
-		args[0],
+		targetPath,
 		logger,
 	); err != nil {
 		if statusErr := status.Convert(err); statusErr != nil &&

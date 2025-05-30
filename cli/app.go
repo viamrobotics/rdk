@@ -2377,13 +2377,7 @@ Download FTDC data to an absolute path:
 								[]string{generalFlagPart},
 								true, false,
 								"<target>"),
-							Flags: append(commonPartFlags, []cli.Flag{
-								&cli.BoolFlag{
-									Name:    generalFlagNoProgress,
-									Aliases: []string{"n"},
-									Usage:   "hide progress of the file transfer",
-								},
-							}...),
+							Flags:  commonPartFlags,
 							Action: createCommandWithT(MachinesPartGetFTDCAction),
 						},
 						{
