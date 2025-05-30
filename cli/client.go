@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
@@ -77,7 +78,10 @@ const (
 	yellow = "\033[1;33m%s\033[0m"
 )
 
-var errNoShellService = errors.New("shell service is not enabled on this machine part")
+var (
+	errNoShellService = errors.New("shell service is not enabled on this machine part")
+	ftdcPath          = path.Join("~", ".viam", "diagnostics.data")
+)
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app and data services but not directly to robot parts.
@@ -1294,6 +1298,46 @@ type machinesPartCopyFilesArgs struct {
 	NoProgress   bool
 }
 
+type wrongNumArgsError struct {
+	have int
+	min  int
+	max  int
+}
+
+func (err wrongNumArgsError) Error() string {
+	if err.min != err.max && err.max == 0 {
+		noun := "arguments"
+		if err.min == 1 {
+			noun = "argument"
+		}
+		return fmt.Sprintf("expected %d %s but got %d", err.min, noun, err.have)
+	}
+	return fmt.Sprintf("expected %d-%d arguments but got %d", err.min, err.max, err.have)
+}
+
+type machinesPartGetFTDCArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+}
+
+// MachinesPartGetFTDCAction is the corresponding Action for 'machines part get-ftdc'.
+func MachinesPartGetFTDCAction(c *cli.Context, args machinesPartGetFTDCArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
+	logger := globalArgs.createLogger()
+
+	return client.machinesPartGetFTDCAction(c, args, globalArgs.Debug, logger)
+}
+
 // MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
 func MachinesPartCopyFilesAction(c *cli.Context, args machinesPartCopyFilesArgs) error {
 	client, err := newViamClient(c)
@@ -1402,6 +1446,57 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		)
 	}
 	if err := doCopy(); err != nil {
+		if statusErr := status.Convert(err); statusErr != nil &&
+			statusErr.Code() == codes.InvalidArgument &&
+			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
+			return errDirectoryCopyRequestNoRecursion
+		}
+		return err
+	}
+	return nil
+}
+
+func (c *viamClient) machinesPartGetFTDCAction(
+	ctx *cli.Context,
+	flagArgs machinesPartGetFTDCArgs,
+	debug bool,
+	logger logging.Logger,
+) error {
+	args := ctx.Args().Slice()
+	var targetPath string
+	switch numArgs := len(args); numArgs {
+	case 0:
+		var err error
+		targetPath, err = os.Getwd()
+		if err != nil {
+			return err
+		}
+	case 1:
+		targetPath = args[0]
+	default:
+		return wrongNumArgsError{numArgs, 0, 1}
+	}
+
+	part, err := c.robotPart(flagArgs.Organization, flagArgs.Location, flagArgs.Machine, flagArgs.Part)
+	if err != nil {
+		return err
+	}
+	// Intentional use of path instead of filepath: Windows understands both / and
+	// \ as path separators, and we don't want a cli running on Windows to send
+	// a path using \ to a *NIX machine.
+	src := path.Join(ftdcPath, part.Id)
+	if err := c.copyFilesFromMachine(
+		flagArgs.Organization,
+		flagArgs.Location,
+		flagArgs.Machine,
+		flagArgs.Part,
+		debug,
+		true,
+		false,
+		[]string{src},
+		targetPath,
+		logger,
+	); err != nil {
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {

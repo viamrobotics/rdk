@@ -1175,6 +1175,137 @@ func TestShellFileCopy(t *testing.T) {
 	})
 }
 
+func TestShellGetFTDC(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
+		orgs := []*apppb.Organization{{Name: "jedi", Id: uuid.NewString(), PublicNamespace: "anakin"}, {Name: "mandalorians"}}
+		return &apppb.ListOrganizationsResponse{Organizations: orgs}, nil
+	}
+	listLocationsFunc := func(ctx context.Context, in *apppb.ListLocationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListLocationsResponse, error) {
+		locs := []*apppb.Location{{Name: "naboo"}}
+		return &apppb.ListLocationsResponse{Locations: locs}, nil
+	}
+	listRobotsFunc := func(ctx context.Context, in *apppb.ListRobotsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListRobotsResponse, error) {
+		robots := []*apppb.Robot{{Name: "r2d2"}}
+		return &apppb.ListRobotsResponse{Robots: robots}, nil
+	}
+
+	partFqdn := uuid.NewString()
+	partID := uuid.NewString()
+	getRobotPartsFunc := func(ctx context.Context, in *apppb.GetRobotPartsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartsResponse, error) {
+		parts := []*apppb.RobotPart{{Name: "main", Fqdn: partFqdn, Id: partID}}
+		return &apppb.GetRobotPartsResponse{Parts: parts}, nil
+	}
+
+	asc := &inject.AppServiceClient{
+		ListOrganizationsFunc: listOrganizationsFunc,
+		ListLocationsFunc:     listLocationsFunc,
+		ListRobotsFunc:        listRobotsFunc,
+		GetRobotPartsFunc:     getRobotPartsFunc,
+	}
+
+	partFlags := map[string]any{
+		"organization": "jedi",
+		"location":     "naboo",
+		"robot":        "r2d2",
+		"part":         "main",
+	}
+
+	t.Run("too many arguments", func(t *testing.T) {
+		args := []string{"foo", "bar"}
+		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token", args...)
+		test.That(t,
+			viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), true, logger),
+			test.ShouldBeError, wrongNumArgsError{2, 0, 1})
+	})
+
+	tfs := shelltestutils.SetupTestFileSystem(t)
+
+	t.Run("ftdc data does not exist", func(t *testing.T) {
+		tempDir := t.TempDir()
+
+		originalFTDCPath := ftdcPath
+		ftdcPath = filepath.Join(tfs.Root, "FAKEDIR")
+		t.Cleanup(func() {
+			ftdcPath = originalFTDCPath
+		})
+
+		args := []string{tempDir}
+		cCtx, viamClient, _, _ := setupWithRunningPart(
+			t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+		test.That(t,
+			viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), true, logger),
+			test.ShouldNotBeNil)
+
+		entries, err := os.ReadDir(tempDir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, entries, test.ShouldHaveLength, 0)
+	})
+
+	t.Run("ftdc data exists", func(t *testing.T) {
+		tmpPartFtdcPath := filepath.Join(tfs.Root, partID)
+		err := os.Mkdir(tmpPartFtdcPath, 0o750)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() {
+			err = os.RemoveAll(tmpPartFtdcPath)
+			test.That(t, err, test.ShouldBeNil)
+		})
+		err = os.WriteFile(filepath.Join(tfs.Root, partID, "foo"), nil, 0o640)
+		test.That(t, err, test.ShouldBeNil)
+		originalFTDCPath := ftdcPath
+		ftdcPath = tfs.Root
+		t.Cleanup(func() {
+			ftdcPath = originalFTDCPath
+		})
+
+		testDownload := func(t *testing.T, targetPath string) {
+			args := []string{}
+			if targetPath != "" {
+				args = append(args, targetPath)
+			} else {
+				targetPath = "."
+			}
+			cCtx, viamClient, _, _ := setupWithRunningPart(
+				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
+			test.That(t,
+				viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), true, logger),
+				test.ShouldBeNil)
+
+			entries, err := os.ReadDir(filepath.Join(targetPath, partID))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, entries, test.ShouldHaveLength, 1)
+			ftdcFile := entries[0]
+			test.That(t, ftdcFile.Name(), test.ShouldEqual, "foo")
+			test.That(t, ftdcFile.IsDir(), test.ShouldBeFalse)
+		}
+
+		t.Run("download to cwd", func(t *testing.T) {
+			tempDir := t.TempDir()
+			originalWd, err := os.Getwd()
+			test.That(t, err, test.ShouldBeNil)
+			err = os.Chdir(tempDir)
+			test.That(t, err, test.ShouldBeNil)
+			t.Cleanup(func() {
+				os.Chdir(originalWd)
+			})
+
+			testDownload(t, "")
+		})
+		t.Run("download to specified path", func(t *testing.T) {
+			testDownload(t, t.TempDir())
+		})
+	})
+}
+
 func TestCreateOAuthAppAction(t *testing.T) {
 	createOAuthAppFunc := func(ctx context.Context, in *apppb.CreateOAuthAppRequest,
 		opts ...grpc.CallOption,
