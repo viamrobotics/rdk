@@ -2360,23 +2360,18 @@ Copy multiple files from the machine to a local destination with recursion and k
 						},
 						{
 							Name:  "get-ftdc",
-							Usage: "download ftdc data from a machine part",
+							Usage: "download FTDC data from a machine part",
 							Description: `
 In order to use the get-ftdc command, the machine must have a valid shell type service.
 Organization and location are required flags if using name (rather than ID) for the part.
+If [target] is not specified then the FTDC data will be saved to the current working directory.
 Note: There is no progress meter while copying is in progress.
-
-Download FTDC data to the current working directory:
-'viam machine part get-ftdc --organization "org" --location "location" --machine "m1" --part "m1-main"
-
-Download FTDC data to an absolute path:
-'viam machine part get-ftdc --part "m1-main" $HOME/Downloads'
 `,
 							UsageText: createUsageText(
 								"machines part get-ftdc",
 								[]string{generalFlagPart},
 								true, false,
-								"<target>"),
+								"[target]"),
 							Flags:  commonPartFlags,
 							Action: createCommandWithT(MachinesPartGetFTDCAction),
 						},
