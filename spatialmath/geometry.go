@@ -156,7 +156,7 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		}
 		// never try to infer point geometry if nothing is specified
 	}
-	return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, string(config.Type))
+	return nil, fmt.Errorf("%w: %s.", errGeometryTypeUnsupported, string(config.Type))
 }
 
 // ToProtobuf converts a GeometryConfig to Protobuf.
