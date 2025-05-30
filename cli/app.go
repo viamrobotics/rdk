@@ -2370,7 +2370,7 @@ Download FTDC data to the current working directory:
 'viam machine part get-ftdc --organization "org" --location "location" --machine "m1" --part "m1-main"
 
 Download FTDC data to an absolute path:
-'viam machine part get-ftdc --part "m1-main" -r $HOME/Downloads'
+'viam machine part get-ftdc --part "m1-main" $HOME/Downloads'
 `,
 							UsageText: createUsageText(
 								"machines part get-ftdc",

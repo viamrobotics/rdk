@@ -1320,7 +1320,6 @@ type machinesPartGetFTDCArgs struct {
 	Location     string
 	Machine      string
 	Part         string
-	NoProgress   bool
 }
 
 // MachinesPartGetFTDCAction is the corresponding Action for 'machines part get-ftdc'.
@@ -1487,7 +1486,7 @@ func (c *viamClient) machinesPartGetFTDCAction(
 		return err
 	}
 	// Intentional use of path instead of filepath: Windows understands both / and
-	// / as path separators, and we don't want a cli running on Windows to send
+	// \ as path separators, and we don't want a cli running on Windows to send
 	// a path using \ to a *NIX machine.
 	src := path.Join(ftdcPath, part.Id)
 	if err := c.copyFilesFromMachine(
