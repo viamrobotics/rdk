@@ -47,15 +47,11 @@ func CheckPlan(
 	}
 
 	// Spot check plan for options
-	planOpts, err := sfPlanner.plannerSetupFromMoveRequest(
-		&PlanState{poses: plan.Path()[0]},
-		&PlanState{poses: plan.Path()[len(plan.Path())-1]},
-		plan.Trajectory()[0],
-		worldState,
-		nil,
-		nil, // no pb.Constraints
-		nil, // no plannOpts
-	)
+	planOpts, err := sfPlanner.plannerSetupFromMoveRequest(&PlanRequest{
+		Goals:      []*PlanState{{poses: plan.Path()[len(plan.Path())-1]}},
+		StartState: &PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
+		WorldState: worldState,
+	}, 0)
 	if err != nil {
 		return err
 	}
@@ -94,15 +90,11 @@ func checkPlanRelative(
 	zeroPosePIF := referenceframe.NewPoseInFrame(checkFrame.Name(), spatialmath.NewZeroPose())
 
 	// setup the planOpts. Poses should be in world frame. This allows us to know e.g. which obstacles may ephemerally collide.
-	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		&PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
-		&PlanState{poses: plan.Path()[len(plan.Path())-1]},
-		plan.Trajectory()[0],
-		worldState,
-		nil,
-		nil, // no pb.Constraints
-		nil, // no plannOpts
-	); err != nil {
+	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(&PlanRequest{
+		Goals:      []*PlanState{{poses: plan.Path()[len(plan.Path())-1]}},
+		StartState: &PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
+		WorldState: worldState,
+	}, 0); err != nil {
 		return err
 	}
 	// change from 60mm to 30mm so we have finer interpolation along segments
@@ -204,7 +196,6 @@ func checkPlanAbsolute(
 	sfPlanner *planManager,
 ) error {
 	plan := executionState.Plan()
-	startingInputs := plan.Trajectory()[0]
 	currentInputs := executionState.CurrentInputs()
 	currentPoseIF := executionState.CurrentPoses()[checkFrame.Name()]
 	wayPointIdx := executionState.Index()
@@ -231,15 +222,12 @@ func checkPlanAbsolute(
 	poses := offsetPlan.Path()
 
 	// setup the planOpts
-	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(
-		&PlanState{poses: executionState.CurrentPoses(), configuration: startingInputs},
-		&PlanState{poses: poses[len(poses)-1]},
-		startingInputs,
-		worldState,
-		nil,
-		nil, // no Constraints
-		nil, // no planOpts
-	); err != nil {
+	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(&PlanRequest{
+		Logger:     sfPlanner.logger,
+		Goals:      []*PlanState{{poses: plan.Path()[len(plan.Path())-1]}},
+		StartState: &PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
+		WorldState: worldState,
+	}, 0); err != nil {
 		return err
 	}
 

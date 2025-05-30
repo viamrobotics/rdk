@@ -1,0 +1,36 @@
+{
+    "components": [
+        {
+            "name": "arm1",
+            "type": "arm",
+            "model": "fake",
+            "attributes": {
+                "arm-model": "ur5e"
+            },
+            "frame": {
+                "parent": "world",
+                "translation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                }
+            }
+        },
+        {
+            "name": "arm2",
+            "type": "arm",
+            "model": "fake",
+            "attributes": {
+                "arm-model": "ur5e"
+            },
+            "frame": {
+                "parent": "world",
+                "translation": {
+                    "x": 0,
+                    "y": 1000,
+                    "z": 0
+                }
+            }
+        }
+    ]
+}

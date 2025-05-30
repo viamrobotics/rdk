@@ -66,15 +66,7 @@ type atomicWaypoint struct {
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
 func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan) (Plan, error) {
-	opt, err := pm.plannerSetupFromMoveRequest(
-		request.StartState,
-		request.Goals[0],
-		request.StartState.configuration, // No way to this code without validating the request and ensuring this exists
-		request.WorldState,
-		request.BoundingRegions,
-		request.Constraints,
-		request.Options,
-	)
+	opt, err := pm.plannerSetupFromMoveRequest(request, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -459,42 +451,36 @@ func (pm *planManager) planParallelRRTMotion(
 }
 
 // This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens.
-func (pm *planManager) plannerSetupFromMoveRequest(
-	from, to *PlanState,
-	seedMap referenceframe.FrameSystemInputs, // A known good configuration to set up collsiion constraints. Not necessarily `from`.
-	worldState *referenceframe.WorldState,
-	boundingRegions []spatialmath.Geometry,
-	constraints *Constraints,
-	planningOpts map[string]interface{},
-) (*plannerOptions, error) {
+func (pm *planManager) plannerSetupFromMoveRequest(req *PlanRequest, goalIndex int) (*plannerOptions, error) {
 	var err error
-	if constraints == nil {
+	if req.Constraints == nil {
 		// Constraints may be nil, but if a motion profile is set in planningOpts we need it to be a valid pointer to an empty struct.
-		constraints = &Constraints{}
+		req.Constraints = &Constraints{}
 	}
 	planAlg := ""
 
 	// Start with normal options
 	opt := newBasicPlannerOptions()
-	opt.extra = planningOpts
+	opt.extra = req.Options
 
-	startPoses, err := from.ComputePoses(pm.fs)
+	startPoses, err := req.StartState.ComputePoses(req.FrameSystem)
 	if err != nil {
 		return nil, err
 	}
-	goalPoses, err := to.ComputePoses(pm.fs)
+	to := req.Goals[goalIndex]
+	goalPoses, err := to.ComputePoses(req.FrameSystem)
 	if err != nil {
 		return nil, err
 	}
 
-	if partial, ok := planningOpts["return_partial_plan"]; ok {
+	if partial, ok := req.Options["return_partial_plan"]; ok {
 		if use, ok := partial.(bool); ok && use {
 			opt.ReturnPartialPlan = true
 		}
 	}
 
 	collisionBufferMM := defaultCollisionBufferMM
-	collisionBufferMMRaw, ok := planningOpts["collision_buffer_mm"]
+	collisionBufferMMRaw, ok := req.Options["collision_buffer_mm"]
 	if ok {
 		collisionBufferMM, ok = collisionBufferMMRaw.(float64)
 		if !ok {
@@ -505,7 +491,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		}
 	}
 
-	err = opt.fillMotionChains(pm.fs, to)
+	err = opt.fillMotionChains(req.FrameSystem, to)
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +528,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := []spatialmath.Geometry{}
-	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pm.fs, seedMap)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(req.FrameSystem, req.StartState.configuration)
 	if err != nil {
 		return nil, err
 	}
@@ -556,19 +542,39 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			}
 		}
 		if !moving {
-			// Non-motion-chain frames with nonzero DoF can still move out of the way
-			if len(pm.fs.Frame(name).DoF()) > 0 {
-				movingRobotGeometries = append(movingRobotGeometries, geometries.Geometries()...)
-			} else {
-				staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
-			}
+			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
 		}
 	}
+
+	rseed := defaultRandomSeed
+	if seed, ok := req.Options["rseed"].(int); ok {
+		rseed = seed
+	}
+	planningFS := req.FrameSystem
+	if len(opt.motionChains) == 1 {
+		// if there is only one chain no need to use the whole frame system as the planning frame
+		planningFS = opt.motionChains[0].movingFS
+	}
+
+	// HOLY HELL THIS IS TERRIBLE CODE IM SORRY
+	// deep copy the components of the plan request start state that are relevant to us
+	relevantStartState := make(referenceframe.FrameSystemInputs)
+	for _, frame := range planningFS.FrameNames() {
+		relevantStartState[frame] = req.StartState.configuration[frame]
+	}
+	req.StartState = &PlanState{configuration: relevantStartState}
+
+	//nolint: gosec
+	planner, err := newPlanner(planningFS, rand.New(rand.NewSource(int64(rseed))), req.Logger, nil)
+	if err != nil {
+		return nil, err
+	}
+	pm.planner = planner
 
 	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
 	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
 	// the state that observed the worldState should ultimately be included as part of the worldState message
-	worldGeometries, err := worldState.ObstaclesInWorldFrame(pm.fs, seedMap)
+	worldGeometries, err := req.WorldState.ObstaclesInWorldFrame(pm.fs, req.StartState.configuration)
 	if err != nil {
 		return nil, err
 	}
@@ -579,10 +585,10 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 
 	allowedCollisions, err := collisionSpecifications(
-		constraints.GetCollisionSpecification(),
+		req.Constraints.GetCollisionSpecification(),
 		frameSystemGeometries,
 		frameNames,
-		worldState.ObstacleNames(),
+		req.WorldState.ObstacleNames(),
 	)
 	if err != nil {
 		return nil, err
@@ -593,7 +599,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
-		boundingRegions,
+		req.BoundingRegions,
 		allowedCollisions,
 		collisionBufferMM,
 	)
@@ -610,7 +616,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 	// error handling around extracting motion_profile information from map[string]interface{}
 	var motionProfile string
-	profile, ok := planningOpts["motion_profile"]
+	profile, ok := req.Options["motion_profile"]
 	if ok {
 		motionProfile, ok = profile.(string)
 		if !ok {
@@ -623,33 +629,33 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	case LinearMotionProfile:
 		opt.profile = LinearMotionProfile
 		// Linear constraints
-		linTol, ok := planningOpts["line_tolerance"].(float64)
+		linTol, ok := req.Options["line_tolerance"].(float64)
 		if !ok {
 			// Default
 			linTol = defaultLinearDeviation
 		}
-		orientTol, ok := planningOpts["orient_tolerance"].(float64)
+		orientTol, ok := req.Options["orient_tolerance"].(float64)
 		if !ok {
 			// Default
 			orientTol = defaultOrientationDeviation
 		}
-		constraints.AddLinearConstraint(LinearConstraint{linTol, orientTol})
+		req.Constraints.AddLinearConstraint(LinearConstraint{linTol, orientTol})
 	case PseudolinearMotionProfile:
 		opt.profile = PseudolinearMotionProfile
-		tolerance, ok := planningOpts["tolerance"].(float64)
+		tolerance, ok := req.Options["tolerance"].(float64)
 		if !ok {
 			// Default
 			tolerance = defaultPseudolinearTolerance
 		}
-		constraints.AddPseudolinearConstraint(PseudolinearConstraint{tolerance, tolerance})
+		req.Constraints.AddPseudolinearConstraint(PseudolinearConstraint{tolerance, tolerance})
 	case OrientationMotionProfile:
 		opt.profile = OrientationMotionProfile
-		tolerance, ok := planningOpts["tolerance"].(float64)
+		tolerance, ok := req.Options["tolerance"].(float64)
 		if !ok {
 			// Default
 			tolerance = defaultOrientationDeviation
 		}
-		constraints.AddOrientationConstraint(OrientationConstraint{tolerance})
+		req.Constraints.AddOrientationConstraint(OrientationConstraint{tolerance})
 	case PositionOnlyMotionProfile:
 		opt.profile = PositionOnlyMotionProfile
 		if !opt.useTPspace || opt.PositionSeeds <= 0 {
@@ -657,12 +663,12 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		}
 	}
 
-	hasTopoConstraint, err := opt.addTopoConstraints(pm.fs, seedMap, startPoses, goalPoses, constraints)
+	hasTopoConstraint, err := opt.addTopoConstraints(pm.fs, req.StartState.configuration, startPoses, goalPoses, req.Constraints)
 	if err != nil {
 		return nil, err
 	}
 	// convert map to json, then to a struct, overwriting present defaults
-	jsonString, err := json.Marshal(planningOpts)
+	jsonString, err := json.Marshal(req.Options)
 	if err != nil {
 		return nil, err
 	}
@@ -671,7 +677,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		return nil, err
 	}
 
-	alg, ok := planningOpts["planning_alg"]
+	alg, ok := req.Options["planning_alg"]
 	if ok {
 		planAlg, ok = alg.(string)
 		if !ok {
@@ -714,13 +720,22 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	if opt.profile == FreeMotionProfile || opt.profile == PositionOnlyMotionProfile {
 		if planAlg == "" {
 			// set up deep copy for fallback
-			try1 := deepAtomicCopyMap(planningOpts)
+			try1 := deepAtomicCopyMap(req.Options)
 			// No need to generate tons more IK solutions when the first alg will do it
 
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
 			try1["planning_alg"] = "rrtstar"
-			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, boundingRegions, constraints, try1)
+			try1Opt, err := pm.plannerSetupFromMoveRequest(&PlanRequest{
+				Logger:          req.Logger,
+				Goals:           []*PlanState{to},
+				FrameSystem:     pm.fs,
+				StartState:      req.StartState,
+				WorldState:      req.WorldState,
+				BoundingRegions: req.BoundingRegions,
+				Constraints:     req.Constraints,
+				Options:         try1,
+			}, 0)
 			if err != nil {
 				return nil, err
 			}
@@ -751,15 +766,17 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 	}
 
 	subWaypoints := useSubWaypoints(request, seedPlan, wpi)
-	opt, err := pm.plannerSetupFromMoveRequest(
-		startState,
-		wpGoals,
-		request.StartState.configuration,
-		request.WorldState,
-		request.BoundingRegions,
-		request.Constraints,
-		request.Options,
-	)
+	opt, err := pm.plannerSetupFromMoveRequest(&PlanRequest{
+		Logger:          request.Logger,
+		Goals:           []*PlanState{wpGoals},
+		FrameSystem:     pm.fs,
+		StartState:      request.StartState,
+		WorldState:      request.WorldState,
+		BoundingRegions: request.BoundingRegions,
+		Constraints:     request.Constraints,
+		Options:         request.Options,
+	}, 0)
+
 	if err != nil {
 		return nil, err
 	}
@@ -771,15 +788,16 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		}
 		wpGoals = alteredGoals
 		// Regenerate opts since our metrics will have changed
-		opt, err = pm.plannerSetupFromMoveRequest(
-			startState,
-			wpGoals,
-			request.StartState.configuration,
-			request.WorldState,
-			request.BoundingRegions,
-			request.Constraints,
-			request.Options,
-		)
+		opt, err = pm.plannerSetupFromMoveRequest(&PlanRequest{
+			Logger:          request.Logger,
+			Goals:           []*PlanState{wpGoals},
+			FrameSystem:     pm.fs,
+			StartState:      request.StartState,
+			WorldState:      request.WorldState,
+			BoundingRegions: request.BoundingRegions,
+			Constraints:     request.Constraints,
+			Options:         request.Options,
+		}, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -836,15 +854,16 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 				to.configuration[frameName] = toInputs
 			}
 		}
-		wpOpt, err := pm.plannerSetupFromMoveRequest(
-			from,
-			to,
-			request.StartState.configuration,
-			request.WorldState,
-			request.BoundingRegions,
-			request.Constraints,
-			request.Options,
-		)
+		wpOpt, err := pm.plannerSetupFromMoveRequest(&PlanRequest{
+			Logger:          request.Logger,
+			Goals:           []*PlanState{to},
+			FrameSystem:     pm.fs,
+			StartState:      request.StartState,
+			WorldState:      request.WorldState,
+			BoundingRegions: request.BoundingRegions,
+			Constraints:     request.Constraints,
+			Options:         request.Options,
+		}, 0)
 		if err != nil {
 			return nil, err
 		}
