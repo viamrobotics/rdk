@@ -1335,7 +1335,7 @@ func MachinesPartGetFTDCAction(c *cli.Context, args machinesPartGetFTDCArgs) err
 	}
 	logger := globalArgs.createLogger()
 
-	return client.machinesPartGetFTDCAction(c, args, logger)
+	return client.machinesPartGetFTDCAction(c, args, globalArgs.Debug, logger)
 }
 
 // MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
@@ -1459,6 +1459,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 func (c *viamClient) machinesPartGetFTDCAction(
 	ctx *cli.Context,
 	flagArgs machinesPartGetFTDCArgs,
+	debug bool,
 	logger logging.Logger,
 ) error {
 	args := ctx.Args().Slice()
@@ -1476,11 +1477,6 @@ func (c *viamClient) machinesPartGetFTDCAction(
 		return wrongNumArgsError{numArgs, 0, 1}
 	}
 
-	globalArgs, err := getGlobalArgs(ctx)
-	if err != nil {
-		return err
-	}
-
 	part, err := c.robotPart(flagArgs.Organization, flagArgs.Location, flagArgs.Machine, flagArgs.Part)
 	if err != nil {
 		return err
@@ -1494,7 +1490,7 @@ func (c *viamClient) machinesPartGetFTDCAction(
 		flagArgs.Location,
 		flagArgs.Machine,
 		flagArgs.Part,
-		globalArgs.Debug,
+		debug,
 		true,
 		false,
 		[]string{src},
