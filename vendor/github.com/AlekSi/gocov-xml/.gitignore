@@ -1,0 +1,4 @@
+*.json
+coverage.xml
+
+gocov-xml

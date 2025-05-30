@@ -1,0 +1,30 @@
+dist: focal
+
+language: go
+
+go:
+  - "1.15"
+
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - wget
+    - cmake-data
+    - cmake
+    - gcc
+    - g++
+    - gccgo
+    - gfortran
+
+before_install:
+  - ./install_nlopt.sh
+  - go get golang.org/x/tools/cmd/cover
+  - go get github.com/mattn/goveralls
+
+script:
+  - go test -v -covermode=count -coverprofile=cover.out ./...
+
+after_success:
+  - $HOME/gopath/bin/goveralls -service=travis-ci -coverprofile=cover.out
