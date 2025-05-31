@@ -1580,5 +1580,5 @@ func TestMultipleKinematicChains(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan.Trajectory()), test.ShouldEqual, 2)
-	test.That(t, len(plan.Trajectory()[0]), test.ShouldEqual, 1)
+	test.That(t, len(plan.Trajectory()[0]), test.ShouldEqual, 2) // should just have two frames there, one for origin frame one for arm
 }

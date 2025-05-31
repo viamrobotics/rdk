@@ -202,7 +202,7 @@ func (sfs *simpleFrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 	if !sfs.frameExists(query.Name()) {
 		return nil, NewFrameMissingError(query.Name())
 	}
-	if query == sfs.world {
+	if query.Name() == World {
 		return []Frame{query}, nil
 	}
 	parents, err := sfs.TracebackFrame(sfs.parents[query])

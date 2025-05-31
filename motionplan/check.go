@@ -40,17 +40,14 @@ func CheckPlan(
 		return errors.New("wayPointIdx outside of plan bounds")
 	}
 
-	// construct planager
-	sfPlanner, err := newPlanManager(fs, logger, defaultRandomSeed)
-	if err != nil {
-		return err
-	}
-
 	// Spot check plan for options
+	sfPlanner := &planManager{}
 	planOpts, err := sfPlanner.plannerSetupFromMoveRequest(&PlanRequest{
-		Goals:      []*PlanState{{poses: plan.Path()[len(plan.Path())-1]}},
-		StartState: &PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
-		WorldState: worldState,
+		Logger:      logger,
+		FrameSystem: fs,
+		Goals:       []*PlanState{{poses: plan.Path()[len(plan.Path())-1]}},
+		StartState:  &PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
+		WorldState:  worldState,
 	}, 0)
 	if err != nil {
 		return err
@@ -91,9 +88,10 @@ func checkPlanRelative(
 
 	// setup the planOpts. Poses should be in world frame. This allows us to know e.g. which obstacles may ephemerally collide.
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(&PlanRequest{
-		Goals:      []*PlanState{{poses: plan.Path()[len(plan.Path())-1]}},
-		StartState: &PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
-		WorldState: worldState,
+		FrameSystem: sfPlanner.fs,
+		Goals:       []*PlanState{{poses: plan.Path()[len(plan.Path())-1]}},
+		StartState:  &PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
+		WorldState:  worldState,
 	}, 0); err != nil {
 		return err
 	}
@@ -223,10 +221,11 @@ func checkPlanAbsolute(
 
 	// setup the planOpts
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(&PlanRequest{
-		Logger:     sfPlanner.logger,
-		Goals:      []*PlanState{{poses: plan.Path()[len(plan.Path())-1]}},
-		StartState: &PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
-		WorldState: worldState,
+		Logger:      sfPlanner.logger,
+		FrameSystem: sfPlanner.fs,
+		Goals:       []*PlanState{{poses: plan.Path()[len(plan.Path())-1]}},
+		StartState:  &PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
+		WorldState:  worldState,
 	}, 0); err != nil {
 		return err
 	}

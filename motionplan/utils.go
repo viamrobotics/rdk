@@ -167,23 +167,39 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame, goalFrameName
 	var moving referenceframe.FrameSystem
 	var frames []referenceframe.Frame
 	worldRooted := false
-	pivotFrame, err := findPivotFrame(solveFrameList, goalFrameList)
-	if err != nil {
-		return nil, err
-	}
+	// pivotFrame, err := findPivotFrame(solveFrameList, goalFrameList)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	pivotFrame := fs.World()
 	if pivotFrame.Name() == referenceframe.World {
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
-		moving, err = movingFS(solveFrameList)
-		if err != nil {
-			return nil, err
+		if len(frames) < 2 {
+			return nil, errors.New("somehow dont have enough frames")
 		}
-		movingSubset2, err := movingFS(goalFrameList)
-		if err != nil {
-			return nil, err
+
+		// BUG CITY UP AHEAD
+		moving = referenceframe.NewEmptyFrameSystem("")
+		accounted := make(map[int]bool)
+		for i := 0; len(accounted) < len(frames); i = (i + 1) % len(frames) {
+			if accounted[i] {
+				continue
+			}
+			f := fs.Frame(frames[i].Name())
+			if f.Name() == referenceframe.World {
+				accounted[i] = true
+				continue
+			}
+			parent, err := fs.Parent(f)
+			if err != nil {
+				return nil, err
+			}
+			if err = moving.AddFrame(f, parent); err != nil {
+				continue
+			}
+			accounted[i] = true
 		}
-		if err = moving.MergeFrameSystem(movingSubset2, moving.World()); err != nil {
-			return nil, err
-		}
+
 	} else {
 		dof := 0
 		var solveMovingList []referenceframe.Frame

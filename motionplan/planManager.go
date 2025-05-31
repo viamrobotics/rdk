@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
@@ -34,22 +33,6 @@ const (
 type planManager struct {
 	*planner                // TODO: This should probably be removed
 	activeBackgroundWorkers sync.WaitGroup
-}
-
-func newPlanManager(
-	fs referenceframe.FrameSystem,
-	logger logging.Logger,
-	seed int,
-) (*planManager, error) {
-	//nolint: gosec
-	p, err := newPlanner(fs, rand.New(rand.NewSource(int64(seed))), logger, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return &planManager{
-		planner: p,
-	}, nil
 }
 
 type atomicWaypoint struct {
@@ -554,15 +537,15 @@ func (pm *planManager) plannerSetupFromMoveRequest(req *PlanRequest, goalIndex i
 	if len(opt.motionChains) == 1 {
 		// if there is only one chain no need to use the whole frame system as the planning frame
 		planningFS = opt.motionChains[0].movingFS
-	}
 
-	// HOLY HELL THIS IS TERRIBLE CODE IM SORRY
-	// deep copy the components of the plan request start state that are relevant to us
-	relevantStartState := make(referenceframe.FrameSystemInputs)
-	for _, frame := range planningFS.FrameNames() {
-		relevantStartState[frame] = req.StartState.configuration[frame]
+		// HOLY HELL THIS IS TERRIBLE CODE IM SORRY
+		// deep copy the components of the plan request start state that are relevant to us
+		relevantStartState := make(referenceframe.FrameSystemInputs)
+		for _, frame := range planningFS.FrameNames() {
+			relevantStartState[frame] = req.StartState.configuration[frame]
+		}
+		req.StartState = &PlanState{configuration: relevantStartState}
 	}
-	req.StartState = &PlanState{configuration: relevantStartState}
 
 	//nolint: gosec
 	planner, err := newPlanner(planningFS, rand.New(rand.NewSource(int64(rseed))), req.Logger, nil)
