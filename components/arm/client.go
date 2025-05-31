@@ -110,8 +110,7 @@ func (c *client) MoveThroughJointPositions(
 	options *MoveOptions,
 	extra map[string]interface{},
 ) error {
-	c.logger.Warn(c.name)
-	c.logger.Warn("moving to these positions", positions)
+	c.logger.CDebugf(ctx, "%s moving to positions: %v", c.name, positions)
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err

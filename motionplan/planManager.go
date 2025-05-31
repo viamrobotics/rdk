@@ -49,6 +49,9 @@ type atomicWaypoint struct {
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
 func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan) (Plan, error) {
+	request.Logger.Info("planMultiWaypoint start")
+	defer request.Logger.Info("planMultiWaypoint end")
+
 	opt, err := pm.plannerSetupFromMoveRequest(request, 0)
 	if err != nil {
 		return nil, err
@@ -537,14 +540,8 @@ func (pm *planManager) plannerSetupFromMoveRequest(req *PlanRequest, goalIndex i
 	if len(opt.motionChains) == 1 {
 		// if there is only one chain no need to use the whole frame system as the planning frame
 		planningFS = opt.motionChains[0].movingFS
-
-		// HOLY HELL THIS IS TERRIBLE CODE IM SORRY
-		// deep copy the components of the plan request start state that are relevant to us
-		relevantStartState := make(referenceframe.FrameSystemInputs)
-		for _, frame := range planningFS.FrameNames() {
-			relevantStartState[frame] = req.StartState.configuration[frame]
-		}
-		req.StartState = &PlanState{configuration: relevantStartState}
+		// need to update the start state to only contain what we care about
+		req.StartState = req.StartState.Subset(planningFS.FrameNames())
 	}
 
 	//nolint: gosec

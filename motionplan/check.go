@@ -40,7 +40,7 @@ func CheckPlan(
 		return errors.New("wayPointIdx outside of plan bounds")
 	}
 
-	// Spot check plan for options
+	// construct planager
 	sfPlanner := &planManager{}
 	planOpts, err := sfPlanner.plannerSetupFromMoveRequest(&PlanRequest{
 		Logger:      logger,

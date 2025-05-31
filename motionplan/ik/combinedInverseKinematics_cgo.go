@@ -33,10 +33,8 @@ func CreateCombinedIKSolver(
 ) (Solver, error) {
 	ik := &combinedIK{}
 	ik.limits = limits
-	if nCPU == 0 {
-		nCPU = 1
-	}
-	logger.Info("CreateCombinedIKSolver ncpu: %d", nCPU)
+	nCPU = max(1, nCPU) // enforce at least one thread is always made
+	logger.Debugf("creating combinedIK solver with %d threads", nCPU)
 	for i := 1; i <= nCPU; i++ {
 		solver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
 		nlopt := solver.(*nloptIK)
@@ -58,8 +56,8 @@ func (ik *combinedIK) Solve(ctx context.Context,
 	m func([]float64) float64,
 	rseed int,
 ) error {
-	ik.logger.Info("solve start")
-	defer ik.logger.Info("solve end")
+	ik.logger.Debug("solve start")
+	defer ik.logger.Debug("solve end")
 	var err error
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, time.Second*3)
 	defer cancel()
@@ -67,7 +65,6 @@ func (ik *combinedIK) Solve(ctx context.Context,
 	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(int64(rseed)))
 
-	ik.logger.Info("len(ik.solvers) %d", len(ik.solvers))
 	errChan := make(chan error, len(ik.solvers))
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
@@ -87,10 +84,9 @@ func (ik *combinedIK) Solve(ctx context.Context,
 		tmpi := i
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
-
-			ik.logger.Infof("solve %d start", tmpi)
+			ik.logger.Infof("solver %d/%d starting", tmpi, len(ik.solvers))
 			errChan <- thisSolver.Solve(ctxWithTimeout, c, seedFloats, m, parseed)
-			ik.logger.Infof("solve %d end", tmpi)
+			ik.logger.Infof("solver %d ended", tmpi, len(ik.solvers))
 		})
 	}
 

@@ -67,9 +67,19 @@ func TestCombinedCPUs(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKSolver(m.DoF(), logger, runtime.NumCPU()/400000, defaultGoalThreshold)
+
+	// test bad input results in a thread being created still
+	ik, err := CreateCombinedIKSolver(m.DoF(), logger, 0, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(ik.(*combinedIK).solvers), test.ShouldEqual, 1)
+	ik, err = CreateCombinedIKSolver(m.DoF(), logger, -1, defaultGoalThreshold)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(ik.(*combinedIK).solvers), test.ShouldEqual, 1)
+
+	// nCPU is a positive int
+	ik, err = CreateCombinedIKSolver(m.DoF(), logger, 100, defaultGoalThreshold)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(ik.(*combinedIK).solvers), test.ShouldEqual, 100)
 }
 
 func solveTest(ctx context.Context, solver Solver, solveFunc func([]float64) float64, seed []float64) ([][]float64, error) {
