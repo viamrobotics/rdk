@@ -141,15 +141,15 @@ func (ac *AssociatedConfig) Link(conf *resource.Config) {
 
 // DataCaptureConfig is used to initialize a collector for a component or remote.
 type DataCaptureConfig struct {
-	Name               resource.Name     `json:"name"`
-	Method             string            `json:"method"`
-	CaptureFrequencyHz float32           `json:"capture_frequency_hz"`
-	CaptureQueueSize   int               `json:"capture_queue_size"`
-	CaptureBufferSize  int               `json:"capture_buffer_size"`
-	AdditionalParams   map[string]string `json:"additional_params"`
-	Disabled           bool              `json:"disabled"`
-	Tags               []string          `json:"tags,omitempty"`
-	CaptureDirectory   string            `json:"capture_directory"`
+	Name               resource.Name          `json:"name"`
+	Method             string                 `json:"method"`
+	CaptureFrequencyHz float32                `json:"capture_frequency_hz"`
+	CaptureQueueSize   int                    `json:"capture_queue_size"`
+	CaptureBufferSize  int                    `json:"capture_buffer_size"`
+	AdditionalParams   map[string]interface{} `json:"additional_params"`
+	Disabled           bool                   `json:"disabled"`
+	Tags               []string               `json:"tags,omitempty"`
+	CaptureDirectory   string                 `json:"capture_directory"`
 }
 
 // Equals checks if one capture config is equal to another.
