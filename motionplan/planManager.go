@@ -764,12 +764,18 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		return nil, err
 	}
 	if wpGoals.poses != nil {
-		// Transform goal poses into world frame if needed. This is used for e.g. when a component's goal is given in terms of itself.
-		alteredGoals, err := alterGoals(opt.motionChains, pm.fs, request.StartState.configuration, wpGoals)
-		if err != nil {
-			return nil, err
+		// Transform goal poses into world frame if needed if a component's goal is given in terms of itself.
+		for fName, pf := range wpGoals.poses {
+			if fName == pf.Parent() {
+				alteredGoals, err := alterGoals(opt.motionChains, pm.fs, request.StartState.configuration, wpGoals)
+				if err != nil {
+					return nil, err
+				}
+				wpGoals = alteredGoals
+				break
+			}
 		}
-		wpGoals = alteredGoals
+
 		// Regenerate opts since our metrics will have changed
 		opt, err = pm.plannerSetupFromMoveRequest(&PlanRequest{
 			Logger:          request.Logger,

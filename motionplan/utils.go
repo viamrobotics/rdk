@@ -173,21 +173,19 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame, goalFrameName
 	// }
 	pivotFrame := fs.World()
 	if pivotFrame.Name() == referenceframe.World {
+		worldRooted = true
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
-		if len(frames) < 2 {
-			return nil, errors.New("somehow dont have enough frames")
-		}
 
 		// BUG CITY UP AHEAD
 		moving = referenceframe.NewEmptyFrameSystem("")
-		accounted := make(map[int]bool)
-		for i := 0; len(accounted) < len(frames); i = (i + 1) % len(frames) {
-			if accounted[i] {
+		accountedFor := make(map[int]bool)
+		for i := 0; len(accountedFor) < len(frames); i = (i + 1) % len(frames) {
+			if accountedFor[i] {
 				continue
 			}
 			f := fs.Frame(frames[i].Name())
 			if f.Name() == referenceframe.World {
-				accounted[i] = true
+				accountedFor[i] = true
 				continue
 			}
 			parent, err := fs.Parent(f)
@@ -197,7 +195,7 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame, goalFrameName
 			if err = moving.AddFrame(f, parent); err != nil {
 				continue
 			}
-			accounted[i] = true
+			accountedFor[i] = true
 		}
 
 	} else {
