@@ -67,8 +67,6 @@ type PlanRequest struct {
 
 // validatePlanRequest ensures PlanRequests are not malformed.
 func (req *PlanRequest) validatePlanRequest() error {
-	req.Logger.Info("validatePlanRequest start")
-	defer req.Logger.Info("validatePlanRequest end")
 	if req == nil {
 		return errors.New("PlanRequest cannot be nil")
 	}
