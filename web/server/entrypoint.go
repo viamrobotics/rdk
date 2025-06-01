@@ -407,7 +407,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	hungShutdownDeadline := 90 * time.Second
+	hungShutdownDeadline := 60 * time.Second
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
 		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger)
 

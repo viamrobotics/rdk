@@ -1817,43 +1817,39 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// Assert that removing testmodule binary and killing testmodule orphans
-		// helper 'h' a couple seconds after third restart attempt.
+		// helper 'h' after the first restart attempt
 		err = os.Rename(testPath, testPath+".disabled")
 		test.That(t, err, test.ShouldBeNil)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		// Wait for 3 restart attempts in logs.
+		// Wait for restart attempt in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterFieldKey("restart attempt").Len(),
-				test.ShouldEqual, 3)
+			test.That(tb, logs.FilterMessage("Error while restarting crashed module").Len(),
+				test.ShouldBeGreaterThanOrEqualTo, 1)
 		})
-		time.Sleep(2 * time.Second)
 
-		_, err = r.ResourceByName(generic.Named("h"))
+		// Check that h is still present but commands fail
+		h, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldBeNil)
+		_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError,
-			resource.NewNotFoundError(generic.Named("h")))
 
-		// Assert that restoring testmodule, removing testmodule from config and
-		// adding it back re-adds 'h'.
+		// Assert that restoring the testmodule binary makes h start working again
+		// after the auto-restart code succeeds.
 		err = os.Rename(testPath+".disabled", testPath)
 		test.That(t, err, test.ShouldBeNil)
-		cfg2 := &config.Config{
-			Components: []resource.Config{
-				{
-					Name:  "h",
-					Model: helperModel,
-					API:   generic.API,
-				},
-			},
-		}
-		r.Reconfigure(ctx, cfg2)
-		r.Reconfigure(ctx, cfg)
+		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessage("Module resources successfully re-added after module restart").Len(),
+				test.ShouldEqual, 1)
+		})
 
 		h, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldBeNil)
+		_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 		test.That(t, err, test.ShouldBeNil)
 
 		// Assert that replacing testmodule binary with disguised simplemodule
@@ -1866,11 +1862,11 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		// Wait for 3 restart attempts in logs.
+		// Wait for restart attempt in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterFieldKey("restart attempt").Len(),
-				test.ShouldEqual, 3)
+			test.That(tb, logs.FilterMessage("Some modules failed to re-add after crashed module restart and will be removed").Len(),
+				test.ShouldBeGreaterThanOrEqualTo, 1)
 		})
 		time.Sleep(2 * time.Second)
 
@@ -2843,6 +2839,9 @@ func TestRestartModule(t *testing.T) {
 		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
 		// make sure it really ran again
 		assertContents(t, outputPath, "STARTED\n")
+
+		err = r.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("isRunning=true", func(t *testing.T) {

@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -105,7 +106,35 @@ func (req *PlanRequest) validatePlanRequest() error {
 		return errors.New("PlanRequest must have at least one goal")
 	}
 
-	// Validate the goals. Each goal with a pose must not alos have a configuration specified. The parent frame of the pose must exist.
+	if useOc, ok := req.Options["meshes_as_octrees"].(bool); useOc && ok {
+		// convert any meshes in the worldstate to octrees
+		if req.WorldState == nil {
+			return errors.New("PlanRequest must have non-nil WorldState if 'meshes_as_octrees' option is enabled")
+		}
+		obstacles := make([]*referenceframe.GeometriesInFrame, 0, len(req.WorldState.ObstacleNames()))
+		for _, gf := range req.WorldState.Obstacles() {
+			geometries := gf.Geometries()
+			pcdGeometries := make([]spatialmath.Geometry, 0, len(geometries))
+			for _, geometry := range geometries {
+				if mesh, ok := geometry.(*spatialmath.Mesh); ok {
+					octree, err := pointcloud.NewFromMesh(mesh)
+					if err != nil {
+						return err
+					}
+					geometry = octree
+				}
+				pcdGeometries = append(pcdGeometries, geometry)
+			}
+			obstacles = append(obstacles, referenceframe.NewGeometriesInFrame(gf.Parent(), pcdGeometries))
+		}
+		newWS, err := referenceframe.NewWorldState(obstacles, req.WorldState.Transforms())
+		if err != nil {
+			return err
+		}
+		req.WorldState = newWS
+	}
+
+	// Validate the goals. Each goal with a pose must not also have a configuration specified. The parent frame of the pose must exist.
 	for i, goalState := range req.Goals {
 		for fName, pif := range goalState.poses {
 			if len(goalState.configuration) > 0 {

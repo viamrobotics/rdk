@@ -34,6 +34,7 @@ var InternalServiceName = resource.NewName(API, "builtin")
 // This allows us to figure out where they currently are, and then move them.
 // Input units are always in meters or radians.
 type InputEnabled interface {
+	Kinematics(ctx context.Context) (referenceframe.Model, error)
 	CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }

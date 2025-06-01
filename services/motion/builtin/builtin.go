@@ -89,11 +89,28 @@ type inputEnabledActuator interface {
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service.
 type Config struct {
 	LogFilePath string `json:"log_file_path"`
+	NumThreads  int    `json:"num_threads"`
 }
 
 // Validate here adds a dependency on the internal framesystem service.
 func (c *Config) Validate(path string) ([]string, []string, error) {
+	if c.NumThreads < 0 {
+		return nil, nil, fmt.Errorf("cannot configure with %d number of threads, number must be positive", c.NumThreads)
+	}
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
+}
+
+type builtIn struct {
+	resource.Named
+	mu                      sync.RWMutex
+	fsService               framesystem.Service
+	movementSensors         map[resource.Name]movementsensor.MovementSensor
+	slamServices            map[resource.Name]slam.Service
+	visionServices          map[resource.Name]vision.Service
+	components              map[resource.Name]resource.Resource
+	logger                  logging.Logger
+	state                   *state.State
+	configuredDefaultExtras map[string]any
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -101,8 +118,9 @@ func NewBuiltIn(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (motion.Service, error) {
 	ms := &builtIn{
-		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		Named:                   conf.ResourceName().AsNamed(),
+		logger:                  logger,
+		configuredDefaultExtras: make(map[string]any),
 	}
 
 	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
@@ -128,6 +146,10 @@ func (ms *builtIn) Reconfigure(
 		fileAppender, _ := logging.NewFileAppender(config.LogFilePath)
 		ms.logger.AddAppender(fileAppender)
 	}
+	if config.NumThreads > 0 {
+		ms.configuredDefaultExtras["num_threads"] = config.NumThreads
+	}
+
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
 	visionServices := make(map[resource.Name]vision.Service)
@@ -162,18 +184,6 @@ func (ms *builtIn) Reconfigure(
 	return nil
 }
 
-type builtIn struct {
-	resource.Named
-	mu              sync.RWMutex
-	fsService       framesystem.Service
-	movementSensors map[resource.Name]movementsensor.MovementSensor
-	slamServices    map[resource.Name]slam.Service
-	visionServices  map[resource.Name]vision.Service
-	components      map[resource.Name]resource.Resource
-	logger          logging.Logger
-	state           *state.State
-}
-
 func (ms *builtIn) Close(ctx context.Context) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
@@ -188,6 +198,7 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	defer ms.mu.RUnlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
+	ms.applyDefaultExtras(req.Extra)
 	plan, err := ms.plan(ctx, req, ms.logger)
 	if err != nil {
 		return false, err
@@ -207,6 +218,7 @@ func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
+	ms.applyDefaultExtras(req.Extra)
 	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnMapRequest)
 	if err != nil {
 		return uuid.Nil, err
@@ -275,6 +287,7 @@ func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
+	ms.applyDefaultExtras(req.Extra)
 	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnGlobeRequest)
 	if err != nil {
 		return uuid.Nil, err
@@ -374,7 +387,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			moveReqProto.Extra = v
 		}
 		// Special handling: we want to observe the logs just for the DoCommand
-		obsLogger := ms.logger.Sublogger("observed")
+		obsLogger := ms.logger.Sublogger("observed-" + uuid.New().String())
 		observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.InfoLevel.Enabled))
 		obsLogger.AddAppender(observerCore)
 
@@ -597,6 +610,19 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 		}
 	}
 	return nil
+}
+
+// applyDefaultExtras iterates through the list of default extras configured on the builtIn motion service and adds them to the
+// given map of extras if the key does not already exist.
+func (ms *builtIn) applyDefaultExtras(extras map[string]any) {
+	if extras == nil {
+		extras = make(map[string]any)
+	}
+	for key, val := range ms.configuredDefaultExtras {
+		if _, ok := extras[key]; !ok {
+			extras[key] = val
+		}
+	}
 }
 
 func waypointsFromRequest(

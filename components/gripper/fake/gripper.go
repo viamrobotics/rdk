@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"go.viam.com/rdk/components/gripper"
@@ -66,9 +67,31 @@ func (g *Gripper) Reconfigure(_ context.Context, _ resource.Dependencies, conf r
 	return nil
 }
 
-// ModelFrame returns the dynamic frame of the model.
-func (g *Gripper) ModelFrame() referenceframe.Model {
-	return g.model
+// Kinematics returns the kinematic model associated with the gripper.
+func (g *Gripper) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.model, nil
+}
+
+// CurrentInputs is unimplemented for grippers.
+func (g *Gripper) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.model != nil && len(g.model.DoF()) != 0 {
+		return nil, errors.New("CurrentInputs is unimplemented for gripper models with DoF != 0")
+	}
+	return []referenceframe.Input{}, nil
+}
+
+// GoToInputs is unimplemented for grippers.
+func (g *Gripper) GoToInputs(context.Context, ...[]referenceframe.Input) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.model != nil && len(g.model.DoF()) != 0 {
+		return errors.New("GoToInputs is unimplemented for gripper models with DoF != 0")
+	}
+	return nil
 }
 
 // Open does nothing.
