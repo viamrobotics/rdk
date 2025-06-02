@@ -2,13 +2,13 @@ package packages
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -179,8 +179,8 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Errorf("Failed copying package %s from %s, %s", mod.Name, mod.ExePath, err)
-			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed copying package %s from %s",
-				mod.Name, mod.ExePath))
+			outErr = multierr.Append(outErr, fmt.Errorf("failed copying package %s from %s: %w",
+				mod.Name, mod.ExePath, err))
 			continue
 		}
 
@@ -267,7 +267,7 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Errorf("Failed copying package %s:%s from %s, %s", pkg.Package, pkg.Version, mod.ExePath, err)
-			return errors.Wrapf(err, "failed downloading package %s:%s from %s", pkg.Package, pkg.Version, mod.ExePath)
+			return fmt.Errorf("failed downloading package %s:%s from %s, err", pkg.Package, pkg.Version, mod.ExePath, err)
 		}
 		m.managedModules[mod.Name] = &managedModule{module: mod}
 	}

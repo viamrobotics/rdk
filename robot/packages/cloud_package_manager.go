@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"hash"
 	"hash/crc32"
@@ -16,7 +17,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
@@ -162,7 +162,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		})
 		if err != nil {
 			m.logger.Errorf("Failed fetching package details for package %s:%s, %s", p.Package, p.Version, err)
-			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed loading package url for %s:%s", p.Package, p.Version))
+			outErr = multierr.Append(outErr, fmt.Errorf("failed loading package url for %s:%s %w", p.Package, p.Version, err))
 			continue
 		}
 
@@ -189,8 +189,8 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		)
 		if err != nil {
 			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err)
-			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s:%s from %s",
-				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url)))
+			outErr = multierr.Append(outErr, fmt.Errorf("failed downloading package %s:%s from %s %w",
+				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err))
 			continue
 		}
 
@@ -270,7 +270,7 @@ func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
 	}
 
 	if err := linkFile(p.LocalDataDirectory(m.packagesDir), symlinkPath); err != nil {
-		return errors.Wrapf(err, "failed linking ml_model package %s:%s, %s", p.Package, p.Version, err)
+		return fmt.Errorf("failed linking ml_model package %s:%s, %w", p.Package, p.Version, err)
 	}
 	return nil
 }
@@ -364,7 +364,7 @@ func (m *cloudManager) downloadFileFromGCSURL(
 
 	checksumBytes, err := base64.StdEncoding.DecodeString(checksum)
 	if err != nil {
-		return "", "", errors.Wrapf(err, "failed to decode expected checksum: %s", checksum)
+		return "", "", fmt.Errorf("failed to decode expected checksum: %s %w", checksum, err)
 	}
 
 	trimmedChecksumBytes := trimLeadingZeroes(checksumBytes)
@@ -372,7 +372,7 @@ func (m *cloudManager) downloadFileFromGCSURL(
 
 	if !bytes.Equal(trimmedOutHashBytes, trimmedChecksumBytes) {
 		utils.UncheckedError(os.Remove(downloadPath))
-		return checksum, contentType, errors.Errorf(
+		return checksum, contentType, fmt.Errorf(
 			"download did not match expected hash:\n"+
 				"  pre-trimmed: %x vs. %x\n"+
 				"  trimmed:     %x vs. %x",
@@ -419,7 +419,7 @@ func crc32Hash() hash.Hash32 {
 
 func safeLink(parent, link string) (string, error) {
 	if filepath.IsAbs(link) {
-		return link, errors.Errorf("unsafe path link: '%s' with '%s', cannot be absolute path", parent, link)
+		return link, fmt.Errorf("unsafe path link: '%s' with '%s', cannot be absolute path", parent, link)
 	}
 
 	_, err := rutils.SafeJoinDir(parent, link)

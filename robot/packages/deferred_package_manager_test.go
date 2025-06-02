@@ -2,10 +2,10 @@ package packages
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
-	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/test"
 
