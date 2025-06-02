@@ -273,7 +273,7 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 		utils.UncheckedError(cleanup(m.packagesDir, pkg))
 		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
 		if err != nil {
-			return fmt.Errorf("failed installing package %s:%s installPath: %q err: %v", pkg.Package, pkg.Version, mod.ExePath, err)
+			return fmt.Errorf("failed installing package %s:%s installPath: %q err: %w", pkg.Package, pkg.Version, mod.ExePath, err)
 		}
 		m.managedModules[mod.Name] = &managedModule{module: mod}
 	}
