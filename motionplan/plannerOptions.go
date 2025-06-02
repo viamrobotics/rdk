@@ -72,6 +72,7 @@ func init() {
 	defaultTimeMultipleAfterFindingFirstSolution = utils.GetenvInt("MP_TIME_MULTIPLIER", defaultTimeMultipleAfterFindingFirstSolution)
 	defaultNumThreads = utils.GetenvInt("MP_NUM_THREADS", defaultNumThreads)
 }
+
 // TODO: Make this an enum
 // the set of supported motion profiles.
 const (
