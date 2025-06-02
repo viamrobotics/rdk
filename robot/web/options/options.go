@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/viamrobotics/webrtc/v3"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -45,9 +44,13 @@ type Options struct {
 	// service is added.
 	Debug bool
 
-	// WebRTC configures whether or not to instruct all clients to prefer to
-	// WebRTC connections over direct gRPC connections.
-	WebRTC bool
+	// DisallowWebRTC controls whether only an http grpc server is spun up, or if we'll also start
+	// WebRTC answering to create PeerConnections.
+	DisallowWebRTC bool
+
+	// PreferWebRTC configures whether or not to instruct all clients to prefer to
+	// PreferWebRTC connections over direct gRPC connections.
+	PreferWebRTC bool
 
 	// Network describes networking settings for the web server.
 	Network config.NetworkConfig
@@ -65,10 +68,10 @@ type Options struct {
 	BakedAuthEntity string
 	BakedAuthCreds  rpc.Credentials
 
-	WebRTCOnPeerAdded   func(pc *webrtc.PeerConnection)
-	WebRTCOnPeerRemoved func(pc *webrtc.PeerConnection)
-
 	DisableMulticastDNS bool
+
+	// If true, starts an insecure http server without TLS certificates even if one exists
+	NoTLS bool
 }
 
 // New returns a default set of options which will have the

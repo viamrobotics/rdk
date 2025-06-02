@@ -56,7 +56,7 @@ type box struct {
 	halfSize        [3]float64
 	boundingSphereR float64
 	label           string
-	mesh            *mesh
+	mesh            *Mesh
 	rotMatrix       *RotationMatrix
 	once            sync.Once
 }
@@ -146,51 +146,54 @@ func (b *box) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given box collides with the given geometry and returns true if it does.
 func (b *box) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return other.CollidesWith(b, collisionBufferMM)
+	case *box:
 		return boxVsBoxCollision(b, other, collisionBufferMM), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return sphereVsBoxCollision(other, b, collisionBufferMM), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return capsuleVsBoxCollision(other, b, collisionBufferMM), nil
-	}
-	if other, ok := g.(*point); ok {
+	case *point:
 		return pointVsBoxCollision(other.position, b, collisionBufferMM), nil
+	default:
+		return true, newCollisionTypeUnsupportedError(b, g)
 	}
-	return true, newCollisionTypeUnsupportedError(b, g)
 }
 
 func (b *box) DistanceFrom(g Geometry) (float64, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return other.DistanceFrom(b)
+	case *box:
 		return boxVsBoxDistance(b, other), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return sphereVsBoxDistance(other, b), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return capsuleVsBoxDistance(other, b), nil
-	}
-	if other, ok := g.(*point); ok {
+	case *point:
 		return pointVsBoxDistance(other.position, b), nil
+	default:
+		return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 	}
-	return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 }
 
 func (b *box) EncompassedBy(g Geometry) (bool, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return false, nil // Like points, meshes have no volume and cannot encompass
+	case *box:
 		return boxInBox(b, other), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return boxInSphere(b, other), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return boxInCapsule(b, other), nil
-	}
-	if _, ok := g.(*point); ok {
+	case *point:
 		return false, nil
+	default:
+		return false, newCollisionTypeUnsupportedError(b, g)
 	}
-	return false, newCollisionTypeUnsupportedError(b, g)
 }
 
 // closestPoint returns the closest point on the specified box to the specified point
@@ -240,14 +243,14 @@ func (b *box) vertices() []r3.Vector {
 	return verts
 }
 
-// vertices returns the vertices defining the box.
-func (b *box) toMesh() *mesh {
+// toMesh returns a 12-triangle mesh representation of the box, 2 right triangles for each face.
+func (b *box) toMesh() *Mesh {
 	if b.mesh == nil {
-		m := &mesh{pose: b.pose}
-		triangles := make([]*triangle, 0, 12)
+		m := &Mesh{pose: NewZeroPose()}
+		triangles := make([]*Triangle, 0, 12)
 		verts := b.vertices()
 		for _, tri := range boxTriangles {
-			triangles = append(triangles, newTriangle(verts[tri[0]], verts[tri[1]], verts[tri[2]]))
+			triangles = append(triangles, NewTriangle(verts[tri[0]], verts[tri[1]], verts[tri[2]]))
 		}
 		m.triangles = triangles
 		b.mesh = m

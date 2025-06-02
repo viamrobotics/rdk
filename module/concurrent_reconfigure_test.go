@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -33,7 +34,7 @@ func setupTestRobotWithModules(
 			},
 		},
 	}
-	rob, err := robotimpl.New(ctx, cfg, logger)
+	rob, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() {
 		test.That(t, rob.Close(ctx), test.ShouldBeNil)
@@ -47,6 +48,9 @@ const (
 )
 
 func TestConcurrentReconfiguration(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("todo: get this working on win")
+	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 

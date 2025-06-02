@@ -28,9 +28,14 @@ func TestBaseRemoteControl(t *testing.T) {
 		ControlModeName:     "",
 	}
 
-	depNames, err := cfg.Validate("")
+	depNames, _, err := cfg.Validate("")
 	test.That(t, err, test.ShouldBeNil)
 	testutils.VerifySameElements(t, depNames, []string{"baseTest", "inputTest"})
+
+	cfg.ControlModeName = "fail"
+	_, _, err = cfg.Validate("")
+	test.That(t, err, test.ShouldBeError,
+		resource.NewConfigValidationError("", errors.Errorf("Control mode '%s' is not in %v", cfg.ControlModeName, modes)))
 
 	fakeController := &inject.InputController{}
 	fakeBase := &fakebase.Base{}

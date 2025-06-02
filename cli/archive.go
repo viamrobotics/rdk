@@ -63,7 +63,7 @@ func createArchive(files []string, buf, stdout io.Writer) error {
 	}()
 
 	if stdout != nil {
-		fmt.Fprintf(stdout, "\rCompressing... %d%% (%d/%d files)", 0, 1, len(files)) // no newline
+		fmt.Fprintf(stdout, "\rCompressing... %d%% (%d/%d files)", 0, 1, len(files)) //nolint:errcheck // no newline
 	}
 	// Iterate over files and add them to the tar archive
 	for i, file := range files {
@@ -73,7 +73,7 @@ func createArchive(files []string, buf, stdout io.Writer) error {
 		}
 		if stdout != nil {
 			compressPercent := int(math.Ceil(100 * float64(i+1) / float64(len(files))))
-			fmt.Fprintf(stdout, "\rCompressing... %d%% (%d/%d files)", compressPercent, i+1, len(files)) // no newline
+			fmt.Fprintf(stdout, "\rCompressing... %d%% (%d/%d files)", compressPercent, i+1, len(files)) //nolint:errcheck // no newline
 		}
 	}
 	return nil

@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -18,17 +19,22 @@ const (
 	datasetFlagDatasetID        = "dataset-id"
 	datasetFlagDatasetIDs       = "dataset-ids"
 	dataFlagLocationID          = "location-id"
-	dataFlagFileIDs             = "file-ids"
+	dataFlagBinaryDataIDs       = "binary-data-ids"
 	datasetFlagIncludeJSONLines = "include-jsonl"
 )
 
+type datasetCreateArgs struct {
+	OrgID string
+	Name  string
+}
+
 // DatasetCreateAction is the corresponding action for 'dataset create'.
-func DatasetCreateAction(c *cli.Context) error {
+func DatasetCreateAction(c *cli.Context, args datasetCreateArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	if err := client.createDataset(c.String(generalFlagOrgID), c.String(datasetFlagName)); err != nil {
+	if err := client.createDataset(args.OrgID, args.Name); err != nil {
 		return err
 	}
 	return nil
@@ -36,9 +42,6 @@ func DatasetCreateAction(c *cli.Context) error {
 
 // createDataset creates a dataset with the a dataset ID.
 func (c *viamClient) createDataset(orgID, datasetName string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	resp, err := c.datasetClient.CreateDataset(context.Background(),
 		&datasetpb.CreateDatasetRequest{OrganizationId: orgID, Name: datasetName})
 	if err != nil {
@@ -48,13 +51,18 @@ func (c *viamClient) createDataset(orgID, datasetName string) error {
 	return nil
 }
 
+type datasetRenameArgs struct {
+	DatasetID string
+	Name      string
+}
+
 // DatasetRenameAction is the corresponding action for 'dataset rename'.
-func DatasetRenameAction(c *cli.Context) error {
+func DatasetRenameAction(c *cli.Context, args datasetRenameArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	if err := client.renameDataset(c.String(datasetFlagDatasetID), c.String(datasetFlagName)); err != nil {
+	if err := client.renameDataset(args.DatasetID, args.Name); err != nil {
 		return err
 	}
 	return nil
@@ -62,9 +70,6 @@ func DatasetRenameAction(c *cli.Context) error {
 
 // renameDataset renames an existing datasetID with the newDatasetName.
 func (c *viamClient) renameDataset(datasetID, newDatasetName string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	_, err := c.datasetClient.RenameDataset(context.Background(),
 		&datasetpb.RenameDatasetRequest{Id: datasetID, Name: newDatasetName})
 	if err != nil {
@@ -74,14 +79,19 @@ func (c *viamClient) renameDataset(datasetID, newDatasetName string) error {
 	return nil
 }
 
+type datasetListArgs struct {
+	DatasetIDs []string
+	OrgID      string
+}
+
 // DatasetListAction is the corresponding action for 'dataset list'.
-func DatasetListAction(c *cli.Context) error {
+func DatasetListAction(c *cli.Context, args datasetListArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	datasetIDs := c.StringSlice(datasetFlagDatasetIDs)
-	orgID := c.String(generalFlagOrgID)
+	datasetIDs := args.DatasetIDs
+	orgID := args.OrgID
 
 	if orgID != "" && datasetIDs != nil {
 		return errors.New("must specify either dataset IDs or organization ID, got both")
@@ -101,9 +111,6 @@ func DatasetListAction(c *cli.Context) error {
 
 // listDatasetByIDs list all datasets by ID.
 func (c *viamClient) listDatasetByIDs(datasetIDs []string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	resp, err := c.datasetClient.ListDatasetsByIDs(context.Background(),
 		&datasetpb.ListDatasetsByIDsRequest{Ids: datasetIDs})
 	if err != nil {
@@ -117,9 +124,6 @@ func (c *viamClient) listDatasetByIDs(datasetIDs []string) error {
 
 // listDatasetByOrg list all datasets for the specified org ID.
 func (c *viamClient) listDatasetByOrg(orgID string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	resp, err := c.datasetClient.ListDatasetsByOrganizationID(context.Background(),
 		&datasetpb.ListDatasetsByOrganizationIDRequest{OrganizationId: orgID})
 	if err != nil {
@@ -131,13 +135,17 @@ func (c *viamClient) listDatasetByOrg(orgID string) error {
 	return nil
 }
 
+type datasetDeleteArgs struct {
+	DatasetID string
+}
+
 // DatasetDeleteAction is the corresponding action for 'dataset delete'.
-func DatasetDeleteAction(c *cli.Context) error {
+func DatasetDeleteAction(c *cli.Context, args datasetDeleteArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	if err := client.deleteDataset(c.String(datasetFlagDatasetID)); err != nil {
+	if err := client.deleteDataset(args.DatasetID); err != nil {
 		return err
 	}
 	return nil
@@ -145,9 +153,6 @@ func DatasetDeleteAction(c *cli.Context) error {
 
 // deleteDataset deletes a dataset with the specified ID.
 func (c *viamClient) deleteDataset(datasetID string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	_, err := c.datasetClient.DeleteDataset(context.Background(),
 		&datasetpb.DeleteDatasetRequest{Id: datasetID})
 	if err != nil {
@@ -157,25 +162,29 @@ func (c *viamClient) deleteDataset(datasetID string) error {
 	return nil
 }
 
+type datasetDownloadArgs struct {
+	Destination  string
+	DatasetID    string
+	IncludeJSONl bool
+	Parallel     uint
+	Timeout      uint
+}
+
 // DatasetDownloadAction is the corresponding action for 'dataset download'.
-func DatasetDownloadAction(c *cli.Context) error {
+func DatasetDownloadAction(c *cli.Context, args datasetDownloadArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	if err := client.downloadDataset(c.Path(dataFlagDestination), c.String(datasetFlagDatasetID),
-		c.Bool(datasetFlagIncludeJSONLines), c.Uint(dataFlagParallelDownloads)); err != nil {
+	if err := client.downloadDataset(args.Destination, args.DatasetID,
+		args.IncludeJSONl, args.Parallel, args.Timeout); err != nil {
 		return err
 	}
 	return nil
 }
 
 // downloadDataset downloads a dataset with the specified ID.
-func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines bool, parallelDownloads uint) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
-
+func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines bool, parallelDownloads, timeout uint) error {
 	var datasetFile *os.File
 	var err error
 	if includeJSONLines {
@@ -194,10 +203,18 @@ func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines boo
 			}
 		}()
 	}
+	resp, err := c.datasetClient.ListDatasetsByIDs(context.Background(),
+		&datasetpb.ListDatasetsByIDsRequest{Ids: []string{datasetID}})
+	if err != nil {
+		return errors.Wrapf(err, "error getting dataset ID")
+	}
+	if len(resp.GetDatasets()) == 0 {
+		return fmt.Errorf("%s does not match any dataset IDs", datasetID)
+	}
 
 	return c.performActionOnBinaryDataFromFilter(
-		func(id *datapb.BinaryID) error {
-			downloadErr := c.downloadBinary(dst, id)
+		func(id string) error {
+			downloadErr := c.downloadBinary(dst, id, timeout)
 			var datasetErr error
 			if includeJSONLines {
 				datasetErr = binaryDataToJSONLines(c.c.Context, c.dataClient, dst, datasetFile, id)
@@ -235,13 +252,13 @@ type BBoxAnnotation struct {
 }
 
 func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient, dst string, file *os.File,
-	id *datapb.BinaryID,
+	id string,
 ) error {
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-			BinaryIds:     []*datapb.BinaryID{id},
+			BinaryDataIds: []string{id},
 			IncludeBinary: false,
 		})
 		if err == nil {

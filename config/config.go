@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -29,17 +28,18 @@ import (
 
 // A Config describes the configuration of a robot.
 type Config struct {
-	Cloud      *Cloud
-	Modules    []Module
-	Remotes    []Remote
-	Components []resource.Config
-	Processes  []pexec.ProcessConfig
-	Services   []resource.Config
-	Packages   []PackageConfig
-	Network    NetworkConfig
-	Auth       AuthConfig
-	Debug      bool
-	LogConfig  []logging.LoggerPatternConfig
+	Cloud             *Cloud
+	Modules           []Module
+	Remotes           []Remote
+	Components        []resource.Config
+	Processes         []pexec.ProcessConfig
+	Services          []resource.Config
+	Packages          []PackageConfig
+	Network           NetworkConfig
+	Auth              AuthConfig
+	Debug             bool
+	LogConfig         []logging.LoggerPatternConfig
+	MaintenanceConfig *MaintenanceConfig
 
 	ConfigFilePath string
 
@@ -71,28 +71,48 @@ type Config struct {
 	// Revision contains the current revision of the config.
 	Revision string
 
+	// Initial represents whether this is an "initial" config passed in by web
+	// server entrypoint code. If true, the robot will continue to report a state
+	// of initializing after applying this config. If false, the robot will
+	// report a state of running after applying this config.
+	Initial bool
+
+	// DisableLogDeduplication controls whether deduplication of noisy logs
+	// should be turned off. Defaults to false.
+	DisableLogDeduplication bool
+
 	// toCache stores the JSON marshalled version of the config to be cached. It should be a copy of
 	// the config pulled from cloud with minor changes.
 	// This version is kept because the config is changed as it moves through the system.
 	toCache []byte
 }
 
+// MaintenanceConfig specifies a sensor that the machine will check to determine if the machine should reconfigure.
+// This Config is not validated during config processing but it will be validated during reconfiguration.
+type MaintenanceConfig struct {
+	SensorName            string `json:"sensor_name"`
+	MaintenanceAllowedKey string `json:"maintenance_allowed_key"`
+}
+
 // NOTE: This data must be maintained with what is in Config.
 type configData struct {
-	Cloud               *Cloud                        `json:"cloud,omitempty"`
-	Modules             []Module                      `json:"modules,omitempty"`
-	Remotes             []Remote                      `json:"remotes,omitempty"`
-	Components          []resource.Config             `json:"components,omitempty"`
-	Processes           []pexec.ProcessConfig         `json:"processes,omitempty"`
-	Services            []resource.Config             `json:"services,omitempty"`
-	Packages            []PackageConfig               `json:"packages,omitempty"`
-	Network             NetworkConfig                 `json:"network"`
-	Auth                AuthConfig                    `json:"auth"`
-	Debug               bool                          `json:"debug,omitempty"`
-	DisablePartialStart bool                          `json:"disable_partial_start"`
-	EnableWebProfile    bool                          `json:"enable_web_profile"`
-	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
-	Revision            string                        `json:"revision,omitempty"`
+	Cloud                   *Cloud                        `json:"cloud,omitempty"`
+	Modules                 []Module                      `json:"modules,omitempty"`
+	Remotes                 []Remote                      `json:"remotes,omitempty"`
+	Components              []resource.Config             `json:"components,omitempty"`
+	Processes               []pexec.ProcessConfig         `json:"processes,omitempty"`
+	Services                []resource.Config             `json:"services,omitempty"`
+	Packages                []PackageConfig               `json:"packages,omitempty"`
+	Network                 NetworkConfig                 `json:"network"`
+	Auth                    AuthConfig                    `json:"auth"`
+	Debug                   bool                          `json:"debug,omitempty"`
+	DisablePartialStart     bool                          `json:"disable_partial_start"`
+	EnableWebProfile        bool                          `json:"enable_web_profile"`
+	LogConfig               []logging.LoggerPatternConfig `json:"log,omitempty"`
+	Revision                string                        `json:"revision,omitempty"`
+	MaintenanceConfig       *MaintenanceConfig            `json:"maintenance,omitempty"`
+	PackagePath             string                        `json:"package_path,omitempty"`
+	DisableLogDeduplication bool                          `json:"disable_log_deduplication"`
 }
 
 // AppValidationStatus refers to the.
@@ -147,7 +167,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Remotes); idx++ {
-		if _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
+		if _, _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
 			if c.DisablePartialStart {
 				return err
 			}
@@ -162,12 +182,12 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 
 	for idx := 0; idx < len(c.Components); idx++ {
 		component := &c.Components[idx]
-		// dependsOn will only be populated if attributes have been converted, which does not happen in this function.
+		// requiredDeps and optionalDeps will only be populated if attributes have been converted, which does not happen in this function.
 		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
 		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
 		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
 		// dependencies are gathered during robot reconfiguration itself.
-		dependsOn, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
+		requiredDeps, optionalDeps, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
 			fullErr := errors.Wrapf(err, "error validating component %s: %s", component.Name, err)
 			if c.DisablePartialStart {
@@ -176,7 +196,8 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			resLogger := logger.Sublogger(component.ResourceName().String())
 			resLogger.Errorw("component config error; starting robot without component", "name", component.Name, "error", err)
 		} else {
-			component.ImplicitDependsOn = dependsOn
+			component.ImplicitDependsOn = requiredDeps
+			component.ImplicitOptionalDependsOn = optionalDeps
 		}
 		if err := c.validateUniqueResource(logger, seenResources, component.ResourceName().String()); err != nil {
 			return err
@@ -198,12 +219,12 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 
 	for idx := 0; idx < len(c.Services); idx++ {
 		service := &c.Services[idx]
-		// dependsOn will only be populated if attributes have been converted, which does not happen in this function.
+		// requiredDeps and optionalDeps will only be populated if attributes have been converted, which does not happen in this function.
 		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
 		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
 		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
 		// dependencies are gathered during robot reconfiguration itself.
-		dependsOn, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
+		requiredDeps, optionalDeps, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
 			if c.DisablePartialStart {
 				return err
@@ -211,7 +232,8 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			resLogger := logger.Sublogger(service.ResourceName().String())
 			resLogger.Errorw("service config error; starting robot without service", "name", service.Name, "error", err)
 		} else {
-			service.ImplicitDependsOn = dependsOn
+			service.ImplicitDependsOn = requiredDeps
+			service.ImplicitOptionalDependsOn = optionalDeps
 		}
 
 		if err := c.validateUniqueResource(logger, seenResources, service.ResourceName().String()); err != nil {
@@ -260,7 +282,7 @@ func (c *Config) StoreToCache() error {
 	if c.toCache == nil {
 		return errors.New("no unprocessed config to cache")
 	}
-	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
+	if err := os.MkdirAll(rutils.ViamDotDir, 0o700); err != nil {
 		return err
 	}
 	reader := bytes.NewReader(c.toCache)
@@ -299,6 +321,9 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.EnableWebProfile = conf.EnableWebProfile
 	c.LogConfig = conf.LogConfig
 	c.Revision = conf.Revision
+	c.MaintenanceConfig = conf.MaintenanceConfig
+	c.PackagePath = conf.PackagePath
+	c.DisableLogDeduplication = conf.DisableLogDeduplication
 
 	return nil
 }
@@ -316,20 +341,23 @@ func (c Config) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(configData{
-		Cloud:               c.Cloud,
-		Modules:             c.Modules,
-		Remotes:             c.Remotes,
-		Components:          c.Components,
-		Processes:           c.Processes,
-		Services:            c.Services,
-		Packages:            c.Packages,
-		Network:             c.Network,
-		Auth:                c.Auth,
-		Debug:               c.Debug,
-		DisablePartialStart: c.DisablePartialStart,
-		EnableWebProfile:    c.EnableWebProfile,
-		LogConfig:           c.LogConfig,
-		Revision:            c.Revision,
+		Cloud:                   c.Cloud,
+		Modules:                 c.Modules,
+		Remotes:                 c.Remotes,
+		Components:              c.Components,
+		Processes:               c.Processes,
+		Services:                c.Services,
+		Packages:                c.Packages,
+		Network:                 c.Network,
+		Auth:                    c.Auth,
+		Debug:                   c.Debug,
+		DisablePartialStart:     c.DisablePartialStart,
+		EnableWebProfile:        c.EnableWebProfile,
+		LogConfig:               c.LogConfig,
+		Revision:                c.Revision,
+		MaintenanceConfig:       c.MaintenanceConfig,
+		PackagePath:             c.PackagePath,
+		DisableLogDeduplication: c.DisableLogDeduplication,
 	})
 }
 
@@ -470,13 +498,13 @@ type RemoteAuth struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Remote) Validate(path string) ([]string, error) {
+func (conf *Remote) Validate(path string) ([]string, []string, error) {
 	if conf.alreadyValidated {
-		return nil, conf.cachedErr
+		return nil, nil, conf.cachedErr
 	}
 	conf.cachedErr = conf.validate(path)
 	conf.alreadyValidated = true
-	return nil, conf.cachedErr
+	return nil, nil, conf.cachedErr
 }
 
 // adjustPartialNames assumes this config comes from a place where the associated
@@ -704,8 +732,14 @@ type NetworkConfigData struct {
 	// This is mutually exclusive with TLSCertFile and TLSKeyFile.
 	TLSConfig *tls.Config `json:"-"`
 
+	// NoTLS disables the use of TLS on the hosted HTTP server.
+	NoTLS bool `json:"no_tls,omitempty"`
+
 	// Sessions configures session management.
 	Sessions SessionsConfig `json:"sessions"`
+
+	// TrafficTunnelEndpoints are the allowed ports and options for tunneling.
+	TrafficTunnelEndpoints []TrafficTunnelEndpoint `json:"traffic_tunnel_endpoints"`
 }
 
 // MarshalJSON marshals out this config.
@@ -791,6 +825,53 @@ func (sc *SessionsConfig) Validate(path string) error {
 	}
 
 	return nil
+}
+
+// TrafficTunnelEndpoint is an endpoint for tunneling traffic.
+type TrafficTunnelEndpoint struct {
+	// Port is the port which can be tunneled to/from.
+	Port int
+	// ConnectionTimeout is the timeout with which we will attempt to connect to the port.
+	// If set to 0 or not specified, a default connection timeout of 10 seconds will be used.
+	ConnectionTimeout time.Duration
+}
+
+// Note: keep this in sync with TrafficTunnelEndpoint.
+type trafficTunnelEndpointData struct {
+	Port              int    `json:"port"`
+	ConnectionTimeout string `json:"connection_timeout,omitempty"`
+}
+
+// UnmarshalJSON unmarshals JSON data into this traffic tunnel endpoint.
+func (tte *TrafficTunnelEndpoint) UnmarshalJSON(data []byte) error {
+	var temp trafficTunnelEndpointData
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	tte.Port = temp.Port
+
+	if temp.ConnectionTimeout != "" {
+		dur, err := time.ParseDuration(temp.ConnectionTimeout)
+		if err != nil {
+			return err
+		}
+		tte.ConnectionTimeout = dur
+	}
+
+	return nil
+}
+
+// MarshalJSON marshals out this traffic tunnel endpoint.
+func (tte *TrafficTunnelEndpoint) MarshalJSON() ([]byte, error) {
+	var temp trafficTunnelEndpointData
+
+	temp.Port = tte.Port
+
+	if tte.ConnectionTimeout != 0 {
+		temp.ConnectionTimeout = tte.ConnectionTimeout.String()
+	}
+	return json.Marshal(temp)
 }
 
 // AuthConfig describes authentication and authorization settings for the web server.
@@ -899,7 +980,7 @@ type AuthHandlerConfig struct {
 //					}
 //				}
 //			],
-//		"external_auth_config": {}
+//		    "external_auth_config": {}
 //	}
 func (config *AuthConfig) Validate(path string) error {
 	seenTypes := make(map[string]struct{}, len(config.Handlers))
@@ -928,8 +1009,8 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	}
 	switch config.Type {
 	case rpc.CredentialsTypeAPIKey:
-		if config.Config.String("key") == "" && len(config.Config.StringSlice("keys")) == 0 {
-			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("key or keys is required"))
+		if len(config.Config.StringSlice("keys")) == 0 {
+			return resource.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("keys is required"))
 		}
 	case rpc.CredentialsTypeExternal:
 		return errors.New("robot cannot issue external auth tokens")
@@ -939,63 +1020,57 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	return nil
 }
 
-// TLSConfig stores the TLS config for the robot.
-type TLSConfig struct {
-	*tls.Config
-	certMu  sync.Mutex
-	tlsCert *tls.Certificate
-}
-
-// NewTLSConfig creates a new tls config.
-func NewTLSConfig(cfg *Config) *TLSConfig {
-	tlsCfg := &TLSConfig{}
-	var tlsConfig *tls.Config
-	if cfg.Cloud != nil && cfg.Cloud.TLSCertificate != "" {
-		tlsConfig = &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				// always return same cert
-				tlsCfg.certMu.Lock()
-				defer tlsCfg.certMu.Unlock()
-				return tlsCfg.tlsCert, nil
-			},
-			GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				// always return same cert
-				tlsCfg.certMu.Lock()
-				defer tlsCfg.certMu.Unlock()
-				return tlsCfg.tlsCert, nil
-			},
+// ParseAPIKeys parses API keys from the handler config. It will return an empty map
+// if the credential type is not [rpc.CredentialsTypeAPIKey].
+func ParseAPIKeys(handler AuthHandlerConfig) map[string]string {
+	apiKeys := map[string]string{}
+	if handler.Type == rpc.CredentialsTypeAPIKey {
+		for k := range handler.Config {
+			// if it is not a legacy api key indicated by "key(s)" key
+			// current api keys will follow format { [keyId]: [key] }
+			if k != "keys" && k != "key" {
+				apiKeys[k] = handler.Config.String(k)
+			}
 		}
 	}
-	tlsCfg.Config = tlsConfig
-	return tlsCfg
+	return apiKeys
 }
 
-// UpdateCert updates the TLS certificate to be returned.
-func (t *TLSConfig) UpdateCert(cfg *Config) error {
+// CreateTLSWithCert creates a tls.Config with the TLS certificate to be returned.
+func CreateTLSWithCert(cfg *Config) (*tls.Config, error) {
 	cert, err := tls.X509KeyPair([]byte(cfg.Cloud.TLSCertificate), []byte(cfg.Cloud.TLSPrivateKey))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	t.certMu.Lock()
-	t.tlsCert = &cert
-	t.certMu.Unlock()
-	return nil
+	return &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			// always return same cert
+			return &cert, nil
+		},
+		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			// always return same cert
+			return &cert, nil
+		},
+	}, nil
 }
 
 // ProcessConfig processes robot configs.
-func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
+func ProcessConfig(in *Config) (*Config, error) {
 	out := *in
 	var selfCreds *rpc.Credentials
 	if in.Cloud != nil {
+		// We expect a cloud config from app to always contain a non-empty `TLSCertificate` field.
+		// We do this empty string check just to cope with unexpected input, such as cached configs
+		// that are hand altered to have their `TLSCertificate` removed.
 		if in.Cloud.TLSCertificate != "" {
-			if err := tlsCfg.UpdateCert(in); err != nil {
+			tlsConfig, err := CreateTLSWithCert(in)
+			if err != nil {
 				return nil, err
 			}
+			out.Network.TLSConfig = tlsConfig
 		}
-
 		selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
-		out.Network.TLSConfig = tlsCfg.Config // override
 	}
 
 	out.Remotes = make([]Remote, len(in.Remotes))
@@ -1123,7 +1198,9 @@ func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
 
 // SanitizedName returns the package name for the symlink/filepath of the package on the system.
 func (p *PackageConfig) SanitizedName() string {
-	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, string(os.PathSeparator), "-"), p.sanitizedVersion())
+	// p.Package is set by the PackageServiceClient as "{org_id}/{package_name}"
+	// see https://github.com/viamrobotics/app/blob/e0d693d80ae6f308e5b3a6bddb69991521127928/packages/packages.go#L1257
+	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, "/", "-"), p.sanitizedVersion())
 }
 
 // sanitizedVersion returns a cleaned version of the version so it is file-system-safe.
@@ -1137,4 +1214,51 @@ func (p *PackageConfig) sanitizedVersion() string {
 type Revision struct {
 	Revision    string
 	LastUpdated time.Time
+}
+
+// UpdateLoggerRegistryFromConfig will update the passed in registry with all log patterns
+// in `cfg.LogConfig` and each resource's `LogConfiguration` field if present. It will
+// also turn on or off log deduplication on the registry as necessary.
+func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, logger logging.Logger) {
+	var combinedLogCfg []logging.LoggerPatternConfig
+	if cfg.LogConfig != nil {
+		combinedLogCfg = append(combinedLogCfg, cfg.LogConfig...)
+	}
+
+	for _, serv := range cfg.Services {
+		if serv.LogConfiguration != nil {
+			resLogCfg := logging.LoggerPatternConfig{
+				Pattern: "rdk.resource_manager." + serv.ResourceName().String(),
+				Level:   serv.LogConfiguration.Level.String(),
+			}
+			combinedLogCfg = append(combinedLogCfg, resLogCfg)
+		}
+	}
+	for _, comp := range cfg.Components {
+		if comp.LogConfiguration != nil {
+			resLogCfg := logging.LoggerPatternConfig{
+				Pattern: "rdk.resource_manager." + comp.ResourceName().String(),
+				Level:   comp.LogConfiguration.Level.String(),
+			}
+			combinedLogCfg = append(combinedLogCfg, resLogCfg)
+		}
+	}
+
+	if err := registry.Update(combinedLogCfg, logger); err != nil {
+		logger.Warnw("Error processing log patterns",
+			"error", err)
+	}
+
+	// Check incoming disable log deduplication value for any diff. Note that config value
+	// is a "disable" while registry is an "enable". This is by design to make configuration
+	// easier for users and predicates easier for developers respectively. Due to this, the
+	// conditional to check for diff below looks odd (== instead of !=.)
+	if cfg.DisableLogDeduplication == registry.DeduplicateLogs.Load() {
+		state := "enabled"
+		if cfg.DisableLogDeduplication {
+			state = "disabled"
+		}
+		registry.DeduplicateLogs.Store(!cfg.DisableLogDeduplication)
+		logger.Infof("Noisy log deduplication is now %s", state)
+	}
 }

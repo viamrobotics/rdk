@@ -31,7 +31,7 @@ If you have a bug or an idea, please open an issue [here](https://viam.atlassian
 * Build: `make server`. Then run `./bin/<your architecture>/server [parameters]`
 * Run without building: `go run web/cmd/server/main.go [parameters]`
 
-Example with a dummy configuration: `go run web/cmd/server/main.go -config etc/configs/fake.json`. Then visit http://localhost:8080 to access remote control.
+Example with a dummy configuration: `go run web/cmd/server/main.go -config etc/configs/fake.json`.
 
 ### Examples
 * [CustomResources](https://pkg.go.dev/go.viam.com/rdk/examples/customresources) - example for creating custom resources.
@@ -53,7 +53,6 @@ Multiple SDKs are available for writing client applications that interface with 
 |-------------------------------------|----------------------------------------------------------------|----------------------|
 | VIAM_RESOURCE_CONFIGURATION_TIMEOUT | Duration for which resources are allowed to (re)configure.     | 1 minute             |
 | VIAM_MODULE_STARTUP_TIMEOUT         | Duration for which modules are allowed to startup.             | 5 minutes            |
-| ENV                                 | If set to "development", runs the frontend development server. | Server runs normally |
 
 ## Development
 
@@ -82,20 +81,6 @@ The API is defined with Protocol Buffers/gRPC which can be found at https://gith
 > without external resources. Instead of giving a URL to a mailing list
 > archive, summarize the relevant points of the discussion.
 
-
-### Frontend
-
-See documentation in [Frontend Readme](./web/frontend/README.md).
-
-To start the client development environment, first run the same `go run` command mentioned in Building and Using, but with the environmental variable `ENV=development` (e.g. `ENV=development go run web/cmd/server/main.go -debug -config etc/configs/fake.json`).
-
-If you are in the `web/frontend` directory this is aliased as `npm run server`.
-
-You will additionally need to start a development server for client assets. To do this, navigate to `web/frontend` and run `npm start` (and `npm install` if doing this for the first time) in a new terminal tab. Visit `localhost:8080` to view the app, not `localhost:5173`. The latter is the above-mentioned hot module replacement server that rebuilds frontend asset changes.
-
-#### Frontend against a remote host
-
-See documentation in [Direct Remote Control](./web/cmd/directremotecontrol/main.go).
 
 ### License check
 

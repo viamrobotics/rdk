@@ -33,8 +33,14 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+)
+
+const (
+	isSingle          = "single"
+	directionAttached = "direction"
 )
 
 var singleModel = resource.DefaultModelFamily.WithModel("single")
@@ -84,19 +90,19 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if conf.Pins.I == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "i")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "i")
 	}
 
 	if len(conf.BoardName) == 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, conf.BoardName)
 
-	return deps, nil
+	return deps, nil, nil
 }
 
 // AttachDirectionalAwareness to pre-created encoder.
@@ -259,4 +265,16 @@ func (e *Encoder) Close(ctx context.Context) error {
 		e.workers.Stop() // This also shuts down the interrupt stream.
 	}
 	return nil
+}
+
+// DoCommand uses a map string to run custom functionality of a single encoder.
+func (e *Encoder) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	resp := make(map[string]interface{})
+
+	if m, ok := cmd[isSingle].(motor.Motor); ok {
+		e.AttachDirectionalAwareness(m.(DirectionAware))
+		resp[directionAttached] = true
+	}
+
+	return resp, nil
 }

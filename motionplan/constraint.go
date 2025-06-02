@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 package motionplan
 
 import (
@@ -11,12 +9,22 @@ import (
 	motionpb "go.viam.com/api/service/motion/v1"
 
 	"go.viam.com/rdk/motionplan/ik"
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-var defaultMinStepCount = 2
+// short descriptions of constraints used in error messages.
+const (
+	linearConstraintDescription      = "linear constraint"
+	orientationConstraintDescription = "orientation constraint"
+	planarConstraintDescription      = "planar constraint"
+
+	// various collision constraints that have different names in order to be unique keys in maps of constraints that are created.
+	boundingRegionConstraintDescription = "bounding region constraint"
+	obstacleConstraintDescription       = "obstacle constraint"
+	selfCollisionConstraintDescription  = "self-collision constraint"
+	robotCollisionConstraintDescription = "robot constraint" // collision between a moving robot component and one that is stationary
+)
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
 func resolveSegmentsToPositions(segment *ik.Segment) error {
@@ -76,211 +84,62 @@ func resolveStatesToPositions(state *ik.State) error {
 	return nil
 }
 
+// SegmentFSConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
+// If the returned error is nil, the constraint is satisfied and the segment is valid.
+type SegmentFSConstraint func(*ik.SegmentFS) error
+
 // SegmentConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
-// If the returned bool is true, the constraint is satisfied and the segment is valid.
-type SegmentConstraint func(*ik.Segment) bool
+// If the returned error is nil, the constraint is satisfied and the segment is valid.
+type SegmentConstraint func(*ik.Segment) error
+
+// StateFSConstraint tests whether a given robot configuration is valid
+// If the returned error is nil, the constraint is satisfied and the state is valid.
+type StateFSConstraint func(*ik.StateFS) error
 
 // StateConstraint tests whether a given robot configuration is valid
-// If the returned bool is true, the constraint is satisfied and the state is valid.
-type StateConstraint func(*ik.State) bool
-
-// ConstraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
-// planners. Including a constraint handler as an anonymous struct member allows reuse.
-type ConstraintHandler struct {
-	segmentConstraints map[string]SegmentConstraint
-	stateConstraints   map[string]StateConstraint
-}
-
-// CheckStateConstraints will check a given input against all state constraints.
-// Return values are:
-// -- a bool representing whether all constraints passed
-// -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckStateConstraints(state *ik.State) (bool, string) {
-	for name, cFunc := range c.stateConstraints {
-		pass := cFunc(state)
-		if !pass {
-			return false, name
-		}
-	}
-	return true, ""
-}
-
-// CheckSegmentConstraints will check a given input against all segment constraints.
-// Return values are:
-// -- a bool representing whether all constraints passed
-// -- if failing, a string naming the failed constraint.
-func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) (bool, string) {
-	for name, cFunc := range c.segmentConstraints {
-		pass := cFunc(segment)
-		if !pass {
-			return false, name
-		}
-	}
-	return true, ""
-}
-
-// CheckStateConstraintsAcrossSegment will interpolate the given input from the StartInput to the EndInput, and ensure that all intermediate
-// states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will return `true, nil`.
-// If any constraints fail, this will return false, and an Segment representing the valid portion of the segment, if any. If no
-// part of the segment is valid, then `false, nil` is returned.
-func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, resolution float64) (bool, *ik.Segment) {
-	interpolatedConfigurations, err := interpolateSegment(ci, resolution)
-	if err != nil {
-		return false, nil
-	}
-	var lastGood []referenceframe.Input
-	for i, interpConfig := range interpolatedConfigurations {
-		interpC := &ik.State{Frame: ci.Frame, Configuration: interpConfig}
-		if resolveStatesToPositions(interpC) != nil {
-			return false, nil
-		}
-		pass, _ := c.CheckStateConstraints(interpC)
-		if !pass {
-			if i == 0 {
-				// fail on start pos
-				return false, nil
-			}
-			return false, &ik.Segment{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood}
-		}
-		lastGood = interpC.Configuration
-	}
-
-	return true, nil
-}
-
-// interpolateSegment is a helper function which produces a list of intermediate inputs, between the start and end
-// configuration of a segment at a given resolution value.
-func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.Input, error) {
-	// ensure we have cartesian positions
-	if err := resolveSegmentsToPositions(ci); err != nil {
-		return nil, err
-	}
-
-	steps := PathStepCount(ci.StartPosition, ci.EndPosition, resolution)
-	if steps < defaultMinStepCount {
-		// Minimum step count ensures we are not missing anything
-		steps = defaultMinStepCount
-	}
-
-	var interpolatedConfigurations [][]referenceframe.Input
-	for i := 0; i <= steps; i++ {
-		interp := float64(i) / float64(steps)
-		interpConfig, err := ci.Frame.Interpolate(ci.StartConfiguration, ci.EndConfiguration, interp)
-		if err != nil {
-			return nil, err
-		}
-		interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
-	}
-	return interpolatedConfigurations, nil
-}
-
-// CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all
-// state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
-// provided that segment also meets segment constraints.
-func (c *ConstraintHandler) CheckSegmentAndStateValidity(segment *ik.Segment, resolution float64) (bool, *ik.Segment) {
-	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution)
-	if !valid {
-		if subSegment != nil {
-			subSegmentValid, _ := c.CheckSegmentConstraints(subSegment)
-			if subSegmentValid {
-				return false, subSegment
-			}
-		}
-		return false, nil
-	}
-	// all states are valid
-	valid, _ = c.CheckSegmentConstraints(segment)
-	return valid, nil
-}
-
-// AddStateConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
-// if the given position satisfies the constraint.
-func (c *ConstraintHandler) AddStateConstraint(name string, cons StateConstraint) {
-	if c.stateConstraints == nil {
-		c.stateConstraints = map[string]StateConstraint{}
-	}
-	c.stateConstraints[name] = cons
-}
-
-// RemoveStateConstraint will remove the given constraint.
-func (c *ConstraintHandler) RemoveStateConstraint(name string) {
-	delete(c.stateConstraints, name)
-}
-
-// StateConstraints will list all state constraints by name.
-func (c *ConstraintHandler) StateConstraints() []string {
-	names := make([]string, 0, len(c.stateConstraints))
-	for name := range c.stateConstraints {
-		names = append(names, name)
-	}
-	return names
-}
-
-// AddSegmentConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
-// if the given position satisfies the constraint.
-func (c *ConstraintHandler) AddSegmentConstraint(name string, cons SegmentConstraint) {
-	if c.segmentConstraints == nil {
-		c.segmentConstraints = map[string]SegmentConstraint{}
-	}
-	c.segmentConstraints[name] = cons
-}
-
-// RemoveSegmentConstraint will remove the given constraint.
-func (c *ConstraintHandler) RemoveSegmentConstraint(name string) {
-	delete(c.segmentConstraints, name)
-}
-
-// SegmentConstraints will list all segment constraints by name.
-func (c *ConstraintHandler) SegmentConstraints() []string {
-	names := make([]string, 0, len(c.segmentConstraints))
-	for name := range c.segmentConstraints {
-		names = append(names, name)
-	}
-	return names
-}
+// If the returned error is nil, the constraint is satisfied and the state is valid.
+type StateConstraint func(*ik.State) error
 
 func createAllCollisionConstraints(
 	movingRobotGeometries, staticRobotGeometries, worldGeometries, boundingRegions []spatial.Geometry,
 	allowedCollisions []*Collision,
 	collisionBufferMM float64,
-) (map[string]StateConstraint, error) {
+) (map[string]StateFSConstraint, map[string]StateConstraint, error) {
+	constraintFSMap := map[string]StateFSConstraint{}
 	constraintMap := map[string]StateConstraint{}
-	var err error
 
 	if len(worldGeometries) > 0 {
-		// Check if a moving geometry is in collision with a pointcloud. If so, error.
-		// TODO: This is not the most robust way to deal with this but is better than driving through walls.
-		var zeroCG *collisionGraph
-		for _, geom := range worldGeometries {
-			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
-				if zeroCG == nil {
-					zeroCG, err = setupZeroCG(movingRobotGeometries, worldGeometries, allowedCollisions, collisionBufferMM)
-					if err != nil {
-						return nil, err
-					}
-				}
-				for _, collision := range zeroCG.collisions(collisionBufferMM) {
-					if collision.name1 == octree.Label() {
-						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name2)
-					} else if collision.name2 == octree.Label() {
-						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name1)
-					}
-				}
-			}
-		}
-
 		// create constraint to keep moving geometries from hitting world state obstacles
-		obstacleConstraint, err := NewCollisionConstraint(movingRobotGeometries, worldGeometries, allowedCollisions, false, collisionBufferMM)
+		obstacleConstraint, err := NewCollisionConstraint(
+			movingRobotGeometries,
+			worldGeometries,
+			allowedCollisions,
+			false,
+			collisionBufferMM,
+		)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		constraintMap[defaultObstacleConstraintDesc] = obstacleConstraint
+		// create constraint to keep moving geometries from hitting world state obstacles
+		obstacleConstraintFS, err := NewCollisionConstraintFS(
+			movingRobotGeometries,
+			worldGeometries,
+			allowedCollisions,
+			false,
+			collisionBufferMM,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		// TODO: TPspace currently still uses the non-FS constraint, this should be removed once TPspace is fully migrated to frame systems
+		constraintMap[obstacleConstraintDescription] = obstacleConstraint
+		constraintFSMap[obstacleConstraintDescription] = obstacleConstraintFS
 	}
 
 	if len(boundingRegions) > 0 {
 		// create constraint to keep moving geometries within the defined bounding regions
 		interactionSpaceConstraint := NewBoundingRegionConstraint(movingRobotGeometries, boundingRegions, collisionBufferMM)
-		constraintMap[defaultBoundingRegionConstraintDesc] = interactionSpaceConstraint
+		constraintMap[boundingRegionConstraintDescription] = interactionSpaceConstraint
 	}
 
 	if len(staticRobotGeometries) > 0 {
@@ -292,28 +151,45 @@ func createAllCollisionConstraints(
 			false,
 			collisionBufferMM)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		constraintMap[defaultRobotCollisionConstraintDesc] = robotConstraint
+		robotConstraintFS, err := NewCollisionConstraintFS(
+			movingRobotGeometries,
+			staticRobotGeometries,
+			allowedCollisions,
+			false,
+			collisionBufferMM)
+		if err != nil {
+			return nil, nil, err
+		}
+		constraintMap[robotCollisionConstraintDescription] = robotConstraint
+		constraintFSMap[robotCollisionConstraintDescription] = robotConstraintFS
 	}
 
 	// create constraint to keep moving geometries from hitting themselves
 	if len(movingRobotGeometries) > 1 {
 		selfCollisionConstraint, err := NewCollisionConstraint(movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		constraintMap[defaultSelfCollisionConstraintDesc] = selfCollisionConstraint
+		constraintMap[selfCollisionConstraintDescription] = selfCollisionConstraint
+		selfCollisionConstraintFS, err := NewCollisionConstraintFS(movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM)
+		if err != nil {
+			return nil, nil, err
+		}
+		constraintFSMap[selfCollisionConstraintDescription] = selfCollisionConstraintFS
 	}
-	return constraintMap, nil
+	return constraintFSMap, constraintMap, nil
 }
 
-func setupZeroCG(moving, static []spatial.Geometry,
+func setupZeroCG(
+	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
+	reportDistances bool,
 	collisionBufferMM float64,
 ) (*collisionGraph, error) {
 	// create the reference collisionGraph
-	zeroCG, err := newCollisionGraph(moving, static, nil, true, collisionBufferMM)
+	zeroCG, err := newCollisionGraph(moving, static, nil, reportDistances, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -333,19 +209,19 @@ func NewCollisionConstraint(
 	reportDistances bool,
 	collisionBufferMM float64,
 ) (StateConstraint, error) {
-	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, collisionBufferMM)
+	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, true, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
 
 	// create constraint from reference collision graph
-	constraint := func(state *ik.State) bool {
+	constraint := func(state *ik.State) error {
 		var internalGeoms []spatial.Geometry
 		switch {
 		case state.Configuration != nil:
 			internal, err := state.Frame.Geometries(state.Configuration)
 			if err != nil {
-				return false
+				return err
 			}
 			internalGeoms = internal.Geometries()
 		case state.Position != nil:
@@ -354,21 +230,77 @@ func NewCollisionConstraint(
 			// transform them to the Position
 			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
 			if err != nil {
-				return false
+				return err
 			}
 			movedGeoms := internal.Geometries()
 			for _, geom := range movedGeoms {
 				internalGeoms = append(internalGeoms, geom.Transform(state.Position))
 			}
 		default:
-			return false
+			return errors.New("need either a Position or Configuration to be set for a ik.State")
 		}
 
 		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
 		if err != nil {
-			return false
+			return err
 		}
-		return len(cg.collisions(collisionBufferMM)) == 0
+		cs := cg.collisions(collisionBufferMM)
+		if len(cs) != 0 {
+			// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
+			return fmt.Errorf("violation between %s and %s geometries", cs[0].name1, cs[0].name2)
+		}
+		return nil
+	}
+	return constraint, nil
+}
+
+// NewCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
+// which will be violated if geometries constituting the given frame ever come into collision with obstacle geometries
+// outside of the collisions present for the observationInput. Collisions specified as collisionSpecifications will also be ignored.
+// If reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
+func NewCollisionConstraintFS(
+	moving, static []spatial.Geometry,
+	collisionSpecifications []*Collision,
+	reportDistances bool,
+	collisionBufferMM float64,
+) (StateFSConstraint, error) {
+	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, true, collisionBufferMM)
+	if err != nil {
+		return nil, err
+	}
+	movingMap := map[string]spatial.Geometry{}
+	for _, geom := range moving {
+		movingMap[geom.Label()] = geom
+	}
+
+	// create constraint from reference collision graph
+	constraint := func(state *ik.StateFS) error {
+		// Use FrameSystemGeometries to get all geometries in the frame system
+		internalGeometries, err := referenceframe.FrameSystemGeometries(state.FS, state.Configuration)
+		if err != nil {
+			return err
+		}
+
+		// We only want to compare *moving* geometries, so we filter what we get from the framesystem against what we were passed.
+		var internalGeoms []spatial.Geometry
+		for _, geosInFrame := range internalGeometries {
+			if len(geosInFrame.Geometries()) > 0 {
+				if _, ok := movingMap[geosInFrame.Geometries()[0].Label()]; ok {
+					internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
+				}
+			}
+		}
+
+		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
+		if err != nil {
+			return err
+		}
+		cs := cg.collisions(collisionBufferMM)
+		if len(cs) != 0 {
+			// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
+			return fmt.Errorf("violation between %s and %s geometries", cs[0].name1, cs[0].name2)
+		}
+		return nil
 	}
 	return constraint, nil
 }
@@ -377,21 +309,32 @@ func NewCollisionConstraint(
 // shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
 // orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
 func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (StateConstraint, ik.StateMetric) {
+	// Account for float error
+	if linTol < defaultEpsilon {
+		linTol = defaultEpsilon
+	}
+	if orientTol < defaultEpsilon {
+		orientTol = defaultEpsilon
+	}
+
 	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, orientTol)
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
 	interpMetric := ik.CombineMetrics(orientMetric, lineMetric)
 
-	f := func(state *ik.State) bool {
-		return orientConstraint(state) && lineConstraint(state)
+	f := func(state *ik.State) error {
+		return errors.Join(orientConstraint(state), lineConstraint(state))
 	}
 	return f, interpMetric
 }
 
 // NewProportionalLinearInterpolatingConstraint will provide the same metric and constraint as NewAbsoluteLinearInterpolatingConstraint,
 // except that allowable linear and orientation deviation is scaled based on the distance from start to goal.
-func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (StateConstraint, ik.StateMetric) {
-	orientTol := epsilon * ik.OrientDist(from.Orientation(), to.Orientation())
-	linTol := epsilon * from.Point().Distance(to.Point())
+func NewProportionalLinearInterpolatingConstraint(
+	from, to spatial.Pose,
+	linEpsilon, orientEpsilon float64,
+) (StateConstraint, ik.StateMetric) {
+	orientTol := orientEpsilon * ik.OrientDist(from.Orientation(), to.Orientation())
+	linTol := linEpsilon * from.Point().Distance(to.Point())
 
 	return NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
 }
@@ -414,12 +357,15 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 		return (sDist + gDist) - origDist
 	}
 
-	validFunc := func(state *ik.State) bool {
+	validFunc := func(state *ik.State) error {
 		err := resolveStatesToPositions(state)
 		if err != nil {
-			return false
+			return err
 		}
-		return gradFunc(state) < tolerance
+		if gradFunc(state) < tolerance {
+			return nil
+		}
+		return errors.New(orientationConstraintDescription + " violated")
 	}
 
 	return validFunc, gradFunc
@@ -452,12 +398,15 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 		return pDist*pDist + oDist*oDist
 	}
 
-	validFunc := func(state *ik.State) bool {
+	validFunc := func(state *ik.State) error {
 		err := resolveStatesToPositions(state)
 		if err != nil {
-			return false
+			return err
 		}
-		return gradFunc(state) < epsilon*epsilon
+		if gradFunc(state) < epsilon*epsilon {
+			return nil
+		}
+		return errors.New(planarConstraintDescription + " violated")
 	}
 
 	return validFunc, gradFunc
@@ -468,65 +417,42 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Sta
 // which will bring a pose into the valid constraint space.
 // tolerance refers to the closeness to the line necessary to be a valid pose in mm.
 func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, ik.StateMetric) {
-	if pt1.Distance(pt2) < defaultEpsilon {
-		tolerance = defaultEpsilon
-	}
-
 	gradFunc := func(state *ik.State) float64 {
 		return math.Max(spatial.DistToLineSegment(pt1, pt2, state.Position.Point())-tolerance, 0)
 	}
 
-	validFunc := func(state *ik.State) bool {
+	validFunc := func(state *ik.State) error {
 		err := resolveStatesToPositions(state)
 		if err != nil {
-			return false
+			return err
 		}
-		return gradFunc(state) == 0
+		if gradFunc(state) == 0 {
+			return nil
+		}
+		return errors.New(linearConstraintDescription + " violated")
 	}
 
 	return validFunc, gradFunc
 }
 
-// NewOctreeCollisionConstraint takes an octree and will return a constraint that checks whether any of the geometries in the solver frame
-// intersect with points in the octree. Threshold sets the confidence level required for a point to be considered, and buffer is the
-// distance to a point that is considered a collision in mm.
-func NewOctreeCollisionConstraint(octree *pointcloud.BasicOctree, threshold int, buffer, collisionBufferMM float64) StateConstraint {
-	constraint := func(state *ik.State) bool {
-		geometries, err := state.Frame.Geometries(state.Configuration)
-		if err != nil && geometries == nil {
-			return false
-		}
-
-		for _, geom := range geometries.Geometries() {
-			collides, err := octree.CollidesWithGeometry(geom, threshold, buffer, collisionBufferMM)
-			if err != nil || collides {
-				return false
-			}
-		}
-		return true
-	}
-	return constraint
-}
-
 // NewBoundingRegionConstraint will determine if the given list of robot geometries are in collision with the
 // given list of bounding regions.
 func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry, collisionBufferMM float64) StateConstraint {
-	return func(state *ik.State) bool {
+	return func(state *ik.State) error {
 		var internalGeoms []spatial.Geometry
 		switch {
 		case state.Configuration != nil:
 			internal, err := state.Frame.Geometries(state.Configuration)
 			if err != nil {
-				return false
+				return err
 			}
 			internalGeoms = internal.Geometries()
 		case state.Position != nil:
-			// TODO(RSDK-5391): remove this case
 			// If we didn't pass a Configuration, but we do have a Position, then get the geometries at the zero state and
 			// transform them to the Position
 			internal, err := state.Frame.Geometries(make([]referenceframe.Input, len(state.Frame.DoF())))
 			if err != nil {
-				return false
+				return err
 			}
 			movedGeoms := internal.Geometries()
 			for _, geom := range movedGeoms {
@@ -537,21 +463,32 @@ func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry,
 		}
 		cg, err := newCollisionGraph(internalGeoms, boundingRegions, nil, true, collisionBufferMM)
 		if err != nil {
-			return false
+			return err
 		}
-		return len(cg.collisions(collisionBufferMM)) != 0
+		cs := cg.collisions(collisionBufferMM)
+		if len(cs) == 0 {
+			return errors.New("violation of bounding region constraint")
+		}
+		return nil
 	}
 }
 
-// LinearConstraint specifies that the component being moved should move linearly relative to its goal.
-// It does not constrain the motion of components other than the `component_name` specified in motion.Move.
+// LinearConstraint specifies that the components being moved should move linearly relative to their goals.
 type LinearConstraint struct {
 	LineToleranceMm          float64 // Max linear deviation from straight-line between start and goal, in mm.
 	OrientationToleranceDegs float64
 }
 
-// OrientationConstraint specifies that the component being moved will not deviate its orientation beyond some threshold relative
-// to the goal. It does not constrain the motion of components other than the `component_name` specified in motion.Move.
+// PseudolinearConstraint specifies that the component being moved should not deviate from the straight-line path to their goal by
+// more than a factor proportional to the distance from start to goal.
+// For example, if a component is moving 100mm, then a LineToleranceFactor of 1.0 means that the component will remain within a 100mm
+// radius of the straight-line start-goal path.
+type PseudolinearConstraint struct {
+	LineToleranceFactor        float64
+	OrientationToleranceFactor float64
+}
+
+// OrientationConstraint specifies that the components being moved will not deviate orientation beyond some threshold.
 type OrientationConstraint struct {
 	OrientationToleranceDegs float64
 }
@@ -571,6 +508,7 @@ type CollisionSpecification struct {
 // It serves as a convenenient RDK wrapper for the protobuf object.
 type Constraints struct {
 	LinearConstraint       []LinearConstraint
+	PseudolinearConstraint []PseudolinearConstraint
 	OrientationConstraint  []OrientationConstraint
 	CollisionSpecification []CollisionSpecification
 }
@@ -579,6 +517,7 @@ type Constraints struct {
 func NewEmptyConstraints() *Constraints {
 	return &Constraints{
 		LinearConstraint:       make([]LinearConstraint, 0),
+		PseudolinearConstraint: make([]PseudolinearConstraint, 0),
 		OrientationConstraint:  make([]OrientationConstraint, 0),
 		CollisionSpecification: make([]CollisionSpecification, 0),
 	}
@@ -587,11 +526,13 @@ func NewEmptyConstraints() *Constraints {
 // NewConstraints initializes a Constraints object with user-defined LinearConstraint, OrientationConstraint, and CollisionSpecification.
 func NewConstraints(
 	linConstraints []LinearConstraint,
+	pseudoConstraints []PseudolinearConstraint,
 	orientConstraints []OrientationConstraint,
 	collSpecifications []CollisionSpecification,
 ) *Constraints {
 	return &Constraints{
 		LinearConstraint:       linConstraints,
+		PseudolinearConstraint: pseudoConstraints,
 		OrientationConstraint:  orientConstraints,
 		CollisionSpecification: collSpecifications,
 	}
@@ -600,7 +541,7 @@ func NewConstraints(
 // ConstraintsFromProtobuf converts a protobuf object to a Constraints object.
 func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 	if pbConstraint == nil {
-		return nil
+		return NewEmptyConstraints()
 	}
 
 	// iterate through all motionpb.LinearConstraint and convert to RDK form
@@ -627,8 +568,12 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 	orientConstraintFromProto := func(orientConstraints []*motionpb.OrientationConstraint) []OrientationConstraint {
 		toRet := make([]OrientationConstraint, 0, len(orientConstraints))
 		for _, orientConstraint := range orientConstraints {
+			orientTol := 0.
+			if orientConstraint.OrientationToleranceDegs != nil {
+				orientTol = float64(*orientConstraint.OrientationToleranceDegs)
+			}
 			toRet = append(toRet, OrientationConstraint{
-				OrientationToleranceDegs: float64(*orientConstraint.OrientationToleranceDegs),
+				OrientationToleranceDegs: orientTol,
 			})
 		}
 		return toRet
@@ -654,6 +599,7 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 
 	return NewConstraints(
 		linConstraintFromProto(pbConstraint.LinearConstraint),
+		[]PseudolinearConstraint{},
 		orientConstraintFromProto(pbConstraint.OrientationConstraint),
 		collSpecFromProto(pbConstraint.CollisionSpecification),
 	)
@@ -728,6 +674,19 @@ func (c *Constraints) GetLinearConstraint() []LinearConstraint {
 	return nil
 }
 
+// AddPseudolinearConstraint appends a PseudolinearConstraint to a Constraints object.
+func (c *Constraints) AddPseudolinearConstraint(plinConstraint PseudolinearConstraint) {
+	c.PseudolinearConstraint = append(c.PseudolinearConstraint, plinConstraint)
+}
+
+// GetPseudolinearConstraint checks if the Constraints object is nil and if not then returns its PseudolinearConstraint field.
+func (c *Constraints) GetPseudolinearConstraint() []PseudolinearConstraint {
+	if c != nil {
+		return c.PseudolinearConstraint
+	}
+	return nil
+}
+
 // AddOrientationConstraint appends a OrientationConstraint to a Constraints object.
 func (c *Constraints) AddOrientationConstraint(orientConstraint OrientationConstraint) {
 	c.OrientationConstraint = append(c.OrientationConstraint, orientConstraint)
@@ -752,4 +711,197 @@ func (c *Constraints) GetCollisionSpecification() []CollisionSpecification {
 		return c.CollisionSpecification
 	}
 	return nil
+}
+
+type fsPathConstraint struct {
+	metricMap     map[string]ik.StateMetric
+	constraintMap map[string]StateConstraint
+	goalMap       referenceframe.FrameSystemPoses
+	fs            referenceframe.FrameSystem
+}
+
+func (fpc *fsPathConstraint) constraint(state *ik.StateFS) error {
+	for frame, goal := range fpc.goalMap {
+		if constraint, ok := fpc.constraintMap[frame]; ok {
+			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			if err != nil {
+				return err
+			}
+			if err := constraint(&ik.State{
+				Configuration: state.Configuration[frame],
+				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
+				Frame:         fpc.fs.Frame(frame),
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (fpc *fsPathConstraint) metric(state *ik.StateFS) float64 {
+	score := 0.
+	for frame, goal := range fpc.goalMap {
+		if metric, ok := fpc.metricMap[frame]; ok {
+			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			if err != nil {
+				score = math.Inf(1)
+				break
+			}
+			score += metric(&ik.State{
+				Configuration: state.Configuration[frame],
+				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
+				Frame:         fpc.fs.Frame(frame),
+			})
+		}
+	}
+	return score
+}
+
+func newFsPathConstraintSeparatedLinOrientTol(
+	fs referenceframe.FrameSystem,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
+	constructor func(spatial.Pose, spatial.Pose, float64, float64) (StateConstraint, ik.StateMetric),
+	linTol, orientTol float64,
+) (*fsPathConstraint, error) {
+	metricMap := map[string]ik.StateMetric{}
+	constraintMap := map[string]StateConstraint{}
+
+	for frame, goal := range to {
+		startPiF, ok := from[frame]
+		if !ok {
+			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			if err != nil {
+				return nil, err
+			}
+			startPiF = startPiFTf.(*referenceframe.PoseInFrame)
+		}
+		constraint, metric := constructor(startPiF.Pose(), goal.Pose(), linTol, orientTol)
+
+		metricMap[frame] = metric
+		constraintMap[frame] = constraint
+	}
+	return &fsPathConstraint{
+		metricMap:     metricMap,
+		constraintMap: constraintMap,
+		goalMap:       to,
+		fs:            fs,
+	}, nil
+}
+
+func newFsPathConstraintTol(
+	fs referenceframe.FrameSystem,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
+	constructor func(spatial.Pose, spatial.Pose, float64) (StateConstraint, ik.StateMetric),
+	tolerance float64,
+) (*fsPathConstraint, error) {
+	metricMap := map[string]ik.StateMetric{}
+	constraintMap := map[string]StateConstraint{}
+
+	for frame, goal := range to {
+		startPiF, ok := from[frame]
+		if !ok {
+			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			if err != nil {
+				return nil, err
+			}
+			startPiF = startPiFTf.(*referenceframe.PoseInFrame)
+		}
+		constraint, metric := constructor(startPiF.Pose(), goal.Pose(), tolerance)
+
+		metricMap[frame] = metric
+		constraintMap[frame] = constraint
+	}
+	return &fsPathConstraint{
+		metricMap:     metricMap,
+		constraintMap: constraintMap,
+		goalMap:       to,
+		fs:            fs,
+	}, nil
+}
+
+// CreateSlerpOrientationConstraintFS will measure the orientation difference between the orientation of two poses across a frame system,
+// and return a constraint that returns whether given orientations are within a given tolerance distance of the shortest segment between
+// their respective orientations, as well as a metric which returns the distance to that valid region.
+func CreateSlerpOrientationConstraintFS(
+	fs referenceframe.FrameSystem,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
+	tolerance float64,
+) (StateFSConstraint, ik.StateFSMetric, error) {
+	constraintInternal, err := newFsPathConstraintTol(fs, startCfg, from, to, NewSlerpOrientationConstraint, tolerance)
+	if err != nil {
+		return nil, nil, err
+	}
+	return constraintInternal.constraint, constraintInternal.metric, nil
+}
+
+// CreateLineConstraintFS will measure the linear distance between the positions of two poses across a frame system,
+// and return a constraint that checks whether given positions are within a specified tolerance distance of the shortest
+// line segment between their respective positions, as well as a metric which returns the distance to that valid region.
+func CreateLineConstraintFS(
+	fs referenceframe.FrameSystem,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
+	tolerance float64,
+) (StateFSConstraint, ik.StateFSMetric, error) {
+	// Need to define a constructor here since NewLineConstraint takes r3.Vectors, not poses
+	constructor := func(fromPose, toPose spatial.Pose, tolerance float64) (StateConstraint, ik.StateMetric) {
+		return NewLineConstraint(fromPose.Point(), toPose.Point(), tolerance)
+	}
+	constraintInternal, err := newFsPathConstraintTol(fs, startCfg, from, to, constructor, tolerance)
+	if err != nil {
+		return nil, nil, err
+	}
+	return constraintInternal.constraint, constraintInternal.metric, nil
+}
+
+// CreateAbsoluteLinearInterpolatingConstraintFS provides a Constraint whose valid manifold allows a specified amount of deviation from the
+// shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
+// orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
+func CreateAbsoluteLinearInterpolatingConstraintFS(
+	fs referenceframe.FrameSystem,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
+	linTol, orientTol float64,
+) (StateFSConstraint, ik.StateFSMetric, error) {
+	constraintInternal, err := newFsPathConstraintSeparatedLinOrientTol(
+		fs,
+		startCfg,
+		from,
+		to,
+		NewAbsoluteLinearInterpolatingConstraint,
+		linTol,
+		orientTol,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	return constraintInternal.constraint, constraintInternal.metric, nil
+}
+
+// CreateProportionalLinearInterpolatingConstraintFS will provide the same metric and constraint as
+// CreateAbsoluteLinearInterpolatingConstraintFS, except that allowable linear and orientation deviation is scaled based on the distance
+// from start to goal.
+func CreateProportionalLinearInterpolatingConstraintFS(
+	fs referenceframe.FrameSystem,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
+	linTol, orientTol float64,
+) (StateFSConstraint, ik.StateFSMetric, error) {
+	constraintInternal, err := newFsPathConstraintSeparatedLinOrientTol(
+		fs,
+		startCfg,
+		from,
+		to,
+		NewProportionalLinearInterpolatingConstraint,
+		linTol,
+		orientTol,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	return constraintInternal.constraint, constraintInternal.metric, nil
 }

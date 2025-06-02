@@ -23,7 +23,7 @@ import (
 // OOBErrString is a string that all OOB errors should contain, so that they can be checked for distinct from other Transform errors.
 const OOBErrString = "input out of bounds"
 
-// Limit represents the limits of motion for a referenceframe.
+// Limit represents the limits of motion for a Frame.
 type Limit struct {
 	Min float64
 	Max float64
@@ -39,7 +39,7 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, restrictionPercent f
 	}
 	dof := m.DoF()
 	if len(reference) != len(dof) {
-		return nil, NewIncorrectInputLengthError(len(reference), len(dof))
+		return nil, NewIncorrectDoFError(len(reference), len(dof))
 	}
 	pos := make([]Input, 0, len(dof))
 	for i, limit := range dof {
@@ -62,7 +62,7 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, restrictionPercent f
 	return pos, nil
 }
 
-// RandomFrameInputs will produce a list of valid, in-bounds inputs for the referenceframe.
+// RandomFrameInputs will produce a list of valid, in-bounds inputs for the Frame.
 func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 	if rSeed == nil {
 		//nolint:gosec
@@ -96,10 +96,10 @@ type Limited interface {
 // Frame represents a reference frame, e.g. an arm, a joint, a gripper, a board, etc.
 type Frame interface {
 	Limited
-	// Name returns the name of the referenceframe.
+	// Name returns the name of the Frame
 	Name() string
 
-	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's referenceframe.
+	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's reference frame
 	Transform([]Input) (spatial.Pose, error)
 
 	// Interpolate interpolates the given amount between the two sets of inputs.
@@ -124,7 +124,7 @@ type baseFrame struct {
 	limits []Limit
 }
 
-// Name returns the name of the referenceframe.
+// Name returns the name of the Frame.
 func (bf *baseFrame) Name() string {
 	return bf.name
 }
@@ -151,7 +151,7 @@ func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 func (bf *baseFrame) validInputs(inputs []Input) error {
 	var errAll error
 	if len(inputs) != len(bf.limits) {
-		return NewIncorrectInputLengthError(len(inputs), len(bf.limits))
+		return NewIncorrectDoFError(len(inputs), len(bf.limits))
 	}
 	for i := 0; i < len(bf.limits); i++ {
 		if inputs[i].Value < bf.limits[i].Min || inputs[i].Value > bf.limits[i].Max {
@@ -164,7 +164,7 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation
-// from the current Frame to the parent referenceframe.
+// from the current Frame to the parent's reference frame.
 type staticFrame struct {
 	*baseFrame
 	transform spatial.Pose
@@ -181,7 +181,7 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
 	if len(input) != 0 {
-		return nil, NewIncorrectInputLengthError(len(input), 0)
+		return nil, NewIncorrectDoFError(len(input), 0)
 	}
 	newGeom := sf.geometry.Transform(sf.transform)
 	if newGeom.Label() == "" {
@@ -239,10 +239,10 @@ func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial
 	return &staticFrame{&baseFrame{name, []Limit{}}, pose, geometry}, nil
 }
 
-// Transform returns the pose associated with this static referenceframe.
+// Transform returns the pose associated with this static Frame.
 func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
 	if len(input) != 0 {
-		return nil, NewIncorrectInputLengthError(len(input), 0)
+		return nil, NewIncorrectDoFError(len(input), 0)
 	}
 	return sf.transform, nil
 }
@@ -263,7 +263,7 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 		return NewGeometriesInFrame(sf.Name(), nil), nil
 	}
 	if len(input) != 0 {
-		return nil, NewIncorrectInputLengthError(len(input), 0)
+		return nil, NewIncorrectDoFError(len(input), 0)
 	}
 	newGeom := sf.geometry.Transform(spatial.NewZeroPose())
 	if newGeom.Label() == "" {
@@ -396,7 +396,7 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 }
 
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
-// of inputs that has length equal to the degrees of freedom of the referenceframe.
+// of inputs that has length equal to the degrees of freedom of the Frame.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	err := rf.validInputs(input)
 	// We allow out-of-bounds calculations, but will return a non-nil error
@@ -489,10 +489,10 @@ func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
 	if err := pf.baseFrame.validInputs(from); err != nil {
-		return nil, NewIncorrectInputLengthError(len(from), len(pf.DoF()))
+		return nil, NewIncorrectDoFError(len(from), len(pf.DoF()))
 	}
 	if err := pf.baseFrame.validInputs(to); err != nil {
-		return nil, NewIncorrectInputLengthError(len(to), len(pf.DoF()))
+		return nil, NewIncorrectDoFError(len(to), len(pf.DoF()))
 	}
 	fromPose, err := pf.Transform(from)
 	if err != nil {

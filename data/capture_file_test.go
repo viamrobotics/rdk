@@ -44,6 +44,16 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			tags:             []string{},
 		},
 		{
+			name:             "Metadata for a camera Next() image stored as a binary .png file",
+			componentType:    "camera",
+			componentName:    "cam1",
+			method:           readImage,
+			additionalParams: map[string]string{"mime_type": utils.MimeTypePNG},
+			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			fileExtension:    ".png",
+			tags:             []string{},
+		},
+		{
 			name:             "Metadata for a LiDAR Next() point cloud stored as a binary .pcd file",
 			componentType:    "camera",
 			componentName:    "cam1",
@@ -51,6 +61,42 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			additionalParams: map[string]string{"mime_type": utils.MimeTypePCD},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".pcd",
+			tags:             []string{},
+		},
+		{
+			name:             "Metadata for a camera Next() image which has no mime_type in the data capture config",
+			componentType:    "camera",
+			componentName:    "cam1",
+			method:           readImage,
+			additionalParams: map[string]string{},
+			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			tags:             []string{},
+		},
+		{
+			name:             "Metadata for a camera Next() image stored as a an unknown file format",
+			componentType:    "camera",
+			componentName:    "cam1",
+			method:           readImage,
+			additionalParams: map[string]string{"mime_type": utils.MimeTypeQOI},
+			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			tags:             []string{},
+		},
+		{
+			name:             "Metadata for a GetImages() response",
+			componentType:    "camera",
+			componentName:    "cam1",
+			method:           GetImages,
+			additionalParams: make(map[string]string),
+			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			tags:             []string{},
+		},
+		{
+			name:             "Metadata for a GetImages() response even if you add meme_type tags",
+			componentType:    "camera",
+			componentName:    "cam1",
+			method:           GetImages,
+			additionalParams: map[string]string{"mime_type": utils.MimeTypeJPEG},
+			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			tags:             []string{},
 		},
 		{
@@ -63,6 +109,15 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			fileExtension:    ".pcd",
 			tags:             []string{},
 		},
+		{
+			name:             "Metadata for a LiDAR NextPointCloud() stored as a binary .pcd file",
+			componentType:    "slam",
+			componentName:    "slam1",
+			method:           pointCloudMap,
+			additionalParams: make(map[string]string),
+			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			tags:             []string{},
+		},
 	}
 
 	for _, tc := range tests {
@@ -70,7 +125,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
 			test.That(t, err, test.ShouldEqual, nil)
 
-			actualMetadata := BuildCaptureMetadata(
+			actualMetadata, _ := BuildCaptureMetadata(
 				resource.APINamespaceRDK.WithComponentType(tc.componentType),
 				tc.componentName,
 				tc.method,
@@ -85,8 +140,8 @@ func TestBuildCaptureMetadata(t *testing.T) {
 				MethodName:       tc.method,
 				Type:             tc.dataType,
 				MethodParameters: methodParams,
-				FileExtension:    tc.fileExtension,
 				Tags:             tc.tags,
+				FileExtension:    tc.fileExtension,
 			}
 			test.That(t, actualMetadata.String(), test.ShouldEqual, expectedMetadata.String())
 		})

@@ -63,26 +63,26 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if cfg.WidthMM == 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "width_mm")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "width_mm")
 	}
 
 	if cfg.WheelCircumferenceMM == 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "wheel_circumference_mm")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "wheel_circumference_mm")
 	}
 
 	if len(cfg.Left) == 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "left")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "left")
 	}
 	if len(cfg.Right) == 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "right")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "right")
 	}
 
 	if len(cfg.Left) != len(cfg.Right) {
-		return nil, resource.NewConfigValidationError(path,
+		return nil, nil, resource.NewConfigValidationError(path,
 			fmt.Errorf("left and right need to have the same number of motors, not %d vs %d",
 				len(cfg.Left), len(cfg.Right)))
 	}
@@ -90,7 +90,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, cfg.Left...)
 	deps = append(deps, cfg.Right...)
 
-	return deps, nil
+	return deps, nil, nil
 }
 
 func init() {
@@ -361,7 +361,7 @@ func (wb *wheeledBase) runAllSetRPM(ctx context.Context, leftRPM, rightRPM float
 		}
 		// Log the context canceled error as a warning.
 		// This can happen when the UI is closed or something went wrong during the operation.
-		wb.logger.Warn("Context cancelled during SetRPM ", err)
+		wb.logger.Warn("Context cancelled during SetRPM", err)
 	}
 	return nil
 }

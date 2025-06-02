@@ -18,6 +18,12 @@ type options struct {
 
 	// shutdownCallback provides a callback for the robot to be able to shut itself down.
 	shutdownCallback func()
+
+	// whether or not to run FTDC
+	enableFTDC bool
+
+	// disableCompleteConfigWorker starts the robot without the complete config worker - should only be used for tests.
+	disableCompleteConfigWorker bool
 }
 
 // Option configures how we set up the web service.
@@ -40,6 +46,13 @@ func newFuncOption(f func(*options)) *funcOption {
 	return &funcOption{
 		f: f,
 	}
+}
+
+// WithFTDC enables FTDC.
+func WithFTDC() Option {
+	return newFuncOption(func(o *options) {
+		o.enableFTDC = true
+	})
 }
 
 // WithWebOptions returns a Option which sets the streamConfig
@@ -71,5 +84,12 @@ func WithViamHomeDir(homeDir string) Option {
 func WithShutdownCallback(shutdownFunc func()) Option {
 	return newFuncOption(func(o *options) {
 		o.shutdownCallback = shutdownFunc
+	})
+}
+
+// withDisableCompleteConfigWorker returns an Option which disables the complete config worker.
+func withDisableCompleteConfigWorker() Option {
+	return newFuncOption(func(o *options) {
+		o.disableCompleteConfigWorker = true
 	})
 }

@@ -40,21 +40,36 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	fs.AddFrame(ackermanFrame, fs.World())
 
-	opt := newBasicPlannerOptions(ackermanFrame)
-	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	opt.StartPose = spatialmath.NewZeroPose()
-	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
+	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
+	goal := &PlanState{poses: referenceframe.FrameSystemPoses{
+		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos),
+	}}
+	start := &PlanState{poses: referenceframe.FrameSystemPoses{
+		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+	}}
+
+	opt := newBasicPlannerOptions()
+	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
+	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
+	opt.PlannerConstructor = newTPSpaceMotionPlanner
+
+	opt.fillMotionChains(fs, goal)
+
+	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
+	test.That(t, ok, test.ShouldBeTrue)
+
 	if pathdebug {
 		tp.logger.Debug("$type,X,Y")
 		tp.logger.Debugf("$SG,%f,%f", 0., 0.)
 		tp.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
 	}
-	test.That(t, ok, test.ShouldBeTrue)
-	plan, err := tp.plan(ctx, goalPos, nil)
+
+	plan, err := tp.plan(ctx, start, goal)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
 }
@@ -78,16 +93,22 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	ctx := context.Background()
 
-	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 6500, Y: 0, Z: 0})
-
+	// Create frame system and add ackerman frame
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	fs.AddFrame(ackermanFrame, fs.World())
 
-	opt := newBasicPlannerOptions(ackermanFrame)
-	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	opt.StartPose = spatialmath.NewPoseFromPoint(r3.Vector{0, -1000, 0})
-	opt.GoalThreshold = 5
-	// obstacles
+	// Set up start and goal poses
+	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, -1000, 0})
+	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 6500, Y: 0, Z: 0})
+
+	start := &PlanState{poses: map[string]*referenceframe.PoseInFrame{
+		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
+	}}
+	goal := &PlanState{poses: map[string]*referenceframe.PoseInFrame{
+		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos),
+	}}
+
+	// Create obstacles
 	obstacle1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, -500, 0}), r3.Vector{180, 1800, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
 	obstacle2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{3300, 1800, 0}), r3.Vector{180, 1800, 1}, "")
@@ -103,56 +124,44 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	geoms := []spatialmath.Geometry{obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6}
 
+	// Set up world state
 	worldState, err := referenceframe.NewWorldState(
 		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame(referenceframe.World, geoms)},
 		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	sf, err := newSolverFrame(fs, ackermanFrame.Name(), referenceframe.World, nil)
+
+	// Initialize planner options
+	opt := newBasicPlannerOptions()
+	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
+	opt.GoalThreshold = 5
+	opt.PlannerConstructor = newTPSpaceMotionPlanner
+	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
+	opt.fillMotionChains(fs, goal)
+
+	// Create collision constraints
+	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	seedMap := referenceframe.StartPositions(fs)
-	frameInputs, err := sf.mapToSlice(seedMap)
-	test.That(t, err, test.ShouldBeNil)
-
-	// create robot collision entities
-	movingGeometriesInFrame, err := sf.Geometries(frameInputs)
-	movingRobotGeometries := movingGeometriesInFrame.Geometries() // solver frame returns geoms in frame World
-	test.That(t, err, test.ShouldBeNil)
-
-	// find all geometries that are not moving but are in the frame system
-	staticRobotGeometries := make([]spatialmath.Geometry, 0)
-	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, seedMap)
-	test.That(t, err, test.ShouldBeNil)
-	for name, geometries := range frameSystemGeometries {
-		if !sf.movingFrame(name) {
-			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
-		}
-	}
-
-	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
-	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
-	// the state that observed the worldState should ultimately be included as part of the worldState message
-	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
-	test.That(t, err, test.ShouldBeNil)
-
-	collisionConstraints, err := createAllCollisionConstraints(
-		movingRobotGeometries,
-		staticRobotGeometries,
+	_, collisionConstraints, err := createAllCollisionConstraints(
+		geometries, // moving geometries
+		nil,        // static robot geometries
 		worldGeometries.Geometries(),
 		nil, nil,
 		defaultCollisionBufferMM,
 	)
-
 	test.That(t, err, test.ShouldBeNil)
 
 	for name, constraint := range collisionConstraints {
 		opt.AddStateConstraint(name, constraint)
 	}
 
-	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
+	// Create and initialize planner
+	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
+
+	// Debug logging if enabled
 	if pathdebug {
 		tp.logger.Debug("$type,X,Y")
 		for _, geom := range geoms {
@@ -163,18 +172,21 @@ func TestPtgWithObstacle(t *testing.T) {
 				}
 			}
 		}
-		tp.logger.Debugf("$SG,%f,%f", opt.StartPose.Point().X, opt.StartPose.Point().Y)
+		tp.logger.Debugf("$SG,%f,%f", startPose.Point().X, startPose.Point().Y)
 		tp.logger.Debugf("$SG,%f,%f", goalPos.Point().X, goalPos.Point().Y)
 	}
-	plan, err := tp.plan(ctx, goalPos, nil)
 
+	// Plan and verify results
+	plan, err := tp.plan(ctx, start, goal)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plan), test.ShouldBeGreaterThan, 2)
 
+	// Test smoothing
 	tp.planOpts.SmoothIter = 80
-
 	newplan := tp.smoothPath(ctx, plan)
 	test.That(t, newplan, test.ShouldNotBeNil)
+
+	// Compare costs
 	oldcost := 0.
 	smoothcost := 0.
 	for _, planNode := range plan {
@@ -206,9 +218,26 @@ func TestTPsmoothing(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	opt := newBasicPlannerOptions(ackermanFrame)
-	opt.DistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	mp, err := newTPSpaceMotionPlanner(ackermanFrame, rand.New(rand.NewSource(42)), logger, opt)
+	// Create frame system and add ackerman frame
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	fs.AddFrame(ackermanFrame, fs.World())
+
+	// Initialize planner options
+	opt := newBasicPlannerOptions()
+	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
+	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
+	opt.PlannerConstructor = newTPSpaceMotionPlanner
+
+	// Needed to determine motion chains
+	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 6500, Y: 0, Z: 0})
+	goal := &PlanState{poses: map[string]*referenceframe.PoseInFrame{
+		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos),
+	}}
+
+	opt.fillMotionChains(fs, goal)
+
+	// Create and initialize planner
+	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 
@@ -234,12 +263,12 @@ func TestTPsmoothing(t *testing.T) {
 	plan := []node{}
 	for _, inp := range planInputs {
 		thisNode := &basicNode{
-			q:    inp,
+			q:    referenceframe.FrameSystemInputs{ackermanFrame.Name(): inp},
 			cost: inp[3].Value - inp[2].Value,
 		}
 		plan = append(plan, thisNode)
 	}
-	plan, err = rectifyTPspacePath(plan, tp.frame, spatialmath.NewZeroPose())
+	plan, err = rectifyTPspacePath(plan, tp.tpFrame, spatialmath.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 
 	tp.planOpts.SmoothIter = 20
@@ -261,7 +290,7 @@ func planToTpspaceRec(plan Plan, f referenceframe.Frame) ([]node, error) {
 	nodes := []node{}
 	for _, inp := range plan.Trajectory() {
 		thisNode := &basicNode{
-			q:    inp[f.Name()],
+			q:    inp,
 			cost: math.Abs(inp[f.Name()][3].Value - inp[f.Name()][2].Value),
 		}
 		nodes = append(nodes, thisNode)

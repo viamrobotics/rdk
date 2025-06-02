@@ -84,6 +84,10 @@ func (m *localManager) Close(ctx context.Context) error {
 
 // fileCopyHelper is the downloadCallback for local tarball modules.
 func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string) (string, string, error) {
+	path, err := rUtils.ExpandHomeDir(path)
+	if err != nil {
+		return "", "", err
+	}
 	src, err := os.Open(path) //nolint:gosec
 	if err != nil {
 		return "", "", err
@@ -174,8 +178,8 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
 		if err != nil {
-			m.logger.Errorf("Failed downloading package %s from %s, %s", mod.Name, mod.ExePath, err)
-			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s from %s",
+			m.logger.Errorf("Failed copying package %s from %s, %s", mod.Name, mod.ExePath, err)
+			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed copying package %s from %s",
 				mod.Name, mod.ExePath))
 			continue
 		}
@@ -249,7 +253,11 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 	}
 	pkgDir := pkg.LocalDataDirectory(m.packagesDir)
 
-	dirty, err := newerOrMissing(mod.ExePath, pkgDir)
+	exePath, err := rUtils.ExpandHomeDir(mod.ExePath)
+	if err != nil {
+		return err
+	}
+	dirty, err := newerOrMissing(exePath, pkgDir)
 	if err != nil {
 		return err
 	}

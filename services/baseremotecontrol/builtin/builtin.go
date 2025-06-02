@@ -32,6 +32,8 @@ const (
 	droneControl
 )
 
+var modes = []string{"joystickControl", "triggerSpeedControl", "buttonControl", "arrowControl", "droneControl"}
+
 func init() {
 	resource.RegisterService(baseremotecontrol.API, resource.DefaultServiceModel, resource.Registration[baseremotecontrol.Service, *Config]{
 		Constructor: NewBuiltIn,
@@ -51,19 +53,33 @@ type Config struct {
 }
 
 // Validate creates the list of implicit dependencies.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if conf.InputControllerName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "input_controller")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "input_controller")
 	}
 	deps = append(deps, conf.InputControllerName)
 
 	if conf.BaseName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, conf.BaseName)
 
-	return deps, nil
+	if conf.ControlModeName != "" {
+		configModeExists := false
+		for _, mode := range modes {
+			if mode == conf.ControlModeName {
+				configModeExists = true
+				break
+			}
+		}
+
+		if !configModeExists {
+			return nil, nil, resource.NewConfigValidationError(path, errors.Errorf("Control mode '%s' is not in %v", conf.ControlModeName, modes))
+		}
+	}
+
+	return deps, nil, nil
 }
 
 // builtIn is the structure of the remote service.

@@ -1,0 +1,71 @@
+name: Test Template Generators
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate_and_run_module:
+    if: github.repository_owner == 'viamrobotics'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        language: ["python", "go"]
+        resource:
+          [
+            { subtype: "arm" },
+            { subtype: "audio_input" },
+            { subtype: "base" },
+            { subtype: "board" },
+            { subtype: "camera" },
+            { subtype: "encoder" },
+            { subtype: "gantry" },
+            { subtype: "generic_component" },
+            { subtype: "gripper" },
+            { subtype: "input" },
+            { subtype: "motor" },
+            { subtype: "movement_sensor" },
+            { subtype: "pose_tracker" },
+            { subtype: "power_sensor" },
+            { subtype: "sensor" },
+            { subtype: "servo" },
+
+            { subtype: "generic-service" },
+            { subtype: "mlmodel" },
+            { subtype: "motion" },
+            { subtype: "navigation" },
+            { subtype: "slam" },
+            { subtype: "vision" },
+          ]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run module generator
+        run: |
+          go run ./cli/viam --debug module generate \
+          --name "my-module" \
+          --language "${{ matrix.language }}" \
+          --public-namespace "my-org" \
+          --resource-subtype "${{ matrix.resource.subtype }}" \
+          --model-name "model-name" \
+          --dry-run
+
+      - name: Run module
+        run: |
+          cd my-module
+          ./run.sh /tmp/viam.sock &
+          PID=$!
+          sleep 5
+          if ps -p $PID > /dev/null; then
+              echo "Module is running."
+              kill -SIGTERM $PID
+          else
+              echo "Module failed to start."
+              exit 1
+          fi

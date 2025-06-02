@@ -9,7 +9,6 @@ import (
 )
 
 func main() {
-	// ModularMain will create a logger named "summationmodule" and will then host a module with
-	// our mysum model in it.
-	module.ModularMain("summationmodule", resource.APIModel{summationapi.API, mysum.Model})
+	// ModularMain will host a module with our mysum model in it.
+	module.ModularMain(resource.APIModel{summationapi.API, mysum.Model})
 }

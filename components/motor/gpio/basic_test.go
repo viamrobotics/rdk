@@ -168,7 +168,7 @@ func TestMotorDirPWM(t *testing.T) {
 			mc.ResourceName(), logger)
 
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, m.GoFor(ctx, 50, 10, nil), test.ShouldBeError, errors.New("not supported, define max_rpm attribute != 0"))
+		test.That(t, m.GoFor(ctx, 50, 10, nil), test.ShouldBeNil)
 
 		m, err = NewMotor(b, Config{Pins: PinConfig{Direction: "1", EnablePinLow: "2"}, PWMFreq: 4000},
 			mc.ResourceName(), logger)
@@ -191,7 +191,7 @@ func TestMotorDirPWM(t *testing.T) {
 
 	t.Run("motor (DIR/PWM) Off testing", func(t *testing.T) {
 		test.That(t, m.Stop(ctx, nil), test.ShouldBeNil)
-		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
 		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, true)
 		test.That(t, mustGetGPIOPinByName(b, "1").PWM(context.Background()), test.ShouldEqual, 0)
 		test.That(t, mustGetGPIOPinByName(b, "2").PWM(context.Background()), test.ShouldEqual, 0)
@@ -204,11 +204,11 @@ func TestMotorDirPWM(t *testing.T) {
 
 	t.Run("motor (DIR/PWM) GoFor testing", func(t *testing.T) {
 		test.That(t, m.GoFor(ctx, 50, 0, nil), test.ShouldBeError, motor.NewZeroRevsError())
-		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
 		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, 0)
 
 		test.That(t, m.GoFor(ctx, -50, 0, nil), test.ShouldBeError, motor.NewZeroRevsError())
-		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
 		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, 0)
 
 		test.That(t, m.Stop(context.Background(), nil), test.ShouldBeNil)
@@ -341,7 +341,7 @@ func TestMotorABNoEncoder(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor no encoder GoFor testing", func(t *testing.T) {
-		test.That(t, m.GoFor(ctx, 50, 10, nil), test.ShouldBeError, errors.New("not supported, define max_rpm attribute != 0"))
+		test.That(t, m.GoFor(ctx, 50, 10, nil), test.ShouldBeNil)
 	})
 
 	t.Run("motor no encoder GoTo testing", func(t *testing.T) {

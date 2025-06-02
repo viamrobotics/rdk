@@ -678,13 +678,13 @@ func TestResourceGraphFindNodeByName(t *testing.T) {
 			test.That(t, gA.AddChild(component.Name, dep), test.ShouldBeNil)
 		}
 	}
-	names := gA.findNodesByShortName("A")
+	names := gA.FindNodesByShortName("A")
 	test.That(t, names, test.ShouldHaveLength, 1)
-	names = gA.findNodesByShortName("B")
+	names = gA.FindNodesByShortName("B")
 	test.That(t, names, test.ShouldHaveLength, 1)
-	names = gA.findNodesByShortName("C")
+	names = gA.FindNodesByShortName("C")
 	test.That(t, names, test.ShouldHaveLength, 1)
-	names = gA.findNodesByShortName("D")
+	names = gA.FindNodesByShortName("D")
 	test.That(t, names, test.ShouldHaveLength, 0)
 }
 
@@ -991,17 +991,17 @@ func TestResourceGraphClock(t *testing.T) {
 	test.That(t, n, test.ShouldEqual, node1)    // see docs of AddNode/GraphNode.replace
 
 	res1 := &someResource{Named: name1.AsNamed()}
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 1)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 1)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 0)
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 2)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 
 	node2 = &GraphNode{}
 	test.That(t, g.AddNode(name2, node2), test.ShouldBeNil)
-	node2.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
+	node2.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 3)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3)
@@ -1017,7 +1017,7 @@ func TestResourceGraphLastReconfigured(t *testing.T) {
 	test.That(t, node1.LastReconfigured(), test.ShouldBeNil)
 
 	res1 := &someResource{Named: name1.AsNamed()}
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
 	lr := node1.LastReconfigured()
 	test.That(t, lr, test.ShouldNotBeNil)
 	// Assert that after SwapResource, node's lastReconfigured time is between
@@ -1027,7 +1027,7 @@ func TestResourceGraphLastReconfigured(t *testing.T) {
 
 	// Mock a mutation with another SwapResource. Assert that lastReconfigured
 	// value changed.
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"))
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
 	newLR := node1.LastReconfigured()
 	test.That(t, newLR, test.ShouldNotBeNil)
 	// Assert that after another SwapResource, node's lastReconfigured time is

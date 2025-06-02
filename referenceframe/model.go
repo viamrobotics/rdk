@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
 	"strings"
@@ -11,30 +12,86 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 )
 
 // A Model represents a frame that can change its name, and can return itself as a ModelConfig struct.
 type Model interface {
 	Frame
-	ModelConfig() *ModelConfig
+	ModelConfig() *ModelConfigJSON
 	ModelPieceFrames([]Input) (map[string]Frame, error)
 }
 
-// ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
-type ModelFramer interface {
-	ModelFrame() Model
+// KinematicModelFromProtobuf returns a model from a protobuf message representing it.
+func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsResponse) (Model, error) {
+	if resp == nil {
+		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
+	}
+	format := resp.GetFormat()
+	data := resp.GetKinematicsData()
+
+	switch format {
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
+		return UnmarshalModelJSON(data, name)
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
+		modelconf, err := UnmarshalModelXML(data, name)
+		if err != nil {
+			return nil, err
+		}
+		return modelconf.ParseConfig(name)
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED:
+		fallthrough
+	default:
+		if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
+			return nil, fmt.Errorf("unable to parse file of type %s", formatName)
+		}
+		return nil, fmt.Errorf("unable to parse unknown file type %d", format)
+	}
 }
 
-// SimpleModel TODO.
+// KinematicModelToProtobuf converts a model into a protobuf message version of that model.
+func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
+	if model == nil {
+		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
+	}
+
+	cfg := model.ModelConfig()
+	if cfg == nil || cfg.OriginalFile == nil {
+		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
+	}
+	resp := &commonpb.GetKinematicsResponse{KinematicsData: cfg.OriginalFile.Bytes}
+	switch cfg.OriginalFile.Extension {
+	case "json":
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
+	case "urdf":
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
+	default:
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
+	}
+	return resp
+}
+
+// KinematicModelFromFile returns a model frame from a file that defines the kinematics.
+func KinematicModelFromFile(modelPath, name string) (Model, error) {
+	switch {
+	case strings.HasSuffix(modelPath, ".urdf"):
+		return ParseModelXMLFile(modelPath, name)
+	case strings.HasSuffix(modelPath, ".json"):
+		return ParseModelJSONFile(modelPath, name)
+	default:
+		return nil, errors.New("only files with .json and .urdf file extensions are supported")
+	}
+}
+
+// SimpleModel is a model that serially concatenates a list of Frames.
 type SimpleModel struct {
 	*baseFrame
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []Frame
-	modelConfig   *ModelConfig
+	modelConfig   *ModelConfigJSON
 	poseCache     sync.Map
 	lock          sync.RWMutex
 }
@@ -62,7 +119,7 @@ func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 }
 
 // ModelConfig returns the ModelConfig object used to create this model.
-func (m *SimpleModel) ModelConfig() *ModelConfig {
+func (m *SimpleModel) ModelConfig() *ModelConfigJSON {
 	return m.modelConfig
 }
 
@@ -169,6 +226,7 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 func (m *SimpleModel) DoF() []Limit {
 	m.lock.RLock()
 	if len(m.limits) > 0 {
+		defer m.lock.RUnlock()
 		return m.limits
 	}
 	m.lock.RUnlock()
@@ -204,13 +262,12 @@ func (m *SimpleModel) ModelPieceFrames(inputs []Input) (map[string]Frame, error)
 	return frameMap, nil
 }
 
-// TODO(rb) better comment
-// takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// inputsToFrames takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
 func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*staticFrame, error) {
 	if len(m.DoF()) != len(inputs) {
-		return nil, NewIncorrectInputLengthError(len(inputs), len(m.DoF()))
+		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
 	var err error
 	poses := make([]*staticFrame, 0, len(m.OrdTransforms))
@@ -319,23 +376,4 @@ func ComputeOOBPosition(frame Frame, inputs []Input) (spatialmath.Pose, error) {
 	}
 
 	return pose, nil
-}
-
-// ComputePosition takes a frame and a slice of Inputs and returns the cartesian position of the frame.
-func ComputePosition(frame Frame, inputs []Input) (spatialmath.Pose, error) {
-	// TODO: delete this function
-	logging.Global().Warn("ComputePosition is deprecated and will be removed in a future update. Swap to Transform()")
-
-	if inputs == nil {
-		return nil, errors.New("cannot compute position for nil joints")
-	}
-	if frame == nil {
-		return nil, errors.New("cannot compute position for nil frame")
-	}
-
-	pose, err := frame.Transform(inputs)
-	if err != nil {
-		return nil, err
-	}
-	return pose, err
 }

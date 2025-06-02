@@ -3,12 +3,28 @@ package board
 
 import (
 	"context"
+	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+)
+
+var (
+	// ErrGPIOPinByNameReturnNil is the error returned when a gpio pin is nil.
+	ErrGPIOPinByNameReturnNil = func(boardName string) error {
+		return fmt.Errorf("board component %v GPIOPinByName should not return nil pin", boardName)
+	}
+	// ErrAnalogByNameReturnNil is the error returned when an analog is nil.
+	ErrAnalogByNameReturnNil = func(boardName string) error {
+		return fmt.Errorf("board component %v AnalogByName should not return nil analog", boardName)
+	}
+	// ErrDigitalInterruptByNameReturnNil is the error returned when a digital interrupt is nil.
+	ErrDigitalInterruptByNameReturnNil = func(boardName string) error {
+		return fmt.Errorf("board component %v DigitalInterruptByName should not return nil digital interrupt", boardName)
+	}
 )
 
 // serviceServer implements the BoardService from board.proto.
@@ -34,6 +50,9 @@ func (s *serviceServer) SetGPIO(ctx context.Context, req *pb.SetGPIORequest) (*p
 	if err != nil {
 		return nil, err
 	}
+	if p == nil {
+		return nil, ErrGPIOPinByNameReturnNil(req.Name)
+	}
 
 	return &pb.SetGPIOResponse{}, p.Set(ctx, req.High, req.Extra.AsMap())
 }
@@ -48,6 +67,9 @@ func (s *serviceServer) GetGPIO(ctx context.Context, req *pb.GetGPIORequest) (*p
 	p, err := b.GPIOPinByName(req.Pin)
 	if err != nil {
 		return nil, err
+	}
+	if p == nil {
+		return nil, ErrGPIOPinByNameReturnNil(req.Name)
 	}
 
 	high, err := p.Get(ctx, req.Extra.AsMap())
@@ -68,6 +90,9 @@ func (s *serviceServer) PWM(ctx context.Context, req *pb.PWMRequest) (*pb.PWMRes
 	if err != nil {
 		return nil, err
 	}
+	if p == nil {
+		return nil, ErrGPIOPinByNameReturnNil(req.Name)
+	}
 
 	pwm, err := p.PWM(ctx, req.Extra.AsMap())
 	if err != nil {
@@ -87,6 +112,9 @@ func (s *serviceServer) SetPWM(ctx context.Context, req *pb.SetPWMRequest) (*pb.
 	if err != nil {
 		return nil, err
 	}
+	if p == nil {
+		return nil, ErrGPIOPinByNameReturnNil(req.Name)
+	}
 
 	return &pb.SetPWMResponse{}, p.SetPWM(ctx, req.DutyCyclePct, req.Extra.AsMap())
 }
@@ -101,6 +129,9 @@ func (s *serviceServer) PWMFrequency(ctx context.Context, req *pb.PWMFrequencyRe
 	p, err := b.GPIOPinByName(req.Pin)
 	if err != nil {
 		return nil, err
+	}
+	if p == nil {
+		return nil, ErrGPIOPinByNameReturnNil(req.Name)
 	}
 
 	freq, err := p.PWMFreq(ctx, req.Extra.AsMap())
@@ -125,6 +156,9 @@ func (s *serviceServer) SetPWMFrequency(
 	if err != nil {
 		return nil, err
 	}
+	if p == nil {
+		return nil, ErrGPIOPinByNameReturnNil(req.Name)
+	}
 
 	return &pb.SetPWMFrequencyResponse{}, p.SetPWMFreq(ctx, uint(req.FrequencyHz), req.Extra.AsMap())
 }
@@ -142,6 +176,9 @@ func (s *serviceServer) ReadAnalogReader(
 	theReader, err := b.AnalogByName(req.AnalogReaderName)
 	if err != nil {
 		return nil, err
+	}
+	if theReader == nil {
+		return nil, ErrAnalogByNameReturnNil(req.BoardName)
 	}
 
 	analogValue, err := theReader.Read(ctx, req.Extra.AsMap())
@@ -170,6 +207,9 @@ func (s *serviceServer) WriteAnalog(
 	if err != nil {
 		return nil, err
 	}
+	if analog == nil {
+		return nil, ErrAnalogByNameReturnNil(req.Name)
+	}
 
 	err = analog.Write(ctx, int(req.Value), req.Extra.AsMap())
 	if err != nil {
@@ -192,6 +232,9 @@ func (s *serviceServer) GetDigitalInterruptValue(
 	interrupt, err := b.DigitalInterruptByName(req.DigitalInterruptName)
 	if err != nil {
 		return nil, err
+	}
+	if interrupt == nil {
+		return nil, ErrDigitalInterruptByNameReturnNil(req.BoardName)
 	}
 
 	val, err := interrupt.Value(ctx, req.Extra.AsMap())
@@ -218,6 +261,7 @@ func (s *serviceServer) StreamTicks(
 		if err != nil {
 			return err
 		}
+
 		interrupts = append(interrupts, di)
 	}
 	err = b.StreamTicks(server.Context(), interrupts, ticksChan, req.Extra.AsMap())

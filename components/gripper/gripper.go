@@ -7,17 +7,17 @@ package gripper
 import (
 	"context"
 
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Gripper]{
-		Status:                      resource.StatusFunc(CreateStatus),
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterGripperServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.GripperService_ServiceDesc,
@@ -41,20 +41,30 @@ func Named(name string) resource.Name {
 //
 // Open example:
 //
+//	myGripper, err := gripper.FromRobot(machine, "my_gripper")
+//
 //	// Open the gripper.
 //	err := myGripper.Open(context.Background(), nil)
 //
+// For more information, see the [Open method docs].
+//
 // Grab example:
+//
+//	myGripper, err := gripper.FromRobot(machine, "my_gripper")
 //
 //	// Grab with the gripper.
 //	grabbed, err := myGripper.Grab(context.Background(), nil)
 //
-// [gripper component docs]: https://docs.viam.com/components/gripper/
+// For more information, see the [Grab method docs].
+//
+// [gripper component docs]: https://docs.viam.com/dev/reference/apis/components/gripper/
+// [Open method docs]: https://docs.viam.com/dev/reference/apis/components/gripper/#open
+// [Grab method docs]: https://docs.viam.com/dev/reference/apis/components/gripper/#grab
 type Gripper interface {
 	resource.Resource
 	resource.Shaped
 	resource.Actuator
-	referenceframe.ModelFramer
+	framesystem.InputEnabled
 
 	// Open opens the gripper.
 	// This will block until done or a new operation cancels this one.
@@ -71,16 +81,39 @@ func FromRobot(r robot.Robot, name string) (Gripper, error) {
 	return robot.ResourceFromRobot[Gripper](r, Named(name))
 }
 
+// FromDependencies is a helper for getting the named gripper from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Gripper, error) {
+	return resource.FromDependencies[Gripper](deps, Named(name))
+}
+
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
 }
 
-// CreateStatus creates a status from the gripper.
-func CreateStatus(ctx context.Context, g Gripper) (*commonpb.ActuatorStatus, error) {
-	isMoving, err := g.IsMoving(ctx)
-	if err != nil {
-		return nil, err
+// MakeModel is a helper function that creates a zero DoF Model for a gripper from a list of its geometries.
+func MakeModel(name string, geometries []spatialmath.Geometry) (referenceframe.Model, error) {
+	if len(geometries) == 0 {
+		return referenceframe.NewSimpleModel(name), nil
 	}
-	return &commonpb.ActuatorStatus{IsMoving: isMoving}, nil
+	cfg := &referenceframe.ModelConfigJSON{
+		Name:  name,
+		Links: []referenceframe.LinkConfig{},
+	}
+	parent := referenceframe.World
+	for _, g := range geometries {
+		f, err := referenceframe.NewStaticFrameWithGeometry(g.Label(), spatialmath.NewZeroPose(), g)
+		if err != nil {
+			return nil, err
+		}
+		lf, err := referenceframe.NewLinkConfig(f)
+		if err != nil {
+			return nil, err
+		}
+		lf.Parent = parent
+		parent = g.Label()
+		cfg.Links = append(cfg.Links, *lf)
+	}
+	return cfg.ParseConfig(name)
 }

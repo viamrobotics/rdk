@@ -762,4 +762,164 @@ func TestStreamState(t *testing.T) {
 			test.That(tb, stopCount.Load(), test.ShouldEqual, 3)
 		})
 	})
+
+	t.Run("when in rtppassthrough mode and a resize occurs test downgrade path to gostream", func(t *testing.T) {
+		var startCount atomic.Int64
+		var stopCount atomic.Int64
+		writeRTPCalledCtx, writeRTPCalledFunc := context.WithCancel(ctx)
+		streamMock := &mockStream{
+			name: camName,
+			t:    t,
+			startFunc: func() {
+				startCount.Add(1)
+			},
+			stopFunc: func() {
+				stopCount.Add(1)
+			},
+			writeRTPFunc: func(pkt *rtp.Packet) error {
+				// Test that WriteRTP is eventually called when SubscribeRTP is called
+				writeRTPCalledFunc()
+				return nil
+			},
+		}
+
+		var subscribeRTPCount atomic.Int64
+		var unsubscribeCount atomic.Int64
+		type subAndCancel struct {
+			sub      rtppassthrough.Subscription
+			cancelFn context.CancelFunc
+			wg       *sync.WaitGroup
+		}
+
+		var subsAndCancelByIDMu sync.Mutex
+		subsAndCancelByID := map[rtppassthrough.SubscriptionID]subAndCancel{}
+
+		subscribeRTPFunc := func(
+			ctx context.Context,
+			bufferSize int,
+			packetsCB rtppassthrough.PacketCallback,
+		) (rtppassthrough.Subscription, error) {
+			subsAndCancelByIDMu.Lock()
+			defer subsAndCancelByIDMu.Unlock()
+			defer subscribeRTPCount.Add(1)
+			terminatedCtx, terminatedFn := context.WithCancel(context.Background())
+			id := uuid.New()
+			sub := rtppassthrough.Subscription{ID: id, Terminated: terminatedCtx}
+			subsAndCancelByID[id] = subAndCancel{sub: sub, cancelFn: terminatedFn, wg: &sync.WaitGroup{}}
+			subsAndCancelByID[id].wg.Add(1)
+			utils.ManagedGo(func() {
+				for terminatedCtx.Err() == nil {
+					packetsCB([]*rtp.Packet{{}})
+					time.Sleep(time.Millisecond * 50)
+				}
+			}, subsAndCancelByID[id].wg.Done)
+			return sub, nil
+		}
+
+		unsubscribeFunc := func(ctx context.Context, id rtppassthrough.SubscriptionID) error {
+			subsAndCancelByIDMu.Lock()
+			defer subsAndCancelByIDMu.Unlock()
+			defer unsubscribeCount.Add(1)
+			subAndCancel, ok := subsAndCancelByID[id]
+			if !ok {
+				test.That(t, fmt.Sprintf("Unsubscribe called with unknown id: %s", id.String()), test.ShouldBeFalse)
+			}
+			subAndCancel.cancelFn()
+			return nil
+		}
+
+		mockRTPPassthroughSource := &mockRTPPassthroughSource{
+			subscribeRTPFunc: subscribeRTPFunc,
+			unsubscribeFunc:  unsubscribeFunc,
+		}
+
+		robot := mockRobot(mockRTPPassthroughSource)
+		s := state.New(streamMock, robot, logger)
+		defer func() {
+			utils.UncheckedError(s.Close())
+		}()
+
+		test.That(t, subscribeRTPCount.Load(), test.ShouldEqual, 0)
+		test.That(t, unsubscribeCount.Load(), test.ShouldEqual, 0)
+		test.That(t, writeRTPCalledCtx.Err(), test.ShouldBeNil)
+
+		t.Run("Increment should call SubscribeRTP", func(t *testing.T) {
+			test.That(t, s.Increment(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 0)
+			})
+			// WriteRTP is called
+			<-writeRTPCalledCtx.Done()
+		})
+
+		t.Run("Resize should stop rtp_passthrough and start gostream", func(t *testing.T) {
+			test.That(t, s.Resize(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 0)
+			})
+		})
+
+		t.Run("Decrement should call Stop as gostream is the data source", func(t *testing.T) {
+			test.That(t, s.Decrement(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 1)
+			})
+		})
+
+		t.Run("Increment should call Start as gostream is the data source", func(t *testing.T) {
+			test.That(t, s.Increment(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 2)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 1)
+			})
+		})
+
+		t.Run("Decrement should call Stop as gostream is the data source", func(t *testing.T) {
+			test.That(t, s.Decrement(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 2)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 2)
+			})
+		})
+
+		t.Run("Increment should call Start as gostream is the data source", func(t *testing.T) {
+			test.That(t, s.Increment(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 2)
+			})
+		})
+
+		t.Run("Reset should call Stop as gostream is the current data source and then "+
+			"Subscribe as rtp_passthrough is the new data source", func(t *testing.T) {
+			test.That(t, s.Reset(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 2)
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 1)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 3)
+			})
+		})
+
+		t.Run("Decrement should call unsubscribe as rtp_passthrough is the data source", func(t *testing.T) {
+			test.That(t, s.Decrement(), test.ShouldBeNil)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, subscribeRTPCount.Load(), test.ShouldEqual, 2)
+				test.That(tb, unsubscribeCount.Load(), test.ShouldEqual, 2)
+				test.That(tb, startCount.Load(), test.ShouldEqual, 3)
+				test.That(tb, stopCount.Load(), test.ShouldEqual, 3)
+			})
+		})
+	})
 }

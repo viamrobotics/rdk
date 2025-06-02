@@ -228,9 +228,9 @@ func TestOVNormalize(t *testing.T) {
 
 func ovConvert(t *testing.T, ov1 *OrientationVector) {
 	t.Helper()
-	q1 := ov1.ToQuat()
+	q1 := ov1.Quaternion()
 	ov2 := QuatToOV(q1)
-	q2 := ov2.ToQuat()
+	q2 := ov2.Quaternion()
 
 	ovCompare(t, ov1, ov2)
 	quatCompare(t, q1, q2)
@@ -239,7 +239,7 @@ func ovConvert(t *testing.T, ov1 *OrientationVector) {
 func quatConvert(t *testing.T, q1 quat.Number) {
 	t.Helper()
 	ov1 := QuatToOV(q1)
-	q2 := ov1.ToQuat()
+	q2 := ov1.Quaternion()
 	ov2 := QuatToOV(q2)
 	ovCompare(t, ov1, ov2)
 	quatCompare(t, q1, q2)

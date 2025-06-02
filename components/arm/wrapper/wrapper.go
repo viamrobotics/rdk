@@ -3,17 +3,12 @@ package wrapper
 
 import (
 	"context"
-	"errors"
-	"strings"
 	"sync"
-
-	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -28,16 +23,16 @@ type Config struct {
 var model = resource.DefaultModelFamily.WithModel("wrapper_arm")
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if cfg.ArmName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "arm-name")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "arm-name")
 	}
-	if _, err := modelFromPath(cfg.ModelFilePath, ""); err != nil {
-		return nil, err
+	if _, err := referenceframe.KinematicModelFromFile(cfg.ModelFilePath, ""); err != nil {
+		return nil, nil, err
 	}
 	deps = append(deps, cfg.ArmName)
-	return deps, nil
+	return deps, nil, nil
 }
 
 func init() {
@@ -79,7 +74,7 @@ func (wrapper *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	if err != nil {
 		return err
 	}
-	model, err := modelFromPath(newConf.ModelFilePath, conf.Name)
+	model, err := referenceframe.KinematicModelFromFile(newConf.ModelFilePath, conf.Name)
 	if err != nil {
 		return err
 	}
@@ -95,13 +90,6 @@ func (wrapper *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	wrapper.mu.Unlock()
 
 	return nil
-}
-
-// ModelFrame returns the dynamic frame of the model.
-func (wrapper *Arm) ModelFrame() referenceframe.Model {
-	wrapper.mu.RLock()
-	defer wrapper.mu.RUnlock()
-	return wrapper.model
 }
 
 // EndPosition returns the set position.
@@ -124,10 +112,9 @@ func (wrapper *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, ex
 }
 
 // MoveToJointPositions sets the joints.
-func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
+func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints []referenceframe.Input, extra map[string]interface{}) error {
 	// check that joint positions are not out of bounds
-	inputs := wrapper.model.InputFromProtobuf(joints)
-	if err := arm.CheckDesiredJointPositions(ctx, wrapper, inputs); err != nil {
+	if err := arm.CheckDesiredJointPositions(ctx, wrapper, joints); err != nil {
 		return err
 	}
 	ctx, done := wrapper.opMgr.New(ctx)
@@ -138,8 +125,28 @@ func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPo
 	return wrapper.actual.MoveToJointPositions(ctx, joints, extra)
 }
 
+// MoveThroughJointPositions moves the arm sequentially through the given joints.
+func (wrapper *Arm) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	_ *arm.MoveOptions,
+	_ map[string]interface{},
+) error {
+	for _, goal := range positions {
+		// check that joint positions are not out of bounds
+		if err := arm.CheckDesiredJointPositions(ctx, wrapper, goal); err != nil {
+			return err
+		}
+		err := wrapper.MoveToJointPositions(ctx, goal, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // JointPositions returns the set joints.
-func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	wrapper.mu.RLock()
 	defer wrapper.mu.RUnlock()
 
@@ -165,30 +172,21 @@ func (wrapper *Arm) IsMoving(ctx context.Context) (bool, error) {
 	return wrapper.opMgr.OpRunning(), nil
 }
 
-// CurrentInputs returns the current inputs of the arm.
-func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+// Kinematics returns the kinematic wrapper supplied to the wrapper arm.
+func (wrapper *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	wrapper.mu.RLock()
 	defer wrapper.mu.RUnlock()
-	res, err := wrapper.actual.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return wrapper.model.InputFromProtobuf(res), nil
+	return wrapper.model, nil
+}
+
+// CurrentInputs returns the current inputs of the arm.
+func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	return wrapper.actual.JointPositions(ctx, nil)
 }
 
 // GoToInputs moves the arm to the specified goal inputs.
 func (wrapper *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		// check that joint positions are not out of bounds
-		if err := arm.CheckDesiredJointPositions(ctx, wrapper, goal); err != nil {
-			return err
-		}
-		err := wrapper.MoveToJointPositions(ctx, wrapper.model.ProtobufFromInput(goal), nil)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return wrapper.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
@@ -206,13 +204,3 @@ func (wrapper *Arm) Geometries(ctx context.Context, extra map[string]interface{}
 }
 
 // modelFromPath returns a Model from a given path.
-func modelFromPath(modelPath, name string) (referenceframe.Model, error) {
-	switch {
-	case strings.HasSuffix(modelPath, ".urdf"):
-		return urdf.ParseModelXMLFile(modelPath, name)
-	case strings.HasSuffix(modelPath, ".json"):
-		return referenceframe.ParseModelJSONFile(modelPath, name)
-	default:
-		return nil, errors.New("only files with .json and .urdf file extensions are supported")
-	}
-}

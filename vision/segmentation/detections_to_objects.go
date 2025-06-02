@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/objectdetection"
@@ -24,6 +25,7 @@ type DetectionSegmenterConfig struct {
 	ConfidenceThresh float64 `json:"confidence_threshold_pct"`
 	MeanK            int     `json:"mean_k"`
 	Sigma            float64 `json:"sigma"`
+	DefaultCamera    string  `json:"camera_name"`
 }
 
 // ConvertAttributes changes the AttributeMap input into a DetectionSegmenterConfig.
@@ -37,7 +39,7 @@ func (dsc *DetectionSegmenterConfig) ConvertAttributes(am utils.AttributeMap) er
 
 func cameraToProjector(
 	ctx context.Context,
-	source camera.VideoSource,
+	source camera.Camera,
 ) (transform.Projector, error) {
 	if source == nil {
 		return nil, errors.New("cannot have a nil source")
@@ -66,9 +68,7 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 	if detector == nil {
 		return nil, errors.New("detector cannot be nil")
 	}
-	filter := func(pc pointcloud.PointCloud) (pointcloud.PointCloud, error) {
-		return pc, nil
-	}
+	var filter func(in, out pointcloud.PointCloud) error
 	if meanK > 0 && sigma > 0.0 {
 		filter, err = pointcloud.StatisticalOutlierFilter(meanK, sigma)
 		if err != nil {
@@ -76,7 +76,7 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 		}
 	}
 	// return the segmenter
-	seg := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+	seg := func(ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
 		proj, err := cameraToProjector(ctx, src)
 		if err != nil {
 			return nil, err
@@ -120,9 +120,13 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 			if err != nil {
 				return nil, err
 			}
-			pc, err = filter(pc)
-			if err != nil {
-				return nil, err
+			if filter != nil {
+				out := pc.CreateNewRecentered(spatialmath.NewZeroPose())
+				err = filter(pc, out)
+				if err != nil {
+					return nil, err
+				}
+				pc = out
 			}
 			// if object was filtered away, skip it
 			if pc.Size() == 0 {

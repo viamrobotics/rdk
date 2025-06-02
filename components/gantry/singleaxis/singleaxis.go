@@ -42,26 +42,26 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if len(cfg.Motor) == 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "motor")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "motor")
 	}
 	deps = append(deps, cfg.Motor)
 
 	if cfg.LengthMm <= 0 {
 		err := resource.NewConfigValidationFieldRequiredError(path, "length_mm")
-		return nil, errors.Wrap(err, "length must be non-zero and positive")
+		return nil, nil, errors.Wrap(err, "length must be non-zero and positive")
 	}
 
 	if cfg.MmPerRevolution <= 0 {
 		err := resource.NewConfigValidationFieldRequiredError(path, "mm_per_rev")
-		return nil, errors.Wrap(err, "mm_per_rev must be non-zero and positive")
+		return nil, nil, errors.Wrap(err, "mm_per_rev must be non-zero and positive")
 	}
 
 	if cfg.Board == "" && len(cfg.LimitSwitchPins) > 0 {
-		return nil, errors.New("gantries with limit_pins require a board to sense limit hits")
+		return nil, nil, errors.New("gantries with limit_pins require a board to sense limit hits")
 	}
 
 	if cfg.Board != "" {
@@ -69,13 +69,13 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	}
 
 	if len(cfg.LimitSwitchPins) == 1 && cfg.MmPerRevolution == 0 {
-		return nil, errors.New("the single-axis gantry has one limit switch axis, needs pulley radius to set position limits")
+		return nil, nil, errors.New("the single-axis gantry has one limit switch axis, needs pulley radius to set position limits")
 	}
 
 	if len(cfg.LimitSwitchPins) > 0 && cfg.LimitPinEnabled == nil {
-		return nil, errors.New("limit pin enabled must be set to true or false")
+		return nil, nil, errors.New("limit pin enabled must be set to true or false")
 	}
-	return deps, nil
+	return deps, nil, nil
 }
 
 func init() {
@@ -295,7 +295,7 @@ func (g *singleAxis) moveAway(ctx context.Context, pin int) error {
 	if pin != 0 {
 		dir = -1.0
 	}
-	if err := g.motor.GoFor(ctx, dir*g.rpm, 0, nil); err != nil {
+	if err := g.motor.SetRPM(ctx, dir*g.rpm, nil); err != nil {
 		return err
 	}
 	defer utils.UncheckedErrorFunc(func() error {
@@ -420,7 +420,7 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 		wrongPin = 0
 	}
 
-	err := g.motor.GoFor(ctx, d*g.rpm, 0, nil)
+	err := g.motor.SetRPM(ctx, d*g.rpm, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -442,20 +442,22 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 			break
 		}
 
-		// check if the wrong limit switch was hit
-		wrongHit, err := g.limitHit(ctx, wrongPin)
-		if err != nil {
-			return 0, err
-		}
-		if wrongHit {
-			err = g.motor.Stop(ctx, nil)
+		if len(g.limitSwitchPins) > 1 {
+			// check if the wrong limit switch was hit
+			wrongHit, err := g.limitHit(ctx, wrongPin)
 			if err != nil {
 				return 0, err
 			}
-			return 0, errors.Errorf(
-				"expected limit switch %v but hit limit switch %v, try switching the order in the config",
-				pin,
-				wrongPin)
+			if wrongHit {
+				err = g.motor.Stop(ctx, nil)
+				if err != nil {
+					return 0, err
+				}
+				return 0, errors.Errorf(
+					"expected limit switch %v but hit limit switch %v, try switching the order in the config",
+					pin,
+					wrongPin)
+			}
 		}
 
 		elapsed := time.Since(start)
@@ -474,8 +476,14 @@ func (g *singleAxis) testLimit(ctx context.Context, pin int) (float64, error) {
 	}
 	// Short pause after stopping to increase the precision of the position of each limit switch
 	position, err := g.motor.Position(ctx, nil)
+	if err != nil {
+		return position, err
+	}
 	time.Sleep(250 * time.Millisecond)
-	return position, err
+	if err := g.moveAway(ctx, pin); err != nil {
+		return position, err
+	}
+	return position, nil
 }
 
 // this function may need to be run in the background upon initialisation of the ganty,
@@ -590,30 +598,27 @@ func (g *singleAxis) IsMoving(ctx context.Context) (bool, error) {
 	return g.opMgr.OpRunning(), nil
 }
 
-// ModelFrame returns the frame model of the Gantry.
-func (g *singleAxis) ModelFrame() referenceframe.Model {
+func (g *singleAxis) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.model == nil {
-		var errs error
 		m := referenceframe.NewSimpleModel("")
 
 		f, err := referenceframe.NewStaticFrame(g.Name().ShortName(), spatial.NewZeroPose())
-		errs = multierr.Combine(errs, err)
+		if err != nil {
+			return nil, err
+		}
 		m.OrdTransforms = append(m.OrdTransforms, f)
 
 		f, err = referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{Min: 0, Max: g.lengthMm})
-		errs = multierr.Combine(errs, err)
-
-		if errs != nil {
-			g.logger.Error(errs)
-			return nil
+		if err != nil {
+			return nil, err
 		}
 
 		m.OrdTransforms = append(m.OrdTransforms, f)
 		g.model = m
 	}
-	return g.model
+	return g.model, nil
 }
 
 // CurrentInputs returns the current inputs of the Gantry frame.

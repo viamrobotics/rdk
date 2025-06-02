@@ -3,6 +3,7 @@ package module_test
 import (
 	"context"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"go.viam.com/test"
@@ -20,6 +21,9 @@ import (
 )
 
 func TestValidationFailureDuringReconfiguration(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("todo: get this working on win")
+	}
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
@@ -58,7 +62,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 		},
 	}
 
-	robot, err := robotimpl.New(ctx, cfg, logger)
+	robot, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer robot.Close(ctx)
 
@@ -94,6 +98,9 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 }
 
 func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("todo: get this working on win")
+	}
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
@@ -132,7 +139,7 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 		},
 	}
 
-	robot, err := robotimpl.New(ctx, cfg, logger)
+	robot, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer robot.Close(ctx)
 

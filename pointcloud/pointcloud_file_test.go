@@ -11,21 +11,17 @@ import (
 
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-
-	"go.viam.com/rdk/logging"
 )
 
 func BenchmarkNewFromFile(b *testing.B) {
-	logger := logging.NewTestLogger(b)
 	for i := 0; i < b.N; i++ {
-		_, err := NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
+		_, err := NewFromFile(artifact.MustPath("pointcloud/test.las"), BasicType)
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
 
 func TestNewFromFile(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	cloud, err := NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
+	cloud, err := NewFromFile(artifact.MustPath("pointcloud/test.las"), "")
 	test.That(t, err, test.ShouldBeNil)
 	numPoints := cloud.Size()
 	test.That(t, numPoints, test.ShouldEqual, 8413)
@@ -34,14 +30,14 @@ func TestNewFromFile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	err = WriteToLASFile(cloud, temp.Name())
+	err = writeToLASFile(cloud, temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 
-	nextCloud, err := NewFromFile(temp.Name(), logger)
+	nextCloud, err := NewFromFile(temp.Name(), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
 
-	cloud, err = NewFromFile(artifact.MustPath("pointcloud/test.pcd"), logger)
+	cloud, err = NewFromFile(artifact.MustPath("pointcloud/test.pcd"), "")
 	test.That(t, err, test.ShouldBeNil)
 	numPoints = cloud.Size()
 	test.That(t, numPoints, test.ShouldEqual, 293363)
@@ -53,13 +49,13 @@ func TestNewFromFile(t *testing.T) {
 	err = ToPCD(cloud, tempPCD, PCDAscii)
 	test.That(t, err, test.ShouldBeNil)
 
-	nextCloud, err = NewFromFile(tempPCD.Name(), logger)
+	nextCloud, err = NewFromFile(tempPCD.Name(), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
 }
 
 func TestPCD(t *testing.T) {
-	cloud := New()
+	cloud := NewBasicPointCloud(0)
 	test.That(t, cloud.Set(NewVector(-1, -2, 5), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(582, 12, 0), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(7, 6, 1), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
@@ -167,7 +163,7 @@ func testPCDHeaders(t *testing.T) {
 }
 
 func TestPCDNoColor(t *testing.T) {
-	cloud := New()
+	cloud := NewBasicPointCloud(0)
 	test.That(t, cloud.Set(NewVector(-1, -2, 5), NewBasicData()), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(582, 12, 0), NewBasicData()), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(7, 6, 1), NewBasicData()), test.ShouldBeNil)
@@ -194,7 +190,7 @@ func testNoColorASCIIRoundTrip(t *testing.T, cloud PointCloud) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.582000 0.012000 0.000000\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.007000 0.006000 0.001000\n")
 
-	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
+	cloud2, err := readPCD(strings.NewReader(gotPCD), basicConfig)
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
 }
@@ -212,7 +208,7 @@ func testNoColorBinaryRoundTrip(t *testing.T, cloud PointCloud) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "FIELDS x y z\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "DATA binary\n")
 
-	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
+	cloud2, err := readPCD(strings.NewReader(gotPCD), basicConfig)
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
 	data, dataFlag := cloud2.At(-1, -2, 5)
@@ -242,7 +238,7 @@ func testASCIIRoundTrip(t *testing.T, cloud PointCloud) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.582000 0.012000 0.000000 16711938\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.007000 0.006000 0.001000 16711938\n")
 
-	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
+	cloud2, err := readPCD(strings.NewReader(gotPCD), basicConfig)
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
 }
@@ -259,7 +255,7 @@ func testBinaryRoundTrip(t *testing.T, cloud PointCloud) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "POINTS 3\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "DATA binary\n")
 
-	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
+	cloud2, err := readPCD(strings.NewReader(gotPCD), basicConfig)
 	test.That(t, err, test.ShouldBeNil)
 	testPCDOutput(t, cloud2)
 	data, dataFlag := cloud2.At(-1, -2, 5)
@@ -279,14 +275,13 @@ func testLargeBinaryNoError(t *testing.T) {
 	err := ToPCD(largeCloud, &buf, PCDBinary)
 	test.That(t, err, test.ShouldBeNil)
 
-	readPointCloud, err := ReadPCD(strings.NewReader(buf.String()))
+	readPointCloud, err := readPCD(strings.NewReader(buf.String()), basicConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readPointCloud.Size(), test.ShouldEqual, largeCloud.Size())
 }
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	cloud := New()
+	cloud := NewBasicPointCloud(0)
 	test.That(t, cloud.Set(NewVector(-1, -2, 5), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(582, 12, 0), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(7, 6, 1), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
@@ -306,10 +301,10 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	err = WriteToLASFile(cloud, temp.Name())
+	err = writeToLASFile(cloud, temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 
-	nextCloud, err := NewFromFile(temp.Name(), logger)
+	nextCloud, err := NewFromFile(temp.Name(), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
 }
@@ -317,7 +312,7 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 func createNewPCD(t *testing.T) string {
 	t.Helper()
 
-	cloud := NewKDTree()
+	cloud := newKDTreeWithPrealloc(0)
 	test.That(t, cloud.Set(NewVector(-1, -2, 5), NewBasicData()), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(582, 12, 0), NewBasicData()), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewVector(7, 6, 1), NewBasicData()), test.ShouldBeNil)
@@ -338,7 +333,7 @@ func createNewPCD(t *testing.T) string {
 func TestPCDKDTree(t *testing.T) {
 	gotPCD := createNewPCD(t)
 
-	cloud2, err := ReadPCDToKDTree(strings.NewReader(gotPCD))
+	cloud2, err := readPCD(strings.NewReader(gotPCD), kdtreeConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloud2.Size(), test.ShouldEqual, 3)
 	gotPt, found := cloud2.At(-1, -2, 5)
@@ -349,7 +344,7 @@ func TestPCDKDTree(t *testing.T) {
 func TestPCDOctree(t *testing.T) {
 	gotPCD := createNewPCD(t)
 
-	basicOct, err := ReadPCDToBasicOctree(strings.NewReader(gotPCD))
+	basicOct, err := readPCD(strings.NewReader(gotPCD), BasicOctreeConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, basicOct.Size(), test.ShouldEqual, 3)
 	gotPt, found := basicOct.At(-1, -2, 5)
@@ -366,7 +361,7 @@ func TestPCDColor(t *testing.T) {
 }
 
 func newBigPC() PointCloud {
-	cloud := New()
+	cloud := NewBasicPointCloud(0)
 	for x := 10.0; x <= 50; x++ {
 		for y := 10.0; y <= 50; y++ {
 			for z := 10.0; z <= 50; z++ {
@@ -399,7 +394,7 @@ func BenchmarkPCDASCIIRead(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := ReadPCD(strings.NewReader(gotPCD))
+		_, err := readPCD(strings.NewReader(gotPCD), basicConfig)
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
@@ -425,7 +420,7 @@ func BenchmarkPCDBinaryRead(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := ReadPCD(strings.NewReader(gotPCD))
+		_, err := readPCD(strings.NewReader(gotPCD), basicConfig)
 		test.That(b, err, test.ShouldBeNil)
 	}
 }

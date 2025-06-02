@@ -37,12 +37,13 @@ import (
 	_ "go.viam.com/rdk/services/vision/colordetector"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 	viz "go.viam.com/rdk/vision"
 )
 
 type startWaypointState struct {
 	ns             navigation.Service
-	injectMS       *inject.MotionService
+	injectMS       *injectmotion.MotionService
 	base           base.Base
 	movementSensor *inject.MovementSensor
 	closeFunc      func()
@@ -56,10 +57,10 @@ func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navi
 	t.Helper()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(ctx, configFilename, logger)
+	cfg, err := config.Read(ctx, configFilename, logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	svc, err := navigation.FromRobot(myRobot, "test_navigation")
 	test.That(t, err, test.ShouldBeNil)
@@ -184,7 +185,7 @@ func TestValidateConfig(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			deps, err := tt.cfg.Validate(path)
+			deps, _, err := tt.cfg.Validate(path)
 			if tt.expectedErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 			} else {
@@ -230,7 +231,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      inject.NewBase("new_base"),
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("new_motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("new_motion"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
@@ -252,7 +253,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      inject.NewBase("new_base"),
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("new_motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("new_motion"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
@@ -285,7 +286,7 @@ func TestNew(t *testing.T) {
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
 			resource.NewName(camera.API, "camera"):  inject.NewCamera("camera"),
-			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"): injectmotion.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
 
@@ -319,7 +320,7 @@ func TestNew(t *testing.T) {
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
 			resource.NewName(camera.API, "camera"):  inject.NewCamera("camera"),
-			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"): injectmotion.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
 
@@ -361,7 +362,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
-			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"): injectmotion.NewMotionService("motion"),
 		}
 
 		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
@@ -381,7 +382,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      &inject.Base{},
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("motion"),
 			resource.NewName(camera.API, "camera"):                  inject.NewCamera("camera"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
@@ -403,7 +404,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      &inject.Base{},
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):                  inject.NewVisionService("vision"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
@@ -425,7 +426,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      &inject.Base{},
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):                  inject.NewVisionService("vision"),
 			resource.NewName(camera.API, "camera"):                  inject.NewCamera("camera"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
@@ -472,13 +473,6 @@ func TestSetMode(t *testing.T) {
 			mapType:     navigation.NoMap,
 			mode:        navigation.ModeExplore,
 			expectedErr: nil,
-		},
-		{
-			description: "setting mode to explore when map_type is None and no vision service is configured",
-			cfg:         "../data/nav_no_map_cfg_minimal.json",
-			mapType:     navigation.GPSMap,
-			mode:        navigation.ModeExplore,
-			expectedErr: errors.New("explore mode requires at least one vision service"),
 		},
 		{
 			description: "setting mode to manual when map_type is GPS",
@@ -600,10 +594,10 @@ func TestNavSetUpFromFaultyConfig(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	for _, tc := range testCases {
-		cfg, err := config.Read(ctx, tc.configPath, logger)
+		cfg, err := config.Read(ctx, tc.configPath, logger, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
-		myRobot, err := robotimpl.New(ctx, cfg, logger)
+		myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = navigation.FromRobot(myRobot, "test_navigation")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -640,7 +634,7 @@ func setupStartWaypoint(ctx context.Context, t *testing.T, logger logging.Logger
 			},
 		},
 	}
-	injectMS := inject.NewMotionService("test_motion")
+	injectMS := injectmotion.NewMotionService("test_motion")
 	deps := resource.Dependencies{
 		injectMS.Name():             injectMS,
 		fakeBase.Name():             fakeBase,
@@ -691,7 +685,7 @@ func setupStartWaypointExplore(ctx context.Context, t *testing.T, logger logging
 			},
 		},
 	}
-	injectMS := inject.NewMotionService("test_motion")
+	injectMS := injectmotion.NewMotionService("test_motion")
 	deps := resource.Dependencies{
 		injectMS.Name():             injectMS,
 		fakeBase.Name():             fakeBase,
@@ -745,7 +739,7 @@ func TestPaths(t *testing.T) {
 					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
 						Plan: motionplan.NewSimplePlan(
-							[]motionplan.PathStep{{s.base.Name().ShortName(): referenceframe.NewPoseInFrame(
+							[]referenceframe.FrameSystemPoses{{s.base.Name().ShortName(): referenceframe.NewPoseInFrame(
 								referenceframe.World,
 								spatialmath.NewPose(r3.Vector{X: expectedLng, Y: expectedLat}, nil),
 							)}},
@@ -1407,38 +1401,6 @@ func TestStartWaypoint(t *testing.T) {
 		})
 	}
 
-	t.Run("motion error returned when within planDeviation results in visiting waypoint", func(t *testing.T) {
-		s := setupStartWaypoint(ctx, t, logger)
-		defer s.closeFunc()
-
-		s.injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
-			return uuid.Nil, motion.ErrGoalWithinPlanDeviation
-		}
-
-		cancelCtx, cancelFn := context.WithTimeout(ctx, time.Millisecond*200)
-		defer cancelFn()
-
-		err := s.ns.AddWaypoint(cancelCtx, geo.NewPoint(1, 2), nil)
-		test.That(t, err, test.ShouldBeNil)
-		wps, err := s.ns.Waypoints(cancelCtx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(wps), test.ShouldEqual, 1)
-		err = s.ns.SetMode(cancelCtx, navigation.ModeWaypoint, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		for {
-			if cancelCtx.Err() != nil {
-				t.Error("test timed out")
-				t.FailNow()
-			}
-			wps, err := s.ns.Waypoints(cancelCtx, nil)
-			test.That(t, err, test.ShouldBeNil)
-			if len(wps) == 0 {
-				break
-			}
-		}
-	})
-
 	t.Run("Calling RemoveWaypoint on the waypoint in progress cancels current MoveOnGlobe call", func(t *testing.T) {
 		s := setupStartWaypoint(ctx, t, logger)
 		defer s.closeFunc()
@@ -1732,14 +1694,14 @@ func TestValidateGeometry(t *testing.T) {
 
 	t.Run("fail case", func(t *testing.T) {
 		cfg = createBox(r3.Vector{X: 10, Y: 10, Z: 10})
-		_, err := cfg.Validate("")
+		_, _, err := cfg.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, errors.Is(err, errObstacleGeomWithTranslation), test.ShouldBeTrue)
 	})
 
 	t.Run("success case", func(t *testing.T) {
 		cfg = createBox(r3.Vector{})
-		_, err := cfg.Validate("")
+		_, _, err := cfg.Validate("")
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -1761,7 +1723,7 @@ func TestGetObstacles(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMS := inject.NewMotionService("test_motion")
+	injectMS := injectmotion.NewMotionService("test_motion")
 	injectedVis := inject.NewVisionService("test_vision")
 	injectMovementSensor := inject.NewMovementSensor("test_movement")
 	injectedCam := inject.NewCamera("test_camera")
@@ -1869,7 +1831,7 @@ func TestGetObstacles(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-box", boxGeom.ToProtobuf())
+		detection, err := viz.NewObjectWithLabel(pointcloud.NewBasicEmpty(), "test-box", boxGeom.ToProtobuf())
 		test.That(t, err, test.ShouldBeNil)
 		return []*viz.Object{detection}, nil
 	}

@@ -107,7 +107,7 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
 	}
 
 	planes := make([]Plane, 0)
-	nonPlane := New()
+	nonPlane := NewBasicPointCloud(len(pointsByLabel))
 	for label, pts := range pointsByLabel {
 		if label == 0 { // create a point cloud of non-planar points
 			for p, d := range pts {

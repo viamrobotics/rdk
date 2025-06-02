@@ -9,9 +9,10 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
 	pb "go.viam.com/api/service/vision/v1"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/protoutils"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
@@ -86,6 +87,7 @@ func detsToProto(detections []objectdetection.Detection) []*pb.Detection {
 		yMin := int64(box.Min.Y)
 		xMax := int64(box.Max.X)
 		yMax := int64(box.Max.Y)
+
 		d := &pb.Detection{
 			XMin:       &xMin,
 			YMin:       &yMin,
@@ -93,6 +95,13 @@ func detsToProto(detections []objectdetection.Detection) []*pb.Detection {
 			YMax:       &yMax,
 			Confidence: det.Score(),
 			ClassName:  det.Label(),
+		}
+		normbox := det.NormalizedBoundingBox()
+		if len(normbox) == 4 {
+			d.XMinNormalized = &normbox[0]
+			d.YMinNormalized = &normbox[1]
+			d.XMaxNormalized = &normbox[2]
+			d.YMaxNormalized = &normbox[3]
 		}
 		protoDets = append(protoDets, d)
 	}
@@ -183,7 +192,7 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 	for _, seg := range segs {
 		var buf bytes.Buffer
 		if seg.PointCloud == nil {
-			seg.PointCloud = pointcloud.New()
+			seg.PointCloud = pointcloud.NewBasicEmpty()
 		}
 		err := pointcloud.ToPCD(seg, &buf, pointcloud.PCDBinary)
 		if err != nil {
@@ -239,6 +248,7 @@ func (server *serviceServer) CaptureAllFromCamera(
 		ReturnClassifications: req.ReturnClassifications,
 		ReturnObject:          req.ReturnObjectPointClouds,
 	}
+
 	capt, err := svc.CaptureAllFromCamera(ctx,
 		req.CameraName,
 		captOptions,
@@ -257,12 +267,16 @@ func (server *serviceServer) CaptureAllFromCamera(
 	if err != nil {
 		return nil, err
 	}
-
+	extraProto, err := protoutils.StructToStructPb(capt.Extra)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.CaptureAllFromCameraResponse{
 		Image:           imgProto,
 		Detections:      detsToProto(capt.Detections),
 		Classifications: clasToProto(capt.Classifications),
 		Objects:         objProto,
+		Extra:           extraProto,
 	}, nil
 }
 
@@ -312,5 +326,5 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return protoutils.DoFromResourceServer(ctx, svc, req)
+	return rprotoutils.DoFromResourceServer(ctx, svc, req)
 }

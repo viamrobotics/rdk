@@ -13,8 +13,9 @@ func TestAliasStringFlag(t *testing.T) {
 			Name: "foo",
 		},
 	}
+	stringRepresentationWithoutAliases := f.StringFlag.String()
 	test.That(t, f.Names(), test.ShouldResemble, []string{"foo"})
-	test.That(t, f.String(), test.ShouldEqual, f.StringFlag.String())
+	test.That(t, f.String(), test.ShouldEqual, stringRepresentationWithoutAliases)
 
 	f = AliasStringFlag{
 		cli.StringFlag{
@@ -23,7 +24,7 @@ func TestAliasStringFlag(t *testing.T) {
 		},
 	}
 	test.That(t, f.Names(), test.ShouldResemble, []string{"hello", "foo"})
-	test.That(t, f.String(), test.ShouldEqual, f.StringFlag.String())
+	test.That(t, f.String(), test.ShouldEqual, stringRepresentationWithoutAliases)
 
 	f = AliasStringFlag{
 		cli.StringFlag{
@@ -32,5 +33,5 @@ func TestAliasStringFlag(t *testing.T) {
 		},
 	}
 	test.That(t, f.Names(), test.ShouldResemble, []string{"hello", "world", "foo"})
-	test.That(t, f.String(), test.ShouldEqual, f.StringFlag.String())
+	test.That(t, f.String(), test.ShouldEqual, stringRepresentationWithoutAliases)
 }

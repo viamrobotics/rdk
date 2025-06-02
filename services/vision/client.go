@@ -113,7 +113,14 @@ func protoToDets(protoDets []*pb.Detection) ([]objdet.Detection, error) {
 			return nil, fmt.Errorf("invalid detection %+v", d)
 		}
 		box := image.Rect(int(*d.XMin), int(*d.YMin), int(*d.XMax), int(*d.YMax))
-		det := objdet.NewDetection(box, d.Confidence, d.ClassName)
+		var det objdet.Detection
+		if d.XMinNormalized != nil && d.XMaxNormalized != nil && d.YMinNormalized != nil && d.YMaxNormalized != nil {
+			ibx := int(float64(*d.XMax) / *d.XMaxNormalized)
+			iby := int(float64(*d.YMax) / *d.YMaxNormalized)
+			det = objdet.NewDetection(image.Rect(0, 0, ibx, iby), box, d.Confidence, d.ClassName)
+		} else {
+			det = objdet.NewDetectionWithoutImgBounds(box, d.Confidence, d.ClassName)
+		}
 		detections = append(detections, det)
 	}
 	return detections, nil
@@ -212,7 +219,7 @@ func (c *client) GetObjectPointClouds(
 func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) {
 	objects := make([]*vision.Object, len(pco))
 	for i, o := range pco {
-		pc, err := pointcloud.ReadPCD(bytes.NewReader(o.PointCloud))
+		pc, err := pointcloud.ReadPCD(bytes.NewReader(o.PointCloud), "")
 		if err != nil {
 			return nil, err
 		}
@@ -293,6 +300,7 @@ func (c *client) CaptureAllFromCamera(
 	if err != nil {
 		return viscapture.VisCapture{}, err
 	}
+
 	var img image.Image
 	if resp.Image.Image != nil {
 		mimeType := utils.FormatToMimeType[resp.Image.GetFormat()]
@@ -302,11 +310,17 @@ func (c *client) CaptureAllFromCamera(
 		}
 	}
 
+	vcExtra := resp.Extra.AsMap()
+	if len(vcExtra) == 0 {
+		vcExtra = nil
+	}
+
 	capt := viscapture.VisCapture{
 		Image:           img,
 		Detections:      dets,
 		Classifications: class,
 		Objects:         objPCD,
+		Extra:           vcExtra,
 	}
 
 	return capt, nil

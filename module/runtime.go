@@ -11,9 +11,9 @@ import (
 
 // ModularMain can be called as the main function from a module. It will start up a module with all
 // the provided APIModels added to it.
-func ModularMain(moduleName string, models ...resource.APIModel) {
+func ModularMain(models ...resource.APIModel) {
 	mainWithArgs := func(ctx context.Context, args []string, logger logging.Logger) error {
-		mod, err := NewModuleFromArgs(ctx, logger)
+		mod, err := NewModuleFromArgs(ctx)
 		if err != nil {
 			return err
 		}
@@ -34,5 +34,5 @@ func ModularMain(moduleName string, models ...resource.APIModel) {
 		return nil
 	}
 
-	utils.ContextualMain(mainWithArgs, NewLoggerFromArgs(moduleName))
+	utils.ContextualMain(mainWithArgs, NewLoggerFromArgs(""))
 }

@@ -637,7 +637,7 @@ func TestReplayPCDConfigValidation(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			deps, err := tt.cfg.Validate("")
+			deps, _, err := tt.cfg.Validate("")
 			if tt.expectedErr != nil {
 				test.That(t, err, test.ShouldBeError, tt.expectedErr)
 			} else {
@@ -659,11 +659,6 @@ func TestReplayPCDUnimplementedFunctions(t *testing.T) {
 	}
 	replayCamera, _, serverClose, err := createNewReplayPCDCamera(ctx, t, replayCamCfg, true)
 	test.That(t, err, test.ShouldBeNil)
-
-	t.Run("Stream", func(t *testing.T) {
-		_, err := replayCamera.Stream(ctx, nil)
-		test.That(t, err.Error(), test.ShouldEqual, "Stream is unimplemented")
-	})
 
 	err = replayCamera.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)

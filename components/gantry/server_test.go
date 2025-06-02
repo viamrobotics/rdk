@@ -14,6 +14,13 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const (
+	testGantryName    = "gantry1"
+	testGantryName2   = "gantry2"
+	failGantryName    = "gantry3"
+	missingGantryName = "gantry4"
+)
+
 var (
 	errPositionFailed       = errors.New("couldn't get position")
 	errHomingFailed         = errors.New("homing unsuccessful")

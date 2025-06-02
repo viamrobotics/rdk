@@ -28,32 +28,36 @@ func TestConfig(t *testing.T) {
 			{
 				name: "full configs that are equal are equal",
 				a: Config{
-					AdditionalSyncPaths:        []string{"a", "b"},
-					CaptureDir:                 "c",
-					CaptureDisabled:            true,
-					DeleteEveryNthWhenDiskFull: 5,
-					FileLastModifiedMillis:     100,
-					MaximumNumSyncThreads:      100,
-					ScheduledSyncDisabled:      true,
-					SelectiveSyncerName:        "tom",
-					SyncIntervalMins:           1.1,
-					Tags:                       []string{"c", "d"},
-					SelectiveSyncSensorEnabled: true,
-					SelectiveSyncSensor:        sensorA,
+					AdditionalSyncPaths:         []string{"a", "b"},
+					CaptureDir:                  "c",
+					CaptureDisabled:             true,
+					DeleteEveryNthWhenDiskFull:  5,
+					DiskUsageDeletionThreshold:  0.90,
+					CaptureDirDeletionThreshold: 0.5,
+					FileLastModifiedMillis:      100,
+					MaximumNumSyncThreads:       100,
+					ScheduledSyncDisabled:       true,
+					SelectiveSyncerName:         "tom",
+					SyncIntervalMins:            1.1,
+					Tags:                        []string{"c", "d"},
+					SelectiveSyncSensorEnabled:  true,
+					SelectiveSyncSensor:         sensorA,
 				},
 				b: Config{
-					AdditionalSyncPaths:        []string{"a", "b"},
-					CaptureDir:                 "c",
-					CaptureDisabled:            true,
-					DeleteEveryNthWhenDiskFull: 5,
-					FileLastModifiedMillis:     100,
-					MaximumNumSyncThreads:      100,
-					ScheduledSyncDisabled:      true,
-					SelectiveSyncerName:        "tom",
-					SyncIntervalMins:           1.1,
-					Tags:                       []string{"c", "d"},
-					SelectiveSyncSensorEnabled: true,
-					SelectiveSyncSensor:        sensorA,
+					AdditionalSyncPaths:         []string{"a", "b"},
+					CaptureDir:                  "c",
+					CaptureDisabled:             true,
+					DeleteEveryNthWhenDiskFull:  5,
+					DiskUsageDeletionThreshold:  0.90,
+					CaptureDirDeletionThreshold: 0.5,
+					FileLastModifiedMillis:      100,
+					MaximumNumSyncThreads:       100,
+					ScheduledSyncDisabled:       true,
+					SelectiveSyncerName:         "tom",
+					SyncIntervalMins:            1.1,
+					Tags:                        []string{"c", "d"},
+					SelectiveSyncSensorEnabled:  true,
+					SelectiveSyncSensor:         sensorA,
 				},
 				equal: true,
 			},
@@ -94,6 +98,26 @@ func TestConfig(t *testing.T) {
 				},
 				b: Config{
 					DeleteEveryNthWhenDiskFull: 4,
+				},
+				equal: false,
+			},
+			{
+				name: "different DiskUsageThreshold are not equal",
+				a: Config{
+					DiskUsageDeletionThreshold: 0.90,
+				},
+				b: Config{
+					DiskUsageDeletionThreshold: 0.80,
+				},
+				equal: false,
+			},
+			{
+				name: "different CaptureDirThreshold are not equal",
+				a: Config{
+					CaptureDirDeletionThreshold: 0.5,
+				},
+				b: Config{
+					CaptureDirDeletionThreshold: 0.6,
 				},
 				equal: false,
 			},
@@ -188,18 +212,13 @@ func TestConfig(t *testing.T) {
 	})
 
 	t.Run("schedulerEnabled()", func(t *testing.T) {
-		t.Run("false by default", func(t *testing.T) {
-			test.That(t, Config{}.schedulerEnabled(), test.ShouldBeFalse)
+		t.Run("true by default", func(t *testing.T) {
+			test.That(t, Config{}.schedulerEnabled(), test.ShouldBeTrue)
 		})
 
 		t.Run("false if ScheduledSyncDisabled", func(t *testing.T) {
 			test.That(t, Config{ScheduledSyncDisabled: true}.schedulerEnabled(), test.ShouldBeFalse)
 			test.That(t, Config{ScheduledSyncDisabled: true, SyncIntervalMins: 1.0}.schedulerEnabled(), test.ShouldBeFalse)
-		})
-
-		t.Run("false if SyncIntervalMins is almost 0", func(t *testing.T) {
-			test.That(t, Config{SyncIntervalMins: 0.0000001}.schedulerEnabled(), test.ShouldBeFalse)
-			test.That(t, Config{SelectiveSyncSensorEnabled: true, SelectiveSyncSensor: &inject.Sensor{}}.schedulerEnabled(), test.ShouldBeFalse)
 		})
 
 		t.Run("false if SelectiveSyncSensorEnabled is true and SelectiveSyncSensor is nil", func(t *testing.T) {
@@ -221,7 +240,7 @@ func TestConfig(t *testing.T) {
 		captureDir := "/some/capture/dir"
 		empty := Config{CaptureDir: captureDir}
 		full := Config{CaptureDir: captureDir, AdditionalSyncPaths: []string{"/some/other", "/paths"}}
-		test.That(t, empty.syncPaths(), test.ShouldResemble, []string{captureDir})
-		test.That(t, full.syncPaths(), test.ShouldResemble, []string{captureDir, "/some/other", "/paths"})
+		test.That(t, empty.SyncPaths(), test.ShouldResemble, []string{captureDir})
+		test.That(t, full.SyncPaths(), test.ShouldResemble, []string{captureDir, "/some/other", "/paths"})
 	})
 }

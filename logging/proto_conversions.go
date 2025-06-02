@@ -25,7 +25,75 @@ func FieldToProto(field zap.Field) (*structpb.Struct, error) {
 		field.String = fmt.Sprintf("%f", math.Float64frombits(uint64(field.Integer)))
 	}
 
+	// RSDK-9097: Calling FieldToProto goes through a marshal -> unmarshal sequence. Marshaling
+	// errors as-is will give us a zapcore type of error, but an empty `String` and an empty object
+	// for the `Interface`. Unmarshalling in `FieldFromProto` subsequently creates a zapcore.Field
+	// object with the "error" type, but no underlying `Interface`. Using the zapcore JSONEncoder
+	// fails when the underlying empty `Interface` is cast to an `error`.
+	//
+	// We work around this in the short-term by just turning errors into strings.
+	if field.Type == zapcore.ErrorType {
+		field.Type = zapcore.StringType
+		field.String = field.Interface.(error).Error()
+	}
+
 	return protoutils.StructToStructPb(field)
+}
+
+// FieldFromProto unmarshals a proto-encoded zap.Field.
+func FieldFromProto(field *structpb.Struct) (zap.Field, error) {
+	fieldJSON, err := json.Marshal(field)
+	if err != nil {
+		return zap.Field{}, err
+	}
+
+	var zf zap.Field
+	if err := json.Unmarshal(fieldJSON, &zf); err != nil {
+		return zap.Field{}, err
+	}
+
+	//nolint:exhaustive
+	switch zf.Type {
+	case zapcore.TimeType:
+		if _, ok := zf.Interface.(*time.Location); !ok {
+			// Proto serialization put garbage in the field zap assumes is a timezone,
+			// nil it out to stop zap from panicking
+			zf.Interface = nil
+		}
+	case zapcore.ArrayMarshalerType:
+		if _, ok := zf.Interface.(zapcore.ArrayMarshaler); !ok {
+			// Proto serialization erased the type information, fall back on reflection
+			zf.Type = zapcore.ReflectType
+		}
+	case zapcore.BinaryType:
+		if _, ok := zf.Interface.([]byte); !ok {
+			zf.Type = zapcore.ReflectType
+		}
+	case zapcore.Float64Type:
+		// See FieldToProto above: we encode float64s as strings to avoid loss in
+		// proto conversion. Old logs from the app DB may still have float64s in
+		// the Integer field: do nothing in such cases.
+		if zf.String == "" {
+			break
+		}
+
+		parsedFloat, err := strconv.ParseFloat(zf.String, 64)
+		if err != nil {
+			return zf, err
+		}
+		zf.Integer = int64(math.Float64bits(parsedFloat))
+		zf.String = ""
+	case zapcore.ErrorType:
+		// Handle poorly serialized error fields (force them into a string type with
+		// an empty value). Newer Golang modules should serialize correctly (turn
+		// errors into strings client-side) per RSDK-9097.
+		if _, ok := zf.Interface.(error); !ok {
+			zf.Type = zapcore.StringType
+			zf.String = ""
+		}
+	}
+
+	return zf, err
 }
 
 // FieldKeyAndValueFromProto examines a *structpb.Struct and returns its key

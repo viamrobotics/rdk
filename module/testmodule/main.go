@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
@@ -38,7 +39,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	logger.Debug("debug mode enabled")
 
 	var err error
-	myMod, err = module.NewModuleFromArgs(ctx, logger)
+	myMod, err = module.NewModuleFromArgs(ctx)
 	if err != nil {
 		return err
 	}
@@ -46,7 +47,9 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	resource.RegisterComponent(
 		generic.API,
 		helperModel,
-		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newHelper})
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: newHelper,
+		})
 	err = myMod.AddModelFromRegistry(ctx, generic.API, helperModel)
 	if err != nil {
 		return err
@@ -91,9 +94,23 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 func newHelper(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
+	var dependsOnSensor sensor.Sensor
+	var err error
+	if len(conf.DependsOn) > 0 {
+		dependsOnSensor, err = sensor.FromDependencies(deps, conf.DependsOn[0])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(deps) > 0 && dependsOnSensor == nil {
+		return nil, fmt.Errorf("sensor not found in deps: %v", deps)
+	}
+
 	return &helper{
-		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		Named:           conf.ResourceName().AsNamed(),
+		logger:          logger,
+		dependsOnSensor: dependsOnSensor,
 	}, nil
 }
 
@@ -102,6 +119,7 @@ type helper struct {
 	resource.TriviallyCloseable
 	logger              logging.Logger
 	numReconfigurations int
+	dependsOnSensor     sensor.Sensor
 }
 
 // DoCommand looks up the "real" command from the map it's passed.
@@ -164,7 +182,7 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		msg := req["msg"].(string)
 		switch level {
 		case logging.DEBUG:
-			h.logger.CDebugw(ctx, msg, "foo", "bar")
+			h.logger.CDebugw(ctx, msg, "foo", "bar", "err", errors.New("crash me"))
 		case logging.INFO:
 			h.logger.CInfow(ctx, msg, "foo", "bar")
 		case logging.WARN:
@@ -176,6 +194,9 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		return map[string]any{}, nil
 	case "get_num_reconfigurations":
 		return map[string]any{"num_reconfigurations": h.numReconfigurations}, nil
+	case "do_readings_on_dep":
+		_, err := h.dependsOnSensor.Readings(ctx, nil)
+		return nil, err
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)
 	}

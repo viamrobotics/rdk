@@ -1,0 +1,93 @@
+package {{.Module.ModuleLowercase}}
+
+import (
+  "go.viam.com/rdk/{{ .Module.ResourceType }}s/{{ .Module.ResourceSubtype}}"
+  {{.Imports}}
+)
+
+var (
+	{{.Module.ModelPascal}} = resource.NewModel("{{ .Module.Namespace}}", "{{ .Module.ModuleName}}", "{{.Module.ModelName}}")
+	errUnimplemented = errors.New("unimplemented")
+)
+
+func init() {
+	resource.Register{{ .Module.ResourceTypePascal}}({{.Module.ResourceSubtype}}.API, {{.Module.ModelPascal}},
+		resource.Registration[{{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtype}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, *Config]{
+			Constructor: new{{.Module.ModulePascal}}{{.Module.ModelPascal}},
+		},
+	)
+}
+
+type Config struct {
+	/*
+	Put config attributes here. There should be public/exported fields
+	with a `json` parameter at the end of each attribute.
+
+	Example config struct:
+		type Config struct {
+			Pin   string `json:"pin"`
+			Board string `json:"board"`
+			MinDeg *float64 `json:"min_angle_deg,omitempty"`
+		}
+
+	If your model does not need a config, replace *Config in the init
+	function with resource.NoNativeConfig
+	*/
+}
+
+// Validate ensures all parts of the config are valid and important fields exist.
+// Returns implicit dependencies based on the config.
+// The path is the JSON path in your robot's config (not the `Config` struct) to the
+// resource being validated; e.g. "components.0".
+func (cfg *Config) Validate(path string) ([]string, error) {
+	// Add config validation code here
+	 return nil, nil
+}
+
+type {{.ModelType}} struct {
+	resource.AlwaysRebuild
+    
+	name   resource.Name
+
+	logger logging.Logger
+	cfg    *Config
+
+	cancelCtx  context.Context
+	cancelFunc func()
+}
+
+func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtype}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
+	conf, err := resource.NativeConfig[*Config](rawConf)
+	if err != nil {
+		return nil, err
+	}
+
+    return New{{.Module.ModelPascal}}(ctx, deps, rawConf.ResourceName(), conf, logger)
+
+}
+
+func New{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, name resource.Name, conf *Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtype}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
+
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+
+	s := &{{.ModelType}}{
+		name:       name,
+		logger:     logger,
+		cfg:        conf,
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+	}
+	return s, nil
+}
+
+func (s *{{.ModelType}}) Name() resource.Name {
+	return s.name
+}
+
+{{.Functions}}
+
+func (s *{{.ModelType}}) Close(context.Context) error {
+	// Put close code here
+	s.cancelFunc()
+	return nil
+}

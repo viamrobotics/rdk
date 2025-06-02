@@ -7,13 +7,17 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/encoder/single"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
 var model = resource.DefaultModelFamily.WithModel("gpio")
+
+const (
+	isSingle          = "single"
+	directionAttached = "direction"
+)
 
 // MotorType represents the three accepted pin configuration settings
 // supported by a gpio motor.
@@ -123,33 +127,33 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if conf.BoardName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, conf.BoardName)
 
 	// ensure motor config represents one of three supported motor configuration types
 	// (see MotorType above)
 	if _, err := conf.Pins.MotorType(path); err != nil {
-		return deps, err
+		return deps, nil, err
 	}
 
 	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
 	if conf.Encoder != "" {
 		if conf.TicksPerRotation <= 0 {
-			return nil, resource.NewConfigValidationError(path, errors.New("ticks_per_rotation should be positive or zero"))
+			return nil, nil, resource.NewConfigValidationError(path, errors.New("ticks_per_rotation should be positive or zero"))
 		}
 		deps = append(deps, conf.Encoder)
 	} else if conf.MaxRPM <= 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "max_rpm")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "max_rpm")
 	}
-	return deps, nil
+	return deps, nil, nil
 }
 
-// init registers a pi motor based on pigpio.
+// init registers a motor controlled by settign pwm and gpio pins on the underlying board.
 func init() {
 	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
 		Constructor: createNewMotor,
@@ -185,7 +189,6 @@ func createNewMotor(
 	}
 
 	if motorConfig.Encoder != "" {
-		basic := m.(*Motor)
 		e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
 		if err != nil {
 			return nil, err
@@ -200,9 +203,17 @@ func createNewMotor(
 				encoder.NewEncodedMotorPositionTypeUnsupportedError(props)
 		}
 
-		single, isSingle := e.(*single.Encoder)
-		if isSingle {
-			single.AttachDirectionalAwareness(basic)
+		cmd := make(map[string]interface{})
+		cmd[isSingle] = m
+		resp, err := e.DoCommand(ctx, cmd)
+		if err != nil {
+			if !errors.Is(err, resource.ErrDoUnimplemented) {
+				logger.Infof("DoCommand Errored, likely not a single encoder, err = %w", err)
+			}
+		}
+
+		// the three criterea for knowing we're attached to a single encoder
+		if resp != nil && resp[directionAttached].(bool) && err == nil {
 			logger.CInfo(ctx, "direction attached to single encoder from encoded motor")
 		}
 
@@ -213,7 +224,7 @@ func createNewMotor(
 				return nil, err
 			}
 		default:
-			m, err = setupMotorWithControls(ctx, basic, e, cfg, logger)
+			m, err = setupMotorWithControls(ctx, m, e, cfg, logger)
 			if err != nil {
 				return nil, err
 			}

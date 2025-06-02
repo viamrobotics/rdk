@@ -8,9 +8,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
@@ -19,7 +17,6 @@ import (
 	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
-	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/services/motion"
 	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -115,12 +112,12 @@ func TestModularResources(t *testing.T) {
 
 		// modular
 		cfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err := cfg.Validate("test", resource.APITypeComponentName)
+		_, _, err := cfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// changed attribute
 		cfg2 := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "two"}}
-		_, err = cfg2.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfg2.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// non-modular
@@ -130,12 +127,12 @@ func TestModularResources(t *testing.T) {
 			Model:               resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{},
 		}
-		_, err = cfg3.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfg3.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// changed name
 		cfg4 := resource.Config{Name: "oneton2", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "two"}}
-		_, err = cfg4.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfg4.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Add a modular component
@@ -194,7 +191,7 @@ func TestModularResources(t *testing.T) {
 			Model:      svcModel,
 			Attributes: utils.AttributeMap{"arg1": "one"},
 		}
-		_, err := cfg.Validate("test", resource.APITypeServiceName)
+		_, _, err := cfg.Validate("test", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// changed attribute
@@ -204,7 +201,7 @@ func TestModularResources(t *testing.T) {
 			Model:      svcModel,
 			Attributes: utils.AttributeMap{"arg1": "two"},
 		}
-		_, err = cfg2.Validate("test", resource.APITypeServiceName)
+		_, _, err = cfg2.Validate("test", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// non-modular
@@ -215,7 +212,7 @@ func TestModularResources(t *testing.T) {
 			ConvertedAttributes: &motionBuiltin.Config{},
 			DependsOn:           []string{framesystem.InternalServiceName.String()},
 		}
-		_, err = cfg3.Validate("test", resource.APITypeServiceName)
+		_, _, err = cfg3.Validate("test", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, err, test.ShouldBeNil)
@@ -255,7 +252,7 @@ func TestModularResources(t *testing.T) {
 		r, mod := setupTest(t)
 
 		compCfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err := compCfg.Validate("test", resource.APITypeComponentName)
+		_, _, err := compCfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		svcCfg := resource.Config{
@@ -264,7 +261,7 @@ func TestModularResources(t *testing.T) {
 			Model:      svcModel,
 			Attributes: utils.AttributeMap{"arg1": "one"},
 		}
-		_, err = svcCfg.Validate("test", resource.APITypeComponentName)
+		_, _, err = svcCfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		r.Reconfigure(context.Background(), &config.Config{
@@ -298,7 +295,7 @@ func TestModularResources(t *testing.T) {
 
 		// modular we do not want
 		cfg := resource.Config{Name: "oneton2", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err := cfg.Validate("test", resource.APITypeComponentName)
+		_, _, err := cfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// non-modular
@@ -309,12 +306,12 @@ func TestModularResources(t *testing.T) {
 			ConvertedAttributes: &fake.Config{},
 			ImplicitDependsOn:   []string{"oneton"},
 		}
-		_, err = cfg2.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfg2.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// modular we want
 		cfg3 := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err = cfg3.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfg3.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		// what we want is originally available
@@ -353,7 +350,7 @@ func TestModularResources(t *testing.T) {
 		r, _ := setupTest(t)
 
 		cfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err := cfg.Validate("test", resource.APITypeComponentName)
+		_, _, err := cfg.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		r.Reconfigure(context.Background(), &config.Config{
@@ -363,7 +360,7 @@ func TestModularResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		cfg2 := resource.Config{Name: "oneton", API: compAPI, Model: compModel2, Attributes: utils.AttributeMap{"arg1": "one"}}
-		_, err = cfg2.Validate("test", resource.APITypeComponentName)
+		_, _, err = cfg2.Validate("test", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldBeNil)
 
 		r.Reconfigure(context.Background(), &config.Config{
@@ -454,10 +451,10 @@ func (m *dummyModMan) Provides(cfg resource.Config) bool {
 	return cfg.Name != "builtin"
 }
 
-func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, error) {
+func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, []string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return nil, nil
+	return nil, nil, nil
 }
 
 func (m *dummyModMan) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
@@ -479,154 +476,8 @@ func (m *dummyModMan) Close(ctx context.Context) error {
 	return nil
 }
 
-func TestDynamicModularComponentLogging(t *testing.T) {
-	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
-
-	ctx := context.Background()
-	logger, observer := logging.NewObservedTestLogger(t)
-
-	helperConf := resource.Config{
-		Name:  "helper",
-		API:   generic.API,
-		Model: resource.NewModel("rdk", "test", "helper"),
-		LogConfiguration: resource.LogConfig{
-			Level: logging.INFO,
-		},
-	}
-	cfg := &config.Config{
-		Components: []resource.Config{helperConf},
-		Modules: []config.Module{{
-			Name:     "helperModule",
-			ExePath:  modPath,
-			LogLevel: "info",
-			Type:     "local",
-		}},
-	}
-
-	myRobot := setupLocalRobot(t, ctx, cfg, logger)
-
-	client, err := generic.FromRobot(myRobot, "helper")
-	test.That(t, err, test.ShouldBeNil)
-	defer client.Close(ctx)
-
-	//nolint:lll
-	// Have the module log a line at info. It should appear as:
-	// 2024-01-08T19:28:11.415-0800	INFO	TestModule.rdk:component:generic/helper testmodule/main.go:169  info level log line{"foo": "bar", "log_ts": "2024-06-24T19:18:33.426Z"}
-	infoLogLine := "info level log line"
-	testCmd := map[string]interface{}{"command": "log", "msg": infoLogLine, "level": "info"}
-	_, err = client.DoCommand(ctx, testCmd)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Our log observer should find one occurrence of the log line with `log_ts` and `foo`
-	// arguments.
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
-		test.That(tb, observer.FilterMessageSnippet(infoLogLine).FilterFieldKey("log_ts").Len(), test.ShouldEqual, 1)
-		test.That(tb, observer.FilterMessageSnippet(infoLogLine).FilterFieldKey("foo").Len(), test.ShouldEqual, 1)
-	})
-
-	// The module is currently configured to log at info. If the module tries to log at debug,
-	// nothing new should be observed.
-	debugLogLine := "debug level log line"
-	testCmd = map[string]interface{}{"command": "log", "msg": debugLogLine, "level": "debug"}
-	_, err = client.DoCommand(ctx, testCmd)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
-	test.That(t, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 0)
-
-	// Change the modular component to log at DEBUG instead of INFO.
-	cfg.Components[0].LogConfiguration.Level = logging.DEBUG
-	myRobot.Reconfigure(ctx, cfg)
-
-	// Trying to log again at DEBUG should see our log line pattern show up a second time. Now with
-	// DEBUG in the output string.
-	testCmd = map[string]interface{}{"command": "log", "msg": debugLogLine, "level": "debug"}
-	_, err = client.DoCommand(ctx, testCmd)
-	test.That(t, err, test.ShouldBeNil)
-
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
-		test.That(tb, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 1)
-	})
-}
-
-func TestDynamicModularServiceLogging(t *testing.T) {
-	modPath := rtestutils.BuildTempModule(t, "module/testmodule")
-
-	ctx := context.Background()
-	logger, observer := logging.NewObservedTestLogger(t)
-
-	otherConf := resource.Config{
-		Name:  "other",
-		Model: resource.NewModel("rdk", "test", "other"),
-		API:   genericservice.API,
-		Attributes: utils.AttributeMap{
-			"bar": "baz",
-		},
-		LogConfiguration: resource.LogConfig{Level: logging.INFO},
-	}
-
-	cfg := &config.Config{
-		Services: []resource.Config{otherConf},
-		Modules: []config.Module{{
-			Name:     "helperModule",
-			ExePath:  modPath,
-			LogLevel: "info",
-			Type:     "local",
-		}},
-	}
-
-	myRobot := setupLocalRobot(t, ctx, cfg, logger)
-
-	client, err := genericservice.FromRobot(myRobot, "other")
-	test.That(t, err, test.ShouldBeNil)
-	defer client.Close(ctx)
-
-	//nolint:lll
-	// Have the module log a line at info. It should appear as:
-	// 2024-01-08T19:28:11.415-0800	INFO	TestModule.rdk:service:generic/other    testmodule/main.go:225  info level log line{"foo": "bar", "log_ts": "2024-06-24T19:14:16.921Z"}
-	infoLogLine := "info level log line"
-	testCmd := map[string]interface{}{"command": "log", "msg": infoLogLine, "level": "info"}
-	_, err = client.DoCommand(ctx, testCmd)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Our log observer should find one occurrence of the log line with `log_ts` and `foo`
-	// arguments.
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
-		test.That(tb, observer.FilterMessageSnippet(infoLogLine).FilterFieldKey("log_ts").Len(), test.ShouldEqual, 1)
-		test.That(tb, observer.FilterMessageSnippet(infoLogLine).FilterFieldKey("foo").Len(), test.ShouldEqual, 1)
-	})
-
-	// The module is currently configured to log at info. If the module tries to log at debug,
-	// nothing new should be observed.
-	debugLogLine := "debug level log line"
-	testCmd = map[string]interface{}{"command": "log", "msg": debugLogLine, "level": "debug"}
-	_, err = client.DoCommand(ctx, testCmd)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
-	test.That(t, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 0)
-
-	// Change the modular service to log at DEBUG instead of INFO.
-	cfg.Services[0].LogConfiguration.Level = logging.DEBUG
-	myRobot.Reconfigure(ctx, cfg)
-
-	// Trying to log again at DEBUG should see our log line pattern show up a second time. Now with
-	// DEBUG in the output string.
-	testCmd = map[string]interface{}{"command": "log", "msg": debugLogLine, "level": "debug"}
-	_, err = client.DoCommand(ctx, testCmd)
-	test.That(t, err, test.ShouldBeNil)
-
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, observer.FilterMessageSnippet(infoLogLine).Len(), test.ShouldEqual, 1)
-		test.That(tb, observer.FilterMessageSnippet(debugLogLine).Len(), test.ShouldEqual, 1)
-	})
+func (m *dummyModMan) FirstRun(ctx context.Context, conf config.Module) error {
+	return nil
 }
 
 func TestTwoModulesSameName(t *testing.T) {

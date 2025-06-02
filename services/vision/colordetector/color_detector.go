@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -52,5 +53,11 @@ func registerColorDetector(
 	if err != nil {
 		return nil, errors.Wrapf(err, "error registering color detector %q", name)
 	}
-	return vision.NewService(name, r, nil, nil, detector, nil)
+	if conf.DefaultCamera != "" {
+		_, err = camera.FromRobot(r, conf.DefaultCamera)
+		if err != nil {
+			return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
+		}
+	}
+	return vision.NewService(name, r, nil, nil, detector, nil, conf.DefaultCamera)
 }

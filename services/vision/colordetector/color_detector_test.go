@@ -7,6 +7,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
@@ -53,4 +55,37 @@ func TestColorDetector(t *testing.T) {
 	// with error - nil parameters
 	_, err = registerColorDetector(ctx, name, nil, r)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
+}
+
+func TestRegistrationWithDefaultCamera(t *testing.T) {
+	ctx := context.Background()
+	serviceName := vision.Named("color_detector")
+	cameraName := camera.Named("test")
+	modelCfg := objectdetection.ColorDetectorConfig{
+		SegmentSize:       150000,
+		HueTolerance:      0.44,
+		DetectColorString: "#4F3815",
+	}
+
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		if name == cameraName {
+			return inject.NewCamera(cameraName.Name), nil
+		}
+		return nil, resource.NewNotFoundError(name)
+	}
+
+	service, err := registerColorDetector(ctx, serviceName, &modelCfg, r)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, service, test.ShouldNotBeNil)
+
+	modelCfg.DefaultCamera = cameraName.Name
+	service, err = registerColorDetector(ctx, serviceName, &modelCfg, r)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, service, test.ShouldNotBeNil)
+
+	modelCfg.DefaultCamera = "not-camera"
+	_, err = registerColorDetector(ctx, serviceName, &modelCfg, r)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "could not find camera \"not-camera\"")
 }

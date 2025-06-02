@@ -28,7 +28,7 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
-	"go.viam.com/rdk/testutils/inject"
+	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 )
 
 func newServer(resources map[resource.Name]motion.Service) (pb.MotionServiceServer, error) {
@@ -53,36 +53,21 @@ func TestServerMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/motion1\" not found"))
 
 	// error
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources = map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
 	server, err = newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	passedErr := errors.New("fake move error")
-	injectMS.MoveFunc = func(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *referenceframe.PoseInFrame,
-		worldState *referenceframe.WorldState,
-		constraints *motionplan.Constraints,
-		extra map[string]interface{},
-	) (bool, error) {
+	injectMS.MoveFunc = func(ctx context.Context, req motion.MoveReq) (bool, error) {
 		return false, passedErr
 	}
-
 	_, err = server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeError, passedErr)
 
 	// returns response
-	successfulMoveFunc := func(
-		ctx context.Context,
-		componentName resource.Name,
-		destination *referenceframe.PoseInFrame,
-		worldState *referenceframe.WorldState,
-		constraints *motionplan.Constraints,
-		extra map[string]interface{},
-	) (bool, error) {
+	successfulMoveFunc := func(ctx context.Context, req motion.MoveReq) (bool, error) {
 		return true, nil
 	}
 	injectMS.MoveFunc = successfulMoveFunc
@@ -91,7 +76,7 @@ func TestServerMove(t *testing.T) {
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
 
 	// Multiple Servies names Valid
-	injectMS = &inject.MotionService{}
+	injectMS = injectmotion.NewMotionService("test")
 	resources = map[resource.Name]motion.Service{
 		testMotionServiceName:  injectMS,
 		testMotionServiceName2: injectMS,
@@ -112,7 +97,7 @@ func TestServerMove(t *testing.T) {
 }
 
 func TestServerMoveOnGlobe(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
@@ -294,7 +279,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 }
 
 func TestServerMoveOnMap(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
@@ -465,7 +450,7 @@ func TestServerMoveOnMap(t *testing.T) {
 }
 
 func TestServerStopPlan(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
@@ -530,7 +515,7 @@ func TestServerStopPlan(t *testing.T) {
 }
 
 func TestServerListPlanStatuses(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
@@ -636,7 +621,7 @@ func TestServerListPlanStatuses(t *testing.T) {
 }
 
 func TestServerGetPlan(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
@@ -687,7 +672,7 @@ func TestServerGetPlan(t *testing.T) {
 		planID2 := uuid.New()
 
 		base1 := base.Named("base1")
-		steps := []motionplan.PathStep{{base1.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())}}
+		steps := []referenceframe.FrameSystemPoses{{base1.ShortName(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}}
 
 		plan1 := motion.PlanWithMetadata{
 			ID:            planID1,
@@ -766,7 +751,7 @@ func TestServerGetPlan(t *testing.T) {
 
 func TestServerDoCommand(t *testing.T) {
 	resourceMap := map[resource.Name]motion.Service{
-		testMotionServiceName: &inject.MotionService{
+		testMotionServiceName: &injectmotion.MotionService{
 			DoCommandFunc: testutils.EchoFunc,
 		},
 	}

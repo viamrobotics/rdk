@@ -7,7 +7,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -55,10 +54,9 @@ func TestRadiusClusteringValidate(t *testing.T) {
 // get a segmentation of a pointcloud and calculate each object's center.
 func TestPixelSegmentation(t *testing.T) {
 	t.Parallel()
-	logger := logging.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
+		return pc.NewFromFile(artifact.MustPath("pointcloud/test.las"), "")
 	}
 	// do segmentation
 	expectedLabel := "test_label"
@@ -81,10 +79,9 @@ func TestPixelSegmentation(t *testing.T) {
 
 func TestPixelSegmentationNoFiltering(t *testing.T) {
 	t.Parallel()
-	logger := logging.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
+		return pc.NewFromFile(artifact.MustPath("pointcloud/test.las"), "")
 	}
 	// do segmentation with no mean k filtering
 	expectedLabel := "test_label"
@@ -126,7 +123,7 @@ func testSegmentation(t *testing.T, segments []*vision.Object, expectedLabel str
 func BenchmarkRadiusClustering(b *testing.B) {
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), nil)
+		return pc.NewFromFile(artifact.MustPath("pointcloud/test.las"), "")
 	}
 	var pts []*vision.Object
 	var err error

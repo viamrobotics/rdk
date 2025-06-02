@@ -5,23 +5,18 @@ package data
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.opencensus.io/trace"
-	v1 "go.viam.com/api/app/datasync/v1"
-	pb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -29,9 +24,6 @@ import (
 
 // The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
 var sleepCaptureCutoff = 2 * time.Millisecond
-
-// CaptureFunc allows the creation of simple Capturers with anonymous functions.
-type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
 
 // FromDMContextKey is used to check whether the context is from data management.
 // Deprecated: use a camera.Extra with camera.NewContext instead.
@@ -49,6 +41,17 @@ var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, "no capture fro
 // If an error is ongoing, the frequency (in seconds) with which to suppress identical error logs.
 const identicalErrorLogFrequencyHz = 2
 
+// TabularDataBson is a denormalized sensor reading that can be
+// encoded into BSON.
+type TabularDataBson struct {
+	TimeRequested time.Time `bson:"time_requested"`
+	TimeReceived  time.Time `bson:"time_received"`
+	ComponentName string    `bson:"component_name"`
+	ComponentType string    `bson:"component_type"`
+	MethodName    string    `bson:"method_name"`
+	Data          bson.M    `bson:"data"`
+}
+
 // Collector collects data to some target.
 type Collector interface {
 	Close()
@@ -57,11 +60,16 @@ type Collector interface {
 }
 
 type collector struct {
-	clock          clock.Clock
-	captureResults chan *v1.SensorData
-	captureErrors  chan error
-	interval       time.Duration
-	params         map[string]*anypb.Any
+	clock clock.Clock
+
+	captureResults  chan CaptureResult
+	mongoCollection *mongo.Collection
+	componentName   string
+	componentType   string
+	methodName      string
+	captureErrors   chan error
+	interval        time.Duration
+	params          map[string]*anypb.Any
 	// `lock` serializes calls to `Flush` and `Close`.
 	lock             sync.Mutex
 	logger           logging.Logger
@@ -70,18 +78,17 @@ type collector struct {
 	cancelCtx        context.Context
 	cancel           context.CancelFunc
 	captureFunc      CaptureFunc
-	closeStarted     atomic.Bool
-	closeFinished    bool
 	target           CaptureBufferedWriter
 	lastLoggedErrors map[string]int64
+	dataType         CaptureType
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
 // leaking goroutines.
 func (c *collector) Close() {
-	// Signal the start of closing. Specifically, this is used to signal to the error logging
-	// goroutine that it should ignore "context canceled" errors.
-	c.closeStarted.Store(true)
+	if c.cancelCtx.Err() != nil {
+		return
+	}
 
 	// Signal all `captureWorkers` to exit.
 	c.cancel()
@@ -89,21 +96,10 @@ func (c *collector) Close() {
 	// `Wait` on them before acquiring the lock to avoid deadlock.
 	c.captureWorkers.Wait()
 
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.closeFinished {
-		return
-	}
-
-	if err := c.target.Flush(); err != nil {
-		c.logger.Errorw("failed to flush capture data", "error", err)
-	}
+	c.Flush()
 
 	close(c.captureErrors)
 	c.logRoutine.Wait()
-
-	// Closing has completed. Set this to prevent a double-close from executing.
-	c.closeFinished = true
 }
 
 func (c *collector) Flush() {
@@ -122,22 +118,11 @@ func (c *collector) Collect() {
 
 	started := make(chan struct{})
 	c.captureWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer c.captureWorkers.Done()
-		c.capture(started)
-	})
+	utils.ManagedGo(func() { c.capture(started) }, c.captureWorkers.Done)
 	c.captureWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer c.captureWorkers.Done()
-		if err := c.writeCaptureResults(); err != nil {
-			c.captureErrors <- errors.Wrap(err, fmt.Sprintf("failed to write to collector %s", c.target.Path()))
-		}
-	})
+	utils.ManagedGo(c.writeCaptureResults, c.captureWorkers.Done)
 	c.logRoutine.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer c.logRoutine.Done()
-		c.logCaptureErrs()
-	})
+	utils.ManagedGo(c.logCaptureErrs, c.logRoutine.Done)
 
 	// We must wait on `started` before returning. The sleep/ticker based captures rely on the clock
 	// advancing to do their first "tick". They must make an initial clock reading before unittests
@@ -160,30 +145,18 @@ func (c *collector) capture(started chan struct{}) {
 func (c *collector) sleepBasedCapture(started chan struct{}) {
 	next := c.clock.Now().Add(c.interval)
 	until := c.clock.Until(next)
-	var captureWorkers sync.WaitGroup
 
 	close(started)
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
-			c.captureErrors <- errors.Wrap(err, "error in context")
-			captureWorkers.Wait()
-			close(c.captureResults)
 			return
 		}
 		c.clock.Sleep(until)
-
-		select {
-		case <-c.cancelCtx.Done():
-			captureWorkers.Wait()
-			close(c.captureResults)
+		if err := c.cancelCtx.Err(); err != nil {
 			return
-		default:
-			captureWorkers.Add(1)
-			utils.PanicCapturingGo(func() {
-				defer captureWorkers.Done()
-				c.getAndPushNextReading()
-			})
 		}
+
+		c.getAndPushNextReading()
 		next = next.Add(c.interval)
 		until = c.clock.Until(next)
 	}
@@ -192,35 +165,48 @@ func (c *collector) sleepBasedCapture(started chan struct{}) {
 func (c *collector) tickerBasedCapture(started chan struct{}) {
 	ticker := c.clock.Ticker(c.interval)
 	defer ticker.Stop()
-	var captureWorkers sync.WaitGroup
 
 	close(started)
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
-			c.captureErrors <- errors.Wrap(err, "error in context")
-			captureWorkers.Wait()
-			close(c.captureResults)
 			return
 		}
+
 		select {
 		case <-c.cancelCtx.Done():
-			captureWorkers.Wait()
-			close(c.captureResults)
 			return
 		case <-ticker.C:
-			captureWorkers.Add(1)
-			utils.PanicCapturingGo(func() {
-				defer captureWorkers.Done()
-				c.getAndPushNextReading()
-			})
+			c.getAndPushNextReading()
 		}
 	}
 }
 
+func (c *collector) validateReadingType(t CaptureType) error {
+	switch c.dataType {
+	case CaptureTypeTabular:
+		if t != CaptureTypeTabular {
+			return fmt.Errorf("expected result of type CaptureTypeTabular, instead got CaptureResultType: %d", t)
+		}
+		return nil
+	case CaptureTypeBinary:
+		if t != CaptureTypeBinary {
+			return fmt.Errorf("expected result of type CaptureTypeBinary,instead got CaptureResultType: %d", t)
+		}
+		return nil
+	case CaptureTypeUnspecified:
+		return fmt.Errorf("unknown collector data type: %d", c.dataType)
+	default:
+		return fmt.Errorf("unknown collector data type: %d", c.dataType)
+	}
+}
+
 func (c *collector) getAndPushNextReading() {
-	timeRequested := timestamppb.New(c.clock.Now().UTC())
-	reading, err := c.captureFunc(c.cancelCtx, c.params)
-	timeReceived := timestamppb.New(c.clock.Now().UTC())
+	result, err := c.captureFunc(c.cancelCtx, c.params)
+
+	if c.cancelCtx.Err() != nil {
+		return
+	}
+
 	if err != nil {
 		if errors.Is(err, ErrNoCaptureToStore) {
 			c.logger.Debug("capture filtered out by modular resource")
@@ -230,56 +216,22 @@ func (c *collector) getAndPushNextReading() {
 		return
 	}
 
-	var msg v1.SensorData
-	switch v := reading.(type) {
-	case []byte:
-		msg = v1.SensorData{
-			Metadata: &v1.SensorMetadata{
-				TimeRequested: timeRequested,
-				TimeReceived:  timeReceived,
-			},
-			Data: &v1.SensorData_Binary{
-				Binary: v,
-			},
-		}
-	default:
-		// If it's not bytes, it's a struct.
-		var pbReading *structpb.Struct
-		var err error
+	if err := c.validateReadingType(result.Type); err != nil {
+		c.captureErrors <- errors.Wrap(err, "capture result invalid type")
+		return
+	}
 
-		if reflect.TypeOf(reading) == reflect.TypeOf(pb.GetReadingsResponse{}) {
-			// We special-case the GetReadingsResponse because it already contains
-			// structpb.Values in it, and the StructToStructPb logic does not handle
-			// that cleanly.
-			topLevelMap := make(map[string]*structpb.Value)
-			topLevelMap["readings"] = structpb.NewStructValue(
-				&structpb.Struct{Fields: reading.(pb.GetReadingsResponse).Readings},
-			)
-			pbReading = &structpb.Struct{Fields: topLevelMap}
-		} else {
-			pbReading, err = protoutils.StructToStructPbIgnoreOmitEmpty(reading)
-			if err != nil {
-				c.captureErrors <- errors.Wrap(err, "error while converting reading to structpb.Struct")
-				return
-			}
-		}
-
-		msg = v1.SensorData{
-			Metadata: &v1.SensorMetadata{
-				TimeRequested: timeRequested,
-				TimeReceived:  timeReceived,
-			},
-			Data: &v1.SensorData_Struct{
-				Struct: pbReading,
-			},
-		}
+	if err := result.Validate(); err != nil {
+		c.captureErrors <- errors.Wrap(err, "capture result failed validation")
+		return
 	}
 
 	select {
-	// If c.captureResults is full, c.captureResults <- a can block indefinitely. This additional select block allows cancel to
+	// If c.captureResults is full, c.captureResults <- a can block indefinitely.
+	// This additional select block allows cancel to
 	// still work when this happens.
 	case <-c.cancelCtx.Done():
-	case c.captureResults <- &msg:
+	case c.captureResults <- result:
 	}
 }
 
@@ -298,8 +250,13 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		c = params.Clock
 	}
 	return &collector{
-		captureResults:   make(chan *v1.SensorData, params.QueueSize),
+		componentName:    params.ComponentName,
+		componentType:    params.ComponentType,
+		methodName:       params.MethodName,
+		mongoCollection:  params.MongoCollection,
+		captureResults:   make(chan CaptureResult, params.QueueSize),
 		captureErrors:    make(chan error, params.QueueSize),
+		dataType:         params.DataType,
 		interval:         params.Interval,
 		params:           params.MethodParams,
 		logger:           params.Logger,
@@ -312,19 +269,89 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 	}, nil
 }
 
-func (c *collector) writeCaptureResults() error {
-	for msg := range c.captureResults {
-		if err := c.target.Write(msg); err != nil {
-			return err
+func (c *collector) writeCaptureResults() {
+	for {
+		if c.cancelCtx.Err() != nil {
+			return
+		}
+
+		select {
+		case <-c.cancelCtx.Done():
+			return
+		case msg := <-c.captureResults:
+			proto := msg.ToProto()
+
+			switch msg.Type {
+			case CaptureTypeTabular:
+				if len(proto) != 1 {
+					// This is impossible and could only happen if a future code change breaks CaptureResult.ToProto()
+					err := errors.New("tabular CaptureResult returned more than one tabular result")
+					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write tabular data to prog file %s", c.target.Path())).Error())
+					return
+				}
+				if err := c.target.WriteTabular(proto[0]); err != nil {
+					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write tabular data to prog file %s", c.target.Path())).Error())
+					return
+				}
+			case CaptureTypeBinary:
+				if err := c.target.WriteBinary(proto); err != nil {
+					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write binary data to prog file %s", c.target.Path())).Error())
+					return
+				}
+			case CaptureTypeUnspecified:
+				c.logger.Errorf("collector returned invalid result type: %d", msg.Type)
+				return
+			default:
+				c.logger.Errorf("collector returned invalid result type: %d", msg.Type)
+				return
+			}
+
+			c.maybeWriteToMongo(msg)
 		}
 	}
-	return nil
+}
+
+// maybeWriteToMongo will write to the mongoCollection
+// if it is non-nil and the msg is tabular data
+// logs errors on failure.
+func (c *collector) maybeWriteToMongo(msg CaptureResult) {
+	if c.mongoCollection == nil {
+		return
+	}
+
+	if msg.Type != CaptureTypeTabular {
+		return
+	}
+
+	s := msg.TabularData.Payload
+	if s == nil {
+		return
+	}
+
+	data, err := pbStructToBSON(s)
+	if err != nil {
+		c.logger.Error(errors.Wrap(err, "failed to convert sensor data into bson"))
+		return
+	}
+
+	td := TabularDataBson{
+		TimeRequested: msg.TimeRequested,
+		TimeReceived:  msg.TimeReceived,
+		ComponentName: c.componentName,
+		ComponentType: c.componentType,
+		MethodName:    c.methodName,
+		Data:          data,
+	}
+
+	if _, err := c.mongoCollection.InsertOne(c.cancelCtx, td); err != nil {
+		c.logger.Error(errors.Wrap(err, "failed to write to mongo"))
+	}
 }
 
 func (c *collector) logCaptureErrs() {
 	for err := range c.captureErrors {
 		now := c.clock.Now().Unix()
-		if c.closeStarted.Load() {
+		if c.cancelCtx.Err() != nil {
 			// Don't log context cancellation errors if the collector has already been closed. This
 			// means the collector canceled the context, and the context cancellation error is
 			// expected.
@@ -334,7 +361,12 @@ func (c *collector) logCaptureErrs() {
 		}
 		// Only log a specific error message if we haven't logged it in the past 2 seconds.
 		if lastLogged, ok := c.lastLoggedErrors[err.Error()]; (ok && int(now-lastLogged) > identicalErrorLogFrequencyHz) || !ok {
-			c.logger.Error((err))
+			var failedToReadError *FailedToReadError
+			if errors.As(err, &failedToReadError) {
+				c.logger.Warn(err)
+			} else {
+				c.logger.Error((err))
+			}
 			c.lastLoggedErrors[err.Error()] = now
 		}
 	}
@@ -346,17 +378,26 @@ func InvalidInterfaceErr(api resource.API) error {
 	return errors.Errorf("passed interface does not conform to expected resource type %s", api)
 }
 
-// FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.
-func FailedToReadErr(component, method string, err error) error {
-	return errors.Errorf("failed to get reading of method %s of component %s: %v", method, component, err)
+// NewFailedToReadError constructs a new FailedToReadError.
+func NewFailedToReadError(component, method string, err error) error {
+	return &FailedToReadError{
+		Component: component,
+		Method:    method,
+		Err:       err,
+	}
 }
 
-// GetExtraFromContext sets the extra struct with "fromDataManagement": true if the flag is true in the context.
-// Deprecated: Use camera.FromContext instead.
-func GetExtraFromContext(ctx context.Context) (*structpb.Struct, error) {
-	extra := make(map[string]interface{})
-	if ctx.Value(FromDMContextKey{}) == true {
-		extra[FromDMString] = true
-	}
-	return protoutils.StructToStructPb(extra)
+// FailedToReadError is the error describing when a Capturer was unable to get the reading of a method.
+type FailedToReadError struct {
+	Component string
+	Method    string
+	Err       error
+}
+
+func (e *FailedToReadError) Error() string {
+	return fmt.Sprintf("failed to get reading of method %s of component %s: %v", e.Method, e.Component, e.Err)
+}
+
+func (e *FailedToReadError) Unwrap() error {
+	return e.Err
 }

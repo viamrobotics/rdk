@@ -5,6 +5,7 @@ package cloud
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"time"
 
@@ -16,8 +17,13 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// SubtypeName is a constant that identifies the internal cloud connection resource subtype string.
-const SubtypeName = "cloud_connection"
+const (
+	// SubtypeName is a constant that identifies the internal cloud connection resource
+	// subtype string.
+	SubtypeName               = "cloud_connection"
+	connectTimeout            = 5 * time.Second
+	connectTimeoutBehindProxy = time.Minute
+)
 
 // API is the fully qualified API for the internal cloud connection service.
 var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
@@ -35,25 +41,31 @@ type ConnectionService interface {
 
 // NewCloudConnectionService makes a new cloud connection service to get gRPC connections
 // to a cloud service managing robots.
-func NewCloudConnectionService(cfg *config.Cloud, logger logging.Logger) ConnectionService {
+func NewCloudConnectionService(cfg *config.Cloud, conn rpc.ClientConn, logger logging.Logger) ConnectionService {
 	if cfg == nil || cfg.AppAddress == "" {
 		return &cloudManagedService{
 			Named: InternalServiceName.AsNamed(),
 		}
 	}
-	return &cloudManagedService{
+
+	cm := &cloudManagedService{
 		Named:    InternalServiceName.AsNamed(),
+		conn:     conn,
 		managed:  true,
 		dialer:   rpc.NewCachedDialer(),
 		cloudCfg: *cfg,
 		logger:   logger,
 	}
+
+	return cm
 }
 
 type cloudManagedService struct {
 	resource.Named
 	// we assume the config is immutable for the lifetime of the process
 	resource.TriviallyReconfigurable
+
+	conn rpc.ClientConn
 
 	managed  bool
 	cloudCfg config.Cloud
@@ -63,21 +75,14 @@ type cloudManagedService struct {
 	dialer   rpc.Dialer
 }
 
+// AcquireConnection returns the connection provided to `NewCloudConnectionService` regardless of the state of the `cloudManagedService`.
+// This means that if `Close` has been called on the `cloudManagedService`, `AcquireConnection` can still return an open connection.
 func (cm *cloudManagedService) AcquireConnection(ctx context.Context) (string, rpc.ClientConn, error) {
-	cm.dialerMu.RLock()
-	defer cm.dialerMu.RUnlock()
-	if !cm.managed {
+	if cm.conn == nil {
 		return "", nil, ErrNotCloudManaged
 	}
-	if cm.dialer == nil {
-		return "", nil, errors.New("service closed")
-	}
 
-	ctx = rpc.ContextWithDialer(ctx, cm.dialer)
-	timeOutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	conn, err := config.CreateNewGRPCClient(timeOutCtx, &cm.cloudCfg, cm.logger)
-	return cm.cloudCfg.ID, conn, err
+	return cm.cloudCfg.ID, cm.conn, nil
 }
 
 func (cm *cloudManagedService) AcquireConnectionAPIKey(ctx context.Context,
@@ -93,7 +98,13 @@ func (cm *cloudManagedService) AcquireConnectionAPIKey(ctx context.Context,
 	}
 
 	ctx = rpc.ContextWithDialer(ctx, cm.dialer)
-	timeOutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	timeout := connectTimeout
+	// When environment indicates we are behind a proxy, bump timeout. Network
+	// operations tend to take longer when behind a proxy.
+	if os.Getenv(rpc.SocksProxyEnvVar) != "" {
+		timeout = connectTimeoutBehindProxy
+	}
+	timeOutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	conn, err := config.CreateNewGRPCClientWithAPIKey(timeOutCtx, &cm.cloudCfg, apiKey, apiKeyID, cm.logger)
 	return cm.cloudCfg.ID, conn, err

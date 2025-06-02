@@ -61,11 +61,24 @@ func NewCamera(
 	if err != nil {
 		return nil, err
 	}
-	_, paramErr := newConf.Validate("")
+	_, _, paramErr := newConf.Validate("")
 	if paramErr != nil {
 		return nil, paramErr
 	}
-	resModel, width, height := fakeModel(newConf.Width, newConf.Height)
+	width := initialWidth
+	if newConf.Width > 0 {
+		width = newConf.Width
+	}
+	height := initialHeight
+	if newConf.Height > 0 {
+		height = newConf.Height
+	}
+	var resModel *transform.PinholeCameraModel
+	if newConf.Model {
+		resModel = fakeModel(width, height)
+	} else {
+		resModel = nil
+	}
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	cam := &Camera{
 		ctx:            cancelCtx,
@@ -107,27 +120,28 @@ type Config struct {
 	Height         int  `json:"height,omitempty"`
 	Animated       bool `json:"animated,omitempty"`
 	RTPPassthrough bool `json:"rtp_passthrough,omitempty"`
+	Model          bool `json:"model,omitempty"`
 }
 
 // Validate checks that the config attributes are valid for a fake camera.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	if conf.Height > 10000 || conf.Width > 10000 {
-		return nil, errors.New("maximum supported pixel height or width for fake cameras is 10000 pixels")
+		return nil, nil, errors.New("maximum supported pixel height or width for fake cameras is 10000 pixels")
 	}
 
 	if conf.Height < 0 || conf.Width < 0 {
-		return nil, errors.New("cannot use negative pixel height and width for fake cameras")
+		return nil, nil, errors.New("cannot use negative pixel height and width for fake cameras")
 	}
 
 	if conf.Height%2 != 0 {
-		return nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
+		return nil, nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
 	}
 
 	if conf.Width%2 != 0 {
-		return nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
+		return nil, nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }
 
 var fakeIntrinsics = &transform.PinholeCameraIntrinsics{
@@ -147,59 +161,13 @@ var fakeDistortion = &transform.BrownConrady{
 	TangentialP2: 0.19969297,
 }
 
-func fakeModel(width, height int) (*transform.PinholeCameraModel, int, int) {
-	fakeModelReshaped := &transform.PinholeCameraModel{
-		PinholeCameraIntrinsics: fakeIntrinsics,
+func fakeModel(width, height int) *transform.PinholeCameraModel {
+	intrinsics := *fakeIntrinsics
+	intrinsics.Width = width
+	intrinsics.Height = height
+	return &transform.PinholeCameraModel{
+		PinholeCameraIntrinsics: &intrinsics,
 		Distortion:              fakeDistortion,
-	}
-	switch {
-	case width > 0 && height > 0:
-		widthRatio := float64(width) / float64(initialWidth)
-		heightRatio := float64(height) / float64(initialHeight)
-		intrinsics := &transform.PinholeCameraIntrinsics{
-			Width:  int(float64(fakeIntrinsics.Width) * widthRatio),
-			Height: int(float64(fakeIntrinsics.Height) * heightRatio),
-			Fx:     fakeIntrinsics.Fx * widthRatio,
-			Fy:     fakeIntrinsics.Fy * heightRatio,
-			Ppx:    fakeIntrinsics.Ppx * widthRatio,
-			Ppy:    fakeIntrinsics.Ppy * heightRatio,
-		}
-		fakeModelReshaped.PinholeCameraIntrinsics = intrinsics
-		return fakeModelReshaped, width, height
-	case width > 0 && height <= 0:
-		ratio := float64(width) / float64(initialWidth)
-		intrinsics := &transform.PinholeCameraIntrinsics{
-			Width:  int(float64(fakeIntrinsics.Width) * ratio),
-			Height: int(float64(fakeIntrinsics.Height) * ratio),
-			Fx:     fakeIntrinsics.Fx * ratio,
-			Fy:     fakeIntrinsics.Fy * ratio,
-			Ppx:    fakeIntrinsics.Ppx * ratio,
-			Ppy:    fakeIntrinsics.Ppy * ratio,
-		}
-		fakeModelReshaped.PinholeCameraIntrinsics = intrinsics
-		newHeight := int(float64(initialHeight) * ratio)
-		if newHeight%2 != 0 {
-			newHeight++
-		}
-		return fakeModelReshaped, width, newHeight
-	case width <= 0 && height > 0:
-		ratio := float64(height) / float64(initialHeight)
-		intrinsics := &transform.PinholeCameraIntrinsics{
-			Width:  int(float64(fakeIntrinsics.Width) * ratio),
-			Height: int(float64(fakeIntrinsics.Height) * ratio),
-			Fx:     fakeIntrinsics.Fx * ratio,
-			Fy:     fakeIntrinsics.Fy * ratio,
-			Ppx:    fakeIntrinsics.Ppx * ratio,
-			Ppy:    fakeIntrinsics.Ppy * ratio,
-		}
-		fakeModelReshaped.PinholeCameraIntrinsics = intrinsics
-		newWidth := int(float64(initialWidth) * ratio)
-		if newWidth%2 != 0 {
-			newWidth++
-		}
-		return fakeModelReshaped, newWidth, height
-	default:
-		return fakeModelReshaped, initialWidth, initialHeight
 	}
 }
 
@@ -262,7 +230,7 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	if c.cachePointCloud != nil {
 		return c.cachePointCloud, nil
 	}
-	dm := pointcloud.New()
+	dm := pointcloud.NewBasicEmpty()
 	width := float64(c.Width)
 	height := float64(c.Height)
 
@@ -395,7 +363,7 @@ func (c *Camera) startPassthrough() error {
 				if err := bufAndCB.buf.Publish(func() {
 					bufAndCB.cb(pkts)
 				}); err != nil {
-					c.logger.Warn("Publish err: %s", err.Error())
+					c.logger.Warnf("Publish err: %s", err.Error())
 				}
 			}
 			c.mu.RUnlock()

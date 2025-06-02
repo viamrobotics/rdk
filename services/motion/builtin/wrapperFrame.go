@@ -39,7 +39,7 @@ func (wf *wrapperFrame) Name() string {
 // Transform returns the associated pose given a list of inputs.
 func (wf *wrapperFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	if len(inputs) != len(wf.DoF()) {
-		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(wf.DoF()))
+		return nil, referenceframe.NewIncorrectDoFError(len(inputs), len(wf.DoF()))
 	}
 	// executionFramePose is our pose in a given set of plan.Trajectory inputs
 	executionFramePose, err := wf.executionFrame.Transform(inputs[:len(wf.executionFrame.DoF())])
@@ -58,10 +58,10 @@ func (wf *wrapperFrame) Transform(inputs []referenceframe.Input) (spatialmath.Po
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (wf *wrapperFrame) Interpolate(from, to []referenceframe.Input, by float64) ([]referenceframe.Input, error) {
 	if len(from) != len(wf.DoF()) {
-		return nil, referenceframe.NewIncorrectInputLengthError(len(from), len(wf.DoF()))
+		return nil, referenceframe.NewIncorrectDoFError(len(from), len(wf.DoF()))
 	}
 	if len(to) != len(wf.DoF()) {
-		return nil, referenceframe.NewIncorrectInputLengthError(len(to), len(wf.DoF()))
+		return nil, referenceframe.NewIncorrectDoFError(len(to), len(wf.DoF()))
 	}
 	interp := make([]referenceframe.Input, 0, len(to))
 
@@ -97,7 +97,7 @@ func (wf *wrapperFrame) Interpolate(from, to []referenceframe.Input, by float64)
 // Geometries returns an object representing the 3D space associated with the executionFrame's geometry.
 func (wf *wrapperFrame) Geometries(inputs []referenceframe.Input) (*referenceframe.GeometriesInFrame, error) {
 	if len(inputs) != len(wf.DoF()) {
-		return nil, referenceframe.NewIncorrectInputLengthError(len(inputs), len(wf.DoF()))
+		return nil, referenceframe.NewIncorrectDoFError(len(inputs), len(wf.DoF()))
 	}
 	sfGeometries := []spatialmath.Geometry{}
 	gf, err := wf.executionFrame.Geometries(make([]referenceframe.Input, len(wf.executionFrame.DoF())))

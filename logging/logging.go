@@ -4,6 +4,7 @@ package logging
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -62,26 +63,53 @@ func NewZapLoggerConfig() zap.Config {
 // NewLogger returns a new logger that outputs Info+ logs to stdout in UTC.
 func NewLogger(name string) Logger {
 	logger := &impl{
-		name:       name,
-		level:      NewAtomicLevelAt(INFO),
-		appenders:  []Appender{NewStdoutAppender()},
-		testHelper: func() {},
+		name:                     name,
+		level:                    NewAtomicLevelAt(INFO),
+		appenders:                []Appender{NewStdoutAppender()},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
-	RegisterLogger(name, logger)
+	logger.registry.registerLogger(name, logger)
 	return logger
+}
+
+// NewLoggerWithRegistry is the same as NewLogger but also returns the
+// associated Registry.
+func NewLoggerWithRegistry(name string) (Logger, *Registry) {
+	reg := newRegistry()
+	logger := &impl{
+		name:                     name,
+		level:                    NewAtomicLevelAt(INFO),
+		appenders:                []Appender{NewStdoutAppender()},
+		registry:                 reg,
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
+	}
+
+	logger.registry.registerLogger(name, logger)
+	return logger, reg
 }
 
 // NewDebugLogger returns a new logger that outputs Debug+ logs to stdout in UTC.
 func NewDebugLogger(name string) Logger {
 	logger := &impl{
-		name:       name,
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{NewStdoutAppender()},
-		testHelper: func() {},
+		name:                     name,
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewStdoutAppender()},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
-	RegisterLogger(name, logger)
+	logger.registry.registerLogger(name, logger)
 	return logger
 }
 
@@ -89,14 +117,36 @@ func NewDebugLogger(name string) Logger {
 // pre-existing appenders/outputs.
 func NewBlankLogger(name string) Logger {
 	logger := &impl{
-		name:       name,
-		level:      NewAtomicLevelAt(DEBUG),
-		appenders:  []Appender{},
-		testHelper: func() {},
+		name:                     name,
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
-	RegisterLogger(name, logger)
+	logger.registry.registerLogger(name, logger)
 	return logger
+}
+
+// NewBlankLoggerWithRegistry returns a new logger that outputs Debug+ logs in UTC, but without any
+// pre-existing appenders/outputs. It also returns the logger `Registry`.
+func NewBlankLoggerWithRegistry(name string) (Logger, *Registry) {
+	logger := &impl{
+		name:                     name,
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{},
+		registry:                 newRegistry(),
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
+	}
+
+	logger.registry.registerLogger(name, logger)
+	return logger, logger.registry
 }
 
 // NewTestLogger returns a new logger that outputs Debug+ logs to stdout in local time.
@@ -109,16 +159,42 @@ func NewTestLogger(tb testing.TB) Logger {
 func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
 	logger := &impl{
-		name:  "",
+		name:  tb.Name(),
 		level: NewAtomicLevelAt(DEBUG),
 		appenders: []Appender{
 			NewTestAppender(tb),
 			observerCore,
 		},
-		testHelper: tb.Helper,
+		registry:                 newRegistry(),
+		testHelper:               tb.Helper,
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	return logger, observedLogs
+}
+
+// NewObservedTestLoggerWithRegistry is like NewObservedTestLogger but also returns the
+// associated registry. It also takes a name for the logger.
+func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *observer.ObservedLogs, *Registry) {
+	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
+	registry := newRegistry()
+	logger := &impl{
+		name:  name,
+		level: NewAtomicLevelAt(DEBUG),
+		appenders: []Appender{
+			NewTestAppender(tb),
+			observerCore,
+		},
+		registry:                 registry,
+		testHelper:               tb.Helper,
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
+	}
+
+	return logger, observedLogs, registry
 }
 
 // MemLogger stores test logs in memory. And can write them on request with `OutputLogs`.
@@ -148,7 +224,11 @@ func NewInMemoryLogger(tb testing.TB) *MemLogger {
 		appenders: []Appender{
 			observerCore,
 		},
-		testHelper: tb.Helper,
+		registry:                 newRegistry(),
+		testHelper:               tb.Helper,
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
 	}
 
 	memLogger := &MemLogger{logger, tb, observedLogs}

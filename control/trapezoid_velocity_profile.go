@@ -23,8 +23,8 @@ type trapezoidVelocityGenerator struct {
 	maxVel       float64
 	lastVelCmd   float64
 	trapDistance float64
-	kPP          float64 //nolint: revive
-	kPP0         float64 //nolint: revive
+	kPP          float64
+	kPP0         float64
 	vDec         float64
 	targetPos    float64
 	y            []*Signal
@@ -161,5 +161,7 @@ func (s *trapezoidVelocityGenerator) Output(ctx context.Context) []*Signal {
 }
 
 func (s *trapezoidVelocityGenerator) Config(ctx context.Context) BlockConfig {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.cfg
 }

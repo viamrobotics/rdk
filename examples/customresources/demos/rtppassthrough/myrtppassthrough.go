@@ -18,8 +18,7 @@ func main() {
 		camera.API,
 		model,
 		resource.Registration[camera.Camera, *fake.Config]{Constructor: newFakeCamera})
-
-	module.ModularMain("rtp-passthrough-camera", resource.APIModel{camera.API, model})
+	module.ModularMain(resource.APIModel{camera.API, model})
 }
 
 func newFakeCamera(

@@ -1,5 +1,3 @@
-//go:build !no_tflite
-
 // Package main tests out all four custom models in the complexmodule.
 package main_test
 
@@ -326,7 +324,7 @@ func modifyCfg(t *testing.T, cfgIn string, logger logging.Logger) (string, int, 
 		return "", 0, err
 	}
 
-	cfg, err := config.Read(context.Background(), cfgIn, logger)
+	cfg, err := config.Read(context.Background(), cfgIn, logger, nil)
 	if err != nil {
 		return "", 0, err
 	}

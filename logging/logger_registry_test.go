@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -13,103 +12,73 @@ var (
 	l3 = NewLogger("logger-3")
 )
 
-func mockRegistry() *loggerRegistry {
-	manager := newLoggerRegistry()
-	manager.registerLogger("logger-1", l1)
-	manager.registerLogger("logger-2", l2)
+func mockRegistry() *Registry {
+	registry := newRegistry()
+	registry.registerLogger("logger-1", l1)
+	registry.registerLogger("logger-2", l2)
 	l3.Sublogger("sublogger-1")
-	globalLoggerRegistry = manager
-	return manager
+	return registry
 }
 
 func TestLoggerRegistration(t *testing.T) {
-	manager := mockRegistry()
+	registry := mockRegistry()
 
 	expectedName := "test"
 	expectedLogger := &impl{
 		name:       expectedName,
 		level:      NewAtomicLevelAt(INFO),
 		appenders:  []Appender{NewStdoutAppender()},
+		registry:   newRegistry(),
 		testHelper: func() {},
 	}
 
-	manager.registerLogger(expectedName, expectedLogger)
+	registry.registerLogger(expectedName, expectedLogger)
 
-	actualLogger, ok := manager.loggerNamed("test")
+	actualLogger, ok := registry.loggerNamed("test")
 
 	test.That(t, actualLogger, test.ShouldEqual, expectedLogger)
 	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestLoggerRetrieval(t *testing.T) {
-	manager := mockRegistry()
+	registry := mockRegistry()
 
-	logger1, ok := manager.loggerNamed("logger-1")
+	logger1, ok := registry.loggerNamed("logger-1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, logger1, test.ShouldEqual, l1)
 
-	sublogger2, ok := manager.loggerNamed("sublogger-2")
+	sublogger2, ok := registry.loggerNamed("sublogger-2")
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, sublogger2, test.ShouldBeNil)
 }
 
-func TestLoggersRegisteredOnCreation(t *testing.T) {
-	manager := mockRegistry()
-
-	newLogger := NewLogger("new")
-
-	logger, ok := manager.loggerNamed("new")
-
-	test.That(t, logger, test.ShouldEqual, newLogger)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	debugLogger := NewDebugLogger("debug")
-
-	logger, ok = manager.loggerNamed("debug")
-	test.That(t, logger, test.ShouldEqual, debugLogger)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	blankLogger := NewBlankLogger("blank")
-
-	logger, ok = manager.loggerNamed("blank")
-	test.That(t, logger, test.ShouldEqual, blankLogger)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	sublogger := l1.Sublogger("sublogger-1")
-	subloggerName := fmt.Sprintf("%s.%s", "logger-1", "sublogger-1")
-
-	logger, ok = manager.loggerNamed(subloggerName)
-	test.That(t, logger, test.ShouldEqual, sublogger)
-	test.That(t, ok, test.ShouldBeTrue)
-}
-
 func TestUpdateLogLevel(t *testing.T) {
-	manager := mockRegistry()
+	registry := mockRegistry()
 
-	err := manager.updateLoggerLevel("logger-1", DEBUG)
+	err := registry.updateLoggerLevel("logger-1", DEBUG)
 	test.That(t, err, test.ShouldBeNil)
 
-	logger1, ok := manager.loggerNamed("logger-1")
+	logger1, ok := registry.loggerNamed("logger-1")
 	test.That(t, ok, test.ShouldBeTrue)
 	level := logger1.GetLevel()
 	test.That(t, level, test.ShouldEqual, DEBUG)
 
-	err = manager.updateLoggerLevel("slogger-1", DEBUG)
+	err = registry.updateLoggerLevel("slogger-1", DEBUG)
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestGetRegisteredNames(t *testing.T) {
-	manager := mockRegistry()
-	for _, name := range manager.getRegisteredLoggerNames() {
-		_, ok := manager.loggerNamed(name)
+	registry := mockRegistry()
+	for _, name := range registry.getRegisteredLoggerNames() {
+		_, ok := registry.loggerNamed(name)
 		test.That(t, ok, test.ShouldBeTrue)
 	}
 }
 
 func TestRegisterConfig(t *testing.T) {
-	manager := mockRegistry()
+	registry := mockRegistry()
 	fakeLogger := NewLogger("abc")
-	manager.registerLogger("abc", fakeLogger)
+	registry.registerLogger("abc", fakeLogger)
 	logCfg := []LoggerPatternConfig{
 		{
 			Pattern: "abc",
@@ -120,14 +89,14 @@ func TestRegisterConfig(t *testing.T) {
 			Level:   "ERROR",
 		},
 	}
-	err := manager.registerConfig(logCfg)
+	err := registry.Update(logCfg, NewLogger("error-logger"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, manager.logConfig, test.ShouldResemble, logCfg)
+	test.That(t, registry.logConfig, test.ShouldResemble, logCfg)
 	test.That(t, fakeLogger.GetLevel().String(), test.ShouldEqual, "Warn")
 }
 
-func TestUpdateLoggerLevelWithCfg(t *testing.T) {
-	manager := mockRegistry()
+func TestGetOrRegister(t *testing.T) {
+	registry := mockRegistry()
 
 	logCfg := []LoggerPatternConfig{
 		{
@@ -135,41 +104,41 @@ func TestUpdateLoggerLevelWithCfg(t *testing.T) {
 			Level:   "WARN",
 		},
 	}
-	err := manager.registerConfig(logCfg)
+	err := registry.Update(logCfg, NewLogger("error-logger"))
 	test.That(t, err, test.ShouldBeNil)
 
-	manager.registerLogger("a.b.c", NewLogger("a.b.c"))
-	manager.registerLogger("a.b.d", NewLogger("a.b.d"))
+	_ = registry.getOrRegister("a.b.c", NewLogger("a.b.c"))
+	loggerABD := registry.getOrRegister("a.b.d", NewLogger("a.b.d"))
+	loggerABD2 := registry.getOrRegister("a.b.d", NewLogger("a.b.d"))
 
-	err = manager.updateLoggerLevelWithCfg("a.b.c")
-	test.That(t, err, test.ShouldBeNil)
+	// loggerABD and loggerABD2 should be identical.
+	test.That(t, loggerABD, test.ShouldEqual, loggerABD2)
 
-	// ONLY a.b.c hould be modified despite the pattern in
-	// the config matching multiple loggers.
-	logger, ok := manager.loggerNamed("a.b.c")
+	// Both "a.b.c" and "a.b.d" loggers should be in registry and set to "Warn".
+	logger, ok := registry.loggerNamed("a.b.c")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Warn")
 
-	logger, ok = manager.loggerNamed("a.b.d")
+	logger, ok = registry.loggerNamed("a.b.d")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
+	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Warn")
 }
 
 func TestGetCurrentConfig(t *testing.T) {
-	manager := mockRegistry()
+	registry := mockRegistry()
 	logCfg := []LoggerPatternConfig{
 		{
 			Pattern: "a.*",
 			Level:   "WARN",
 		},
 	}
-	manager.registerConfig(logCfg)
-	test.That(t, manager.getCurrentConfig(), test.ShouldResemble, logCfg)
+	registry.Update(logCfg, NewLogger("error-logger"))
+	test.That(t, registry.GetCurrentConfig(), test.ShouldResemble, logCfg)
 }
 
 func TestLoggerLevelReset(t *testing.T) {
-	manager := mockRegistry()
-	manager.registerLogger("a", NewLogger("a"))
+	registry := mockRegistry()
+	registry.registerLogger("a", NewLogger("a"))
 	logCfg := []LoggerPatternConfig{
 		{
 			Pattern: "a",
@@ -177,19 +146,19 @@ func TestLoggerLevelReset(t *testing.T) {
 		},
 	}
 
-	err := manager.registerConfig(logCfg)
+	err := registry.Update(logCfg, NewLogger("error-logger"))
 	test.That(t, err, test.ShouldBeNil)
 
-	logger, ok := manager.loggerNamed("a")
+	logger, ok := registry.loggerNamed("a")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Warn")
 
 	logCfg = []LoggerPatternConfig{}
 
-	err = manager.registerConfig(logCfg)
+	err = registry.Update(logCfg, NewLogger("error-logger"))
 	test.That(t, err, test.ShouldBeNil)
 
-	logger, ok = manager.loggerNamed("a")
+	logger, ok = registry.loggerNamed("a")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, logger.GetLevel().String(), test.ShouldEqual, "Info")
 }

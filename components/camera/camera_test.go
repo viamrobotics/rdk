@@ -10,7 +10,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -92,6 +92,7 @@ func TestNewCamera(t *testing.T) {
 	intrinsics2 := &transform.PinholeCameraIntrinsics{Width: 100, Height: 100}
 	videoSrc := &simpleSource{"rimage/board1_small"}
 	videoSrcPCD := &simpleSourceWithPCD{"rimage/board1_small"}
+	frameRate := float32(10.0)
 
 	// no camera
 	_, err := camera.NewVideoSourceFromReader(context.Background(), nil, nil, camera.UnspecifiedStream)
@@ -104,12 +105,16 @@ func TestNewCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, props.SupportsPCD, test.ShouldBeFalse)
 	test.That(t, props.IntrinsicParams, test.ShouldBeNil)
+	test.That(t, props.FrameRate, test.ShouldEqual, 0.0) // test frame rate when it is not set
+
 	cam1, err = camera.NewVideoSourceFromReader(context.Background(), videoSrcPCD, nil, camera.UnspecifiedStream)
 	test.That(t, err, test.ShouldBeNil)
 	props, err = cam1.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, props.SupportsPCD, test.ShouldBeTrue)
 	test.That(t, props.IntrinsicParams, test.ShouldBeNil)
+	props.FrameRate = frameRate
+	test.That(t, props.FrameRate, test.ShouldEqual, 10.0) // test frame rate when it is set
 
 	// camera with camera parameters
 	cam2, err := camera.NewVideoSourceFromReader(
@@ -158,11 +163,12 @@ type cloudSource struct {
 }
 
 func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	p := pointcloud.New()
+	p := pointcloud.NewBasicEmpty()
 	return p, p.Set(pointcloud.NewVector(0, 0, 0), nil)
 }
 
 func TestCameraWithNoProjector(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	videoSrc := &simpleSource{"rimage/board1"}
 	noProj, err := camera.NewVideoSourceFromReader(context.Background(), videoSrc, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
@@ -170,28 +176,26 @@ func TestCameraWithNoProjector(t *testing.T) {
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 
 	// make a camera with a NextPointCloudFunction
-	videoSrc2 := &cloudSource{Named: camera.Named("foo").AsNamed(), simpleSource: videoSrc}
-	noProj2, err := camera.NewVideoSourceFromReader(context.Background(), videoSrc2, nil, camera.DepthStream)
+	cloudSrc2 := &cloudSource{Named: camera.Named("foo").AsNamed(), simpleSource: videoSrc}
+	videoSrc2, err := camera.NewVideoSourceFromReader(context.Background(), cloudSrc2, nil, camera.DepthStream)
+	noProj2 := camera.FromVideoSource(resource.NewName(camera.API, "bar"), videoSrc2, logger)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := noProj2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	img, _, err := camera.ReadImage(
-		gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG)),
-		noProj2)
+	img, err := camera.DecodeImageFromCamera(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG), nil, noProj2)
 	test.That(t, err, test.ShouldBeNil)
 
-	depthImg := img.(*rimage.DepthMap)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 1280)
-	test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 720)
+	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 1280)
+	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 720)
 
 	test.That(t, noProj2.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestCameraWithProjector(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	videoSrc := &simpleSource{"rimage/board1"}
 	params1 := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 		Width:  1280,
@@ -214,32 +218,30 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, src.Close(context.Background()), test.ShouldBeNil)
 
 	// camera with a point cloud function
-	videoSrc2 := &cloudSource{Named: camera.Named("foo").AsNamed(), simpleSource: videoSrc}
+	cloudSrc2 := &cloudSource{Named: camera.Named("foo").AsNamed(), simpleSource: videoSrc}
 	props, err := src.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	cam2, err := camera.NewVideoSourceFromReader(
+	videoSrc2, err := camera.NewVideoSourceFromReader(
 		context.Background(),
-		videoSrc2,
+		cloudSrc2,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: props.IntrinsicParams},
 		camera.DepthStream,
 	)
+	cam2 := camera.FromVideoSource(resource.NewName(camera.API, "bar"), videoSrc2, logger)
 	test.That(t, err, test.ShouldBeNil)
-	pc, err = cam2.NextPointCloud(context.Background())
+	pc, err = videoSrc2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	img, _, err := camera.ReadImage(
-		gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG),
-		cam2)
+	img, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypePNG, nil, cam2)
 	test.That(t, err, test.ShouldBeNil)
 
-	depthImg := img.(*rimage.DepthMap)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 1280)
-	test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 720)
+	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 1280)
+	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 720)
 	// cam2 should implement a default GetImages, that just returns the one image
-	images, _, err := cam2.Images(context.Background())
+	images, _, err := videoSrc2.Images(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(images), test.ShouldEqual, 1)
 	test.That(t, images[0].Image, test.ShouldHaveSameTypeAs, &rimage.DepthMap{})

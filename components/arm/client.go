@@ -1,12 +1,9 @@
-//go:build !no_cgo
-
 // Package arm contains a gRPC based arm client.
 package arm
 
 import (
 	"context"
-	"errors"
-	"fmt"
+	"sync"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
@@ -16,12 +13,9 @@ import (
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
-
-var errArmClientModelNotValid = errors.New("unable to retrieve a valid arm model from arm client")
 
 // client implements ArmServiceClient.
 type client struct {
@@ -30,8 +24,10 @@ type client struct {
 	resource.TriviallyCloseable
 	name   string
 	client pb.ArmServiceClient
-	model  referenceframe.Model
 	logger logging.Logger
+
+	mu    sync.Mutex
+	model referenceframe.Model
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -43,19 +39,12 @@ func NewClientFromConn(
 	logger logging.Logger,
 ) (Arm, error) {
 	pbClient := pb.NewArmServiceClient(conn)
-	c := &client{
+	return &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		name:   name.ShortName(),
 		client: pbClient,
 		logger: logger,
-	}
-	clientFrame, err := c.updateKinematics(ctx, nil)
-	if err != nil {
-		logger.CErrorw(ctx, "error getting model for arm; will not allow certain methods", "err", err)
-	} else {
-		c.model = clientFrame
-	}
-	return c, nil
+	}, nil
 }
 
 func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
@@ -89,23 +78,65 @@ func (c *client) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extr
 	return err
 }
 
-func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPositions, extra map[string]interface{}) error {
+func (c *client) MoveToJointPositions(ctx context.Context, positions []referenceframe.Input, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
-	if positions == nil {
-		c.logger.Warnf("%s MoveToJointPositions: position parameter is nil", c.name)
+	m, err := c.Kinematics(ctx)
+	if err != nil {
+		warnKinematicsUnsafe(ctx, c.logger, err)
+	}
+	jp, err := referenceframe.JointPositionsFromInputs(m, positions)
+	if err != nil {
+		return err
 	}
 	_, err = c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
 		Name:      c.name,
-		Positions: positions,
+		Positions: jp,
 		Extra:     ext,
 	})
 	return err
 }
 
-func (c *client) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (c *client) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	options *MoveOptions,
+	extra map[string]interface{},
+) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	if positions == nil {
+		c.logger.Warnf("%s MoveThroughJointPositions: position argument is nil", c.name)
+	}
+	allJPs := make([]*pb.JointPositions, 0, len(positions))
+	m, err := c.Kinematics(ctx)
+	if err != nil {
+		warnKinematicsUnsafe(ctx, c.logger, err)
+	}
+	for _, position := range positions {
+		jp, err := referenceframe.JointPositionsFromInputs(m, position)
+		if err != nil {
+			return err
+		}
+		allJPs = append(allJPs, jp)
+	}
+	req := &pb.MoveThroughJointPositionsRequest{
+		Name:      c.name,
+		Positions: allJPs,
+		Extra:     ext,
+	}
+	if options != nil {
+		req.Options = options.toProtobuf()
+	}
+	_, err = c.client.MoveThroughJointPositions(ctx, req)
+	return err
+}
+
+func (c *client) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -117,7 +148,11 @@ func (c *client) JointPositions(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return nil, err
 	}
-	return resp.Positions, nil
+	m, err := c.Kinematics(ctx)
+	if err != nil {
+		warnKinematicsUnsafe(ctx, c.logger, err)
+	}
+	return referenceframe.InputsFromJointPositions(m, resp.Positions)
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
@@ -132,32 +167,31 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return err
 }
 
-func (c *client) ModelFrame() referenceframe.Model {
-	return c.model
+func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// for performance we cache the model after building it once, and can quickly return if its already been created.
+	if c.model == nil {
+		resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
+		if err != nil {
+			return nil, err
+		}
+		model, err := referenceframe.KinematicModelFromProtobuf(c.name, resp)
+		if err != nil {
+			return nil, err
+		}
+		c.model = model
+	}
+	return c.model, nil
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	if c.model == nil {
-		return nil, errArmClientModelNotValid
-	}
-	resp, err := c.JointPositions(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return c.model.InputFromProtobuf(resp), nil
+	return c.JointPositions(ctx, nil)
 }
 
 func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	if c.model == nil {
-		return errArmClientModelNotValid
-	}
-	for _, goal := range inputSteps {
-		err := c.MoveToJointPositions(ctx, c.model.ProtobufFromInput(goal), nil)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return c.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -187,37 +221,17 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
 }
 
-func (c *client) updateKinematics(ctx context.Context, extra map[string]interface{}) (referenceframe.Model, error) {
-	ext, err := protoutils.StructToStructPb(extra)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{
-		Name:  c.name,
-		Extra: ext,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	format := resp.GetFormat()
-	data := resp.GetKinematicsData()
-
-	switch format {
-	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
-		return referenceframe.UnmarshalModelJSON(data, c.name)
-	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
-		modelconf, err := urdf.UnmarshalModelXML(data, c.name)
-		if err != nil {
-			return nil, err
-		}
-		return modelconf.ParseConfig(c.name)
-	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED:
-		fallthrough
-	default:
-		if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
-			return nil, fmt.Errorf("unable to parse file of type %s", formatName)
-		}
-		return nil, fmt.Errorf("unable to parse unknown file type %d", format)
-	}
+// warnKinematicsUnsafe is a helper function to warn the user that no kinematics have been supplied for the conversion between
+// joints space and Inputs. The assumption we are making here is safe for any arm that has only revolute joints (true for most
+// commercially available arms) and will only come into play if the kinematics for the arm have not been cached successfully yet.
+// The other assumption being made here is that it will be annoying for new users implementing an arm module to not be able to move their
+// arm until the kinematics have been supplied.  This log message will be very noisy as it will be logged whenever kinematics are not found
+// so we are hoping that they will want to do things the correct way and supply kinematics to quiet it.
+func warnKinematicsUnsafe(ctx context.Context, logger logging.Logger, err error) {
+	logger.CWarnw(
+		ctx,
+		"error getting model for arm; making the assumption that joints are revolute and that their positions are specified in degrees",
+		"err",
+		err,
+	)
 }

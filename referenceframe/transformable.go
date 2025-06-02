@@ -31,6 +31,14 @@ func NewPoseInFrame(frame string, pose spatialmath.Pose) *PoseInFrame {
 	}
 }
 
+// NewZeroPoseInFrame is a convenience method that creates a PoseInFrame with the specified Frame and a zero pose.
+func NewZeroPoseInFrame(frame string) *PoseInFrame {
+	return &PoseInFrame{
+		parent: frame,
+		pose:   spatialmath.NewZeroPose(),
+	}
+}
+
 // Parent returns the name of the frame in which the pose was observed. Needed for Transformable interface.
 func (pF *PoseInFrame) Parent() string {
 	return pF.parent
@@ -64,7 +72,7 @@ func (pF *PoseInFrame) Transform(tf *PoseInFrame) Transformable {
 
 // String returns the string representation of the PoseInFrame.
 func (pF *PoseInFrame) String() string {
-	return fmt.Sprintf("parent: %s, pose: %s", pF.parent, spatialmath.PoseToProtobuf(pF.pose))
+	return fmt.Sprintf("parent: %s, pose: %v", pF.parent, pF.pose)
 }
 
 // LinkInFrame is a PoseInFrame plus a Geometry.
@@ -111,6 +119,10 @@ func (lF *LinkInFrame) ToStaticFrame(name string) (Frame, error) {
 
 // PoseInFrameToProtobuf converts a PoseInFrame struct to a PoseInFrame protobuf message.
 func PoseInFrameToProtobuf(framedPose *PoseInFrame) *commonpb.PoseInFrame {
+	if framedPose == nil {
+		return &commonpb.PoseInFrame{}
+	}
+
 	poseProto := &commonpb.Pose{}
 	if framedPose.pose != nil {
 		poseProto = spatialmath.PoseToProtobuf(framedPose.pose)

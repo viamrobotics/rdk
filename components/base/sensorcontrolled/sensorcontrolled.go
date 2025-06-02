@@ -45,26 +45,26 @@ type Config struct {
 }
 
 // Validate validates all parts of the sensor controlled base config.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	deps := []string{}
 	if len(cfg.MovementSensor) == 0 {
-		return nil, resource.NewConfigValidationError(path, errors.New("need at least one movement sensor for base"))
+		return nil, nil, resource.NewConfigValidationError(path, errors.New("need at least one movement sensor for base"))
 	}
 	deps = append(deps, cfg.MovementSensor...)
 
 	if cfg.Base == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, cfg.Base)
 
 	for _, pidConf := range cfg.ControlParameters {
 		if pidConf.Type != typeLinVel && pidConf.Type != typeAngVel {
-			return nil, resource.NewConfigValidationError(path,
+			return nil, nil, resource.NewConfigValidationError(path,
 				errors.New("control_parameters type must be 'linear_velocity' or 'angular_velocity'"))
 		}
 	}
 
-	return deps, nil
+	return deps, nil, nil
 }
 
 type sensorBase struct {
@@ -280,7 +280,7 @@ func (sb *sensorBase) DoCommand(ctx context.Context, req map[string]interface{})
 		var respStr string
 		for _, pidConf := range *sb.tunedVals {
 			if !pidConf.NeedsAutoTuning() {
-				respStr += fmt.Sprintf("{p: %v, i: %v, d: %v, type: %v} ", pidConf.P, pidConf.I, pidConf.D, pidConf.Type)
+				respStr += pidConf.String()
 			}
 		}
 		resp[getPID] = respStr
@@ -352,11 +352,25 @@ func (sb *sensorBase) determineHeadingFunc(ctx context.Context,
 // if loop is tuning, return an error
 // if loop has been tuned but the values haven't been added to the config, error with tuned values.
 func (sb *sensorBase) checkTuningStatus() error {
-	if sb.loop != nil && sb.loop.GetTuning(context.Background()) {
-		return control.TuningInProgressErr(sb.Name().ShortName())
-	} else if (sb.configPIDVals[0].NeedsAutoTuning() && !(*sb.tunedVals)[0].NeedsAutoTuning()) ||
-		(sb.configPIDVals[1].NeedsAutoTuning() && !(*sb.tunedVals)[1].NeedsAutoTuning()) {
-		return control.TunedPIDErr(sb.Name().ShortName(), *sb.tunedVals)
+	done := true
+	needsTuning := false
+
+	for i := range sb.configPIDVals {
+		// check if the current signal needed tuning
+		if sb.configPIDVals[i].NeedsAutoTuning() {
+			// return true if either signal needed tuning
+			needsTuning = needsTuning || true
+			// if the tunedVals have not been updated, then tuning is still in progress
+			done = done && !(*sb.tunedVals)[i].NeedsAutoTuning()
+		}
 	}
+
+	if needsTuning {
+		if done {
+			return control.TunedPIDErr(sb.Name().ShortName(), *sb.tunedVals)
+		}
+		return control.TuningInProgressErr(sb.Name().ShortName())
+	}
+
 	return nil
 }

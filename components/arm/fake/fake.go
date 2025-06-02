@@ -8,16 +8,12 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/arm/eva"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
-	"go.viam.com/rdk/components/arm/xarm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -43,7 +39,7 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var err error
 	switch {
 	case conf.ArmModel != "" && conf.ModelFilePath != "":
@@ -51,9 +47,9 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	case conf.ArmModel != "" && conf.ModelFilePath == "":
 		_, err = modelFromName(conf.ArmModel, "")
 	case conf.ArmModel == "" && conf.ModelFilePath != "":
-		_, err = modelFromPath(conf.ModelFilePath, "")
+		_, err = referenceframe.KinematicModelFromFile(conf.ModelFilePath, "")
 	}
-	return nil, err
+	return nil, nil, err
 }
 
 func init() {
@@ -88,7 +84,7 @@ func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, err
 	case armModel != "":
 		model, err = modelFromName(armModel, cfg.Name)
 	case modelPath != "":
-		model, err = modelFromPath(modelPath, cfg.Name)
+		model, err = referenceframe.KinematicModelFromFile(modelPath, cfg.Name)
 	default:
 		// if no arm model is specified, we return a fake arm with 1 dof and 0 spatial transformation
 		model, err = modelFromName(Model.Name, cfg.Name)
@@ -135,13 +131,6 @@ func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 	return nil
 }
 
-// ModelFrame returns the dynamic frame of the model.
-func (a *Arm) ModelFrame() referenceframe.Model {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	return a.model
-}
-
 // EndPosition returns the set position.
 func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	joints, err := a.CurrentInputs(ctx)
@@ -175,26 +164,40 @@ func (a *Arm) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra m
 }
 
 // MoveToJointPositions sets the joints.
-func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
-	inputs := a.model.InputFromProtobuf(joints)
-	if err := arm.CheckDesiredJointPositions(ctx, a, inputs); err != nil {
+func (a *Arm) MoveToJointPositions(ctx context.Context, joints []referenceframe.Input, extra map[string]interface{}) error {
+	if err := arm.CheckDesiredJointPositions(ctx, a, joints); err != nil {
 		return err
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	_, err := a.model.Transform(inputs)
+	_, err := a.model.Transform(joints)
 	if err != nil {
 		return err
 	}
-	copy(a.joints, inputs)
+	copy(a.joints, joints)
+	return nil
+}
+
+// MoveThroughJointPositions moves the fake arm through the given inputs.
+func (a *Arm) MoveThroughJointPositions(
+	ctx context.Context,
+	positions [][]referenceframe.Input,
+	_ *arm.MoveOptions,
+	_ map[string]interface{},
+) error {
+	for _, goal := range positions {
+		if err := a.MoveToJointPositions(ctx, goal, nil); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 // JointPositions returns joints.
-func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return a.model.ProtobufFromInput(a.joints), nil
+	return a.joints, nil
 }
 
 // Stop doesn't do anything for a fake arm.
@@ -207,6 +210,13 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+// Kinematics returns the kinematic model supplied for the fake arm.
+func (a *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.model, nil
+}
+
 // CurrentInputs returns the current inputs of the fake arm.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	a.mu.RLock()
@@ -216,16 +226,7 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 
 // GoToInputs moves the fake arm to the given inputs.
 func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
-	for _, goal := range inputSteps {
-		a.mu.RLock()
-		positionDegs := a.model.ProtobufFromInput(goal)
-		a.mu.RUnlock()
-		err := a.MoveToJointPositions(ctx, positionDegs, nil)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return a.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
 // Close does nothing.
@@ -252,28 +253,13 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
-	case xarm.ModelName6DOF, xarm.ModelName7DOF, xarm.ModelNameLite:
-		return xarm.MakeModelFrame(name, model)
 	case ur.Model.Name:
 		return ur.MakeModelFrame(name)
-	case eva.Model.Name:
-		return eva.MakeModelFrame(name)
 	case dofbotModel:
 		return referenceframe.UnmarshalModelJSON(dofbotjson, name)
 	case Model.Name:
 		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:
 		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
-	}
-}
-
-func modelFromPath(modelPath, name string) (referenceframe.Model, error) {
-	switch {
-	case strings.HasSuffix(modelPath, ".urdf"):
-		return urdf.ParseModelXMLFile(modelPath, name)
-	case strings.HasSuffix(modelPath, ".json"):
-		return referenceframe.ParseModelJSONFile(modelPath, name)
-	default:
-		return nil, errors.New("only files with .json and .urdf file extensions are supported")
 	}
 }

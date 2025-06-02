@@ -36,9 +36,6 @@ func TestGenericLinux(t *testing.T) {
 	}
 
 	t.Run("test analog-readers digital-interrupts and gpio names", func(t *testing.T) {
-		ans := b.AnalogNames()
-		test.That(t, ans, test.ShouldResemble, []string{"an"})
-
 		an1, err := b.AnalogByName("an")
 		test.That(t, an1, test.ShouldHaveSameTypeAs, &wrappedAnalogReader{})
 		test.That(t, err, test.ShouldBeNil)
@@ -46,9 +43,6 @@ func TestGenericLinux(t *testing.T) {
 		an2, err := b.AnalogByName("missing")
 		test.That(t, an2, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
-
-		dns := b.DigitalInterruptNames()
-		test.That(t, dns, test.ShouldBeNil)
 
 		dn1, err := b.DigitalInterruptByName("dn")
 		test.That(t, dn1, test.ShouldBeNil)
@@ -64,29 +58,29 @@ func TestConfigValidate(t *testing.T) {
 	validConfig := Config{}
 
 	validConfig.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{}}
-	_, err := validConfig.Validate("path")
+	_, _, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	validConfig.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{Name: "bar"}}
-	_, err = validConfig.Validate("path")
+	_, _, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{}}
-	_, err = validConfig.Validate("path")
+	_, _, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.digital_interrupts.0`)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{Name: "bar"}}
-	_, err = validConfig.Validate("path")
+	_, _, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.digital_interrupts.0`)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "pin")
 
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{Name: "bar", Pin: "3"}}
-	_, err = validConfig.Validate("path")
+	_, _, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -114,7 +108,7 @@ func TestNewBoard(t *testing.T) {
 	}
 
 	conf := &Config{}
-	conf.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{Name: "an1", Pin: "1"}}
+	conf.AnalogReaders = []mcp3008helper.MCP3008AnalogConfig{{Name: "an1", Channel: "1"}}
 
 	config := resource.Config{
 		Name:                "board1",
@@ -124,12 +118,6 @@ func TestNewBoard(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close(ctx)
-
-	ans := b.AnalogNames()
-	test.That(t, ans, test.ShouldResemble, []string{"an1"})
-
-	dis := b.DigitalInterruptNames()
-	test.That(t, dis, test.ShouldResemble, []string{})
 
 	gn1, err := b.GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)

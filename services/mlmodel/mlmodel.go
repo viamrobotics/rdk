@@ -35,15 +35,35 @@ func init() {
 //
 // Infer example:
 //
-//	input_tensors := ml.Tensors{"0": tensor.New(tensor.WithShape(1, 2, 3), tensor.WithBacking([]int{1, 2, 3, 4, 5, 6}))}
+//	import (
+//		"go.viam.com/rdk/ml"
+//		"gorgonia.org/tensor"
+//	 )
+//
+//	myMLModel, err := mlmodel.FromRobot(machine, "my_mlmodel")
+//
+//	input_tensors := ml.Tensors{
+//		"image": tensor.New(
+//			tensor.Of(tensor.Uint8),
+//			tensor.WithShape(1, 384, 384, 3),
+//		        tensor.WithBacking(make([]uint8, 1*384*384*3)),
+//		),
+//	}
 //
 //	output_tensors, err := myMLModel.Infer(context.Background(), input_tensors)
 //
+// For more information, see the [Infer method docs].
+//
 // Metadata example:
 //
+//	myMLModel, err := mlmodel.FromRobot(machine, "my_mlmodel")
 //	metadata, err := myMLModel.Metadata(context.Background())
 //
-// [ML model service docs]: https://docs.viam.com/services/ml/deploy/
+// For more information, see the [Metadata method docs].
+//
+// [ML model service docs]: https://docs.viam.com/data-ai/ai/deploy/
+// [Infer method docs]: https://docs.viam.com/dev/reference/apis/services/ml/#infer
+// [Metadata method docs]: https://docs.viam.com/dev/reference/apis/services/ml/#metadata
 type Service interface {
 	resource.Resource
 	// Infer returns an output tensor map after running an input tensor map through an interface model.

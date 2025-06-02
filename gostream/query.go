@@ -4,13 +4,13 @@ import (
 	"image"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
-	"github.com/pion/mediadevices/pkg/driver/camera"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
@@ -27,9 +27,9 @@ var ErrNotFound = errors.New("failed to find the best driver that fits the const
 // DefaultConstraints are suitable for finding any available device.
 var DefaultConstraints = mediadevices.MediaStreamConstraints{
 	Video: func(constraint *mediadevices.MediaTrackConstraints) {
-		constraint.Width = prop.IntRanged{640, 4096, 1920}
-		constraint.Height = prop.IntRanged{400, 2160, 1080}
-		constraint.FrameRate = prop.FloatRanged{0, 200, 60}
+		constraint.Width = prop.IntRanged{Min: 640, Max: 4096, Ideal: 1920}
+		constraint.Height = prop.IntRanged{Min: 400, Max: 2160, Ideal: 1080}
+		constraint.FrameRate = prop.FloatRanged{Min: 0, Max: 200, Ideal: 60}
 		constraint.FrameFormat = prop.FrameFormatOneOf{
 			frame.FormatI420,
 			frame.FormatI444,
@@ -230,7 +230,7 @@ func getDriverLabels(d driver.Driver, useSep bool) []string {
 	if !useSep {
 		return []string{d.Info().Label}
 	}
-	return strings.Split(d.Info().Label, camera.LabelSeparator)
+	return strings.Split(d.Info().Label, labelSeparator)
 }
 
 func getScreenDriver(
@@ -361,13 +361,8 @@ func labelFilter(target string, useSep bool) driver.FilterFn {
 		if !useSep {
 			return d.Info().Label == target
 		}
-		labels := strings.Split(d.Info().Label, camera.LabelSeparator)
-		for _, label := range labels {
-			if label == target {
-				return true
-			}
-		}
-		return false
+		labels := strings.Split(d.Info().Label, labelSeparator)
+		return slices.Contains(labels, target)
 	})
 }
 
@@ -376,13 +371,8 @@ func labelFilterPattern(labelPattern *regexp.Regexp, useSep bool) driver.FilterF
 		if !useSep {
 			return labelPattern.MatchString(d.Info().Label)
 		}
-		labels := strings.Split(d.Info().Label, camera.LabelSeparator)
-		for _, label := range labels {
-			if labelPattern.MatchString(label) {
-				return true
-			}
-		}
-		return false
+		labels := strings.Split(d.Info().Label, labelSeparator)
+		return slices.ContainsFunc(labels, labelPattern.MatchString)
 	})
 }
 

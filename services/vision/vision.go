@@ -42,92 +42,141 @@ func init() {
 //
 // DetectionsFromCamera example:
 //
-//	// Get detections from the camera output
-//	detections, err := visService.DetectionsFromCamera(context.Background(), myCam, nil)
+//	myDetectorService, err := vision.FromRobot(machine, "my_detector")
 //	if err != nil {
-//			logger.Fatalf("Could not get detections: %v", err)
+//		logger.Error(err)
+//		return
+//	}
+//
+//	// Get detections from the camera output
+//	detections, err := myDetectorService.DetectionsFromCamera(context.Background(), "my_camera", nil)
+//	if err != nil {
+//		logger.Fatalf("Could not get detections: %v", err)
 //	}
 //	if len(detections) > 0 {
-//			logger.Info(detections[0])
+//		logger.Info(detections[0])
 //	}
+//
+// For more information, see the [DetectionsFromCamera method docs].
 //
 // Detections example:
 //
-//	// Get the stream from a camera
-//	camStream, err := myCam.Stream(context.Background())
+//	 // add "go.viam.com/rdk/utils" to imports to use this code snippet
 //
-//	// Get an image from the camera stream
-//	img, release, err := camStream.Next(context.Background())
-//	defer release()
+//		myCam, err := camera.FromRobot(machine, "my_camera")
+//		if err != nil {
+//			logger.Error(err)
+//			return
+//		}
+//		// Get an image from the camera decoded as an image.Image
+//		img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCam)
 //
-//	// Get the detections from the image
-//	detections, err := visService.Detections(context.Background(), img, nil)
-//	if err != nil {
+//		myDetectorService, err := vision.FromRobot(machine, "my_detector")
+//		if err != nil {
+//			logger.Error(err)
+//			return
+//		}
+//		// Get the detections from the image
+//		detections, err := myDetectorService.Detections(context.Background(), img, nil)
+//		if err != nil {
 //			logger.Fatalf("Could not get detections: %v", err)
-//	}
-//	if len(detections) > 0 {
+//		}
+//		if len(detections) > 0 {
 //			logger.Info(detections[0])
-//	}
+//		}
+//
+// For more information, see the [Detections method docs].
 //
 // ClassificationsFromCamera example:
 //
-//	// Get the 2 classifications with the highest confidence scores from the camera output
-//	classifications, err := visService.ClassificationsFromCamera(context.Background(), myCam, 2, nil)
+//	myClassifierService, err := vision.FromRobot(machine, "my_classifier")
 //	if err != nil {
-//			logger.Fatalf("Could not get classifications: %v", err)
+//		logger.Error(err)
+//		return
+//	}
+//	// Get the 2 classifications with the highest confidence scores from the camera output
+//	classifications, err := myClassifierService.ClassificationsFromCamera(context.Background(), "my_camera", 2, nil)
+//	if err != nil {
+//		logger.Fatalf("Could not get classifications: %v", err)
 //	}
 //	if len(classifications) > 0 {
-//			logger.Info(classifications[0])
+//		logger.Info(classifications[0])
 //	}
+//
+// For more information, see the [ClassificationsFromCamera method docs].
 //
 // Classifications example:
 //
-//	// Get the stream from a camera
-//	camStream, err := myCam.Stream(context.Background())
-//	if err!=nil {
+//	 // add "go.viam.com/rdk/utils" to imports to use this code snippet
+//
+//		myCam, err := camera.FromRobot(machine, "my_camera")
+//		if err != nil {
 //			logger.Error(err)
 //			return
-//	}
+//		}
+//		// Get an image from the camera decoded as an image.Image
+//		img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCam)
 //
-//	// Get an image from the camera stream
-//	img, release, err := camStream.Next(context.Background())
-//	defer release()
-//
-//	// Get the 2 classifications with the highest confidence scores from the image
-//	classifications, err := visService.Classifications(context.Background(), img, 2, nil)
-//	if err != nil {
+//		myClassifierService, err := vision.FromRobot(machine, "my_classifier")
+//		if err != nil {
+//			logger.Error(err)
+//			return
+//		}
+//		// Get the 2 classifications with the highest confidence scores from the image
+//		classifications, err := myClassifierService.Classifications(context.Background(), img, 2, nil)
+//		if err != nil {
 //			logger.Fatalf("Could not get classifications: %v", err)
-//	}
-//	if len(classifications) > 0 {
+//		}
+//		if len(classifications) > 0 {
 //			logger.Info(classifications[0])
-//	}
+//		}
+//
+// For more information, see the [Classifications method docs].
 //
 // GetObjectPointClouds example:
 //
-//	// Get the objects from the camera output
-//	objects, err := visService.GetObjectPointClouds(context.Background(), "cam1", nil)
+//	mySegmenterService, err := vision.FromRobot(machine, "my_segmenter")
 //	if err != nil {
-//			logger.Fatalf("Could not get point clouds: %v", err)
+//		logger.Error(err)
+//		return
+//	}
+//	// Get the objects from the camera output
+//	objects, err := mySegmenterService.GetObjectPointClouds(context.Background(), "my_camera", nil)
+//	if err != nil {
+//		logger.Fatalf("Could not get point clouds: %v", err)
 //	}
 //	if len(objects) > 0 {
-//			logger.Info(objects[0])
+//		logger.Info(objects[0])
 //	}
+//
+// For more information, see the [GetObjectPointClouds method docs].
 //
 // CaptureAllFromCamera example:
 //
 //	// The data to capture and return from the camera
-//	captOpts := viscapture.CaptureOptions{}
+//	captOpts := viscapture.CaptureOptions{
+//		ReturnImage: true,
+//		ReturnDetections: true,
+//	}
 //	// Get the captured data for a camera
-//	capture, err := visService.CaptureAllFromCamera(context.Background(), "cam1", captOpts, nil)
+//	capture, err := visService.CaptureAllFromCamera(context.Background(), "my_camera", captOpts, nil)
 //	if err != nil {
-//			logger.Fatalf("Could not get capture data from vision service: %v", err)
+//		logger.Fatalf("Could not get capture data from vision service: %v", err)
 //	}
 //	image := capture.Image
 //	detections := capture.Detections
 //	classifications := capture.Classifications
 //	objects := capture.Objects
 //
-// [vision service docs]: https://docs.viam.com/services/vision/
+// For more information, see the [CaptureAllFromCamera method docs].
+//
+// [vision service docs]: https://docs.viam.com/dev/reference/apis/services/vision/
+// [DetectionsFromCamera method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getdetectionsfromcamera
+// [Detections method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getdetections
+// [ClassificationsFromCamera method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getclassificationsfromcamera
+// [Classifications method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getclassifications
+// [GetObjectPointClouds method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#getobjectpointclouds
+// [CaptureAllFromCamera method docs]: https://docs.viam.com/dev/reference/apis/services/vision/#captureallfromcamera
 type Service interface {
 	resource.Resource
 	// DetectionsFromCamera returns a list of detections from the next image from a specified camera using a configured detector.
@@ -196,6 +245,7 @@ type vizModel struct {
 	classifierFunc  classification.Classifier
 	detectorFunc    objectdetection.Detector
 	segmenter3DFunc segmentation.Segmenter
+	defaultCamera   string
 }
 
 // Properties returns various information regarding the current vision service,
@@ -214,6 +264,7 @@ func NewService(
 	cf classification.Classifier,
 	df objectdetection.Detector,
 	s3f segmentation.Segmenter,
+	defaultCamera string,
 ) (Service, error) {
 	if cf == nil && df == nil && s3f == nil {
 		return nil, errors.Errorf(
@@ -239,6 +290,7 @@ func NewService(
 		classifierFunc:  cf,
 		detectorFunc:    df,
 		segmenter3DFunc: s3f,
+		defaultCamera:   defaultCamera,
 	}, nil
 }
 
@@ -264,6 +316,11 @@ func (vm *vizModel) DetectionsFromCamera(
 ) ([]objectdetection.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::DetectionsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
+	if cameraName == "" && vm.defaultCamera == "" {
+		return nil, errors.New("no camera name provided and no default camera found")
+	} else if cameraName == "" {
+		cameraName = vm.defaultCamera
+	}
 	if vm.detectorFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Detector", vm.Named.Name())
 	}
@@ -271,11 +328,10 @@ func (vm *vizModel) DetectionsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, release, err := camera.ReadImage(ctx, cam)
+	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
-	defer release()
 	return vm.detectorFunc(ctx, img)
 }
 
@@ -307,6 +363,11 @@ func (vm *vizModel) ClassificationsFromCamera(
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
+	if cameraName == "" && vm.defaultCamera == "" {
+		return nil, errors.New("no camera name provided and no default camera found")
+	} else if cameraName == "" {
+		cameraName = vm.defaultCamera
+	}
 	if vm.classifierFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.Named.Name())
 	}
@@ -314,11 +375,10 @@ func (vm *vizModel) ClassificationsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, release, err := camera.ReadImage(ctx, cam)
+	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
-	defer release()
 	fullClassifications, err := vm.classifierFunc(ctx, img)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get classifications from image")
@@ -337,6 +397,11 @@ func (vm *vizModel) GetObjectPointClouds(
 	}
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds::"+vm.Named.Name().String())
 	defer span.End()
+	if cameraName == "" && vm.defaultCamera == "" {
+		return nil, errors.New("no camera name provided and no default camera found")
+	} else if cameraName == "" {
+		cameraName = vm.defaultCamera
+	}
 	cam, err := camera.FromRobot(vm.r, cameraName)
 	if err != nil {
 		return nil, err
@@ -360,15 +425,19 @@ func (vm *vizModel) CaptureAllFromCamera(
 ) (viscapture.VisCapture, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
+	if cameraName == "" && vm.defaultCamera == "" {
+		return viscapture.VisCapture{}, errors.New("no camera name provided and no default camera found")
+	} else if cameraName == "" {
+		cameraName = vm.defaultCamera
+	}
 	cam, err := camera.FromRobot(vm.r, cameraName)
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, release, err := camera.ReadImage(ctx, cam)
+	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
-	defer release()
 	logger := vm.r.Logger()
 	var detections []objectdetection.Detection
 	if opt.ReturnDetections {

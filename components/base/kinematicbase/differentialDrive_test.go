@@ -148,7 +148,7 @@ func TestInputDiff(t *testing.T) {
 	desiredInput := []referenceframe.Input{{Value: 3}, {Value: 4}, {Value: utils.DegToRad(30)}}
 	distErr, headingErr, err := ddk.inputDiff(make([]referenceframe.Input, 3), desiredInput)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, distErr, test.ShouldEqual, r3.Vector{X: desiredInput[0].Value, Y: desiredInput[1].Value, Z: 0}.Norm())
+	test.That(t, distErr, test.ShouldAlmostEqual, r3.Vector{X: desiredInput[0].Value, Y: desiredInput[1].Value, Z: 0}.Norm())
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }
 

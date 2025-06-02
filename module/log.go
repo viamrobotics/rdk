@@ -59,7 +59,16 @@ type moduleLogger struct {
 // to start modules with a "log-level" commandline argument. The created logger
 // will send log events back to the module's parent (the RDK) via gRPC when
 // possible and to STDOUT when not possible.
+//
+// `moduleName` will be the name of the created logger. Pass `""` if you wish to
+// use the value specified by the `VIAM_MODULE_NAME` environment variable.
 func NewLoggerFromArgs(moduleName string) logging.Logger {
+	// If no `moduleName` was specified, grab it from the environment (will still be empty
+	// string if not specified in environment.)
+	if moduleName == "" {
+		moduleName, _ = os.LookupEnv("VIAM_MODULE_NAME")
+	}
+
 	modAppender := newModuleAppender()
 	baseLogger := logging.NewBlankLogger(moduleName)
 	baseLogger.AddAppender(modAppender)

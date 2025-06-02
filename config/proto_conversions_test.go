@@ -14,6 +14,7 @@ import (
 	packagespb "go.viam.com/api/app/packages/v1"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/jwks"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -69,7 +70,7 @@ var testComponent = resource.Config{
 		},
 	},
 	Frame:            testFrame,
-	LogConfiguration: resource.LogConfig{Level: logging.DEBUG},
+	LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 }
 
 var testRemote = Remote{
@@ -119,7 +120,7 @@ var testService = resource.Config{
 			},
 		},
 	},
-	LogConfiguration: resource.LogConfig{Level: logging.DEBUG},
+	LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 }
 
 var testProcessConfig = pexec.ProcessConfig{
@@ -127,8 +128,9 @@ var testProcessConfig = pexec.ProcessConfig{
 	Name:        "Some-name",
 	Args:        []string{"arg1", "arg2"},
 	CWD:         "/home",
-	Environment: map[string]string{"SOME_VAR": "value"},
 	OneShot:     true,
+	Username:    "sam",
+	Environment: map[string]string{"SOME_VAR": "value"},
 	Log:         true,
 	StopSignal:  syscall.SIGINT,
 	StopTimeout: time.Second,
@@ -142,6 +144,19 @@ var testNetworkConfig = NetworkConfig{
 		TLSKeyFile:  "./cert.private",
 		Sessions: SessionsConfig{
 			HeartbeatWindow: 5 * time.Second,
+		},
+		TrafficTunnelEndpoints: []TrafficTunnelEndpoint{
+			{
+				Port:              9090,
+				ConnectionTimeout: 20 * time.Second,
+			},
+			{
+				Port:              27017,
+				ConnectionTimeout: 40 * time.Millisecond,
+			},
+			{
+				Port: 23654,
+			},
 		},
 	},
 }
@@ -200,6 +215,16 @@ var testModuleWithError = Module{
 	},
 }
 
+var testModuleWithTimeout = Module{
+	Name:            "testmod",
+	ExePath:         "/tmp/test.mod",
+	LogLevel:        "debug",
+	Type:            ModuleTypeLocal,
+	ModuleID:        "a:b",
+	Environment:     map[string]string{"SOME_VAR": "value"},
+	FirstRunTimeout: goutils.Duration(time.Minute),
+}
+
 var testPackageConfig = PackageConfig{
 	Name:    "package-name",
 	Package: "some/package",
@@ -226,10 +251,10 @@ var (
 )
 
 func init() {
-	if _, err := testComponent.Validate("", resource.APITypeComponentName); err != nil {
+	if _, _, err := testComponent.Validate("", resource.APITypeComponentName); err != nil {
 		panic(err)
 	}
-	if _, err := testService.Validate("", resource.APITypeServiceName); err != nil {
+	if _, _, err := testService.Validate("", resource.APITypeServiceName); err != nil {
 		panic(err)
 	}
 }
@@ -239,6 +264,7 @@ func validateModule(t *testing.T, actual, expected Module) {
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
 	test.That(t, actual.ExePath, test.ShouldEqual, expected.ExePath)
 	test.That(t, actual.LogLevel, test.ShouldEqual, expected.LogLevel)
+	test.That(t, actual.FirstRunTimeout, test.ShouldEqual, expected.FirstRunTimeout)
 	test.That(t, actual, test.ShouldResemble, expected)
 }
 
@@ -296,11 +322,21 @@ func TestModuleConfigToProto(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, protoWithErr.Status, test.ShouldNotBeNil)
 
-	out, err = ModuleConfigFromProto(proto)
+	out, err = ModuleConfigFromProto(protoWithErr)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
 
-	validateModule(t, *out, testModule)
+	validateModule(t, *out, testModuleWithError)
+
+	protoWithTimeout, err := ModuleConfigToProto(&testModuleWithTimeout)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, protoWithTimeout.Status, test.ShouldBeNil)
+
+	out, err = ModuleConfigFromProto(protoWithTimeout)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+
+	validateModule(t, *out, testModuleWithTimeout)
 }
 
 //nolint:thelper
@@ -389,7 +425,7 @@ func TestComponentConfigToProto(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			_, err := tc.Conf.Validate("", resource.APITypeComponentName)
+			_, _, err := tc.Conf.Validate("", resource.APITypeComponentName)
 			test.That(t, err, test.ShouldBeNil)
 			proto, err := ComponentConfigToProto(&tc.Conf)
 			test.That(t, err, test.ShouldBeNil)
@@ -399,7 +435,7 @@ func TestComponentConfigToProto(t *testing.T) {
 			test.That(t, proto.Type, test.ShouldEqual, tc.Conf.API.SubtypeName)
 			out, err := ComponentConfigFromProto(proto)
 			test.That(t, err, test.ShouldBeNil)
-			_, err = out.Validate("test", resource.APITypeComponentName)
+			_, _, err = out.Validate("test", resource.APITypeComponentName)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, out, test.ShouldNotBeNil)
 			test.That(t, out, test.ShouldResemble, &tc.Conf)
@@ -660,7 +696,7 @@ func TestServiceConfigToProto(t *testing.T) {
 			test.That(t, out, test.ShouldNotBeNil)
 
 			test.That(t, out.String(), test.ShouldResemble, tc.Conf.String())
-			_, err = out.Validate("test", resource.APITypeServiceName)
+			_, _, err = out.Validate("test", resource.APITypeServiceName)
 			test.That(t, err, test.ShouldBeNil)
 		})
 	}
@@ -692,7 +728,7 @@ func TestServiceConfigWithEmptyModelName(t *testing.T) {
 	test.That(t, out.Model, test.ShouldResemble, fromJSON.Model)
 	test.That(t, out.Model.Validate(), test.ShouldBeNil)
 	test.That(t, out.Model, test.ShouldResemble, resource.DefaultServiceModel)
-	_, err = out.Validate("...", resource.APITypeServiceName)
+	_, _, err = out.Validate("...", resource.APITypeServiceName)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -818,19 +854,21 @@ func TestFromProto(t *testing.T) {
 
 	debug := true
 	enableWebProfile := true
+	disableLogDeduplication := true
 
 	input := &pb.RobotConfig{
-		Cloud:            cloudConfig,
-		Remotes:          []*pb.RemoteConfig{remoteConfig},
-		Modules:          []*pb.ModuleConfig{moduleConfig},
-		Components:       []*pb.ComponentConfig{componentConfig},
-		Processes:        []*pb.ProcessConfig{processConfig},
-		Services:         []*pb.ServiceConfig{serviceConfig},
-		Packages:         []*pb.PackageConfig{packageConfig},
-		Network:          networkConfig,
-		Auth:             authConfig,
-		Debug:            &debug,
-		EnableWebProfile: enableWebProfile,
+		Cloud:                   cloudConfig,
+		Remotes:                 []*pb.RemoteConfig{remoteConfig},
+		Modules:                 []*pb.ModuleConfig{moduleConfig},
+		Components:              []*pb.ComponentConfig{componentConfig},
+		Processes:               []*pb.ProcessConfig{processConfig},
+		Services:                []*pb.ServiceConfig{serviceConfig},
+		Packages:                []*pb.PackageConfig{packageConfig},
+		Network:                 networkConfig,
+		Auth:                    authConfig,
+		Debug:                   &debug,
+		EnableWebProfile:        enableWebProfile,
+		DisableLogDeduplication: disableLogDeduplication,
 	}
 
 	out, err := FromProto(input, logger)
@@ -851,6 +889,7 @@ func TestFromProto(t *testing.T) {
 	validateAuthConfig(t, out.Auth, testAuthConfig)
 	test.That(t, out.Debug, test.ShouldEqual, debug)
 	test.That(t, out.EnableWebProfile, test.ShouldEqual, enableWebProfile)
+	test.That(t, out.DisableLogDeduplication, test.ShouldEqual, disableLogDeduplication)
 	test.That(t, out.Packages, test.ShouldHaveLength, 1)
 	test.That(t, out.Packages[0], test.ShouldResemble, testPackageConfig)
 }
@@ -1004,4 +1043,61 @@ func TestPackageTypeConversion(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "invalid-package-type")
 	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum())
+}
+
+func TestMaintenanceConfigToProtoSuccess(t *testing.T) {
+	testMaintenanceConfig := MaintenanceConfig{
+		SensorName:            "rdk:component:sensor/car",
+		MaintenanceAllowedKey: "honk",
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := MaintenanceConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+}
+
+func TestMaintenanceConfigToProtoEmptyName(t *testing.T) {
+	testMaintenanceConfig := MaintenanceConfig{
+		SensorName:            "",
+		MaintenanceAllowedKey: "honk",
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := MaintenanceConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+}
+
+func TestMaintenanceConfigToProtoMalformedName(t *testing.T) {
+	testMaintenanceConfig := MaintenanceConfig{
+		SensorName:            "car:go",
+		MaintenanceAllowedKey: "honk",
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := MaintenanceConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	testMaintenanceConfig.SensorName = resource.NewName(resource.API{}, testMaintenanceConfig.SensorName).String()
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+}
+
+func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
+	testMaintenanceConfig := MaintenanceConfig{
+		SensorName:            "rdk:component:sensor/go:store",
+		MaintenanceAllowedKey: "fast",
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := MaintenanceConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
 }

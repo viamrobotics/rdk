@@ -1,0 +1,20 @@
+# see https://github.com/viamrobotics/build-action for help
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+" # the build-action will trigger on tags with the format 1.0.0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: viamrobotics/build-action@v1
+        with:
+          # note: you can replace this line with 'version: ""' if
+          # you want to test the build process without deploying
+          version: ${{ github.ref_name }}
+          ref: ${{ github.sha }}
+          key-id: ${{ secrets.viam_key_id }}
+          key-value: ${{ secrets.viam_key_value }}
+          token: ${{ github.token }} # only required for private git repos

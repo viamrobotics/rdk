@@ -72,7 +72,10 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 		return err
 	}
 
-	model := a.ModelFrame()
+	model, err := a.Kinematics(ctx)
+	if err != nil {
+		return err
+	}
 	_, err = model.Transform(inputs)
 	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
 		return errors.New("cannot move arm: " + err.Error())
@@ -84,5 +87,5 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 	if err != nil {
 		return err
 	}
-	return arm.GoToWaypoints(ctx, a, plan)
+	return a.MoveThroughJointPositions(ctx, plan, nil, nil)
 }

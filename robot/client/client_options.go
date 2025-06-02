@@ -32,6 +32,13 @@ type robotClientOpts struct {
 
 	// controls whether or not sessions are disabled.
 	disableSessions bool
+
+	// initialConnectionAttempts indicates the number of times to try dialing when making
+	// initial connection to a machine. Defaults to three. If set to zero or a negative
+	// value, will attempt to connect forever.
+	initialConnectionAttempts *int
+
+	modName string
 }
 
 // RobotClientOption configures how we set up the connection.
@@ -56,11 +63,28 @@ func newFuncRobotClientOption(f func(*robotClientOpts)) *funcRobotClientOption {
 	}
 }
 
+// WithModName attaches a unary interceptor that attaches the module name for each outgoing gRPC
+// request. Should only be used in Viam module library code.
+func WithModName(modName string) RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.modName = modName
+	})
+}
+
 // WithRefreshEvery returns a RobotClientOption for how often to refresh the status/parts of the
 // robot.
 func WithRefreshEvery(refreshEvery time.Duration) RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.refreshEvery = &refreshEvery
+	})
+}
+
+// WithInitialDialAttempts sets the number of times to attempt to connect to a robot when
+// initially dialing. Defaults to 3 attempts. If set to zero or a negative value, will
+// attempt to connect forever.
+func WithInitialDialAttempts(attempts int) RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.initialConnectionAttempts = &attempts
 	})
 }
 

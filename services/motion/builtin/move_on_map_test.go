@@ -39,9 +39,9 @@ func TestMoveOnMap(t *testing.T) {
 	}
 
 	t.Run("Timeout", func(t *testing.T) {
-		cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger)
+		cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger, nil)
 		test.That(t, err, test.ShouldBeNil)
-		myRobot, err := robotimpl.New(ctx, cfg, logger)
+		myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, myRobot.Close(context.Background()), test.ShouldBeNil)
@@ -130,25 +130,6 @@ func TestMoveOnMap(t *testing.T) {
 		ph3, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ph3, test.ShouldResemble, ph2)
-	})
-
-	t.Run("returns error when within plan dev m of goal with position_only", func(t *testing.T) {
-		_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-		defer closeFunc(ctx)
-
-		req := motion.MoveOnMapReq{
-			ComponentName: base.Named("test-base"),
-			Destination:   spatialmath.NewZeroPose(),
-			SlamName:      slam.Named("test_slam"),
-			MotionCfg:     &motion.MotionConfiguration{},
-			Extra:         map[string]interface{}{"motion_profile": "position_only"},
-		}
-
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
-		defer timeoutFn()
-		executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
-		test.That(t, err, test.ShouldBeError, motion.ErrGoalWithinPlanDeviation)
-		test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 	})
 
 	t.Run("pass when within plan dev m of goal without position_only due to theta difference in goal", func(t *testing.T) {
@@ -276,8 +257,10 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		currentInputs := map[string][]referenceframe.Input{
-			mr.kinematicBase.Kinematics().Name(): {
+		k, err := mr.kinematicBase.Kinematics(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		currentInputs := referenceframe.FrameSystemInputs{
+			k.Name(): {
 				{Value: 0}, // ptg index
 				{Value: 0}, // trajectory alpha within ptg
 				{Value: 0}, // start distance along trajectory index
@@ -305,7 +288,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
+		augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(ctx, baseExecutionState)
 		test.That(t, err, test.ShouldBeNil)
 
 		wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)

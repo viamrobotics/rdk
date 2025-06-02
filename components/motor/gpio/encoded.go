@@ -88,8 +88,8 @@ func newEncodedMotor(
 	}
 
 	if em.rampRate == 0 || em.rampRate > 0.5 {
-		em.rampRate = 0.05 // Use a conservative value by default.
 		em.logger.Warnf("setting ramp rate to default value of 0.05 instead of %v", em.rampRate)
+		em.rampRate = 0.05 // Use a conservative value by default.
 	}
 
 	if em.maxPowerPct < 0 || em.maxPowerPct > 1 {
@@ -153,9 +153,9 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 
 		currentTicks, _, err := m.encoder.Position(ctx, encoder.PositionTypeTicks, nil)
 		if err != nil {
-			m.logger.CInfo(ctx, "error getting encoder position, sleeping then continuing: %w", err)
+			m.logger.CInfof(ctx, "error getting encoder position, sleeping then continuing: %v", err)
 			if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
-				m.logger.CInfo(ctx, "error sleeping, giving up %w", ctx.Err())
+				m.logger.CInfof(ctx, "error sleeping, giving up %v", ctx.Err())
 				return err
 			}
 			continue
@@ -173,14 +173,20 @@ func (m *EncodedMotor) makeAdjustments(ctx context.Context, goalRPM, goalPos, di
 		var currentRPM float64
 		if deltaTime == 0.0 {
 			currentRPM = 0
+			zeroRPMTracker++
+			m.logger.Debug("zero time delta calculated between motor power adjustments")
 		} else {
 			currentRPM = deltaPos / deltaTime
 			if currentRPM == 0 {
 				zeroRPMTracker++
 			}
 		}
-		if zeroRPMTracker > 10 {
-			m.logger.Errorf("error running motor %v, desired rpm is too low for stable motion: %v", m.Name().Name, goalRPM)
+		if zeroRPMTracker > 20 {
+			m.logger.Warnf(
+				"%v motor running at too low an rpm [%v] for stable motion:"+
+					"trying to run at %v rpm, check if stalled or try increasing the motor's rpm",
+				m.Name().Name, currentRPM, goalRPM)
+			zeroRPMTracker = 0
 		}
 
 		newPower, err := m.calcNewPowerPct(ctx, currentRPM, goalRPM, lastPowerPct, direction)
@@ -293,7 +299,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	return nil
 }
 
-func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error {
+func (m *EncodedMotor) goForInternal(rpm, goalPos, direction float64) error { //nolint:unparam
 	// cancel makeAdjustments if it already exists
 	if m.makeAdjustmentsDone != nil {
 		m.makeAdjustmentsDone()

@@ -347,9 +347,7 @@ func TestMultiSignalLoop(t *testing.T) {
 				Name: "pid_block",
 				Type: "PID",
 				Attribute: utils.AttributeMap{
-					"kP": expectedPIDVals.P, // random for now
-					"kD": expectedPIDVals.D,
-					"kI": expectedPIDVals.I,
+					"PIDSets": []*PIDConfig{&expectedPIDVals},
 				},
 				DependsOn: []string{"gain_block"},
 			},

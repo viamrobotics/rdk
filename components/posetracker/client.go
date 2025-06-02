@@ -42,7 +42,7 @@ func NewClientFromConn(
 
 func (c *client) Poses(
 	ctx context.Context, bodyNames []string, extra map[string]interface{},
-) (BodyToPoseInFrame, error) {
+) (referenceframe.FrameSystemPoses, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -56,15 +56,11 @@ func (c *client) Poses(
 	if err != nil {
 		return nil, err
 	}
-	result := BodyToPoseInFrame{}
+	result := referenceframe.FrameSystemPoses{}
 	for key, pf := range resp.GetBodyPoses() {
 		result[key] = referenceframe.ProtobufToPoseInFrame(pf)
 	}
 	return result, nil
-}
-
-func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return Readings(ctx, c)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

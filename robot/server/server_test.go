@@ -18,15 +18,10 @@ import (
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
-	vprotoutils "go.viam.com/utils/protoutils"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -38,7 +33,6 @@ import (
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -77,21 +71,26 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("GetMachineStatus", func(t *testing.T) {
-		for _, tc := range []struct {
-			name                string
-			injectMachineStatus robot.MachineStatus
-			expConfig           *pb.ConfigStatus
-			expResources        []*pb.ResourceStatus
-			expBadStateCount    int
+		testCases := []struct {
+			name                     string
+			injectMachineStatus      robot.MachineStatus
+			expConfig                *pb.ConfigStatus
+			expResources             []*pb.ResourceStatus
+			expState                 pb.GetMachineStatusResponse_State
+			expBadResourceStateCount int
+			expBadMachineStateCount  int
 		}{
 			{
 				"no resources",
 				robot.MachineStatus{
 					Config:    config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{},
+					State:     robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
 				0,
 			},
 			{
@@ -100,10 +99,13 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("badArm"),
-							Revision: "rev0",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("badArm"),
+								Revision: "rev0",
+							},
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -113,7 +115,9 @@ func TestServer(t *testing.T) {
 						Revision: "rev0",
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
 				1,
+				0,
 			},
 			{
 				"resource with valid status",
@@ -121,11 +125,14 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("goodArm"),
-							State:    resource.NodeStateConfiguring,
-							Revision: "rev1",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("goodArm"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -135,6 +142,102 @@ func TestServer(t *testing.T) {
 						Revision: "rev1",
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
+				0,
+			},
+			{
+				"resource with empty cloud metadata",
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("goodArm"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
+							CloudMetadata: cloud.Metadata{},
+						},
+					},
+					State: robot.StateRunning,
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{
+					{
+						Name:          protoutils.ResourceNameToProto(arm.Named("goodArm")),
+						State:         pb.ResourceStatus_STATE_CONFIGURING,
+						Revision:      "rev1",
+						CloudMetadata: &pb.GetCloudMetadataResponse{},
+					},
+				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
+				0,
+			},
+			{
+				"resource with cloud metadata",
+				robot.MachineStatus{
+					Config: config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{
+						{
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("arm1"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
+							CloudMetadata: cloud.Metadata{
+								PrimaryOrgID:  "org1",
+								LocationID:    "loc1",
+								MachineID:     "mac1",
+								MachinePartID: "part1",
+							},
+						},
+						{
+							NodeStatus: resource.NodeStatus{
+								Name:  arm.Named("arm2").PrependRemote("remote1"),
+								State: resource.NodeStateReady,
+							},
+							CloudMetadata: cloud.Metadata{
+								PrimaryOrgID:  "org2",
+								LocationID:    "loc2",
+								MachineID:     "mac2",
+								MachinePartID: "part2",
+							},
+						},
+					},
+					State: robot.StateRunning,
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{
+					{
+						Name:     protoutils.ResourceNameToProto(arm.Named("arm1")),
+						State:    pb.ResourceStatus_STATE_CONFIGURING,
+						Revision: "rev1",
+						CloudMetadata: protoutils.MetadataToProto(
+							cloud.Metadata{
+								PrimaryOrgID:  "org1",
+								LocationID:    "loc1",
+								MachineID:     "mac1",
+								MachinePartID: "part1",
+							},
+						),
+					},
+					{
+						Name:  protoutils.ResourceNameToProto(arm.Named("arm2").PrependRemote("remote1")),
+						State: pb.ResourceStatus_STATE_READY,
+						CloudMetadata: protoutils.MetadataToProto(
+							cloud.Metadata{
+								PrimaryOrgID:  "org2",
+								LocationID:    "loc2",
+								MachineID:     "mac2",
+								MachinePartID: "part2",
+							},
+						),
+					},
+				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
 				0,
 			},
 			{
@@ -143,19 +246,26 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("goodArm"),
-							State:    resource.NodeStateConfiguring,
-							Revision: "rev1",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("goodArm"),
+								State:    resource.NodeStateConfiguring,
+								Revision: "rev1",
+							},
 						},
 						{
-							Name:     arm.Named("badArm"),
-							Revision: "rev0",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("badArm"),
+								Revision: "rev0",
+							},
 						},
 						{
-							Name:     arm.Named("anotherBadArm"),
-							Revision: "rev-1",
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("anotherBadArm"),
+								Revision: "rev-1",
+							},
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -175,7 +285,9 @@ func TestServer(t *testing.T) {
 						Revision: "rev-1",
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
 				2,
+				0,
 			},
 			{
 				"unhealthy status",
@@ -183,12 +295,15 @@ func TestServer(t *testing.T) {
 					Config: config.Revision{Revision: "rev1"},
 					Resources: []resource.Status{
 						{
-							Name:     arm.Named("brokenArm"),
-							Revision: "rev1",
-							State:    resource.NodeStateUnhealthy,
-							Error:    errors.New("bad configuration"),
+							NodeStatus: resource.NodeStatus{
+								Name:     arm.Named("brokenArm"),
+								Revision: "rev1",
+								State:    resource.NodeStateUnhealthy,
+								Error:    errors.New("bad configuration"),
+							},
 						},
 					},
+					State: robot.StateRunning,
 				},
 				&pb.ConfigStatus{Revision: "rev1"},
 				[]*pb.ResourceStatus{
@@ -199,30 +314,69 @@ func TestServer(t *testing.T) {
 						Error:    "bad configuration",
 					},
 				},
+				pb.GetMachineStatusResponse_STATE_RUNNING,
+				0,
 				0,
 			},
-		} {
-			logger, logs := logging.NewObservedTestLogger(t)
-			injectRobot := &inject.Robot{}
-			server := server.New(injectRobot)
-			req := pb.GetMachineStatusRequest{}
-			injectRobot.LoggerFunc = func() logging.Logger {
-				return logger
-			}
-			injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
-				return tc.injectMachineStatus, nil
-			}
-			resp, err := server.GetMachineStatus(context.Background(), &req)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, resp.GetConfig().GetRevision(), test.ShouldEqual, tc.expConfig.Revision)
-			for i, res := range resp.GetResources() {
-				test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)
-				test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
-				test.That(t, res.GetRevision(), test.ShouldEqual, tc.expResources[i].Revision)
-			}
-			const badStateMsg = "resource in an unknown state"
-			badStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badStateMsg).Len()
-			test.That(t, badStateCount, test.ShouldEqual, tc.expBadStateCount)
+			{
+				"initializing machine state",
+				robot.MachineStatus{
+					Config:    config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{},
+					State:     robot.StateInitializing,
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{},
+				pb.GetMachineStatusResponse_STATE_INITIALIZING,
+				0,
+				0,
+			},
+			{
+				"unknown machine state",
+				robot.MachineStatus{
+					Config:    config.Revision{Revision: "rev1"},
+					Resources: []resource.Status{},
+					State:     robot.StateUnknown,
+				},
+				&pb.ConfigStatus{Revision: "rev1"},
+				[]*pb.ResourceStatus{},
+				pb.GetMachineStatusResponse_STATE_UNSPECIFIED,
+				0,
+				1,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				logger, logs := logging.NewObservedTestLogger(t)
+				injectRobot := &inject.Robot{}
+				server := server.New(injectRobot)
+				req := pb.GetMachineStatusRequest{}
+				injectRobot.LoggerFunc = func() logging.Logger {
+					return logger
+				}
+				injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+					return tc.injectMachineStatus, nil
+				}
+				resp, err := server.GetMachineStatus(context.Background(), &req)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, resp.GetConfig().GetRevision(), test.ShouldEqual, tc.expConfig.Revision)
+				for i, res := range resp.GetResources() {
+					test.That(t, res.GetName(), test.ShouldResemble, tc.expResources[i].Name)
+					test.That(t, res.GetState(), test.ShouldResemble, tc.expResources[i].State)
+					test.That(t, res.GetRevision(), test.ShouldEqual, tc.expResources[i].Revision)
+				}
+
+				test.That(t, resp.GetState(), test.ShouldEqual, tc.expState)
+
+				const badResourceStateMsg = "resource in an unknown state"
+				badResourceStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badResourceStateMsg).Len()
+				test.That(t, badResourceStateCount, test.ShouldEqual, tc.expBadResourceStateCount)
+
+				const badMachineStateMsg = "machine in an unknown state"
+				badMachineStateCount := logs.FilterLevelExact(zapcore.ErrorLevel).FilterMessageSnippet(badMachineStateMsg).Len()
+				test.That(t, badMachineStateCount, test.ShouldEqual, tc.expBadMachineStateCount)
+			})
 		}
 	})
 
@@ -246,49 +400,47 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.GetMachinePartId(), test.ShouldEqual, "the-robot-part")
 	})
 
-	t.Run("Discovery", func(t *testing.T) {
+	t.Run("GetModelsFromModules", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
 
-		q := resource.DiscoveryQuery{arm.Named("arm").API, resource.DefaultModelFamily.WithModel("some-arm")}
-		disc := resource.Discovery{Query: q, Results: struct{}{}}
-		discoveries := []resource.Discovery{disc}
-		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []resource.DiscoveryQuery) ([]resource.Discovery, error) {
-			return discoveries, nil
+		expectedModels := []resource.ModuleModel{
+			{
+				ModuleName:      "simple-module",
+				API:             resource.NewAPI("rdk", "component", "generic"),
+				Model:           resource.NewModel("acme", "demo", "mycounter"),
+				FromLocalModule: false,
+			},
+			{
+				ModuleName:      "simple-module2",
+				API:             resource.NewAPI("rdk", "component", "generic"),
+				Model:           resource.NewModel("acme", "demo", "mycounter"),
+				FromLocalModule: true,
+			},
 		}
+		injectRobot.GetModelsFromModulesFunc = func(context.Context) ([]resource.ModuleModel, error) {
+			return expectedModels, nil
+		}
+		expectedProto := []*pb.ModuleModel{expectedModels[0].ToProto(), expectedModels[1].ToProto()}
 
-		t.Run("full api and model", func(t *testing.T) {
-			req := &pb.DiscoverComponentsRequest{
-				Queries: []*pb.DiscoveryQuery{{Subtype: q.API.String(), Model: q.Model.String()}},
-			}
-
-			resp, err := server.DiscoverComponents(context.Background(), req)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
-
-			observed := resp.Discovery[0].Results.AsMap()
-			expected := map[string]interface{}{}
-			expectedQ := &pb.DiscoveryQuery{Subtype: "rdk:component:arm", Model: "rdk:builtin:some-arm"}
-			test.That(t, resp.Discovery[0].Query, test.ShouldResemble, expectedQ)
-			test.That(t, observed, test.ShouldResemble, expected)
-		})
-		t.Run("short api and model", func(t *testing.T) {
-			req := &pb.DiscoverComponentsRequest{
-				Queries: []*pb.DiscoveryQuery{{Subtype: "arm", Model: "some-arm"}},
-			}
-
-			resp, err := server.DiscoverComponents(context.Background(), req)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(resp.Discovery), test.ShouldEqual, 1)
-
-			observed := resp.Discovery[0].Results.AsMap()
-			expected := map[string]interface{}{}
-			expectedQ := &pb.DiscoveryQuery{Subtype: "arm", Model: "some-arm"}
-			test.That(t, resp.Discovery[0].Query, test.ShouldResemble, expectedQ)
-			test.That(t, observed, test.ShouldResemble, expected)
-		})
+		req := &pb.GetModelsFromModulesRequest{}
+		resp, err := server.GetModelsFromModules(context.Background(), req)
+		test.That(t, err, test.ShouldBeNil)
+		protoModels := resp.GetModels()
+		test.That(t, len(protoModels), test.ShouldEqual, 2)
+		test.That(t, protoModels, test.ShouldResemble, expectedProto)
+		for index, protoModel := range protoModels {
+			test.That(t, protoModel.ModuleName, test.ShouldEqual, expectedProto[index].ModuleName)
+			test.That(t, protoModel.ModuleName, test.ShouldEqual, expectedModels[index].ModuleName)
+			test.That(t, protoModel.Model, test.ShouldEqual, expectedProto[index].Model)
+			test.That(t, protoModel.Model, test.ShouldEqual, expectedModels[index].Model.String())
+			test.That(t, protoModel.Api, test.ShouldEqual, expectedProto[index].Api)
+			test.That(t, protoModel.Api, test.ShouldEqual, expectedModels[index].API.String())
+			test.That(t, protoModel.FromLocalModule, test.ShouldEqual, expectedProto[index].FromLocalModule)
+			test.That(t, protoModel.FromLocalModule, test.ShouldEqual, expectedModels[index].FromLocalModule)
+		}
 	})
 
 	t.Run("ResourceRPCSubtypes", func(t *testing.T) {
@@ -595,281 +747,6 @@ func TestServerFrameSystemConfig(t *testing.T) {
 		server := server.New(injectRobot)
 		test.That(t, func() { server.FrameSystemConfig(context.Background(), req) }, test.ShouldPanic)
 	})
-}
-
-func TestServerGetStatus(t *testing.T) {
-	// Sample lastReconfigured times to be used across status tests.
-	lastReconfigured, err := time.Parse("2006-01-02 15:04:05", "1998-04-30 19:08:00")
-	test.That(t, err, test.ShouldBeNil)
-	lastReconfigured2, err := time.Parse("2006-01-02 15:04:05", "2011-11-11 00:00:00")
-	test.That(t, err, test.ShouldBeNil)
-
-	t.Run("failed GetStatus", func(t *testing.T) {
-		injectRobot := &inject.Robot{}
-		server := server.New(injectRobot)
-		passedErr := errors.New("can't get status")
-		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			return nil, passedErr
-		}
-		//nolint:staticcheck // the status API is deprecated
-		_, err := server.GetStatus(context.Background(), &pb.GetStatusRequest{})
-		test.That(t, err, test.ShouldBeError, passedErr)
-	})
-
-	t.Run("bad status response", func(t *testing.T) {
-		injectRobot := &inject.Robot{}
-		server := server.New(injectRobot)
-		aStatus := robot.Status{Name: arm.Named("arm"), Status: 1}
-		readings := []robot.Status{aStatus}
-		injectRobot.StatusFunc = func(ctx context.Context, status []resource.Name) ([]robot.Status, error) {
-			return readings, nil
-		}
-		req := &pb.GetStatusRequest{
-			ResourceNames: []*commonpb.ResourceName{},
-		}
-
-		//nolint:staticcheck // the status API is deprecated
-		_, err := server.GetStatus(context.Background(), req)
-		test.That(
-			t,
-			err,
-			test.ShouldBeError,
-			errors.New(
-				"unable to convert interface 1 to a form acceptable to structpb.NewStruct: "+
-					"data of type int and kind int not a struct or a map-like object",
-			),
-		)
-	})
-
-	t.Run("working one status", func(t *testing.T) {
-		injectRobot := &inject.Robot{}
-		server := server.New(injectRobot)
-		aStatus := robot.Status{
-			Name:             arm.Named("arm"),
-			LastReconfigured: lastReconfigured,
-			Status:           struct{}{},
-		}
-		readings := []robot.Status{aStatus}
-		expected := map[resource.Name]interface{}{
-			aStatus.Name: map[string]interface{}{},
-		}
-		expectedLR := map[resource.Name]time.Time{
-			aStatus.Name: lastReconfigured,
-		}
-		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			testutils.VerifySameResourceNames(t, resourceNames, []resource.Name{aStatus.Name})
-			return readings, nil
-		}
-		req := &pb.GetStatusRequest{
-			ResourceNames: []*commonpb.ResourceName{protoutils.ResourceNameToProto(aStatus.Name)},
-		}
-
-		//nolint:staticcheck // the status API is deprecated
-		resp, err := server.GetStatus(context.Background(), req)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp.Status), test.ShouldEqual, 1)
-
-		observed := map[resource.Name]interface{}{
-			protoutils.ResourceNameFromProto(resp.Status[0].Name): resp.Status[0].Status.AsMap(),
-		}
-		observedLR := map[resource.Name]time.Time{
-			protoutils.ResourceNameFromProto(resp.Status[0].Name): resp.Status[0].
-				LastReconfigured.AsTime(),
-		}
-		test.That(t, observed, test.ShouldResemble, expected)
-		test.That(t, observedLR, test.ShouldResemble, expectedLR)
-	})
-
-	t.Run("working many statuses", func(t *testing.T) {
-		injectRobot := &inject.Robot{}
-		server := server.New(injectRobot)
-		gStatus := robot.Status{
-			Name:             movementsensor.Named("gps"),
-			LastReconfigured: lastReconfigured,
-			Status:           map[string]interface{}{"efg": []string{"hello"}},
-		}
-		aStatus := robot.Status{
-			Name:             arm.Named("arm"),
-			LastReconfigured: lastReconfigured2,
-			Status:           struct{}{},
-		}
-		statuses := []robot.Status{gStatus, aStatus}
-		expected := map[resource.Name]interface{}{
-			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
-			aStatus.Name: map[string]interface{}{},
-		}
-		expectedLRs := map[resource.Name]time.Time{
-			gStatus.Name: lastReconfigured,
-			aStatus.Name: lastReconfigured2,
-		}
-		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			testutils.VerifySameResourceNames(t, resourceNames, []resource.Name{gStatus.Name, aStatus.Name})
-			return statuses, nil
-		}
-		req := &pb.GetStatusRequest{
-			ResourceNames: []*commonpb.ResourceName{
-				protoutils.ResourceNameToProto(gStatus.Name),
-				protoutils.ResourceNameToProto(aStatus.Name),
-			},
-		}
-
-		//nolint:staticcheck // the status API is deprecated
-		resp, err := server.GetStatus(context.Background(), req)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp.Status), test.ShouldEqual, 2)
-
-		observed := map[resource.Name]interface{}{
-			protoutils.ResourceNameFromProto(resp.Status[0].Name): resp.Status[0].Status.AsMap(),
-			protoutils.ResourceNameFromProto(resp.Status[1].Name): resp.Status[1].Status.AsMap(),
-		}
-		observedLRs := map[resource.Name]time.Time{
-			protoutils.ResourceNameFromProto(resp.Status[0].Name): resp.Status[0].
-				LastReconfigured.AsTime(),
-			protoutils.ResourceNameFromProto(resp.Status[1].Name): resp.Status[1].
-				LastReconfigured.AsTime(),
-		}
-		test.That(t, observed, test.ShouldResemble, expected)
-		test.That(t, observedLRs, test.ShouldResemble, expectedLRs)
-	})
-
-	t.Run("failed StreamStatus", func(t *testing.T) {
-		injectRobot := &inject.Robot{}
-		server := server.New(injectRobot)
-		err1 := errors.New("whoops")
-		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			return nil, err1
-		}
-
-		cancelCtx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		messageCh := make(chan *pb.StreamStatusResponse)
-		streamServer := &statusStreamServer{
-			ctx:       cancelCtx,
-			messageCh: messageCh,
-		}
-		//nolint:staticcheck // the status API is deprecated
-		err := server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(time.Second)}, streamServer)
-		test.That(t, err, test.ShouldEqual, err1)
-	})
-
-	t.Run("failed StreamStatus server send", func(t *testing.T) {
-		injectRobot := &inject.Robot{}
-		server := server.New(injectRobot)
-		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			return []robot.Status{{arm.Named("arm"), time.Time{}, struct{}{}}}, nil
-		}
-
-		cancelCtx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		messageCh := make(chan *pb.StreamStatusResponse)
-		streamServer := &statusStreamServer{
-			ctx:       cancelCtx,
-			messageCh: messageCh,
-			fail:      true,
-		}
-		dur := 100 * time.Millisecond
-		//nolint:staticcheck // the status API is deprecated
-		err := server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "send fail")
-	})
-
-	t.Run("timed out StreamStatus", func(t *testing.T) {
-		injectRobot := &inject.Robot{}
-		server := server.New(injectRobot)
-		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			return []robot.Status{{arm.Named("arm"), time.Time{}, struct{}{}}}, nil
-		}
-
-		timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		streamServer := &statusStreamServer{
-			ctx:       timeoutCtx,
-			messageCh: nil,
-		}
-		dur := 100 * time.Millisecond
-
-		//nolint:staticcheck // the status API is deprecated
-		streamErr := server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
-		test.That(t, streamErr, test.ShouldResemble, context.DeadlineExceeded)
-	})
-
-	t.Run("working StreamStatus", func(t *testing.T) {
-		injectRobot := &inject.Robot{}
-		server := server.New(injectRobot)
-		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-			return []robot.Status{
-				{
-					Name:             arm.Named("arm"),
-					LastReconfigured: lastReconfigured,
-					Status:           struct{}{},
-				},
-			}, nil
-		}
-
-		cancelCtx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		messageCh := make(chan *pb.StreamStatusResponse)
-		streamServer := &statusStreamServer{
-			ctx:       cancelCtx,
-			messageCh: messageCh,
-			fail:      false,
-		}
-		dur := 100 * time.Millisecond
-		var streamErr error
-		start := time.Now()
-		done := make(chan struct{})
-		go func() {
-			//nolint:staticcheck // the status API is deprecated
-			streamErr = server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
-			close(done)
-		}()
-		expectedStatus, err := vprotoutils.StructToStructPb(map[string]interface{}{})
-		test.That(t, err, test.ShouldBeNil)
-		var messages []*pb.StreamStatusResponse
-		messages = append(messages, <-messageCh)
-		messages = append(messages, <-messageCh)
-		messages = append(messages, <-messageCh)
-		expectedRobotStatus := []*pb.Status{
-			{
-				Name:             protoutils.ResourceNameToProto(arm.Named("arm")),
-				LastReconfigured: timestamppb.New(lastReconfigured),
-				Status:           expectedStatus,
-			},
-		}
-		test.That(t, messages, test.ShouldResemble, []*pb.StreamStatusResponse{
-			{Status: expectedRobotStatus},
-			{Status: expectedRobotStatus},
-			{Status: expectedRobotStatus},
-		})
-		test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 3*dur)
-		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 6*dur)
-		cancel()
-		<-done
-		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
-	})
-}
-
-type statusStreamServer struct {
-	grpc.ServerStream // not set
-	ctx               context.Context
-	messageCh         chan<- *pb.StreamStatusResponse
-	fail              bool
-}
-
-func (x *statusStreamServer) Context() context.Context {
-	return x.ctx
-}
-
-func (x *statusStreamServer) Send(m *pb.StreamStatusResponse) error {
-	if x.fail {
-		return errors.New("send fail")
-	}
-	if x.messageCh == nil {
-		return nil
-	}
-	x.messageCh <- m
-	return nil
 }
 
 type sessionManager struct {

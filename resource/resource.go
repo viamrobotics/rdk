@@ -5,7 +5,7 @@ implementation of an API), and Name (which represents a specific instantiation o
 
 Both API and Model have a "triplet" format that begins with a namespace. API has "namespace:type:subtype" with "type" in this
 case being either "service" or "component." Model has "namespace:modelfamily:modelname" with "modelfamily" being somewhat arbitrary
-and useful mostly for organization/grouping. Note that each "tier" contains the tier to the left it. Such that ModelFamily contains
+and useful mostly for organization/grouping. Note that each "tier" contains the tier to the left of it. Such that ModelFamily contains
 Namespace, and Model itself contains ModelFamily.
 
 An example resource (say, a motor) may use the motor API and thus have the API "rdk:component:motor" and have a model such as
@@ -25,6 +25,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -65,7 +66,7 @@ var (
 //	// This example shows using Close with an arm component.
 //	myArm, err := arm.FromRobot(machine, "my_arm")
 //
-//	err = myArm.Close(ctx)
+//	err = myArm.Close(context.Background())
 type Resource interface {
 	// Get the Name of the resource.
 	Name() Name
@@ -157,7 +158,10 @@ func ContainsReservedCharacter(val string) error {
 //	// Get the readings provided by the sensor.
 //	readings, err := mySensor.Readings(context.Background(), nil)
 //
-// [sensor component docs]: https://docs.viam.com/components/sensor/
+// For more information, see the [Readings method docs].
+//
+// [sensor component docs]: https://docs.viam.com/dev/reference/apis/components/sensor/
+// [Readings method docs]: https://docs.viam.com/dev/reference/apis/components/sensor/#getreadings
 type Sensor interface {
 	// Readings return data specific to the type of sensor and can be of any type.
 	Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
@@ -204,7 +208,7 @@ type Actuator interface {
 //	if len(geometries) > 0 {
 //	   // Get the center of the first geometry
 //	   elem := geometries[0]
-//	   fmt.Println("Pose of the first geometry's center point:", elem.center)
+//	   fmt.Println("Pose of the first geometry's center point:", elem.Pose())
 //	}
 type Shaped interface {
 	// Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
@@ -239,8 +243,8 @@ func (t TriviallyCloseable) Close(ctx context.Context) error {
 type TriviallyValidateConfig struct{}
 
 // Validate always succeeds and produces no dependencies.
-func (t TriviallyValidateConfig) Validate(path string) ([]string, error) {
-	return nil, nil
+func (t TriviallyValidateConfig) Validate(path string) ([]string, []string, error) {
+	return nil, nil, nil
 }
 
 var noNativeConfigType = reflect.TypeOf(NoNativeConfig{})
@@ -303,4 +307,10 @@ func NewCloseOnlyResource(name Name, closeFunc func(ctx context.Context) error) 
 
 func (r *closeOnlyResource) Close(ctx context.Context) error {
 	return r.closeFunc(ctx)
+}
+
+// Status is a combination of a resources node status and the cloudMetadata associated with that resource.
+type Status struct {
+	NodeStatus
+	CloudMetadata cloud.Metadata
 }

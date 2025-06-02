@@ -28,7 +28,8 @@ func NewEmptyWorldState() *WorldState {
 	}
 }
 
-// NewWorldState is a constructor for a WorldState object.
+// NewWorldState instantiates a WorldState with geometries which are meant to represent obstacles
+// and transforms which are meant to represent additional links that augment a FrameSystem.
 func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*WorldState, error) {
 	ws := &WorldState{
 		obstacleNames: make(map[string]bool),
@@ -137,6 +138,14 @@ func (ws *WorldState) ObstacleNames() map[string]bool {
 	return copiedMap
 }
 
+// Obstacles returns the obstacles that have been added to the WorldState.
+func (ws *WorldState) Obstacles() []*GeometriesInFrame {
+	if ws == nil {
+		return []*GeometriesInFrame{}
+	}
+	return ws.obstacles
+}
+
 // Transforms returns the transforms that have been added to the WorldState.
 func (ws *WorldState) Transforms() []*LinkInFrame {
 	if ws == nil {
@@ -147,7 +156,7 @@ func (ws *WorldState) Transforms() []*LinkInFrame {
 
 // ObstaclesInWorldFrame takes a frame system and a set of inputs for that frame system and converts all the obstacles
 // in the WorldState such that they are in the frame system's World reference frame.
-func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs map[string][]Input) (*GeometriesInFrame, error) {
+func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs FrameSystemInputs) (*GeometriesInFrame, error) {
 	if ws == nil {
 		return NewGeometriesInFrame(World, []spatialmath.Geometry{}), nil
 	}

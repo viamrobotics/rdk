@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/components/posetracker"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 )
 
@@ -11,7 +12,7 @@ import (
 type PoseTracker struct {
 	posetracker.PoseTracker
 	name      resource.Name
-	PosesFunc func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (posetracker.BodyToPoseInFrame, error)
+	PosesFunc func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (referenceframe.FrameSystemPoses, error)
 	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
@@ -28,7 +29,7 @@ func (pT *PoseTracker) Name() resource.Name {
 // Poses calls the injected Poses or the real version.
 func (pT *PoseTracker) Poses(
 	ctx context.Context, bodyNames []string, extra map[string]interface{},
-) (posetracker.BodyToPoseInFrame, error) {
+) (referenceframe.FrameSystemPoses, error) {
 	if pT.PosesFunc == nil {
 		return pT.PoseTracker.Poses(ctx, bodyNames, extra)
 	}

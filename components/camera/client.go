@@ -21,8 +21,6 @@ import (
 	goprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/slices"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
@@ -100,58 +98,6 @@ func NewClientFromConn(
 	}, nil
 }
 
-func getExtra(ctx context.Context) (*structpb.Struct, error) {
-	ext := &structpb.Struct{}
-	if extra, ok := FromContext(ctx); ok {
-		var err error
-		if ext, err = goprotoutils.StructToStructPb(extra); err != nil {
-			return nil, err
-		}
-	}
-
-	dataExt, err := data.GetExtraFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	proto.Merge(ext, dataExt)
-	return ext, nil
-}
-
-func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
-	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
-	defer span.End()
-	mimeType := gostream.MIMETypeHint(ctx, "")
-	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
-
-	ext, err := getExtra(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
-		Name:     c.name,
-		MimeType: expectedType,
-		Extra:    ext,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if expectedType != "" && resp.MimeType != expectedType {
-		c.logger.CDebugw(ctx, "got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
-	} else {
-		resp.MimeType = mimeType
-	}
-
-	resp.MimeType = utils.WithLazyMIMEType(resp.MimeType)
-	img, err := rimage.DecodeImage(ctx, resp.Image, resp.MimeType)
-	if err != nil {
-		return nil, nil, err
-	}
-	return img, func() {}, nil
-}
-
 func (c *client) Stream(
 	ctx context.Context,
 	errHandlers ...gostream.ErrorHandler,
@@ -182,7 +128,8 @@ func (c *client) Stream(
 	// with those from the new "generation".
 	healthyClientCh := c.maybeResetHealthyClientCh()
 
-	ctxWithMIME := gostream.WithMIMETypeHint(context.Background(), gostream.MIMETypeHint(ctx, ""))
+	mimeTypeFromCtx := gostream.MIMETypeHint(ctx, "")
+	ctxWithMIME := gostream.WithMIMETypeHint(context.Background(), mimeTypeFromCtx)
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](ctxWithMIME)
 
 	c.activeBackgroundWorkers.Add(1)
@@ -199,7 +146,7 @@ func (c *client) Stream(
 				return
 			}
 
-			frame, release, err := c.Read(streamCtx)
+			img, err := DecodeImageFromCamera(streamCtx, mimeTypeFromCtx, nil, c)
 			if err != nil {
 				for _, handler := range errHandlers {
 					handler(streamCtx, err)
@@ -215,8 +162,8 @@ func (c *client) Stream(
 				}
 				return
 			case frameCh <- gostream.MediaReleasePairWithError[image.Image]{
-				Media:   frame,
-				Release: release,
+				Media:   img,
+				Release: func() {},
 				Err:     err,
 			}:
 			}
@@ -224,6 +171,39 @@ func (c *client) Stream(
 	})
 
 	return stream, nil
+}
+
+func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
+	defer span.End()
+	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
+
+	convertedExtra, err := goprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, ImageMetadata{}, err
+	}
+	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
+		Name:     c.name,
+		MimeType: expectedType,
+		Extra:    convertedExtra,
+	})
+	if err != nil {
+		return nil, ImageMetadata{}, err
+	}
+	if len(resp.Image) == 0 {
+		return nil, ImageMetadata{}, errors.New("received empty bytes from client GetImage")
+	}
+
+	if expectedType != "" && resp.MimeType != expectedType {
+		c.logger.CDebugw(ctx, "got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
+		if resp.MimeType == "" {
+			// if the user expected a mime_type and the successful response didn't have a mime type, assume the
+			// response's mime_type was what the user requested
+			resp.MimeType = mimeType
+		}
+	}
+
+	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
 }
 
 func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
@@ -267,7 +247,11 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::NextPointCloud::GetPointCloud")
 
-	ext, err := data.GetExtraFromContext(ctx)
+	extra := make(map[string]interface{})
+	if ctx.Value(data.FromDMContextKey{}) == true {
+		extra[data.FromDMString] = true
+	}
+	extraStructPb, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +259,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
-		Extra:    ext,
+		Extra:    extraStructPb,
 	})
 	getPcdSpan.End()
 	if err != nil {
@@ -290,7 +274,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		_, span := trace.StartSpan(ctx, "camera::client::NextPointCloud::ReadPCD")
 		defer span.End()
 
-		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
+		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud), "")
 	}()
 }
 
@@ -314,6 +298,11 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	}
 	result.MimeTypes = resp.MimeTypes
 	result.SupportsPCD = resp.SupportsPcd
+
+	// Check if the optional frame_rate is present and set it if it exists
+	if resp.FrameRate != nil {
+		result.FrameRate = *resp.FrameRate
+	}
 	// if no distortion model present, return result with no model
 	if resp.DistortionParameters == nil {
 		return result, nil
@@ -415,7 +404,7 @@ func (c *client) SubscribeRTP(
 		return sub, err
 	}
 	g := utils.NewGuard(func() {
-		c.logger.CInfo(ctx, "Error subscribing to RTP. Closing passthrough buffer.")
+		c.logger.CDebug(ctx, "Error subscribing to RTP. Closing passthrough buffer.")
 		rtpPacketBuffer.Close()
 	})
 	defer g.OnFail()
@@ -672,9 +661,16 @@ func (c *client) Unsubscribe(ctx context.Context, id rtppassthrough.Subscription
 }
 
 func (c *client) trackName() string {
-	// if c.conn is a *grpc.SharedConn then the client
-	// is talking to a module and we need to send the fully qualified name
-	if _, ok := c.conn.(*grpc.SharedConn); ok {
+	// if c.conn is a *grpc.SharedConn then, this is being used for communication between a
+	// viam-server and module. The viam-server will have one SharedConn and the module will have a
+	// different one.
+	//
+	// When asking a module to start a video stream, we create a track name with the full resource
+	// name (i.e: rdk:components:camera/foo).
+	//
+	// Modules talking back to the viam-server for a camera stream should use the "short
+	// name"/`SDPTrackName` (i.e: `foo`).
+	if sc, ok := c.conn.(*grpc.SharedConn); ok && sc.IsConnectedToModule() {
 		return c.Name().String()
 	}
 
@@ -684,6 +680,7 @@ func (c *client) trackName() string {
 		// as the remote doesn't know it's own name from the perspective of the main part
 		return c.Name().PopRemote().SDPTrackName()
 	}
+
 	// in this case we are talking to a main part & the remote name (if it exists) needs to be preserved
 	return c.Name().SDPTrackName()
 }
@@ -722,17 +719,17 @@ func (c *client) bufAndCBToString() string {
 	if len(c.runningStreams) == 0 {
 		return "len: 0"
 	}
-	strIds := []string{}
-	strIdsToCB := map[string]bufAndCB{}
+	strIDs := []string{}
+	strIDsToCB := map[string]bufAndCB{}
 	for id, cb := range c.runningStreams {
 		strID := id.String()
-		strIds = append(strIds, strID)
-		strIdsToCB[strID] = cb
+		strIDs = append(strIDs, strID)
+		strIDsToCB[strID] = cb
 	}
-	slices.Sort(strIds)
+	slices.Sort(strIDs)
 	ret := fmt.Sprintf("len: %d, ", len(c.runningStreams))
-	for _, strID := range strIds {
-		ret += fmt.Sprintf("%s: %v, ", strID, strIdsToCB[strID])
+	for _, strID := range strIDs {
+		ret += fmt.Sprintf("%s: %v, ", strID, strIDsToCB[strID])
 	}
 	return ret
 }

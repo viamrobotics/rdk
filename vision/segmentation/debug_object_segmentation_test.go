@@ -70,7 +70,8 @@ func (h *segmentObjectTestHelper) Process(
 	for _, seg := range segments {
 		objectClouds = append(objectClouds, seg.PointCloud)
 	}
-	coloredSegments, err := pc.MergePointCloudsWithColor(objectClouds)
+	coloredSegments := pc.NewBasicEmpty()
+	err = pc.MergePointCloudsWithColor(objectClouds, coloredSegments)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(coloredSegments, "intel-segments-pointcloud")
 
@@ -144,7 +145,8 @@ func (h *gripperSegmentTestHelper) Process(
 		objectClouds = append(objectClouds, seg.PointCloud)
 	}
 
-	coloredSegments, err := pc.MergePointCloudsWithColor(objectClouds)
+	coloredSegments := pc.NewBasicEmpty()
+	err = pc.MergePointCloudsWithColor(objectClouds, coloredSegments)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(coloredSegments, "gripper-segments-pointcloud")
 

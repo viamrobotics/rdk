@@ -2,7 +2,6 @@ package gpio
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -102,7 +101,7 @@ func (cm *controlledMotor) startControlLoop() error {
 
 func setupMotorWithControls(
 	_ context.Context,
-	m *Motor,
+	m motor.Motor,
 	enc encoder.Encoder,
 	cfg resource.Config,
 	logger logging.Logger,
@@ -117,12 +116,18 @@ func setupMotorWithControls(
 		tpr = 1.0
 	}
 
+	maxRPM := float64(conf.MaxRPM)
+	if maxRPM == 0 {
+		maxRPM = 100
+	}
+
 	cm := &controlledMotor{
 		Named:            cfg.ResourceName().AsNamed(),
 		logger:           logger,
 		opMgr:            operation.NewSingleOperationManager(),
 		tunedVals:        &[]control.PIDConfig{{}},
 		ticksPerRotation: tpr,
+		maxRPM:           maxRPM,
 		real:             m,
 		enc:              enc,
 	}
@@ -147,9 +152,10 @@ type controlledMotor struct {
 
 	offsetInTicks    float64
 	ticksPerRotation float64
+	maxRPM           float64
 
 	mu   sync.RWMutex
-	real *Motor
+	real motor.Motor
 	enc  encoder.Encoder
 
 	controlLoopConfig control.Config
@@ -192,7 +198,7 @@ func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{
 		if err != nil {
 			return err
 		}
-		if err := cm.updateControlBlock(ctx, currentTicks+cm.offsetInTicks, cm.real.maxRPM*cm.ticksPerRotation/60); err != nil {
+		if err := cm.updateControlBlock(ctx, currentTicks+cm.offsetInTicks, cm.maxRPM*cm.ticksPerRotation/60); err != nil {
 			return err
 		}
 	}
@@ -280,7 +286,7 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
-	warning, err := motor.CheckSpeed(rpm, cm.real.maxRPM)
+	warning, err := motor.CheckSpeed(rpm, cm.maxRPM)
 	if warning != "" {
 		cm.logger.CWarn(ctx, warning)
 	}
@@ -321,7 +327,7 @@ func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, 
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
-	warning, err := motor.CheckSpeed(rpm, cm.real.maxRPM)
+	warning, err := motor.CheckSpeed(rpm, cm.maxRPM)
 	if warning != "" {
 		cm.logger.CWarn(ctx, warning)
 	}
@@ -396,8 +402,7 @@ func (cm *controlledMotor) DoCommand(ctx context.Context, req map[string]interfa
 	if ok {
 		var respStr string
 		if !(*cm.tunedVals)[0].NeedsAutoTuning() {
-			respStr += fmt.Sprintf("{p: %v, i: %v, d: %v, type: %v} ",
-				(*cm.tunedVals)[0].P, (*cm.tunedVals)[0].I, (*cm.tunedVals)[0].D, (*cm.tunedVals)[0].Type)
+			respStr += (*cm.tunedVals)[0].String()
 		}
 		resp[getPID] = respStr
 	}
@@ -408,10 +413,25 @@ func (cm *controlledMotor) DoCommand(ctx context.Context, req map[string]interfa
 // if loop is tuning, return an error
 // if loop has been tuned but the values haven't been added to the config, error with tuned values.
 func (cm *controlledMotor) checkTuningStatus() error {
-	if cm.loop != nil && cm.loop.GetTuning(context.Background()) {
-		return control.TuningInProgressErr(cm.Name().ShortName())
-	} else if cm.configPIDVals[0].NeedsAutoTuning() && !(*cm.tunedVals)[0].NeedsAutoTuning() {
-		return control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals)
+	done := true
+	needsTuning := false
+
+	for i := range cm.configPIDVals {
+		// check if the current signal needed tuning
+		if cm.configPIDVals[i].NeedsAutoTuning() {
+			// return true if either signal needed tuning
+			needsTuning = needsTuning || true
+			// if the tunedVals have not been updated, then tuning is still in progress
+			done = done && !(*cm.tunedVals)[i].NeedsAutoTuning()
+		}
 	}
+
+	if needsTuning {
+		if done {
+			return control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals)
+		}
+		return control.TuningInProgressErr(cm.Name().ShortName())
+	}
+
 	return nil
 }

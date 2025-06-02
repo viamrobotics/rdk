@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -147,46 +148,50 @@ func (c *capsule) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given capsule collides with the given geometry and returns true if it does.
 func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *box:
 		return capsuleVsBoxCollision(c, other, collisionBufferMM), nil
+	default:
+		dist, err := c.DistanceFrom(g)
+		if err != nil {
+			return true, err
+		}
+		return dist <= collisionBufferMM, nil
 	}
-	dist, err := c.DistanceFrom(g)
-	if err != nil {
-		return true, err
-	}
-	return dist <= collisionBufferMM, nil
 }
 
 func (c *capsule) DistanceFrom(g Geometry) (float64, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return other.DistanceFrom(c)
+	case *box:
 		return capsuleVsBoxDistance(c, other), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return capsuleVsCapsuleDistance(c, other), nil
-	}
-	if other, ok := g.(*point); ok {
+	case *point:
 		return capsuleVsPointDistance(c, other.position), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return capsuleVsSphereDistance(c, other), nil
+	default:
+		return math.Inf(-1), newCollisionTypeUnsupportedError(c, g)
 	}
-	return math.Inf(-1), newCollisionTypeUnsupportedError(c, g)
 }
 
 func (c *capsule) EncompassedBy(g Geometry) (bool, error) {
-	if other, ok := g.(*capsule); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return false, nil // Like points, meshes have no volume and cannot encompass
+	case *capsule:
 		return capsuleInCapsule(c, other), nil
-	}
-	if other, ok := g.(*box); ok {
+	case *box:
 		return capsuleInBox(c, other), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return capsuleInSphere(c, other), nil
-	}
-	if _, ok := g.(*point); ok {
+	case *point:
 		return false, nil
+	default:
+		return true, newCollisionTypeUnsupportedError(c, g)
 	}
-	return true, newCollisionTypeUnsupportedError(c, g)
 }
 
 // ToPoints converts a capsule geometry into []r3.Vector. This method takes one argument which determines
@@ -253,18 +258,21 @@ func capsuleVsBoxDistance(c *capsule, other *box) float64 {
 	// Separating axis theorum provides accurate penetration depth but is not accurate for separation
 	// if we are not in collision, convert box to mesh and determine triangle-capsule separation distance
 	if dist > defaultCollisionBufferMM {
-		return capsuleVsMeshDistance(c, other.toMesh())
+		boxAsMesh := other.toMesh()
+		return capsuleVsMeshDistance(c, boxAsMesh)
 	}
 	return dist
 }
 
 // IMPORTANT: meshes are not considered solid. A mesh is not guaranteed to represent an enclosed area. This will measure ONLY the distance
 // to the closest triangle in the mesh.
-func capsuleVsMeshDistance(c *capsule, other *mesh) float64 {
+func capsuleVsMeshDistance(c *capsule, other *Mesh) float64 {
 	lowDist := math.Inf(1)
 	for _, t := range other.triangles {
 		// Measure distance to each mesh triangle
-		dist := capsuleVsTriangleDistance(c, t)
+		// Make sure the triangle is transformed by the pose of the mesh to ensure that it is properly positioned
+		properlyPositionedTriangle := t.Transform(other.Pose())
+		dist := capsuleVsTriangleDistance(c, properlyPositionedTriangle)
 		if dist < lowDist {
 			lowDist = dist
 		}
@@ -272,7 +280,7 @@ func capsuleVsMeshDistance(c *capsule, other *mesh) float64 {
 	return lowDist
 }
 
-func capsuleVsTriangleDistance(c *capsule, other *triangle) float64 {
+func capsuleVsTriangleDistance(c *capsule, other *Triangle) float64 {
 	capPt, triPt := closestPointsSegmentTriangle(c.segA, c.segB, other)
 	return capPt.Sub(triPt).Norm() - c.radius
 }
@@ -372,4 +380,141 @@ func separatingAxisTest1D(positionDelta, capVec *r3.Vector, plane r3.Vector, hal
 	}
 	sum -= math.Abs(capVec.Dot(plane))
 	return sum
+}
+
+// CapsuleIntersectionWithPlane calculates the intersection of a geometry with a plane and returns
+// a list of points along the surface of the geometry at the points of intersection.
+// It returns an error if the geometry type is unsupported or if points cannot be computed.
+// The points returned are in order, in frame of the capsule's parent, and follow the right hand rule around the plane normal.
+func CapsuleIntersectionWithPlane(g Geometry, planeNormal, planePoint r3.Vector, numPoints int) ([]r3.Vector, error) {
+	c, ok := g.(*capsule)
+	if !ok {
+		return nil, fmt.Errorf("unsupported geometry type: %T", g)
+	}
+
+	// Normalize the plane normal
+	planeNormal = planeNormal.Normalize()
+
+	// Calculate the distance from the plane to the capsule's center
+	centerToPlane := c.center.Sub(planePoint).Dot(planeNormal) * -1
+	// If the distance is greater than the capsule's half-length plus radius, there's no intersection
+	if math.Abs(centerToPlane) > c.length/2+c.radius {
+		return nil, errors.New("no intersection: plane is too far from capsule")
+	}
+
+	capVecNormalized := c.capVec.Normalize()
+	capVecDotNormalAbs := math.Abs(capVecNormalized.Dot(planeNormal))
+
+	// Check if the plane is perpendicular to the capsule axis
+	if capVecDotNormalAbs < 1e-6 {
+		// The plane is perpendicular (or very close to perpendicular) to the capsule axis
+		// We'll generate points for two parallel lines and two semicircles
+
+		// Vector perpendicular to both capsule axis and plane normal
+		perpVector := planeNormal.Cross(capVecNormalized).Normalize()
+
+		numLinePoints := numPoints / 4   // Number of points for each parallel line
+		numCirclePoints := numPoints / 4 // Number of points for each semicircle (excluding endpoints)
+
+		intersectionPoints := make([]r3.Vector, 0, numPoints)
+
+		// Generate points for the first parallel line
+		for i := 0; i < numLinePoints; i++ {
+			t := float64(i) / float64(numLinePoints-1)
+			pt := c.center.Add(capVecNormalized.Mul((t - 0.5) * c.length))
+			leftPoint := pt.Add(perpVector.Mul(c.radius))
+			intersectionPoints = append(intersectionPoints, leftPoint)
+		}
+
+		// Generate points for the first semicircle
+		center := c.center.Add(capVecNormalized.Mul(0.5 * c.length))
+		for i := 0; i <= numCirclePoints; i++ {
+			angle := math.Pi * float64(i) / float64(numCirclePoints+1)
+			cosComponent := perpVector.Mul(c.radius * math.Cos(angle))
+			sinComponent := capVecNormalized.Mul(c.radius * math.Sin(angle))
+			pt := center.Add(cosComponent).Sub(sinComponent)
+			intersectionPoints = append(intersectionPoints, pt)
+		}
+
+		// Generate points for the second parallel line (in reverse order)
+		for i := numLinePoints - 1; i >= 0; i-- {
+			t := float64(i) / float64(numLinePoints-1)
+			pt := c.center.Add(capVecNormalized.Mul((t - 0.5) * c.length))
+			rightPoint := pt.Add(perpVector.Mul(-c.radius))
+			intersectionPoints = append(intersectionPoints, rightPoint)
+		}
+
+		// Generate points for the second semicircle
+		center = c.center.Add(capVecNormalized.Mul(-0.5 * c.length))
+		for i := 0; i <= numCirclePoints; i++ {
+			angle := math.Pi * float64(i) / float64(numCirclePoints+1)
+			cosComponent := perpVector.Mul(c.radius * math.Cos(angle))
+			sinComponent := capVecNormalized.Mul(c.radius * math.Sin(angle))
+			pt := center.Sub(cosComponent).Sub(sinComponent)
+			intersectionPoints = append(intersectionPoints, pt)
+		}
+
+		// At the end of the function, before returning the points:
+		if len(intersectionPoints) == 0 {
+			return nil, errors.New("no intersection points found")
+		}
+
+		return intersectionPoints, nil
+	}
+
+	// Calculate the semi-major and semi-minor axes of the ellipse
+	axisPlaneAngleCos := capVecDotNormalAbs // cosine of angle between capsule axis and plane normal
+	a := c.radius / axisPlaneAngleCos
+	b := c.radius
+
+	// Calculate the axis intersection
+	// The capsule's axis is not perpendicular to the plane normal
+	axisIntersection := c.center.Add(capVecNormalized.Mul(centerToPlane / capVecNormalized.Dot(planeNormal)))
+
+	// Create two perpendicular vectors in the plane
+	u := planeNormal.Cross(capVecNormalized)
+	if u.Norm() < 1e-6 {
+		// The capsule axis is parallel or nearly parallel to the plane normal
+		// Use Gram-Schmidt process to find a vector perpendicular to the plane normal
+		u = r3.Vector{1, 0, 0}
+		u = u.Sub(planeNormal.Mul(u.Dot(planeNormal)))
+		if u.Norm() < 1e-6 {
+			// If u is still too small, this will definitely work
+			u = r3.Vector{0, 1, 0}
+			u = u.Sub(planeNormal.Mul(u.Dot(planeNormal)))
+		}
+	}
+	u = u.Normalize()
+	v := planeNormal.Cross(u)
+
+	// Ensure u is aligned with the capsule's axis projection onto the plane
+	uDotCap := u.Dot(capVecNormalized)
+	if math.Abs(uDotCap) < math.Abs(v.Dot(capVecNormalized)) {
+		u, v = v, u.Mul(-1)
+	}
+	// Generate points along the intersection ellipse
+	intersectionPoints := make([]r3.Vector, 0, numPoints)
+
+	for i := 0; i < numPoints; i++ {
+		angle := 2 * math.Pi * float64(i) / float64(numPoints)
+		pt := axisIntersection.Add(u.Mul(a * math.Cos(angle))).Add(v.Mul(b * math.Sin(angle)))
+
+		// Check if the point is within the capsule's cylindrical length
+		projectedDist := pt.Sub(c.center).Dot(capVecNormalized)
+		if math.Abs(projectedDist) <= c.length/2 {
+			intersectionPoints = append(intersectionPoints, pt)
+		} else if math.Abs(projectedDist) <= c.length/2+c.radius {
+			// Project the point onto the hemisphere
+			closestEndpoint := c.center.Add(capVecNormalized.Mul(math.Copysign(c.length/2, projectedDist)))
+			sphereCenter := closestEndpoint
+			sphereIntersection := sphereCenter.Add(pt.Sub(sphereCenter).Normalize().Mul(c.radius))
+			intersectionPoints = append(intersectionPoints, sphereIntersection)
+		}
+	}
+	// At the end of the function, before returning the points:
+	if len(intersectionPoints) == 0 {
+		return nil, errors.New("no intersection points found")
+	}
+
+	return intersectionPoints, nil
 }
