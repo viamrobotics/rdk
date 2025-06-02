@@ -1285,7 +1285,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// if anything has changed.
 	err := r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed", "error", err)
+		// The returned error is rich, detailing each individual packages error. The underlying
+		// `Sync` call is responsible for logging those errors in a readable way. We only need to
+		// log that reconfiguration is exited. To minimize the distraction of reading a list of
+		// verbose errors that was arleady logged.
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed")
 		return
 	}
 	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
@@ -1295,7 +1299,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	r.applyLocalModuleVersions(newConfig)
 	err = r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed", "error", err)
+		// Same as the above `Sync` call error handling. The returned error is rich, detailing each
+		// individual packages error. The underlying `Sync` call is responsible for logging those
+		// errors in a readable way.
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed")
 		return
 	}
 
@@ -1506,6 +1513,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 			return err
 		}
 	}
+
 	diff := config.Diff{
 		Left:     r.Config(),
 		Right:    r.Config(),
@@ -1513,6 +1521,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		Modified: &config.ModifiedConfigDiff{},
 		Removed:  &config.Config{},
 	}
+
 	r.reconfigurationLock.Lock()
 	defer r.reconfigurationLock.Unlock()
 	// note: if !isRunning (i.e. the module is in config but it crashed), putting it in diff.Modified
@@ -1522,6 +1531,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 	} else {
 		diff.Added.Modules = append(diff.Added.Modules, *mod)
 	}
+
 	return r.manager.updateResources(ctx, &diff)
 }
 
@@ -1531,17 +1541,21 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 	if cfg.Modules != nil {
 		mod = utils.FindInSlice(cfg.Modules, req.MatchesModule)
 	}
+
 	if mod == nil {
 		return status.Errorf(codes.NotFound,
 			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
 			req.ModuleID, req.ModuleName)
 	}
+
 	activeModules := r.manager.createConfig().Modules
 	isRunning := activeModules != nil && utils.FindInSlice(activeModules, req.MatchesModule) != nil
 	err := r.restartSingleModule(ctx, mod, isRunning)
 	if err != nil {
+		r.logger.Warn("Error restarting module. ID: %v Name: %v Err: %v", req.ModuleID, req.ModuleName, err)
 		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
+
 	return nil
 }
 
