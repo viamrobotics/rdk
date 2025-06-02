@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -138,4 +139,19 @@ func LogViamEnvVariables(msg string, envVars map[string]string, logger logging.L
 	if len(env) != 0 {
 		logger.Infow(msg, "environment", env)
 	}
+}
+
+// GetenvInt gets a variable from the environment, and returns as int, if can't, then uses default.
+func GetenvInt(v string, def int) int {
+	x := os.Getenv(v)
+	if x == "" {
+		return def
+	}
+
+	num, err := strconv.Atoi(x)
+	if err != nil {
+		return def
+	}
+
+	return num
 }
