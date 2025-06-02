@@ -142,6 +142,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		p := p
 		pkgStart := time.Now()
 		if err := ctx.Err(); err != nil {
+			m.logger.Errorf("Context canceled. Canceling cloud package manager sync. Time spent: %v", time.Since(start))
 			return multierr.Append(outErr, err)
 		}
 
@@ -154,6 +155,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		if err != nil {
 			m.logger.Warnw("failed to get package type", "package", p.Name, "error", err)
 		}
+
 		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{
 			Id:         p.Package,
 			Version:    p.Version,
@@ -161,7 +163,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			IncludeUrl: &includeURL,
 		})
 		if err != nil {
-			m.logger.Errorf("Failed fetching package details for package %s:%s, %s", p.Package, p.Version, err)
+			m.logger.Errorf("Failed fetching package details for package %s:%s. Err: %v", p.Package, p.Version, err)
 			outErr = multierr.Append(outErr, fmt.Errorf("failed loading package url for %s:%s %w", p.Package, p.Version, err))
 			continue
 		}
@@ -195,7 +197,10 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		}
 
 		if p.Type == config.PackageTypeMlModel {
-			outErr = multierr.Append(outErr, m.mLModelSymlinkCreation(p))
+			if symlinkErr := m.mLModelSymlinkCreation(p); symlinkErr != nil {
+				m.logger.Errorf("Error creating ml model symlink. Err: %v", symlinkErr)
+				outErr = multierr.Append(outErr, symlinkErr)
+			}
 		}
 
 		// add to managed packages
@@ -269,8 +274,10 @@ func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
 		return err
 	}
 
-	if err := linkFile(p.LocalDataDirectory(m.packagesDir), symlinkPath); err != nil {
-		return fmt.Errorf("failed linking ml_model package %s:%s, %w", p.Package, p.Version, err)
+	localDataDir := p.LocalDataDirectory(m.packagesDir)
+	if err := linkFile(localDataDir, symlinkPath); err != nil {
+		return fmt.Errorf("failed linking ml_model package %s:%s. localDataDir: %q symlinkPath: %q Err: %w",
+			p.Package, p.Version, localDataDir, symlinkPath, err)
 	}
 	return nil
 }

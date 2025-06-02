@@ -167,18 +167,22 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 	for idx, mod := range changed {
 		pkgStart := time.Now()
 		if err := ctx.Err(); err != nil {
+			m.logger.Errorf("Context canceled. Canceling local package manager sync. Time spent: %v", time.Since(start))
 			return multierr.Append(outErr, err)
 		}
 		m.logger.Debugf("Starting local package sync [%d/%d] %s", idx+1, len(changed), mod.Name)
 		pkg, err := mod.SyntheticPackage()
 		if err != nil {
+			m.logger.Warnf("Local tarball package error. Skipping module. Module: %v Err: %v",
+				mod.Name, err)
 			outErr = multierr.Append(outErr, err)
 			continue
 		}
 
 		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
 		if err != nil {
-			m.logger.Errorf("Failed copying package %s from %s, %s", mod.Name, mod.ExePath, err)
+			m.logger.Warnf("Failed installing tarball package. Skipping module. Module: %s Path: %s Err: %s",
+				mod.Name, mod.ExePath, err)
 			outErr = multierr.Append(outErr, fmt.Errorf("failed copying package %s from %s: %w",
 				mod.Name, mod.ExePath, err))
 			continue
@@ -247,29 +251,32 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 	if !mod.NeedsSyntheticPackage() {
 		return nil
 	}
+
 	pkg, err := mod.SyntheticPackage()
 	if err != nil {
 		return err
 	}
-	pkgDir := pkg.LocalDataDirectory(m.packagesDir)
 
+	pkgDir := pkg.LocalDataDirectory(m.packagesDir)
 	exePath, err := rUtils.ExpandHomeDir(mod.ExePath)
 	if err != nil {
 		return err
 	}
+
 	dirty, err := newerOrMissing(exePath, pkgDir)
 	if err != nil {
 		return err
 	}
+
 	if dirty {
 		m.logger.CDebugf(ctx, "%s is newer, recopying", mod.ExePath)
 		utils.UncheckedError(cleanup(m.packagesDir, pkg))
 		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
 		if err != nil {
-			m.logger.Errorf("Failed copying package %s:%s from %s, %s", pkg.Package, pkg.Version, mod.ExePath, err)
-			return fmt.Errorf("failed downloading package %s:%s from %s, err", pkg.Package, pkg.Version, mod.ExePath, err)
+			return fmt.Errorf("failed installing package %s:%s installPath: %q err: %v", pkg.Package, pkg.Version, mod.ExePath, err)
 		}
 		m.managedModules[mod.Name] = &managedModule{module: mod}
 	}
+
 	return nil
 }
