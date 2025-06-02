@@ -524,7 +524,7 @@ IK:
 						firstSolutionTime = time.Since(startTime)
 					} else {
 						elapsed := time.Since(startTime)
-						if elapsed > (2 * firstSolutionTime) {
+						if elapsed > (time.Duration(mp.planOpts.TimeMultipleAfterFindingFirstSolution) * firstSolutionTime) {
 							mp.logger.Infof("ending early because of time elapsed: %v firstSolutionTime: %v", elapsed, firstSolutionTime)
 							break IK
 						}
