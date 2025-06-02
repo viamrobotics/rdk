@@ -2359,6 +2359,23 @@ Copy multiple files from the machine to a local destination with recursion and k
 							Action: createCommandWithT[machinesPartCopyFilesArgs](MachinesPartCopyFilesAction),
 						},
 						{
+							Name:  "get-ftdc",
+							Usage: "download FTDC data from a machine part",
+							Description: `
+In order to use the get-ftdc command, the machine must have a valid shell type service.
+Organization and location are required flags if using name (rather than ID) for the part.
+If [target] is not specified then the FTDC data will be saved to the current working directory.
+Note: There is no progress meter while copying is in progress.
+`,
+							UsageText: createUsageText(
+								"machines part get-ftdc",
+								[]string{generalFlagPart},
+								true, false,
+								"[target]"),
+							Flags:  commonPartFlags,
+							Action: createCommandWithT(MachinesPartGetFTDCAction),
+						},
+						{
 							Name:  "tunnel",
 							Usage: "tunnel connections to the specified port on a machine part",
 							UsageText: createUsageText("machines part tunnel", []string{
