@@ -64,7 +64,7 @@ const (
 )
 
 var (
-	defaultNumThreads                            = runtime.NumCPU() / 2
+	defaultNumThreads                            = utils.MinInt(runtime.NumCPU()/2, 10)
 	defaultTimeMultipleAfterFindingFirstSolution = 10
 )
 
