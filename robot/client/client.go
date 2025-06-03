@@ -1270,11 +1270,17 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 		latencies []int64
 		max       int64
 		min       int64
+		size      []int64
+		max_size  int64
+		min_size  int64
 	}
 	stat := stats{
 		latencies: make([]int64, 0),
 		max:       math.MinInt64,
 		min:       math.MaxInt64,
+		size:      make([]int64, 0),
+		max_size:  math.MinInt64,
+		min_size:  math.MaxInt64,
 	}
 
 	recvFunc := func() ([]byte, error) {
@@ -1294,12 +1300,26 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 			stat.min = latency
 		}
 		stat.latencies = append(stat.latencies, latency)
+
+		pk_size := int64(len(resp.Data[8:]))
+		if stat.max_size < pk_size {
+			stat.max_size = pk_size
+		}
+		if stat.min_size > pk_size {
+			stat.min_size = pk_size
+		}
+		stat.size = append(stat.size, pk_size)
 		if len(stat.latencies) == 10 {
 			var total int64
 			for _, lat := range stat.latencies {
 				total += lat
 			}
 			mean := float64(total) / float64(10)
+			var total_size int64
+			for _, s := range stat.size {
+				total_size += s
+			}
+			avg_size := float64(total_size) / float64(10)
 			rc.logger.
 				CInfow(client.Context(),
 					"latency over last 10 messages (ms)",
@@ -1307,10 +1327,20 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 					"min", fmt.Sprintf("%.2f", float64(stat.min/1000000)+drift),
 					"max", fmt.Sprintf("%.2f", float64(stat.max/1000000)+drift),
 				)
+			rc.logger.
+				CInfow(client.Context(),
+					"size over last 10 messages (bytes)",
+					"avg", fmt.Sprintf("%.2f", avg_size),
+					"min", fmt.Sprintf("%d", stat.min_size),
+					"max", fmt.Sprintf("%d", stat.max_size),
+				)
 			stat = stats{
 				latencies: make([]int64, 0),
 				max:       math.MinInt64,
 				min:       math.MaxInt64,
+				size:      make([]int64, 0),
+				max_size:  math.MinInt64,
+				min_size:  math.MaxInt64,
 			}
 		}
 		statsMu.Unlock()
