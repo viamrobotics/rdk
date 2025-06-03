@@ -27,6 +27,8 @@ const (
 	defaultFirstRunTimeout = 1 * time.Hour
 )
 
+var errLocalTarballEntrypoint = errors.New("local tarballs must contain a meta.json with the 'entrypoint' field")
+
 // Module represents an external resource module, with a path to the binary module file.
 type Module struct {
 	// Name is an arbitrary name used to identify the module, and is used to name it's socket as well.
@@ -197,8 +199,7 @@ func parseJSONFile[T any](path string) (*T, error) {
 
 // EvaluateExePath returns absolute ExePath from one of three sources (in order of precedence):
 // 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
-// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
-// 3. otherwise use the exe path from config, or fail if this is a local tarball.
+// 2. otherwise use the exe path from config, or fail if this is a local tarball.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	path, err := utils.ExpandHomeDir(m.ExePath)
@@ -233,24 +234,10 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 			}
 			return filepath.Abs(entrypoint)
 		}
-	}
-	if m.NeedsSyntheticPackage() {
-		// this is case 2, side-by-side
-		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
-		metaPath, err := utils.SafeJoinDir(filepath.Dir(path), "meta.json")
-		if err != nil {
-			return "", err
+		if m.NeedsSyntheticPackage() {
+			// registry modules can use configured ExePath, but for local tarballs it is wrong, throw an error.
+			return "", errLocalTarballEntrypoint
 		}
-		meta, err := parseJSONFile[JSONManifest](metaPath)
-		if err != nil {
-			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return "", fmt.Errorf("couldn't find meta.json inside tarball %s (or next to it): %w", path, err)
-		}
-		entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
-		if err != nil {
-			return "", err
-		}
-		return filepath.Abs(entrypoint)
 	}
 	return path, nil
 }
@@ -464,27 +451,6 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		}
 	}
 
-	var exeDir string
-	var localTarballErr error
-
-	// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
-	// case 3: local AND tarball
-	if m.NeedsSyntheticPackage() {
-		exeDir = filepath.Dir(m.ExePath)
-
-		var meta *JSONManifest
-		meta, localTarballErr = findMetaJSONFile(exeDir)
-		if localTarballErr != nil {
-			if !os.IsNotExist(localTarballErr) {
-				return nil, "", fmt.Errorf("local tarball: %w", localTarballErr)
-			}
-		}
-
-		if meta != nil {
-			return meta, exeDir, nil
-		}
-	}
-
 	if online {
 		if !ok {
 			return nil, "", fmt.Errorf("registry module: failed to find meta.json. VIAM_MODULE_ROOT not set: %w", registryTarballErr)
@@ -494,7 +460,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 	}
 
 	if !localNonTarball {
-		return nil, "", fmt.Errorf("local tarball: failed to find meta.json: %w", errors.Join(registryTarballErr, localTarballErr))
+		return nil, "", fmt.Errorf("local tarball: failed to find meta.json: %w", registryTarballErr)
 	}
 
 	return nil, "", errors.New("local non-tarball: did not search for meta.json")
