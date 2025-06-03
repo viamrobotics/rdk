@@ -1,4 +1,4 @@
-package server
+package networkcheck
 
 import (
 	"fmt"

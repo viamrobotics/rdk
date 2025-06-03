@@ -5,13 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"testing"
-	"time"
-
 	"github.com/fullstorydev/grpcurl"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
@@ -32,6 +25,12 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"io"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
@@ -49,6 +48,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/tunnel"
 	"go.viam.com/rdk/utils/contextutils"
+	nc "go.viam.com/rdk/web/networkcheck"
 )
 
 var (
@@ -254,9 +254,16 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}
+
+	if rOpts.runNetworkChecks {
+		// should we use this ctx or backgroundCtx?
+		go nc.RunNetworkChecks(ctx, logger)
+	}
+
 	backgroundCtx, backgroundCtxCancel := context.WithCancel(context.Background())
 	heartbeatCtx, heartbeatCtxCancel := context.WithCancel(context.Background())
 
+	// setup a dialOptions struct to check for a debug flag
 	rc := &RobotClient{
 		Named:               resource.NewName(RemoteAPI, rOpts.remoteName).AsNamed(),
 		remoteName:          rOpts.remoteName,
@@ -401,7 +408,6 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 			rc.RefreshEvery(backgroundCtx, refreshTime)
 		}, rc.activeBackgroundWorkers.Done)
 	}
-
 	return rc, nil
 }
 
