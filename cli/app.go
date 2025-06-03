@@ -1094,6 +1094,10 @@ var app = &cli.App{
 									Name:  generalFlagTags,
 									Usage: "tags filter. accepts 'tagged' for all tagged data, 'untagged' for all untagged data, or a list of tags",
 								},
+								&cli.StringSliceFlag{
+									Name:  dataFlagBinaryDataIDs,
+									Usage: "binary id to query for. accepts a single binary id or list of comma-separated binary ids",
+								},
 							}, commonFilterFlags...),
 							Action: createCommandWithT[dataExportBinaryArgs](DataExportBinaryAction),
 						},

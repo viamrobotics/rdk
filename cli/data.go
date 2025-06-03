@@ -69,11 +69,12 @@ type commonFilterArgs struct {
 }
 
 type dataExportBinaryArgs struct {
-	Destination string
-	ChunkLimit  uint
-	Parallel    uint
-	DataType    string
-	Timeout     uint
+	Destination   string
+	ChunkLimit    uint
+	Parallel      uint
+	DataType      string
+	Timeout       uint
+	BinaryDataIds []string
 }
 
 type dataExportTabularArgs struct {
@@ -325,16 +326,23 @@ func createCaptureInterval(startStr, endStr string) (*datapb.CaptureInterval, er
 }
 
 func (c *viamClient) dataExportBinaryAction(cCtx *cli.Context, args dataExportBinaryArgs) error {
-	filter, err := createDataFilter(cCtx)
-	if err != nil {
-		return err
-	}
+	if args.BinaryDataIds != nil && len(args.BinaryDataIds) > 0 {
+		result := c.downloadBinary(args.Destination, args.Timeout, args.BinaryDataIds...)
+		if result == nil { // nil result means success
+			printf(c.c.App.Writer, "Downloaded %d files", len(args.BinaryDataIds))
+		}
+		return result
+	} else {
+		filter, err := createDataFilter(cCtx)
+		if err != nil {
+			return err
+		}
 
-	if err := c.binaryData(args.Destination, filter, args.Parallel, args.Timeout); err != nil {
-		return err
+		if err := c.binaryData(args.Destination, filter, args.Parallel, args.Timeout); err != nil {
+			return err
+		}
+		return nil
 	}
-
-	return nil
 }
 
 func (c *viamClient) dataExportTabularAction(cCtx *cli.Context, args dataExportTabularArgs) error {
@@ -354,7 +362,7 @@ func (c *viamClient) dataExportTabularAction(cCtx *cli.Context, args dataExportT
 func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads, timeout uint) error {
 	return c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
-			return c.downloadBinary(dst, id, timeout)
+			return c.downloadBinary(dst, timeout, id)
 		},
 		filter, parallelDownloads,
 		func(i int32) {
@@ -486,27 +494,27 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	}
 }
 
-func (c *viamClient) downloadBinary(dst, id string, timeout uint) error {
+func (c *viamClient) downloadBinary(dst string, timeout uint, id ...string) error {
 	args, err := getGlobalArgs(c.c)
 	if err != nil {
 		return err
 	}
-	debugf(c.c.App.Writer, args.Debug, "Attempting to download binary file %s", id)
+	debugf(c.c.App.Writer, args.Debug, "Attempting to download binary files: %v", id)
 
 	var resp *datapb.BinaryDataByIDsResponse
 	largeFile := false
-	// To begin, we assume the file is small and downloadable, so we try getting the binary directly
+	// To begin, we assume the files are small and downloadable, so we try getting the binary directly
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
-			BinaryDataIds: []string{id},
+			BinaryDataIds: id,
 			IncludeBinary: !largeFile,
 		})
-		// If the file is too large, we break and try a different pathway for downloading
+		// If any file is too large, we break and try a different pathway for downloading
 		if err == nil || status.Code(err) == codes.ResourceExhausted {
-			debugf(c.c.App.Writer, args.Debug, "Small file download file %s: attempt %d/%d succeeded", id, count+1, maxRetryCount)
+			debugf(c.c.App.Writer, args.Debug, "Small file download for files %v: attempt %d/%d succeeded", id, count+1, maxRetryCount)
 			break
 		}
-		debugf(c.c.App.Writer, args.Debug, "Small file download for file %s: attempt %d/%d failed", id, count+1, maxRetryCount)
+		debugf(c.c.App.Writer, args.Debug, "Small file download for files %v: attempt %d/%d failed", id, count+1, maxRetryCount)
 	}
 	// For large files, we get the metadata but not the binary itself
 	// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
@@ -514,14 +522,14 @@ func (c *viamClient) downloadBinary(dst, id string, timeout uint) error {
 		largeFile = true
 		for count := 0; count < maxRetryCount; count++ {
 			resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
-				BinaryDataIds: []string{id},
+				BinaryDataIds: id,
 				IncludeBinary: !largeFile,
 			})
 			if err == nil {
-				debugf(c.c.App.Writer, args.Debug, "Metadata fetch for file %s: attempt %d/%d succeeded", id, count+1, maxRetryCount)
+				debugf(c.c.App.Writer, args.Debug, "Metadata fetch for files %v: attempt %d/%d succeeded", id, count+1, maxRetryCount)
 				break
 			}
-			debugf(c.c.App.Writer, args.Debug, "Metadata fetch for file %s: attempt %d/%d failed", id, count+1, maxRetryCount)
+			debugf(c.c.App.Writer, args.Debug, "Metadata fetch for files %v: attempt %d/%d failed", id, count+1, maxRetryCount)
 		}
 	}
 	if err != nil {
@@ -529,122 +537,125 @@ func (c *viamClient) downloadBinary(dst, id string, timeout uint) error {
 	}
 
 	data := resp.GetData()
-	if len(data) != 1 {
-		return errors.Errorf("expected a single response, received %d", len(data))
-	}
-	datum := data[0]
 
-	fileName := filenameForDownload(datum.GetMetadata())
-	// Modify the file name in the metadata to reflect what it will be saved as.
-	metadata := datum.GetMetadata()
-	metadata.FileName = fileName
-
-	jsonPath := filepath.Join(dst, metadataDir, fileName+".json")
-	if err := os.MkdirAll(filepath.Dir(jsonPath), 0o700); err != nil {
-		return errors.Wrapf(err, "could not create metadata directory %s", filepath.Dir(jsonPath))
-	}
-	//nolint:gosec
-	jsonFile, err := os.Create(jsonPath)
-	if err != nil {
-		return err
-	}
-	mdJSONBytes, err := protojson.Marshal(metadata)
-	if err != nil {
-		return err
-	}
-	if _, err := jsonFile.Write(mdJSONBytes); err != nil {
-		return err
+	// Loop through responses and download each file
+	if len(data) != len(id) {
+		return errors.Errorf("expected %d responses for %d files, received %d responses", len(id), len(id), len(data))
 	}
 
-	var r io.ReadCloser
-	if largeFile {
-		debugf(c.c.App.Writer, args.Debug, "Attempting file %s as a large file download", id)
-		// Make request to the URI for large files since we exceed the message limit for gRPC
-		req, err := http.NewRequestWithContext(c.c.Context, http.MethodGet, datum.GetMetadata().GetUri(), nil)
+	for i, datum := range data {
+		currentID := id[i]
+		fileName := filenameForDownload(datum.GetMetadata())
+		// Modify the file name in the metadata to reflect what it will be saved as.
+		metadata := datum.GetMetadata()
+		metadata.FileName = fileName
+
+		jsonPath := filepath.Join(dst, metadataDir, fileName+".json")
+		if err := os.MkdirAll(filepath.Dir(jsonPath), 0o700); err != nil {
+			return errors.Wrapf(err, "could not create metadata directory %s", filepath.Dir(jsonPath))
+		}
+		//nolint:gosec
+		jsonFile, err := os.Create(jsonPath)
 		if err != nil {
-			return errors.Wrapf(err, serverErrorMessage)
-		}
-
-		// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
-		// We can authenticate via token or API key, so we try both.
-		token, ok := c.conf.Auth.(*token)
-		if ok {
-			req.Header.Add(rpc.MetadataFieldAuthorization, rpc.AuthorizationValuePrefixBearer+token.AccessToken)
-		}
-		apiKey, ok := c.conf.Auth.(*apiKey)
-		if ok {
-			req.Header.Add("key_id", apiKey.KeyID)
-			req.Header.Add("key", apiKey.KeyCrypto)
-		}
-
-		httpClient := &http.Client{Timeout: time.Duration(timeout) * time.Second}
-
-		var res *http.Response
-		for count := 0; count < maxRetryCount; count++ {
-			res, err = httpClient.Do(req)
-
-			if err == nil && res.StatusCode == http.StatusOK {
-				debugf(c.c.App.Writer, args.Debug,
-					"Large file download for file %s: attempt %d/%d succeeded", id, count+1, maxRetryCount)
-				break
-			}
-			debugf(c.c.App.Writer, args.Debug, "Large file download for file %s: attempt %d/%d failed", id, count+1, maxRetryCount)
-		}
-
-		if err != nil {
-			debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: %s", id, err)
-			return errors.Wrapf(err, serverErrorMessage)
-		}
-		if res.StatusCode != http.StatusOK {
-			debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: Server returned %d response", id, res.StatusCode)
-			return errors.New(serverErrorMessage)
-		}
-		defer func() {
-			utils.UncheckedError(res.Body.Close())
-		}()
-
-		r = res.Body
-	} else {
-		// If the binary has not already been populated as large file download,
-		// get the binary data from the response.
-		r = io.NopCloser(bytes.NewReader(datum.GetBinary()))
-	}
-
-	dataPath := filepath.Join(dst, dataDir, fileName)
-	ext := datum.GetMetadata().GetFileExt()
-
-	// If the file is gzipped, unzip.
-	if ext == gzFileExt {
-		r, err = gzip.NewReader(r)
-		if err != nil {
-			debugf(c.c.App.Writer, args.Debug, "Failed unzipping file %s: %s", id, err)
 			return err
 		}
-	} else if filepath.Ext(dataPath) != ext {
-		// If the file name did not already include the extension (e.g. for data capture files), add it.
-		// Don't do this for files that we're unzipping.
-		dataPath += ext
-	}
+		mdJSONBytes, err := protojson.Marshal(metadata)
+		if err != nil {
+			return err
+		}
+		if _, err := jsonFile.Write(mdJSONBytes); err != nil {
+			return err
+		}
 
-	if err := os.MkdirAll(filepath.Dir(dataPath), 0o700); err != nil {
-		debugf(c.c.App.Writer, args.Debug, "Failed creating data directory %s: %s", dataPath, err)
-		return errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath))
-	}
-	//nolint:gosec
-	dataFile, err := os.Create(dataPath)
-	if err != nil {
-		debugf(c.c.App.Writer, args.Debug, "Failed creating file %s: %s", id, err)
-		//nolint:deprecated,staticcheck
-		return errors.Wrapf(err, fmt.Sprintf("could not create file for datum %s", datum.GetMetadata().GetId())) //nolint:govet
-	}
-	//nolint:gosec
-	if _, err := io.Copy(dataFile, r); err != nil {
-		debugf(c.c.App.Writer, args.Debug, "Failed writing data to file %s: %s", id, err)
-		return err
-	}
-	if err := r.Close(); err != nil {
-		debugf(c.c.App.Writer, args.Debug, "Failed closing file %s: %s", id, err)
-		return err
+		var r io.ReadCloser
+		if largeFile {
+			debugf(c.c.App.Writer, args.Debug, "Attempting file %s as a large file download", currentID)
+			// Make request to the URI for large files since we exceed the message limit for gRPC
+			req, err := http.NewRequestWithContext(c.c.Context, http.MethodGet, datum.GetMetadata().GetUri(), nil)
+			if err != nil {
+				return errors.Wrapf(err, serverErrorMessage)
+			}
+
+			// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
+			// We can authenticate via token or API key, so we try both.
+			token, ok := c.conf.Auth.(*token)
+			if ok {
+				req.Header.Add(rpc.MetadataFieldAuthorization, rpc.AuthorizationValuePrefixBearer+token.AccessToken)
+			}
+			apiKey, ok := c.conf.Auth.(*apiKey)
+			if ok {
+				req.Header.Add("key_id", apiKey.KeyID)
+				req.Header.Add("key", apiKey.KeyCrypto)
+			}
+
+			httpClient := &http.Client{Timeout: time.Duration(timeout) * time.Second}
+
+			var res *http.Response
+			for count := 0; count < maxRetryCount; count++ {
+				res, err = httpClient.Do(req)
+
+				if err == nil && res.StatusCode == http.StatusOK {
+					debugf(c.c.App.Writer, args.Debug,
+						"Large file download for file %s: attempt %d/%d succeeded", currentID, count+1, maxRetryCount)
+					break
+				}
+				debugf(c.c.App.Writer, args.Debug, "Large file download for file %s: attempt %d/%d failed", currentID, count+1, maxRetryCount)
+			}
+
+			if err != nil {
+				debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: %s", currentID, err)
+				return errors.Wrapf(err, serverErrorMessage)
+			}
+			if res.StatusCode != http.StatusOK {
+				debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: Server returned %d response", currentID, res.StatusCode)
+				return errors.New(serverErrorMessage)
+			}
+			defer func() {
+				utils.UncheckedError(res.Body.Close())
+			}()
+
+			r = res.Body
+		} else {
+			// If the binary has not already been populated as large file download,
+			// get the binary data from the response.
+			r = io.NopCloser(bytes.NewReader(datum.GetBinary()))
+		}
+
+		dataPath := filepath.Join(dst, dataDir, fileName)
+		ext := datum.GetMetadata().GetFileExt()
+
+		// If the file is gzipped, unzip.
+		if ext == gzFileExt {
+			r, err = gzip.NewReader(r)
+			if err != nil {
+				debugf(c.c.App.Writer, args.Debug, "Failed unzipping file %s: %s", currentID, err)
+				return err
+			}
+		} else if filepath.Ext(dataPath) != ext {
+			// If the file name did not already include the extension (e.g. for data capture files), add it.
+			// Don't do this for files that we're unzipping.
+			dataPath += ext
+		}
+
+		if err := os.MkdirAll(filepath.Dir(dataPath), 0o700); err != nil {
+			debugf(c.c.App.Writer, args.Debug, "Failed creating data directory %s: %s", dataPath, err)
+			return errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath))
+		}
+		//nolint:gosec
+		dataFile, err := os.Create(dataPath)
+		if err != nil {
+			debugf(c.c.App.Writer, args.Debug, "Failed creating file %s: %s", currentID, err)
+			return errors.Wrapf(err, "could not create file for datum %s", currentID)
+		}
+		//nolint:gosec
+		if _, err := io.Copy(dataFile, r); err != nil {
+			debugf(c.c.App.Writer, args.Debug, "Failed writing data to file %s: %s", currentID, err)
+			return err
+		}
+		if err := r.Close(); err != nil {
+			debugf(c.c.App.Writer, args.Debug, "Failed closing file %s: %s", currentID, err)
+			return err
+		}
 	}
 	return nil
 }
