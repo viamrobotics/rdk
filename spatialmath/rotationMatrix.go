@@ -38,7 +38,7 @@ func (rm *RotationMatrix) AxisAngles() *R4AA {
 }
 
 // Quaternion returns orientation in quaternion representation.
-// reference: http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/index.htm
+// reference: https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/index.htm
 func (rm *RotationMatrix) Quaternion() quat.Number {
 	var q quat.Number
 	m := rm.mat
