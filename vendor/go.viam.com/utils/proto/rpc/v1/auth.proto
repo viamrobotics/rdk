@@ -1,0 +1,78 @@
+syntax = "proto3";
+option go_package = "go.viam.com/utils/proto/rpc/v1";
+
+package proto.rpc.v1;
+
+import "google/api/annotations.proto";
+
+// An AuthService is intended to be used as a means to perform application level
+// authentication. Its sole Authenticate method should be used prior to any
+// other services that a gRPC server has to offer.
+service AuthService {
+	// Authenticate attempts to authenticate the caller claiming to be
+	// the given entity. The resulting response contains an access token
+	// with the subject as the entity and the audience/issuer as the
+	// provider of this service. This token should be used for all future
+	// RPC requests.
+	rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {
+		option (google.api.http) = {
+			post: "/rpc/v1/authenticate"
+		};
+	}
+}
+
+// An ExternalAuthService is intended to be used as a means to perform application level
+// authentication but for an external entity that it is responsible for handling auth for.
+// An example of its use would be for a entity that only trusts an external source to
+// perform authentication for it.
+// Its sole AuthenticateTo method should be used prior to any other services that the external
+// entity's gRPC server has to offer.
+service ExternalAuthService {
+	// AuthenticateTo attempts to allow the caller to authenticate to another entity.
+	// The resulting response contains an access token with the subject
+	// as the calling entity, the audience as the other entity, and the issuer
+	// as the provider of this service. This token should be used for all
+	// future RPC requests to the other entity on the services it provides.
+	// This assumes that the caller is already authenticated to the
+	// server implementing this service.
+	rpc AuthenticateTo(AuthenticateToRequest) returns (AuthenticateToResponse) {
+		option (google.api.http) = {
+			post: "/rpc/v1/authenticate_to"
+		};
+	}
+}
+
+message Credentials {
+	// type is the type of credentials being used.
+	string type = 1;
+	// payload is an opaque string used that are of the given type above.
+	string payload = 2;
+}
+
+// An AuthenticateRequest contains the credentials used to authenticate.
+message AuthenticateRequest {
+	string entity = 1;
+	Credentials credentials = 2;
+}
+
+// An AuthenticateResponse is returned after successful authentication.
+message AuthenticateResponse {
+	// access_token is a JWT where only the expiration should be deemed
+	// important.
+	string access_token = 1;
+	// Future(erd): maybe a refresh_token
+}
+
+// An AuthenticateToRequest contains the entity to authenticate to.
+message AuthenticateToRequest {
+	string entity = 1;
+}
+
+// An AuthenticateResponse is returned after successful authentication.
+message AuthenticateToResponse {
+	// access_token is a JWT where only the expiration should be deemed
+	// important.
+	string access_token = 1;
+	// Future(erd): maybe a refresh_token
+}
+

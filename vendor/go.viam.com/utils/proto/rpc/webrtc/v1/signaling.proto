@@ -1,0 +1,214 @@
+syntax = "proto3";
+option go_package = "go.viam.com/utils/proto/rpc/webrtc/v1";
+
+package proto.rpc.webrtc.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "google/rpc/status.proto";
+
+// A SignalingService provides the means to have one client "call" another
+// client using the Session Description Protocol (SDP).
+service SignalingService {
+	// Call makes an offer to a client that it expects an answer to. The host
+	// of the client in question should be identified in the rpc-host metadata
+	// field.
+	// Note: Based on how this is a server streaming responnse to the caller,
+	// we do not have a good way of knowing if the caller has disappeared.
+	// Depending on answerer timeouts and concurrency limits, this can result in
+	// hangs on the answerer waiting for a connection to establish, which in turn
+	// can result in the caller waiting for an answerer to be listening.
+	rpc Call(CallRequest) returns (stream CallResponse) {
+		option (google.api.http) = {
+			post: "/rpc/webrtc/v1/call"
+		};
+	}
+
+	// CallUpdate is used to send additional info in relation to a Call.
+	// The host of the client for the call in question should be identified
+	// in the rpc-host metadata field.
+	// In a world where https://github.com/grpc/grpc-web/issues/24 is fixed,
+	// this should be removed in favor of a bidirectional stream on Call.
+	rpc CallUpdate(CallUpdateRequest) returns (CallUpdateResponse) {
+		option (google.api.http) = {
+			put: "/rpc/webrtc/v1/call_update"
+		};
+	}
+
+	// Answer sets up an answering service where the caller answers call offers
+	// and responds with answers.
+	// The host(s) to answer for should be in the rpc-host metadata field.
+	rpc Answer(stream AnswerResponse) returns (stream AnswerRequest);
+
+	// OptionalWebRTCConfig returns any WebRTC configuration the caller may want to use.
+	// The host to get a config for must be in the rpc-host metadata field.
+	rpc OptionalWebRTCConfig(OptionalWebRTCConfigRequest) returns (OptionalWebRTCConfigResponse)  {
+		option (google.api.http) = {
+			get: "/rpc/webrtc/v1/optional_webrtc_config"
+		};
+	}
+}
+
+// ICECandidate represents an ICE candidate.
+// From https://github.com/pion/webrtc/blob/5f6baf73255598a7b4a7c9400bb0381acc9aa3dc/icecandidateinit.go
+message ICECandidate {
+	string candidate = 1;
+	optional string sdp_mid = 2;
+	optional uint32 sdpm_line_index = 3;
+	optional string username_fragment = 4;
+}
+
+// CallRequest is the SDP offer that the controlling side is making.
+message CallRequest {
+	string sdp = 1;
+	// when disable_trickle is true, the init stage will be the only stage
+	// to be received in the response and the caller can expect the SDP
+	// to contain all ICE candidates.
+	bool disable_trickle = 2;
+}
+
+// CallResponseInitStage is the first and a one time stage that represents
+// the initial response to starting a call.
+message CallResponseInitStage {
+	string sdp = 1;
+}
+
+// CallResponseUpdateStage is multiply used to trickle in ICE candidates from
+// the controlled (answering) side.
+message CallResponseUpdateStage {
+	ICECandidate candidate = 1;
+}
+
+// CallResponse is the SDP answer that the controlled side responds with.
+message CallResponse {
+	string uuid = 1;
+	oneof stage {
+		CallResponseInitStage init = 2;
+		CallResponseUpdateStage update = 3;
+	}
+}
+
+// CallUpdateRequest updates the call with additional info to the controlled side.
+message CallUpdateRequest {
+	string uuid = 1;
+	oneof update {
+		ICECandidate candidate = 2;
+		bool done = 3;
+		google.rpc.Status error = 4;
+	}
+}
+
+// CallUpdateResponse contains nothing in response to a call update.
+message CallUpdateResponse {
+}
+
+// ICEServer describes an ICE server.
+message ICEServer {
+	repeated string urls = 1;
+	string username = 2;
+	string credential = 3;
+}
+
+// WebRTCConfig represents parts of a WebRTC config.
+message WebRTCConfig {
+	repeated ICEServer additional_ice_servers = 1;
+	// disable_trickle indicates if Trickle ICE should be used. Currently, both
+	// sides must both respect this setting.
+	bool disable_trickle = 2;
+}
+
+// AnswerRequestInitStage is the first and a one time stage that represents the
+// callers initial SDP request to the controlled (answerer) side.
+message AnswerRequestInitStage {
+	string sdp = 1;
+	WebRTCConfig optional_config = 2;
+	optional google.protobuf.Timestamp deadline = 3;
+}
+
+// AnswerRequestUpdateStage is multiply used to trickle in ICE candidates to
+// the controlled (answerer) side.
+message AnswerRequestUpdateStage {
+	ICECandidate candidate = 1;
+}
+
+// AnswerRequestDoneStage indicates the controller is done responding with candidates.
+message AnswerRequestDoneStage {
+}
+
+// AnswerRequestErrorStage indicates the exchange has failed with an error.
+message AnswerRequestErrorStage {
+	google.rpc.Status status = 1;
+}
+
+// AnswerRequestHeartbeatStage is sent periodically to verify liveness of answerer.
+message AnswerRequestHeartbeatStage {
+}
+
+// AnswerRequest is the SDP offer that the controlling side is making via the answering
+// stream.
+message AnswerRequest {
+	string uuid = 1;
+	oneof stage {
+		AnswerRequestInitStage init = 2;
+		AnswerRequestUpdateStage update = 3;
+
+		// done is sent when the requester is done sending information
+		AnswerRequestDoneStage done = 4;
+
+		// error is sent any time before done
+		AnswerRequestErrorStage error = 5;
+
+		// heartbeat is sent periodically to verify liveness of answerer
+		AnswerRequestHeartbeatStage heartbeat = 6;
+	}
+}
+
+// AnswerResponseInitStage is the first and a one time stage that represents the
+// answerers initial SDP response to the controlling side.
+message AnswerResponseInitStage {
+	string sdp = 1;
+}
+
+// AnswerResponseUpdateStage is multiply used to trickle in ICE candidates to
+// the controlling side.
+message AnswerResponseUpdateStage {
+	ICECandidate candidate = 1;
+}
+
+// AnswerResponseDoneStage indicates the answerer is done responding with candidates.
+message AnswerResponseDoneStage {
+}
+
+// AnswerResponseErrorStage indicates the exchange has failed with an error.
+message AnswerResponseErrorStage {
+	google.rpc.Status status = 1;
+}
+
+
+// AnswerResponse is the SDP answer that an answerer responds with.
+message AnswerResponse {
+	string uuid = 1;
+	oneof stage {
+		AnswerResponseInitStage init = 2;
+		AnswerResponseUpdateStage update = 3;
+
+		// done is sent when the answerer is done sending information
+		AnswerResponseDoneStage done = 4;
+
+		// error is sent any time before done
+		AnswerResponseErrorStage error = 5;
+	}
+}
+
+// OptionalWebRTCConfigRequest is the request for getting an optional WebRTC config
+// to use for the peer connection.
+message OptionalWebRTCConfigRequest {
+}
+
+// OptionalWebRTCConfigResponse contains the optional WebRTC config
+// to use for the peer connection.
+message OptionalWebRTCConfigResponse {
+	WebRTCConfig config = 1;
+}
+
+

@@ -1204,6 +1204,7 @@ func dialRobotClient(
 	dialOpts ...rpc.DialOption,
 ) (*client.RobotClient, error) {
 	rOpts := []client.RobotClientOption{client.WithDialOptions(dialOpts...), client.WithRemoteName(config.Name)}
+	rOpts = append(rOpts, client.WithDisableSessions())
 
 	if config.ConnectionCheckInterval != 0 {
 		rOpts = append(rOpts, client.WithCheckConnectedEvery(config.ConnectionCheckInterval))

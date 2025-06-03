@@ -1,0 +1,349 @@
+
+state 0
+	$accept: .lines $end 
+	lines: .    (2)
+
+	.  reduce 2 (src line 22)
+
+	lines  goto 1
+
+state 1
+	$accept:  lines.$end 
+	lines:  lines.line 
+
+	$end  accept
+	IDENTIFIER  shift 18
+	SIMPLETYPE  shift 15
+	COMMENT  shift 9
+	CONSTANT  shift 10
+	NEWLINE  shift 12
+	MSGDEF  shift 11
+	.  error
+
+	line  goto 2
+	definitionline  goto 3
+	commentline  goto 4
+	constantline  goto 5
+	msgdefline  goto 6
+	emptyline  goto 7
+	datatype  goto 8
+	basetype  goto 13
+	complextype  goto 14
+	complextypename  goto 16
+	namespace  goto 17
+	namespacestep  goto 19
+
+state 2
+	lines:  lines line.    (1)
+
+	.  reduce 1 (src line 20)
+
+
+state 3
+	line:  definitionline.    (3)
+
+	.  reduce 3 (src line 25)
+
+
+state 4
+	line:  commentline.    (4)
+
+	.  reduce 4 (src line 26)
+
+
+state 5
+	line:  constantline.    (5)
+
+	.  reduce 5 (src line 26)
+
+
+state 6
+	line:  msgdefline.    (6)
+
+	.  reduce 6 (src line 26)
+
+
+state 7
+	line:  emptyline.    (7)
+
+	.  reduce 7 (src line 26)
+
+
+state 8
+	definitionline:  datatype.variable constantopt commentopt NEWLINE 
+
+	IDENTIFIER  shift 21
+	.  error
+
+	variable  goto 20
+
+state 9
+	commentline:  COMMENT.NEWLINE 
+
+	NEWLINE  shift 22
+	.  error
+
+
+state 10
+	constantline:  CONSTANT.NEWLINE 
+
+	NEWLINE  shift 23
+	.  error
+
+
+state 11
+	msgdefline:  MSGDEF.complextype commentopt NEWLINE 
+
+	IDENTIFIER  shift 18
+	.  error
+
+	complextype  goto 24
+	complextypename  goto 16
+	namespace  goto 17
+	namespacestep  goto 19
+
+state 12
+	emptyline:  NEWLINE.    (33)
+
+	.  reduce 33 (src line 124)
+
+
+state 13
+	datatype:  basetype.    (9)
+
+	.  reduce 9 (src line 34)
+
+
+state 14
+	datatype:  complextype.    (10)
+
+	.  reduce 10 (src line 35)
+
+
+state 15
+	basetype:  SIMPLETYPE.arrayopt 
+	arrayopt: .    (13)
+
+	LEFTBRACKET  shift 27
+	.  reduce 13 (src line 47)
+
+	arrayopt  goto 25
+	arrayoptpresent  goto 26
+
+state 16
+	complextype:  complextypename.arrayopt 
+	arrayopt: .    (13)
+
+	LEFTBRACKET  shift 27
+	.  reduce 13 (src line 47)
+
+	arrayopt  goto 28
+	arrayoptpresent  goto 26
+
+state 17
+	complextype:  namespace.complextypename arrayopt 
+	namespace:  namespace.namespacestep 
+
+	IDENTIFIER  shift 18
+	.  error
+
+	complextypename  goto 29
+	namespacestep  goto 30
+
+state 18
+	complextypename:  IDENTIFIER.    (20)
+	namespacestep:  IDENTIFIER.NAMESPACESEPARATOR 
+
+	NAMESPACESEPARATOR  shift 31
+	.  reduce 20 (src line 71)
+
+
+state 19
+	namespace:  namespacestep.    (22)
+
+	.  reduce 22 (src line 83)
+
+
+state 20
+	definitionline:  datatype variable.constantopt commentopt NEWLINE 
+	constantopt: .    (28)
+
+	CONSTANT  shift 34
+	.  reduce 28 (src line 101)
+
+	constantopt  goto 32
+	constantoptpresent  goto 33
+
+state 21
+	variable:  IDENTIFIER.    (21)
+
+	.  reduce 21 (src line 77)
+
+
+state 22
+	commentline:  COMMENT NEWLINE.    (30)
+
+	.  reduce 30 (src line 110)
+
+
+state 23
+	constantline:  CONSTANT NEWLINE.    (31)
+
+	.  reduce 31 (src line 114)
+
+
+state 24
+	msgdefline:  MSGDEF complextype.commentopt NEWLINE 
+	commentopt: .    (26)
+
+	COMMENT  shift 36
+	.  reduce 26 (src line 96)
+
+	commentopt  goto 35
+
+state 25
+	basetype:  SIMPLETYPE arrayopt.    (11)
+
+	.  reduce 11 (src line 39)
+
+
+state 26
+	arrayopt:  arrayoptpresent.    (12)
+
+	.  reduce 12 (src line 45)
+
+
+state 27
+	arrayoptpresent:  LEFTBRACKET.integeropt RIGHTBRACKET 
+	integeropt: .    (16)
+
+	INTEGER  shift 39
+	.  reduce 16 (src line 58)
+
+	integeropt  goto 37
+	arraylength  goto 38
+
+state 28
+	complextype:  complextypename arrayopt.    (18)
+
+	.  reduce 18 (src line 67)
+
+
+state 29
+	complextype:  namespace complextypename.arrayopt 
+	arrayopt: .    (13)
+
+	LEFTBRACKET  shift 27
+	.  reduce 13 (src line 47)
+
+	arrayopt  goto 40
+	arrayoptpresent  goto 26
+
+state 30
+	namespace:  namespace namespacestep.    (23)
+
+	.  reduce 23 (src line 85)
+
+
+state 31
+	namespacestep:  IDENTIFIER NAMESPACESEPARATOR.    (24)
+
+	.  reduce 24 (src line 88)
+
+
+state 32
+	definitionline:  datatype variable constantopt.commentopt NEWLINE 
+	commentopt: .    (26)
+
+	COMMENT  shift 36
+	.  reduce 26 (src line 96)
+
+	commentopt  goto 41
+
+state 33
+	constantopt:  constantoptpresent.    (27)
+
+	.  reduce 27 (src line 99)
+
+
+state 34
+	constantoptpresent:  CONSTANT.    (29)
+
+	.  reduce 29 (src line 104)
+
+
+state 35
+	msgdefline:  MSGDEF complextype commentopt.NEWLINE 
+
+	NEWLINE  shift 42
+	.  error
+
+
+state 36
+	commentopt:  COMMENT.    (25)
+
+	.  reduce 25 (src line 94)
+
+
+state 37
+	arrayoptpresent:  LEFTBRACKET integeropt.RIGHTBRACKET 
+
+	RIGHTBRACKET  shift 43
+	.  error
+
+
+state 38
+	integeropt:  arraylength.    (15)
+
+	.  reduce 15 (src line 56)
+
+
+state 39
+	arraylength:  INTEGER.    (17)
+
+	.  reduce 17 (src line 61)
+
+
+state 40
+	complextype:  namespace complextypename arrayopt.    (19)
+
+	.  reduce 19 (src line 69)
+
+
+state 41
+	definitionline:  datatype variable constantopt commentopt.NEWLINE 
+
+	NEWLINE  shift 44
+	.  error
+
+
+state 42
+	msgdefline:  MSGDEF complextype commentopt NEWLINE.    (32)
+
+	.  reduce 32 (src line 118)
+
+
+state 43
+	arrayoptpresent:  LEFTBRACKET integeropt RIGHTBRACKET.    (14)
+
+	.  reduce 14 (src line 50)
+
+
+state 44
+	definitionline:  datatype variable constantopt commentopt NEWLINE.    (8)
+
+	.  reduce 8 (src line 28)
+
+
+13 terminals, 22 nonterminals
+34 grammar rules, 45/8000 states
+0 shift/reduce, 0 reduce/reduce conflicts reported
+71 working sets used
+memory: parser 36/120000
+0 extra closures
+22 shift entries, 1 exceptions
+27 goto entries
+5 entries saved by goto default
+Optimizer space used: output 45/120000
+45 table entries, 0 zero
+maximum spread: 13, maximum offset: 32
