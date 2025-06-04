@@ -1071,35 +1071,64 @@ var app = &cli.App{
 					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
-							Name:      "binary",
-							Usage:     "download binary data",
-							UsageText: createUsageText("data export binary", []string{generalFlagDestination}, true, false),
-							Flags: append([]cli.Flag{
-								&cli.PathFlag{
-									Name:     generalFlagDestination,
-									Required: true,
-									Usage:    "output directory for downloaded data",
+							Name:            "binary",
+							Usage:           "download binary data",
+							UsageText:       createUsageText("data export binary", nil, false, true),
+							HideHelpCommand: true,
+							Subcommands: []*cli.Command{
+								{
+									Name:            "filter",
+									Usage:           "download binary data using filters",
+									UsageText:       createUsageText("data export binary filter", []string{generalFlagDestination}, true, false),
+									HideHelpCommand: true,
+									Flags: append([]cli.Flag{
+										&cli.PathFlag{
+											Name:     generalFlagDestination,
+											Required: true,
+											Usage:    "output directory for downloaded data",
+										},
+										&cli.UintFlag{
+											Name:  dataFlagParallelDownloads,
+											Usage: "number of download requests to make in parallel",
+											Value: 100,
+										},
+										&cli.UintFlag{
+											Name:  dataFlagTimeout,
+											Usage: "number of seconds to wait for large file downloads",
+											Value: 30,
+										},
+										&cli.StringSliceFlag{
+											Name:  generalFlagTags,
+											Usage: "tags filter. accepts 'tagged' for all tagged data, 'untagged' for all untagged data, or a list of tags",
+										},
+									}, commonFilterFlags...),
+									Action: createCommandWithT[dataExportBinaryArgs](DataExportBinaryAction),
 								},
-								&cli.UintFlag{
-									Name:  dataFlagParallelDownloads,
-									Usage: "number of download requests to make in parallel",
-									Value: 100,
+								{
+									Name:            "ids",
+									Usage:           "download binary data by specific IDs",
+									UsageText:       createUsageText("data export binary ids", []string{generalFlagDestination, dataFlagBinaryDataIDs}, true, false),
+									HideHelpCommand: true,
+									Flags: []cli.Flag{
+										&cli.PathFlag{
+											Name:     generalFlagDestination,
+											Required: true,
+											Usage:    "output directory for downloaded data",
+										},
+										&cli.UintFlag{
+											Name:  dataFlagTimeout,
+											Usage: "number of seconds to wait for large file downloads",
+											Value: 30,
+										},
+										&cli.StringSliceFlag{
+											Name:     dataFlagBinaryDataIDs,
+											Required: true,
+											Usage:    "binary data ids to query for. accepts a single binary data id or list of comma-separated binary data ids",
+										},
+									},
+									Action: createCommandWithT[dataExportBinaryIDsArgs](DataExportBinaryIDsAction),
 								},
-								&cli.UintFlag{
-									Name:  dataFlagTimeout,
-									Usage: "number of seconds to wait for large file downloads",
-									Value: 30,
-								},
-								&cli.StringSliceFlag{
-									Name:  generalFlagTags,
-									Usage: "tags filter. accepts 'tagged' for all tagged data, 'untagged' for all untagged data, or a list of tags",
-								},
-								&cli.StringSliceFlag{
-									Name:  dataFlagBinaryDataIDs,
-									Usage: "binary id to query for. accepts a single binary id or list of comma-separated binary ids",
-								},
-							}, commonFilterFlags...),
-							Action: createCommandWithT[dataExportBinaryArgs](DataExportBinaryAction),
+							},
 						},
 						{
 							Name:  "tabular",

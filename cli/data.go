@@ -74,7 +74,13 @@ type dataExportBinaryArgs struct {
 	Parallel      uint
 	DataType      string
 	Timeout       uint
-	BinaryDataIds []string
+	BinaryDataIDs []string
+}
+
+type dataExportBinaryIDsArgs struct {
+	Destination   string
+	Timeout       uint
+	BinaryDataIDs []string
 }
 
 type dataExportTabularArgs struct {
@@ -95,6 +101,16 @@ func DataExportBinaryAction(cCtx *cli.Context, args dataExportBinaryArgs) error 
 	}
 
 	return client.dataExportBinaryAction(cCtx, args)
+}
+
+// DataExportBinaryIDsAction is the corresponding action for 'data export binary ids'.
+func DataExportBinaryIDsAction(cCtx *cli.Context, args dataExportBinaryIDsArgs) error {
+	client, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	return client.dataExportBinaryIDsAction(args)
 }
 
 // DataExportTabularAction is the corresponding action for 'data export tabular'.
@@ -326,23 +342,26 @@ func createCaptureInterval(startStr, endStr string) (*datapb.CaptureInterval, er
 }
 
 func (c *viamClient) dataExportBinaryAction(cCtx *cli.Context, args dataExportBinaryArgs) error {
-	if args.BinaryDataIds != nil && len(args.BinaryDataIds) > 0 {
-		result := c.downloadBinary(args.Destination, args.Timeout, args.BinaryDataIds...)
+	filter, err := createDataFilter(cCtx)
+	if err != nil {
+		return err
+	}
+
+	if err := c.binaryData(args.Destination, filter, args.Parallel, args.Timeout); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *viamClient) dataExportBinaryIDsAction(args dataExportBinaryIDsArgs) error {
+	if len(args.BinaryDataIDs) > 0 {
+		result := c.downloadBinary(args.Destination, args.Timeout, args.BinaryDataIDs...)
 		if result == nil { // nil result means success
-			printf(c.c.App.Writer, "Downloaded %d files", len(args.BinaryDataIds))
+			printf(c.c.App.Writer, "Downloaded %d files", len(args.BinaryDataIDs))
 		}
 		return result
-	} else {
-		filter, err := createDataFilter(cCtx)
-		if err != nil {
-			return err
-		}
-
-		if err := c.binaryData(args.Destination, filter, args.Parallel, args.Timeout); err != nil {
-			return err
-		}
-		return nil
 	}
+	return nil
 }
 
 func (c *viamClient) dataExportTabularAction(cCtx *cli.Context, args dataExportTabularArgs) error {
