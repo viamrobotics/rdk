@@ -563,7 +563,7 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 	}
 
 	for i, datum := range data {
-		currentID := ids[i]
+		id := ids[i]
 		fileName := filenameForDownload(datum.GetMetadata())
 		// Modify the file name in the metadata to reflect what it will be saved as.
 		metadata := datum.GetMetadata()
@@ -588,7 +588,7 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 
 		var r io.ReadCloser
 		if largeFile {
-			debugf(c.c.App.Writer, args.Debug, "Attempting file %s as a large file download", currentID)
+			debugf(c.c.App.Writer, args.Debug, "Attempting file %s as a large file download", id)
 			// Make request to the URI for large files since we exceed the message limit for gRPC
 			req, err := http.NewRequestWithContext(c.c.Context, http.MethodGet, datum.GetMetadata().GetUri(), nil)
 			if err != nil {
@@ -615,18 +615,18 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 
 				if err == nil && res.StatusCode == http.StatusOK {
 					debugf(c.c.App.Writer, args.Debug,
-						"Large file download for file %s: attempt %d/%d succeeded", currentID, count+1, maxRetryCount)
+						"Large file download for file %s: attempt %d/%d succeeded", id, count+1, maxRetryCount)
 					break
 				}
-				debugf(c.c.App.Writer, args.Debug, "Large file download for file %s: attempt %d/%d failed", currentID, count+1, maxRetryCount)
+				debugf(c.c.App.Writer, args.Debug, "Large file download for file %s: attempt %d/%d failed", id, count+1, maxRetryCount)
 			}
 
 			if err != nil {
-				debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: %s", currentID, err)
+				debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: %s", id, err)
 				return errors.Wrapf(err, serverErrorMessage)
 			}
 			if res.StatusCode != http.StatusOK {
-				debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: Server returned %d response", currentID, res.StatusCode)
+				debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: Server returned %d response", id, res.StatusCode)
 				return errors.New(serverErrorMessage)
 			}
 			defer func() {
@@ -647,7 +647,7 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 		if ext == gzFileExt {
 			r, err = gzip.NewReader(r)
 			if err != nil {
-				debugf(c.c.App.Writer, args.Debug, "Failed unzipping file %s: %s", currentID, err)
+				debugf(c.c.App.Writer, args.Debug, "Failed unzipping file %s: %s", id, err)
 				return err
 			}
 		} else if filepath.Ext(dataPath) != ext {
@@ -663,16 +663,16 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 		//nolint:gosec
 		dataFile, err := os.Create(dataPath)
 		if err != nil {
-			debugf(c.c.App.Writer, args.Debug, "Failed creating file %s: %s", currentID, err)
-			return errors.Wrapf(err, "could not create file for datum %s", currentID)
+			debugf(c.c.App.Writer, args.Debug, "Failed creating file %s: %s", id, err)
+			return errors.Wrapf(err, "could not create file for datum %s", id)
 		}
 		//nolint:gosec
 		if _, err := io.Copy(dataFile, r); err != nil {
-			debugf(c.c.App.Writer, args.Debug, "Failed writing data to file %s: %s", currentID, err)
+			debugf(c.c.App.Writer, args.Debug, "Failed writing data to file %s: %s", id, err)
 			return err
 		}
 		if err := r.Close(); err != nil {
-			debugf(c.c.App.Writer, args.Debug, "Failed closing file %s: %s", currentID, err)
+			debugf(c.c.App.Writer, args.Debug, "Failed closing file %s: %s", id, err)
 			return err
 		}
 	}
