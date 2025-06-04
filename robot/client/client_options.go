@@ -33,6 +33,9 @@ type robotClientOpts struct {
 	// controls whether or not sessions are disabled.
 	disableSessions bool
 
+	// enables collection of network statistics
+	withNetworkStats bool
+
 	// initialConnectionAttempts indicates the number of times to try dialing when making
 	// initial connection to a machine. Defaults to three. If set to zero or a negative
 	// value, will attempt to connect forever.
@@ -121,6 +124,14 @@ func WithDisableSessions() RobotClientOption {
 func WithDialOptions(opts ...rpc.DialOption) RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.dialOptions = opts
+	})
+}
+
+// WithNetworkStats returns a RobotClientOption which sets the options for
+// reporting network statistics.
+func WithNetworkStats() RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.withNetworkStats = true
 	})
 }
 

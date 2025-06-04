@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	rutils "go.viam.com/rdk/utils"
+	nc "go.viam.com/rdk/web/networkcheck"
 )
 
 var viamDotDir = filepath.Join(rutils.PlatformHomeDir(), ".viam")
@@ -151,7 +152,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	} else if argsParsed.NetworkCheckOnly {
 		// Run network checks synchronously and immediately exit if `--network-check` flag was
 		// used. Otherwise run network checks asynchronously.
-		runNetworkChecks(ctx, logger)
+		nc.RunNetworkChecks(ctx, logger)
 		return
 	}
 
@@ -237,7 +238,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// Have goutils use the logger we've just configured.
 	golog.ReplaceGloabl(logger.AsZap())
 
-	go runNetworkChecks(ctx, logger)
+	go nc.RunNetworkChecks(ctx, logger)
 
 	server := robotServer{
 		logger:   logger,
