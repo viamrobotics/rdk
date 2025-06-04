@@ -127,8 +127,8 @@ func WithDialOptions(opts ...rpc.DialOption) RobotClientOption {
 	})
 }
 
-// WithNetworkStats return a RobotClientOption which sets the options for
-// enabling the network checks
+// WithNetworkStats returns a RobotClientOption which sets the options for
+// running the network checks.
 func WithNetworkStats() RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.runNetworkChecks = true
