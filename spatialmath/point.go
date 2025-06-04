@@ -84,11 +84,11 @@ func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, erro
 	case *box:
 		return pointVsBoxCollision(pt.position, other, collisionBufferMM), nil
 	case *sphere:
-		return sphereVsPointDistance(other, pt.position) <= 0, nil
+		return sphereVsPointDistance(other, pt.position) <= collisionBufferMM, nil
 	case *capsule:
-		return capsuleVsPointDistance(other, pt.position) <= 0, nil
+		return capsuleVsPointDistance(other, pt.position) <= collisionBufferMM, nil
 	case *point:
-		return pt.almostEqual(other), nil
+		return pt.position.Sub(other.position).Norm() <= collisionBufferMM, nil
 	default:
 		return true, newCollisionTypeUnsupportedError(pt, g)
 	}

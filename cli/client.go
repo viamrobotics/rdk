@@ -7,12 +7,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
@@ -75,7 +78,10 @@ const (
 	yellow = "\033[1;33m%s\033[0m"
 )
 
-var errNoShellService = errors.New("shell service is not enabled on this machine part")
+var (
+	errNoShellService = errors.New("shell service is not enabled on this machine part")
+	ftdcPath          = path.Join("~", ".viam", "diagnostics.data")
+)
 
 // viamClient wraps a cli.Context and provides all the CLI command functionality
 // needed to talk to the app and data services but not directly to robot parts.
@@ -667,8 +673,68 @@ func MachinesPartListAction(c *cli.Context, args machinesPartListArgs) error {
 }
 
 type listRobotsActionArgs struct {
+	All          bool
 	Organization string
 	Location     string
+}
+
+func printOrgAndLocNames(ctx *cli.Context, orgName, locName string) {
+	printf(ctx.App.Writer, "%s -> %s", orgName, locName)
+}
+
+func (c *viamClient) listAllRobotsInOrg(ctx *cli.Context, orgStr string) error {
+	if err := c.selectOrganization(orgStr); err != nil {
+		return err
+	}
+	locations, err := c.listLocations(c.selectedOrg.Id)
+	if err != nil {
+		return err
+	}
+
+	for _, loc := range locations {
+		if loc.RobotCount == 0 {
+			continue
+		}
+		c.selectedLoc = loc
+		// when printing all robots in an org, we always want to include org and location
+		// info to differentiate _where_ a particular robot is
+		printOrgAndLocNames(ctx, c.selectedOrg.Name, loc.Name)
+		if err = c.listLocationRobots(ctx, c.selectedOrg.Name, loc.Name); err != nil {
+			return err
+		}
+		printf(ctx.App.Writer, "")
+	}
+
+	return nil
+}
+
+func (c *viamClient) listLocationRobots(ctx *cli.Context, orgStr, locStr string) error {
+	robots, err := c.listRobots(orgStr, locStr)
+	if err != nil {
+		return errors.Wrap(err, "could not list machines")
+	}
+
+	if orgStr == "" || locStr == "" {
+		printOrgAndLocNames(ctx, c.selectedOrg.Name, c.selectedLoc.Name)
+	}
+
+	for _, robot := range robots {
+		parts, err := c.client.GetRobotParts(c.c.Context, &apppb.GetRobotPartsRequest{
+			RobotId: robot.Id,
+		})
+		if err != nil {
+			return err
+		}
+		mainPartID := "<unknown>"
+		for _, part := range parts.Parts {
+			if part.MainPart {
+				mainPartID = part.Id
+				break
+			}
+		}
+		printf(ctx.App.Writer, "%s (id: %s) (main part id: %s)", robot.Name, robot.Id, mainPartID)
+	}
+	return nil
 }
 
 // ListRobotsAction is the corresponding Action for 'machines list'.
@@ -679,19 +745,10 @@ func ListRobotsAction(c *cli.Context, args listRobotsActionArgs) error {
 	}
 	orgStr := args.Organization
 	locStr := args.Location
-	robots, err := client.listRobots(orgStr, locStr)
-	if err != nil {
-		return errors.Wrap(err, "could not list machines")
+	if args.All {
+		return client.listAllRobotsInOrg(c, orgStr)
 	}
-
-	if orgStr == "" || locStr == "" {
-		printf(c.App.Writer, "%s -> %s", client.selectedOrg.Name, client.selectedLoc.Name)
-	}
-
-	for _, robot := range robots {
-		printf(c.App.Writer, "%s (id: %s)", robot.Name, robot.Id)
-	}
-	return nil
+	return client.listLocationRobots(c, orgStr, locStr)
 }
 
 type robotsStatusArgs struct {
@@ -743,7 +800,7 @@ func RobotsStatusAction(c *cli.Context, args robotsStatusArgs) error {
 		if err != nil {
 			return err
 		}
-		printf(c.App.Writer, "%s -> %s", orgName, locName)
+		printOrgAndLocNames(c, orgName, locName)
 	}
 
 	printf(
@@ -1238,6 +1295,47 @@ type machinesPartCopyFilesArgs struct {
 	Part         string
 	Recursive    bool
 	Preserve     bool
+	NoProgress   bool
+}
+
+type wrongNumArgsError struct {
+	have int
+	min  int
+	max  int
+}
+
+func (err wrongNumArgsError) Error() string {
+	if err.min != err.max && err.max == 0 {
+		noun := "arguments"
+		if err.min == 1 {
+			noun = "argument"
+		}
+		return fmt.Sprintf("expected %d %s but got %d", err.min, noun, err.have)
+	}
+	return fmt.Sprintf("expected %d-%d arguments but got %d", err.min, err.max, err.have)
+}
+
+type machinesPartGetFTDCArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+}
+
+// MachinesPartGetFTDCAction is the corresponding Action for 'machines part get-ftdc'.
+func MachinesPartGetFTDCAction(c *cli.Context, args machinesPartGetFTDCArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
+	logger := globalArgs.createLogger()
+
+	return client.machinesPartGetFTDCAction(c, args, globalArgs.Debug, logger)
 }
 
 // MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
@@ -1344,9 +1442,61 @@ func (c *viamClient) machinesPartCopyFilesAction(
 			paths,
 			destination,
 			logger,
+			flagArgs.NoProgress,
 		)
 	}
 	if err := doCopy(); err != nil {
+		if statusErr := status.Convert(err); statusErr != nil &&
+			statusErr.Code() == codes.InvalidArgument &&
+			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
+			return errDirectoryCopyRequestNoRecursion
+		}
+		return err
+	}
+	return nil
+}
+
+func (c *viamClient) machinesPartGetFTDCAction(
+	ctx *cli.Context,
+	flagArgs machinesPartGetFTDCArgs,
+	debug bool,
+	logger logging.Logger,
+) error {
+	args := ctx.Args().Slice()
+	var targetPath string
+	switch numArgs := len(args); numArgs {
+	case 0:
+		var err error
+		targetPath, err = os.Getwd()
+		if err != nil {
+			return err
+		}
+	case 1:
+		targetPath = args[0]
+	default:
+		return wrongNumArgsError{numArgs, 0, 1}
+	}
+
+	part, err := c.robotPart(flagArgs.Organization, flagArgs.Location, flagArgs.Machine, flagArgs.Part)
+	if err != nil {
+		return err
+	}
+	// Intentional use of path instead of filepath: Windows understands both / and
+	// \ as path separators, and we don't want a cli running on Windows to send
+	// a path using \ to a *NIX machine.
+	src := path.Join(ftdcPath, part.Id)
+	if err := c.copyFilesFromMachine(
+		flagArgs.Organization,
+		flagArgs.Location,
+		flagArgs.Machine,
+		flagArgs.Part,
+		debug,
+		true,
+		false,
+		[]string{src},
+		targetPath,
+		logger,
+	); err != nil {
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
@@ -2420,12 +2570,13 @@ func (c *viamClient) copyFilesToMachine(
 	paths []string,
 	destination string,
 	logger logging.Logger,
+	noProgress bool,
 ) error {
 	shellSvc, closeClient, err := c.connectToShellService(orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination)
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
 }
 
 // copyFilesToFqdn is a copyFilesToMachine variant that makes use of pre-fetched part FQDN.
@@ -2437,12 +2588,13 @@ func (c *viamClient) copyFilesToFqdn(
 	paths []string,
 	destination string,
 	logger logging.Logger,
+	noProgress bool,
 ) error {
 	shellSvc, closeClient, err := c.connectToShellServiceFqdn(fqdn, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination)
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
 }
 
 // copyFilesToMachineInner is the common logic for both copyFiles variants.
@@ -2453,16 +2605,81 @@ func (c *viamClient) copyFilesToMachineInner(
 	preserve bool,
 	paths []string,
 	destination string,
+	noProgress bool,
 ) error {
 	defer func() {
 		utils.UncheckedError(closeClient(c.c.Context))
 	}()
 
-	// prepare a factory that understands the file copying service (RPC or not).
-	copyFactory := shell.NewCopyFileToMachineFactory(destination, preserve, shellSvc)
-	// make a reader copier that just does the traversal and copy work for us. Think of
-	// this as a tee reader.
-	readCopier, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, copyFactory)
+	if noProgress {
+		// prepare a factory that understands the file copying service (RPC or not).
+		copyFactory := shell.NewCopyFileToMachineFactory(destination, preserve, shellSvc)
+		// make a reader copier that just does the traversal and copy work for us. Think of
+		// this as a tee reader.
+		readCopier, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, copyFactory)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := readCopier.Close(c.c.Context); err != nil {
+				utils.UncheckedError(err)
+			}
+		}()
+
+		// ReadAll the files into the copier.
+		return readCopier.ReadAll(c.c.Context)
+	}
+
+	// Calculate total size of all files to be copied
+	var totalSize int64
+	for _, path := range paths {
+		info, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+		if info.IsDir() && allowRecursion {
+			err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+				if !info.IsDir() {
+					totalSize += info.Size()
+				}
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		} else if !info.IsDir() {
+			totalSize += info.Size()
+		}
+	}
+
+	// Create a progress tracking function
+	var currentFile string
+	progressFunc := func(bytes int64, file string, fileSize int64) {
+		if file != currentFile {
+			if currentFile != "" {
+				//nolint:errcheck // progress display is non-critical
+				_, _ = os.Stdout.WriteString("\n")
+			}
+			currentFile = file
+			//nolint:errcheck // progress display is non-critical
+			_, _ = os.Stdout.WriteString(fmt.Sprintf("Copying %s...\n", file))
+		}
+		uploadPercent := int(math.Ceil(100 * float64(bytes) / float64(fileSize)))
+		//nolint:errcheck // progress display is non-critical
+		_, _ = os.Stdout.WriteString(fmt.Sprintf("\rProgress: %d%% (%d/%d bytes)", uploadPercent, bytes, fileSize))
+	}
+
+	// Wrap the copy factory to track progress
+	progressFactory := &progressTrackingFactory{
+		factory:    shell.NewCopyFileToMachineFactory(destination, preserve, shellSvc),
+		onProgress: progressFunc,
+	}
+
+	// Create a new read copier with the progress tracking factory
+	readCopier, err := shell.NewLocalFileReadCopier(paths, allowRecursion, false, progressFactory)
 	if err != nil {
 		return err
 	}
@@ -2473,7 +2690,88 @@ func (c *viamClient) copyFilesToMachineInner(
 	}()
 
 	// ReadAll the files into the copier.
-	return readCopier.ReadAll(c.c.Context)
+	err = readCopier.ReadAll(c.c.Context)
+	return err
+}
+
+// progressTrackingFactory wraps a copy factory to track progress.
+type progressTrackingFactory struct {
+	factory    shell.FileCopyFactory
+	onProgress func(int64, string, int64)
+}
+
+func (ptf *progressTrackingFactory) MakeFileCopier(ctx context.Context, sourceType shell.CopyFilesSourceType) (shell.FileCopier, error) {
+	copier, err := ptf.factory.MakeFileCopier(ctx, sourceType)
+	if err != nil {
+		return nil, err
+	}
+	return &progressTrackingCopier{
+		copier:     copier,
+		onProgress: ptf.onProgress,
+	}, nil
+}
+
+// progressTrackingCopier wraps a file copier to track progress.
+type progressTrackingCopier struct {
+	copier     shell.FileCopier
+	onProgress func(int64, string, int64)
+}
+
+func (ptc *progressTrackingCopier) Copy(ctx context.Context, file shell.File) error {
+	// Get file size
+	info, err := file.Data.Stat()
+	if err != nil {
+		return err
+	}
+	fileSize := info.Size()
+
+	// Create a progress tracking reader
+	progressReader := &progressReader{
+		reader:     file.Data,
+		onProgress: ptc.onProgress,
+		fileName:   file.RelativeName,
+		fileSize:   fileSize,
+	}
+
+	// Create a new file with the progress tracking reader
+	progressFile := shell.File{
+		RelativeName: file.RelativeName,
+		Data:         progressReader,
+	}
+
+	return ptc.copier.Copy(ctx, progressFile)
+}
+
+func (ptc *progressTrackingCopier) Close(ctx context.Context) error {
+	//nolint:errcheck // progress display is non-critical
+	_, _ = os.Stdout.WriteString("\n")
+	return ptc.copier.Close(ctx)
+}
+
+// progressReader wraps a reader to track progress.
+type progressReader struct {
+	reader     fs.File
+	onProgress func(int64, string, int64)
+	copied     int64
+	fileName   string
+	fileSize   int64
+}
+
+func (pr *progressReader) Read(p []byte) (int, error) {
+	n, err := pr.reader.Read(p)
+	if n > 0 {
+		pr.copied += int64(n)
+		pr.onProgress(pr.copied, pr.fileName, pr.fileSize)
+	}
+	return n, err
+}
+
+func (pr *progressReader) Stat() (fs.FileInfo, error) {
+	return pr.reader.Stat()
+}
+
+func (pr *progressReader) Close() error {
+	return pr.reader.Close()
 }
 
 func (c *viamClient) copyFilesFromMachine(

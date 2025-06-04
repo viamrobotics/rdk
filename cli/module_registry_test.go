@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"testing"
 
+	v1 "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/testutils"
@@ -63,6 +64,71 @@ func TestValidateModelAPI(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	err = validateModelAPI("other:component:x_")
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestVersionHasOnlyApps(t *testing.T) {
+	tests := []struct {
+		name     string
+		module   *v1.Module
+		expected bool
+	}{
+		{
+			name: "only apps",
+			module: &v1.Module{
+				Apps: []*v1.App{
+					{
+						Name: "app-name",
+						Type: "single-machine",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "only models",
+			module: &v1.Module{
+				Models: []*v1.Model{
+					{
+						Api:   "rdk:component:x",
+						Model: "model-name",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "empty module",
+			module: &v1.Module{
+				Models: []*v1.Model{},
+				Apps:   []*v1.App{},
+			},
+			expected: false,
+		},
+		{
+			name: "both models and apps",
+			module: &v1.Module{
+				Models: []*v1.Model{
+					{
+						Api:   "rdk:component:x",
+						Model: "model-name",
+					},
+				},
+				Apps: []*v1.App{
+					{
+						Name: "app-name",
+						Type: "single-machine",
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, versionHasOnlyApps(tc.module, "1.0.0"), test.ShouldEqual, tc.expected)
+		})
+	}
 }
 
 func TestGetMarkdownContent(t *testing.T) {

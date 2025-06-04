@@ -333,8 +333,9 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 ) {
 	// Reconfigure robot to have passed-in config before listening for any config
 	// changes.
+	startTime := time.Now()
 	r.Reconfigure(ctx, currCfg)
-
+	s.logger.CInfow(ctx, "Robot reconfigured with full config", "time_to_reconfigure", time.Since(startTime).String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -349,6 +350,14 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 			if err != nil {
 				s.logger.Errorw("reconfiguration aborted: error processing config", "error", err)
 				continue
+			}
+
+			// Special case: the incoming config specifies the default BindAddress, but the current one in use is non-default.
+			// Don't override the non-default BindAddress with the default one.
+			// If this is the only difference, the next step, diff.NetworkEqual will be true.
+			if processedConfig.Network.BindAddressDefaultSet && !currCfg.Network.BindAddressDefaultSet {
+				processedConfig.Network.BindAddress = currCfg.Network.BindAddress
+				processedConfig.Network.BindAddressDefaultSet = false
 			}
 
 			// flag to restart web service if necessary
@@ -367,6 +376,12 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 					s.logger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
 					continue
 				}
+			}
+
+			if currCfg.Network.BindAddress != processedConfig.Network.BindAddress {
+				s.logger.Infof("Config watcher detected bind address change: updating %v -> %v",
+					currCfg.Network.BindAddress,
+					processedConfig.Network.BindAddress)
 			}
 
 			// Update logger registry if log patterns may have changed.
@@ -392,7 +407,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	hungShutdownDeadline := 90 * time.Second
+	hungShutdownDeadline := 60 * time.Second
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
 		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger)
 
@@ -527,7 +542,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}
 
 	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove
-	// all components, services, remotes, modules, and processes from
+	// all components, services, remotes, modules, processes, and packages from
 	// `minimalProcessedConfig`. Create new robot with `minimalProcessedConfig`
 	// and immediately start web service. We need the machine to be reachable
 	// through the web service ASAP, even if some resources take a long time to
@@ -538,16 +553,20 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	minimalProcessedConfig.Remotes = nil
 	minimalProcessedConfig.Modules = nil
 	minimalProcessedConfig.Processes = nil
+	minimalProcessedConfig.Packages = nil
 
 	// Mark minimalProcessedConfig as an initial config, so robot reports a
 	// state of initializing until reconfigured with full config.
 	minimalProcessedConfig.Initial = true
 
+	startTime := time.Now()
 	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.conn, s.logger, robotOptions...)
 	if err != nil {
 		cancel()
 		return err
 	}
+	s.logger.CInfow(ctx, "Robot created with minimal config", "time_to_create", time.Since(startTime).String())
+
 	theRobotLock.Lock()
 	theRobot = myRobot
 	theRobotLock.Unlock()
@@ -580,6 +599,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		cancel()
 		<-onWatchDone
 	}()
+	s.logger.CInfo(ctx, "Config watcher started")
 
 	// Create initial web options with `minimalProcessedConfig`.
 	options, err := s.createWebOptions(&minimalProcessedConfig)

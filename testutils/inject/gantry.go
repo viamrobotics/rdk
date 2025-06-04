@@ -20,7 +20,7 @@ type Gantry struct {
 	HomeFunc           func(ctx context.Context, extra map[string]interface{}) (bool, error)
 	IsMovingFunc       func(context.Context) (bool, error)
 	CloseFunc          func(ctx context.Context) error
-	ModelFrameFunc     func() referenceframe.Model
+	KinematicsFunc     func(ctx context.Context) (referenceframe.Model, error)
 }
 
 // NewGantry returns a new injected gantry.
@@ -81,12 +81,12 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 	return g.IsMovingFunc(ctx)
 }
 
-// ModelFrame returns a Gantry ModelFrame.
-func (g *Gantry) ModelFrame() referenceframe.Model {
-	if g.ModelFrameFunc == nil {
-		return g.Gantry.ModelFrame()
+// Kinematics returns the kinematic model associated with the gantry.
+func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	if g.KinematicsFunc == nil {
+		return g.Gantry.Kinematics(ctx)
 	}
-	return g.ModelFrameFunc()
+	return g.KinematicsFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.

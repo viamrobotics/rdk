@@ -41,13 +41,33 @@ func NewAppConn(ctx context.Context, appAddress, secret, id string, logger loggi
 
 	ctxWithTimeout, ctxWithTimeoutCancel := contextutils.GetTimeoutCtx(ctx, true, id)
 	defer ctxWithTimeoutCancel()
+	// there will always be a deadline
+	if deadline, ok := ctxWithTimeout.Deadline(); ok {
+		logger.CInfow(
+			ctx,
+			"attempting to establish initial global connection to app",
+			"url",
+			grpcURL.Host,
+			"start_time",
+			time.Now().String(),
+			"deadline",
+			deadline.String(),
+		)
+	}
 
 	// lock not necessary here because call is blocking
 	appConn.conn, err = rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
 	if err == nil {
 		return appConn, nil
 	}
-
+	logger.CInfow(
+		ctx,
+		"failed to establish initial global connection to app, starting background worker to establish connection...",
+		"url",
+		grpcURL.Host,
+		"error",
+		err,
+	)
 	appConn.dialer = utils.NewStoppableWorkers(ctx)
 
 	appConn.dialer.Add(func(ctx context.Context) {
@@ -60,11 +80,11 @@ func NewAppConn(ctx context.Context, appAddress, secret, id string, logger loggi
 			conn, err := rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
 			ctxWithTimeoutCancel()
 			if err != nil {
-				logger.Debugw("error while dialing App. Could not establish global, unified connection", "error", err)
+				logger.Debugw("error while dialing app. Could not establish global, unified connection", "error", err)
 
 				continue
 			}
-
+			logger.CInfow(ctx, "successfully established global connection to app", "url", grpcURL.Host)
 			appConn.connMu.Lock()
 			appConn.conn = conn
 			appConn.connMu.Unlock()

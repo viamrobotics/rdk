@@ -5,12 +5,20 @@ import (
 
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/spatial/kdtree"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
-// PointAndData is a tiny struct to facilitate returning nearest neighbors in a neat way.
-type PointAndData struct {
-	P r3.Vector
-	D Data
+// KDTreeType for kd tree.
+const KDTreeType = "kdtree"
+
+var kdtreeConfig = TypeConfig{
+	StructureType: KDTreeType,
+	NewWithParams: func(size int) PointCloud { return newKDTreeWithPrealloc(size) },
+}
+
+func init() {
+	Register(kdtreeConfig)
 }
 
 // wraps r3.vector to make it compatible with kd trees.
@@ -92,13 +100,7 @@ type KDTree struct {
 	meta   MetaData
 }
 
-// NewKDTree creates a new KDTree.
-func NewKDTree() *KDTree {
-	return NewKDTreeWithPrealloc(0)
-}
-
-// NewKDTreeWithPrealloc creates a new KDTree with preallocated storage.
-func NewKDTreeWithPrealloc(size int) *KDTree {
+func newKDTreeWithPrealloc(size int) *KDTree {
 	return &KDTree{
 		tree:   kdtree.New(kdValues{}, false),
 		points: &matrixStorage{points: make([]PointAndData, 0, size), indexMap: make(map[r3.Vector]uint, size)},
@@ -112,7 +114,7 @@ func ToKDTree(pc PointCloud) *KDTree {
 	if ok {
 		return kd
 	}
-	t := NewKDTreeWithPrealloc(pc.Size())
+	t := newKDTreeWithPrealloc(pc.Size())
 
 	if pc != nil {
 		pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
@@ -245,4 +247,14 @@ func (kd *KDTree) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) 
 		}
 		return !fn(p.vec, d)
 	})
+}
+
+// FinalizeAfterReading no-op.
+func (kd *KDTree) FinalizeAfterReading() (PointCloud, error) {
+	return kd, nil
+}
+
+// CreateNewRecentered pre-sized.
+func (kd *KDTree) CreateNewRecentered(offset spatialmath.Pose) PointCloud {
+	return newKDTreeWithPrealloc(kd.Size())
 }

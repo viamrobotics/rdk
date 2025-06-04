@@ -12,6 +12,8 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 const numThreadsPointCloud = 8
@@ -25,6 +27,12 @@ type MetaData struct {
 	MinY, MaxY             float64
 	MinZ, MaxZ             float64
 	totalX, totalY, totalZ float64
+}
+
+// PointAndData is a tiny struct to facilitate returning nearest neighbors in a neat way.
+type PointAndData struct {
+	P r3.Vector
+	D Data
 }
 
 // PointCloud is a general purpose container of points. It does not
@@ -50,6 +58,12 @@ type PointCloud interface {
 	// numBatches lets you divide up he work. 0 means don't divide
 	// myBatch is used iff numBatches > 0 and is which batch you want
 	Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool)
+
+	// FinalizeAfterReading is called after a pc is done being read
+	// often this is a noop
+	FinalizeAfterReading() (PointCloud, error)
+
+	CreateNewRecentered(offset spatialmath.Pose) PointCloud
 }
 
 // NewMetaData creates a new MetaData.
@@ -117,6 +131,20 @@ func (meta *MetaData) Merge(v r3.Vector, data Data) {
 	meta.totalX += v.X
 	meta.totalY += v.Y
 	meta.totalZ += v.Z
+}
+
+// Center returns the center of the points.
+func (meta *MetaData) Center() r3.Vector {
+	return r3.Vector{
+		X: (meta.MaxX + meta.MinX) / 2,
+		Y: (meta.MaxY + meta.MinY) / 2,
+		Z: (meta.MaxZ + meta.MinZ) / 2,
+	}
+}
+
+// MaxSideLength function for calculating the max side length of a pointcloud based on its metadata.
+func (meta *MetaData) MaxSideLength() float64 {
+	return math.Max((meta.MaxX - meta.MinX), math.Max((meta.MaxY-meta.MinY), (meta.MaxZ-meta.MinZ)))
 }
 
 // CloudContains is a silly helper method.

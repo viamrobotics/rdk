@@ -820,50 +820,65 @@ func (manager *resourceManager) completeConfig(
 }
 
 func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr *localRobot) {
+	// Add remotes in parallel. This is particularly useful in cases where
+	// there are many remotes that are offline or slow to start up.
+	var remoteErrGroup errgroup.Group
+	remoteErrGroup.SetLimit(5)
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, ok := manager.resources.Node(resName)
 		if !ok || !gNode.NeedsReconfigure() {
 			continue
 		}
-		var verb string
-		if gNode.IsUninitialized() {
-			verb = "configuring"
-		} else {
-			verb = "reconfiguring"
-		}
-		manager.logger.CInfow(ctx, fmt.Sprintf("Now %s a remote", verb), "resource", resName)
-		switch resName.API {
-		case client.RemoteAPI:
-			remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
-			if err != nil {
-				manager.logger.CErrorw(ctx, "remote config error", "error", err)
-				continue
-			}
+		processAndCompleteConfigForRemote := func() {
+			var verb string
 			if gNode.IsUninitialized() {
-				gNode.InitializeLogger(
-					manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(),
-				)
+				verb = "configuring"
+			} else {
+				verb = "reconfiguring"
 			}
-			// this is done in config validation but partial start rules require us to check again
-			if _, _, err := remConf.Validate(""); err != nil {
-				gNode.LogAndSetLastError(
-					fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
-				continue
+			manager.logger.CInfow(ctx, fmt.Sprintf("Now %s a remote", verb), "resource", resName)
+			switch resName.API {
+			case client.RemoteAPI:
+				remConf, err := resource.NativeConfig[*config.Remote](gNode.Config())
+				if err != nil {
+					manager.logger.CErrorw(ctx, "remote config error", "error", err)
+					return
+				}
+				if gNode.IsUninitialized() {
+					gNode.InitializeLogger(
+						manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(),
+					)
+				}
+				// this is done in config validation but partial start rules require us to check again
+				if _, _, err := remConf.Validate(""); err != nil {
+					gNode.LogAndSetLastError(
+						fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
+					return
+				}
+				rr, err := manager.processRemote(ctx, *remConf, gNode)
+				if err != nil {
+					gNode.LogAndSetLastError(
+						fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
+					return
+				}
+				manager.addRemote(ctx, rr, gNode, *remConf)
+				rr.SetParentNotifier(func() {
+					lr.sendTriggerConfig(remConf.Name)
+				})
+			default:
+				err := errors.New("config is not a remote config")
+				manager.logger.CErrorw(ctx, err.Error(), "resource", resName)
 			}
-			rr, err := manager.processRemote(ctx, *remConf, gNode)
-			if err != nil {
-				gNode.LogAndSetLastError(
-					fmt.Errorf("error connecting to remote: %w", err), "remote", remConf.Name)
-				continue
-			}
-			manager.addRemote(ctx, rr, gNode, *remConf)
-			rr.SetParentNotifier(func() {
-				lr.sendTriggerConfig(remConf.Name)
-			})
-		default:
-			err := errors.New("config is not a remote config")
-			manager.logger.CErrorw(ctx, err.Error(), "resource", resName)
 		}
+		lr.reconfigureWorkers.Add(1)
+		remoteErrGroup.Go(func() error {
+			defer lr.reconfigureWorkers.Done()
+			processAndCompleteConfigForRemote()
+			return nil
+		})
+	}
+	if err := remoteErrGroup.Wait(); err != nil {
+		return
 	}
 }
 

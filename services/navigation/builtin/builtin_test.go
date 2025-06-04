@@ -1831,7 +1831,7 @@ func TestGetObstacles(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-box", boxGeom.ToProtobuf())
+		detection, err := viz.NewObjectWithLabel(pointcloud.NewBasicEmpty(), "test-box", boxGeom.ToProtobuf())
 		test.That(t, err, test.ShouldBeNil)
 		return []*viz.Object{detection}, nil
 	}

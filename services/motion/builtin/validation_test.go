@@ -315,12 +315,13 @@ func TestMoveCallInputs(t *testing.T) {
 					Destination:   goalPose,
 					SlamName:      slam.Named("test_slam"),
 					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
-					Extra:         map[string]interface{}{"collision_buffer_mm": 200.},
+					Extra:         map[string]interface{}{"collision_buffer_mm": 2000.},
 				}
 
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 				defer timeoutFn()
 				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
+				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, strings.Contains(err.Error(), "starting collision between SLAM map and "), test.ShouldBeTrue)
 				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 			})
@@ -407,12 +408,6 @@ func TestMoveCallInputs(t *testing.T) {
 		// Near antarctica 🐧
 		gpsPoint := geo.NewPoint(-70, 40)
 		dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+1e-4)
-		// create motion config
-		extra := map[string]interface{}{
-			"motion_profile": "position_only",
-			"timeout":        5.,
-			"smooth_iter":    5.,
-		}
 		t.Run("returns error when called with an unknown component", func(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
@@ -502,7 +497,11 @@ func TestMoveCallInputs(t *testing.T) {
 				MovementSensorName: moveSensorResource,
 				Heading:            90,
 				Destination:        dst,
-				Extra:              extra,
+				Extra: map[string]interface{}{
+					"motion_profile": "position_only",
+					"timeout":        5.,
+					"smooth_iter":    5.,
+				},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:movement_sensor/test-movement-sensor\" not found"))
@@ -518,7 +517,11 @@ func TestMoveCallInputs(t *testing.T) {
 				MovementSensorName: baseResource,
 				Heading:            90,
 				Destination:        dst,
-				Extra:              extra,
+				Extra: map[string]interface{}{
+					"motion_profile": "position_only",
+					"timeout":        5.,
+					"smooth_iter":    5.,
+				},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:component:base/test-base"))
@@ -689,7 +692,7 @@ func TestMoveCallInputs(t *testing.T) {
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
-		t.Run("collision_buffer_mm validtations", func(t *testing.T) {
+		t.Run("collision_buffer_mm validations", func(t *testing.T) {
 			t.Run("fail when collision_buffer_mm is not a float", func(t *testing.T) {
 				_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 				defer closeFunc(ctx)

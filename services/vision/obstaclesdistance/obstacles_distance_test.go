@@ -73,7 +73,7 @@ func TestObstacleDist(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "does not implement")
 
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		cloud := pc.New()
+		cloud := pc.NewBasicEmpty()
 		err = cloud.Set(pc.NewVector(0, 0, 1), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
 		return cloud, err
@@ -93,7 +93,7 @@ func TestObstacleDist(t *testing.T) {
 	count := 0
 	nums := []float64{10, 9, 4, 5, 3, 1, 2, 6, 7, 8}
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		cloud := pc.New()
+		cloud := pc.NewBasicEmpty()
 		err = cloud.Set(pc.NewVector(0, 0, nums[count]), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
 		count++
@@ -110,7 +110,7 @@ func TestObstacleDist(t *testing.T) {
 	// more than one point in cloud
 	count = 0
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		cloud := pc.New()
+		cloud := pc.NewBasicEmpty()
 		err = cloud.Set(pc.NewVector(0, 0, nums[count]), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
 		err = cloud.Set(pc.NewVector(0, 0, 6.0), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))

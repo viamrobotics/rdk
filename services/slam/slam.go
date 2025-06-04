@@ -217,10 +217,12 @@ func Limits(ctx context.Context, svc Service, useEditedMap bool) ([]referencefra
 	if err != nil {
 		return nil, err
 	}
-	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
+	pc, err := pointcloud.ReadPCD(bytes.NewReader(data), "")
 	if err != nil {
 		return nil, err
 	}
+
+	dims := pc.MetaData()
 
 	return []referenceframe.Limit{
 		{Min: dims.MinX, Max: dims.MaxX},

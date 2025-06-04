@@ -219,7 +219,7 @@ func (c *client) GetObjectPointClouds(
 func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) {
 	objects := make([]*vision.Object, len(pco))
 	for i, o := range pco {
-		pc, err := pointcloud.ReadPCD(bytes.NewReader(o.PointCloud))
+		pc, err := pointcloud.ReadPCD(bytes.NewReader(o.PointCloud), "")
 		if err != nil {
 			return nil, err
 		}

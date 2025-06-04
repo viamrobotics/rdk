@@ -15,6 +15,8 @@ import (
 
 // CLI flags.
 const (
+	flagAll = "all"
+
 	baseURLFlag         = "base-url"
 	configFlag          = "config"
 	debugFlag           = "debug"
@@ -67,6 +69,7 @@ const (
 	generalFlagTags              = "tags"
 	generalFlagStart             = "start"
 	generalFlagEnd               = "end"
+	generalFlagNoProgress        = "no-progress"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -1965,6 +1968,10 @@ var app = &cli.App{
 								DefaultText: "first location alphabetically",
 							},
 						},
+						&cli.BoolFlag{
+							Name:  flagAll,
+							Usage: "list all machines in the organization. overrides location flag",
+						},
 					},
 					Action: createCommandWithT[listRobotsActionArgs](ListRobotsAction),
 				},
@@ -2343,8 +2350,30 @@ Copy multiple files from the machine to a local destination with recursion and k
 									// Note(erd): maybe support access time in the future if needed
 									Usage: "preserve modification times and file mode bits from the source files",
 								},
+								&cli.BoolFlag{
+									Name:    generalFlagNoProgress,
+									Aliases: []string{"n"},
+									Usage:   "hide progress of the file transfer",
+								},
 							}...),
 							Action: createCommandWithT[machinesPartCopyFilesArgs](MachinesPartCopyFilesAction),
+						},
+						{
+							Name:  "get-ftdc",
+							Usage: "download FTDC data from a machine part",
+							Description: `
+In order to use the get-ftdc command, the machine must have a valid shell type service.
+Organization and location are required flags if using name (rather than ID) for the part.
+If [target] is not specified then the FTDC data will be saved to the current working directory.
+Note: There is no progress meter while copying is in progress.
+`,
+							UsageText: createUsageText(
+								"machines part get-ftdc",
+								[]string{generalFlagPart},
+								true, false,
+								"[target]"),
+							Flags:  commonPartFlags,
+							Action: createCommandWithT(MachinesPartGetFTDCAction),
 						},
 						{
 							Name:  "tunnel",
@@ -2814,6 +2843,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.BoolFlag{
 							Name:  moduleFlagLocal,
 							Usage: "if the target machine is localhost, run the entrypoint directly rather than transferring a bundle",
+						},
+						&cli.BoolFlag{
+							Name:  generalFlagNoProgress,
+							Usage: "hide progress of the file transfer",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagHomeDir,

@@ -999,7 +999,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
 func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
-	localParts, err := r.getLocalFrameSystemParts()
+	localParts, err := r.getLocalFrameSystemParts(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1013,7 +1013,7 @@ func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config
 
 // getLocalFrameSystemParts collects and returns the physical parts of the robot that may have frame info,
 // excluding remote robots and services, etc from the robot's config.Config.
-func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPart, error) {
+func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	cfg := r.Config()
 
 	parts := make([]*referenceframe.FrameSystemPart, 0)
@@ -1043,7 +1043,7 @@ func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPa
 		var err error
 		switch component.ResourceName().API.SubtypeName {
 		case arm.SubtypeName, gantry.SubtypeName, gripper.SubtypeName: // catch the case for all the ModelFramers
-			model, err = r.extractModelFrameJSON(component.ResourceName())
+			model, err = r.extractModelFrameJSON(ctx, component.ResourceName())
 			if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
 				// When we have non-nil errors here, it is because the resource is not yet available.
 				// In this case, we will exclude it from the FS. When it becomes available, it will be included.
@@ -1119,13 +1119,13 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
 // JSON []byte if it does, or nil if it doesn't.
-func (r *localRobot) extractModelFrameJSON(name resource.Name) (referenceframe.Model, error) {
+func (r *localRobot) extractModelFrameJSON(ctx context.Context, name resource.Name) (referenceframe.Model, error) {
 	part, err := r.ResourceByName(name)
 	if err != nil {
 		return nil, err
 	}
-	if framer, ok := part.(referenceframe.ModelFramer); ok {
-		return framer.ModelFrame(), nil
+	if k, ok := part.(framesystem.InputEnabled); ok {
+		return k.Kinematics(ctx)
 	}
 	return nil, referenceframe.ErrNoModelInformation
 }
@@ -1285,7 +1285,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// if anything has changed.
 	err := r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed", "error", err)
+		// The returned error is rich, detailing each individual packages error. The underlying
+		// `Sync` call is responsible for logging those errors in a readable way. We only need to
+		// log that reconfiguration is exited. To minimize the distraction of reading a list of
+		// verbose errors that was arleady logged.
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed")
 		return
 	}
 	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
@@ -1295,7 +1299,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	r.applyLocalModuleVersions(newConfig)
 	err = r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed", "error", err)
+		// Same as the above `Sync` call error handling. The returned error is rich, detailing each
+		// individual packages error. The underlying `Sync` call is responsible for logging those
+		// errors in a readable way.
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed")
 		return
 	}
 
@@ -1506,6 +1513,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 			return err
 		}
 	}
+
 	diff := config.Diff{
 		Left:     r.Config(),
 		Right:    r.Config(),
@@ -1513,6 +1521,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		Modified: &config.ModifiedConfigDiff{},
 		Removed:  &config.Config{},
 	}
+
 	r.reconfigurationLock.Lock()
 	defer r.reconfigurationLock.Unlock()
 	// note: if !isRunning (i.e. the module is in config but it crashed), putting it in diff.Modified
@@ -1522,6 +1531,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 	} else {
 		diff.Added.Modules = append(diff.Added.Modules, *mod)
 	}
+
 	return r.manager.updateResources(ctx, &diff)
 }
 
@@ -1531,17 +1541,21 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 	if cfg.Modules != nil {
 		mod = utils.FindInSlice(cfg.Modules, req.MatchesModule)
 	}
+
 	if mod == nil {
 		return status.Errorf(codes.NotFound,
 			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
 			req.ModuleID, req.ModuleName)
 	}
+
 	activeModules := r.manager.createConfig().Modules
 	isRunning := activeModules != nil && utils.FindInSlice(activeModules, req.MatchesModule) != nil
 	err := r.restartSingleModule(ctx, mod, isRunning)
 	if err != nil {
+		r.logger.Warn("Error restarting module. ID: %v Name: %v Err: %v", req.ModuleID, req.ModuleName, err)
 		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
+
 	return nil
 }
 
