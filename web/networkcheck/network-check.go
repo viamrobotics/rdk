@@ -223,7 +223,7 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 	cachedResolvedIPs := make(map[string]net.IP)
 	for _, stunServerURLToTest := range stunServerURLsToTestUDP {
 		if ctx.Err() != nil {
-			logger.Info("Machine shutdown detected; stopping UDP network tests")
+			logger.Info("Shutdown detected; stopping UDP network tests")
 			return nil
 		}
 
@@ -385,7 +385,7 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 	var stunResponses []*STUNResponse
 	for _, stunServerURLToTest := range stunServerURLsToTestTCP {
 		if ctx.Err() != nil {
-			logger.Info("Machine shutdown detected; stopping TCP network tests")
+			logger.Info("Shutdown detected; stopping TCP network tests")
 			return nil
 		}
 
