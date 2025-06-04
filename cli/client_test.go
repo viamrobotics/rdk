@@ -1250,16 +1250,17 @@ func TestReadOAuthApp(t *testing.T) {
 	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
 	test.That(t, ac.readOAuthAppAction(cCtx, "test-org-id", "test-client-id"), test.ShouldBeNil)
-	test.That(t, len(out.messages), test.ShouldEqual, 9)
+	test.That(t, len(out.messages), test.ShouldEqual, 10)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "OAuth config for client ID test-client-id")
-	test.That(t, out.messages[2], test.ShouldContainSubstring, "Client Authentication: required")
-	test.That(t, out.messages[3], test.ShouldContainSubstring, "PKCE (Proof Key for Code Exchange): required")
-	test.That(t, out.messages[4], test.ShouldContainSubstring, "URL Validation Policy: allow_wildcards")
-	test.That(t, out.messages[5], test.ShouldContainSubstring, "Logout URL: https://my-logout-uri.com")
-	test.That(t, out.messages[6], test.ShouldContainSubstring, "Redirect URLs: https://my-redirect-uri.com")
-	test.That(t, out.messages[7], test.ShouldContainSubstring, "Origin URLs: https://my-origin-uri.com, https://second-origin-uri.com")
-	test.That(t, out.messages[8], test.ShouldContainSubstring, "Enabled Grants: implicit, password")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "Client name: clientname")
+	test.That(t, out.messages[3], test.ShouldContainSubstring, "Client Authentication: required")
+	test.That(t, out.messages[4], test.ShouldContainSubstring, "PKCE (Proof Key for Code Exchange): required")
+	test.That(t, out.messages[5], test.ShouldContainSubstring, "URL Validation Policy: allow_wildcards")
+	test.That(t, out.messages[6], test.ShouldContainSubstring, "Logout URL: https://my-logout-uri.com")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "Redirect URLs: https://my-redirect-uri.com")
+	test.That(t, out.messages[8], test.ShouldContainSubstring, "Origin URLs: https://my-origin-uri.com, https://second-origin-uri.com")
+	test.That(t, out.messages[9], test.ShouldContainSubstring, "Enabled Grants: implicit, password")
 }
 
 func TestUpdateOAuthAppAction(t *testing.T) {
