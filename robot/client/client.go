@@ -256,14 +256,12 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	}
 
 	if rOpts.runNetworkChecks {
-		// should we use this ctx or backgroundCtx?
 		go nc.RunNetworkChecks(ctx, logger)
 	}
 
 	backgroundCtx, backgroundCtxCancel := context.WithCancel(context.Background())
 	heartbeatCtx, heartbeatCtxCancel := context.WithCancel(context.Background())
 
-	// setup a dialOptions struct to check for a debug flag
 	rc := &RobotClient{
 		Named:               resource.NewName(RemoteAPI, rOpts.remoteName).AsNamed(),
 		remoteName:          rOpts.remoteName,
