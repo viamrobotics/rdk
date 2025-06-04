@@ -1,3 +1,4 @@
+// Package networkcheck implements logic for collecting network statistics
 package networkcheck
 
 import (
