@@ -23,8 +23,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
-	
-	nc "go.viam.com/rdk/web/networkcheck"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -152,7 +151,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	} else if argsParsed.NetworkCheckOnly {
 		// Run network checks synchronously and immediately exit if `--network-check` flag was
 		// used. Otherwise run network checks asynchronously.
-		nc.RunNetworkChecks(ctx, logger)
+		runNetworkChecks(ctx, logger)
 		return
 	}
 
@@ -238,7 +237,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// Have goutils use the logger we've just configured.
 	golog.ReplaceGloabl(logger.AsZap())
 
-	go nc.RunNetworkChecks(ctx, logger)
+	go runNetworkChecks(ctx, logger)
 
 	server := robotServer{
 		logger:   logger,
