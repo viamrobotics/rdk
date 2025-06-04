@@ -34,7 +34,7 @@ type robotClientOpts struct {
 	disableSessions bool
 
 	// enables NAT network tests
-	runNetworkChecks bool
+	withNetworkStats bool
 
 	// initialConnectionAttempts indicates the number of times to try dialing when making
 	// initial connection to a machine. Defaults to three. If set to zero or a negative
@@ -131,7 +131,7 @@ func WithDialOptions(opts ...rpc.DialOption) RobotClientOption {
 // running the network checks.
 func WithNetworkStats() RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
-		o.runNetworkChecks = true
+		o.withNetworkStats = true
 	})
 }
 
