@@ -255,7 +255,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		opt.apply(&rOpts)
 	}
 
-	if rOpts.runNetworkChecks {
+	if rOpts.withNetworkStats {
 		nc.RunNetworkChecks(ctx, logger)
 	}
 
