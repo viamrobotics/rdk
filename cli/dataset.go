@@ -214,7 +214,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines boo
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
-			downloadErr := c.downloadBinary(dst, id, timeout)
+			downloadErr := c.downloadBinary(dst, timeout, id)
 			var datasetErr error
 			if includeJSONLines {
 				datasetErr = binaryDataToJSONLines(c.c.Context, c.dataClient, dst, datasetFile, id)
