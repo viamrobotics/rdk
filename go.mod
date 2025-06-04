@@ -438,3 +438,5 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e
 )
+
+replace go.viam.com/utils => github.com/benjirewis/goutils v0.0.0-20250604211116-e26c597d0001
