@@ -513,27 +513,27 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	}
 }
 
-func (c *viamClient) downloadBinary(dst string, timeout uint, id ...string) error {
+func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) error {
 	args, err := getGlobalArgs(c.c)
 	if err != nil {
 		return err
 	}
-	debugf(c.c.App.Writer, args.Debug, "Attempting to download binary files: %v", id)
+	debugf(c.c.App.Writer, args.Debug, "Attempting to download binary files: %v", ids)
 
 	var resp *datapb.BinaryDataByIDsResponse
 	largeFile := false
 	// To begin, we assume the files are small and downloadable, so we try getting the binary directly
 	for count := 0; count < maxRetryCount; count++ {
 		resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
-			BinaryDataIds: id,
+			BinaryDataIds: ids,
 			IncludeBinary: !largeFile,
 		})
 		// If any file is too large, we break and try a different pathway for downloading
 		if err == nil || status.Code(err) == codes.ResourceExhausted {
-			debugf(c.c.App.Writer, args.Debug, "Small file download for files %v: attempt %d/%d succeeded", id, count+1, maxRetryCount)
+			debugf(c.c.App.Writer, args.Debug, "Small file download for files %v: attempt %d/%d succeeded", ids, count+1, maxRetryCount)
 			break
 		}
-		debugf(c.c.App.Writer, args.Debug, "Small file download for files %v: attempt %d/%d failed", id, count+1, maxRetryCount)
+		debugf(c.c.App.Writer, args.Debug, "Small file download for files %v: attempt %d/%d failed", ids, count+1, maxRetryCount)
 	}
 	// For large files, we get the metadata but not the binary itself
 	// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
@@ -541,14 +541,14 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, id ...string) erro
 		largeFile = true
 		for count := 0; count < maxRetryCount; count++ {
 			resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
-				BinaryDataIds: id,
+				BinaryDataIds: ids,
 				IncludeBinary: !largeFile,
 			})
 			if err == nil {
-				debugf(c.c.App.Writer, args.Debug, "Metadata fetch for files %v: attempt %d/%d succeeded", id, count+1, maxRetryCount)
+				debugf(c.c.App.Writer, args.Debug, "Metadata fetch for files %v: attempt %d/%d succeeded", ids, count+1, maxRetryCount)
 				break
 			}
-			debugf(c.c.App.Writer, args.Debug, "Metadata fetch for files %v: attempt %d/%d failed", id, count+1, maxRetryCount)
+			debugf(c.c.App.Writer, args.Debug, "Metadata fetch for files %v: attempt %d/%d failed", ids, count+1, maxRetryCount)
 		}
 	}
 	if err != nil {
@@ -558,12 +558,12 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, id ...string) erro
 	data := resp.GetData()
 
 	// Loop through responses and download each file
-	if len(data) != len(id) {
-		return errors.Errorf("expected %d responses for %d files, received %d responses", len(id), len(id), len(data))
+	if len(data) != len(ids) {
+		return errors.Errorf("expected %d responses for %d files, received %d responses", len(ids), len(ids), len(data))
 	}
 
 	for i, datum := range data {
-		currentID := id[i]
+		currentID := ids[i]
 		fileName := filenameForDownload(datum.GetMetadata())
 		// Modify the file name in the metadata to reflect what it will be saved as.
 		metadata := datum.GetMetadata()
