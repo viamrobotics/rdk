@@ -16,8 +16,8 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// Characterizes the network through a series of UDP and TCP STUN network checks. Can and
-// should be run asynchronously with server startup to avoid blocking.
+// RunNetworkChecks characterizes the network through a series of UDP and TCP STUN
+// network checks. Can and should be run asynchronously with server startup to avoid blocking.
 func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger) {
 	logger := rdkLogger.Sublogger("network-checks")
 	if testing.Testing() {
