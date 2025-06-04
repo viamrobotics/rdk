@@ -23,8 +23,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
-	
-	nc "go.viam.com/rdk/web/networkcheck"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -34,6 +33,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	rutils "go.viam.com/rdk/utils"
+	nc "go.viam.com/rdk/web/networkcheck"
 )
 
 var viamDotDir = filepath.Join(rutils.PlatformHomeDir(), ".viam")
