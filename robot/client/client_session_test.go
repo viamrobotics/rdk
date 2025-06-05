@@ -78,7 +78,7 @@ func init() {
 	)
 }
 
-// Test different combinations of options
+// Test different combinations of options.
 func TestClientSessionOptions(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
