@@ -1253,7 +1253,7 @@ func TestReadOAuthApp(t *testing.T) {
 	test.That(t, len(out.messages), test.ShouldEqual, 10)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "OAuth config for client ID test-client-id")
-	test.That(t, out.messages[2], test.ShouldContainSubstring, "Client name: clientname")
+	test.That(t, out.messages[2], test.ShouldContainSubstring, "Client Name: clientname")
 	test.That(t, out.messages[3], test.ShouldContainSubstring, "Client Authentication: required")
 	test.That(t, out.messages[4], test.ShouldContainSubstring, "PKCE (Proof Key for Code Exchange): required")
 	test.That(t, out.messages[5], test.ShouldContainSubstring, "URL Validation Policy: allow_wildcards")
