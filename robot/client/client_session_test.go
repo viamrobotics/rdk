@@ -8,17 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"go.viam.com/test"
-	echopb "go.viam.com/utils/proto/rpc/examples/echoresource/v1"
-	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/testutils"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
-
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -27,6 +20,14 @@ import (
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
+	"go.viam.com/test"
+	echopb "go.viam.com/utils/proto/rpc/examples/echoresource/v1"
+	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 /*
@@ -466,16 +467,17 @@ func TestClientSessionExpiration(t *testing.T) {
 	}
 }
 
+// Test a single client session stopping, e.g. due to a disconnect, and resuming on the next call that requires a session.
 func TestClientSessionResume(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	for _, webrtcDisabled := range []bool{false, true} {
-		webrtcDisabledCopy := webrtcDisabled
+	for _, webrtcDisabledOuter := range []bool{false, true} {
+		webrtcDisabled := webrtcDisabledOuter
 
 		t.Run(
 			fmt.Sprintf(
 				"webrtc disabled=%t",
-				webrtcDisabledCopy,
+				webrtcDisabled,
 			),
 			func(t *testing.T) {
 				t.Parallel()
@@ -484,14 +486,42 @@ func TestClientSessionResume(t *testing.T) {
 
 				sessMgr := &sessionManager{}
 				injectRobot := &inject.Robot{
-					ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
-					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 					MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
 						return robot.MachineStatus{State: robot.StateRunning}, nil
 					},
-					LoggerFunc: func() logging.Logger { return logger },
-					SessMgr:    sessMgr,
+					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+					LoggerFunc:          func() logging.Logger { return logger },
+					SessMgr:             sessMgr,
 				}
+
+				var capSessID uuid.UUID
+
+				// Inject a base. Its actuating methods- MoveStraight, SetPower, etc. will start sessions.
+				// Repurpose MoveStraight and SetPower to capture session IDs
+				injectBase := inject.Base{
+					MoveStraightFunc: func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+						sess, ok := session.FromContext(ctx)
+						test.That(t, ok, test.ShouldBeTrue)
+						if !ok {
+							panic("expected session")
+						}
+						capSessID = sess.ID()
+						return nil
+					},
+					SetPowerFunc: func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+						sess, ok := session.FromContext(ctx)
+						test.That(t, ok, test.ShouldBeTrue)
+						if !ok {
+							panic("expected session")
+						}
+						capSessID = sess.ID()
+						return nil
+					},
+				}
+				rs := map[resource.Name]resource.Resource{
+					base.Named("base1"): &injectBase,
+				}
+				injectRobot.MockResourcesFromMap(rs)
 
 				svc := web.New(injectRobot, logger)
 
@@ -500,16 +530,20 @@ func TestClientSessionResume(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 
 				var opts []client.RobotClientOption
-				if webrtcDisabledCopy {
+				if webrtcDisabled {
 					opts = append(opts, client.WithDialOptions(rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
 						Disable: true,
 					})))
 				}
 
 				var capMu sync.Mutex
-				var startCalled int
-				var findCalled int
+				// count session.Start() calls
+				var startCalledCnt int
+				// use FindByID as a proxy for counting heartbeats
+				var heartbeatCnt int
 
+				// Create new unstarted session.
+				// Track Start and FindByID calls. FindByID is called by SendSessionHeartbeat; used here to count heartbeats.
 				sess1 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
 				nextCtx := session.ToContext(ctx, sess1)
 
@@ -517,8 +551,8 @@ func TestClientSessionResume(t *testing.T) {
 				sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
 					logger.Debug("start session requested")
 					capMu.Lock()
-					startCalled++
-					findCalled = 0
+					startCalledCnt++
+					heartbeatCnt = 0
 					capMu.Unlock()
 					return sess1, nil
 				}
@@ -527,45 +561,41 @@ func TestClientSessionResume(t *testing.T) {
 						return nil, errors.New("session id mismatch")
 					}
 					capMu.Lock()
-					findCalled++
+					heartbeatCnt++
 					capMu.Unlock()
 					sess1.Heartbeat(ctx) // gotta keep session alive
 					return sess1, nil
 				}
 				sessMgr.mu.Unlock()
 
-				injectRobot.Mu.Lock()
-				var capSessID uuid.UUID
-				injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
-					sess, ok := session.FromContext(nextCtx)
-					test.That(t, ok, test.ShouldBeTrue)
-					if !ok {
-						panic("expected session")
-					}
-					capSessID = sess.ID()
-					return robot.MachineStatus{State: robot.StateRunning}, nil
-				}
-				injectRobot.Mu.Unlock()
-
 				roboClient, err := client.New(ctx, addr, logger, opts...)
 				test.That(t, err, test.ShouldBeNil)
-				resp, err := roboClient.MachineStatus(nextCtx)
+				rcr, err := roboClient.ResourceByName(base.Named("base1"))
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, resp, test.ShouldNotBeNil)
+				baseClient := rcr.(base.Base)
 
+				// MoveStraight starts a session and captures SessionID
+				err = baseClient.MoveStraight(nextCtx, 1, 1, nil)
+				test.That(t, err, test.ShouldBeNil)
+
+				test.That(t, capSessID, test.ShouldEqual, sess1.ID())
+
+				// count # of heartbeats
 				testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
 					tb.Helper()
 					capMu.Lock()
 					defer capMu.Unlock()
-					test.That(tb, findCalled, test.ShouldBeGreaterThanOrEqualTo, 5)
+					test.That(tb, heartbeatCnt, test.ShouldBeGreaterThanOrEqualTo, 5)
 				})
 
 				capMu.Lock()
-				test.That(t, startCalled, test.ShouldEqual, 1)
+				test.That(t, startCalledCnt, test.ShouldEqual, 1)
 				capMu.Unlock()
 
 				errFindCalled := make(chan struct{})
 				sessMgr.mu.Lock()
+				// close channel on next heartbeat
+				findByIDFuncBackup := sessMgr.FindByIDFunc
 				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					close(errFindCalled)
 					return nil, status.New(codes.Unavailable, "disconnected or something").Err()
@@ -575,30 +605,35 @@ func TestClientSessionResume(t *testing.T) {
 				<-errFindCalled
 				time.Sleep(time.Second)
 
+				heartbeatsBeforeResume := heartbeatCnt
 				sessMgr.mu.Lock()
-				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
-					if id != sess1.ID() {
-						return nil, errors.New("session id mismatch")
-					}
-					capMu.Lock()
-					findCalled++
-					capMu.Unlock()
-					sess1.Heartbeat(ctx) // gotta keep session alive
-					return sess1, nil
-				}
+				sessMgr.FindByIDFunc = findByIDFuncBackup
 				sessMgr.mu.Unlock()
 
-				resp, err = roboClient.MachineStatus(nextCtx)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, resp, test.ShouldNotBeNil)
+				injectRobot.Mu.Lock()
+				capSessID = uuid.Nil
+				injectRobot.Mu.Unlock()
 
-				capMu.Lock()
-				test.That(t, startCalled, test.ShouldEqual, 1)
-				capMu.Unlock()
+				// Resume session and capture session ID (should be unchanged)
+				err = baseClient.SetPower(nextCtx, r3.Vector{}, r3.Vector{}, nil)
+				test.That(t, err, test.ShouldBeNil)
 
 				injectRobot.Mu.Lock()
 				test.That(t, capSessID, test.ShouldEqual, sess1.ID())
 				injectRobot.Mu.Unlock()
+
+				capMu.Lock()
+				// resume doesn't call Start again
+				test.That(t, startCalledCnt, test.ShouldEqual, 1)
+				capMu.Unlock()
+
+				// confirm Session is working again
+				testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
+					tb.Helper()
+					capMu.Lock()
+					defer capMu.Unlock()
+					test.That(tb, heartbeatCnt, test.ShouldBeGreaterThanOrEqualTo, heartbeatsBeforeResume+1)
+				})
 
 				err = roboClient.Close(context.Background())
 				test.That(t, err, test.ShouldBeNil)
