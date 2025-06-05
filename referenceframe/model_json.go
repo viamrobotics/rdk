@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/pkg/errors"
@@ -148,7 +149,7 @@ func sortTransforms(transforms map[string]Frame, parents map[string]string) ([]F
 	}
 	// ensure there is only on end effector
 	if len(ees) != 1 {
-		return nil, ErrNeedOneEndEffector
+		return nil, fmt.Errorf("%w, have %v", ErrNeedOneEndEffector, ees)
 	}
 
 	// start the search from the end effector
