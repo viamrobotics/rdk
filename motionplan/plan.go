@@ -384,6 +384,21 @@ func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (referenceframe.
 	return p.configuration.ComputePoses(fs)
 }
 
+// Subset takes a PlanState and returns the subset of it corresponding to the given frames
+func (p *PlanState) Subset(frames []string) *PlanState {
+	poses := make(referenceframe.FrameSystemPoses)
+	inputs := make(referenceframe.FrameSystemInputs)
+	for _, frame := range frames {
+		if p, ok := p.poses[frame]; ok {
+			poses[frame] = p
+		}
+		if p, ok := p.configuration[frame]; ok {
+			inputs[frame] = p
+		}
+	}
+	return &PlanState{poses: poses, configuration: inputs}
+}
+
 // Serialize turns a PlanState into a map[string]interface suitable for being transmitted over proto.
 func (p PlanState) Serialize() map[string]interface{} {
 	m := map[string]interface{}{}

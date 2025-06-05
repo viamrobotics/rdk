@@ -105,6 +105,7 @@ func (c *client) MoveThroughJointPositions(
 	options *MoveOptions,
 	extra map[string]interface{},
 ) error {
+	c.logger.CDebugf(ctx, "%s moving to positions: %v", c.name, positions)
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err

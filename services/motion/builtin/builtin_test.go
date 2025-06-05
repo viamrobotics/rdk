@@ -1567,6 +1567,26 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	})
 }
 
+func TestMultipleKinematicChains(t *testing.T) {
+	ms, teardown := setupMotionServiceFromConfig(t, "../data/two_chains.json")
+	defer teardown()
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	plan, err := ms.(*builtIn).plan(
+		ctx,
+		motion.MoveReq{
+			ComponentName: arm.Named("arm1"),
+			Destination:   referenceframe.NewPoseInFrame("arm1", spatialmath.NewPoseFromPoint(r3.Vector{X: 100})),
+			Constraints:   motionplan.NewConstraints([]motionplan.LinearConstraint{}, nil, nil, nil),
+		},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan.Trajectory()), test.ShouldEqual, 2)
+	test.That(t, len(plan.Trajectory()[0]), test.ShouldEqual, 2) // should just have two frames there, one for origin frame one for arm
+}
+
 func TestConfiguredDefaultExtras(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)

@@ -44,7 +44,7 @@ func (r *resultPromise) result() ([]node, error) {
 	return planReturn.steps, nil
 }
 
-// linearizedFrameSystem wraps a framesystem, allowing conversion in a known order between a FrameConfiguratinos and a flat array of floats,
+// linearizedFrameSystem wraps a framesystem, allowing conversion in a known order between a FrameConfigurations and a flat array of floats,
 // useful for being able to call IK solvers against framesystems.
 type linearizedFrameSystem struct {
 	fs     referenceframe.FrameSystem
@@ -167,23 +167,37 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame, goalFrameName
 	var moving referenceframe.FrameSystem
 	var frames []referenceframe.Frame
 	worldRooted := false
-	pivotFrame, err := findPivotFrame(solveFrameList, goalFrameList)
-	if err != nil {
-		return nil, err
-	}
+	// pivotFrame, err := findPivotFrame(solveFrameList, goalFrameList)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	pivotFrame := fs.World()
 	if pivotFrame.Name() == referenceframe.World {
+		worldRooted = true
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
-		moving, err = movingFS(solveFrameList)
-		if err != nil {
-			return nil, err
+
+		// BUG CITY UP AHEAD
+		moving = referenceframe.NewEmptyFrameSystem("")
+		accountedFor := make(map[int]bool)
+		for i := 0; len(accountedFor) < len(frames); i = (i + 1) % len(frames) {
+			if accountedFor[i] {
+				continue
+			}
+			f := fs.Frame(frames[i].Name())
+			if f.Name() == referenceframe.World {
+				accountedFor[i] = true
+				continue
+			}
+			parent, err := fs.Parent(f)
+			if err != nil {
+				return nil, err
+			}
+			if err = moving.AddFrame(f, parent); err != nil {
+				continue
+			}
+			accountedFor[i] = true
 		}
-		movingSubset2, err := movingFS(goalFrameList)
-		if err != nil {
-			return nil, err
-		}
-		if err = moving.MergeFrameSystem(movingSubset2, moving.World()); err != nil {
-			return nil, err
-		}
+
 	} else {
 		dof := 0
 		var solveMovingList []referenceframe.Frame

@@ -18,6 +18,8 @@ import (
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+
+	vizclient "github.com/viam-labs/motion-tools/client/client"
 )
 
 var (
@@ -622,6 +624,16 @@ func TestReachOverArm(t *testing.T) {
 	ur5, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(ur5, fs.World())
+
+	vizclient.RemoveAllSpatialObjects()
+	vizclient.DrawFrameSystem(fs, frame.NewZeroInputs(fs))
+	// sphere, _ := spatialmath.NewSphere(goal.Pose(), 400, "this")
+	// gf := frame.NewGeometriesInFrame(goal.Parent(), []spatialmath.Geometry{sphere})
+	// err = vizclient.DrawGeometries(gf, []string{"green"})
+	p, _ := offset.Transform([]frame.Input{})
+	sphere, _ := spatialmath.NewSphere(spatialmath.Compose(p, goal.Pose()), 25, "this")
+	err = vizclient.DrawGeometry(sphere, "green")
+	test.That(t, err, test.ShouldBeNil)
 
 	// the plan should no longer be able to interpolate, but it should still be able to get there
 	opts = map[string]interface{}{"timeout": 150.0, "smooth_iter": 5}
