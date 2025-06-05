@@ -605,7 +605,7 @@ func reloadingDestination(c *cli.Context, manifest *moduleManifest) string {
 func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
 	reader, err := os.Open(build.Path)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error opening the build.path field in your meta.json")
 	}
 	decompressed, err := gzip.NewReader(reader)
 	if err != nil {
