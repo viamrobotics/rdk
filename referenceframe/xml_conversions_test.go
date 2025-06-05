@@ -1,4 +1,4 @@
-package urdf
+package referenceframe
 
 import (
 	"encoding/xml"

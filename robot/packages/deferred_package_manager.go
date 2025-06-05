@@ -12,9 +12,9 @@ package packages
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
-	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
 
@@ -156,7 +156,7 @@ func (m *deferredPackageManager) getManagerForSync(ctx context.Context, packages
 func (m *deferredPackageManager) createCloudManager(ctx context.Context) (ManagerSyncer, error) {
 	client, err := m.establishConnection(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to a establish connection to app.viam")
+		return nil, fmt.Errorf("failed to a establish connection to app.viam: %w", err)
 	}
 	return NewCloudManager(
 		m.cloudManagerArgs.cloudConfig,

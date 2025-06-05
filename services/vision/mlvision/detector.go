@@ -70,6 +70,7 @@ func attemptToBuildDetector(mlm mlmodel.Service,
 		if resizeH == -1 {
 			resizeH = origH
 		}
+
 		resized := img
 		if (origW != resizeW) || (origH != resizeH) {
 			resized = resize.Resize(uint(resizeW), uint(resizeH), img, resize.Bilinear)
@@ -109,8 +110,7 @@ func attemptToBuildDetector(mlm mlmodel.Service,
 		if err != nil {
 			return nil, err
 		}
-
-		boundingBoxes, err := ml.FormatDetectionOutputs(outNameMap, outMap, origW, origH, boxOrder, labels)
+		boundingBoxes, err := ml.FormatDetectionOutputs(outNameMap, outMap, resizeW, resizeH, boxOrder, labels)
 		if err != nil {
 			return nil, err
 		}

@@ -542,9 +542,8 @@ func TestStoppableMoveFunctions(t *testing.T) {
 		injectArm.GoToInputsFunc = func(ctx context.Context, goal ...[]referenceframe.Input) error {
 			return failToReachGoalError
 		}
-		injectArm.ModelFrameFunc = func() referenceframe.Model {
-			model, _ := ur.MakeModelFrame("ur5e")
-			return model
+		injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+			return ur.MakeModelFrame("ur5e")
 		}
 		injectArm.MoveToPositionFunc = func(ctx context.Context, to spatialmath.Pose, extra map[string]interface{}) error {
 			return failToReachGoalError
@@ -557,12 +556,13 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			armName,
 			nil,
 		)
-
+		m, err := injectArm.KinematicsFunc(ctx)
+		test.That(t, err, test.ShouldBeNil)
 		// Create a motion service
 		fsParts := []*referenceframe.FrameSystemPart{
 			{
 				FrameConfig: armLink,
-				ModelFrame:  injectArm.ModelFrameFunc(),
+				ModelFrame:  m,
 			},
 		}
 		deps := resource.Dependencies{
@@ -903,7 +903,9 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 	getTransientDetectionMock := func(currentPose, obstaclePose spatialmath.Pose) []spatialmath.Geometry {
 		inputMap, _, err := mr.fsService.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		kbInputs := make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
+		k, err := mr.kinematicBase.Kinematics(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		kbInputs := make([]referenceframe.Input, len(k.DoF()))
 		kbInputs = append(kbInputs, referenceframe.PoseToInputs(currentPose)...)
 		inputMap[mr.kinematicBase.Name().ShortName()] = kbInputs
 
@@ -1074,8 +1076,10 @@ func TestCheckPlan(t *testing.T) {
 
 	wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)
 
+	k, err := mr.kinematicBase.Kinematics(ctx)
+	test.That(t, err, test.ShouldBeNil)
 	currentInputs := referenceframe.FrameSystemInputs{
-		mr.kinematicBase.Kinematics().Name(): {
+		k.Name(): {
 			{Value: 0}, // ptg index
 			{Value: 0}, // trajectory alpha within ptg
 			{Value: 0}, // start distance along trajectory index
@@ -1103,7 +1107,7 @@ func TestCheckPlan(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
+	augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(ctx, baseExecutionState)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
@@ -1185,7 +1189,7 @@ func TestCheckPlan(t *testing.T) {
 	})
 
 	currentInputs = referenceframe.FrameSystemInputs{
-		mr.kinematicBase.Kinematics().Name(): {
+		k.Name(): {
 			{Value: 0}, // ptg index
 			{Value: 0}, // trajectory alpha within ptg
 			{Value: 0}, // start distance along trajectory index
@@ -1211,7 +1215,7 @@ func TestCheckPlan(t *testing.T) {
 
 	newExecutionState, err := motionplan.NewExecutionState(plan, 2, currentInputs, currentPoses)
 	test.That(t, err, test.ShouldBeNil)
-	updatedExecutionState, err := mr.augmentBaseExecutionState(newExecutionState)
+	updatedExecutionState, err := mr.augmentBaseExecutionState(ctx, newExecutionState)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("checking from partial-plan, ensure success with obstacles - integration test", func(t *testing.T) {
@@ -1560,5 +1564,51 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		// Verify final configuration matches goal state
 		finalArmConfig := plan[len(plan)-1]["pieceArm"]
 		test.That(t, finalArmConfig, test.ShouldResemble, referenceframe.FloatsToInputs(goalConfig))
+	})
+}
+
+func TestConfiguredDefaultExtras(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	t.Run("number of threads not configured", func(t *testing.T) {
+		// test configuring the number of threads to be zero
+		ms, err := NewBuiltIn(ctx, nil, resource.Config{ConvertedAttributes: &Config{}}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer test.That(t, ms.Close(ctx), test.ShouldBeNil)
+
+		// test that we can override the number of threads with user input
+		extras := map[string]any{"num_threads": 1}
+		ms.(*builtIn).applyDefaultExtras(extras)
+		test.That(t, extras["num_threads"], test.ShouldEqual, 1)
+
+		// test that if nothing is provided nothing is set
+		extras = map[string]any{}
+		ms.(*builtIn).applyDefaultExtras(extras)
+		test.That(t, extras["num_threads"], test.ShouldBeNil)
+	})
+
+	t.Run("configure number of threads", func(t *testing.T) {
+		// test configuring the number of threads to be a nonzero number
+		ms, err := NewBuiltIn(ctx, nil, resource.Config{ConvertedAttributes: &Config{NumThreads: 10}}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer test.That(t, ms.Close(ctx), test.ShouldBeNil)
+
+		// test that we can override the number of threads with user input
+		extras := map[string]any{"num_threads": 1}
+		ms.(*builtIn).applyDefaultExtras(extras)
+		test.That(t, extras["num_threads"], test.ShouldEqual, 1)
+
+		// test that if nothing is provided we use the default
+		extras = map[string]any{}
+		ms.(*builtIn).applyDefaultExtras(extras)
+		test.That(t, extras["num_threads"], test.ShouldEqual, 10)
+	})
+
+	t.Run("number of threads configured poorly", func(t *testing.T) {
+		// test configuring the number of threads to be negative
+		cfg := &Config{NumThreads: -1}
+		_, _, err := cfg.Validate("")
+		test.That(t, err, test.ShouldNotBeNil)
 	})
 }

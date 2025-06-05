@@ -1,4 +1,5 @@
-package server
+// Package networkcheck implements logic for collecting network statistics
+package networkcheck
 
 import (
 	"context"
@@ -15,9 +16,9 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// Characterizes the network through a series of UDP and TCP STUN network checks. Can and
-// should be run asynchronously with server startup to avoid blocking.
-func runNetworkChecks(ctx context.Context, rdkLogger logging.Logger) {
+// RunNetworkChecks characterizes the network through a series of UDP and TCP STUN
+// network checks. Can and should be run asynchronously with server startup to avoid blocking.
+func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger) {
 	logger := rdkLogger.Sublogger("network-checks")
 	if testing.Testing() {
 		logger.Debug("Skipping network checks in a testing environment")
@@ -223,7 +224,7 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 	cachedResolvedIPs := make(map[string]net.IP)
 	for _, stunServerURLToTest := range stunServerURLsToTestUDP {
 		if ctx.Err() != nil {
-			logger.Info("Machine shutdown detected; stopping UDP network tests")
+			logger.Info("Shutdown detected; stopping UDP network tests")
 			return nil
 		}
 
@@ -385,7 +386,7 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 	var stunResponses []*STUNResponse
 	for _, stunServerURLToTest := range stunServerURLsToTestTCP {
 		if ctx.Err() != nil {
-			logger.Info("Machine shutdown detected; stopping TCP network tests")
+			logger.Info("Shutdown detected; stopping TCP network tests")
 			return nil
 		}
 

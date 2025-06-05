@@ -37,8 +37,8 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 	fakesingleaxis.CloseFunc = func(ctx context.Context) error {
 		return nil
 	}
-	fakesingleaxis.ModelFrameFunc = func() referenceframe.Model {
-		return nil
+	fakesingleaxis.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel(""), nil
 	}
 	return fakesingleaxis
 }
@@ -300,14 +300,15 @@ func TestCurrentInputs(t *testing.T) {
 	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{Value: 1}, {Value: 5}})
 }
 
-func TestModelFrame(t *testing.T) {
+func TestKinematics(t *testing.T) {
 	fakemultiaxis := &multiAxis{
 		Named:     gantry.Named("foo").AsNamed(),
 		subAxes:   twoAxes,
 		lengthsMm: []float64{1, 1},
 		opMgr:     operation.NewSingleOperationManager(),
 	}
-	model := fakemultiaxis.ModelFrame()
+	model, err := fakemultiaxis.Kinematics(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, model, test.ShouldNotBeNil)
 
 	fakemultiaxis = &multiAxis{
@@ -316,7 +317,8 @@ func TestModelFrame(t *testing.T) {
 		lengthsMm: []float64{1, 1, 1},
 		opMgr:     operation.NewSingleOperationManager(),
 	}
-	model = fakemultiaxis.ModelFrame()
+	model, err = fakemultiaxis.Kinematics(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, model, test.ShouldNotBeNil)
 }
 

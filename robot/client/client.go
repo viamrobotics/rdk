@@ -49,6 +49,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/tunnel"
 	"go.viam.com/rdk/utils/contextutils"
+	nc "go.viam.com/rdk/web/networkcheck"
 )
 
 var (
@@ -254,6 +255,11 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}
+
+	if rOpts.withNetworkStats {
+		nc.RunNetworkChecks(ctx, logger)
+	}
+
 	backgroundCtx, backgroundCtxCancel := context.WithCancel(context.Background())
 	heartbeatCtx, heartbeatCtxCancel := context.WithCancel(context.Background())
 
@@ -401,7 +407,6 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 			rc.RefreshEvery(backgroundCtx, refreshTime)
 		}, rc.activeBackgroundWorkers.Done)
 	}
-
 	return rc, nil
 }
 
