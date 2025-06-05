@@ -3,9 +3,11 @@ package client
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1195,6 +1197,33 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 		return err
 	}
 
+	var diff float64
+	for range 5 {
+		sendTime := time.Now().UnixNano()
+		bytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(bytes, uint64(sendTime))
+		client.Send(&pb.TunnelRequest{Data: bytes})
+
+		timeMsg, err := client.Recv()
+		if err != nil {
+			return fmt.Errorf("failed to receive message from stream: %w", err)
+		}
+		srvTime := int64(binary.LittleEndian.Uint64(timeMsg.Data))
+		recTime := time.Now().UnixNano()
+		rTT := float64(recTime - sendTime)
+		tripTime := rTT / 2
+		expectedSrvTime := float64(sendTime) + tripTime
+		difference := float64(srvTime) - expectedSrvTime
+		diff += difference / 1000000
+	}
+	sendTime := time.Now().UnixNano()
+	bytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bytes, uint64(sendTime))
+
+	client.Send(&pb.TunnelRequest{Data: bytes})
+	drift := diff / float64(5)
+	rc.logger.CInfof(ctx, "measured clock drift of %.2f ms", drift)
+
 	if err := client.Send(&pb.TunnelRequest{
 		DestinationPort: uint32(dest),
 	}); err != nil {
@@ -1230,17 +1259,97 @@ func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest
 			timerMu.Unlock()
 			wg.Done()
 		}()
-		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
-		sendFunc := func(data []byte) error { return client.Send(&pb.TunnelRequest{Data: data}) }
+		// a max of 1MB will be sent per message
+		sendFunc := func(data []byte) error {
+			sendTime := time.Now().UnixNano()
+			b := make([]byte, 8)
+			binary.LittleEndian.PutUint64(b, uint64(sendTime))
+			b = append(b, data...)
+			return client.Send(&pb.TunnelRequest{Data: b})
+		}
 		readerSenderErr = tunnel.ReaderSenderLoop(ctx, conn, sendFunc, connClosed, rc.logger.WithFields("loop", "reader/sender"))
 	})
+
+	var statsMu sync.Mutex
+	type stats struct {
+		latencies []int64
+		max       int64
+		min       int64
+		size      []int64
+		max_size  int64
+		min_size  int64
+	}
+	stat := stats{
+		latencies: make([]int64, 0),
+		max:       math.MinInt64,
+		min:       math.MaxInt64,
+		size:      make([]int64, 0),
+		max_size:  math.MinInt64,
+		min_size:  math.MaxInt64,
+	}
 
 	recvFunc := func() ([]byte, error) {
 		resp, err := client.Recv()
 		if err != nil {
 			return nil, err
 		}
-		return resp.Data, nil
+		sentTime := resp.Data[:8]
+		sentMilli := int64(binary.LittleEndian.Uint64(sentTime))
+		recTime := time.Now().UnixNano()
+		latency := recTime - sentMilli
+		statsMu.Lock()
+		if stat.max < latency {
+			stat.max = latency
+		}
+		if stat.min > latency {
+			stat.min = latency
+		}
+		stat.latencies = append(stat.latencies, latency)
+
+		pk_size := int64(len(resp.Data[8:]))
+		if stat.max_size < pk_size {
+			stat.max_size = pk_size
+		}
+		if stat.min_size > pk_size {
+			stat.min_size = pk_size
+		}
+		stat.size = append(stat.size, pk_size)
+		if len(stat.latencies) == 10 {
+			var total int64
+			for _, lat := range stat.latencies {
+				total += lat
+			}
+			mean := float64(total) / float64(10)
+			var total_size int64
+			for _, s := range stat.size {
+				total_size += s
+			}
+			avg_size := float64(total_size) / float64(10)
+			rc.logger.
+				CInfow(client.Context(),
+					"latency over last 10 messages (ms)",
+					"avg", fmt.Sprintf("%.2f", (mean/1000000)+drift),
+					"min", fmt.Sprintf("%.2f", float64(stat.min/1000000)+drift),
+					"max", fmt.Sprintf("%.2f", float64(stat.max/1000000)+drift),
+				)
+			rc.logger.
+				CInfow(client.Context(),
+					"size over last 10 messages (bytes)",
+					"avg", fmt.Sprintf("%.2f", avg_size),
+					"min", fmt.Sprintf("%d", stat.min_size),
+					"max", fmt.Sprintf("%d", stat.max_size),
+				)
+			stat = stats{
+				latencies: make([]int64, 0),
+				max:       math.MinInt64,
+				min:       math.MaxInt64,
+				size:      make([]int64, 0),
+				max_size:  math.MinInt64,
+				min_size:  math.MaxInt64,
+			}
+		}
+		statsMu.Unlock()
+		return resp.Data[8:], nil
 	}
 	recvWriterErr := tunnel.RecvWriterLoop(ctx, recvFunc, conn, rsDone, rc.logger.WithFields("loop", "recv/writer"))
 	timerMu.Lock()
