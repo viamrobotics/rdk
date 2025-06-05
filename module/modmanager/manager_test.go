@@ -772,7 +772,6 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that manager removes module.
 		test.That(t, len(mgr.Configs()), test.ShouldEqual, 0)
-		test.That(t, false, test.ShouldBeTrue)
 	})
 
 	t.Run("cancelled module process is stopped", func(t *testing.T) {
@@ -1371,7 +1370,6 @@ func TestRTPPassthrough(t *testing.T) {
 	// the subscription should be terminated
 	test.That(t, utils.SelectContextOrWait(sub.Terminated, time.Second), test.ShouldBeFalse)
 	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
-	test.That(t, false, test.ShouldBeTrue)
 }
 
 func TestAddStreamMaxTrackErr(t *testing.T) {
