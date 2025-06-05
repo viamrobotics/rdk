@@ -28,7 +28,6 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 		return err
 	}
 
-	// Setup and start the server
 	server := setupHTTPServer(htmlPath, args.Port)
 	serverURL := fmt.Sprintf("http://localhost:%d", args.Port)
 
@@ -39,7 +38,6 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
 
-	// Open browser and wait for shutdown
 	if err := openbrowser(serverURL); err != nil {
 		logger.Printf("Warning: Could not open browser: %v", err)
 	}
@@ -77,7 +75,6 @@ func getHTMLFilePath() (string, error) {
 // setupHTTPServer creates and configures an HTTP server with the given HTML file.
 func setupHTTPServer(htmlPath string, port int) *http.Server {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Set headers to prevent caching
 		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 		w.Header().Set("Pragma", "no-cache")
 		w.Header().Set("Expires", "0")
