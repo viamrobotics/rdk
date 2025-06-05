@@ -448,10 +448,13 @@
             <div class="form-section">
                 <div class="form-section-title">Redirect URL</div>
                 <div class="form-group">
-                    <label for="redirectUrl">Localhost Redirect URL</label>
+                    <label for="redirectUrl">Localhost Redirect URL where your Viam Application is running</label>
                     <input type="text" id="redirectUrl" name="redirectUrl"
                            placeholder="http://localhost:8080" 
-                           value="http://localhost:8080" required>
+                           value="http://localhost:8080" required
+                           pattern="^http://localhost:[0-9]+$"
+                           oninvalid="this.setCustomValidity('URL must start with http://localhost: followed by a port number')"
+                           oninput="this.setCustomValidity('')">
                 </div>
             </div>
 
@@ -463,8 +466,5 @@
     </div>
     <div id="status" class="status"></div>
     <div id="redirect"></div>
-    <div class="footer">
-        <p>Viam - Building the future of robotics</p>
-    </div>
 </body>
 </html> 
