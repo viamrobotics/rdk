@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/urfave/cli/v2"
+	"go.viam.com/rdk/logging"
 )
 
 // localAppTestingArgs contains the arguments for the local-app-testing command.
@@ -21,7 +21,7 @@ type localAppTestingArgs struct {
 
 // LocalAppTestingAction is the action for the local-app-testing command.
 func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
-	logger := log.New(os.Stdout, "", log.LstdFlags)
+	logger := logging.NewLogger("local-app-testing")
 
 	htmlPath, err := getHTMLFilePath()
 	if err != nil {
@@ -31,15 +31,15 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 	server := setupHTTPServer(htmlPath, args.Port)
 	serverURL := fmt.Sprintf("http://localhost:%d", args.Port)
 
-	logger.Printf("Starting server to locally test viam apps on %s", serverURL)
-	logger.Println("Press Ctrl+C to stop the server")
+	logger.Infof("Starting server to locally test viam apps on %s", serverURL)
+	logger.Infof("Press Ctrl+C to stop the server")
 
 	if err := startServerInBackground(server, logger); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
 
 	if err := openbrowser(serverURL); err != nil {
-		logger.Printf("Warning: Could not open browser: %v", err)
+		logger.Warnf("Warning: Could not open browser: %v", err)
 	}
 
 	<-ctx.Context.Done()
@@ -51,7 +51,7 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 	return nil
 }
 
-// getHTMLFilePath returns the absolute path to local_viam_apps_test.html.
+// getHTMLFilePath returns the absolute path to module_local_viam_apps_test.html.
 func getHTMLFilePath() (string, error) {
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
@@ -59,14 +59,14 @@ func getHTMLFilePath() (string, error) {
 	}
 	sourceDir := filepath.Dir(currentFile)
 
-	htmlPath := filepath.Join(sourceDir, "local_viam_apps_test.html")
+	htmlPath := filepath.Join(sourceDir, "module_local_viam_apps_test.html")
 	absPath, err := filepath.Abs(htmlPath)
 	if err != nil {
 		return "", fmt.Errorf("error getting absolute path: %w", err)
 	}
 
 	if _, err := os.Stat(absPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("local_viam_apps_test.html not found at: %s", absPath)
+		return "", fmt.Errorf("module_local_viam_apps_test.html not found at: %s", absPath)
 	}
 
 	return absPath, nil
@@ -89,11 +89,11 @@ func setupHTTPServer(htmlPath string, port int) *http.Server {
 }
 
 // startServerInBackground starts the HTTP server in a goroutine and returns any startup errors.
-func startServerInBackground(server *http.Server, logger *log.Logger) error {
+func startServerInBackground(server *http.Server, logger logging.Logger) error {
 	errChan := make(chan error, 1)
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Printf("Error starting server: %v", err)
+			logger.Errorf("Error starting server: %v", err)
 			errChan <- err
 		}
 		close(errChan)
