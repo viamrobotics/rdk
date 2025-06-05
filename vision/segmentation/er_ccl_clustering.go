@@ -242,6 +242,8 @@ func pcProjection(cloud pc.PointCloud, s float64, heightIsY bool) [][]node {
 	if !heightIsY {
 		w = int(math.Ceil((cloud.MetaData().MaxY-cloud.MetaData().MinY)/s)) + 1
 	}
+	h = max(0, h)
+	w = max(0, w)
 	retVal := make([][]node, h)
 	for i := range retVal {
 		retVal[i] = make([]node, w)

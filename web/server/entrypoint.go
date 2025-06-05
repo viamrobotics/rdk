@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	rutils "go.viam.com/rdk/utils"
+	nc "go.viam.com/rdk/web/networkcheck"
 )
 
 var viamDotDir = filepath.Join(rutils.PlatformHomeDir(), ".viam")
@@ -151,7 +152,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	} else if argsParsed.NetworkCheckOnly {
 		// Run network checks synchronously and immediately exit if `--network-check` flag was
 		// used. Otherwise run network checks asynchronously.
-		runNetworkChecks(ctx, logger)
+		nc.RunNetworkChecks(ctx, logger)
 		return
 	}
 
@@ -237,7 +238,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// Have goutils use the logger we've just configured.
 	golog.ReplaceGloabl(logger.AsZap())
 
-	go runNetworkChecks(ctx, logger)
+	go nc.RunNetworkChecks(ctx, logger)
 
 	server := robotServer{
 		logger:   logger,
@@ -407,7 +408,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	hungShutdownDeadline := 90 * time.Second
+	hungShutdownDeadline := 60 * time.Second
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
 		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger)
 

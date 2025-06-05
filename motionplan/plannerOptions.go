@@ -7,6 +7,7 @@ import (
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // default values for planning options.
@@ -62,7 +63,15 @@ const (
 	// var defaultPlanner = newCBiRRTMotionPlanner.
 )
 
-var defaultNumThreads = runtime.NumCPU() / 2
+var (
+	defaultNumThreads                            = utils.MinInt(runtime.NumCPU()/2, 10)
+	defaultTimeMultipleAfterFindingFirstSolution = 10
+)
+
+func init() {
+	defaultTimeMultipleAfterFindingFirstSolution = utils.GetenvInt("MP_TIME_MULTIPLIER", defaultTimeMultipleAfterFindingFirstSolution)
+	defaultNumThreads = utils.GetenvInt("MP_NUM_THREADS", defaultNumThreads)
+}
 
 // TODO: Make this an enum
 // the set of supported motion profiles.
@@ -105,6 +114,7 @@ func newBasicPlannerOptions() *plannerOptions {
 
 	opt.SmoothIter = defaultSmoothIter
 
+	opt.TimeMultipleAfterFindingFirstSolution = defaultTimeMultipleAfterFindingFirstSolution
 	opt.NumThreads = defaultNumThreads
 
 	return opt
@@ -183,6 +193,8 @@ type plannerOptions struct {
 	PlannerConstructor plannerConstructor
 
 	Fallback *plannerOptions
+
+	TimeMultipleAfterFindingFirstSolution int
 
 	useTPspace   bool
 	ptgFrameName string
