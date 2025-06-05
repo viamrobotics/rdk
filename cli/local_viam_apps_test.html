@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Local Viam Apps Testing</title>
+    <style>
+        :root {
+            --viam-blue: #0066FF;
+            --viam-dark-blue: #0047B3;
+            --viam-light-gray: #F5F7FA;
+            --viam-border: #E5E7EB;
+            --viam-text: #1F2937;
+            --viam-success: #059669;
+            --viam-error: #DC2626;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: var(--viam-light-gray);
+            color: var(--viam-text);
+            line-height: 1.5;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .logo {
+            width: 200px;
+            height: auto;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--viam-text);
+            margin: 0;
+        }
+
+        .subtitle {
+            color: #6B7280;
+            margin-top: 6px;
+            font-size: 14px;
+        }
+
+        .form-container {
+            background: white;
+            padding: 24px;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: var(--viam-text);
+            font-size: 13px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--viam-border);
+            border-radius: 6px;
+            font-size: 13px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--viam-blue);
+            box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
+        }
+
+        button {
+            background: var(--viam-blue);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background: var(--viam-dark-blue);
+        }
+
+        .status {
+            margin: 20px auto;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            max-width: 600px;
+        }
+
+        .success {
+            background-color: #ECFDF5;
+            color: var(--viam-success);
+            border: 1px solid #A7F3D0;
+        }
+
+        .error {
+            background-color: #FEF2F2;
+            color: var(--viam-error);
+            border: 1px solid #FECACA;
+        }
+
+        #redirect {
+            text-align: center;
+            color: var(--viam-blue);
+            font-weight: 500;
+            margin-top: 12px;
+            font-size: 13px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            color: #6B7280;
+            font-size: 13px;
+        }
+
+        .recent-values-selector {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: var(--viam-light-gray);
+            border-radius: 6px;
+            border: 1px solid var(--viam-border);
+        }
+
+        .recent-values-selector select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--viam-border);
+            border-radius: 4px;
+            font-size: 13px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .recent-values-selector select:focus {
+            outline: none;
+            border-color: var(--viam-blue);
+            box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
+        }
+
+        .recent-values-selector label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: var(--viam-text);
+            font-weight: 500;
+        }
+
+        .form-section {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--viam-border);
+        }
+
+        .form-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .form-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--viam-text);
+            margin-bottom: 16px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .clear-button {
+            background: var(--viam-light-gray);
+            color: var(--viam-text);
+            border: 1px solid var(--viam-border);
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+
+        .clear-button:hover {
+            background: #E5E7EB;
+        }
+    </style>
+    <script>
+        // Function to save a machine configuration
+        function saveMachineConfig() {
+            const config = {
+                machineId: document.getElementById('machineId').value.trim(),
+                hostname: document.getElementById('hostname').value.trim(),
+                apiKey: document.getElementById('apiKey').value.trim(),
+                apiKeyId: document.getElementById('apiKeyId').value.trim()
+            };
+
+            // Don't save if any required field is empty
+            if (!config.machineId || !config.hostname || !config.apiKey || !config.apiKeyId) {
+                return;
+            }
+
+            // Get existing configs
+            let recentConfigs = JSON.parse(localStorage.getItem('viamRecentConfigs') || '[]');
+            
+            // Remove this config if it exists (to move it to the front)
+            recentConfigs = recentConfigs.filter(c => 
+                c.machineId !== config.machineId || 
+                c.hostname !== config.hostname || 
+                c.apiKey !== config.apiKey || 
+                c.apiKeyId !== config.apiKeyId
+            );
+            
+            // Add to beginning of array
+            recentConfigs.unshift(config);
+            
+            // Keep only last 5 configs
+            recentConfigs = recentConfigs.slice(0, 5);
+            localStorage.setItem('viamRecentConfigs', JSON.stringify(recentConfigs));
+            
+            // Update the dropdown
+            updateConfigDropdown(recentConfigs);
+        }
+
+        // Function to save a redirect URL
+        function saveRedirectUrl(url) {
+            if (!url.trim()) return;
+            localStorage.setItem('viamLastUrl', url);
+        }
+
+        // Function to update the config dropdown
+        function updateConfigDropdown(configs) {
+            const select = document.getElementById('recentConfigsSelect');
+            select.innerHTML = '<option value="">Select a recent configuration...</option>';
+            
+            configs.forEach((config, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = config.hostname;
+                select.appendChild(option);
+            });
+
+            // Show/hide the selector based on whether there are values
+            const selector = document.querySelector('.recent-values-selector');
+            selector.style.display = configs.length > 0 ? 'block' : 'none';
+        }
+
+        // Function to load a specific configuration
+        function loadConfig(index) {
+            const configs = JSON.parse(localStorage.getItem('viamRecentConfigs') || '[]');
+            if (index >= 0 && index < configs.length) {
+                const config = configs[index];
+                document.getElementById('machineId').value = config.machineId;
+                document.getElementById('hostname').value = config.hostname;
+                document.getElementById('apiKey').value = config.apiKey;
+                document.getElementById('apiKeyId').value = config.apiKeyId;
+            }
+        }
+
+        // Function to load the last used URL
+        function loadLastUrl() {
+            const lastUrl = localStorage.getItem('viamLastUrl');
+            if (lastUrl) {
+                const input = document.getElementById('redirectUrl');
+                input.value = lastUrl;
+                input.placeholder = lastUrl;
+            }
+        }
+
+        // Function to load all recent values
+        function loadRecentValues() {
+            // Load machine configs
+            const configs = JSON.parse(localStorage.getItem('viamRecentConfigs') || '[]');
+            updateConfigDropdown(configs);
+
+            // Load last used URL
+            loadLastUrl();
+        }
+
+        // Function to clear stored values
+        function clearStoredValues() {
+            localStorage.removeItem('viamRecentConfigs');
+            localStorage.removeItem('viamLastUrl');
+            
+            // Clear form fields
+            document.getElementById('machineId').value = '';
+            document.getElementById('hostname').value = '';
+            document.getElementById('apiKey').value = '';
+            document.getElementById('apiKeyId').value = '';
+            document.getElementById('redirectUrl').value = 'http://localhost:8080';
+            document.getElementById('redirectUrl').placeholder = 'http://localhost:8080';
+            
+            // Update UI
+            updateConfigDropdown([]);
+        }
+
+        function setCookiesAndRedirect() {
+            const statusDiv = document.getElementById('status');
+            const redirectDiv = document.getElementById('redirect');
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const apiKeyId = document.getElementById('apiKeyId').value.trim();
+            const redirectUrl = document.getElementById('redirectUrl').value.trim();
+            
+            // Validate inputs
+            if (!apiKey || !apiKeyId || !redirectUrl) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = 'Please fill in all fields';
+                return;
+            }
+
+            // Check if we're on the same protocol as the redirect URL
+            const currentProtocol = window.location.protocol;
+            const redirectProtocol = new URL(redirectUrl).protocol;
+            
+            if (currentProtocol !== redirectProtocol) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `Protocol mismatch: Current page is ${currentProtocol} but redirect is ${redirectProtocol}. Please use the same protocol.`;
+                return;
+            }
+
+            try {
+                // Save the current configuration and redirect URL
+                saveMachineConfig();
+                saveRedirectUrl(redirectUrl);
+
+                // Set the API key and API key ID cookies
+                const machineIdString = document.getElementById('machineId').value;
+                const hostnameString = document.getElementById('hostname').value;
+                const machineCookie = JSON.stringify({id: apiKeyId, key: apiKey, hostname: hostnameString});
+                const machineIdCookie = `${machineIdString}=${machineCookie}; path=/; domain=localhost; SameSite=Lax`;
+                const currentMachineCookie = `currentMachine=${machineIdString}; path=/; domain=localhost; SameSite=Lax`;
+                document.cookie = machineIdCookie;
+                document.cookie = currentMachineCookie;
+
+                // Show success message
+                statusDiv.className = 'status success';
+                statusDiv.textContent = `Successfully set cookies!`;
+                
+                // Show redirect message
+                redirectDiv.textContent = 'Redirecting to test your app locally...';
+                
+                // Redirect to the specified URL after a short delay
+                setTimeout(() => {
+                    window.location.href = redirectUrl;
+                }, 1500);
+
+            } catch (error) {
+                console.error('Cookie setting error:', error);
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `Error: ${error.message}. Check console for details.`;
+            }
+        }
+
+        // Execute when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load recent values
+            loadRecentValues();
+
+            // Set up form submission
+            document.getElementById('cookieForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                setCookiesAndRedirect();
+            });
+
+            // Set up clear button
+            document.getElementById('clearButton').addEventListener('click', function(e) {
+                e.preventDefault();
+                clearStoredValues();
+            });
+
+            // Set up config dropdown
+            document.getElementById('recentConfigsSelect').addEventListener('change', function(e) {
+                if (e.target.value !== '') {
+                    loadConfig(parseInt(e.target.value));
+                }
+            });
+
+            // Set up redirect URL change handler
+            document.getElementById('redirectUrl').addEventListener('change', function(e) {
+                saveRedirectUrl(e.target.value);
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="header">
+        <img src="https://uploads-ssl.webflow.com/62fba5686b6d47fe2a1ed2a6/648b1c6215e3722e24164663_VIAM-logo-black-300ppi.png" alt="Viam Logo" class="logo">
+        <h1>Local Testing for Viam Apps</h1>
+        <p class="subtitle">Set up your local development environment</p>
+    </div>
+
+    <div class="form-container">
+        <form id="cookieForm">
+            <div class="recent-values-selector">
+                <label for="recentConfigsSelect">Recent Machine Configurations</label>
+                <select id="recentConfigsSelect">
+                    <option value="">Select a recent configuration...</option>
+                </select>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-title">Machine Configuration</div>
+                <div class="form-group">
+                    <label for="machineId">Machine ID</label>
+                    <input type="text" id="machineId" name="machineId" placeholder="Enter your machine ID" required>
+                </div>
+                <div class="form-group">
+                    <label for="hostname">Hostname</label>
+                    <input type="text" id="hostname" name="hostname" placeholder="Enter your hostname" required>
+                </div>
+                <div class="form-group">
+                    <label for="apiKey">API Key</label>
+                    <input type="text" id="apiKey" name="apiKey" placeholder="Enter your API key" required>
+                </div>
+                <div class="form-group">
+                    <label for="apiKeyId">API Key ID</label>
+                    <input type="text" id="apiKeyId" name="apiKeyId" placeholder="Enter your API key ID" required>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section-title">Redirect URL</div>
+                <div class="form-group">
+                    <label for="redirectUrl">Localhost Redirect URL</label>
+                    <input type="text" id="redirectUrl" name="redirectUrl"
+                           placeholder="http://localhost:8080" 
+                           value="http://localhost:8080" required>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit">Set Cookies and Test Your App</button>
+                <button type="button" id="clearButton" class="clear-button">Clear Saved Values</button>
+            </div>
+        </form>
+    </div>
+    <div id="status" class="status"></div>
+    <div id="redirect"></div>
+    <div class="footer">
+        <p>Viam - Building the future of robotics</p>
+    </div>
+</body>
+</html> 
