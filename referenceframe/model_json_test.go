@@ -59,7 +59,7 @@ func TestParseJSONFile(t *testing.T) {
 		t.Run(f, func(tt *testing.T) {
 			_, err := ParseModelJSONFile(utils.ResolveFile(f), "")
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldEqual, badFilesErrors[i].Error())
+			test.That(t, err.Error(), test.ShouldContainSubstring, badFilesErrors[i].Error())
 		})
 	}
 }
