@@ -3,6 +3,7 @@ package urdf
 
 import (
 	"encoding/xml"
+	"fmt"
 	"math"
 	"os"
 
@@ -106,7 +107,7 @@ func UnmarshalModelXML(xmlData []byte, modelName string) (*referenceframe.ModelC
 		if len(linkElem.Collision) > 0 {
 			geometry, err := linkElem.Collision[0].toGeometry()
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to convert collision geometry %v to geometry config: %w", linkElem.Name, err)
 			}
 			geoCfg, err := spatialmath.NewGeometryConfig(geometry)
 			if err != nil {
