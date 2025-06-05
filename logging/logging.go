@@ -16,9 +16,11 @@ var (
 	globalMu     sync.RWMutex
 	globalLogger = NewDebugLogger("global")
 
-	// GlobalLogLevel should be used whenever a zap logger is created that wants to obey the debug
+	// GlobalLogLevelZap should be used whenever a zap logger is created that wants to obey the debug
 	// flag from the CLI or robot config.
-	GlobalLogLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
+	GlobalLogLevelZap = zap.NewAtomicLevelAt(zap.InfoLevel)
+	// GlobalLogLevelRDK is the `logging.Level` copy of `GlobalLogLevelZap`
+	GlobalLogLevelRDK = NewAtomicLevelAt(INFO)
 )
 
 // ReplaceGlobal replaces the global loggers.
@@ -38,7 +40,7 @@ func NewZapLoggerConfig() zap.Config {
 	// from https://github.com/uber-go/zap/blob/2314926ec34c23ee21f3dd4399438469668f8097/config.go#L135
 	// but disable stacktraces, use same keys as prod, and color levels.
 	return zap.Config{
-		Level:    GlobalLogLevel,
+		Level:    GlobalLogLevelZap,
 		Encoding: "console",
 		EncoderConfig: zapcore.EncoderConfig{
 			TimeKey:        "ts",
