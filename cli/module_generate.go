@@ -831,7 +831,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 		manifest.Build = &manifestBuildInfo{
 			Setup: "make setup",
 			Build: "make module.tar.gz",
-			Path:  "bin/module.tar.gz",
+			Path:  "module.tar.gz",
 			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 		}
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
