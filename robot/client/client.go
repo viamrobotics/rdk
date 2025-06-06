@@ -68,6 +68,15 @@ var (
 	// a testing environment) will already allow connecting to still-initializing
 	// machines.
 	DoNotWaitForRunning = atomic.Bool{}
+
+	// latencyPingNum controls the amount of times a gRPC request will be sent to the server
+	// to measure the latency of the connection. The latency is only measured in case
+	// WithNetworkStats option is specified by the client.
+	latencyPingNum = 5
+
+	// latencyWarningThresholdMs is a measurment (in ms) that determines when a client gets a
+	// warning about their average latency.
+	latencyWarningThresholdMs = 1000.0
 )
 
 // RobotClient satisfies the robot.Robot interface through a gRPC based
@@ -360,6 +369,32 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 				break
 			}
 			time.Sleep(50 * time.Millisecond)
+		}
+	}
+
+	// if withNetworkStats is set, there are latencyPingNum gRPC requests sent to the server
+	// to measure the average latency of the connection, which is then logged to the user.
+	if rOpts.withNetworkStats {
+		totalTime := 0.0
+		for range latencyPingNum {
+			startTime := time.Now()
+			// GetOperations is used because app.viam.com's "Control" tab measures latency this way.
+			_, err := rc.client.GetOperations(ctx, &pb.GetOperationsRequest{})
+			if err != nil {
+				rc.Logger().CDebug(ctx, fmt.Sprintf("gRPC request failed with error: %e during latency checks", err))
+				continue
+			}
+			timeElapsed := time.Since(startTime).Milliseconds()
+			totalTime += float64(timeElapsed)
+		}
+		avgTime := totalTime / float64(latencyPingNum)
+		if avgTime < 1.0 {
+			rc.Logger().CInfo(ctx, "average connection latency is < 1ms")
+		} else {
+			rc.Logger().CInfo(ctx, fmt.Sprintf("average connection latency is %.2f ms", avgTime))
+			if avgTime > latencyWarningThresholdMs {
+				rc.Logger().CWarn(ctx, fmt.Sprintf("average latency is higher than %.0f ms", latencyWarningThresholdMs))
+			}
 		}
 	}
 
