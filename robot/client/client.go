@@ -386,12 +386,12 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 			timeElapsed := time.Since(startTime).Milliseconds()
 			totalTime += float64(timeElapsed)
 		}
-		if totalTime < 1.0 {
+		avgTime := totalTime / float64(latencyPingNum)
+		if avgTime < 1.0 {
 			rc.Logger().CInfo(ctx, "average connection latency is < 1ms")
 		} else {
-			totalTime /= float64(latencyPingNum)
-			rc.Logger().CInfo(ctx, fmt.Sprintf("average connection latency is %.2f ms", totalTime))
-			if totalTime > latencyWarningThresholdMs {
+			rc.Logger().CInfo(ctx, fmt.Sprintf("average connection latency is %.2f ms", avgTime))
+			if avgTime > latencyWarningThresholdMs {
 				rc.Logger().CWarn(ctx, fmt.Sprintf("average latency is higher than %.0f ms", latencyWarningThresholdMs))
 			}
 		}
