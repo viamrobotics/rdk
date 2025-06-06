@@ -480,7 +480,7 @@ var _ zapcore.Core = &NetAppender{}
 
 // Check checks if the entry should be logged. If so, add it to the CheckedEntry list of cores.
 func (nl *NetAppender) Check(entry zapcore.Entry, checkedEntry *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	if GlobalLogLevel.Enabled(entry.Level) {
+	if GlobalLogLevelZap.Enabled(entry.Level) {
 		return checkedEntry.AddCore(entry, nl)
 	}
 	return checkedEntry
@@ -488,7 +488,7 @@ func (nl *NetAppender) Check(entry zapcore.Entry, checkedEntry *zapcore.CheckedE
 
 // Enabled returns if the NetAppender serving as a `zapcore.Core` should log.
 func (nl *NetAppender) Enabled(level zapcore.Level) bool {
-	return GlobalLogLevel.Enabled(level)
+	return GlobalLogLevelZap.Enabled(level)
 }
 
 // With creates a zapcore.Core that will log like a `NetAppender` but with extra fields attached.
