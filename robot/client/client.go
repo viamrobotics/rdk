@@ -378,6 +378,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		totalTime := 0.0
 		for range latencyPingNum {
 			startTime := time.Now()
+			// GetOperations is used because app.viam.com's "Control" tab measures latency this way.
 			_, err := rc.client.GetOperations(ctx, &pb.GetOperationsRequest{})
 			if err != nil {
 				rc.Logger().CDebug(ctx, fmt.Sprintf("gRPC request failed with error: %e during latency checks", err))
