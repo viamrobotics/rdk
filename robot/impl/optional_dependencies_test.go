@@ -679,7 +679,16 @@ func (moc *mutualOptionalChild) Reconfigure(ctx context.Context, deps resource.D
 	return nil
 }
 
-func TestModularOptionalDependenciesCycles(t *testing.T) {
+func TestOptionalDependenciesCycles(t *testing.T) {
+	// This test ensures that there can be a "cycle" of optional dependencies.
+	//
+	// A resource 'moc' will optionally depend upon 'moc2', and 'moc2' will optionally
+	// depend upon 'moc'. We will start with only 'moc' in the config, and assert that 'moc'
+	// builds successfully without 'moc2'. We will then add 'moc2' to the config, assert
+	// that 'moc' reconfigures successfully, 'moc2' builds successfully, and both resources
+	// have handles to each other. We will then remove 'moc' from the config, assert that
+	// 'moc2' reconfigures successfully, and that 'moc2' no longer has a handle to 'moc'.
+
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
