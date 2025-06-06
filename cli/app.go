@@ -2480,6 +2480,19 @@ Note: There is no progress meter while copying is in progress.
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
+					Name:      "local-app-testing",
+					Usage:     "test your viam application locally",
+					UsageText: createUsageText("module local-app-testing", []string{"port"}, false, false),
+					Flags: []cli.Flag{
+						&cli.IntFlag{
+							Name:  "port",
+							Usage: "port to run the local server on (default: 8000)",
+							Value: 8000,
+						},
+					},
+					Action: createCommandWithT[localAppTestingArgs](LocalAppTestingAction),
+				},
+				{
 					Name:  "create",
 					Usage: "create & register a module on app.viam.com",
 					Description: `Creates a module in app.viam.com to simplify code deployment.
