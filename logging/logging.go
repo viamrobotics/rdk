@@ -19,7 +19,7 @@ var (
 	// GlobalLogLevelZap should be used whenever a zap logger is created that wants to obey the debug
 	// flag from the CLI or robot config.
 	GlobalLogLevelZap = zap.NewAtomicLevelAt(zap.InfoLevel)
-	// GlobalLogLevelRDK is the `logging.Level` copy of `GlobalLogLevelZap`
+	// GlobalLogLevelRDK is the `logging.Level` copy of `GlobalLogLevelZap`.
 	GlobalLogLevelRDK = NewAtomicLevelAt(INFO)
 )
 
