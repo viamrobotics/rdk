@@ -335,18 +335,13 @@ func TestClientSessionExpiration(t *testing.T) {
 				// Repurpose to capture Session ID
 				injectBase.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 					sess, ok := session.FromContext(ctx)
-					if !ok {
-						panic("expected session")
-					}
+					test.That(t, ok, test.ShouldBeTrue)
 					capSessID = sess.ID()
 					return nil
 				}
 				injectBase.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 					sess, ok := session.FromContext(ctx)
 					test.That(t, ok, test.ShouldBeTrue)
-					if !ok {
-						panic("expected session")
-					}
 					capSessID = sess.ID()
 					// associate with this context. Unused?
 					session.SafetyMonitorResourceName(ctx, someTargetName2)
@@ -536,18 +531,12 @@ func TestClientSessionResume(t *testing.T) {
 					MoveStraightFunc: func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 						sess, ok := session.FromContext(ctx)
 						test.That(t, ok, test.ShouldBeTrue)
-						if !ok {
-							panic("expected session")
-						}
 						capSessID = sess.ID()
 						return nil
 					},
 					SetPowerFunc: func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 						sess, ok := session.FromContext(ctx)
 						test.That(t, ok, test.ShouldBeTrue)
-						if !ok {
-							panic("expected session")
-						}
 						capSessID = sess.ID()
 						return nil
 					},
