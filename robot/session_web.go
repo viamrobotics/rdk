@@ -27,15 +27,20 @@ func (m *SessionManager) safetyMonitoredTypeAndMethod(method string) (*resource.
 	if err != nil {
 		return nil, nil, false
 	}
-	return subType, methodDesc, isSafetyHeartbeatMonitored(methodDesc)
+	var safetyHeartbeatMonitored bool
+	if methodDesc != nil {
+		unwrapped := methodDesc.UnwrapMethod()
+		safetyHeartbeatMonitored = isSafetyHeartbeatMonitored(&unwrapped)
+	}
+	return subType, methodDesc, safetyHeartbeatMonitored
 }
 
 // isSafetyHeartbeatMonitored looks for an RPC method's safety_heartbeat_monitored option and returns its value, or false if unspecified.
-func isSafetyHeartbeatMonitored(descriptor *desc.MethodDescriptor) bool {
+func isSafetyHeartbeatMonitored(descriptor *protoreflect.MethodDescriptor) bool {
 	if descriptor == nil {
 		return false
 	}
-	opts := descriptor.AsMethodDescriptorProto().GetOptions()
+	opts := (*descriptor).Options()
 	if proto.HasExtension(opts, commonpb.E_SafetyHeartbeatMonitored) {
 		return proto.GetExtension(opts, commonpb.E_SafetyHeartbeatMonitored).(bool)
 	}
@@ -51,10 +56,7 @@ func IsSafetyHeartbeatMonitored(method string) bool {
 	descriptor, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(method))
 	if err == nil {
 		if md, ok := descriptor.(protoreflect.MethodDescriptor); ok {
-			mmd, err := desc.WrapMethod(md)
-			if err == nil {
-				return isSafetyHeartbeatMonitored(mmd)
-			}
+			return isSafetyHeartbeatMonitored(&md)
 		}
 	}
 	return false
