@@ -83,13 +83,9 @@ func init() {
 func TestClientSessionOptions(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	for _, webrtcDisabledOuter := range []bool{false, true} {
-		for _, sessionsDisabledOuter := range []bool{false, true} {
-			for _, withRemoteNameOuter := range []bool{false, true} {
-				webrtcDisabled := webrtcDisabledOuter
-				sessionsDisabled := sessionsDisabledOuter
-				withRemoteName := withRemoteNameOuter
-
+	for _, webrtcDisabled := range []bool{false, true} {
+		for _, sessionsDisabled := range []bool{false, true} {
+			for _, withRemoteName := range []bool{false, true} {
 				t.Run(
 					fmt.Sprintf(
 						"webrtc disabled=%t,with remote name=%t,sessions disabled=%t",
@@ -292,9 +288,7 @@ func TestClientSessionOptions(t *testing.T) {
 func TestClientSessionExpiration(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	for _, webrtcDisabledOuter := range []bool{false, true} {
-		webrtcDisabled := webrtcDisabledOuter
-
+	for _, webrtcDisabled := range []bool{false, true} {
 		t.Run(
 			fmt.Sprintf(
 				"webrtc disabled=%t",
@@ -513,9 +507,7 @@ func TestClientSessionExpiration(t *testing.T) {
 func TestClientSessionResume(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	for _, webrtcDisabledOuter := range []bool{false, true} {
-		webrtcDisabled := webrtcDisabledOuter
-
+	for _, webrtcDisabled := range []bool{false, true} {
 		t.Run(
 			fmt.Sprintf(
 				"webrtc disabled=%t",
