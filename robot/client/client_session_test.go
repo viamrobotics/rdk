@@ -455,7 +455,7 @@ func TestClientSessionExpiration(t *testing.T) {
 				test.That(t, startCalledCnt, test.ShouldEqual, 1)
 				capMu.Unlock()
 
-				logger.Debug("now call status which should work with a restarted session")
+				logger.Debug("now call MoveStraight which should work with a restarted session")
 
 				// Start new session, capture SessionID
 				err = baseClient.MoveStraight(nextCtx, 1, 1, nil)
