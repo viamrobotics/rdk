@@ -61,7 +61,8 @@ func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) e
 	for _, lpc := range logConfig {
 		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
 		if err != nil {
-			warnLogger.Warnw("Log regex did not compile", "pattern", lpc.Pattern)
+			warnLogger.Warnw("Log regex did not compile",
+				"input", lpc.Pattern, "built", buildRegexFromPattern(lpc.Pattern), "err", err)
 			continue
 		}
 
