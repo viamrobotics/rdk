@@ -346,18 +346,17 @@
             }
 
             try {
-                // Save the current configuration and redirect URL
                 saveMachineConfig();
                 saveRedirectUrl(redirectUrl);
 
                 // Set the API key and API key ID cookies
                 const machineIdString = document.getElementById('machineId').value;
                 const hostnameString = document.getElementById('hostname').value;
-                const machineCookie = JSON.stringify({id: apiKeyId, key: apiKey, hostname: hostnameString});
-                const machineIdCookie = `${machineIdString}=${machineCookie}; path=/; domain=localhost; SameSite=Lax`;
-                const currentMachineCookie = `currentMachine=${machineIdString}; path=/; domain=localhost; SameSite=Lax`;
+                const machineCookie = JSON.stringify({apiKey: {id: apiKeyId, key: apiKey}, hostname: hostnameString, machineId: machineIdString});
+                const machineIdCookie = `${machineIdString}=${machineCookie}; path=/; domain=localhost; SameSite=Strict`;
+                const hostnameCookie = `${hostnameString}=${machineCookie}; path=/; domain=localhost; SameSite=Strict`;
                 document.cookie = machineIdCookie;
-                document.cookie = currentMachineCookie;
+                document.cookie = hostnameCookie;
 
                 // Show success message
                 statusDiv.className = 'status success';
