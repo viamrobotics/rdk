@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/golang/geo/r3"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -67,6 +68,18 @@ type InputEnabled interface {
 //	frameSystem, err := fsService.FrameSystem(context.Background(), nil)
 type Service interface {
 	resource.Resource
+	RobotFrameSystem
+}
+
+type RobotFrameSystem interface {	
+	// GetPose returns the location and orientation of a component within a frame system.
+	// It returns a `PoseInFrame` describing the pose of the specified component relative to the specified destination frame.
+	// The `supplemental_transforms` argument can be used to augment the machine's existing frame system with additional frames.
+	GetPose(ctx context.Context,
+		componentName resource.Name,
+		destinationFrame string,
+		supplementalTransforms []*referenceframe.LinkInFrame,
+	) (*referenceframe.PoseInFrame, error)
 
 	// TransformPose returns a transformed pose in the destination reference frame.
 	// This method converts a given source pose from one reference frame to a specified destination frame.
@@ -198,6 +211,26 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 	svc.parts = sortedParts
 	svc.logger.Debugf("reconfigured robot frame system: %v", (&Config{Parts: sortedParts}).String())
 	return nil
+}
+
+func (svc *frameSystemService) GetPose(
+	ctx context.Context,
+	componentName resource.Name,
+	destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+) (*referenceframe.PoseInFrame, error) {
+	if destinationFrame == "" {
+		destinationFrame = referenceframe.World
+	}
+	return svc.TransformPose(
+		ctx,
+		referenceframe.NewPoseInFrame(
+			componentName.ShortName(),
+			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
+		),
+		destinationFrame,
+		supplementalTransforms,
+	)
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.

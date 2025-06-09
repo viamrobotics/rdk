@@ -393,6 +393,7 @@ type Service interface {
 	// GetPose returns the location and orientation of a component within a frame system.
 	// It returns a `PoseInFrame` describing the pose of the specified component relative to the specified destination frame.
 	// The `supplemental_transforms` argument can be used to augment the machine's existing frame system with additional frames.
+	// deprecated, use framesystem.Servce.GetPose
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,
