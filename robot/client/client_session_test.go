@@ -343,8 +343,6 @@ func TestClientSessionExpiration(t *testing.T) {
 					sess, ok := session.FromContext(ctx)
 					test.That(t, ok, test.ShouldBeTrue)
 					capSessID = sess.ID()
-					// associate with this context. Unused?
-					session.SafetyMonitorResourceName(ctx, someTargetName2)
 					return nil
 				}
 				injectRobot.Mu.Unlock()
