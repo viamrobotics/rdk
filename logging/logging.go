@@ -104,14 +104,14 @@ func NewDebugLogger(name string) Logger {
 		name:                     name,
 		level:                    NewAtomicLevelAt(DEBUG),
 		appenders:                []Appender{NewStdoutAppender()},
-		registry:                 newRegistry(),
+		registry:                 newDebugRegistry(),
 		testHelper:               func() {},
 		recentMessageCounts:      make(map[string]int),
 		recentMessageEntries:     make(map[string]LogEntry),
 		recentMessageWindowStart: time.Now(),
 	}
-
 	logger.registry.registerLogger(name, logger)
+
 	return logger
 }
 
@@ -122,14 +122,14 @@ func NewBlankLogger(name string) Logger {
 		name:                     name,
 		level:                    NewAtomicLevelAt(DEBUG),
 		appenders:                []Appender{},
-		registry:                 newRegistry(),
+		registry:                 newDebugRegistry(),
 		testHelper:               func() {},
 		recentMessageCounts:      make(map[string]int),
 		recentMessageEntries:     make(map[string]LogEntry),
 		recentMessageWindowStart: time.Now(),
 	}
-
 	logger.registry.registerLogger(name, logger)
+
 	return logger
 }
 
@@ -140,7 +140,7 @@ func NewBlankLoggerWithRegistry(name string) (Logger, *Registry) {
 		name:                     name,
 		level:                    NewAtomicLevelAt(DEBUG),
 		appenders:                []Appender{},
-		registry:                 newRegistry(),
+		registry:                 newDebugRegistry(),
 		testHelper:               func() {},
 		recentMessageCounts:      make(map[string]int),
 		recentMessageEntries:     make(map[string]LogEntry),
@@ -167,12 +167,13 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 			NewTestAppender(tb),
 			observerCore,
 		},
-		registry:                 newRegistry(),
+		registry:                 newDebugRegistry(),
 		testHelper:               tb.Helper,
 		recentMessageCounts:      make(map[string]int),
 		recentMessageEntries:     make(map[string]LogEntry),
 		recentMessageWindowStart: time.Now(),
 	}
+	logger.registry.registerLogger(tb.Name(), logger)
 
 	return logger, observedLogs
 }
@@ -181,7 +182,7 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 // associated registry. It also takes a name for the logger.
 func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *observer.ObservedLogs, *Registry) {
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
-	registry := newRegistry()
+	registry := newDebugRegistry()
 	logger := &impl{
 		name:  name,
 		level: NewAtomicLevelAt(DEBUG),
@@ -195,6 +196,7 @@ func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *obs
 		recentMessageEntries:     make(map[string]LogEntry),
 		recentMessageWindowStart: time.Now(),
 	}
+	logger.registry.registerLogger(tb.Name(), logger)
 
 	return logger, observedLogs, registry
 }
@@ -226,12 +228,13 @@ func NewInMemoryLogger(tb testing.TB) *MemLogger {
 		appenders: []Appender{
 			observerCore,
 		},
-		registry:                 newRegistry(),
+		registry:                 newDebugRegistry(),
 		testHelper:               tb.Helper,
 		recentMessageCounts:      make(map[string]int),
 		recentMessageEntries:     make(map[string]LogEntry),
 		recentMessageWindowStart: time.Now(),
 	}
+	logger.registry.registerLogger(tb.Name(), logger)
 
 	memLogger := &MemLogger{logger, tb, observedLogs}
 	// Ensure that logs are always output on failure.

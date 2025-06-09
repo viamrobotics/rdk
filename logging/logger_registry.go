@@ -26,6 +26,18 @@ func newRegistry() *Registry {
 	}
 }
 
+func newDebugRegistry() *Registry {
+	return &Registry{
+		loggers: make(map[string]Logger),
+		logConfig: []LoggerPatternConfig{
+			{
+				Pattern: "*",
+				Level:   "debug",
+			},
+		},
+	}
+}
+
 func (lr *Registry) registerLogger(name string, logger Logger) {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
