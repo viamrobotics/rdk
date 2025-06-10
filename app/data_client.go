@@ -1386,7 +1386,7 @@ func (d *DataClient) UpdateDataPipeline(
 	}
 
 	if opts == nil {
-		return fmt.Errorf("opts is nil")
+		return errors.New("opts is nil")
 	}
 
 	dataSourceType := dataSourceTypeToProto(opts.TabularDataSourceType)
