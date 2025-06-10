@@ -10,7 +10,7 @@
     "commented": true,
     "hasReturn": false
   },
-  "genericcomponent": {
+  "generic": {
     "func": "DoCommand",
     "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()", "map[string]interface{}{}"],
