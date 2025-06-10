@@ -198,6 +198,17 @@ func (gpw *gnuplotWriter) shouldIncludePoint(this, next *ftdc.FlatDatum) *ftdc.F
 	}
 
 	nextTimeToInclude := gpw.timesToInclude[gpw.shouldIncludePointStorage.nextTimeIdx]
+	if this.Time > nextTimeToInclude {
+		// There may be a bubble in FTDC data such that we didn't capture any data for a few
+		// seconds. Return the current value and also bump the `nextTimeIdx` to restore the
+		// invariant that the `nextTimeToInclude` > `this.Time`.
+		for gpw.timesToInclude[gpw.shouldIncludePointStorage.nextTimeIdx] < this.Time {
+			gpw.shouldIncludePointStorage.nextTimeIdx++
+		}
+
+		return this
+	}
+
 	// If `this` and `next` straddle the `nextTimeToInclude`, we'll return a point to graph.
 	returnAPoint := this.Time <= nextTimeToInclude && next.Time >= nextTimeToInclude
 	if !returnAPoint {
