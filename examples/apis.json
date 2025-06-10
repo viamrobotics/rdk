@@ -7,15 +7,15 @@
   "button": {
     "func": "Push",
     "packagePath": "go.viam.com/rdk/components",
-	"commented": true,
-	"hasReturn": false
+    "commented": true,
+    "hasReturn": false
   },
   "genericcomponent": {
     "func": "DoCommand",
     "packagePath": "go.viam.com/rdk/components",
-	"args": ["context.Background()", "map[string]interface{}{}"],
-	"commented": true,
-	"importName": "genericcomponent"
+    "args": ["context.Background()", "map[string]interface{}{}"],
+    "commented": true,
+    "importName": "genericcomponent"
   },
   "board": {
     "func": "GPIOPinByName",
@@ -97,9 +97,9 @@
   "genericservice": {
     "func": "DoCommand",
     "packagePath": "go.viam.com/rdk/services",
-	"args": ["context.Background()", "map[string]interface{}{}"],
-	"commented": true,
-	"importName": "genericservice"
+    "args": ["context.Background()", "map[string]interface{}{}"],
+    "commented": true,
+    "importName": "genericservice"
   },
   "motion": {
     "func": "GetPose",
