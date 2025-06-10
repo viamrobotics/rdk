@@ -41,7 +41,10 @@ func CheckPlan(
 	}
 
 	// construct planager
-	sfPlanner := &planManager{}
+	sfPlanner := &planManager{
+		entireFS:        fs,
+		entirePlanState: &PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
+	}
 	planOpts, err := sfPlanner.plannerSetupFromMoveRequest(&PlanRequest{
 		Logger:      logger,
 		FrameSystem: fs,
@@ -88,6 +91,7 @@ func checkPlanRelative(
 
 	// setup the planOpts. Poses should be in world frame. This allows us to know e.g. which obstacles may ephemerally collide.
 	if sfPlanner.planOpts, err = sfPlanner.plannerSetupFromMoveRequest(&PlanRequest{
+		Logger:      sfPlanner.logger,
 		FrameSystem: sfPlanner.fs,
 		Goals:       []*PlanState{{poses: plan.Path()[len(plan.Path())-1]}},
 		StartState:  &PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},

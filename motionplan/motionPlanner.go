@@ -237,7 +237,10 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	request.Logger.CDebugf(ctx, "motion config for this step: %v", request.Options)
 
-	sfPlanner := &planManager{}
+	sfPlanner := &planManager{
+		entireFS:        request.FrameSystem,
+		entirePlanState: &PlanState{poses: request.StartState.poses, configuration: request.StartState.configuration},
+	}
 	newPlan, err := sfPlanner.planMultiWaypoint(ctx, request, currentPlan)
 	if err != nil {
 		return nil, err

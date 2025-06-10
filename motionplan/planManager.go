@@ -33,6 +33,8 @@ const (
 // motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> planManager.planSingleWaypoint().
 type planManager struct {
 	*planner                // TODO: This should probably be removed
+	entireFS                referenceframe.FrameSystem
+	entirePlanState         *PlanState
 	activeBackgroundWorkers sync.WaitGroup
 }
 
@@ -515,7 +517,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(req *PlanRequest, goalIndex i
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := []spatialmath.Geometry{}
-	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(req.FrameSystem, req.StartState.configuration)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pm.entireFS, pm.entirePlanState.configuration)
 	if err != nil {
 		return nil, err
 	}
@@ -704,10 +706,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(req *PlanRequest, goalIndex i
 	case cbirrtName:
 		opt.PlannerConstructor = newCBiRRTMotionPlanner
 	case rrtstarName:
-		// no motion profiles for RRT*
 		opt.PlannerConstructor = newRRTStarConnectMotionPlanner
-		// TODO(pl): more logic for RRT*?
-		return opt, nil
 	default:
 		// use default, already set
 	}

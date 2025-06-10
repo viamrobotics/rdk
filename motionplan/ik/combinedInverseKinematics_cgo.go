@@ -31,8 +31,10 @@ func CreateCombinedIKSolver(
 	nCPU int,
 	goalThreshold float64,
 ) (Solver, error) {
-	ik := &combinedIK{}
-	ik.limits = limits
+	ik := &combinedIK{
+		limits: limits,
+		logger: logger,
+	}
 	nCPU = max(1, nCPU) // enforce at least one thread is always made
 	logger.Debugf("creating combinedIK solver with %d threads", nCPU)
 	for i := 1; i <= nCPU; i++ {
@@ -44,7 +46,6 @@ func CreateCombinedIKSolver(
 		}
 		ik.solvers = append(ik.solvers, nlopt)
 	}
-	ik.logger = logger
 	return ik, nil
 }
 
