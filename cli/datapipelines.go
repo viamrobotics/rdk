@@ -11,6 +11,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"go.mongodb.org/mongo-driver/bson"
+	pb "go.viam.com/api/app/data/v1"
 	datapipelinespb "go.viam.com/api/app/datapipelines/v1"
 )
 
@@ -21,6 +22,14 @@ var pipelineRunStatusMap = map[datapipelinespb.DataPipelineRunStatus]string{
 	datapipelinespb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_STARTED:     "Running",
 	datapipelinespb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_COMPLETED:   "Success",
 	datapipelinespb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_FAILED:      "Failed",
+}
+
+// dataSourceTypeMap maps data source types to human-readable strings.
+var dataSourceTypeMap = map[pb.TabularDataSourceType]string{
+	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED:   "Unknown",
+	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD:      "Standard",
+	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE:   "Hot Storage",
+	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK: "Pipeline Sink",
 }
 
 type datapipelineListArgs struct {
@@ -46,18 +55,20 @@ func DatapipelineListAction(c *cli.Context, args datapipelineListArgs) error {
 		if !pipeline.Enabled {
 			enabled = "Disabled"
 		}
-		printf(c.App.Writer, "\t%s (ID: %s) [%s]", pipeline.Name, pipeline.Id, enabled)
+		dataSourceType := dataSourceTypeMap[*pipeline.DataSourceType]
+		printf(c.App.Writer, "\t%s (ID: %s) [%s] %s", pipeline.Name, pipeline.Id, enabled, dataSourceType)
 	}
 
 	return nil
 }
 
 type datapipelineCreateArgs struct {
-	OrgID    string
-	Name     string
-	Schedule string
-	MQL      string
-	MqlPath  string
+	OrgID          string
+	Name           string
+	Schedule       string
+	MQL            string
+	MqlPath        string
+	DataSourceType string
 }
 
 // DatapipelineCreateAction creates a new data pipeline.
@@ -72,11 +83,17 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 		return err
 	}
 
+	dataSourceType, err := dataSourceTypeToProto(args.DataSourceType)
+	if err != nil {
+		return err
+	}
+
 	resp, err := client.datapipelinesClient.CreateDataPipeline(context.Background(), &datapipelinespb.CreateDataPipelineRequest{
 		OrganizationId: args.OrgID,
 		Name:           args.Name,
 		Schedule:       args.Schedule,
 		MqlBinary:      mqlBinary,
+		DataSourceType: &dataSourceType,
 	})
 	if err != nil {
 		return fmt.Errorf("error creating data pipeline: %w", err)
@@ -88,11 +105,12 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 }
 
 type datapipelineUpdateArgs struct {
-	ID       string
-	Name     string
-	Schedule string
-	MQL      string
-	MqlPath  string
+	ID             string
+	Name           string
+	Schedule       string
+	MQL            string
+	MqlPath        string
+	DataSourceType string
 }
 
 // DatapipelineUpdateAction updates an existing data pipeline.
@@ -128,11 +146,20 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 		}
 	}
 
+	dataSourceType := current.GetDataSourceType()
+	if args.DataSourceType != "" {
+		dataSourceType, err = dataSourceTypeToProto(args.DataSourceType)
+		if err != nil {
+			return err
+		}
+	}
+
 	_, err = client.datapipelinesClient.UpdateDataPipeline(context.Background(), &datapipelinespb.UpdateDataPipelineRequest{
-		Id:        args.ID,
-		Name:      name,
-		Schedule:  schedule,
-		MqlBinary: mqlBinary,
+		Id:             args.ID,
+		Name:           name,
+		Schedule:       schedule,
+		MqlBinary:      mqlBinary,
+		DataSourceType: &dataSourceType,
 	})
 	if err != nil {
 		return fmt.Errorf("error updating data pipeline: %w", err)
@@ -203,6 +230,7 @@ func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) e
 	printf(c.App.Writer, "Enabled: %t", pipeline.GetEnabled())
 	printf(c.App.Writer, "Schedule: %s", pipeline.GetSchedule())
 	printf(c.App.Writer, "MQL query: %s", mql)
+	printf(c.App.Writer, "DataSourceType: %s", pipeline.GetDataSourceType())
 
 	if len(runs) > 0 {
 		r := runs[0]
@@ -319,4 +347,18 @@ func mqlJSON(mql [][]byte) (string, error) {
 	}
 
 	return string(jsonBytes), nil
+}
+
+func dataSourceTypeToProto(dataSourceType string) (pb.TabularDataSourceType, error) {
+	switch dataSourceType {
+	case "":
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD, nil
+	case "standard":
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD, nil
+	case "hotstorage":
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE, nil
+	default:
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED,
+			fmt.Errorf("invalid data source type: %s. Supported values: [standard, hotstorage]", dataSourceType)
+	}
 }

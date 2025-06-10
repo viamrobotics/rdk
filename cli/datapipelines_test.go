@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
+	pb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
 )
 
@@ -144,4 +145,44 @@ func TestMQLJSON(t *testing.T) {
 	json, err := mqlJSON(bsonBytes)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, json, test.ShouldEqualJSON, expectedJSON)
+}
+
+func TestDataSourceTypeToProto(t *testing.T) {
+	testCases := map[string]struct {
+		dataSourceType string
+		expectedType   pb.TabularDataSourceType
+		expectedError  bool
+	}{
+		"standard": {
+			dataSourceType: "standard",
+			expectedType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
+			expectedError:  false,
+		},
+		"hotstorage": {
+			dataSourceType: "hotstorage",
+			expectedType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE,
+			expectedError:  false,
+		},
+		"unknown": {
+			dataSourceType: "unknown",
+			expectedError:  true,
+		},
+		"empty": {
+			dataSourceType: "",
+			expectedType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
+			expectedError:  false,
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			dataSourceType, err := dataSourceTypeToProto(tc.dataSourceType)
+			if tc.expectedError {
+				test.That(t, err, test.ShouldNotBeNil)
+				return
+			}
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, dataSourceType, test.ShouldEqual, tc.expectedType)
+		})
+	}
 }

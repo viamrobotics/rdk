@@ -391,6 +391,7 @@ type DataPipeline struct {
 	Enabled        bool
 	CreatedOn      time.Time
 	UpdatedAt      time.Time
+	DataSourceType TabularDataSourceType
 }
 
 // DataPipelineRunStatus is the status of a data pipeline run.
@@ -1837,6 +1838,7 @@ func dataPipelineFromProto(proto *datapipelinesPb.DataPipeline) *DataPipeline {
 		Enabled:        proto.Enabled,
 		CreatedOn:      proto.CreatedOn.AsTime(),
 		UpdatedAt:      proto.UpdatedAt.AsTime(),
+		DataSourceType: TabularDataSourceType(*proto.DataSourceType),
 	}
 }
 
