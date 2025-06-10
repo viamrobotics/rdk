@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/jhump/protoreflect/dynamic"
@@ -531,7 +532,8 @@ type Namer interface {
 // RequestCounter maps string keys to atomic ints that get bumped on every incoming gRPC request for
 // components.
 type RequestCounter struct {
-	counts sync.Map
+	counts    sync.Map
+	timeSpent sync.Map
 }
 
 // incrementCounter atomically increments the counter for a given key, creating it first if needed.
@@ -545,11 +547,27 @@ func (rc *RequestCounter) incrementCounter(key string) {
 	}
 }
 
+// incrementTimeSpent atomically increments the latency tracker for a given key, creating it first
+// if needed.
+func (rc *RequestCounter) incrementTimeSpent(key string, timeSpentMillis int64) {
+	if timeSpent, ok := rc.timeSpent.Load(key); ok {
+		timeSpent.(*atomic.Int64).Add(timeSpentMillis)
+	} else {
+		newCounter := new(atomic.Int64)
+		newCounter.Add(timeSpentMillis)
+		rc.timeSpent.Store(key, newCounter)
+	}
+}
+
 // Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
 func (rc *RequestCounter) Stats() any {
 	ret := make(map[string]int64)
 	rc.counts.Range(func(key, value any) bool {
 		ret[key.(string)] = value.(*atomic.Int64).Load()
+		return true
+	})
+	rc.timeSpent.Range(func(key, value any) bool {
+		ret[fmt.Sprintf("%v.timeSpent", key.(string))] = value.(*atomic.Int64).Load()
 		return true
 	})
 
@@ -584,6 +602,10 @@ func buildRCKey(clientMsg *any, apiMethod string) string {
 	return apiMethod
 }
 
+type GetNamer interface {
+	GetName() string
+}
+
 // UnaryInterceptor returns an incoming server interceptor that will pull method information and
 // optionally resource information to bump the request counters.
 func (rc *RequestCounter) UnaryInterceptor(
@@ -595,6 +617,19 @@ func (rc *RequestCounter) UnaryInterceptor(
 	if apiMethod != "" {
 		key := buildRCKey(&req, apiMethod)
 		rc.incrementCounter(key)
+
+		start := time.Now()
+		name := ""
+		if namer, ok := req.(GetNamer); ok {
+			name = namer.GetName()
+		} else {
+			name = fmt.Sprintf("%T", req)
+		}
+
+		defer func() {
+			since := time.Since(start).Milliseconds()
+			rc.incrementTimeSpent(key, since)
+		}()
 	}
 
 	return handler(ctx, req)
