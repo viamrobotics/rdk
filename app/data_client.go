@@ -1378,24 +1378,24 @@ func (d *DataClient) CreateDataPipeline(
 
 // UpdateDataPipeline updates a data pipeline configuration by its ID.
 func (d *DataClient) UpdateDataPipeline(
-	ctx context.Context, id, name string, query []map[string]interface{}, schedule string, opts *CreateDataPipelineOptions,
+	ctx context.Context, id, name string, query []map[string]interface{}, schedule string, dataSourceType TabularDataSourceType,
 ) error {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
 		return err
 	}
 
-	if opts == nil {
-		return errors.New("opts is nil")
+	if dataSourceType != TabularDataSourceTypeStandard && dataSourceType != TabularDataSourceTypeHotStorage {
+		return errors.New("data source type must be standard or hotstorage")
 	}
 
-	dataSourceType := dataSourceTypeToProto(opts.TabularDataSourceType)
+	dataSourceTypeProto := dataSourceTypeToProto(dataSourceType)
 	_, err = d.datapipelinesClient.UpdateDataPipeline(ctx, &datapipelinesPb.UpdateDataPipelineRequest{
 		Id:             id,
 		Name:           name,
 		MqlBinary:      mqlBinary,
 		Schedule:       schedule,
-		DataSourceType: &dataSourceType,
+		DataSourceType: &dataSourceTypeProto,
 	})
 	return err
 }

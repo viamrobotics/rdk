@@ -56,7 +56,7 @@ func DatapipelineListAction(c *cli.Context, args datapipelineListArgs) error {
 			enabled = "Disabled"
 		}
 		dataSourceType := dataSourceTypeMap[*pipeline.DataSourceType]
-		printf(c.App.Writer, "\t%s (ID: %s) [%s] %s", pipeline.Name, pipeline.Id, enabled, dataSourceType)
+		printf(c.App.Writer, "\t%s (ID: %s) [%s] [Data Source Type: %s]", pipeline.Name, pipeline.Id, enabled, dataSourceType)
 	}
 
 	return nil
@@ -351,8 +351,6 @@ func mqlJSON(mql [][]byte) (string, error) {
 
 func dataSourceTypeToProto(dataSourceType string) (pb.TabularDataSourceType, error) {
 	switch dataSourceType {
-	case "":
-		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD, nil
 	case "standard":
 		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD, nil
 	case "hotstorage":

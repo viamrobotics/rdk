@@ -1168,10 +1168,7 @@ func TestDataPipelineClient(t *testing.T) {
 			test.That(t, *in.DataSourceType, test.ShouldEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD)
 			return &datapipelinesPb.UpdateDataPipelineResponse{}, nil
 		}
-		options := &CreateDataPipelineOptions{
-			TabularDataSourceType: TabularDataSourceTypeStandard,
-		}
-		err := client.UpdateDataPipeline(context.Background(), dataPipelineID, name, mqlQueries, "0 7 * * *", options)
+		err := client.UpdateDataPipeline(context.Background(), dataPipelineID, name, mqlQueries, "0 7 * * *", TabularDataSourceTypeStandard)
 		test.That(t, err, test.ShouldBeNil)
 	})
 

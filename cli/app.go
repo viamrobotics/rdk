@@ -1695,7 +1695,7 @@ var app = &cli.App{
 						},
 						&cli.StringFlag{
 							Name:  datapipelineFlagDataSourceType,
-							Usage: "data source type for the data pipeline to update. Allowed values: [standard, hotstorage]",
+							Usage: formatAcceptedValues("data source type for the data pipeline to update", "standard", "hotstorage"),
 						},
 					},
 					Action: createCommandWithT[datapipelineUpdateArgs](DatapipelineUpdateAction),
