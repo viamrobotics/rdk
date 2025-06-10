@@ -293,8 +293,11 @@ var ratioMetricToFields = map[string]ratioMetric{
 	// here. Also, personally, sometimes I think not* doing PerSec for these can also be
 	// useful. Maybe we should consider including both the raw and rate graphs. Instead of replacing
 	// the raw values with a rate graph.
-	"GetImagePerSec":    {"GetImage", ""},
-	"GetReadingsPerSec": {"GetReadings", ""},
+	"GetImagePerSec":            {"GetImage", ""},
+	"GetReadingsPerSec":         {"GetReadings", ""},
+	"GetImagesPerSec":           {"GetImages", ""},
+	"DoCommandPerSec":           {"DoCommand", ""},
+	"MoveStraightLatencyMillis": {"MoveStraight.timeSpent", "MoveStraight"},
 }
 
 // ratioReading is a reading of two metrics described by `ratioMetric`. This is what will be graphed.
@@ -365,6 +368,9 @@ func pullRatios(
 			continue
 		}
 
+		// `ratioMetric` with a denominator will become the division of the two named
+		// metrics. Omitting a denominator implies a "per second", hence we don't need further ftdc
+		// metrics to compute those rates.
 		if ratioMetric.Denominator != "" && strings.HasSuffix(reading.MetricName, ratioMetric.Denominator) {
 			ret = true
 
@@ -374,7 +380,17 @@ func pullRatios(
 			// E.g: `rdk.foo_module.User CPU%'.
 			graphName := fmt.Sprint(metricIdentifier, ratioMetricName)
 			if _, exists := outDeferredReadings[graphName]; !exists {
-				outDeferredReadings[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: false}
+				// All of these values computed as "numerator/denominator". `isRate` only controls
+				// whether we interpret the result as a percentage or not. `isRate` false is a
+				// percentage. `isRate` true stays as the raw division.
+				isRate := false
+
+				// This creates graphs for metrics of the form: "total time spent in move straight"
+				// divided by "number of move straight calls".
+				if strings.HasSuffix(ratioMetric.Numerator, ".timeSpent") {
+					isRate = true
+				}
+				outDeferredReadings[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: isRate}
 			}
 
 			outDeferredReadings[graphName].Denominator = float64(reading.Value)
