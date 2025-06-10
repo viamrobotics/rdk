@@ -170,7 +170,7 @@ func TestDataSourceTypeToProto(t *testing.T) {
 		"empty": {
 			dataSourceType: "",
 			expectedType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
-			expectedError:  false,
+			expectedError:  true,
 		},
 	}
 
