@@ -26,6 +26,18 @@ func newRegistry() *Registry {
 	}
 }
 
+func newDebugRegistry() *Registry {
+	return &Registry{
+		loggers: make(map[string]Logger),
+		logConfig: []LoggerPatternConfig{
+			{
+				Pattern: "*",
+				Level:   "debug",
+			},
+		},
+	}
+}
+
 func (lr *Registry) registerLogger(name string, logger Logger) {
 	lr.mu.Lock()
 	defer lr.mu.Unlock()
@@ -59,22 +71,21 @@ func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) e
 
 	appliedConfigs := make(map[string]Level)
 	for _, lpc := range logConfig {
-		if !validatePattern(lpc.Pattern) {
-			warnLogger.Warnw("failed to validate a pattern", "pattern", lpc.Pattern)
+		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
+		if err != nil {
+			warnLogger.Warnw("Log regex did not compile",
+				"input", lpc.Pattern, "built", buildRegexFromPattern(lpc.Pattern), "err", err)
 			continue
 		}
 
-		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
+		level, err := LevelFromString(lpc.Level)
 		if err != nil {
-			return err
+			warnLogger.Warnw("Log level did not parse", "pattern", lpc.Pattern, "level", lpc.Level)
+			continue
 		}
 
 		for _, name := range lr.getRegisteredLoggerNames() {
 			if r.MatchString(name) {
-				level, err := LevelFromString(lpc.Level)
-				if err != nil {
-					return err
-				}
 				appliedConfigs[name] = level
 			}
 		}

@@ -1,13 +1,13 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
 
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
 
@@ -44,7 +44,7 @@ func RemoveFileNoError(path string) {
 func SafeJoinDir(parent, subdir string) (string, error) {
 	res := filepath.Join(parent, subdir)
 	if !strings.HasPrefix(filepath.Clean(res), filepath.Clean(parent)+string(os.PathSeparator)) {
-		return res, errors.Errorf("unsafe path join: '%s' with '%s'", parent, subdir)
+		return res, fmt.Errorf("unsafe path join: '%s' with '%s'", parent, subdir)
 	}
 	return res, nil
 }
@@ -58,7 +58,7 @@ func ExpandHomeDir(path string) (string, error) {
 		(runtime.GOOS == "windows" && strings.HasPrefix(path, "~\\")) {
 		usr, err := user.Current()
 		if err != nil {
-			return "", errors.Wrap(err, "expanding home dir")
+			return "", fmt.Errorf("expanding home dir: %w", err)
 		}
 		return filepath.Join(usr.HomeDir, path[min(2, len(path)):]), nil
 	}
