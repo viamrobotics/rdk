@@ -308,6 +308,11 @@ type TabularDataByMQLOptions struct {
 	PipelineID string
 }
 
+// CreateDataPipelineOptions contains optional parameters for CreateDataPipeline.
+type CreateDataPipelineOptions struct {
+	TabularDataSourceType TabularDataSourceType
+}
+
 // BinaryDataCaptureUploadOptions represents optional parameters for the BinaryDataCaptureUpload method.
 type BinaryDataCaptureUploadOptions struct {
 	Type             *DataType
@@ -1343,18 +1348,26 @@ func (d *DataClient) GetDataPipeline(ctx context.Context, id string) (*DataPipel
 
 // CreateDataPipeline creates a new data pipeline using the given query and schedule.
 func (d *DataClient) CreateDataPipeline(
-	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string,
+	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string, opts *CreateDataPipelineOptions,
 ) (string, error) {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
 		return "", err
 	}
 
+	if opts == nil {
+		opts = &CreateDataPipelineOptions{
+			TabularDataSourceType: TabularDataSourceTypeStandard,
+		}
+	}
+
+	dataSourceType := dataSourceTypeToProto(opts.TabularDataSourceType)
 	resp, err := d.datapipelinesClient.CreateDataPipeline(ctx, &datapipelinesPb.CreateDataPipelineRequest{
 		OrganizationId: organizationID,
 		Name:           name,
 		MqlBinary:      mqlBinary,
 		Schedule:       schedule,
+		DataSourceType: &dataSourceType,
 	})
 	if err != nil {
 		return "", err
@@ -1364,18 +1377,24 @@ func (d *DataClient) CreateDataPipeline(
 
 // UpdateDataPipeline updates a data pipeline configuration by its ID.
 func (d *DataClient) UpdateDataPipeline(
-	ctx context.Context, id, name string, query []map[string]interface{}, schedule string,
+	ctx context.Context, id, name string, query []map[string]interface{}, schedule string, opts *CreateDataPipelineOptions,
 ) error {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
 		return err
 	}
 
+	if opts == nil {
+		return fmt.Errorf("opts is nil")
+	}
+
+	dataSourceType := dataSourceTypeToProto(opts.TabularDataSourceType)
 	_, err = d.datapipelinesClient.UpdateDataPipeline(ctx, &datapipelinesPb.UpdateDataPipelineRequest{
-		Id:        id,
-		Name:      name,
-		MqlBinary: mqlBinary,
-		Schedule:  schedule,
+		Id:             id,
+		Name:           name,
+		MqlBinary:      mqlBinary,
+		Schedule:       schedule,
+		DataSourceType: &dataSourceType,
 	})
 	return err
 }

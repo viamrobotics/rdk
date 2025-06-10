@@ -1139,11 +1139,15 @@ func TestDataPipelineClient(t *testing.T) {
 			test.That(t, in.Name, test.ShouldEqual, name)
 			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
 			test.That(t, in.Schedule, test.ShouldEqual, "0 9 * * *")
+			test.That(t, *in.DataSourceType, test.ShouldEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD)
 			return &datapipelinesPb.CreateDataPipelineResponse{
 				Id: "new-data-pipeline-id",
 			}, nil
 		}
-		resp, err := client.CreateDataPipeline(context.Background(), organizationID, name, mqlQueries, "0 9 * * *")
+		options := &CreateDataPipelineOptions{
+			TabularDataSourceType: TabularDataSourceTypeStandard,
+		}
+		resp, err := client.CreateDataPipeline(context.Background(), organizationID, name, mqlQueries, "0 9 * * *", options)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, "new-data-pipeline-id")
 	})
@@ -1156,9 +1160,13 @@ func TestDataPipelineClient(t *testing.T) {
 			test.That(t, in.Name, test.ShouldEqual, name)
 			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
 			test.That(t, in.Schedule, test.ShouldEqual, "0 7 * * *")
+			test.That(t, *in.DataSourceType, test.ShouldEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD)
 			return &datapipelinesPb.UpdateDataPipelineResponse{}, nil
 		}
-		err := client.UpdateDataPipeline(context.Background(), dataPipelineID, name, mqlQueries, "0 7 * * *")
+		options := &CreateDataPipelineOptions{
+			TabularDataSourceType: TabularDataSourceTypeStandard,
+		}
+		err := client.UpdateDataPipeline(context.Background(), dataPipelineID, name, mqlQueries, "0 7 * * *", options)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
