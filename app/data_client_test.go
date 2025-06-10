@@ -161,8 +161,11 @@ var (
 		Enabled:        true,
 		CreatedOn:      time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
 		UpdatedAt:      time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+		DataSourceType: TabularDataSourceTypeStandard,
 	}
-	pbDataPipeline = &datapipelinesPb.DataPipeline{
+
+	pbDataSourceType = pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD
+	pbDataPipeline   = &datapipelinesPb.DataPipeline{
 		Id:             dataPipelineID,
 		Name:           name,
 		OrganizationId: organizationID,
@@ -171,6 +174,7 @@ var (
 		Enabled:        true,
 		CreatedOn:      timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
 		UpdatedAt:      timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
+		DataSourceType: &pbDataSourceType,
 	}
 	pbDataPipelines    = []*datapipelinesPb.DataPipeline{pbDataPipeline}
 	dataPipelines      = []*DataPipeline{&dataPipeline}
@@ -1112,6 +1116,7 @@ func TestDataPipelineClient(t *testing.T) {
 				DataPipelines: pbDataPipelines,
 			}, nil
 		}
+
 		resp, err := client.ListDataPipelines(context.Background(), organizationID)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, &resp, test.ShouldResemble, &dataPipelines)
