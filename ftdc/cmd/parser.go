@@ -271,7 +271,7 @@ func (gpw *gnuplotWriter) getGraphInfo(metricName string) (*graphInfo, bool) {
 	return ret, true
 }
 
-func (gpw *gnuplotWriter) copyPreviousPoint(timeSeconds int64, metricName string, logger logging.Logger) {
+func (gpw *gnuplotWriter) copyPreviousPoint(timeSeconds int64, metricName string) {
 	if timeSeconds < gpw.options.minTimeSeconds || timeSeconds > gpw.options.maxTimeSeconds {
 		return
 	}
@@ -558,7 +558,7 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratio
 					"metricName", metricName, "time", currRatioReading.Time, "err", err)
 				// Copy the last point. Such that all graphs ought to have the same "last"
 				// datapoint.
-				gpw.copyPreviousPoint(currRatioReading.Time, metricName, logger)
+				gpw.copyPreviousPoint(currRatioReading.Time, metricName)
 				continue
 			}
 
