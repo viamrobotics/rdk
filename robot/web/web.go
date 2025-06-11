@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/jhump/protoreflect/dynamic"
@@ -531,7 +532,8 @@ type Namer interface {
 // RequestCounter maps string keys to atomic ints that get bumped on every incoming gRPC request for
 // components.
 type RequestCounter struct {
-	counts sync.Map
+	counts    sync.Map
+	timeSpent sync.Map
 }
 
 // incrementCounter atomically increments the counter for a given key, creating it first if needed.
@@ -545,11 +547,27 @@ func (rc *RequestCounter) incrementCounter(key string) {
 	}
 }
 
+// incrementTimeSpent atomically increments the latency tracker for a given key, creating it first
+// if needed.
+func (rc *RequestCounter) incrementTimeSpent(key string, timeSpentMillis int64) {
+	if timeSpent, ok := rc.timeSpent.Load(key); ok {
+		timeSpent.(*atomic.Int64).Add(timeSpentMillis)
+	} else {
+		newCounter := new(atomic.Int64)
+		newCounter.Add(timeSpentMillis)
+		rc.timeSpent.Store(key, newCounter)
+	}
+}
+
 // Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
 func (rc *RequestCounter) Stats() any {
 	ret := make(map[string]int64)
 	rc.counts.Range(func(key, value any) bool {
 		ret[key.(string)] = value.(*atomic.Int64).Load()
+		return true
+	})
+	rc.timeSpent.Range(func(key, value any) bool {
+		ret[fmt.Sprintf("%v.timeSpent", key.(string))] = value.(*atomic.Int64).Load()
 		return true
 	})
 
@@ -595,6 +613,25 @@ func (rc *RequestCounter) UnaryInterceptor(
 	if apiMethod != "" {
 		key := buildRCKey(&req, apiMethod)
 		rc.incrementCounter(key)
+
+		start := time.Now()
+		defer func() {
+			// Dan: Some metrics want to take the difference of "time spent" between two recordings
+			// (spaced by some "window size") and divide by the "number of calls". Doing the
+			// `incrementCounter` at the RPC call start and `incrementTimeSpent` at the end creates
+			// an odd skew. Where at some later point there will be an increase in time spent not
+			// immediately accompanied by an increase in calls.
+			//
+			// This can create difficult to parse data when requests start taking a "window size"
+			// amount of time to complete. We may want to consider calling `incrementCounter` in the
+			// defer. But that could lead to a scenario where an RPC call causes deadlock, getting
+			// itself blocked in the process. FTDC wouldn't be able to show that server was in that
+			// code path.
+			//
+			// Perhaps the "perfect" solution is to track both "request started" and "request
+			// finished". And have latency graphs use "request finished".
+			rc.incrementTimeSpent(key, time.Since(start).Milliseconds())
+		}()
 	}
 
 	return handler(ctx, req)
