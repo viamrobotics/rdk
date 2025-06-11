@@ -27,6 +27,8 @@ type graphInfo struct {
 	file   *os.File
 	minVal int64
 	maxVal int64
+
+	prevVal float32
 }
 
 // gnuplotWriter organizes all of the output for `gnuplot` to create a graph from FTDC
@@ -56,11 +58,19 @@ type gnuplotWriter struct {
 	// timesToInclude is a slice of unix timestamps. The "nearest" datapoint to each value will be
 	// added. If timesToInclude is nil, all data points are to be added.
 	timesToInclude []int64
+	// timeSliceNanos is the amount of time in nanos (on average) between adjacent members of
+	// `timesToInclude`. When all input datapoints are used, we expect this to be ~1 second worth of
+	// nanos. If we throw away datapoints, it will be larger.
+	timeSliceNanos time.Duration
 	// shouldIncludePointStorage are "local" variables used for successive calls to
 	// `shouldIncludePoint`.
 	shouldIncludePointStorage struct {
 		nextTimeIdx int
 	}
+
+	// The earliest datapoint being plotted. This is used to help ensure every chart starts plotting
+	// from the same time.
+	firstTimeSecs int64
 }
 
 type kvPair[K, V any] struct {
@@ -160,18 +170,28 @@ func newGnuPlotWriter(graphOptions graphOptions, numDatapoints int, minTime, max
 		panic(err)
 	}
 
+	// The `firstTime` represents the first datapoint all created graphs will contain. Such that
+	// metrics that come into existence later in a robot's lifetime will still have a graph starting
+	// at the same time as all other graphs.
+	firstTimeSecs := minTime / time.Second.Nanoseconds()
 	var timesToInclude []int64
+	// If we include every datapoint, the timeslice ought to be ~1 second.
+	timeSliceNanos := time.Second.Nanoseconds()
 	if numDatapoints > graphOptions.maxPoints {
 		// If there are more datapoints than we wish to graph, calculate the approximate evenly
 		// spaced timestamps to use.
 		timesToInclude = make([]int64, graphOptions.maxPoints)
-		timeSlice := (maxTime - minTime) / int64(graphOptions.maxPoints)
+		timeSliceNanos = (maxTime - minTime) / int64(graphOptions.maxPoints)
 
 		timeToInclude := minTime
 		for idx := 0; idx < graphOptions.maxPoints; idx++ {
 			timesToInclude[idx] = timeToInclude
-			timeToInclude += timeSlice
+			timeToInclude += timeSliceNanos
 		}
+
+		// If we've decided to downsample, the `firstTime` ought to reflect the earliest
+		// `timeToInclude`.
+		firstTimeSecs = timesToInclude[0] / time.Second.Nanoseconds()
 	}
 
 	return &gnuplotWriter{
@@ -179,6 +199,8 @@ func newGnuPlotWriter(graphOptions graphOptions, numDatapoints int, minTime, max
 		tempdir:        tempdir,
 		options:        graphOptions,
 		timesToInclude: timesToInclude,
+		timeSliceNanos: time.Duration(timeSliceNanos),
+		firstTimeSecs:  firstTimeSecs,
 	}
 }
 
@@ -198,6 +220,17 @@ func (gpw *gnuplotWriter) shouldIncludePoint(this, next *ftdc.FlatDatum) *ftdc.F
 	}
 
 	nextTimeToInclude := gpw.timesToInclude[gpw.shouldIncludePointStorage.nextTimeIdx]
+	if this.Time > nextTimeToInclude {
+		// There may be a bubble in FTDC data such that we didn't capture any data for a few
+		// seconds. Return the current value and also bump the `nextTimeIdx` to restore the
+		// invariant that the `nextTimeToInclude` > `this.Time`.
+		for gpw.timesToInclude[gpw.shouldIncludePointStorage.nextTimeIdx] < this.Time {
+			gpw.shouldIncludePointStorage.nextTimeIdx++
+		}
+
+		return this
+	}
+
 	// If `this` and `next` straddle the `nextTimeToInclude`, we'll return a point to graph.
 	returnAPoint := this.Time <= nextTimeToInclude && next.Time >= nextTimeToInclude
 	if !returnAPoint {
@@ -218,9 +251,11 @@ func (gpw *gnuplotWriter) shouldIncludePoint(this, next *ftdc.FlatDatum) *ftdc.F
 	return this
 }
 
-func (gpw *gnuplotWriter) getGraphInfo(metricName string) *graphInfo {
+// getGraphInfo returns the cached `graphInfo` object for a given metric, or creates a new
+// one. Returns whether a new one was created.
+func (gpw *gnuplotWriter) getGraphInfo(metricName string) (*graphInfo, bool) {
 	if gi, created := gpw.metricFiles[metricName]; created {
-		return gi
+		return gi, false
 	}
 
 	datafile, err := os.CreateTemp(gpw.tempdir, "")
@@ -233,7 +268,39 @@ func (gpw *gnuplotWriter) getGraphInfo(metricName string) *graphInfo {
 	}
 	gpw.metricFiles[metricName] = ret
 
-	return ret
+	return ret, true
+}
+
+func (gpw *gnuplotWriter) copyPreviousPoint(timeSeconds int64, metricName string) {
+	if timeSeconds < gpw.options.minTimeSeconds || timeSeconds > gpw.options.maxTimeSeconds {
+		return
+	}
+
+	gi, newlyCreated := gpw.getGraphInfo(metricName)
+	if newlyCreated {
+		gi.writeStartingDatapoints(gpw.firstTimeSecs, timeSeconds)
+		return
+	}
+
+	writelnf(gi.file, "%v %.5f", timeSeconds, gi.prevVal)
+}
+
+func (gi *graphInfo) writeStartingDatapoints(firstTimeSecs, datapointTimeSecs int64) {
+	// For newly created files:
+	// - Ensure the first datapoint is at `firstTime`.
+	// - If the first datapoint is more than a second after `firstTime`, write a 0-value
+	//   datapoint just prior.
+	//
+	// Motivation for the latter: consider a metric that comes into existence (much) later in a
+	// robot life. We want the graph to have nice spike up. Rather than a long slow rise from the
+	// beginning of time.
+	if datapointTimeSecs > firstTimeSecs {
+		writelnf(gi.file, "%v 0.0", firstTimeSecs)
+	}
+
+	if datapointTimeSecs-1 > firstTimeSecs {
+		writelnf(gi.file, "%v 0.0", datapointTimeSecs-1)
+	}
 }
 
 func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricValue float32) {
@@ -243,7 +310,12 @@ func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricV
 
 	// While we're adding points, track the min/max values we saw. This can be used to better scale
 	// graphs. As we've found gnuplots auto scaling to be a bit clunky.
-	gi := gpw.getGraphInfo(metricName)
+	gi, newlyCreated := gpw.getGraphInfo(metricName)
+	if newlyCreated {
+		gi.writeStartingDatapoints(gpw.firstTimeSecs, timeSeconds)
+	}
+
+	gi.prevVal = metricValue
 	gi.minVal = min(gi.minVal, int64(metricValue))
 	gi.maxVal = max(gi.maxVal, int64(metricValue))
 	writelnf(gi.file, "%v %.5f", timeSeconds, metricValue)
@@ -282,8 +354,11 @@ var ratioMetricToFields = map[string]ratioMetric{
 	// here. Also, personally, sometimes I think not* doing PerSec for these can also be
 	// useful. Maybe we should consider including both the raw and rate graphs. Instead of replacing
 	// the raw values with a rate graph.
-	"GetImagePerSec":    {"GetImage", ""},
-	"GetReadingsPerSec": {"GetReadings", ""},
+	"GetImagePerSec":            {"GetImage", ""},
+	"GetReadingsPerSec":         {"GetReadings", ""},
+	"GetImagesPerSec":           {"GetImages", ""},
+	"DoCommandPerSec":           {"DoCommand", ""},
+	"MoveStraightLatencyMillis": {"MoveStraight.timeSpent", "MoveStraight"},
 }
 
 // ratioReading is a reading of two metrics described by `ratioMetric`. This is what will be graphed.
@@ -354,6 +429,9 @@ func pullRatios(
 			continue
 		}
 
+		// `ratioMetric` with a denominator will become the division of the two named
+		// metrics. Omitting a denominator implies a "per second", hence we don't need further ftdc
+		// metrics to compute those rates.
 		if ratioMetric.Denominator != "" && strings.HasSuffix(reading.MetricName, ratioMetric.Denominator) {
 			ret = true
 
@@ -363,7 +441,17 @@ func pullRatios(
 			// E.g: `rdk.foo_module.User CPU%'.
 			graphName := fmt.Sprint(metricIdentifier, ratioMetricName)
 			if _, exists := outDeferredReadings[graphName]; !exists {
-				outDeferredReadings[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: false}
+				// All of these values computed as "numerator/denominator". `isRate` only controls
+				// whether we interpret the result as a percentage or not. `isRate` false is a
+				// percentage. `isRate` true stays as the raw division.
+				isRate := false
+
+				// This creates graphs for metrics of the form: "total time spent in move straight"
+				// divided by "number of move straight calls".
+				if strings.HasSuffix(ratioMetric.Numerator, ".timeSpent") {
+					isRate = true
+				}
+				outDeferredReadings[graphName] = &ratioReading{GraphName: graphName, Time: readingTS, isRate: isRate}
 			}
 
 			outDeferredReadings[graphName].Denominator = float64(reading.Value)
@@ -413,13 +501,17 @@ func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) map[string]*ratioRe
 // clock difference to compute a correct rate. We just accept there may be fuzziness with respect to
 // how recent of a history we're actually using.
 //
-// Consider adding logging when two FTDC readings `windowSizeSecs` apart is not reflecting by their
+// Consider adding logging when two FTDC readings `windowSize` apart is not reflecting by their
 // system time difference.
-const windowSizeSecs = 5
+const windowSize = 5 * time.Second
 
 // The deferredValues input is in FTDC reading order. On a responsive system, adjacent items in the
 // slice should be one second apart.
 func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratioReading, logger logging.Logger) {
+	// "deferred values" are computed by subtracting adjacent values. We iterate through
+	// `deferredValues` in slice order to compare "adjacent" elements. But because graphing readings
+	// from truly adjacent elements (every second) can be noisy, we dampen that by looking back
+	// `windowSizeSecs`.
 	for idx, currReadings := range deferredValues {
 		if idx == 0 {
 			// The first element cannot be compared to anything. It would create a divide by zero
@@ -427,29 +519,49 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratio
 			continue
 		}
 
+		// If the window size is 5 seconds and the time slice was 2.5 seconds per "index", we'll
+		// want to "look back" 2 "index units".
+		lookback := int(windowSize.Nanoseconds() / gpw.timeSliceNanos.Nanoseconds())
+		if lookback < 0 {
+			// If the `timeSliceNanos` value is larger than five seconds, just look back one index
+			// element.
+			lookback = 1
+		}
+
 		// `forCompare` is the index element to compare the "current" element pointed to by `idx`.
-		forCompare := idx - windowSizeSecs
+		forCompare := idx - lookback
 		if forCompare < 0 {
+			// At the beginning of data, we will compute rates, but just shrink the window size to
+			// what's available.
 			forCompare = 0
 		}
 
 		prevReadings := deferredValues[forCompare]
 		for metricName, currRatioReading := range currReadings {
 			var diff ratioReading
-			if prevratioReading, exists := prevReadings[metricName]; exists {
-				diff = currRatioReading.diff(prevratioReading)
+			if prevRatioReading, exists := prevReadings[metricName]; exists {
+				diff = currRatioReading.diff(prevRatioReading)
 			} else {
-				logger.Infow("Deferred value missing a previous value to diff",
+				// We expect this to happen when there's only one reading in some window size. This
+				// can be very spammy, so it's at the debug level. A bug could easily introduce
+				// unexpected cases to enter this code path.
+				logger.Debugw("Deferred value missing a previous value to diff",
 					"metricName", metricName, "time", currRatioReading.Time)
 				continue
 			}
 
 			value, err := diff.toValue()
 			if err != nil {
-				// The denominator did not change -- divide by zero error.
-				logger.Warnw("Error computing defered value", "metricName", metricName, "time", currRatioReading.Time, "err", err)
+				// The denominator did not change -- divide by zero error. E.g: there were no calls
+				// to a given RPC in the last window slice.
+				logger.Debugw("Error computing deferred value",
+					"metricName", metricName, "time", currRatioReading.Time, "err", err)
+				// Copy the last point. Such that all graphs ought to have the same "last"
+				// datapoint.
+				gpw.copyPreviousPoint(currRatioReading.Time, metricName)
 				continue
 			}
+
 			gpw.addPoint(currRatioReading.Time, metricName, value)
 		}
 	}
@@ -669,6 +781,10 @@ func main() {
 			nolintPrintln()
 			nolintPrintln("reset range")
 			nolintPrintln("-  Unset any prior range. \"zoom out to full\"")
+			nolintPrintln()
+			nolintPrintln("ev, event <timestamp>")
+			nolintPrintln("-  Add a vertical marker at a timestamp representing an event of interest.")
+			nolintPrintln("-  E.g: ev 2024-09-24T18:15:00")
 			nolintPrintln()
 			nolintPrintln("r, refresh")
 			nolintPrintln("-  Regenerate the plot.png image. Useful when a current viam-server is running.")
