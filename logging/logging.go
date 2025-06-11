@@ -16,11 +16,9 @@ var (
 	globalMu     sync.RWMutex
 	globalLogger = NewDebugLogger("global")
 
-	// GlobalLogLevelZap should be used whenever a zap logger is created that wants to obey the debug
+	// GlobalLogLevel should be used whenever a zap logger is created that wants to obey the debug
 	// flag from the CLI or robot config.
-	GlobalLogLevelZap = zap.NewAtomicLevelAt(zap.InfoLevel)
-	// GlobalLogLevelRDK is the `logging.Level` copy of `GlobalLogLevelZap`.
-	GlobalLogLevelRDK = NewAtomicLevelAt(INFO)
+	GlobalLogLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
 )
 
 // ReplaceGlobal replaces the global loggers.
@@ -40,7 +38,7 @@ func NewZapLoggerConfig() zap.Config {
 	// from https://github.com/uber-go/zap/blob/2314926ec34c23ee21f3dd4399438469668f8097/config.go#L135
 	// but disable stacktraces, use same keys as prod, and color levels.
 	return zap.Config{
-		Level:    GlobalLogLevelZap,
+		Level:    GlobalLogLevel,
 		Encoding: "console",
 		EncoderConfig: zapcore.EncoderConfig{
 			TimeKey:        "ts",
@@ -104,14 +102,14 @@ func NewDebugLogger(name string) Logger {
 		name:                     name,
 		level:                    NewAtomicLevelAt(DEBUG),
 		appenders:                []Appender{NewStdoutAppender()},
-		registry:                 newDebugRegistry(),
+		registry:                 newRegistry(),
 		testHelper:               func() {},
 		recentMessageCounts:      make(map[string]int),
 		recentMessageEntries:     make(map[string]LogEntry),
 		recentMessageWindowStart: time.Now(),
 	}
-	logger.registry.registerLogger(name, logger)
 
+	logger.registry.registerLogger(name, logger)
 	return logger
 }
 
@@ -122,14 +120,14 @@ func NewBlankLogger(name string) Logger {
 		name:                     name,
 		level:                    NewAtomicLevelAt(DEBUG),
 		appenders:                []Appender{},
-		registry:                 newDebugRegistry(),
+		registry:                 newRegistry(),
 		testHelper:               func() {},
 		recentMessageCounts:      make(map[string]int),
 		recentMessageEntries:     make(map[string]LogEntry),
 		recentMessageWindowStart: time.Now(),
 	}
-	logger.registry.registerLogger(name, logger)
 
+	logger.registry.registerLogger(name, logger)
 	return logger
 }
 
@@ -140,7 +138,7 @@ func NewBlankLoggerWithRegistry(name string) (Logger, *Registry) {
 		name:                     name,
 		level:                    NewAtomicLevelAt(DEBUG),
 		appenders:                []Appender{},
-		registry:                 newDebugRegistry(),
+		registry:                 newRegistry(),
 		testHelper:               func() {},
 		recentMessageCounts:      make(map[string]int),
 		recentMessageEntries:     make(map[string]LogEntry),
@@ -167,13 +165,12 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 			NewTestAppender(tb),
 			observerCore,
 		},
-		registry:                 newDebugRegistry(),
+		registry:                 newRegistry(),
 		testHelper:               tb.Helper,
 		recentMessageCounts:      make(map[string]int),
 		recentMessageEntries:     make(map[string]LogEntry),
 		recentMessageWindowStart: time.Now(),
 	}
-	logger.registry.registerLogger(tb.Name(), logger)
 
 	return logger, observedLogs
 }
@@ -182,7 +179,7 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 // associated registry. It also takes a name for the logger.
 func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *observer.ObservedLogs, *Registry) {
 	observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.DebugLevel.Enabled))
-	registry := newDebugRegistry()
+	registry := newRegistry()
 	logger := &impl{
 		name:  name,
 		level: NewAtomicLevelAt(DEBUG),
@@ -196,7 +193,6 @@ func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *obs
 		recentMessageEntries:     make(map[string]LogEntry),
 		recentMessageWindowStart: time.Now(),
 	}
-	logger.registry.registerLogger(tb.Name(), logger)
 
 	return logger, observedLogs, registry
 }
@@ -228,13 +224,12 @@ func NewInMemoryLogger(tb testing.TB) *MemLogger {
 		appenders: []Appender{
 			observerCore,
 		},
-		registry:                 newDebugRegistry(),
+		registry:                 newRegistry(),
 		testHelper:               tb.Helper,
 		recentMessageCounts:      make(map[string]int),
 		recentMessageEntries:     make(map[string]LogEntry),
 		recentMessageWindowStart: time.Now(),
 	}
-	logger.registry.registerLogger(tb.Name(), logger)
 
 	memLogger := &MemLogger{logger, tb, observedLogs}
 	// Ensure that logs are always output on failure.

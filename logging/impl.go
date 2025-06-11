@@ -136,15 +136,7 @@ func (imp *impl) Sublogger(subname string) Logger {
 	// succeeds without a change here.
 	sublogger := &impl{
 		newName,
-		// RSDK-10893: Don't inherit from parent loggers. This creates non-deterministic
-		// behavior. Where applying patterns from a config before creating a Sublogger can have
-		// different end state than applying patterns after creating a Sublogger. See
-		// `TestPatternsRootWarn`.
-		//
-		// Dan: Patterns for fine grained logger control are not perfectly compatible with component
-		// log levels. I think it's better to have deterministic behavior and leverage patterns to
-		// achieve more complex states.
-		NewAtomicLevelAt(GlobalLogLevelRDK.Get()),
+		NewAtomicLevelAt(imp.level.Get()),
 		false, // allow log deduplication by default
 		imp.appenders,
 		imp.registry,
@@ -243,7 +235,7 @@ func (imp *impl) AsZap() *zap.SugaredLogger {
 		if imp.level.Get() == DEBUG {
 			config.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 		} else {
-			config.Level = GlobalLogLevelZap
+			config.Level = GlobalLogLevel
 		}
 		ret = zap.Must(config.Build()).Sugar().Named(imp.name)
 	} else {
@@ -263,7 +255,7 @@ func (imp *impl) AsZap() *zap.SugaredLogger {
 }
 
 func (imp *impl) shouldLog(logLevel Level) bool {
-	if GlobalLogLevelRDK.Get() == DEBUG {
+	if GlobalLogLevel.Level() == zapcore.DebugLevel {
 		return true
 	}
 
