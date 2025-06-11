@@ -61,6 +61,10 @@ type gnuplotWriter struct {
 	shouldIncludePointStorage struct {
 		nextTimeIdx int
 	}
+
+	// The earliest datapoint being plotted. This is used to help ensure every chart starts plotting
+	// from the same time.
+	firstTimeSecs int64
 }
 
 type kvPair[K, V any] struct {
@@ -160,6 +164,10 @@ func newGnuPlotWriter(graphOptions graphOptions, numDatapoints int, minTime, max
 		panic(err)
 	}
 
+	// The `firstTime` represents the first datapoint all created graphs will contain. Such that
+	// metrics that come into existence later in a robot's lifetime will still have a graph starting
+	// at the same time as all other graphs.
+	firstTimeSecs := minTime / time.Second.Nanoseconds()
 	var timesToInclude []int64
 	if numDatapoints > graphOptions.maxPoints {
 		// If there are more datapoints than we wish to graph, calculate the approximate evenly
@@ -172,6 +180,10 @@ func newGnuPlotWriter(graphOptions graphOptions, numDatapoints int, minTime, max
 			timesToInclude[idx] = timeToInclude
 			timeToInclude += timeSlice
 		}
+
+		// If we've decided to downsample, the `firstTime` ought to reflect the earliest
+		// `timeToInclude`.
+		firstTimeSecs = timesToInclude[0] / time.Second.Nanoseconds()
 	}
 
 	return &gnuplotWriter{
@@ -179,6 +191,7 @@ func newGnuPlotWriter(graphOptions graphOptions, numDatapoints int, minTime, max
 		tempdir:        tempdir,
 		options:        graphOptions,
 		timesToInclude: timesToInclude,
+		firstTimeSecs:  firstTimeSecs,
 	}
 }
 
@@ -229,9 +242,11 @@ func (gpw *gnuplotWriter) shouldIncludePoint(this, next *ftdc.FlatDatum) *ftdc.F
 	return this
 }
 
-func (gpw *gnuplotWriter) getGraphInfo(metricName string) *graphInfo {
+// getGraphInfo returns the cached `graphInfo` object for a given metric, or creates a new
+// one. Returns whether a new one was created.
+func (gpw *gnuplotWriter) getGraphInfo(metricName string) (*graphInfo, bool) {
 	if gi, created := gpw.metricFiles[metricName]; created {
-		return gi
+		return gi, false
 	}
 
 	datafile, err := os.CreateTemp(gpw.tempdir, "")
@@ -254,7 +269,26 @@ func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricV
 
 	// While we're adding points, track the min/max values we saw. This can be used to better scale
 	// graphs. As we've found gnuplots auto scaling to be a bit clunky.
-	gi := gpw.getGraphInfo(metricName)
+	gi, newlyCreated := gpw.getGraphInfo(metricName)
+	if newlyCreated {
+		// For newly created files:
+		// - Ensure the first datapoint is at `firstTime`.
+		// - If the first datapoint is more than a second after `firstTime`, write a 0-value
+		//   datapoint just prior.
+		//
+		// Motivation for the latter: consider a metric that comes into existence (much) later in a
+		// robot life. We want the graph to have nice spike up. Rather than a long curve with a
+		// small slope from the beginning of time.
+		if timeSeconds > gpw.firstTimeSecs {
+			writelnf(gi.file, "%v 0.0", gpw.firstTimeSecs)
+		}
+
+		if timeSeconds-1 > gpw.firstTimeSecs {
+			writelnf(gi.file, "%v 0.0", timeSeconds-1)
+		}
+	}
+
+	gi.prevVal = metricValue
 	gi.minVal = min(gi.minVal, int64(metricValue))
 	gi.maxVal = max(gi.maxVal, int64(metricValue))
 	writelnf(gi.file, "%v %.5f", timeSeconds, metricValue)
