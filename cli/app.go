@@ -1656,8 +1656,12 @@ var app = &cli.App{
 							Usage: "path to JSON file containing MQL query for the new data pipeline",
 						},
 						&cli.StringFlag{
-							Name:  datapipelineFlagDataSourceType,
-							Usage: "data source type for the new data pipeline. Allowed values: [standard, hotstorage]",
+							Name: datapipelineFlagDataSourceType,
+							Usage: formatAcceptedValues(
+								"data source type for the new data pipeline",
+								StandardDataSourceType,
+								HotStorageDataSourceType,
+							),
 						},
 					},
 					Action: createCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
@@ -1694,8 +1698,12 @@ var app = &cli.App{
 							Usage: "path to JSON file containing MQL query for the data pipeline to update",
 						},
 						&cli.StringFlag{
-							Name:  datapipelineFlagDataSourceType,
-							Usage: formatAcceptedValues("data source type for the data pipeline to update", "standard", "hotstorage"),
+							Name: datapipelineFlagDataSourceType,
+							Usage: formatAcceptedValues(
+								"data source type for the data pipeline to update",
+								StandardDataSourceType,
+								HotStorageDataSourceType,
+							),
 						},
 					},
 					Action: createCommandWithT[datapipelineUpdateArgs](DatapipelineUpdateAction),

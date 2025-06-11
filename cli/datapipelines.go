@@ -32,6 +32,12 @@ var dataSourceTypeMap = map[pb.TabularDataSourceType]string{
 	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK: "Pipeline Sink",
 }
 
+// dataSourceType constants for data source types.
+var (
+	StandardDataSourceType   = "standard"
+	HotStorageDataSourceType = "hotstorage"
+)
+
 type datapipelineListArgs struct {
 	OrgID string
 }
@@ -351,12 +357,16 @@ func mqlJSON(mql [][]byte) (string, error) {
 
 func dataSourceTypeToProto(dataSourceType string) (pb.TabularDataSourceType, error) {
 	switch dataSourceType {
-	case "standard":
+	case StandardDataSourceType:
 		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD, nil
-	case "hotstorage":
+	case HotStorageDataSourceType:
 		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE, nil
 	default:
 		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED,
-			fmt.Errorf("invalid data source type: %s. Supported values: [standard, hotstorage]", dataSourceType)
+			fmt.Errorf("invalid data source type: %s. Supported values: [%s, %s]",
+				dataSourceType,
+				StandardDataSourceType,
+				HotStorageDataSourceType,
+			)
 	}
 }
