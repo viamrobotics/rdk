@@ -70,12 +70,17 @@ func NewLoggerFromArgs(moduleName string) logging.Logger {
 	}
 
 	modAppender := newModuleAppender()
-	baseLogger := logging.NewBlankLogger(moduleName)
+	baseLogger, registry := logging.NewBlankLoggerWithRegistry(moduleName)
 	baseLogger.AddAppender(modAppender)
 
 	// Use DEBUG logging only if 3rd OS argument is "--log-level=debug".
 	if len(os.Args) < 3 || os.Args[2] != "--log-level=debug" {
 		baseLogger.SetLevel(logging.INFO)
+
+		// Because we use a blank logger, the created registry will, by default, have a "*:
+		// debug" pattern. We need to `Update` the registry to have no patterns if we are
+		// setting the level to INFO.
+		registry.Update(nil, logging.NewLogger("error"))
 	}
 	return &moduleLogger{baseLogger, modAppender}
 }
