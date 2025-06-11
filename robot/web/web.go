@@ -602,10 +602,6 @@ func buildRCKey(clientMsg *any, apiMethod string) string {
 	return apiMethod
 }
 
-type GetNamer interface {
-	GetName() string
-}
-
 // UnaryInterceptor returns an incoming server interceptor that will pull method information and
 // optionally resource information to bump the request counters.
 func (rc *RequestCounter) UnaryInterceptor(

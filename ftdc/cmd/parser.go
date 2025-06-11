@@ -176,7 +176,7 @@ func newGnuPlotWriter(graphOptions graphOptions, numDatapoints int, minTime, max
 	firstTimeSecs := minTime / time.Second.Nanoseconds()
 	var timesToInclude []int64
 	// If we include every datapoint, the timeslice ought to be ~1 second.
-	var timeSliceNanos int64 = time.Second.Nanoseconds()
+	var timeSliceNanos = time.Second.Nanoseconds()
 	if numDatapoints > graphOptions.maxPoints {
 		// If there are more datapoints than we wish to graph, calculate the approximate evenly
 		// spaced timestamps to use.
@@ -498,9 +498,9 @@ func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) map[string]*ratioRe
 // clock difference to compute a correct rate. We just accept there may be fuzziness with respect to
 // how recent of a history we're actually using.
 //
-// Consider adding logging when two FTDC readings `windowSizeSecs` apart is not reflecting by their
+// Consider adding logging when two FTDC readings `windowSize` apart is not reflecting by their
 // system time difference.
-const windowSizeSecs = 5 * time.Second
+const windowSize = 5 * time.Second
 
 // The deferredValues input is in FTDC reading order. On a responsive system, adjacent items in the
 // slice should be one second apart.
@@ -518,7 +518,7 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratio
 
 		// If the window size is 5 seconds and the time slice was 2.5 seconds per "index", we'll
 		// want to "look back" 2 "index units".
-		lookback := int(windowSizeSecs.Nanoseconds() / gpw.timeSliceNanos.Nanoseconds())
+		lookback := int(windowSize.Nanoseconds() / gpw.timeSliceNanos.Nanoseconds())
 		if lookback < 0 {
 			// If the `timeSliceNanos` value is larger than five seconds, just look back one index
 			// element.
