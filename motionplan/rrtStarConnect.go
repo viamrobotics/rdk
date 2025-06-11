@@ -109,9 +109,7 @@ func (mp *rrtStarConnectMotionPlanner) plan(ctx context.Context, seed, goal *Pla
 
 // rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
 // Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
-func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
-	rrt *rrtParallelPlannerShared,
-) {
+func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context, rrt *rrtParallelPlannerShared) {
 	mp.logger.CDebug(ctx, "Starting RRT*")
 	defer close(rrt.solutionChan)
 
