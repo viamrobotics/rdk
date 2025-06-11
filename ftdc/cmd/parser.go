@@ -27,6 +27,8 @@ type graphInfo struct {
 	file   *os.File
 	minVal int64
 	maxVal int64
+
+	prevVal float32
 }
 
 // gnuplotWriter organizes all of the output for `gnuplot` to create a graph from FTDC
@@ -259,7 +261,22 @@ func (gpw *gnuplotWriter) getGraphInfo(metricName string) (*graphInfo, bool) {
 	}
 	gpw.metricFiles[metricName] = ret
 
-	return ret
+	return ret, true
+}
+
+func (gpw *gnuplotWriter) copyPreviousPoint(timeSeconds int64, metricName string, logger logging.Logger) {
+	if timeSeconds < gpw.options.minTimeSeconds || timeSeconds > gpw.options.maxTimeSeconds {
+		return
+	}
+
+	gi, newlyCreated := gpw.getGraphInfo(metricName)
+	if newlyCreated {
+		// I'm not 100% sure the caller knows there's a previous point.
+		logger.Warnw("There is no previous point to copy", "metricName", metricName, "time", timeSeconds)
+		return
+	}
+
+	writelnf(gi.file, "%v %.5f", timeSeconds, gi.prevVal)
 }
 
 func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricValue float32) {
@@ -507,8 +524,13 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratio
 
 			value, err := diff.toValue()
 			if err != nil {
-				// The denominator did not change -- divide by zero error.
-				logger.Warnw("Error computing defered value", "metricName", metricName, "time", currRatioReading.Time, "err", err)
+				// The denominator did not change -- divide by zero error. E.g: there were no calls
+				// to a given RPC in the last window slice.
+				logger.Debugw("Error computing deferred value",
+					"metricName", metricName, "time", currRatioReading.Time, "err", err)
+				// Copy the last point. Such that all graphs ought to have the same "last"
+				// datapoint.
+				gpw.copyPreviousPoint(currRatioReading.Time, metricName, logger)
 				continue
 			}
 			gpw.addPoint(currRatioReading.Time, metricName, value)
