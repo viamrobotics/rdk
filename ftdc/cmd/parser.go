@@ -58,6 +58,10 @@ type gnuplotWriter struct {
 	// timesToInclude is a slice of unix timestamps. The "nearest" datapoint to each value will be
 	// added. If timesToInclude is nil, all data points are to be added.
 	timesToInclude []int64
+	// timeSliceNanos is the amount of time in nanos (on average) between adjacent members of
+	// `timesToInclude`. When all input datapoints are used, we expect this to be ~1 second worth of
+	// nanos. If we throw away datapoints, it will be larger.
+	timeSliceNanos time.Duration
 	// shouldIncludePointStorage are "local" variables used for successive calls to
 	// `shouldIncludePoint`.
 	shouldIncludePointStorage struct {
@@ -171,16 +175,18 @@ func newGnuPlotWriter(graphOptions graphOptions, numDatapoints int, minTime, max
 	// at the same time as all other graphs.
 	firstTimeSecs := minTime / time.Second.Nanoseconds()
 	var timesToInclude []int64
+	// If we include every datapoint, the timeslice ought to be ~1 second.
+	var timeSliceNanos int64 = time.Second.Nanoseconds()
 	if numDatapoints > graphOptions.maxPoints {
 		// If there are more datapoints than we wish to graph, calculate the approximate evenly
 		// spaced timestamps to use.
 		timesToInclude = make([]int64, graphOptions.maxPoints)
-		timeSlice := (maxTime - minTime) / int64(graphOptions.maxPoints)
+		timeSliceNanos = (maxTime - minTime) / int64(graphOptions.maxPoints)
 
 		timeToInclude := minTime
 		for idx := 0; idx < graphOptions.maxPoints; idx++ {
 			timesToInclude[idx] = timeToInclude
-			timeToInclude += timeSlice
+			timeToInclude += timeSliceNanos
 		}
 
 		// If we've decided to downsample, the `firstTime` ought to reflect the earliest
@@ -193,6 +199,7 @@ func newGnuPlotWriter(graphOptions graphOptions, numDatapoints int, minTime, max
 		tempdir:        tempdir,
 		options:        graphOptions,
 		timesToInclude: timesToInclude,
+		timeSliceNanos: time.Duration(timeSliceNanos),
 		firstTimeSecs:  firstTimeSecs,
 	}
 }
@@ -493,11 +500,15 @@ func (gpw *gnuplotWriter) addFlatDatum(datum ftdc.FlatDatum) map[string]*ratioRe
 //
 // Consider adding logging when two FTDC readings `windowSizeSecs` apart is not reflecting by their
 // system time difference.
-const windowSizeSecs = 5
+const windowSizeSecs = 5 * time.Second
 
 // The deferredValues input is in FTDC reading order. On a responsive system, adjacent items in the
 // slice should be one second apart.
 func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratioReading, logger logging.Logger) {
+	// "deferred values" are computed by subtracting adjacent values. We iterate through
+	// `deferredValues` in slice order to compare "adjacent" elements. But because graphing readings
+	// from truly adjacent elements (every second) can be noisy, we dampen that by looking back
+	// `windowSizeSecs`.
 	for idx, currReadings := range deferredValues {
 		if idx == 0 {
 			// The first element cannot be compared to anything. It would create a divide by zero
@@ -505,19 +516,33 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratio
 			continue
 		}
 
+		// If the window size is 5 seconds and the time slice was 2.5 seconds per "index", we'll
+		// want to "look back" 2 "index units".
+		lookback := int(windowSizeSecs.Nanoseconds() / gpw.timeSliceNanos.Nanoseconds())
+		if lookback < 0 {
+			// If the `timeSliceNanos` value is larger than five seconds, just look back one index
+			// element.
+			lookback = 1
+		}
+
 		// `forCompare` is the index element to compare the "current" element pointed to by `idx`.
-		forCompare := idx - windowSizeSecs
+		forCompare := idx - lookback
 		if forCompare < 0 {
+			// At the beginning of data, we will compute rates, but just shrink the window size to
+			// what's available.
 			forCompare = 0
 		}
 
 		prevReadings := deferredValues[forCompare]
 		for metricName, currRatioReading := range currReadings {
 			var diff ratioReading
-			if prevratioReading, exists := prevReadings[metricName]; exists {
-				diff = currRatioReading.diff(prevratioReading)
+			if prevRatioReading, exists := prevReadings[metricName]; exists {
+				diff = currRatioReading.diff(prevRatioReading)
 			} else {
-				logger.Infow("Deferred value missing a previous value to diff",
+				// We expect this to happen when there's only one reading in some window size. This
+				// can be very spammy, so it's at the debug level. A bug could easily introduce
+				// unexpected cases to enter this code path.
+				logger.Debugw("Deferred value missing a previous value to diff",
 					"metricName", metricName, "time", currRatioReading.Time)
 				continue
 			}
@@ -533,6 +558,7 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratio
 				gpw.copyPreviousPoint(currRatioReading.Time, metricName, logger)
 				continue
 			}
+
 			gpw.addPoint(currRatioReading.Time, metricName, value)
 		}
 	}
