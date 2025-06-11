@@ -38,7 +38,7 @@ var (
 	// ErrCaptureDirectoryConfigurationDisabled happens when the viam-server is run with
 	// `-untrusted-env` and the capture directory is not `~/.viam/capture`.
 	ErrCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
-	viamCaptureDotDir                        = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
+	viamCaptureDotDir                        = filepath.Join(utils.PlatformHomeDir(), ".viam", "capture")
 	// This clock only exists for tests.
 	// At time of writing only a single test depends on it.
 	// We should endevor to not add more tests that depend on it unless absolutiely necessary.
@@ -197,6 +197,8 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		// If this error occurs it's a resource graph error
 		return err
 	}
+	// Here is the capture dir log
+	b.logger.Infof("SEAN YU!!! CaptureDir: %s", captureConfig.CaptureDir)
 	if err := os.MkdirAll(captureConfig.CaptureDir, 0o700); err != nil {
 		b.logger.Warnf("failed to create capture directory: %s", captureConfig.CaptureDir)
 	}
