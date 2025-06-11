@@ -28,16 +28,14 @@ func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
 	globalLogger.cmdLineDebugFlag = cmdLineDebugFlag
 
 	if cmdLineDebugFlag {
-		logging.GlobalLogLevelZap.SetLevel(zapcore.DebugLevel)
-		logging.GlobalLogLevelRDK.Set(logging.DEBUG)
+		logging.GlobalLogLevel.SetLevel(zapcore.DebugLevel)
 		logger.SetLevel(logging.DEBUG)
 	} else {
-		logging.GlobalLogLevelZap.SetLevel(zapcore.InfoLevel)
-		logging.GlobalLogLevelRDK.Set(logging.INFO)
+		logging.GlobalLogLevel.SetLevel(zapcore.InfoLevel)
 		logger.SetLevel(logging.INFO)
 	}
 
-	globalLogger.logger.Info("Log level initialized:", logging.GlobalLogLevelZap.Level())
+	globalLogger.logger.Info("Log level initialized:", logging.GlobalLogLevel.Level())
 }
 
 // UpdateFileConfigDebug is used to update the debug flag whenever a file-based viam config is
@@ -78,11 +76,10 @@ func refreshLogLevelInLock() {
 		newLevel = logging.INFO
 	}
 
-	if logging.GlobalLogLevelZap.Level() == newLevelZap {
+	if logging.GlobalLogLevel.Level() == newLevelZap {
 		return
 	}
 	globalLogger.logger.Info("New log level:", newLevelZap)
-	logging.GlobalLogLevelZap.SetLevel(newLevelZap)
-	logging.GlobalLogLevelRDK.Set(newLevel)
+	logging.GlobalLogLevel.SetLevel(newLevelZap)
 	globalLogger.logger.SetLevel(newLevel)
 }
