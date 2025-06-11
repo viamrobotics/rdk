@@ -619,16 +619,22 @@ func (rc *RequestCounter) UnaryInterceptor(
 		rc.incrementCounter(key)
 
 		start := time.Now()
-		name := ""
-		if namer, ok := req.(GetNamer); ok {
-			name = namer.GetName()
-		} else {
-			name = fmt.Sprintf("%T", req)
-		}
-
 		defer func() {
-			since := time.Since(start).Milliseconds()
-			rc.incrementTimeSpent(key, since)
+			// Dan: Some metrics want to take the difference of "time spent" between two recordings
+			// (spaced by some "window size") and divide by the "number of calls". Doing the
+			// `incrementCounter` at the RPC call start and `incrementTimeSpent` at the end creates
+			// an odd skew. Where at some later point there will be an increase in time spent not
+			// immediately accompanied by an increase in calls.
+			//
+			// This can create difficult to parse data when requests start taking a "window size"
+			// amount of time to complete. We may want to consider calling `incrementCounter` in the
+			// defer. But that could lead to a scenario where an RPC call causes deadlock, getting
+			// itself blocked in the process. FTDC wouldn't be able to show that server was in that
+			// code path.
+			//
+			// Perhaps the "perfect" solution is to track both "request started" and "request
+			// finished". And have latency graphs use "request finished".
+			rc.incrementTimeSpent(key, time.Since(start).Milliseconds())
 		}()
 	}
 
