@@ -176,7 +176,7 @@ func newGnuPlotWriter(graphOptions graphOptions, numDatapoints int, minTime, max
 	firstTimeSecs := minTime / time.Second.Nanoseconds()
 	var timesToInclude []int64
 	// If we include every datapoint, the timeslice ought to be ~1 second.
-	var timeSliceNanos = time.Second.Nanoseconds()
+	timeSliceNanos := time.Second.Nanoseconds()
 	if numDatapoints > graphOptions.maxPoints {
 		// If there are more datapoints than we wish to graph, calculate the approximate evenly
 		// spaced timestamps to use.
