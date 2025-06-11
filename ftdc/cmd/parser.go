@@ -278,12 +278,29 @@ func (gpw *gnuplotWriter) copyPreviousPoint(timeSeconds int64, metricName string
 
 	gi, newlyCreated := gpw.getGraphInfo(metricName)
 	if newlyCreated {
-		// I'm not 100% sure the caller knows there's a previous point.
-		logger.Warnw("There is no previous point to copy", "metricName", metricName, "time", timeSeconds)
+		gi.writeStartingDatapoints(gpw.firstTimeSecs, timeSeconds)
 		return
 	}
 
 	writelnf(gi.file, "%v %.5f", timeSeconds, gi.prevVal)
+}
+
+func (gi *graphInfo) writeStartingDatapoints(firstTimeSecs, datapointTimeSecs int64) {
+	// For newly created files:
+	// - Ensure the first datapoint is at `firstTime`.
+	// - If the first datapoint is more than a second after `firstTime`, write a 0-value
+	//   datapoint just prior.
+	//
+	// Motivation for the latter: consider a metric that comes into existence (much) later in a
+	// robot life. We want the graph to have nice spike up. Rather than a long slow rise from the
+	// beginning of time.
+	if datapointTimeSecs > firstTimeSecs {
+		writelnf(gi.file, "%v 0.0", firstTimeSecs)
+	}
+
+	if datapointTimeSecs-1 > firstTimeSecs {
+		writelnf(gi.file, "%v 0.0", datapointTimeSecs-1)
+	}
 }
 
 func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricValue float32) {
@@ -295,21 +312,7 @@ func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricV
 	// graphs. As we've found gnuplots auto scaling to be a bit clunky.
 	gi, newlyCreated := gpw.getGraphInfo(metricName)
 	if newlyCreated {
-		// For newly created files:
-		// - Ensure the first datapoint is at `firstTime`.
-		// - If the first datapoint is more than a second after `firstTime`, write a 0-value
-		//   datapoint just prior.
-		//
-		// Motivation for the latter: consider a metric that comes into existence (much) later in a
-		// robot life. We want the graph to have nice spike up. Rather than a long curve with a
-		// small slope from the beginning of time.
-		if timeSeconds > gpw.firstTimeSecs {
-			writelnf(gi.file, "%v 0.0", gpw.firstTimeSecs)
-		}
-
-		if timeSeconds-1 > gpw.firstTimeSecs {
-			writelnf(gi.file, "%v 0.0", timeSeconds-1)
-		}
+		gi.writeStartingDatapoints(gpw.firstTimeSecs, timeSeconds)
 	}
 
 	gi.prevVal = metricValue
