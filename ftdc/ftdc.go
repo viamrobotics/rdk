@@ -120,7 +120,7 @@ type FTDC struct {
 	// ftdcDir controls where FTDC data files will be written.
 	ftdcDir string
 
-	uploader *Uploader
+	uploader *uploader
 	logger   logging.Logger
 }
 
@@ -141,10 +141,11 @@ func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 	return ret
 }
 
+// NewWithUploader creates a new *FTDC that will also upload FTDC files to cloud.
 func NewWithUploader(ftdcDirectory string, cloudConn rpc.ClientConn, partID string, logger logging.Logger) *FTDC {
 	ret := New(ftdcDirectory, logger)
 	if cloudConn != nil {
-		ret.uploader = NewUploader(cloudConn, ftdcDirectory, partID, logger)
+		ret.uploader = newUploader(cloudConn, ftdcDirectory, partID, logger.Sublogger("uploader"))
 	}
 	return ret
 }
@@ -220,7 +221,7 @@ func (ftdc *FTDC) Start() {
 		ftdc.StopAndJoin(context.Background())
 	})
 	if ftdc.uploader != nil {
-		ftdc.uploader.Start()
+		ftdc.uploader.start()
 	}
 }
 
@@ -286,7 +287,7 @@ func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
 	})
 
 	if ftdc.uploader != nil {
-		ftdc.uploader.StopAndJoin()
+		ftdc.uploader.stopAndJoin()
 	}
 
 	// Closing the `statsCh` signals to the `outputWorker` to complete and exit. We use a timeout to
@@ -625,7 +626,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 // deletion testing. Filename generation uses padding such that we can rely on there before 2/4
 // digits for every numeric value.
 //
-// nolint
+//nolint
 // Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
 var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
 

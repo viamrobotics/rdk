@@ -2,17 +2,19 @@ package ftdc
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 
 	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/logging"
 )
 
-type Uploader struct {
+type uploader struct {
 	dataSyncClient v1.DataSyncServiceClient
 	ftdcDir        string
 	partID         string
@@ -22,8 +24,8 @@ type Uploader struct {
 	worker   *utils.StoppableWorkers
 }
 
-func NewUploader(cloudConn rpc.ClientConn, ftdcDir, partID string, logger logging.Logger) *Uploader {
-	return &Uploader{
+func newUploader(cloudConn rpc.ClientConn, ftdcDir, partID string, logger logging.Logger) *uploader {
+	return &uploader{
 		dataSyncClient: v1.NewDataSyncServiceClient(cloudConn),
 		ftdcDir:        ftdcDir,
 		partID:         partID,
@@ -32,24 +34,24 @@ func NewUploader(cloudConn rpc.ClientConn, ftdcDir, partID string, logger loggin
 	}
 }
 
-func (uploader *Uploader) Start() {
+func (uploader *uploader) start() {
 	uploader.worker = utils.NewBackgroundStoppableWorkers(uploader.uploadRunner)
 }
 
-func (uploader *Uploader) StopAndJoin() {
+func (uploader *uploader) stopAndJoin() {
 	if uploader.worker != nil {
 		uploader.worker.Stop()
 	}
 }
 
-func (uploader *Uploader) addFileToUpload(filename string) {
+func (uploader *uploader) addFileToUpload(filename string) {
 	select {
 	case uploader.toUpload <- filename:
 	default:
 	}
 }
 
-func (uploader *Uploader) uploadRunner(ctx context.Context) {
+func (uploader *uploader) uploadRunner(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -62,7 +64,7 @@ func (uploader *Uploader) uploadRunner(ctx context.Context) {
 	}
 }
 
-func (uploader *Uploader) uploadFile(ctx context.Context, filename string) error {
+func (uploader *uploader) uploadFile(ctx context.Context, filename string) error {
 	uploader.logger.Debugw("Uploading FTDC file", "filename", filename)
 	binaryClient, err := uploader.dataSyncClient.FileUpload(ctx)
 	if err != nil {
@@ -83,7 +85,7 @@ func (uploader *Uploader) uploadFile(ctx context.Context, filename string) error
 		return err
 	}
 
-	file, err := os.Open(filename)
+	file, err := os.Open(filename) //nolint: gosec
 	if err != nil {
 		return err
 	}
@@ -92,17 +94,19 @@ func (uploader *Uploader) uploadFile(ctx context.Context, filename string) error
 	uploadBuf := make([]byte, 32*1024)
 	for {
 		bytesRead, err := file.Read(uploadBuf)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 
-		err = binaryClient.Send(&v1.FileUploadRequest{
+		if err = binaryClient.Send(&v1.FileUploadRequest{
 			UploadPacket: &v1.FileUploadRequest_FileContents{
 				FileContents: &v1.FileData{
 					Data: uploadBuf[:bytesRead],
 				},
 			},
-		})
+		}); err != nil {
+			return err
+		}
 	}
 
 	_, err = binaryClient.CloseAndRecv()
