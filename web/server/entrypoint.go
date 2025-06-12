@@ -371,6 +371,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 
 			if !diff.NetworkEqual {
 				// TODO(RSDK-2694): use internal web service reconfiguration instead
+				s.logger.Info("network/auth config change detected, restarting web service")
 				r.StopWeb()
 				options, err = s.createWebOptions(processedConfig)
 				if err != nil {
@@ -399,6 +400,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 				if err := r.StartWeb(ctx, options); err != nil {
 					s.logger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
 				}
+				s.logger.Info("network/auth config change detected, web service restartedß")
 			}
 			currCfg = processedConfig
 		}

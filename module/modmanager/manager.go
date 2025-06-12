@@ -936,11 +936,25 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		for name, res := range mod.resources {
 			confProto, err := config.ComponentConfigToProto(&res.conf)
 			if err != nil {
+				mod.logger.Errorw(
+					"Failed to re-add resource due to config conversion error after module restarted, marking as orphaned",
+					"module",
+					mod.cfg.Name,
+					"resource",
+					name.String(),
+				)
 				orphanedResourceNames = append(orphanedResourceNames, name)
 				continue
 			}
 			_, err = mod.client.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: res.deps})
 			if err != nil {
+				mod.logger.Errorw(
+					"Failed to re-add resource after module restarted, marking as orphaned",
+					"module",
+					mod.cfg.Name,
+					"resource",
+					name.String(),
+				)
 				orphanedResourceNames = append(orphanedResourceNames, name)
 				continue
 			}
