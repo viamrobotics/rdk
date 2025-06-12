@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
 )
@@ -119,7 +120,8 @@ type FTDC struct {
 	// ftdcDir controls where FTDC data files will be written.
 	ftdcDir string
 
-	logger logging.Logger
+	uploader *Uploader
+	logger   logging.Logger
 }
 
 // New creates a new *FTDC. This FTDC object will write FTDC formatted files into the input
@@ -136,6 +138,14 @@ func New(ftdcDirectory string, logger logging.Logger) *FTDC {
 func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 	ret := newFTDC(logger)
 	ret.outputWriter = writer
+	return ret
+}
+
+func NewWithUploader(ftdcDirectory string, cloudConn rpc.ClientConn, partID string, logger logging.Logger) *FTDC {
+	ret := New(ftdcDirectory, logger)
+	if cloudConn != nil {
+		ret.uploader = NewUploader(cloudConn, ftdcDirectory, partID, logger)
+	}
 	return ret
 }
 
@@ -209,6 +219,9 @@ func (ftdc *FTDC) Start() {
 		ftdc.logger.Warnw("File deleter errored, stopping FTDC", "err", err)
 		ftdc.StopAndJoin(context.Background())
 	})
+	if ftdc.uploader != nil {
+		ftdc.uploader.Start()
+	}
 }
 
 func (ftdc *FTDC) statsReader(ctx context.Context) {
@@ -264,12 +277,17 @@ func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
 	if runtime.GOOS == "windows" {
 		return
 	}
+
 	ftdc.stopOnce.Do(func() {
 		// Only one caller should close the datum channel. And it should be the caller that called
 		// stop on the worker writing to the channel.
 		ftdc.readStatsWorker.Stop()
 		close(ftdc.datumCh)
 	})
+
+	if ftdc.uploader != nil {
+		ftdc.uploader.StopAndJoin()
+	}
 
 	// Closing the `statsCh` signals to the `outputWorker` to complete and exit. We use a timeout to
 	// limit how long we're willing to wait for the `outputWorker` to drain.
@@ -468,6 +486,9 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 		// Dan: An error closing a file (any resource for that matter) is not an error. I will die
 		// on that hill.
 		utils.UncheckedError(ftdc.currOutputFile.Close())
+		if ftdc.uploader != nil {
+			ftdc.uploader.addFileToUpload(ftdc.currOutputFile.Name())
+		}
 	}
 
 	var err error
@@ -604,7 +625,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 // deletion testing. Filename generation uses padding such that we can rely on there before 2/4
 // digits for every numeric value.
 //
-//nolint
+// nolint
 // Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
 var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
 
