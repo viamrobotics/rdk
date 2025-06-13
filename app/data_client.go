@@ -1385,10 +1385,6 @@ func (d *DataClient) UpdateDataPipeline(
 		return err
 	}
 
-	if dataSourceType != TabularDataSourceTypeStandard && dataSourceType != TabularDataSourceTypeHotStorage {
-		return errors.New("data source type must be standard or hotstorage")
-	}
-
 	dataSourceTypeProto := dataSourceTypeToProto(dataSourceType)
 	_, err = d.datapipelinesClient.UpdateDataPipeline(ctx, &datapipelinesPb.UpdateDataPipelineRequest{
 		Id:             id,
