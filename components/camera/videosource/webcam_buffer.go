@@ -60,7 +60,7 @@ func (wb *WebcamBuffer) StopBuffer() {
 	wb.currentlyRunning = false
 }
 
-// CollectFrames collects frames from the reader and adds them to the buffer. This function is called in a goroutine and runs asynchronously.
+// CollectFrames collects frames from the reader and adds them to the buffer. This function is called in a goroutine.
 func (wb *WebcamBuffer) CollectFrames() {
 	for {
 		select {
