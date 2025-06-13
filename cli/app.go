@@ -122,9 +122,10 @@ const (
 	dataFlagFilterTags                     = "filter-tags"
 	dataFlagTimeout                        = "timeout"
 
-	datapipelineFlagSchedule = "schedule"
-	datapipelineFlagMQL      = "mql"
-	datapipelineFlagMQLFile  = "mql-path"
+	datapipelineFlagSchedule       = "schedule"
+	datapipelineFlagMQL            = "mql"
+	datapipelineFlagMQLFile        = "mql-path"
+	datapipelineFlagDataSourceType = "data-source-type"
 
 	packageFlagFramework = "model-framework"
 
@@ -1654,6 +1655,14 @@ var app = &cli.App{
 							Name:  datapipelineFlagMQLFile,
 							Usage: "path to JSON file containing MQL query for the new data pipeline",
 						},
+						&cli.StringFlag{
+							Name: datapipelineFlagDataSourceType,
+							Usage: formatAcceptedValues(
+								"data source type for the new data pipeline",
+								StandardDataSourceType,
+								HotStorageDataSourceType,
+							),
+						},
 					},
 					Action: createCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
 				},
@@ -1687,6 +1696,14 @@ var app = &cli.App{
 						&cli.StringFlag{
 							Name:  datapipelineFlagMQLFile,
 							Usage: "path to JSON file containing MQL query for the data pipeline to update",
+						},
+						&cli.StringFlag{
+							Name: datapipelineFlagDataSourceType,
+							Usage: formatAcceptedValues(
+								"data source type for the data pipeline to update",
+								StandardDataSourceType,
+								HotStorageDataSourceType,
+							),
 						},
 					},
 					Action: createCommandWithT[datapipelineUpdateArgs](DatapipelineUpdateAction),
