@@ -484,10 +484,11 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	// If we're in the logic branch where we have exceeded our FTDC file rotation quota, we first
 	// close the `currOutputFile`.
 	if ftdc.currOutputFile != nil {
-		// Dan: An error closing a file (any resource for that matter) is not an error. I will die
-		// on that hill.
 		utils.UncheckedError(ftdc.currOutputFile.Close())
 		if ftdc.uploader != nil {
+			// Dan: For now we only upload "completed" during the runtime of a viam-server. There's
+			// no harm in uploading leftover files from a prior run, but the current bang for the
+			// buck was deemed not worth it.
 			ftdc.uploader.addFileToUpload(ftdc.currOutputFile.Name())
 		}
 	}
