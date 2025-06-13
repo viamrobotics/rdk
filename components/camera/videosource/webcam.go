@@ -226,7 +226,7 @@ func NewWebcam(
 		return nil, err
 	}
 
-	cam.buffer = NewWebcamBuffer(cam.reader, cam.logger)
+	cam.buffer = NewWebcamBuffer(cam.reader, cam.logger, cam.conf.FrameRate)
 	cam.buffer.StartBuffer()
 
 	cam.Monitor()
