@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
 )
@@ -119,7 +120,8 @@ type FTDC struct {
 	// ftdcDir controls where FTDC data files will be written.
 	ftdcDir string
 
-	logger logging.Logger
+	uploader *uploader
+	logger   logging.Logger
 }
 
 // New creates a new *FTDC. This FTDC object will write FTDC formatted files into the input
@@ -136,6 +138,15 @@ func New(ftdcDirectory string, logger logging.Logger) *FTDC {
 func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
 	ret := newFTDC(logger)
 	ret.outputWriter = writer
+	return ret
+}
+
+// NewWithUploader creates a new *FTDC that will also upload FTDC files to cloud.
+func NewWithUploader(ftdcDirectory string, cloudConn rpc.ClientConn, partID string, logger logging.Logger) *FTDC {
+	ret := New(ftdcDirectory, logger)
+	if cloudConn != nil {
+		ret.uploader = newUploader(cloudConn, ftdcDirectory, partID, logger.Sublogger("uploader"))
+	}
 	return ret
 }
 
@@ -209,6 +220,9 @@ func (ftdc *FTDC) Start() {
 		ftdc.logger.Warnw("File deleter errored, stopping FTDC", "err", err)
 		ftdc.StopAndJoin(context.Background())
 	})
+	if ftdc.uploader != nil {
+		ftdc.uploader.start()
+	}
 }
 
 func (ftdc *FTDC) statsReader(ctx context.Context) {
@@ -264,12 +278,17 @@ func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
 	if runtime.GOOS == "windows" {
 		return
 	}
+
 	ftdc.stopOnce.Do(func() {
 		// Only one caller should close the datum channel. And it should be the caller that called
 		// stop on the worker writing to the channel.
 		ftdc.readStatsWorker.Stop()
 		close(ftdc.datumCh)
 	})
+
+	if ftdc.uploader != nil {
+		ftdc.uploader.stopAndJoin()
+	}
 
 	// Closing the `statsCh` signals to the `outputWorker` to complete and exit. We use a timeout to
 	// limit how long we're willing to wait for the `outputWorker` to drain.
@@ -465,9 +484,13 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	// If we're in the logic branch where we have exceeded our FTDC file rotation quota, we first
 	// close the `currOutputFile`.
 	if ftdc.currOutputFile != nil {
-		// Dan: An error closing a file (any resource for that matter) is not an error. I will die
-		// on that hill.
 		utils.UncheckedError(ftdc.currOutputFile.Close())
+		if ftdc.uploader != nil {
+			// Dan: For now we only upload "completed" during the runtime of a viam-server. There's
+			// no harm in uploading leftover files from a prior run, but the current bang for the
+			// buck was deemed not worth it.
+			ftdc.uploader.addFileToUpload(ftdc.currOutputFile.Name())
+		}
 	}
 
 	var err error
