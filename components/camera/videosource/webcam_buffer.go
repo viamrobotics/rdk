@@ -7,25 +7,26 @@ import (
 	"github.com/pion/mediadevices/pkg/io/video"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 )
+
+const SIZEOFBUFFER = 1
 
 // WebcamBuffer is a buffer for webcam frames.
 type WebcamBuffer struct {
-	frames           []image.Image
-	sizeOfBuffer     int
-	mu               sync.RWMutex
-	currentIndex     int
-	stopChan         chan struct{}
-	currentlyRunning bool
-	reader           video.Reader
-	logger           logging.Logger
+	frames           []image.Image	// Holds the frames in the buffer
+	mu               sync.RWMutex	// Mutex to synchronize access to the buffer
+	currentIndex     int			// Index of the current frame we are accessing
+	stopChan         chan struct{}	// Channel to stop the buffer collection process
+	currentlyRunning bool 			// Checks if the buffer collection process is running
+	reader           video.Reader	// Reader to read frames from the webcam
+	logger           logging.Logger	// Logger for errors or debugging
 }
 
 // NewWebcamBuffer creates a new WebcamBuffer struct, for now, we make the buffer a size of 50 frames.
 func NewWebcamBuffer(reader video.Reader, logger logging.Logger) *WebcamBuffer {
 	return &WebcamBuffer{
-		frames:       make([]image.Image, 50),
-		sizeOfBuffer: 50,
+		frames:       make([]image.Image, SIZEOFBUFFER),
 		currentIndex: 0,
 		stopChan:     make(chan struct{}),
 		reader:       reader,
@@ -36,6 +37,7 @@ func NewWebcamBuffer(reader video.Reader, logger logging.Logger) *WebcamBuffer {
 // StartBuffer initiates the buffer collection process.
 func (wb *WebcamBuffer) StartBuffer() {
 	wb.mu.Lock()
+	defer wb.mu.Unlock()
 
 	if wb.currentlyRunning {
 		wb.mu.Unlock()
@@ -43,7 +45,6 @@ func (wb *WebcamBuffer) StartBuffer() {
 	}
 
 	wb.currentlyRunning = true
-	wb.mu.Unlock()
 	go wb.CollectFrames()
 }
 
