@@ -74,6 +74,24 @@ func (c *client) Grab(ctx context.Context, extra map[string]interface{}) (bool, 
 	return resp.Success, nil
 }
 
+func (c *client) IsHoldingSomething(ctx context.Context, extra map[string]interface{}) (HoldingStatus, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return HoldingStatus{}, err
+	}
+	resp, err := c.client.IsHoldingSomething(ctx, &pb.IsHoldingSomethingRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return HoldingStatus{}, err
+	}
+	return HoldingStatus{
+		IsHoldingSomething: resp.IsHoldingSomething,
+		Meta:               resp.Meta.AsMap(),
+	}, nil
+}
+
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
