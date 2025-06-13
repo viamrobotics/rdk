@@ -233,7 +233,7 @@ func NewWebcam(
 	}
 
 	cam.buffer = NewWebcamBuffer(cam.reader, cam.logger)
-	cam.buffer.Start()
+	cam.buffer.StartBuffer()
 
 	cam.Monitor()
 
@@ -390,7 +390,7 @@ func (c *webcam) Images(ctx context.Context) ([]camera.NamedImage, resource.Resp
 	if img == nil {
 		return nil, resource.ResponseMetadata{}, errors.New("no frames available to read")
 	}
-	
+
 	return []camera.NamedImage{{img, c.Name().Name}}, resource.ResponseMetadata{time.Now()}, nil
 }
 
@@ -490,7 +490,7 @@ func (c *webcam) Close(ctx context.Context) error {
 	c.activeBackgroundWorkers.Wait()
 
 	if c.buffer != nil {
-		c.buffer.Stop()
+		c.buffer.StopBuffer()
 	}
 
 	return c.driver.Close()
