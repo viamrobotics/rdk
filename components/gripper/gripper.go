@@ -37,7 +37,7 @@ func Named(name string) resource.Name {
 }
 
 // HoldingStatus represents whether the gripper is currently holding onto
-// an object as well as any additonal contextual information (stored in `Meta`).
+// an object as well as any additional contextual information (stored in `Meta`).
 type HoldingStatus struct {
 	IsHoldingSomething bool
 	Meta               map[string]interface{}
