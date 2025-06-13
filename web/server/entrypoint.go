@@ -400,7 +400,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 				if err := r.StartWeb(ctx, options); err != nil {
 					s.logger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
 				}
-				s.logger.Info("network/auth config change detected, web service restarted")
+				s.logger.Info("web service restart finished")
 			}
 			currCfg = processedConfig
 		}
