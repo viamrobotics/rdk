@@ -225,6 +225,10 @@ func NewWebcam(
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+
+	cam.buffer = NewWebcamBuffer(cam.reader, cam.logger)
+	cam.buffer.Start()
+
 	cam.Monitor()
 
 	return cam, nil
@@ -380,15 +384,11 @@ func (c *webcam) Images(ctx context.Context) ([]camera.NamedImage, resource.Resp
 		return nil, resource.ResponseMetadata{}, err
 	}
 
-	img, release, err := c.reader.Read()
-	if err != nil {
-		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "monitoredWebcam: call to get Images failed")
+	img := c.buffer.GetLatestFrame()
+	if img == nil {
+		return nil, resource.ResponseMetadata{}, errors.New("no frames available to read")
 	}
-	defer func() {
-		if release != nil {
-			release()
-		}
-	}()
+	
 	return []camera.NamedImage{{img, c.Name().Name}}, resource.ResponseMetadata{time.Now()}, nil
 }
 
@@ -413,11 +413,10 @@ func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]in
 	if c.reader == nil {
 		return nil, camera.ImageMetadata{}, errors.New("underlying reader is nil")
 	}
-	img, release, err := c.reader.Read()
-	if err != nil {
-		return nil, camera.ImageMetadata{}, err
+	img := c.buffer.GetLatestFrame()
+	if img == nil {
+		return nil, camera.ImageMetadata{}, errors.New("no frames available to read")
 	}
-	defer release()
 
 	if mimeType == "" {
 		mimeType = utils.MimeTypeJPEG
@@ -490,6 +489,10 @@ func (c *webcam) Close(ctx context.Context) error {
 	c.closed = true
 	c.mu.Unlock()
 	c.workers.Stop()
+
+	if c.buffer != nil {
+		c.buffer.Stop()
+	}
 
 	return c.driver.Close()
 }
