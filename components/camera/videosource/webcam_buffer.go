@@ -23,15 +23,14 @@ type frameStruct struct {
 
 // WebcamBuffer is a buffer for webcam frames.
 type WebcamBuffer struct {
-	frames           []frameStruct // Holds the frames and their release functions in the buffer
-	mu               sync.RWMutex  // Mutex to synchronize access to the buffer
-	currentIndex     int           // Index of the current frame we are accessing
-	currentlyRunning bool          // Checks if the buffer collection process is running
-	reader           video.Reader
-	logger           logging.Logger
-	workers          *goutils.StoppableWorkers
-	frameRate        float32      // Frame rate in frames per second
-	ticker           *time.Ticker // Ticker for controlling frame rate
+	frames       []frameStruct // Holds the frames and their release functions in the buffer
+	mu           sync.RWMutex  // Mutex to synchronize access to the buffer
+	currentIndex int           // Index of the current frame we are accessing
+	reader       video.Reader
+	logger       logging.Logger
+	workers      *goutils.StoppableWorkers
+	frameRate    float32      // Frame rate in frames per second
+	ticker       *time.Ticker // Ticker for controlling frame rate
 }
 
 // NewWebcamBuffer creates a new WebcamBuffer struct.
@@ -51,11 +50,10 @@ func (wb *WebcamBuffer) StartBuffer() {
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
 
-	if wb.currentlyRunning {
+	if wb.ticker != nil {
 		return
 	}
 
-	wb.currentlyRunning = true
 	interFrameDuration := time.Duration(float32(time.Second) / wb.frameRate)
 
 	wb.workers.Add(func(closedCtx context.Context) {
@@ -97,7 +95,6 @@ func (wb *WebcamBuffer) StopBuffer() {
 
 	if wb.workers != nil {
 		wb.workers.Stop()
-		wb.currentlyRunning = false
 	}
 
 	if wb.ticker != nil {
