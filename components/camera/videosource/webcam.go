@@ -203,12 +203,10 @@ type webcam struct {
 	targetPath string
 	conf       WebcamConfig
 
-	cancelCtx               context.Context
-	cancel                  func()
-	closed                  bool
-	disconnected            bool
-	activeBackgroundWorkers sync.WaitGroup
-	logger                  logging.Logger
+	closed       bool
+	disconnected bool
+	logger       logging.Logger
+	workers      *goutils.StoppableWorkers
 }
 
 // NewWebcam returns the webcam discovered based on the given config as the Camera interface type.
@@ -218,13 +216,10 @@ func NewWebcam(
 	conf resource.Config,
 	logger logging.Logger,
 ) (camera.Camera, error) {
-	cancelCtx, cancel := context.WithCancel(context.Background())
-
 	cam := &webcam{
-		Named:     conf.ResourceName().AsNamed(),
-		logger:    logger.WithFields("camera_name", conf.ResourceName().ShortName()),
-		cancelCtx: cancelCtx,
-		cancel:    cancel,
+		Named:   conf.ResourceName().AsNamed(),
+		logger:  logger.WithFields("camera_name", conf.ResourceName().ShortName()),
+		workers: goutils.NewBackgroundStoppableWorkers(),
 	}
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
@@ -323,54 +318,55 @@ func (c *webcam) reconnectCamera(conf *WebcamConfig) error {
 // and once the resource is closed, so should the monitor. That is, it should
 // no longer send any resets once a Close on its associated resource has returned.
 func (c *webcam) Monitor() {
-	const wait = 500 * time.Millisecond
-	c.activeBackgroundWorkers.Add(1)
+	// const wait = 500 * time.Millisecond
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
 
-	goutils.ManagedGo(func() {
+	c.workers.Add(func(ctx context.Context) {
 		for {
-			if !goutils.SelectContextOrWait(c.cancelCtx, wait) {
+			select {
+			case <-ctx.Done():
 				return
-			}
+			case <-ticker.C:
+				c.mu.RLock()
+				logger := c.logger
+				c.mu.RUnlock()
 
-			c.mu.RLock()
-			logger := c.logger
-			c.mu.RUnlock()
+				ok, err := c.isCameraConnected()
+				if err != nil {
+					logger.Debugw("cannot determine camera status", "error", err)
+					continue
+				}
 
-			ok, err := c.isCameraConnected()
-			if err != nil {
-				logger.Debugw("cannot determine camera status", "error", err)
-				continue
-			}
+				if !ok {
+					c.mu.Lock()
+					c.disconnected = true
+					c.mu.Unlock()
 
-			if !ok {
-				c.mu.Lock()
-				c.disconnected = true
-				c.mu.Unlock()
+					logger.Error("camera no longer connected; reconnecting")
+				reconnectLoop:
+					for {
+						select {
+						case <-ctx.Done():
+							return
+						case <-ticker.C:
+							c.mu.Lock()
+							err := c.reconnectCamera(&c.conf)
+							c.mu.Unlock()
 
-				logger.Error("camera no longer connected; reconnecting")
-				for {
-					if !goutils.SelectContextOrWait(c.cancelCtx, wait) {
-						return
-					}
-					cont := func() bool {
-						c.mu.Lock()
-						defer c.mu.Unlock()
-
-						if err := c.reconnectCamera(&c.conf); err != nil {
-							c.logger.Debugw("failed to reconnect camera", "error", err)
-							return true
+							if err != nil {
+								c.logger.Debugw("failed to reconnect camera", "error", err)
+								continue
+							} else {
+								c.logger.Infow("camera reconnected")
+								break reconnectLoop
+							}
 						}
-						c.logger.Infow("camera reconnected")
-						return false
-					}()
-					if cont {
-						continue
 					}
-					break
 				}
 			}
 		}
-	}, c.activeBackgroundWorkers.Done)
+	})
 }
 
 func (c *webcam) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
@@ -485,8 +481,7 @@ func (c *webcam) Close(ctx context.Context) error {
 	}
 	c.closed = true
 	c.mu.Unlock()
-	c.cancel()
-	c.activeBackgroundWorkers.Wait()
+	c.workers.Stop()
 
 	return c.driver.Close()
 }
