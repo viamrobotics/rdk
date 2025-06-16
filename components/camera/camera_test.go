@@ -298,6 +298,16 @@ func verifyImageEquality(t *testing.T, img1, img2 image.Image) {
 func verifyDecodedImage(t *testing.T, imgBytes []byte, mimeType string, originalImg image.Image) {
 	t.Helper()
 	test.That(t, len(imgBytes), test.ShouldBeGreaterThan, 0)
+
+	// For JPEG, compare the raw bytes after encoding the original image
+	if mimeType == rutils.MimeTypeJPEG {
+		expectedBytes, err := rimage.EncodeImage(context.Background(), originalImg, mimeType)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, imgBytes, test.ShouldResemble, expectedBytes)
+		return
+	}
+
+	// For other formats, compare the decoded images
 	decodedImg, err := rimage.DecodeImage(context.Background(), imgBytes, mimeType)
 	test.That(t, err, test.ShouldBeNil)
 	verifyImageEquality(t, decodedImg, originalImg)
