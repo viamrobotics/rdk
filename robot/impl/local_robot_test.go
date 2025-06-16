@@ -1682,7 +1682,7 @@ func TestSlowShutdownTicker(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
-	os.Setenv("VIAM_TESTMODULE_SLOW_CLOSE", "5s")
+	t.Setenv("VIAM_TESTMODULE_SLOW_CLOSE", "5s")
 	slowModel := resource.NewModel("rdk", "test", "slow")
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 	cfg := &config.Config{
