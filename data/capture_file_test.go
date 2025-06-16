@@ -18,7 +18,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 		componentType    string
 		componentName    string
 		method           string
-		additionalParams map[string]string
+		additionalParams map[string]interface{}
 		dataType         v1.DataType
 		fileExtension    string
 		tags             []string
@@ -28,7 +28,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "arm",
 			componentName:    "arm1",
 			method:           "EndPosition",
-			additionalParams: make(map[string]string),
+			additionalParams: make(map[string]interface{}),
 			dataType:         v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			fileExtension:    ".dat",
 			tags:             []string{"tagA", "tagB"},
@@ -38,7 +38,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "camera",
 			componentName:    "cam1",
 			method:           readImage,
-			additionalParams: map[string]string{"mime_type": utils.MimeTypeJPEG},
+			additionalParams: map[string]interface{}{"mime_type": utils.MimeTypeJPEG},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".jpeg",
 			tags:             []string{},
@@ -48,7 +48,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "camera",
 			componentName:    "cam1",
 			method:           readImage,
-			additionalParams: map[string]string{"mime_type": utils.MimeTypePNG},
+			additionalParams: map[string]interface{}{"mime_type": utils.MimeTypePNG},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".png",
 			tags:             []string{},
@@ -58,7 +58,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "camera",
 			componentName:    "cam1",
 			method:           readImage,
-			additionalParams: map[string]string{"mime_type": utils.MimeTypePCD},
+			additionalParams: map[string]interface{}{"mime_type": utils.MimeTypePCD},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".pcd",
 			tags:             []string{},
@@ -68,7 +68,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "camera",
 			componentName:    "cam1",
 			method:           readImage,
-			additionalParams: map[string]string{},
+			additionalParams: map[string]interface{}{},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			tags:             []string{},
 		},
@@ -77,7 +77,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "camera",
 			componentName:    "cam1",
 			method:           readImage,
-			additionalParams: map[string]string{"mime_type": utils.MimeTypeQOI},
+			additionalParams: map[string]interface{}{"mime_type": utils.MimeTypeQOI},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			tags:             []string{},
 		},
@@ -86,7 +86,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "camera",
 			componentName:    "cam1",
 			method:           GetImages,
-			additionalParams: make(map[string]string),
+			additionalParams: make(map[string]interface{}),
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			tags:             []string{},
 		},
@@ -95,7 +95,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "camera",
 			componentName:    "cam1",
 			method:           GetImages,
-			additionalParams: map[string]string{"mime_type": utils.MimeTypeJPEG},
+			additionalParams: map[string]interface{}{"mime_type": utils.MimeTypeJPEG},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			tags:             []string{},
 		},
@@ -104,7 +104,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "camera",
 			componentName:    "cam1",
 			method:           nextPointCloud,
-			additionalParams: make(map[string]string),
+			additionalParams: make(map[string]interface{}),
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".pcd",
 			tags:             []string{},
@@ -114,7 +114,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "slam",
 			componentName:    "slam1",
 			method:           pointCloudMap,
-			additionalParams: make(map[string]string),
+			additionalParams: make(map[string]interface{}),
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			tags:             []string{},
 		},
@@ -122,7 +122,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
+			methodParams, err := protoutils.ConvertMapToProtoAny(tc.additionalParams)
 			test.That(t, err, test.ShouldEqual, nil)
 
 			actualMetadata, _ := BuildCaptureMetadata(
