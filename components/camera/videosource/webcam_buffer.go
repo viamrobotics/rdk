@@ -13,9 +13,8 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-const sizeOfBuffer = 2
+const sizeOfBuffer = 2 // We only need 2 frames in the buffer because we are only ever using the latest frame.
 
-// frameStruct contains an image frame, a release function, and an error.
 type frameStruct struct {
 	img     image.Image
 	release func()
@@ -24,15 +23,15 @@ type frameStruct struct {
 
 // WebcamBuffer is a buffer for webcam frames.
 type WebcamBuffer struct {
-	frames           []frameStruct             // Holds the frames and their release functions in the buffer
-	mu               sync.RWMutex              // Mutex to synchronize access to the buffer
-	currentIndex     int                       // Index of the current frame we are accessing
-	currentlyRunning bool                      // Checks if the buffer collection process is running
-	reader           video.Reader              // Reader to read frames from the webcam
-	logger           logging.Logger            // Logger for errors or debugging
-	workers          *goutils.StoppableWorkers // Stoppable workers to collect frames and collect panics
-	frameRate        float32                   // Frame rate in frames per second
-	ticker           *time.Ticker              // Ticker for controlling frame rate
+	frames           []frameStruct // Holds the frames and their release functions in the buffer
+	mu               sync.RWMutex  // Mutex to synchronize access to the buffer
+	currentIndex     int           // Index of the current frame we are accessing
+	currentlyRunning bool          // Checks if the buffer collection process is running
+	reader           video.Reader
+	logger           logging.Logger
+	workers          *goutils.StoppableWorkers
+	frameRate        float32      // Frame rate in frames per second
+	ticker           *time.Ticker // Ticker for controlling frame rate
 }
 
 // NewWebcamBuffer creates a new WebcamBuffer struct.
@@ -53,15 +52,14 @@ func (wb *WebcamBuffer) StartBuffer() {
 	defer wb.mu.Unlock()
 
 	if wb.currentlyRunning {
-		wb.mu.Unlock()
 		return
 	}
 
 	wb.currentlyRunning = true
-	duration := time.Duration(float32(time.Second) / float32(wb.frameRate)) // Time to wait between frames.
+	interFrameDuration := time.Duration(float32(time.Second) / wb.frameRate)
 
 	wb.workers.Add(func(closedCtx context.Context) {
-		wb.ticker = time.NewTicker(duration)
+		wb.ticker = time.NewTicker(interFrameDuration)
 		defer wb.ticker.Stop()
 
 		for {
@@ -94,6 +92,7 @@ func (wb *WebcamBuffer) StartBuffer() {
 
 // StopBuffer stops the buffer collection process.
 func (wb *WebcamBuffer) StopBuffer() {
+	wb.mu.Lock()
 	defer wb.mu.Unlock()
 
 	if wb.workers != nil {
@@ -106,7 +105,7 @@ func (wb *WebcamBuffer) StopBuffer() {
 		wb.ticker = nil
 	}
 
-	// Release any remaining frames. TODO: LET ME KNOW IF THIS IS NECESSARY.
+	// Release any remaining frames.
 	for i := range wb.frames {
 		if wb.frames[i].release != nil {
 			wb.frames[i].release()
