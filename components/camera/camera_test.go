@@ -357,6 +357,17 @@ func TestGetImagesFromGetImage(t *testing.T) {
 		_, _, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypePNG, errorCam)
 		test.That(t, err, test.ShouldBeError, errors.New("could not decode image: could not get image bytes from camera: test error"))
 	})
+
+	t.Run("empty bytes case", func(t *testing.T) {
+		emptyCam := &testCamera{
+			Named: camera.Named("empty_cam").AsNamed(),
+			imageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+				return []byte{}, camera.ImageMetadata{MimeType: mimeType}, nil
+			},
+		}
+		_, _, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypePNG, emptyCam)
+		test.That(t, err, test.ShouldBeError, errors.New("could not decode image: received empty bytes from camera"))
+	})
 }
 
 func TestGetImageFromGetImages(t *testing.T) {
