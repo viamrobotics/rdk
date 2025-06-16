@@ -110,7 +110,8 @@ func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.Med
 			if conf.FrameRate > 0.0 {
 				constraint.FrameRate = prop.FloatExact(conf.FrameRate)
 			} else {
-				constraint.FrameRate = prop.FloatRanged{Min: 0.0, Ideal: 30.0, Max: 140.0}
+				conf.FrameRate = 30.0
+				constraint.FrameRate = prop.FloatExact(conf.FrameRate)
 			}
 
 			if conf.Format == "" {
@@ -225,7 +226,6 @@ func NewWebcam(
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-
 	cam.buffer = NewWebcamBuffer(cam.reader, cam.logger, cam.conf.FrameRate)
 	cam.buffer.StartBuffer()
 
@@ -384,9 +384,9 @@ func (c *webcam) Images(ctx context.Context) ([]camera.NamedImage, resource.Resp
 		return nil, resource.ResponseMetadata{}, err
 	}
 
-	img := c.buffer.GetLatestFrame()
-	if img == nil {
-		return nil, resource.ResponseMetadata{}, errors.New("no frames available to read")
+	img, err := c.buffer.GetLatestFrame()
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, err
 	}
 
 	return []camera.NamedImage{{img, c.Name().Name}}, resource.ResponseMetadata{time.Now()}, nil
@@ -413,9 +413,9 @@ func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]in
 	if c.reader == nil {
 		return nil, camera.ImageMetadata{}, errors.New("underlying reader is nil")
 	}
-	img := c.buffer.GetLatestFrame()
-	if img == nil {
-		return nil, camera.ImageMetadata{}, errors.New("no frames available to read")
+	img, err := c.buffer.GetLatestFrame()
+	if err != nil {
+		return nil, camera.ImageMetadata{}, err
 	}
 
 	if mimeType == "" {
