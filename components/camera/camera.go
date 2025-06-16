@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"time"
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
@@ -143,18 +144,6 @@ type Camera interface {
 	Properties(ctx context.Context) (Properties, error)
 }
 
-// VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.
-// Note that generally, when writing camera components from scratch, embedding `Stream` is an anti-pattern.
-type VideoSource interface {
-	Camera
-	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
-}
-
-// ReadImage reads an image from the given source that is immediately available.
-func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func(), error) {
-	return gostream.ReadImage(ctx, src)
-}
-
 // DecodeImageFromCamera retrieves image bytes from a camera resource and serializes it as an image.Image.
 func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[string]interface{}, cam Camera) (image.Image, error) {
 	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
@@ -169,6 +158,48 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
 	}
 	return img, nil
+}
+
+// GetImageFromGetImages is a utility function to quickly implement GetImage from an already-implemented GetImages method.
+// It takes a mimeType and a camera as args, and returns a byte slice and ImageMetadata, which is the same response signature as the Image method.
+// We use the mimeType arg to specify how to encode the image bytes returned from GetImages. It returns the first image in the response slice.
+func GetImageFromGetImages(ctx context.Context, mimeType string, cam Camera) ([]byte, ImageMetadata, error) {
+	images, _, err := cam.Images(ctx)
+	if err != nil {
+		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
+	}
+
+	imgBytes, err := rimage.EncodeImage(ctx, images[0].Image, mimeType)
+	if err != nil {
+		return nil, ImageMetadata{}, fmt.Errorf("could not encode image: %w", err)
+	}
+
+	return imgBytes, ImageMetadata{MimeType: mimeType}, nil
+}
+
+// GetImagesFromGetImage is a utility function to quickly implement GetImages from an already-implemented GetImage method.
+// It takes a mimeType and a camera as args, and returns a slice of NamedImage and ResponseMetadata,
+// which is the same response signature as the Images method. We use the mimeType arg to specify
+// how to decode the image bytes returned from GetImage. We use the camera's name as the source name.
+// It returns a slice of NamedImage of length 1 and ResponseMetadata, using the camera's name as the source name.
+func GetImagesFromGetImage(ctx context.Context, mimeType string, cam Camera) ([]NamedImage, resource.ResponseMetadata, error) {
+	imgBytes, err := DecodeImageFromCamera(ctx, mimeType, nil, cam)
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not decode image: %w", err)
+	}
+	return []NamedImage{{Image: imgBytes, SourceName: cam.Name().String()}}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+}
+
+// VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.
+// Note that generally, when writing camera components from scratch, embedding `Stream` is an anti-pattern.
+type VideoSource interface {
+	Camera
+	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
+}
+
+// ReadImage reads an image from the given source that is immediately available.
+func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func(), error) {
+	return gostream.ReadImage(ctx, src)
 }
 
 // A PointCloudSource is a source that can generate pointclouds.
