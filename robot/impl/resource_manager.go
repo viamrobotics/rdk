@@ -511,6 +511,14 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 	closeCtx, cancel := context.WithTimeout(ctx, resourceCloseTimeout)
 	defer cancel()
 
+	cleanup := rutils.SlowLogger(
+		closeCtx,
+		"Waiting for resource to shut down",
+		"resource", res.Name().String(),
+		manager.logger,
+	)
+	defer cleanup()
+
 	allErrs := res.Close(closeCtx)
 
 	resName := res.Name()

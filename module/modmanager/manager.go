@@ -472,6 +472,10 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		mod.logger.Warnw("Forcing removal of module with active resources", "module", mod.cfg.Name)
 	}
 
+	cleanup := rutils.SlowLogger(
+		context.Background(), "Waiting for module to complete shutdown", "module", mod.cfg.Name, mod.logger)
+	defer cleanup()
+
 	// need to actually close the resources within the module itself before stopping
 	for res := range mod.resources {
 		_, err := mod.client.RemoveResource(context.Background(), &pb.RemoveResourceRequest{Name: res.String()})
