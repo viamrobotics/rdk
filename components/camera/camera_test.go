@@ -286,7 +286,7 @@ func (c *testCamera) Reconfigure(ctx context.Context, deps resource.Dependencies
 	return nil
 }
 
-// verifyImageEquality compares two images and verifies they are identical
+// verifyImageEquality compares two images and verifies they are identical.
 func verifyImageEquality(t *testing.T, img1, img2 image.Image) {
 	t.Helper()
 	diff, _, err := rimage.CompareImages(img1, img2)
@@ -294,7 +294,7 @@ func verifyImageEquality(t *testing.T, img1, img2 image.Image) {
 	test.That(t, diff, test.ShouldEqual, 0)
 }
 
-// verifyDecodedImage verifies that decoded image bytes match the original image
+// verifyDecodedImage verifies that decoded image bytes match the original image.
 func verifyDecodedImage(t *testing.T, imgBytes []byte, mimeType string, originalImg image.Image) {
 	t.Helper()
 	test.That(t, len(imgBytes), test.ShouldBeGreaterThan, 0)
