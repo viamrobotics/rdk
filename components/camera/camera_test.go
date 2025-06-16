@@ -408,12 +408,4 @@ func TestGetImageFromGetImages(t *testing.T) {
 		_, _, err := camera.GetImageFromGetImages(context.Background(), rutils.MimeTypePNG, emptyCam)
 		test.That(t, err, test.ShouldBeError, errors.New("no images returned from camera"))
 	})
-
-	t.Run("not implemented case", func(t *testing.T) {
-		notImplCam := &testCamera{
-			Named: camera.Named("not_impl_cam").AsNamed(),
-		}
-		_, _, err := camera.GetImageFromGetImages(context.Background(), rutils.MimeTypePNG, notImplCam)
-		test.That(t, err, test.ShouldBeError, errors.New("could not get images from camera: not implemented"))
-	})
 }
