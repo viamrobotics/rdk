@@ -323,7 +323,7 @@ func TestGetImagesFromGetImage(t *testing.T) {
 	images, metadata, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypePNG, testCam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(images), test.ShouldEqual, 1)
-	test.That(t, images[0].SourceName, test.ShouldEqual, "test_cam")
+	test.That(t, images[0].SourceName, test.ShouldEqual, testCam.Name().String())
 	verifyImageEquality(t, images[0].Image, testImg)
 	test.That(t, metadata.CapturedAt.IsZero(), test.ShouldBeFalse)
 
@@ -331,7 +331,7 @@ func TestGetImagesFromGetImage(t *testing.T) {
 	images, metadata, err = camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypeJPEG, testCam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(images), test.ShouldEqual, 1)
-	test.That(t, images[0].SourceName, test.ShouldEqual, "test_cam")
+	test.That(t, images[0].SourceName, test.ShouldEqual, testCam.Name().String())
 	verifyImageEquality(t, images[0].Image, testImg)
 	test.That(t, metadata.CapturedAt.IsZero(), test.ShouldBeFalse)
 
