@@ -101,7 +101,7 @@ func (manager *resourceManager) ExportDot(index int) (resource.GetSnapshotInfo, 
 
 func (manager *resourceManager) startModuleManager(
 	ctx context.Context,
-	parentAddr string,
+	parentAddrs config.ParentSockAddrs,
 	removeOrphanedResources func(context.Context, []resource.Name),
 	untrustedEnv bool,
 	viamHomeDir string,
@@ -119,7 +119,7 @@ func (manager *resourceManager) startModuleManager(
 		FTDC:                    manager.opts.ftdc,
 		ModPeerConnTracker:      modPeerConnTracker,
 	}
-	modmanager, err := modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
+	modmanager, err := modmanager.NewManager(ctx, parentAddrs, logger, mmOpts)
 	if err != nil {
 		return err
 	}

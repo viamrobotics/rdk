@@ -77,7 +77,7 @@ type Service interface {
 	Address() string
 
 	// Returns the unix socket path the module server listens on.
-	ModuleAddress() string
+	ModuleAddresses() config.ParentSockAddrs
 
 	Stats() any
 
@@ -89,17 +89,18 @@ type Service interface {
 type webService struct {
 	resource.Named
 
-	mu        sync.Mutex
-	r         robot.Robot
-	rpcServer rpc.Server
-	modServer rpc.Server
+	mu            sync.Mutex
+	r             robot.Robot
+	rpcServer     rpc.Server
+	unixModServer rpc.Server
+	tcpModServer  rpc.Server
 
 	// Will be nil on non-cgo builds.
 	streamServer *webstream.Server
 	services     map[resource.API]resource.APIResourceCollection[resource.Resource]
 	opts         options
 	addr         string
-	modAddr      string
+	modAddrs     config.ParentSockAddrs
 	logger       logging.Logger
 	cancelCtx    context.Context
 	cancelFunc   func()
@@ -178,17 +179,15 @@ func (svc *webService) Address() string {
 }
 
 // ModuleAddress returns the unix socket path the module server is listening on.
-func (svc *webService) ModuleAddress() string {
+func (svc *webService) ModuleAddresses() config.ParentSockAddrs {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	return svc.modAddr
+	return svc.modAddrs
 }
 
-// StartModule starts the grpc module server.
-func (svc *webService) StartModule(ctx context.Context) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	if svc.modServer != nil {
+// returns (listener, addr, error)
+func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpMode bool) error {
+	if tcpMode && svc.tcpModServer != nil || !tcpMode && svc.unixModServer != nil {
 		return errors.New("module service already started")
 	}
 
@@ -200,7 +199,7 @@ func (svc *webService) StartModule(ctx context.Context) error {
 			return errors.WithMessage(err, "module startup failed")
 		}
 
-		if rutils.ViamTCPSockets() {
+		if tcpMode {
 			addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
 			lis, err = net.Listen("tcp", addr)
 		} else {
@@ -213,7 +212,11 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		if err != nil {
 			return errors.WithMessage(err, "failed to listen")
 		}
-		svc.modAddr = addr
+		if tcpMode {
+			svc.modAddrs.TCPAddr = addr
+		} else {
+			svc.modAddrs.UnixAddr = addr
+		}
 		return nil
 	}); err != nil {
 		return err
@@ -244,16 +247,21 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		googlegrpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
 		googlegrpc.UnknownServiceHandler(svc.foreignServiceHandler),
 	}
-	svc.modServer = module.NewServer(opts...)
-	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
+	server := module.NewServer(opts...)
+	if tcpMode {
+		svc.tcpModServer = server
+	} else {
+		svc.unixModServer = server
+	}
+	if err := server.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}
 
-	if err := svc.initStreamServerForModule(ctx); err != nil {
+	if err := svc.initStreamServerForModule(ctx, server); err != nil {
 		return err
 	}
 
-	if err := svc.initAPIResourceCollections(ctx, true); err != nil {
+	if err := svc.initAPIResourceCollections(ctx, server); err != nil {
 		return err
 	}
 	if err := svc.refreshResources(); err != nil {
@@ -265,11 +273,22 @@ func (svc *webService) StartModule(ctx context.Context) error {
 		defer svc.modWorkers.Done()
 		svc.logger.Debugw("module server listening", "socket path", lis.Addr())
 		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(addr)) })
-		if err := svc.modServer.Serve(lis); err != nil {
+		if err := server.Serve(lis); err != nil {
 			svc.logger.Errorw("failed to serve module service", "error", err)
 		}
 	})
 	return nil
+}
+
+// StartModule starts the grpc module server.
+func (svc *webService) StartModule(ctx context.Context) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
+	if err := svc.startProtocolModuleParentServer(ctx, false); err != nil {
+		return err
+	}
+	return svc.startProtocolModuleParentServer(ctx, true)
 }
 
 func (svc *webService) refreshResources() error {
@@ -362,8 +381,10 @@ func (svc *webService) Close(ctx context.Context) error {
 	defer svc.mu.Unlock()
 	svc.stopWeb()
 	var err error
-	if svc.modServer != nil {
-		err = svc.modServer.Stop()
+	for _, srv := range []rpc.Server{svc.tcpModServer, svc.unixModServer} {
+		if srv != nil {
+			err = srv.Stop()
+		}
 	}
 	if svc.streamServer != nil {
 		utils.UncheckedError(svc.streamServer.Close())
@@ -434,7 +455,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	if err := svc.initAPIResourceCollections(ctx, false); err != nil {
+	if err := svc.initAPIResourceCollections(ctx, svc.rpcServer); err != nil {
 		return err
 	}
 	if err := svc.refreshResources(); err != nil {
@@ -860,7 +881,7 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 }
 
 // Register every API resource grpc service here.
-func (svc *webService) initAPIResourceCollections(ctx context.Context, mod bool) error {
+func (svc *webService) initAPIResourceCollections(ctx context.Context, server rpc.Server) error {
 	// TODO (RSDK-144): only register necessary services
 	apiRegs := resource.RegisteredAPIs()
 	for s, rs := range apiRegs {
@@ -870,10 +891,6 @@ func (svc *webService) initAPIResourceCollections(ctx context.Context, mod bool)
 			svc.services[s] = apiResColl
 		}
 
-		server := svc.rpcServer
-		if mod {
-			server = svc.modServer
-		}
 		if err := rs.RegisterRPCService(ctx, server, apiResColl); err != nil {
 			return err
 		}
@@ -1170,4 +1187,8 @@ func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Reques
 	// Only log errors from encoding here. A failure to encode should never
 	// happen.
 	utils.UncheckedError(json.NewEncoder(w).Encode(response))
+}
+
+func (svc *webService) modServers() []rpc.Server {
+	return []rpc.Server{svc.tcpModServer, svc.unixModServer}
 }

@@ -50,6 +50,9 @@ type Module struct {
 	// Environment contains additional variables that are passed to the module process when it is started.
 	// They overwrite existing environment variables.
 	Environment map[string]string `json:"env,omitempty"`
+	// TCPMode indicates that the module should be started with a TCP connection. Regardless of the value
+	// set here, a TCP connection will be used if the `VIAM_TCP_SOCKETS` env var is set to true.
+	TCPMode bool `json:"tcp_mode,omitempty"`
 
 	// FirstRunTimeout is the timeout duration for the first run script.
 	// This field will only be applied if it is a positive value. Supplying a
@@ -66,6 +69,11 @@ type Module struct {
 
 	// LocalVersion is an in-process fake version used for local module change management.
 	LocalVersion string
+}
+
+type ParentSockAddrs struct {
+	TCPAddr  string
+	UnixAddr string
 }
 
 // JSONManifest contains meta.json fields that are used by both RDK and CLI.

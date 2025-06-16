@@ -334,6 +334,7 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 		Environment:     proto.GetEnv(),
 		Status:          status,
 		FirstRunTimeout: utils.Duration(proto.GetFirstRunTimeout().AsDuration()),
+		TCPMode:         proto.GetTcpMode(),
 	}
 	return &module, nil
 }
