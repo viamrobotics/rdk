@@ -169,6 +169,10 @@ func GetImageFromGetImages(ctx context.Context, mimeType string, cam Camera) ([]
 		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
 	}
 
+	if len(images) == 0 {
+		return nil, ImageMetadata{}, errors.New("no images returned from camera")
+	}
+
 	imgBytes, err := rimage.EncodeImage(ctx, images[0].Image, mimeType)
 	if err != nil {
 		return nil, ImageMetadata{}, fmt.Errorf("could not encode image: %w", err)
