@@ -686,7 +686,7 @@ func (manager *resourceManager) completeConfig(
 				ctxWithTimeout, timeoutCancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 				defer timeoutCancel()
 
-				stopSlowLogger := rutils.SlowStartupLogger(
+				stopSlowLogger := rutils.SlowLogger(
 					ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
 
 				lr.reconfigureWorkers.Add(1)
