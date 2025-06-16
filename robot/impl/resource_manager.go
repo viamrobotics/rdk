@@ -513,7 +513,7 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 
 	cleanup := rutils.SlowLogger(
 		closeCtx,
-		"Waiting for resource to shut down",
+		"Waiting for resource to close",
 		"resource", res.Name().String(),
 		manager.logger,
 	)
