@@ -343,12 +343,12 @@ func TestGetImageFromGetImages(t *testing.T) {
 		verifyDecodedImage(t, imgBytes, rutils.MimeTypeJPEG, testImg1)
 	})
 
-	t.Run("requested mime type depth, but actual image is RGBA", func(t *testing.T) {
+	t.Run("request mime type depth, but actual image is RGBA", func(t *testing.T) {
 		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypeRawDepth, testCam)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot convert image type")
 	})
 
-	t.Run("requested JPEG, but actual image is depth map", func(t *testing.T) {
+	t.Run("request JPEG, but actual image is depth map", func(t *testing.T) {
 		dm := rimage.NewEmptyDepthMap(100, 100)
 		depthCam := &testCamera{
 			Named: camera.Named("depth_cam").AsNamed(),
@@ -360,6 +360,11 @@ func TestGetImageFromGetImages(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil) // expect success because we can convert the depth map to JPEG
 		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypeJPEG)
 		verifyDecodedImage(t, img, rutils.MimeTypeJPEG, dm)
+	})
+
+	t.Run("request empty mime type", func(t *testing.T) {
+		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, "", testCam)
+		test.That(t, err, test.ShouldBeError, errors.New("could not encode image: do not know how to encode \"\""))
 	})
 
 	t.Run("error case", func(t *testing.T) {
