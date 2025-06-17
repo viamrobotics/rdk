@@ -194,6 +194,10 @@ func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType str
 		}
 	}
 
+	if img == nil {
+		return nil, ImageMetadata{}, errors.New("image is nil")
+	}
+
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {
 		return nil, ImageMetadata{}, fmt.Errorf("could not encode image: %w", err)

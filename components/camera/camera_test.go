@@ -357,7 +357,16 @@ func TestGetImageFromGetImages(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New("no images returned from camera"))
 	})
 
-	t.Run("multiple images, specific source name", func(t *testing.T) {
+	t.Run("nil image case", func(t *testing.T) {
+		nilImageCam := inject.NewCamera("nil_image_cam")
+		nilImageCam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			return []camera.NamedImage{{Image: nil, SourceName: source1Name}}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+		}
+		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypePNG, nilImageCam)
+		test.That(t, err, test.ShouldBeError, errors.New("image is nil"))
+	})
+
+	t.Run("multiple images, specify source name", func(t *testing.T) {
 		sourceName := source2Name
 		img, metadata, err := camera.GetImageFromGetImages(context.Background(), &sourceName, rutils.MimeTypePNG, testCam)
 		test.That(t, err, test.ShouldBeNil)
