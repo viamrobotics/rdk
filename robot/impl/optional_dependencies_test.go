@@ -948,20 +948,20 @@ func TestModularOptionalDependenciesCycles(t *testing.T) {
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
 		test.That(t, msgNum, test.ShouldEqual, 2)
 
-		// Assert that, on the 'moc' component itself, `otherMOC` is now set.
+		// Assert that, on the 'moc' component itself, `otherMOC` is now usable.
 		doCommandResp, err := mocRes.DoCommand(ctx, map[string]any{"command": "other_moc_state"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"other_moc_state": "set"})
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"other_moc_state": "usable"})
 
 		// Assert that the second 'moc2' component is now accessible (did not fail to
 		// construct).
 		mocRes2, err := lr.ResourceByName(mocName2)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that, on the 'moc2' component itself, `otherMOC` is now set.
+		// Assert that, on the 'moc2' component itself, `otherMOC` is now usable.
 		doCommandResp, err = mocRes2.DoCommand(ctx, map[string]any{"command": "other_moc_state"})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"other_moc_state": "set"})
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"other_moc_state": "usable"})
 	}
 
 	// Reconfigure the robot to remove the original 'moc'.

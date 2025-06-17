@@ -209,7 +209,21 @@ func (moc *mutualOptionalChild) DoCommand(ctx context.Context, req map[string]an
 		if moc.otherMOC == nil {
 			return map[string]any{"other_moc_state": "unset"}, nil
 		}
-		return map[string]any{"other_moc_state": "set"}, nil
+
+		resp, err := moc.otherMOC.DoCommand(ctx, map[string]any{"command": "query"})
+		if err != nil {
+			return map[string]any{"other_moc_state": "unreachable"}, nil //nolint:nilerr
+		}
+
+		if _, exists := resp["usable"]; exists {
+			return map[string]any{"other_moc_state": "usable"}, nil
+		}
+		return map[string]any{"other_moc_state": "unusable"}, nil
+	}
+
+	// "query" will respond with {"usable": nil}
+	if cmd == "query" {
+		return map[string]any{"usable": nil}, nil
 	}
 
 	// The command must've been something else (unrecognized).
