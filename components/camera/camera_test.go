@@ -449,6 +449,30 @@ func TestGetImagesFromGetImage(t *testing.T) {
 		test.That(t, metadata.CapturedAt.Before(endTime), test.ShouldBeTrue)
 	})
 
+	t.Run("request mime type depth, but actual image is RGBA", func(t *testing.T) {
+		rgbaImg := image.NewRGBA(image.Rect(0, 0, 100, 100))
+		rgbaCam := &testCamera{
+			Named: camera.Named("rgba_cam").AsNamed(),
+			imageFunc: func(ctx context.Context, reqMimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+				imgBytes, err := rimage.EncodeImage(ctx, rgbaImg, rutils.MimeTypeRawRGBA)
+				if err != nil {
+					return nil, camera.ImageMetadata{}, err
+				}
+				return imgBytes, camera.ImageMetadata{MimeType: rutils.MimeTypeRawRGBA}, nil
+			},
+		}
+		startTime := time.Now()
+		images, metadata, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypeRawDepth, rgbaCam)
+		endTime := time.Now()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(images), test.ShouldEqual, 1)
+		test.That(t, images[0].SourceName, test.ShouldEqual, "")
+		test.That(t, metadata.CapturedAt.IsZero(), test.ShouldBeFalse)
+		test.That(t, metadata.CapturedAt.After(startTime), test.ShouldBeTrue)
+		test.That(t, metadata.CapturedAt.Before(endTime), test.ShouldBeTrue)
+		verifyImageEquality(t, images[0].Image, rgbaImg) // we should ignore the requested mime type and get back an RGBA image
+	})
+
 	t.Run("error case", func(t *testing.T) {
 		errorCam := &testCamera{
 			Named: camera.Named("error_cam").AsNamed(),
