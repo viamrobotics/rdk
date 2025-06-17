@@ -827,7 +827,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
 
-		cleanup := utils.SlowStartupLogger(
+		cleanup := utils.SlowLogger(
 			ctx,
 			"Waiting for internal resource to complete reconfiguration during weak/optional dependencies update",
 			"resource", resName.String(),
@@ -967,7 +967,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
 
-		cleanup := utils.SlowStartupLogger(
+		cleanup := utils.SlowLogger(
 			ctx,
 			"Waiting for resource to complete reconfiguration during weak/optional dependencies update",
 			"resource",

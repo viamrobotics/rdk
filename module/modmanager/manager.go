@@ -349,7 +349,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		}
 	}
 
-	cleanup := rutils.SlowStartupLogger(
+	cleanup := rutils.SlowLogger(
 		ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
@@ -471,6 +471,10 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	if !reconfigure && len(mod.resources) != 0 {
 		mod.logger.Warnw("Forcing removal of module with active resources", "module", mod.cfg.Name)
 	}
+
+	cleanup := rutils.SlowLogger(
+		context.Background(), "Waiting for module to complete shutdown", "module", mod.cfg.Name, mod.logger)
+	defer cleanup()
 
 	// need to actually close the resources within the module itself before stopping
 	for res := range mod.resources {
@@ -1006,7 +1010,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	// No need to check mgr.untrustedEnv, as we're restarting the same
 	// executable we were given for initial module addition.
 
-	cleanup := rutils.SlowStartupLogger(
+	cleanup := rutils.SlowLogger(
 		ctx, "Waiting for module to complete restart and re-registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 

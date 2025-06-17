@@ -511,6 +511,14 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 	closeCtx, cancel := context.WithTimeout(ctx, resourceCloseTimeout)
 	defer cancel()
 
+	cleanup := rutils.SlowLogger(
+		closeCtx,
+		"Waiting for resource to close",
+		"resource", res.Name().String(),
+		manager.logger,
+	)
+	defer cleanup()
+
 	allErrs := res.Close(closeCtx)
 
 	resName := res.Name()
@@ -686,7 +694,7 @@ func (manager *resourceManager) completeConfig(
 				ctxWithTimeout, timeoutCancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 				defer timeoutCancel()
 
-				stopSlowLogger := rutils.SlowStartupLogger(
+				stopSlowLogger := rutils.SlowLogger(
 					ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
 
 				lr.reconfigureWorkers.Add(1)

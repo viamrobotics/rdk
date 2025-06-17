@@ -88,6 +88,18 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		return err
 	}
 	<-ctx.Done()
+
+	// If this is set, sleep to catch module slow shutdown logs.
+	sleepTime := os.Getenv("VIAM_TESTMODULE_SLOW_CLOSE")
+
+	if sleepTime != "" {
+		sleepDuration, err := time.ParseDuration(sleepTime)
+		if err != nil {
+			return err
+		}
+		time.Sleep(sleepDuration)
+	}
+
 	return nil
 }
 
@@ -351,12 +363,17 @@ func newSlow(
 
 type slow struct {
 	resource.Named
-	resource.TriviallyCloseable
 	configDuration time.Duration
 }
 
 // Reconfigure does nothing but is slow.
 func (s *slow) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	time.Sleep(s.configDuration)
+	return nil
+}
+
+// Close does nothing but is slow.
+func (s *slow) Close(ctx context.Context) error {
 	time.Sleep(s.configDuration)
 	return nil
 }
