@@ -91,15 +91,17 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 	}
 
 	var mimeStr string
-	// unmarshal to structpb.Value
-	val := &structpb.Value{}
-	if err := mimeType.UnmarshalTo(val); err != nil {
-		return nil, err
-	}
-	mimeStr = val.GetStringValue()
-
-	if mimeStr == "" {
-		return nil, errors.New("mime type is empty")
+	// Try to unmarshal as StringValue first
+	strVal := &wrapperspb.StringValue{}
+	if err := mimeType.UnmarshalTo(strVal); err == nil {
+		mimeStr = strVal.Value
+	} else {
+		// If that fails, try to unmarshal as Value
+		val := &structpb.Value{}
+		if err := mimeType.UnmarshalTo(val); err != nil {
+			return nil, err
+		}
+		mimeStr = val.GetStringValue()
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {

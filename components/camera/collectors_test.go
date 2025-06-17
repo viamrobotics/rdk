@@ -70,8 +70,22 @@ func convertStringToAnyPB(str string) (*anypb.Any, error) {
 	return anyVal, nil
 }
 
+func convertMapToAnyPBMap(params map[string]interface{}) (map[string]*anypb.Any, error) {
+	methodParams := map[string]*anypb.Any{}
+	for key, paramVal := range params {
+		anyVal, err := convertStringToAnyPB(paramVal.(string))
+		if err != nil {
+			return nil, err
+		}
+		methodParams[key] = anyVal
+	}
+	return methodParams, nil
+}
+
 func TestCollectors(t *testing.T) {
 	methodParams, err := convertStringMapToAnyPBMap(map[string]string{"camera_name": "camera-1", "mime_type": "image/jpeg"})
+	test.That(t, err, test.ShouldBeNil)
+	methodParams2, err := convertMapToAnyPBMap(map[string]interface{}{"camera_name": "camera-1", "mime_type": "image/jpeg"})
 	test.That(t, err, test.ShouldBeNil)
 	viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
 	test.That(t, err, test.ShouldBeNil)
@@ -155,6 +169,20 @@ func TestCollectors(t *testing.T) {
 			}
 
 			col, err := tc.collector(tc.camera, params)
+			test.That(t, err, test.ShouldBeNil)
+
+			// test with map[string]interface{}
+			params = data.CollectorParams{
+				DataType:      data.CaptureTypeBinary,
+				ComponentName: serviceName,
+				Interval:      captureInterval,
+				Logger:        logging.NewTestLogger(t),
+				Clock:         clock.New(),
+				Target:        buf,
+				MethodParams:  methodParams2,
+			}
+
+			col, err = tc.collector(tc.camera, params)
 			test.That(t, err, test.ShouldBeNil)
 
 			defer col.Close()
