@@ -169,6 +169,7 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 //
 // It uses the mimeType arg to specify how to encode the bytes returned from GetImages.
 func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType string, cam Camera) ([]byte, ImageMetadata, error) {
+	// TODO(RSDK-10991): pass through extra field when implemented
 	images, _, err := cam.Images(ctx)
 	if err != nil {
 		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
