@@ -186,7 +186,7 @@ func (svc *webService) ModuleAddresses() config.ParentSockAddrs {
 	return svc.modAddrs
 }
 
-// returns (listener, addr, error)
+// returns (listener, addr, error).
 func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpMode bool) error {
 	if tcpMode && svc.tcpModServer != nil || !tcpMode && svc.unixModServer != nil {
 		return errors.New("module service already started")
@@ -385,7 +385,6 @@ func (svc *webService) Close(ctx context.Context) error {
 	for _, srv := range []rpc.Server{svc.tcpModServer, svc.unixModServer} {
 		if srv != nil {
 			errs = append(errs, srv.Stop())
-			//errs = srv.Stop()
 		}
 	}
 	if svc.streamServer != nil {
@@ -1189,8 +1188,4 @@ func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Reques
 	// Only log errors from encoding here. A failure to encode should never
 	// happen.
 	utils.UncheckedError(json.NewEncoder(w).Encode(response))
-}
-
-func (svc *webService) modServers() []rpc.Server {
-	return []rpc.Server{svc.tcpModServer, svc.unixModServer}
 }

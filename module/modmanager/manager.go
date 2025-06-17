@@ -324,7 +324,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 	return nil
 }
 
-// return appropriate parentaddr for module (select tcp or unix)
+// return appropriate parentaddr for module (select tcp or unix).
 func (mgr *Manager) parentAddr(mod *module) string {
 	if mod.tcpMode() {
 		return mgr.parentAddrs.TCPAddr

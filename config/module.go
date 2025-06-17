@@ -71,6 +71,7 @@ type Module struct {
 	LocalVersion string
 }
 
+// ParentSockAddrs stores addresses for both TCP and UDS-based connection.
 type ParentSockAddrs struct {
 	TCPAddr  string
 	UnixAddr string

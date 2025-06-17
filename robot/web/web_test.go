@@ -98,7 +98,7 @@ func TestModule(t *testing.T) {
 	err := svc.StartModule(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn1, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(), logger)
+	conn1, err := rgrpc.Dial(context.Background(), "unix:"+svc.ModuleAddresses().UnixAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1, err := arm.NewClientFromConn(context.Background(), conn1, "", arm.Named(arm1String), logger)
@@ -1424,7 +1424,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 				return robot.MachineStatus{}, nil
 			}
 
-			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(),
+			conn, err := rgrpc.Dial(context.Background(), "unix:"+svc.ModuleAddresses().UnixAddr,
 				logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
@@ -1455,7 +1455,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 				return robot.MachineStatus{}, nil
 			}
 
-			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(),
+			conn, err := rgrpc.Dial(context.Background(), "unix:"+svc.ModuleAddresses().UnixAddr,
 				logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
