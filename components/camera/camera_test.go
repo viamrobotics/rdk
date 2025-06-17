@@ -329,6 +329,14 @@ func TestGetImageFromGetImages(t *testing.T) {
 		},
 	}
 
+	dm := rimage.NewEmptyDepthMap(100, 100)
+	depthCam := &testCamera{
+		Named: camera.Named("depth_cam").AsNamed(),
+		imagesFunc: func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			return []camera.NamedImage{{Image: dm, SourceName: source1Name}}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+		},
+	}
+
 	t.Run("PNG mime type", func(t *testing.T) {
 		imgBytes, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypePNG, testCam)
 		test.That(t, err, test.ShouldBeNil)
@@ -349,17 +357,17 @@ func TestGetImageFromGetImages(t *testing.T) {
 	})
 
 	t.Run("request JPEG, but actual image is depth map", func(t *testing.T) {
-		dm := rimage.NewEmptyDepthMap(100, 100)
-		depthCam := &testCamera{
-			Named: camera.Named("depth_cam").AsNamed(),
-			imagesFunc: func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-				return []camera.NamedImage{{Image: dm, SourceName: source1Name}}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
-			},
-		}
 		img, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypeJPEG, depthCam)
 		test.That(t, err, test.ShouldBeNil) // expect success because we can convert the depth map to JPEG
 		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypeJPEG)
 		verifyDecodedImage(t, img, rutils.MimeTypeJPEG, dm)
+	})
+
+	t.Run("request PNG, but actual image is depth map", func(t *testing.T) {
+		img, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypePNG, depthCam)
+		test.That(t, err, test.ShouldBeNil) // expect success because we can convert the depth map to PNG
+		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypePNG)
+		verifyDecodedImage(t, img, rutils.MimeTypePNG, dm)
 	})
 
 	t.Run("request empty mime type", func(t *testing.T) {
