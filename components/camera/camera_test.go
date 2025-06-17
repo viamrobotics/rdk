@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -254,40 +255,6 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, cam2.Close(context.Background()), test.ShouldBeNil)
 }
 
-// testCamera is a simple camera implementation for testing GetImage and GetImages utility functions.
-type testCamera struct {
-	resource.Named
-	imageFunc  func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error)
-	imagesFunc func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error)
-}
-
-func (c *testCamera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-	return c.imageFunc(ctx, mimeType, extra)
-}
-
-func (c *testCamera) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-	if c.imagesFunc != nil {
-		return c.imagesFunc(ctx)
-	}
-	return nil, resource.ResponseMetadata{}, errors.New("not implemented")
-}
-
-func (c *testCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (c *testCamera) Properties(ctx context.Context) (camera.Properties, error) {
-	return camera.Properties{}, nil
-}
-
-func (c *testCamera) Close(ctx context.Context) error {
-	return nil
-}
-
-func (c *testCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	return nil
-}
-
 // verifyImageEquality compares two images and verifies they are identical.
 func verifyImageEquality(t *testing.T, img1, img2 image.Image) {
 	t.Helper()
@@ -320,22 +287,18 @@ func TestGetImageFromGetImages(t *testing.T) {
 	testImg1 := image.NewRGBA(image.Rect(0, 0, 100, 100))
 	testImg2 := image.NewRGBA(image.Rect(0, 0, 200, 200))
 
-	testCam := &testCamera{
-		Named: camera.Named("test_cam").AsNamed(),
-		imagesFunc: func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-			return []camera.NamedImage{
-				{Image: testImg1, SourceName: source1Name},
-				{Image: testImg2, SourceName: source2Name},
-			}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
-		},
+	testCam := inject.NewCamera("test_cam")
+	testCam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		return []camera.NamedImage{
+			{Image: testImg1, SourceName: source1Name},
+			{Image: testImg2, SourceName: source2Name},
+		}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 	}
 
 	dm := rimage.NewEmptyDepthMap(100, 100)
-	depthCam := &testCamera{
-		Named: camera.Named("depth_cam").AsNamed(),
-		imagesFunc: func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-			return []camera.NamedImage{{Image: dm, SourceName: source1Name}}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
-		},
+	depthCam := inject.NewCamera("depth_cam")
+	depthCam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		return []camera.NamedImage{{Image: dm, SourceName: source1Name}}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 	}
 
 	t.Run("PNG mime type", func(t *testing.T) {
@@ -377,22 +340,18 @@ func TestGetImageFromGetImages(t *testing.T) {
 	})
 
 	t.Run("error case", func(t *testing.T) {
-		errorCam := &testCamera{
-			Named: camera.Named("error_cam").AsNamed(),
-			imagesFunc: func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-				return nil, resource.ResponseMetadata{}, errors.New("test error")
-			},
+		errorCam := inject.NewCamera("error_cam")
+		errorCam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			return nil, resource.ResponseMetadata{}, errors.New("test error")
 		}
 		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypePNG, errorCam)
 		test.That(t, err, test.ShouldBeError, errors.New("could not get images from camera: test error"))
 	})
 
 	t.Run("empty images case", func(t *testing.T) {
-		emptyCam := &testCamera{
-			Named: camera.Named("empty_cam").AsNamed(),
-			imagesFunc: func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-				return []camera.NamedImage{}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
-			},
+		emptyCam := inject.NewCamera("empty_cam")
+		emptyCam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			return []camera.NamedImage{}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 		}
 		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypePNG, emptyCam)
 		test.That(t, err, test.ShouldBeError, errors.New("no images returned from camera"))
@@ -410,15 +369,13 @@ func TestGetImageFromGetImages(t *testing.T) {
 func TestGetImagesFromGetImage(t *testing.T) {
 	testImg := image.NewRGBA(image.Rect(0, 0, 100, 100))
 
-	testCam := &testCamera{
-		Named: camera.Named("test_cam").AsNamed(),
-		imageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-			imgBytes, err := rimage.EncodeImage(ctx, testImg, mimeType)
-			if err != nil {
-				return nil, camera.ImageMetadata{}, err
-			}
-			return imgBytes, camera.ImageMetadata{MimeType: mimeType}, nil
-		},
+	testCam := inject.NewCamera("test_cam")
+	testCam.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+		imgBytes, err := rimage.EncodeImage(ctx, testImg, mimeType)
+		if err != nil {
+			return nil, camera.ImageMetadata{}, err
+		}
+		return imgBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 	}
 
 	t.Run("PNG mime type", func(t *testing.T) {
@@ -451,15 +408,13 @@ func TestGetImagesFromGetImage(t *testing.T) {
 
 	t.Run("request mime type depth, but actual image is RGBA", func(t *testing.T) {
 		rgbaImg := image.NewRGBA(image.Rect(0, 0, 100, 100))
-		rgbaCam := &testCamera{
-			Named: camera.Named("rgba_cam").AsNamed(),
-			imageFunc: func(ctx context.Context, reqMimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-				imgBytes, err := rimage.EncodeImage(ctx, rgbaImg, rutils.MimeTypeRawRGBA)
-				if err != nil {
-					return nil, camera.ImageMetadata{}, err
-				}
-				return imgBytes, camera.ImageMetadata{MimeType: rutils.MimeTypeRawRGBA}, nil
-			},
+		rgbaCam := inject.NewCamera("rgba_cam")
+		rgbaCam.ImageFunc = func(ctx context.Context, reqMimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+			imgBytes, err := rimage.EncodeImage(ctx, rgbaImg, rutils.MimeTypeRawRGBA)
+			if err != nil {
+				return nil, camera.ImageMetadata{}, err
+			}
+			return imgBytes, camera.ImageMetadata{MimeType: rutils.MimeTypeRawRGBA}, nil
 		}
 		startTime := time.Now()
 		images, metadata, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypeRawDepth, rgbaCam)
@@ -474,22 +429,18 @@ func TestGetImagesFromGetImage(t *testing.T) {
 	})
 
 	t.Run("error case", func(t *testing.T) {
-		errorCam := &testCamera{
-			Named: camera.Named("error_cam").AsNamed(),
-			imageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-				return nil, camera.ImageMetadata{}, errors.New("test error")
-			},
+		errorCam := inject.NewCamera("error_cam")
+		errorCam.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+			return nil, camera.ImageMetadata{}, errors.New("test error")
 		}
 		_, _, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypePNG, errorCam)
 		test.That(t, err, test.ShouldBeError, errors.New("could not decode image: could not get image bytes from camera: test error"))
 	})
 
 	t.Run("empty bytes case", func(t *testing.T) {
-		emptyCam := &testCamera{
-			Named: camera.Named("empty_cam").AsNamed(),
-			imageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-				return []byte{}, camera.ImageMetadata{MimeType: mimeType}, nil
-			},
+		emptyCam := inject.NewCamera("empty_cam")
+		emptyCam.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+			return []byte{}, camera.ImageMetadata{MimeType: mimeType}, nil
 		}
 		_, _, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypePNG, emptyCam)
 		test.That(t, err, test.ShouldBeError, errors.New("could not decode image: received empty bytes from camera"))
