@@ -318,11 +318,10 @@ func (c *webcam) reconnectCamera(conf *WebcamConfig) error {
 // and once the resource is closed, so should the monitor. That is, it should
 // no longer send any resets once a Close on its associated resource has returned.
 func (c *webcam) Monitor() {
-	// const wait = 500 * time.Millisecond
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
-
 	c.workers.Add(func(ctx context.Context) {
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -350,17 +349,21 @@ func (c *webcam) Monitor() {
 						case <-ctx.Done():
 							return
 						case <-ticker.C:
-							c.mu.Lock()
-							err := c.reconnectCamera(&c.conf)
-							c.mu.Unlock()
+							cont := func() bool {
+								c.mu.Lock()
+								defer c.mu.Unlock()
 
-							if err != nil {
-								c.logger.Debugw("failed to reconnect camera", "error", err)
-								continue
-							} else {
+								if err := c.reconnectCamera(&c.conf); err != nil {
+									c.logger.Debugw("failed to reconnect camera", "error", err)
+									return true
+								}
 								c.logger.Infow("camera reconnected")
-								break reconnectLoop
+								return false
+							}()
+							if cont {
+								continue
 							}
+							break reconnectLoop
 						}
 					}
 				}
