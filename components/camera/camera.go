@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -205,12 +206,30 @@ func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType str
 // which is the same response signature as the Images method. We use the mimeType arg to specify
 // how to decode the image bytes returned from GetImage. Source name is empty string always.
 // It returns a slice of NamedImage of length 1 and ResponseMetadata, using the camera's name as the source name.
-func GetImagesFromGetImage(ctx context.Context, mimeType string, cam Camera) ([]NamedImage, resource.ResponseMetadata, error) {
-	imgBytes, err := DecodeImageFromCamera(ctx, mimeType, nil, cam)
+func GetImagesFromGetImage(
+	ctx context.Context,
+	mimeType string,
+	cam Camera,
+	logger logging.Logger,
+) ([]NamedImage, resource.ResponseMetadata, error) {
+	// TODO(RSDK-10991): pass through extra field when implemented
+	resBytes, resMetadata, err := cam.Image(ctx, mimeType, nil)
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not decode image: %w", err)
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not get image bytes from camera: %w", err)
 	}
-	return []NamedImage{{Image: imgBytes, SourceName: ""}}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+	if len(resBytes) == 0 {
+		return nil, resource.ResponseMetadata{}, errors.New("received empty bytes from camera")
+	}
+	if resMetadata.MimeType != mimeType {
+		logger.Warnf("requested mime type %s, but received %s", mimeType, resMetadata.MimeType)
+	}
+
+	img, err := rimage.DecodeImage(ctx, resBytes, utils.WithLazyMIMEType(mimeType))
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not decode into image.Image: %w", err)
+	}
+
+	return []NamedImage{{Image: img, SourceName: ""}}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 }
 
 // VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.

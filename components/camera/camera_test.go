@@ -367,6 +367,7 @@ func TestGetImageFromGetImages(t *testing.T) {
 }
 
 func TestGetImagesFromGetImage(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	testImg := image.NewRGBA(image.Rect(0, 0, 100, 100))
 
 	testCam := inject.NewCamera("test_cam")
@@ -380,7 +381,7 @@ func TestGetImagesFromGetImage(t *testing.T) {
 
 	t.Run("PNG mime type", func(t *testing.T) {
 		startTime := time.Now()
-		images, metadata, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypePNG, testCam)
+		images, metadata, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypePNG, testCam, logger)
 		endTime := time.Now()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(images), test.ShouldEqual, 1)
@@ -393,7 +394,7 @@ func TestGetImagesFromGetImage(t *testing.T) {
 
 	t.Run("JPEG mime type", func(t *testing.T) {
 		startTime := time.Now()
-		images, metadata, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypeJPEG, testCam)
+		images, metadata, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypeJPEG, testCam, logger)
 		endTime := time.Now()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(images), test.ShouldEqual, 1)
@@ -417,7 +418,7 @@ func TestGetImagesFromGetImage(t *testing.T) {
 			return imgBytes, camera.ImageMetadata{MimeType: rutils.MimeTypeRawRGBA}, nil
 		}
 		startTime := time.Now()
-		images, metadata, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypeRawDepth, rgbaCam)
+		images, metadata, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypeRawDepth, rgbaCam, logger)
 		endTime := time.Now()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(images), test.ShouldEqual, 1)
@@ -433,8 +434,8 @@ func TestGetImagesFromGetImage(t *testing.T) {
 		errorCam.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 			return nil, camera.ImageMetadata{}, errors.New("test error")
 		}
-		_, _, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypePNG, errorCam)
-		test.That(t, err, test.ShouldBeError, errors.New("could not decode image: could not get image bytes from camera: test error"))
+		_, _, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypePNG, errorCam, logger)
+		test.That(t, err, test.ShouldBeError, errors.New("could not get image bytes from camera: test error"))
 	})
 
 	t.Run("empty bytes case", func(t *testing.T) {
@@ -442,7 +443,7 @@ func TestGetImagesFromGetImage(t *testing.T) {
 		emptyCam.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 			return []byte{}, camera.ImageMetadata{MimeType: mimeType}, nil
 		}
-		_, _, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypePNG, emptyCam)
-		test.That(t, err, test.ShouldBeError, errors.New("could not decode image: received empty bytes from camera"))
+		_, _, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypePNG, emptyCam, logger)
+		test.That(t, err, test.ShouldBeError, errors.New("received empty bytes from camera"))
 	})
 }
