@@ -1712,7 +1712,7 @@ func TestSlowShutdownTicker(t *testing.T) {
 	// Assert that if a module is taking a while to close, we will see slow logger messages.
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessage("Waiting for resource to shut down").Len(),
+		test.That(tb, logs.FilterMessage("Waiting for resource to close").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 		test.That(tb, logs.FilterMessage("Waiting for module to complete shutdown").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
