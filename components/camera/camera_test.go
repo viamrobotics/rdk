@@ -421,16 +421,22 @@ func TestGetImagesFromGetImage(t *testing.T) {
 	}
 
 	t.Run("PNG mime type", func(t *testing.T) {
+		startTime := time.Now()
 		images, metadata, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypePNG, testCam)
+		endTime := time.Now()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(images), test.ShouldEqual, 1)
 		test.That(t, images[0].SourceName, test.ShouldEqual, "")
 		verifyImageEquality(t, images[0].Image, testImg)
 		test.That(t, metadata.CapturedAt.IsZero(), test.ShouldBeFalse)
+		test.That(t, metadata.CapturedAt.After(startTime), test.ShouldBeTrue)
+		test.That(t, metadata.CapturedAt.Before(endTime), test.ShouldBeTrue)
 	})
 
 	t.Run("JPEG mime type", func(t *testing.T) {
+		startTime := time.Now()
 		images, metadata, err := camera.GetImagesFromGetImage(context.Background(), rutils.MimeTypeJPEG, testCam)
+		endTime := time.Now()
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(images), test.ShouldEqual, 1)
 		test.That(t, images[0].SourceName, test.ShouldEqual, "")
@@ -438,6 +444,8 @@ func TestGetImagesFromGetImage(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		verifyDecodedImage(t, imgBytes, rutils.MimeTypeJPEG, testImg)
 		test.That(t, metadata.CapturedAt.IsZero(), test.ShouldBeFalse)
+		test.That(t, metadata.CapturedAt.After(startTime), test.ShouldBeTrue)
+		test.That(t, metadata.CapturedAt.Before(endTime), test.ShouldBeTrue)
 	})
 
 	t.Run("error case", func(t *testing.T) {
