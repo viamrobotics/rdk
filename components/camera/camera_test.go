@@ -301,7 +301,8 @@ func verifyDecodedImage(t *testing.T, imgBytes []byte, mimeType string, original
 	t.Helper()
 	test.That(t, len(imgBytes), test.ShouldBeGreaterThan, 0)
 
-	// For JPEG, compare the raw bytes after encoding the original image
+	// For JPEG, compare the raw bytes instead of the decoded image since the decoded image is
+	// not guaranteed to be the same as the original image due to lossy compression.
 	if mimeType == rutils.MimeTypeJPEG {
 		expectedBytes, err := rimage.EncodeImage(context.Background(), originalImg, mimeType)
 		test.That(t, err, test.ShouldBeNil)
