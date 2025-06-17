@@ -325,6 +325,46 @@ func sanitizeURLForLogs(u string) string {
 	return parsed.String()
 }
 
+type LogProgressWriter struct {
+	totalWrittenBytes int64
+	totalBytes        int64
+	name              string
+	startTime         time.Time
+	lastLogTime       time.Time
+	logger            logging.Logger
+}
+
+func (wc *LogProgressWriter) Write(p []byte) (int, error) {
+	if wc.totalWrittenBytes == 0 {
+		wc.startTime = time.Now()
+		wc.lastLogTime = wc.startTime
+	}
+	bytesWritten := len(p)
+	if bytesWritten > 0 {
+		timeSinceStart := time.Since(wc.lastLogTime)
+		wc.totalWrittenBytes += int64(bytesWritten)
+		if wc.totalWrittenBytes < wc.totalBytes {
+			if timeSinceStart > time.Second*5 {
+				wc.logger.Infof("%s: downloaded %d / %d bytes (%.0f%%) [%.0f kB/s]",
+					wc.name,
+					wc.totalWrittenBytes,
+					wc.totalBytes,
+					float64(wc.totalWrittenBytes)/float64(wc.totalBytes)*100,
+					float64(wc.totalWrittenBytes)/timeSinceStart.Seconds()/1024)
+				wc.lastLogTime = time.Now()
+			}
+		} else {
+			wc.logger.Infof("%s: downloaded %d / %d bytes (%.0f%%) in %v",
+				wc.name,
+				wc.totalWrittenBytes,
+				wc.totalBytes,
+				float64(wc.totalWrittenBytes)/float64(wc.totalBytes)*100,
+				time.Since(wc.startTime))
+		}
+	}
+	return bytesWritten, nil
+}
+
 func (m *cloudManager) downloadFileFromGCSURL(
 	ctx context.Context,
 	url string,
@@ -363,7 +403,8 @@ func (m *cloudManager) downloadFileFromGCSURL(
 	hash := crc32Hash()
 	w := io.MultiWriter(out, hash)
 
-	_, err = io.CopyN(w, resp.Body, maxPackageSize)
+	_, err = io.CopyN(w, io.TeeReader(resp.Body, &LogProgressWriter{totalBytes: resp.ContentLength,
+		name: downloadPath, logger: m.logger}), maxPackageSize)
 	if err != nil && !errors.Is(err, io.EOF) {
 		utils.UncheckedError(os.Remove(downloadPath))
 		return checksum, contentType, err
