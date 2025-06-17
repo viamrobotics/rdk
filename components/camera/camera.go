@@ -162,8 +162,13 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 
 // GetImageFromGetImages is a utility function to quickly implement GetImage from an already-implemented GetImages method.
 // It returns a byte slice and ImageMetadata, which is the same response signature as the Image method.
-// We use the mimeType arg to specify how to encode the bytes returned from GetImages, returning the first image in the response slice.
-func GetImageFromGetImages(ctx context.Context, mimeType string, cam Camera) ([]byte, ImageMetadata, error) {
+//
+// If sourceName is empty, it returns the first image in the response slice.
+// If sourceName is not empty, it returns the image with the matching source name.
+// If no image is found with the matching source name, it returns an error.
+//
+// It uses the mimeType arg to specify how to encode the bytes returned from GetImages.
+func GetImageFromGetImages(ctx context.Context, sourceName, mimeType string, cam Camera) ([]byte, ImageMetadata, error) {
 	images, _, err := cam.Images(ctx)
 	if err != nil {
 		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
@@ -171,7 +176,23 @@ func GetImageFromGetImages(ctx context.Context, mimeType string, cam Camera) ([]
 	if len(images) == 0 {
 		return nil, ImageMetadata{}, errors.New("no images returned from camera")
 	}
-	imgBytes, err := rimage.EncodeImage(ctx, images[0].Image, mimeType)
+
+	var img image.Image
+	if sourceName == "" {
+		img = images[0].Image
+	} else {
+		for _, i := range images {
+			if i.SourceName == sourceName {
+				img = i.Image
+				break
+			}
+		}
+		if img == nil {
+			return nil, ImageMetadata{}, errors.New("no image found with source name: " + sourceName)
+		}
+	}
+
+	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {
 		return nil, ImageMetadata{}, fmt.Errorf("could not encode image: %w", err)
 	}
