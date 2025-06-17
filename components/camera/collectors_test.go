@@ -171,6 +171,9 @@ func TestCollectors(t *testing.T) {
 			col, err := tc.collector(tc.camera, params)
 			test.That(t, err, test.ShouldBeNil)
 
+			defer col.Close()
+			col.Collect()
+
 			// test with map[string]interface{}
 			params = data.CollectorParams{
 				DataType:      data.CaptureTypeBinary,
@@ -182,11 +185,11 @@ func TestCollectors(t *testing.T) {
 				MethodParams:  methodParams2,
 			}
 
-			col, err = tc.collector(tc.camera, params)
+			col2, err := tc.collector(tc.camera, params)
 			test.That(t, err, test.ShouldBeNil)
 
-			defer col.Close()
-			col.Collect()
+			defer col2.Close()
+			col2.Collect()
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
