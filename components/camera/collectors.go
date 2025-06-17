@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/data"
@@ -89,9 +90,16 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		}
 	}
 
-	mimeStr := new(wrapperspb.StringValue)
-	if err := mimeType.UnmarshalTo(mimeStr); err != nil {
+	var mimeStr string
+	// unmarshal to structpb.Value
+	val := &structpb.Value{}
+	if err := mimeType.UnmarshalTo(val); err != nil {
 		return nil, err
+	}
+	mimeStr = val.GetStringValue()
+
+	if mimeStr == "" {
+		return nil, errors.New("mime type is empty")
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -100,7 +108,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
-		img, metadata, err := camera.Image(ctx, mimeStr.Value, data.FromDMExtraMap)
+		img, metadata, err := camera.Image(ctx, mimeStr, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
