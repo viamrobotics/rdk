@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
 	"go.opencensus.io/trace"
+	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
@@ -380,17 +381,18 @@ func (svc *webService) Close(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	svc.stopWeb()
-	var err error
+	var errs []error
 	for _, srv := range []rpc.Server{svc.tcpModServer, svc.unixModServer} {
 		if srv != nil {
-			err = srv.Stop()
+			errs = append(errs, srv.Stop())
+			//errs = srv.Stop()
 		}
 	}
 	if svc.streamServer != nil {
 		utils.UncheckedError(svc.streamServer.Close())
 	}
 	svc.modWorkers.Wait()
-	return err
+	return multierr.Combine(errs...)
 }
 
 // runWeb takes the given robot and options and runs the web server. This function will
