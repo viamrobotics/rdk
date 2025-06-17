@@ -947,12 +947,20 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			err = res.Reconfigure(ctx, deps, conf)
 		}
 		if err != nil {
-			r.Logger().CErrorw(
-				ctx,
-				"failed to reconfigure resource during weak/optional dependencies update",
-				"resource", resName,
-				"error", err,
-			)
+			if resource.IsMustRebuildError(err) {
+				r.Logger().CErrorw(
+					ctx,
+					"non-modular resource uses weak/optional dependencies but is missing a Reconfigure method",
+					"resource", resName,
+				)
+			} else {
+				r.Logger().CErrorw(
+					ctx,
+					"failed to reconfigure resource during weak/optional dependencies update",
+					"resource", resName,
+					"error", err,
+				)
+			}
 		}
 	}
 
