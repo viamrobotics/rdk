@@ -62,6 +62,7 @@ const (
 	AttrUseCandidate   AttrType = 0x0025 // USE-CANDIDATE
 	AttrICEControlled  AttrType = 0x8029 // ICE-CONTROLLED
 	AttrICEControlling AttrType = 0x802A // ICE-CONTROLLING
+	AttrNomination     AttrType = 0xC001 // NOMINATION -- Chrome specific.
 )
 
 // Attributes from RFC 5766 TURN.
@@ -157,6 +158,7 @@ func attrNames() map[AttrType]string {
 		AttrUserhash:               "USERHASH",
 		AttrPasswordAlgorithms:     "PASSWORD-ALGORITHMS",
 		AttrAlternateDomain:        "ALTERNATE-DOMAIN",
+		AttrNomination:             "NOMINATION-TERM",
 	}
 }
 

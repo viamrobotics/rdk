@@ -255,6 +255,9 @@ func (s *controlledSelector) HandleBindingRequest(m *stun.Message, local, remote
 
 	if m.Contains(stun.AttrUseCandidate) {
 		// https://tools.ietf.org/html/rfc8445#section-7.3.1.5
+		if val, nomErr := m.Get(stun.AttrNomination); nomErr == nil {
+			s.log.Tracef("Nomination bytes. Message: %v Length: %v Val: %v", m.String(), len(val), val)
+		}
 
 		if p.state == CandidatePairStateSucceeded {
 			// If the state of this pair is Succeeded, it means that the check
@@ -265,7 +268,8 @@ func (s *controlledSelector) HandleBindingRequest(m *stun.Message, local, remote
 			if selectedPair == nil || (selectedPair != p && selectedPair.priority() <= p.priority()) {
 				s.agent.setSelectedPair(p)
 			} else if selectedPair != p {
-				s.log.Tracef("Ignore nominate new pair %s, already nominated pair %s", p, selectedPair)
+				s.log.Tracef("Ignore nominate new pair %s, already nominated pair %s. Message: %v", p, selectedPair, m.String())
+				s.agent.setSelectedPair(p)
 			}
 		} else {
 			// If the received Binding request triggered a new check to be
