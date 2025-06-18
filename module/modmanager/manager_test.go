@@ -49,7 +49,7 @@ func setupSocketWithRobot(t *testing.T) string {
 	var socketAddress string
 	var err error
 	if rutils.ViamTCPSockets() {
-		socketAddress = "127.0.0.1:" + strconv.Itoa(web.TestTCPParentPort)
+		socketAddress = "127.0.0.1:" + strconv.Itoa(web.TCPParentPort)
 	} else {
 		socketAddress, err = modlib.CreateSocketAddress(t.TempDir(), "parent")
 		test.That(t, err, test.ShouldBeNil)
