@@ -378,7 +378,7 @@ func (pm *planManager) planParallelRRTMotion(
 		var fallbackPlanner motionPlanner
 		if pathPlanner.opt().Fallback != nil {
 			//nolint: gosec
-			fallbackPlanner, err = getPlanner(
+			fallbackPlanner, err = newMotionPlanner(
 				pathPlanner.opt().Fallback.planningAlgorithm,
 				pm.fs,
 				rand.New(rand.NewSource(int64(pm.randseed.Int()))),
@@ -816,7 +816,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 	// TPspace should never use subwaypoints
 	if !subWaypoints || opt.useTPspace {
 		//nolint: gosec
-		pathPlanner, err := getPlanner(
+		pathPlanner, err := newMotionPlanner(
 			opt.planningAlgorithm,
 			pm.fs,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
@@ -878,7 +878,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 			return nil, err
 		}
 		//nolint: gosec
-		pathPlanner, err := getPlanner(
+		pathPlanner, err := newMotionPlanner(
 			wpOpt.planningAlgorithm,
 			pm.fs,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),

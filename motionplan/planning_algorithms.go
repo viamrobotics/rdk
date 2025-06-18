@@ -8,7 +8,7 @@ import (
 )
 
 // PlanningAlgorithm is an enum that determines which implmentation of motion planning should be used.
-// It is meant to be passed to getPlanner (along with the arguments expected by the plannerConstructor
+// It is meant to be passed to newMotionPlanner (along with the arguments expected by the plannerConstructor
 // function type) in order to acquire an implementer of motionPlanner.
 type PlanningAlgorithm int
 
@@ -24,7 +24,7 @@ const (
 
 type plannerConstructor func(referenceframe.FrameSystem, *rand.Rand, logging.Logger, *plannerOptions) (motionPlanner, error)
 
-func getPlannerConstructor(algo PlanningAlgorithm) plannerConstructor {
+func newPlannerConstructor(algo PlanningAlgorithm) plannerConstructor {
 	switch algo {
 	case CBiRRT:
 		return newCBiRRTMotionPlanner
@@ -37,12 +37,12 @@ func getPlannerConstructor(algo PlanningAlgorithm) plannerConstructor {
 	}
 }
 
-func getPlanner(
+func newMotionPlanner(
 	algo PlanningAlgorithm,
 	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
 ) (motionPlanner, error) {
-	return getPlannerConstructor(algo)(fs, seed, logger, opt)
+	return newPlannerConstructor(algo)(fs, seed, logger, opt)
 }
