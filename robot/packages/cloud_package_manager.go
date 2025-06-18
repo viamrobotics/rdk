@@ -326,41 +326,59 @@ func sanitizeURLForLogs(u string) string {
 }
 
 // LogProgressWriter is a writer that logs progress.
-type LogProgressWriter struct {
+type logProgressWriter struct {
 	totalWrittenBytes int64
 	totalBytes        int64
 	name              string
 	startTime         time.Time
 	lastLogTime       time.Time
+	logFrequency      time.Duration
 	logger            logging.Logger
 }
 
-func (wc *LogProgressWriter) Write(p []byte) (int, error) {
-	if wc.totalWrittenBytes == 0 {
-		wc.startTime = time.Now()
-		wc.lastLogTime = wc.startTime
+func newLogProgressWriter(logger logging.Logger, jobName string, totalBytes int64) *logProgressWriter {
+	return &logProgressWriter{
+		totalWrittenBytes: 0,
+		totalBytes:        totalBytes,
+		startTime:         time.Now(),
+		lastLogTime:       time.Now(),
+		name:              jobName,
+		logFrequency:      time.Second * 1,
+		logger:            logger,
 	}
+}
+
+func (wc *logProgressWriter) Write(p []byte) (int, error) {
+	currentTime := time.Now()
 	bytesWritten := len(p)
-	if bytesWritten > 0 {
-		timeSinceStart := time.Since(wc.startTime)
-		wc.totalWrittenBytes += int64(bytesWritten)
-		if wc.totalWrittenBytes < wc.totalBytes {
-			if time.Since(wc.lastLogTime) > time.Second*5 {
-				wc.logger.Infof("%s: downloaded %d / %d bytes (%.0f%%) [%.0f KB/s]",
-					wc.name,
-					wc.totalWrittenBytes,
-					wc.totalBytes,
-					float64(wc.totalWrittenBytes)/float64(wc.totalBytes)*100,
-					float64(wc.totalWrittenBytes)/timeSinceStart.Seconds()/1024)
-				wc.lastLogTime = time.Now()
+	wc.totalWrittenBytes += int64(bytesWritten)
+
+	if wc.totalWrittenBytes < wc.totalBytes || wc.totalBytes == 0 {
+		if currentTime.Sub(wc.lastLogTime) > wc.logFrequency {
+			// unknown pct if totalBytes is 0. Log what's available.
+			var pctStr string
+			if wc.totalBytes == 0 {
+				pctStr = "?%"
+			} else {
+				pctStr = fmt.Sprintf("%.0f%%", float64(wc.totalWrittenBytes)/float64(wc.totalBytes)*100)
 			}
-		} else {
-			wc.logger.Infof("%s: downloaded %d bytes (%.0f%%) in %v",
+			// Prevent NPE if logFrequency is also 0. non-exact is fine for display purposes
+			if currentTime == wc.startTime {
+				currentTime = currentTime.Add(time.Second)
+			}
+			wc.logger.Infof("%s: downloaded %d / %d bytes (%s) [%.0f KB/s]",
 				wc.name,
 				wc.totalWrittenBytes,
-				float64(wc.totalWrittenBytes)/float64(wc.totalBytes)*100,
-				timeSinceStart)
+				wc.totalBytes,
+				pctStr,
+				float64(wc.totalWrittenBytes)/currentTime.Sub(wc.startTime).Seconds()/1024)
+			wc.lastLogTime = time.Now()
 		}
+	} else {
+		wc.logger.Infof("%s: downloaded %d bytes (100%%) in %v",
+			wc.name,
+			wc.totalWrittenBytes,
+			currentTime.Sub(wc.startTime))
 	}
 	return bytesWritten, nil
 }
@@ -403,8 +421,7 @@ func (m *cloudManager) downloadFileFromGCSURL(
 	hash := crc32Hash()
 	w := io.MultiWriter(out, hash)
 
-	_, err = io.CopyN(w, io.TeeReader(resp.Body, &LogProgressWriter{totalBytes: resp.ContentLength, name: downloadPath,
-		logger: m.logger}), maxPackageSize)
+	_, err = io.CopyN(w, io.TeeReader(resp.Body, newLogProgressWriter(m.logger, downloadPath, resp.ContentLength)), maxPackageSize)
 	if err != nil && !errors.Is(err, io.EOF) {
 		utils.UncheckedError(os.Remove(downloadPath))
 		return checksum, contentType, err
