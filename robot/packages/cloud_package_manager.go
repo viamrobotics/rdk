@@ -343,7 +343,7 @@ func newLogProgressWriter(logger logging.Logger, jobName string, totalBytes int6
 		startTime:         time.Now(),
 		lastLogTime:       time.Now(),
 		name:              jobName,
-		logFrequency:      time.Second * 1,
+		logFrequency:      time.Second * 5,
 		logger:            logger,
 	}
 }
