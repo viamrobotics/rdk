@@ -345,7 +345,7 @@ func (wc *LogProgressWriter) Write(p []byte) (int, error) {
 		timeSinceStart := time.Since(wc.startTime)
 		wc.totalWrittenBytes += int64(bytesWritten)
 		if wc.totalWrittenBytes < wc.totalBytes {
-			if timeSinceStart > time.Second*5 {
+			if time.Since(wc.lastLogTime) > time.Second*5 {
 				wc.logger.Infof("%s: downloaded %d / %d bytes (%.0f%%) [%.0f KB/s]",
 					wc.name,
 					wc.totalWrittenBytes,
