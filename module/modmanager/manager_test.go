@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -66,7 +67,13 @@ func setupModManager(
 	options modmanageroptions.Options,
 ) modmaninterface.ModuleManager {
 	t.Helper()
-	mgr, err := NewManager(ctx, parentAddr, logger, options)
+	var parentAddrs config.ParentSockAddrs
+	if strings.HasPrefix(parentAddr, "127.0.0.1:") {
+		parentAddrs.TCPAddr = parentAddr
+	} else {
+		parentAddrs.UnixAddr = parentAddr
+	}
+	mgr, err := NewManager(ctx, parentAddrs, logger, options)
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() {
 		// Wait for module recovery processes here because modmanager.Close does not.
@@ -1188,7 +1195,7 @@ func TestRTPPassthrough(t *testing.T) {
 	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
-	mgr, err := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := NewManager(ctx, config.ParentSockAddrs{UnixAddr: parentAddr}, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	// add module executable
@@ -1394,7 +1401,7 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
-	mgr, err := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := NewManager(ctx, config.ParentSockAddrs{UnixAddr: parentAddr}, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)

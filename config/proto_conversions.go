@@ -313,6 +313,7 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 		Env:             module.Environment,
 		Status:          status,
 		FirstRunTimeout: durationpb.New(module.FirstRunTimeout.Unwrap()),
+		TcpMode:         module.TCPMode,
 	}
 
 	return &proto, nil
@@ -334,6 +335,7 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 		Environment:     proto.GetEnv(),
 		Status:          status,
 		FirstRunTimeout: utils.Duration(proto.GetFirstRunTimeout().AsDuration()),
+		TCPMode:         proto.GetTcpMode(),
 	}
 	return &module, nil
 }
