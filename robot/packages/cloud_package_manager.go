@@ -342,7 +342,7 @@ func (wc *LogProgressWriter) Write(p []byte) (int, error) {
 	}
 	bytesWritten := len(p)
 	if bytesWritten > 0 {
-		timeSinceStart := time.Since(wc.lastLogTime)
+		timeSinceStart := time.Since(wc.startTime)
 		wc.totalWrittenBytes += int64(bytesWritten)
 		if wc.totalWrittenBytes < wc.totalBytes {
 			if timeSinceStart > time.Second*5 {
@@ -359,7 +359,7 @@ func (wc *LogProgressWriter) Write(p []byte) (int, error) {
 				wc.name,
 				wc.totalWrittenBytes,
 				float64(wc.totalWrittenBytes)/float64(wc.totalBytes)*100,
-				time.Since(wc.startTime))
+				timeSinceStart)
 		}
 	}
 	return bytesWritten, nil
