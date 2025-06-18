@@ -16,7 +16,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"testing"
 	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -49,19 +48,9 @@ import (
 // SubtypeName is a constant that identifies the internal web resource subtype string.
 const (
 	SubtypeName = "web"
-	// TestTCPParentPort is the test suite version of TCPParentPort. It's different to avoid
-	// collisions; it's listed here for documentation.
-	TestTCPParentPort = 14999
+	// TCPParentPort is the port of the parent socket when VIAM_TCP_MODE is set.
+	TCPParentPort = 0
 )
-
-// TCPParentPort is the port of the parent socket when VIAM_TCP_MODE is set.
-var TCPParentPort = 14998
-
-func init() {
-	if testing.Testing() {
-		TCPParentPort = 0
-	}
-}
 
 // API is the fully qualified API for the internal web service.
 var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
@@ -222,7 +211,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 			return errors.WithMessage(err, "failed to listen")
 		}
 		if tcpMode {
-			svc.modAddrs.TCPAddr = addr
+			svc.modAddrs.TCPAddr = lis.Addr().String()
 		} else {
 			svc.modAddrs.UnixAddr = addr
 		}
