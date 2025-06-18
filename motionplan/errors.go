@@ -47,10 +47,12 @@ func newIKConstraintErr(failures map[string]int, constraintFailCnt int) error {
 	// build the error message
 	errMsg := errIKConstraint
 	cutoffPercent := 10.0
-	hasErrorAboveCutoff := 100*float64(failures[keys[0]])/float64(constraintFailCnt) >= cutoffPercent // determine if first error exceeds cutoff
+	// determine if first error exceeds cutoff
+	hasErrorAboveCutoff := 100*float64(failures[keys[0]])/float64(constraintFailCnt) >= cutoffPercent
 	for _, k := range keys {
 		percentageCollision := 100 * float64(failures[k]) / float64(constraintFailCnt)
-		if !hasErrorAboveCutoff || percentageCollision >= cutoffPercent { // print all errors if none exceed cutoff, else only those above cutoff
+		// print all errors if none exceed cutoff, else only those above cutoff
+		if !hasErrorAboveCutoff || percentageCollision >= cutoffPercent {
 			errMsg += fmt.Sprintf("{ %s: %.2f%% }, ", k, percentageCollision)
 		}
 	}
