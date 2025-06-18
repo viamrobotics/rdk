@@ -177,8 +177,11 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	if nonFatalError {
 		return fmt.Errorf("some steps of module generation failed, incomplete module located at %s", newModule.ModuleName)
 	}
-
-	printf(cCtx.App.Writer, "Module successfully generated at %s", newModule.ModuleName)
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	printf(cCtx.App.Writer, "Module successfully generated at %s%s%s", cwd, string(os.PathSeparator), newModule.ModuleName)
 	return nil
 }
 
