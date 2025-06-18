@@ -6,6 +6,7 @@ import (
 	"context"
 	"math/rand"
 	"sync"
+	"time"
 
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -30,11 +31,12 @@ func CreateCombinedIKSolver(
 	nCPU int,
 	goalThreshold float64,
 ) (Solver, error) {
-	ik := &combinedIK{}
-	ik.limits = limits
-	if nCPU == 0 {
-		nCPU = 1
+	ik := &combinedIK{
+		limits: limits,
+		logger: logger,
 	}
+	nCPU = max(1, nCPU) // enforce at least one thread is always made
+	logger.Debugf("creating combinedIK solver with %d threads", nCPU)
 	for i := 1; i <= nCPU; i++ {
 		solver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
 		nlopt := solver.(*nloptIK)
@@ -44,7 +46,6 @@ func CreateCombinedIKSolver(
 		}
 		ik.solvers = append(ik.solvers, nlopt)
 	}
-	ik.logger = logger
 	return ik, nil
 }
 
@@ -56,8 +57,10 @@ func (ik *combinedIK) Solve(ctx context.Context,
 	m func([]float64) float64,
 	rseed int,
 ) error {
+	ik.logger.Debug("solve start")
+	defer ik.logger.Debug("solve end")
 	var err error
-	ctxWithCancel, cancel := context.WithCancel(ctx)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, time.Second*3)
 	defer cancel()
 
 	//nolint: gosec
@@ -79,10 +82,12 @@ func (ik *combinedIK) Solve(ctx context.Context,
 			seedFloats = generateRandomPositions(randSeed, lowerBound, upperBound)
 		}
 
+		tmpi := i
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
-
-			errChan <- thisSolver.Solve(ctxWithCancel, c, seedFloats, m, parseed)
+			ik.logger.Infof("solver %d/%d starting", tmpi, len(ik.solvers))
+			errChan <- thisSolver.Solve(ctxWithTimeout, c, seedFloats, m, parseed)
+			ik.logger.Infof("solver %d ended", tmpi, len(ik.solvers))
 		})
 	}
 
@@ -91,29 +96,36 @@ func (ik *combinedIK) Solve(ctx context.Context,
 
 	var collectedErrs error
 
-	// Wait until either 1) we have a success or 2) all solvers have returned false
-	// Multiple selects are necessary in the case where we get a ctx.Done() while there is also an error waiting
+	// Wait until either 1) all solvers have returned success or error or 2) all solvers have returned false
+	// Multiple selects are necessary in the case where we get a ctxWithTimeout.Done() while there is also an error waiting
 	for !done {
 		select {
 		case <-ctx.Done():
+			ik.logger.Info("ctx done, waiting for activeSolvers")
 			activeSolvers.Wait()
 			return ctx.Err()
 		default:
 		}
 
 		select {
+		case <-ctxWithTimeout.Done():
+			activeSolvers.Wait()
+			done = true
 		case err = <-errChan:
+			ik.logger.Info("got error from errChan, returned: %d", returned)
 			returned++
 			if err != nil {
 				collectedErrs = multierr.Combine(collectedErrs, err)
 			}
 		default:
 			if returned == len(ik.solvers) {
+				ik.logger.Info("done!")
 				done = true
 			}
 		}
 	}
 	cancel()
+	ik.logger.Info("past solutions, collecting errors from all solvers")
 	for returned < len(ik.solvers) {
 		// Collect return errors from all solvers
 		select {
@@ -129,8 +141,14 @@ func (ik *combinedIK) Solve(ctx context.Context,
 			collectedErrs = multierr.Combine(collectedErrs, err)
 		}
 	}
+
+	ik.logger.Info("past second loop, waiting for active solvers")
 	activeSolvers.Wait()
-	return collectedErrs
+	ik.logger.Info("active solvers done")
+	if !done {
+		return collectedErrs
+	}
+	return nil
 }
 
 // DoF returns the DoF of the solver.

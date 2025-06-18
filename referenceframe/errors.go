@@ -31,7 +31,7 @@ func NewParentFrameMissingError(partName, parentName string) error {
 
 // NewParentFrameNilError returns an error indicating that the parent frame is nil.
 func NewParentFrameNilError(frameName string) error {
-	return errors.New("frame with name %q has a parent that is nil")
+	return errors.Errorf("frame with name %q has a parent that is nil", frameName)
 }
 
 // NewFrameMissingError returns an error indicating that the given frame is missing from the framesystem.
