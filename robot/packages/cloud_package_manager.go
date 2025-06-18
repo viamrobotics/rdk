@@ -372,7 +372,7 @@ func (wc *logProgressWriter) Write(p []byte) (int, error) {
 				wc.totalBytes,
 				pctStr,
 				float64(wc.totalWrittenBytes)/currentTime.Sub(wc.startTime).Seconds()/1024)
-			wc.lastLogTime = time.Now()
+			wc.lastLogTime = currentTime
 		}
 	} else {
 		wc.logger.Infof("%s: downloaded %d bytes (100%%) in %v",
