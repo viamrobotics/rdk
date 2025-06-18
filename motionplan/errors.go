@@ -6,6 +6,8 @@ import (
 	"slices"
 )
 
+const cutoffPercent = 10.0
+
 var (
 	errIKSolve = errors.New("zero IK solutions produced, goal positions appears to be physically unreachable")
 
@@ -46,7 +48,6 @@ func newIKConstraintErr(failures map[string]int, constraintFailCnt int) error {
 
 	// build the error message
 	errMsg := errIKConstraint
-	cutoffPercent := 10.0
 	// determine if first error exceeds cutoff
 	hasErrorAboveCutoff := 100*float64(failures[keys[0]])/float64(constraintFailCnt) >= cutoffPercent
 	for _, k := range keys {
