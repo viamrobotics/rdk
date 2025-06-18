@@ -55,8 +55,8 @@ func setupSocketWithRobot(t *testing.T) string {
 		test.That(t, err, test.ShouldBeNil)
 	}
 
-	rtestutils.MakeRobotForModuleLogging(t, socketAddress)
-	return socketAddress
+	server := rtestutils.MakeRobotForModuleLogging(t, socketAddress)
+	return server.InternalAddr().String()
 }
 
 func setupModManager(
