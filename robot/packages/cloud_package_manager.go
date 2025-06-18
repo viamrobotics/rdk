@@ -419,9 +419,9 @@ func (m *cloudManager) downloadFileFromGCSURL(
 	defer utils.UncheckedErrorFunc(out.Close)
 
 	hash := crc32Hash()
-	w := io.MultiWriter(out, hash)
+	w := io.MultiWriter(out, hash, newLogProgressWriter(m.logger, downloadPath, resp.ContentLength))
 
-	_, err = io.CopyN(w, io.TeeReader(resp.Body, newLogProgressWriter(m.logger, downloadPath, resp.ContentLength)), maxPackageSize)
+	_, err = io.CopyN(w, resp.Body, maxPackageSize)
 	if err != nil && !errors.Is(err, io.EOF) {
 		utils.UncheckedError(os.Remove(downloadPath))
 		return checksum, contentType, err
