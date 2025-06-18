@@ -378,7 +378,8 @@ func (pm *planManager) planParallelRRTMotion(
 		var fallbackPlanner motionPlanner
 		if pathPlanner.opt().Fallback != nil {
 			//nolint: gosec
-			fallbackPlanner, err = pathPlanner.opt().Fallback.PlannerConstructor(
+			fallbackPlanner, err = getPlanner(
+				pathPlanner.opt().Fallback.planningAlgorithm,
 				pm.fs,
 				rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 				pm.logger,
@@ -716,18 +717,18 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 	switch planAlg {
 	case cbirrtName:
-		opt.PlannerConstructor = newCBiRRTMotionPlanner
+		opt.planningAlgorithm = CBiRRT
 	case rrtstarName:
 		// no motion profiles for RRT*
-		opt.PlannerConstructor = newRRTStarConnectMotionPlanner
 		// TODO(pl): more logic for RRT*?
+		opt.planningAlgorithm = RRTStar
 		return opt, nil
 	default:
-		// use default, already set
+		// use default, already
 	}
 	if opt.useTPspace {
 		// overwrite default with TP space
-		opt.PlannerConstructor = newTPSpaceMotionPlanner
+		opt.planningAlgorithm = TPSpace
 
 		// Distances are computed in cartesian space rather than configuration space.
 		opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(defaultTPspaceOrientationScale)
@@ -815,7 +816,8 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 	// TPspace should never use subwaypoints
 	if !subWaypoints || opt.useTPspace {
 		//nolint: gosec
-		pathPlanner, err := opt.PlannerConstructor(
+		pathPlanner, err := getPlanner(
+			opt.planningAlgorithm,
 			pm.fs,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
@@ -876,7 +878,8 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 			return nil, err
 		}
 		//nolint: gosec
-		pathPlanner, err := wpOpt.PlannerConstructor(
+		pathPlanner, err := getPlanner(
+			wpOpt.planningAlgorithm,
 			pm.fs,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
