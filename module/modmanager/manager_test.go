@@ -56,7 +56,10 @@ func setupSocketWithRobot(t *testing.T) string {
 	}
 
 	server := rtestutils.MakeRobotForModuleLogging(t, socketAddress)
-	return server.InternalAddr().String()
+	if rutils.ViamTCPSockets() {
+		return server.InternalAddr().String()
+	}
+	return socketAddress
 }
 
 func setupModManager(
