@@ -213,7 +213,7 @@ func BuildCaptureMetadata(
 	api resource.API,
 	name string,
 	method string,
-	additionalParams map[string]string,
+	additionalParams map[string]interface{},
 	methodParams map[string]*anypb.Any,
 	tags []string,
 ) (*v1.DataCaptureMetadata, CaptureType) {
