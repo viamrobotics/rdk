@@ -7,9 +7,10 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/protoutils"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -77,6 +78,23 @@ func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
 }
 
+// IsHoldingSomething queries if the gripper has managed to grab something.
+func (s *serviceServer) IsHoldingSomething(ctx context.Context, req *pb.IsHoldingSomethingRequest) (*pb.IsHoldingSomethingResponse, error) {
+	gripper, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	holdingStatus, err := gripper.IsHoldingSomething(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	meta, err := protoutils.StructToStructPb(holdingStatus.Meta)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.IsHoldingSomethingResponse{IsHoldingSomething: holdingStatus.IsHoldingSomething, Meta: meta}, nil
+}
+
 // DoCommand receives arbitrary commands.
 func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
@@ -85,7 +103,7 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return protoutils.DoFromResourceServer(ctx, gripper, req)
+	return rprotoutils.DoFromResourceServer(ctx, gripper, req)
 }
 
 func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
