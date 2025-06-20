@@ -179,6 +179,11 @@ func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType str
 		return nil, ImageMetadata{}, errors.New("no images returned from camera")
 	}
 
+	// if mimeType is empty, use JPEG as default
+	if mimeType == "" {
+		mimeType = utils.MimeTypeJPEG
+	}
+
 	var img image.Image
 	if sourceName == nil {
 		img = images[0].Image
@@ -224,8 +229,10 @@ func GetImagesFromGetImage(
 	if len(resBytes) == 0 {
 		return nil, resource.ResponseMetadata{}, errors.New("received empty bytes from camera")
 	}
-	if resMetadata.MimeType != mimeType {
-		logger.Warnf("requested mime type %s, but received %s", mimeType, resMetadata.MimeType)
+
+	resMimetype, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
+	if resMimetype != mimeType {
+		logger.Warnf("requested mime type %s, but received %s", mimeType, resMimetype)
 	}
 
 	img, err := rimage.DecodeImage(ctx, resBytes, utils.WithLazyMIMEType(mimeType))
