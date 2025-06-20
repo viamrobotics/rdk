@@ -8,8 +8,10 @@ import (
 	v1 "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
 )
@@ -88,6 +90,42 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, pb.GetJointPositionsResponse{Positions: jp})
+	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	arm, err := utils.AssertType[Arm](resource)
+	if err != nil {
+		return nil, err
+	}
+
+	logger := logging.NewLogger("test")
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
+
+		var s structpb.Struct
+		if err := params.MethodParams["docommand_payload"].UnmarshalTo(&s); err != nil { // SUS - how do we decide the key and what if it is empty?
+			return res, err
+		}
+
+		logger.Info(s.AsMap())
+		payload := s.AsMap()
+		logger.Info("capturing docommand with payload %#v\n", payload)
+
+		values, err := arm.DoCommand(ctx, payload)
+
+		if err != nil {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
+				return res, err
+			}
+			return res, data.NewFailedToReadError(params.ComponentName, "DoCommand", err)
+		}
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, values)
 	})
 	return data.NewCollector(cFunc, params)
 }

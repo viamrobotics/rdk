@@ -35,6 +35,10 @@ func init() {
 		API:        API,
 		MethodName: jointPositions.String(),
 	}, newJointPositionsCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: "DoCommand",
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "arm".

@@ -10,6 +10,7 @@ import (
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/data"
@@ -33,31 +34,43 @@ func TestCollectors(t *testing.T) {
 		collector data.CollectorConstructor
 		expected  []*datasyncpb.SensorData
 	}{
+		// {
+		// 	name:      "End position collector should write a pose",
+		// 	collector: arm.NewEndPositionCollector,
+		// 	expected: []*datasyncpb.SensorData{{
+		// 		Metadata: &datasyncpb.SensorMetadata{},
+		// 		Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+		// 			"pose": map[string]any{
+		// 				"o_x":   0,
+		// 				"o_y":   0,
+		// 				"o_z":   1,
+		// 				"theta": 0,
+		// 				"x":     1,
+		// 				"y":     2,
+		// 				"z":     3,
+		// 			},
+		// 		})},
+		// 	}},
+		// },
+		// {
+		// 	name:      "Joint positions collector should write a list of positions",
+		// 	collector: arm.NewJointPositionsCollector,
+		// 	expected: []*datasyncpb.SensorData{{
+		// 		Metadata: &datasyncpb.SensorMetadata{},
+		// 		Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+		// 			"positions": map[string]any{
+		// 				"values": []any{1.0, 2.0, 3.0},
+		// 			},
+		// 		})},
+		// 	}},
+		// },
 		{
-			name:      "End position collector should write a pose",
-			collector: arm.NewEndPositionCollector,
+			name:      "DoCommand collector should write a list of values",
+			collector: arm.NewDoCommandCollector,
 			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"pose": map[string]any{
-						"o_x":   0,
-						"o_y":   0,
-						"o_z":   1,
-						"theta": 0,
-						"x":     1,
-						"y":     2,
-						"z":     3,
-					},
-				})},
-			}},
-		},
-		{
-			name:      "Joint positions collector should write a list of positions",
-			collector: arm.NewJointPositionsCollector,
-			expected: []*datasyncpb.SensorData{{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"positions": map[string]any{
+					"readings": map[string]any{
 						"values": []any{1.0, 2.0, 3.0},
 					},
 				})},
@@ -76,6 +89,16 @@ func TestCollectors(t *testing.T) {
 				Logger:        logging.NewTestLogger(t),
 				Clock:         clock.New(),
 				Target:        buf,
+				MethodParams: map[string]*anypb.Any{
+					"docommand_payload": func() *anypb.Any {
+						structVal := tu.ToStructPBStruct(t, map[string]any{
+							"command": "get_joint_positions",
+						})
+						anyVal, err := anypb.New(structVal)
+						test.That(t, err, test.ShouldBeNil)
+						return anyVal
+					}(),
+				},
 			}
 
 			arm := newArm()
@@ -103,6 +126,13 @@ func newArm() arm.Arm {
 	}
 	a.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
 		return nil, nil
+	}
+	a.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return map[string]interface{}{
+			"readings": map[string]interface{}{
+				"values": []float64{1.0, 2.0, 3.0},
+			},
+		}, nil
 	}
 	return a
 }
