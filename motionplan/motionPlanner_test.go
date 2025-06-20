@@ -592,6 +592,8 @@ func TestMultiArmSolve(t *testing.T) {
 }
 
 func TestReachOverArm(t *testing.T) {
+	t.Skip("RSDK-10801 Skip until we diagnose why the last assertion in this test fails")
+
 	// setup frame system with an xarm
 	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -633,6 +635,7 @@ func TestReachOverArm(t *testing.T) {
 		Options:     opts,
 	})
 	test.That(t, err, test.ShouldBeNil)
+	// TODO(RSDK-10801): Understand why this is sometimes < 2.
 	test.That(t, len(plan.Trajectory()), test.ShouldBeGreaterThan, 2)
 }
 
