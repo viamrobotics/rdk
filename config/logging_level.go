@@ -83,7 +83,10 @@ func refreshLogLevelInLock() {
 
 	// TODO(RSDK-10723): Remove this WARN log, and restart all modules at
 	// `--log-level=debug` at this point.
-	globalLogger.logger.Warn("Changes to global debug settings will not affect modular logs; use 'log_level' or 'log_configuration' instead")
+	globalLogger.logger.Warn(
+		"Changes to global debug settings will not affect modular logs. " +
+			"Use 'log_level' in module config or 'log_configuration' in resource config instead",
+	)
 
 	logging.GlobalLogLevel.SetLevel(newLevelZap)
 	globalLogger.logger.SetLevel(newLevel)
