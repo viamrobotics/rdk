@@ -219,7 +219,7 @@
                 machineId: document.getElementById('machineId').value.trim(),
                 hostname: document.getElementById('hostname').value.trim(),
                 apiKey: document.getElementById('apiKey').value.trim(),
-                apiKeyId: document.getElementById('apiKeyId').value.trim()
+                apiKeyId: document.getElementById('apiKeyId').value.trim(),
             };
 
             // Don't save if any required field is empty
@@ -249,12 +249,6 @@
             updateConfigDropdown(recentConfigs);
         }
 
-        // Function to save a redirect URL
-        function saveRedirectUrl(url) {
-            if (!url.trim()) return;
-            localStorage.setItem('viamLastUrl', url);
-        }
-
         // Function to update the config dropdown
         function updateConfigDropdown(configs) {
             const select = document.getElementById('recentConfigsSelect');
@@ -281,41 +275,27 @@
                 document.getElementById('hostname').value = config.hostname;
                 document.getElementById('apiKey').value = config.apiKey;
                 document.getElementById('apiKeyId').value = config.apiKeyId;
+        
             }
         }
 
-        // Function to load the last used URL
-        function loadLastUrl() {
-            const lastUrl = localStorage.getItem('viamLastUrl');
-            if (lastUrl) {
-                const input = document.getElementById('redirectUrl');
-                input.value = lastUrl;
-                input.placeholder = lastUrl;
-            }
-        }
 
         // Function to load all recent values
         function loadRecentValues() {
             // Load machine configs
             const configs = JSON.parse(localStorage.getItem('viamRecentConfigs') || '[]');
             updateConfigDropdown(configs);
-
-            // Load last used URL
-            loadLastUrl();
         }
 
         // Function to clear stored values
         function clearStoredValues() {
             localStorage.removeItem('viamRecentConfigs');
-            localStorage.removeItem('viamLastUrl');
             
             // Clear form fields
             document.getElementById('machineId').value = '';
             document.getElementById('hostname').value = '';
             document.getElementById('apiKey').value = '';
             document.getElementById('apiKeyId').value = '';
-            document.getElementById('redirectUrl').value = 'http://localhost:8080';
-            document.getElementById('redirectUrl').placeholder = 'http://localhost:8080';
             
             // Update UI
             updateConfigDropdown([]);
@@ -326,35 +306,23 @@
             const redirectDiv = document.getElementById('redirect');
             const apiKey = document.getElementById('apiKey').value.trim();
             const apiKeyId = document.getElementById('apiKeyId').value.trim();
-            const redirectUrl = document.getElementById('redirectUrl').value.trim();
+            const hostname = document.getElementById('hostname').value.trim();
             
             // Validate inputs
-            if (!apiKey || !apiKeyId || !redirectUrl) {
+            if (!apiKey || !apiKeyId || !hostname) {
                 statusDiv.className = 'status error';
                 statusDiv.textContent = 'Please fill in all fields';
                 return;
             }
 
-            // Check if we're on the same protocol as the redirect URL
-            const currentProtocol = window.location.protocol;
-            const redirectProtocol = new URL(redirectUrl).protocol;
-            
-            if (currentProtocol !== redirectProtocol) {
-                statusDiv.className = 'status error';
-                statusDiv.textContent = `Protocol mismatch: Current page is ${currentProtocol} but redirect is ${redirectProtocol}. Please use the same protocol.`;
-                return;
-            }
-
             try {
                 saveMachineConfig();
-                saveRedirectUrl(redirectUrl);
 
                 // Set the API key and API key ID cookies
                 const machineIdString = document.getElementById('machineId').value;
-                const hostnameString = document.getElementById('hostname').value;
-                const machineCookie = JSON.stringify({apiKey: {id: apiKeyId, key: apiKey}, hostname: hostnameString, machineId: machineIdString});
+                const machineCookie = JSON.stringify({apiKey: {id: apiKeyId, key: apiKey}, hostname: hostname, machineId: machineIdString});
                 const machineIdCookie = `${machineIdString}=${machineCookie}; path=/; domain=localhost; SameSite=Strict`;
-                const hostnameCookie = `${hostnameString}=${machineCookie}; path=/; domain=localhost; SameSite=Strict`;
+                const hostnameCookie = `${hostname}=${machineCookie}; path=/; domain=localhost; SameSite=Strict`;
                 document.cookie = machineIdCookie;
                 document.cookie = hostnameCookie;
 
@@ -363,11 +331,11 @@
                 statusDiv.textContent = `Successfully set cookies!`;
                 
                 // Show redirect message
-                redirectDiv.textContent = 'Redirecting to test your app locally...';
+                redirectDiv.textContent = 'Redirecting to machine page...';
                 
-                // Redirect to the specified URL after a short delay
+                // Redirect to the machine page
                 setTimeout(() => {
-                    window.location.href = redirectUrl;
+                    window.location.href = `/machine/${hostname}`;
                 }, 1500);
 
             } catch (error) {
@@ -399,11 +367,6 @@
                 if (e.target.value !== '') {
                     loadConfig(parseInt(e.target.value));
                 }
-            });
-
-            // Set up redirect URL change handler
-            document.getElementById('redirectUrl').addEventListener('change', function(e) {
-                saveRedirectUrl(e.target.value);
             });
         });
     </script>
@@ -444,21 +407,8 @@
                 </div>
             </div>
 
-            <div class="form-section">
-                <div class="form-section-title">Redirect URL</div>
-                <div class="form-group">
-                    <label for="redirectUrl">Localhost Redirect URL where your Viam Application is running</label>
-                    <input type="text" id="redirectUrl" name="redirectUrl"
-                           placeholder="http://localhost:8080" 
-                           value="http://localhost:8080" required
-                           pattern="^http://localhost:[0-9]+"
-                           oninvalid="this.setCustomValidity('URL must start with http://localhost: followed by a port number')"
-                           oninput="this.setCustomValidity('')">
-                </div>
-            </div>
-
             <div class="form-actions">
-                <button type="submit">Set Cookies and Test Your App</button>
+                <button type="submit" onclick="setCookiesAndRedirect(event)">Set Cookies and Test Your App</button>
                 <button type="button" id="clearButton" class="clear-button">Clear Saved Values</button>
             </div>
         </form>
