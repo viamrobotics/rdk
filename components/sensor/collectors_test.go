@@ -24,6 +24,7 @@ const (
 )
 
 var readingMap = map[string]any{"reading1": false, "reading2": "test"}
+var doCommandMap = map[string]any{"readings": "random-test"}
 
 func TestCollectors(t *testing.T) {
 	start := time.Now()
@@ -134,9 +135,9 @@ func TestDoCommandCollector(t *testing.T) {
 			} else {
 				tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, []*datasyncpb.SensorData{{
 					Metadata: &datasyncpb.SensorMetadata{},
-					Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-						"readings": "random",
-					})},
+					Data: &datasyncpb.SensorData_Struct{
+						Struct: tu.ToStructPBStruct(t, doCommandMap),
+					},
 				}})
 			}
 			buf.Close()
@@ -150,9 +151,7 @@ func newSensor() sensor.Sensor {
 		return readingMap, nil
 	}
 	s.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-		return map[string]interface{}{
-			"readings": "random",
-		}, nil
+		return doCommandMap, nil
 	}
 	return s
 }

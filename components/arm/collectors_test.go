@@ -28,6 +28,11 @@ const (
 )
 
 var floatList = &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
+var doCommandMap = map[string]interface{}{
+	"readings": map[string]interface{}{
+		"values": []interface{}{1.0, 2.0, 3.0},
+	},
+}
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -171,11 +176,9 @@ func TestDoCommandCollector(t *testing.T) {
 			} else {
 				tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, []*datasyncpb.SensorData{{
 					Metadata: &datasyncpb.SensorMetadata{},
-					Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-						"readings": map[string]any{
-							"values": []any{1.0, 2.0, 3.0},
-						},
-					})},
+					Data: &datasyncpb.SensorData_Struct{
+						Struct: tu.ToStructPBStruct(t, doCommandMap),
+					},
 				}})
 			}
 			buf.Close()
@@ -195,11 +198,7 @@ func newArm() arm.Arm {
 		return nil, nil
 	}
 	a.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-		return map[string]interface{}{
-			"readings": map[string]interface{}{
-				"values": []float64{1.0, 2.0, 3.0},
-			},
-		}, nil
+		return doCommandMap, nil
 	}
 	return a
 }
