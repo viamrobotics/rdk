@@ -100,6 +100,7 @@ func TestDoCommandCollector(t *testing.T) {
 		name         string
 		collector    data.CollectorConstructor
 		methodParams map[string]*anypb.Any
+		expectError  bool
 	}{
 		{
 			name:      "DoCommand collector should write a list of values",
@@ -135,9 +136,10 @@ func TestDoCommandCollector(t *testing.T) {
 			},
 		},
 		{
-			name:         "DoCommand collector should handle missing payload",
+			name:         "DoCommand collector should error on missing payload",
 			collector:    arm.NewDoCommandCollector,
 			methodParams: map[string]*anypb.Any{},
+			expectError:  true,
 		},
 	}
 
@@ -164,14 +166,18 @@ func TestDoCommandCollector(t *testing.T) {
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, []*datasyncpb.SensorData{{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"readings": map[string]any{
-						"values": []any{1.0, 2.0, 3.0},
-					},
-				})},
-			}})
+			if tc.expectError {
+				test.That(t, len(buf.Writes), test.ShouldEqual, 0)
+			} else {
+				tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, []*datasyncpb.SensorData{{
+					Metadata: &datasyncpb.SensorMetadata{},
+					Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
+						"readings": map[string]any{
+							"values": []any{1.0, 2.0, 3.0},
+						},
+					})},
+				}})
+			}
 			buf.Close()
 		})
 	}

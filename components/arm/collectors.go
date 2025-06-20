@@ -122,7 +122,7 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 			}
 		} else {
 			// key does not exist
-			payload = make(map[string]interface{})
+			return res, errors.New("missing payload")
 		}
 
 		logger.Info(payload)
