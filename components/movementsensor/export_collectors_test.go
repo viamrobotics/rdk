@@ -10,4 +10,5 @@ var (
 	NewLinearAccelerationCollector = newLinearAccelerationCollector
 	NewOrientationCollector        = newOrientationCollector
 	NewReadingsCollector           = newReadingsCollector
+	NewDoCommandCollector          = newDoCommandCollector
 )
