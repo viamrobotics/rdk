@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
 )
@@ -46,6 +47,39 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResultReadings(ts, values)
+	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	sensorResource, err := assertSensor(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
+
+		var s structpb.Struct
+		if err := params.MethodParams["docommand_payload"].UnmarshalTo(&s); err != nil { // SUS - how do we decide the key and what if it is empty?
+			return res, err
+		}
+
+		payload := s.AsMap()
+
+		values, err := sensorResource.DoCommand(ctx, payload)
+
+		if err != nil {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
+				return res, err
+			}
+			return res, data.NewFailedToReadError(params.ComponentName, "DoCommand", err)
+		}
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, values)
 	})
 	return data.NewCollector(cFunc, params)
 }
