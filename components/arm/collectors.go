@@ -107,13 +107,25 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 		timeRequested := time.Now()
 		var res data.CaptureResult
 
-		var s structpb.Struct
-		if err := params.MethodParams["docommand_payload"].UnmarshalTo(&s); err != nil { // SUS - how do we decide the key and what if it is empty?
-			return res, err
+		var payload map[string]interface{}
+
+		if payloadAny, exists := params.MethodParams["docommand_input"]; exists && payloadAny != nil {
+			if payloadAny.MessageIs(&structpb.Struct{}) {
+				var s structpb.Struct
+				if err := payloadAny.UnmarshalTo(&s); err != nil {
+					return res, err
+				}
+				payload = s.AsMap()
+			} else {
+				// handle empty payload
+				payload = make(map[string]interface{})
+			}
+		} else {
+			// key does not exist
+			payload = make(map[string]interface{})
 		}
 
-		logger.Info(s.AsMap())
-		payload := s.AsMap()
+		logger.Info(payload)
 		logger.Info("capturing docommand with payload %#v\n", payload)
 
 		values, err := arm.DoCommand(ctx, payload)
