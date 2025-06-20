@@ -391,6 +391,11 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 			// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
 			if !diff.LogEqual {
 				s.logger.Debug("Detected potential changes to log patterns; updating logger levels")
+
+				// TODO(RSDK-10723): Remove this WARN log, and mutate the config to reconfigure
+				// all appropriate modular resources at this point.
+				s.logger.Warn("Changes to 'log' field of config will not affect modular logs; use 'log_level' or 'log_configuration' instead")
+
 				config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
 			}
 
