@@ -42,31 +42,45 @@ func TestBasicTriangleFunctions(t *testing.T) {
 		// interior
 		closestPoint, isInside := closestTriangleInsidePoint(tri, r3.Vector{1, 1, 1})
 		test.That(t, closestPoint, test.ShouldResemble, r3.Vector{1, 1, 0})
-		test.That(t, isInside, test.ShouldResemble, true)
+		test.That(t, isInside, test.ShouldBeTrue)
 
 		// directly above edge
 		closestPoint, isInside = closestTriangleInsidePoint(tri, r3.Vector{2, 0, 1})
 		test.That(t, closestPoint, test.ShouldResemble, r3.Vector{2, 0, 0})
-		test.That(t, isInside, test.ShouldResemble, true)
+		test.That(t, isInside, test.ShouldBeTrue)
 
 		// directly above vertex
 		closestPoint, isInside = closestTriangleInsidePoint(tri, r3.Vector{0, 3, 1})
 		test.That(t, closestPoint, test.ShouldResemble, r3.Vector{0, 3, 0})
-		test.That(t, isInside, test.ShouldResemble, true)
+		test.That(t, isInside, test.ShouldBeTrue)
 
 		// outside (obtuse)
 		closestPoint, isInside = closestTriangleInsidePoint(tri, r3.Vector{1, -1, 1})
-		test.That(t, isInside, test.ShouldResemble, false)
+		test.That(t, isInside, test.ShouldBeFalse)
 
 		// outside (straight)
 		closestPoint, isInside = closestTriangleInsidePoint(tri, r3.Vector{0, 4, 0})
-		test.That(t, isInside, test.ShouldResemble, false)
+		test.That(t, isInside, test.ShouldBeFalse)
 
-		// interior, an isoceles right triangle rotated off the xy-plane; numbers large to keep integers (floats hit rounding error)
+		// interior, triangle rotated off the xy-plane (still right isoceles)
 		rotatedPts := []r3.Vector{{0, 0, 0}, {50, 0, 0}, {0, 30, 40}}
 		rotatedTri := NewTriangle(rotatedPts[0], rotatedPts[1], rotatedPts[2])
 		closestPoint, isInside = closestTriangleInsidePoint(rotatedTri, r3.Vector{1, 3 + 4, 4 - 3})
-		test.That(t, closestPoint, test.ShouldResembleProto, r3.Vector{1, 3, 4})
-		test.That(t, isInside, test.ShouldResemble, true)
+		test.That(t, closestPoint, test.ShouldResemble, r3.Vector{1, 3, 4})
+		test.That(t, isInside, test.ShouldBeTrue)
+	})
+
+	t.Run("closest triangle point", func(t *testing.T) {
+		// double check on interior point
+		closestPoint := closestPointTrianglePoint(tri, r3.Vector{1, 1, 1})
+		test.That(t, closestPoint, test.ShouldResemble, r3.Vector{1, 1, 0})
+
+		// closest point is edge
+		closestPoint = closestPointTrianglePoint(tri, r3.Vector{3, 2, 1})
+		test.That(t, closestPoint, test.ShouldResemble, r3.Vector{2, 1, 0})
+
+		// closest point is vertex
+		closestPoint = closestPointTrianglePoint(tri, r3.Vector{-1, -1, 1})
+		test.That(t, closestPoint, test.ShouldResemble, r3.Vector{0, 0, 0})
 	})
 }
