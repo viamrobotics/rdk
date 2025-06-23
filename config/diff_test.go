@@ -888,3 +888,129 @@ func TestDiffRevision(t *testing.T) {
 		test.That(t, diff.UnmodifiedResources, test.ShouldResemble, tc.expectedDiff.UnmodifiedResources)
 	}
 }
+
+func TestDiffJobCfg(t *testing.T) {
+	job1 := config.JobConfigData{
+		Name:     "my-job",
+		Schedule: "5s",
+		Resource: "my-resource",
+		Method:   "my-method",
+	}
+	job2 := config.JobConfigData{
+		Name:     "my-job",
+		Schedule: "* * * * *",
+		Resource: "my-resource",
+		Method:   "my-method",
+		Command: map[string]any{
+			"argument1": float64(12),
+			"argument2": false,
+		},
+	}
+	job3 := config.JobConfigData{
+		Name:     "my-job",
+		Schedule: "3h",
+		Resource: "my-resource",
+		Method:   "my-method",
+		Command: map[string]any{
+			"argument1": float64(12),
+			"argument2": "string",
+		},
+	}
+	job4 := config.JobConfigData{
+		Name:     "my-job-2",
+		Schedule: "3h",
+		Resource: "my-resource",
+		Method:   "my-method",
+		Command: map[string]any{
+			"argument1": float64(12),
+			"argument2": "string",
+		},
+	}
+	job5 := config.JobConfigData{
+		Name:     "my-job-2",
+		Schedule: "3h",
+		Resource: "my-resource",
+		Method:   "my-method",
+	}
+	job6 := config.JobConfigData{
+		Name:     "my-job-2",
+		Schedule: "0 */3 * * *",
+		Resource: "my-resource",
+		Method:   "my-method",
+	}
+
+	jobs1 := []config.JobConfig{
+		{job1},
+		{job2},
+		{job3},
+	}
+	jobs2 := []config.JobConfig{
+		{job3},
+	}
+	jobs3 := []config.JobConfig{
+		{job1},
+		{job2},
+		{job3},
+		{job4},
+	}
+	jobs4 := []config.JobConfig{
+		{job4},
+	}
+	jobs5 := []config.JobConfig{
+		{job5},
+	}
+	jobs6 := []config.JobConfig{
+		{job6},
+	}
+
+	for _, tc := range []struct {
+		Name          string
+		LeftCfg       config.Config
+		RightCfg      config.Config
+		JobsDifferent bool
+	}{
+		{
+			"same",
+			config.Config{Jobs: jobs1},
+			config.Config{Jobs: jobs1},
+			true,
+		},
+		{
+			"diff jobs got removed",
+			config.Config{Jobs: jobs1},
+			config.Config{Jobs: jobs2},
+			false,
+		},
+		{
+			"different names",
+			config.Config{Jobs: jobs2},
+			config.Config{Jobs: jobs4},
+			false,
+		},
+		{
+			"diff jobs got added",
+			config.Config{Jobs: jobs1},
+			config.Config{Jobs: jobs3},
+			false,
+		},
+		{
+			"Command and no command job",
+			config.Config{Jobs: jobs4},
+			config.Config{Jobs: jobs5},
+			false,
+		},
+		{
+			"Same interval diff format",
+			config.Config{Jobs: jobs5},
+			config.Config{Jobs: jobs6},
+			false,
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			diff, err := config.DiffConfigs(tc.LeftCfg, tc.RightCfg, true)
+			test.That(t, err, test.ShouldBeNil)
+
+			test.That(t, diff.JobsEqual, test.ShouldEqual, tc.JobsDifferent)
+		})
+	}
+}

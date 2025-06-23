@@ -23,6 +23,7 @@ type Diff struct {
 	ResourcesEqual      bool
 	NetworkEqual        bool
 	LogEqual            bool
+	JobsEqual           bool
 	PrettyDiff          string
 	UnmodifiedResources []resource.Config
 }
@@ -86,6 +87,9 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	different = diffModules(left.Modules, right.Modules, &diff) || different
 
 	diff.ResourcesEqual = !different
+
+	jobsDifferent := diffJobCfg(&left, &right)
+	diff.JobsEqual = !jobsDifferent
 
 	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
@@ -526,6 +530,14 @@ func diffLogCfg(left, right *Config, servicesDifferent, componentsDifferent bool
 	}
 	// If there was any change in services or components; attempt to update logger levels.
 	if servicesDifferent || componentsDifferent {
+		return true
+	}
+	return false
+}
+
+// diffJobCfg checks the equality of two job configs.
+func diffJobCfg(left, right *Config) bool {
+	if !reflect.DeepEqual(left.Jobs, right.Jobs) {
 		return true
 	}
 	return false
