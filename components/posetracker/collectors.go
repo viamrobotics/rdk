@@ -18,11 +18,10 @@ const (
 )
 
 func (m method) String() string {
-	switch m {
-	case doCommand:
+	if m == doCommand {
 		return "DoCommand"
 	}
-	return "Unknown"
+	return ""
 }
 
 // newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
@@ -56,7 +55,6 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 		}
 
 		values, err := pt.DoCommand(ctx, payload)
-
 		if err != nil {
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err

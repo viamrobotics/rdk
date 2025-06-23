@@ -24,8 +24,10 @@ const (
 )
 
 // floatList is a lit of floats in units of millimeters.
-var floatList = []float64{1000, 2000, 3000}
-var doCommandMap = map[string]any{"readings": "random-test"}
+var (
+	floatList    = []float64{1000, 2000, 3000}
+	doCommandMap = map[string]any{"readings": "random-test"}
+)
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -120,7 +122,7 @@ func TestDoCommandCollector(t *testing.T) {
 			name:      "DoCommand collector should handle empty payload",
 			collector: gantry.NewDoCommandCollector,
 			methodParams: map[string]*anypb.Any{
-				"docommand_input": &anypb.Any{},
+				"docommand_input": {},
 			},
 		},
 		{

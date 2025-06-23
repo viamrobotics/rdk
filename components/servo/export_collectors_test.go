@@ -2,5 +2,7 @@
 package servo
 
 // Exported variables for testing collectors, see unexported collectors for implementation details.
-var NewPositionCollector = newPositionCollector
-var NewDoCommandCollector = newDoCommandCollector
+var (
+	NewPositionCollector  = newPositionCollector
+	NewDoCommandCollector = newDoCommandCollector
+)

@@ -32,8 +32,10 @@ var vec = r3.Vector{
 	Z: 3.0,
 }
 
-var readingMap = map[string]any{"reading1": false, "reading2": "test"}
-var doCommandMap = map[string]any{"readings": "random-test"}
+var (
+	readingMap   = map[string]any{"reading1": false, "reading2": "test"}
+	doCommandMap = map[string]any{"readings": "random-test"}
+)
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -212,7 +214,7 @@ func TestDoCommandCollector(t *testing.T) {
 			name:      "DoCommand collector should handle empty payload",
 			collector: movementsensor.NewDoCommandCollector,
 			methodParams: map[string]*anypb.Any{
-				"docommand_input": &anypb.Any{},
+				"docommand_input": {},
 			},
 		},
 		{

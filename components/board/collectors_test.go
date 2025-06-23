@@ -137,7 +137,7 @@ func TestDoCommandCollector(t *testing.T) {
 			name:      "DoCommand collector should handle empty payload",
 			collector: board.NewDoCommandCollector,
 			methodParams: map[string]*anypb.Any{
-				"docommand_input": &anypb.Any{},
+				"docommand_input": {},
 			},
 		},
 		{

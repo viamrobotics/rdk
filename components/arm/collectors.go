@@ -132,7 +132,6 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 		logger.Info("capturing docommand with payload %#v\n", payload)
 
 		values, err := arm.DoCommand(ctx, payload)
-
 		if err != nil {
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err

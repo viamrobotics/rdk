@@ -6,9 +6,10 @@ import (
 	"time"
 
 	pb "go.viam.com/api/component/powersensor/v1"
-	"go.viam.com/rdk/data"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/data"
 )
 
 type method int64
@@ -193,7 +194,6 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 		}
 
 		values, err := ps.DoCommand(ctx, payload)
-
 		if err != nil {
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err

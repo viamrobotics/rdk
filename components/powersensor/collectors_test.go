@@ -8,14 +8,14 @@ import (
 	"github.com/benbjohnson/clock"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -23,8 +23,10 @@ const (
 	captureInterval = time.Millisecond
 )
 
-var readingMap = map[string]any{"reading1": false, "reading2": "test"}
-var doCommandMap = map[string]any{"readings": "random-test"}
+var (
+	readingMap   = map[string]any{"reading1": false, "reading2": "test"}
+	doCommandMap = map[string]any{"readings": "random-test"}
+)
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -146,7 +148,7 @@ func TestDoCommandCollector(t *testing.T) {
 			name:      "DoCommand collector should handle empty payload",
 			collector: powersensor.NewDoCommandCollector,
 			methodParams: map[string]*anypb.Any{
-				"docommand_input": &anypb.Any{},
+				"docommand_input": {},
 			},
 		},
 		{

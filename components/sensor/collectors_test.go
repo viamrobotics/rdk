@@ -23,8 +23,10 @@ const (
 	captureInterval = time.Millisecond
 )
 
-var readingMap = map[string]any{"reading1": false, "reading2": "test"}
-var doCommandMap = map[string]any{"readings": "random-test"}
+var (
+	readingMap   = map[string]any{"reading1": false, "reading2": "test"}
+	doCommandMap = map[string]any{"readings": "random-test"}
+)
 
 func TestCollectors(t *testing.T) {
 	start := time.Now()
@@ -96,7 +98,7 @@ func TestDoCommandCollector(t *testing.T) {
 			name:      "DoCommand collector should handle empty payload",
 			collector: sensor.NewDoCommandCollector,
 			methodParams: map[string]*anypb.Any{
-				"docommand_input": &anypb.Any{},
+				"docommand_input": {},
 			},
 		},
 		{

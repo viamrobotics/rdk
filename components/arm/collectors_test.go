@@ -27,12 +27,14 @@ const (
 	captureInterval = time.Millisecond
 )
 
-var floatList = &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
-var doCommandMap = map[string]interface{}{
-	"readings": map[string]interface{}{
-		"values": []interface{}{1.0, 2.0, 3.0},
-	},
-}
+var (
+	floatList    = &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
+	doCommandMap = map[string]interface{}{
+		"readings": map[string]interface{}{
+			"values": []interface{}{1.0, 2.0, 3.0},
+		},
+	}
+)
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -137,7 +139,7 @@ func TestDoCommandCollector(t *testing.T) {
 			name:      "DoCommand collector should handle empty payload",
 			collector: arm.NewDoCommandCollector,
 			methodParams: map[string]*anypb.Any{
-				"docommand_input": &anypb.Any{},
+				"docommand_input": {},
 			},
 		},
 		{

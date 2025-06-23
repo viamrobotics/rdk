@@ -86,7 +86,6 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 		}
 
 		values, err := sensorResource.DoCommand(ctx, payload)
-
 		if err != nil {
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err

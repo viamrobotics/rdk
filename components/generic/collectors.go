@@ -19,11 +19,10 @@ const (
 )
 
 func (m method) String() string {
-	switch m {
-	case doCommand:
+	if m == doCommand {
 		return "DoCommand"
 	}
-	return "Unknown"
+	return ""
 }
 
 // newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
@@ -57,7 +56,6 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 		}
 
 		values, err := reso.DoCommand(ctx, payload)
-
 		if err != nil {
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
@@ -70,6 +68,7 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 	return data.NewCollector(cFunc, params)
 }
 
+// Resource is the interface that must be implemented by all resources that want to use the DoCommand collector.
 type Resource interface {
 	resource.Resource
 }
