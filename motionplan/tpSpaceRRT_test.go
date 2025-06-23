@@ -56,7 +56,9 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
 	opt.planningAlgorithm = TPSpace
 
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	test.That(t, err, test.ShouldBeNil)
+	opt.motionChains = motionChains
 
 	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
@@ -137,7 +139,9 @@ func TestPtgWithObstacle(t *testing.T) {
 	opt.GoalThreshold = 5
 	opt.planningAlgorithm = TPSpace
 	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	test.That(t, err, test.ShouldBeNil)
+	opt.motionChains = motionChains
 
 	// Create collision constraints
 	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, nil)
@@ -234,7 +238,9 @@ func TestTPsmoothing(t *testing.T) {
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos),
 	}}
 
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	test.That(t, err, test.ShouldBeNil)
+	opt.motionChains = motionChains
 
 	// Create and initialize planner
 	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)

@@ -144,7 +144,11 @@ func constrainedXArmMotion() (*planConfig, error) {
 
 	start := &PlanState{configuration: map[string][]frame.Input{model.Name(): home7}}
 	goal := &PlanState{poses: frame.FrameSystemPoses{model.Name(): frame.NewPoseInFrame(frame.World, pos)}}
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	if err != nil {
+		return nil, err
+	}
+	opt.motionChains = motionChains
 
 	return &planConfig{
 		Start:   start,
@@ -274,7 +278,11 @@ func simple2DMap() (*planConfig, error) {
 	for name, constraint := range collisionConstraints {
 		opt.AddStateConstraint(name, constraint)
 	}
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	if err != nil {
+		return nil, err
+	}
+	opt.motionChains = motionChains
 
 	return &planConfig{
 		Start:   &PlanState{configuration: startInput},
@@ -342,7 +350,11 @@ func simpleXArmMotion() (*planConfig, error) {
 		opt.AddStateFSConstraint(name, constraint)
 	}
 	start := map[string][]frame.Input{xarm.Name(): home7}
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	if err != nil {
+		return nil, err
+	}
+	opt.motionChains = motionChains
 
 	return &planConfig{
 		Start:   &PlanState{configuration: start},
@@ -409,7 +421,11 @@ func simpleUR5eMotion() (*planConfig, error) {
 		opt.AddStateFSConstraint(name, constraint)
 	}
 	start := map[string][]frame.Input{ur5e.Name(): home6}
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	if err != nil {
+		return nil, err
+	}
+	opt.motionChains = motionChains
 
 	return &planConfig{
 		Start:   &PlanState{configuration: start},

@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -107,6 +108,138 @@ func (lfs *linearizedFrameSystem) sliceToMap(floatSlice []float64) (referencefra
 		inputs[frame.Name()] = frameInputs
 	}
 	return inputs, nil
+}
+
+type motionChains struct {
+	inner        []*motionChain
+	useTPspace   bool
+	ptgFrameName string
+}
+
+func motionChainsFromPlanState(fs referenceframe.FrameSystem, to *PlanState) (*motionChains, error) {
+	// create motion chains for each goal, and error check for PTG frames
+	// TODO: currently, if any motion chain has a PTG frame, that must be the only motion chain and that frame must be the only
+	// frame in the chain with nonzero DoF. Eventually this need not be the case.
+	inner := make([]*motionChain, 0, len(to.poses)+len(to.configuration))
+
+	for frame, pif := range to.poses {
+		chain, err := motionChainFromGoal(fs, frame, pif.Parent())
+		if err != nil {
+			return nil, err
+		}
+		inner = append(inner, chain)
+	}
+	for frame := range to.configuration {
+		chain, err := motionChainFromGoal(fs, frame, frame)
+		if err != nil {
+			return nil, err
+		}
+		inner = append(inner, chain)
+	}
+
+	if len(inner) < 1 {
+		return nil, errors.New("must have at least one motion chain")
+	}
+
+	useTPspace := false
+	ptgFrameName := ""
+	for _, chain := range inner {
+		for _, movingFrame := range chain.frames {
+			if _, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
+				if useTPspace {
+					return nil, errors.New("only one PTG frame can be planned for at a time")
+				}
+				if len(inner) > 1 {
+					return nil, errMixedFrameTypes
+				}
+				useTPspace = true
+				ptgFrameName = movingFrame.Name()
+				chain.worldRooted = true
+			} else if len(movingFrame.DoF()) > 0 {
+				if useTPspace {
+					return nil, errMixedFrameTypes
+				}
+			}
+		}
+	}
+	return &motionChains{
+		inner:        inner,
+		useTPspace:   useTPspace,
+		ptgFrameName: ptgFrameName,
+	}, nil
+}
+
+func (mC *motionChains) geometries(
+	fs referenceframe.FrameSystem,
+	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
+) (movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry) {
+	// find all geometries that are not moving but are in the frame system
+	for name, geometries := range frameSystemGeometries {
+		moving := false
+		for _, chain := range mC.inner {
+			if chain.movingFS.Frame(name) != nil {
+				moving = true
+				movingRobotGeometries = append(movingRobotGeometries, geometries.Geometries()...)
+				break
+			}
+		}
+		if !moving {
+			// Non-motion-chain frames with nonzero DoF can still move out of the way
+			if len(fs.Frame(name).DoF()) > 0 {
+				movingRobotGeometries = append(movingRobotGeometries, geometries.Geometries()...)
+			} else {
+				staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
+			}
+		}
+	}
+	return movingRobotGeometries, staticRobotGeometries
+}
+
+// If a motion chain is worldrooted, then goals are translated to their position in `World` before solving.
+// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper.
+func (mC *motionChains) translateGoalsToWorldPosition(
+	fs referenceframe.FrameSystem,
+	start referenceframe.FrameSystemInputs,
+	goal *PlanState,
+) (*PlanState, error) {
+	alteredGoals := referenceframe.FrameSystemPoses{}
+	if goal.poses != nil {
+		for _, chain := range mC.inner {
+			// chain solve frame may only be in the goal configuration, in which case we skip as the configuration will be passed through
+			if goalPif, ok := goal.poses[chain.solveFrameName]; ok {
+				if chain.worldRooted {
+					tf, err := fs.Transform(start, goalPif, referenceframe.World)
+					if err != nil {
+						return nil, err
+					}
+					alteredGoals[chain.solveFrameName] = tf.(*referenceframe.PoseInFrame)
+				} else {
+					alteredGoals[chain.solveFrameName] = goalPif
+				}
+			}
+		}
+		return &PlanState{poses: alteredGoals, configuration: goal.configuration}, nil
+	}
+	return goal, nil
+}
+
+func (mC *motionChains) framesFilteredByMovingAndNonmoving(fs referenceframe.FrameSystem) (moving, nonmoving []string) {
+	movingMap := map[string]referenceframe.Frame{}
+	for _, chain := range mC.inner {
+		for _, frame := range chain.frames {
+			movingMap[frame.Name()] = frame
+		}
+	}
+
+	// Here we account for anything in the framesystem that is not part of a motion chain
+	for _, frameName := range fs.FrameNames() {
+		if _, ok := movingMap[frameName]; ok {
+			moving = append(moving, frameName)
+		} else {
+			nonmoving = append(nonmoving, frameName)
+		}
+	}
+	return moving, nonmoving
 }
 
 // motionChain structs are meant to be ephemerally created for each individual goal in a motion request, and calculates the shortest
@@ -284,33 +417,4 @@ func uniqInPlaceSlice(s []referenceframe.Frame) []referenceframe.Frame {
 
 func nodeConfigurationDistanceFunc(node1, node2 node) float64 {
 	return ik.FSConfigurationL2Distance(&ik.SegmentFS{StartConfiguration: node1.Q(), EndConfiguration: node2.Q()})
-}
-
-// If a motion chain is worldrooted, then goals are translated to their position in `World` before solving.
-// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper.
-func alterGoals(
-	chains []*motionChain,
-	fs referenceframe.FrameSystem,
-	start referenceframe.FrameSystemInputs,
-	goal *PlanState,
-) (*PlanState, error) {
-	alteredGoals := referenceframe.FrameSystemPoses{}
-	if goal.poses != nil {
-		for _, chain := range chains {
-			// chain solve frame may only be in the goal configuration, in which case we skip as the configuration will be passed through
-			if goalPif, ok := goal.poses[chain.solveFrameName]; ok {
-				if chain.worldRooted {
-					tf, err := fs.Transform(start, goalPif, referenceframe.World)
-					if err != nil {
-						return nil, err
-					}
-					alteredGoals[chain.solveFrameName] = tf.(*referenceframe.PoseInFrame)
-				} else {
-					alteredGoals[chain.solveFrameName] = goalPif
-				}
-			}
-		}
-		return &PlanState{poses: alteredGoals, configuration: goal.configuration}, nil
-	}
-	return goal, nil
 }

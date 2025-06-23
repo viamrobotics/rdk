@@ -596,22 +596,7 @@ func (mp *planner) linearizeFSmetric(metric ik.StateFSMetric) func([]float64) fl
 }
 
 func (mp *planner) frameLists() (moving, nonmoving []string) {
-	movingMap := map[string]referenceframe.Frame{}
-	for _, chain := range mp.planOpts.motionChains {
-		for _, frame := range chain.frames {
-			movingMap[frame.Name()] = frame
-		}
-	}
-
-	// Here we account for anything in the framesystem that is not part of a motion chain
-	for _, frameName := range mp.fs.FrameNames() {
-		if _, ok := movingMap[frameName]; ok {
-			moving = append(moving, frameName)
-		} else {
-			nonmoving = append(nonmoving, frameName)
-		}
-	}
-	return moving, nonmoving
+	return mp.planOpts.motionChains.framesFilteredByMovingAndNonmoving(mp.fs)
 }
 
 // The purpose of this function is to allow solves that require the movement of components not in a motion chain, while preventing wild or
