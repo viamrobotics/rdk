@@ -1,0 +1,120 @@
+package base_test
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/benbjohnson/clock"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/test"
+
+	base "go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/logging"
+	tu "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
+)
+
+const (
+	componentName   = "base"
+	captureInterval = time.Millisecond
+)
+
+var doCommandMap = map[string]any{"readings": "random-test"}
+
+func TestDoCommandCollector(t *testing.T) {
+	tests := []struct {
+		name         string
+		collector    data.CollectorConstructor
+		methodParams map[string]*anypb.Any
+		expectError  bool
+	}{
+		{
+			name:      "DoCommand collector should write a list of values",
+			collector: base.NewDoCommandCollector,
+			methodParams: map[string]*anypb.Any{
+				"docommand_input": func() *anypb.Any {
+					structVal := tu.ToStructPBStruct(t, map[string]any{
+						"command": "random",
+					})
+					anyVal, _ := anypb.New(structVal)
+					return anyVal
+				}(),
+			},
+		},
+		{
+			name:      "DoCommand collector should handle empty struct payload",
+			collector: base.NewDoCommandCollector,
+			methodParams: map[string]*anypb.Any{
+				"docommand_input": func() *anypb.Any {
+					emptyStruct := &structpb.Struct{
+						Fields: make(map[string]*structpb.Value),
+					}
+					anyVal, _ := anypb.New(emptyStruct)
+					return anyVal
+				}(),
+			},
+		},
+		{
+			name:      "DoCommand collector should handle empty payload",
+			collector: base.NewDoCommandCollector,
+			methodParams: map[string]*anypb.Any{
+				"docommand_input": &anypb.Any{},
+			},
+		},
+		{
+			name:         "DoCommand collector should error on missing payload",
+			collector:    base.NewDoCommandCollector,
+			methodParams: map[string]*anypb.Any{},
+			expectError:  true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			start := time.Now()
+			buf := tu.NewMockBuffer(t)
+			params := data.CollectorParams{
+				DataType:      data.CaptureTypeTabular,
+				ComponentName: componentName,
+				Interval:      captureInterval,
+				Logger:        logging.NewTestLogger(t),
+				Clock:         clock.New(),
+				Target:        buf,
+				MethodParams:  tc.methodParams,
+			}
+
+			base := newBase()
+			col, err := tc.collector(base, params)
+			test.That(t, err, test.ShouldBeNil)
+
+			defer col.Close()
+			col.Collect()
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			if tc.expectError {
+				test.That(t, len(buf.Writes), test.ShouldEqual, 0)
+			} else {
+				tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, []*datasyncpb.SensorData{{
+					Metadata: &datasyncpb.SensorMetadata{},
+					Data: &datasyncpb.SensorData_Struct{
+						Struct: tu.ToStructPBStruct(t, doCommandMap),
+					},
+				}})
+			}
+			buf.Close()
+		})
+	}
+}
+
+func newBase() base.Base {
+	p := &inject.Base{}
+	p.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
+	}
+	return p
+}
