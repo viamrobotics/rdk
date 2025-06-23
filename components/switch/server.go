@@ -63,6 +63,9 @@ func (s *serviceServer) GetNumberOfPositions(
 	if err != nil {
 		return nil, err
 	}
+	if len(labels) != int(count) {
+		labels = nil
+	}
 	return &pb.GetNumberOfPositionsResponse{NumberOfPositions: count, Labels: labels}, nil
 }
 

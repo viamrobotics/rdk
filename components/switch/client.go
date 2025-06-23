@@ -80,6 +80,9 @@ func (c *client) GetNumberOfPositions(ctx context.Context, extra map[string]inte
 	if err != nil {
 		return 0, nil, err
 	}
+	if len(resp.Labels) != int(resp.NumberOfPositions) {
+		resp.Labels = nil
+	}
 	return resp.NumberOfPositions, resp.Labels, nil
 }
 

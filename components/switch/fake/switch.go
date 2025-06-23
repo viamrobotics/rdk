@@ -22,7 +22,7 @@ type Config struct {
 	PositionCount *uint32 `json:"position_count"`
 
 	// Labels is an array of labels corresponding to the positions.
-	// If omitted, the switch will have labels of "Position 1" and "Position 2"
+	// If omitted, the switch will not have labels.
 	Labels []string `json:"labels"`
 }
 
@@ -57,7 +57,7 @@ func NewSwitch(
 		logger:        logger,
 		position:      0,
 		positionCount: 2,
-		labels:        []string{"Position 1", "Position 2"},
+		labels:        nil,
 	}
 
 	newConf, err := resource.NativeConfig[*Config](conf)
@@ -71,6 +71,9 @@ func NewSwitch(
 
 	if newConf.Labels != nil {
 		s.labels = newConf.Labels
+	}
+	if len(s.labels) != int(s.positionCount) {
+		s.labels = nil
 	}
 
 	return s, nil
