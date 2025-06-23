@@ -42,6 +42,7 @@ type Switch interface {
 	GetPosition(ctx context.Context, extra map[string]interface{}) (uint32, error)
 
 	// GetNumberOfPositions returns the total number of valid positions for this switch, along with their labels.
+	// Labels should either be nil, empty, or the same length has the number of positions.
 	GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, []string, error)
 }
 
