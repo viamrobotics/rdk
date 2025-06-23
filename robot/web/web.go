@@ -553,6 +553,7 @@ type Namer interface {
 type RequestCounter struct {
 	counts    sync.Map
 	timeSpent sync.Map
+	errorCnt  sync.Map
 }
 
 // incrementCounter atomically increments the counter for a given key, creating it first if needed.
@@ -578,6 +579,16 @@ func (rc *RequestCounter) incrementTimeSpent(key string, timeSpentMillis int64) 
 	}
 }
 
+func (rc *RequestCounter) incrementErrorCnt(key string) {
+	if errCnt, ok := rc.errorCnt.Load(key); ok {
+		errCnt.(*atomic.Int64).Add(1)
+	} else {
+		newCounter := new(atomic.Int64)
+		newCounter.Add(1)
+		rc.errorCnt.Store(key, newCounter)
+	}
+}
+
 // Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
 func (rc *RequestCounter) Stats() any {
 	ret := make(map[string]int64)
@@ -587,6 +598,10 @@ func (rc *RequestCounter) Stats() any {
 	})
 	rc.timeSpent.Range(func(key, value any) bool {
 		ret[fmt.Sprintf("%v.timeSpent", key.(string))] = value.(*atomic.Int64).Load()
+		return true
+	})
+	rc.errorCnt.Range(func(key, value any) bool {
+		ret[fmt.Sprintf("%v.errorCnt", key.(string))] = value.(*atomic.Int64).Load()
 		return true
 	})
 
@@ -650,10 +665,14 @@ func (rc *RequestCounter) UnaryInterceptor(
 			// Perhaps the "perfect" solution is to track both "request started" and "request
 			// finished". And have latency graphs use "request finished".
 			rc.incrementTimeSpent(key, time.Since(start).Milliseconds())
+			if err != nil {
+				rc.incrementErrorCnt(key)
+			}
 		}()
 	}
 
-	return handler(ctx, req)
+	resp, err = handler(ctx, req)
+	return
 }
 
 type wrappedStreamWithRC struct {
