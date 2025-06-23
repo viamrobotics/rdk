@@ -1,4 +1,4 @@
-package motor_test
+package gripper_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/motor"
+	gripper "go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
@@ -19,70 +19,11 @@ import (
 )
 
 const (
-	componentName   = "motor"
+	componentName   = "switch"
 	captureInterval = time.Millisecond
 )
 
 var doCommandMap = map[string]any{"readings": "random-test"}
-
-func TestCollectors(t *testing.T) {
-	tests := []struct {
-		name      string
-		collector data.CollectorConstructor
-		expected  []*datasyncpb.SensorData
-	}{
-		{
-			name:      "Motor position collector should write a position response",
-			collector: motor.NewPositionCollector,
-			expected: []*datasyncpb.SensorData{{
-				Metadata: &datasyncpb.SensorMetadata{},
-				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"position": 1.0,
-				})},
-			}},
-		},
-		{
-			name:      "Motor isPowered collector should write an isPowered response",
-			collector: motor.NewIsPoweredCollector,
-			expected: []*datasyncpb.SensorData{
-				{
-					Metadata: &datasyncpb.SensorMetadata{},
-					Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-						"is_on":     false,
-						"power_pct": 0.5,
-					})},
-				},
-			},
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			start := time.Now()
-			buf := tu.NewMockBuffer(t)
-			params := data.CollectorParams{
-				DataType:      data.CaptureTypeTabular,
-				ComponentName: componentName,
-				Interval:      captureInterval,
-				Logger:        logging.NewTestLogger(t),
-				Clock:         clock.New(),
-				Target:        buf,
-			}
-
-			motor := newMotor()
-			col, err := tc.collector(motor, params)
-			test.That(t, err, test.ShouldBeNil)
-
-			defer col.Close()
-			col.Collect()
-
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-			tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, tc.expected)
-			buf.Close()
-		})
-	}
-}
 
 func TestDoCommandCollector(t *testing.T) {
 	tests := []struct {
@@ -93,7 +34,7 @@ func TestDoCommandCollector(t *testing.T) {
 	}{
 		{
 			name:      "DoCommand collector should write a list of values",
-			collector: motor.NewDoCommandCollector,
+			collector: gripper.NewDoCommandCollector,
 			methodParams: map[string]*anypb.Any{
 				"docommand_input": func() *anypb.Any {
 					structVal := tu.ToStructPBStruct(t, map[string]any{
@@ -106,7 +47,7 @@ func TestDoCommandCollector(t *testing.T) {
 		},
 		{
 			name:      "DoCommand collector should handle empty struct payload",
-			collector: motor.NewDoCommandCollector,
+			collector: gripper.NewDoCommandCollector,
 			methodParams: map[string]*anypb.Any{
 				"docommand_input": func() *anypb.Any {
 					emptyStruct := &structpb.Struct{
@@ -119,14 +60,14 @@ func TestDoCommandCollector(t *testing.T) {
 		},
 		{
 			name:      "DoCommand collector should handle empty payload",
-			collector: motor.NewDoCommandCollector,
+			collector: gripper.NewDoCommandCollector,
 			methodParams: map[string]*anypb.Any{
 				"docommand_input": &anypb.Any{},
 			},
 		},
 		{
 			name:         "DoCommand collector should error on missing payload",
-			collector:    motor.NewDoCommandCollector,
+			collector:    gripper.NewDoCommandCollector,
 			methodParams: map[string]*anypb.Any{},
 			expectError:  true,
 		},
@@ -146,8 +87,8 @@ func TestDoCommandCollector(t *testing.T) {
 				MethodParams:  tc.methodParams,
 			}
 
-			motor := newMotor()
-			col, err := tc.collector(motor, params)
+			gripper := newGripper()
+			col, err := tc.collector(gripper, params)
 			test.That(t, err, test.ShouldBeNil)
 
 			defer col.Close()
@@ -170,16 +111,10 @@ func TestDoCommandCollector(t *testing.T) {
 	}
 }
 
-func newMotor() motor.Motor {
-	m := &inject.Motor{}
-	m.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
-		return false, .5, nil
-	}
-	m.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 1.0, nil
-	}
-	m.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func newGripper() gripper.Gripper {
+	p := &inject.Gripper{}
+	p.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil
 	}
-	return m
+	return p
 }

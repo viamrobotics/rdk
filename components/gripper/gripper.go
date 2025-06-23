@@ -9,6 +9,7 @@ import (
 
 	pb "go.viam.com/api/component/gripper/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -23,6 +24,10 @@ func init() {
 		RPCServiceDesc:              &pb.GripperService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string.
