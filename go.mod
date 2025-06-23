@@ -1,11 +1,12 @@
 module go.viam.com/rdk
 
-go 1.23.8
+go 1.24.4
 
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/a8m/envsubst v1.4.2
+	github.com/aptible/supercronic v0.2.34
 	github.com/axw/gocov v1.1.0
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/benbjohnson/clock v1.3.5
