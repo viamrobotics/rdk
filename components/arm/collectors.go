@@ -21,6 +21,7 @@ type method int64
 const (
 	endPosition method = iota
 	jointPositions
+	doCommand
 )
 
 func (m method) String() string {
@@ -29,6 +30,8 @@ func (m method) String() string {
 		return "EndPosition"
 	case jointPositions:
 		return "JointPositions"
+	case doCommand:
+		return "DoCommand"
 	}
 	return "Unknown"
 }

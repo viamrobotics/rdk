@@ -18,6 +18,7 @@ const (
 	current
 	power
 	readings
+	doCommand
 )
 
 func (m method) String() string {
@@ -30,6 +31,8 @@ func (m method) String() string {
 		return "Power"
 	case readings:
 		return "Readings"
+	case doCommand:
+		return "DoCommand"
 	}
 	return "Unknown"
 }

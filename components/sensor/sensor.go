@@ -25,7 +25,7 @@ func init() {
 	}, newReadingsCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
-		MethodName: "DoCommand",
+		MethodName: doCommand.String(),
 	}, newDoCommandCollector)
 }
 

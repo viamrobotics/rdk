@@ -24,6 +24,7 @@ const (
 	linearAcceleration
 	orientation
 	readings
+	doCommand
 )
 
 func (m method) String() string {
@@ -42,6 +43,8 @@ func (m method) String() string {
 		return "Orientation"
 	case readings:
 		return "Readings"
+	case doCommand:
+		return "DoCommand"
 	}
 	return "Unknown"
 }

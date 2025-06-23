@@ -15,11 +15,15 @@ type method int64
 
 const (
 	readings method = iota
+	doCommand
 )
 
 func (m method) String() string {
-	if m == readings {
+	switch m {
+	case readings:
 		return "Readings"
+	case doCommand:
+		return "DoCommand"
 	}
 	return "Unknown"
 }
