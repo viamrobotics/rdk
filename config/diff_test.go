@@ -964,10 +964,10 @@ func TestDiffJobCfg(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		Name          string
-		LeftCfg       config.Config
-		RightCfg      config.Config
-		JobsDifferent bool
+		Name      string
+		LeftCfg   config.Config
+		RightCfg  config.Config
+		JobsEqual bool
 	}{
 		{
 			"same",
@@ -1010,7 +1010,7 @@ func TestDiffJobCfg(t *testing.T) {
 			diff, err := config.DiffConfigs(tc.LeftCfg, tc.RightCfg, true)
 			test.That(t, err, test.ShouldBeNil)
 
-			test.That(t, diff.JobsEqual, test.ShouldEqual, tc.JobsDifferent)
+			test.That(t, diff.JobsEqual, test.ShouldEqual, tc.JobsEqual)
 		})
 	}
 }

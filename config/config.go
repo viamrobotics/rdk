@@ -1329,13 +1329,15 @@ func (jc *JobConfig) Validate(path string) error {
 	if jc.Schedule == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "schedule")
 	}
-	// try to parse the schedule as time.Duration.
+	// Assuming the schedule is the harder part of the JobConfig to get right,
+	// it's parsed here as either Golang's time.Duration or a valid crontab.
+	// If both cases fail, an error is returned right away, rather than waiting
+	// for the JobManager to report an error.
 	_, err := time.ParseDuration(jc.Schedule)
 	if err != nil {
-		// try to parse the schedule as cron schedule.
 		_, err = cronexpr.ParseStrict(jc.Schedule)
 		if err != nil {
-			// if both fail, return an error.
+			// If both parsing attempts fail, return an error.
 			return resource.NewConfigValidationError(path,
 				errors.New(
 					"Invalid schedule format, expected a golang duration string or a valid crontab"))

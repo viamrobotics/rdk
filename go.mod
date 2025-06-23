@@ -1,12 +1,12 @@
 module go.viam.com/rdk
 
-go 1.24.4
+go 1.23.8
 
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/a8m/envsubst v1.4.2
-	github.com/aptible/supercronic v0.2.34
+	github.com/aptible/supercronic v0.2.33
 	github.com/axw/gocov v1.1.0
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/benbjohnson/clock v1.3.5
@@ -80,7 +80,7 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.444
+	go.viam.com/api v0.1.450
 	go.viam.com/test v1.2.4
 	go.viam.com/utils v0.1.146
 	goji.io v2.0.2+incompatible
@@ -442,7 +442,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e
 )
-
-replace go.viam.com/api => ../api
-
-replace go.viam.com/app => ../app
