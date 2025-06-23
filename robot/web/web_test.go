@@ -1537,8 +1537,8 @@ func TestPerRequestFTDC(t *testing.T) {
 	// call.
 	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
-	//nolint
 	defer injectRobot.Close(ctx)
+
 	svc := web.New(injectRobot, logger)
 	defer svc.Stop()
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -1560,7 +1560,7 @@ func TestPerRequestFTDC(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// We can assert that there are two counters in our stats. THe fact that `GetEndPosition` was
-	// called once and we hence spent (neglible) time in that RPC call.
+	// called once and we hence spent (negligible) time in that RPC call.
 	stats := svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, len(stats), test.ShouldEqual, 2)
 	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 1)
