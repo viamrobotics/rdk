@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	componentName   = "switch"
+	componentName   = "button"
 	captureInterval = time.Millisecond
 )
 
