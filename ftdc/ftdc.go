@@ -316,7 +316,9 @@ func (ftdc *FTDC) constructDatum() datum {
 
 	for idx := range statsers {
 		namedStatser := &statsers[idx]
-		datum.Data[namedStatser.name] = namedStatser.statser.Stats()
+		if stats := namedStatser.statser.Stats(); stats != nil {
+			datum.Data[namedStatser.name] = stats
+		}
 	}
 
 	return datum
@@ -521,6 +523,7 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 			// to return an error.
 			os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o644)
 		if err == nil {
+			ftdc.logger.Debugw("FTDC created new output file", "path", ftdc.currOutputFile.Name())
 			break
 		}
 		ftdc.logger.Warnw("FTDC failed to open file", "err", err)
@@ -627,7 +630,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 // deletion testing. Filename generation uses padding such that we can rely on there before 2/4
 // digits for every numeric value.
 //
-//nolint
+// nolint
 // Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
 var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
 

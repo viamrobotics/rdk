@@ -336,10 +336,15 @@ func (tm *testMotor) IsPowered(_ context.Context, _ map[string]interface{}) (boo
 	return false, 0.0, nil
 }
 
-// DoCommand trivially implements motor.Motor.
-func (tm *testMotor) DoCommand(_ context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
-	//nolint:nilnil
-	return nil, nil
+func (tm *testMotor) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
+	if req["command"] == "stats" {
+		return map[string]any{
+			"BadSetPowers": 5,
+			"BadStat":      "boo",
+		}, nil
+	}
+
+	return nil, fmt.Errorf("Unknown command: %v", req["command"])
 }
 
 // IsMoving trivially implements motor.Motor.

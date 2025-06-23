@@ -1,6 +1,8 @@
 package robotimpl
 
 import (
+	"io"
+
 	"go.viam.com/rdk/robot/web"
 )
 
@@ -21,6 +23,8 @@ type options struct {
 
 	// whether or not to run FTDC
 	enableFTDC bool
+
+	ftdcWriter io.Writer
 
 	// disableCompleteConfigWorker starts the robot without the complete config worker - should only be used for tests.
 	disableCompleteConfigWorker bool
@@ -52,6 +56,13 @@ func newFuncOption(f func(*options)) *funcOption {
 func WithFTDC() Option {
 	return newFuncOption(func(o *options) {
 		o.enableFTDC = true
+	})
+}
+
+func WithFTDCWriter(writer io.Writer) Option {
+	return newFuncOption(func(o *options) {
+		o.enableFTDC = true
+		o.ftdcWriter = writer
 	})
 }
 
