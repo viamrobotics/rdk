@@ -3,6 +3,7 @@ package toggleswitch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -63,8 +64,8 @@ func (s *serviceServer) GetNumberOfPositions(
 	if err != nil {
 		return nil, err
 	}
-	if len(labels) != int(count) {
-		labels = nil
+	if len(labels) > 0 && len(labels) != int(count) {
+		return nil, errors.New("the number of labels does not match the number of positions")
 	}
 	return &pb.GetNumberOfPositionsResponse{NumberOfPositions: count, Labels: labels}, nil
 }

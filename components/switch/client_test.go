@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	testSwitchName    = "switch1"
-	failSwitchName    = "switch2"
-	missingSwitchName = "missing"
+	testSwitchName     = "switch1"
+	failSwitchName     = "switch2"
+	missingSwitchName  = "missing"
+	mismatchSwitchName = "mismatch"
 )
 
 func TestClient(t *testing.T) {
@@ -65,11 +66,18 @@ func TestClient(t *testing.T) {
 	}
 	injectSwitch2.DoFunc = testutils.EchoFunc
 
+	injectSwitch3 := inject.NewSwitch(mismatchSwitchName)
+	injectSwitch3.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
+		switchName = mismatchSwitchName
+		return 1, []string{"A", "B"}, nil
+	}
+
 	switchSvc, err := resource.NewAPIResourceCollection(
 		toggleswitch.API,
 		map[resource.Name]toggleswitch.Switch{
-			toggleswitch.Named(testSwitchName): injectSwitch,
-			toggleswitch.Named(failSwitchName): injectSwitch2,
+			toggleswitch.Named(testSwitchName):     injectSwitch,
+			toggleswitch.Named(failSwitchName):     injectSwitch2,
+			toggleswitch.Named(mismatchSwitchName): injectSwitch3,
 		})
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[toggleswitch.Switch](toggleswitch.API)
@@ -146,6 +154,20 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, errCantGetNumberOfPositions.Error())
 
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("mismatch client", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		mismatchClient, err := resourceAPI.RPCClient(context.Background(), conn, "", toggleswitch.Named(mismatchSwitchName), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, _, err = mismatchClient.GetNumberOfPositions(context.Background(), nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errLabelCountMismatch.Error())
+
+		test.That(t, mismatchClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

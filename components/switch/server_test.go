@@ -18,27 +18,30 @@ var (
 	errCantSetPosition          = errors.New("can't set position")
 	errCantGetPosition          = errors.New("can't get position")
 	errCantGetNumberOfPositions = errors.New("can't get number of positions")
+	errLabelCountMismatch       = errors.New("the number of labels does not match the number of positions")
 	errSwitchNotFound           = errors.New("not found")
 )
 
 const testSwitchName2 = "switch3"
 
-func newServer() (pb.SwitchServiceServer, *inject.Switch, *inject.Switch, error) {
+func newServer() (pb.SwitchServiceServer, *inject.Switch, *inject.Switch, *inject.Switch, error) {
 	injectSwitch := &inject.Switch{}
 	injectSwitch2 := &inject.Switch{}
+	injectSwitch3 := &inject.Switch{}
 	switches := map[resource.Name]toggleswitch.Switch{
-		toggleswitch.Named(testSwitchName):  injectSwitch,
-		toggleswitch.Named(testSwitchName2): injectSwitch2,
+		toggleswitch.Named(testSwitchName):     injectSwitch,
+		toggleswitch.Named(testSwitchName2):    injectSwitch2,
+		toggleswitch.Named(mismatchSwitchName): injectSwitch3,
 	}
 	switchSvc, err := resource.NewAPIResourceCollection(toggleswitch.API, switches)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return toggleswitch.NewRPCServiceServer(switchSvc).(pb.SwitchServiceServer), injectSwitch, injectSwitch2, nil
+	return toggleswitch.NewRPCServiceServer(switchSvc).(pb.SwitchServiceServer), injectSwitch, injectSwitch2, injectSwitch3, nil
 }
 
 func TestServer(t *testing.T) {
-	switchServer, injectSwitch, injectSwitch2, err := newServer()
+	switchServer, injectSwitch, injectSwitch2, injectSwitch3, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
 	var switchName string
@@ -67,6 +70,10 @@ func TestServer(t *testing.T) {
 	}
 	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
 		return 0, nil, errCantGetNumberOfPositions
+	}
+
+	injectSwitch3.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
+		return 1, []string{"A", "B"}, nil
 	}
 
 	tests := []struct {
@@ -144,6 +151,12 @@ func TestServer(t *testing.T) {
 			operation:  "num",
 			switchName: testSwitchName2,
 			wantErr:    errCantGetNumberOfPositions,
+		},
+		{
+			name:       "get number of positions - mismatch",
+			operation:  "num",
+			switchName: mismatchSwitchName,
+			wantErr:    errLabelCountMismatch,
 		},
 	}
 

@@ -3,6 +3,7 @@ package toggleswitch
 
 import (
 	"context"
+	"errors"
 
 	pb "go.viam.com/api/component/switch/v1"
 	"go.viam.com/utils/protoutils"
@@ -80,8 +81,8 @@ func (c *client) GetNumberOfPositions(ctx context.Context, extra map[string]inte
 	if err != nil {
 		return 0, nil, err
 	}
-	if len(resp.Labels) != int(resp.NumberOfPositions) {
-		resp.Labels = nil
+	if len(resp.Labels) > 0 && len(resp.Labels) != int(resp.NumberOfPositions) {
+		return 0, nil, errors.New("the number of labels does not match the number of positions")
 	}
 	return resp.NumberOfPositions, resp.Labels, nil
 }

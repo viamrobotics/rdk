@@ -22,7 +22,8 @@ type Config struct {
 	PositionCount *uint32 `json:"position_count"`
 
 	// Labels is an array of labels corresponding to the positions.
-	// If omitted, the switch will not have labels.
+	// If omitted, or if the length of the array
+	// does not match PositionCount, the switch will not have labels.
 	Labels []string `json:"labels"`
 }
 
