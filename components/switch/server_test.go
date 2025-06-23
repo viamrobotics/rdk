@@ -53,9 +53,9 @@ func TestServer(t *testing.T) {
 		extraOptions = extra
 		return 0, nil
 	}
-	injectSwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	injectSwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
 		extraOptions = extra
-		return 2, nil
+		return 2, []string{"position 1", "position 2"}, nil
 	}
 
 	injectSwitch2.SetPositionFunc = func(ctx context.Context, position uint32, extra map[string]interface{}) error {
@@ -65,8 +65,8 @@ func TestServer(t *testing.T) {
 	injectSwitch2.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 		return 0, errCantGetPosition
 	}
-	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
-		return 0, errCantGetNumberOfPositions
+	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
+		return 0, nil, errCantGetNumberOfPositions
 	}
 
 	tests := []struct {
@@ -79,6 +79,7 @@ func TestServer(t *testing.T) {
 		wantSwitch string
 		wantPos    uint32
 		wantNum    uint32
+		wantLabels []string
 		wantExtras map[string]interface{}
 	}{
 		{
@@ -135,6 +136,7 @@ func TestServer(t *testing.T) {
 			switchName: testSwitchName,
 			extras:     map[string]interface{}{"foo": "GetNumberOfPositions"},
 			wantNum:    2,
+			wantLabels: []string{"position 1", "position 2"},
 			wantExtras: map[string]interface{}{"foo": "GetNumberOfPositions"},
 		},
 		{
@@ -181,6 +183,7 @@ func TestServer(t *testing.T) {
 					test.That(t, resp.(*pb.GetPositionResponse).Position, test.ShouldEqual, tt.wantPos)
 				case "num":
 					test.That(t, resp.(*pb.GetNumberOfPositionsResponse).NumberOfPositions, test.ShouldEqual, tt.wantNum)
+					test.That(t, resp.(*pb.GetNumberOfPositionsResponse).Labels, test.ShouldResemble, tt.wantLabels)
 				}
 			}
 			if tt.wantSwitch != "" {

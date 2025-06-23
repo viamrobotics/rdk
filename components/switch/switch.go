@@ -41,8 +41,8 @@ type Switch interface {
 	// GetPosition returns the current position of the switch.
 	GetPosition(ctx context.Context, extra map[string]interface{}) (uint32, error)
 
-	// GetNumberOfPositions returns the total number of valid positions for this switch.
-	GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, error)
+	// GetNumberOfPositions returns the total number of valid positions for this switch, along with their labels.
+	GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, []string, error)
 }
 
 // FromRobot is a helper for getting the named Switch from the given Robot.

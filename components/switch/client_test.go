@@ -43,10 +43,10 @@ func TestClient(t *testing.T) {
 		switchName = testSwitchName
 		return 0, nil
 	}
-	injectSwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	injectSwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
 		extraOptions = extra
 		switchName = testSwitchName
-		return 2, nil
+		return 2, []string{"position 1", "position 2"}, nil
 	}
 	injectSwitch.DoFunc = testutils.EchoFunc
 
@@ -59,9 +59,9 @@ func TestClient(t *testing.T) {
 		switchName = failSwitchName
 		return 0, errCantGetPosition
 	}
-	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
 		switchName = failSwitchName
-		return 0, errCantGetNumberOfPositions
+		return 0, nil, errCantGetNumberOfPositions
 	}
 	injectSwitch2.DoFunc = testutils.EchoFunc
 
@@ -115,10 +115,11 @@ func TestClient(t *testing.T) {
 		test.That(t, pos, test.ShouldEqual, 0)
 
 		extra = map[string]interface{}{"foo": "GetNumberOfPositions"}
-		count, err := client1.GetNumberOfPositions(context.Background(), extra)
+		count, labels, err := client1.GetNumberOfPositions(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 		test.That(t, count, test.ShouldEqual, 2)
+		test.That(t, labels, test.ShouldResemble, []string{"position 1", "position 2"})
 
 		test.That(t, client1.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -140,7 +141,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errCantGetPosition.Error())
 
-		_, err = client2.GetNumberOfPositions(context.Background(), extra)
+		_, _, err = client2.GetNumberOfPositions(context.Background(), extra)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errCantGetNumberOfPositions.Error())
 

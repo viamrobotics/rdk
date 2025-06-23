@@ -59,11 +59,11 @@ func (s *serviceServer) GetNumberOfPositions(
 	if err != nil {
 		return nil, err
 	}
-	count, err := sw.GetNumberOfPositions(ctx, req.Extra.AsMap())
+	count, labels, err := sw.GetNumberOfPositions(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetNumberOfPositionsResponse{NumberOfPositions: count}, nil
+	return &pb.GetNumberOfPositionsResponse{NumberOfPositions: count, Labels: labels}, nil
 }
 
 // DoCommand receives arbitrary commands.

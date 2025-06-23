@@ -20,6 +20,10 @@ type Config struct {
 	// PositionCount is the number of positions that the switch can be in.
 	// If omitted, the switch will have two positions.
 	PositionCount *uint32 `json:"position_count"`
+
+	// Labels is an array of labels corresponding to the positions.
+	// If omitted, the switch will have labels of "Position 1" and "Position 2"
+	Labels []string `json:"labels"`
 }
 
 func init() {
@@ -38,6 +42,7 @@ type Switch struct {
 	logger        logging.Logger
 	position      uint32
 	positionCount uint32
+	labels        []string
 }
 
 // NewSwitch instantiates a new switch of the fake model type.
@@ -52,6 +57,7 @@ func NewSwitch(
 		logger:        logger,
 		position:      0,
 		positionCount: 2,
+		labels:        []string{"Position 1", "Position 2"},
 	}
 
 	newConf, err := resource.NativeConfig[*Config](conf)
@@ -61,6 +67,10 @@ func NewSwitch(
 
 	if newConf.PositionCount != nil {
 		s.positionCount = *newConf.PositionCount
+	}
+
+	if newConf.Labels != nil {
+		s.labels = newConf.Labels
 	}
 
 	return s, nil
@@ -86,6 +96,6 @@ func (s *Switch) GetPosition(ctx context.Context, extra map[string]interface{}) 
 }
 
 // GetNumberOfPositions returns the total number of valid positions for this switch.
-func (s *Switch) GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, error) {
-	return s.positionCount, nil
+func (s *Switch) GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
+	return s.positionCount, s.labels, nil
 }

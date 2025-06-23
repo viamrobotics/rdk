@@ -68,19 +68,19 @@ func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) 
 	return resp.Position, nil
 }
 
-func (c *client) GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+func (c *client) GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	resp, err := c.client.GetNumberOfPositions(ctx, &pb.GetNumberOfPositionsRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
-	return resp.NumberOfPositions, nil
+	return resp.NumberOfPositions, resp.Labels, nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
