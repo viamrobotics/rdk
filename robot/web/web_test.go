@@ -1530,3 +1530,49 @@ func signJWKBasedExternalAccessToken(
 
 	return token.SignedString(key)
 }
+
+func TestPerRequestFTDC(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx, injectRobot := setupRobotCtx(t)
+	//nolint
+	defer injectRobot.Close(ctx)
+	svc := web.New(injectRobot, logger)
+	defer svc.Stop()
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(conn.Close)
+	armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+	//nolint
+	defer armClient.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectArmRes, err := injectRobot.ResourceByName(arm.Named("arm"))
+	test.That(t, err, test.ShouldBeNil)
+	injectArm := injectArmRes.(*inject.Arm)
+
+	_, err = armClient.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	stats := svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, len(stats), test.ShouldEqual, 2)
+	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 1)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
+
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+		return nil, errors.New("error")
+	}
+
+	_, err = armClient.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, len(stats), test.ShouldEqual, 3)
+	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 2)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
+	test.That(t, stats["arm1.ArmService/GetEndPosition.errorCnt"], test.ShouldEqual, 1)
+}
