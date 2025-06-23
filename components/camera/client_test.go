@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/pion/rtp"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -35,6 +36,7 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -51,6 +53,7 @@ func TestClient(t *testing.T) {
 
 	injectCamera := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
 
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
@@ -104,6 +107,9 @@ func TestClient(t *testing.T) {
 		resBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
 		test.That(t, err, test.ShouldBeNil)
 		return resBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+	}
+	injectCamera.GeometriesFunc = func(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error) {
+		return expectedGeometries, nil
 	}
 	// depth camera
 	injectCameraDepth := &inject.Camera{}
@@ -221,6 +227,13 @@ func TestClient(t *testing.T) {
 
 		test.That(t, camera1Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
+
+		// Geometries
+		geometries, err := camera1Client.Geometries(context.Background(), map[string]interface{}{"foo": "Geometries"})
+		test.That(t, err, test.ShouldBeNil)
+		for i, geometry := range geometries {
+			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
+		}
 	})
 	t.Run("camera client depth", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
@@ -801,7 +814,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
-//nolint
+// nolint
 // NOTE: These tests fail when this condition occurs:
 //
 //	logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}
