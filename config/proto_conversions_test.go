@@ -1101,3 +1101,37 @@ func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
 
 	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
 }
+
+func TestJobsConfigToProto(t *testing.T) {
+	testJobConfigNoCommand := JobConfig{
+		JobConfigData{
+			Name:     "test",
+			Schedule: "5s",
+			Method:   "doStuff",
+			Resource: "my-resource",
+		},
+	}
+	proto, err := JobsConfigToProto(&testJobConfigNoCommand)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := JobsConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, *out, test.ShouldResemble, testJobConfigNoCommand)
+
+	testJobConfigCommand := JobConfig{
+		JobConfigData{
+			Name:     "test",
+			Schedule: "5s",
+			Method:   "doStuff",
+			Resource: "my-resource",
+			Command: map[string]any{
+				"arg1": true,
+			},
+		},
+	}
+
+	proto, err = JobsConfigToProto(&testJobConfigCommand)
+	test.That(t, err, test.ShouldBeNil)
+	out, err = JobsConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, *out, test.ShouldResemble, testJobConfigCommand)
+}
