@@ -1532,6 +1532,9 @@ func signJWKBasedExternalAccessToken(
 }
 
 func TestPerRequestFTDC(t *testing.T) {
+	// This test creates a robot with a resource running with a web service. It will then assert
+	// that making gRPC requests will increment counters output by the `RequestCounter`s `Stats`
+	// call.
 	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 	//nolint
@@ -1543,6 +1546,7 @@ func TestPerRequestFTDC(t *testing.T) {
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
+	// Dial to the robot and create a gRPC client object to the "arm" specifically.
 	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(conn.Close)
@@ -1551,25 +1555,32 @@ func TestPerRequestFTDC(t *testing.T) {
 	defer armClient.Close(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectArmRes, err := injectRobot.ResourceByName(arm.Named("arm"))
-	test.That(t, err, test.ShouldBeNil)
-	injectArm := injectArmRes.(*inject.Arm)
-
+	// Making a gRPC `EndPosition` call with the default inject method returns a success.
 	_, err = armClient.EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 
+	// We can assert that there are two counters in our stats. THe fact that `GetEndPosition` was
+	// called once and we hence spent (neglible) time in that RPC call.
 	stats := svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, len(stats), test.ShouldEqual, 2)
 	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 1)
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
 
+	// Get a handle on the inject arm resource.
+	injectArmRes, err := injectRobot.ResourceByName(arm.Named(arm1String))
+	test.That(t, err, test.ShouldBeNil)
+	injectArm := injectArmRes.(*inject.Arm)
+	// Mutate the arm to have its `EndPosition` RPC call return an error.
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return nil, errors.New("error")
 	}
 
+	// Try calling `EndPosition` again. Assert it returned an error.
 	_, err = armClient.EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
+	// Now observe that we called `GetEndPosition` a second time. And one of the responses returned
+	// an error.
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, len(stats), test.ShouldEqual, 3)
 	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 2)
