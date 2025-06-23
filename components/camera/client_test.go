@@ -225,15 +225,15 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
-		test.That(t, camera1Client.Close(context.Background()), test.ShouldBeNil)
-		test.That(t, conn.Close(), test.ShouldBeNil)
-
 		// Geometries
 		geometries, err := camera1Client.Geometries(context.Background(), map[string]interface{}{"foo": "Geometries"})
 		test.That(t, err, test.ShouldBeNil)
 		for i, geometry := range geometries {
 			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
 		}
+
+		test.That(t, camera1Client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("camera client depth", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
@@ -814,7 +814,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
-//nolint
+// nolint
 // NOTE: These tests fail when this condition occurs:
 //
 //	logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}
