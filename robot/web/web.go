@@ -30,6 +30,7 @@ import (
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -531,7 +532,8 @@ type Namer interface {
 // RequestCounter maps string keys to atomic ints that get bumped on every incoming gRPC request for
 // components.
 type RequestCounter struct {
-	counts sync.Map
+	counts   sync.Map
+	dataSent sync.Map
 }
 
 // incrementCounter atomically increments the counter for a given key, creating it first if needed.
@@ -545,11 +547,25 @@ func (rc *RequestCounter) incrementCounter(key string) {
 	}
 }
 
+func (rc *RequestCounter) incrementSize(key string, size int) {
+	if apiCounts, ok := rc.dataSent.Load(key); ok {
+		apiCounts.(*atomic.Int64).Add(int64(size))
+	} else {
+		newCounter := new(atomic.Int64)
+		newCounter.Add(int64(size))
+		rc.dataSent.Store(key, newCounter)
+	}
+}
+
 // Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
 func (rc *RequestCounter) Stats() any {
 	ret := make(map[string]int64)
 	rc.counts.Range(func(key, value any) bool {
 		ret[key.(string)] = value.(*atomic.Int64).Load()
+		return true
+	})
+	rc.dataSent.Range(func(key, value any) bool {
+		ret[fmt.Sprintf("%v.dataSentBytes", key.(string))] = value.(*atomic.Int64).Load()
 		return true
 	})
 
@@ -591,13 +607,15 @@ func (rc *RequestCounter) UnaryInterceptor(
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
 
+	key := buildRCKey(&req, apiMethod)
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod != "" {
-		key := buildRCKey(&req, apiMethod)
 		rc.incrementCounter(key)
 	}
 
-	return handler(ctx, req)
+	resp, err = handler(ctx, req)
+	rc.incrementSize(key, proto.Size(resp.(proto.Message)))
+	return resp, err
 }
 
 type wrappedStreamWithRC struct {
