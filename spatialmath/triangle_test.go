@@ -44,25 +44,25 @@ func TestBasicTriangleFunctions(t *testing.T) {
 		test.That(t, closestPoint, test.ShouldResemble, r3.Vector{1, 1, 0})
 		test.That(t, isInside, test.ShouldBeTrue)
 
-		// directly above edge
+		// above edge
 		closestPoint, isInside = closestTriangleInsidePoint(tri, r3.Vector{2, 0, 1})
 		test.That(t, closestPoint, test.ShouldResemble, r3.Vector{2, 0, 0})
 		test.That(t, isInside, test.ShouldBeTrue)
 
-		// directly above vertex
+		// above vertex
 		closestPoint, isInside = closestTriangleInsidePoint(tri, r3.Vector{0, 3, 1})
 		test.That(t, closestPoint, test.ShouldResemble, r3.Vector{0, 3, 0})
 		test.That(t, isInside, test.ShouldBeTrue)
 
-		// outside (obtuse)
+		// outside (obtuse with triangle)
 		closestPoint, isInside = closestTriangleInsidePoint(tri, r3.Vector{1, -1, 1})
 		test.That(t, isInside, test.ShouldBeFalse)
 
-		// outside (straight)
+		// outside (straight with triange)
 		closestPoint, isInside = closestTriangleInsidePoint(tri, r3.Vector{0, 4, 0})
 		test.That(t, isInside, test.ShouldBeFalse)
 
-		// interior, triangle rotated off the xy-plane (still right isoceles)
+		// interior, testing a traingle rotated off the xy-plane
 		rotatedPts := []r3.Vector{{0, 0, 0}, {50, 0, 0}, {0, 30, 40}}
 		rotatedTri := NewTriangle(rotatedPts[0], rotatedPts[1], rotatedPts[2])
 		closestPoint, isInside = closestTriangleInsidePoint(rotatedTri, r3.Vector{1, 3 + 4, 4 - 3})
