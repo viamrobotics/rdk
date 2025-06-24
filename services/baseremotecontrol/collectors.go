@@ -1,4 +1,4 @@
-package navigation
+package baseremotecontrol
 
 import (
 	"context"
@@ -27,7 +27,7 @@ func (m method) String() string {
 // newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
 // with the same MethodMetadata it will panic.
 func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
-	navigation, err := assertNavigation(resource)
+	baseremotecontrol, err := assertBaseRemoteControl(resource)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 			return res, errors.New("missing payload")
 		}
 
-		values, err := navigation.DoCommand(ctx, payload)
+		values, err := baseremotecontrol.DoCommand(ctx, payload)
 		if err != nil {
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
@@ -67,10 +67,10 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 	return data.NewCollector(cFunc, params)
 }
 
-func assertNavigation(resource interface{}) (Service, error) {
-	navigation, ok := resource.(Service)
+func assertBaseRemoteControl(resource interface{}) (Service, error) {
+	baseremotecontrol, ok := resource.(Service)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(API)
 	}
-	return navigation, nil
+	return baseremotecontrol, nil
 }
