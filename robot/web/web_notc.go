@@ -44,7 +44,7 @@ func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependenci
 func (svc *webService) closeStreamServer() {}
 
 // stub implementation when gostream not available
-func (svc *webService) initStreamServer(ctx context.Context) error {
+func (svc *webService) initStreamServer(_ context.Context, _ rpc.Server) error {
 	return nil
 }
 
