@@ -17,6 +17,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/components/camera"
@@ -32,6 +33,7 @@ import (
 
 //nolint:lll
 var viamLogoJpegB64 = []byte("/9j/4QD4RXhpZgAATU0AKgAAAAgABwESAAMAAAABAAEAAAEaAAUAAAABAAAAYgEbAAUAAAABAAAAagEoAAMAAAABAAIAAAExAAIAAAAhAAAAcgITAAMAAAABAAEAAIdpAAQAAAABAAAAlAAAAAAAAABIAAAAAQAAAEgAAAABQWRvYmUgUGhvdG9zaG9wIDIzLjQgKE1hY2ludG9zaCkAAAAHkAAABwAAAAQwMjIxkQEABwAAAAQBAgMAoAAABwAAAAQwMTAwoAEAAwAAAAEAAQAAoAIABAAAAAEAAAAgoAMABAAAAAEAAAAgpAYAAwAAAAEAAAAAAAAAAAAA/9sAhAAcHBwcHBwwHBwwRDAwMERcRERERFx0XFxcXFx0jHR0dHR0dIyMjIyMjIyMqKioqKioxMTExMTc3Nzc3Nzc3NzcASIkJDg0OGA0NGDmnICc5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ub/3QAEAAL/wAARCAAgACADASIAAhEBAxEB/8QBogAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoLEAACAQMDAgQDBQUEBAAAAX0BAgMABBEFEiExQQYTUWEHInEUMoGRoQgjQrHBFVLR8CQzYnKCCQoWFxgZGiUmJygpKjQ1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4eLj5OXm5+jp6vHy8/T19vf4+foBAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKCxEAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDm6K0dNu1tZsSgGNuDx0961NX09WT7ZbgcD5gPT1oA5qiul0fT1VPtlwByPlB7D1rL1K7W5mxEAI04GBjPvQB//9Dm66TRr/I+xTf8A/wrm6ASpBXgjpQB0ms34UfYof8AgWP5VzdBJY5PJNFAH//Z")
+var doCommandMap = map[string]any{"readings": "random-test"}
 
 const (
 	serviceName     = "camera"
@@ -168,6 +170,99 @@ func TestCollectors(t *testing.T) {
 	}
 }
 
+func TestDoCommandCollector(t *testing.T) {
+	tests := []struct {
+		name         string
+		collector    data.CollectorConstructor
+		methodParams map[string]*anypb.Any
+		expectError  bool
+	}{
+		{
+			name:      "DoCommand collector should write a list of values",
+			collector: camera.NewDoCommandCollector,
+			methodParams: map[string]*anypb.Any{
+				"docommand_input": func() *anypb.Any {
+					structVal := tu.ToStructPBStruct(t, map[string]any{
+						"command": "random",
+					})
+					anyVal, _ := anypb.New(structVal)
+					return anyVal
+				}(),
+			},
+		},
+		{
+			name:      "DoCommand collector should handle empty struct payload",
+			collector: camera.NewDoCommandCollector,
+			methodParams: map[string]*anypb.Any{
+				"docommand_input": func() *anypb.Any {
+					emptyStruct := &structpb.Struct{
+						Fields: make(map[string]*structpb.Value),
+					}
+					anyVal, _ := anypb.New(emptyStruct)
+					return anyVal
+				}(),
+			},
+		},
+		{
+			name:      "DoCommand collector should handle empty payload",
+			collector: camera.NewDoCommandCollector,
+			methodParams: map[string]*anypb.Any{
+				"docommand_input": {},
+			},
+		},
+		{
+			name:         "DoCommand collector should error on missing payload",
+			collector:    camera.NewDoCommandCollector,
+			methodParams: map[string]*anypb.Any{},
+			expectError:  true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			start := time.Now()
+			buf := tu.NewMockBuffer(t)
+			params := data.CollectorParams{
+				DataType:      data.CaptureTypeTabular,
+				ComponentName: serviceName,
+				Interval:      captureInterval,
+				Logger:        logging.NewTestLogger(t),
+				Clock:         clock.New(),
+				Target:        buf,
+				MethodParams:  tc.methodParams,
+			}
+
+			viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
+			test.That(t, err, test.ShouldBeNil)
+			img := rimage.NewLazyEncodedImage(viamLogoJpeg, utils.MimeTypeJPEG)
+			pcd, err := pointcloud.NewFromFile(artifact.MustPath("pointcloud/test.las"), "")
+			test.That(t, err, test.ShouldBeNil)
+
+			cam := newCamera(img, img, pcd)
+
+			col, err := tc.collector(cam, params)
+			test.That(t, err, test.ShouldBeNil)
+
+			defer col.Close()
+			col.Collect()
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			if tc.expectError {
+				test.That(t, len(buf.Writes), test.ShouldEqual, 0)
+			} else {
+				tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, []*datasyncpb.SensorData{{
+					Metadata: &datasyncpb.SensorMetadata{},
+					Data: &datasyncpb.SensorData_Struct{
+						Struct: tu.ToStructPBStruct(t, doCommandMap),
+					},
+				}})
+			}
+			buf.Close()
+		})
+	}
+}
+
 func newCamera(
 	left, right image.Image,
 	pcd pointcloud.PointCloud,
@@ -192,6 +287,10 @@ func newCamera(
 			},
 			resource.ResponseMetadata{CapturedAt: time.Now()},
 			nil
+	}
+
+	v.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
 	}
 
 	return v
