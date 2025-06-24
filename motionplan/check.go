@@ -261,7 +261,7 @@ func checkPlanAbsolute(
 
 func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAheadDistanceMM float64) error {
 	// go through segments and check that we satisfy constraints
-	moving, _ := sfPlanner.frameLists()
+	moving, _ := sfPlanner.planOpts.motionChains.framesFilteredByMovingAndNonmoving(sfPlanner.fs)
 	dists := map[string]float64{}
 	for _, segment := range segments {
 		ok, lastValid := sfPlanner.planOpts.CheckSegmentAndStateValidityFS(segment, sfPlanner.planOpts.Resolution)
