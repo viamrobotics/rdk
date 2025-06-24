@@ -160,7 +160,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	// Validate the jobs and check the uniqueness of job names.
 	seenJobs := make(map[string]bool)
 	for idx := 0; idx < len(c.Jobs); idx++ {
-		jobName := fmt.Sprintf("jobs.%d.%s", idx, c.Jobs[idx].Name)
+		jobName := fmt.Sprintf("jobs.%s", c.Jobs[idx].Name)
 		if err := c.Jobs[idx].Validate(fmt.Sprintf("%s.%d", "jobs", idx)); err != nil {
 			fullErr := errors.Errorf("error validating jobs config %s", err)
 			if c.DisablePartialStart {
