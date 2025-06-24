@@ -39,7 +39,7 @@ func TestIKTolerances(t *testing.T) {
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
 	opt := newBasicPlannerOptions()
-	opt.goalMetricConstructor = ik.NewPositionOnlyMetric
+	opt.GoalMetricType = ik.PositionOnly
 	opt.SetMaxSolutions(50)
 	mp, err = newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(1)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)

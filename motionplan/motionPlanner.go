@@ -250,8 +250,8 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	}
 
 	if replanCostFactor > 0 && currentPlan != nil {
-		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.opt().scoreFunc)
-		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.opt().scoreFunc)
+		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.opt().getScoringFunction())
+		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.opt().getScoringFunction())
 		request.Logger.CDebugf(ctx,
 			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
 			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
@@ -493,7 +493,7 @@ IK:
 				}
 				err := mp.planOpts.CheckSegmentFSConstraints(stepArc)
 				if err == nil {
-					score := mp.planOpts.configurationDistanceFunc(stepArc)
+					score := ik.ConfigurationDistance(mp.planOpts.ConfigurationDistanceMetric, stepArc)
 					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 						solutions = map[float64]referenceframe.FrameSystemInputs{}
 						solutions[score] = step
@@ -506,7 +506,7 @@ IK:
 							EndConfiguration:   step,
 							FS:                 mp.fs,
 						}
-						simscore := mp.planOpts.configurationDistanceFunc(similarity)
+						simscore := ik.ConfigurationDistance(mp.planOpts.ConfigurationDistanceMetric, similarity)
 						if simscore < defaultSimScore {
 							continue IK
 						}

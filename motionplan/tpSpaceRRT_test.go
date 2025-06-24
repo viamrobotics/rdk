@@ -12,7 +12,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -52,9 +51,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	}}
 
 	opt := newBasicPlannerOptions()
-	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
-	opt.planningAlgorithm = TPSpace
+	opt.TPSpaceOrientationScale = 30.
 
 	motionChains, err := motionChainsFromPlanState(fs, goal)
 	test.That(t, err, test.ShouldBeNil)
@@ -135,10 +132,9 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	// Initialize planner options
 	opt := newBasicPlannerOptions()
-	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
+	opt.TPSpaceOrientationScale = 30.
 	opt.GoalThreshold = 5
-	opt.planningAlgorithm = TPSpace
-	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
+	opt.PlanningAlgorithm = TPSpace
 	motionChains, err := motionChainsFromPlanState(fs, goal)
 	test.That(t, err, test.ShouldBeNil)
 	opt.motionChains = motionChains
@@ -228,9 +224,7 @@ func TestTPsmoothing(t *testing.T) {
 
 	// Initialize planner options
 	opt := newBasicPlannerOptions()
-	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
-	opt.planningAlgorithm = TPSpace
+	opt.TPSpaceOrientationScale = 30.
 
 	// Needed to determine motion chains
 	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 6500, Y: 0, Z: 0})
