@@ -62,7 +62,7 @@ func CheckPlan(
 
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
 	// Currently this is only TP-space, so we check if the PTG length is >0.
-	if planOpts.useTPspace {
+	if planOpts.useTPspace() {
 		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
 	}
 	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
@@ -261,7 +261,7 @@ func checkPlanAbsolute(
 
 func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAheadDistanceMM float64) error {
 	// go through segments and check that we satisfy constraints
-	moving, _ := sfPlanner.frameLists()
+	moving, _ := sfPlanner.planOpts.motionChains.framesFilteredByMovingAndNonmoving(sfPlanner.fs)
 	dists := map[string]float64{}
 	for _, segment := range segments {
 		ok, lastValid := sfPlanner.planOpts.CheckSegmentAndStateValidityFS(segment, sfPlanner.planOpts.Resolution)

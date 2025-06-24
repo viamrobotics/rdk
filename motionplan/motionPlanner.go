@@ -595,25 +595,6 @@ func (mp *planner) linearizeFSmetric(metric ik.StateFSMetric) func([]float64) fl
 	}
 }
 
-func (mp *planner) frameLists() (moving, nonmoving []string) {
-	movingMap := map[string]referenceframe.Frame{}
-	for _, chain := range mp.planOpts.motionChains {
-		for _, frame := range chain.frames {
-			movingMap[frame.Name()] = frame
-		}
-	}
-
-	// Here we account for anything in the framesystem that is not part of a motion chain
-	for _, frameName := range mp.fs.FrameNames() {
-		if _, ok := movingMap[frameName]; ok {
-			moving = append(moving, frameName)
-		} else {
-			nonmoving = append(nonmoving, frameName)
-		}
-	}
-	return moving, nonmoving
-}
-
 // The purpose of this function is to allow solves that require the movement of components not in a motion chain, while preventing wild or
 // random motion of these components unnecessarily. A classic example would be a scene with two arms. One arm is given a goal in World
 // which it could reach, but the other arm is in the way. Randomly seeded IK will produce a valid configuration for the moving arm, and a
@@ -621,7 +602,7 @@ func (mp *planner) frameLists() (moving, nonmoving []string) {
 // and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
 // configuration to the seed.
 func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
-	moving, nonmoving := mp.frameLists()
+	moving, nonmoving := mp.planOpts.motionChains.framesFilteredByMovingAndNonmoving(mp.fs)
 	// Create a map with nonmoving configurations replaced with their seed values
 	alteredStep := referenceframe.FrameSystemInputs{}
 	for _, frame := range moving {

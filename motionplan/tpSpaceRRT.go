@@ -141,10 +141,10 @@ func newTPSpaceMotionPlanner(
 		planner: mp,
 	}
 	// TODO: Only one motion chain allowed if tpspace for now. Eventually this may not be a restriction.
-	if len(opt.motionChains) != 1 {
-		return nil, fmt.Errorf("exactly one motion chain permitted for tpspace, but planner option had %d", len(opt.motionChains))
+	if len(opt.motionChains.inner) != 1 {
+		return nil, fmt.Errorf("exactly one motion chain permitted for tpspace, but planner option had %d", len(opt.motionChains.inner))
 	}
-	for _, frame := range opt.motionChains[0].frames {
+	for _, frame := range opt.motionChains.inner[0].frames {
 		if tpFrame, ok := frame.(tpspace.PTGProvider); ok {
 			tpPlanner.tpFrame = frame
 			tpPlanner.solvers = tpFrame.PTGSolvers()
