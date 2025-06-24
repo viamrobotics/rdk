@@ -91,7 +91,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 	}
 
 	var mimeStr string
-	// Try to unmarshal as StringValue first
+	// For backwards compatibility - allow string (old behavior) and Value (new behavior) types
 	strVal := &wrapperspb.StringValue{}
 	if err := mimeType.UnmarshalTo(strVal); err == nil {
 		mimeStr = strVal.Value
