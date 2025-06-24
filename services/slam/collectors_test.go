@@ -209,18 +209,18 @@ func getPointCloudMap(path string) (func() ([]byte, error), error) {
 }
 
 func newSlamService(pcdPath string) slam.Service {
-	v := &inject.SLAMService{}
-	v.PositionFunc = func(ctx context.Context) (spatialmath.Pose, error) {
+	s := &inject.SLAMService{}
+	s.PositionFunc = func(ctx context.Context) (spatialmath.Pose, error) {
 		return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
 	}
 
-	v.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
+	s.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 		return getPointCloudMap(pcdPath)
 	}
 
-	v.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	s.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil
 	}
 
-	return v
+	return s
 }

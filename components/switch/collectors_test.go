@@ -112,9 +112,9 @@ func TestDoCommandCollector(t *testing.T) {
 }
 
 func newSwitch() toggleswitch.Switch {
-	p := &inject.Switch{}
-	p.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	s := &inject.Switch{}
+	s.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil
 	}
-	return p
+	return s
 }

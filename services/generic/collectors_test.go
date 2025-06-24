@@ -112,9 +112,9 @@ func TestDoCommandCollector(t *testing.T) {
 }
 
 func newGeneric() generic.Service {
-	p := &inject.GenericService{}
-	p.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	g := &inject.GenericService{}
+	g.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil
 	}
-	return p
+	return g
 }

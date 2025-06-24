@@ -112,9 +112,9 @@ func TestDoCommandCollector(t *testing.T) {
 }
 
 func newResource() generic.Resource {
-	p := &inject.GenericComponent{}
-	p.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	g := &inject.GenericComponent{}
+	g.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil
 	}
-	return p
+	return g
 }

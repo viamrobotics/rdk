@@ -112,9 +112,9 @@ func TestDoCommandCollector(t *testing.T) {
 }
 
 func newButton() button.Button {
-	p := &inject.Button{}
-	p.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	b := &inject.Button{}
+	b.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil
 	}
-	return p
+	return b
 }

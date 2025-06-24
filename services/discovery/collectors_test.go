@@ -112,9 +112,9 @@ func TestDoCommandCollector(t *testing.T) {
 }
 
 func newDiscovery() discovery.Service {
-	p := &inject.DiscoveryService{}
-	p.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	d := &inject.DiscoveryService{}
+	d.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil
 	}
-	return p
+	return d
 }

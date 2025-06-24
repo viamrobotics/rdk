@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	componentName   = "shell"
+	componentName   = "motion"
 	captureInterval = time.Millisecond
 )
 
@@ -112,9 +112,9 @@ func TestDoCommandCollector(t *testing.T) {
 }
 
 func newMotion() motion.Service {
-	p := &inject.MotionService{}
-	p.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	m := &inject.MotionService{}
+	m.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil
 	}
-	return p
+	return m
 }

@@ -112,9 +112,9 @@ func TestDoCommandCollector(t *testing.T) {
 }
 
 func newBaseRemoteControl() baseremotecontrol.Service {
-	p := &inject.BaseRemoteControlService{}
-	p.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	b := &inject.BaseRemoteControlService{}
+	b.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil
 	}
-	return p
+	return b
 }

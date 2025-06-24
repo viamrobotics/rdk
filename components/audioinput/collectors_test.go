@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	componentName   = "switch"
+	componentName   = "audioinput"
 	captureInterval = time.Millisecond
 )
 
@@ -112,9 +112,9 @@ func TestDoCommandCollector(t *testing.T) {
 }
 
 func newAudioInput() audioinput.AudioInput {
-	p := &inject.AudioInput{}
-	p.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	ai := &inject.AudioInput{}
+	ai.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil
 	}
-	return p
+	return ai
 }

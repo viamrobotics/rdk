@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	componentName   = "shell"
+	componentName   = "navigation"
 	captureInterval = time.Millisecond
 )
 
@@ -112,9 +112,9 @@ func TestDoCommandCollector(t *testing.T) {
 }
 
 func newNavigation() navigation.Service {
-	p := &inject.NavigationService{}
-	p.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	n := &inject.NavigationService{}
+	n.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil
 	}
-	return p
+	return n
 }
