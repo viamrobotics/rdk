@@ -68,12 +68,13 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 	return data.NewCollector(cFunc, params)
 }
 
-type GenericService interface {
+// Service is the interface that wraps the DoCommand method.
+type Service interface {
 	resource.Resource
 }
 
-func assertGeneric(resource interface{}) (GenericService, error) {
-	generic, ok := resource.(GenericService)
+func assertGeneric(resource interface{}) (Service, error) {
+	generic, ok := resource.(Service)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(API)
 	}

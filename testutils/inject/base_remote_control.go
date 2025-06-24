@@ -7,7 +7,7 @@ import (
 	"go.viam.com/rdk/services/baseremotecontrol"
 )
 
-// NavigationService represents a fake instance of a navigation service.
+// BaseRemoteControlService represents a fake instance of a base remote control service.
 type BaseRemoteControlService struct {
 	baseremotecontrol.Service
 	name          resource.Name

@@ -6,10 +6,11 @@ import (
 	"time"
 
 	pb "go.viam.com/api/service/slam/v1"
-	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/spatialmath"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/spatialmath"
 )
 
 type method int64
