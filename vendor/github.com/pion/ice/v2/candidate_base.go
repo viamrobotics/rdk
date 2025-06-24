@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pion/logging"
 	"github.com/pion/stun"
 )
 
@@ -43,6 +44,21 @@ type candidateBase struct {
 	priorityOverride   uint32
 
 	remoteCandidateCaches map[AddrPort]Candidate
+
+	bytesSent     atomic.Int64
+	bytesReceived atomic.Int64
+}
+
+func (c *candidateBase) LogBandwidth(logger logging.LeveledLogger) {
+	if logger != nil {
+		go func() {
+			for {
+				time.Sleep(5 * time.Second)
+				fmt.Printf("Candidate bandwidth log. Addr: %v:%d BytesReceived: %v BytesSent: %v\n",
+					c.address, c.port, c.bytesReceived.Load(), c.bytesSent.Load())
+			}
+		}()
+	}
 }
 
 // Done implements context.Context
@@ -73,6 +89,14 @@ func (c *candidateBase) Value(interface{}) interface{} {
 // ID returns Candidate ID
 func (c *candidateBase) ID() string {
 	return c.id
+}
+
+func (c *candidateBase) BytesReceived() int64 {
+	return c.bytesReceived.Load()
+}
+
+func (c *candidateBase) BytesSent() int64 {
+	return c.bytesSent.Load()
 }
 
 func (c *candidateBase) Foundation() string {
@@ -232,6 +256,7 @@ func (c *candidateBase) recvLoop(initializedCh <-chan struct{}) {
 			return
 		}
 
+		c.bytesReceived.Add(int64(n))
 		c.handleInboundPacket(buf[:n], srcAddr)
 	}
 }
@@ -331,6 +356,7 @@ func (c *candidateBase) close() error {
 }
 
 func (c *candidateBase) writeTo(raw []byte, dst Candidate) (int, error) {
+	c.bytesSent.Add(int64(len(raw)))
 	n, err := c.conn.WriteTo(raw, dst.addr())
 	if err != nil {
 		// If the connection is closed, we should return the error
@@ -558,13 +584,13 @@ func UnmarshalCandidate(raw string) (Candidate, error) {
 
 	switch typ {
 	case "host":
-		return NewCandidateHost(&CandidateHostConfig{"", protocol, address, port, component, priority, foundation, tcpType})
+		return NewCandidateHost(&CandidateHostConfig{"", protocol, address, port, component, priority, foundation, tcpType}, nil)
 	case "srflx":
-		return NewCandidateServerReflexive(&CandidateServerReflexiveConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort})
+		return NewCandidateServerReflexive(&CandidateServerReflexiveConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort}, nil)
 	case "prflx":
-		return NewCandidatePeerReflexive(&CandidatePeerReflexiveConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort})
+		return NewCandidatePeerReflexive(&CandidatePeerReflexiveConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort}, nil)
 	case "relay":
-		return NewCandidateRelay(&CandidateRelayConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort, "", nil})
+		return NewCandidateRelay(&CandidateRelayConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort, "", nil}, nil)
 	default:
 	}
 

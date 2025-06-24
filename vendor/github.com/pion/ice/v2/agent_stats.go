@@ -20,6 +20,7 @@ func (a *Agent) GetCandidatePairsStats() []CandidatePairStats {
 				RemoteCandidateID: cp.Remote.ID(),
 				State:             cp.state,
 				Nominated:         cp.nominated,
+				BytesSent:         uint64(cp.bytesSent.Load()),
 				// PacketsSent uint32
 				// PacketsReceived uint32
 				// BytesSent uint64
@@ -78,6 +79,8 @@ func (a *Agent) GetLocalCandidatesStats() []CandidateStats {
 					// URL string
 					RelayProtocol: relayProtocol,
 					// Deleted bool
+					BytesReceived: c.BytesReceived(),
+					BytesSent:     c.BytesSent(),
 				}
 				result = append(result, stat)
 			}

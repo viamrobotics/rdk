@@ -6,7 +6,11 @@
 //nolint:dupl
 package ice
 
-import "net"
+import (
+	"net"
+
+	"github.com/pion/logging"
+)
 
 // CandidatePeerReflexive ...
 type CandidatePeerReflexive struct {
@@ -27,7 +31,7 @@ type CandidatePeerReflexiveConfig struct {
 }
 
 // NewCandidatePeerReflexive creates a new peer reflective candidate
-func NewCandidatePeerReflexive(config *CandidatePeerReflexiveConfig) (*CandidatePeerReflexive, error) {
+func NewCandidatePeerReflexive(config *CandidatePeerReflexiveConfig, logger logging.LeveledLogger) (*CandidatePeerReflexive, error) {
 	ip := net.ParseIP(config.Address)
 	if ip == nil {
 		return nil, ErrAddressParseFailed
@@ -43,7 +47,7 @@ func NewCandidatePeerReflexive(config *CandidatePeerReflexiveConfig) (*Candidate
 		candidateID = globalCandidateIDGenerator.Generate()
 	}
 
-	return &CandidatePeerReflexive{
+	c := &CandidatePeerReflexive{
 		candidateBase: candidateBase{
 			id:                 candidateID,
 			networkType:        networkType,
@@ -60,5 +64,7 @@ func NewCandidatePeerReflexive(config *CandidatePeerReflexiveConfig) (*Candidate
 			},
 			remoteCandidateCaches: map[AddrPort]Candidate{},
 		},
-	}, nil
+	}
+	go c.LogBandwidth(logger)
+	return c, nil
 }

@@ -5,6 +5,8 @@ package ice
 
 import (
 	"net"
+
+	"github.com/pion/logging"
 )
 
 // CandidateRelay ...
@@ -31,7 +33,7 @@ type CandidateRelayConfig struct {
 }
 
 // NewCandidateRelay creates a new relay candidate
-func NewCandidateRelay(config *CandidateRelayConfig) (*CandidateRelay, error) {
+func NewCandidateRelay(config *CandidateRelayConfig, logger logging.LeveledLogger) (*CandidateRelay, error) {
 	candidateID := config.CandidateID
 
 	if candidateID == "" {
@@ -48,7 +50,7 @@ func NewCandidateRelay(config *CandidateRelayConfig) (*CandidateRelay, error) {
 		return nil, err
 	}
 
-	return &CandidateRelay{
+	c := &CandidateRelay{
 		candidateBase: candidateBase{
 			id:                 candidateID,
 			networkType:        networkType,
@@ -67,7 +69,9 @@ func NewCandidateRelay(config *CandidateRelayConfig) (*CandidateRelay, error) {
 		},
 		relayProtocol: config.RelayProtocol,
 		onClose:       config.OnClose,
-	}, nil
+	}
+	go c.LogBandwidth(logger)
+	return c, nil
 }
 
 // RelayProtocol returns the protocol used between the endpoint and the relay server.

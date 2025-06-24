@@ -5,16 +5,31 @@ package ice
 
 import (
 	"fmt"
+	"sync/atomic"
+	"time"
 
+	"github.com/pion/logging"
 	"github.com/pion/stun"
 )
 
-func newCandidatePair(local, remote Candidate, controlling bool) *CandidatePair {
-	return &CandidatePair{
+func newCandidatePair(local, remote Candidate, controlling bool, logger logging.LeveledLogger) *CandidatePair {
+	ret := &CandidatePair{
 		iceRoleControlling: controlling,
 		Remote:             remote,
 		Local:              local,
 		state:              CandidatePairStateWaiting,
+	}
+	go logSize(ret, logger)
+	return ret
+}
+
+func logSize(cp *CandidatePair, logger logging.LeveledLogger) {
+	for {
+		time.Sleep(5 * time.Second)
+		fmt.Printf("Candidate pair bandwidth log. From: %v:%d To: %v:%d Nominated: %v Bytes: %v\n",
+			cp.Local.Address(), cp.Local.Port(),
+			cp.Remote.Address(), cp.Remote.Port(),
+			cp.nominated, cp.bytesSent.Load())
 	}
 }
 
@@ -28,6 +43,7 @@ type CandidatePair struct {
 	state                    CandidatePairState
 	nominated                bool
 	nominateOnBindingSuccess bool
+	bytesSent                atomic.Int64
 }
 
 func (p *CandidatePair) String() string {
@@ -91,6 +107,7 @@ func (p *CandidatePair) priority() uint64 {
 }
 
 func (p *CandidatePair) Write(b []byte) (int, error) {
+	p.bytesSent.Add(int64(len(b)))
 	return p.Local.writeTo(b, p.Remote)
 }
 

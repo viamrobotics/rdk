@@ -589,7 +589,7 @@ func (a *Agent) getBestValidCandidatePair() *CandidatePair {
 }
 
 func (a *Agent) addPair(local, remote Candidate) *CandidatePair {
-	p := newCandidatePair(local, remote, a.isControlling)
+	p := newCandidatePair(local, remote, a.isControlling, a.log)
 	a.checklist = append(a.checklist, p)
 	return p
 }
@@ -755,7 +755,7 @@ func (a *Agent) addRemotePassiveTCPCandidate(remoteCandidate Candidate) {
 			Port:      tcpAddr.Port,
 			Component: ComponentRTP,
 			TCPType:   TCPTypeActive,
-		})
+		}, a.loggerFactory.NewLogger("bandwidth"))
 		if err != nil {
 			closeConnAndLog(conn, a.log, "Failed to create Active ICE-TCP Candidate: %v", err)
 			continue
@@ -1138,7 +1138,7 @@ func (a *Agent) handleInbound(m *stun.Message, local Candidate, remote net.Addr)
 				RelPort:   0,
 			}
 
-			prflxCandidate, err := NewCandidatePeerReflexive(&prflxCandidateConfig)
+			prflxCandidate, err := NewCandidatePeerReflexive(&prflxCandidateConfig, a.loggerFactory.NewLogger("bandwidth"))
 			if err != nil {
 				a.log.Errorf("Failed to create new remote prflx candidate (%s)", err)
 				return

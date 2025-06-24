@@ -3,7 +3,11 @@
 
 package ice
 
-import "net"
+import (
+	"net"
+
+	"github.com/pion/logging"
+)
 
 // CandidateServerReflexive ...
 type CandidateServerReflexive struct {
@@ -24,7 +28,7 @@ type CandidateServerReflexiveConfig struct {
 }
 
 // NewCandidateServerReflexive creates a new server reflective candidate
-func NewCandidateServerReflexive(config *CandidateServerReflexiveConfig) (*CandidateServerReflexive, error) {
+func NewCandidateServerReflexive(config *CandidateServerReflexiveConfig, logger logging.LeveledLogger) (*CandidateServerReflexive, error) {
 	ip := net.ParseIP(config.Address)
 	if ip == nil {
 		return nil, ErrAddressParseFailed
@@ -40,7 +44,7 @@ func NewCandidateServerReflexive(config *CandidateServerReflexiveConfig) (*Candi
 		candidateID = globalCandidateIDGenerator.Generate()
 	}
 
-	return &CandidateServerReflexive{
+	c := &CandidateServerReflexive{
 		candidateBase: candidateBase{
 			id:                 candidateID,
 			networkType:        networkType,
@@ -57,5 +61,7 @@ func NewCandidateServerReflexive(config *CandidateServerReflexiveConfig) (*Candi
 			},
 			remoteCandidateCaches: map[AddrPort]Candidate{},
 		},
-	}, nil
+	}
+	go c.LogBandwidth(logger)
+	return c, nil
 }

@@ -69,4 +69,7 @@ type Candidate interface {
 	seen(outbound bool)
 	start(a *Agent, conn net.PacketConn, initializedCh <-chan struct{})
 	writeTo(raw []byte, dst Candidate) (int, error)
+
+	BytesReceived() int64
+	BytesSent() int64
 }

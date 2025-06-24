@@ -6,6 +6,8 @@ package ice
 import (
 	"net"
 	"strings"
+
+	"github.com/pion/logging"
 )
 
 // CandidateHost is a candidate of type host
@@ -28,7 +30,7 @@ type CandidateHostConfig struct {
 }
 
 // NewCandidateHost creates a new host candidate
-func NewCandidateHost(config *CandidateHostConfig) (*CandidateHost, error) {
+func NewCandidateHost(config *CandidateHostConfig, logger logging.LeveledLogger) (*CandidateHost, error) {
 	candidateID := config.CandidateID
 
 	if candidateID == "" {
@@ -49,6 +51,7 @@ func NewCandidateHost(config *CandidateHostConfig) (*CandidateHost, error) {
 		},
 		network: config.Network,
 	}
+	go c.LogBandwidth(logger)
 
 	if !strings.HasSuffix(config.Address, ".local") {
 		ip := net.ParseIP(config.Address)

@@ -177,4 +177,7 @@ type CandidateStats struct {
 	//
 	// Only defined for local candidates. For remote candidates, this property is not applicable.
 	Deleted bool
+
+	BytesReceived int64
+	BytesSent     int64
 }
