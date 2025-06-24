@@ -535,7 +535,6 @@ func diffLogCfg(left, right *Config, servicesDifferent, componentsDifferent bool
 	return false
 }
 
-//nolint:dupl
 func diffJobCfg(leftJobs, rightJobs []JobConfig) bool {
 	leftIndex := make(map[string]int)
 	leftJ := make(map[string]JobConfig)
@@ -544,7 +543,7 @@ func diffJobCfg(leftJobs, rightJobs []JobConfig) bool {
 		leftIndex[l.Name] = idx
 	}
 
-	var different bool = false
+	var different bool
 	for _, r := range rightJobs {
 		l, ok := leftJ[r.Name]
 		delete(leftJ, r.Name)

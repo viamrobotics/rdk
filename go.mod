@@ -170,7 +170,6 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
-	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charithe/durationcheck v0.0.10 // indirect
 	github.com/charmbracelet/bubbles v0.20.0 // indirect
@@ -205,7 +204,6 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/ettle/strcase v0.2.0 // indirect
-	github.com/evalphobia/logrus_sentry v0.8.2 // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/felixge/fgprof v0.9.4 // indirect
@@ -213,7 +211,6 @@ require (
 	github.com/firefart/nonamedreturns v1.0.5 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
 	github.com/gen2brain/malgo v0.11.21 // indirect
-	github.com/getsentry/raven-go v0.2.0 // indirect
 	github.com/ghostiam/protogetter v0.3.6 // indirect
 	github.com/gin-gonic/gin v1.9.1 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
