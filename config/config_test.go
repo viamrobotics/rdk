@@ -1206,9 +1206,14 @@ func TestPackageConfig(t *testing.T) {
 }
 
 func TestJobsConfig(t *testing.T) {
+	invSched := "Invalid schedule format, expected a golang duration string or a valid cron expression"
+	errString := func(field string) string {
+		return fmt.Sprintf("Error validating, missing required field. Field: %q", field)
+	}
 	jobsTests := []struct {
 		config               config.JobConfig
 		shouldFailValidation bool
+		expRespErr           string
 	}{
 		{
 			config: config.JobConfig{
@@ -1219,6 +1224,7 @@ func TestJobsConfig(t *testing.T) {
 				},
 			},
 			shouldFailValidation: true,
+			expRespErr:           errString("resource"),
 		},
 		{
 			config: config.JobConfig{
@@ -1229,6 +1235,7 @@ func TestJobsConfig(t *testing.T) {
 				},
 			},
 			shouldFailValidation: true,
+			expRespErr:           errString("name"),
 		},
 		{
 			config: config.JobConfig{
@@ -1239,6 +1246,7 @@ func TestJobsConfig(t *testing.T) {
 				},
 			},
 			shouldFailValidation: true,
+			expRespErr:           errString("method"),
 		},
 		{
 			config: config.JobConfig{
@@ -1249,6 +1257,7 @@ func TestJobsConfig(t *testing.T) {
 				},
 			},
 			shouldFailValidation: true,
+			expRespErr:           errString("schedule"),
 		},
 		{
 			config: config.JobConfig{
@@ -1260,6 +1269,7 @@ func TestJobsConfig(t *testing.T) {
 				},
 			},
 			shouldFailValidation: true,
+			expRespErr:           invSched,
 		},
 		{
 			config: config.JobConfig{
@@ -1271,6 +1281,7 @@ func TestJobsConfig(t *testing.T) {
 				},
 			},
 			shouldFailValidation: true,
+			expRespErr:           invSched,
 		},
 		{
 			config: config.JobConfig{
@@ -1282,6 +1293,7 @@ func TestJobsConfig(t *testing.T) {
 				},
 			},
 			shouldFailValidation: true,
+			expRespErr:           invSched,
 		},
 		{
 			config: config.JobConfig{
@@ -1293,6 +1305,7 @@ func TestJobsConfig(t *testing.T) {
 				},
 			},
 			shouldFailValidation: true,
+			expRespErr:           invSched,
 		},
 
 		{
@@ -1323,18 +1336,7 @@ func TestJobsConfig(t *testing.T) {
 		err := jt.config.Validate("")
 		if jt.shouldFailValidation {
 			test.That(t, err, test.ShouldBeError)
-			switch jt.config.Name {
-			case "missing resource":
-				test.That(t, err.Error(), test.ShouldContainSubstring, "resource")
-			case "":
-				test.That(t, err.Error(), test.ShouldContainSubstring, "name")
-			case "missing method":
-				test.That(t, err.Error(), test.ShouldContainSubstring, "method")
-			case "missing schedule":
-				test.That(t, err.Error(), test.ShouldContainSubstring, "schedule")
-			case "too many cron fields", "too few cron fields", "invalid schedule", "schedule in the past":
-				test.That(t, err.Error(), test.ShouldContainSubstring, "Invalid schedule format")
-			}
+			test.That(t, err.Error(), test.ShouldContainSubstring, jt.expRespErr)
 			continue
 		}
 		test.That(t, err, test.ShouldBeNil)

@@ -891,13 +891,13 @@ func TestDiffRevision(t *testing.T) {
 
 func TestDiffJobCfg(t *testing.T) {
 	job1 := config.JobConfigData{
-		Name:     "my-job",
+		Name:     "my-job-1",
 		Schedule: "5s",
 		Resource: "my-resource",
 		Method:   "my-method",
 	}
 	job2 := config.JobConfigData{
-		Name:     "my-job",
+		Name:     "my-job-2",
 		Schedule: "* * * * *",
 		Resource: "my-resource",
 		Method:   "my-method",
@@ -907,7 +907,7 @@ func TestDiffJobCfg(t *testing.T) {
 		},
 	}
 	job3 := config.JobConfigData{
-		Name:     "my-job",
+		Name:     "my-job-3",
 		Schedule: "3h",
 		Resource: "my-resource",
 		Method:   "my-method",
@@ -917,7 +917,7 @@ func TestDiffJobCfg(t *testing.T) {
 		},
 	}
 	job4 := config.JobConfigData{
-		Name:     "my-job-2",
+		Name:     "my-job-4",
 		Schedule: "3h",
 		Resource: "my-resource",
 		Method:   "my-method",
@@ -927,13 +927,13 @@ func TestDiffJobCfg(t *testing.T) {
 		},
 	}
 	job5 := config.JobConfigData{
-		Name:     "my-job-2",
+		Name:     "my-job-5",
 		Schedule: "3h",
 		Resource: "my-resource",
 		Method:   "my-method",
 	}
 	job6 := config.JobConfigData{
-		Name:     "my-job-2",
+		Name:     "my-job-6",
 		Schedule: "0 */3 * * *",
 		Resource: "my-resource",
 		Method:   "my-method",
@@ -962,6 +962,11 @@ func TestDiffJobCfg(t *testing.T) {
 	jobs6 := []config.JobConfig{
 		{job6},
 	}
+	jobs7 := []config.JobConfig{
+		{job3},
+		{job1},
+		{job2},
+	}
 
 	for _, tc := range []struct {
 		Name      string
@@ -973,6 +978,12 @@ func TestDiffJobCfg(t *testing.T) {
 			"same",
 			config.Config{Jobs: jobs1},
 			config.Config{Jobs: jobs1},
+			true,
+		},
+		{
+			"same with different order",
+			config.Config{Jobs: jobs1},
+			config.Config{Jobs: jobs7},
 			true,
 		},
 		{

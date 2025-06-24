@@ -88,7 +88,7 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 
 	diff.ResourcesEqual = !different
 
-	jobsDifferent := diffJobCfg(&left, &right)
+	jobsDifferent := diffJobCfg(left.Jobs, right.Jobs)
 	diff.JobsEqual = !jobsDifferent
 
 	networkDifferent := diffNetworkingCfg(&left, &right)
@@ -535,7 +535,33 @@ func diffLogCfg(left, right *Config, servicesDifferent, componentsDifferent bool
 	return false
 }
 
-// diffJobCfg checks the equality of two job configs.
-func diffJobCfg(left, right *Config) bool {
-	return !reflect.DeepEqual(left.Jobs, right.Jobs)
+//nolint:dupl
+func diffJobCfg(leftJobs, rightJobs []JobConfig) bool {
+	leftIndex := make(map[string]int)
+	leftJ := make(map[string]JobConfig)
+	for idx, l := range leftJobs {
+		leftJ[l.Name] = l
+		leftIndex[l.Name] = idx
+	}
+
+	var different bool = false
+	for _, r := range rightJobs {
+		l, ok := leftJ[r.Name]
+		delete(leftJ, r.Name)
+		if ok {
+			different = diffJob(l, r) || different
+			continue
+		}
+		different = true
+	}
+
+	if len(leftJ) > 0 {
+		different = true
+	}
+
+	return different
+}
+
+func diffJob(left, right JobConfig) bool {
+	return !left.Equals(right)
 }
