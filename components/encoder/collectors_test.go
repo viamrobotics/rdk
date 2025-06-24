@@ -151,5 +151,8 @@ func newEncoder() encoder.Encoder {
 	) (float64, encoder.PositionType, error) {
 		return 1.0, encoder.PositionTypeTicks, nil
 	}
+	e.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
+	}
 	return e
 }
