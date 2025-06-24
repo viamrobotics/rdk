@@ -61,7 +61,7 @@ func (p *pathologicalAssociatedConfig) Link(conf *resource.Config)              
 
 func TestCollectorRegistry(t *testing.T) {
 	collectors := data.DumpRegisteredCollectors()
-	test.That(t, len(collectors), test.ShouldEqual, 45)
+	test.That(t, len(collectors), test.ShouldEqual, 53)
 	mds := slices.SortedFunc(maps.Keys(collectors), func(a, b data.MethodMetadata) int {
 		return cmp.Compare(a.String(), b.String())
 	})
@@ -77,6 +77,7 @@ func TestCollectorRegistry(t *testing.T) {
 		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "Gpios"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "button"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "GetImages"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "NextPointCloud"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "ReadImage"},
@@ -110,9 +111,16 @@ func TestCollectorRegistry(t *testing.T) {
 		{API: resource.API{Type: rdkComponent, SubtypeName: "servo"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "servo"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "switch"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "base_remote_control"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "discovery"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "generic"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "navigation"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "shell"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "slam"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkService, SubtypeName: "slam"}, MethodName: "PointCloudMap"},
 		{API: resource.API{Type: rdkService, SubtypeName: "slam"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkService, SubtypeName: "vision"}, MethodName: "CaptureAllFromCamera"},
+		{API: resource.API{Type: rdkService, SubtypeName: "vision"}, MethodName: "DoCommand"},
 	})
 }
 
