@@ -323,5 +323,5 @@ func (vs *videoSource) Geometries(ctx context.Context, extra map[string]interfac
 	if res, ok := vs.actualSource.(resource.Shaped); ok {
 		return res.Geometries(ctx, extra)
 	}
-	return nil, errors.New("videoSource: geomtries unavailable")
+	return nil, errors.New("videoSource: geometries unavailable")
 }
