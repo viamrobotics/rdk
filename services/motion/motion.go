@@ -559,6 +559,6 @@ func (ps PlanState) String() string {
 	case PlanStateUnspecified:
 		return "unspecified"
 	default:
-		return "unknown"
+		return ""
 	}
 }

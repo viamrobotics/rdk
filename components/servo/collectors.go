@@ -26,7 +26,7 @@ func (m method) String() string {
 	case doCommand:
 		return "DoCommand"
 	}
-	return "Unknown"
+	return ""
 }
 
 // newPositionCollector returns a collector to register a position method. If one is already registered

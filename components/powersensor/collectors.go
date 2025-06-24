@@ -35,7 +35,7 @@ func (m method) String() string {
 	case doCommand:
 		return "DoCommand"
 	}
-	return "Unknown"
+	return ""
 }
 
 func assertPowerSensor(resource interface{}) (PowerSensor, error) {

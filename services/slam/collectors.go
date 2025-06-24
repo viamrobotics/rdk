@@ -30,7 +30,7 @@ func (m method) String() string {
 	if m == doCommand {
 		return "DoCommand"
 	}
-	return "Unknown"
+	return ""
 }
 
 func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {

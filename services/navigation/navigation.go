@@ -56,7 +56,7 @@ func (m Mode) String() string {
 	case ModeExplore:
 		return "Explore"
 	default:
-		return "UNKNOWN"
+		return ""
 	}
 }
 
@@ -67,7 +67,7 @@ func (m MapType) String() string {
 	case GPSMap:
 		return "GPS"
 	default:
-		return "UNKNOWN"
+		return ""
 	}
 }
 
