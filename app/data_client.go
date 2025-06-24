@@ -1349,7 +1349,8 @@ func (d *DataClient) GetDataPipeline(ctx context.Context, id string) (*DataPipel
 
 // CreateDataPipeline creates a new data pipeline using the given query and schedule.
 func (d *DataClient) CreateDataPipeline(
-	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string, opts *CreateDataPipelineOptions,
+	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string,
+	enableBackfill bool, opts *CreateDataPipelineOptions,
 ) (string, error) {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
@@ -1369,6 +1370,7 @@ func (d *DataClient) CreateDataPipeline(
 		MqlBinary:      mqlBinary,
 		Schedule:       schedule,
 		DataSourceType: &dataSourceType,
+		EnableBackfill: &enableBackfill,
 	})
 	if err != nil {
 		return "", err
