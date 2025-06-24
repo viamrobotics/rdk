@@ -75,7 +75,7 @@ func (t CopyFilesSourceType) String() string {
 	case CopyFilesSourceTypeMultipleUnknown:
 		fallthrough
 	default:
-		return ""
+		return "Unknown"
 	}
 }
 
