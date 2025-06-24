@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 	streampb "go.viam.com/api/stream/v1"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/grpc"
@@ -91,7 +92,7 @@ func (svc *webService) initStreamServer(ctx context.Context) error {
 	return nil
 }
 
-func (svc *webService) initStreamServerForModule(ctx context.Context) error {
+func (svc *webService) initStreamServerForModule(ctx context.Context, srv rpc.Server) error {
 	// Module's can depend on the stream server, in addition to the general "client facing" RPC
 	// server. We relax expectations on what will be started first and allow for any order.
 	if svc.streamServer == nil {
@@ -109,15 +110,12 @@ func (svc *webService) initStreamServerForModule(ctx context.Context) error {
 	}
 
 	// Register the stream server + APIs with the gRPC server for modules.
-	if err := svc.modServer.RegisterServiceServer(
+	return srv.RegisterServiceServer(
 		ctx,
 		&streampb.StreamService_ServiceDesc,
 		svc.streamServer,
 		streampb.RegisterStreamServiceHandlerFromEndpoint,
-	); err != nil {
-		return err
-	}
-	return nil
+	)
 }
 
 type filterXML struct {

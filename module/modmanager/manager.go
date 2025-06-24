@@ -46,9 +46,10 @@ var (
 
 // NewManager returns a Manager.
 func NewManager(
-	ctx context.Context, parentAddr string, logger logging.Logger, options modmanageroptions.Options,
+	ctx context.Context, parentAddrs config.ParentSockAddrs, logger logging.Logger, options modmanageroptions.Options,
 ) (modmaninterface.ModuleManager, error) {
-	parentAddr, err := cleanWindowsSocketPath(runtime.GOOS, parentAddr)
+	var err error
+	parentAddrs.UnixAddr, err = cleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +57,7 @@ func NewManager(
 	ret := &Manager{
 		logger:                  logger.Sublogger("modmanager"),
 		modules:                 moduleMap{},
-		parentAddr:              parentAddr,
+		parentAddrs:             parentAddrs,
 		rMap:                    resourceModuleMap{},
 		untrustedEnv:            options.UntrustedEnv,
 		viamHomeDir:             options.ViamHomeDir,
@@ -133,7 +134,7 @@ type Manager struct {
 
 	logger       logging.Logger
 	modules      moduleMap
-	parentAddr   string
+	parentAddrs  config.ParentSockAddrs
 	rMap         resourceModuleMap
 	untrustedEnv bool
 	// viamHomeDir is the absolute path to the viam home directory. Ex: /home/walle/.viam
@@ -323,10 +324,18 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 	return nil
 }
 
+// return appropriate parentaddr for module (select tcp or unix).
+func (mgr *Manager) parentAddr(mod *module) string {
+	if mod.tcpMode() {
+		return mgr.parentAddrs.TCPAddr
+	}
+	return mgr.parentAddrs.UnixAddr
+}
+
 func (mgr *Manager) startModuleProcess(mod *module, oue pexec.UnexpectedExitHandler) error {
 	return mod.startProcess(
 		mgr.restartCtx,
-		mgr.parentAddr,
+		mgr.parentAddr(mod),
 		oue,
 		mgr.viamHomeDir,
 		mgr.packagesDir,
@@ -349,7 +358,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		}
 	}
 
-	cleanup := rutils.SlowStartupLogger(
+	cleanup := rutils.SlowLogger(
 		ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
@@ -366,7 +375,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 
 	// Sends a ReadyRequest and waits on a ReadyResponse. The PeerConnection will async connect
 	// after this, so long as the module supports it.
-	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
+	if err := mod.checkReady(ctx, mgr.parentAddr(mod)); err != nil {
 		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
 	}
 
@@ -471,6 +480,10 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	if !reconfigure && len(mod.resources) != 0 {
 		mod.logger.Warnw("Forcing removal of module with active resources", "module", mod.cfg.Name)
 	}
+
+	cleanup := rutils.SlowLogger(
+		context.Background(), "Waiting for module to complete shutdown", "module", mod.cfg.Name, mod.logger)
+	defer cleanup()
 
 	// need to actually close the resources within the module itself before stopping
 	for res := range mod.resources {
@@ -1006,7 +1019,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	// No need to check mgr.untrustedEnv, as we're restarting the same
 	// executable we were given for initial module addition.
 
-	cleanup := rutils.SlowStartupLogger(
+	cleanup := rutils.SlowLogger(
 		ctx, "Waiting for module to complete restart and re-registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
@@ -1040,7 +1053,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 		return err
 	}
 
-	if err := mod.checkReady(ctx, mgr.parentAddr); err != nil {
+	if err := mod.checkReady(ctx, mgr.parentAddr(mod)); err != nil {
 		mgr.logger.CErrorw(ctx, "Error while waiting for restarted module to be ready",
 			"module", mod.cfg.Name, "error", err)
 		return err

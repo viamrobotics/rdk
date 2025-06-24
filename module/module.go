@@ -617,7 +617,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		return nil, err
 	}
 
-	m.logger.Debugw("rebuilding", "name", conf.ResourceName())
+	m.logger.Debugw("rebuilding", "name", conf.ResourceName().String())
 	if err := res.Close(ctx); err != nil {
 		m.logger.Error(err)
 	}

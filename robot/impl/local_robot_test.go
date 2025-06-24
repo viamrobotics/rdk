@@ -1678,6 +1678,47 @@ func TestDependentResources(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+func TestSlowShutdownTicker(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	t.Setenv("VIAM_TESTMODULE_SLOW_CLOSE", "5s")
+	slowModel := resource.NewModel("rdk", "test", "slow")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: slowModel,
+				API:   generic.API,
+				Attributes: rutils.AttributeMap{
+					"config_duration": "5s",
+				},
+			},
+		},
+	}
+
+	r, err := New(ctx, cfg, nil, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	r.Close(ctx)
+
+	// Assert that if a module is taking a while to close, we will see slow logger messages.
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage("Waiting for resource to close").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+		test.That(tb, logs.FilterMessage("Waiting for module to complete shutdown").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
+}
+
 func TestOrphanedResources(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)

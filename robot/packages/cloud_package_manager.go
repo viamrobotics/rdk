@@ -325,6 +325,64 @@ func sanitizeURLForLogs(u string) string {
 	return parsed.String()
 }
 
+// LogProgressWriter is a writer that logs progress.
+type logProgressWriter struct {
+	totalWrittenBytes int64
+	totalBytes        int64
+	name              string
+	startTime         time.Time
+	lastLogTime       time.Time
+	logFrequency      time.Duration
+	logger            logging.Logger
+}
+
+func newLogProgressWriter(logger logging.Logger, jobName string, totalBytes int64) *logProgressWriter {
+	return &logProgressWriter{
+		totalWrittenBytes: 0,
+		totalBytes:        totalBytes,
+		startTime:         time.Now(),
+		lastLogTime:       time.Now(),
+		name:              jobName,
+		logFrequency:      time.Second * 5,
+		logger:            logger,
+	}
+}
+
+func (wc *logProgressWriter) Write(p []byte) (int, error) {
+	currentTime := time.Now()
+	bytesWritten := len(p)
+	wc.totalWrittenBytes += int64(bytesWritten)
+
+	if wc.totalWrittenBytes < wc.totalBytes || wc.totalBytes == 0 {
+		if currentTime.Sub(wc.lastLogTime) > wc.logFrequency {
+			// unknown pct if totalBytes is 0. Log what's available.
+			var pctStr string
+			if wc.totalBytes == 0 {
+				pctStr = "?%"
+			} else {
+				pctStr = fmt.Sprintf("%.0f%%", float64(wc.totalWrittenBytes)/float64(wc.totalBytes)*100)
+			}
+			// Prevent NPE if logFrequency is also 0. non-exact is fine for display purposes
+			if currentTime == wc.startTime {
+				currentTime = currentTime.Add(time.Second)
+			}
+			wc.logger.Infof("%s: downloaded %d / %d bytes (%s) [%.0f KB/s]",
+				wc.name,
+				wc.totalWrittenBytes,
+				wc.totalBytes,
+				pctStr,
+				float64(wc.totalWrittenBytes)/currentTime.Sub(wc.startTime).Seconds()/1024)
+			wc.lastLogTime = currentTime
+		}
+	} else {
+		wc.logger.Infof("%s: downloaded %d bytes (100%%) in %v",
+			wc.name,
+			wc.totalWrittenBytes,
+			currentTime.Sub(wc.startTime))
+	}
+	return bytesWritten, nil
+}
+
 func (m *cloudManager) downloadFileFromGCSURL(
 	ctx context.Context,
 	url string,
@@ -361,7 +419,7 @@ func (m *cloudManager) downloadFileFromGCSURL(
 	defer utils.UncheckedErrorFunc(out.Close)
 
 	hash := crc32Hash()
-	w := io.MultiWriter(out, hash)
+	w := io.MultiWriter(out, hash, newLogProgressWriter(m.logger, downloadPath, resp.ContentLength))
 
 	_, err = io.CopyN(w, resp.Body, maxPackageSize)
 	if err != nil && !errors.Is(err, io.EOF) {

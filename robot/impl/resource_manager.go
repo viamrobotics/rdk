@@ -101,7 +101,7 @@ func (manager *resourceManager) ExportDot(index int) (resource.GetSnapshotInfo, 
 
 func (manager *resourceManager) startModuleManager(
 	ctx context.Context,
-	parentAddr string,
+	parentAddrs config.ParentSockAddrs,
 	removeOrphanedResources func(context.Context, []resource.Name),
 	untrustedEnv bool,
 	viamHomeDir string,
@@ -119,7 +119,7 @@ func (manager *resourceManager) startModuleManager(
 		FTDC:                    manager.opts.ftdc,
 		ModPeerConnTracker:      modPeerConnTracker,
 	}
-	modmanager, err := modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
+	modmanager, err := modmanager.NewManager(ctx, parentAddrs, logger, mmOpts)
 	if err != nil {
 		return err
 	}
@@ -511,6 +511,14 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 	closeCtx, cancel := context.WithTimeout(ctx, resourceCloseTimeout)
 	defer cancel()
 
+	cleanup := rutils.SlowLogger(
+		closeCtx,
+		"Waiting for resource to close",
+		"resource", res.Name().String(),
+		manager.logger,
+	)
+	defer cleanup()
+
 	allErrs := res.Close(closeCtx)
 
 	resName := res.Name()
@@ -686,7 +694,7 @@ func (manager *resourceManager) completeConfig(
 				ctxWithTimeout, timeoutCancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 				defer timeoutCancel()
 
-				stopSlowLogger := rutils.SlowStartupLogger(
+				stopSlowLogger := rutils.SlowLogger(
 					ctx, "Waiting for resource to complete (re)configuration", "resource", resName.String(), manager.logger)
 
 				lr.reconfigureWorkers.Add(1)
