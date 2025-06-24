@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -475,6 +476,10 @@ func (c *webcam) Properties(ctx context.Context) (camera.Properties, error) {
 		MimeTypes:        []string{utils.MimeTypeJPEG, utils.MimeTypePNG, utils.MimeTypeRawRGBA},
 		FrameRate:        frameRate,
 	}, nil
+}
+
+func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return make([]spatialmath.Geometry, 0), nil
 }
 
 func (c *webcam) Close(ctx context.Context) error {

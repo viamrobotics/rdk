@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils/contextutils"
 )
 
@@ -348,6 +349,10 @@ func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.Err
 
 func (replay *pcdCamera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 	return nil, camera.ImageMetadata{}, errors.New("Image is unimplemented")
+}
+
+func (replay *pcdCamera) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return make([]spatialmath.Geometry, 0), nil
 }
 
 // Close stops replay camera, closes the channels and its connections to the cloud.

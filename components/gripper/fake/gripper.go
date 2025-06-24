@@ -109,6 +109,12 @@ func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error 
 	return nil
 }
 
+// IsHoldingSomething always returns a status in which the gripper is not holding something and
+// no additional information is supplied.
+func (g *Gripper) IsHoldingSomething(ctx context.Context, extra map[string]interface{}) (gripper.HoldingStatus, error) {
+	return gripper.HoldingStatus{}, nil
+}
+
 // IsMoving is always false for a fake gripper.
 func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil

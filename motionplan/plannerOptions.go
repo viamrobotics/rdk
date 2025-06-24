@@ -107,10 +107,7 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.InputIdentDist = defaultInputIdentDist
 	opt.IterBeforeRand = defaultIterBeforeRand
 
-	// Note the direct reference to a default here.
-	// This is due to a Go compiler issue where it will incorrectly refuse to compile with a circular reference error if this
-	// is placed in a global default var.
-	opt.PlannerConstructor = newCBiRRTMotionPlanner
+	opt.planningAlgorithm = CBiRRT
 
 	opt.SmoothIter = defaultSmoothIter
 
@@ -190,7 +187,7 @@ type plannerOptions struct {
 	// profile is the string representing the motion profile
 	profile string
 
-	PlannerConstructor plannerConstructor
+	planningAlgorithm PlanningAlgorithm
 
 	Fallback *plannerOptions
 

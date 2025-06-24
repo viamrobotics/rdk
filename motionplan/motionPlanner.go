@@ -40,8 +40,6 @@ type motionPlanner interface {
 	sample(node, int) (node, error)
 }
 
-type plannerConstructor func(referenceframe.FrameSystem, *rand.Rand, logging.Logger, *plannerOptions) (motionPlanner, error)
-
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
 	Logger logging.Logger

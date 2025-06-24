@@ -54,7 +54,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	opt := newBasicPlannerOptions()
 	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
-	opt.PlannerConstructor = newTPSpaceMotionPlanner
+	opt.planningAlgorithm = TPSpace
 
 	opt.fillMotionChains(fs, goal)
 
@@ -135,7 +135,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	opt := newBasicPlannerOptions()
 	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.GoalThreshold = 5
-	opt.PlannerConstructor = newTPSpaceMotionPlanner
+	opt.planningAlgorithm = TPSpace
 	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
 	opt.fillMotionChains(fs, goal)
 
@@ -226,7 +226,7 @@ func TestTPsmoothing(t *testing.T) {
 	opt := newBasicPlannerOptions()
 	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
-	opt.PlannerConstructor = newTPSpaceMotionPlanner
+	opt.planningAlgorithm = TPSpace
 
 	// Needed to determine motion chains
 	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 6500, Y: 0, Z: 0})

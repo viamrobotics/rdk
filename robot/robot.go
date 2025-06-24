@@ -173,7 +173,7 @@ type LocalRobot interface {
 	WebAddress() (string, error)
 
 	// ModuleAddress returns the address (path) of the unix socket modules use to contact the parent.
-	ModuleAddress() (string, error)
+	ModuleAddresses() (config.ParentSockAddrs, error)
 
 	// ExportResourcesAsDot exports the resource graph as a DOT representation for
 	// visualization.

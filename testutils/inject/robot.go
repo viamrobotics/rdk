@@ -46,7 +46,7 @@ type Robot struct {
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
-	ModuleAddressFunc       func() (string, error)
+	ModuleAddressesFunc     func() (config.ParentSockAddrs, error)
 	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
 	MachineStatusFunc       func(ctx context.Context) (robot.MachineStatus, error)
 	ShutdownFunc            func(ctx context.Context) error
@@ -256,14 +256,14 @@ func (r *Robot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointC
 	return r.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
 }
 
-// ModuleAddress calls the injected ModuleAddress or the real one.
-func (r *Robot) ModuleAddress() (string, error) {
+// ModuleAddresses calls the injected ModuleAddresses or the real one.
+func (r *Robot) ModuleAddresses() (config.ParentSockAddrs, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
-	if r.ModuleAddressFunc == nil {
-		return r.LocalRobot.ModuleAddress()
+	if r.ModuleAddressesFunc == nil {
+		return r.LocalRobot.ModuleAddresses()
 	}
-	return r.ModuleAddressFunc()
+	return r.ModuleAddressesFunc()
 }
 
 // CloudMetadata calls the injected CloudMetadata or the real one.

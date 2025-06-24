@@ -41,7 +41,7 @@ var viamDotDir = filepath.Join(rutils.PlatformHomeDir(), ".viam")
 // Arguments for the command.
 type Arguments struct {
 	AllowInsecureCreds         bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
-	ConfigFile                 string `flag:"config,usage=robot config file"`
+	ConfigFile                 string `flag:"config,usage=machine configuration file"`
 	CPUProfile                 string `flag:"cpuprofile,usage=write cpu profile to file"`
 	Debug                      bool   `flag:"debug"`
 	SharedDir                  string `flag:"shareddir,usage=web resource directory"`
@@ -391,6 +391,14 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 			// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
 			if !diff.LogEqual {
 				s.logger.Debug("Detected potential changes to log patterns; updating logger levels")
+
+				// TODO(RSDK-10723): Remove this WARN log, and mutate the config to reconfigure
+				// all appropriate modular resources at this point.
+				s.logger.Warn(
+					"Changes to 'log' field will not affect modular logs. " +
+						"Use 'log_level' in module config or 'log_configuration' in resource config instead",
+				)
+
 				config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
 			}
 
