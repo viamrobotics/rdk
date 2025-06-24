@@ -98,7 +98,7 @@ func TestModule(t *testing.T) {
 	err := svc.StartModule(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn1, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(), logger)
+	conn1, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddresses().UnixAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1, err := arm.NewClientFromConn(context.Background(), conn1, "", arm.Named(arm1String), logger)
@@ -1424,7 +1424,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 				return robot.MachineStatus{}, nil
 			}
 
-			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(),
+			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddresses().UnixAddr,
 				logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
@@ -1455,7 +1455,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 				return robot.MachineStatus{}, nil
 			}
 
-			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(),
+			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddresses().UnixAddr,
 				logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
@@ -1529,4 +1529,61 @@ func signJWKBasedExternalAccessToken(
 	}
 
 	return token.SignedString(key)
+}
+
+func TestPerRequestFTDC(t *testing.T) {
+	// This test creates a robot with a resource running with a web service. It will then assert
+	// that making gRPC requests will increment counters output by the `RequestCounter`s `Stats`
+	// call.
+	logger := logging.NewTestLogger(t)
+	ctx, injectRobot := setupRobotCtx(t)
+	defer injectRobot.Close(ctx)
+
+	svc := web.New(injectRobot, logger)
+	defer svc.Stop()
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Dial to the robot and create a gRPC client object to the "arm" specifically.
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(conn.Close)
+	armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+	//nolint
+	defer armClient.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Making a gRPC `EndPosition` call with the default inject method returns a success.
+	_, err = armClient.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// We can assert that there are two counters in our stats. THe fact that `GetEndPosition` was
+	// called once and we hence spent (negligible) time in that RPC call.
+	stats := svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, len(stats), test.ShouldEqual, 2)
+	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 1)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
+
+	// Get a handle on the inject arm resource.
+	injectArmRes, err := injectRobot.ResourceByName(arm.Named(arm1String))
+	test.That(t, err, test.ShouldBeNil)
+	injectArm := injectArmRes.(*inject.Arm)
+	// Mutate the arm to have its `EndPosition` RPC call return an error.
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+		return nil, errors.New("error")
+	}
+
+	// Try calling `EndPosition` again. Assert it returned an error.
+	_, err = armClient.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Now observe that we called `GetEndPosition` a second time. And one of the responses returned
+	// an error.
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, len(stats), test.ShouldEqual, 3)
+	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 2)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
+	test.That(t, stats["arm1.ArmService/GetEndPosition.errorCnt"], test.ShouldEqual, 1)
 }

@@ -275,8 +275,8 @@ func (r *localRobot) WebAddress() (string, error) {
 }
 
 // ModuleAddress return the module service's address.
-func (r *localRobot) ModuleAddress() (string, error) {
-	return r.webSvc.ModuleAddress(), nil
+func (r *localRobot) ModuleAddresses() (config.ParentSockAddrs, error) {
+	return r.webSvc.ModuleAddresses(), nil
 }
 
 func (r *localRobot) sendTriggerConfig(caller string) {
@@ -500,7 +500,7 @@ func newWithResources(
 	// Once web service is started, start module manager
 	if err := r.manager.startModuleManager(
 		closeCtx,
-		r.webSvc.ModuleAddress(),
+		r.webSvc.ModuleAddresses(),
 		r.removeOrphanedResources,
 		cfg.UntrustedEnv,
 		homeDir,
@@ -947,12 +947,20 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			err = res.Reconfigure(ctx, deps, conf)
 		}
 		if err != nil {
-			r.Logger().CErrorw(
-				ctx,
-				"failed to reconfigure resource during weak/optional dependencies update",
-				"resource", resName,
-				"error", err,
-			)
+			if resource.IsMustRebuildError(err) {
+				r.Logger().CErrorw(
+					ctx,
+					"non-modular resource uses weak/optional dependencies but is missing a Reconfigure method",
+					"resource", resName,
+				)
+			} else {
+				r.Logger().CErrorw(
+					ctx,
+					"failed to reconfigure resource during weak/optional dependencies update",
+					"resource", resName,
+					"error", err,
+				)
+			}
 		}
 	}
 

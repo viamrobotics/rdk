@@ -65,7 +65,7 @@ func (m *module) dial() error {
 	var err error
 	addrToDial := m.addr
 	if !rutils.TCPRegex.MatchString(addrToDial) {
-		addrToDial = "unix://" + addrToDial
+		addrToDial = "unix:" + addrToDial
 	}
 	conn, err := grpc.Dial( //nolint:staticcheck
 		addrToDial,
@@ -149,6 +149,12 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 	}
 }
 
+// returns true if this module should be run in TCP mode.
+// (based on either global setting or per-module setting).
+func (m *module) tcpMode() bool {
+	return rutils.ViamTCPSockets() || m.cfg.TCPMode
+}
+
 func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
@@ -158,7 +164,8 @@ func (m *module) startProcess(
 ) error {
 	var err error
 
-	if rutils.ViamTCPSockets() {
+	tcpMode := m.tcpMode()
+	if tcpMode {
 		if addr, err := getAutomaticPort(); err != nil {
 			return err
 		} else { //nolint:revive
@@ -219,6 +226,10 @@ func (m *module) startProcess(
 		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, m.cfg.LogLevel))
 	} else if m.logger.Level().Enabled(zapcore.DebugLevel) {
 		pconf.Args = append(pconf.Args, fmt.Sprintf(logLevelArgumentTemplate, "debug"))
+	}
+
+	if tcpMode {
+		pconf.Args = append(pconf.Args, "--tcp-mode")
 	}
 
 	m.process = pexec.NewManagedProcess(pconf, m.logger)

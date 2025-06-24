@@ -898,7 +898,8 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 		ExePath: path,
 	}
 
-	mgr, err := modmanager.NewManager(context.Background(), parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	parentAddrs := modconfig.ParentSockAddrs{UnixAddr: parentAddr}
+	mgr, err := modmanager.NewManager(context.Background(), parentAddrs, logger, modmanageroptions.Options{UntrustedEnv: false})
 	if err != nil {
 		return nil, err
 	}

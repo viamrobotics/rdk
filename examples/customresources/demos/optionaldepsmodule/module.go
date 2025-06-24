@@ -1,6 +1,7 @@
 // Package main is a module that utilizes both required and optional implicit
 // dependencies. It serves a generic component that has a required dependency on one motor
-// and an optional dependency on another motor.
+// and an optional dependency on another motor. It also serves a generic component that
+// exhibits optional dependency cycles.
 package main
 
 import (
@@ -15,25 +16,32 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var model = resource.NewModel("acme", "demo", "foo")
+var (
+	fooModel = resource.NewModel("acme", "demo", "foo")
+	mocModel = resource.NewModel("acme", "demo", "moc" /* "mutual optional child" */)
+)
 
 func main() {
-	resource.RegisterComponent(generic.API, model, resource.Registration[resource.Resource, *FooConfig]{
+	resource.RegisterComponent(generic.API, fooModel, resource.Registration[resource.Resource, *FooConfig]{
 		Constructor: newFoo,
 	})
+	resource.RegisterComponent(generic.API, mocModel, resource.Registration[resource.Resource, *MutualOptionalChildConfig]{
+		Constructor: newMutualOptionalChild,
+	})
 
-	module.ModularMain(resource.APIModel{generic.API, model})
+	module.ModularMain(resource.APIModel{generic.API, fooModel},
+		resource.APIModel{generic.API, mocModel})
 }
 
-// FooConfig contains a required and optional motor that the component will
-// necessarily and optionally depend upon.
+// FooConfig contains a required and optional motor that the component will necessarily
+// and optionally depend upon respectively.
 type FooConfig struct {
 	RequiredMotor string `json:"required_motor"`
 	OptionalMotor string `json:"optional_motor"`
 }
 
-// Validate validates the config and returns a required dependency on
-// `required_motor` and an optional dependency on `optional_motor`.
+// Validate validates the config and returns a required dependency on `required_motor` and
+// an optional dependency on `optional_motor`.
 func (fCfg *FooConfig) Validate(path string) ([]string, []string, error) {
 	var requiredDeps, optionalDeps []string
 
@@ -53,6 +61,7 @@ func (fCfg *FooConfig) Validate(path string) ([]string, []string, error) {
 type foo struct {
 	resource.Named
 	resource.TriviallyCloseable
+
 	logger logging.Logger
 
 	requiredMotor motor.Motor
@@ -136,3 +145,91 @@ func (f *foo) DoCommand(ctx context.Context, req map[string]any) (map[string]any
 	// The command must've been something else (unrecognized).
 	return nil, fmt.Errorf("unknown command string %s", cmd)
 }
+
+// MutualOptionalChildConfig contains _another_ MOC that this MOC will optionally depend
+// upon.
+type MutualOptionalChildConfig struct {
+	OtherMOC string `json:"other_moc"`
+}
+
+// Validate validates the config and returns an optional dependency on `other_moc`.
+//
+//nolint:unparam
+func (mocCfg *MutualOptionalChildConfig) Validate(path string) ([]string, []string, error) {
+	if mocCfg.OtherMOC == "" {
+		return nil, nil,
+			fmt.Errorf(`expected "other_moc" attribute for MOC %q`, path)
+	}
+	return nil, []string{mocCfg.OtherMOC}, nil
+}
+
+type mutualOptionalChild struct {
+	resource.Named
+	resource.TriviallyCloseable
+	resource.AlwaysRebuild
+
+	logger logging.Logger
+
+	otherMOC resource.Resource
+}
+
+func newMutualOptionalChild(ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+	logger logging.Logger,
+) (resource.Resource, error) {
+	moc := &mutualOptionalChild{
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+	}
+
+	mutualOptionalChildConfig, err := resource.NativeConfig[*MutualOptionalChildConfig](conf)
+	if err != nil {
+		return nil, err
+	}
+
+	moc.otherMOC, err = generic.FromDependencies(deps, mutualOptionalChildConfig.OtherMOC)
+	if err != nil {
+		moc.logger.Infof("could not get other MOC %s from dependencies; continuing",
+			mutualOptionalChildConfig.OtherMOC)
+	}
+
+	return moc, nil
+}
+
+// DoCommand is the only method of this component.
+func (moc *mutualOptionalChild) DoCommand(ctx context.Context, req map[string]any) (map[string]any, error) {
+	cmd, ok := req["command"]
+	if !ok {
+		return nil, errors.New("missing 'command' string")
+	}
+
+	// "other_moc_state" will check the state of the required motor.
+	if cmd == "other_moc_state" {
+		if moc.otherMOC == nil {
+			return map[string]any{"other_moc_state": "unset"}, nil
+		}
+
+		resp, err := moc.otherMOC.DoCommand(ctx, map[string]any{"command": "query"})
+		if err != nil {
+			return map[string]any{"other_moc_state": "unreachable"}, nil //nolint:nilerr
+		}
+
+		if _, exists := resp["usable"]; exists {
+			return map[string]any{"other_moc_state": "usable"}, nil
+		}
+		return map[string]any{"other_moc_state": "unusable"}, nil
+	}
+
+	// "query" will respond with {"usable": nil}
+	if cmd == "query" {
+		return map[string]any{"usable": nil}, nil
+	}
+
+	// The command must've been something else (unrecognized).
+	return nil, fmt.Errorf("unknown command string %s", cmd)
+}
+
+// `moc` is notably missing a `Reconfigure` method. Modular resources with optional
+// dependencies should be able to leverage optional dependencies even as "always rebuild"
+// resources.

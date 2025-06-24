@@ -173,10 +173,10 @@ func TestModuleFunctions(t *testing.T) {
 	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	parentAddr, err := myRobot.ModuleAddress()
+	parentAddrs, err := myRobot.ModuleAddresses()
 	test.That(t, err, test.ShouldBeNil)
 
-	addr := filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), "mod.sock"))
+	addr := filepath.ToSlash(filepath.Join(filepath.Dir(parentAddrs.UnixAddr), "mod.sock"))
 	m, err := module.NewModule(ctx, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -198,13 +198,13 @@ func TestModuleFunctions(t *testing.T) {
 
 	m.SetReady(false)
 
-	resp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddr})
+	resp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddrs.UnixAddr})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Ready, test.ShouldBeFalse)
 
 	m.SetReady(true)
 
-	resp, err = client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddr})
+	resp, err = client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddrs.UnixAddr})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Ready, test.ShouldBeTrue)
 
@@ -432,10 +432,10 @@ func TestAttributeConversion(t *testing.T) {
 		myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, nil, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		parentAddr, err := myRobot.ModuleAddress()
+		parentAddrs, err := myRobot.ModuleAddresses()
 		test.That(t, err, test.ShouldBeNil)
 
-		addr := filepath.ToSlash(filepath.Join(filepath.Dir(parentAddr), "mod.sock"))
+		addr := filepath.ToSlash(filepath.Join(filepath.Dir(parentAddrs.UnixAddr), "mod.sock"))
 		m, err := module.NewModule(ctx, addr, logger)
 		test.That(t, err, test.ShouldBeNil)
 		model := resource.NewModel("inject", "demo", "shell")
@@ -487,7 +487,7 @@ func TestAttributeConversion(t *testing.T) {
 
 		client := pb.NewModuleServiceClient(conn)
 		m.SetReady(true)
-		readyResp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddr})
+		readyResp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddrs.UnixAddr})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readyResp.Ready, test.ShouldBeTrue)
 
