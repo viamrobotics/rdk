@@ -28,7 +28,7 @@ type CandidateServerReflexiveConfig struct {
 }
 
 // NewCandidateServerReflexive creates a new server reflective candidate
-func NewCandidateServerReflexive(config *CandidateServerReflexiveConfig, logger logging.LeveledLogger) (*CandidateServerReflexive, error) {
+func NewCandidateServerReflexive(config *CandidateServerReflexiveConfig, agentPtr *Agent, logger logging.LeveledLogger) (*CandidateServerReflexive, error) {
 	ip := net.ParseIP(config.Address)
 	if ip == nil {
 		return nil, ErrAddressParseFailed
@@ -62,6 +62,5 @@ func NewCandidateServerReflexive(config *CandidateServerReflexiveConfig, logger 
 			remoteCandidateCaches: map[AddrPort]Candidate{},
 		},
 	}
-	go c.LogBandwidth(logger)
 	return c, nil
 }

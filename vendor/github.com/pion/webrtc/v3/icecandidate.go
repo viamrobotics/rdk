@@ -84,7 +84,7 @@ func (c ICECandidate) toICE() (ice.Candidate, error) {
 			Foundation:  c.Foundation,
 			Priority:    c.Priority,
 		}
-		return ice.NewCandidateHost(&config, nil)
+		return ice.NewCandidateHost(&config, nil, nil)
 	case ICECandidateTypeSrflx:
 		config := ice.CandidateServerReflexiveConfig{
 			CandidateID: candidateID,
@@ -97,7 +97,7 @@ func (c ICECandidate) toICE() (ice.Candidate, error) {
 			RelAddr:     c.RelatedAddress,
 			RelPort:     int(c.RelatedPort),
 		}
-		return ice.NewCandidateServerReflexive(&config, nil)
+		return ice.NewCandidateServerReflexive(&config, nil, nil)
 	case ICECandidateTypePrflx:
 		config := ice.CandidatePeerReflexiveConfig{
 			CandidateID: candidateID,
@@ -110,7 +110,7 @@ func (c ICECandidate) toICE() (ice.Candidate, error) {
 			RelAddr:     c.RelatedAddress,
 			RelPort:     int(c.RelatedPort),
 		}
-		return ice.NewCandidatePeerReflexive(&config, nil)
+		return ice.NewCandidatePeerReflexive(&config, nil, nil)
 	case ICECandidateTypeRelay:
 		config := ice.CandidateRelayConfig{
 			CandidateID: candidateID,
@@ -123,7 +123,7 @@ func (c ICECandidate) toICE() (ice.Candidate, error) {
 			RelAddr:     c.RelatedAddress,
 			RelPort:     int(c.RelatedPort),
 		}
-		return ice.NewCandidateRelay(&config, nil)
+		return ice.NewCandidateRelay(&config, nil, nil)
 	default:
 		return nil, fmt.Errorf("%w: %s", errICECandidateTypeUnknown, c.Typ)
 	}

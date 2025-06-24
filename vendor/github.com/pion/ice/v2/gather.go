@@ -228,7 +228,7 @@ func (a *Agent) gatherCandidatesLocal(ctx context.Context, networkTypes []Networ
 					TCPType:   tcpType,
 				}
 
-				c, err := NewCandidateHost(&hostConfig, a.loggerFactory.NewLogger("bandwidth"))
+				c, err := NewCandidateHost(&hostConfig, a, a.loggerFactory.NewLogger("bandwidth"))
 				if err != nil {
 					closeConnAndLog(connAndPort.conn, a.log, "failed to create host candidate: %s %s %d: %v", network, mappedIP, connAndPort.port, err)
 					continue
@@ -296,7 +296,7 @@ func (a *Agent) gatherCandidatesLocalUDPMux(ctx context.Context) error { //nolin
 			return err
 		}
 
-		c, err := NewCandidateHost(&hostConfig, a.loggerFactory.NewLogger("ice"))
+		c, err := NewCandidateHost(&hostConfig, a, a.loggerFactory.NewLogger("ice"))
 		if err != nil {
 			closeConnAndLog(conn, a.log, "failed to create host mux candidate: %s %d: %v", candidateIP, udpAddr.Port, err)
 			continue
@@ -357,7 +357,7 @@ func (a *Agent) gatherCandidatesSrflxMapped(ctx context.Context, networkTypes []
 				RelAddr:   lAddr.IP.String(),
 				RelPort:   lAddr.Port,
 			}
-			c, err := NewCandidateServerReflexive(&srflxConfig, a.loggerFactory.NewLogger("bandwidth"))
+			c, err := NewCandidateServerReflexive(&srflxConfig, a, a.loggerFactory.NewLogger("bandwidth"))
 			if err != nil {
 				closeConnAndLog(conn, a.log, "failed to create server reflexive candidate: %s %s %d: %v",
 					network,
@@ -427,7 +427,7 @@ func (a *Agent) gatherCandidatesSrflxUDPMux(ctx context.Context, urls []*stun.UR
 						RelAddr:   localAddr.IP.String(),
 						RelPort:   localAddr.Port,
 					}
-					c, err := NewCandidateServerReflexive(&srflxConfig, a.loggerFactory.NewLogger("bandwidth"))
+					c, err := NewCandidateServerReflexive(&srflxConfig, a, a.loggerFactory.NewLogger("bandwidth"))
 					if err != nil {
 						closeConnAndLog(conn, a.log, "failed to create server reflexive candidate: %s %s %d: %v", network, ip, port, err)
 						return
@@ -502,7 +502,7 @@ func (a *Agent) gatherCandidatesSrflx(ctx context.Context, urls []*stun.URI, net
 					RelAddr:   lAddr.IP.String(),
 					RelPort:   lAddr.Port,
 				}
-				c, err := NewCandidateServerReflexive(&srflxConfig, a.loggerFactory.NewLogger("bandwidth"))
+				c, err := NewCandidateServerReflexive(&srflxConfig, a, a.loggerFactory.NewLogger("bandwidth"))
 				if err != nil {
 					closeConnAndLog(conn, a.log, "failed to create server reflexive candidate: %s %s %d: %v", network, ip, port, err)
 					return
@@ -698,7 +698,7 @@ func (a *Agent) gatherCandidatesRelay(ctx context.Context, urls []*stun.URI) { /
 					a.log.Warnf("Failed to close relay %v", relayConErr)
 				}
 			}
-			candidate, err := NewCandidateRelay(&relayConfig, a.loggerFactory.NewLogger("bandwidth"))
+			candidate, err := NewCandidateRelay(&relayConfig, a, a.loggerFactory.NewLogger("bandwidth"))
 			if err != nil {
 				relayConnClose()
 

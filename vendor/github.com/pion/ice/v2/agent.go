@@ -499,6 +499,9 @@ func (a *Agent) updateConnectionState(newState ConnectionState) {
 		// Connection has gone to failed, release all gathered candidates
 		if newState == ConnectionStateFailed {
 			a.removeUfragFromMux()
+			for _, cp := range a.checklist {
+				cp.stillRunning.Store(false)
+			}
 			a.checklist = make([]*CandidatePair, 0)
 			a.pendingBindingRequests = make([]bindingRequest, 0)
 			a.setSelectedPair(nil)
@@ -549,6 +552,7 @@ func (a *Agent) pingAllCandidates() {
 		if p.bindingRequestCount > a.maxBindingRequests {
 			a.log.Tracef("Maximum requests reached for pair %s, marking it as failed", p)
 			p.state = CandidatePairStateFailed
+			p.stillRunning.Store(false)
 		} else {
 			a.selector.PingCandidate(p.Local, p.Remote)
 			p.bindingRequestCount++
@@ -589,7 +593,7 @@ func (a *Agent) getBestValidCandidatePair() *CandidatePair {
 }
 
 func (a *Agent) addPair(local, remote Candidate) *CandidatePair {
-	p := newCandidatePair(local, remote, a.isControlling, a.log)
+	p := newCandidatePair(local, remote, a.isControlling, a, a.log)
 	a.checklist = append(a.checklist, p)
 	return p
 }
@@ -755,7 +759,7 @@ func (a *Agent) addRemotePassiveTCPCandidate(remoteCandidate Candidate) {
 			Port:      tcpAddr.Port,
 			Component: ComponentRTP,
 			TCPType:   TCPTypeActive,
-		}, a.loggerFactory.NewLogger("bandwidth"))
+		}, a, a.loggerFactory.NewLogger("bandwidth"))
 		if err != nil {
 			closeConnAndLog(conn, a.log, "Failed to create Active ICE-TCP Candidate: %v", err)
 			continue
@@ -928,6 +932,10 @@ func (a *Agent) GracefulClose() error {
 }
 
 func (a *Agent) close(graceful bool) error {
+	fmt.Printf("Agent Closed: %p\n", a)
+	for _, cp := range a.checklist {
+		cp.stillRunning.Store(false)
+	}
 	if err := a.ok(); err != nil {
 		if errors.Is(err, ErrClosed) {
 			return nil
@@ -1138,7 +1146,7 @@ func (a *Agent) handleInbound(m *stun.Message, local Candidate, remote net.Addr)
 				RelPort:   0,
 			}
 
-			prflxCandidate, err := NewCandidatePeerReflexive(&prflxCandidateConfig, a.loggerFactory.NewLogger("bandwidth"))
+			prflxCandidate, err := NewCandidatePeerReflexive(&prflxCandidateConfig, a, a.loggerFactory.NewLogger("bandwidth"))
 			if err != nil {
 				a.log.Errorf("Failed to create new remote prflx candidate (%s)", err)
 				return
@@ -1267,6 +1275,9 @@ func (a *Agent) Restart(ufrag, pwd string) error {
 		agent.remoteUfrag = ""
 		agent.remotePwd = ""
 		a.gatheringState = GatheringStateNew
+		for _, cp := range a.checklist {
+			cp.stillRunning.Store(false)
+		}
 		a.checklist = make([]*CandidatePair, 0)
 		a.pendingBindingRequests = make([]bindingRequest, 0)
 		a.setSelectedPair(nil)

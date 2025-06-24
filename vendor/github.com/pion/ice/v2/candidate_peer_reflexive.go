@@ -31,7 +31,7 @@ type CandidatePeerReflexiveConfig struct {
 }
 
 // NewCandidatePeerReflexive creates a new peer reflective candidate
-func NewCandidatePeerReflexive(config *CandidatePeerReflexiveConfig, logger logging.LeveledLogger) (*CandidatePeerReflexive, error) {
+func NewCandidatePeerReflexive(config *CandidatePeerReflexiveConfig, agentPtr *Agent, logger logging.LeveledLogger) (*CandidatePeerReflexive, error) {
 	ip := net.ParseIP(config.Address)
 	if ip == nil {
 		return nil, ErrAddressParseFailed
@@ -65,6 +65,5 @@ func NewCandidatePeerReflexive(config *CandidatePeerReflexiveConfig, logger logg
 			remoteCandidateCaches: map[AddrPort]Candidate{},
 		},
 	}
-	go c.LogBandwidth(logger)
 	return c, nil
 }

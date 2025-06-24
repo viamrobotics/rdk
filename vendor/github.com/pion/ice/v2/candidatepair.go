@@ -12,21 +12,23 @@ import (
 	"github.com/pion/stun"
 )
 
-func newCandidatePair(local, remote Candidate, controlling bool, logger logging.LeveledLogger) *CandidatePair {
+func newCandidatePair(local, remote Candidate, controlling bool, agentPtr *Agent, logger logging.LeveledLogger) *CandidatePair {
 	ret := &CandidatePair{
 		iceRoleControlling: controlling,
 		Remote:             remote,
 		Local:              local,
 		state:              CandidatePairStateWaiting,
 	}
-	go logSize(ret, logger)
+	ret.stillRunning.Store(true)
+	go logSize(ret, agentPtr, logger)
 	return ret
 }
 
-func logSize(cp *CandidatePair, logger logging.LeveledLogger) {
-	for {
+func logSize(cp *CandidatePair, agentPtr *Agent, logger logging.LeveledLogger) {
+	for cp.stillRunning.Load() {
 		time.Sleep(5 * time.Second)
-		fmt.Printf("Candidate pair bandwidth log. From: %v:%d To: %v:%d Nominated: %v Bytes: %v\n",
+		fmt.Printf("Candidate pair bandwidth log. Agent: %p From: %v:%d To: %v:%d Nominated: %v Bytes: %v\n",
+			agentPtr,
 			cp.Local.Address(), cp.Local.Port(),
 			cp.Remote.Address(), cp.Remote.Port(),
 			cp.nominated, cp.bytesSent.Load())
@@ -44,6 +46,7 @@ type CandidatePair struct {
 	nominated                bool
 	nominateOnBindingSuccess bool
 	bytesSent                atomic.Int64
+	stillRunning             atomic.Bool
 }
 
 func (p *CandidatePair) String() string {

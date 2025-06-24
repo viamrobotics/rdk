@@ -49,13 +49,19 @@ type candidateBase struct {
 	bytesReceived atomic.Int64
 }
 
-func (c *candidateBase) LogBandwidth(logger logging.LeveledLogger) {
+func (c *candidateBase) LogBandwidth(agentPtr *Agent, logger logging.LeveledLogger) {
 	if logger != nil {
 		go func() {
-			for {
+			for c.Err() == nil {
+				select {
+				case <-c.Done():
+					break
+				default:
+				}
+
 				time.Sleep(5 * time.Second)
-				fmt.Printf("Candidate bandwidth log. Addr: %v:%d BytesReceived: %v BytesSent: %v\n",
-					c.address, c.port, c.bytesReceived.Load(), c.bytesSent.Load())
+				fmt.Printf("Candidate bandwidth log. Agent: %p Addr: %v:%d BytesReceived: %v BytesSent: %v\n",
+					agentPtr, c.address, c.port, c.bytesReceived.Load(), c.bytesSent.Load())
 			}
 		}()
 	}
@@ -232,6 +238,7 @@ func (c *candidateBase) start(a *Agent, conn net.PacketConn, initializedCh <-cha
 	c.closeCh = make(chan struct{})
 	c.closedCh = make(chan struct{})
 
+	go c.LogBandwidth(a, a.log)
 	go c.recvLoop(initializedCh)
 }
 
@@ -584,13 +591,13 @@ func UnmarshalCandidate(raw string) (Candidate, error) {
 
 	switch typ {
 	case "host":
-		return NewCandidateHost(&CandidateHostConfig{"", protocol, address, port, component, priority, foundation, tcpType}, nil)
+		return NewCandidateHost(&CandidateHostConfig{"", protocol, address, port, component, priority, foundation, tcpType}, nil, nil)
 	case "srflx":
-		return NewCandidateServerReflexive(&CandidateServerReflexiveConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort}, nil)
+		return NewCandidateServerReflexive(&CandidateServerReflexiveConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort}, nil, nil)
 	case "prflx":
-		return NewCandidatePeerReflexive(&CandidatePeerReflexiveConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort}, nil)
+		return NewCandidatePeerReflexive(&CandidatePeerReflexiveConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort}, nil, nil)
 	case "relay":
-		return NewCandidateRelay(&CandidateRelayConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort, "", nil}, nil)
+		return NewCandidateRelay(&CandidateRelayConfig{"", protocol, address, port, component, priority, foundation, relatedAddress, relatedPort, "", nil}, nil, nil)
 	default:
 	}
 

@@ -33,7 +33,7 @@ type CandidateRelayConfig struct {
 }
 
 // NewCandidateRelay creates a new relay candidate
-func NewCandidateRelay(config *CandidateRelayConfig, logger logging.LeveledLogger) (*CandidateRelay, error) {
+func NewCandidateRelay(config *CandidateRelayConfig, agentPtr *Agent, logger logging.LeveledLogger) (*CandidateRelay, error) {
 	candidateID := config.CandidateID
 
 	if candidateID == "" {
@@ -70,7 +70,6 @@ func NewCandidateRelay(config *CandidateRelayConfig, logger logging.LeveledLogge
 		relayProtocol: config.RelayProtocol,
 		onClose:       config.OnClose,
 	}
-	go c.LogBandwidth(logger)
 	return c, nil
 }
 

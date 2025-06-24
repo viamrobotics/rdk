@@ -19,7 +19,7 @@ func newHostRemote(t *testing.T) *CandidateHost {
 		Port:      12350,
 		Component: 1,
 	}
-	hostRemote, err := NewCandidateHost(remoteHostConfig, nil)
+	hostRemote, err := NewCandidateHost(remoteHostConfig, nil, nil)
 	require.NoError(t, err)
 	return hostRemote
 }
@@ -33,7 +33,7 @@ func newPrflxRemote(t *testing.T) *CandidatePeerReflexive {
 		RelAddr:   "4.3.2.1",
 		RelPort:   43211,
 	}
-	prflxRemote, err := NewCandidatePeerReflexive(prflxConfig, nil)
+	prflxRemote, err := NewCandidatePeerReflexive(prflxConfig, nil, nil)
 	require.NoError(t, err)
 	return prflxRemote
 }
@@ -47,7 +47,7 @@ func newSrflxRemote(t *testing.T) *CandidateServerReflexive {
 		RelAddr:   "4.3.2.1",
 		RelPort:   43212,
 	}
-	srflxRemote, err := NewCandidateServerReflexive(srflxConfig, nil)
+	srflxRemote, err := NewCandidateServerReflexive(srflxConfig, nil, nil)
 	require.NoError(t, err)
 	return srflxRemote
 }
@@ -61,7 +61,7 @@ func newRelayRemote(t *testing.T) *CandidateRelay {
 		RelAddr:   "4.3.2.1",
 		RelPort:   43210,
 	}
-	relayRemote, err := NewCandidateRelay(relayConfig, nil)
+	relayRemote, err := NewCandidateRelay(relayConfig, nil, nil)
 	require.NoError(t, err)
 	return relayRemote
 }
@@ -73,7 +73,7 @@ func newHostLocal(t *testing.T) *CandidateHost {
 		Port:      19216,
 		Component: 1,
 	}
-	hostLocal, err := NewCandidateHost(localHostConfig, nil)
+	hostLocal, err := NewCandidateHost(localHostConfig, nil, nil)
 	require.NoError(t, err)
 	return hostLocal
 }
