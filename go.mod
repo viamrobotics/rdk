@@ -64,7 +64,7 @@ require (
 	github.com/pion/mediadevices v0.6.4
 	github.com/pion/rtp v1.8.7
 	github.com/pion/stun v0.6.1
-	github.com/prometheus/procfs v0.16.1
+	github.com/prometheus/procfs v0.15.1
 	github.com/rhysd/actionlint v1.6.24
 	github.com/rs/cors v1.11.1
 	github.com/sergi/go-diff v1.3.1

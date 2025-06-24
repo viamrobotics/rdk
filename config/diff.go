@@ -537,8 +537,5 @@ func diffLogCfg(left, right *Config, servicesDifferent, componentsDifferent bool
 
 // diffJobCfg checks the equality of two job configs.
 func diffJobCfg(left, right *Config) bool {
-	if !reflect.DeepEqual(left.Jobs, right.Jobs) {
-		return true
-	}
-	return false
+	return !reflect.DeepEqual(left.Jobs, right.Jobs)
 }

@@ -157,6 +157,27 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		return err
 	}
 
+	// Validate the jobs and check the uniqueness of job names.
+	seenJobs := make(map[string]bool)
+	for idx := 0; idx < len(c.Jobs); idx++ {
+		jobName := fmt.Sprintf("jobs.%d.%s", idx, c.Jobs[idx].Name)
+		if err := c.Jobs[idx].Validate(fmt.Sprintf("%s.%d", "jobs", idx)); err != nil {
+			fullErr := errors.Errorf("error validating jobs config %s", err)
+			if c.DisablePartialStart {
+				return fullErr
+			}
+			logger.Errorw("jobs config error; starting robot without job", "name", jobName, "error", err)
+		}
+		if _, exists := seenJobs[jobName]; exists {
+			errString := errors.Errorf("duplicate job %s in robot config", jobName)
+			if c.DisablePartialStart {
+				return errString
+			}
+			logger.Error(errString)
+		}
+		seenJobs[jobName] = true
+	}
+
 	for idx := 0; idx < len(c.Modules); idx++ {
 		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
 			if c.DisablePartialStart {
@@ -253,19 +274,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			logger.Errorw("package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err)
 		}
 		if err := c.validateUniqueResource(logger, seenResources, c.Packages[idx].Package); err != nil {
-			return err
-		}
-	}
-
-	for idx := 0; idx < len(c.Jobs); idx++ {
-		if err := c.Jobs[idx].Validate(fmt.Sprintf("%s.%d", "jobs", idx)); err != nil {
-			fullErr := errors.Errorf("error validating jobs config %s", err)
-			if c.DisablePartialStart {
-				return fullErr
-			}
-			logger.Errorw("jobs config error; starting robot without package", "name", c.Jobs[idx].Name, "error", err)
-		}
-		if err := c.validateUniqueResource(logger, seenResources, c.Jobs[idx].Name); err != nil {
 			return err
 		}
 	}
@@ -1330,7 +1338,7 @@ func (jc *JobConfig) Validate(path string) error {
 		return resource.NewConfigValidationFieldRequiredError(path, "schedule")
 	}
 	// Assuming the schedule is the harder part of the JobConfig to get right,
-	// it's parsed here as either Golang's time.Duration or a valid crontab.
+	// it's parsed here as either Golang's time.Duration or a valid cron expression.
 	// If both cases fail, an error is returned right away, rather than waiting
 	// for the JobManager to report an error.
 	_, err := time.ParseDuration(jc.Schedule)
@@ -1340,7 +1348,7 @@ func (jc *JobConfig) Validate(path string) error {
 			// If both parsing attempts fail, return an error.
 			return resource.NewConfigValidationError(path,
 				errors.New(
-					"Invalid schedule format, expected a golang duration string or a valid crontab"))
+					"Invalid schedule format, expected a golang duration string or a valid cron expression"))
 		}
 	}
 

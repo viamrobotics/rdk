@@ -1102,7 +1102,7 @@ func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
 	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
 }
 
-func TestJobsConfigToProto(t *testing.T) {
+func TestJobsConfigProtoConversions(t *testing.T) {
 	testJobConfigNoCommand := JobConfig{
 		JobConfigData{
 			Name:     "test",

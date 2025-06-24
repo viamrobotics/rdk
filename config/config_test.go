@@ -1213,7 +1213,7 @@ func TestJobsConfig(t *testing.T) {
 		{
 			config: config.JobConfig{
 				config.JobConfigData{
-					Name:     "my_package",
+					Name:     "missing resource",
 					Method:   "my_method",
 					Schedule: "5s",
 				},
@@ -1233,7 +1233,7 @@ func TestJobsConfig(t *testing.T) {
 		{
 			config: config.JobConfig{
 				config.JobConfigData{
-					Name:     "my_name",
+					Name:     "missing method",
 					Schedule: "5s",
 					Resource: "my_resource",
 				},
@@ -1243,7 +1243,7 @@ func TestJobsConfig(t *testing.T) {
 		{
 			config: config.JobConfig{
 				config.JobConfigData{
-					Name:     "my_name",
+					Name:     "missing schedule",
 					Method:   "my_method",
 					Resource: "my_resource",
 				},
@@ -1253,7 +1253,7 @@ func TestJobsConfig(t *testing.T) {
 		{
 			config: config.JobConfig{
 				config.JobConfigData{
-					Name:     "my_name",
+					Name:     "too many cron fields",
 					Schedule: "* 0 * * * * * *",
 					Method:   "my_method",
 					Resource: "my_resource",
@@ -1264,7 +1264,7 @@ func TestJobsConfig(t *testing.T) {
 		{
 			config: config.JobConfig{
 				config.JobConfigData{
-					Name:     "my_name",
+					Name:     "invalid schedule",
 					Schedule: "Invalid duration",
 					Method:   "my_method",
 					Resource: "my_resource",
@@ -1275,7 +1275,7 @@ func TestJobsConfig(t *testing.T) {
 		{
 			config: config.JobConfig{
 				config.JobConfigData{
-					Name:     "my_name",
+					Name:     "too few cron fields",
 					Schedule: "0 0 * *",
 					Method:   "my_method",
 					Resource: "my_resource",
@@ -1286,7 +1286,7 @@ func TestJobsConfig(t *testing.T) {
 		{
 			config: config.JobConfig{
 				config.JobConfigData{
-					Name:     "my_name",
+					Name:     "schedule in the past",
 					Schedule: "0 0 * * * 2",
 					Method:   "my_method",
 					Resource: "my_resource",
@@ -1323,6 +1323,18 @@ func TestJobsConfig(t *testing.T) {
 		err := jt.config.Validate("")
 		if jt.shouldFailValidation {
 			test.That(t, err, test.ShouldBeError)
+			switch jt.config.Name {
+			case "missing resource":
+				test.That(t, err.Error(), test.ShouldContainSubstring, "resource")
+			case "":
+				test.That(t, err.Error(), test.ShouldContainSubstring, "name")
+			case "missing method":
+				test.That(t, err.Error(), test.ShouldContainSubstring, "method")
+			case "missing schedule":
+				test.That(t, err.Error(), test.ShouldContainSubstring, "schedule")
+			case "too many cron fields", "too few cron fields", "invalid schedule", "schedule in the past":
+				test.That(t, err.Error(), test.ShouldContainSubstring, "Invalid schedule format")
+			}
 			continue
 		}
 		test.That(t, err, test.ShouldBeNil)
