@@ -1205,6 +1205,144 @@ func TestPackageConfig(t *testing.T) {
 	}
 }
 
+func TestJobsConfig(t *testing.T) {
+	invSched := "Invalid schedule format, expected a golang duration string or a valid cron expression"
+	errString := func(field string) string {
+		return fmt.Sprintf("Error validating, missing required field. Field: %q", field)
+	}
+	jobsTests := []struct {
+		config               config.JobConfig
+		shouldFailValidation bool
+		expRespErr           string
+	}{
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "missing resource",
+					Method:   "my_method",
+					Schedule: "5s",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           errString("resource"),
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Method:   "my_method",
+					Schedule: "5s",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           errString("name"),
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "missing method",
+					Schedule: "5s",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           errString("method"),
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "missing schedule",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           errString("schedule"),
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "too many cron fields",
+					Schedule: "* 0 * * * * * *",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           invSched,
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "invalid schedule",
+					Schedule: "Invalid duration",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           invSched,
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "too few cron fields",
+					Schedule: "0 0 * *",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           invSched,
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "schedule in the past",
+					Schedule: "0 0 * * * 2",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           invSched,
+		},
+
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "my_name",
+					Schedule: "0 0 * * *",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: false,
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "my_name",
+					Schedule: "1m",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: false,
+		},
+	}
+
+	for _, jt := range jobsTests {
+		err := jt.config.Validate("")
+		if jt.shouldFailValidation {
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldContainSubstring, jt.expRespErr)
+			continue
+		}
+		test.That(t, err, test.ShouldBeNil)
+	}
+}
+
 func TestConfigRobotWebProfile(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/config_with_web_profile.json", logger, nil)
@@ -1332,6 +1470,97 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 							{
 								Port: 23654,
 							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "jobs path",
+			c: config.Config{
+				Jobs: []config.JobConfig{
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "5s",
+							Resource: "my-resource",
+							Method:   "my-method",
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "* * * * *",
+							Resource: "my-resource",
+							Method:   "my-method",
+							Command: map[string]any{
+								"argument1": float64(12),
+								"argument2": false,
+							},
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "3h45m",
+							Resource: "my-resource",
+							Method:   "my-method",
+							Command: map[string]any{
+								"argument1": float64(12),
+								"argument2": "string",
+							},
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "30 5 10 7 2 Sun *",
+							Resource: "my-resource",
+							Method:   "my-method",
+						},
+					},
+				},
+			},
+			expected: config.Config{
+				Jobs: []config.JobConfig{
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "5s",
+							Resource: "my-resource",
+							Method:   "my-method",
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "* * * * *",
+							Resource: "my-resource",
+							Method:   "my-method",
+							Command: map[string]any{
+								"argument1": float64(12),
+								"argument2": false,
+							},
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "3h45m",
+							Resource: "my-resource",
+							Method:   "my-method",
+							Command: map[string]any{
+								"argument1": float64(12),
+								"argument2": "string",
+							},
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "30 5 10 7 2 Sun *",
+							Resource: "my-resource",
+							Method:   "my-method",
 						},
 					},
 				},
