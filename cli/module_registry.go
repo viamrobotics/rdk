@@ -74,11 +74,13 @@ type moduleID struct {
 	name   string
 }
 
+// MachinePickerCustomizations holds custom branding text for the machine picker UI.
 type MachinePickerCustomizations struct {
 	Heading    string `json:"heading,omitempty"`
 	Subheading string `json:"subheading,omitempty"`
 }
 
+// AppCustomizations holds customizations for different app UI components.
 type AppCustomizations struct {
 	MachinePicker *MachinePickerCustomizations `json:"machinePicker,omitempty"`
 }
