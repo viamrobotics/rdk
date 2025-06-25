@@ -79,9 +79,6 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 
 	// ==================================================
 
-	// fix variable names:
-	// get rid of the ps
-
 	// Proceed according to this math.stackexchange solution: https://math.stackexchange.com/a/2812513
 	// The stack solution has a sign error, which we correct
 	// These (ugly) variable names were chosen to match those in the stack exchange, for easy reference
