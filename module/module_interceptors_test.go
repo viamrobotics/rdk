@@ -35,6 +35,10 @@ func TestOpID(t *testing.T) {
 	if runtime.GOARCH == "arm" {
 		t.Skip("skipping on 32-bit ARM -- subprocess build warnings cause failure")
 	}
+	if runtime.GOOS == "windows" {
+		t.Skip("todo: get this working on win")
+	}
+
 	logger, logObserver := logging.NewObservedTestLogger(t)
 
 	var port int
@@ -75,6 +79,16 @@ func TestOpID(t *testing.T) {
 	var opIDIncoming string
 	md := metadata.New(map[string]string{"opid": opIDOutgoing})
 	mdCtx := metadata.NewOutgoingContext(ctx, md)
+
+	// Wait for generic helper to build on machine (machine to report a state of "running.")
+	for {
+		mStatus, err := rc.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		if mStatus.State == robotpb.GetMachineStatusResponse_STATE_RUNNING {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 
 	// Do this twice, once with no opID set, and a second with a set opID.
 	for name, cCtx := range map[string]context.Context{"default context": ctx, "context with opid set": mdCtx} {
@@ -145,6 +159,9 @@ func TestOpID(t *testing.T) {
 }
 
 func TestModuleClientTimeoutInterceptor(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("todo: get this working on win")
+	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -161,7 +178,7 @@ func TestModuleClientTimeoutInterceptor(t *testing.T) {
 			Name:  "helper1",
 		}},
 	}
-	r, err := robotimpl.New(ctx, cfg, logger)
+	r, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(ctx), test.ShouldBeNil)

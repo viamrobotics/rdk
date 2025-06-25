@@ -1,12 +1,13 @@
 package utils
 
 import (
+	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
 
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
 
@@ -43,7 +44,23 @@ func RemoveFileNoError(path string) {
 func SafeJoinDir(parent, subdir string) (string, error) {
 	res := filepath.Join(parent, subdir)
 	if !strings.HasPrefix(filepath.Clean(res), filepath.Clean(parent)+string(os.PathSeparator)) {
-		return res, errors.Errorf("unsafe path join: '%s' with '%s'", parent, subdir)
+		return res, fmt.Errorf("unsafe path join: '%s' with '%s'", parent, subdir)
 	}
 	return res, nil
+}
+
+// ExpandHomeDir expands "~/x/y" to use homedir.
+func ExpandHomeDir(path string) (string, error) {
+	// note: do not simplify this logic unless you are testing cross platform.
+	// Windows supports both kinds of slash, we don't want to only test for "\\" on win.
+	if path == "~" ||
+		strings.HasPrefix(path, "~/") ||
+		(runtime.GOOS == "windows" && strings.HasPrefix(path, "~\\")) {
+		usr, err := user.Current()
+		if err != nil {
+			return "", fmt.Errorf("expanding home dir: %w", err)
+		}
+		return filepath.Join(usr.HomeDir, path[min(2, len(path)):]), nil
+	}
+	return path, nil
 }

@@ -38,10 +38,14 @@ func init() {
 //
 // Sync example:
 //
+//	data, err := datamanager.FromRobot(machine, "my_data_manager")
 //	// Sync data stored on the machine to the cloud.
 //	err := data.Sync(context.Background(), nil)
 //
-// [data management service docs]: https://docs.viam.com/services/data/
+// For more information, see the [Sync method docs].
+//
+// [data management service docs]: https://docs.viam.com/data-ai/capture-data/capture-sync/
+// [Sync method docs]: https://docs.viam.com/dev/reference/apis/services/data/#sync
 type Service interface {
 	resource.Resource
 	// Sync will sync data stored on the machine to the cloud.
@@ -138,15 +142,15 @@ func (ac *AssociatedConfig) Link(conf *resource.Config) {
 
 // DataCaptureConfig is used to initialize a collector for a component or remote.
 type DataCaptureConfig struct {
-	Name               resource.Name     `json:"name"`
-	Method             string            `json:"method"`
-	CaptureFrequencyHz float32           `json:"capture_frequency_hz"`
-	CaptureQueueSize   int               `json:"capture_queue_size"`
-	CaptureBufferSize  int               `json:"capture_buffer_size"`
-	AdditionalParams   map[string]string `json:"additional_params"`
-	Disabled           bool              `json:"disabled"`
-	Tags               []string          `json:"tags,omitempty"`
-	CaptureDirectory   string            `json:"capture_directory"`
+	Name               resource.Name          `json:"name"`
+	Method             string                 `json:"method"`
+	CaptureFrequencyHz float32                `json:"capture_frequency_hz"`
+	CaptureQueueSize   int                    `json:"capture_queue_size"`
+	CaptureBufferSize  int                    `json:"capture_buffer_size"`
+	AdditionalParams   map[string]interface{} `json:"additional_params"`
+	Disabled           bool                   `json:"disabled"`
+	Tags               []string               `json:"tags,omitempty"`
+	CaptureDirectory   string                 `json:"capture_directory"`
 }
 
 // Equals checks if one capture config is equal to another.

@@ -37,25 +37,52 @@ func Build(prep Preprocessor, det Detector, post Postprocessor) (Detector, error
 // Detection returns a bounding box around the object and a confidence score of the detection.
 type Detection interface {
 	BoundingBox() *image.Rectangle
+	NormalizedBoundingBox() []float64
 	Score() float64
 	Label() string
 }
 
 // NewDetection creates a simple 2D detection.
-func NewDetection(boundingBox image.Rectangle, score float64, label string) Detection {
-	return &detection2D{boundingBox, score, label}
+func NewDetection(imageBounds, boundingBox image.Rectangle, score float64, label string) Detection {
+	normBbox := NewNormalizedBoundingBox(imageBounds, boundingBox)
+	return &detection2D{boundingBox, normBbox, score, label}
+}
+
+// NewDetectionWithoutImgBounds creates a simple 2D detection.
+func NewDetectionWithoutImgBounds(boundingBox image.Rectangle, score float64, label string) Detection {
+	return &detection2D{boundingBox, nil, score, label}
+}
+
+// NewNormalizedBoundingBox creates a normalized bounding box from the image bounds and the bounding box.
+// [xmin, ymin, xmax, ymax].
+func NewNormalizedBoundingBox(imageBounds, boundingBox image.Rectangle) []float64 {
+	if imageBounds.Max.X == 0 || imageBounds.Max.Y == 0 {
+		return nil
+	}
+	return []float64{
+		float64(boundingBox.Min.X) / float64(imageBounds.Max.X),
+		float64(boundingBox.Min.Y) / float64(imageBounds.Max.Y),
+		float64(boundingBox.Max.X) / float64(imageBounds.Max.X),
+		float64(boundingBox.Max.Y) / float64(imageBounds.Max.Y),
+	}
 }
 
 // detection2D is a simple struct for storing 2D detections.
 type detection2D struct {
-	boundingBox image.Rectangle
-	score       float64
-	label       string
+	boundingBox           image.Rectangle
+	normalizedBoundingBox []float64 // [xmin, ymin, xmax, ymax]
+	score                 float64
+	label                 string
 }
 
 // BoundingBox returns a bounding box around the detected object.
 func (d *detection2D) BoundingBox() *image.Rectangle {
 	return &d.boundingBox
+}
+
+// NormalizedBoundingBox returns a normalized bounding box around the detected object.
+func (d *detection2D) NormalizedBoundingBox() []float64 {
+	return d.normalizedBoundingBox
 }
 
 // Score returns a confidence score of the detection between 0.0 and 1.0.

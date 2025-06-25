@@ -13,9 +13,12 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config/testutils"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 )
 
 func TestFromReader(t *testing.T) {
@@ -65,8 +68,11 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, protoConfig, certProto)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
-		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
+		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
 
 		expectedCloud := *cloudResponse
@@ -114,8 +120,11 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, nil, nil)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
-		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
+		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
 
 		expectedCloud := *cachedCloud
@@ -153,8 +162,11 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, protoConfig, certProto)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
-		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger)
+		gotCfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
 		test.That(t, err, test.ShouldBeNil)
 
 		expectedCloud := *cloudResponse
@@ -175,7 +187,7 @@ func TestFromReader(t *testing.T) {
 func TestStoreToCache(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger)
+	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger, nil)
 
 	test.That(t, err, test.ShouldBeNil)
 
@@ -195,6 +207,10 @@ func TestStoreToCache(t *testing.T) {
 	}
 	cfg.Cloud = cloud
 
+	appConn, err := grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer appConn.Close()
+
 	// errors if no unprocessed config to cache
 	cfgToCache := &Config{Cloud: &Cloud{ID: "forCachingTest"}}
 	err = cfgToCache.StoreToCache()
@@ -206,7 +222,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// read config from cloud, confirm consistency
-	cloudCfg, err := readFromCloud(ctx, cfg, nil, true, false, logger)
+	cloudCfg, err := readFromCloud(ctx, cfg, nil, true, false, logger, appConn)
 	test.That(t, err, test.ShouldBeNil)
 	cloudCfg.toCache = nil
 	test.That(t, cloudCfg, test.ShouldResemble, cfg)
@@ -216,7 +232,7 @@ func TestStoreToCache(t *testing.T) {
 	cfg.Remotes = append(cfg.Remotes, newRemote)
 
 	// read config from cloud again, confirm that the cached config differs from cfg
-	cloudCfg2, err := readFromCloud(ctx, cfg, nil, true, false, logger)
+	cloudCfg2, err := readFromCloud(ctx, cfg, nil, true, false, logger, appConn)
 	test.That(t, err, test.ShouldBeNil)
 	cloudCfg2.toCache = nil
 	test.That(t, cloudCfg2, test.ShouldNotResemble, cfgToCache)
@@ -229,7 +245,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, cfg.Ensure(true, logger), test.ShouldBeNil)
 
 	// read updated cloud config, confirm that it now matches our updated cfg
-	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, false, logger)
+	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, false, logger, appConn)
 	test.That(t, err, test.ShouldBeNil)
 	cloudCfg3.toCache = nil
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
@@ -301,7 +317,7 @@ func TestProcessConfig(t *testing.T) {
 func TestReadTLSFromCache(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger)
+	cfg, err := FromReader(ctx, "", strings.NewReader(`{}`), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	robotPartID := "forCachingTest"
@@ -392,5 +408,101 @@ func TestReadTLSFromCache(t *testing.T) {
 		tls := tlsConfig{}
 		err = tls.readFromCache(robotPartID, logger)
 		test.That(t, err, test.ShouldBeNil)
+	})
+}
+
+func TestAdditionalModuleEnvVars(t *testing.T) {
+	t.Run("empty", func(t *testing.T) {
+		expected := map[string]string{}
+		observed := additionalModuleEnvVars(nil, AuthConfig{})
+		test.That(t, observed, test.ShouldResemble, expected)
+	})
+
+	cloud1 := Cloud{
+		ID:           "test",
+		LocationID:   "the-location",
+		PrimaryOrgID: "the-primary-org",
+		MachineID:    "the-machine",
+	}
+	t.Run("cloud", func(t *testing.T) {
+		expected := map[string]string{
+			utils.MachinePartIDEnvVar: cloud1.ID,
+			utils.MachineIDEnvVar:     cloud1.MachineID,
+			utils.MachineFQDNEnvVar:   cloud1.FQDN,
+			utils.PrimaryOrgIDEnvVar:  cloud1.PrimaryOrgID,
+			utils.LocationIDEnvVar:    cloud1.LocationID,
+		}
+		observed := additionalModuleEnvVars(&cloud1, AuthConfig{})
+		test.That(t, observed, test.ShouldResemble, expected)
+	})
+
+	authWithExternalCreds := AuthConfig{
+		Handlers: []AuthHandlerConfig{{Type: rpc.CredentialsTypeExternal}},
+	}
+
+	t.Run("auth with external creds", func(t *testing.T) {
+		expected := map[string]string{}
+		observed := additionalModuleEnvVars(nil, authWithExternalCreds)
+		test.That(t, observed, test.ShouldResemble, expected)
+	})
+	apiKeyID := "abc"
+	apiKey := "def"
+	authWithAPIKeyCreds := AuthConfig{
+		Handlers: []AuthHandlerConfig{{Type: rpc.CredentialsTypeAPIKey, Config: utils.AttributeMap{
+			apiKeyID: apiKey,
+			"keys":   []string{apiKeyID},
+		}}},
+	}
+
+	t.Run("auth with api key creds", func(t *testing.T) {
+		expected := map[string]string{
+			utils.APIKeyEnvVar:   apiKey,
+			utils.APIKeyIDEnvVar: apiKeyID,
+		}
+		observed := additionalModuleEnvVars(nil, authWithAPIKeyCreds)
+		test.That(t, observed, test.ShouldResemble, expected)
+	})
+
+	apiKeyID2 := "uvw"
+	apiKey2 := "xyz"
+	order1 := AuthConfig{
+		Handlers: []AuthHandlerConfig{{Type: rpc.CredentialsTypeAPIKey, Config: utils.AttributeMap{
+			apiKeyID:  apiKey,
+			apiKeyID2: apiKey2,
+			"keys":    []string{apiKeyID, apiKeyID2},
+		}}},
+	}
+	order2 := AuthConfig{
+		Handlers: []AuthHandlerConfig{{Type: rpc.CredentialsTypeAPIKey, Config: utils.AttributeMap{
+			apiKeyID2: apiKey2,
+			apiKeyID:  apiKey,
+			"keys":    []string{apiKeyID, apiKeyID2},
+		}}},
+	}
+
+	t.Run("auth with keys in different order are stable", func(t *testing.T) {
+		expected := map[string]string{
+			utils.APIKeyEnvVar:   apiKey,
+			utils.APIKeyIDEnvVar: apiKeyID,
+		}
+		observed := additionalModuleEnvVars(nil, order1)
+		test.That(t, observed, test.ShouldResemble, expected)
+
+		observed = additionalModuleEnvVars(nil, order2)
+		test.That(t, observed, test.ShouldResemble, expected)
+	})
+
+	t.Run("full", func(t *testing.T) {
+		expected := map[string]string{
+			utils.MachineFQDNEnvVar:   cloud1.FQDN,
+			utils.MachinePartIDEnvVar: cloud1.ID,
+			utils.MachineIDEnvVar:     cloud1.MachineID,
+			utils.PrimaryOrgIDEnvVar:  cloud1.PrimaryOrgID,
+			utils.LocationIDEnvVar:    cloud1.LocationID,
+			utils.APIKeyEnvVar:        apiKey,
+			utils.APIKeyIDEnvVar:      apiKeyID,
+		}
+		observed := additionalModuleEnvVars(&cloud1, authWithAPIKeyCreds)
+		test.That(t, observed, test.ShouldResemble, expected)
 	})
 }

@@ -9,7 +9,6 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
@@ -28,7 +27,7 @@ type classifierConfig struct {
 
 // classifierSource takes an image from the camera, and overlays labels from the classifier.
 type classifierSource struct {
-	stream             gostream.VideoStream
+	src                camera.VideoSource
 	classifierName     string
 	maxClassifications uint32
 	labelFilter        classification.Postprocessor
@@ -38,8 +37,8 @@ type classifierSource struct {
 
 func newClassificationsTransform(
 	ctx context.Context,
-	source gostream.VideoSource, r robot.Robot, am utils.AttributeMap,
-) (gostream.VideoSource, camera.ImageType, error) {
+	source camera.VideoSource, r robot.Robot, am utils.AttributeMap,
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*classifierConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -66,7 +65,7 @@ func newClassificationsTransform(
 		maxClassifications = conf.MaxClassifications
 	}
 	classifier := &classifierSource{
-		gostream.NewEmbeddedVideoStream(source),
+		source,
 		conf.ClassifierName,
 		maxClassifications,
 		labelFilter,
@@ -92,7 +91,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, errors.Wrap(err, "source_classifier can't find vision service")
 	}
 	// get image from source camera
-	img, release, err := cs.stream.Next(ctx)
+	img, release, err := camera.ReadImage(ctx, cs.src)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get next source image")
 	}
@@ -111,5 +110,5 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 }
 
 func (cs *classifierSource) Close(ctx context.Context) error {
-	return cs.stream.Close(ctx)
+	return nil
 }

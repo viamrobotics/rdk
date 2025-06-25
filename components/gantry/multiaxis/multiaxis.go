@@ -38,15 +38,15 @@ type multiAxis struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if len(conf.SubAxes) == 0 {
-		return nil, resource.NewConfigValidationError(path, errors.New("need at least one axis"))
+		return nil, nil, resource.NewConfigValidationError(path, errors.New("need at least one axis"))
 	}
 
 	deps = append(deps, conf.SubAxes...)
-	return deps, nil
+	return deps, nil, nil
 }
 
 func init() {
@@ -229,6 +229,21 @@ func (g *multiAxis) IsMoving(ctx context.Context) (bool, error) {
 	return g.opMgr.OpRunning(), nil
 }
 
+func (g *multiAxis) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	if g.model == nil {
+		model := referenceframe.NewSimpleModel("")
+		for _, subAx := range g.subAxes {
+			k, err := subAx.Kinematics(ctx)
+			if err != nil {
+				return nil, err
+			}
+			model.OrdTransforms = append(model.OrdTransforms, k)
+		}
+		g.model = model
+	}
+	return g.model, nil
+}
+
 // CurrentInputs returns the current inputs of the Gantry frame.
 func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	if len(g.subAxes) == 0 {
@@ -240,16 +255,4 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	}
 
 	return referenceframe.FloatsToInputs(positions), nil
-}
-
-// ModelFrame returns the frame model of the Gantry.
-func (g *multiAxis) ModelFrame() referenceframe.Model {
-	if g.model == nil {
-		model := referenceframe.NewSimpleModel("")
-		for _, subAx := range g.subAxes {
-			model.OrdTransforms = append(model.OrdTransforms, subAx.ModelFrame())
-		}
-		g.model = model
-	}
-	return g.model
 }

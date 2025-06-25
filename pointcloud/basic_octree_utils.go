@@ -7,16 +7,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-// emptyProb is assigned to nodes who have no value specified.
-const emptyProb = math.MinInt
-
 // Creates a new LeafNodeEmpty.
 func newLeafNodeEmpty() basicOctreeNode {
 	octNode := basicOctreeNode{
 		children: nil,
 		nodeType: leafNodeEmpty,
 		point:    nil,
-		maxVal:   emptyProb,
+		maxVal:   defaultConfidenceThreshold,
 	}
 	return octNode
 }
@@ -27,7 +24,7 @@ func newInternalNode(tree []*BasicOctree) basicOctreeNode {
 		children: tree,
 		nodeType: internalNode,
 		point:    nil,
-		maxVal:   emptyProb,
+		maxVal:   defaultConfidenceThreshold,
 	}
 	return octNode
 }
@@ -52,7 +49,8 @@ func getRawVal(d Data) int {
 	} else if d.HasValue() {
 		return d.Value()
 	}
-	return emptyProb
+	// in the absence of value information, set to defaultConfidenceThreshold to ensure it is considered for collision
+	return defaultConfidenceThreshold
 }
 
 // Splits a basic octree into multiple octants and will place any stored point in appropriate child
@@ -79,11 +77,12 @@ func (octree *BasicOctree) splitIntoOctants() error {
 
 					// Create a new basic octree child
 					child := &BasicOctree{
-						center:     newCenter,
-						sideLength: newSideLength,
-						size:       0,
-						node:       newLeafNodeEmpty(),
-						meta:       NewMetaData(),
+						center:              newCenter,
+						sideLength:          newSideLength,
+						size:                0,
+						node:                newLeafNodeEmpty(),
+						meta:                NewMetaData(),
+						confidenceThreshold: octree.confidenceThreshold,
 					}
 					children = append(children, child)
 				}
@@ -191,20 +190,6 @@ func (octree *BasicOctree) helperIterate(lowerBound, upperBound, idx int, fn fun
 	}
 
 	return ok
-}
-
-// Helper function for calculating the center of a pointcloud based on its metadata.
-func getCenterFromPcMetaData(meta MetaData) r3.Vector {
-	return r3.Vector{
-		X: (meta.MaxX + meta.MinX) / 2,
-		Y: (meta.MaxY + meta.MinY) / 2,
-		Z: (meta.MaxZ + meta.MinZ) / 2,
-	}
-}
-
-// Helper function for calculating the max side length of a pointcloud based on its metadata.
-func getMaxSideLengthFromPcMetaData(meta MetaData) float64 {
-	return math.Max((meta.MaxX - meta.MinX), math.Max((meta.MaxY-meta.MinY), (meta.MaxZ-meta.MinZ)))
 }
 
 func pointsAlmostEqualEpsilon(v, ov r3.Vector, epsilon float64) bool {

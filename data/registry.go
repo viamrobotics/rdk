@@ -19,17 +19,18 @@ type CollectorConstructor func(resource interface{}, params CollectorParams) (Co
 
 // CollectorParams contain the parameters needed to construct a Collector.
 type CollectorParams struct {
-	MongoCollection *mongo.Collection
+	BufferSize      int
+	Clock           clock.Clock
 	ComponentName   string
 	ComponentType   string
-	MethodName      string
+	DataType        CaptureType
 	Interval        time.Duration
-	MethodParams    map[string]*anypb.Any
-	Target          CaptureBufferedWriter
-	QueueSize       int
-	BufferSize      int
 	Logger          logging.Logger
-	Clock           clock.Clock
+	MethodName      string
+	MethodParams    map[string]*anypb.Any
+	MongoCollection *mongo.Collection
+	QueueSize       int
+	Target          CaptureBufferedWriter
 }
 
 // Validate validates that p contains all required parameters.
@@ -42,6 +43,9 @@ func (p CollectorParams) Validate() error {
 	}
 	if p.ComponentName == "" {
 		return errors.New("missing required parameter component name")
+	}
+	if p.DataType != CaptureTypeBinary && p.DataType != CaptureTypeTabular {
+		return errors.New("invalid DataType")
 	}
 	return nil
 }

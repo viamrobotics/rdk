@@ -37,6 +37,7 @@ type ErCCLConfig struct {
 	AngleTolerance       float64   `json:"ground_angle_tolerance_degs"`
 	ClusteringRadius     int       `json:"clustering_radius"`
 	ClusteringStrictness float64   `json:"clustering_strictness"`
+	DefaultCamera        string    `json:"camera_name"`
 }
 
 type node struct {
@@ -129,7 +130,7 @@ func NewERCCLClustering(params utils.AttributeMap) (Segmenter, error) {
 }
 
 // ErCCLAlgorithm applies the connected components clustering algorithm to a VideoSource.
-func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+func (erCCL *ErCCLConfig) ErCCLAlgorithm(ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
 	// get next point cloud
 	cloud, err := src.NextPointCloud(ctx)
 	if err != nil {
@@ -186,7 +187,7 @@ func ApplyERCCLToPointCloud(ctx context.Context, cloud pc.PointCloud, cfg *ErCCL
 		}
 		_, ok := segments[labelMap[i][j].label]
 		if !ok {
-			segments[labelMap[i][j].label] = pc.New()
+			segments[labelMap[i][j].label] = pc.NewBasicEmpty()
 		}
 		err := segments[labelMap[i][j].label].Set(p, d)
 		if err != nil {
@@ -241,6 +242,8 @@ func pcProjection(cloud pc.PointCloud, s float64, heightIsY bool) [][]node {
 	if !heightIsY {
 		w = int(math.Ceil((cloud.MetaData().MaxY-cloud.MetaData().MinY)/s)) + 1
 	}
+	h = max(0, h)
+	w = max(0, w)
 	retVal := make([][]node, h)
 	for i := range retVal {
 		retVal[i] = make([]node, w)

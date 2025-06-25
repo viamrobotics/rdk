@@ -27,7 +27,7 @@ do_piOS(){
 	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
 	# Install most things
-	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev ffmpeg libjpeg62-turbo-dev
+	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev
 
 	# Install Gostream dependencies
 	sudo apt-get install -y --no-install-recommends libopus-dev libx11-dev libxext-dev libopusfile-dev
@@ -165,7 +165,6 @@ do_brew(){
 	brew "pkg-config"
 	brew "nlopt-static"
 	brew "x264", args: ["build-from-source"]
-	brew "jpeg-turbo"
 	brew "ffmpeg"
 	brew "licensefinder"
 	brew "opus"

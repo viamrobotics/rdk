@@ -180,6 +180,8 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 				s.fileTracker,
 				config.CaptureDir,
 				config.DeleteEveryNthWhenDiskFull,
+				config.DiskUsageDeletionThreshold,
+				config.CaptureDirDeletionThreshold,
 				s.clock,
 				s.logger,
 			)
@@ -288,8 +290,6 @@ func (s *Sync) runCloudConnManager(
 	}
 	// we wait until the connecivity manager is cancelled
 	<-ctx.Done()
-	// at which point we close the connetion
-	goutils.UncheckedError(s.cloudConn.conn.Close())
 }
 
 func newCloudConn(
@@ -337,14 +337,14 @@ func (s *Sync) runWorker(config Config) {
 func (s *Sync) syncFile(config Config, filePath string) {
 	// don't sync in progress files
 	if filepath.Ext(filePath) == data.InProgressCaptureFileExt {
-		s.logger.Warn("ignoreing request to sync in progress capture file: %s", filePath)
+		s.logger.Warnf("ignoreing request to sync in progress capture file: %s", filePath)
 		return
 	}
 
 	// If the file is already being synced, do not kick off a new goroutine.
 	// The goroutine will again check and return early if sync is already in progress.
 	if !s.fileTracker.markInProgress(filePath) {
-		s.logger.Warn("ignoreing request to sync file which sync is already working on %s", filePath)
+		s.logger.Warnf("ignoreing request to sync file which sync is already working on %s", filePath)
 		return
 	}
 	defer s.fileTracker.unmarkInProgress(filePath)
@@ -588,7 +588,7 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 				dirPath := filepath.Dir(path)
 				if !loggedDirPaths[dirPath] {
 					loggedDirPaths[dirPath] = true
-					s.logger.Infof("syncing from subdirectory: %s", dirPath)
+					s.logger.Debugf("syncing from subdirectory: %s", dirPath)
 				}
 				s.sendToSync(ctx, path)
 			}

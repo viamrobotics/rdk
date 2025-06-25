@@ -39,9 +39,9 @@ func TestMoveOnMap(t *testing.T) {
 	}
 
 	t.Run("Timeout", func(t *testing.T) {
-		cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger)
+		cfg, err := config.Read(ctx, "../data/real_wheeled_base.json", logger, nil)
 		test.That(t, err, test.ShouldBeNil)
-		myRobot, err := robotimpl.New(ctx, cfg, logger)
+		myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, myRobot.Close(context.Background()), test.ShouldBeNil)
@@ -257,8 +257,10 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		currentInputs := map[string][]referenceframe.Input{
-			mr.kinematicBase.Kinematics().Name(): {
+		k, err := mr.kinematicBase.Kinematics(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		currentInputs := referenceframe.FrameSystemInputs{
+			k.Name(): {
 				{Value: 0}, // ptg index
 				{Value: 0}, // trajectory alpha within ptg
 				{Value: 0}, // start distance along trajectory index
@@ -286,7 +288,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(baseExecutionState)
+		augmentedBaseExecutionState, err := mr.augmentBaseExecutionState(ctx, baseExecutionState)
 		test.That(t, err, test.ShouldBeNil)
 
 		wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)

@@ -92,13 +92,18 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 		return nil, err
 	}
 	// TODO: this is really hacky and we should figure out a better place to store this information
-	if len(mr.kinematicBase.Kinematics().DoF()) == 2 {
+	k, err := mr.kinematicBase.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(k.DoF()) == 2 {
 		inputs = inputs[:2]
 	}
-	mr.planRequest.StartConfiguration = map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): inputs}
+	startConf := referenceframe.FrameSystemInputs{k.Name(): inputs}
+	mr.planRequest.StartState = motionplan.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
 
 	// get existing elements of the worldstate
-	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(mr.planRequest.FrameSystem, mr.planRequest.StartConfiguration)
+	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(mr.planRequest.FrameSystem, startConf)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +152,7 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 	// If our motion profile is position_only then, we only check against our current & desired position
 	// Conversely if our motion profile is anything else, then we also need to check again our
 	// current & desired orientation
-	if resp := mr.atGoalCheck(mr.planRequest.StartPose); resp {
+	if resp := mr.atGoalCheck(mr.planRequest.StartState.Poses()[mr.kinematicBase.Name().ShortName()].Pose()); resp {
 		mr.logger.Info("no need to move, already within planDeviationMM of the goal")
 		return state.ExecuteResponse{Replan: false}, nil
 	}
@@ -189,7 +194,11 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Pla
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
-	errorState, err := motionplan.CalculateFrameErrorState(executionState, mr.kinematicBase.Kinematics(), mr.kinematicBase.LocalizationFrame())
+	k, err := mr.kinematicBase.Kinematics(ctx)
+	if err != nil {
+		return state.ExecuteResponse{}, err
+	}
+	errorState, err := motionplan.CalculateFrameErrorState(executionState, k, mr.kinematicBase.LocalizationFrame())
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
@@ -228,7 +237,11 @@ func (mr *moveRequest) getTransientDetections(
 	if err != nil {
 		return nil, err
 	}
-	kbInputs := make([]referenceframe.Input, len(mr.kinematicBase.Kinematics().DoF()))
+	k, err := mr.kinematicBase.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
+	kbInputs := make([]referenceframe.Input, len(k.DoF()))
 	kbInputs = append(kbInputs, referenceframe.PoseToInputs(
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose(),
 	)...)
@@ -284,7 +297,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	// we need the original input to place that thing in its original position
 	// hence, cached CurrentInputs from the start are used i.e. mr.planRequest.StartConfiguration
 	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(
-		mr.planRequest.FrameSystem, mr.planRequest.StartConfiguration,
+		mr.planRequest.FrameSystem, mr.planRequest.StartState.Configuration(),
 	)
 	if err != nil {
 		return state.ExecuteResponse{}, err
@@ -319,21 +332,25 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 			// TODO(pl): in the case where we have e.g. an arm (not moving) mounted on a base, we should be passing its current
 			// configuration rather than the zero inputs
 			updatedBaseExecutionState := baseExecutionState
-			_, ok := mr.kinematicBase.Kinematics().(tpspace.PTGProvider)
-			if ok {
-				updatedBaseExecutionState, err = mr.augmentBaseExecutionState(baseExecutionState)
+			k, err := mr.kinematicBase.Kinematics(ctx)
+			if err != nil {
+				return state.ExecuteResponse{}, err
+			}
+
+			if _, ok := k.(tpspace.PTGProvider); ok {
+				updatedBaseExecutionState, err = mr.augmentBaseExecutionState(ctx, baseExecutionState)
 				if err != nil {
 					return state.ExecuteResponse{}, err
 				}
 			}
 
 			mr.logger.CDebugf(ctx, "CheckPlan inputs: \n currentPosition: %v\n currentInputs: %v\n worldstate: %s",
-				spatialmath.PoseToProtobuf(updatedBaseExecutionState.CurrentPoses()[mr.kinematicBase.Kinematics().Name()].Pose()),
+				updatedBaseExecutionState.CurrentPoses()[k.Name()].Pose(),
 				updatedBaseExecutionState.CurrentInputs(),
 				worldState.String(),
 			)
 			if err := motionplan.CheckPlan(
-				mr.localizingFS.Frame(mr.kinematicBase.Kinematics().Name()), // frame we wish to check for collisions
+				mr.localizingFS.Frame(k.Name()), // frame we wish to check for collisions
 				updatedBaseExecutionState,
 				worldState, // detected obstacles by this instance of camera + service
 				mr.localizingFS,
@@ -358,8 +375,13 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 // We update the currentPoses so that it is now in the name of the wrapperFrame which shares its name with
 // mr.kinematicBase.Kinematics().
 func (mr *moveRequest) augmentBaseExecutionState(
+	ctx context.Context,
 	baseExecutionState motionplan.ExecutionState,
 ) (motionplan.ExecutionState, error) {
+	k, err := mr.kinematicBase.Kinematics(ctx)
+	if err != nil {
+		return motionplan.ExecutionState{}, err
+	}
 	// update plan
 	existingPlan := baseExecutionState.Plan()
 	newTrajectory := make(motionplan.Trajectory, 0, len(existingPlan.Trajectory()))
@@ -386,7 +408,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		// The exception to this is if we are at the index we are currently executing, then
 		// we will use the base's reported current position.
 
-		currPathStep := existingPlan.Path()[idx]
+		currFrameSystemPoses := existingPlan.Path()[idx]
 		kbTraj := currTraj[mr.kinematicBase.Name().Name]
 
 		// determine which pose should be used as the origin of a ptg input
@@ -394,8 +416,8 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		if idx == baseExecutionState.Index() {
 			prevPathPose = baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose()
 		} else {
-			kbPose := currPathStep[mr.kinematicBase.Kinematics().Name()]
-			trajPose, err := mr.kinematicBase.Kinematics().Transform(kbTraj)
+			kbPose := currFrameSystemPoses[k.Name()]
+			trajPose, err := k.Transform(kbTraj)
 			if err != nil {
 				return baseExecutionState, err
 			}
@@ -405,14 +427,14 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		updatedTraj := kbTraj
 		updatedTraj = append(updatedTraj, referenceframe.PoseToInputs(prevPathPose)...)
 		newTrajectory = append(
-			newTrajectory, map[string][]referenceframe.Input{mr.kinematicBase.Kinematics().Name(): updatedTraj},
+			newTrajectory, referenceframe.FrameSystemInputs{k.Name(): updatedTraj},
 		)
 	}
 	augmentedPlan := motionplan.NewSimplePlan(existingPlan.Path(), newTrajectory)
 
 	// update currentInputs
 	allCurrentInputsFromBaseExecutionState := baseExecutionState.CurrentInputs()
-	kinematicBaseCurrentInputs := allCurrentInputsFromBaseExecutionState[mr.kinematicBase.Kinematics().Name()]
+	kinematicBaseCurrentInputs := allCurrentInputsFromBaseExecutionState[k.Name()]
 	// The order of inputs here matters as we construct the inputs for our poseFrame.
 	// The poseFrame has DoF = 11.
 	// The first four inputs correspond to the executionFrame's (ptgFrame) inputs which are:
@@ -423,7 +445,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 		kinematicBaseCurrentInputs,
 		referenceframe.PoseToInputs(baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose())...,
 	)
-	allCurrentInputsFromBaseExecutionState[mr.kinematicBase.Kinematics().Name()] = kinematicBaseCurrentInputs
+	allCurrentInputsFromBaseExecutionState[k.Name()] = kinematicBaseCurrentInputs
 
 	// originally currenPoses are in the name of the localization frame
 	// here to transfer them to be in the name of the kinematics frame
@@ -762,12 +784,12 @@ func (ms *builtIn) newMoveOnMapRequest(
 		return nil, err
 	}
 	// store slam point cloud data  in the form of a recursive octree for collision checking
-	octree, err := pointcloud.ReadPCDToBasicOctree(bytes.NewReader(pointCloudData))
+	octree, err := pointcloud.ReadPCD(bytes.NewReader(pointCloudData), pointcloud.BasicOctreeType)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Obstacles = append(req.Obstacles, octree)
+	req.Obstacles = append(req.Obstacles, octree.(spatialmath.Geometry))
 
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
@@ -803,7 +825,10 @@ func (ms *builtIn) createBaseMoveRequest(
 	startPose := startPoseIF.Pose()
 
 	// replace original base frame with one that knows how to move itself and allow planning for
-	kinematicFrame := kb.Kinematics()
+	kinematicFrame, err := kb.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if err := fs.ReplaceFrame(kinematicFrame); err != nil {
 		// If the base frame is not in the frame system, add it to world. This will result in planning for a frame system containing
 		// only world and the base after the FrameSystemSubset.
@@ -847,7 +872,11 @@ func (ms *builtIn) createBaseMoveRequest(
 	// their absolute position in the world frame. The collision framesystem is used
 	// by CheckPlan so that we may solely rely on referenceframe.Input information
 	// to position ourselves correctly in the world.
-	executionFrame := kb.Kinematics()
+	executionFrame, err := kb.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	localizationFrame := kb.LocalizationFrame()
 	wf, err := newWrapperFrame(localizationFrame, executionFrame)
 	if err != nil {
@@ -913,19 +942,22 @@ func (ms *builtIn) createBaseMoveRequest(
 	}
 
 	var backgroundWorkers sync.WaitGroup
+	startState := motionplan.NewPlanState(
+		referenceframe.FrameSystemPoses{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose)},
+		currentInputs,
+	)
+	goals := []*motionplan.PlanState{motionplan.NewPlanState(referenceframe.FrameSystemPoses{kinematicFrame.Name(): goal}, nil)}
 
 	mr := &moveRequest{
 		config: motionCfg,
 		logger: ms.logger,
 		planRequest: &motionplan.PlanRequest{
-			Logger:             logger,
-			Goal:               goal,
-			Frame:              kinematicFrame,
-			FrameSystem:        planningFS,
-			StartConfiguration: currentInputs,
-			StartPose:          startPose,
-			WorldState:         worldState,
-			Options:            valExtra.extra,
+			Logger:      logger,
+			Goals:       goals,
+			FrameSystem: planningFS,
+			StartState:  startState,
+			WorldState:  worldState,
+			Options:     valExtra.extra,
 		},
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,

@@ -125,6 +125,9 @@ func ReadingGoToProto(readings map[string]interface{}) (map[string]*structpb.Val
 
 // ReadingProtoToGo converts proto readings to go readings.
 func ReadingProtoToGo(readings map[string]*structpb.Value) (map[string]interface{}, error) {
+	if readings == nil {
+		return nil, nil
+	}
 	m := map[string]interface{}{}
 	for k, v := range readings {
 		m[k] = cleanSensorType(v.AsInterface())

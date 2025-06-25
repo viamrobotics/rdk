@@ -28,6 +28,10 @@ type ServiceMap map[string]any
 
 // addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
 func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait bool) error {
+	args, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
 	partMap := part.RobotConfig.AsMap()
 	if _, ok := partMap["services"]; !ok {
 		partMap["services"] = make([]any, 0, 1)
@@ -36,7 +40,7 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 		func(raw any) (ServiceMap, error) { return ServiceMap(raw.(map[string]any)), nil },
 	)
 	if slices.ContainsFunc(services, func(service ServiceMap) bool { return service["type"] == "shell" }) {
-		debugf(c.App.Writer, c.Bool(debugFlag), "shell service found on target machine, not installing")
+		debugf(c.App.Writer, args.Debug, "shell service found on target machine, not installing")
 		return nil
 	}
 	services = append(services, ServiceMap{"name": "shell", "type": "shell"})
@@ -58,7 +62,7 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 	// If we don't wait, the reload command will usually fail on first run.
 	for i := 0; i < 11; i++ {
 		time.Sleep(time.Second)
-		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, c.Bool(debugFlag), logging.NewLogger("shellsvc"))
+		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, args.Debug, logging.NewLogger("shellsvc"))
 		if err == nil {
 			goutils.UncheckedError(closeClient(c.Context))
 			return nil
@@ -82,7 +86,7 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 }
 
 // configureModule is the configuration step of module reloading. Returns (needsRestart, error). Mutates part.RobotConfig.
-func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart) (bool, error) {
+func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart, local bool) (bool, error) {
 	if manifest == nil {
 		return false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
@@ -98,7 +102,7 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		return false, err
 	}
 
-	modules, dirty, err := mutateModuleConfig(c, modules, *manifest)
+	modules, dirty, err := mutateModuleConfig(c, modules, *manifest, local)
 	if err != nil {
 		return false, err
 	}
@@ -114,7 +118,11 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		return false, err
 	}
 	if dirty {
-		debugf(c.App.Writer, c.Bool(debugFlag), "writing back config changes")
+		args, err := getGlobalArgs(c)
+		if err != nil {
+			return false, err
+		}
+		debugf(c.App.Writer, args.Debug, "writing back config changes")
 		err = vc.updateRobotPart(part, partMap)
 		if err != nil {
 			return false, err
@@ -131,12 +139,16 @@ func localizeModuleID(moduleID string) string {
 }
 
 // mutateModuleConfig edits the modules list to hot-reload with the given manifest.
-func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleManifest) ([]ModuleMap, bool, error) {
+func mutateModuleConfig(
+	c *cli.Context,
+	modules []ModuleMap,
+	manifest moduleManifest,
+	local bool,
+) ([]ModuleMap, bool, error) {
 	var dirty bool
-	localName := localizeModuleID(manifest.ModuleID)
 	var foundMod ModuleMap
 	for _, mod := range modules {
-		if (mod["module_id"] == manifest.ModuleID) || (mod["name"] == localName) {
+		if mod["module_id"] == manifest.ModuleID {
 			foundMod = mod
 			break
 		}
@@ -144,7 +156,9 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 
 	var absEntrypoint string
 	var err error
-	if c.Bool(moduleFlagLocal) {
+	if local {
+		// This flag means that viam server is running on the same machine running the CLI
+		// Does not indicate module type (registry vs local)
 		absEntrypoint, err = filepath.Abs(manifest.Entrypoint)
 		if err != nil {
 			return nil, dirty, err
@@ -153,34 +167,52 @@ func mutateModuleConfig(c *cli.Context, modules []ModuleMap, manifest moduleMani
 		absEntrypoint = reloadingDestination(c, &manifest)
 	}
 
-	if foundMod == nil {
-		debugf(c.App.Writer, c.Bool(debugFlag), "module not found, inserting")
-		dirty = true
-		newMod := ModuleMap(map[string]any{
-			"name":            localName,
-			"executable_path": absEntrypoint,
-			"type":            string(rdkConfig.ModuleTypeLocal),
-		})
-		modules = append(modules, newMod)
-	} else {
-		if same, err := samePath(getMapString(foundMod, "executable_path"), absEntrypoint); err != nil {
-			debugf(c.App.Writer, c.Bool(debugFlag), "ExePath is right, doing nothing")
+	args, err := getGlobalArgs(c)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if foundMod != nil && getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
+		samePath, err := samePath(getMapString(foundMod, "reload_path"), absEntrypoint)
+		if err != nil {
 			return nil, dirty, err
-		} else if !same {
-			dirty = true
-			debugf(c.App.Writer, c.Bool(debugFlag), "replacing entrypoint")
-			if getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
-				// warning: there's a chance of inserting a dupe name here in odd cases
-				warningf(c.App.Writer, "You're replacing a registry module. We're converting it to a local module. "+
-					"To revert this change, use your machine's history page on app.viam.com.")
-				foundMod["type"] = string(rdkConfig.ModuleTypeLocal)
-				foundMod["name"] = localName
-				delete(foundMod, "module_id")
-				// TODO(APP-5844): stop clearing this once backend no longer rejects; we will use it for revert
-				delete(foundMod, "version")
-			}
-			foundMod["executable_path"] = absEntrypoint
 		}
+		reloadFlag := foundMod["reload_enabled"]
+		if samePath && reloadFlag == true {
+			debugf(c.App.Writer, args.Debug, "ReloadPath is up to date and ReloadEnabled, doing nothing")
+			return nil, dirty, err
+		}
+		dirty = true
+		if samePath {
+			debugf(c.App.Writer, args.Debug, "ReloadPath is up to date, setting ReloadEnabled true")
+			foundMod["reload_enabled"] = true
+		} else {
+			debugf(c.App.Writer, args.Debug, "updating ReloadPath and ReloadEnabled")
+			foundMod["reload_path"] = absEntrypoint
+			foundMod["reload_enabled"] = true
+		}
+	} else {
+		dirty = true
+		if foundMod == nil {
+			debugf(c.App.Writer, args.Debug, "module not found, inserting")
+		} else {
+			debugf(c.App.Writer, args.Debug, "found local module, inserting registry module")
+		}
+		newMod := createNewModuleMap(manifest.ModuleID, absEntrypoint)
+		modules = append(modules, newMod)
 	}
 	return modules, dirty, nil
+}
+
+func createNewModuleMap(moduleID, entryPoint string) ModuleMap {
+	localName := localizeModuleID(moduleID)
+	newMod := ModuleMap(map[string]any{
+		"type":           string(rdkConfig.ModuleTypeRegistry),
+		"module_id":      moduleID,
+		"name":           localName,
+		"reload_path":    entryPoint,
+		"reload_enabled": true,
+		"version":        "latest-with-prerelease",
+	})
+	return newMod
 }

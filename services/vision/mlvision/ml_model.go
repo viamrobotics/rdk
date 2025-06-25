@@ -6,19 +6,16 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
-	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"golang.org/x/exp/constraints"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/mlmodel"
@@ -71,35 +68,36 @@ type MLModelConfig struct {
 	DefaultConfidence  float64            `json:"default_minimum_confidence"`
 	LabelConfidenceMap map[string]float64 `json:"label_confidences"`
 	LabelPath          string             `json:"label_path"`
+	DefaultCamera      string             `json:"camera_name"`
 }
 
 // Validate will add the ModelName as an implicit dependency to the robot.
-func (conf *MLModelConfig) Validate(path string) ([]string, error) {
+func (conf *MLModelConfig) Validate(path string) ([]string, []string, error) {
 	if conf.ModelName == "" {
-		return nil, errors.New("mlmodel_name cannot be empty")
+		return nil, nil, errors.New("mlmodel_name cannot be empty")
 	}
 	if conf.LabelPath != "" {
 		_, err := os.Stat(conf.LabelPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s: %w", conf.LabelPath, err)
+			return nil, nil, fmt.Errorf("failed to read file %s: %w", conf.LabelPath, err)
 		}
 	}
 	if len(conf.MeanValue) != 0 {
 		if len(conf.MeanValue) < 3 {
-			return nil, errors.New("input_image_mean_value attribute must have at least 3 values, one for each color channel")
+			return nil, nil, errors.New("input_image_mean_value attribute must have at least 3 values, one for each color channel")
 		}
 	}
 	if len(conf.StdDev) != 0 {
 		if len(conf.StdDev) < 3 {
-			return nil, errors.New("input_image_std_dev attribute must have at least 3 values, one for each color channel")
+			return nil, nil, errors.New("input_image_std_dev attribute must have at least 3 values, one for each color channel")
 		}
 	}
 	for _, v := range conf.StdDev {
 		if v == 0.0 {
-			return nil, errors.New("input_image_std_dev is not allowed to have 0 values, will cause division by 0")
+			return nil, nil, errors.New("input_image_std_dev is not allowed to have 0 values, will cause division by 0")
 		}
 	}
-	return []string{conf.ModelName}, nil
+	return []string{conf.ModelName}, nil, nil
 }
 
 func registerMLModelVisionService(
@@ -151,6 +149,7 @@ func registerMLModelVisionService(
 	var errList []error
 	classifierFunc, err := attemptToBuildClassifier(mlm, inNameMap, outNameMap, params)
 	if err != nil {
+		errList = append(errList, err)
 		logger.CDebugw(ctx, "unable to use ml model as a classifier, will attempt to evaluate as"+
 			"detector and segmenter", "model", params.ModelName, "error", err)
 	} else {
@@ -167,6 +166,7 @@ func registerMLModelVisionService(
 
 	detectorFunc, err := attemptToBuildDetector(mlm, inNameMap, outNameMap, params)
 	if err != nil {
+		errList = append(errList, err)
 		logger.CDebugw(ctx, "unable to use ml model as a detector, will attempt to evaluate as 3D segmenter",
 			"model", params.ModelName, "error", err)
 	} else {
@@ -213,8 +213,15 @@ func registerMLModelVisionService(
 		}
 	}
 
+	if params.DefaultCamera != "" {
+		_, err = camera.FromRobot(r, params.DefaultCamera)
+		if err != nil {
+			return nil, errors.Errorf("could not find camera %q", params.DefaultCamera)
+		}
+	}
+
 	// Don't return a close function, because you don't want to close the underlying ML service
-	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc)
+	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc, params.DefaultCamera)
 }
 
 func getLabelsFromFile(labelPath string) []string {
@@ -285,129 +292,4 @@ func getBoxOrderFromMetadata(md mlmodel.MLMetadata) ([]int, error) {
 		}
 	}
 	return nil, errors.New("could not grab bbox order")
-}
-
-// getIndex returns the index of an int in an array of ints
-// Will return -1 if it's not there.
-func getIndex(s []int, num int) int {
-	for i, v := range s {
-		if v == num {
-			return i
-		}
-	}
-	return -1
-}
-
-// softmax takes the input slice and applies the softmax function.
-func softmax(in []float64) []float64 {
-	out := make([]float64, 0, len(in))
-	bigSum := 0.0
-	for _, x := range in {
-		bigSum += math.Exp(x)
-	}
-	for _, x := range in {
-		out = append(out, math.Exp(x)/bigSum)
-	}
-	return out
-}
-
-// checkClassification scores ensures that the input scores (output of classifier)
-// will represent confidence values (from 0-1).
-func checkClassificationScores(in []float64) []float64 {
-	if len(in) > 1 {
-		for _, p := range in {
-			if p < 0 || p > 1 { // is logit, needs softmax
-				confs := softmax(in)
-				return confs
-			}
-		}
-		return in // no need to softmax
-	}
-	// otherwise, this is a binary classifier
-	if in[0] < -1 || in[0] > 1 { // needs sigmoid
-		out, err := stats.Sigmoid(in)
-		if err != nil {
-			return in
-		}
-		return out
-	}
-	return in // no need to sigmoid
-}
-
-// Number interface for converting between numbers.
-type number interface {
-	constraints.Integer | constraints.Float
-}
-
-// convertNumberSlice converts any number slice into another number slice.
-func convertNumberSlice[T1, T2 number](t1 []T1) []T2 {
-	t2 := make([]T2, len(t1))
-	for i := range t1 {
-		t2[i] = T2(t1[i])
-	}
-	return t2
-}
-
-func convertToFloat64Slice(slice interface{}) ([]float64, error) {
-	switch v := slice.(type) {
-	case []float64:
-		return v, nil
-	case float64:
-		return []float64{v}, nil
-	case []float32:
-		return convertNumberSlice[float32, float64](v), nil
-	case float32:
-		return convertNumberSlice[float32, float64]([]float32{v}), nil
-	case []int:
-		return convertNumberSlice[int, float64](v), nil
-	case int:
-		return convertNumberSlice[int, float64]([]int{v}), nil
-	case []uint:
-		return convertNumberSlice[uint, float64](v), nil
-	case uint:
-		return convertNumberSlice[uint, float64]([]uint{v}), nil
-	case []int8:
-		return convertNumberSlice[int8, float64](v), nil
-	case int8:
-		return convertNumberSlice[int8, float64]([]int8{v}), nil
-	case []int16:
-		return convertNumberSlice[int16, float64](v), nil
-	case int16:
-		return convertNumberSlice[int16, float64]([]int16{v}), nil
-	case []int32:
-		return convertNumberSlice[int32, float64](v), nil
-	case int32:
-		return convertNumberSlice[int32, float64]([]int32{v}), nil
-	case []int64:
-		return convertNumberSlice[int64, float64](v), nil
-	case int64:
-		return convertNumberSlice[int64, float64]([]int64{v}), nil
-	case []uint8:
-		return convertNumberSlice[uint8, float64](v), nil
-	case uint8:
-		return convertNumberSlice[uint8, float64]([]uint8{v}), nil
-	case []uint16:
-		return convertNumberSlice[uint16, float64](v), nil
-	case uint16:
-		return convertNumberSlice[uint16, float64]([]uint16{v}), nil
-	case []uint32:
-		return convertNumberSlice[uint32, float64](v), nil
-	case uint32:
-		return convertNumberSlice[uint32, float64]([]uint32{v}), nil
-	case []uint64:
-		return convertNumberSlice[uint64, float64](v), nil
-	case uint64:
-		return convertNumberSlice[uint64, float64]([]uint64{v}), nil
-	default:
-		return nil, errors.Errorf("dont know how to convert slice of %T into a []float64", slice)
-	}
-}
-
-// tensorNames returns all the names of the tensors.
-func tensorNames(t ml.Tensors) []string {
-	names := []string{}
-	for name := range t {
-		names = append(names, name)
-	}
-	return names
 }

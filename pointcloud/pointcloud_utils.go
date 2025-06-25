@@ -48,14 +48,14 @@ func PrunePointClouds(clouds []PointCloud, nMin int) []PointCloud {
 // https://pcl.readthedocs.io/projects/tutorials/en/latest/statistical_outlier.html
 // This returns a function that can be used to filter on point clouds.
 // NOTE(bh): Returns a new point cloud, but could be modified to filter and change the original point cloud.
-func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud) (PointCloud, error), error) {
+func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(in, out PointCloud) error, error) {
 	if meanK <= 0 {
 		return nil, errors.Errorf("argument meanK must be a positive int, got %d", meanK)
 	}
 	if stdDevThresh <= 0.0 {
 		return nil, errors.Errorf("argument stdDevThresh must be a positive float, got %.2f", stdDevThresh)
 	}
-	filterFunc := func(pc PointCloud) (PointCloud, error) {
+	filterFunc := func(pc, filteredCloud PointCloud) error {
 		// create data type that can do nearest neighbors
 		kd, ok := pc.(*KDTree)
 		if !ok {
@@ -78,16 +78,15 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 		mean, stddev := stat.MeanStdDev(avgDistances, nil)
 		threshold := mean + stdDevThresh*stddev
 		// filter using the statistical information
-		filteredCloud := New()
 		for i := 0; i < len(avgDistances); i++ {
 			if avgDistances[i] < threshold {
 				err := filteredCloud.Set(points[i].P, points[i].D)
 				if err != nil {
-					return nil, err
+					return err
 				}
 			}
 		}
-		return filteredCloud, nil
+		return nil
 	}
 	return filterFunc, nil
 }

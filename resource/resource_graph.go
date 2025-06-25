@@ -234,8 +234,8 @@ func (g *Graph) FindNodesByAPI(api API) []Name {
 	return ret
 }
 
-// findNodesByShortName returns all resources matching the given short name.
-func (g *Graph) findNodesByShortName(name string) []Name {
+// FindNodesByShortName returns all resources matching the given short name.
+func (g *Graph) FindNodesByShortName(name string) []Name {
 	hasRemote := strings.Contains(name, ":")
 	var matches []Name
 	for nodeName := range g.nodes {
@@ -592,7 +592,7 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 
 				// if a name is later added that conflicts, it will not
 				// necessarily be caught unless the resource config changes.
-				nodeNames := g.findNodesByShortName(dep)
+				nodeNames := g.FindNodesByShortName(dep)
 				switch len(nodeNames) {
 				case 0:
 				case 1:
@@ -695,13 +695,17 @@ func (g *Graph) MarkReachability(node Name, reachable bool) error {
 }
 
 // Status returns a slice of all graph node statuses.
-func (g *Graph) Status() []Status {
+func (g *Graph) Status() []NodeStatus {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	var result []Status
-	for _, node := range g.nodes {
-		result = append(result, node.ResourceStatus())
+	var result []NodeStatus
+	for name, node := range g.nodes {
+		// TODO (RSDK-9550): Node should have the correct notion of its name
+		// but they don't, so fill it in here
+		status := node.Status()
+		status.Name = name
+		result = append(result, status)
 	}
 
 	return result

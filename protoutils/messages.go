@@ -6,29 +6,54 @@ import (
 	"strconv"
 
 	"github.com/golang/geo/r3"
-	//nolint:staticcheck
-	protov1 "github.com/golang/protobuf/proto"
+	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	commonpb "go.viam.com/api/common/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
 
+// MetadataFromProto converts a proto GetCloudMetadataResponse to Metadata.
+func MetadataFromProto(pbMetadata *robotpb.GetCloudMetadataResponse) cloud.Metadata {
+	if pbMetadata == nil {
+		return cloud.Metadata{}
+	}
+	return cloud.Metadata{
+		MachinePartID: pbMetadata.MachinePartId,
+		MachineID:     pbMetadata.MachineId,
+		PrimaryOrgID:  pbMetadata.PrimaryOrgId,
+		LocationID:    pbMetadata.LocationId,
+	}
+}
+
+// MetadataToProto converts a Metadata its proto counterpart.
+func MetadataToProto(metadata cloud.Metadata) *robotpb.GetCloudMetadataResponse {
+	return &robotpb.GetCloudMetadataResponse{
+		// TODO: RSDK-7181 remove RobotPartId
+		RobotPartId:   metadata.MachinePartID, // Deprecated: Duplicates MachinePartId,
+		MachinePartId: metadata.MachinePartID,
+		MachineId:     metadata.MachineID,
+		PrimaryOrgId:  metadata.PrimaryOrgID,
+		LocationId:    metadata.LocationID,
+	}
+}
+
 // ResourceNameToProto converts a resource.Name to its proto counterpart.
 func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 	return &commonpb.ResourceName{
-		Namespace:  string(name.API.Type.Namespace),
-		Type:       name.API.Type.Name,
-		Subtype:    name.API.SubtypeName,
-		Name:       name.ShortName(),
-		RemotePath: name.RemoteNameToRemoteArray(),
-		LocalName:  name.Name,
+		Namespace: string(name.API.Type.Namespace),
+		Type:      name.API.Type.Name,
+		Subtype:   name.API.SubtypeName,
+		Name:      name.ShortName(),
 	}
 }
 
@@ -112,6 +137,24 @@ func ConvertStringMapToAnyPBMap(params map[string]string) (map[string]*anypb.Any
 		methodParams[key] = anyVal
 	}
 	return methodParams, nil
+}
+
+// ConvertMapToProtoAny converts a map of string keys and interface{} values to a map of string keys and
+// *anypb.Any values, where each value in the input map is converted to a protobuf Any type.
+func ConvertMapToProtoAny(input map[string]interface{}) (map[string]*anypb.Any, error) {
+	protoMap := make(map[string]*anypb.Any)
+	for key, value := range input {
+		structValue, err := structpb.NewValue(value)
+		if err != nil {
+			return nil, err
+		}
+		anyValue, err := anypb.New(structValue)
+		if err != nil {
+			return nil, err
+		}
+		protoMap[key] = anyValue
+	}
+	return protoMap, nil
 }
 
 // MessageToProtoV1 converts a message to a protov1.Message. It is

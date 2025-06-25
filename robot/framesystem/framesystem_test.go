@@ -22,7 +22,7 @@ import (
 func TestEmptyConfigFrameService(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	r, err := robotimpl.New(ctx, &config.Config{}, logger)
+	r, err := robotimpl.New(ctx, &config.Config{}, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	fsCfg, err := r.FrameSystemConfig(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -90,13 +90,13 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 	ctx := context.Background()
 	emptyIn := []referenceframe.Input{}
 	zeroIn := []referenceframe.Input{{Value: 0.0}}
-	blankPos := make(map[string][]referenceframe.Input)
+	blankPos := make(referenceframe.FrameSystemInputs)
 	blankPos["pieceArm"] = zeroIn
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
+	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	r, err := robotimpl.New(context.Background(), cfg, logger)
+	r, err := robotimpl.New(context.Background(), cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer r.Close(context.Background())
 	fsCfg, err := r.FrameSystemConfig(ctx)
@@ -225,9 +225,9 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig"+tc.num+".json"), logger)
+			cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig"+tc.num+".json"), logger, nil)
 			test.That(t, err, test.ShouldBeNil)
-			r, err := robotimpl.New(ctx, cfg, logger)
+			r, err := robotimpl.New(ctx, cfg, nil, logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer r.Close(ctx)
 			fsCfg, err := r.FrameSystemConfig(ctx)
@@ -240,9 +240,9 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 		})
 	}
 
-	cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
+	cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake.json"), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
-	r, err := robotimpl.New(ctx, cfg, logger)
+	r, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer r.Close(ctx)
 

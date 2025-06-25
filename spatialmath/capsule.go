@@ -148,46 +148,50 @@ func (c *capsule) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given capsule collides with the given geometry and returns true if it does.
 func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *box:
 		return capsuleVsBoxCollision(c, other, collisionBufferMM), nil
+	default:
+		dist, err := c.DistanceFrom(g)
+		if err != nil {
+			return true, err
+		}
+		return dist <= collisionBufferMM, nil
 	}
-	dist, err := c.DistanceFrom(g)
-	if err != nil {
-		return true, err
-	}
-	return dist <= collisionBufferMM, nil
 }
 
 func (c *capsule) DistanceFrom(g Geometry) (float64, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return other.DistanceFrom(c)
+	case *box:
 		return capsuleVsBoxDistance(c, other), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return capsuleVsCapsuleDistance(c, other), nil
-	}
-	if other, ok := g.(*point); ok {
+	case *point:
 		return capsuleVsPointDistance(c, other.position), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return capsuleVsSphereDistance(c, other), nil
+	default:
+		return math.Inf(-1), newCollisionTypeUnsupportedError(c, g)
 	}
-	return math.Inf(-1), newCollisionTypeUnsupportedError(c, g)
 }
 
 func (c *capsule) EncompassedBy(g Geometry) (bool, error) {
-	if other, ok := g.(*capsule); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return false, nil // Like points, meshes have no volume and cannot encompass
+	case *capsule:
 		return capsuleInCapsule(c, other), nil
-	}
-	if other, ok := g.(*box); ok {
+	case *box:
 		return capsuleInBox(c, other), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return capsuleInSphere(c, other), nil
-	}
-	if _, ok := g.(*point); ok {
+	case *point:
 		return false, nil
+	default:
+		return true, newCollisionTypeUnsupportedError(c, g)
 	}
-	return true, newCollisionTypeUnsupportedError(c, g)
 }
 
 // ToPoints converts a capsule geometry into []r3.Vector. This method takes one argument which determines
@@ -254,18 +258,21 @@ func capsuleVsBoxDistance(c *capsule, other *box) float64 {
 	// Separating axis theorum provides accurate penetration depth but is not accurate for separation
 	// if we are not in collision, convert box to mesh and determine triangle-capsule separation distance
 	if dist > defaultCollisionBufferMM {
-		return capsuleVsMeshDistance(c, other.toMesh())
+		boxAsMesh := other.toMesh()
+		return capsuleVsMeshDistance(c, boxAsMesh)
 	}
 	return dist
 }
 
 // IMPORTANT: meshes are not considered solid. A mesh is not guaranteed to represent an enclosed area. This will measure ONLY the distance
 // to the closest triangle in the mesh.
-func capsuleVsMeshDistance(c *capsule, other *mesh) float64 {
+func capsuleVsMeshDistance(c *capsule, other *Mesh) float64 {
 	lowDist := math.Inf(1)
 	for _, t := range other.triangles {
 		// Measure distance to each mesh triangle
-		dist := capsuleVsTriangleDistance(c, t)
+		// Make sure the triangle is transformed by the pose of the mesh to ensure that it is properly positioned
+		properlyPositionedTriangle := t.Transform(other.Pose())
+		dist := capsuleVsTriangleDistance(c, properlyPositionedTriangle)
 		if dist < lowDist {
 			lowDist = dist
 		}
@@ -273,7 +280,7 @@ func capsuleVsMeshDistance(c *capsule, other *mesh) float64 {
 	return lowDist
 }
 
-func capsuleVsTriangleDistance(c *capsule, other *triangle) float64 {
+func capsuleVsTriangleDistance(c *capsule, other *Triangle) float64 {
 	capPt, triPt := closestPointsSegmentTriangle(c.segA, c.segB, other)
 	return capPt.Sub(triPt).Norm() - c.radius
 }

@@ -13,7 +13,6 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -26,6 +25,7 @@ var (
 	errMoveToPositionFailed      = errors.New("can't move to pose")
 	errMoveToJointPositionFailed = errors.New("can't move to joint positions")
 	errStopUnimplemented         = errors.New("Stop unimplemented")
+	errKinematicsUnimplemented   = errors.New("Kinematics unimplemented")
 	errArmUnimplemented          = errors.New("not found")
 )
 
@@ -56,6 +56,14 @@ func TestServer(t *testing.T) {
 
 	pose1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 	positions := []float64{1., 2., 3., 1., 2., 3.}
+	goodKinematics := func(ctx context.Context) (referenceframe.Model, error) {
+		model, err := referenceframe.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "foo")
+		if err != nil {
+			return nil, err
+		}
+		return model, nil
+	}
+
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		extraOptions = extra
 		return pose1, nil
@@ -85,13 +93,7 @@ func TestServer(t *testing.T) {
 		extraOptions = extra
 		return nil
 	}
-	injectArm.ModelFrameFunc = func() referenceframe.Model {
-		model, err := urdf.ParseModelXMLFile(utils.ResolveFile("referenceframe/urdf/testfiles/ur5e.urdf"), "foo")
-		if err != nil {
-			return nil
-		}
-		return model
-	}
+	injectArm.KinematicsFunc = goodKinematics
 	injectArm.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		extraOptions = extra
 		return nil
@@ -114,8 +116,8 @@ func TestServer(t *testing.T) {
 		capArmJointPos = jp
 		return errMoveToJointPositionFailed
 	}
-	injectArm2.ModelFrameFunc = func() referenceframe.Model {
-		return nil
+	injectArm2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errKinematicsUnimplemented
 	}
 	injectArm2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errStopUnimplemented
@@ -130,7 +132,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := armServer.GetEndPosition(context.Background(), &pb.GetEndPositionRequest{Name: testArmName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Pose.String(), test.ShouldResemble, spatialmath.PoseToProtobuf(pose1).String())
+		test.That(t, resp.Pose, test.ShouldResemble, spatialmath.PoseToProtobuf(pose1))
 
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "EndPosition"})
 
@@ -249,9 +251,9 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, kinematics.Format, test.ShouldResemble, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
 
-		kinematics, err = armServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: failArmName})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, kinematics.Format, test.ShouldResemble, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED)
+		_, err = armServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: failArmName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldResemble, errKinematicsUnimplemented)
 	})
 
 	t.Run("stop", func(t *testing.T) {

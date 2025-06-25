@@ -5,13 +5,21 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
+	"reflect"
+	"regexp"
+	"runtime"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
 )
@@ -56,8 +64,6 @@ type datum struct {
 	// Time in nanoseconds since the epoch.
 	Time int64
 	Data map[string]any
-
-	generationID int
 }
 
 // Statser implements Stats.
@@ -65,9 +71,13 @@ type Statser interface {
 	// The Stats method must return a struct with public field members that are either:
 	// - Numbers (e.g: int, float64, byte, etc...)
 	// - A "recursive" structure that has the same properties as this return value (public field
-	//   members with numbers, or more structures). (NOT YET SUPPORTED)
+	//   members with numbers, or more structures).
 	//
-	// The return value must not be a map. This is to enforce a "schema" constraints.
+	// The return value must always have the same schema. That is, the returned value has the same
+	// set of keys/structure members. A simple structure where all the member fields are numbers
+	// satisfies this requirement.
+	//
+	// The return value may not (yet) be a `map`. Even if the returned map always has the same keys.
 	Stats() any
 }
 
@@ -84,13 +94,6 @@ type FTDC struct {
 	mu       sync.Mutex
 	statsers []namedStatser
 
-	// Fields used to generate and serialize FTDC output to bytes.
-	//
-	// inputGenerationID changes when new pieces are added to FTDC at runtime that change the
-	// schema.
-	inputGenerationID int
-	// outputGenerationID represents the last schema written to the FTDC `outputWriter`.
-	outputGenerationID int
 	// The schema used describe how new Datums are serialized.
 	currSchema *schema
 	// The serialization format compares new metrics to the prior metric reading to determine what
@@ -102,6 +105,7 @@ type FTDC struct {
 	readStatsWorker  *utils.StoppableWorkers
 	datumCh          chan datum
 	outputWorkerDone chan struct{}
+	stopOnce         sync.Once
 
 	// Fields used to manage where serialized FTDC bytes are written.
 	outputWriter io.Writer
@@ -112,26 +116,52 @@ type FTDC struct {
 	bytesWrittenCounter countingWriter
 	currOutputFile      *os.File
 	maxFileSizeBytes    int64
+	maxNumFiles         int
 	// ftdcDir controls where FTDC data files will be written.
 	ftdcDir string
 
-	logger logging.Logger
+	uploader *uploader
+	logger   logging.Logger
 }
 
-// New creates a new *FTDC.
-func New(logger logging.Logger) *FTDC {
-	return NewWithWriter(nil, logger)
+// New creates a new *FTDC. This FTDC object will write FTDC formatted files into the input
+// `ftdcDirectory`.
+func New(ftdcDirectory string, logger logging.Logger) *FTDC {
+	ret := newFTDC(logger)
+	ret.maxFileSizeBytes = 10_000_000
+	ret.maxNumFiles = 20
+	ret.ftdcDir = ftdcDirectory
+	return ret
 }
 
 // NewWithWriter creates a new *FTDC that outputs bytes to the specified writer.
 func NewWithWriter(writer io.Writer, logger logging.Logger) *FTDC {
+	ret := newFTDC(logger)
+	ret.outputWriter = writer
+	return ret
+}
+
+// NewWithUploader creates a new *FTDC that will also upload FTDC files to cloud.
+func NewWithUploader(ftdcDirectory string, cloudConn rpc.ClientConn, partID string, logger logging.Logger) *FTDC {
+	ret := New(ftdcDirectory, logger)
+	if cloudConn != nil {
+		ret.uploader = newUploader(cloudConn, ftdcDirectory, partID, logger.Sublogger("uploader"))
+	}
+	return ret
+}
+
+// DefaultDirectory returns a directory to write FTDC data files in. Each unique "part" running on a
+// single computer will get its own directory.
+func DefaultDirectory(viamHome, partID string) string {
+	return filepath.Join(viamHome, "diagnostics.data", partID)
+}
+
+func newFTDC(logger logging.Logger) *FTDC {
 	return &FTDC{
 		// Allow for some wiggle before blocking producers.
 		datumCh:          make(chan datum, 20),
 		outputWorkerDone: make(chan struct{}),
 		logger:           logger,
-		outputWriter:     writer,
-		maxFileSizeBytes: 1_000_000,
 	}
 }
 
@@ -142,21 +172,18 @@ func (ftdc *FTDC) Add(name string, statser Statser) {
 
 	for _, statser := range ftdc.statsers {
 		if statser.name == name {
-			ftdc.logger.Warnw("Trying to add conflicting ftdc section", "name", name,
-				"generationId", ftdc.inputGenerationID)
+			ftdc.logger.Warnw("Trying to add conflicting ftdc section", "name", name)
 			// FTDC output is broken down into separate "sections". The `name` is used to label each
 			// section. We return here to predictably include one of the `Add`ed statsers.
 			return
 		}
 	}
 
-	ftdc.logger.Debugw("Added statser", "name", name,
-		"type", fmt.Sprintf("%T", statser), "generationId", ftdc.inputGenerationID)
+	ftdc.logger.Debugw("Added statser", "name", name, "type", fmt.Sprintf("%T", statser))
 	ftdc.statsers = append(ftdc.statsers, namedStatser{
 		name:    name,
 		statser: statser,
 	})
-	ftdc.inputGenerationID++
 }
 
 // Remove removes a statser that was previously `Add`ed with the given `name`.
@@ -166,34 +193,40 @@ func (ftdc *FTDC) Remove(name string) {
 
 	for idx, statser := range ftdc.statsers {
 		if statser.name == name {
-			ftdc.logger.Debugw("Removed statser", "name", name,
-				"type", fmt.Sprintf("%T", statser.statser), "generationId", ftdc.inputGenerationID)
+			ftdc.logger.Debugw("Removed statser", "name", name, "type", fmt.Sprintf("%T", statser.statser))
 			ftdc.statsers = slices.Delete(ftdc.statsers, idx, idx+1)
-			ftdc.inputGenerationID++
 			return
 		}
 	}
 
-	ftdc.logger.Warnw("Did not find statser to remove",
-		"name", name, "generationId", ftdc.inputGenerationID)
+	ftdc.logger.Warnw("Did not find statser to remove", "name", name)
 }
 
 // Start spins off the background goroutine for collecting + writing FTDC data. It's normal for tests
 // to _not_ call `Start`. Tests can simulate the same functionality by calling `constructDatum` and `writeDatum`.
 func (ftdc *FTDC) Start() {
+	if runtime.GOOS == "windows" {
+		// note: this logs a panic on RDK start on windows.
+		ftdc.logger.Debug("FTDC not implemented on windows, not starting")
+		return
+	}
 	ftdc.readStatsWorker = utils.NewStoppableWorkerWithTicker(time.Second, ftdc.statsReader)
 	utils.PanicCapturingGo(ftdc.statsWriter)
+
+	// The `fileDeleter` goroutine mostly aligns with the "stoppable worker with ticker"
+	// pattern. But it has the additional desire that if file deletion exits with a panic, all of
+	// FTDC should stop.
+	utils.PanicCapturingGoWithCallback(ftdc.fileDeleter, func(err any) {
+		ftdc.logger.Warnw("File deleter errored, stopping FTDC", "err", err)
+		ftdc.StopAndJoin(context.Background())
+	})
+	if ftdc.uploader != nil {
+		ftdc.uploader.start()
+	}
 }
 
 func (ftdc *FTDC) statsReader(ctx context.Context) {
 	datum := ftdc.constructDatum()
-	if datum.generationID == 0 {
-		// No "statsers" were `Add`ed. No data to write out.
-		return
-	}
-
-	// `Debugw` does not seem to serialize any of the `datum` value.
-	ftdc.logger.Debugf("Metrics collected. Datum: %+v", datum)
 
 	select {
 	case ftdc.datumCh <- datum:
@@ -223,7 +256,7 @@ func (ftdc *FTDC) statsWriter() {
 			// `Statser` from "registry". But bubbles it up to signal that no `Datum` was written.
 			// The errors that do get handled here are expected to simply be FS/disk failure errors.
 
-			ftdc.logger.Error("Error writing ftdc data. Shutting down FTDC.", "err", err)
+			ftdc.logger.Errorw("Error writing ftdc data. Shutting down FTDC.", "err", err)
 			// To shut down, we just exit. Closing the `ftdc.outputWorkerDone`. The `statsReader`
 			// goroutine will eventually observe that channel was closed and also exit.
 			return
@@ -242,8 +275,20 @@ func (ftdc *FTDC) statsWriter() {
 // `statsWriter` by hand, without the `statsReader` can `close(ftdc.datumCh)` followed by
 // `<-ftdc.outputWorkerDone` to stop+wait for the `statsWriter`.
 func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
-	ftdc.readStatsWorker.Stop()
-	close(ftdc.datumCh)
+	if runtime.GOOS == "windows" {
+		return
+	}
+
+	ftdc.stopOnce.Do(func() {
+		// Only one caller should close the datum channel. And it should be the caller that called
+		// stop on the worker writing to the channel.
+		ftdc.readStatsWorker.Stop()
+		close(ftdc.datumCh)
+	})
+
+	if ftdc.uploader != nil {
+		ftdc.uploader.stopAndJoin()
+	}
 
 	// Closing the `statsCh` signals to the `outputWorker` to complete and exit. We use a timeout to
 	// limit how long we're willing to wait for the `outputWorker` to drain.
@@ -253,37 +298,6 @@ func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
 	}
 }
 
-// conditionalRemoveStatser first checks the generation matches before removing the `name` Statser.
-func (ftdc *FTDC) conditionalRemoveStatser(name string, generationID int) {
-	ftdc.mu.Lock()
-	defer ftdc.mu.Unlock()
-
-	// This function gets called by the "write ftdc" actor. Which is concurrent to a user
-	// adding/removing `Statser`s. If the datum/name that created a problem came from a different
-	// "generation", optimistically guess that the user fixed the problem, and avoid removing a
-	// perhaps working `Statser`.
-	//
-	// In the (honestly, more likely) event, the `Statser` is still bad, we will eventually succeed
-	// in removing it. As later `Datum` objects to write will have an updated `generationId`.
-	if generationID != ftdc.inputGenerationID {
-		ftdc.logger.Debugw("Not removing statser due to concurrent operation",
-			"datumGenerationId", generationID, "ftdcGenerationId", ftdc.inputGenerationID)
-		return
-	}
-
-	for idx, statser := range ftdc.statsers {
-		if statser.name == name {
-			ftdc.logger.Debugw("Removed statser", "name", name,
-				"type", fmt.Sprintf("%T", statser.statser), "generationId", ftdc.inputGenerationID)
-			ftdc.statsers = slices.Delete(ftdc.statsers, idx, idx+1)
-			ftdc.inputGenerationID++
-			return
-		}
-	}
-
-	ftdc.logger.Warnw("Did not find statser to remove", "name", name, "generationId", ftdc.inputGenerationID)
-}
-
 // constructDatum walks all of the registered `statser`s to construct a `datum`.
 func (ftdc *FTDC) constructDatum() datum {
 	datum := datum{
@@ -291,72 +305,156 @@ func (ftdc *FTDC) constructDatum() datum {
 		Data: map[string]any{},
 	}
 
+	// RSDK-9650: Take the mutex to make a copy of the list of `ftdc.statsers` objects. Such that we
+	// can release the mutex before calling any `Stats` methods. It may be the case where the
+	// `Stats` method acquires some other mutex/resource.  E.g: acquiring resources from the
+	// resource graph. Which is the starting point for creating a deadlock scenario.
 	ftdc.mu.Lock()
-	defer ftdc.mu.Unlock()
-	datum.generationID = ftdc.inputGenerationID
-	for idx := range ftdc.statsers {
-		namedStatser := &ftdc.statsers[idx]
+	statsers := make([]namedStatser, len(ftdc.statsers))
+	copy(statsers, ftdc.statsers)
+	ftdc.mu.Unlock()
+
+	for idx := range statsers {
+		namedStatser := &statsers[idx]
 		datum.Data[namedStatser.name] = namedStatser.statser.Stats()
 	}
 
 	return datum
 }
 
-// writeDatum takes an ftdc reading ("Datum") as input and serializes + writes it to the backing
-// medium (e.g: a file). See `writeSchema`s documentation for a full description of the file format.
+// walk accepts a datum and the previous schema and will return:
+// - the new schema. If the schema is unchanged, this will be the same pointer value as `previousSchema`.
+// - the flattened float32 data points.
+// - an error. All errors (for now) are terminal -- the input datum cannot be output.
+func walk(datum map[string]any, previousSchema *schema) (*schema, []float32, error) {
+	schemaChanged := false
+
+	var (
+		fields         []string
+		values         []float32
+		iterationOrder []string
+	)
+
+	// In the steady state, we will have an existing schema. Use that for a `datum` iteration order.
+	if previousSchema != nil {
+		fields = make([]string, 0, len(previousSchema.fieldOrder))
+		values = make([]float32, 0, len(previousSchema.fieldOrder))
+		iterationOrder = previousSchema.mapOrder
+	} else {
+		// If this is the first data point, we'll walk the map in... map order.
+		schemaChanged = true
+		iterationOrder = make([]string, 0, len(datum))
+		for key := range datum {
+			iterationOrder = append(iterationOrder, key)
+		}
+	}
+
+	// Record the order we iterate through the keys in the input `datum`. We return this in the case
+	// we learn the schema changed.
+	datumMapOrder := make([]string, 0, len(datum))
+
+	// Create a set out of the `inputSchema.mapOrder` as we iterate over it. This will be used to
+	// see if new keys have been added to the `datum` map that were not in the `previousSchema`.
+	mapOrderSet := make(map[string]struct{})
+	for _, key := range iterationOrder {
+		mapOrderSet[key] = struct{}{}
+
+		// Walk over the datum in `mapOrder` to ensure we gather values in the order consistent with
+		// the current schema.
+		stats, exists := datum[key]
+		if !exists {
+			// There was a `Statser` in the previous `datum` that no longer exists. Note the schema
+			// changed and move on.
+			schemaChanged = true
+			continue
+		}
+
+		// Get all of the field names and values from the `stats` object.
+		itemFields, itemNumbers, err := flatten(reflect.ValueOf(stats))
+		if err != nil {
+			return nil, nil, err
+		}
+
+		datumMapOrder = append(datumMapOrder, key)
+		// For each field we found, prefix it with the `datum` key (the `Statser` name).
+		for idx := range itemFields {
+			fields = append(fields, fmt.Sprintf("%v.%v", key, itemFields[idx]))
+		}
+		values = append(values, itemNumbers...)
+	}
+
+	// Check for a schema change by walking all of the keys (`Statser`s) in the input `datum`. Look
+	// for anything new.
+	for dataKey, stats := range datum {
+		if _, exists := mapOrderSet[dataKey]; exists {
+			// The steady-state is that every key in the input `datum` matches the prior
+			// `datum`/schema.
+			continue
+		}
+
+		// We found a statser that did not exist before. Let's add it to our results.
+		schemaChanged = true
+		itemFields, itemNumbers, err := flatten(reflect.ValueOf(stats))
+		if err != nil {
+			return nil, nil, err
+		}
+
+		datumMapOrder = append(datumMapOrder, dataKey)
+		// Similarly, prefix fields with the `Statser` name.
+		for idx := range itemFields {
+			fields = append(fields, fmt.Sprintf("%v.%v", dataKey, itemFields[idx]))
+		}
+		values = append(values, itemNumbers...)
+	}
+
+	// Even if the keys in the `datum` stayed the same, the values returned by an individual `Stats`
+	// call may have changed. This ought to be rare, as this results in writing out a new schema and
+	// is consequently inefficient. But we prefer to have less FTDC data than inaccurate data, or
+	// more simply, failing.
+	if previousSchema != nil && !slices.Equal(previousSchema.fieldOrder, fields) {
+		schemaChanged = true
+	}
+
+	// If the schema changed, return a new schema object with the updated schema.
+	if schemaChanged {
+		return &schema{datumMapOrder, fields}, values, nil
+	}
+
+	return previousSchema, values, nil
+}
+
 func (ftdc *FTDC) writeDatum(datum datum) error {
 	toWrite, err := ftdc.getWriter()
 	if err != nil {
 		return err
 	}
 
-	// The input `datum` being processed is for a different schema than we were previously using.
-	if datum.generationID != ftdc.outputGenerationID {
-		// Compute the new schema and write that to disk.
-		newSchema, schemaErr := getSchema(datum.Data)
-		if schemaErr != nil {
-			ftdc.logger.Warnw("Could not generate schema for statser",
-				"statser", schemaErr.statserName, "err", schemaErr.err)
-			// We choose to remove the misbehaving statser such that subsequent datums will be
-			// well-formed.
-			ftdc.conditionalRemoveStatser(schemaErr.statserName, datum.generationID)
-			return schemaErr
-		}
+	// walk will return the schema it found alongside the flattened data. Errors are terminal. If
+	// the schema is the same, the `newSchema` pointer will match `ftdc.currSchema` and `err` will
+	// be nil.
+	newSchema, flatData, err := walk(datum.Data, ftdc.currSchema)
+	if err != nil {
+		return err
+	}
 
+	// In the happy path where the schema hasn't changed, the `walk` function is guaranteed to
+	// return the same schema object.
+	if ftdc.currSchema != newSchema {
 		ftdc.currSchema = newSchema
 		if err = writeSchema(ftdc.currSchema, toWrite); err != nil {
 			return err
 		}
 
-		// Update the `outputGenerationId` to reflect the new schema.
-		ftdc.outputGenerationID = datum.generationID
-
-		data, err := flatten(datum, ftdc.currSchema)
-		if err != nil {
-			return err
-		}
-
 		// Write the new data point to disk. When schema changes, we do not do any diffing. We write
 		// a raw value for each metric.
-		if err = writeDatum(datum.Time, nil, data, toWrite); err != nil {
-			return err
-		}
-		ftdc.prevFlatData = data
-
-		return nil
+		ftdc.prevFlatData = nil
 	}
 
-	// The input `datum` is for the same schema as the prior datum. Flatten the values and write a
-	// datum entry diffed against the `prevFlatData`.
-	data, err := flatten(datum, ftdc.currSchema)
-	if err != nil {
+	if err = writeDatum(datum.Time, ftdc.prevFlatData, flatData, toWrite); err != nil {
 		return err
 	}
+	ftdc.prevFlatData = flatData
 
-	if err = writeDatum(datum.Time, ftdc.prevFlatData, data, toWrite); err != nil {
-		return err
-	}
-	ftdc.prevFlatData = data
 	return nil
 }
 
@@ -386,15 +484,28 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	// If we're in the logic branch where we have exceeded our FTDC file rotation quota, we first
 	// close the `currOutputFile`.
 	if ftdc.currOutputFile != nil {
-		// Dan: An error closing a file (any resource for that matter) is not an error. I will die
-		// on that hill.
 		utils.UncheckedError(ftdc.currOutputFile.Close())
+		if ftdc.uploader != nil {
+			// Dan: For now we only upload "completed" during the runtime of a viam-server. There's
+			// no harm in uploading leftover files from a prior run, but the current bang for the
+			// buck was deemed not worth it.
+			ftdc.uploader.addFileToUpload(ftdc.currOutputFile.Name())
+		}
 	}
 
 	var err error
 	// It's unclear in what circumstance we'd expect creating a new file to fail. Try 5 times for no
 	// good reason before giving up entirely and shutting down FTDC.
 	for numTries := 0; numTries < 5; numTries++ {
+		// The viam process is expected to be run as root. The FTDC directory must be readable by
+		// "other" users.
+		//
+		//nolint:gosec
+		if err = os.MkdirAll(ftdc.ftdcDir, 0o755); err != nil {
+			ftdc.logger.Warnw("Failed to create FTDC directory", "dir", ftdc.ftdcDir, "err", err)
+			return nil, err
+		}
+
 		now := time.Now().UTC()
 		// lint wants 0o600 file permissions. We don't expect the unix user someone is ssh'ed in as
 		// to be on the same unix user as is running the viam-server process. Thus the file needs to
@@ -424,19 +535,123 @@ func (ftdc *FTDC) getWriter() (io.Writer, error) {
 	// New file, reset the bytes written counter.
 	ftdc.bytesWrittenCounter.count = 0
 
-	// When we create a new file, we must rewrite the schema. If we do not, a file may be useless
-	// without its "ancestors".
-	//
-	// As a hack, we decrement the `outputGenerationID` to force a new schema to be written.
-	ftdc.outputGenerationID--
-
 	// Assign the `outputWriter`. The `outputWriter` is an abstraction for where FTDC formatted
 	// bytes go. Testing often prefers to just write bytes into memory (and consequently construct
 	// an FTDC with `NewWithWriter`). While in production we obviously want to persist bytes on
 	// disk.
 	ftdc.outputWriter = io.MultiWriter(&ftdc.bytesWrittenCounter, ftdc.currOutputFile)
 
+	// The schema was last persisted in the prior FTDC file. To ensure this file can be understood
+	// without it, we start it with a copy of the schema. We achieve this by erasing the
+	// `currSchema` value. Such that the caller/`writeDatum` will behave as if this is a "schema
+	// change".
+	ftdc.currSchema = nil
+
 	return ftdc.outputWriter, nil
+}
+
+func (ftdc *FTDC) fileDeleter() {
+	for {
+		select {
+		// The fileDeleter's goroutine lifetime should match the robot/FTDC lifetime. Borrow the
+		// `readStatsWorker`s context to track that.
+		case <-ftdc.readStatsWorker.Context().Done():
+			return
+		case <-time.After(time.Second):
+		}
+
+		if err := ftdc.checkAndDeleteOldFiles(); err != nil {
+			ftdc.logger.Warnw("Error checking FTDC files", "err", err)
+		}
+	}
+}
+
+// fileTime pairs a file with a time value.
+type fileTime struct {
+	name string
+	time time.Time
+}
+
+func (ftdc *FTDC) checkAndDeleteOldFiles() error {
+	var files []fileTime
+
+	// Walk the `ftdcDir` and gather all of the found files into the captured `files` variable.
+	err := filepath.Walk(ftdc.ftdcDir, filepath.WalkFunc(func(path string, info fs.FileInfo, walkErr error) error {
+		if !strings.HasSuffix(path, ".ftdc") {
+			return nil
+		}
+
+		if walkErr != nil {
+			ftdc.logger.Warnw("Unexpected walk error. Continuing under the assumption any actual* problem will",
+				"be caught by the assertions.", "err", walkErr)
+			return nil
+		}
+
+		parsedTime, err := parseTimeFromFilename(path)
+		if err == nil {
+			files = append(files, fileTime{path, parsedTime})
+		} else {
+			ftdc.logger.Warnw("Error parsing time from FTDC file", "filename", path)
+		}
+		return nil
+	}))
+	if err != nil {
+		return err
+	}
+
+	if len(files) <= ftdc.maxNumFiles {
+		// We have yet to hit our file limit. Keep all of the files.
+		ftdc.logger.Debugw("Inside the budget for ftdc files", "numFiles", len(files), "maxNumFiles", ftdc.maxNumFiles)
+		return nil
+	}
+
+	slices.SortFunc(files, func(left, right fileTime) int {
+		// Sort in descending order. Such that files indexed first are safe. This eases walking the
+		// slice of files.
+		return right.time.Compare(left.time)
+	})
+
+	// If we, for example, have 30 files and we want to keep the newest 10, we delete the trailing
+	// 20 files.
+	for _, file := range files[ftdc.maxNumFiles:] {
+		ftdc.logger.Debugw("Deleting aged out FTDC file", "filename", file.name)
+		if err := os.Remove(file.name); err != nil {
+			ftdc.logger.Warnw("Error removing FTDC file", "filename", file.name)
+		}
+	}
+
+	return nil
+}
+
+// filenameTimeRe matches the files produced by ftdc. Filename <-> regex parity is exercised by file
+// deletion testing. Filename generation uses padding such that we can rely on there before 2/4
+// digits for every numeric value.
+//
+//nolint
+// Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
+var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
+
+func parseTimeFromFilename(path string) (time.Time, error) {
+	allMatches := filenameTimeRe.FindAllStringSubmatch(path, -1)
+	if len(allMatches) != 1 || len(allMatches[0]) != 7 {
+		return time.Time{}, errors.New("filename did not match pattern")
+	}
+
+	// There's exactly one match and 7 groups. The first "group" is the whole string. We only care
+	// about the numbers.
+	matches := allMatches[0][1:]
+
+	var numVals [6]int
+	for idx := 0; idx < 6; idx++ {
+		val, err := strconv.Atoi(matches[idx])
+		if err != nil {
+			return time.Time{}, err
+		}
+
+		numVals[idx] = val
+	}
+
+	return time.Date(numVals[0], time.Month(numVals[1]), numVals[2], numVals[3], numVals[4], numVals[5], 0, time.UTC), nil
 }
 
 type countingWriter struct {

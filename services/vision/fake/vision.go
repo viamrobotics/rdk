@@ -22,6 +22,7 @@ const (
 	fakeClassScore = 0.85
 	fakeDetLabel   = "a_detection"
 	fakeDetScore   = 0.92
+	fakeCameraName = "fake_camera"
 )
 
 func init() {
@@ -52,7 +53,7 @@ func fakeDetector(ctx context.Context, img image.Image) ([]objectdetection.Detec
 		int(float64(bounds.Max.X)*0.75),
 		int(float64(bounds.Max.Y)*0.75),
 	)
-	fakeDet := objectdetection.NewDetection(boundingBox, fakeDetScore, fakeDetLabel)
+	fakeDet := objectdetection.NewDetection(bounds, boundingBox, fakeDetScore, fakeDetLabel)
 	dets := []objectdetection.Detection{fakeDet}
 	return dets, nil
 }
@@ -61,8 +62,8 @@ func fakeDetector(ctx context.Context, img image.Image) ([]objectdetection.Detec
 type Config struct{}
 
 // Validate checks that the config attributes are valid for a fake camera.
-func (conf *Config) Validate(path string) ([]string, error) {
-	return nil, nil
+func (conf *Config) Validate(path string) ([]string, []string, error) {
+	return nil, nil, nil
 }
 
 // registerFake creates a new fake vision service from the config.
@@ -70,5 +71,5 @@ func registerFake(
 	name resource.Name,
 	r robot.Robot,
 ) (vision.Service, error) {
-	return vision.NewService(name, r, nil, fakeClassifier, fakeDetector, nil)
+	return vision.NewService(name, r, nil, fakeClassifier, fakeDetector, nil, fakeCameraName)
 }

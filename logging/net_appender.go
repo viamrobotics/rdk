@@ -24,7 +24,7 @@ var (
 	writeBatchSize             = 100
 	errUninitializedConnection = errors.New("sharedConn is true and connection is not initialized")
 	logWriteTimeout            = 4 * time.Second
-	logWriteTimeoutBehindProxy = 12 * time.Second
+	logWriteTimeoutBehindProxy = time.Minute
 )
 
 // CloudConfig contains the necessary inputs to send logs to the app backend over grpc.
@@ -222,8 +222,15 @@ func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 
 	fields := make([]*structpb.Struct, 0, len(f))
 	for _, ff := range f {
+		// Serialize interfaces as strings.
 		if ff.String == "" && ff.Interface != nil {
-			ff.String = fmt.Sprintf("%v", ff.Interface)
+			if stringer, ok := ff.Interface.(fmt.Stringer); ok {
+				ff.String = stringer.String()
+			} else {
+				ff.String = fmt.Sprintf("%v", ff.Interface)
+			}
+			ff.Type = zapcore.StringType
+			ff.Interface = nil
 		}
 
 		field, err := protoutils.StructToStructPb(ff)

@@ -34,6 +34,7 @@ var InternalServiceName = resource.NewName(API, "builtin")
 // This allows us to figure out where they currently are, and then move them.
 // Input units are always in meters or radians.
 type InputEnabled interface {
+	Kinematics(ctx context.Context) (referenceframe.Model, error)
 	CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }
@@ -81,7 +82,7 @@ type Service interface {
 
 	// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
 	// and a map of statuses indicating which of the machine's components may be actuated through input values.
-	CurrentInputs(ctx context.Context) (map[string][]referenceframe.Input, map[string]InputEnabled, error)
+	CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, map[string]InputEnabled, error)
 
 	// FrameSystem returns the frame system of the machine and incorporates any specified additional transformations.
 	FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
@@ -213,7 +214,7 @@ func (svc *frameSystemService) TransformPose(
 	if err != nil {
 		return nil, err
 	}
-	input := referenceframe.StartPositions(fs)
+	input := referenceframe.NewZeroInputs(fs)
 
 	svc.partsMu.RLock()
 	defer svc.partsMu.RUnlock()
@@ -255,12 +256,12 @@ func (svc *frameSystemService) TransformPose(
 // InputEnabled resources that those inputs came from.
 func (svc *frameSystemService) CurrentInputs(
 	ctx context.Context,
-) (map[string][]referenceframe.Input, map[string]InputEnabled, error) {
+) (referenceframe.FrameSystemInputs, map[string]InputEnabled, error) {
 	fs, err := svc.FrameSystem(ctx, []*referenceframe.LinkInFrame{})
 	if err != nil {
 		return nil, nil, err
 	}
-	input := referenceframe.StartPositions(fs)
+	input := referenceframe.NewZeroInputs(fs)
 
 	// build maps of relevant components and inputs from initial inputs
 	resources := map[string]InputEnabled{}
@@ -321,7 +322,12 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 		return nil, err
 	}
 	// returned the transformed pointcloud where the transform was applied to each point
-	return pointcloud.ApplyOffset(ctx, srcpc, theTransform.Pose(), svc.logger)
+	pc := srcpc.CreateNewRecentered(theTransform.Pose())
+	err = pointcloud.ApplyOffset(srcpc, theTransform.Pose(), pc)
+	if err != nil {
+		return nil, err
+	}
+	return pc, nil
 }
 
 // PrefixRemoteParts applies prefixes to a list of FrameSystemParts appropriate to the remote they originate from.

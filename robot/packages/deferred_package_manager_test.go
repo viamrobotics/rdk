@@ -2,10 +2,10 @@ package packages
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
-	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/test"
 
@@ -45,10 +45,6 @@ func TestDeferredPackageManager(t *testing.T) {
 		client, conn, err := fakeServer.Client(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		teardown := func() {
-			conn.Close()
-			fakeServer.Shutdown()
-		}
 		cloudConfig := &config.Cloud{
 			ID:     "some-id",
 			Secret: "some-secret",
@@ -66,6 +62,12 @@ func TestDeferredPackageManager(t *testing.T) {
 			packagesDir,
 			logger,
 		).(*deferredPackageManager)
+
+		teardown := func() {
+			conn.Close()
+			fakeServer.Shutdown()
+			pm.bgWorkers.Wait()
+		}
 
 		return testBag{
 			pm,

@@ -150,6 +150,9 @@ func createMockCloudDependencies(ctx context.Context, t *testing.T, logger loggi
 
 	conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() {
+		utils.UncheckedErrorFunc(conn.Close)
+	})
 
 	mockCloudConnectionService := &cloudinject.CloudConnectionService{
 		Named: cloud.InternalServiceName.AsNamed(),
@@ -283,7 +286,7 @@ func getPointCloudFromArtifact(i int) (pointcloud.PointCloud, error) {
 	}
 	defer utils.UncheckedErrorFunc(pcdFile.Close)
 
-	pcExpected, err := pointcloud.ReadPCD(pcdFile)
+	pcExpected, err := pointcloud.ReadPCD(pcdFile, "")
 	if err != nil {
 		return nil, err
 	}

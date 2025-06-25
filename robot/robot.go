@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"runtime/debug"
 	"strings"
-	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
-	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
@@ -34,13 +32,10 @@ const (
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 //
-// DiscoverComponents example:
+// GetModelsFromModules example:
 //
-//	// Define a new discovery query.
-//	q := resource.NewDiscoveryQuery(camera.API, resource.Model{Name: "webcam", Family: resource.DefaultModelFamily})
-//
-//	// Define a list of discovery queries and get potential component configurations with these queries.
-//	out, err := machine.DiscoverComponents(context.Background(), []resource.DiscoveryQuery{q})
+//	//Get a list of models found in configured modules.
+//	models, err := machine.GetModelsFromModules(ctx)
 //
 // ResourceNames example:
 //
@@ -61,10 +56,6 @@ const (
 //
 //	baseOrigin := referenceframe.NewPoseInFrame("test-base", spatialmath.NewZeroPose())
 //	movementSensorToBase, err := machine.TransformPose(context.Background(), baseOrigin, "my-movement-sensor", nil)
-//
-// Status example:
-//
-//	status, err := machine.Status(context.Background(), nil)
 //
 // CloudMetadata example:
 //
@@ -89,9 +80,9 @@ const (
 //	// Shut down the robot.
 //	err := machine.Shutdown(context.Background())
 type Robot interface {
-	// DiscoverComponents returns discovered potential component configurations.
-	// Only implemented for webcam cameras in builtin components.
-	DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error)
+	// GetModelsFromModules returns a list of models supported by the configured modules,
+	// and specifies whether the models are from a local or registry module.
+	GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error)
 
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
@@ -107,9 +98,6 @@ type Robot interface {
 
 	// ResourceRPCAPIs returns a list of all known resource RPC APIs.
 	ResourceRPCAPIs() []resource.RPCAPI
-
-	// ProcessManager returns the process manager for the robot.
-	ProcessManager() pexec.ProcessManager
 
 	// OperationManager returns the operation manager the robot is using.
 	OperationManager() *operation.Manager
@@ -139,9 +127,6 @@ type Robot interface {
 	// of the transformed pointcloud because that will make the transformations inaccurate.
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 
-	// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
-	Status(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
-
 	// CloudMetadata returns app-related information about the robot.
 	CloudMetadata(ctx context.Context) (cloud.Metadata, error)
 
@@ -162,6 +147,9 @@ type Robot interface {
 
 	// Version returns version information about the robot.
 	Version(ctx context.Context) (VersionResponse, error)
+
+	// ListTunnels returns information on available traffic tunnels.
+	ListTunnels(ctx context.Context) ([]config.TrafficTunnelEndpoint, error)
 }
 
 // A LocalRobot is a Robot that can have its parts modified.
@@ -185,12 +173,20 @@ type LocalRobot interface {
 	WebAddress() (string, error)
 
 	// ModuleAddress returns the address (path) of the unix socket modules use to contact the parent.
-	ModuleAddress() (string, error)
+	ModuleAddresses() (config.ParentSockAddrs, error)
 
 	// ExportResourcesAsDot exports the resource graph as a DOT representation for
 	// visualization.
 	// DOT reference: https://graphviz.org/doc/info/lang.html
 	ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, error)
+
+	// RestartAllowed returns whether the robot can safely be restarted.
+	RestartAllowed() bool
+
+	// Kill will attempt to kill any processes on the system started by the robot as quickly as possible.
+	// This operation is not clean and will not wait for completion.
+	// Only use this if comfortable with leaking resources (in cases where exiting the program as quickly as possible is desired).
+	Kill()
 }
 
 // A RemoteRobot is a Robot that was created through a connection.
@@ -201,22 +197,22 @@ type RemoteRobot interface {
 	Connected() bool
 }
 
-// Status holds a resource name, the time that resource was last reconfigured
-// (or built), and its corresponding status. Status.Status is expected to be
-// comprised of string keys and values comprised of primitives, list of
-// primitives, maps with string keys (or at least can be decomposed into one),
-// or lists of the forementioned type of maps. Results with other types of data
-// are not guaranteed.
-type Status struct {
-	Name             resource.Name
-	LastReconfigured time.Time
-	Status           interface{}
-}
-
 // RestartModuleRequest is a go mirror of a proto message.
 type RestartModuleRequest struct {
 	ModuleID   string
 	ModuleName string
+}
+
+// ResourceByName looks up via short name, and will error if none or more than 1 exist.
+func ResourceByName(r Robot, name string) (resource.Resource, error) {
+	all := AllResourcesByName(r, name)
+	if len(all) == 0 {
+		return nil, fmt.Errorf("no resource named [%s]", name)
+	}
+	if len(all) > 1 {
+		return nil, fmt.Errorf("too many resources named [%s] %d", name, len(all))
+	}
+	return all[0], nil
 }
 
 // AllResourcesByName returns an array of all resources that have this short name.
@@ -327,10 +323,25 @@ func (rmr *RestartModuleRequest) MatchesModule(mod config.Module) bool {
 	return mod.Name == rmr.ModuleName
 }
 
+// MachineState captures the state of a machine.
+type MachineState uint8
+
+const (
+	// StateUnknown represents an unknown state.
+	StateUnknown MachineState = iota
+	// StateInitializing denotes a currently initializing machine. The first
+	// reconfigure after initial creation has not completed.
+	StateInitializing
+	// StateRunning denotes a running machine. The first reconfigure after
+	// initial creation has completed.
+	StateRunning
+)
+
 // MachineStatus encapsulates the current status of the robot.
 type MachineStatus struct {
 	Resources []resource.Status
 	Config    config.Revision
+	State     MachineState
 }
 
 // VersionResponse encapsulates the version info of the robot.

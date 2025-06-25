@@ -40,7 +40,7 @@ import (
 
 func TestConfigRobot(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/robot.json", logger)
+	cfg, err := config.Read(context.Background(), "data/robot.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.Components, test.ShouldHaveLength, 3)
@@ -76,7 +76,7 @@ func TestConfig3(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	test.That(t, os.Setenv("TEST_THING_FOO", "5"), test.ShouldBeNil)
-	cfg, err := config.Read(context.Background(), "data/config3.json", logger)
+	cfg, err := config.Read(context.Background(), "data/config3.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(cfg.Components), test.ShouldEqual, 4)
@@ -152,7 +152,7 @@ func TestConfig3(t *testing.T) {
 
 func TestConfigWithLogDeclarations(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/config_with_log.json", logger)
+	cfg, err := config.Read(context.Background(), "data/config_with_log.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(cfg.Components), test.ShouldEqual, 4)
@@ -674,7 +674,7 @@ func TestRemoteValidate(t *testing.T) {
 			Frame:   lc,
 		}
 
-		_, err := validRemote.Validate("path")
+		_, _, err := validRemote.Validate("path")
 		test.That(t, err, test.ShouldBeNil)
 
 		validRemote = config.Remote{
@@ -682,7 +682,7 @@ func TestRemoteValidate(t *testing.T) {
 			Address: "address",
 			Frame:   lc,
 		}
-		_, err = validRemote.Validate("path")
+		_, _, err = validRemote.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
 			t,
@@ -1205,9 +1205,147 @@ func TestPackageConfig(t *testing.T) {
 	}
 }
 
+func TestJobsConfig(t *testing.T) {
+	invSched := "Invalid schedule format, expected a golang duration string or a valid cron expression"
+	errString := func(field string) string {
+		return fmt.Sprintf("Error validating, missing required field. Field: %q", field)
+	}
+	jobsTests := []struct {
+		config               config.JobConfig
+		shouldFailValidation bool
+		expRespErr           string
+	}{
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "missing resource",
+					Method:   "my_method",
+					Schedule: "5s",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           errString("resource"),
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Method:   "my_method",
+					Schedule: "5s",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           errString("name"),
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "missing method",
+					Schedule: "5s",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           errString("method"),
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "missing schedule",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           errString("schedule"),
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "too many cron fields",
+					Schedule: "* 0 * * * * * *",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           invSched,
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "invalid schedule",
+					Schedule: "Invalid duration",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           invSched,
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "too few cron fields",
+					Schedule: "0 0 * *",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           invSched,
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "schedule in the past",
+					Schedule: "0 0 * * * 2",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           invSched,
+		},
+
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "my_name",
+					Schedule: "0 0 * * *",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: false,
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "my_name",
+					Schedule: "1m",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: false,
+		},
+	}
+
+	for _, jt := range jobsTests {
+		err := jt.config.Validate("")
+		if jt.shouldFailValidation {
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldContainSubstring, jt.expRespErr)
+			continue
+		}
+		test.That(t, err, test.ShouldBeNil)
+	}
+}
+
 func TestConfigRobotWebProfile(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/config_with_web_profile.json", logger)
+	cfg, err := config.Read(context.Background(), "data/config_with_web_profile.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.EnableWebProfile, test.ShouldBeTrue)
@@ -1215,7 +1353,7 @@ func TestConfigRobotWebProfile(t *testing.T) {
 
 func TestConfigRobotRevision(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/config_with_revision.json", logger)
+	cfg, err := config.Read(context.Background(), "data/config_with_revision.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.Revision, test.ShouldEqual, "rev1")
@@ -1228,6 +1366,9 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 		expected config.Config
 	}
 
+	// TODO(RSDK-9717): Add more test cases around config JSON round-tripping. We're testing
+	// only a few fields here. It would be great if adding a new field to config.Config
+	// broke this test somehow so we would remember to change (Un)MarhsalJSON methods.
 	for _, tc := range []testcase{
 		{
 			name: "maintenance config",
@@ -1271,6 +1412,156 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 						FirstRunTimeout: utils.Duration(5 * time.Minute),
 						Environment:     map[string]string{"KEY": "VAL"},
 						Status:          &config.AppValidationStatus{Error: "durrr"},
+					},
+				},
+			},
+		},
+		{
+			name: "disable log deduplication",
+			c: config.Config{
+				DisableLogDeduplication: true,
+			},
+			expected: config.Config{
+				DisableLogDeduplication: true,
+			},
+		},
+		{
+			name: "package path",
+			c: config.Config{
+				PackagePath: "path/to/home/depot",
+			},
+			expected: config.Config{
+				PackagePath: "path/to/home/depot",
+			},
+		},
+		{
+			name: "traffic tunnel endpoints",
+			c: config.Config{
+				Network: config.NetworkConfig{
+					NetworkConfigData: config.NetworkConfigData{
+						TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
+							{
+								Port:              9090,
+								ConnectionTimeout: 20 * time.Second,
+							},
+							{
+								Port:              27017,
+								ConnectionTimeout: 40 * time.Millisecond,
+							},
+							{
+								Port: 23654,
+							},
+						},
+					},
+				},
+			},
+			expected: config.Config{
+				Network: config.NetworkConfig{
+					NetworkConfigData: config.NetworkConfigData{
+						TrafficTunnelEndpoints: []config.TrafficTunnelEndpoint{
+							{
+								Port:              9090,
+								ConnectionTimeout: 20 * time.Second,
+							},
+							{
+								Port:              27017,
+								ConnectionTimeout: 40 * time.Millisecond,
+							},
+							{
+								Port: 23654,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "jobs path",
+			c: config.Config{
+				Jobs: []config.JobConfig{
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "5s",
+							Resource: "my-resource",
+							Method:   "my-method",
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "* * * * *",
+							Resource: "my-resource",
+							Method:   "my-method",
+							Command: map[string]any{
+								"argument1": float64(12),
+								"argument2": false,
+							},
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "3h45m",
+							Resource: "my-resource",
+							Method:   "my-method",
+							Command: map[string]any{
+								"argument1": float64(12),
+								"argument2": "string",
+							},
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "30 5 10 7 2 Sun *",
+							Resource: "my-resource",
+							Method:   "my-method",
+						},
+					},
+				},
+			},
+			expected: config.Config{
+				Jobs: []config.JobConfig{
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "5s",
+							Resource: "my-resource",
+							Method:   "my-method",
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "* * * * *",
+							Resource: "my-resource",
+							Method:   "my-method",
+							Command: map[string]any{
+								"argument1": float64(12),
+								"argument2": false,
+							},
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "3h45m",
+							Resource: "my-resource",
+							Method:   "my-method",
+							Command: map[string]any{
+								"argument1": float64(12),
+								"argument2": "string",
+							},
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "30 5 10 7 2 Sun *",
+							Resource: "my-resource",
+							Method:   "my-method",
+						},
 					},
 				},
 			},

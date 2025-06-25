@@ -16,13 +16,13 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
@@ -47,7 +47,9 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/tunnel"
 	"go.viam.com/rdk/utils/contextutils"
+	nc "go.viam.com/rdk/web/networkcheck"
 )
 
 var (
@@ -60,6 +62,21 @@ var (
 
 	// defaultResourcesTimeout is the default timeout for getting resources.
 	defaultResourcesTimeout = 5 * time.Second
+
+	// DoNotWaitForRunning should be set only in tests to allow connecting to
+	// still-initializing machines. Note that robot clients in production (not in
+	// a testing environment) will already allow connecting to still-initializing
+	// machines.
+	DoNotWaitForRunning = atomic.Bool{}
+
+	// latencyPingNum controls the amount of times a gRPC request will be sent to the server
+	// to measure the latency of the connection. The latency is only measured in case
+	// WithNetworkStats option is specified by the client.
+	latencyPingNum = 5
+
+	// latencyWarningThresholdMs is a measurment (in ms) that determines when a client gets a
+	// warning about their average latency.
+	latencyWarningThresholdMs = 1000.0
 )
 
 // RobotClient satisfies the robot.Robot interface through a gRPC based
@@ -105,6 +122,9 @@ type RobotClient struct {
 	// webrtc. We don't want a network disconnect to result in reconnecting over tcp such that
 	// performance would be impacted.
 	serverIsWebrtcEnabled bool
+
+	pc         *webrtc.PeerConnection
+	sharedConn *grpc.SharedConn
 }
 
 // RemoteTypeName is the type name used for a remote. This is for internal use.
@@ -130,11 +150,33 @@ func skipConnectionCheck(method string) bool {
 	return exemptFromConnectionCheck[method]
 }
 
-func isClosedPipeError(err error) bool {
+// TODO(RSDK-9333): Better account for possible gRPC interaction errors
+// and transform them appropriately.
+//
+// NOTE(benjirewis): I believe gRPC interactions can fail in
+// three broad ways, each with one to three error paths:
+//
+//  1. Creation of stream
+//     a. `rpc.ErrDisconnected` returned due to underlying channel closure
+//  2. Sending of headers/message representing request
+//     a. Proto marshal failure
+//     b. `io.ErrClosedPipe` due to write to a closed socket
+//     c. Possible SCTP errors `ErrStreamClosed` and `ErrOutboundPacketTooLarge`
+//  3. Receiving of response
+//     a. Proto unmarshal failure
+//     b. `io.EOF` due to reading from a closed socket
+//     c. Context deadline exceeded due to timeout
+//     d. Context canceled due to client cancelation
+//
+// Ideally, these paths would all be represented in a single error type that a
+// Golang SDK user could treat as one error, and we could examine the message
+// of the error to see _where_ exactly the failure was in the interaction.
+func isDisconnectedError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), io.ErrClosedPipe.Error())
+	return errors.Is(err, rpc.ErrDisconnected) ||
+		strings.Contains(err.Error(), io.ErrClosedPipe.Error())
 }
 
 func (rc *RobotClient) notConnectedToRemoteError() error {
@@ -161,7 +203,7 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
-	if isClosedPipeError(err) {
+	if isDisconnectedError(err) {
 		return status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return err
@@ -180,7 +222,7 @@ func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	err := cs.ClientStream.RecvMsg(m)
-	if isClosedPipeError(err) {
+	if isDisconnectedError(err) {
 		return status.Error(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error())
 	}
 
@@ -207,7 +249,7 @@ func (rc *RobotClient) handleStreamDisconnect(
 	cs, err := streamer(ctx, desc, cc, method, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
-	if isClosedPipeError(err) {
+	if isDisconnectedError(err) {
 		return nil, status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return &handleDisconnectClientStream{cs, rc}, err
@@ -222,6 +264,11 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}
+
+	if rOpts.withNetworkStats {
+		nc.RunNetworkChecks(ctx, logger)
+	}
+
 	backgroundCtx, backgroundCtxCancel := context.WithCancel(context.Background())
 	heartbeatCtx, heartbeatCtxCancel := context.WithCancel(context.Background())
 
@@ -262,8 +309,93 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 	)
 
-	if err := rc.Connect(ctx); err != nil {
-		return nil, err
+	// If we're a client running as part of a module, we annotate our requests with our module
+	// name. That way the receiver (e.g: viam-server) can execute logic based on where a request
+	// came from. Such as knowing what WebRTC connection to add a video track to.
+	if rOpts.modName != "" {
+		inter := &grpc.ModInterceptors{ModName: rOpts.modName}
+		rc.dialOptions = append(rc.dialOptions, rpc.WithUnaryClientInterceptor(inter.UnaryClientInterceptor))
+	}
+
+	numAttempts := 3
+	if rOpts.initialConnectionAttempts != nil {
+		numAttempts = *rOpts.initialConnectionAttempts
+	}
+
+	if numAttempts == 0 {
+		numAttempts = -1
+	}
+
+	for {
+		if err := rc.Connect(ctx); err != nil {
+			numAttempts--
+			if numAttempts == 0 {
+				return nil, err
+			}
+		} else {
+			break
+		}
+	}
+
+	// If running in a testing environment, wait for machine to report a state of
+	// running. We often establish connections in tests and expect resources to
+	// be immediately available once the web service has started; resources will
+	// not be available when the machine is still initializing.
+	//
+	// It is expected that golang SDK users will handle lack of resource
+	// availability due to the machine being in an initializing state themselves.
+	//
+	// Allow this behavior to be turned off in some tests that specifically want
+	// to examine the behavior of a machine in an initializing state through the
+	// use of a global variable.
+	if testing.Testing() && !DoNotWaitForRunning.Load() {
+		for {
+			if ctx.Err() != nil {
+				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())
+			}
+
+			mStatus, err := rc.MachineStatus(ctx)
+			if err != nil {
+				// Allow for MachineStatus to not be injected/implemented in some tests.
+				if status.Code(err) == codes.Unimplemented {
+					break
+				}
+				// Ignore error from Close and just return original machine status error.
+				utils.UncheckedError(rc.conn.Close())
+				return nil, err
+			}
+
+			if mStatus.State == robot.StateRunning {
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+
+	// if withNetworkStats is set, there are latencyPingNum gRPC requests sent to the server
+	// to measure the average latency of the connection, which is then logged to the user.
+	if rOpts.withNetworkStats {
+		totalTime := 0.0
+		for range latencyPingNum {
+			startTime := time.Now()
+			// GetOperations is used because app.viam.com's "Control" tab measures latency this way.
+			_, err := rc.client.GetOperations(ctx, &pb.GetOperationsRequest{})
+			if err != nil {
+				rc.Logger().CDebug(ctx, fmt.Sprintf("gRPC request failed with error: %e during latency checks", err))
+				continue
+			}
+			timeElapsed := time.Since(startTime).Milliseconds()
+			totalTime += float64(timeElapsed)
+		}
+		avgTime := totalTime / float64(latencyPingNum)
+		if avgTime < 1.0 {
+			rc.Logger().CInfo(ctx, "average connection latency is < 1ms")
+		} else {
+			rc.Logger().CInfo(ctx, fmt.Sprintf("average connection latency is %.2f ms", avgTime))
+			if avgTime > latencyWarningThresholdMs {
+				rc.Logger().CWarn(ctx, fmt.Sprintf("average latency is higher than %.0f ms", latencyWarningThresholdMs))
+			}
+		}
 	}
 
 	// refresh once to hydrate the robot.
@@ -310,7 +442,6 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 			rc.RefreshEvery(backgroundCtx, refreshTime)
 		}, rc.activeBackgroundWorkers.Done)
 	}
-
 	return rc, nil
 }
 
@@ -371,7 +502,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		// If we succeed with a webrtc connection, flip the `serverIsWebrtcEnabled` to force all future
 		// connections to use webrtc.
 		if !rc.serverIsWebrtcEnabled {
-			rc.logger.Info("A WebRTC connection was made to the robot. ",
+			rc.logger.Info("A WebRTC connection was made to the robot.",
 				"Reconnects will disallow direct gRPC connections.")
 			rc.serverIsWebrtcEnabled = true
 		}
@@ -432,7 +563,7 @@ func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 	for resourceName, client := range rc.resourceClients {
 		// check if no longer an active resource
 		if !activeResources[resourceName] {
-			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName)
+			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName.String())
 			if err := client.Close(ctx); err != nil {
 				rc.Logger().CError(ctx, err)
 				continue
@@ -485,8 +616,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				err := check()
 				if err != nil {
 					outerError = err
-					// if pipe is closed, we know for sure we lost connection
-					if isClosedPipeError(err) {
+					if isDisconnectedError(err) {
 						break
 					}
 					// otherwise retry
@@ -612,10 +742,10 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
 	apiInfo, ok := resource.LookupGenericAPIRegistration(name.API)
 	if !ok || apiInfo.RPCClient == nil {
-		return grpc.NewForeignResource(name, &rc.conn), nil
+		return grpc.NewForeignResource(name, rc.getClientConn()), nil
 	}
 	logger := rc.Logger().Sublogger(resource.RemoveRemoteName(name).ShortName())
-	return apiInfo.RPCClient(rc.backgroundCtx, &rc.conn, rc.remoteName, name, logger)
+	return apiInfo.RPCClient(rc.backgroundCtx, rc.getClientConn(), rc.remoteName, name, logger)
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCAPI, error) {
@@ -737,13 +867,6 @@ func (rc *RobotClient) RemoteNames() []string {
 	return nil
 }
 
-// ProcessManager returns a useless process manager for the sake of
-// satisfying the robot.Robot interface. Maybe it should not be part
-// of the interface!
-func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
-	return pexec.NoopProcessManager
-}
-
 // OperationManager returns nil.
 func (rc *RobotClient) OperationManager() *operation.Manager {
 	return nil
@@ -798,61 +921,30 @@ func (rc *RobotClient) Logger() logging.Logger {
 	return rc.logger
 }
 
-// DiscoverComponents takes a list of discovery queries and returns corresponding
-// component configurations.
-//
-//	// Define a new discovery query.
-//	q := resource.NewDiscoveryQuery(acme.API, resource.Model{Name: "some model"})
-//
-//	// Define a list of discovery queries.
-//	qs := []resource.DiscoverQuery{q}
-//
-//	// Get component configurations with these queries.
-//	component_configs, err := machine.DiscoverComponents(ctx.Background(), qs)
-func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
-	pbQueries := make([]*pb.DiscoveryQuery, 0, len(qs))
-	for _, q := range qs {
-		extra, err := structpb.NewStruct(q.Extra)
-		if err != nil {
-			return nil, err
-		}
-		pbQueries = append(
-			pbQueries,
-			&pb.DiscoveryQuery{
-				Subtype: q.API.String(),
-				Model:   q.Model.String(),
-				Extra:   extra,
-			},
-		)
-	}
-
-	resp, err := rc.client.DiscoverComponents(ctx, &pb.DiscoverComponentsRequest{Queries: pbQueries})
+// GetModelsFromModules  returns the available models from the configured modules on a given machine.
+func (rc *RobotClient) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
+	resp, err := rc.client.GetModelsFromModules(ctx, &pb.GetModelsFromModulesRequest{})
 	if err != nil {
 		return nil, err
 	}
-
-	discoveries := make([]resource.Discovery, 0, len(resp.Discovery))
-	for _, disc := range resp.Discovery {
-		m, err := resource.NewModelFromString(disc.Query.Model)
+	protoModels := resp.GetModels()
+	models := []resource.ModuleModel{}
+	for _, protoModel := range protoModels {
+		modelTriplet, err := resource.NewModelFromString(protoModel.Model)
 		if err != nil {
 			return nil, err
 		}
-		s, err := resource.NewAPIFromString(disc.Query.Subtype)
+		api, err := resource.NewAPIFromString(protoModel.Api)
 		if err != nil {
 			return nil, err
 		}
-		q := resource.DiscoveryQuery{
-			API:   s,
-			Model: m,
-			Extra: disc.Query.Extra.AsMap(),
+		model := resource.ModuleModel{
+			ModuleName: protoModel.ModuleName, Model: modelTriplet, API: api,
+			FromLocalModule: protoModel.FromLocalModule,
 		}
-		discoveries = append(
-			discoveries, resource.Discovery{
-				Query:   q,
-				Results: disc.Results.AsMap(),
-			})
+		models = append(models, model)
 	}
-	return discoveries, nil
+	return models, nil
 }
 
 // FrameSystemConfig  returns the configuration of the frame system of a given machine.
@@ -930,35 +1022,12 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 		return nil, err
 	}
 	transformPose := referenceframe.ProtobufToPoseInFrame(resp.Pose).Pose()
-	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, rc.Logger())
-}
-
-// Status returns the status of the resources on the machine. You can provide a list of ResourceNames for which you want
-// statuses. If no names are passed in, the status of every resource available on the machine is returned.
-//
-//	status, err := machine.Status(ctx.Background())
-func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
-	for _, name := range resourceNames {
-		names = append(names, rprotoutils.ResourceNameToProto(name))
-	}
-
-	//nolint:staticcheck // the status API is deprecated
-	resp, err := rc.client.GetStatus(ctx, &pb.GetStatusRequest{ResourceNames: names})
+	output := srcpc.CreateNewRecentered(transformPose)
+	err = pointcloud.ApplyOffset(srcpc, transformPose, output)
 	if err != nil {
 		return nil, err
 	}
-
-	statuses := make([]robot.Status, 0, len(resp.Status))
-	for _, status := range resp.Status {
-		statuses = append(
-			statuses, robot.Status{
-				Name:             rprotoutils.ResourceNameFromProto(status.Name),
-				LastReconfigured: status.LastReconfigured.AsTime(),
-				Status:           status.Status.AsMap(),
-			})
-	}
-	return statuses, nil
+	return output, nil
 }
 
 // StopAll cancels all current and outstanding operations for the machine and stops all actuators and movement.
@@ -1021,17 +1090,12 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 //
 //	metadata, err := machine.CloudMetadata(ctx.Background())
 func (rc *RobotClient) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
-	cloudMD := cloud.Metadata{}
 	req := &pb.GetCloudMetadataRequest{}
 	resp, err := rc.client.GetCloudMetadata(ctx, req)
 	if err != nil {
-		return cloudMD, err
+		return cloud.Metadata{}, err
 	}
-	cloudMD.PrimaryOrgID = resp.PrimaryOrgId
-	cloudMD.LocationID = resp.LocationId
-	cloudMD.MachineID = resp.MachineId
-	cloudMD.MachinePartID = resp.MachinePartId
-	return cloudMD, nil
+	return rprotoutils.MetadataFromProto(resp), nil
 }
 
 // RestartModule restarts a running module by name or ID.
@@ -1097,9 +1161,12 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	mStatus.Resources = make([]resource.Status, 0, len(resp.Resources))
 	for _, pbResStatus := range resp.Resources {
 		resStatus := resource.Status{
-			Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),
-			LastUpdated: pbResStatus.LastUpdated.AsTime(),
-			Revision:    pbResStatus.Revision,
+			NodeStatus: resource.NodeStatus{
+				Name:        rprotoutils.ResourceNameFromProto(pbResStatus.Name),
+				LastUpdated: pbResStatus.LastUpdated.AsTime(),
+				Revision:    pbResStatus.Revision,
+			},
+			CloudMetadata: rprotoutils.MetadataFromProto(pbResStatus.CloudMetadata),
 		}
 
 		switch pbResStatus.State {
@@ -1124,6 +1191,16 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		mStatus.Resources = append(mStatus.Resources, resStatus)
 	}
 
+	switch resp.State {
+	case pb.GetMachineStatusResponse_STATE_UNSPECIFIED:
+		rc.logger.CError(ctx, "received unspecified machine state")
+		mStatus.State = robot.StateUnknown
+	case pb.GetMachineStatusResponse_STATE_INITIALIZING:
+		mStatus.State = robot.StateInitializing
+	case pb.GetMachineStatusResponse_STATE_RUNNING:
+		mStatus.State = robot.StateRunning
+	}
+
 	return mStatus, nil
 }
 
@@ -1141,6 +1218,128 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 	mVersion.APIVersion = resp.ApiVersion
 
 	return mVersion, nil
+}
+
+// Tunnel tunnels data to/from the read writer from/to the destination port on the server. This
+// function will close the connection passed in as part of cleanup.
+func (rc *RobotClient) Tunnel(ctx context.Context, conn io.ReadWriteCloser, dest int) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	client, err := rc.client.Tunnel(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := client.Send(&pb.TunnelRequest{
+		DestinationPort: uint32(dest),
+	}); err != nil {
+		return err
+	}
+	rc.Logger().CInfow(ctx, "creating tunnel to server", "port", dest)
+	var (
+		wg              sync.WaitGroup
+		readerSenderErr error
+
+		timerMu sync.Mutex
+		timer   *time.Timer
+	)
+	connClosed := make(chan struct{})
+	rsDone := make(chan struct{})
+	wg.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer func() {
+			// We communicate an end to the stream by calling CloseSend().
+			// Close the channel first so that network errors can be filtered
+			// and prevented in the RecvWriterLoop.
+			close(rsDone)
+			utils.UncheckedError(client.CloseSend())
+
+			// Schedule a task to cancel the context if we do not exit out of the recvWriterLoop within 5 seconds.
+			// This will close the client, meaning client.Recv() in the RecvWriterLoop will exit and return an error.
+			//
+			// NOTE(cheukt): This may cause DEBUG messages from WebRTC stating `no stream for id; discarding`
+			// to show up because the handler will have exited before we receive the last messages from the server.
+			// This is not an issue and is expected.
+			timerMu.Lock()
+			timer = time.AfterFunc(5*time.Second, cancel)
+			timerMu.Unlock()
+			wg.Done()
+		}()
+		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
+		sendFunc := func(data []byte) error { return client.Send(&pb.TunnelRequest{Data: data}) }
+		readerSenderErr = tunnel.ReaderSenderLoop(ctx, conn, sendFunc, connClosed, rc.logger.WithFields("loop", "reader/sender"))
+	})
+
+	recvFunc := func() ([]byte, error) {
+		resp, err := client.Recv()
+		if err != nil {
+			return nil, err
+		}
+		return resp.Data, nil
+	}
+	recvWriterErr := tunnel.RecvWriterLoop(ctx, recvFunc, conn, rsDone, rc.logger.WithFields("loop", "recv/writer"))
+	timerMu.Lock()
+	// cancel the timer if we've successfully returned from the RecvWriterLoop
+	if timer != nil {
+		timer.Stop()
+	}
+	timerMu.Unlock()
+
+	// We close the connection to unblock the reader/sender loop, which is not clean
+	// but there isn't a cleaner way to exit from the reader/sender loop.
+	// Close the channel first so that network errors can be filtered
+	// and prevented in the ReaderSenderLoop.
+	close(connClosed)
+	utils.UncheckedError(conn.Close())
+
+	wg.Wait()
+	rc.Logger().CInfow(ctx, "tunnel to server closed", "port", dest)
+	return errors.Join(readerSenderErr, recvWriterErr)
+}
+
+// ListTunnels lists all available tunnels configured on the robot.
+func (rc *RobotClient) ListTunnels(ctx context.Context) ([]config.TrafficTunnelEndpoint, error) {
+	var ttes []config.TrafficTunnelEndpoint
+
+	resp, err := rc.client.ListTunnels(ctx, &pb.ListTunnelsRequest{})
+	if err != nil {
+		return ttes, err
+	}
+
+	for _, protoTTE := range resp.Tunnels {
+		if protoTTE == nil {
+			continue
+		}
+
+		tte := config.TrafficTunnelEndpoint{
+			Port:              int(protoTTE.Port),
+			ConnectionTimeout: protoTTE.ConnectionTimeout.AsDuration(),
+		}
+		ttes = append(ttes, tte)
+	}
+
+	return ttes, nil
+}
+
+// SetPeerConnection is only to be called internally from modules.
+func (rc *RobotClient) SetPeerConnection(pc *webrtc.PeerConnection) {
+	rc.mu.Lock()
+	rc.pc = pc
+	rc.mu.Unlock()
+}
+
+func (rc *RobotClient) getClientConn() rpc.ClientConn {
+	// Must be called with `rc.mu` in ReadLock+ mode.
+	if rc.sharedConn != nil {
+		return rc.sharedConn
+	}
+
+	if rc.pc == nil {
+		return &rc.conn
+	}
+
+	rc.sharedConn = grpc.NewSharedConnForModule(&rc.conn, rc.pc, rc.logger.Sublogger("shared_conn"))
+	return rc.sharedConn
 }
 
 func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {

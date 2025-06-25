@@ -5,11 +5,73 @@ import (
 	"strconv"
 	"testing"
 
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/cloud"
 )
+
+func TestMetadataFromProto(t *testing.T) {
+	expected := cloud.Metadata{}
+	observed := MetadataFromProto(nil)
+	test.That(t, observed, test.ShouldResemble, expected)
+
+	partID := "123"
+	machineID := "abc"
+	orgID := "456"
+	locID := "def"
+
+	samePartID := &robotpb.GetCloudMetadataResponse{
+		RobotPartId:   partID,
+		MachinePartId: partID,
+		MachineId:     machineID,
+		PrimaryOrgId:  orgID,
+		LocationId:    locID,
+	}
+	expected = cloud.Metadata{
+		MachinePartID: partID,
+		MachineID:     machineID,
+		PrimaryOrgID:  orgID,
+		LocationID:    locID,
+	}
+	observed = MetadataFromProto(samePartID)
+	test.That(t, observed, test.ShouldResemble, expected)
+
+	robotPartID := "789"
+	diffPartID := &robotpb.GetCloudMetadataResponse{
+		RobotPartId:   robotPartID,
+		MachinePartId: partID,
+		MachineId:     machineID,
+		PrimaryOrgId:  orgID,
+		LocationId:    locID,
+	}
+	observed = MetadataFromProto(diffPartID)
+	test.That(t, observed, test.ShouldResemble, expected)
+}
+
+func TestMetadataToProto(t *testing.T) {
+	partID := "123"
+	machineID := "abc"
+	orgID := "456"
+	locID := "def"
+
+	metadata := cloud.Metadata{
+		MachinePartID: partID,
+		MachineID:     machineID,
+		PrimaryOrgID:  orgID,
+		LocationID:    locID,
+	}
+	expected := &robotpb.GetCloudMetadataResponse{
+		RobotPartId:   partID,
+		MachinePartId: partID,
+		MachineId:     machineID,
+		PrimaryOrgId:  orgID,
+		LocationId:    locID,
+	}
+	observed := MetadataToProto(metadata)
+	test.That(t, observed, test.ShouldResembleProto, expected)
+}
 
 func TestStringToAnyPB(t *testing.T) {
 	anyVal, err := ConvertStringToAnyPB("12")
@@ -41,19 +103,4 @@ func TestStringToAnyPB(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	wrappedVal4 := wrapperspb.String("abcd")
 	test.That(t, anyVal.MessageIs(wrappedVal4), test.ShouldBeTrue)
-}
-
-func TestResourceNameToProto(t *testing.T) {
-	resourceName := resource.Name{
-		Name:   "totallyLegitResource",
-		Remote: "remote1:remote2:remote3",
-		API:    resource.NewAPI("space", "fake", "fakeFake"),
-	}
-	resourceNameProto := ResourceNameToProto(resourceName)
-	finalResource := ResourceNameFromProto(resourceNameProto)
-
-	test.That(t, resourceNameProto.LocalName, test.ShouldEqual, "totallyLegitResource")
-	test.That(t, resourceNameProto.RemotePath, test.ShouldResemble, []string{"remote1", "remote2", "remote3"})
-	test.That(t, resourceNameProto.Name, test.ShouldEqual, "remote1:remote2:remote3:totallyLegitResource")
-	test.That(t, finalResource, test.ShouldResemble, resourceName)
 }

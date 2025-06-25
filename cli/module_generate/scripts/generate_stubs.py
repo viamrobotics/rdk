@@ -3,22 +3,23 @@ import os
 import subprocess
 import sys
 from importlib import import_module
-from typing import List, Set
+from typing import List, Set, Union
 
 
 def return_attribute(value: str, attr: str) -> ast.Attribute:
     return ast.Attribute(
         value=ast.Name(id=value, ctx=ast.Load()),
         attr=attr,
-        ctx=ast.Load())
+        ctx=ast.Load(),
+    )
 
 
 def update_annotation(
     resource_name: str,
-    annotation: ast.Name | ast.Subscript,
+    annotation: Union[ast.Name, ast.Subscript],
     nodes: Set[str],
-    parent: str
-) -> ast.Attribute | ast.Subscript:
+    parent: str,
+) -> Union[ast.Attribute, ast.Subscript]:
     if isinstance(annotation, ast.Name) and annotation.id in nodes:
         value = parent if parent else resource_name
         return return_attribute(value, annotation.id)
@@ -27,39 +28,43 @@ def update_annotation(
             resource_name,
             annotation.slice,
             nodes,
-            parent)
+            parent,
+        )
     return annotation
 
 
 def replace_async_func(
-    resource_name: str,
-    func: ast.AsyncFunctionDef,
-    nodes: Set[str],
-    parent: str = ""
+    resource_name: str, func: ast.AsyncFunctionDef, nodes: Set[str], parent: str = ""
 ) -> None:
     for arg in func.args.args:
-        arg.annotation = update_annotation(
-            resource_name,
-            arg.annotation,
-            nodes,
-            parent)
+        arg.annotation = update_annotation(resource_name, arg.annotation, nodes, parent)
     func.body = [
+        ast.Expr(
+            ast.Call(
+                func=ast.Attribute(
+                    value=ast.Attribute(ast.Name(id="self"), attr="logger"),
+                    attr="error",
+                ),
+                args=[ast.Constant(value=f"`{func.name}` is not implemented")],
+                keywords=[],
+            )
+        ),
         ast.Raise(
-            exc=ast.Call(func=ast.Name(id='NotImplementedError',
-                                       ctx=ast.Load()),
-                         args=[], 
-                         keywords=[]),
-            cause=None)
+            exc=ast.Call(
+                func=ast.Name(id="NotImplementedError", ctx=ast.Load()),
+                args=[],
+                keywords=[],
+            ),
+            cause=None,
+        ),
     ]
     func.decorator_list = []
     if isinstance(func.returns, (ast.Name, ast.Subscript)):
-        func.returns = update_annotation(
-            resource_name, func.returns, nodes, parent
-        )
+        func.returns = update_annotation(resource_name, func.returns, nodes, parent)
 
 
 def return_subclass(
-        resource_name: str, stmt: ast.ClassDef, parent: str = ""
+    resource_name: str, stmt: ast.ClassDef, parent: str = ""
 ) -> List[str]:
     def parse_subclass(resource_name: str, stmt: ast.ClassDef, parent: str):
         nodes = set()
@@ -84,9 +89,7 @@ def return_subclass(
             stmt.body = [ast.Pass()]
 
     parse_subclass(resource_name, stmt, parent)
-    return '\n'.join(
-        ['    ' + line for line in ast.unparse(stmt).splitlines()]
-    )
+    return "\n".join(["    " + line for line in ast.unparse(stmt).splitlines()])
 
 
 def main(
@@ -99,14 +102,12 @@ def main(
     import isort
     from slugify import slugify
 
-    module_name = (
-        f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
-    )
+    module_name = f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
     module = import_module(module_name)
-    resource_name = {
-        "input": "Controller", "slam": "SLAM", "mlmodel": "MLModel"
-    }.get(resource_subtype, "".join(word.capitalize()
-                                    for word in resource_subtype.split("_")))
+    resource_name = {"input": "Controller", "slam": "SLAM", "mlmodel": "MLModel"}.get(
+        resource_subtype,
+        "".join(word.capitalize() for word in resource_subtype.split("_")),
+    )
 
     imports, subclasses, abstract_methods = [], [], []
     nodes = set()
@@ -123,8 +124,11 @@ def main(
                 for imp in stmt.names:
                     if imp.name in modules_to_ignore:
                         continue
-                    imports.append(f"import {imp.name} as {imp.asname}"
-                                   if imp.asname else f"import {imp.name}")
+                    imports.append(
+                        f"import {imp.name} as {imp.asname}"
+                        if imp.asname
+                        else f"import {imp.name}"
+                    )
             elif (
                 isinstance(stmt, ast.ImportFrom)
                 and stmt.module
@@ -150,19 +154,38 @@ def main(
                         nodes.add(cstmt.target.id)
                     elif isinstance(cstmt, ast.AsyncFunctionDef):
                         replace_async_func(resource_name, cstmt, nodes)
-                        indented_code = '\n'.join(
-                            ['    ' + line for line in ast.unparse(cstmt).splitlines()]
+                        indented_code = "\n".join(
+                            ["    " + line for line in ast.unparse(cstmt).splitlines()]
                         )
                         abstract_methods.append(indented_code)
+
+    type_module = import_module(f"viam.{resource_type}s.{resource_type}_base")
+    with open(type_module.__file__, "r") as f:
+        tree = ast.parse(f.read())
+        for stmt in tree.body:
+            if isinstance(stmt, ast.ClassDef):
+                for cstmt in stmt.body:
+                    if isinstance(cstmt, ast.AsyncFunctionDef):
+                        replace_async_func("", cstmt, [])
+                        indented_code = "\n".join(
+                            ["    " + line for line in ast.unparse(cstmt).splitlines()]
+                        )
+                        abstract_methods.append(indented_code)
+                        if cstmt.name == "do_command":
+                            imports.append("from typing import Optional")
+                            imports.append("from viam.utils import ValueTypes")
+                        elif cstmt.name == "get_geometries":
+                            imports.append(
+                                "from typing import Any, Dict, List, Optional"
+                            )
+                            imports.append("from viam.proto.common import Geometry")
 
     model_name_pascal = "".join(
         [word.capitalize() for word in slugify(model_name).split("-")]
     )
-    main_file = '''
-import asyncio
-from typing import ClassVar, Mapping, Sequence
+    resource_file = '''
+from typing import ClassVar, Mapping, Sequence, Tuple
 from typing_extensions import Self
-from viam.module.module import Module
 from viam.proto.app.robot import ComponentConfig
 from viam.proto.common import ResourceName
 from viam.resource.base import ResourceBase
@@ -173,6 +196,8 @@ from viam.{1}s.{2} import *
 
 
 class {3}({4}, EasyResource):
+    # To enable debug-level logging, either run viam-server with the --debug option,
+    # or configure your resource/machine to display debug logs.
     MODEL: ClassVar[Model] = Model(ModelFamily("{5}", "{6}"), "{7}")
 
     @classmethod
@@ -182,7 +207,7 @@ class {3}({4}, EasyResource):
 
         Args:
             config (ComponentConfig): The configuration for this resource
-            dependencies (Mapping[ResourceName, ResourceBase]): The dependencies (both implicit and explicit)
+            dependencies (Mapping[ResourceName, ResourceBase]): The dependencies (both required and optional)
 
         Returns:
             Self: The resource
@@ -190,34 +215,31 @@ class {3}({4}, EasyResource):
         return super().new(config, dependencies)
 
     @classmethod
-    def validate_config(cls, config: ComponentConfig) -> Sequence[str]:
+    def validate_config(cls, config: ComponentConfig) -> Tuple[Sequence[str], Sequence[str]]:
         """This method allows you to validate the configuration object received from the machine,
-        as well as to return any implicit dependencies based on that `config`.
+        as well as to return any required dependencies or optional dependencies based on that `config`.
 
         Args:
             config (ComponentConfig): The configuration for this resource
 
         Returns:
-            Sequence[str]: A list of implicit dependencies
+            Tuple[Sequence[str], Sequence[str]]: A tuple where the
+                first element is a list of required dependencies and the
+                second element is a list of optional dependencies
         """
-        return []
+        return [], []
 
     def reconfigure(self, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]):
         """This method allows you to dynamically update your service when it receives a new `config` object.
 
         Args:
             config (ComponentConfig): The new configuration
-            dependencies (Mapping[ResourceName, ResourceBase]): Any dependencies (both implicit and explicit)
+            dependencies (Mapping[ResourceName, ResourceBase]): Any dependencies (both required and optional)
         """
         return super().reconfigure(config, dependencies)
 
 {8}
 {9}
-
-
-if __name__ == '__main__':
-    asyncio.run(Module.run_from_registry())
-
 '''.format(
         "\n".join(list(set(imports))),
         resource_type,
@@ -227,22 +249,23 @@ if __name__ == '__main__':
         namespace,
         mod_name,
         model_name,
-        '\n\n'.join([subclass for subclass in subclasses]),
-        '\n\n'.join([f'{method}' for method in abstract_methods]),
+        "\n\n".join([subclass for subclass in subclasses]),
+        "\n\n".join([f"{method}" for method in abstract_methods]),
     )
-    f_name = os.path.join(mod_name, "src", "main.py")
+    f_name = os.path.join(mod_name, "src", "models", "resource.py")
     with open(f_name, "w+") as f:
-        f.write(main_file)
+        f.write(resource_file)
         try:
             f.seek(0)
             subprocess.check_call([sys.executable, "-m", "black", f_name, "-q"])
             f.seek(0)
-            main_file = f.read()
+            resource_file = f.read()
         except subprocess.CalledProcessError:
             pass
     os.remove(f_name)
-    sorted_main = isort.code(main_file)
-    return sorted_main
+    sorted_code = isort.code(resource_file)
+
+    return sorted_code
 
 
 if __name__ == "__main__":
@@ -250,12 +273,7 @@ if __name__ == "__main__":
     if sys.argv[2] == "mlmodel":
         packages.append("numpy")
     install_res = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install"
-        ] + packages,
+        [sys.executable, "-m", "pip", "install"] + packages,
         capture_output=True,
     )
     if install_res.returncode != 0:

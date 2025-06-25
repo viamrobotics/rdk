@@ -12,9 +12,9 @@ package packages
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
-	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
 
@@ -31,6 +31,7 @@ type deferredPackageManager struct {
 	cloudManager        ManagerSyncer
 	cloudManagerArgs    cloudManagerConstructorArgs
 	cloudManagerLock    sync.Mutex
+	bgWorkers           sync.WaitGroup
 
 	lastSyncedManager     ManagerSyncer
 	lastSyncedManagerLock sync.Mutex
@@ -133,8 +134,12 @@ func (m *deferredPackageManager) getManagerForSync(ctx context.Context, packages
 
 	// otherwise, spawn a goroutine to establish the connection and use a noopManager in the meantime
 	// hold the cloudManagerLock until this finishes
+	m.bgWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
-		defer m.cloudManagerLock.Unlock()
+		defer func() {
+			m.bgWorkers.Done()
+			m.cloudManagerLock.Unlock()
+		}()
 		mgr, err := m.createCloudManager(ctx)
 		if err != nil {
 			m.logger.Warnf("failed to create cloud package manager %v", err)
@@ -151,7 +156,7 @@ func (m *deferredPackageManager) getManagerForSync(ctx context.Context, packages
 func (m *deferredPackageManager) createCloudManager(ctx context.Context) (ManagerSyncer, error) {
 	client, err := m.establishConnection(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to a establish connection to app.viam")
+		return nil, fmt.Errorf("failed to a establish connection to app.viam: %w", err)
 	}
 	return NewCloudManager(
 		m.cloudManagerArgs.cloudConfig,

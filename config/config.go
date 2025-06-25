@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aptible/supercronic/cronexpr"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/jwks"
@@ -40,6 +41,7 @@ type Config struct {
 	Debug             bool
 	LogConfig         []logging.LoggerPatternConfig
 	MaintenanceConfig *MaintenanceConfig
+	Jobs              []JobConfig
 
 	ConfigFilePath string
 
@@ -71,6 +73,16 @@ type Config struct {
 	// Revision contains the current revision of the config.
 	Revision string
 
+	// Initial represents whether this is an "initial" config passed in by web
+	// server entrypoint code. If true, the robot will continue to report a state
+	// of initializing after applying this config. If false, the robot will
+	// report a state of running after applying this config.
+	Initial bool
+
+	// DisableLogDeduplication controls whether deduplication of noisy logs
+	// should be turned off. Defaults to false.
+	DisableLogDeduplication bool
+
 	// toCache stores the JSON marshalled version of the config to be cached. It should be a copy of
 	// the config pulled from cloud with minor changes.
 	// This version is kept because the config is changed as it moves through the system.
@@ -86,21 +98,24 @@ type MaintenanceConfig struct {
 
 // NOTE: This data must be maintained with what is in Config.
 type configData struct {
-	Cloud               *Cloud                        `json:"cloud,omitempty"`
-	Modules             []Module                      `json:"modules,omitempty"`
-	Remotes             []Remote                      `json:"remotes,omitempty"`
-	Components          []resource.Config             `json:"components,omitempty"`
-	Processes           []pexec.ProcessConfig         `json:"processes,omitempty"`
-	Services            []resource.Config             `json:"services,omitempty"`
-	Packages            []PackageConfig               `json:"packages,omitempty"`
-	Network             NetworkConfig                 `json:"network"`
-	Auth                AuthConfig                    `json:"auth"`
-	Debug               bool                          `json:"debug,omitempty"`
-	DisablePartialStart bool                          `json:"disable_partial_start"`
-	EnableWebProfile    bool                          `json:"enable_web_profile"`
-	LogConfig           []logging.LoggerPatternConfig `json:"log,omitempty"`
-	Revision            string                        `json:"revision,omitempty"`
-	MaintenanceConfig   *MaintenanceConfig            `json:"maintenance,omitempty"`
+	Cloud                   *Cloud                        `json:"cloud,omitempty"`
+	Modules                 []Module                      `json:"modules,omitempty"`
+	Remotes                 []Remote                      `json:"remotes,omitempty"`
+	Components              []resource.Config             `json:"components,omitempty"`
+	Processes               []pexec.ProcessConfig         `json:"processes,omitempty"`
+	Services                []resource.Config             `json:"services,omitempty"`
+	Packages                []PackageConfig               `json:"packages,omitempty"`
+	Network                 NetworkConfig                 `json:"network"`
+	Auth                    AuthConfig                    `json:"auth"`
+	Debug                   bool                          `json:"debug,omitempty"`
+	DisablePartialStart     bool                          `json:"disable_partial_start"`
+	EnableWebProfile        bool                          `json:"enable_web_profile"`
+	LogConfig               []logging.LoggerPatternConfig `json:"log,omitempty"`
+	Revision                string                        `json:"revision,omitempty"`
+	MaintenanceConfig       *MaintenanceConfig            `json:"maintenance,omitempty"`
+	PackagePath             string                        `json:"package_path,omitempty"`
+	DisableLogDeduplication bool                          `json:"disable_log_deduplication"`
+	Jobs                    []JobConfig                   `json:"jobs,omitempty"`
 }
 
 // AppValidationStatus refers to the.
@@ -142,6 +157,27 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		return err
 	}
 
+	// Validate the jobs and check the uniqueness of job names.
+	seenJobs := make(map[string]bool)
+	for idx := 0; idx < len(c.Jobs); idx++ {
+		jobName := fmt.Sprintf("jobs.%s", c.Jobs[idx].Name)
+		if err := c.Jobs[idx].Validate(fmt.Sprintf("%s.%d", "jobs", idx)); err != nil {
+			fullErr := errors.Errorf("error validating jobs config %s", err)
+			if c.DisablePartialStart {
+				return fullErr
+			}
+			logger.Errorw("jobs config error; starting robot without job", "name", jobName, "error", err)
+		}
+		if _, exists := seenJobs[jobName]; exists {
+			errString := errors.Errorf("duplicate job %s in robot config", jobName)
+			if c.DisablePartialStart {
+				return errString
+			}
+			logger.Error(errString)
+		}
+		seenJobs[jobName] = true
+	}
+
 	for idx := 0; idx < len(c.Modules); idx++ {
 		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
 			if c.DisablePartialStart {
@@ -155,7 +191,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 
 	for idx := 0; idx < len(c.Remotes); idx++ {
-		if _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
+		if _, _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
 			if c.DisablePartialStart {
 				return err
 			}
@@ -170,12 +206,12 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 
 	for idx := 0; idx < len(c.Components); idx++ {
 		component := &c.Components[idx]
-		// dependsOn will only be populated if attributes have been converted, which does not happen in this function.
+		// requiredDeps and optionalDeps will only be populated if attributes have been converted, which does not happen in this function.
 		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
 		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
 		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
 		// dependencies are gathered during robot reconfiguration itself.
-		dependsOn, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
+		requiredDeps, optionalDeps, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
 			fullErr := errors.Wrapf(err, "error validating component %s: %s", component.Name, err)
 			if c.DisablePartialStart {
@@ -184,7 +220,8 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			resLogger := logger.Sublogger(component.ResourceName().String())
 			resLogger.Errorw("component config error; starting robot without component", "name", component.Name, "error", err)
 		} else {
-			component.ImplicitDependsOn = dependsOn
+			component.ImplicitDependsOn = requiredDeps
+			component.ImplicitOptionalDependsOn = optionalDeps
 		}
 		if err := c.validateUniqueResource(logger, seenResources, component.ResourceName().String()); err != nil {
 			return err
@@ -206,12 +243,12 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 
 	for idx := 0; idx < len(c.Services); idx++ {
 		service := &c.Services[idx]
-		// dependsOn will only be populated if attributes have been converted, which does not happen in this function.
+		// requiredDeps and optionalDeps will only be populated if attributes have been converted, which does not happen in this function.
 		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
 		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
 		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
 		// dependencies are gathered during robot reconfiguration itself.
-		dependsOn, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
+		requiredDeps, optionalDeps, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
 			if c.DisablePartialStart {
 				return err
@@ -219,7 +256,8 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			resLogger := logger.Sublogger(service.ResourceName().String())
 			resLogger.Errorw("service config error; starting robot without service", "name", service.Name, "error", err)
 		} else {
-			service.ImplicitDependsOn = dependsOn
+			service.ImplicitDependsOn = requiredDeps
+			service.ImplicitOptionalDependsOn = optionalDeps
 		}
 
 		if err := c.validateUniqueResource(logger, seenResources, service.ResourceName().String()); err != nil {
@@ -268,7 +306,7 @@ func (c *Config) StoreToCache() error {
 	if c.toCache == nil {
 		return errors.New("no unprocessed config to cache")
 	}
-	if err := os.MkdirAll(ViamDotDir, 0o700); err != nil {
+	if err := os.MkdirAll(rutils.ViamDotDir, 0o700); err != nil {
 		return err
 	}
 	reader := bytes.NewReader(c.toCache)
@@ -308,6 +346,9 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.LogConfig = conf.LogConfig
 	c.Revision = conf.Revision
 	c.MaintenanceConfig = conf.MaintenanceConfig
+	c.PackagePath = conf.PackagePath
+	c.DisableLogDeduplication = conf.DisableLogDeduplication
+	c.Jobs = conf.Jobs
 
 	return nil
 }
@@ -325,21 +366,24 @@ func (c Config) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(configData{
-		Cloud:               c.Cloud,
-		Modules:             c.Modules,
-		Remotes:             c.Remotes,
-		Components:          c.Components,
-		Processes:           c.Processes,
-		Services:            c.Services,
-		Packages:            c.Packages,
-		Network:             c.Network,
-		Auth:                c.Auth,
-		Debug:               c.Debug,
-		DisablePartialStart: c.DisablePartialStart,
-		EnableWebProfile:    c.EnableWebProfile,
-		LogConfig:           c.LogConfig,
-		Revision:            c.Revision,
-		MaintenanceConfig:   c.MaintenanceConfig,
+		Cloud:                   c.Cloud,
+		Modules:                 c.Modules,
+		Remotes:                 c.Remotes,
+		Components:              c.Components,
+		Processes:               c.Processes,
+		Services:                c.Services,
+		Packages:                c.Packages,
+		Network:                 c.Network,
+		Auth:                    c.Auth,
+		Debug:                   c.Debug,
+		DisablePartialStart:     c.DisablePartialStart,
+		EnableWebProfile:        c.EnableWebProfile,
+		LogConfig:               c.LogConfig,
+		Revision:                c.Revision,
+		MaintenanceConfig:       c.MaintenanceConfig,
+		PackagePath:             c.PackagePath,
+		DisableLogDeduplication: c.DisableLogDeduplication,
+		Jobs:                    c.Jobs,
 	})
 }
 
@@ -480,13 +524,13 @@ type RemoteAuth struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Remote) Validate(path string) ([]string, error) {
+func (conf *Remote) Validate(path string) ([]string, []string, error) {
 	if conf.alreadyValidated {
-		return nil, conf.cachedErr
+		return nil, nil, conf.cachedErr
 	}
 	conf.cachedErr = conf.validate(path)
 	conf.alreadyValidated = true
-	return nil, conf.cachedErr
+	return nil, nil, conf.cachedErr
 }
 
 // adjustPartialNames assumes this config comes from a place where the associated
@@ -714,8 +758,14 @@ type NetworkConfigData struct {
 	// This is mutually exclusive with TLSCertFile and TLSKeyFile.
 	TLSConfig *tls.Config `json:"-"`
 
+	// NoTLS disables the use of TLS on the hosted HTTP server.
+	NoTLS bool `json:"no_tls,omitempty"`
+
 	// Sessions configures session management.
 	Sessions SessionsConfig `json:"sessions"`
+
+	// TrafficTunnelEndpoints are the allowed ports and options for tunneling.
+	TrafficTunnelEndpoints []TrafficTunnelEndpoint `json:"traffic_tunnel_endpoints"`
 }
 
 // MarshalJSON marshals out this config.
@@ -801,6 +851,53 @@ func (sc *SessionsConfig) Validate(path string) error {
 	}
 
 	return nil
+}
+
+// TrafficTunnelEndpoint is an endpoint for tunneling traffic.
+type TrafficTunnelEndpoint struct {
+	// Port is the port which can be tunneled to/from.
+	Port int
+	// ConnectionTimeout is the timeout with which we will attempt to connect to the port.
+	// If set to 0 or not specified, a default connection timeout of 10 seconds will be used.
+	ConnectionTimeout time.Duration
+}
+
+// Note: keep this in sync with TrafficTunnelEndpoint.
+type trafficTunnelEndpointData struct {
+	Port              int    `json:"port"`
+	ConnectionTimeout string `json:"connection_timeout,omitempty"`
+}
+
+// UnmarshalJSON unmarshals JSON data into this traffic tunnel endpoint.
+func (tte *TrafficTunnelEndpoint) UnmarshalJSON(data []byte) error {
+	var temp trafficTunnelEndpointData
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	tte.Port = temp.Port
+
+	if temp.ConnectionTimeout != "" {
+		dur, err := time.ParseDuration(temp.ConnectionTimeout)
+		if err != nil {
+			return err
+		}
+		tte.ConnectionTimeout = dur
+	}
+
+	return nil
+}
+
+// MarshalJSON marshals out this traffic tunnel endpoint.
+func (tte *TrafficTunnelEndpoint) MarshalJSON() ([]byte, error) {
+	var temp trafficTunnelEndpointData
+
+	temp.Port = tte.Port
+
+	if tte.ConnectionTimeout != 0 {
+		temp.ConnectionTimeout = tte.ConnectionTimeout.String()
+	}
+	return json.Marshal(temp)
 }
 
 // AuthConfig describes authentication and authorization settings for the web server.
@@ -947,6 +1044,22 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 		return resource.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type))
 	}
 	return nil
+}
+
+// ParseAPIKeys parses API keys from the handler config. It will return an empty map
+// if the credential type is not [rpc.CredentialsTypeAPIKey].
+func ParseAPIKeys(handler AuthHandlerConfig) map[string]string {
+	apiKeys := map[string]string{}
+	if handler.Type == rpc.CredentialsTypeAPIKey {
+		for k := range handler.Config {
+			// if it is not a legacy api key indicated by "key(s)" key
+			// current api keys will follow format { [keyId]: [key] }
+			if k != "keys" && k != "key" {
+				apiKeys[k] = handler.Config.String(k)
+			}
+		}
+	}
+	return apiKeys
 }
 
 // CreateTLSWithCert creates a tls.Config with the TLS certificate to be returned.
@@ -1111,7 +1224,9 @@ func (p *PackageConfig) LocalDataParentDirectory(packagesDir string) string {
 
 // SanitizedName returns the package name for the symlink/filepath of the package on the system.
 func (p *PackageConfig) SanitizedName() string {
-	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, string(os.PathSeparator), "-"), p.sanitizedVersion())
+	// p.Package is set by the PackageServiceClient as "{org_id}/{package_name}"
+	// see https://github.com/viamrobotics/app/blob/e0d693d80ae6f308e5b3a6bddb69991521127928/packages/packages.go#L1257
+	return fmt.Sprintf("%s-%s", strings.ReplaceAll(p.Package, "/", "-"), p.sanitizedVersion())
 }
 
 // sanitizedVersion returns a cleaned version of the version so it is file-system-safe.
@@ -1127,9 +1242,10 @@ type Revision struct {
 	LastUpdated time.Time
 }
 
-// UpdateLoggerRegistryFromConfig will update the passed in registry with all log patterns in
-// `cfg.LogConfig` and each resource's `LogConfiguration` field if present.
-func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, warnLogger logging.Logger) {
+// UpdateLoggerRegistryFromConfig will update the passed in registry with all log patterns
+// in `cfg.LogConfig` and each resource's `LogConfiguration` field if present. It will
+// also turn on or off log deduplication on the registry as necessary.
+func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, logger logging.Logger) {
 	var combinedLogCfg []logging.LoggerPatternConfig
 	if cfg.LogConfig != nil {
 		combinedLogCfg = append(combinedLogCfg, cfg.LogConfig...)
@@ -1154,8 +1270,92 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, war
 		}
 	}
 
-	if err := registry.Update(combinedLogCfg, warnLogger); err != nil {
-		warnLogger.Warnw("Error processing log patterns",
+	if err := registry.Update(combinedLogCfg, logger); err != nil {
+		logger.Warnw("Error processing log patterns",
 			"error", err)
 	}
+
+	// Check incoming disable log deduplication value for any diff. Note that config value
+	// is a "disable" while registry is an "enable". This is by design to make configuration
+	// easier for users and predicates easier for developers respectively. Due to this, the
+	// conditional to check for diff below looks odd (== instead of !=.)
+	if cfg.DisableLogDeduplication == registry.DeduplicateLogs.Load() {
+		state := "enabled"
+		if cfg.DisableLogDeduplication {
+			state = "disabled"
+		}
+		registry.DeduplicateLogs.Store(!cfg.DisableLogDeduplication)
+		logger.Infof("Noisy log deduplication is now %s", state)
+	}
+}
+
+// JobConfig describes regular job settings for the robot from the client.
+type JobConfig struct {
+	JobConfigData
+}
+
+// JobConfigData is the job config data that gets marshaled/unmarshaled.
+type JobConfigData struct {
+	Name     string         `json:"name"`
+	Schedule string         `json:"schedule"`
+	Resource string         `json:"resource"`
+	Method   string         `json:"method"`
+	Command  map[string]any `json:"command,omitempty"`
+}
+
+// MarshalJSON marshals out this config.
+func (jc JobConfig) MarshalJSON() ([]byte, error) {
+	return json.Marshal(jc.JobConfigData)
+}
+
+// UnmarshalJSON unmarshals JSON data into this config.
+func (jc *JobConfig) UnmarshalJSON(data []byte) error {
+	var temp JobConfigData
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	*jc = JobConfig{
+		temp,
+	}
+	return nil
+}
+
+// Validate checks every required field and ensures the schedule to be a
+// valid interval.
+func (jc *JobConfig) Validate(path string) error {
+	if jc.Name == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if jc.Method == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "method")
+	}
+	if jc.Resource == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "resource")
+	}
+
+	if jc.Schedule == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "schedule")
+	}
+	// Assuming the schedule is the harder part of the JobConfig to get right,
+	// it's parsed here as either Golang's time.Duration or a valid cron expression.
+	// If both cases fail, an error is returned right away, rather than waiting
+	// for the JobManager to report an error.
+	_, err := time.ParseDuration(jc.Schedule)
+	if err != nil {
+		_, err = cronexpr.ParseStrict(jc.Schedule)
+		if err != nil {
+			// If both parsing attempts fail, return an error.
+			return resource.NewConfigValidationError(path,
+				errors.New(
+					"Invalid schedule format, expected a golang duration string or a valid cron expression"))
+		}
+	}
+
+	return nil
+}
+
+// Equals checks if the two configs are deeply equal to each other.
+func (jc JobConfig) Equals(other JobConfig) bool {
+	return reflect.DeepEqual(jc, other)
 }

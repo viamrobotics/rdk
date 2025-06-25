@@ -7,7 +7,6 @@ package robotimpl
 import (
 	"context"
 	"slices"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,17 +15,19 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
-	modulepb "go.viam.com/api/module/v1"
 	goutils "go.viam.com/utils"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/cloud"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/gantry"
+	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
+	"go.viam.com/rdk/ftdc/sys"
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -48,8 +49,6 @@ var _ = robot.LocalRobot(&localRobot{})
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
-	// statusLock guards calls to the Status method.
-	statusLock    sync.Mutex
 	manager       *resourceManager
 	mostRecentCfg atomic.Value // config.Config
 
@@ -60,6 +59,9 @@ type localRobot struct {
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
+
+	// reconfigurationLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
+	reconfigurationLock sync.Mutex
 	// reconfigureWorkers tracks goroutines spawned by reconfiguration functions. we only
 	// wait on this group in tests to prevent goleak-related failures. however, we do not
 	// wait on this group outside of testing, since the related goroutines may be running
@@ -72,9 +74,9 @@ type localRobot struct {
 	revealSensitiveConfigDiffs bool
 	shutdownCallback           func()
 
-	// lastWeakDependentsRound stores the value of the resource graph's
-	// logical clock when updateWeakDependents was called.
-	lastWeakDependentsRound atomic.Int64
+	// lastWeakAndOptionalDependentsRound stores the value of the resource graph's
+	// logical clock when updateWeakAndOptionalDependents was called.
+	lastWeakAndOptionalDependentsRound atomic.Int64
 
 	// configRevision stores the revision of the latest config ingested during
 	// reconfigurations along with a timestamp.
@@ -88,7 +90,16 @@ type localRobot struct {
 	// map keyed by Module.Name. This is necessary to get the package manager to use a new folder
 	// when a local tarball is updated.
 	localModuleVersions map[string]semver.Version
+	startFtdcOnce       sync.Once
 	ftdc                *ftdc.FTDC
+
+	// whether the robot is actively reconfiguring
+	reconfiguring atomic.Bool
+
+	// whether the robot is still initializing. this value controls what state will be
+	// returned by the MachineStatus endpoint (initializing if true, running if false.)
+	// configured based on the `Initial` value of applied `config.Config`s.
+	initializing atomic.Bool
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -123,11 +134,6 @@ func (r *localRobot) ResourceNames() []resource.Name {
 // ResourceRPCAPIs returns all known resource RPC APIs in use.
 func (r *localRobot) ResourceRPCAPIs() []resource.RPCAPI {
 	return r.manager.ResourceRPCAPIs()
-}
-
-// ProcessManager returns the process manager for the robot.
-func (r *localRobot) ProcessManager() pexec.ProcessManager {
-	return r.manager.processManager
 }
 
 // OperationManager returns the operation manager for the robot.
@@ -170,7 +176,9 @@ func (r *localRobot) Close(ctx context.Context) error {
 		err = multierr.Combine(err, r.cloudConnSvc.Close(ctx))
 	}
 	if r.manager != nil {
+		r.reconfigurationLock.Lock()
 		err = multierr.Combine(err, r.manager.Close(ctx))
+		r.reconfigurationLock.Unlock()
 	}
 	if r.packageManager != nil {
 		err = multierr.Combine(err, r.packageManager.Close(ctx))
@@ -183,6 +191,12 @@ func (r *localRobot) Close(ctx context.Context) error {
 	}
 
 	return err
+}
+
+// Kill will attempt to kill any processes on the system started by the robot as quickly as possible.
+// This operation is not clean and will not wait for completion.
+func (r *localRobot) Kill() {
+	r.manager.Kill()
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
@@ -241,7 +255,13 @@ func (r *localRobot) Logger() logging.Logger {
 
 // StartWeb starts the web server, will return an error if server is already up.
 func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
-	return r.webSvc.Start(ctx, o)
+	ret := r.webSvc.Start(ctx, o)
+	r.startFtdcOnce.Do(func() {
+		if r.ftdc != nil {
+			r.ftdc.Start()
+		}
+	})
+	return ret
 }
 
 // StopWeb stops the web server, will be a noop if server is not up.
@@ -255,127 +275,8 @@ func (r *localRobot) WebAddress() (string, error) {
 }
 
 // ModuleAddress return the module service's address.
-func (r *localRobot) ModuleAddress() (string, error) {
-	return r.webSvc.ModuleAddress(), nil
-}
-
-// remoteNameByResource returns the remote the resource is pulled from, if found.
-// False can mean either the resource doesn't exist or is local to the robot.
-func remoteNameByResource(resourceName resource.Name) (string, bool) {
-	if !resourceName.ContainsRemoteNames() {
-		return "", false
-	}
-	remote := strings.Split(resourceName.Remote, ":")
-	return remote[0], true
-}
-
-func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	r.statusLock.Lock()
-	defer r.statusLock.Unlock()
-
-	// If no resource names are specified, return status of all resources.
-	namesToDedupe := resourceNames
-	if len(resourceNames) == 0 {
-		namesToDedupe = append(namesToDedupe, r.manager.ResourceNames()...)
-	}
-
-	// Dedupe resources.
-	resourceNameSet := make(map[resource.Name]struct{}, len(namesToDedupe))
-	for _, name := range namesToDedupe {
-		resourceNameSet[name] = struct{}{}
-	}
-
-	// Group remote resource names by owning remote and map those names to
-	// corresponding name on the remote (without the remote prefix).
-	remoteResources := make(map[string]map[resource.Name]resource.Name)
-	for name := range resourceNameSet {
-		remoteName, ok := remoteNameByResource(name)
-		if !ok {
-			continue
-		}
-		mappings, ok := remoteResources[remoteName]
-		if !ok {
-			mappings = make(map[resource.Name]resource.Name)
-		}
-		mappings[name.PopRemote()] = name
-		remoteResources[remoteName] = mappings
-	}
-
-	// Loop through remotes and get remote resource statuses through remotes.
-	combinedRemoteResourceStatuses := make(map[resource.Name]robot.Status)
-	for remoteName, resourceNameMappings := range remoteResources {
-		remote, ok := r.RemoteByName(remoteName)
-		if !ok {
-			// should never happen
-			r.Logger().CErrorw(ctx, "remote robot not found in resource graph while creating status",
-				"remote", remoteName)
-			continue
-		}
-		var remoteResourceNames []resource.Name
-		for remoteResourceName := range resourceNameMappings {
-			remoteResourceNames = append(remoteResourceNames, remoteResourceName)
-		}
-
-		// Request status of resources associated with the remote from the remote.
-		remoteResourceStatuses, err := remote.Status(ctx, remoteResourceNames)
-		if err != nil {
-			return nil, err
-		}
-		for _, remoteResourceStatus := range remoteResourceStatuses {
-			mappedName, ok := resourceNameMappings[remoteResourceStatus.Name]
-			if !ok {
-				// should never happen
-				r.Logger().CErrorw(ctx,
-					"failed to find corresponding resource name for remote resource name while creating status",
-					"resource", remoteResourceStatus.Name,
-				)
-				continue
-			}
-			// Set name to have remote prefix and add to remoteStatuses.
-			remoteResourceStatus.Name = mappedName
-			combinedRemoteResourceStatuses[mappedName] = remoteResourceStatus
-		}
-	}
-
-	// Loop through entire resourceNameSet and get status for any local resources.
-	combinedResourceStatuses := make([]robot.Status, 0, len(resourceNameSet))
-	for name := range resourceNameSet {
-		// Just append status if it was a remote resource.
-		resourceStatus, ok := combinedRemoteResourceStatuses[name]
-		if !ok {
-			res, err := r.manager.ResourceByName(name)
-			if err != nil {
-				return nil, err
-			}
-
-			// If resource API registration had an associated CreateStatus method,
-			// call that method, otherwise return an empty status.
-			var status interface{} = map[string]interface{}{}
-			if apiReg, ok := resource.LookupGenericAPIRegistration(name.API); ok &&
-				apiReg.Status != nil {
-				status, err = apiReg.Status(ctx, res)
-				if err != nil {
-					return nil, errors.Wrapf(err, "failed to get status from %q", name)
-				}
-			}
-			resNode, ok := r.manager.resources.Node(name)
-			if !ok {
-				return nil, resource.NewNotFoundError(name)
-			}
-			lastReconfigured := resNode.LastReconfigured()
-			if lastReconfigured == nil {
-				return nil, errors.Errorf("resource %s queried for status is not configured",
-					name)
-			}
-			resourceStatus = robot.Status{
-				Name:             name,
-				LastReconfigured: *lastReconfigured,
-				Status:           status,
-			}
-		}
-		combinedResourceStatuses = append(combinedResourceStatuses, resourceStatus)
-	}
-	return combinedResourceStatuses, nil
+func (r *localRobot) ModuleAddresses() (config.ParentSockAddrs, error) {
+	return r.webSvc.ModuleAddresses(), nil
 }
 
 func (r *localRobot) sendTriggerConfig(caller string) {
@@ -398,10 +299,45 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 	}
 }
 
+// completeConfigWorker tries to complete the config and update weak/optional dependencies
+// if any resources are not configured. It will also update the resource graph if remotes
+// have changed. It executes every 5 seconds or when manually triggered. Manual triggers
+// are sent when changes in remotes are detected and in testing.
+func (r *localRobot) completeConfigWorker() {
+	for {
+		if r.closeContext.Err() != nil {
+			return
+		}
+
+		var trigger string
+		select {
+		case <-r.closeContext.Done():
+			return
+		case <-r.configTicker.C:
+			trigger = "ticker"
+		case <-r.triggerConfig:
+			trigger = "remote"
+			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by remote")
+		}
+		r.reconfigurationLock.Lock()
+		anyChanges := r.manager.updateRemotesResourceNames(r.closeContext)
+		if r.manager.anyResourcesNotConfigured() {
+			anyChanges = true
+			r.manager.completeConfig(r.closeContext, r, false)
+		}
+		if anyChanges {
+			r.updateWeakAndOptionalDependents(r.closeContext)
+			r.logger.CDebugw(r.closeContext, "configuration attempt completed with changes", "trigger", trigger)
+		}
+		r.reconfigurationLock.Unlock()
+	}
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
 	resources map[resource.Name]resource.Resource,
+	conn rpc.ClientConn,
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
@@ -413,8 +349,35 @@ func newWithResources(
 
 	var ftdcWorker *ftdc.FTDC
 	if rOpts.enableFTDC {
-		ftdcWorker = ftdc.New(logger.Sublogger("ftdc"))
-		ftdcWorker.Start()
+		partID := "local-config"
+		if cfg.Cloud != nil {
+			partID = cfg.Cloud.ID
+		}
+		// CloudID is also known as the robot part id.
+		//
+		// RSDK-9369: We create a new FTDC worker, but do not yet start it. This is because the
+		// `webSvc` gets registered with FTDC before we construct the underlying
+		// `webSvc.rpcServer`. Which happens when calling `localRobot.StartWeb`. We've postponed
+		// starting FTDC to when that method is called (the first time).
+		//
+		// As per the FTDC.Statser interface documentation, the return value of `webSvc.Stats` must
+		// always have the same schema. Otherwise we risk the ftdc "schema" getting out of sync with
+		// the data being written. Having `webSvc.Stats` conform to the API requirements is
+		// challenging when we want to include stats from the `rpcServer`.
+		//
+		// RSDK-9369 can be reverted, having the FTDC worker getting started here, when we either:
+		// - Relax the requirement that successive calls to `Stats` have the same schema or
+		// - Guarantee that the `rpcServer` is initialized (enough) when the web service is
+		//   constructed to get a valid copy of its stats object (for the schema's sake). Even if
+		//   the web service has not been "started".
+		ftdcDir := ftdc.DefaultDirectory(utils.ViamDotDir, partID)
+		ftdcWorker = ftdc.NewWithUploader(ftdcDir, conn, partID, logger.Sublogger("ftdc"))
+		if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
+			ftdcWorker.Add("proc.viam-server", statser)
+		}
+		if statser, err := sys.NewNetUsage(); err == nil {
+			ftdcWorker.Add("net", statser)
+		}
 	}
 
 	closeCtx, cancel := context.WithCancel(ctx)
@@ -439,11 +402,12 @@ func newWithResources(
 		triggerConfig:              make(chan struct{}, 1),
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
-		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, logger),
+		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, conn, logger),
 		shutdownCallback:           rOpts.shutdownCallback,
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
 	}
+
 	r.mostRecentCfg.Store(config.Config{})
 	var heartbeatWindow time.Duration
 	if cfg.Network.Sessions.HeartbeatWindow == 0 {
@@ -484,18 +448,21 @@ func newWithResources(
 		return nil, err
 	}
 
-	// start process manager early
-	if err := r.manager.processManager.Start(ctx); err != nil {
-		return nil, err
-	}
-
 	// we assume these never appear in our configs and as such will not be removed from the
 	// resource graph
 	r.webSvc = web.New(r, logger, rOpts.webOptions...)
+	if r.ftdc != nil {
+		r.ftdc.Add("web", r.webSvc.RequestCounter())
+	}
 	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger)
 	if err != nil {
 		return nil, err
 	}
+
+	// now that we're changing the resource graph, take the reconfigurationLock so
+	// that other goroutines can't interleave
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	if err := r.manager.resources.AddNode(
 		web.InternalServiceName,
 		resource.NewConfiguredGraphNode(resource.Config{}, r.webSvc, builtinModel)); err != nil {
@@ -526,57 +493,37 @@ func newWithResources(
 		cloudID = cfg.Cloud.ID
 	}
 
-	homeDir := config.ViamDotDir
+	homeDir := utils.ViamDotDir
 	if rOpts.viamHomeDir != "" {
 		homeDir = rOpts.viamHomeDir
 	}
 	// Once web service is started, start module manager
-	r.manager.startModuleManager(
+	if err := r.manager.startModuleManager(
 		closeCtx,
-		r.webSvc.ModuleAddress(),
+		r.webSvc.ModuleAddresses(),
 		r.removeOrphanedResources,
 		cfg.UntrustedEnv,
 		homeDir,
 		cloudID,
 		logger,
 		cfg.PackagePath,
-	)
+		r.webSvc.ModPeerConnTracker(),
+	); err != nil {
+		return nil, err
+	}
 
-	r.activeBackgroundWorkers.Add(1)
-	r.configTicker = time.NewTicker(5 * time.Second)
-	// This goroutine tries to complete the config and update weak dependencies
-	// if any resources are not configured. It executes every 5 seconds or when
-	// manually triggered. Manual triggers are sent when changes in remotes are
-	// detected and in testing.
-	goutils.ManagedGo(func() {
-		for {
-			if closeCtx.Err() != nil {
-				return
-			}
+	if !rOpts.disableCompleteConfigWorker {
+		r.activeBackgroundWorkers.Add(1)
+		r.configTicker = time.NewTicker(5 * time.Second)
+		// This goroutine will try to complete the config and update weak and optional
+		// dependencies if any resources are not configured. It will also update the resource
+		// graph when remotes changes or if manually triggered.
+		goutils.ManagedGo(func() {
+			r.completeConfigWorker()
+		}, r.activeBackgroundWorkers.Done)
+	}
 
-			var trigger string
-			select {
-			case <-closeCtx.Done():
-				return
-			case <-r.configTicker.C:
-				trigger = "ticker"
-			case <-r.triggerConfig:
-				trigger = "remote"
-				r.logger.CDebugw(ctx, "configuration attempt triggered by remote")
-			}
-			anyChanges := r.manager.updateRemotesResourceNames(closeCtx)
-			if r.manager.anyResourcesNotConfigured() {
-				anyChanges = true
-				r.manager.completeConfig(closeCtx, r, false)
-			}
-			if anyChanges {
-				r.updateWeakDependents(ctx)
-				r.logger.CDebugw(ctx, "configuration attempt completed with changes", "trigger", trigger)
-			}
-		}
-	}, r.activeBackgroundWorkers.Done)
-
-	r.Reconfigure(ctx, cfg)
+	r.reconfigure(ctx, cfg, false)
 
 	for name, res := range resources {
 		node := resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
@@ -586,7 +533,7 @@ func newWithResources(
 	}
 
 	if len(resources) != 0 {
-		r.updateWeakDependents(ctx)
+		r.updateWeakAndOptionalDependents(ctx)
 	}
 
 	successful = true
@@ -597,10 +544,11 @@ func newWithResources(
 func New(
 	ctx context.Context,
 	cfg *config.Config,
+	conn rpc.ClientConn,
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, cfg, nil, logger, opts...)
+	return newWithResources(ctx, cfg, nil, conn, logger, opts...)
 }
 
 // removeOrphanedResources is called by the module manager to remove resources
@@ -608,19 +556,66 @@ func New(
 func (r *localRobot) removeOrphanedResources(ctx context.Context,
 	rNames []resource.Name,
 ) {
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	r.manager.markResourcesRemoved(rNames, nil)
 	if err := r.manager.removeMarkedAndClose(ctx, nil); err != nil {
 		r.logger.CErrorw(ctx, "error removing and closing marked resources",
 			"error", err)
 	}
-	r.updateWeakDependents(ctx)
+	r.updateWeakAndOptionalDependents(ctx)
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
-// component's name. We don't use the resource manager for this information since
-// it is not be constructed at this point.
+// component's name. We don't use the resource manager for this information since it has
+// not been constructed at this point.
+//
+// Dependencies affect both the build order of resources and the access resources have to
+// each other. There are four types of dependencies. Not all dependency types affect build
+// order, but all dependency types affect the access resources have to each other. The
+// following is a list of dependency types and a description of their behaviors:
+//
+// - Explicit required dependencies
+//   - DEPRECATED in documentation and rarely used
+//   - Specified with `depends_on` in resources' JSON configs
+//   - Can be used with both modular and non-modular resources
+//   - Impact build order (an explicit required dependency on a resource ensures that the
+//     dependency will be constructed before the resource)
+//   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
+//     the resource's constructor and reconfigure methods
+//   - Cause a reconfigure of the resource if the dependency fails to reconfigure (no
+//     longer allowing access to that dependency in the passed-in dependencies)
+//
+// - Implicit required dependencies
+//   - Specified with the first return value from config validation
+//   - Can be used with both modular and non-modular resources
+//   - Impact build order (an implicit required dependency on a resource ensures that the
+//     dependency will be constructed before the resource)
+//   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
+//     the resource's constructor and reconfigure methods
+//   - Cause a reconfigure of the resource if the dependency fails to reconfigure (no
+//     longer allowing access to that dependency in the passed-in dependencies)
+//
+// - Implicit optional dependencies
+//   - Specified with the second return value from config validation
+//   - Can be used with both modular and non-modular resources
+//   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
+//     the resource's constructor and reconfigure methods IFF that dependency exists and
+//     has been successfully constructed
+//   - Cause a reconfigure of the resource if the dependency successfully constructs or
+//     fails to reconfigure (no longer allowing access to that dependency in the passed-in
+//     dependencies)
+//
+// - Weak dependencies
+//   - Specified at the time of resource registration by a set of `resource.Matcher`s
+//   - Can only be used with both non-modular resources
+//   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
+//     the resource's constructor and reconfigure methods IFF that dependency exists and
+//     has been successfully constructed
+//   - Cause a reconfigure of the resource if the dependency successfully constructs or
+//     fails to reconfigure (no longer allowing access to that dependency in the passed-in
+//     dependencies)
 func (r *localRobot) getDependencies(
-	ctx context.Context,
 	rName resource.Name,
 	gNode *resource.GraphNode,
 ) (resource.Dependencies, error) {
@@ -628,16 +623,8 @@ func (r *localRobot) getDependencies(
 		return nil, errors.Errorf("resource has unresolved dependencies: %v", deps)
 	}
 	allDeps := make(resource.Dependencies)
-	var needUpdate bool
+
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
-		// If any of the dependencies of this resource has an updatedAt value that
-		// is "later" than the last value at which we ran updateWeakDependents,
-		// ensure that we run updateWeakDependents later in this method.
-		if node, ok := r.manager.resources.Node(dep); ok {
-			if r.lastWeakDependentsRound.Load() <= node.UpdatedAt() {
-				needUpdate = true
-			}
-		}
 		// Specifically call ResourceByName and not directly to the manager since this
 		// will only return fully configured and available resources (not marked for removal
 		// and no last error).
@@ -654,9 +641,11 @@ func (r *localRobot) getDependencies(
 		}
 		allDeps[weakDepName] = weakDepRes
 	}
-
-	if needUpdate {
-		r.updateWeakDependents(ctx)
+	for optionalDepName, optionalDepRes := range r.getOptionalDependencies(nodeConf) {
+		if _, ok := allDeps[optionalDepName]; ok {
+			continue
+		}
+		allDeps[optionalDepName] = optionalDepRes
 	}
 
 	return allDeps, nil
@@ -668,6 +657,52 @@ func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.
 		return nil
 	}
 	return reg.WeakDependencies
+}
+
+func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Dependencies {
+	optDeps := make(resource.Dependencies)
+
+	for _, optionalDepNameString := range conf.ImplicitOptionalDependsOn {
+		matchingResourceNames := r.manager.resources.FindNodesByShortName(optionalDepNameString)
+		switch len(matchingResourceNames) {
+		case 0:
+			r.logger.Infow(
+				"Optional dependency for resource does not exist; not passing to constructor or reconfigure yet",
+				"dependency", optionalDepNameString,
+				"resource", conf.ResourceName().String(),
+			)
+			continue
+		case 1:
+			if matchingResourceNames[0].String() == conf.ResourceName().String() {
+				r.logger.Errorw("Resource cannot optionally depend on itself", "resource", conf.ResourceName().String())
+				continue
+			}
+		default:
+			r.logger.Errorw(
+				"Cannot resolve optional dependency for resource due to multiple matching names",
+				"resource", conf.ResourceName().String(),
+				"conflicts", resource.NamesToStrings(matchingResourceNames),
+			)
+			continue
+		}
+
+		resolvedOptionalDepName := matchingResourceNames[0]
+
+		optionalDep, err := r.ResourceByName(resolvedOptionalDepName)
+		if err != nil {
+			r.logger.Infow(
+				"Optional dependency for resource is not available; not passing to constructor or reconfigure yet",
+				"dependency", resolvedOptionalDepName.String(),
+				"resource", conf.ResourceName().String(),
+				"error", err,
+			)
+			continue
+		}
+
+		optDeps[resolvedOptionalDepName] = optionalDep
+	}
+
+	return optDeps
 }
 
 func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
@@ -711,7 +746,7 @@ func (r *localRobot) newResource(
 		return nil, errors.Errorf("unknown resource type: API %q with model %q not registered", resName.API, conf.Model)
 	}
 
-	deps, err := r.getDependencies(ctx, resName, gNode)
+	deps, err := r.getDependencies(resName, gNode)
 	if err != nil {
 		return nil, err
 	}
@@ -747,11 +782,11 @@ func (r *localRobot) newResource(
 	return res, nil
 }
 
-func (r *localRobot) updateWeakDependents(ctx context.Context) {
-	// Track the current value of the resource graph's logical clock. This will
-	// later be used to determine if updateWeakDependents should be called during
-	// getDependencies.
-	r.lastWeakDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
+func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
+	// Track the current value of the resource graph's logical clock. This will later be
+	// used to determine if updateWeakAndOptionalDependents should be called during
+	// completeConfig.
+	r.lastWeakAndOptionalDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
 
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
@@ -763,7 +798,12 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
-				r.Logger().CDebugw(ctx, "error finding resource during weak dependent update", "resource", n, "error", err)
+				r.Logger().CDebugw(
+					ctx,
+					"error finding resource during weak/optional dependent update",
+					"resource", n,
+					"error", err,
+				)
 			}
 			continue
 		}
@@ -787,8 +827,12 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
 
-		cleanup := utils.SlowStartupLogger(
-			ctx, "Waiting for internal resource to complete reconfiguration during weak dependencies update", "resource", resName.String(), r.logger)
+		cleanup := utils.SlowLogger(
+			ctx,
+			"Waiting for internal resource to complete reconfiguration during weak/optional dependencies update",
+			"resource", resName.String(),
+			r.logger,
+		)
 		defer cleanup()
 
 		r.reconfigureWorkers.Add(1)
@@ -797,23 +841,45 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				resChan <- struct{}{}
 				r.reconfigureWorkers.Done()
 			}()
+			// NOTE(cheukt): when adding internal services that reconfigure, also add them to
+			// the check in `localRobot.resourceHasWeakDependencies`.
 			switch resName {
 			case web.InternalServiceName:
 				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
-					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
+					r.Logger().CErrorw(
+						ctx,
+						"failed to reconfigure internal service during weak/optional dependencies update",
+						"service", resName,
+						"error", err,
+					)
 				}
 			case framesystem.InternalServiceName:
 				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
 				if err != nil {
-					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
+					r.Logger().CErrorw(
+						ctx,
+						"failed to reconfigure internal service during weak/optional dependencies update",
+						"service", resName,
+						"error", err,
+					)
 					break
 				}
-				if err := res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg}); err != nil {
-					r.Logger().CErrorw(ctx, "failed to reconfigure internal service during weak dependencies update", "service", resName, "error", err)
+				err = res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
+				if err != nil {
+					r.Logger().CErrorw(
+						ctx,
+						"failed to reconfigure internal service during weak/optional dependencies update",
+						"service", resName,
+						"error", err,
+					)
 				}
 			case packages.InternalServiceName, packages.DeferredServiceName, icloud.InternalServiceName:
 			default:
-				r.logger.CWarnw(ctx, "do not know how to reconfigure internal service during weak dependencies update", "service", resName)
+				r.logger.CWarnw(
+					ctx,
+					"do not know how to reconfigure internal service during weak/optional dependencies update",
+					"service", resName,
+				)
 			}
 		})
 
@@ -821,7 +887,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.CWarn(ctx, utils.NewWeakDependenciesUpdateTimeoutError(resName.String()))
+				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(resName.String()))
 			}
 		case <-ctx.Done():
 			return
@@ -840,7 +906,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		processInternalResources(resName, res, resChan)
 	}
 
-	updateResourceWeakDependents := func(ctx context.Context, conf resource.Config) {
+	updateResourceWeakAndOptionalDependents := func(ctx context.Context, conf resource.Config) {
 		resName := conf.ResourceName()
 		resNode, ok := r.manager.resources.Node(resName)
 		if !ok {
@@ -850,17 +916,51 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		if err != nil {
 			return
 		}
-		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 {
+
+		// Return early if resource has neither weak nor optional dependencies.
+		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 &&
+			len(conf.ImplicitOptionalDependsOn) == 0 {
 			return
 		}
-		r.Logger().CDebugw(ctx, "handling weak update for resource", "resource", resName)
-		deps, err := r.getDependencies(ctx, resName, resNode)
+		r.Logger().CDebugw(ctx, "handling weak/optional update for resource", "resource", resName)
+		deps, err := r.getDependencies(resName, resNode)
 		if err != nil {
-			r.Logger().CErrorw(ctx, "failed to get dependencies during weak dependencies update; skipping", "resource", resName, "error", err)
+			r.Logger().CErrorw(
+				ctx,
+				"failed to get dependencies during weak/optional dependencies update; skipping",
+				"resource", resName,
+				"error", err,
+			)
 			return
 		}
-		if err := res.Reconfigure(ctx, deps, conf); err != nil {
-			r.Logger().CErrorw(ctx, "failed to reconfigure resource during weak dependencies update", "resource", resName, "error", err)
+
+		// Use the module manager to reconfigure the resource if it's a modular resource. This
+		// would be a modular resource that has optional dependencies.
+		isModular := r.manager.moduleManager.Provides(conf)
+		if isModular {
+			var depStrings []string
+			for dep := range deps {
+				depStrings = append(depStrings, dep.String())
+			}
+			err = r.manager.moduleManager.ReconfigureResource(ctx, conf, depStrings)
+		} else {
+			err = res.Reconfigure(ctx, deps, conf)
+		}
+		if err != nil {
+			if resource.IsMustRebuildError(err) {
+				r.Logger().CErrorw(
+					ctx,
+					"non-modular resource uses weak/optional dependencies but is missing a Reconfigure method",
+					"resource", resName,
+				)
+			} else {
+				r.Logger().CErrorw(
+					ctx,
+					"failed to reconfigure resource during weak/optional dependencies update",
+					"resource", resName,
+					"error", err,
+				)
+			}
 		}
 	}
 
@@ -875,9 +975,9 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 		ctxWithTimeout, timeoutCancel := context.WithTimeout(ctx, timeout)
 		defer timeoutCancel()
 
-		cleanup := utils.SlowStartupLogger(
+		cleanup := utils.SlowLogger(
 			ctx,
-			"Waiting for resource to complete reconfiguration during weak dependencies update",
+			"Waiting for resource to complete reconfiguration during weak/optional dependencies update",
 			"resource",
 			conf.ResourceName().String(),
 			r.logger,
@@ -890,13 +990,13 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 				resChan <- struct{}{}
 				r.reconfigureWorkers.Done()
 			}()
-			updateResourceWeakDependents(ctxWithTimeout, conf)
+			updateResourceWeakAndOptionalDependents(ctxWithTimeout, conf)
 		})
 		select {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.CWarn(ctx, utils.NewWeakDependenciesUpdateTimeoutError(conf.ResourceName().String()))
+				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(conf.ResourceName().String()))
 			}
 		case <-ctx.Done():
 			return
@@ -908,7 +1008,7 @@ func (r *localRobot) updateWeakDependents(ctx context.Context) {
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
 func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
-	localParts, err := r.getLocalFrameSystemParts()
+	localParts, err := r.getLocalFrameSystemParts(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -922,7 +1022,7 @@ func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config
 
 // getLocalFrameSystemParts collects and returns the physical parts of the robot that may have frame info,
 // excluding remote robots and services, etc from the robot's config.Config.
-func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPart, error) {
+func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	cfg := r.Config()
 
 	parts := make([]*referenceframe.FrameSystemPart, 0)
@@ -947,12 +1047,18 @@ func (r *localRobot) getLocalFrameSystemParts() ([]*referenceframe.FrameSystemPa
 		if cfgCopy.ID == "" {
 			cfgCopy.ID = component.Name
 		}
-		model, err := r.extractModelFrameJSON(component.ResourceName())
-		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
-			// When we have non-nil errors here, it is because the resource is not yet available.
-			// In this case, we will exclude it from the FS.
-			// When it becomes available, it will be included.
-			continue
+
+		var model referenceframe.Model
+		var err error
+		switch component.ResourceName().API.SubtypeName {
+		case arm.SubtypeName, gantry.SubtypeName, gripper.SubtypeName: // catch the case for all the ModelFramers
+			model, err = r.extractModelFrameJSON(ctx, component.ResourceName())
+			if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+				// When we have non-nil errors here, it is because the resource is not yet available.
+				// In this case, we will exclude it from the FS. When it becomes available, it will be included.
+				continue
+			}
+		default:
 		}
 		lif, err := cfgCopy.ParseConfig()
 		if err != nil {
@@ -1022,13 +1128,13 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
 // JSON []byte if it does, or nil if it doesn't.
-func (r *localRobot) extractModelFrameJSON(name resource.Name) (referenceframe.Model, error) {
+func (r *localRobot) extractModelFrameJSON(ctx context.Context, name resource.Name) (referenceframe.Model, error) {
 	part, err := r.ResourceByName(name)
 	if err != nil {
 		return nil, err
 	}
-	if framer, ok := part.(referenceframe.ModelFramer); ok {
-		return framer.ModelFrame(), nil
+	if k, ok := part.(framesystem.InputEnabled); ok {
+		return k.Kinematics(ctx)
 	}
 	return nil, referenceframe.ErrNoModelInformation
 }
@@ -1055,22 +1161,34 @@ func (r *localRobot) TransformPointCloud(
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
-func RobotFromConfigPath(ctx context.Context, cfgPath string, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
-	cfg, err := config.Read(ctx, cfgPath, logger)
+func RobotFromConfigPath(
+	ctx context.Context,
+	cfgPath string,
+	conn rpc.ClientConn,
+	logger logging.Logger,
+	opts ...Option,
+) (robot.LocalRobot, error) {
+	cfg, err := config.Read(ctx, cfgPath, logger, nil)
 	if err != nil {
 		logger.CError(ctx, "cannot read config")
 		return nil, err
 	}
-	return RobotFromConfig(ctx, cfg, logger, opts...)
+	return RobotFromConfig(ctx, cfg, conn, logger, opts...)
 }
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
-func RobotFromConfig(ctx context.Context, cfg *config.Config, logger logging.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfig(
+	ctx context.Context,
+	cfg *config.Config,
+	conn rpc.ClientConn,
+	logger logging.Logger,
+	opts ...Option,
+) (robot.LocalRobot, error) {
 	processedCfg, err := config.ProcessConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return New(ctx, processedCfg, logger, opts...)
+	return New(ctx, processedCfg, conn, logger, opts...)
 }
 
 // RobotFromResources creates a new robot consisting of the given resources. Using RobotFromConfig is preferred
@@ -1081,65 +1199,11 @@ func RobotFromResources(
 	logger logging.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, &config.Config{}, resources, logger, opts...)
+	return newWithResources(ctx, &config.Config{}, resources, nil, logger, opts...)
 }
 
-// DiscoverComponents takes a list of discovery queries and returns corresponding
-// component configurations.
-func (r *localRobot) DiscoverComponents(ctx context.Context, qs []resource.DiscoveryQuery) ([]resource.Discovery, error) {
-	// dedupe queries
-	deduped := make(map[string]resource.DiscoveryQuery, len(qs))
-	for _, q := range qs {
-		key := q.API.String() + ":" + q.Model.String()
-		deduped[key] = q
-	}
-
-	discoveries := make([]resource.Discovery, 0, len(deduped))
-	for _, q := range deduped {
-		if internalDiscovery, isInternal := r.discoverRobotInternals(q); isInternal {
-			discoveries = append(discoveries, resource.Discovery{Query: q, Results: internalDiscovery})
-			continue
-		}
-		reg, ok := resource.LookupRegistration(q.API, q.Model)
-		if !ok || reg.Discover == nil {
-			r.logger.CWarnw(ctx, "no discovery function registered", "api", q.API, "model", q.Model)
-			continue
-		}
-
-		if reg.Discover != nil {
-			discovered, err := reg.Discover(ctx, r.logger.Sublogger("discovery"), q.Extra)
-			if err != nil {
-				return nil, &resource.DiscoverError{Query: q, Cause: err}
-			}
-			discoveries = append(discoveries, resource.Discovery{Query: q, Results: discovered})
-		}
-	}
-	return discoveries, nil
-}
-
-// moduleManagerDiscoveryResult is returned from a DiscoveryQuery to rdk-internal:builtin:module-manager.
-type moduleManagerDiscoveryResult struct {
-	ResourceHandles map[string]modulepb.HandlerMap `json:"resource_handles"`
-}
-
-// discoverRobotInternals is used to discover parts of the robot that are not in the resource graph
-// It accepts a query and should return the Discovery Results object along with an ok value.
-func (r *localRobot) discoverRobotInternals(query resource.DiscoveryQuery) (interface{}, bool) {
-	switch {
-	// these strings are hardcoded because their existence would be misleading anywhere outside of this function
-	case query.API.String() == "rdk-internal:service:module-manager" &&
-		query.Model.String() == "rdk-internal:builtin:module-manager":
-
-		handles := map[string]modulepb.HandlerMap{}
-		for moduleName, handleMap := range r.manager.moduleManager.Handles() {
-			handles[moduleName] = *handleMap.ToProto()
-		}
-		return moduleManagerDiscoveryResult{
-			ResourceHandles: handles,
-		}, true
-	default:
-		return nil, false
-	}
+func (r *localRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {
+	return r.manager.moduleManager.AllModels(), nil
 }
 
 func dialRobotClient(
@@ -1157,6 +1221,9 @@ func dialRobotClient(
 		rOpts = append(rOpts, client.WithReconnectEvery(config.ReconnectInterval))
 	}
 
+	// only dial once per reconfiguration cycle, any failures will be retried on a ticker anyway
+	rOpts = append(rOpts, client.WithInitialDialAttempts(1))
+
 	robotClient, err := client.New(
 		ctx,
 		config.Address,
@@ -1173,6 +1240,8 @@ func dialRobotClient(
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources. The given config may be modified by Reconfigure.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	r.reconfigure(ctx, newConfig, false)
 }
 
@@ -1191,43 +1260,23 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 }
 
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
-	// Maintenance config can be configured to block reconfigure based off of a sensor reading
-	// These sensors can be configured on the main robot, or a remote
-	// In situations where there are conflicting sensor names the following behavior happens
-	// Main robot and remote share sensor name -> main robot sensor is chosen
-	// Only remote has the sensor name -> remote sensor is read
-	// Multiple remotes share a senor name -> conflict error is returned and reconfigure happens
-	// To specify a specific remote sensor use the name format remoteName:sensorName to specify a remote sensor
-	if newConfig.MaintenanceConfig != nil {
-		name, err := resource.NewFromString(newConfig.MaintenanceConfig.SensorName)
-		if err != nil {
-			r.logger.Warnf("sensor_name %s in maintenance config is not in a supported format", newConfig.MaintenanceConfig.SensorName)
-		} else {
-			sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
-			if err != nil {
-				r.logger.Warnf("%s, Starting reconfiguration", err.Error())
-			} else {
-				canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, newConfig.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
-				if !canReconfigure {
-					if err != nil {
-						r.logger.CErrorw(ctx, "error reading maintenance sensor", "error", err)
-					} else {
-						r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
-					}
-					diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
-					if err != nil {
-						r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
-					}
-					// NetworkEqual checks if Cloud/Auth/Network are equal between configs
-					if diff != nil && !diff.NetworkEqual {
-						r.logger.Info("Machine reconfiguration skipped but Cloud/Auth/Network config section contain changes and will be applied.")
-					}
-					return
-				}
-				r.logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
-			}
-		}
+	defer func() {
+		// Always update the `initializing` value at the end of this function. Resources may
+		// be equal or `reconfigure` may otherwise return early, but we still want to move
+		// from a state of initializing to running as dictated by the config value.
+		r.initializing.Store(newConfig.Initial)
+	}()
+
+	if !r.reconfigureAllowed(ctx, newConfig, true) {
+		return
 	}
+
+	// If reconfigure is allowed, assume we are reconfiguring until this function
+	// returns.
+	r.reconfiguring.Store(true)
+	defer func() {
+		r.reconfiguring.Store(false)
+	}()
 
 	r.configRevisionMu.Lock()
 	r.configRevision = config.Revision{
@@ -1245,7 +1294,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// if anything has changed.
 	err := r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed", "error", err)
+		// The returned error is rich, detailing each individual packages error. The underlying
+		// `Sync` call is responsible for logging those errors in a readable way. We only need to
+		// log that reconfiguration is exited. To minimize the distraction of reading a list of
+		// verbose errors that was arleady logged.
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed")
 		return
 	}
 	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
@@ -1255,7 +1308,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	r.applyLocalModuleVersions(newConfig)
 	err = r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed", "error", err)
+		// Same as the above `Sync` call error handling. The returned error is rich, detailing each
+		// individual packages error. The underlying `Sync` call is responsible for logging those
+		// errors in a readable way.
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed")
 		return
 	}
 
@@ -1325,12 +1381,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 					continue
 				}
 				svcCfg.ConvertedAttributes = converted
-				deps, err := converted.Validate("")
+				requiredDeps, optionalDeps, err := converted.Validate("")
 				if err != nil {
 					allErrs = multierr.Combine(allErrs, errors.Wrapf(err, "error getting default service dependencies for %s", svcCfg.API))
 					continue
 				}
-				svcCfg.ImplicitDependsOn = deps
+				svcCfg.ImplicitDependsOn = requiredDeps
+				svcCfg.ImplicitOptionalDependsOn = optionalDeps
 			}
 			// Update existing service configs, and the final config will be the default service, if not overridden
 			if i < len(existingConfIdxs) {
@@ -1341,9 +1398,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		}
 	}
 
+	existingConfig := r.Config()
+	r.mostRecentCfg.Store(*newConfig)
+
 	// Now that we have the new config and all references are resolved, diff it
 	// with the current generated config to see what has changed
-	diff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	diff, err := config.DiffConfigs(*existingConfig, *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 		return
@@ -1364,11 +1424,8 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
 	}
 
-	// Set mostRecentConfig if resources were not equal.
-	r.mostRecentCfg.Store(*newConfig)
-
 	// First we mark diff.Removed resources and their children for removal.
-	processesToClose, resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed, r.logger)
+	resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed)
 
 	// Second we attempt to Close resources.
 	alreadyClosed := make(map[resource.Name]struct{}, len(resourcesToCloseBeforeComplete))
@@ -1380,12 +1437,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	// Third we update the resource graph and stop any removed processes.
 	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
-	allErrs = multierr.Combine(allErrs, processesToClose.Stop())
 
 	// Fourth we attempt to complete the config (see function for details) and
-	// update weak dependents.
+	// update weak and optional dependents.
 	r.manager.completeConfig(ctx, r, forceSync)
-	r.updateWeakDependents(ctx)
+	r.updateWeakAndOptionalDependents(ctx)
 
 	// Finally we actually remove marked resources and Close any that are
 	// still unclosed.
@@ -1393,12 +1449,20 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		allErrs = multierr.Combine(allErrs, err)
 	}
 
-	// Cleanup unused packages after all old resources have been closed above. This ensures
-	// processes are shutdown before any files are deleted they are using.
-	allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
-	allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
-	// Cleanup extra dirs from previous modules or rogue scripts.
-	allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
+	// If new config is not marked as initial, cleanup unused packages after all
+	// old resources have been closed above. This ensures processes are shutdown
+	// before any files are deleted they are using.
+	//
+	// If new config IS marked as initial, machine will be starting with no
+	// modules but may immediately reconfigure to start modules that have
+	// already been downloaded. Do not cleanup packages/module dirs in that case.
+	if !newConfig.Initial {
+		allErrs = multierr.Combine(allErrs, r.packageManager.Cleanup(ctx))
+		allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
+
+		// Cleanup extra dirs from previous modules or rogue scripts.
+		allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
+	}
 
 	if allErrs != nil {
 		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
@@ -1421,16 +1485,18 @@ func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 	return nil
 }
 
+var errNoCloudMetadata = errors.New("cloud metadata not available")
+
 // CloudMetadata returns app-related information about the robot.
 func (r *localRobot) CloudMetadata(ctx context.Context) (cloud.Metadata, error) {
 	md := cloud.Metadata{}
 	cfg := r.Config()
 	if cfg == nil {
-		return md, errors.New("no config available")
+		return md, errNoCloudMetadata
 	}
 	cloud := cfg.Cloud
 	if cloud == nil {
-		return md, errors.New("cloud metadata not available")
+		return md, errNoCloudMetadata
 	}
 	md.PrimaryOrgID = cloud.PrimaryOrgID
 	md.LocationID = cloud.LocationID
@@ -1456,6 +1522,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 			return err
 		}
 	}
+
 	diff := config.Diff{
 		Left:     r.Config(),
 		Right:    r.Config(),
@@ -1463,6 +1530,9 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		Modified: &config.ModifiedConfigDiff{},
 		Removed:  &config.Config{},
 	}
+
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
 	// note: if !isRunning (i.e. the module is in config but it crashed), putting it in diff.Modified
 	// results in a no-op; we use .Added instead.
 	if isRunning {
@@ -1470,6 +1540,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 	} else {
 		diff.Added.Modules = append(diff.Added.Modules, *mod)
 	}
+
 	return r.manager.updateResources(ctx, &diff)
 }
 
@@ -1479,17 +1550,21 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 	if cfg.Modules != nil {
 		mod = utils.FindInSlice(cfg.Modules, req.MatchesModule)
 	}
+
 	if mod == nil {
 		return status.Errorf(codes.NotFound,
 			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
 			req.ModuleID, req.ModuleName)
 	}
+
 	activeModules := r.manager.createConfig().Modules
 	isRunning := activeModules != nil && utils.FindInSlice(activeModules, req.MatchesModule) != nil
 	err := r.restartSingleModule(ctx, mod, isRunning)
 	if err != nil {
+		r.logger.Warn("Error restarting module. ID: %v Name: %v Err: %v", req.ModuleID, req.ModuleName, err)
 		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
+
 	return nil
 }
 
@@ -1506,18 +1581,100 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
-	result.Resources = append(result.Resources, r.manager.resources.Status()...)
+	remoteMdMap := r.manager.getRemoteResourceMetadata(ctx)
 
+	// we can safely ignore errors from `r.CloudMetadata`. If there is an error, that means
+	// that this robot does not have CloudMetadata to attach to resources.
+	md, _ := r.CloudMetadata(ctx) //nolint:errcheck
+	for _, resourceStatus := range r.manager.resources.Status() {
+		// if the resource is local, we can use the status as is and attach the cloud metadata of this robot.
+		if !resourceStatus.Name.ContainsRemoteNames() && resourceStatus.Name.API != client.RemoteAPI {
+			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: md})
+			continue
+		}
+
+		// Otherwise, the resource is remote. If the corresponding status exists in remoteMdMap, use that.
+		if rMd, ok := remoteMdMap[resourceStatus.Name]; ok {
+			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: rMd})
+			continue
+		}
+
+		// if the remote resource is not in remoteMdMap, there is a mismatch between remote resource nodes
+		// in the resource graph and what was expected from getRemoteResourceMetadata. We should leave
+		// cloud metadata blank in that case.
+		result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: cloud.Metadata{}})
+	}
 	r.configRevisionMu.RLock()
 	result.Config = r.configRevision
 	r.configRevisionMu.RUnlock()
 
+	result.State = robot.StateRunning
+	if r.initializing.Load() {
+		result.State = robot.StateInitializing
+	}
 	return result, nil
 }
 
 // Version returns version information about the robot.
 func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
 	return robot.Version()
+}
+
+// reconfigureAllowed returns whether the local robot can reconfigure.
+func (r *localRobot) reconfigureAllowed(ctx context.Context, cfg *config.Config, log bool) bool {
+	// Hack: if we should not log (allowance of reconfiguration is being checked
+	// from the `/restart_status` endpoint), then use a no-op logger. Otherwise
+	// use robot's logger.
+	logger := r.logger
+	if !log {
+		logger = logging.NewBlankLogger("")
+	}
+
+	// Reconfigure is always allowed in the absence of a MaintenanceConfig.
+	if cfg.MaintenanceConfig == nil {
+		return true
+	}
+
+	// Maintenance config can be configured to block reconfigure based off of a sensor reading
+	// These sensors can be configured on the main robot, or a remote
+	// In situations where there are conflicting sensor names the following behavior happens
+	// Main robot and remote share sensor name -> main robot sensor is chosen
+	// Only remote has the sensor name -> remote sensor is read
+	// Multiple remotes share a senor name -> conflict error is returned and reconfigure happens
+	// To specify a specific remote sensor use the name format remoteName:sensorName to specify a remote sensor
+	name, err := resource.NewFromString(cfg.MaintenanceConfig.SensorName)
+	if err != nil {
+		logger.Warnf("sensor_name %s in maintenance config is not in a supported format", cfg.MaintenanceConfig.SensorName)
+		return true
+	}
+	sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
+	if err != nil {
+		logger.Warnf("%s, Starting reconfiguration", err.Error())
+		return true
+	}
+	canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, cfg.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
+	// The boolean return value of checkMaintenanceSensorReadings
+	// (canReconfigure) is meaningful even when an error is also returned. Check
+	// it first.
+	if !canReconfigure {
+		if err != nil {
+			logger.CErrorw(ctx, "error reading maintenance sensor", "error", err)
+		} else {
+			logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
+		}
+		diff, err := config.DiffConfigs(*r.Config(), *cfg, false)
+		if err != nil {
+			logger.CErrorw(ctx, "error diffing the configs", "error", err)
+		}
+		// NetworkEqual checks if Cloud/Auth/Network are equal between configs
+		if diff != nil && !diff.NetworkEqual {
+			logger.Info("Machine reconfiguration skipped but Cloud/Auth/Network config section contain changes and will be applied.")
+		}
+		return false
+	}
+	logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
+
+	return true
 }
 
 // checkMaintenanceSensorReadings ensures that errors from reading a sensor are handled properly.
@@ -1543,4 +1700,25 @@ func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
 		return false, errors.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
 	}
 	return canReconfigure, nil
+}
+
+// RestartAllowed returns whether the robot can safely be restarted. The robot
+// can be safely restarted if the robot is not in the middle of a reconfigure,
+// and a reconfigure would be allowed.
+func (r *localRobot) RestartAllowed() bool {
+	ctx := context.Background()
+
+	if !r.reconfiguring.Load() && r.reconfigureAllowed(ctx, r.Config(), false) {
+		return true
+	}
+	return false
+}
+
+// ListTunnels returns information on available traffic tunnels.
+func (r *localRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpoint, error) {
+	cfg := r.Config()
+	if cfg != nil {
+		return cfg.Network.NetworkConfigData.TrafficTunnelEndpoints, nil
+	}
+	return nil, nil
 }

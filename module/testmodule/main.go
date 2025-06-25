@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
@@ -48,19 +49,6 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		helperModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: newHelper,
-			Discover: func(ctx context.Context, logger logging.Logger, extra map[string]interface{}) (interface{}, error) {
-				extraVal, ok := extra["extra"]
-				if !ok {
-					extraVal = "default"
-				}
-				extraValStr, ok := extraVal.(string)
-				if !ok {
-					return nil, errors.New("'extra' value must be a string")
-				}
-				return map[string]string{
-					"extra": extraValStr,
-				}, nil
-			},
 		})
 	err = myMod.AddModelFromRegistry(ctx, generic.API, helperModel)
 	if err != nil {
@@ -100,15 +88,41 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		return err
 	}
 	<-ctx.Done()
+
+	// If this is set, sleep to catch module slow shutdown logs.
+	sleepTime := os.Getenv("VIAM_TESTMODULE_SLOW_CLOSE")
+
+	if sleepTime != "" {
+		sleepDuration, err := time.ParseDuration(sleepTime)
+		if err != nil {
+			return err
+		}
+		time.Sleep(sleepDuration)
+	}
+
 	return nil
 }
 
 func newHelper(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
+	var dependsOnSensor sensor.Sensor
+	var err error
+	if len(conf.DependsOn) > 0 {
+		dependsOnSensor, err = sensor.FromDependencies(deps, conf.DependsOn[0])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(deps) > 0 && dependsOnSensor == nil {
+		return nil, fmt.Errorf("sensor not found in deps: %v", deps)
+	}
+
 	return &helper{
-		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		Named:           conf.ResourceName().AsNamed(),
+		logger:          logger,
+		dependsOnSensor: dependsOnSensor,
 	}, nil
 }
 
@@ -117,6 +131,7 @@ type helper struct {
 	resource.TriviallyCloseable
 	logger              logging.Logger
 	numReconfigurations int
+	dependsOnSensor     sensor.Sensor
 }
 
 // DoCommand looks up the "real" command from the map it's passed.
@@ -191,6 +206,9 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		return map[string]any{}, nil
 	case "get_num_reconfigurations":
 		return map[string]any{"num_reconfigurations": h.numReconfigurations}, nil
+	case "do_readings_on_dep":
+		_, err := h.dependsOnSensor.Readings(ctx, nil)
+		return nil, err
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)
 	}
@@ -345,12 +363,17 @@ func newSlow(
 
 type slow struct {
 	resource.Named
-	resource.TriviallyCloseable
 	configDuration time.Duration
 }
 
 // Reconfigure does nothing but is slow.
 func (s *slow) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	time.Sleep(s.configDuration)
+	return nil
+}
+
+// Close does nothing but is slow.
+func (s *slow) Close(ctx context.Context) error {
 	time.Sleep(s.configDuration)
 	return nil
 }

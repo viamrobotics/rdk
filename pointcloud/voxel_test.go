@@ -119,7 +119,7 @@ func TestGetVoxelCoordinates(t *testing.T) {
 func TestNNearestVoxel(t *testing.T) {
 	// make the voxel grid
 	voxelSize := 1.0
-	pc := New()
+	pc := NewBasicPointCloud(0)
 	vox0 := NewVector(0., 0., 0.)
 	test.That(t, pc.Set(vox0, nil), test.ShouldBeNil)
 	vox1 := NewVector(1.1, 1.2, 1.3)

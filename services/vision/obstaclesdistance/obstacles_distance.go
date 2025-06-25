@@ -30,7 +30,8 @@ const DefaultNumQueries = 10
 // DistanceDetectorConfig specifies the parameters for the camera to be used
 // for the obstacle distance detection service.
 type DistanceDetectorConfig struct {
-	NumQueries int `json:"num_queries"`
+	NumQueries    int    `json:"num_queries"`
+	DefaultCamera string `json:"camera_name"`
 }
 
 func init() {
@@ -52,15 +53,15 @@ func init() {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *DistanceDetectorConfig) Validate(path string) ([]string, error) {
+func (config *DistanceDetectorConfig) Validate(path string) ([]string, []string, error) {
 	deps := []string{}
 	if config.NumQueries == 0 {
 		config.NumQueries = DefaultNumQueries
 	}
 	if config.NumQueries < 1 || config.NumQueries > 20 {
-		return nil, errors.New("invalid number of queries, pick a number between 1 and 20")
+		return nil, nil, errors.New("invalid number of queries, pick a number between 1 and 20")
 	}
-	return deps, nil
+	return deps, nil, nil
 }
 
 func registerObstacleDistanceDetector(
@@ -75,7 +76,7 @@ func registerObstacleDistanceDetector(
 		return nil, errors.New("config for obstacles_distance cannot be nil")
 	}
 
-	segmenter := func(ctx context.Context, src camera.VideoSource) ([]*vision.Object, error) {
+	segmenter := func(ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
 		clouds := make([]pointcloud.PointCloud, 0, conf.NumQueries)
 
 		for i := 0; i < conf.NumQueries; i++ {
@@ -101,7 +102,7 @@ func registerObstacleDistanceDetector(
 		vector := pointcloud.NewVector(median.X, median.Y, median.Z)
 		pt := spatialmath.NewPoint(vector, "obstacle")
 
-		pcToReturn := pointcloud.New()
+		pcToReturn := pointcloud.NewBasicEmpty()
 		basicData := pointcloud.NewBasicData()
 		err = pcToReturn.Set(vector, basicData)
 		if err != nil {
@@ -113,7 +114,13 @@ func registerObstacleDistanceDetector(
 
 		return toReturn, nil
 	}
-	return svision.NewService(name, r, nil, nil, nil, segmenter)
+	if conf.DefaultCamera != "" {
+		_, err := camera.FromRobot(r, conf.DefaultCamera)
+		if err != nil {
+			return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
+		}
+	}
+	return svision.NewService(name, r, nil, nil, nil, segmenter, conf.DefaultCamera)
 }
 
 func medianFromPointClouds(ctx context.Context, clouds []pointcloud.PointCloud) (r3.Vector, error) {

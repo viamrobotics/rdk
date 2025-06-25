@@ -4,6 +4,7 @@ package gostream
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"sync"
 	"time"
@@ -19,6 +20,10 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	utils2 "go.viam.com/rdk/utils"
+)
+
+const (
+	defaultTargetFrameRate = 20
 )
 
 // A Stream is sink that accepts any image frames for the purpose
@@ -65,7 +70,7 @@ func NewStream(config StreamConfig, logger logging.Logger) (Stream, error) {
 		return nil, errors.New("at least one audio or video encoder factory must be set")
 	}
 	if config.TargetFrameRate == 0 {
-		config.TargetFrameRate = codec.DefaultKeyFrameInterval
+		config.TargetFrameRate = defaultTargetFrameRate
 	}
 
 	name := config.Name
@@ -269,7 +274,31 @@ func (bs *basicStream) processInputFrames() {
 			if frame, ok := framePair.Media.(*rimage.LazyEncodedImage); ok && frame.MIMEType() == utils2.MimeTypeH264 {
 				encodedFrame = frame.RawData() // nothing to do; already encoded
 			} else {
-				bounds := framePair.Media.Bounds()
+				var bounds image.Rectangle
+				var boundsError any
+				func() {
+					defer func() {
+						if paniced := recover(); paniced != nil {
+							boundsError = paniced
+						}
+					}()
+
+					bounds = framePair.Media.Bounds()
+				}()
+
+				if boundsError != nil {
+					bs.logger.Errorw("Getting frame bounds failed", "err", fmt.Sprintf("%s", boundsError))
+					// Dan: It's unclear why we get this error. There's reason to believe this pops
+					// up when a camera is reconfigured/removed. In which case I'd expect the
+					// `basicStream` to soon be closed. Making this `initErr = true` assignment to
+					// exit the `processInputFrames` goroutine unnecessary. But I'm choosing to be
+					// conservative for the worst case. Where we may be in a permanent bad state and
+					// (until we understand the problem better) we would spew logs until the user
+					// stops the stream.
+					initErr = true
+					return
+				}
+
 				newDx, newDy := bounds.Dx(), bounds.Dy()
 				if bs.videoEncoder == nil || dx != newDx || dy != newDy {
 					dx, dy = newDx, newDy

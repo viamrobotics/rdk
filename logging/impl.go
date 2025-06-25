@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,10 +16,19 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
+var (
+	// Window duration over which to consider log messages "noisy.".
+	noisyMessageWindowDuration = time.Minute
+	// Count threshold within `noisyMessageWindowDuration` after which to
+	// consider log messages "noisy.".
+	noisyMessageCountThreshold = 3
+)
+
 type (
 	impl struct {
-		name  string
-		level AtomicLevel
+		name             string
+		level            AtomicLevel
+		neverDeduplicate bool
 
 		appenders []Appender
 		registry  *Registry
@@ -26,6 +36,15 @@ type (
 		// avoid that. This function is a no-op for non-test loggers. See `NewTestAppender`
 		// documentation for more details.
 		testHelper func()
+
+		// recentMessageMu guards the recentMessage fields below.
+		recentMessageMu sync.Mutex
+		// Map of messages to counts of that message being `Write`ten within window.
+		recentMessageCounts map[string]int
+		// Map of messages to last `LogEntry` with that message within window.
+		recentMessageEntries map[string]LogEntry
+		// Start of current window.
+		recentMessageWindowStart time.Time
 	}
 
 	// LogEntry embeds a zapcore Entry and slice of Fields.
@@ -40,6 +59,43 @@ type (
 		logFields []zapcore.Field
 	}
 )
+
+// Set of field keys to ignore when calculating identicality. Two logs with only a
+// difference in one of these fields should still be considered identical.
+var ignoredLogFieldKeys = map[string]struct{}{
+	"grpc.time_ms":    {},
+	"grpc.start_time": {},
+	"log_ts":          {},
+}
+
+// HashKey creates a hash key string for a `LogEntry`. Should be used to emplace a log
+// entry in `recentMessageEntries`, i.e. `LogEntry`s that `HashKey` identically should be
+// treated as identical with respect to noisiness and deduplication.
+func (le *LogEntry) HashKey() string {
+	ret := le.Message
+	for _, field := range le.Fields {
+		if _, exists := ignoredLogFieldKeys[field.Key]; exists {
+			continue
+		}
+
+		ret += " " + field.Key + " "
+
+		// Assume field's value is held in one of `Integer`, `Interface`, or
+		// `String`. Otherwise (field has no value or is equivalent to 0 or "") use
+		// the string "undefined".
+		switch {
+		case field.Integer != 0:
+			ret += fmt.Sprintf("%d", field.Integer)
+		case field.Interface != nil:
+			ret += fmt.Sprintf("%v", field.Interface)
+		case field.String != "":
+			ret += field.String
+		default:
+			ret += "undefined"
+		}
+	}
+	return ret
+}
 
 func (imp *impl) NewLogEntry() *LogEntry {
 	ret := &LogEntry{}
@@ -81,9 +137,14 @@ func (imp *impl) Sublogger(subname string) Logger {
 	sublogger := &impl{
 		newName,
 		NewAtomicLevelAt(imp.level.Get()),
+		false, // allow log deduplication by default
 		imp.appenders,
 		imp.registry,
 		imp.testHelper,
+		sync.Mutex{},
+		make(map[string]int),
+		make(map[string]LogEntry),
+		time.Now(),
 	}
 
 	// If there are multiple callers racing to create the same logger name (e.g: `viam.networking`),
@@ -92,6 +153,10 @@ func (imp *impl) Sublogger(subname string) Logger {
 	//
 	// `getOrRegister` will also set the appropriate log level based on the config.
 	return imp.registry.getOrRegister(newName, sublogger)
+}
+
+func (imp *impl) NeverDeduplicate() {
+	imp.neverDeduplicate = true
 }
 
 func (imp *impl) Named(name string) *zap.SugaredLogger {
@@ -198,6 +263,47 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 }
 
 func (imp *impl) Write(entry *LogEntry) {
+	if imp.registry.DeduplicateLogs.Load() && !imp.neverDeduplicate {
+		hashkeyedEntry := entry.HashKey()
+
+		// If we have entered a new recentMessage window, output noisy logs from
+		// the last window.
+		imp.recentMessageMu.Lock()
+		if time.Since(imp.recentMessageWindowStart) > noisyMessageWindowDuration {
+			for stringifiedEntry, count := range imp.recentMessageCounts {
+				if count > noisyMessageCountThreshold {
+					collapsedEntry := imp.recentMessageEntries[stringifiedEntry]
+					collapsedEntry.Message = fmt.Sprintf("Message logged %d times in past %v: %s",
+						count, noisyMessageWindowDuration, collapsedEntry.Message)
+
+					imp.testHelper()
+					for _, appender := range imp.appenders {
+						err := appender.Write(collapsedEntry.Entry, collapsedEntry.Fields)
+						if err != nil {
+							fmt.Fprint(os.Stderr, err)
+						}
+					}
+				}
+			}
+
+			// Clear maps and reset window.
+			clear(imp.recentMessageCounts)
+			clear(imp.recentMessageEntries)
+			imp.recentMessageWindowStart = time.Now()
+		}
+
+		// Track hashkeyed entry in recentMessage maps.
+		imp.recentMessageCounts[hashkeyedEntry]++
+		imp.recentMessageEntries[hashkeyedEntry] = *entry
+
+		if imp.recentMessageCounts[hashkeyedEntry] > noisyMessageCountThreshold {
+			// If entry's message is reportedly "noisy," return early.
+			imp.recentMessageMu.Unlock()
+			return
+		}
+		imp.recentMessageMu.Unlock()
+	}
+
 	imp.testHelper()
 	for _, appender := range imp.appenders {
 		err := appender.Write(entry.Entry, entry.Fields)
@@ -211,7 +317,21 @@ func (imp *impl) Write(entry *LogEntry) {
 func (imp *impl) format(logLevel Level, traceKey string, args ...interface{}) *LogEntry {
 	logEntry := imp.NewLogEntry()
 	logEntry.Level = logLevel.AsZap()
-	logEntry.Message = fmt.Sprint(args...)
+	// Use `Sprintln` to put spaces between `args`. E.g:
+	// - Sprint("Foo:", 5, "Bar:", 6) -> "Foo:5Bar:6"
+	// - Sprintln("Foo:," 5, "Bar:", 6) -> "Foo: 5 Bar: 6"
+	msg := fmt.Sprintln(args...)
+	// Sprintln also puts a newline at the end of the string. Appenders writing out log lines
+	// will add their own if necessary. So we remove the trailing newline from `Sprintln`.
+	//
+	// On linux this is correct. Classicly, standard libraries for windows will end lines with a
+	// carriage return + line feed: `\r\n`. Two bytes instead of one. I don't think modern
+	// windows requires the carriage return any more. Looking at the Go implementation
+	// (`pp.doPrintln`), it seems to agree. It only adds a `\n` regardless of the OS.
+	//
+	// Lastly, `Sprintln` is guaranteed to add a trailing newline to its result. The returned string
+	// will always have `length >= 1`.
+	logEntry.Message = msg[0 : len(msg)-1]
 
 	if traceKey != emptyTraceKey {
 		logEntry.Fields = append(logEntry.Fields, zap.String("traceKey", traceKey))

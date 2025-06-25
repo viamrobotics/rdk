@@ -38,23 +38,23 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	for idx, conf := range conf.AnalogReaders {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	for idx, conf := range conf.DigitalInterrupts {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	if conf.FailNew {
-		return nil, errors.New("whoops")
+		return nil, nil, errors.New("whoops")
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }
 
 var model = resource.DefaultModelFamily.WithModel("fake")
@@ -202,28 +202,6 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 		return pin, nil
 	}
 	return p, nil
-}
-
-// AnalogNames returns the names of all known analog pins.
-func (b *Board) AnalogNames() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	names := []string{}
-	for k := range b.Analogs {
-		names = append(names, k)
-	}
-	return names
-}
-
-// DigitalInterruptNames returns the names of all known digital interrupts.
-func (b *Board) DigitalInterruptNames() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	names := []string{}
-	for k := range b.Digitals {
-		names = append(names, k)
-	}
-	return names
 }
 
 // SetPowerMode sets the board to the given power mode. If provided,

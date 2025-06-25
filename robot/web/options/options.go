@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/viamrobotics/webrtc/v3"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -69,10 +68,10 @@ type Options struct {
 	BakedAuthEntity string
 	BakedAuthCreds  rpc.Credentials
 
-	WebRTCOnPeerAdded   func(pc *webrtc.PeerConnection)
-	WebRTCOnPeerRemoved func(pc *webrtc.PeerConnection)
-
 	DisableMulticastDNS bool
+
+	// If true, starts an insecure http server without TLS certificates even if one exists
+	NoTLS bool
 }
 
 // New returns a default set of options which will have the

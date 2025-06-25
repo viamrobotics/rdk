@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -42,20 +43,22 @@ var packageTypes = []string{
 	string(PackageTypeModule), string(PackageTypeSLAMMap),
 }
 
+type packageExportArgs struct {
+	Destination string
+	OrgID       string
+	Name        string
+	Version     string
+	Type        string
+}
+
 // PackageExportAction is the corresponding action for 'package export'.
-func PackageExportAction(c *cli.Context) error {
+func PackageExportAction(c *cli.Context, args packageExportArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	return client.packageExportAction(
-		c.String(generalFlagOrgID),
-		c.String(packageFlagName),
-		c.String(packageFlagVersion),
-		c.String(packageFlagType),
-		c.Path(packageFlagDestination),
-	)
+	return client.packageExportAction(args.OrgID, args.Name, args.Version, args.Type, args.Destination)
 }
 
 func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, error) {
@@ -81,12 +84,9 @@ func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, err
 }
 
 func (c *viamClient) packageExportAction(orgID, name, version, packageType, destination string) error {
-	if err := c.ensureLoggedIn(); err != nil {
-		return err
-	}
 	if orgID == "" || name == "" {
 		if orgID != "" || name != "" {
-			return fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, packageFlagName)
+			return fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, generalFlagName)
 		}
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
@@ -171,25 +171,46 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	return nil
 }
 
+type packageUploadArgs struct {
+	Path           string
+	OrgID          string
+	Name           string
+	Version        string
+	Type           string
+	ModelFramework string
+}
+
 // PackageUploadAction is the corresponding action for "packages upload".
-func PackageUploadAction(c *cli.Context) error {
+func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
-	_, err = convertPackageTypeToProto(c.String(packageFlagType))
+	_, err = convertPackageTypeToProto(args.Type)
 	if err != nil {
 		return err
 	}
 
+	if err := validatePackageUploadRequest(c, args); err != nil {
+		return err
+	}
+
 	resp, err := client.uploadPackage(
-		c.String(generalFlagOrgID),
-		c.String(packageFlagName),
-		c.String(packageFlagVersion),
-		c.String(packageFlagType),
-		c.Path(packageFlagPath),
-		nil,
+		args.OrgID,
+		args.Name,
+		args.Version,
+		args.Type,
+		args.Path,
+		&structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"model_framework": {
+					Kind: &structpb.Value_StringValue{
+						StringValue: args.ModelFramework,
+					},
+				},
+			},
+		},
 	)
 	if err != nil {
 		return err
@@ -203,10 +224,6 @@ func (c *viamClient) uploadPackage(
 	orgID, name, version, packageType, tarballPath string,
 	metadataStruct *structpb.Struct,
 ) (*packagespb.CreatePackageResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
-		return nil, err
-	}
-
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
 	if err != nil {
@@ -273,4 +290,20 @@ func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageReques
 
 func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
 	return fmt.Sprintf("https://%s/%s/%s/%s", baseURL, strings.ReplaceAll(string(packageType), "_", "-"), m.prefix, m.name)
+}
+
+func validatePackageUploadRequest(_ *cli.Context, args packageUploadArgs) error {
+	packageType := args.Type
+
+	if packageType == "ml_model" {
+		if args.ModelFramework == "" {
+			return errors.New("must pass in a model-framework if package is of type `ml_model`")
+		}
+
+		if !slices.Contains(modelFrameworks, args.ModelFramework) {
+			return errors.New("framework must be of type " + strings.Join(modelFrameworks, ", "))
+		}
+	}
+
+	return nil
 }

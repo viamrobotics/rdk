@@ -6,20 +6,20 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
-	"strings"
+	"net"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc/codes"
-	grpcstatus "google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/session"
+	"go.viam.com/rdk/tunnel"
 )
 
 // logTSKey is the key used in conjunction with the timestamp of logs received
@@ -39,6 +40,10 @@ import (
 const (
 	logTSKey = "log_ts"
 )
+
+// Default timeout to use when dialing to a tunnel port when one is not specified in
+// `traffic_tunnel_endpoints` through `connection_timeout`.
+var defaultTunnelConnectionTimeout = 10 * time.Second
 
 // Server implements the contract from robot.proto that ultimately satisfies
 // a robot.Robot as a gRPC server.
@@ -56,6 +61,97 @@ func New(robot robot.Robot) pb.RobotServiceServer {
 
 // Close cleanly shuts down the server.
 func (s *Server) Close() {
+}
+
+// Tunnel tunnels traffic to/from the client from/to a specified port on the server.
+func (s *Server) Tunnel(srv pb.RobotService_TunnelServer) error {
+	req, err := srv.Recv()
+	if err != nil {
+		return fmt.Errorf("failed to receive first message from stream: %w", err)
+	}
+
+	dialTimeout := defaultTunnelConnectionTimeout
+
+	// Ensure destination port is available; otherwise error.
+	var destAllowed bool
+	ttes, err := s.robot.ListTunnels(srv.Context())
+	if err != nil {
+		return err
+	}
+	for _, tte := range ttes {
+		if int(req.DestinationPort) == tte.Port {
+			destAllowed = true
+			if tte.ConnectionTimeout != 0 {
+				// Honor specified timeout if one exists (0 is use-default.)
+				dialTimeout = tte.ConnectionTimeout
+			}
+			break
+		}
+	}
+	if !destAllowed {
+		return fmt.Errorf("tunnel not available at port %d", req.DestinationPort)
+	}
+
+	dest := strconv.Itoa(int(req.DestinationPort))
+
+	s.robot.Logger().CInfow(srv.Context(), "dialing to destination port", "port", dest, "timeout", dialTimeout)
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", dest), dialTimeout)
+	if err != nil {
+		return fmt.Errorf("failed to dial to destination port %v: %w", dest, err)
+	}
+	s.robot.Logger().CInfow(srv.Context(), "successfully dialed to destination port, creating tunnel", "port", dest)
+
+	var (
+		wg              sync.WaitGroup
+		readerSenderErr error
+	)
+	connClosed := make(chan struct{})
+	rsDone := make(chan struct{})
+	wg.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer func() {
+			close(rsDone)
+			wg.Done()
+		}()
+		// a max of 32kb will be sent per message (based on io.Copy's default buffer size)
+		sendFunc := func(data []byte) error { return srv.Send(&pb.TunnelResponse{Data: data}) }
+		readerSenderErr = tunnel.ReaderSenderLoop(srv.Context(), conn, sendFunc, connClosed, s.robot.Logger().WithFields("loop", "reader/sender"))
+	})
+	recvFunc := func() ([]byte, error) {
+		req, err := srv.Recv()
+		if err != nil {
+			return nil, err
+		}
+		return req.Data, nil
+	}
+	recvWriterErr := tunnel.RecvWriterLoop(srv.Context(), recvFunc, conn, rsDone, s.robot.Logger().WithFields("loop", "recv/writer"))
+	// close the connection to unblock the read
+	// close the channel first so that network errors can be filtered
+	// and prevented in the ReaderSenderLoop.
+	close(connClosed)
+	err = conn.Close()
+	wg.Wait()
+	s.robot.Logger().CInfow(srv.Context(), "tunnel to client closed", "port", dest)
+	return errors.Join(err, readerSenderErr, recvWriterErr)
+}
+
+// ListTunnels lists all available tunnels on the server.
+func (s *Server) ListTunnels(ctx context.Context, req *pb.ListTunnelsRequest) (*pb.ListTunnelsResponse, error) {
+	res := &pb.ListTunnelsResponse{}
+
+	ttes, err := s.robot.ListTunnels(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tte := range ttes {
+		res.Tunnels = append(res.Tunnels, &pb.Tunnel{
+			Port:              uint32(tte.Port),
+			ConnectionTimeout: durationpb.New(tte.ConnectionTimeout),
+		})
+	}
+
+	return res, nil
 }
 
 // GetOperations lists all running operations.
@@ -166,63 +262,17 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 	return &pb.ResourceRPCSubtypesResponse{ResourceRpcSubtypes: protoTypes}, nil
 }
 
-// DiscoverComponents takes a list of discovery queries and returns corresponding
-// component configurations.
-func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {
-	// nonTriplet indicates older syntax for type and model E.g. "camera" instead of "rdk:component:camera"
-	// TODO(PRODUCT-344): remove triplet checking here after complete
-	var nonTriplet bool
-	queries := make([]resource.DiscoveryQuery, 0, len(req.Queries))
-	for _, q := range req.Queries {
-		m, err := resource.NewModelFromString(q.Model)
-		if err != nil {
-			return nil, err
-		}
-		if !strings.ContainsRune(q.Subtype, ':') {
-			nonTriplet = true
-			q.Subtype = "rdk:component:" + q.Subtype
-		}
-		s, err := resource.NewAPIFromString(q.Subtype)
-		if err != nil {
-			return nil, err
-		}
-		queries = append(queries, resource.DiscoveryQuery{API: s, Model: m, Extra: q.Extra.AsMap()})
-	}
-
-	discoveries, err := s.robot.DiscoverComponents(ctx, queries)
+// GetModelsFromModules returns all models from the currently managed modules.
+func (s *Server) GetModelsFromModules(ctx context.Context, req *pb.GetModelsFromModulesRequest) (*pb.GetModelsFromModulesResponse, error) {
+	models, err := s.robot.GetModelsFromModules(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	pbDiscoveries := make([]*pb.Discovery, 0, len(discoveries))
-	for _, discovery := range discoveries {
-		pbResults, err := vprotoutils.StructToStructPb(discovery.Results)
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Query)
-		}
-		extra, err := structpb.NewStruct(discovery.Query.Extra)
-		if err != nil {
-			return nil, err
-		}
-		pbQuery := &pb.DiscoveryQuery{
-			Subtype: discovery.Query.API.String(),
-			Model:   discovery.Query.Model.String(),
-			Extra:   extra,
-		}
-		if nonTriplet {
-			pbQuery.Subtype = discovery.Query.API.SubtypeName
-			pbQuery.Model = discovery.Query.Model.Name
-		}
-		pbDiscoveries = append(
-			pbDiscoveries,
-			&pb.Discovery{
-				Query:   pbQuery,
-				Results: pbResults,
-			},
-		)
+	resp := pb.GetModelsFromModulesResponse{}
+	for _, mm := range models {
+		resp.Models = append(resp.Models, mm.ToProto())
 	}
-
-	return &pb.DiscoverComponentsResponse{Discovery: pbDiscoveries}, nil
+	return &resp, nil
 }
 
 // FrameSystemConfig returns the info of each individual part that makes up the frame system.
@@ -268,7 +318,7 @@ func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest
 // rather than having to decode and then encode every point in the PCD. Would be a considerable speed up.
 func (s *Server) TransformPCD(ctx context.Context, req *pb.TransformPCDRequest) (*pb.TransformPCDResponse, error) {
 	// transform PCD bytes to pointcloud
-	pc, err := pointcloud.ReadPCD(bytes.NewReader(req.PointCloudPcd))
+	pc, err := pointcloud.ReadPCD(bytes.NewReader(req.PointCloudPcd), "")
 	if err != nil {
 		return nil, err
 	}
@@ -278,74 +328,11 @@ func (s *Server) TransformPCD(ctx context.Context, req *pb.TransformPCDRequest) 
 		return nil, err
 	}
 	// transform pointcloud back to PCD bytes
-	var buf bytes.Buffer
-	buf.Grow(200 + (final.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes
-	err = pointcloud.ToPCD(final, &buf, pointcloud.PCDBinary)
+	bytes, err := pointcloud.ToBytes(final)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.TransformPCDResponse{PointCloudPcd: buf.Bytes()}, err
-}
-
-// GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
-func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.GetStatusResponse, error) {
-	resourceNames := make([]resource.Name, 0, len(req.ResourceNames))
-	for _, name := range req.ResourceNames {
-		resourceNames = append(resourceNames, protoutils.ResourceNameFromProto(name))
-	}
-
-	statuses, err := s.robot.Status(ctx, resourceNames)
-	if err != nil {
-		return nil, err
-	}
-
-	statusesP := make([]*pb.Status, 0, len(statuses))
-	for _, status := range statuses {
-		statusP, err := vprotoutils.StructToStructPb(status.Status)
-		if err != nil {
-			return nil, err
-		}
-		statusesP = append(
-			statusesP,
-			&pb.Status{
-				Name:             protoutils.ResourceNameToProto(status.Name),
-				LastReconfigured: timestamppb.New(status.LastReconfigured),
-				Status:           statusP,
-			},
-		)
-	}
-
-	return &pb.GetStatusResponse{Status: statusesP}, nil
-}
-
-const defaultStreamInterval = 1 * time.Second
-
-// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
-func (s *Server) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.RobotService_StreamStatusServer) error {
-	every := defaultStreamInterval
-	if reqEvery := req.Every.AsDuration(); reqEvery != time.Duration(0) {
-		every = reqEvery
-	}
-	ticker := time.NewTicker(every)
-	defer ticker.Stop()
-	for {
-		if !utils.SelectContextOrWaitChan(streamServer.Context(), ticker.C) {
-			return streamServer.Context().Err()
-		}
-
-		status, err := s.GetStatus(streamServer.Context(), &pb.GetStatusRequest{ResourceNames: req.ResourceNames})
-		switch {
-		case err == nil:
-		case grpcstatus.Code(err) == codes.Unimplemented:
-			return nil
-		default:
-			return err
-		}
-
-		if err := streamServer.Send(&pb.StreamStatusResponse{Status: status.Status}); err != nil {
-			return err
-		}
-	}
+	return &pb.TransformPCDResponse{PointCloudPcd: bytes}, err
 }
 
 // StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement.
@@ -446,7 +433,7 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	for _, fieldP := range log.Fields {
 		field, err := logging.FieldFromProto(fieldP)
 		if err != nil {
-			return nil, errors.Wrap(err, "error converting LogRequest log field from proto")
+			return nil, fmt.Errorf("error converting LogRequest log field from proto: %w", err)
 		}
 		fields = append(fields, field)
 	}
@@ -473,14 +460,7 @@ func (s *Server) GetCloudMetadata(ctx context.Context, _ *pb.GetCloudMetadataReq
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetCloudMetadataResponse{
-		// TODO: RSDK-7181 remove RobotPartId
-		RobotPartId:   md.MachinePartID, // Deprecated: Duplicates MachinePartId
-		PrimaryOrgId:  md.PrimaryOrgID,
-		LocationId:    md.LocationID,
-		MachineId:     md.MachineID,
-		MachinePartId: md.MachinePartID,
-	}, nil
+	return protoutils.MetadataToProto(md), nil
 }
 
 // RestartModule restarts a module by name or ID.
@@ -513,7 +493,6 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	if err != nil {
 		return nil, err
 	}
-
 	result.Config = &pb.ConfigStatus{
 		Revision:    mStatus.Config.Revision,
 		LastUpdated: timestamppb.New(mStatus.Config.LastUpdated),
@@ -521,9 +500,10 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	result.Resources = make([]*pb.ResourceStatus, 0, len(mStatus.Resources))
 	for _, resStatus := range mStatus.Resources {
 		pbResStatus := &pb.ResourceStatus{
-			Name:        protoutils.ResourceNameToProto(resStatus.Name),
-			LastUpdated: timestamppb.New(resStatus.LastUpdated),
-			Revision:    resStatus.Revision,
+			Name:          protoutils.ResourceNameToProto(resStatus.Name),
+			LastUpdated:   timestamppb.New(resStatus.LastUpdated),
+			Revision:      resStatus.Revision,
+			CloudMetadata: protoutils.MetadataToProto(resStatus.CloudMetadata),
 		}
 
 		switch resStatus.State {
@@ -546,6 +526,16 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		}
 
 		result.Resources = append(result.Resources, pbResStatus)
+	}
+
+	switch mStatus.State {
+	case robot.StateUnknown:
+		s.robot.Logger().CError(ctx, "machine in an unknown state")
+		result.State = pb.GetMachineStatusResponse_STATE_UNSPECIFIED
+	case robot.StateInitializing:
+		result.State = pb.GetMachineStatusResponse_STATE_INITIALIZING
+	case robot.StateRunning:
+		result.State = pb.GetMachineStatusResponse_STATE_RUNNING
 	}
 
 	return &result, nil

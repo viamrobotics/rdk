@@ -14,25 +14,13 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/session"
 )
 
 type ctxKey byte
 
 const ctxKeyInSessionMDReq = ctxKey(iota)
-
-var exemptFromSession = map[string]bool{
-	"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": true,
-	"/proto.rpc.webrtc.v1.SignalingService/Call":                     true,
-	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":               true,
-	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig":     true,
-	"/proto.rpc.v1.AuthService/Authenticate":                         true,
-	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":               true,
-	"/viam.robot.v1.RobotService/ResourceNames":                      true,
-	"/viam.robot.v1.RobotService/ResourceRPCSubtypes":                true,
-	"/viam.robot.v1.RobotService/StartSession":                       true,
-	"/viam.robot.v1.RobotService/SendSessionHeartbeat":               true,
-}
 
 func (rc *RobotClient) sessionReset() {
 	rc.sessionMu.Lock()
@@ -75,7 +63,7 @@ func (rc *RobotClient) heartbeatLoop() {
 					utils.FilterOutError(err, context.DeadlineExceeded) == nil) {
 					// this could be a session expiration but we will handle that via a retry
 					// in the interceptors below
-					rc.logger.Errorw("error sending heartbeat", "error", err)
+					rc.logger.Warnw("error sending heartbeat", "error", err)
 					return
 				}
 				return
@@ -102,7 +90,7 @@ func (rc *RobotClient) sessionMetadata(ctx context.Context, method string) (cont
 		return rc.sessionMetadataInner(ctx), nil
 	}
 	rc.sessionMu.RUnlock()
-
+	// upgrade lock
 	rc.sessionMu.Lock()
 	defer rc.sessionMu.Unlock()
 
@@ -166,7 +154,7 @@ func (rc *RobotClient) safetyMonitorFromHeaders(ctx context.Context, hdr metadat
 }
 
 func (rc *RobotClient) useSessionInRequest(ctx context.Context, method string) bool {
-	return !rc.sessionsDisabled && !exemptFromSession[method] && ctx.Value(ctxKeyInSessionMDReq) == nil
+	return !rc.sessionsDisabled && ctx.Value(ctxKeyInSessionMDReq) == nil && robot.IsSafetyHeartbeatMonitored(method)
 }
 
 func (rc *RobotClient) sessionUnaryClientInterceptor(

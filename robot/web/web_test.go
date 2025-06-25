@@ -6,7 +6,9 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"testing"
@@ -45,6 +47,7 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -95,7 +98,7 @@ func TestModule(t *testing.T) {
 	err := svc.StartModule(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn1, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(), logger)
+	conn1, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddresses().UnixAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1, err := arm.NewClientFromConn(context.Background(), conn1, "", arm.Named(arm1String), logger)
@@ -1130,8 +1133,8 @@ func TestRawClientOperation(t *testing.T) {
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-		return []robot.Status{}, nil
+	iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{}, nil
 	}
 
 	checkOpID := func(md metadata.MD, expected bool) {
@@ -1151,17 +1154,10 @@ func TestRawClientOperation(t *testing.T) {
 	client := robotpb.NewRobotServiceClient(conn)
 
 	var hdr metadata.MD
-	//nolint:staticcheck // the status API is deprecated
-	_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{}, grpc.Header(&hdr))
+	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{}, grpc.Header(&hdr))
 	test.That(t, err, test.ShouldBeNil)
 	checkOpID(hdr, true)
 
-	//nolint:staticcheck // the status API is deprecated
-	streamClient, err := client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
-	test.That(t, err, test.ShouldBeNil)
-	md, err := streamClient.Header()
-	test.That(t, err, test.ShouldBeNil)
-	checkOpID(md, false) // StreamStatus is in the filtered method list, so doesn't get an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// test with a simple echo proto as well
@@ -1177,11 +1173,161 @@ func TestRawClientOperation(t *testing.T) {
 
 	echoStreamClient, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{})
 	test.That(t, err, test.ShouldBeNil)
-	md, err = echoStreamClient.Header()
+	md, err := echoStreamClient.Header()
 	test.That(t, err, test.ShouldBeNil)
 	checkOpID(md, true) // EchoMultiple is NOT filtered, so should have an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
+}
+
+func TestUnaryRequestCounter(t *testing.T) {
+	echoAPI := resource.NewAPI("rdk", "component", "echo")
+	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+	})
+	defer resource.DeregisterAPI(echoAPI)
+
+	logger := logging.NewTestLogger(t)
+	ctx, iRobot := setupRobotCtx(t)
+
+	svc := web.New(iRobot, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{}, nil
+	}
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
+	test.That(t, err, test.ShouldBeNil)
+
+	// test un-targeted (no name field) counts
+	client := robotpb.NewRobotServiceClient(conn)
+
+	_, ok := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	test.That(t, ok, test.ShouldBeFalse)
+
+	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	count := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	test.That(t, count, test.ShouldEqual, 2)
+
+	// test targeted (with name field) counts
+	echoclient := echopb.NewTestEchoServiceClient(conn)
+
+	_, ok = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	test.That(t, ok, test.ShouldBeFalse)
+
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 2)
+
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test2"})
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test2.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	// test service with a name field
+	genericclient, err := genericservice.NewClientFromConn(ctx, conn, "", genericservice.Named("generictest"), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = genericclient.DoCommand(ctx, nil)
+	// errors here because we haven't created defined generictest, but RC still counts the request.
+	test.That(t, err.Error(), test.ShouldEqual,
+		"rpc error: code = Unknown desc = resource \"rdk:service:generic/generictest\" not found")
+
+	count = svc.RequestCounter().Stats().(map[string]int64)["generictest.GenericService/DoCommand"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	test.That(t, conn.Close(), test.ShouldBeNil)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
+}
+
+func TestStreamingRequestCounter(t *testing.T) {
+	echoAPI := resource.NewAPI("rdk", "component", "echo")
+	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+	})
+	defer resource.DeregisterAPI(echoAPI)
+
+	logger := logging.NewTestLogger(t)
+	ctx, iRobot := setupRobotCtx(t)
+
+	svc := web.New(iRobot, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
+	test.That(t, err, test.ShouldBeNil)
+	echoclient := echopb.NewTestEchoServiceClient(conn)
+
+	// test counting streaming service with name
+	_, ok := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	test.That(t, ok, test.ShouldBeFalse)
+	s, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = s.Recv()
+	test.That(t, err, test.ShouldBeNil)
+	count := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	s, err = echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = s.Recv()
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	test.That(t, count, test.ShouldEqual, 2)
+
+	// test named bidirectional stream (client sends multiple messages, but RC only increments once)
+	client, err := echoclient.EchoBiDi(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "asdfg"})
+	test.That(t, err, test.ShouldBeNil)
+	ch, err := client.Recv()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ch.GetMessage(), test.ShouldEqual, "a")
+	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	err = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "zxcvb"})
+	test.That(t, err, test.ShouldBeNil)
+	err = client.CloseSend()
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	// EchoBiDi echoes back all received msgs one character at a time.
+	// 10 in total for this test & the first one is checked separately above.
+	for range 9 {
+		ch, err := client.Recv()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ch.GetMessage()), test.ShouldEqual, 1)
+	}
+	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	test.That(t, conn.Close(), test.ShouldBeNil)
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 }
 
@@ -1199,9 +1345,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 
 			// Use an injected status function to check that the default deadline was added
 			// to the context.
-			iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context,
-				resourceNames []resource.Name,
-			) ([]robot.Status, error) {
+			iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 				deadline, deadlineSet := ctx.Deadline()
 				test.That(t, deadlineSet, test.ShouldBeTrue)
 				// Assert that deadline is between 9 and 10 minutes from now (some time will
@@ -1209,7 +1353,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 				test.That(t, deadline, test.ShouldHappenBetween,
 					time.Now().Add(time.Minute*9), time.Now().Add(time.Minute*10))
 
-				return []robot.Status{}, nil
+				return robot.MachineStatus{}, nil
 			}
 
 			conn, err := rgrpc.Dial(context.Background(), addr, logger,
@@ -1217,9 +1361,8 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
 
-			// Use GetStatus to call injected status function.
-			//nolint:staticcheck // the status API is deprecated
-			_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{})
+			// Use GetMachineStatus to call injected status function.
+			_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
@@ -1233,17 +1376,16 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Use an injected status function to check that the default deadline was not
-			// added to the context, and the deadline passed to GetStatus was used instead.
-			iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context,
-				resourceNames []resource.Name,
-			) ([]robot.Status, error) {
+			// added to the context, and the deadline passed to GetMachineStatus was used instead.
+			iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context,
+			) (robot.MachineStatus, error) {
 				deadline, deadlineSet := ctx.Deadline()
 				test.That(t, deadlineSet, test.ShouldBeTrue)
 				// Assert that deadline is between 4 and 5 minutes from now (some time will
 				// have elapsed).
 				test.That(t, deadline, test.ShouldHappenBetween,
 					time.Now().Add(time.Minute*4), time.Now().Add(time.Minute*5))
-				return []robot.Status{}, nil
+				return robot.MachineStatus{}, nil
 			}
 
 			conn, err := rgrpc.Dial(context.Background(), addr, logger,
@@ -1251,11 +1393,10 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
 
-			// Use GetStatus and a context with a deadline to call injected status function.
+			// Use GetMachineStatus and a context with a deadline to call injected status function.
 			overrideCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
-			//nolint:staticcheck // the status API is deprecated
-			_, err = client.GetStatus(overrideCtx, &robotpb.GetStatusRequest{})
+			_, err = client.GetMachineStatus(overrideCtx, &robotpb.GetMachineStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
@@ -1271,9 +1412,8 @@ func TestInboundMethodTimeout(t *testing.T) {
 
 			// Use an injected status function to check that the default deadline was added
 			// to the context.
-			iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context,
-				resourceNames []resource.Name,
-			) ([]robot.Status, error) {
+			iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context,
+			) (robot.MachineStatus, error) {
 				deadline, deadlineSet := ctx.Deadline()
 				test.That(t, deadlineSet, test.ShouldBeTrue)
 				// Assert that deadline is between 9 and 10 minutes from now (some time will
@@ -1281,17 +1421,16 @@ func TestInboundMethodTimeout(t *testing.T) {
 				test.That(t, deadline, test.ShouldHappenBetween,
 					time.Now().Add(time.Minute*9), time.Now().Add(time.Minute*10))
 
-				return []robot.Status{}, nil
+				return robot.MachineStatus{}, nil
 			}
 
-			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(),
+			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddresses().UnixAddr,
 				logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
 
-			// Use GetStatus to call injected status function.
-			//nolint:staticcheck // the status API is deprecated
-			_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{})
+			// Use GetMachineStatus to call injected status function.
+			_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
@@ -1304,29 +1443,27 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Use an injected status function to check that the default deadline was not
-			// added to the context, and the deadline passed to GetStatus was used instead.
-			iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context,
-				resourceNames []resource.Name,
-			) ([]robot.Status, error) {
+			// added to the context, and the deadline passed to GetMachineStatus was used instead.
+			iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context,
+			) (robot.MachineStatus, error) {
 				deadline, deadlineSet := ctx.Deadline()
 				test.That(t, deadlineSet, test.ShouldBeTrue)
 				// Assert that deadline is between 4 and 5 minutes from now (some time will
 				// have elapsed).
 				test.That(t, deadline, test.ShouldHappenBetween,
 					time.Now().Add(time.Minute*4), time.Now().Add(time.Minute*5))
-				return []robot.Status{}, nil
+				return robot.MachineStatus{}, nil
 			}
 
-			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(),
+			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddresses().UnixAddr,
 				logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
 
-			// Use GetStatus and a context with a deadline to call injected status function.
+			// Use GetMachineStatus and a context with a deadline to call injected status function.
 			overrideCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
-			//nolint:staticcheck // the status API is deprecated
-			_, err = client.GetStatus(overrideCtx, &robotpb.GetStatusRequest{})
+			_, err = client.GetMachineStatus(overrideCtx, &robotpb.GetMachineStatusRequest{})
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
@@ -1348,6 +1485,24 @@ func (srv *echoServer) EchoMultiple(
 
 func (srv *echoServer) Echo(context.Context, *echopb.EchoRequest) (*echopb.EchoResponse, error) {
 	return &echopb.EchoResponse{}, nil
+}
+
+// EchoBiDi responds to incoming Message(s) by echoing back one character at a time.
+func (srv *echoServer) EchoBiDi(stream echopb.TestEchoService_EchoBiDiServer) error {
+	for {
+		in, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		for _, ch := range in.GetMessage() {
+			if err := stream.Send(&echopb.EchoBiDiResponse{Message: fmt.Sprintf("%c", ch)}); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // signJWKBasedExternalAccessToken returns an access jwt access token typically returned by an OIDC provider.
@@ -1374,4 +1529,61 @@ func signJWKBasedExternalAccessToken(
 	}
 
 	return token.SignedString(key)
+}
+
+func TestPerRequestFTDC(t *testing.T) {
+	// This test creates a robot with a resource running with a web service. It will then assert
+	// that making gRPC requests will increment counters output by the `RequestCounter`s `Stats`
+	// call.
+	logger := logging.NewTestLogger(t)
+	ctx, injectRobot := setupRobotCtx(t)
+	defer injectRobot.Close(ctx)
+
+	svc := web.New(injectRobot, logger)
+	defer svc.Stop()
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Dial to the robot and create a gRPC client object to the "arm" specifically.
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(conn.Close)
+	armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+	//nolint
+	defer armClient.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Making a gRPC `EndPosition` call with the default inject method returns a success.
+	_, err = armClient.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// We can assert that there are two counters in our stats. THe fact that `GetEndPosition` was
+	// called once and we hence spent (negligible) time in that RPC call.
+	stats := svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, len(stats), test.ShouldEqual, 2)
+	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 1)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
+
+	// Get a handle on the inject arm resource.
+	injectArmRes, err := injectRobot.ResourceByName(arm.Named(arm1String))
+	test.That(t, err, test.ShouldBeNil)
+	injectArm := injectArmRes.(*inject.Arm)
+	// Mutate the arm to have its `EndPosition` RPC call return an error.
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+		return nil, errors.New("error")
+	}
+
+	// Try calling `EndPosition` again. Assert it returned an error.
+	_, err = armClient.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Now observe that we called `GetEndPosition` a second time. And one of the responses returned
+	// an error.
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, len(stats), test.ShouldEqual, 3)
+	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 2)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
+	test.That(t, stats["arm1.ArmService/GetEndPosition.errorCnt"], test.ShouldEqual, 1)
 }

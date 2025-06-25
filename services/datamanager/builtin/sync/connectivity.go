@@ -1,7 +1,8 @@
 package sync
 
 import (
-	"net"
+	"context"
+	"runtime"
 	"time"
 
 	"go.viam.com/utils/rpc"
@@ -35,9 +36,31 @@ func (oc offlineChecker) GetState() connectivity.State {
 	return connectivity.Ready
 }
 
+// returns true if the device is offline.
 func isOffline() bool {
 	timeout := 5 * time.Second
-	_, err := net.DialTimeout("tcp", "app.viam.com:443", timeout)
-	// If there's an error, the system is likely offline.
-	return err != nil
+	attempts := 1
+	if runtime.GOOS == "windows" {
+		// TODO(RSDK-8344): this is temporary as we 1) debug connectivity issues on windows,
+		// and 2) migrate to using the native checks on the underlying connection.
+		timeout = 15 * time.Second
+		attempts = 2
+	}
+	for i := range attempts {
+		// Use DialDirectGRPC to make a connection to app.viam.com instead of a
+		// basic net.Dial in order to ensure that the connection can be made
+		// behind wifi or the BLE-SOCKS bridge (DialDirectGRPC can dial through
+		// the BLE-SOCKS bridge.)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		conn, err := rpc.DialDirectGRPC(ctx, "app.viam.com:443", nil)
+		cancel()
+		if err == nil {
+			conn.Close() //nolint:gosec,errcheck
+			return false
+		}
+		if i < attempts-1 {
+			time.Sleep(time.Second)
+		}
+	}
+	return true
 }

@@ -55,7 +55,7 @@ func (step *arcStep) String() string {
 		step.angVelDegps,
 		step.durationSeconds,
 		step.arcSegment.String(),
-		spatialmath.PoseToProtobuf(step.arcSegment.StartPosition),
+		step.arcSegment.StartPosition,
 	)
 }
 
@@ -255,7 +255,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	segment := ik.Segment{
 		StartConfiguration: startInputs,
 		StartPosition:      runningPose,
-		Frame:              ptgk.Kinematics(),
+		Frame:              ptgk.planningModel,
 	}
 	// Trajectory distance is either length in mm, or if linear distance is not increasing, number of degrees to rotate in place.
 	lastLinVel := r3.Vector{0, traj[0].LinVel * ptgk.linVelocityMMPerSecond, 0}
@@ -292,7 +292,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 			}
 			nextStep.arcSegment.EndConfiguration = stepEndInputs
 
-			arcPose, err := ptgk.Kinematics().Transform(stepEndInputs)
+			arcPose, err := ptgk.planningModel.Transform(stepEndInputs)
 			if err != nil {
 				return nil, err
 			}
@@ -309,7 +309,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 			segment = ik.Segment{
 				StartConfiguration: stepStartInputs,
 				StartPosition:      runningPose,
-				Frame:              ptgk.Kinematics(),
+				Frame:              ptgk.planningModel,
 			}
 			nextStep = arcStep{
 				linVelMMps:      nextLinVel,
@@ -330,7 +330,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 		{curDist},
 	}
 	nextStep.arcSegment.EndConfiguration = finalInputs
-	arcPose, err := ptgk.Kinematics().Transform(finalInputs)
+	arcPose, err := ptgk.planningModel.Transform(finalInputs)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +354,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 		return nil, err
 	}
 	// trajPose is the pose we should have nominally reached along the currently executing arc from the start position.
-	trajPose, err := ptgk.Kinematics().Transform(currentInputs)
+	trajPose, err := ptgk.planningModel.Transform(currentInputs)
 	if err != nil {
 		return nil, err
 	}
@@ -371,8 +371,8 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 		" linear diff now ", poseDiff.Point().Norm(),
 		" angle diff ", rdkutils.RadToDeg(poseDiff.Orientation().AxisAngles().Theta),
 	)
-	ptgk.logger.Debug("expected to be at ", spatialmath.PoseToProtobuf(expectedPose))
-	ptgk.logger.Debug("Localizer says at ", spatialmath.PoseToProtobuf(actualPose.Pose()))
+	ptgk.logger.Debug("expected to be at", expectedPose)
+	ptgk.logger.Debug("Localizer says at", actualPose.Pose())
 	if poseDiff.Point().Norm() > allowableDiff || rdkutils.RadToDeg(poseDiff.Orientation().AxisAngles().Theta) > allowableDiff {
 		// Accumulate list of points along the path to try to connect to
 		goals := ptgk.makeCourseCorrectionGoals(
@@ -383,7 +383,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			currentInputs,
 		)
 
-		ptgk.logger.Debug("wanted to attempt ", goalsToAttempt, " goals, got ", len(goals))
+		ptgk.logger.Debug("wanted to attempt", goalsToAttempt, "goals, got", len(goals))
 		// Attempt to solve from `actualPose` to each of those points
 		solution, err := ptgk.getCorrectionSolution(ctx, goals)
 		if err != nil {
@@ -445,7 +445,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 				connectionPointDeepCopy.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex],
 				{startVal},
 			}
-			skippedPose, err := ptgk.Kinematics().Transform(skippedSegment)
+			skippedPose, err := ptgk.planningModel.Transform(skippedSegment)
 			if err != nil {
 				return nil, err
 			}
@@ -495,7 +495,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error) {
 	for _, goal := range goals {
 		solveMetric := ik.NewScaledSquaredNormMetric(goal.Goal, 50)
-		ptgk.logger.Debug("attempting goal ", spatialmath.PoseToProtobuf(goal.Goal))
+		ptgk.logger.Debug("attempting goal", goal.Goal)
 		seed := []referenceframe.Input{{math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}, {math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}}
 		if goal.Goal.Point().X > 0 {
 			seed[0].Value *= -1
@@ -512,7 +512,7 @@ func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals 
 		if err != nil {
 			return courseCorrectionGoal{}, err
 		}
-		ptgk.logger.Debug("solution ", solution)
+		ptgk.logger.Debug("solution", solution)
 		if solution.Score < courseCorrectionMaxScore {
 			goal.Solution = referenceframe.FloatsToInputs(solution.Configuration)
 			return goal, nil
@@ -570,7 +570,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 				{steps[i].subTraj[goalTrajPtIdx].Dist},
 			}
 
-			arcPose, err := ptgk.Kinematics().Transform(arcTrajInputs)
+			arcPose, err := ptgk.planningModel.Transform(arcTrajInputs)
 			if err != nil {
 				return []courseCorrectionGoal{}
 			}
@@ -597,9 +597,9 @@ func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) 
 	traj := motionplan.Trajectory{}
 	path := motionplan.Path{}
 	for _, step := range steps {
-		traj = append(traj, map[string][]referenceframe.Input{ptgk.Kinematics().Name(): step.arcSegment.EndConfiguration})
+		traj = append(traj, referenceframe.FrameSystemInputs{ptgk.planningModel.Name(): step.arcSegment.EndConfiguration})
 		path = append(path, map[string]*referenceframe.PoseInFrame{
-			ptgk.Kinematics().Name(): referenceframe.NewPoseInFrame(parentFrame, step.arcSegment.EndPosition),
+			ptgk.planningModel.Name(): referenceframe.NewPoseInFrame(parentFrame, step.arcSegment.EndPosition),
 		})
 	}
 

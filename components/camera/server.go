@@ -1,9 +1,10 @@
 package camera
 
 import (
-	"bytes"
 	"context"
+	"fmt"
 	"image"
+	"sync"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -11,21 +12,23 @@ import (
 	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
 // serviceServer implements the CameraService from camera.proto.
 type serviceServer struct {
 	pb.UnimplementedCameraServiceServer
-	coll     resource.APIResourceCollection[Camera]
-	imgTypes map[string]ImageType
-	logger   logging.Logger
+	coll resource.APIResourceCollection[Camera]
+
+	imgTypesMu sync.RWMutex
+	imgTypes   map[string]ImageType
+	logger     logging.Logger
 }
 
 // NewRPCServiceServer constructs an camera gRPC service server.
@@ -33,13 +36,11 @@ type serviceServer struct {
 func NewRPCServiceServer(coll resource.APIResourceCollection[Camera]) interface{} {
 	logger := logging.NewLogger("camserver")
 	imgTypes := make(map[string]ImageType)
-	return &serviceServer{coll: coll, logger: logger, imgTypes: imgTypes}
-}
-
-// ReadImager is an interface that cameras can implement when they allow for returning a single
-// image object.
-type ReadImager interface {
-	Read(ctx context.Context) (image.Image, func(), error)
+	return &serviceServer{
+		coll:     coll,
+		logger:   logger,
+		imgTypes: imgTypes,
+	}
 }
 
 // GetImage returns an image from a camera of the underlying robot. If a specific MIME type
@@ -57,16 +58,22 @@ func (s *serviceServer) GetImage(
 
 	// Determine the mimeType we should try to use based on camera properties
 	if req.MimeType == "" {
-		if _, ok := s.imgTypes[req.Name]; !ok {
+		s.imgTypesMu.RLock()
+		imgType, ok := s.imgTypes[req.Name]
+		s.imgTypesMu.RUnlock()
+		if !ok {
 			props, err := cam.Properties(ctx)
 			if err != nil {
 				s.logger.CWarnf(ctx, "camera properties not found for %s, assuming color images: %v", req.Name, err)
-				s.imgTypes[req.Name] = ColorStream
+				imgType = ColorStream
 			} else {
-				s.imgTypes[req.Name] = props.ImageType
+				imgType = props.ImageType
 			}
+			s.imgTypesMu.Lock()
+			s.imgTypes[req.Name] = imgType
+			s.imgTypesMu.Unlock()
 		}
-		switch s.imgTypes[req.Name] {
+		switch imgType {
 		case ColorStream, UnspecifiedStream:
 			req.MimeType = utils.MimeTypeJPEG
 		case DepthStream:
@@ -75,45 +82,17 @@ func (s *serviceServer) GetImage(
 			req.MimeType = utils.MimeTypeJPEG
 		}
 	}
-
 	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
 
-	ext := req.Extra.AsMap()
-	ctx = NewContext(ctx, ext)
-
-	var img image.Image
-	var release func()
-	switch castedCam := cam.(type) {
-	case ReadImager:
-		// RSDK-8663: If available, call a method that reads exactly one image. The default
-		// `ReadImage` implementation will otherwise create a gostream `Stream`, call `Next` and
-		// `Close` the stream. However, between `Next` and `Close`, the stream may have pulled a
-		// second image from the underlying camera. This is particularly noticeable on camera
-		// clients. Where a second `GetImage` request can be processed/returned over the
-		// network. Just to be discarded.
-		img, release, err = castedCam.Read(ctx)
-	default:
-		img, release, err = ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)
-	}
+	resBytes, resMetadata, err := cam.Image(ctx, req.MimeType, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if release != nil {
-			release()
-		}
-	}()
-
-	actualMIME, _ := utils.CheckLazyMIMEType(req.MimeType)
-	resp := pb.GetImageResponse{
-		MimeType: actualMIME,
+	if len(resBytes) == 0 {
+		return nil, fmt.Errorf("received empty bytes from Image method of %s", req.Name)
 	}
-	outBytes, err := rimage.EncodeImage(ctx, img, req.MimeType)
-	if err != nil {
-		return nil, err
-	}
-	resp.Image = outBytes
-	return &resp, nil
+	actualMIME, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
+	return &pb.GetImageResponse{MimeType: actualMIME, Image: resBytes}, nil
 }
 
 // GetImages returns a list of images and metadata from a camera of the underlying robot.
@@ -235,18 +214,14 @@ func (s *serviceServer) GetPointCloud(
 		return nil, err
 	}
 
-	var buf bytes.Buffer
-	buf.Grow(200 + (pc.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes
-	_, pcdSpan := trace.StartSpan(ctx, "camera::server::NextPointCloud::ToPCD")
-	err = pointcloud.ToPCD(pc, &buf, pointcloud.PCDBinary)
-	pcdSpan.End()
+	bytes, err := pointcloud.ToBytes(pc)
 	if err != nil {
 		return nil, err
 	}
 
 	return &pb.GetPointCloudResponse{
 		MimeType:   utils.MimeTypePCD,
-		PointCloud: buf.Bytes(),
+		PointCloud: bytes,
 	}, nil
 }
 
@@ -299,4 +274,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 		return nil, err
 	}
 	return protoutils.DoFromResourceServer(ctx, camera, req)
+}
+
+func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
+	res, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
 }

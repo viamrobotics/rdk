@@ -2,13 +2,17 @@ package mlvision
 
 import (
 	"context"
+	"math"
 	"sync"
 	"testing"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/ml"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/vision/classification"
@@ -236,6 +240,50 @@ func TestNewMLClassifier(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, topNL, test.ShouldNotBeNil)
 	test.That(t, topNL[0].Label(), test.ShouldContainSubstring, "lion")
+}
+
+func TestMLDetectorBboxResized(t *testing.T) {
+	ctx := context.Background()
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/person.jpg"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pic, test.ShouldNotBeNil)
+
+	outModel := mockSuperFakeModel("test_me")
+	check, err := outModel.Metadata(ctx)
+	test.That(t, check, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := outModel.Infer(ctx, ml.Tensors{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
+
+	inNameMap := &sync.Map{}
+	outNameMap := &sync.Map{}
+	outNameMap.Store("location", "location")
+	outNameMap.Store("score", "score")
+	outNameMap.Store("category", "category")
+	conf := &MLModelConfig{}
+	gotDetector, err := attemptToBuildDetector(outModel, inNameMap, outNameMap, conf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetector, test.ShouldNotBeNil)
+
+	gotDetections, err := gotDetector(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gotDetections, test.ShouldNotBeNil)
+
+	// There's some floating point math, so check that the numbers are basically desiredValues (within a delta)
+	desiredNDelta := 0.01
+	desiredNValues := []float64{0.2, 0.3, 0.8, 0.5}
+	test.That(t, math.Abs(gotDetections[0].NormalizedBoundingBox()[0]-desiredNValues[0]), test.ShouldBeLessThan, desiredNDelta)
+	test.That(t, math.Abs(gotDetections[0].NormalizedBoundingBox()[1]-desiredNValues[1]), test.ShouldBeLessThan, desiredNDelta)
+	test.That(t, math.Abs(gotDetections[0].NormalizedBoundingBox()[2]-desiredNValues[2]), test.ShouldBeLessThan, desiredNDelta)
+	test.That(t, math.Abs(gotDetections[0].NormalizedBoundingBox()[3]-desiredNValues[3]), test.ShouldBeLessThan, desiredNDelta)
+
+	desiredDelta := 0.5
+	desiredValues := []float64{100, 100, 400, 166}
+	test.That(t, math.Abs(float64(gotDetections[0].BoundingBox().Min.X)-desiredValues[0]), test.ShouldBeLessThan, desiredDelta)
+	test.That(t, math.Abs(float64(gotDetections[0].BoundingBox().Min.Y)-desiredValues[1]), test.ShouldBeLessThan, desiredDelta)
+	test.That(t, math.Abs(float64(gotDetections[0].BoundingBox().Max.X)-desiredValues[2]), test.ShouldBeLessThan, desiredDelta)
+	test.That(t, math.Abs(float64(gotDetections[0].BoundingBox().Max.Y)-desiredValues[3]), test.ShouldBeLessThan, desiredDelta)
 }
 
 func TestMLDetectorWithNoCategory(t *testing.T) {
@@ -515,6 +563,49 @@ func TestMultipleClassifiersOneModel(t *testing.T) {
 	}()
 
 	wg.Wait()
+}
+
+func TestRegistrationWithDefaultCamera(t *testing.T) {
+	ctx := context.Background()
+	out := mockEffDetModel("myMLModel", "")
+	modelName := out.Name()
+	cameraName := camera.Named("test")
+	modelCfg := MLModelConfig{ModelName: modelName.Name}
+
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		switch name {
+		case modelName:
+			return out, nil
+		case cameraName:
+			return inject.NewCamera(cameraName.Name), nil
+		default:
+			return nil, resource.NewNotFoundError(name)
+		}
+	}
+
+	service, err := registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, service, test.ShouldNotBeNil)
+
+	modelCfg.DefaultCamera = cameraName.Name
+	service, err = registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, service, test.ShouldNotBeNil)
+
+	modelCfg.DefaultCamera = "not-camera"
+	_, err = registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "could not find camera \"not-camera\"")
+
+	// Test that *FromCamera errors when camera is not found
+	modelCfg.DefaultCamera = ""
+	service, err = registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, service, test.ShouldNotBeNil)
+	_, err = service.DetectionsFromCamera(ctx, "", nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera name provided and no default camera found")
 }
 
 func classifyTwoImages(picPanda, picLion *rimage.Image,

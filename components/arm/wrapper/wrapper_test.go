@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -27,7 +28,7 @@ func TestReconfigure(t *testing.T) {
 	cfg1 := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
-			ModelFilePath: "../xarm/xarm6_kinematics.json",
+			ModelFilePath: "../example_kinematics/xarm6_kinematics_test.json",
 			ArmName:       armName.ShortName(),
 		},
 	}
@@ -35,7 +36,7 @@ func TestReconfigure(t *testing.T) {
 	cfg1Err := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
-			ModelFilePath: "../xarm/xarm6_kinematics.json",
+			ModelFilePath: "../example_kinematics/xarm6_kinematics_test.json",
 			ArmName:       "dne1",
 		},
 	}
@@ -51,7 +52,7 @@ func TestReconfigure(t *testing.T) {
 	conf, err := resource.NativeConfig[*Config](cfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	model, err := modelFromPath(conf.ModelFilePath, cfg.Name)
+	model, err := referenceframe.KinematicModelFromFile(conf.ModelFilePath, cfg.Name)
 	test.That(t, err, test.ShouldBeNil)
 
 	actualArm := &inject.Arm{}

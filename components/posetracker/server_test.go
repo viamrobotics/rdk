@@ -47,17 +47,17 @@ func TestGetPoses(t *testing.T) {
 
 	var extraOptions map[string]interface{}
 	workingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
-		posetracker.BodyToPoseInFrame, error,
+		referenceframe.FrameSystemPoses, error,
 	) {
 		extraOptions = extra
 		zeroPose := spatialmath.NewZeroPose()
-		return posetracker.BodyToPoseInFrame{
+		return referenceframe.FrameSystemPoses{
 			bodyName: referenceframe.NewPoseInFrame(bodyFrame, zeroPose),
 		}, nil
 	}
 
 	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
-		posetracker.BodyToPoseInFrame, error,
+		referenceframe.FrameSystemPoses, error,
 	) {
 		return nil, errPoseFailed
 	}

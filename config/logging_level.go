@@ -35,7 +35,7 @@ func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
 		logger.SetLevel(logging.INFO)
 	}
 
-	globalLogger.logger.Info("Log level initialized: ", logging.GlobalLogLevel.Level())
+	globalLogger.logger.Info("Log level initialized:", logging.GlobalLogLevel.Level())
 }
 
 // UpdateFileConfigDebug is used to update the debug flag whenever a file-based viam config is
@@ -59,21 +59,35 @@ func UpdateCloudConfigDebug(cloudDebug bool) {
 }
 
 func refreshLogLevelInLock() {
-	var newLevel zapcore.Level
+	// We have two loggers to update here: logging.GlobalLogLevel (zapcore) and globalLogger.logger (logging)
+	// Also see usages of InitLoggingSettings.
+	var newLevelZap zapcore.Level
+	var newLevel logging.Level
 	if globalLogger.cmdLineDebugFlag ||
 		globalLogger.fileConfigDebugFlag ||
 		globalLogger.cloudConfigDebugFlag {
 		// If anything wants debug logs, set the level to `Debug`.
-		newLevel = zap.DebugLevel
+		newLevelZap = zap.DebugLevel
+		newLevel = logging.DEBUG
 	} else {
 		// If none of the command line, file config or cloud config ask for debug, use the `Info` log
 		// level.
-		newLevel = zap.InfoLevel
+		newLevelZap = zap.InfoLevel
+		newLevel = logging.INFO
 	}
 
-	if logging.GlobalLogLevel.Level() == newLevel {
+	if logging.GlobalLogLevel.Level() == newLevelZap {
 		return
 	}
-	globalLogger.logger.Info("New log level: ", newLevel)
-	logging.GlobalLogLevel.SetLevel(newLevel)
+	globalLogger.logger.Info("New log level:", newLevelZap)
+
+	// TODO(RSDK-10723): Remove this WARN log, and restart all modules at
+	// `--log-level=debug` at this point.
+	globalLogger.logger.Warn(
+		"Changes to global debug settings will not affect modular logs. " +
+			"Use 'log_level' in module config or 'log_configuration' in resource config instead",
+	)
+
+	logging.GlobalLogLevel.SetLevel(newLevelZap)
+	globalLogger.logger.SetLevel(newLevel)
 }

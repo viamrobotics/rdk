@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sync"
+	"sync/atomic"
 )
 
 // Registry is a registry of loggers. It is stored on a logger, and holds a map
@@ -13,6 +14,10 @@ type Registry struct {
 	mu        sync.RWMutex
 	loggers   map[string]Logger
 	logConfig []LoggerPatternConfig
+
+	// DeduplicateLogs controls whether to deduplicate logs. Slightly odd to store this on
+	// the registry but preferable to having a global atomic.
+	DeduplicateLogs atomic.Bool
 }
 
 func newRegistry() *Registry {
@@ -54,22 +59,21 @@ func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) e
 
 	appliedConfigs := make(map[string]Level)
 	for _, lpc := range logConfig {
-		if !validatePattern(lpc.Pattern) {
-			warnLogger.Warnw("failed to validate a pattern", "pattern", lpc.Pattern)
+		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
+		if err != nil {
+			warnLogger.Warnw("Log regex did not compile",
+				"input", lpc.Pattern, "built", buildRegexFromPattern(lpc.Pattern), "err", err)
 			continue
 		}
 
-		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
+		level, err := LevelFromString(lpc.Level)
 		if err != nil {
-			return err
+			warnLogger.Warnw("Log level did not parse", "pattern", lpc.Pattern, "level", lpc.Level)
+			continue
 		}
 
 		for _, name := range lr.getRegisteredLoggerNames() {
 			if r.MatchString(name) {
-				level, err := LevelFromString(lpc.Level)
-				if err != nil {
-					return err
-				}
 				appliedConfigs[name] = level
 			}
 		}

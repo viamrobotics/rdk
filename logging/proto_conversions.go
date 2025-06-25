@@ -52,10 +52,41 @@ func FieldFromProto(field *structpb.Struct) (zap.Field, error) {
 		return zap.Field{}, err
 	}
 
-	// Handle poorly serialized error fields (force them into a string type with
-	// an empty value). Newer Golang modules should serialize correctly (turn
-	// errors into strings client-side) per RSDK-9097.
-	if zf.Type == zapcore.ErrorType {
+	//nolint:exhaustive
+	switch zf.Type {
+	case zapcore.TimeType:
+		if _, ok := zf.Interface.(*time.Location); !ok {
+			// Proto serialization put garbage in the field zap assumes is a timezone,
+			// nil it out to stop zap from panicking
+			zf.Interface = nil
+		}
+	case zapcore.ArrayMarshalerType:
+		if _, ok := zf.Interface.(zapcore.ArrayMarshaler); !ok {
+			// Proto serialization erased the type information, fall back on reflection
+			zf.Type = zapcore.ReflectType
+		}
+	case zapcore.BinaryType:
+		if _, ok := zf.Interface.([]byte); !ok {
+			zf.Type = zapcore.ReflectType
+		}
+	case zapcore.Float64Type:
+		// See FieldToProto above: we encode float64s as strings to avoid loss in
+		// proto conversion. Old logs from the app DB may still have float64s in
+		// the Integer field: do nothing in such cases.
+		if zf.String == "" {
+			break
+		}
+
+		parsedFloat, err := strconv.ParseFloat(zf.String, 64)
+		if err != nil {
+			return zf, err
+		}
+		zf.Integer = int64(math.Float64bits(parsedFloat))
+		zf.String = ""
+	case zapcore.ErrorType:
+		// Handle poorly serialized error fields (force them into a string type with
+		// an empty value). Newer Golang modules should serialize correctly (turn
+		// errors into strings client-side) per RSDK-9097.
 		if _, ok := zf.Interface.(error); !ok {
 			zf.Type = zapcore.StringType
 			zf.String = ""

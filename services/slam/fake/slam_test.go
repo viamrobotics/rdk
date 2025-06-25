@@ -154,7 +154,7 @@ func verifyPointCloudMapStateful(t *testing.T, slamSvc *SLAM) {
 		test.That(t, f, test.ShouldNotBeNil)
 		pcd, err := helperConcatenateChunksToFull(f)
 		test.That(t, err, test.ShouldBeNil)
-		pc, err := pointcloud.ReadPCD(bytes.NewReader(pcd))
+		pc, err := pointcloud.ReadPCD(bytes.NewReader(pcd), "")
 		test.That(t, err, test.ShouldBeNil)
 
 		getPointCloudMapResults = append(getPointCloudMapResults, pc.MetaData().MaxX)

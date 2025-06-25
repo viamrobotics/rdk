@@ -5,6 +5,8 @@ import (
 
 	"go.viam.com/test"
 	"gorgonia.org/tensor"
+
+	"go.viam.com/rdk/ml"
 )
 
 func TestTensorRoundTrip(t *testing.T) {
@@ -31,7 +33,7 @@ func TestTensorRoundTrip(t *testing.T) {
 			test.That(t, resp.Shape, test.ShouldHaveLength, 2)
 			test.That(t, resp.Shape[0], test.ShouldEqual, 2)
 			test.That(t, resp.Shape[1], test.ShouldEqual, 3)
-			back, err := createNewTensor(resp)
+			back, err := ml.CreateNewTensor(resp)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, back.Shape(), test.ShouldResemble, tensor.tensor.Shape())
 			test.That(t, back.Data(), test.ShouldResemble, tensor.tensor.Data())

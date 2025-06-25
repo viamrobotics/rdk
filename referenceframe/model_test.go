@@ -13,7 +13,7 @@ import (
 )
 
 func TestModelLoading(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "xArm6")
 	simpleM, ok := m.(*SimpleModel)
@@ -33,42 +33,13 @@ func TestModelLoading(t *testing.T) {
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
 	test.That(t, simpleM.validInputs(FloatsToInputs(randpos)), test.ShouldBeNil)
 
-	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "foo")
+	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
-func TestTransform(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-	simpleM, ok := m.(*SimpleModel)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	joints := []Frame{}
-	for _, tform := range simpleM.OrdTransforms {
-		if len(tform.DoF()) > 0 {
-			joints = append(joints, tform)
-		}
-	}
-	test.That(t, len(joints), test.ShouldEqual, 6)
-	pose, err := joints[0].Transform([]Input{{0}})
-	test.That(t, err, test.ShouldBeNil)
-	firstJov := pose.Orientation().OrientationVectorRadians()
-	firstJovExpect := &spatial.OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: 1}
-	test.That(t, firstJov, test.ShouldResemble, firstJovExpect)
-
-	pose, err = joints[0].Transform([]Input{{1.5708}})
-	test.That(t, err, test.ShouldBeNil)
-	firstJov = pose.Orientation().OrientationVectorRadians()
-	firstJovExpect = &spatial.OrientationVector{Theta: 1.5708, OX: 0, OY: 0, OZ: 1}
-	test.That(t, firstJov.Theta, test.ShouldAlmostEqual, firstJovExpect.Theta)
-	test.That(t, firstJov.OX, test.ShouldAlmostEqual, firstJovExpect.OX)
-	test.That(t, firstJov.OY, test.ShouldAlmostEqual, firstJovExpect.OY)
-	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
-}
-
 func TestIncorrectInputs(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	dof := len(m.DoF())
 

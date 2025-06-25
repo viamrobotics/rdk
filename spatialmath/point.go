@@ -78,36 +78,38 @@ func (pt *point) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given point collides with the given geometry and returns true if it does.
 func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return other.CollidesWith(pt, collisionBufferMM)
+	case *box:
 		return pointVsBoxCollision(pt.position, other, collisionBufferMM), nil
+	case *sphere:
+		return sphereVsPointDistance(other, pt.position) <= collisionBufferMM, nil
+	case *capsule:
+		return capsuleVsPointDistance(other, pt.position) <= collisionBufferMM, nil
+	case *point:
+		return pt.position.Sub(other.position).Norm() <= collisionBufferMM, nil
+	default:
+		return true, newCollisionTypeUnsupportedError(pt, g)
 	}
-	if other, ok := g.(*sphere); ok {
-		return sphereVsPointDistance(other, pt.position) <= 0, nil
-	}
-	if other, ok := g.(*capsule); ok {
-		return capsuleVsPointDistance(other, pt.position) <= 0, nil
-	}
-	if other, ok := g.(*point); ok {
-		return pt.almostEqual(other), nil
-	}
-	return true, newCollisionTypeUnsupportedError(pt, g)
 }
 
 // CollidesWith checks if the given point collides with the given geometry and returns true if it does.
 func (pt *point) DistanceFrom(g Geometry) (float64, error) {
-	if other, ok := g.(*box); ok {
+	switch other := g.(type) {
+	case *Mesh:
+		return other.DistanceFrom(pt)
+	case *box:
 		return pointVsBoxDistance(pt.position, other), nil
-	}
-	if other, ok := g.(*sphere); ok {
+	case *sphere:
 		return sphereVsPointDistance(other, pt.position), nil
-	}
-	if other, ok := g.(*capsule); ok {
+	case *capsule:
 		return capsuleVsPointDistance(other, pt.position), nil
-	}
-	if other, ok := g.(*point); ok {
+	case *point:
 		return pt.position.Sub(other.position).Norm(), nil
+	default:
+		return math.Inf(-1), newCollisionTypeUnsupportedError(pt, g)
 	}
-	return math.Inf(-1), newCollisionTypeUnsupportedError(pt, g)
 }
 
 // EncompassedBy returns a bool describing if the given point is completely encompassed by the given geometry.

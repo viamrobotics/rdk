@@ -58,6 +58,16 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 	seg, err := registerOPSegmenter(context.Background(), name, params, r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, seg.Name(), test.ShouldResemble, name)
+	// successful registration, valid default camera
+	params.DefaultCamera = "fakeCamera"
+	seg, err = registerOPSegmenter(context.Background(), name, params, r)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, seg.Name(), test.ShouldResemble, name)
+	// successful registration, invalid default camera
+	params.DefaultCamera = "not-camera"
+	_, err = registerOPSegmenter(context.Background(), name, params, r)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "could not find camera \"not-camera\"")
 
 	// Test properties. Should support object PCDs and not detections or classifications
 	props, err := seg.GetProperties(context.Background(), nil)
@@ -78,7 +88,7 @@ func TestRadiusClusteringSegmentation(t *testing.T) {
 
 	// successful, creates two clusters of points
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		cloud := pc.New()
+		cloud := pc.NewBasicEmpty()
 		// cluster 1
 		err = cloud.Set(pc.NewVector(1, 1, 1), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)

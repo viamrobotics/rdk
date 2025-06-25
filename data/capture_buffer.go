@@ -3,14 +3,14 @@ package data
 import (
 	"sync"
 
+	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 )
 
-const captureAllFromCamera = "CaptureAllFromCamera"
-
 // CaptureBufferedWriter is a buffered, persistent queue of SensorData.
 type CaptureBufferedWriter interface {
-	Write(item *v1.SensorData) error
+	WriteBinary(items []*v1.SensorData) error
+	WriteTabular(items *v1.SensorData) error
 	Flush() error
 	Path() string
 }
@@ -33,27 +33,55 @@ func NewCaptureBuffer(dir string, md *v1.DataCaptureMetadata, maxCaptureFileSize
 	}
 }
 
-// Write writes item onto b. Binary sensor data is written to its own file.
-// Tabular data is written to disk in maxCaptureFileSize sized files. Files that
-// are still being written to are indicated with the extension
-// InProgressFileExt. Files that have finished being written to are indicated by
-// FileExt.
-func (b *CaptureBuffer) Write(item *v1.SensorData) error {
+var (
+	// errInvalidBinarySensorData is returned from WriteBinary if the sensor data is the wrong type.
+	errInvalidBinarySensorData = errors.New("CaptureBuffer.WriteBinary called with non binary sensor data")
+	// errInvalidTabularSensorData is returned from WriteTabular if the sensor data is the wrong type.
+	errInvalidTabularSensorData = errors.New("CaptureBuffer.WriteTabular called with binary sensor data")
+)
+
+// WriteBinary writes the items to their own file.
+// Files that are still being written to are indicated with the extension
+// '.prog'.
+// Files that have finished being written to are indicated by
+// '.capture'.
+func (b *CaptureBuffer) WriteBinary(items []*v1.SensorData) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	if item.GetBinary() != nil {
-		binFile, err := NewCaptureFile(b.Directory, b.MetaData)
-		if err != nil {
-			return err
+	for _, item := range items {
+		if !IsBinary(item) {
+			return errInvalidBinarySensorData
 		}
+	}
+
+	binFile, err := NewCaptureFile(b.Directory, b.MetaData)
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
 		if err := binFile.WriteNext(item); err != nil {
 			return err
 		}
-		if err := binFile.Close(); err != nil {
-			return err
-		}
-		return nil
+	}
+	if err := binFile.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// WriteTabular writes
+// Tabular data to disk in maxCaptureFileSize sized files.
+// Files that are still being written to are indicated with the extension
+// '.prog'.
+// Files that have finished being written to are indicated by
+// '.capture'.
+func (b *CaptureBuffer) WriteTabular(item *v1.SensorData) error {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	if IsBinary(item) {
+		return errInvalidTabularSensorData
 	}
 
 	if b.nextFile == nil {
@@ -62,10 +90,7 @@ func (b *CaptureBuffer) Write(item *v1.SensorData) error {
 			return err
 		}
 		b.nextFile = nextFile
-		// We want to special case on "CaptureAllFromCamera" because it is sensor data that contains images
-		// and their corresponding annotations. We want each image and its annotations to be stored in a
-		// separate file.
-	} else if b.nextFile.Size() > b.maxCaptureFileSize || b.MetaData.MethodName == captureAllFromCamera {
+	} else if b.nextFile.Size() > b.maxCaptureFileSize {
 		if err := b.nextFile.Close(); err != nil {
 			return err
 		}
@@ -76,7 +101,24 @@ func (b *CaptureBuffer) Write(item *v1.SensorData) error {
 		b.nextFile = nextFile
 	}
 
-	return b.nextFile.WriteNext(item)
+	if err := b.nextFile.WriteNext(item); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// IsBinary returns true when the *v1.SensorData is of type binary.
+func IsBinary(item *v1.SensorData) bool {
+	if item == nil {
+		return false
+	}
+	switch item.Data.(type) {
+	case *v1.SensorData_Binary:
+		return true
+	default:
+		return false
+	}
 }
 
 // Flush flushes all buffered data to disk and marks any in progress file as complete.

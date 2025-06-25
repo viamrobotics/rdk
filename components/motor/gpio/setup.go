@@ -127,30 +127,30 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if conf.BoardName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, conf.BoardName)
 
 	// ensure motor config represents one of three supported motor configuration types
 	// (see MotorType above)
 	if _, err := conf.Pins.MotorType(path); err != nil {
-		return deps, err
+		return deps, nil, err
 	}
 
 	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
 	if conf.Encoder != "" {
 		if conf.TicksPerRotation <= 0 {
-			return nil, resource.NewConfigValidationError(path, errors.New("ticks_per_rotation should be positive or zero"))
+			return nil, nil, resource.NewConfigValidationError(path, errors.New("ticks_per_rotation should be positive or zero"))
 		}
 		deps = append(deps, conf.Encoder)
 	} else if conf.MaxRPM <= 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "max_rpm")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "max_rpm")
 	}
-	return deps, nil
+	return deps, nil, nil
 }
 
 // init registers a motor controlled by settign pwm and gpio pins on the underlying board.
@@ -207,9 +207,13 @@ func createNewMotor(
 		cmd[isSingle] = m
 		resp, err := e.DoCommand(ctx, cmd)
 		if err != nil {
-			return nil, err
+			if !errors.Is(err, resource.ErrDoUnimplemented) {
+				logger.Infof("DoCommand Errored, likely not a single encoder, err = %w", err)
+			}
 		}
-		if resp != nil && resp[directionAttached].(bool) {
+
+		// the three criterea for knowing we're attached to a single encoder
+		if resp != nil && resp[directionAttached].(bool) && err == nil {
 			logger.CInfo(ctx, "direction attached to single encoder from encoded motor")
 		}
 

@@ -23,6 +23,7 @@ type Diff struct {
 	ResourcesEqual      bool
 	NetworkEqual        bool
 	LogEqual            bool
+	JobsEqual           bool
 	PrettyDiff          string
 	UnmodifiedResources []resource.Config
 }
@@ -86,6 +87,9 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	different = diffModules(left.Modules, right.Modules, &diff) || different
 
 	diff.ResourcesEqual = !different
+
+	jobsDifferent := diffJobCfg(left.Jobs, right.Jobs)
+	diff.JobsEqual = !jobsDifferent
 
 	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
@@ -529,4 +533,34 @@ func diffLogCfg(left, right *Config, servicesDifferent, componentsDifferent bool
 		return true
 	}
 	return false
+}
+
+func diffJobCfg(leftJobs, rightJobs []JobConfig) bool {
+	leftIndex := make(map[string]int)
+	leftJ := make(map[string]JobConfig)
+	for idx, l := range leftJobs {
+		leftJ[l.Name] = l
+		leftIndex[l.Name] = idx
+	}
+
+	var different bool
+	for _, r := range rightJobs {
+		l, ok := leftJ[r.Name]
+		delete(leftJ, r.Name)
+		if ok {
+			different = diffJob(l, r) || different
+			continue
+		}
+		different = true
+	}
+
+	if len(leftJ) > 0 {
+		different = true
+	}
+
+	return different
+}
+
+func diffJob(left, right JobConfig) bool {
+	return !left.Equals(right)
 }

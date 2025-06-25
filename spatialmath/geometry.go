@@ -9,6 +9,14 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 )
 
+const (
+	// objects must be separated by this many mm to not be in collision.
+	defaultCollisionBufferMM = 1e-8
+
+	// Point density corresponding to how many points per square mm.
+	defaultPointDensity = .5
+)
+
 // Geometry is an interface defining a 3D solid.
 type Geometry interface {
 	// Pose returns the Pose of the center of the Geometry
@@ -43,22 +51,16 @@ type Geometry interface {
 	json.Marshaler
 }
 
-// GeometryType defines what geometry creator representations are known.
+// GeometryType defines what geometry representations are known.
 type GeometryType string
 
-// The set of allowed representations for orientation.
+// The set of allowed representations for the Type in a geometry config.
 const (
 	UnknownType = GeometryType("")
 	BoxType     = GeometryType("box")
 	SphereType  = GeometryType("sphere")
 	CapsuleType = GeometryType("capsule")
 	PointType   = GeometryType("point")
-
-	// objects must be separated by this many mm to not be in collision.
-	defaultCollisionBufferMM = 1e-8
-
-	// Point density corresponding to how many points per square mm.
-	defaultPointDensity = .5
 )
 
 // GeometryConfig specifies the format of geometries specified through JSON configuration files.
@@ -154,7 +156,7 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		}
 		// never try to infer point geometry if nothing is specified
 	}
-	return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, string(config.Type))
+	return nil, fmt.Errorf("%w: %s", errGeometryTypeUnsupported, string(config.Type))
 }
 
 // ToProtobuf converts a GeometryConfig to Protobuf.
@@ -200,11 +202,17 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 		}
 		return NewSphere(pose, sphere.RadiusMm, geometry.Label)
 	}
+	if mesh := geometry.GetMesh(); mesh != nil {
+		return newMeshFromProto(pose, mesh, geometry.Label)
+	}
 	return nil, errGeometryTypeUnsupported
 }
 
 // NewGeometriesFromProto converts a list of Geometries from protobuf.
 func NewGeometriesFromProto(proto []*commonpb.Geometry) ([]Geometry, error) {
+	if proto == nil {
+		return nil, nil
+	}
 	geometries := []Geometry{}
 	for _, geometry := range proto {
 		g, err := NewGeometryFromProto(geometry)

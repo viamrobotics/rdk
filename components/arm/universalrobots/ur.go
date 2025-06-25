@@ -47,14 +47,14 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.Host == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "host")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "host")
 	}
 	if cfg.SpeedDegsPerSec > 180 || cfg.SpeedDegsPerSec < 3 {
-		return nil, errors.New("speed for universalrobots has to be between 3 and 180 degrees per second")
+		return nil, nil, errors.New("speed for universalrobots has to be between 3 and 180 degrees per second")
 	}
-	return []string{}, nil
+	return []string{}, nil, nil
 }
 
 //go:embed ur5e.json
@@ -295,11 +295,6 @@ func urArmConnect(ctx context.Context, conf resource.Config, logger logging.Logg
 	}
 }
 
-// ModelFrame returns all the information necessary for including the arm in a FrameSystem.
-func (ua *urArm) ModelFrame() referenceframe.Model {
-	return ua.model
-}
-
 func (ua *urArm) setRuntimeError(re error) {
 	ua.mu.Lock()
 	ua.runtimeError = re
@@ -507,6 +502,10 @@ func (ua *urArm) moveToJointPositionRadians(ctx context.Context, radians []float
 			return ctx.Err()
 		}
 	}
+}
+
+func (ua *urArm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	return ua.model, nil
 }
 
 // CurrentInputs returns the current Inputs of the UR arm.

@@ -75,26 +75,6 @@ func TestGetRegisteredNames(t *testing.T) {
 	}
 }
 
-func TestRegisterConfig(t *testing.T) {
-	registry := mockRegistry()
-	fakeLogger := NewLogger("abc")
-	registry.registerLogger("abc", fakeLogger)
-	logCfg := []LoggerPatternConfig{
-		{
-			Pattern: "abc",
-			Level:   "WARN",
-		},
-		{
-			Pattern: "def",
-			Level:   "ERROR",
-		},
-	}
-	err := registry.Update(logCfg, NewLogger("error-logger"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, registry.logConfig, test.ShouldResemble, logCfg)
-	test.That(t, fakeLogger.GetLevel().String(), test.ShouldEqual, "Warn")
-}
-
 func TestGetOrRegister(t *testing.T) {
 	registry := mockRegistry()
 

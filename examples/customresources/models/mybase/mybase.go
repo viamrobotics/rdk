@@ -92,18 +92,18 @@ type Config struct {
 
 // Validate validates the config and returns implicit dependencies,
 // this Validate checks if the left and right motors exist for the module's base model.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	// check if the attribute fields for the right and left motors are non-empty
 	// this makes them reuqired for the model to successfully build
 	if cfg.LeftMotor == "" {
-		return nil, fmt.Errorf(`expected "motorL" attribute for mybase %q`, path)
+		return nil, nil, fmt.Errorf(`expected "motorL" attribute for mybase %q`, path)
 	}
 	if cfg.RightMotor == "" {
-		return nil, fmt.Errorf(`expected "motorR" attribute for mybase %q`, path)
+		return nil, nil, fmt.Errorf(`expected "motorR" attribute for mybase %q`, path)
 	}
 
 	// Return the left and right motor names so that `newBase` can access them as dependencies.
-	return []string{cfg.LeftMotor, cfg.RightMotor}, nil
+	return []string{cfg.LeftMotor, cfg.RightMotor}, nil, nil
 }
 
 type myBase struct {

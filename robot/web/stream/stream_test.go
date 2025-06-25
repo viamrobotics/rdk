@@ -36,7 +36,7 @@ func setupRealRobot(t *testing.T, robotConfig *config.Config, logger logging.Log
 	t.Helper()
 
 	ctx := context.Background()
-	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, logger)
+	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// We initialize with a stream config such that the stream server is capable of creating video stream and
@@ -198,7 +198,7 @@ func TestAudioTrackIsNotCreatedForVideoStream(t *testing.T) {
 }
 
 func TestGetStreamOptions(t *testing.T) {
-	logger := logging.NewTestLogger(t).Sublogger("TestWebReconfigure")
+	logger := logging.NewTestLogger(t).Sublogger("GetStreamOptions")
 	// Create a robot with several fake cameras of common resolutions.
 	// Fake cameras with a Model attribute will use Properties to
 	// determine source resolution. Fake cameras without a Model
@@ -286,6 +286,27 @@ func TestGetStreamOptions(t *testing.T) {
 				Model:  true,
 			},
 		},
+		// Odd resolutions gets rounded to nearest even resolution
+		// 100x100 downscaled to 25*25 turns into 24*24
+		{
+			Name:  "fake-cam-4-0",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  100,
+				Height: 100,
+			},
+		},
+		{
+			Name:  "fake-cam-4-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  100,
+				Height: 100,
+				Model:  true,
+			},
+		},
 	}}
 
 	ctx, robot, addr, webSvc := setupRealRobot(t, origCfg, logger)
@@ -298,7 +319,7 @@ func TestGetStreamOptions(t *testing.T) {
 	livestreamClient := streampb.NewStreamServiceClient(conn)
 	listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(listResp.Names), test.ShouldEqual, 8)
+	test.That(t, len(listResp.Names), test.ShouldEqual, 10)
 
 	streamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -349,10 +370,249 @@ func TestGetStreamOptions(t *testing.T) {
 		"fake-cam-2-1": webstream.GenerateResolutions(1920, 1080, logger),
 		"fake-cam-3-0": webstream.GenerateResolutions(2, 2, logger),
 		"fake-cam-3-1": webstream.GenerateResolutions(2, 2, logger),
+		"fake-cam-4-0": webstream.GenerateResolutions(100, 100, logger),
+		"fake-cam-4-1": webstream.GenerateResolutions(100, 100, logger),
 	}
 
 	// Test each camera
 	for name, expectedResolutions := range resolutionsMap {
 		testGetStreamOptions(name, expectedResolutions)
 	}
+}
+
+func TestSetStreamOptions(t *testing.T) {
+	logger := logging.NewTestLogger(t).Sublogger("TestSetStreamOptions")
+	origCfg := &config.Config{Components: []resource.Config{
+		// 480p
+		{
+			Name:  "fake-cam-0-0",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:  640,
+				Height: 480,
+			},
+		},
+		{
+			Name:  "fake-cam-0-1",
+			API:   resource.NewAPI("rdk", "component", "camera"),
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{
+				Width:          640,
+				Height:         480,
+				RTPPassthrough: true,
+			},
+		},
+	}}
+
+	ctx, robot, addr, webSvc := setupRealRobot(t, origCfg, logger)
+	defer robot.Close(ctx)
+	defer webSvc.Close(ctx)
+	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
+
+	livestreamClient := streampb.NewStreamServiceClient(conn)
+	listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(listResp.Names), test.ShouldEqual, 2)
+
+	t.Run("GetStreamOptions", func(t *testing.T) {
+		getStreamOptionsResp, err := livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{
+			Name: "fake-cam-0-0",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, getStreamOptionsResp, test.ShouldNotBeNil)
+		test.That(t, len(getStreamOptionsResp.Resolutions), test.ShouldEqual, 5)
+	})
+
+	t.Run("SetStreamOptions with invalid stream name", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name:       "invalid-name",
+			Resolution: &streampb.Resolution{Width: 320, Height: 240},
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	})
+
+	t.Run("SetStreamOptions without name", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "name")
+	})
+
+	// Test setting stream options with invalid resolution (0x0)
+	t.Run("SetStreamOptions with invalid resolution", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name:       "fake-cam-0-0",
+			Resolution: &streampb.Resolution{Width: 0, Height: 0},
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid resolution")
+	})
+
+	// Test setting stream options with an odd resolution
+	t.Run("SetStreamOptions with odd resolution", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name:       "fake-cam-0-0",
+			Resolution: &streampb.Resolution{Width: 25, Height: 25},
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid resolution")
+	})
+
+	t.Run("AddStream creates video track", func(t *testing.T) {
+		res, err := livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
+			Name: "fake-cam-0-0",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, res, test.ShouldNotBeNil)
+		logger.Info("Checking video track is created")
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			logger.Info(conn.PeerConn().CurrentLocalDescription().SDP)
+			videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+			test.That(tb, videoCnt, test.ShouldEqual, 1)
+		})
+	})
+
+	t.Run("SetStreamOptions with valid resolution", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name:       "fake-cam-0-0",
+			Resolution: &streampb.Resolution{Width: 320, Height: 240},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldNotBeNil)
+		// Make sure that video strack is still alive through the peer connection
+		videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+		test.That(t, videoCnt, test.ShouldEqual, 1)
+	})
+
+	t.Run("SetStreamOptions without resolution field to reset to the original resolution", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name: "fake-cam-0-0",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldNotBeNil)
+		videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+		test.That(t, videoCnt, test.ShouldEqual, 1)
+	})
+
+	t.Run("AddStream with RTPPassthrough enabled", func(t *testing.T) {
+		res, err := livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
+			Name: "fake-cam-0-1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, res, test.ShouldNotBeNil)
+		logger.Info(conn.PeerConn().CurrentLocalDescription().SDP)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+			test.That(tb, videoCnt, test.ShouldEqual, 2)
+		})
+	})
+
+	t.Run("SetStreamOptions with RTPPassthrough enabled", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name:       "fake-cam-0-1",
+			Resolution: &streampb.Resolution{Width: 320, Height: 240},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldNotBeNil)
+		videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+		test.That(t, videoCnt, test.ShouldEqual, 2)
+	})
+
+	t.Run("SetStreamOptions reset to original resolution when RTPPassthrough is enabled", func(t *testing.T) {
+		setStreamOptionsResp, err := livestreamClient.SetStreamOptions(ctx, &streampb.SetStreamOptionsRequest{
+			Name: "fake-cam-0-1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, setStreamOptionsResp, test.ShouldNotBeNil)
+		videoCnt := strings.Count(conn.PeerConn().CurrentLocalDescription().SDP, "m=video")
+		test.That(t, videoCnt, test.ShouldEqual, 2)
+	})
+
+	t.Run("RemoveStream", func(t *testing.T) {
+		removeRes, err := livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{
+			Name: "fake-cam-0-0",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, removeRes, test.ShouldNotBeNil)
+		removeRes, err = livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{
+			Name: "fake-cam-0-1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, removeRes, test.ShouldNotBeNil)
+	})
+}
+
+func TestStreamServerSurvivesWebRestart(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	fakeModel := resource.DefaultModelFamily.WithModel("fake")
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "test",
+				API:   camera.API,
+				Model: fakeModel,
+				ConvertedAttributes: &fake.Config{
+					Width:  100,
+					Height: 50,
+				},
+			},
+		},
+	}
+	ctx, robot, addr, webSvc := setupRealRobot(t, cfg, logger)
+	defer robot.Close(ctx)
+	defer webSvc.Close(ctx)
+
+	// Create a client connection to the robot. Disable direct GRPC to force a WebRTC
+	// connection. Fail if a WebRTC connection cannot be made.
+	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
+	//nolint
+	defer conn.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create a stream client. Listing the streams should give back a single stream named `origCamera`;
+	// after our component name.
+	livestreamClient := streampb.NewStreamServiceClient(conn)
+	listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, listResp.Names, test.ShouldResemble, []string{"test"})
+
+	// Assert that adding and removing a stream works.
+	_, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
+		Name: "test",
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = livestreamClient.RemoveStream(ctx, &streampb.RemoveStreamRequest{
+		Name: "test",
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// In the real world, the web service can restart because the robot configurations `Network`
+	// settings changed. We instead cut to the chase and restart by hand.
+	webSvc.Stop()
+	// We have to create a new listener as the old one was closed.
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = webSvc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// The web service was restarted, disconnecting all of the clients. Reconnect to the robot.
+	conn, err = rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
+	//nolint
+	defer conn.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	// Recreate the stream API client.
+	livestreamClient = streampb.NewStreamServiceClient(conn)
+	// Assert that adding a stream works.
+	_, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{
+		Name: "test",
+	})
+	test.That(t, err, test.ShouldBeNil)
 }

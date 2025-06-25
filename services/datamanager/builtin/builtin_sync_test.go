@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -24,9 +25,9 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -38,7 +39,7 @@ const (
 	waitTime         = syncInterval * 4
 )
 
-// TODO DATA-849: Add a test that validates that sync interval is accurately respected.
+// TODO DATA-849: Add a test that validates that the sync interval is accurately respected.
 func TestSyncEnabled(t *testing.T) {
 	tests := []struct {
 		name                 string
@@ -154,11 +155,12 @@ func TestSyncEnabled(t *testing.T) {
 			imgPng := newImgPng(t)
 			r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 				camera.Named("c1"): &inject.Camera{
-					StreamFunc: func(
+					ImageFunc: func(
 						ctx context.Context,
-						errHandlers ...gostream.ErrorHandler,
-					) (gostream.VideoStream, error) {
-						return newVideoStream(imgPng), nil
+						mimeType string,
+						extra map[string]interface{},
+					) ([]byte, camera.ImageMetadata, error) {
+						return newImageBytesResp(ctx, imgPng, mimeType)
 					},
 				},
 			})
@@ -343,7 +345,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 						ctx context.Context,
 						extra map[string]interface{},
 					) (spatialmath.Pose, error) {
-						return spatialmath.NewZeroPose(), nil
+						return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
 					},
 				},
 			})
@@ -354,13 +356,14 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				if tc.dataType == v1.DataType_DATA_TYPE_TABULAR_SENSOR {
 					config, deps = setupConfig(t, r, enabledTabularCollectorConfigPath)
 				} else {
-					r = setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
+					r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 						camera.Named("c1"): &inject.Camera{
-							StreamFunc: func(
+							ImageFunc: func(
 								ctx context.Context,
-								errHandlers ...gostream.ErrorHandler,
-							) (gostream.VideoStream, error) {
-								return newVideoStream(imgPng), nil
+								mimeType string,
+								extra map[string]interface{},
+							) ([]byte, camera.ImageMetadata, error) {
+								return newImageBytesResp(ctx, imgPng, mimeType)
 							},
 						},
 					})
@@ -758,11 +761,12 @@ func TestStreamingDCUpload(t *testing.T) {
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
 				camera.Named("c1"): &inject.Camera{
-					StreamFunc: func(
+					ImageFunc: func(
 						ctx context.Context,
-						errHandlers ...gostream.ErrorHandler,
-					) (gostream.VideoStream, error) {
-						return newVideoStream(imgPng), nil
+						mimeType string,
+						extra map[string]interface{},
+					) ([]byte, camera.ImageMetadata, error) {
+						return newImageBytesResp(ctx, imgPng, mimeType)
 					},
 				},
 			})
@@ -998,11 +1002,12 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
 				camera.Named("c1"): &inject.Camera{
-					StreamFunc: func(
+					ImageFunc: func(
 						ctx context.Context,
-						errHandlers ...gostream.ErrorHandler,
-					) (gostream.VideoStream, error) {
-						return newVideoStream(imgPng), nil
+						mimeType string,
+						extra map[string]interface{},
+					) ([]byte, camera.ImageMetadata, error) {
+						return newImageBytesResp(ctx, imgPng, mimeType)
 					},
 				},
 			})
@@ -1156,12 +1161,12 @@ func populateFileContents(fileContents []byte) []byte {
 	return fileContents
 }
 
-func newVideoStream(imgPng image.Image) gostream.VideoStream {
-	return gostream.NewEmbeddedVideoStreamFromReader(
-		gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-			return imgPng, func() {}, nil
-		}),
-	)
+func newImageBytesResp(ctx context.Context, img image.Image, mimeType string) ([]byte, camera.ImageMetadata, error) {
+	outBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, camera.ImageMetadata{}, err
+	}
+	return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 }
 
 func newImgPng(t *testing.T) image.Image {

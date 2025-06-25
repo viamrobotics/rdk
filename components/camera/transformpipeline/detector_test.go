@@ -45,7 +45,7 @@ func writeTempConfig(cfg *config.Config) (string, error) {
 // make a fake robot with a vision service.
 func buildRobotWithFakeCamera(logger logging.Logger) (robot.Robot, error) {
 	// add a fake camera to the config
-	cfg, err := config.Read(context.Background(), artifact.MustPath("components/camera/transformpipeline/vision.json"), logger)
+	cfg, err := config.Read(context.Background(), artifact.MustPath("components/camera/transformpipeline/vision.json"), logger, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -101,10 +101,9 @@ func buildRobotWithFakeCamera(logger logging.Logger) (robot.Robot, error) {
 	}
 	defer os.Remove(newConfFile)
 	// make the robot from new config
-	return robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
+	return robotimpl.RobotFromConfigPath(context.Background(), newConfFile, nil, logger)
 }
 
-//nolint:dupl
 func TestColorDetectionSource(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -121,7 +120,7 @@ func TestColorDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer detector.Close(ctx)
 
-	resImg, _, err := camera.ReadImage(ctx, detector)
+	resImg, err := camera.DecodeImageFromCamera(ctx, rutils.MimeTypePNG, nil, detector)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 	test.That(t, ovImg.GetXY(852, 431), test.ShouldResemble, rimage.Red)
@@ -146,7 +145,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	b.ResetTimer()
 	// begin benchmarking
 	for i := 0; i < b.N; i++ {
-		_, _, _ = camera.ReadImage(ctx, detector)
+		_, _ = camera.DecodeImageFromCamera(ctx, rutils.MimeTypeJPEG, nil, detector)
 	}
 	test.That(b, detector.Close(context.Background()), test.ShouldBeNil)
 }

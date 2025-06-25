@@ -22,6 +22,13 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const (
+	testArmName    = "arm1"
+	testArmName2   = "arm2"
+	failArmName    = "arm3"
+	missingArmName = "arm4"
+)
+
 func TestClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
@@ -74,8 +81,8 @@ func TestClient(t *testing.T) {
 		extraOptions = extra
 		return errStopUnimplemented
 	}
-	injectArm.ModelFrameFunc = func() referenceframe.Model {
-		return nil
+	injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errKinematicsUnimplemented
 	}
 	injectArm.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return expectedGeometries, nil
@@ -101,8 +108,8 @@ func TestClient(t *testing.T) {
 	injectArm2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return nil
 	}
-	injectArm2.ModelFrameFunc = func() referenceframe.Model {
-		return nil
+	injectArm2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errKinematicsUnimplemented
 	}
 
 	armSvc, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{
@@ -144,6 +151,7 @@ func TestClient(t *testing.T) {
 	t.Run("arm client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
+
 		arm1Client, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(testArmName), logger)
 		test.That(t, err, test.ShouldBeNil)
 

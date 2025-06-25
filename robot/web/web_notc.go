@@ -4,8 +4,8 @@ package web
 
 import (
 	"context"
-	"sync"
 
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -19,33 +19,15 @@ func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
 		opt.apply(&wOpts)
 	}
 	webSvc := &webService{
-		Named:     InternalServiceName.AsNamed(),
-		r:         r,
-		logger:    logger,
-		rpcServer: nil,
-		services:  map[resource.API]resource.APIResourceCollection[resource.Resource]{},
-		opts:      wOpts,
+		Named:              InternalServiceName.AsNamed(),
+		r:                  r,
+		logger:             logger,
+		rpcServer:          nil,
+		services:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
+		modPeerConnTracker: grpc.NewModPeerConnTracker(),
+		opts:               wOpts,
 	}
 	return webSvc
-}
-
-type webService struct {
-	resource.Named
-
-	mu         sync.Mutex
-	r          robot.Robot
-	rpcServer  rpc.Server
-	modServer  rpc.Server
-	services   map[resource.API]resource.APIResourceCollection[resource.Resource]
-	opts       options
-	addr       string
-	modAddr    string
-	logger     logging.Logger
-	cancelCtx  context.Context
-	cancelFunc func()
-	isRunning  bool
-	webWorkers sync.WaitGroup
-	modWorkers sync.WaitGroup
 }
 
 // Update updates the web service when the robot has changed.
@@ -62,7 +44,7 @@ func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependenci
 func (svc *webService) closeStreamServer() {}
 
 // stub implementation when gostream not available
-func (svc *webService) initStreamServer(ctx context.Context) error {
+func (svc *webService) initStreamServer(_ context.Context, _ rpc.Server) error {
 	return nil
 }
 

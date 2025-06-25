@@ -26,6 +26,8 @@ type Basic struct {
 	Foo int
 }
 
+// TestCustomFormatRoundtripBasic is a test of simple FTDC input/output. This tests schema changes,
+// but where the "stats" object payload both times is a single integer.
 func TestCustomFormatRoundtripBasic(t *testing.T) {
 	// This FTDC test will write to this `serializedData`.
 	serializedData := bytes.NewBuffer(nil)
@@ -39,7 +41,6 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 		Data: map[string]any{
 			"s1": &Basic{0},
 		},
-		generationID: 1,
 	}
 
 	ftdc.writeDatum(datumV1)
@@ -53,7 +54,6 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 		Data: map[string]any{
 			"s2": &Basic{2},
 		},
-		generationID: 2,
 	}
 	ftdc.writeDatum(datumV2)
 	datumV2.Time = 3
@@ -85,6 +85,9 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 	}
 }
 
+// TestCustomFormatRoundtripRich is a test of simple FTDC input/output. In contrast to the "basic"
+// test, this test has datum's with a combination of integers and floats that change in more dynamic
+// ways.
 func TestCustomFormatRoundtripRich(t *testing.T) {
 	// This FTDC test will write to this `serializedData`.
 	serializedData := bytes.NewBuffer(nil)
@@ -99,7 +102,6 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 			Data: map[string]any{
 				"s1": Statser1{0, idx, 1.0},
 			},
-			generationID: 1,
 		}
 
 		ftdc.writeDatum(datumV1)
@@ -113,7 +115,6 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 				// The second metric here is to test a value that flips between a diff and no diff.
 				"s2": Statser2{0, 1 + (idx / 3), 100.0},
 			},
-			generationID: 2,
 		}
 
 		ftdc.writeDatum(datumV2)
@@ -154,12 +155,12 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 }
 
 func TestReflection(t *testing.T) {
-	fields, err := getFieldsForStruct(reflect.ValueOf(&Basic{100}))
+	fields, _, err := flatten(reflect.ValueOf(&Basic{100}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fields, test.ShouldResemble,
 		[]string{"Foo"})
 
-	fields, err = getFieldsForStruct(reflect.ValueOf(Statser1{100, 0, 44.4}))
+	fields, _, err = flatten(reflect.ValueOf(Statser1{100, 0, 44.4}))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fields, test.ShouldResemble,
 		[]string{"Metric1", "Metric2", "Metric3"})
@@ -179,7 +180,7 @@ type Nested struct {
 
 func TestNestedReflection(t *testing.T) {
 	val := &TopLevel{100, Nested{200, struct{ Z uint8 }{255}}}
-	fields, err := getFieldsForStruct(reflect.ValueOf(val))
+	fields, _, err := flatten(reflect.ValueOf(val))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fields, test.ShouldResemble,
 		[]string{"X", "Nested.Y", "Nested.Deeper.Z"})
@@ -256,12 +257,12 @@ func TestNestedReflectionParity(t *testing.T) {
 		},
 	}
 
-	fields, err := getFieldsForStruct(reflect.ValueOf(complexObj))
+	fields, _, err := flatten(reflect.ValueOf(complexObj))
 	test.That(t, err, test.ShouldBeNil)
 	// There will be one "field" for each number in the above `Complex` structure.
 	test.That(t, fields, test.ShouldResemble,
 		[]string{"F1", "F2.F3", "F2.F4", "F5.F6", "F7", "F9", "F10.F11", "F10.F12", "F10.F13", "F14.F15.F16.F17"})
-	values, err := flattenStruct(reflect.ValueOf(complexObj))
+	_, values, err := flatten(reflect.ValueOf(complexObj))
 	test.That(t, err, test.ShouldBeNil)
 	// For convenience, the number values match the field name.
 	test.That(t, values, test.ShouldResemble,
@@ -277,20 +278,20 @@ func TestNestedAny(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	stat := nestsAny{10, struct{ X int }{5}}
-	fields, err := getFieldsForStruct(reflect.ValueOf(stat))
+	fields, _, err := flatten(reflect.ValueOf(stat))
 	logger.Info("Fields:", fields, "Err:", err)
 	test.That(t, fields, test.ShouldResemble, []string{"Number", "Struct.X"})
 
-	values, err := flattenStruct(reflect.ValueOf(stat))
+	_, values, err := flatten(reflect.ValueOf(stat))
 	logger.Info("Values:", values, "Err:", err)
 	test.That(t, values, test.ShouldResemble, []float32{10, 5})
 
 	stat = nestsAny{10, nil}
-	fields, err = getFieldsForStruct(reflect.ValueOf(stat))
+	fields, _, err = flatten(reflect.ValueOf(stat))
 	logger.Info("Fields:", fields, "Err:", err)
 	test.That(t, fields, test.ShouldResemble, []string{"Number"})
 
-	values, err = flattenStruct(reflect.ValueOf(stat))
+	_, values, err = flatten(reflect.ValueOf(stat))
 	logger.Info("Values:", values, "Err:", err)
 	test.That(t, values, test.ShouldResemble, []float32{10})
 }
@@ -311,11 +312,11 @@ func TestWeirdStats(t *testing.T) {
 		anArray:       [5]int{5, 4, 3, 2, 1},
 	}}
 
-	fields, err := getFieldsForStruct(reflect.ValueOf(stat))
+	fields, _, err := flatten(reflect.ValueOf(stat))
 	logger.Info("Fields:", fields, " Err:", err)
 	test.That(t, fields, test.ShouldResemble, []string{"Number", "Struct.hiddenNumeric"})
 
-	values, err := flattenStruct(reflect.ValueOf(stat))
+	_, values, err := flatten(reflect.ValueOf(stat))
 	logger.Info("Values:", values, " Err:", err)
 	test.That(t, values, test.ShouldResemble, []float32{10, 1})
 }
@@ -325,11 +326,72 @@ func TestNilNestedStats(t *testing.T) {
 
 	stat := nestsAny{10, nil}
 
-	fields, err := getFieldsForStruct(reflect.ValueOf(stat))
+	fields, _, err := flatten(reflect.ValueOf(stat))
 	logger.Info("Fields:", fields, " Err:", err)
 	test.That(t, fields, test.ShouldResemble, []string{"Number"})
 
-	values, err := flattenStruct(reflect.ValueOf(stat))
+	_, values, err := flatten(reflect.ValueOf(stat))
 	logger.Info("Values:", values, " Err:", err)
 	test.That(t, values, test.ShouldResemble, []float32{10})
+}
+
+func TestFlattenMaps(t *testing.T) {
+	mp := map[string]any{
+		"X": 42,
+	}
+
+	keys, values, err := flatten(reflect.ValueOf(mp))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, keys, test.ShouldResemble, []string{"X"})
+	test.That(t, values, test.ShouldResemble, []float32{42.0})
+
+	mp["Y"] = struct {
+		Foo int
+		Bar int
+	}{10, 20}
+
+	keys, values, err = flatten(reflect.ValueOf(mp))
+	test.That(t, err, test.ShouldBeNil)
+	// While iterating maps happens in a non-deterministic order, `flatten` will sort the outputs in
+	// ascending key order.
+	test.That(t, keys, test.ShouldResemble, []string{"X", "Y.Bar", "Y.Foo"})
+	test.That(t, values, test.ShouldResemble, []float32{42.0, 20.0, 10.0})
+}
+
+func TestFlattenTheWorld(t *testing.T) {
+	mp := map[string]any{
+		"X": 42,
+		"Y": struct {
+			Foo string
+			Bar int
+			mp  map[int]int
+			mp2 map[string]any
+		}{
+			"foo",
+			5,
+			map[int]int{1: 2},
+			map[string]any{
+				"eli":      2,
+				"patriots": 0,
+			},
+		},
+		"Z": map[string]any{"zelda": 64},
+	}
+
+	keys, values, err := flatten(reflect.ValueOf(mp))
+	test.That(t, err, test.ShouldBeNil)
+	// While iterating maps happens in a non-deterministic order, `flatten` will sort the outputs in
+	// ascending key order.
+	test.That(t, keys, test.ShouldResemble, []string{"X", "Y.Bar", "Y.mp2.eli", "Y.mp2.patriots", "Z.zelda"})
+	test.That(t, values, test.ShouldResemble, []float32{42.0, 5.0, 2.0, 0.0, 64.0})
+
+	mp["Z"] = struct {
+		Foo int
+		Bar int
+	}{10, 20}
+
+	keys, values, err = flatten(reflect.ValueOf(mp))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, keys, test.ShouldResemble, []string{"X", "Y.Bar", "Y.mp2.eli", "Y.mp2.patriots", "Z.Bar", "Z.Foo"})
+	test.That(t, values, test.ShouldResemble, []float32{42.0, 5.0, 2.0, 0.0, 20.0, 10.0})
 }

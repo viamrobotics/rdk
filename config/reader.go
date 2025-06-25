@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"time"
+	"sort"
 
 	"github.com/a8m/envsubst"
 	"github.com/pkg/errors"
@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 // RDK versioning variables which are replaced by LD flags.
@@ -33,9 +34,6 @@ var (
 )
 
 const (
-	initialReadTimeout     = 1 * time.Second
-	readTimeout            = 5 * time.Second
-	readTimeoutBehindProxy = 15 * time.Second
 	// PackagesDirName is where packages go underneath viamDotDir.
 	PackagesDirName = "packages"
 	// LocalPackagesSuffix is used by the local package manager.
@@ -80,20 +78,14 @@ func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 	}, nil
 }
 
-var (
-	// ViamDotDir is the directory for Viam's cached files.
-	ViamDotDir      string
-	viamPackagesDir string
-)
+var viamPackagesDir string
 
 func init() {
-	home := rutils.PlatformHomeDir()
-	ViamDotDir = filepath.Join(home, ".viam")
-	viamPackagesDir = filepath.Join(ViamDotDir, PackagesDirName)
+	viamPackagesDir = filepath.Join(rutils.ViamDotDir, PackagesDirName)
 }
 
 func getCloudCacheFilePath(id string) string {
-	return filepath.Join(ViamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
+	return filepath.Join(rutils.ViamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
 }
 
 func readFromCache(id string) (*Config, error) {
@@ -109,6 +101,9 @@ func readFromCache(id string) (*Config, error) {
 
 	if err := json.NewDecoder(r).Decode(unprocessedConfig); err != nil {
 		// clear the cache if we cannot parse the file.
+		if runtime.GOOS == "windows" {
+			utils.UncheckedErrorFunc(r.Close)
+		}
 		clearCache(id)
 		return nil, errors.Wrap(err, "cannot parse the cached config as json")
 	}
@@ -123,14 +118,8 @@ func clearCache(id string) {
 
 func readCertificateDataFromCloudGRPC(ctx context.Context,
 	cloudConfigFromDisk *Cloud,
-	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (tlsConfig, error) {
-	conn, err := CreateNewGRPCClient(ctx, cloudConfigFromDisk, logger)
-	if err != nil {
-		return tlsConfig{}, err
-	}
-	defer utils.UncheckedErrorFunc(conn.Close)
-
 	service := apppb.NewRobotServiceClient(conn)
 	res, err := service.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
 	if err != nil {
@@ -181,26 +170,6 @@ func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
 	return true
 }
 
-func getTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
-	timeout := readTimeout
-	// When environment indicates we are behind a proxy, bump timeout. Network
-	// operations tend to take longer when behind a proxy.
-	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {
-		timeout = readTimeoutBehindProxy
-	}
-
-	// use shouldReadFromCache to determine whether this is part of initial read or not, but only shorten timeout
-	// if cached config exists
-	cachedConfigExists := false
-	if _, err := os.Stat(getCloudCacheFilePath(id)); err == nil {
-		cachedConfigExists = true
-	}
-	if shouldReadFromCache && cachedConfigExists {
-		timeout = initialReadTimeout
-	}
-	return context.WithTimeout(ctx, timeout)
-}
-
 // readFromCloud fetches a robot config from the cloud based
 // on the given config.
 func readFromCloud(
@@ -210,14 +179,12 @@ func readFromCloud(
 	shouldReadFromCache bool,
 	checkForNewCert bool,
 	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (*Config, error) {
 	logger.Debug("reading configuration from the cloud")
 	cloudCfg := originalCfg.Cloud
-	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger)
+	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger, conn)
 	if err != nil {
-		if !cached {
-			err = errors.Wrap(err, "error getting cloud config")
-		}
 		return nil, err
 	}
 
@@ -260,8 +227,8 @@ func readFromCloud(
 	if !cfg.Cloud.SignalingInsecure && (checkForNewCert || tls.certificate == "" || tls.privateKey == "") {
 		logger.Debug("reading tlsCertificate from the cloud")
 
-		ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
-		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
+		ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, conn)
 		if err != nil {
 			cancel()
 			if !errors.As(err, &context.DeadlineExceeded) {
@@ -350,13 +317,14 @@ func Read(
 	ctx context.Context,
 	filePath string,
 	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (*Config, error) {
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return FromReader(ctx, filePath, bytes.NewReader(buf), logger)
+	return FromReader(ctx, filePath, bytes.NewReader(buf), logger, conn)
 }
 
 // ReadLocalConfig reads a config from the given file but does not fetch any config from the remote servers.
@@ -370,7 +338,7 @@ func ReadLocalConfig(
 		return nil, err
 	}
 
-	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, false)
+	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, nil)
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -380,8 +348,9 @@ func FromReader(
 	originalPath string,
 	r io.Reader,
 	logger logging.Logger,
+	conn rpc.ClientConn,
 ) (*Config, error) {
-	return fromReader(ctx, originalPath, r, logger, true)
+	return fromReader(ctx, originalPath, r, logger, conn)
 }
 
 // fromReader reads a config from the given reader and specifies
@@ -391,7 +360,7 @@ func fromReader(
 	originalPath string,
 	r io.Reader,
 	logger logging.Logger,
-	shouldReadFromCloud bool,
+	conn rpc.ClientConn,
 ) (*Config, error) {
 	// First read and process config from disk
 	unprocessedConfig := Config{
@@ -406,8 +375,27 @@ func fromReader(
 		return nil, errors.Wrapf(err, "failed to process Config")
 	}
 
-	if shouldReadFromCloud && cfgFromDisk.Cloud != nil {
-		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
+	if conn != nil && cfgFromDisk.Cloud != nil {
+		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger, conn)
+
+		// Special case: DefaultBindAddress is set from Cloud, but user has specified a non-default BindAddress in local config.
+		// Keep the BindAddress from local config, and use Cloud options for everything else.
+		// Note: DefaultBindAddress "from Cloud" is actually set with a constant in rdk.
+		if err == nil && !cfgFromDisk.Network.BindAddressDefaultSet {
+			if cfg.Network.BindAddressDefaultSet {
+				logger.CInfof(ctx, "Using cloud config, but BindAddress is specified in local config (%v) "+
+					"and not cloud config (default = %v). Using local's.",
+					cfgFromDisk.Network.BindAddress,
+					cfg.Network.BindAddress)
+				cfg.Network.BindAddress = cfgFromDisk.Network.BindAddress
+				cfg.Network.BindAddressDefaultSet = false
+			} else {
+				logger.CInfof(ctx, "Using cloud config, and BindAddress specified in both cloud config (%v) "+
+					"and local config (%v). Using cloud's. Remove BindAddress from cloud config to use local's.",
+					cfg.Network.BindAddress,
+					cfgFromDisk.Network.BindAddress)
+			}
+		}
 		return cfg, err
 	}
 
@@ -438,6 +426,37 @@ func processConfigFromCloud(unprocessedConfig *Config, logger logging.Logger) (*
 // Returns an error if the unprocessedConfig is non-valid.
 func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
 	return processConfig(unprocessedConfig, false, logger)
+}
+
+// additionalModuleEnvVars will get additional environment variables for modules using other parts of the config.
+func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
+	env := make(map[string]string)
+	if cloud != nil {
+		env[rutils.PrimaryOrgIDEnvVar] = cloud.PrimaryOrgID
+		env[rutils.LocationIDEnvVar] = cloud.LocationID
+		env[rutils.MachineFQDNEnvVar] = cloud.FQDN
+		env[rutils.MachineIDEnvVar] = cloud.MachineID
+		env[rutils.MachinePartIDEnvVar] = cloud.ID
+	}
+	for _, handler := range auth.Handlers {
+		if handler.Type != rpc.CredentialsTypeAPIKey {
+			continue
+		}
+		apiKeys := ParseAPIKeys(handler)
+		if len(apiKeys) == 0 {
+			continue
+		}
+		// the keys come in unsorted, so sort the keys so we'll always get the same API key
+		// if there are no changes
+		keyIDs := make([]string, 0, len(apiKeys))
+		for k := range apiKeys {
+			keyIDs = append(keyIDs, k)
+		}
+		sort.Strings(keyIDs)
+		env[rutils.APIKeyIDEnvVar] = keyIDs[0]
+		env[rutils.APIKeyEnvVar] = apiKeys[keyIDs[0]]
+	}
+	return env
 }
 
 // processConfig processes the config passed in. The config can be either JSON or gRPC derived.
@@ -599,6 +618,15 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		}
 	}
 
+	// add additional environment vars to modules
+	// adding them here ensures that if the parsed API key changes, the module will be restarted with the updated environment.
+	env := additionalModuleEnvVars(cfg.Cloud, cfg.Auth)
+	if len(env) > 0 {
+		for idx := 0; idx < len(cfg.Modules); idx++ {
+			cfg.Modules[idx].MergeEnvVars(env)
+		}
+	}
+
 	// now that the attribute maps are converted, validate configs and get implicit dependencies for builtin resource models
 	if err := cfg.Ensure(fromCloud, logger); err != nil {
 		return nil, err
@@ -609,24 +637,32 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
 // local cache if the error indicates it should.
-func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger logging.Logger) (*Config, bool, error) {
+func getFromCloudOrCache(
+	ctx context.Context,
+	cloudCfg *Cloud,
+	shouldReadFromCache bool,
+	logger logging.Logger,
+	conn rpc.ClientConn,
+) (*Config, bool, error) {
 	var cached bool
 
-	ctxWithTimeout, cancel := getTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+	ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
 	defer cancel()
 
-	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger)
+	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger, conn)
 	if err != nil {
 		if shouldReadFromCache && errorShouldCheckCache {
-			logger.Warnw("failed to read config from cloud, checking cache", "error", err)
 			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
 			if cacheErr != nil {
 				if os.IsNotExist(cacheErr) {
 					// Return original http error if failed to load from cache.
-					return nil, cached, err
+					return nil, cached, errors.Wrap(
+						err,
+						"error getting cloud config, cached config does not exist; returning error from cloud config attempt",
+					)
 				}
 				// return cache err
-				return nil, cached, cacheErr
+				return nil, cached, errors.Wrap(cacheErr, "error reading cache after getting cloud config failed")
 			}
 
 			lastUpdated := "unknown"
@@ -639,37 +675,31 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 			return cachedConfig, cached, nil
 		}
 
-		return nil, cached, err
+		return nil, cached, errors.Wrap(err, "error getting cloud config")
 	}
 
 	return cfg, cached, nil
 }
 
 // getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint.
-func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger) (*Config, bool, error) {
+func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger, conn rpc.ClientConn) (*Config, bool, error) {
 	shouldCheckCacheOnFailure := true
-
-	conn, err := CreateNewGRPCClient(ctx, cloudCfg, logger)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, err
-	}
-	defer utils.UncheckedErrorFunc(conn.Close)
 
 	agentInfo, err := getAgentInfo(logger)
 	if err != nil {
-		return nil, shouldCheckCacheOnFailure, err
+		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error getting agent info")
 	}
 
 	service := apppb.NewRobotServiceClient(conn)
 	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
 		// Check cache?
-		return nil, shouldCheckCacheOnFailure, err
+		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error getting config from config endpoint")
 	}
 	cfg, err := FromProto(res.Config, logger)
 	if err != nil {
 		// Check cache?
-		return nil, shouldCheckCacheOnFailure, err
+		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error converting config from proto")
 	}
 
 	return cfg, false, nil

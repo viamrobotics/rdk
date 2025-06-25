@@ -4,6 +4,8 @@ package modmanageroptions
 import (
 	"context"
 
+	"go.viam.com/rdk/ftdc"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 )
 
@@ -19,4 +21,11 @@ type Options struct {
 	RemoveOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	// PackagesDir is from Config.PackagesPath. It's used for resolving local tarball module paths.
 	PackagesDir string
+	// Passing in an FTDC object will let the mod manager add and remove pieces to track diagnostics
+	// of. Such module process CPU/memory information as they are started and stopped.
+	FTDC *ftdc.FTDC
+	// ModPeerConnTracker is to be updated when a PeerConnection is made with a module. Such that
+	// gRPC API calls can choose to respond with data over the PeerConnection. Such is the case with
+	// video streams.
+	ModPeerConnTracker *grpc.ModPeerConnTracker
 }

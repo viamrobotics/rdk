@@ -28,12 +28,12 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
@@ -118,7 +118,7 @@ func TestNew(t *testing.T) {
 		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
 			mockDeps := mockDeps(nil, nil)
 			c := &Config{}
-			test.That(t, c.getCaptureDir(), test.ShouldResemble, viamCaptureDotDir)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, viamCaptureDotDir)
 			b, err := New(
 				ctx,
 				mockDeps,
@@ -200,7 +200,7 @@ func TestReconfigure(t *testing.T) {
 		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
 			mockDeps := mockDeps(nil, nil)
 			c := &Config{}
-			test.That(t, c.getCaptureDir(), test.ShouldResemble, viamCaptureDotDir)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, viamCaptureDotDir)
 			err := b.Reconfigure(ctx, mockDeps, resource.Config{ConvertedAttributes: c})
 			test.That(t, err, test.ShouldBeNil)
 		})
@@ -262,16 +262,9 @@ func TestFileDeletion(t *testing.T) {
 	tempDir := t.TempDir()
 	ctx := context.Background()
 
-	fsThresholdToTriggerDeletion := datasync.FSThresholdToTriggerDeletion
-	captureDirToFSUsageRatio := datasync.CaptureDirToFSUsageRatio
 	t.Cleanup(func() {
 		clk = prevClock
-		datasync.FSThresholdToTriggerDeletion = fsThresholdToTriggerDeletion
-		datasync.CaptureDirToFSUsageRatio = captureDirToFSUsageRatio
 	})
-
-	datasync.FSThresholdToTriggerDeletion = math.SmallestNonzeroFloat64
-	datasync.CaptureDirToFSUsageRatio = math.SmallestNonzeroFloat64
 
 	r := setupRobot(nil, map[resource.Name]resource.Resource{
 		arm.Named("arm1"): &inject.Arm{
@@ -287,8 +280,8 @@ func TestFileDeletion(t *testing.T) {
 			) ([]referenceframe.Input, error) {
 				return referenceframe.FloatsToInputs([]float64{1.0, 2.0, 3.0, 4.0}), nil
 			},
-			ModelFrameFunc: func() referenceframe.Model {
-				return nil
+			KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
+				return nil, errors.New("KinematicsFunc unimplemented")
 			},
 		},
 		gantry.Named("gantry1"): &inject.Gantry{
@@ -307,7 +300,7 @@ func TestFileDeletion(t *testing.T) {
 		},
 	})
 	config, deps := setupConfig(t, r, enabledTabularManyCollectorsConfigPath)
-	timeoutCtx, timeout := context.WithTimeout(ctx, time.Second*2)
+	timeoutCtx, timeout := context.WithTimeout(ctx, time.Second*5)
 	defer timeout()
 	// create sync clock so we can control when a single iteration of file deltion happens
 	c := config.ConvertedAttributes.(*Config)
@@ -315,6 +308,8 @@ func TestFileDeletion(t *testing.T) {
 	// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
 	// and we can confidently read the capture file without it's contents being modified by the collector
 	c.MaximumCaptureFileSizeBytes = 1
+	c.DiskUsageDeletionThreshold = math.SmallestNonzeroFloat64
+	c.CaptureDirDeletionThreshold = math.SmallestNonzeroFloat64
 	bSvc, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
 	test.That(t, err, test.ShouldBeNil)
 	b := bSvc.(*builtIn)
@@ -449,11 +444,16 @@ func TestSync(t *testing.T) {
 			if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
 				r = setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 					camera.Named("c1"): &inject.Camera{
-						StreamFunc: func(
+						ImageFunc: func(
 							ctx context.Context,
-							errHandlers ...gostream.ErrorHandler,
-						) (gostream.VideoStream, error) {
-							return newVideoStream(imgPng), nil
+							mimeType string,
+							extra map[string]interface{},
+						) ([]byte, camera.ImageMetadata, error) {
+							outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
+							if err != nil {
+								return nil, camera.ImageMetadata{}, err
+							}
+							return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 						},
 					},
 				})
@@ -681,13 +681,13 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 				Name:               armName,
 				Method:             "JointPositions",
 				CaptureFrequencyHz: 1.0,
-				AdditionalParams:   map[string]string{"some": "params"},
+				AdditionalParams:   map[string]interface{}{"some": "params"},
 			},
 			{
 				Name:               armName,
 				Method:             "CurrentInputs",
 				CaptureFrequencyHz: 2.0,
-				AdditionalParams:   map[string]string{"some_other": "params"},
+				AdditionalParams:   map[string]interface{}{"some_other": "params"},
 			},
 		}
 		config := resource.Config{
@@ -702,7 +702,7 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 							Name:               cameraName,
 							Method:             "NextPointCloud",
 							CaptureFrequencyHz: 3.0,
-							AdditionalParams:   map[string]string{"some additional": "params"},
+							AdditionalParams:   map[string]interface{}{"some additional": "params"},
 						},
 					},
 				},
@@ -726,13 +726,13 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 				Name:               armName,
 				Method:             "JointPositions",
 				CaptureFrequencyHz: 1.0,
-				AdditionalParams:   map[string]string{"some": "params"},
+				AdditionalParams:   map[string]interface{}{"some": "params"},
 			},
 			{
 				Name:               armName,
 				Method:             "CurrentInputs",
 				CaptureFrequencyHz: 2.0,
-				AdditionalParams:   map[string]string{"some_other": "params"},
+				AdditionalParams:   map[string]interface{}{"some_other": "params"},
 			},
 		}
 		cameraCaptureMethods := []datamanager.DataCaptureConfig{
@@ -740,7 +740,7 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 				Name:               cameraName,
 				Method:             "NextPointCloud",
 				CaptureFrequencyHz: 3.0,
-				AdditionalParams:   map[string]string{"some additional": "params"},
+				AdditionalParams:   map[string]interface{}{"some additional": "params"},
 			},
 		}
 		config := resource.Config{
@@ -813,7 +813,7 @@ func setupRobot(
 func setupConfig(t *testing.T, r *inject.Robot, configPath string) (resource.Config, resource.Dependencies) {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), utils.ResolveFile(configPath), logger)
+	cfg, err := config.Read(context.Background(), utils.ResolveFile(configPath), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	return resourceConfigAndDeps(t, cfg, r)
 }
@@ -845,7 +845,7 @@ func resourceConfigAndDeps(t *testing.T, cfg *config.Config, r *inject.Robot) (r
 	test.That(t, config, test.ShouldNotBeNil)
 	builtinConfig, ok := config.ConvertedAttributes.(*Config)
 	test.That(t, ok, test.ShouldBeTrue)
-	ds, err := builtinConfig.Validate("")
+	ds, _, err := builtinConfig.Validate("")
 	test.That(t, err, test.ShouldBeNil)
 	for _, d := range ds {
 		resName, err := resource.NewFromString(d)

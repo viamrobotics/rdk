@@ -40,14 +40,14 @@ func TestClient(t *testing.T) {
 	pose := spatialmath.NewPose(r3.Vector{X: 2, Y: 4, Z: 6}, &spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1})
 	pose2 := spatialmath.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1})
 	zeroPose := spatialmath.NewZeroPose()
-	allBodiesToPoseInFrames := posetracker.BodyToPoseInFrame{
+	allBodiesToPoseInFrames := referenceframe.FrameSystemPoses{
 		zeroPoseBody:     referenceframe.NewPoseInFrame(bodyFrame, zeroPose),
 		nonZeroPoseBody:  referenceframe.NewPoseInFrame(bodyFrame, pose),
 		nonZeroPoseBody2: referenceframe.NewPoseInFrame(otherBodyFrame, pose2),
 	}
 	var extraOptions map[string]interface{}
 	poseTester := func(
-		t *testing.T, receivedPoseInFrames posetracker.BodyToPoseInFrame,
+		t *testing.T, receivedPoseInFrames referenceframe.FrameSystemPoses,
 		bodyName string,
 	) {
 		t.Helper()
@@ -60,14 +60,14 @@ func TestClient(t *testing.T) {
 	}
 
 	workingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
-		posetracker.BodyToPoseInFrame, error,
+		referenceframe.FrameSystemPoses, error,
 	) {
 		extraOptions = extra
 		return allBodiesToPoseInFrames, nil
 	}
 
 	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
-		posetracker.BodyToPoseInFrame, error,
+		referenceframe.FrameSystemPoses, error,
 	) {
 		return nil, errPoseFailed
 	}

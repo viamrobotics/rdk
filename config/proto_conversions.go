@@ -83,6 +83,11 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 		return nil, errors.Wrap(err, "error converting packages config from proto")
 	}
 
+	cfg.Jobs, err = toRDKSlice(proto.Jobs, JobsConfigFromProto, disablePartialStart, logger)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting jobs config from proto")
+	}
+
 	if proto.Debug != nil {
 		cfg.Debug = *proto.Debug
 	}
@@ -105,6 +110,8 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 		}
 		cfg.MaintenanceConfig = maintenanceConfig
 	}
+
+	cfg.DisableLogDeduplication = proto.DisableLogDeduplication
 
 	return &cfg, nil
 }
@@ -311,6 +318,7 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 		Env:             module.Environment,
 		Status:          status,
 		FirstRunTimeout: durationpb.New(module.FirstRunTimeout.Unwrap()),
+		TcpMode:         module.TCPMode,
 	}
 
 	return &proto, nil
@@ -332,6 +340,7 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 		Environment:     proto.GetEnv(),
 		Status:          status,
 		FirstRunTimeout: utils.Duration(proto.GetFirstRunTimeout().AsDuration()),
+		TCPMode:         proto.GetTcpMode(),
 	}
 	return &module, nil
 }
@@ -637,27 +646,31 @@ func RemoteConfigFromProto(proto *pb.RemoteConfig) (*Remote, error) {
 // NetworkConfigToProto converts NetworkConfig from the proto equivalent.
 func NetworkConfigToProto(network *NetworkConfig) (*pb.NetworkConfig, error) {
 	proto := pb.NetworkConfig{
-		Fqdn:        network.FQDN,
-		BindAddress: network.BindAddress,
-		TlsCertFile: network.TLSCertFile,
-		TlsKeyFile:  network.TLSKeyFile,
-		Sessions:    sessionsConfigToProto(network.Sessions),
+		Fqdn:                   network.FQDN,
+		BindAddress:            network.BindAddress,
+		TlsCertFile:            network.TLSCertFile,
+		TlsKeyFile:             network.TLSKeyFile,
+		NoTls:                  network.NoTLS,
+		Sessions:               sessionsConfigToProto(network.Sessions),
+		TrafficTunnelEndpoints: trafficTunnelEndpointsToProto(network.TrafficTunnelEndpoints),
 	}
 
 	return &proto, nil
 }
 
-// MaintenanceConfigToProto converts MaintenanceConfig from the proto equivalent.
+// MaintenanceConfigToProto converts MaintenanceConfig to the proto equivalent. This function will swallow
+// any resource name conversion errors and put the full SensorName in the Name field of the ResourceName proto object.
 func MaintenanceConfigToProto(maintenanceConfig *MaintenanceConfig) (*pb.MaintenanceConfig, error) {
-	// convert from string to resource name
-	name, err := resource.NewFromString(maintenanceConfig.SensorName)
-	if err != nil {
-		return nil, err
+	proto := pb.MaintenanceConfig{
+		MaintenanceAllowedKey: maintenanceConfig.MaintenanceAllowedKey,
 	}
 
-	proto := pb.MaintenanceConfig{
-		SensorName:            protoRdkUtils.ResourceNameToProto(name),
-		MaintenanceAllowedKey: maintenanceConfig.MaintenanceAllowedKey,
+	if maintenanceConfig.SensorName != "" {
+		name, err := resource.NewFromString(maintenanceConfig.SensorName)
+		if err != nil {
+			name = resource.NewName(resource.API{}, maintenanceConfig.SensorName)
+		}
+		proto.SensorName = protoRdkUtils.ResourceNameToProto(name)
 	}
 
 	return &proto, nil
@@ -667,11 +680,13 @@ func MaintenanceConfigToProto(maintenanceConfig *MaintenanceConfig) (*pb.Mainten
 func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 	network := NetworkConfig{
 		NetworkConfigData: NetworkConfigData{
-			FQDN:        proto.GetFqdn(),
-			BindAddress: proto.GetBindAddress(),
-			TLSCertFile: proto.GetTlsCertFile(),
-			TLSKeyFile:  proto.GetTlsKeyFile(),
-			Sessions:    sessionsConfigFromProto(proto.GetSessions()),
+			FQDN:                   proto.GetFqdn(),
+			BindAddress:            proto.GetBindAddress(),
+			TLSCertFile:            proto.GetTlsCertFile(),
+			TLSKeyFile:             proto.GetTlsKeyFile(),
+			NoTLS:                  proto.GetNoTls(),
+			Sessions:               sessionsConfigFromProto(proto.GetSessions()),
+			TrafficTunnelEndpoints: trafficTunnelEndpointsFromProto(proto.TrafficTunnelEndpoints),
 		},
 	}
 
@@ -680,11 +695,13 @@ func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 
 // MaintenanceConfigFromProto creates a MaintenanceConfig from the proto equivalent.
 func MaintenanceConfigFromProto(proto *pb.MaintenanceConfig) (*MaintenanceConfig, error) {
-	MaintenanceConfig := MaintenanceConfig{
-		SensorName:            protoRdkUtils.ResourceNameFromProto(proto.SensorName).String(),
+	maintenanceConfig := MaintenanceConfig{
 		MaintenanceAllowedKey: proto.GetMaintenanceAllowedKey(),
 	}
-	return &MaintenanceConfig, nil
+	if proto.GetSensorName() != nil {
+		maintenanceConfig.SensorName = protoRdkUtils.ResourceNameFromProto(proto.GetSensorName()).String()
+	}
+	return &maintenanceConfig, nil
 }
 
 // AuthConfigToProto converts AuthConfig to the proto equivalent.
@@ -791,6 +808,38 @@ func sessionsConfigFromProto(proto *pb.SessionsConfig) SessionsConfig {
 	return SessionsConfig{
 		HeartbeatWindow: proto.GetHeartbeatWindow().AsDuration(),
 	}
+}
+
+func trafficTunnelEndpointsToProto(ttes []TrafficTunnelEndpoint) []*pb.TrafficTunnelEndpoint {
+	if ttes == nil {
+		return nil
+	}
+
+	var protoTTEs []*pb.TrafficTunnelEndpoint
+	for _, tte := range ttes {
+		protoTTEs = append(protoTTEs, &pb.TrafficTunnelEndpoint{
+			Port: int32(tte.Port), ConnectionTimeout: durationpb.New(tte.ConnectionTimeout),
+		})
+	}
+	return protoTTEs
+}
+
+func trafficTunnelEndpointsFromProto(protoTTEs []*pb.TrafficTunnelEndpoint) []TrafficTunnelEndpoint {
+	if protoTTEs == nil {
+		return nil
+	}
+
+	var ttes []TrafficTunnelEndpoint
+	for _, protoTTE := range protoTTEs {
+		if protoTTE == nil {
+			continue
+		}
+
+		ttes = append(ttes, TrafficTunnelEndpoint{
+			Port: int(protoTTE.Port), ConnectionTimeout: protoTTE.ConnectionTimeout.AsDuration(),
+		})
+	}
+	return ttes
 }
 
 func locationSecretToProto(secret LocationSecret) (*pb.LocationSecret, error) {
@@ -1005,4 +1054,40 @@ func LogConfigFromProto(proto *pb.LogPatternConfig) (*logging.LoggerPatternConfi
 		Pattern: proto.Pattern,
 		Level:   proto.Level,
 	}, nil
+}
+
+// JobsConfigToProto converts a JobConfig to its proto equivalent.
+func JobsConfigToProto(jc *JobConfig) (*pb.JobConfig, error) {
+	protoConfig := &pb.JobConfig{
+		Name:     jc.Name,
+		Schedule: jc.Schedule,
+		Resource: jc.Resource,
+		Method:   jc.Method,
+	}
+
+	if jc.Command != nil {
+		command, err := protoutils.StructToStructPb(jc.Command)
+		if err != nil {
+			return nil, err
+		}
+		protoConfig.Command = command
+	}
+	return protoConfig, nil
+}
+
+// JobsConfigFromProto converts a proto JobConfig to its rdk equivalent.
+func JobsConfigFromProto(proto *pb.JobConfig) (*JobConfig, error) {
+	jobConfig := &JobConfig{
+		JobConfigData{
+			Name:     proto.Name,
+			Schedule: proto.Schedule,
+			Resource: proto.Resource,
+			Method:   proto.Method,
+		},
+	}
+
+	if proto.Command != nil {
+		jobConfig.Command = proto.Command.AsMap()
+	}
+	return jobConfig, nil
 }

@@ -49,7 +49,7 @@ func TestPlanWithStatus(t *testing.T) {
 		ExecutionID:   executionID,
 		ComponentName: baseName,
 		Plan: motionplan.NewSimplePlan(
-			[]motionplan.PathStep{
+			[]referenceframe.FrameSystemPoses{
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
 			},
@@ -585,7 +585,7 @@ func TestPlan(t *testing.T) {
 		ExecutionID:   executionID,
 		ComponentName: baseName,
 		Plan: motionplan.NewSimplePlan(
-			[]motionplan.PathStep{
+			[]referenceframe.FrameSystemPoses{
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
 				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
 			},
@@ -1107,11 +1107,11 @@ func TestMoveOnMapReq(t *testing.T) {
 
 	t.Run("String()", func(t *testing.T) {
 		s := fmt.Sprintf(
-			"motion.MoveOnMapReq{ComponentName: %s, SlamName: %s, Destination: %+v, "+
+			"motion.MoveOnMapReq{ComponentName: %s, SlamName: %s, Destination: %v, "+
 				"MotionCfg: %#v, Obstacles: %s, Extra: %s}",
 			validMoveOnMapReq.ComponentName,
 			validMoveOnMapReq.SlamName,
-			spatialmath.PoseToProtobuf(validMoveOnMapReq.Destination),
+			validMoveOnMapReq.Destination,
 			validMoveOnMapReq.MotionCfg,
 			validMoveOnMapReq.Obstacles,
 			validMoveOnMapReq.Extra)

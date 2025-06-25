@@ -3,8 +3,9 @@ package builtin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,7 +13,12 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/service/motion/v1"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
@@ -59,6 +65,7 @@ const (
 	defaultLinearMPerSec               = 0.3
 	defaultSlamPlanDeviationM          = 1.
 	defaultGlobePlanDeviationM         = 2.6
+	defaultCollisionBuffer             = 150. // mm
 )
 
 var (
@@ -82,11 +89,28 @@ type inputEnabledActuator interface {
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service.
 type Config struct {
 	LogFilePath string `json:"log_file_path"`
+	NumThreads  int    `json:"num_threads"`
 }
 
 // Validate here adds a dependency on the internal framesystem service.
-func (c *Config) Validate(path string) ([]string, error) {
-	return []string{framesystem.InternalServiceName.String()}, nil
+func (c *Config) Validate(path string) ([]string, []string, error) {
+	if c.NumThreads < 0 {
+		return nil, nil, fmt.Errorf("cannot configure with %d number of threads, number must be positive", c.NumThreads)
+	}
+	return []string{framesystem.InternalServiceName.String()}, nil, nil
+}
+
+type builtIn struct {
+	resource.Named
+	mu                      sync.RWMutex
+	fsService               framesystem.Service
+	movementSensors         map[resource.Name]movementsensor.MovementSensor
+	slamServices            map[resource.Name]slam.Service
+	visionServices          map[resource.Name]vision.Service
+	components              map[resource.Name]resource.Resource
+	logger                  logging.Logger
+	state                   *state.State
+	configuredDefaultExtras map[string]any
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -94,8 +118,9 @@ func NewBuiltIn(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (motion.Service, error) {
 	ms := &builtIn{
-		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		Named:                   conf.ResourceName().AsNamed(),
+		logger:                  logger,
+		configuredDefaultExtras: make(map[string]any),
 	}
 
 	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
@@ -118,12 +143,13 @@ func (ms *builtIn) Reconfigure(
 		return err
 	}
 	if config.LogFilePath != "" {
-		logger, err := utils.NewFilePathDebugLogger(config.LogFilePath, "motion")
-		if err != nil {
-			return err
-		}
-		ms.logger = logger
+		fileAppender, _ := logging.NewFileAppender(config.LogFilePath)
+		ms.logger.AddAppender(fileAppender)
 	}
+	if config.NumThreads > 0 {
+		ms.configuredDefaultExtras["num_threads"] = config.NumThreads
+	}
+
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
 	visionServices := make(map[resource.Name]vision.Service)
@@ -158,18 +184,6 @@ func (ms *builtIn) Reconfigure(
 	return nil
 }
 
-type builtIn struct {
-	resource.Named
-	mu              sync.RWMutex
-	fsService       framesystem.Service
-	movementSensors map[resource.Name]movementsensor.MovementSensor
-	slamServices    map[resource.Name]slam.Service
-	visionServices  map[resource.Name]vision.Service
-	components      map[resource.Name]resource.Resource
-	logger          logging.Logger
-	state           *state.State
-}
-
 func (ms *builtIn) Close(ctx context.Context) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
@@ -184,7 +198,8 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	defer ms.mu.RUnlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	plan, err := ms.plan(ctx, req)
+	ms.applyDefaultExtras(req.Extra)
+	plan, err := ms.plan(ctx, req, ms.logger)
 	if err != nil {
 		return false, err
 	}
@@ -203,6 +218,7 @@ func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
+	ms.applyDefaultExtras(req.Extra)
 	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnMapRequest)
 	if err != nil {
 		return uuid.Nil, err
@@ -249,6 +265,9 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 	if _, ok := extra["smooth_iter"]; !ok {
 		extra["smooth_iter"] = defaultSmoothIter
 	}
+	if _, ok := extra["collision_buffer_mm"]; !ok {
+		extra["collision_buffer_mm"] = defaultCollisionBuffer
+	}
 
 	return validatedExtra{
 		maxReplans:       maxReplans,
@@ -268,6 +287,7 @@ func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (
 	// TODO: Deprecated: remove once no motion apis use the opid system
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
+	ms.applyDefaultExtras(req.Extra)
 	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnGlobeRequest)
 	if err != nil {
 		return uuid.Nil, err
@@ -347,27 +367,60 @@ func (ms *builtIn) PlanHistory(
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
 	resp := make(map[string]interface{}, 0)
 	if req, ok := cmd[DoPlan]; ok {
-		bytes, err := json.Marshal(req)
+		s, err := utils.AssertType[string](req)
 		if err != nil {
 			return nil, err
 		}
 		var moveReqProto pb.MoveRequest
-		err = json.Unmarshal(bytes, &moveReqProto)
+		err = protojson.Unmarshal([]byte(s), &moveReqProto)
 		if err != nil {
 			return nil, err
 		}
+		fields := moveReqProto.Extra.AsMap()
+		if extra, err := utils.AssertType[map[string]interface{}](fields["fields"]); err == nil {
+			v, err := structpb.NewStruct(extra)
+			if err != nil {
+				return nil, err
+			}
+			moveReqProto.Extra = v
+		}
+		// Special handling: we want to observe the logs just for the DoCommand
+		obsLogger := ms.logger.Sublogger("observed-" + uuid.New().String())
+		observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.InfoLevel.Enabled))
+		obsLogger.AddAppender(observerCore)
+
 		moveReq, err := motion.MoveReqFromProto(&moveReqProto)
 		if err != nil {
 			return nil, err
 		}
-		plan, err := ms.plan(ctx, moveReq)
+		plan, err := ms.plan(ctx, moveReq, obsLogger)
 		if err != nil {
 			return nil, err
 		}
+
+		partialLogString := "returning partial plan up to waypoint"
+		partialLogs := observedLogs.FilterMessageSnippet(partialLogString).All()
+		if len(partialLogs) > 0 {
+			// Extract the waypoint number from the partial log
+			if len(partialLogs) == 1 {
+				logMsg := partialLogs[0].Message
+				// Find the waypoint number after the partial log string
+				waypointStr := strings.TrimPrefix(logMsg, partialLogString)
+				// Extract just the number
+				waypointNum, err := strconv.Atoi(strings.Split(strings.TrimSpace(waypointStr), " ")[0])
+				if err == nil {
+					resp[DoPlan+"_partialwp"] = waypointNum
+				} else {
+					obsLogger.CWarnf(ctx, "error parsing log string: %s", logMsg)
+					obsLogger.CWarn(ctx, err)
+				}
+			} else {
+				obsLogger.CWarnf(ctx, "Unexpected number of partial logs: %d", len(partialLogs))
+			}
+		}
+
 		resp[DoPlan] = plan.Trajectory()
 	}
 	if req, ok := cmd[DoExecute]; ok {
@@ -383,11 +436,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 	return resp, nil
 }
 
-func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Plan, error) {
-	if req.Destination == nil {
-		return nil, errors.New("cannot specify a nil destination in motion.MoveReq")
-	}
-
+func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
 	frameSys, err := ms.fsService.FrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
@@ -398,31 +447,60 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq) (motionplan.Pla
 	if err != nil {
 		return nil, err
 	}
-	ms.logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
+	logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
 
 	movingFrame := frameSys.Frame(req.ComponentName.ShortName())
 	if movingFrame == nil {
 		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName.ShortName())
 	}
 
-	// re-evaluate goalPose to be in the frame of World
-	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
-	tf, err := frameSys.Transform(fsInputs, req.Destination, solvingFrame)
+	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
 	if err != nil {
 		return nil, err
 	}
-	goalPose, _ := tf.(*referenceframe.PoseInFrame)
+	if len(waypoints) == 0 {
+		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
+	}
+	// The contents of waypoints can be gigantic, and if so, making copies of `extra` becomes the majority of motion planning runtime.
+	// As the meaning from `waypoints` has already been extracted above into its proper data structure, there is no longer a need to
+	// keep it in `extra`.
+	if req.Extra != nil {
+		req.Extra["waypoints"] = nil
+	}
+
+	// re-evaluate goal poses to be in the frame of World
+	// TODO (RSDK-8847) : this is a workaround to help account for us not yet being able to properly synchronize simultaneous motion across
+	// multiple components. If we are moving component1, mounted on arm2, to a goal in frame of component2, which is mounted on arm2, then
+	// passing that raw poseInFrame will certainly result in a plan which moves arm1 and arm2. We cannot guarantee that this plan is
+	// collision-free until RSDK-8847 is complete. By transforming goals to world, only one arm should move for such a plan.
+	worldWaypoints := []*motionplan.PlanState{}
+	solvingFrame := referenceframe.World
+	for _, wp := range waypoints {
+		if wp.Poses() != nil {
+			step := referenceframe.FrameSystemPoses{}
+			for fName, destination := range wp.Poses() {
+				tf, err := frameSys.Transform(fsInputs, destination, solvingFrame)
+				if err != nil {
+					return nil, err
+				}
+				goalPose, _ := tf.(*referenceframe.PoseInFrame)
+				step[fName] = goalPose
+			}
+			worldWaypoints = append(worldWaypoints, motionplan.NewPlanState(step, wp.Configuration()))
+		} else {
+			worldWaypoints = append(worldWaypoints, wp)
+		}
+	}
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:             ms.logger,
-		Goal:               goalPose,
-		Frame:              movingFrame,
-		StartConfiguration: fsInputs,
-		FrameSystem:        frameSys,
-		WorldState:         req.WorldState,
-		Constraints:        req.Constraints,
-		Options:            req.Extra,
+		Logger:      logger,
+		Goals:       worldWaypoints,
+		StartState:  startState,
+		FrameSystem: frameSys,
+		WorldState:  req.WorldState,
+		Constraints: req.Constraints,
+		Options:     req.Extra,
 	})
 }
 
@@ -511,4 +589,77 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 		}
 	}
 	return nil
+}
+
+// applyDefaultExtras iterates through the list of default extras configured on the builtIn motion service and adds them to the
+// given map of extras if the key does not already exist.
+func (ms *builtIn) applyDefaultExtras(extras map[string]any) {
+	if extras == nil {
+		extras = make(map[string]any)
+	}
+	for key, val := range ms.configuredDefaultExtras {
+		if _, ok := extras[key]; !ok {
+			extras[key] = val
+		}
+	}
+}
+
+func waypointsFromRequest(
+	req motion.MoveReq,
+	fsInputs referenceframe.FrameSystemInputs,
+) (*motionplan.PlanState, []*motionplan.PlanState, error) {
+	var startState *motionplan.PlanState
+	var waypoints []*motionplan.PlanState
+	var err error
+
+	if startStateIface, ok := req.Extra["start_state"]; ok {
+		if startStateMap, ok := startStateIface.(map[string]interface{}); ok {
+			startState, err = motionplan.DeserializePlanState(startStateMap)
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+			return nil, nil, errors.New("extras start_state could not be interpreted as map[string]interface{}")
+		}
+		if startState.Configuration() == nil {
+			startState = motionplan.NewPlanState(startState.Poses(), fsInputs)
+		}
+	} else {
+		startState = motionplan.NewPlanState(nil, fsInputs)
+	}
+
+	if waypointsIface, ok := req.Extra["waypoints"]; ok {
+		if waypointsIfaceList, ok := waypointsIface.([]interface{}); ok {
+			for _, wpIface := range waypointsIfaceList {
+				if wpMap, ok := wpIface.(map[string]interface{}); ok {
+					wp, err := motionplan.DeserializePlanState(wpMap)
+					if err != nil {
+						return nil, nil, err
+					}
+					waypoints = append(waypoints, wp)
+				} else {
+					return nil, nil, errors.New("element in extras waypoints could not be interpreted as map[string]interface{}")
+				}
+			}
+		} else {
+			return nil, nil, errors.New("Invalid 'waypoints' extra type. Expected an array")
+		}
+	}
+
+	// If goal state is specified, it overrides the request goal
+	if goalStateIface, ok := req.Extra["goal_state"]; ok {
+		if goalStateMap, ok := goalStateIface.(map[string]interface{}); ok {
+			goalState, err := motionplan.DeserializePlanState(goalStateMap)
+			if err != nil {
+				return nil, nil, err
+			}
+			waypoints = append(waypoints, goalState)
+		} else {
+			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
+		}
+	} else if req.Destination != nil {
+		goalState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName.ShortName(): req.Destination}, nil)
+		waypoints = append(waypoints, goalState)
+	}
+	return startState, waypoints, nil
 }
