@@ -76,9 +76,17 @@ type moduleID struct {
 
 // AppComponent represents metadata used to distinguish and describe an app.
 type AppComponent struct {
-	Name       string `json:"name"`
-	Type       string `json:"type"`
-	Entrypoint string `json:"entrypoint"`
+	Name           string   `json:"name"`
+	Type           string   `json:"type"`
+	Entrypoint     string   `json:"entrypoint"`
+	FragmentIDs    []string `json:"fragmentIds,omitempty"`
+	LogoPath       string   `json:"logoPath,omitempty"`
+	Customizations *struct {
+		MachinePicker *struct {
+			Heading    string `json:"heading,omitempty"`
+			Subheading string `json:"subheading,omitempty"`
+		} `json:"machinePicker,omitempty"`
+	} `json:"customizations,omitempty"`
 }
 
 // manifestBuildInfo is the "build" section of meta.json.
@@ -680,9 +688,27 @@ func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 
 func appComponentToProto(appComponent AppComponent) *apppb.App {
 	app := &apppb.App{
-		Name:       appComponent.Name,
-		Type:       appComponent.Type,
-		Entrypoint: appComponent.Entrypoint,
+		Name:        appComponent.Name,
+		Type:        appComponent.Type,
+		Entrypoint:  appComponent.Entrypoint,
+		FragmentIds: appComponent.FragmentIDs,
+	}
+
+	if appComponent.LogoPath != "" {
+		app.LogoPath = &appComponent.LogoPath
+	}
+
+	if appComponent.Customizations != nil && appComponent.Customizations.MachinePicker != nil {
+		machinePicker := &apppb.MachinePickerCustomizations{}
+		if appComponent.Customizations.MachinePicker.Heading != "" {
+			machinePicker.Heading = &appComponent.Customizations.MachinePicker.Heading
+		}
+		if appComponent.Customizations.MachinePicker.Subheading != "" {
+			machinePicker.Subheading = &appComponent.Customizations.MachinePicker.Subheading
+		}
+		app.Customizations = &apppb.AppCustomizations{
+			MachinePicker: machinePicker,
+		}
 	}
 
 	return app
