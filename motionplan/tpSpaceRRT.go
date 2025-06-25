@@ -264,7 +264,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			// There may be more than one node in the tree which satisfies the goal, i.e. its parent is nil.
 			// However for the purposes of this we can just take the first one we see.
 			if k.Poses() != nil {
-				dist := mp.planOpts.getPoseDistanceFunc()(
+				dist := mp.poseDistanceFunc(
 					&ik.Segment{
 						StartPosition: startPose,
 						EndPosition:   k.Poses()[mp.tpFrame.Name()].Pose(),
@@ -370,7 +370,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		var reachedDelta float64
 		if seedReached.node != nil && goalReached.node != nil {
 			// Flip the orientation of the goal node for distance calculation and seed extension
-			reachedDelta = mp.planOpts.getPoseDistanceFunc()(&ik.Segment{
+			reachedDelta = mp.poseDistanceFunc(&ik.Segment{
 				StartPosition: mp.tpFramePose(seedReached.node.Poses()),
 				EndPosition:   mp.tpFramePose(flipNodePoses(goalReached.node).Poses()),
 			})
@@ -382,7 +382,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					return
 				}
 				if seedReached.node != nil {
-					reachedDelta = mp.planOpts.getPoseDistanceFunc()(&ik.Segment{
+					reachedDelta = mp.poseDistanceFunc(&ik.Segment{
 						StartPosition: mp.tpFramePose(seedReached.node.Poses()),
 						EndPosition:   mp.tpFramePose(flipNodePoses(goalReached.node).Poses()),
 					})
@@ -394,7 +394,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 						}
 					}
 					if goalReached.node != nil {
-						reachedDelta = mp.planOpts.getPoseDistanceFunc()(&ik.Segment{
+						reachedDelta = mp.poseDistanceFunc(&ik.Segment{
 							StartPosition: mp.tpFramePose(seedReached.node.Poses()),
 							EndPosition:   mp.tpFramePose(flipNodePoses(goalReached.node).Poses()),
 						})
@@ -448,7 +448,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				if seedReached.node == nil {
 					continue
 				}
-				reachedDelta = mp.planOpts.getPoseDistanceFunc()(&ik.Segment{
+				reachedDelta = mp.poseDistanceFunc(&ik.Segment{
 					StartPosition: mp.tpFramePose(seedReached.node.Poses()),
 					EndPosition:   mp.tpFramePose(flipNodePoses(goalMapNode).Poses()),
 				})
@@ -601,7 +601,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	// rather than the TP-space distance functions in algOpts.
 	nearest = nm.nearestNeighbor(ctx, successNode, rrt, nodeConfigurationDistanceFunc)
 	if nearest != nil {
-		dist := mp.planOpts.getPoseDistanceFunc()(&ik.Segment{
+		dist := mp.poseDistanceFunc(&ik.Segment{
 			StartPosition: mp.tpFramePose(successNode.Poses()),
 			EndPosition:   mp.tpFramePose(nearest.Poses()),
 		})
@@ -1011,7 +1011,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		return nil, errors.New("could not extend to smoothing destination")
 	}
 
-	reachedDelta := mp.planOpts.getPoseDistanceFunc()(&ik.Segment{
+	reachedDelta := mp.poseDistanceFunc(&ik.Segment{
 		StartPosition: mp.tpFramePose(reached.node.Poses()),
 		EndPosition:   mp.tpFramePose(path[secondEdge].Poses()),
 	})

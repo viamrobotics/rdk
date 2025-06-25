@@ -250,8 +250,8 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	}
 
 	if replanCostFactor > 0 && currentPlan != nil {
-		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.opt().getScoringFunction())
-		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.opt().getScoringFunction())
+		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
+		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
 		request.Logger.CDebugf(ctx,
 			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
 			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
@@ -266,13 +266,15 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 }
 
 type planner struct {
-	fs       referenceframe.FrameSystem
-	lfs      *linearizedFrameSystem
-	solver   ik.Solver
-	logger   logging.Logger
-	randseed *rand.Rand
-	start    time.Time
-	planOpts *plannerOptions
+	fs               referenceframe.FrameSystem
+	lfs              *linearizedFrameSystem
+	solver           ik.Solver
+	logger           logging.Logger
+	randseed         *rand.Rand
+	start            time.Time
+	scoringFunction  ik.SegmentFSMetric
+	poseDistanceFunc ik.SegmentMetric
+	planOpts         *plannerOptions
 }
 
 func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.Logger, opt *plannerOptions) (*planner, error) {
@@ -289,12 +291,14 @@ func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.L
 		return nil, err
 	}
 	mp := &planner{
-		solver:   solver,
-		fs:       fs,
-		lfs:      lfs,
-		logger:   logger,
-		randseed: seed,
-		planOpts: opt,
+		solver:           solver,
+		fs:               fs,
+		lfs:              lfs,
+		logger:           logger,
+		randseed:         seed,
+		planOpts:         opt,
+		scoringFunction:  opt.getScoringFunction(),
+		poseDistanceFunc: opt.getPoseDistanceFunc(),
 	}
 	return mp, nil
 }

@@ -230,7 +230,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 				solution := shortestPath(rrt.maps, shared)
 				traj := nodesToTrajectory(solution.steps)
 				// if cost of trajectory is sufficiently small, exit early
-				solutionCost := traj.EvaluateCost(mp.planOpts.getScoringFunction())
+				solutionCost := traj.EvaluateCost(mp.scoringFunction)
 				if solutionCost-rrt.maps.optNode.Cost() < defaultOptimalityThreshold*rrt.maps.optNode.Cost() {
 					mp.logger.CDebug(ctx, "RRT* progress: sufficiently optimal path found, exiting")
 					rrt.solutionChan <- solution

@@ -393,7 +393,7 @@ func (pm *planManager) planParallelRRTMotion(
 		// If there *was* an error, then either the fallback will not error and will replace it, or the error will be returned
 		if finalSteps.err == nil {
 			if fallbackPlanner != nil {
-				if ok, score := pm.goodPlan(finalSteps, pathPlanner.opt()); ok {
+				if ok, score := pm.goodPlan(finalSteps); ok {
 					pm.logger.CDebugf(ctx, "got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
 					fallbackPlanner = nil
 				} else {
@@ -430,7 +430,7 @@ func (pm *planManager) planParallelRRTMotion(
 		score := math.Inf(1)
 
 		if finalSteps.steps != nil {
-			score = nodesToTrajectory(finalSteps.steps).EvaluateCost(pathPlanner.opt().getScoringFunction())
+			score = nodesToTrajectory(finalSteps.steps).EvaluateCost(pm.scoringFunction)
 		}
 
 		// If we ran a fallback, retrieve the result and compare to the smoothed path
@@ -439,7 +439,7 @@ func (pm *planManager) planParallelRRTMotion(
 			if err == nil {
 				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
-				altCost := nodesToTrajectory(alternate).EvaluateCost(pathPlanner.opt().getScoringFunction())
+				altCost := nodesToTrajectory(alternate).EvaluateCost(pm.scoringFunction)
 				if altCost < score {
 					pm.logger.CDebugf(ctx, "replacing path with score %f with better score %f", score, altCost)
 					finalSteps = &rrtSolution{steps: alternate}
@@ -853,13 +853,13 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 }
 
 // check whether the solution is within some amount of the optimal.
-func (pm *planManager) goodPlan(pr *rrtSolution, opt *plannerOptions) (bool, float64) {
+func (pm *planManager) goodPlan(pr *rrtSolution) (bool, float64) {
 	solutionCost := math.Inf(1)
 	if pr.steps != nil {
 		if pr.maps.optNode.Cost() <= 0 {
 			return true, solutionCost
 		}
-		solutionCost = nodesToTrajectory(pr.steps).EvaluateCost(opt.getScoringFunction())
+		solutionCost = nodesToTrajectory(pr.steps).EvaluateCost(pm.scoringFunction)
 		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
 			return true, solutionCost
 		}
