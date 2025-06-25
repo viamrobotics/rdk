@@ -107,15 +107,14 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.InputIdentDist = defaultInputIdentDist
 	opt.IterBeforeRand = defaultIterBeforeRand
 
-	// Note the direct reference to a default here.
-	// This is due to a Go compiler issue where it will incorrectly refuse to compile with a circular reference error if this
-	// is placed in a global default var.
-	opt.PlannerConstructor = newCBiRRTMotionPlanner
+	opt.planningAlgorithm = CBiRRT
 
 	opt.SmoothIter = defaultSmoothIter
 
 	opt.TimeMultipleAfterFindingFirstSolution = defaultTimeMultipleAfterFindingFirstSolution
 	opt.NumThreads = defaultNumThreads
+
+	opt.motionChains = &motionChains{}
 
 	return opt
 }
@@ -123,7 +122,7 @@ func newBasicPlannerOptions() *plannerOptions {
 // plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
 type plannerOptions struct {
 	ConstraintHandler
-	motionChains []*motionChain
+	motionChains *motionChains
 
 	// This is used to create functions which are passed to IK for solving. This may be used to turn starting or ending state poses into
 	// configurations for nodes.
@@ -190,14 +189,11 @@ type plannerOptions struct {
 	// profile is the string representing the motion profile
 	profile string
 
-	PlannerConstructor plannerConstructor
+	planningAlgorithm PlanningAlgorithm
 
 	Fallback *plannerOptions
 
 	TimeMultipleAfterFindingFirstSolution int
-
-	useTPspace   bool
-	ptgFrameName string
 }
 
 // getGoalMetric creates the distance metric for the solver using the configured options.
@@ -237,6 +233,20 @@ func (p *plannerOptions) SetMaxSolutions(maxSolutions int) {
 // SetMinScore specifies the IK stopping score for the planner.
 func (p *plannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
+}
+
+func (p *plannerOptions) useTPspace() bool {
+	if p.motionChains == nil {
+		return false
+	}
+	return p.motionChains.useTPspace
+}
+
+func (p *plannerOptions) ptgFrameName() string {
+	if p.motionChains == nil {
+		return ""
+	}
+	return p.motionChains.ptgFrameName
 }
 
 // addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological
@@ -344,26 +354,5 @@ func (p *plannerOptions) addOrientationConstraints(
 	}
 	p.AddStateFSConstraint(defaultConstraintName, constraint)
 	p.pathMetric = ik.CombineFSMetrics(p.pathMetric, pathDist)
-	return nil
-}
-
-func (p *plannerOptions) fillMotionChains(fs referenceframe.FrameSystem, to *PlanState) error {
-	motionChains := make([]*motionChain, 0, len(to.poses)+len(to.configuration))
-
-	for frame, pif := range to.poses {
-		chain, err := motionChainFromGoal(fs, frame, pif.Parent())
-		if err != nil {
-			return err
-		}
-		motionChains = append(motionChains, chain)
-	}
-	for frame := range to.configuration {
-		chain, err := motionChainFromGoal(fs, frame, frame)
-		if err != nil {
-			return err
-		}
-		motionChains = append(motionChains, chain)
-	}
-	p.motionChains = motionChains
 	return nil
 }

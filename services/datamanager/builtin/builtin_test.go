@@ -706,13 +706,13 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 				Name:               armName,
 				Method:             "JointPositions",
 				CaptureFrequencyHz: 1.0,
-				AdditionalParams:   map[string]string{"some": "params"},
+				AdditionalParams:   map[string]interface{}{"some": "params"},
 			},
 			{
 				Name:               armName,
 				Method:             "CurrentInputs",
 				CaptureFrequencyHz: 2.0,
-				AdditionalParams:   map[string]string{"some_other": "params"},
+				AdditionalParams:   map[string]interface{}{"some_other": "params"},
 			},
 		}
 		config := resource.Config{
@@ -727,7 +727,7 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 							Name:               cameraName,
 							Method:             "NextPointCloud",
 							CaptureFrequencyHz: 3.0,
-							AdditionalParams:   map[string]string{"some additional": "params"},
+							AdditionalParams:   map[string]interface{}{"some additional": "params"},
 						},
 					},
 				},
@@ -751,13 +751,13 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 				Name:               armName,
 				Method:             "JointPositions",
 				CaptureFrequencyHz: 1.0,
-				AdditionalParams:   map[string]string{"some": "params"},
+				AdditionalParams:   map[string]interface{}{"some": "params"},
 			},
 			{
 				Name:               armName,
 				Method:             "CurrentInputs",
 				CaptureFrequencyHz: 2.0,
-				AdditionalParams:   map[string]string{"some_other": "params"},
+				AdditionalParams:   map[string]interface{}{"some_other": "params"},
 			},
 		}
 		cameraCaptureMethods := []datamanager.DataCaptureConfig{
@@ -765,7 +765,7 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 				Name:               cameraName,
 				Method:             "NextPointCloud",
 				CaptureFrequencyHz: 3.0,
-				AdditionalParams:   map[string]string{"some additional": "params"},
+				AdditionalParams:   map[string]interface{}{"some additional": "params"},
 			},
 		}
 		config := resource.Config{

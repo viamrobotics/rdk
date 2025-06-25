@@ -93,9 +93,18 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		}
 	}
 
-	mimeStr := new(wrapperspb.StringValue)
-	if err := mimeType.UnmarshalTo(mimeStr); err != nil {
-		return nil, err
+	var mimeStr string
+	// For backwards compatibility - allow string (old behavior) and Value (new behavior) types
+	strVal := &wrapperspb.StringValue{}
+	if err := mimeType.UnmarshalTo(strVal); err == nil {
+		mimeStr = strVal.Value
+	} else {
+		// If that fails, try to unmarshal as Value
+		val := &structpb.Value{}
+		if err := mimeType.UnmarshalTo(val); err != nil {
+			return nil, err
+		}
+		mimeStr = val.GetStringValue()
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -104,7 +113,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
-		img, metadata, err := camera.Image(ctx, mimeStr.Value, data.FromDMExtraMap)
+		img, metadata, err := camera.Image(ctx, mimeStr, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.

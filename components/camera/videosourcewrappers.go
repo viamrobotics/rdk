@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -316,4 +317,11 @@ func (vs *videoSource) Close(ctx context.Context) error {
 		return res.Close(ctx)
 	}
 	return vs.videoSource.Close(ctx)
+}
+
+func (vs *videoSource) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	if res, ok := vs.actualSource.(resource.Shaped); ok {
+		return res.Geometries(ctx, extra)
+	}
+	return nil, errors.New("videoSource: geometries unavailable")
 }

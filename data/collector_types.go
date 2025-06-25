@@ -377,7 +377,7 @@ const (
 )
 
 // getFileExt gets the file extension for a capture file.
-func getFileExt(dataType CaptureType, methodName string, parameters map[string]string) string {
+func getFileExt(dataType CaptureType, methodName string, parameters map[string]interface{}) string {
 	switch dataType {
 	case CaptureTypeTabular:
 		return ExtDat

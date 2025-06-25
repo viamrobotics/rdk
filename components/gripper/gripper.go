@@ -41,6 +41,13 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// HoldingStatus represents whether the gripper is currently holding onto
+// an object as well as any additional contextual information (stored in `Meta`).
+type HoldingStatus struct {
+	IsHoldingSomething bool
+	Meta               map[string]interface{}
+}
+
 // A Gripper represents a physical robotic gripper.
 // For more information, see the [gripper component docs].
 //
@@ -79,6 +86,9 @@ type Gripper interface {
 	// returns true if we grabbed something.
 	// This will block until done or a new operation cancels this one.
 	Grab(ctx context.Context, extra map[string]interface{}) (bool, error)
+
+	// IsHoldingSomething returns whether the gripper is currently holding onto an object.
+	IsHoldingSomething(ctx context.Context, extra map[string]interface{}) (HoldingStatus, error)
 }
 
 // FromRobot is a helper for getting the named Gripper from the given Robot.

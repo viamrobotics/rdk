@@ -54,9 +54,11 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	opt := newBasicPlannerOptions()
 	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
-	opt.PlannerConstructor = newTPSpaceMotionPlanner
+	opt.planningAlgorithm = TPSpace
 
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	test.That(t, err, test.ShouldBeNil)
+	opt.motionChains = motionChains
 
 	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
 	test.That(t, err, test.ShouldBeNil)
@@ -135,9 +137,11 @@ func TestPtgWithObstacle(t *testing.T) {
 	opt := newBasicPlannerOptions()
 	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.GoalThreshold = 5
-	opt.PlannerConstructor = newTPSpaceMotionPlanner
+	opt.planningAlgorithm = TPSpace
 	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	test.That(t, err, test.ShouldBeNil)
+	opt.motionChains = motionChains
 
 	// Create collision constraints
 	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, nil)
@@ -226,7 +230,7 @@ func TestTPsmoothing(t *testing.T) {
 	opt := newBasicPlannerOptions()
 	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
 	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
-	opt.PlannerConstructor = newTPSpaceMotionPlanner
+	opt.planningAlgorithm = TPSpace
 
 	// Needed to determine motion chains
 	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 6500, Y: 0, Z: 0})
@@ -234,7 +238,9 @@ func TestTPsmoothing(t *testing.T) {
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos),
 	}}
 
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	test.That(t, err, test.ShouldBeNil)
+	opt.motionChains = motionChains
 
 	// Create and initialize planner
 	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)

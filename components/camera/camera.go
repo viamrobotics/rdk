@@ -129,6 +129,7 @@ type ImageMetadata struct {
 // [Close method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#close
 type Camera interface {
 	resource.Resource
+	resource.Shaped
 
 	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
 	// Image also may return metadata about the frame.

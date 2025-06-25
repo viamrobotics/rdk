@@ -15,6 +15,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/viamrobotics/webrtc/v3"
 	"go.opencensus.io/trace"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	streampb "go.viam.com/api/stream/v1"
 	goutils "go.viam.com/utils"
@@ -32,6 +33,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -322,6 +324,21 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+}
+
+func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	ext, err := goprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
 }
 
 // TODO(RSDK-6433): This method can be called more than once during a client's lifecycle.

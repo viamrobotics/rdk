@@ -413,7 +413,13 @@ func TestGetFileExt(t *testing.T) {
 	test.That(t, getFileExt(CaptureTypeBinary, "anything", nil), test.ShouldResemble, "")
 	test.That(t, getFileExt(CaptureTypeBinary, "NextPointCloud", nil), test.ShouldResemble, ".pcd")
 	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage", nil), test.ShouldResemble, "")
-	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage", map[string]string{"mime_type": rutils.MimeTypeJPEG}), test.ShouldResemble, ".jpeg")
-	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage", map[string]string{"mime_type": rutils.MimeTypePNG}), test.ShouldResemble, ".png")
-	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage", map[string]string{"mime_type": rutils.MimeTypePCD}), test.ShouldResemble, ".pcd")
+	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage",
+		map[string]interface{}{"mime_type": rutils.MimeTypeJPEG}),
+		test.ShouldResemble, ".jpeg")
+	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage",
+		map[string]interface{}{"mime_type": rutils.MimeTypePNG}),
+		test.ShouldResemble, ".png")
+	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage",
+		map[string]interface{}{"mime_type": rutils.MimeTypePCD}),
+		test.ShouldResemble, ".pcd")
 }
