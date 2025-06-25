@@ -277,7 +277,7 @@ func (c *Capture) initializeOrUpdateCollector(
 	collection *mongo.Collection,
 ) (*collectorAndConfig, error) {
 	// TODO(DATA-451): validate method params
-	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(collectorConfig.AdditionalParams)
+	methodParams, err := protoutils.ConvertMapToProtoAny(collectorConfig.AdditionalParams)
 	if err != nil {
 		return nil, err
 	}
