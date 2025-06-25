@@ -1,6 +1,8 @@
 package spatialmath
 
 import (
+	"math"
+
 	"github.com/golang/geo/r3"
 )
 
@@ -51,29 +53,94 @@ func SegmentDistanceToSegment(ap1, ap2, bp1, bp2 r3.Vector) float64 {
 
 // ClosestPointsSegmentSegment will return the points at which two line segments are closest to one another.
 func ClosestPointsSegmentSegment(ap1, ap2, bp1, bp2 r3.Vector) (r3.Vector, r3.Vector) {
-	// vectors between line endpoints:
-	v0 := bp1.Sub(ap1)
-	v1 := bp2.Sub(ap1)
-	v2 := bp1.Sub(ap2)
-	v3 := bp2.Sub(ap2)
+	// // vectors between line endpoints:
+	// v0 := bp1.Sub(ap1)
+	// v1 := bp2.Sub(ap1)
+	// v2 := bp1.Sub(ap2)
+	// v3 := bp2.Sub(ap2)
 
-	// squared distances:
-	d0 := v0.Norm2()
-	d1 := v1.Norm2()
-	d2 := v2.Norm2()
-	d3 := v3.Norm2()
+	// // squared distances:
+	// d0 := v0.Norm2()
+	// d1 := v1.Norm2()
+	// d2 := v2.Norm2()
+	// d3 := v3.Norm2()
 
-	// select best potential endpoint on capsule A:
-	bestA := ap1
-	if d2 < d0 || d2 < d1 || d3 < d0 || d3 < d1 {
-		bestA = ap2
+	// // select best potential endpoint on capsule A:
+	// bestA := ap1
+	// if d2 < d0 || d2 < d1 || d3 < d0 || d3 < d1 {
+	// 	bestA = ap2
+	// }
+	// // select point on capsule B line segment nearest to best potential endpoint on A capsule:
+	// bestB := ClosestPointSegmentPoint(bp1, bp2, bestA)
+
+	// // now do the same for capsule A segment:
+	// bestA = ClosestPointSegmentPoint(ap1, ap2, bestB)
+	// return bestA, bestB
+
+	// ==================================================
+
+	// Proceed according to this math.stackexchange solution: https://math.stackexchange.com/a/2812513
+	// The stack solution has a sign error, which we correct
+	D3121 := bp1.Sub(ap1).Dot(ap2.Sub(ap1))
+	D4321 := bp2.Sub(bp1).Dot(ap2.Sub(ap1))
+	D4331 := bp2.Sub(bp1).Dot(bp1.Sub(ap1))
+	R1pow2 := ap2.Sub(ap1).Dot(ap2.Sub(ap1))
+	R2pow2 := bp2.Sub(bp1).Dot(bp2.Sub(bp1))
+
+	denom := R1pow2*R2pow2 - D4321*D4321
+	// If denom is 0, the segments are parallel, and we can jump to the endpt case below
+	if denom != 0 {
+		// Find the closest points on the lines each segment define
+		// If s or t lie outside of [0,1], the closest points on the lines are NOT on the finite segments
+		s := (D3121*R2pow2 - D4331*D4321) / denom
+		t := (D3121*D4321 - D4331*R1pow2) / denom
+		if 0 <= s && s <= 1 && 0 <= t && t <= 1 {
+			bestSeg1Pt := ap1.Add(ap2.Sub(ap1).Mul(s))
+			bestSeg2Pt := bp1.Add(bp2.Sub(bp1).Mul(t))
+			return bestSeg1Pt, bestSeg2Pt
+		}
 	}
-	// select point on capsule B line segment nearest to best potential endpoint on A capsule:
-	bestB := ClosestPointSegmentPoint(bp1, bp2, bestA)
 
-	// now do the same for capsule A segment:
-	bestA = ClosestPointSegmentPoint(ap1, ap2, bestB)
-	return bestA, bestB
+	// If we're here, the lines are either parallel or their closest points lie off at least one of the segments
+	// It suffices to just check each segment against the other segment's endpoints
+	// (early return makes this a little harder to read)
+	bestSeg1Pt := ap1
+	bestSeg2Pt := ClosestPointSegmentPoint(bp1, bp2, ap1)
+	bestDist := bestSeg1Pt.Sub(bestSeg2Pt).Norm2()
+	if bestDist == 0 {
+		return bestSeg1Pt, bestSeg2Pt
+	}
+	seg1Pt := ap2
+	seg2Pt := ClosestPointSegmentPoint(bp1, bp2, ap2)
+	dist := seg2Pt.Sub(seg1Pt).Norm2()
+	if dist == 0 {
+		return seg1Pt, seg2Pt
+	}
+	if dist < bestDist {
+		bestSeg1Pt, bestSeg2Pt = seg1Pt, seg2Pt
+		bestDist = dist
+	}
+	seg1Pt = ClosestPointSegmentPoint(ap1, ap2, bp1)
+	seg2Pt = bp1
+	dist = seg2Pt.Sub(seg1Pt).Norm2()
+	if dist == 0 {
+		return seg1Pt, seg2Pt
+	}
+	if dist < bestDist {
+		bestSeg1Pt, bestSeg2Pt = seg1Pt, seg2Pt
+		bestDist = dist
+	}
+	seg1Pt = ClosestPointSegmentPoint(ap1, ap2, bp2)
+	seg2Pt = bp2
+	dist = seg2Pt.Sub(seg1Pt).Norm2()
+	if dist == 0 {
+		return seg1Pt, seg2Pt
+	}
+	if dist < bestDist {
+		return seg1Pt, seg2Pt
+	}
+
+	return bestSeg1Pt, bestSeg2Pt
 }
 
 // PlaneNormal returns the plane normal of the triangle defined by the three given points.
@@ -115,6 +182,10 @@ func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *Triangle) (bestSegPt, b
 		return segPt, triPt
 	}
 
+	// the logic is a little wrong above
+	// if seg is parallel to triangle, segPt might not rly be closest to triangle
+	// or i guess that's fine, skip inside case, just bleeds into the below, now need to check this
+
 	// If not inside, check triangle edges for the closest point.
 	bestSegPt, bestTriPt = ClosestPointsSegmentSegment(ap1, ap2, t.p0, t.p1)
 	bestDist := bestSegPt.Sub(bestTriPt).Norm2()
@@ -150,10 +221,38 @@ func closestPointsSegmentPlane(ap1, ap2, planePt, planeNormal r3.Vector) (segPt,
 	// plug it into the plane equation dot(n, S(t)) - d = 0, then solve for t to
 	// get the line-plane intersection. We then clip t to be in [0, 1] to be on
 	// the line segment.
+
+	//old:
+	// segVec := ap2.Sub(ap1)
+	// d := planePt.Dot(planeNormal)
+	// denom := planeNormal.Dot(segVec)
+	// t := (d - planeNormal.Dot(ap1)) / (denom + 1e-6)
+	// coplanarPt = segVec.Mul(t).Add(ap1)
+	// if t <= 0 {
+	// 	return ap1, coplanarPt
+	// }
+	// if t >= 1 {
+	// 	return ap2, coplanarPt
+	// }
+	// return coplanarPt, coplanarPt
+
+	// can maybe check how other people do this
+	// slightly worried about overflow
+
 	segVec := ap2.Sub(ap1)
 	d := planePt.Dot(planeNormal)
 	denom := planeNormal.Dot(segVec)
-	t := (d - planeNormal.Dot(ap1)) / (denom + 1e-6)
+	if math.Abs(denom) < floatEpsilon {
+		coplanarPt = ap1.Sub(planeNormal.Mul(planeNormal.Dot(ap1) - d))
+		return ap1, coplanarPt
+	}
+	// if denom*num < 0 { // t <= 0
+
+	// }
+	// if math.Abs(denom) < math.Abs(num) { // t >= 1, circumventing overflow. critically "else" prior case
+
+	// }
+	t := (d - planeNormal.Dot(ap1)) / denom
 	coplanarPt = segVec.Mul(t).Add(ap1)
 	if t <= 0 {
 		return ap1, coplanarPt

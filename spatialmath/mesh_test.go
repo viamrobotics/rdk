@@ -79,38 +79,168 @@ func TestMeshTransform(t *testing.T) {
 }
 
 func TestMeshCollidesWithMesh(t *testing.T) {
-	mesh1 := makeSimpleTriangleMesh()
+	// mesh1 := makeSimpleTriangleMesh()
 
 	// Test collision with overlapping mesh
-	mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{X: 0.5, Y: 0.5, Z: 0},
+	// mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{X: 0.5, Y: 0.5, Z: 0},
+	// 	[]*Triangle{NewTriangle(
+	// 		r3.Vector{X: 0, Y: 0, Z: 0},
+	// 		r3.Vector{X: 1, Y: 0, Z: 0},
+	// 		r3.Vector{X: 0, Y: 1, Z: 0},
+	// 	)})
+
+	// collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+	// test.That(t, err, test.ShouldBeNil)
+	// test.That(t, collides, test.ShouldBeTrue)
+
+	// dont need to erase the above but let's try to be more systematic
+
+	// A mesh has 3 parts: {vertex, edge, face} ==> 6 possible collisions, accounting for symmetry
+	// if using this repeatedly, may want to define above
+	mesh1 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
 			r3.Vector{X: 0, Y: 1, Z: 0},
 		)})
 
-	collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
+	// v-v
+	t.Run("triangle vertex against triangle vertex", func(t *testing.T) {
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+			[]*Triangle{NewTriangle(
+				r3.Vector{X: 0, Y: 0, Z: 0},
+				r3.Vector{X: 0, Y: 0, Z: 1},
+				r3.Vector{X: 1, Y: 0, Z: 1},
+			)})
+		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// v-e
+	t.Run("triangle vertex against triangle edge", func(t *testing.T) {
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+			[]*Triangle{NewTriangle(
+				r3.Vector{X: 0, Y: 0, Z: 1},
+				r3.Vector{X: 0, Y: 0, Z: -1},
+				r3.Vector{X: -1, Y: 0, Z: 0},
+			)})
+		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// v-f
+	t.Run("triangle vertex against triangle face", func(t *testing.T) {
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+			[]*Triangle{NewTriangle(
+				r3.Vector{X: 0.4, Y: 0.4, Z: 0},
+				r3.Vector{X: 0, Y: 0.4, Z: 1},
+				r3.Vector{X: 1, Y: 0.4, Z: 1},
+			)})
+		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// e-e
+	t.Run("triangle edge against triangle edge", func(t *testing.T) {
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+			[]*Triangle{NewTriangle(
+				r3.Vector{X: 0.5, Y: 0, Z: 0.5},
+				r3.Vector{X: 0.5, Y: 0, Z: -0.5},
+				r3.Vector{X: 0.5, Y: -1, Z: 0},
+			)})
+		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// e-f -- implies one of the above collision types (e.g., e-e, so if they all work we're fine)
+	// but right now, e-e isn't working. What if we try e-f that implies only e-e (and nothing involving v?)
+	t.Run("triangle edge against triangle face", func(t *testing.T) {
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+			[]*Triangle{NewTriangle(
+				r3.Vector{X: 0.5, Y: -0.1, Z: 0},
+				r3.Vector{X: -0.1, Y: 0.5, Z: 0},
+				r3.Vector{X: 0, Y: 0, Z: 1},
+			)})
+		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// f-f -- implies one of the above collision types
+	// again, let's try one that just applies e-e
+	// actually redundancy claim isn't 100% true, it's difficult to test every type of e-e for example
+	// in fact, originally parallel e-e was failing, wouldn't have realized without this f-f test!
+	// but not sure what exactly the generalization is... hard to think of every case
+	t.Run("triangle face against triangle face", func(t *testing.T) {
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+			[]*Triangle{NewTriangle(
+				r3.Vector{X: 0.5, Y: -0.1, Z: 0},
+				r3.Vector{X: -0.1, Y: 0.5, Z: 0},
+				r3.Vector{X: 0.6, Y: 0.6, Z: 0},
+			)})
+		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// DELETE THIS
+	t.Run("debug triangle face against triangle face", func(t *testing.T) {
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+			[]*Triangle{NewTriangle(
+				r3.Vector{X: 0.5, Y: -0.1, Z: 0},
+				r3.Vector{X: -0.1, Y: 0.5, Z: 0},
+				r3.Vector{X: 0.6, Y: 0.6, Z: 0},
+			)})
+		p0 := r3.Vector{X: 0.5, Y: -0.1, Z: 0}
+		p1 := r3.Vector{X: -0.1, Y: 0.5, Z: 0}
+		fmt.Println(closestPointsSegmentTriangle(p0, p1, mesh1.Triangles()[0]))
+		fmt.Println(ClosestPointsSegmentSegment(p0, p1, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 1, Z: 0}))
+		fmt.Println(ClosestPointsSegmentSegment(r3.Vector{X: -1, Y: 0.4, Z: 0}, r3.Vector{X: 1, Y: 0.6, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 1, Z: 0}))
+		fmt.Println(ClosestPointsSegmentSegment(r3.Vector{X: -3, Y: 0.2, Z: 0}, r3.Vector{X: 3, Y: 0.8, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 1, Z: 0}))
+		fmt.Println(ClosestPointsSegmentSegment(r3.Vector{X: -1, Y: 0.5, Z: 0}, r3.Vector{X: 1, Y: 0.5, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 1, Z: 0}))
+		// ok, closest points segment-segment is also bugged
+		// hmm, the logic is slightly funny isn't it?? yeah it def is, it's assuming the segments are like far away or smthn
+		// when they "overlap" so to speak, the sitch is ugly (eh not sure exactly what the case is, like perp or || is fine)
+		// anyway defo fails the general case
+
+		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
 
 	// Test collision with non-overlapping mesh
-	mesh3 := makeTestMesh(NewZeroOrientation(), r3.Vector{X: 2, Y: 2, Z: 0},
-		[]*Triangle{NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 0},
-			r3.Vector{X: 1, Y: 0, Z: 0},
-			r3.Vector{X: 0, Y: 1, Z: 0},
-		)})
+	t.Run("non-overlapping mesh", func(t *testing.T) {
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+			[]*Triangle{NewTriangle(
+				r3.Vector{X: 0, Y: 0, Z: 0.2},
+				r3.Vector{X: 1, Y: 0, Z: 0.5},
+				r3.Vector{X: 0, Y: 1, Z: 0.3},
+			)})
+		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+	})
 
-	collides, err = mesh1.CollidesWith(mesh3, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeFalse)
+	// ENCOMPASSING?
 }
 
 func TestMeshCollidesWithCapsule(t *testing.T) {
 	mesh := makeSimpleTriangleMesh()
-	// TODOTODOTODO: NEED TO REORGANIZE AS WITH BOX, AND ADD t.RUNS
-	// e.g., like capsule line is not a necessary thing to specify, for example. glad to have better clarity on this.
+	mesh1 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		[]*Triangle{NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 1, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1, Z: 0},
+		)})
 	// looks like capsule canonically points on z-axis
+
+	// A mesh has 3 parts: {vertex, edge, face}
+	// A capsule has approx 3 parts: {extreme point, general spherical point, cylinder point}
+	// we enumerate the 9 possible pairs
 
 	// Collision with triangle vertex
 	// Capsule extreme vertex collision (with triangle vertex)
@@ -118,7 +248,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 	capsule, err := NewCapsule(NewPose(r3.Vector{X: 0, Y: 0, Z: 1.5},
 		NewZeroOrientation()), 1, 3, "")
 	test.That(t, err, test.ShouldBeNil)
-	collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+	collides, err := mesh1.CollidesWith(capsule, defaultCollisionBufferMM)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, collides, test.ShouldBeTrue)
 	// Capsule non-extreme spherical vertex collision (with triangle vertex)
