@@ -74,19 +74,23 @@ type moduleID struct {
 	name   string
 }
 
+type MachinePickerCustomizations struct {
+	Heading    string `json:"heading,omitempty"`
+	Subheading string `json:"subheading,omitempty"`
+}
+
+type AppCustomizations struct {
+	MachinePicker *MachinePickerCustomizations `json:"machinePicker,omitempty"`
+}
+
 // AppComponent represents metadata used to distinguish and describe an app.
 type AppComponent struct {
-	Name           string   `json:"name"`
-	Type           string   `json:"type"`
-	Entrypoint     string   `json:"entrypoint"`
-	FragmentIDs    []string `json:"fragmentIds,omitempty"`
-	LogoPath       string   `json:"logoPath,omitempty"`
-	Customizations *struct {
-		MachinePicker *struct {
-			Heading    string `json:"heading,omitempty"`
-			Subheading string `json:"subheading,omitempty"`
-		} `json:"machinePicker,omitempty"`
-	} `json:"customizations,omitempty"`
+	Name           string             `json:"name"`
+	Type           string             `json:"type"`
+	Entrypoint     string             `json:"entrypoint"`
+	FragmentIDs    []string           `json:"fragmentIds,omitempty"`
+	LogoPath       string             `json:"logoPath,omitempty"`
+	Customizations *AppCustomizations `json:"customizations,omitempty"`
 }
 
 // manifestBuildInfo is the "build" section of meta.json.
