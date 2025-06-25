@@ -110,7 +110,8 @@ func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.Med
 			if conf.FrameRate > 0.0 {
 				constraint.FrameRate = prop.FloatExact(conf.FrameRate)
 			} else {
-				constraint.FrameRate = prop.FloatRanged{Min: 0.0, Ideal: 30.0, Max: 140.0}
+				conf.FrameRate = 30.0
+				constraint.FrameRate = prop.FloatExact(conf.FrameRate)
 			}
 
 			if conf.Format == "" {
@@ -210,6 +211,8 @@ type webcam struct {
 	disconnected            bool
 	activeBackgroundWorkers sync.WaitGroup
 	logger                  logging.Logger
+
+	buffer *WebcamBuffer
 }
 
 // NewWebcam returns the webcam discovered based on the given config as the Camera interface type.
@@ -220,7 +223,6 @@ func NewWebcam(
 	logger logging.Logger,
 ) (camera.Camera, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
-
 	cam := &webcam{
 		Named:     conf.ResourceName().AsNamed(),
 		logger:    logger.WithFields("camera_name", conf.ResourceName().ShortName()),
@@ -230,6 +232,14 @@ func NewWebcam(
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+
+	frameRate := float32(30.0)
+	if cam.conf.FrameRate != 0.0 {
+		frameRate = cam.conf.FrameRate
+	}
+	cam.buffer = NewWebcamBuffer(cam.reader, cam.logger, frameRate)
+	cam.buffer.StartBuffer()
+
 	cam.Monitor()
 
 	return cam, nil
@@ -381,15 +391,11 @@ func (c *webcam) Images(ctx context.Context) ([]camera.NamedImage, resource.Resp
 		return nil, resource.ResponseMetadata{}, err
 	}
 
-	img, release, err := c.reader.Read()
+	img, err := c.buffer.GetLatestFrame()
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "monitoredWebcam: call to get Images failed")
+		return nil, resource.ResponseMetadata{}, err
 	}
-	defer func() {
-		if release != nil {
-			release()
-		}
-	}()
+
 	return []camera.NamedImage{{img, c.Name().Name}}, resource.ResponseMetadata{time.Now()}, nil
 }
 
@@ -414,11 +420,10 @@ func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]in
 	if c.reader == nil {
 		return nil, camera.ImageMetadata{}, errors.New("underlying reader is nil")
 	}
-	img, release, err := c.reader.Read()
+	img, err := c.buffer.GetLatestFrame()
 	if err != nil {
 		return nil, camera.ImageMetadata{}, err
 	}
-	defer release()
 
 	if mimeType == "" {
 		mimeType = utils.MimeTypeJPEG
@@ -492,6 +497,10 @@ func (c *webcam) Close(ctx context.Context) error {
 	c.mu.Unlock()
 	c.cancel()
 	c.activeBackgroundWorkers.Wait()
+
+	if c.buffer != nil {
+		c.buffer.StopBuffer()
+	}
 
 	return c.driver.Close()
 }
