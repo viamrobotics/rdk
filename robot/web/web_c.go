@@ -63,7 +63,7 @@ func (svc *webService) closeStreamServer() {
 	svc.streamServer = nil
 }
 
-func (svc *webService) initStreamServer(ctx context.Context) error {
+func (svc *webService) initStreamServer(ctx context.Context, srv rpc.Server) error {
 	// The webService depends on the stream server in addition to modules. We relax expectations on
 	// what will be started first and allow for any order.
 	if svc.streamServer == nil {
@@ -80,36 +80,6 @@ func (svc *webService) initStreamServer(ctx context.Context) error {
 		return err
 	}
 
-	// Register the stream server + APIs with the outward facing gRPC server.
-	if err := svc.rpcServer.RegisterServiceServer(
-		ctx,
-		&streampb.StreamService_ServiceDesc,
-		svc.streamServer,
-		streampb.RegisterStreamServiceHandlerFromEndpoint,
-	); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (svc *webService) initStreamServerForModule(ctx context.Context, srv rpc.Server) error {
-	// Module's can depend on the stream server, in addition to the general "client facing" RPC
-	// server. We relax expectations on what will be started first and allow for any order.
-	if svc.streamServer == nil {
-		var streamConfig gostream.StreamConfig
-		if svc.opts.streamConfig != nil {
-			streamConfig = *svc.opts.streamConfig
-		} else {
-			svc.logger.Warn("streamConfig is nil, using empty config")
-		}
-		svc.streamServer = webstream.NewServer(svc.r, streamConfig, svc.logger)
-	}
-
-	if err := svc.streamServer.AddNewStreams(svc.cancelCtx); err != nil {
-		return err
-	}
-
-	// Register the stream server + APIs with the gRPC server for modules.
 	return srv.RegisterServiceServer(
 		ctx,
 		&streampb.StreamService_ServiceDesc,

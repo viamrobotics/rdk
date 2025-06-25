@@ -255,7 +255,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		return err
 	}
 
-	if err := svc.initStreamServerForModule(ctx, server); err != nil {
+	if err := svc.initStreamServer(ctx, server); err != nil {
 		return err
 	}
 
@@ -460,7 +460,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	if err := svc.initStreamServer(ctx); err != nil {
+	if err := svc.initStreamServer(ctx, svc.rpcServer); err != nil {
 		return err
 	}
 
