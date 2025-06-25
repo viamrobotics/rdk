@@ -52,7 +52,7 @@ func SegmentDistanceToSegment(ap1, ap2, bp1, bp2 r3.Vector) float64 {
 }
 
 // ClosestPointsSegmentSegment will return the points at which two line segments are closest to one another.
-func ClosestPointsSegmentSegment(ap1, ap2, bp1, bp2 r3.Vector) (r3.Vector, r3.Vector) {
+func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector) {
 	// // vectors between line endpoints:
 	// v0 := bp1.Sub(ap1)
 	// v1 := bp2.Sub(ap1)
@@ -79,24 +79,29 @@ func ClosestPointsSegmentSegment(ap1, ap2, bp1, bp2 r3.Vector) (r3.Vector, r3.Ve
 
 	// ==================================================
 
+	// fix variable names:
+	// get rid of the ps
+
 	// Proceed according to this math.stackexchange solution: https://math.stackexchange.com/a/2812513
 	// The stack solution has a sign error, which we correct
-	D3121 := bp1.Sub(ap1).Dot(ap2.Sub(ap1))
-	D4321 := bp2.Sub(bp1).Dot(ap2.Sub(ap1))
-	D4331 := bp2.Sub(bp1).Dot(bp1.Sub(ap1))
-	R1pow2 := ap2.Sub(ap1).Dot(ap2.Sub(ap1))
-	R2pow2 := bp2.Sub(bp1).Dot(bp2.Sub(bp1))
+	// These (ugly) variable names were chosen to match those in the stack exchange, for easy reference
+	d3121 := b1.Sub(a1).Dot(a2.Sub(a1))
+	d4321 := b2.Sub(b1).Dot(a2.Sub(a1))
+	d4331 := b2.Sub(b1).Dot(b1.Sub(a1))
+	r1pow2 := a2.Sub(a1).Norm2()
+	r2pow2 := b2.Sub(b1).Norm2()
 
-	denom := R1pow2*R2pow2 - D4321*D4321
+	denom := r1pow2*r2pow2 - d4321*d4321
 	// If denom is 0, the segments are parallel, and we can jump to the endpt case below
+	// If denom is not 0, we finish our algebra
 	if denom != 0 {
 		// Find the closest points on the lines each segment define
 		// If s or t lie outside of [0,1], the closest points on the lines are NOT on the finite segments
-		s := (D3121*R2pow2 - D4331*D4321) / denom
-		t := (D3121*D4321 - D4331*R1pow2) / denom
+		s := (d3121*r2pow2 - d4331*d4321) / denom
+		t := (d3121*d4321 - d4331*r1pow2) / denom
 		if 0 <= s && s <= 1 && 0 <= t && t <= 1 {
-			bestSeg1Pt := ap1.Add(ap2.Sub(ap1).Mul(s))
-			bestSeg2Pt := bp1.Add(bp2.Sub(bp1).Mul(t))
+			bestSeg1Pt := a1.Add(a2.Sub(a1).Mul(s))
+			bestSeg2Pt := b1.Add(b2.Sub(b1).Mul(t))
 			return bestSeg1Pt, bestSeg2Pt
 		}
 	}
@@ -104,14 +109,14 @@ func ClosestPointsSegmentSegment(ap1, ap2, bp1, bp2 r3.Vector) (r3.Vector, r3.Ve
 	// If we're here, the lines are either parallel or their closest points lie off at least one of the segments
 	// It suffices to just check each segment against the other segment's endpoints
 	// (early return makes this a little harder to read)
-	bestSeg1Pt := ap1
-	bestSeg2Pt := ClosestPointSegmentPoint(bp1, bp2, ap1)
+	bestSeg1Pt := a1
+	bestSeg2Pt := ClosestPointSegmentPoint(b1, b2, a1)
 	bestDist := bestSeg1Pt.Sub(bestSeg2Pt).Norm2()
 	if bestDist == 0 {
 		return bestSeg1Pt, bestSeg2Pt
 	}
-	seg1Pt := ap2
-	seg2Pt := ClosestPointSegmentPoint(bp1, bp2, ap2)
+	seg1Pt := a2
+	seg2Pt := ClosestPointSegmentPoint(b1, b2, a2)
 	dist := seg2Pt.Sub(seg1Pt).Norm2()
 	if dist == 0 {
 		return seg1Pt, seg2Pt
@@ -120,8 +125,8 @@ func ClosestPointsSegmentSegment(ap1, ap2, bp1, bp2 r3.Vector) (r3.Vector, r3.Ve
 		bestSeg1Pt, bestSeg2Pt = seg1Pt, seg2Pt
 		bestDist = dist
 	}
-	seg1Pt = ClosestPointSegmentPoint(ap1, ap2, bp1)
-	seg2Pt = bp1
+	seg1Pt = ClosestPointSegmentPoint(a1, a2, b1)
+	seg2Pt = b1
 	dist = seg2Pt.Sub(seg1Pt).Norm2()
 	if dist == 0 {
 		return seg1Pt, seg2Pt
@@ -130,8 +135,8 @@ func ClosestPointsSegmentSegment(ap1, ap2, bp1, bp2 r3.Vector) (r3.Vector, r3.Ve
 		bestSeg1Pt, bestSeg2Pt = seg1Pt, seg2Pt
 		bestDist = dist
 	}
-	seg1Pt = ClosestPointSegmentPoint(ap1, ap2, bp2)
-	seg2Pt = bp2
+	seg1Pt = ClosestPointSegmentPoint(a1, a2, b2)
+	seg2Pt = b2
 	dist = seg2Pt.Sub(seg1Pt).Norm2()
 	if dist == 0 {
 		return seg1Pt, seg2Pt
