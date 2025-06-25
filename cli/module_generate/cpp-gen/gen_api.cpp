@@ -22,7 +22,16 @@ int viam_cli_generate_cpp_module(const char* className,
         return 1;
     }
 
-    llvm::raw_fd_ostream outStream(tmpFile->FD, false);
+    std::cerr << "Created temp file " << tmpFile->TmpName << "\n";
+
+    std::error_code ec;
+
+    llvm::raw_fd_ostream outStream(tmpFile->TmpName, ec);
+
+    if (ec != std::error_code{}) {
+        std::cerr << "ostream failed with " << ec.message() << "\n";
+        return 1;
+    }
 
     auto gen =
         viam::gen::Generator::create(className, componentName, buildDir, sourceDir, outStream);
@@ -32,12 +41,17 @@ int viam_cli_generate_cpp_module(const char* className,
         return 1;
     }
 
+    std::cerr << "Ran generator\n";
+
     llvm::Error err = tmpFile->keep(outPath);
 
     if (err) {
-        std::cerr << "failed to keep module output file " << llvm::errorToErrorCode(std::move(err))
-                  << "\n";
+        std::cerr << "failed to keep module output file "
+                  << llvm::errorToErrorCode(std::move(err)).message() << "\n";
+        return 1;
     }
+
+    std::cerr << "kept temp file\n";
 
     return 0;
 } catch (const std::exception& e) {

@@ -29,6 +29,12 @@ Generator Generator::create(llvm::StringRef className,
         throw std::runtime_error(error);
     }
 
+    llvm::outs() << llvm::formatv("class {0} component {1} build {2} source {3}\n",
+                                  className,
+                                  componentName,
+                                  buildDir,
+                                  sourceDir);
+
     return Generator(GeneratorCompDB(*jsonDb, getCompilersDefaultIncludeDir(*jsonDb, true)),
                      className.str(),
                      componentName.str(),
@@ -248,7 +254,10 @@ Generator::Generator(GeneratorCompDB db,
       className_(std::move(className)),
       componentName_(std::move(componentName)),
       componentPath_(std::move(componentPath)),
-      moduleFile_(moduleFile) {}
+      moduleFile_(moduleFile) {
+    llvm::outs() << llvm::formatv(
+        "class {0} component {1} path {2}\n", className_, componentName_, componentPath_);
+}
 
 llvm::StringRef Generator::componentNameToSource(llvm::StringRef componentName) {
     static std::unordered_map<std::string_view, std::string_view> correspondence{

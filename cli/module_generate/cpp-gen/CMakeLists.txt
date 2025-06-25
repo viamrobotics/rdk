@@ -38,6 +38,15 @@ list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(HandleLLVMOptions)
 add_definitions(${LLVM_DEFINITIONS})
 
+file(RELATIVE_PATH BINTOPREFIXRELPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR} ${CMAKE_INSTALL_PREFIX})
+file(RELATIVE_PATH PREFIXTOLIBRELPATH ${CMAKE_INSTALL_PREFIX} ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    list(PREPEND CMAKE_INSTALL_RPATH "@loader_path/${BINTOPREFIXRELPATH}/${PREFIXTOLIBRELPATH}")
+else()
+    list(PREPEND CMAKE_INSTALL_RPATH "$ORIGIN/${BINTOPREFIXRELPATH}/${PREFIXTOLIBRELPATH}")
+endif()
+
 add_library(generator
     compilation_db.cpp
     compiler_info.cpp
@@ -76,3 +85,15 @@ add_executable(cl_gen
 )
 
 target_link_libraries(cl_gen PRIVATE generator)
+
+install(
+    TARGETS generator_api generator
+    DESTINATION lib
+)
+
+install(
+    FILES gen_api.h
+    DESTINATION include
+)
+
+
