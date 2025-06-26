@@ -266,15 +266,16 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 }
 
 type planner struct {
-	fs               referenceframe.FrameSystem
-	lfs              *linearizedFrameSystem
-	solver           ik.Solver
-	logger           logging.Logger
-	randseed         *rand.Rand
-	start            time.Time
-	scoringFunction  ik.SegmentFSMetric
-	poseDistanceFunc ik.SegmentMetric
-	planOpts         *plannerOptions
+	fs                        referenceframe.FrameSystem
+	lfs                       *linearizedFrameSystem
+	solver                    ik.Solver
+	logger                    logging.Logger
+	randseed                  *rand.Rand
+	start                     time.Time
+	scoringFunction           ik.SegmentFSMetric
+	poseDistanceFunc          ik.SegmentMetric
+	configurationDistanceFunc ik.SegmentFSMetric
+	planOpts                  *plannerOptions
 }
 
 func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.Logger, opt *plannerOptions) (*planner, error) {
@@ -291,14 +292,15 @@ func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.L
 		return nil, err
 	}
 	mp := &planner{
-		solver:           solver,
-		fs:               fs,
-		lfs:              lfs,
-		logger:           logger,
-		randseed:         seed,
-		planOpts:         opt,
-		scoringFunction:  opt.getScoringFunction(),
-		poseDistanceFunc: opt.getPoseDistanceFunc(),
+		solver:                    solver,
+		fs:                        fs,
+		lfs:                       lfs,
+		logger:                    logger,
+		randseed:                  seed,
+		planOpts:                  opt,
+		scoringFunction:           opt.getScoringFunction(),
+		poseDistanceFunc:          opt.getPoseDistanceFunc(),
+		configurationDistanceFunc: ik.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
 	}
 	return mp, nil
 }
@@ -497,7 +499,7 @@ IK:
 				}
 				err := mp.planOpts.CheckSegmentFSConstraints(stepArc)
 				if err == nil {
-					score := ik.ConfigurationDistance(mp.planOpts.ConfigurationDistanceMetric, stepArc)
+					score := ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)(stepArc)
 					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 						solutions = map[float64]referenceframe.FrameSystemInputs{}
 						solutions[score] = step
@@ -510,7 +512,7 @@ IK:
 							EndConfiguration:   step,
 							FS:                 mp.fs,
 						}
-						simscore := ik.ConfigurationDistance(mp.planOpts.ConfigurationDistanceMetric, similarity)
+						simscore := ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)(similarity)
 						if simscore < defaultSimScore {
 							continue IK
 						}

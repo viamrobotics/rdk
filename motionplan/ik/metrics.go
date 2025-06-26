@@ -316,15 +316,15 @@ func FSConfigurationL2Distance(segment *SegmentFS) float64 {
 	return score
 }
 
-// ConfigurationDistance measures the degree of "closeness" between the two states of a segment
-// according to an algorithm determined by `distType`.
-func ConfigurationDistance(distType SegmentFSMetricType, segment *SegmentFS) float64 {
+// GetConfigurationDistanceFunc returns a function that measures the degree of "closeness"
+// between the two states of a segment according to an algorithm determined by `distType`.
+func GetConfigurationDistanceFunc(distType SegmentFSMetricType) SegmentFSMetric {
 	switch distType {
 	case FSConfigurationDistanceMetric:
-		return FSConfigurationDistance(segment)
+		return FSConfigurationDistance
 	case FSConfigurationL2DistanceMetric:
-		return FSConfigurationL2Distance(segment)
+		return FSConfigurationL2Distance
 	default:
-		return FSConfigurationL2Distance(segment)
+		return FSConfigurationL2Distance
 	}
 }

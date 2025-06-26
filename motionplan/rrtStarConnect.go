@@ -192,14 +192,10 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 			return
 		}
-
-		reachedDelta := ik.ConfigurationDistance(
-			mp.planOpts.ConfigurationDistanceMetric,
-			&ik.SegmentFS{
-				StartConfiguration: map1reached.Q(),
-				EndConfiguration:   map2reached.Q(),
-			},
-		)
+		reachedDelta := ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)(&ik.SegmentFS{
+			StartConfiguration: map1reached.Q(),
+			EndConfiguration:   map2reached.Q(),
+		})
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.planOpts.InputIdentDist {
@@ -214,7 +210,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
-			reachedDelta = ik.ConfigurationDistance(mp.planOpts.ConfigurationDistanceMetric, &ik.SegmentFS{
+			reachedDelta = ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)(&ik.SegmentFS{
 				StartConfiguration: map1reached.Q(),
 				EndConfiguration:   map2reached.Q(),
 			})
@@ -274,9 +270,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			return
 		default:
 		}
-
-		dist := ik.ConfigurationDistance(
-			mp.planOpts.ConfigurationDistanceMetric,
+		dist := ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)(
 			&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()},
 		)
 		if dist < mp.planOpts.InputIdentDist {
@@ -291,7 +285,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			break
 		}
 
-		extendCost := ik.ConfigurationDistance(mp.planOpts.ConfigurationDistanceMetric, &ik.SegmentFS{
+		extendCost := ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)(&ik.SegmentFS{
 			StartConfiguration: oldNear.Q(),
 			EndConfiguration:   near.Q(),
 		})
@@ -307,7 +301,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			}
 
 			// check to see if a shortcut is possible, and rewire the node if it is
-			connectionCost := ik.ConfigurationDistance(mp.planOpts.ConfigurationDistanceMetric, &ik.SegmentFS{
+			connectionCost := ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)(&ik.SegmentFS{
 				StartConfiguration: thisNeighbor.node.Q(),
 				EndConfiguration:   near.Q(),
 			})
