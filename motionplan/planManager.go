@@ -689,7 +689,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 
 		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
 		// Otherwise we just use squared norm on inputs.
-		opt.SetScoringMetric(ik.PTGDistance)
+		opt.ScoringMetricStr = ik.PTGDistance
 
 		planAlg = "tpspace"
 	}

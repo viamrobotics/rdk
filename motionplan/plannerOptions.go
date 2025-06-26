@@ -273,10 +273,6 @@ func (p *plannerOptions) ScoringMetric() ik.ScoringMetric {
 	return p.ScoringMetricStr
 }
 
-func (p *plannerOptions) SetScoringMetric(metric ik.ScoringMetric) {
-	p.ScoringMetricStr = metric
-}
-
 func (p *plannerOptions) getScoringFunction() ik.SegmentFSMetric {
 	switch p.ScoringMetric() {
 	case ik.FSConfigScoringMetric:
