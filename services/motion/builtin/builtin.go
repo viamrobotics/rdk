@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -31,7 +30,6 @@ import (
 	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -296,6 +294,7 @@ func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (
 	return id, nil
 }
 
+// GetPose is deprecated
 func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
@@ -303,20 +302,10 @@ func (ms *builtIn) GetPose(
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
+	ms.logger.Warn("GetPose is deprecated. Please switch to using the GetPose method defined on the FrameSystem service")
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	if destinationFrame == "" {
-		destinationFrame = referenceframe.World
-	}
-	return ms.fsService.TransformPose(
-		ctx,
-		referenceframe.NewPoseInFrame(
-			componentName.ShortName(),
-			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
-		),
-		destinationFrame,
-		supplementalTransforms,
-	)
+	return ms.fsService.GetPose(ctx, componentName.ShortName(), destinationFrame, supplementalTransforms, extra)
 }
 
 func (ms *builtIn) StopPlan(

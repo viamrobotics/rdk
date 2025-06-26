@@ -365,10 +365,10 @@ type PlanWithStatus struct {
 // [Move method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#move
 // [MoveOnMap method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#moveonmap
 // [MoveOnGlobe method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#moveonglobe
-// [GetPose method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getpose
 // [StopPlan method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#stopplan
 // [ListPlanStatuses method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#listplanstatuses
 // [PlanHistory method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getplan
+// [GetPose method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getpose
 type Service interface {
 	resource.Resource
 
@@ -393,6 +393,7 @@ type Service interface {
 	// GetPose returns the location and orientation of a component within a frame system.
 	// It returns a `PoseInFrame` describing the pose of the specified component relative to the specified destination frame.
 	// The `supplemental_transforms` argument can be used to augment the machine's existing frame system with additional frames.
+	// deprecated, use framesystem.Servce.GetPose
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,

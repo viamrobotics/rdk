@@ -1139,14 +1139,24 @@ func (r *localRobot) extractModelFrameJSON(ctx context.Context, name resource.Na
 	return nil, referenceframe.ErrNoModelInformation
 }
 
+// GetPose returns the pose of the specified component in the given destination frame
+func (r *localRobot) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	return r.frameSvc.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+}
+
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 func (r *localRobot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
-	additionalTransforms []*referenceframe.LinkInFrame,
+	supplementalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
-	return r.frameSvc.TransformPose(ctx, pose, dst, additionalTransforms)
+	return r.frameSvc.TransformPose(ctx, pose, dst, supplementalTransforms)
 }
 
 // TransformPointCloud will transform the pointcloud to the desired frame in the robot's frame system.

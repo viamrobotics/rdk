@@ -50,6 +50,7 @@ import (
 	"go.viam.com/rdk/tunnel"
 	"go.viam.com/rdk/utils/contextutils"
 	nc "go.viam.com/rdk/web/networkcheck"
+	vprotoutils "go.viam.com/utils/protoutils"
 )
 
 var (
@@ -967,6 +968,33 @@ func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Conf
 	return &framesystem.Config{Parts: result}, nil
 }
 
+// GetPose returns the pose of the specified component in the given destination frame
+func (rc *RobotClient) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(supplementalTransforms)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := rc.client.GetPose(ctx, &pb.GetPoseRequest{
+		ComponentName:          componentName,
+		DestinationFrame:       destinationFrame,
+		SupplementalTransforms: transforms,
+		Extra:                  ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
+}
+
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 //
 //	  import (
@@ -980,9 +1008,9 @@ func (rc *RobotClient) TransformPose(
 	ctx context.Context,
 	query *referenceframe.PoseInFrame,
 	destination string,
-	additionalTransforms []*referenceframe.LinkInFrame,
+	supplementalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
-	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(additionalTransforms)
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(supplementalTransforms)
 	if err != nil {
 		return nil, err
 	}

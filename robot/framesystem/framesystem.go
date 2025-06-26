@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/golang/geo/r3"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -39,7 +40,36 @@ type InputEnabled interface {
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }
 
-// A Service that returns the frame system for a robot.
+// Service is an interface that wraps a RobotFrameSystem in a Resource
+type Service interface {
+	resource.Resource
+	RobotFrameSystem
+}
+
+// TODO this comment needs a bunch of work
+//
+// GetPose example:
+//
+//	// Insert code to connect to your machine.
+//	// (see CONNECT tab of your machine's page in the Viam app)
+//
+//	// Assumes a gripper configured with name "my_gripper" on the machine
+//	gripperName := gripper.Named("my_gripper")
+//
+//	// Access the motion service
+//	motionService, err := motion.FromRobot(machine, "builtin")
+//	if err != nil {
+//	  logger.Fatal(err)
+//	}
+//
+//	myGripperPose, err := motionService.GetPose(context.Background(), gripperName, referenceframe.World, nil, nil)
+//	if err != nil {
+//	  logger.Fatal(err)
+//	}
+//	logger.Info("Position of my_gripper from the motion service:", myGripperPose.Pose().Point())
+//	logger.Info("Orientation of my_gripper from the motion service:", myGripperPose.Pose().Orientation())
+//
+// For more information, see the [GetPose method docs].
 //
 // TransformPose example:
 //
@@ -59,14 +89,16 @@ type InputEnabled interface {
 //
 //	// Transform the first point cloud in the list from its reference frame to the frame of 'myArm'.
 //	transformed, err := fsService.TransformPointCloud(context.Background(), pointClouds[0], referenceframe.World, "myArm")
-//
-// CurrentInputs example:
-//
-//	myCurrentInputs, err := fsService.CurrentInputs(context.Background())
-//
-//	frameSystem, err := fsService.FrameSystem(context.Background(), nil)
-type Service interface {
-	resource.Resource
+type RobotFrameSystem interface {
+	// GetPose returns the pose a component within a frame system.
+	// It returns a `PoseInFrame` describing the pose of the specified component relative to the specified destination frame.
+	// The `supplemental_transforms` argument can be used to augment the machine's existing frame system with additional frames.
+	GetPose(
+		ctx context.Context,
+		componentName, destinationFrame string,
+		supplementalTransforms []*referenceframe.LinkInFrame,
+		extra map[string]interface{},
+	) (*referenceframe.PoseInFrame, error)
 
 	// TransformPose returns a transformed pose in the destination reference frame.
 	// This method converts a given source pose from one reference frame to a specified destination frame.
@@ -79,13 +111,6 @@ type Service interface {
 
 	// TransformPointCloud returns a new point cloud with points adjusted from one reference frame to a specified destination frame.
 	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
-
-	// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
-	// and a map of statuses indicating which of the machine's components may be actuated through input values.
-	CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, map[string]InputEnabled, error)
-
-	// FrameSystem returns the frame system of the machine and incorporates any specified additional transformations.
-	FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
 }
 
 // FromDependencies is a helper for getting the framesystem from a collection of dependencies.
@@ -198,6 +223,27 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 	svc.parts = sortedParts
 	svc.logger.Debugf("reconfigured robot frame system: %v", (&Config{Parts: sortedParts}).String())
 	return nil
+}
+
+// GetPose returns the pose of the specified component in the given destination frame
+func (svc *frameSystemService) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	if destinationFrame == "" {
+		destinationFrame = referenceframe.World
+	}
+	if componentName == "" {
+		return nil, errors.New("must provide component name")
+	}
+	return svc.TransformPose(
+		ctx,
+		referenceframe.NewPoseInFrame(componentName, spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})),
+		destinationFrame,
+		supplementalTransforms,
+	)
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
