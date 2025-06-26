@@ -401,6 +401,16 @@ func (rr *ratioReading) diff(other *ratioReading) ratioReading {
 	}
 }
 
+func (rr *ratioReading) diffAgainstZero(denominator float64) ratioReading {
+	return ratioReading{
+		rr.GraphName,
+		rr.Time,
+		rr.Numerator,
+		rr.Denominator - denominator,
+		rr.isRate,
+	}
+}
+
 // pullRatios returns true if any of the `ratioMetrics` match the input `reading`. If so, a new
 // `ratioReading` is added to the `outDeferredReadings`.
 func pullRatios(
@@ -547,9 +557,13 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratio
 				// We expect this to happen when there's only one reading in some window size. This
 				// can be very spammy, so it's at the debug level. A bug could easily introduce
 				// unexpected cases to enter this code path.
-				logger.Debugw("Deferred value missing a previous value to diff",
+				logger.Debugw("Deferred value missing a previous value to diff.",
 					"metricName", metricName, "time", currRatioReading.Time)
-				continue
+
+				// For cases where a metric comes into existence as non-zero, we can assume it's
+				// older readings would have been zero. We additionally make an assumption that this
+				// is a time metric.
+				diff = currRatioReading.diffAgainstZero(float64(currRatioReading.Time) - windowSize.Seconds())
 			}
 
 			value, err := diff.toValue()

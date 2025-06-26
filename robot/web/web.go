@@ -592,7 +592,7 @@ func (rc *RequestCounter) postRequestIncrement(key string, timeSpent time.Durati
 			stats.errorCnt.Add(1)
 		}
 	} else if testing.Testing() {
-		panic("Invariant failed. Key must exist in `postRequestIncrement`.")
+		panic(fmt.Sprintf("Invariant failed. Key must exist in `postRequestIncrement`. Key: %v", key))
 	}
 }
 
@@ -632,9 +632,9 @@ func extractViamAPI(fullMethod string) string {
 // buildRCKey builds the key to be used in the RequestCounter's counts map.
 // If the msg satisfies web.Namer, the key will be in the format "name.method",
 // Otherwise, the key will be just "method".
-func buildRCKey(clientMsg *any, apiMethod string) string {
+func buildRCKey(clientMsg any, apiMethod string) string {
 	if clientMsg != nil {
-		if namer, ok := (*clientMsg).(Namer); ok {
+		if namer, ok := clientMsg.(Namer); ok {
 			return fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
 		}
 	}
@@ -648,7 +648,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
 
-	requestCounterKey := buildRCKey(&req, apiMethod)
+	requestCounterKey := buildRCKey(req, apiMethod)
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod != "" {
 		rc.preRequestIncrement(requestCounterKey)
@@ -688,8 +688,9 @@ type wrappedStreamWithRC struct {
 	googlegrpc.ServerStream
 	apiMethod string
 	rc        *RequestCounter
-	// marks once the first message has been received
-	seenFirst atomic.Bool
+
+	// Set on the initial client request.
+	requestKey atomic.Pointer[string]
 }
 
 // RecvMsg increments the reference counter upon receiving the first message from the client.
@@ -698,11 +699,28 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 	// Unmarshalls into m (to populate fields).
 	err := w.ServerStream.RecvMsg(m)
 
-	if w.seenFirst.CompareAndSwap(false, true) && err == nil {
-		key := buildRCKey(&m, w.apiMethod)
-		w.rc.preRequestIncrement(key)
+	if w.requestKey.Load() == nil {
+		requestKey := buildRCKey(m, w.apiMethod)
+		w.requestKey.Store(&requestKey)
+		// Dan: As above, we have to call the underlying handler first before
+		// `preRequestIncrement`. Because the message object has not been initialized yet. It's not
+		// clear to me what options we have to pull out the message's `name` field before
+		w.rc.preRequestIncrement(requestKey)
 	}
 
+	return err
+}
+
+func (w *wrappedStreamWithRC) SendMsg(m any) error {
+	if requestKeyPtr := w.requestKey.Load(); requestKeyPtr != nil {
+		if protoMsg, ok := m.(proto.Message); ok {
+			w.rc.postRequestIncrement(*requestKeyPtr, 0, proto.Size(protoMsg), false)
+		}
+	} else { // if testing.Testing() {
+		panic(fmt.Sprintf("Invariant failed. Key must exist for `postRequestIncrement`. Key: %v", w.requestKey.Load()))
+	}
+
+	err := w.ServerStream.SendMsg(m)
 	return err
 }
 
@@ -721,7 +739,7 @@ func (rc *RequestCounter) StreamInterceptor(
 
 	// Only count Viam apiMethods
 	if apiMethod != "" {
-		return handler(srv, &wrappedStreamWithRC{ss, apiMethod, rc, atomic.Bool{}})
+		return handler(srv, &wrappedStreamWithRC{ss, apiMethod, rc, atomic.Pointer[string]{}})
 	}
 	return handler(srv, ss)
 }
