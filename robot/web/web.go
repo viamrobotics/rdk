@@ -602,7 +602,7 @@ func (rc *RequestCounter) Stats() any {
 	rc.requestKeyToStats.Range(func(requestKeyI, requestStatsI any) bool {
 		requestKey := requestKeyI.(string)
 		requestStats := requestStatsI.(*requestStats)
-		ret[fmt.Sprintf("%v.count", requestKey)] = requestStats.count.Load()
+		ret[fmt.Sprintf("%v", requestKey)] = requestStats.count.Load()
 		ret[fmt.Sprintf("%v.errorCnt", requestKey)] = requestStats.errorCnt.Load()
 		ret[fmt.Sprintf("%v.timeSpent", requestKey)] = requestStats.timeSpent.Load()
 		ret[fmt.Sprintf("%v.dataSentBytes", requestKey)] = requestStats.dataSent.Load()
@@ -668,10 +668,14 @@ func (rc *RequestCounter) UnaryInterceptor(
 			//
 			// Perhaps the "perfect" solution is to track both "request started" and "request
 			// finished". And have latency graphs use "request finished".
+			respSize := 0
+			if protoMsg, ok := resp.(proto.Message); ok {
+				respSize = proto.Size(protoMsg)
+			}
 			rc.postRequestIncrement(
 				requestCounterKey,
 				time.Since(start),
-				proto.Size(resp.(proto.Message)),
+				respSize,
 				err != nil)
 		}()
 	}
