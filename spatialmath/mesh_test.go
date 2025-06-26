@@ -140,7 +140,8 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 	})
 
 	// e-f. This implies one of the above collision types (e.g., e-e) so if they're all perfectly tested (difficult to guarantee) we're fine
-	// nonetheless worth keeping: e-f is the basic collision type checked by collidesWithMesh, and the special case of e parallel to f is important
+	// nonetheless worth keeping: e-f is the basic collision type checked by collidesWithMesh,
+	// and the special case of e parallel to f is important
 	t.Run("triangle edge against triangle face", func(t *testing.T) {
 		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
