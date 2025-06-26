@@ -461,6 +461,8 @@ func (pm *planManager) planParallelRRTMotion(
 }
 
 // This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens.
+// NOTE: In the near future, this function should only return a `ConstraintHandler` and the `plannerOptions`
+// object should be obtained by marshalling `planningOpts` to JSON and unmarshalling to `plannerOptions`.
 func (pm *planManager) plannerAndConstraintSetupFromMoveRequest(
 	from, to *PlanState,
 	seedMap referenceframe.FrameSystemInputs, // A known good configuration to set up collsiion constraints. Not necessarily `from`.
