@@ -156,12 +156,13 @@ func newTPSpaceMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
+	constraintHandler *ConstraintHandler,
 ) (motionPlanner, error) {
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
 
-	mp, err := newPlanner(fs, seed, logger, opt)
+	mp, err := newPlanner(fs, seed, logger, opt, constraintHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -623,7 +624,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStart
 		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.tpFrame}
 
 		// In addition to checking every `Resolution`, we also check both endpoints.
-		err := mp.planOpts.CheckStateConstraints(trajState)
+		err := mp.CheckStateConstraints(trajState)
 		if err != nil {
 			okDist := trajPt.Dist * defaultCollisionWalkbackPct
 			if okDist > defaultMinTrajectoryLength {
@@ -893,7 +894,7 @@ func ptgSolution(ptg tpspace.PTGSolver,
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
 	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
-	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.fs, mp.randseed, mp.logger, mp.planOpts)
+	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.fs, mp.randseed, mp.logger, mp.planOpts, mp.ConstraintHandler)
 	if err != nil {
 		return path
 	}

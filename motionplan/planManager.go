@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -42,7 +41,7 @@ func newPlanManager(
 	seed int,
 ) (*planManager, error) {
 	//nolint: gosec
-	p, err := newPlanner(fs, rand.New(rand.NewSource(int64(seed))), logger, nil)
+	p, err := newPlanner(fs, rand.New(rand.NewSource(int64(seed))), logger, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +65,7 @@ type atomicWaypoint struct {
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
 func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanRequest, seedPlan Plan) (Plan, error) {
-	opt, err := pm.plannerSetupFromMoveRequest(
+	opt, constraintHandler, err := pm.plannerAndConstraintSetupFromMoveRequest(
 		request.StartState,
 		request.Goals[0],
 		request.StartState.configuration, // No way to this code without validating the request and ensuring this exists
@@ -78,6 +77,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, request *PlanReque
 	if err != nil {
 		return nil, err
 	}
+	pm.ConstraintHandler = constraintHandler
 	pm.planOpts = opt
 	if opt.useTPspace() {
 		return pm.planRelativeWaypoint(ctx, request, seedPlan, opt)
@@ -383,6 +383,7 @@ func (pm *planManager) planParallelRRTMotion(
 				rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 				pm.logger,
 				pathPlanner.opt().Fallback,
+				pm.ConstraintHandler,
 			)
 			if err != nil {
 				fallbackPlanner = nil
@@ -460,14 +461,14 @@ func (pm *planManager) planParallelRRTMotion(
 }
 
 // This is where the map[string]interface{} passed in via `extra` is used to decide how planning happens.
-func (pm *planManager) plannerSetupFromMoveRequest(
+func (pm *planManager) plannerAndConstraintSetupFromMoveRequest(
 	from, to *PlanState,
 	seedMap referenceframe.FrameSystemInputs, // A known good configuration to set up collsiion constraints. Not necessarily `from`.
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
 	constraints *Constraints,
 	planningOpts map[string]interface{},
-) (*plannerOptions, error) {
+) (*plannerOptions, *ConstraintHandler, error) {
 	var err error
 	if constraints == nil {
 		// Constraints may be nil, but if a motion profile is set in planningOpts we need it to be a valid pointer to an empty struct.
@@ -479,194 +480,72 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	opt := newBasicPlannerOptions()
 	opt.extra = planningOpts
 
-	startPoses, err := from.ComputePoses(pm.fs)
-	if err != nil {
-		return nil, err
-	}
-	goalPoses, err := to.ComputePoses(pm.fs)
-	if err != nil {
-		return nil, err
-	}
-
 	if partial, ok := planningOpts["return_partial_plan"]; ok {
 		if use, ok := partial.(bool); ok && use {
 			opt.ReturnPartialPlan = true
 		}
 	}
 
-	collisionBufferMM := defaultCollisionBufferMM
-	collisionBufferMMRaw, ok := planningOpts["collision_buffer_mm"]
-	if ok {
-		collisionBufferMM, ok = collisionBufferMMRaw.(float64)
-		if !ok {
-			return nil, errors.New("could not interpret collision_buffer_mm field as float64")
-		}
-		if collisionBufferMM < 0 {
-			return nil, errors.New("collision_buffer_mm can't be negative")
-		}
+	// convert map to json, then to a struct, overwriting present defaults
+	jsonString, err := json.Marshal(planningOpts)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = json.Unmarshal(jsonString, opt)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if opt.CollisionBufferMM < 0 {
+		return nil, nil, errors.New("collision_buffer_mm can't be negative")
+	}
+
+	// we want to deprecate, rather than break, usage of the "tolerance" key for
+	// OrientationMotionProfile
+	if opt.MotionProfile == OrientationMotionProfile {
+		opt.OrientationTolerance = opt.ToleranceFactor
 	}
 
 	motionChains, err := motionChainsFromPlanState(pm.fs, to)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	opt.motionChains = motionChains
 	if opt.useTPspace() {
 		opt.Resolution = defaultPTGCollisionResolution
 	}
 
-	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pm.fs, seedMap)
-	if err != nil {
-		return nil, err
-	}
-
-	movingRobotGeometries, staticRobotGeometries := motionChains.geometries(pm.fs, frameSystemGeometries)
-
-	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
-	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
-	// the state that observed the worldState should ultimately be included as part of the worldState message
-	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(pm.fs, seedMap)
-	if err != nil {
-		return nil, err
-	}
-	worldGeometries := obstaclesInFrame.Geometries()
-
-	frameNames := map[string]bool{}
-	for _, fName := range pm.fs.FrameNames() {
-		frameNames[fName] = true
-	}
-
-	allowedCollisions, err := collisionSpecifications(
-		constraints.GetCollisionSpecification(),
-		frameSystemGeometries,
-		frameNames,
-		worldState.ObstacleNames(),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// If we are planning on a SLAM map we want to not allow a collision with the pointcloud to start our move call
-	// Typically starting collisions are whitelisted,
-	// TODO: This is not the most robust way to deal with this but is better than driving through walls.
-	if opt.useTPspace() {
-		var zeroCG *collisionGraph
-		for _, geom := range worldGeometries {
-			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
-				if zeroCG == nil {
-					zeroCG, err = setupZeroCG(movingRobotGeometries, worldGeometries, allowedCollisions, false, collisionBufferMM)
-					if err != nil {
-						return nil, err
-					}
-				}
-				// Check if a moving geometry is in collision with a pointcloud. If so, error.
-				for _, collision := range zeroCG.collisions(collisionBufferMM) {
-					if collision.name1 == octree.Label() {
-						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name2)
-					} else if collision.name2 == octree.Label() {
-						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name1)
-					}
-				}
-			}
-		}
-	}
-
-	// add collision constraints
-	fsCollisionConstraints, stateCollisionConstraints, err := createAllCollisionConstraints(
-		movingRobotGeometries,
-		staticRobotGeometries,
-		worldGeometries,
+	constraintHandler, err := newConstraintHandler(
+		opt,
+		constraints,
+		from,
+		to,
+		pm.fs,
+		seedMap,
+		worldState,
 		boundingRegions,
-		allowedCollisions,
-		collisionBufferMM,
 	)
 	if err != nil {
-		return nil, err
-	}
-	// For TPspace
-	for name, constraint := range stateCollisionConstraints {
-		opt.AddStateConstraint(name, constraint)
-	}
-	for name, constraint := range fsCollisionConstraints {
-		opt.AddStateFSConstraint(name, constraint)
+		return nil, nil, err
 	}
 
-	// error handling around extracting motion_profile information from map[string]interface{}
-	var motionProfile string
-	profile, ok := planningOpts["motion_profile"]
-	if ok {
-		motionProfile, ok = profile.(string)
-		if !ok {
-			return nil, errors.New("could not interpret motion_profile field as string")
-		}
-	}
-
-	opt.profile = FreeMotionProfile
-	switch motionProfile {
-	case LinearMotionProfile:
-		opt.profile = LinearMotionProfile
-		// Linear constraints
-		linTol, ok := planningOpts["line_tolerance"].(float64)
-		if !ok {
-			// Default
-			linTol = defaultLinearDeviation
-		}
-		orientTol, ok := planningOpts["orient_tolerance"].(float64)
-		if !ok {
-			// Default
-			orientTol = defaultOrientationDeviation
-		}
-		constraints.AddLinearConstraint(LinearConstraint{linTol, orientTol})
-	case PseudolinearMotionProfile:
-		opt.profile = PseudolinearMotionProfile
-		tolerance, ok := planningOpts["tolerance"].(float64)
-		if !ok {
-			// Default
-			tolerance = defaultPseudolinearTolerance
-		}
-		constraints.AddPseudolinearConstraint(PseudolinearConstraint{tolerance, tolerance})
-	case OrientationMotionProfile:
-		opt.profile = OrientationMotionProfile
-		tolerance, ok := planningOpts["tolerance"].(float64)
-		if !ok {
-			// Default
-			tolerance = defaultOrientationDeviation
-		}
-		constraints.AddOrientationConstraint(OrientationConstraint{tolerance})
-	case PositionOnlyMotionProfile:
-		opt.profile = PositionOnlyMotionProfile
-		if !opt.useTPspace() || opt.PositionSeeds <= 0 {
-			opt.GoalMetricType = ik.PositionOnly
-		}
-	}
-
-	hasTopoConstraint, err := opt.addTopoConstraints(pm.fs, seedMap, startPoses, goalPoses, constraints)
-	if err != nil {
-		return nil, err
-	}
-	// convert map to json, then to a struct, overwriting present defaults
-	jsonString, err := json.Marshal(planningOpts)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(jsonString, opt)
-	if err != nil {
-		return nil, err
+	if (opt.MotionProfile == PositionOnlyMotionProfile) && (!opt.useTPspace() || opt.PositionSeeds <= 0) {
+		opt.GoalMetricType = ik.PositionOnly
 	}
 
 	alg, ok := planningOpts["planning_alg"]
 	if ok {
 		planAlg, ok = alg.(string)
 		if !ok {
-			return nil, errors.New("could not interpret planning_alg field as string")
+			return nil, nil, errors.New("could not interpret planning_alg field as string")
 		}
 	}
 	if opt.useTPspace() && planAlg != "" {
-		return nil, fmt.Errorf("cannot specify a planning_alg when planning for a TP-space frame. alg specified was %s", planAlg)
+		return nil, nil, fmt.Errorf("cannot specify a planning_alg when planning for a TP-space frame. alg specified was %s", planAlg)
 	}
-	if hasTopoConstraint {
+	if constraints.hasTopoConstraint() {
 		if planAlg != "" && planAlg != cbirrtName {
-			return nil, fmt.Errorf("cannot specify a planning alg other than cbirrt with topo constraints. alg specified was %s", planAlg)
+			return nil, nil, fmt.Errorf("cannot specify a planning alg other than cbirrt with topo constraints. alg specified was %s", planAlg)
 		}
 		planAlg = cbirrtName
 	}
@@ -677,7 +556,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		// no motion profiles for RRT*
 		// TODO(pl): more logic for RRT*?
 		opt.PlanningAlgorithm = RRTStar
-		return opt, nil
+		return opt, constraintHandler, nil
 	default:
 		// use default, already
 	}
@@ -694,7 +573,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		planAlg = "tpspace"
 	}
 
-	if opt.profile == FreeMotionProfile || opt.profile == PositionOnlyMotionProfile {
+	if opt.MotionProfile == FreeMotionProfile || opt.MotionProfile == PositionOnlyMotionProfile {
 		if planAlg == "" {
 			// set up deep copy for fallback
 			try1 := deepAtomicCopyMap(planningOpts)
@@ -703,9 +582,9 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
 			try1["planning_alg"] = "rrtstar"
-			try1Opt, err := pm.plannerSetupFromMoveRequest(from, to, seedMap, worldState, boundingRegions, constraints, try1)
+			try1Opt, _, err := pm.plannerAndConstraintSetupFromMoveRequest(from, to, seedMap, worldState, boundingRegions, constraints, try1)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			try1Opt.Fallback = opt
@@ -713,7 +592,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 		}
 	}
 
-	return opt, nil
+	return opt, constraintHandler, nil
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
@@ -734,7 +613,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 	}
 
 	subWaypoints := useSubWaypoints(request, seedPlan, wpi)
-	opt, err := pm.plannerSetupFromMoveRequest(
+	opt, constraintHandler, err := pm.plannerAndConstraintSetupFromMoveRequest(
 		startState,
 		wpGoals,
 		request.StartState.configuration,
@@ -754,7 +633,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		}
 		wpGoals = alteredGoals
 		// Regenerate opts since our metrics will have changed
-		opt, err = pm.plannerSetupFromMoveRequest(
+		opt, constraintHandler, err = pm.plannerAndConstraintSetupFromMoveRequest(
 			startState,
 			wpGoals,
 			request.StartState.configuration,
@@ -767,6 +646,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 			return nil, err
 		}
 	}
+	pm.ConstraintHandler = constraintHandler
 
 	// TPspace should never use subwaypoints
 	if !subWaypoints || opt.useTPspace() {
@@ -777,6 +657,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
 			opt,
+			constraintHandler,
 		)
 		if err != nil {
 			return nil, err
@@ -820,7 +701,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 				to.configuration[frameName] = toInputs
 			}
 		}
-		wpOpt, err := pm.plannerSetupFromMoveRequest(
+		wpOpt, wpConstraintHandler, err := pm.plannerAndConstraintSetupFromMoveRequest(
 			from,
 			to,
 			request.StartState.configuration,
@@ -839,6 +720,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
 			wpOpt,
+			wpConstraintHandler,
 		)
 		if err != nil {
 			return nil, err
@@ -992,7 +874,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, request *PlanRe
 			return nil, err
 		}
 	}
-	if opt.PositionSeeds > 0 && opt.profile == PositionOnlyMotionProfile {
+	if opt.PositionSeeds > 0 && opt.MotionProfile == PositionOnlyMotionProfile {
 		err = maps.fillPosOnlyGoal(wp.goalState.poses, opt.PositionSeeds)
 		if err != nil {
 			return nil, err
