@@ -22,7 +22,13 @@ const (
 	TPSpace = "tpspace"
 )
 
-type plannerConstructor func(referenceframe.FrameSystem, *rand.Rand, logging.Logger, *plannerOptions) (motionPlanner, error)
+type plannerConstructor func(
+	referenceframe.FrameSystem,
+	*rand.Rand,
+	logging.Logger,
+	*plannerOptions,
+	*ConstraintHandler,
+) (motionPlanner, error)
 
 func newPlannerConstructor(algo PlanningAlgorithm) plannerConstructor {
 	switch algo {
@@ -43,6 +49,7 @@ func newMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
+	constraintHandler *ConstraintHandler,
 ) (motionPlanner, error) {
-	return newPlannerConstructor(algo)(fs, seed, logger, opt)
+	return newPlannerConstructor(algo)(fs, seed, logger, opt, constraintHandler)
 }
