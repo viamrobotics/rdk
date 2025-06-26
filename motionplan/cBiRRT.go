@@ -177,10 +177,10 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		tryExtend := func(target node) (node, node, error) {
 			// attempt to extend maps 1 and 2 towards the target
 			utils.PanicCapturingGo(func() {
-				m1chan <- nm1.nearestNeighbor(nmContext, mp.planOpts, target, map1)
+				m1chan <- nm1.nearestNeighbor(nmContext, target, map1, nodeConfigurationDistanceFunc)
 			})
 			utils.PanicCapturingGo(func() {
-				m2chan <- nm2.nearestNeighbor(nmContext, mp.planOpts, target, map2)
+				m2chan <- nm2.nearestNeighbor(nmContext, target, map2, nodeConfigurationDistanceFunc)
 			})
 			nearest1 := <-m1chan
 			nearest2 := <-m2chan
@@ -217,10 +217,12 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		reachedDelta := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
-			StartConfiguration: map1reached.Q(),
-			EndConfiguration:   map2reached.Q(),
-		})
+		reachedDelta := mp.configurationDistanceFunc(
+			&ik.SegmentFS{
+				StartConfiguration: map1reached.Q(),
+				EndConfiguration:   map2reached.Q(),
+			},
+		)
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.planOpts.InputIdentDist {
@@ -235,7 +237,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
-			reachedDelta = mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+			reachedDelta = mp.configurationDistanceFunc(&ik.SegmentFS{
 				StartConfiguration: map1reached.Q(),
 				EndConfiguration:   map2reached.Q(),
 			})
@@ -297,9 +299,12 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			return
 		default:
 		}
+		configDistMetric := mp.configurationDistanceFunc
+		dist := configDistMetric(
+			&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
+		oldDist := configDistMetric(
+			&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
 
-		dist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
-		oldDist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
 		switch {
 		case dist < mp.planOpts.InputIdentDist:
 			mchan <- near
@@ -316,7 +321,9 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
 
 		if newNear != nil {
-			nearDist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
+			nearDist := mp.configurationDistanceFunc(
+				&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
+
 			if nearDist < math.Pow(mp.planOpts.InputIdentDist, 3) {
 				if !doubled {
 					doubled = true
@@ -411,7 +418,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return solutionMap
 		}
 		if failpos != nil {
-			dist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+			dist := mp.configurationDistanceFunc(&ik.SegmentFS{
 				StartConfiguration: target,
 				EndConfiguration:   failpos.EndConfiguration,
 			})
@@ -472,7 +479,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []node
 			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 			// so we allow elongation here.
-			dist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+			dist := mp.configurationDistanceFunc(&ik.SegmentFS{
 				StartConfiguration: inputSteps[i].Q(),
 				EndConfiguration:   reached.Q(),
 			})

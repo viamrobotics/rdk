@@ -28,8 +28,7 @@ func TestNearestNeighbor(t *testing.T) {
 	ctx := context.Background()
 
 	seed := referenceframe.FrameSystemInputs{"": {{23.1}}}
-	opt := newBasicPlannerOptions()
-	nn := nm.nearestNeighbor(ctx, opt, &basicNode{q: seed}, rrtMap)
+	nn := nm.nearestNeighbor(ctx, &basicNode{q: seed}, rrtMap, nodeConfigurationDistanceFunc)
 	test.That(t, nn.Q()[""][0].Value, test.ShouldAlmostEqual, 23.0)
 
 	// We add more nodes to trip the 1000 threshold. The `nearestNeighbor` call will use `nCPU` (2)
@@ -40,6 +39,6 @@ func TestNearestNeighbor(t *testing.T) {
 		j = iSol
 	}
 	seed = referenceframe.FrameSystemInputs{"": {{723.6}}}
-	nn = nm.nearestNeighbor(ctx, opt, &basicNode{q: seed}, rrtMap)
+	nn = nm.nearestNeighbor(ctx, &basicNode{q: seed}, rrtMap, nodeConfigurationDistanceFunc)
 	test.That(t, nn.Q()[""][0].Value, test.ShouldAlmostEqual, 724.0)
 }

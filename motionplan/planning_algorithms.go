@@ -10,16 +10,16 @@ import (
 // PlanningAlgorithm is an enum that determines which implmentation of motion planning should be used.
 // It is meant to be passed to newMotionPlanner (along with the arguments expected by the plannerConstructor
 // function type) in order to acquire an implementer of motionPlanner.
-type PlanningAlgorithm int
+type PlanningAlgorithm string
 
 const (
 	// CBiRRT indicates that a CBiRRTMotionPlanner should be used. This is currently the
 	// default motion planner.
-	CBiRRT PlanningAlgorithm = iota
+	CBiRRT PlanningAlgorithm = "cbirrt"
 	// RRTStar indicates that an RRTStarConnectMotionPlanner should be used.
-	RRTStar
+	RRTStar = "rrtstar"
 	// TPSpace indicates that TPSpaceMotionPlanner should be used.
-	TPSpace
+	TPSpace = "tpspace"
 )
 
 type plannerConstructor func(referenceframe.FrameSystem, *rand.Rand, logging.Logger, *plannerOptions) (motionPlanner, error)
