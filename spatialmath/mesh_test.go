@@ -1,7 +1,6 @@
 package spatialmath
 
 import (
-	"fmt"
 	"math"
 	"testing"
 
@@ -79,30 +78,14 @@ func TestMeshTransform(t *testing.T) {
 }
 
 func TestMeshCollidesWithMesh(t *testing.T) {
-	// mesh1 := makeSimpleTriangleMesh()
-
-	// Test collision with overlapping mesh
-	// mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{X: 0.5, Y: 0.5, Z: 0},
-	// 	[]*Triangle{NewTriangle(
-	// 		r3.Vector{X: 0, Y: 0, Z: 0},
-	// 		r3.Vector{X: 1, Y: 0, Z: 0},
-	// 		r3.Vector{X: 0, Y: 1, Z: 0},
-	// 	)})
-
-	// collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, collides, test.ShouldBeTrue)
-
-	// dont need to erase the above but let's try to be more systematic
-
-	// A mesh has 3 parts: {vertex, edge, face} ==> 6 possible collisions, accounting for symmetry
-	// if using this repeatedly, may want to define above
 	mesh1 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
 			r3.Vector{X: 0, Y: 1, Z: 0},
 		)})
+
+	// A mesh has 3 parts: {vertex, edge, face} ==> 6 possible basic collisions, accounting for symmetry
 
 	// v-v
 	t.Run("triangle vertex against triangle vertex", func(t *testing.T) {
@@ -156,8 +139,8 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
-	// e-f -- implies one of the above collision types (e.g., e-e, so if they all work we're fine)
-	// but right now, e-e isn't working. What if we try e-f that implies only e-e (and nothing involving v?)
+	// e-f. This implies one of the above collision types (e.g., e-e) so if they're all perfectly tested (difficult to guarantee) we're fine
+	// nonetheless worth keeping: e-f is the basic collision type checked by collidesWithMesh, and the special case of e parallel to f is important
 	t.Run("triangle edge against triangle face", func(t *testing.T) {
 		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
@@ -170,11 +153,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
-	// f-f -- implies one of the above collision types
-	// again, let's try one that just applies e-e
-	// actually redundancy claim isn't 100% true, it's difficult to test every type of e-e for example
-	// in fact, originally parallel e-e was failing, wouldn't have realized without this f-f test!
-	// but not sure what exactly the generalization is... hard to think of every case
+	// f-f. This implies one of the above collision types
 	t.Run("triangle face against triangle face", func(t *testing.T) {
 		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
@@ -187,33 +166,21 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
-	// DELETE THIS
-	t.Run("debug triangle face against triangle face", func(t *testing.T) {
+	// Test collision with no edge intersections
+	t.Run("clipped triangles", func(t *testing.T) {
 		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
-				r3.Vector{X: 0.5, Y: -0.1, Z: 0},
-				r3.Vector{X: -0.1, Y: 0.5, Z: 0},
-				r3.Vector{X: 0.6, Y: 0.6, Z: 0},
+				r3.Vector{X: 0.5, Y: 0.1, Z: 0.5},
+				r3.Vector{X: 0.5, Y: 0.1, Z: -0.5},
+				r3.Vector{X: -1, Y: 0, Z: 0},
 			)})
-		p0 := r3.Vector{X: 0.5, Y: -0.1, Z: 0}
-		p1 := r3.Vector{X: -0.1, Y: 0.5, Z: 0}
-		fmt.Println(closestPointsSegmentTriangle(p0, p1, mesh1.Triangles()[0]))
-		fmt.Println(ClosestPointsSegmentSegment(p0, p1, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 1, Z: 0}))
-		fmt.Println(ClosestPointsSegmentSegment(r3.Vector{X: -1, Y: 0.4, Z: 0}, r3.Vector{X: 1, Y: 0.6, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 1, Z: 0}))
-		fmt.Println(ClosestPointsSegmentSegment(r3.Vector{X: -3, Y: 0.2, Z: 0}, r3.Vector{X: 3, Y: 0.8, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 1, Z: 0}))
-		fmt.Println(ClosestPointsSegmentSegment(r3.Vector{X: -1, Y: 0.5, Z: 0}, r3.Vector{X: 1, Y: 0.5, Z: 0}, r3.Vector{X: 0, Y: 0, Z: 0}, r3.Vector{X: 0, Y: 1, Z: 0}))
-		// ok, closest points segment-segment is also bugged
-		// hmm, the logic is slightly funny isn't it?? yeah it def is, it's assuming the segments are like far away or smthn
-		// when they "overlap" so to speak, the sitch is ugly (eh not sure exactly what the case is, like perp or || is fine)
-		// anyway defo fails the general case
-
 		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
 	// Test collision with non-overlapping mesh
-	t.Run("non-overlapping mesh", func(t *testing.T) {
+	t.Run("non-overlapping triangles", func(t *testing.T) {
 		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0, Y: 0, Z: 0.2},
@@ -224,148 +191,148 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeFalse)
 	})
-
-	// ENCOMPASSING?
 }
 
 func TestMeshCollidesWithCapsule(t *testing.T) {
-	mesh := makeSimpleTriangleMesh()
-	mesh1 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+	mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
 			r3.Vector{X: 0, Y: 1, Z: 0},
 		)})
-	// looks like capsule canonically points on z-axis
 
 	// A mesh has 3 parts: {vertex, edge, face}
 	// A capsule has approx 3 parts: {extreme point, general spherical point, cylinder point}
-	// we enumerate the 9 possible pairs
+	// We enumerate the 9 possible pairs
 
 	// Collision with triangle vertex
 	// Capsule extreme vertex collision (with triangle vertex)
-	// shift up by 1.5
-	capsule, err := NewCapsule(NewPose(r3.Vector{X: 0, Y: 0, Z: 1.5},
-		NewZeroOrientation()), 1, 3, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err := mesh1.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
-	// Capsule non-extreme spherical vertex collision (with triangle vertex)
-	// shift up by 1.5, then down by r/2 and back by 3r/4
-	capsule, err = NewCapsule(NewPose(r3.Vector{X: -0.75, Y: 0, Z: 1},
-		NewZeroOrientation()), 1, 3, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err = mesh.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
-	// Capsule cylinder vertex collision (with triangle vertex)
-	// shift left by r
-	capsule, err = NewCapsule(NewPose(r3.Vector{X: -1, Y: 0, Z: 0},
-		NewZeroOrientation()), 1, 3, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err = mesh.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
-	// Capsule cylinder line collision (with triangle vertex) (not possible)
+	t.Run("triangle vertex against capsule endpoint", func(t *testing.T) {
+		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0, Y: 0, Z: 1.5},
+			NewZeroOrientation()), 1, 3, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// Capsule non-extreme spherical point collision (with triangle vertex)
+	t.Run("triangle vertex against capsule generic spherical point", func(t *testing.T) {
+		capsule, err := NewCapsule(NewPose(r3.Vector{X: -0.75, Y: 0, Z: 1},
+			NewZeroOrientation()), 1, 3, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// Capsule cylinder point collision (with triangle vertex)
+	t.Run("triangle vertex against capsule cylinder point", func(t *testing.T) {
+		capsule, err := NewCapsule(NewPose(r3.Vector{X: -1, Y: 0, Z: 0},
+			NewZeroOrientation()), 1, 3, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
 
 	// Collision with triangle edge
 	// Capsule extreme vertex collision (with triangle edge)
-	// shift (0.5, 0, 1.5)
-	capsule, err = NewCapsule(NewPose(r3.Vector{X: 0.5, Y: 0, Z: 1.5},
-		NewZeroOrientation()), 1, 3, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err = mesh.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
+	t.Run("triangle edge against capsule endpoint", func(t *testing.T) {
+		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0.5, Y: 0, Z: 1.5},
+			NewZeroOrientation()), 1, 3, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
 	// Capsule non-extreme spherical vertex collision (with triangle edge)
-	// shift (-0.75, 0.5, 1)
-	capsule, err = NewCapsule(NewPose(r3.Vector{X: -0.75, Y: 0.5, Z: 1},
-		NewZeroOrientation()), 1, 3, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err = mesh.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
+	t.Run("triangle edge against capsule generic spherical point", func(t *testing.T) {
+		capsule, err := NewCapsule(NewPose(r3.Vector{X: -0.75, Y: 0.5, Z: 1},
+			NewZeroOrientation()), 1, 3, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
 	// Capsule cylinder vertex collision (with triangle edge)
-	capsule, err = NewCapsule(NewPose(r3.Vector{X: 0.5, Y: -1, Z: 0},
-		NewZeroOrientation()), 1, 3, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err = mesh.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
-	// Capsule cylinder line collision (with triangle edge)
-	capsule, err = NewCapsule(NewPose(r3.Vector{X: 0, Y: -1, Z: 0},
-		&OrientationVector{OX: 1}), 1, 3, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err = mesh.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
+	t.Run("triangle edge against capsule cylinder point", func(t *testing.T) {
+		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0.5, Y: -1, Z: 0},
+			NewZeroOrientation()), 1, 3, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
 
 	// Collision with triangle face
 	// Capsule extreme vertex collision (with triangle face)
-	// (0.5, 0.5, 1.5)
-	capsule, err = NewCapsule(NewPose(r3.Vector{X: 0.5, Y: 0.5, Z: 1.5},
-		NewZeroOrientation()), 1, 3, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err = mesh.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
+	t.Run("triangle face against capsule endpoint", func(t *testing.T) {
+		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0.5, Y: 0.5, Z: 1.5},
+			NewZeroOrientation()), 1, 3, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
 	// Capsule non-extreme spherical vertex collision (with triangle face)
-	// this one is super cringe... math.Sqrt()
-	// (0,1,1) orientation, (0.5,0.5,1+math.Sqrt(2)/2)
-	// this is presumably failing due to rounding error... except actually the error seems pretty big
-	capsule, err = NewCapsule(NewPose(r3.Vector{X: 0.5, Y: 0.5, Z: 1 + math.Sqrt(2)/4},
-		&OrientationVector{OY: 1, OZ: 1}), 1, 3, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err = mesh.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
-	// Capsule cylinder vertex collision (with triangle face)
-	// NOT POSSIBLE
-	// Capsule cylinder line collision (with triangle face)
-	// on its side again, but tiny modified capsule
-	capsule, err = NewCapsule(NewPose(r3.Vector{X: 0.2, Y: 0.2, Z: 0.1},
-		&OrientationVector{OX: 1}), 0.1, 0.3, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err = mesh.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
+	t.Run("triangle face against capsule generic spherical point", func(t *testing.T) {
+		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0.5, Y: 0.5, Z: 1 + math.Sqrt(2)/4},
+			&OrientationVector{OY: 1, OZ: 1}), 1, 3, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// Capsule cylinder vertex collision (with triangle face) point collision not possible, have to use a line
+	t.Run("triangle face against capsule cylinder point", func(t *testing.T) {
+		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0.2, Y: 0.2, Z: 0.1},
+			&OrientationVector{OX: 1}), 0.1, 0.3, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
 
 	// Partially encompassing capsule (could potentially divide into more cases, but this (only face collisions) should be most restrictive)
-	capsule, err = NewCapsule(NewPose(r3.Vector{X: 0.2, Y: 0.2, Z: 0},
-		NewZeroOrientation()), 0.1, 0.3, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err = mesh.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
+	t.Run("capsule encompassing triangle face", func(t *testing.T) {
+		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0.2, Y: 0.2, Z: 0},
+			NewZeroOrientation()), 0.1, 0.3, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
 
 	// Completely encompassing capsule, no boundary collision
-	capsule, err = NewCapsule(NewZeroPose(), 2, 4.5, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err = mesh.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeTrue)
+	t.Run("capsule completely encompassing triangle", func(t *testing.T) {
+		capsule, err := NewCapsule(NewZeroPose(), 2, 4.5, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
 
 	// Non-overlapping capsule
-	capsule, err = NewCapsule(NewPose(r3.Vector{X: -1.1, Y: -1.1, Z: 0},
-		NewZeroOrientation()), 1, 3, "")
-	test.That(t, err, test.ShouldBeNil)
-	collides, err = mesh.CollidesWith(capsule, defaultCollisionBufferMM)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, collides, test.ShouldBeFalse)
+	t.Run("capsule not touching triangle", func(t *testing.T) {
+		capsule, err := NewCapsule(NewPose(r3.Vector{X: -1.1, Y: -1.1, Z: 0},
+			NewZeroOrientation()), 1, 3, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+	})
 }
 
 func TestMeshCollidesWithBox(t *testing.T) {
-
 	mesh := makeSimpleTriangleMesh()
-	// why is encompassing only specified as a special case for box? (what makes box different?)!
-	// ^ this is quite confusing because what if you just make a mesh that looks like a meshified box?
-	// AHHHHHHHHHH
-
-	// non-point collisions (e.g., edges with more than a point of overlap) are redundant with point collisions
-	// types of triangle points: {vertex, edge, face}
-	// types of box points: {vertex, edge, face}
-	// exhaust the 9 collision options:
+	// Types of triangle points: {vertex, edge, face}
+	// Types of box points: {vertex, edge, face}
+	// We exhaust the 9 collision options
 
 	// Collision with triangle vertex
 	// Box vertex collision (with triangle vertex)
@@ -408,150 +375,26 @@ func TestMeshCollidesWithBox(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
+
 	// Box edge collision (with triangle edge)
-	// TODO: revise this (just rotate 45deg about z axis) to make it more readable
-	// I guess revision is like orientation Theta: math.Pi/4, then shift by half-diagonals (sqrt(2)/2)...
 	t.Run("Box edge against triangle edge", func(t *testing.T) {
-		box, err := NewBox(NewPose(r3.Vector{X: 0.5, Y: -0.5, Z: 0.5},
-			&OrientationVector{Theta: math.Pi / 4, OY: 1, OZ: 1}), r3.Vector{X: 1, Y: 1, Z: 1}, "")
+		box, err := NewBox(NewPose(r3.Vector{X: 0.5, Y: -math.Sqrt(2) / 2, Z: 0},
+			&OrientationVector{Theta: math.Pi / 4}), r3.Vector{X: 1, Y: 1, Z: 1}, "")
 		test.That(t, err, test.ShouldBeNil)
 		collides, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
-	t.Run("example edge collision failure", func(t *testing.T) {
-		ABC := makeTestMesh(NewZeroOrientation(), r3.Vector{},
-			[]*Triangle{NewTriangle(
-				r3.Vector{X: 0, Y: 0, Z: 0},
-				r3.Vector{X: 1, Y: 0, Z: 0},
-				r3.Vector{X: 0, Y: 1, Z: 0},
-			)})
-		DEF := makeTestMesh(NewZeroOrientation(), r3.Vector{},
-			[]*Triangle{NewTriangle(
-				r3.Vector{X: 0.5, Y: 0, Z: 0.5},
-				r3.Vector{X: 0.5, Y: 0, Z: -0.5},
-				r3.Vector{X: 0.5, Y: -1, Z: 0},
-			)})
-		collides, err := ABC.CollidesWith(DEF, defaultCollisionBufferMM)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, collides, test.ShouldBeTrue)
-	})
-
-	t.Run("debug edge collision", func(t *testing.T) {
-		// continuing to litter all over this file, need to clean up
-
-		p0 := r3.Vector{X: 0, Y: 0, Z: 0}
-		p1 := r3.Vector{X: 0, Y: 1, Z: 0}
-		p2 := r3.Vector{X: 1, Y: 0, Z: 0}
-		basicTri := NewTriangle(p0, p1, p2)
-		t0 := r3.Vector{X: 0.5, Y: 0, Z: 0.5}
-		t1 := r3.Vector{X: 0.5, Y: 0, Z: -0.5}
-		t2 := r3.Vector{X: 0.5, Y: -1, Z: 0}
-		basicTri2 := NewTriangle(t0, t1, t2)
-
-		mesh1 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
-			[]*Triangle{basicTri})
-		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
-			[]*Triangle{basicTri2})
-
-		fmt.Println(mesh1.collidesWithMesh(mesh2, defaultCollisionBufferMM))
-		fmt.Println(closestPointsSegmentTriangle(t0, t1, basicTri))
-		fmt.Println(closestPointsSegmentTriangle(p0, p2, basicTri2))
-		// looks like tendency is to overestimate the "t" parameter on the segment
-		// no, underestimate
-
-		segPt, _ := closestPointsSegmentPlane(t0, t1, basicTri.p0, basicTri.normal)
-		triPt, inside := closestTriangleInsidePoint(basicTri, segPt)
-		fmt.Println(segPt)
-		fmt.Println(triPt)
-		fmt.Println(inside)
-		// looks like we are explicitly making an error here inside closestPointsSegmentPlane
-		fmt.Println("BUFFER")
-		fmt.Println(basicTri.normal) // no error here
-
-		segVec := t1.Sub(t0)
-		d := basicTri.p0.Dot(basicTri.normal)
-		denom := basicTri.normal.Dot(segVec)
-		time := (d - basicTri.normal.Dot(t0)) / (denom) //  + 1e-6 causing errors
-		coplanarPt := segVec.Mul(time).Add(t0)
-		fmt.Println(time)
-		fmt.Println(coplanarPt)
-
-		// yay! it really just is that denominator adjustment
-
-		// test.That(t, R3VectorAlmostEqual(bestSegPt, r3.Vector{0.5, 0, 0}, 1e-7), test.ShouldBeTrue)
-		// test.That(t, bestSegPt, test.ShouldAlmostEqual, r3.Vector{0.5, 0, 0})
-	})
-
-	//hmm....
-	// ok so dummy_mesh does intersect, mesh does not !!!
-	// dummy_mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
-	// 	[]*Triangle{NewTriangle(
-	// 		r3.Vector{X: 0.5, Y: 0, Z: 0},
-	// 		r3.Vector{X: 0, Y: 1, Z: 0},
-	// 		r3.Vector{X: 1, Y: 0, Z: 0},
-	// 	)})
-	// box, err := NewBox(NewPose(r3.Vector{X: 0.5, Y: -0.5, Z: 0.5},
-	// 	&OrientationVector{Theta: math.Pi / 4, OY: 1, OZ: 1}), r3.Vector{X: 1, Y: 1, Z: 1}, "")
-	// test.That(t, err, test.ShouldBeNil)
-	// collides, err := dummy_mesh.CollidesWith(box, defaultCollisionBufferMM)
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, collides, test.ShouldBeTrue)
-
-	// now lets try 2 perpendicular triangles
-	t.Run("Box edge against two triangle edges", func(t *testing.T) {
-		tri1 := NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 0},
-			r3.Vector{X: 1, Y: 0, Z: 0},
-			r3.Vector{X: 0, Y: 1, Z: 0},
-		)
-		tri2 := NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 0},
-			r3.Vector{X: 1, Y: 0, Z: 0},
-			r3.Vector{X: 0, Y: 0, Z: -1},
-		)
-		extendedMesh := makeTestMesh(NewZeroOrientation(), r3.Vector{}, []*Triangle{tri1, tri2})
-		box, err := NewBox(NewPose(r3.Vector{X: 0.5, Y: -0.5, Z: 0.5},
-			&OrientationVector{Theta: math.Pi / 4, OY: 1, OZ: 1}), r3.Vector{X: 1, Y: 1, Z: 1}, "")
-		test.That(t, err, test.ShouldBeNil)
-		collides, err := extendedMesh.CollidesWith(box, defaultCollisionBufferMM)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, collides, test.ShouldBeTrue)
-	})
-
-	// try again with mesh, slight indentation
-	// slight indentation FAILS
-	t.Run("Box edge into triangle edge (slight indentation)", func(t *testing.T) {
-		box, err := NewBox(NewPose(r3.Vector{X: 0.5, Y: -0.5, Z: 0.5},
-			&OrientationVector{Theta: math.Pi / 4, OY: 1, OZ: 1}), r3.Vector{X: 1, Y: 1, Z: 1}, "")
+	// Partially encompassing box, no triangle vertices inside the box
+	t.Run("Box clipping triangle", func(t *testing.T) {
+		box, err := NewBox(NewPose(r3.Vector{X: 0.9, Y: 0.9, Z: 0}, NewZeroOrientation()),
+			r3.Vector{X: 1, Y: 1, Z: 1}, "")
 		test.That(t, err, test.ShouldBeNil)
 		collides, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
-
-	// Box face collision (with triangle edge) (redundant)
-	// box, err = NewBox(NewPose(r3.Vector{X: -0.5, Y: 0.5, Z: 0}, NewZeroOrientation()),
-	// 	r3.Vector{X: 1, Y: 1, Z: 1}, "")
-	// test.That(t, err, test.ShouldBeNil)
-	// collides, err = mesh.CollidesWith(box, defaultCollisionBufferMM)
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, collides, test.ShouldBeTrue)
-
-	// Collision with triangle face
-	// Box vertex collision (with triangle face)
-	// Box edge collision (with triangle face)
-	// Box face collision (with triangle face)
-
-	// Partially encompassing box, no vertex collisions
-	// REVIST THIS TEST, BUT IT SHOULD BE USELESS
-	// box, err = NewBox(NewZeroPose(),
-	// 	r3.Vector{X: 1, Y: 1, Z: 1}, "")
-	// test.That(t, err, test.ShouldBeNil)
-	// collides, err = mesh.CollidesWith(box, defaultCollisionBufferMM)
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, collides, test.ShouldBeTrue)
 
 	// Completely encompassing box, no boundary collision
 	t.Run("Box strictly encompassing triangle", func(t *testing.T) {
@@ -563,16 +406,8 @@ func TestMeshCollidesWithBox(t *testing.T) {
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
-	// // Create overlapping box
-	// box, err = NewBox(NewZeroPose(), r3.Vector{X: 1, Y: 1, Z: 1}, "")
-	// test.That(t, err, test.ShouldBeNil)
-
-	// collides, err = mesh.CollidesWith(box, defaultCollisionBufferMM)
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, collides, test.ShouldBeTrue)
-
 	// Create non-overlapping box
-	t.Run("Box vertex not touching triangle", func(t *testing.T) {
+	t.Run("Box not touching triangle", func(t *testing.T) {
 		box, err := NewBox(NewPose(r3.Vector{X: 2, Y: 2, Z: 2}, NewZeroOrientation()),
 			r3.Vector{X: 1, Y: 1, Z: 1}, "")
 		test.That(t, err, test.ShouldBeNil)
@@ -583,17 +418,109 @@ func TestMeshCollidesWithBox(t *testing.T) {
 	})
 }
 
-// e.g., could write something like the below:
-// func TestMeshCollisionExpectation(t *testing.T, mesh *Mesh, g Geometry, expected bool) {
-// 	collides, err := mesh.CollidesWith(g, defaultCollisionBufferMM)
-// 	test.That(t, err, test.ShouldBeNil)
-// 	if expected {
-// 		test.That(t, collides, test.ShouldBeTrue)
-// 	} else {
-// 		test.That(t, collides, test.ShouldBeFalse)
-// 	}
-// }
-// BUT this doesnt seem like licit function for the testing file
+func TestMeshCollidesWithPoint(t *testing.T) {
+	mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		[]*Triangle{NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 1, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1, Z: 0},
+		)})
+
+	// Collision with triangle vertex
+	t.Run("Point against triangle vertex", func(t *testing.T) {
+		point := NewPoint(r3.Vector{}, "")
+		collides, err := mesh.CollidesWith(point, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// Collision with triangle edge
+	t.Run("Point against triangle edge", func(t *testing.T) {
+		point := NewPoint(r3.Vector{X: 0, Y: 0.5, Z: 0}, "")
+		collides, err := mesh.CollidesWith(point, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// Collision with triangle face
+	t.Run("Point against triangle face", func(t *testing.T) {
+		point := NewPoint(r3.Vector{X: 0.3, Y: 0.3, Z: 0}, "")
+		collides, err := mesh.CollidesWith(point, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// Point not touching triangle
+	t.Run("Point not touching triangle", func(t *testing.T) {
+		point := NewPoint(r3.Vector{X: 0, Y: 0, Z: 2 * defaultCollisionBufferMM}, "")
+		collides, err := mesh.CollidesWith(point, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+	})
+}
+
+func TestMeshCollidesWithSphere(t *testing.T) {
+	mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		[]*Triangle{NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 1, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1, Z: 0},
+		)})
+
+	// Collision with triangle vertex
+	t.Run("Sphere against triangle vertex", func(t *testing.T) {
+		sphere, err := NewSphere(NewPose(r3.Vector{X: 0, Y: 0, Z: 1}, NewZeroOrientation()), 1, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// Collision with triangle edge
+	t.Run("Sphere against triangle edge", func(t *testing.T) {
+		sphere, err := NewSphere(NewPose(r3.Vector{X: 0.5, Y: 0, Z: 1}, NewZeroOrientation()), 1, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// Collision with triangle face
+	t.Run("Sphere against triangle face", func(t *testing.T) {
+		sphere, err := NewSphere(NewPose(r3.Vector{X: 0.3, Y: 0.3, Z: 1}, NewZeroOrientation()), 1, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// Sphere clipping triangle
+	t.Run("Sphere clipping triangle", func(t *testing.T) {
+		sphere, err := NewSphere(NewPose(r3.Vector{X: 0.3, Y: 0.3, Z: 0}, NewZeroOrientation()), 0.1, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// Sphere completely encompassing triangle
+	t.Run("Sphere completely encompassing triangle", func(t *testing.T) {
+		sphere, err := NewSphere(NewZeroPose(), 2, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeTrue)
+	})
+
+	// Sphere not touching triangle
+	t.Run("Sphere not touching triangle", func(t *testing.T) {
+		sphere, err := NewSphere(NewPose(r3.Vector{X: 0, Y: 0, Z: 1 + 2*defaultCollisionBufferMM}, NewZeroOrientation()), 1, "")
+		test.That(t, err, test.ShouldBeNil)
+		collides, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+	})
+}
 
 func TestMeshDistanceFrom(t *testing.T) {
 	mesh1 := makeSimpleTriangleMesh()

@@ -53,35 +53,10 @@ func SegmentDistanceToSegment(ap1, ap2, bp1, bp2 r3.Vector) float64 {
 
 // ClosestPointsSegmentSegment will return the points at which two line segments are closest to one another.
 func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector) {
-	// // vectors between line endpoints:
-	// v0 := bp1.Sub(ap1)
-	// v1 := bp2.Sub(ap1)
-	// v2 := bp1.Sub(ap2)
-	// v3 := bp2.Sub(ap2)
-
-	// // squared distances:
-	// d0 := v0.Norm2()
-	// d1 := v1.Norm2()
-	// d2 := v2.Norm2()
-	// d3 := v3.Norm2()
-
-	// // select best potential endpoint on capsule A:
-	// bestA := ap1
-	// if d2 < d0 || d2 < d1 || d3 < d0 || d3 < d1 {
-	// 	bestA = ap2
-	// }
-	// // select point on capsule B line segment nearest to best potential endpoint on A capsule:
-	// bestB := ClosestPointSegmentPoint(bp1, bp2, bestA)
-
-	// // now do the same for capsule A segment:
-	// bestA = ClosestPointSegmentPoint(ap1, ap2, bestB)
-	// return bestA, bestB
-
-	// ==================================================
-
-	// Proceed according to this math.stackexchange solution: https://math.stackexchange.com/a/2812513
+	// Proceed according to this math.stackexchange answer: https://math.stackexchange.com/a/2812513
 	// The stack solution has a sign error, which we correct
-	// These (ugly) variable names were chosen to match those in the stack exchange, for easy reference
+	// These (ugly) variable names were chosen to match those in the stack exchange answer, for easy reference
+
 	d3121 := b1.Sub(a1).Dot(a2.Sub(a1))
 	d4321 := b2.Sub(b1).Dot(a2.Sub(a1))
 	d4331 := b2.Sub(b1).Dot(b1.Sub(a1))
@@ -94,6 +69,7 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 	if denom != 0 {
 		// Find the closest points on the lines each segment define
 		// If s or t lie outside of [0,1], the closest points on the lines are NOT on the finite segments
+		// Is overflow a concern?
 		s := (d3121*r2pow2 - d4331*d4321) / denom
 		t := (d3121*d4321 - d4331*r1pow2) / denom
 		if 0 <= s && s <= 1 && 0 <= t && t <= 1 {
@@ -105,10 +81,9 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 
 	// If we're here, the lines are either parallel or their closest points lie off at least one of the segments
 	// It suffices to just check each segment against the other segment's endpoints
-	// (early return makes this a little harder to read)
 	bestSeg1Pt := a1
 	bestSeg2Pt := ClosestPointSegmentPoint(b1, b2, a1)
-	bestDist := bestSeg1Pt.Sub(bestSeg2Pt).Norm2()
+	bestDist := bestSeg1Pt.Sub(bestSeg2Pt).Norm2() // actually squared distance, but doesn't matter
 	if bestDist == 0 {
 		return bestSeg1Pt, bestSeg2Pt
 	}
@@ -184,10 +159,6 @@ func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *Triangle) (bestSegPt, b
 		return segPt, triPt
 	}
 
-	// the logic is a little wrong above
-	// if seg is parallel to triangle, segPt might not rly be closest to triangle
-	// or i guess that's fine, skip inside case, just bleeds into the below, now need to check this
-
 	// If not inside, check triangle edges for the closest point.
 	bestSegPt, bestTriPt = ClosestPointsSegmentSegment(ap1, ap2, t.p0, t.p1)
 	bestDist := bestSegPt.Sub(bestTriPt).Norm2()
@@ -224,23 +195,6 @@ func closestPointsSegmentPlane(ap1, ap2, planePt, planeNormal r3.Vector) (segPt,
 	// get the line-plane intersection. We then clip t to be in [0, 1] to be on
 	// the line segment.
 
-	//old:
-	// segVec := ap2.Sub(ap1)
-	// d := planePt.Dot(planeNormal)
-	// denom := planeNormal.Dot(segVec)
-	// t := (d - planeNormal.Dot(ap1)) / (denom + 1e-6)
-	// coplanarPt = segVec.Mul(t).Add(ap1)
-	// if t <= 0 {
-	// 	return ap1, coplanarPt
-	// }
-	// if t >= 1 {
-	// 	return ap2, coplanarPt
-	// }
-	// return coplanarPt, coplanarPt
-
-	// can maybe check how other people do this
-	// slightly worried about overflow
-
 	segVec := ap2.Sub(ap1)
 	d := planePt.Dot(planeNormal)
 	denom := planeNormal.Dot(segVec)
@@ -248,13 +202,9 @@ func closestPointsSegmentPlane(ap1, ap2, planePt, planeNormal r3.Vector) (segPt,
 		coplanarPt = ap1.Sub(planeNormal.Mul(planeNormal.Dot(ap1) - d))
 		return ap1, coplanarPt
 	}
-	// if denom*num < 0 { // t <= 0
 
-	// }
-	// if math.Abs(denom) < math.Abs(num) { // t >= 1, circumventing overflow. critically "else" prior case
-
-	// }
-	t := (d - planeNormal.Dot(ap1)) / denom
+	// Is overflow a concern?
+	t := (d - planeNormal.Dot(ap1)) / denom // do not pad denom with 1e-k, small error can significantly mess up collisions
 	coplanarPt = segVec.Mul(t).Add(ap1)
 	if t <= 0 {
 		return ap1, coplanarPt
