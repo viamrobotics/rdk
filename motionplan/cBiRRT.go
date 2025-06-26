@@ -217,7 +217,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			return
 		}
 
-		reachedDelta := ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)(
+		reachedDelta := mp.configurationDistanceFunc(
 			&ik.SegmentFS{
 				StartConfiguration: map1reached.Q(),
 				EndConfiguration:   map2reached.Q(),
@@ -237,7 +237,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
-			reachedDelta = ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)(&ik.SegmentFS{
+			reachedDelta = mp.configurationDistanceFunc(&ik.SegmentFS{
 				StartConfiguration: map1reached.Q(),
 				EndConfiguration:   map2reached.Q(),
 			})
@@ -299,7 +299,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			return
 		default:
 		}
-		configDistMetric := ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)
+		configDistMetric := mp.configurationDistanceFunc
 		dist := configDistMetric(
 			&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
 		oldDist := configDistMetric(
@@ -321,7 +321,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
 
 		if newNear != nil {
-			nearDist := ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)(
+			nearDist := mp.configurationDistanceFunc(
 				&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
 
 			if nearDist < math.Pow(mp.planOpts.InputIdentDist, 3) {
@@ -418,7 +418,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return solutionMap
 		}
 		if failpos != nil {
-			dist := ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)(&ik.SegmentFS{
+			dist := mp.configurationDistanceFunc(&ik.SegmentFS{
 				StartConfiguration: target,
 				EndConfiguration:   failpos.EndConfiguration,
 			})
@@ -479,7 +479,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []node
 			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 			// so we allow elongation here.
-			dist := ik.GetConfigurationDistanceFunc(mp.planOpts.ConfigurationDistanceMetric)(&ik.SegmentFS{
+			dist := mp.configurationDistanceFunc(&ik.SegmentFS{
 				StartConfiguration: inputSteps[i].Q(),
 				EndConfiguration:   reached.Q(),
 			})

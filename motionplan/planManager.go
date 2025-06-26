@@ -900,7 +900,7 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal atomicWaypoint) (*rrtMap
 	for i := len(planNodes) - 1; i >= 0; i-- {
 		if i != 0 {
 			// Fill in costs
-			cost := ik.GetConfigurationDistanceFunc(goal.mp.opt().ConfigurationDistanceMetric)(&ik.SegmentFS{
+			cost := pm.configurationDistanceFunc(&ik.SegmentFS{
 				StartConfiguration: planNodes[i-1].Q(),
 				EndConfiguration:   planNodes[i].Q(),
 				FS:                 pm.fs,
