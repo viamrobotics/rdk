@@ -22,7 +22,7 @@ var (
 	errFileModifiedTooRecently = errors.New("file modified too recently")
 )
 
-// uploadArbitraryFile uploads files which were not writted by the builtin datamanager's data capture package.
+// UploadArbitraryFile uploads files which were not writted by the builtin datamanager's data capture package.
 // They are frequently files written by 3rd party programs such as images, videos, logs, written to
 // the capture directory or a subdirectory or to additional sync paths (or their sub directories).
 // Note: the bytes size returned is the size of the input file. It only returns a non 0 value in the success case.
@@ -30,7 +30,7 @@ func uploadArbitraryFile(
 	ctx context.Context,
 	f *os.File,
 	conn cloudConn,
-	tags []string,
+	tags, datasetIDs []string,
 	fileLastModifiedMillis int,
 	clock clock.Clock,
 	logger logging.Logger,
@@ -78,15 +78,19 @@ func uploadArbitraryFile(
 
 	// Send metadata FileUploadRequest.
 	logger.Debugf("datasync.FileUpload request sending metadata for arbitrary file: %s", path)
+	md := &v1.UploadMetadata{
+		PartId:        conn.partID,
+		Type:          v1.DataType_DATA_TYPE_FILE,
+		FileName:      path,
+		FileExtension: filepath.Ext(f.Name()),
+		Tags:          tags,
+	}
+	if len(datasetIDs) > 0 {
+		md.DatasetIds = datasetIDs
+	}
 	if err := stream.Send(&v1.FileUploadRequest{
 		UploadPacket: &v1.FileUploadRequest_Metadata{
-			Metadata: &v1.UploadMetadata{
-				PartId:        conn.partID,
-				Type:          v1.DataType_DATA_TYPE_FILE,
-				FileName:      path,
-				FileExtension: filepath.Ext(f.Name()),
-				Tags:          tags,
-			},
+			Metadata: md,
 		},
 	}); err != nil {
 		return 0, errors.Wrap(err, "FileUpload failed sending metadata")

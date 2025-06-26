@@ -53,6 +53,23 @@ func (c *client) Sync(ctx context.Context, extra map[string]interface{}) error {
 	return nil
 }
 
+func (c *client) UploadImageToDataset(ctx context.Context, image []byte, datasetIDs, tags []string, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.UploadImageToDataset(ctx, &pb.UploadImageToDatasetRequest{
+		Image:      image,
+		DatasetIds: datasetIDs,
+		Tags:       tags,
+		Extra:      ext,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

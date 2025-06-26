@@ -50,6 +50,8 @@ type Service interface {
 	resource.Resource
 	// Sync will sync data stored on the machine to the cloud.
 	Sync(ctx context.Context, extra map[string]interface{}) error
+	UploadImageToDataset(ctx context.Context, image []byte, datasetIDs, tags []string,
+		extra map[string]interface{}) error
 }
 
 // SubtypeName is the name of the type of service.

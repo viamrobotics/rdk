@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -362,8 +363,24 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	if data.IsDataCaptureFile(f) {
 		s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
 	} else {
-		s.syncArbitraryFile(f, config.Tags, config.FileLastModifiedMillis, s.logger)
+		s.syncArbitraryFile(f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger)
 	}
+}
+
+func (s *Sync) UploadImageToDataset(ctx context.Context, image []byte, datasetIDs, tags []string) error {
+	filename := uuid.NewString()
+	err := os.WriteFile(filename, image, os.ModeAppend)
+	if err != nil {
+		s.logger.Errorw("error writing file", "err", err)
+		return err
+	}
+	f, err := os.Open(filename)
+	if err != nil {
+		s.logger.Errorw("error reading file", "err", err)
+		return err
+	}
+	s.syncArbitraryFile(f, tags, datasetIDs, 0, s.logger)
+	return nil
 }
 
 func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging.Logger) {
@@ -434,10 +451,10 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	}
 }
 
-func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMillis int, logger logging.Logger) {
+func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int, logger logging.Logger) {
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
-		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock, logger)
+		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
@@ -448,7 +465,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 	bytesUploaded, err := retry.run()
 	if err != nil {
 		if closeErr := f.Close(); closeErr != nil {
-			logger.Error(errors.Wrap(closeErr, "error closing data capture file").Error())
+			logger.Error(errors.Wrap(closeErr, "error closing arbitrary file").Error())
 		}
 
 		// if we stopped due to a cancelled context,

@@ -154,6 +154,20 @@ func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error 
 	return b.sync.Sync(ctx, extra)
 }
 
+func (b *builtIn) UploadImageToDataset(ctx context.Context,
+	image []byte,
+	datasetIDs []string,
+	tags []string,
+	extra map[string]interface{},
+) error {
+	b.logger.Info("UploadImageToDataset START")
+	defer b.logger.Info("UploadImageToDataset END")
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.sync.UploadImageToDataset(ctx, image, datasetIDs, tags)
+	return nil
+}
+
 // Reconfigure updates the data manager service when the config has changed.
 // At time of writing Reconfigure only returns an error in one of the following unrecoverable error cases:
 //  1. There is some static (aka compile time) error which we currently are only able to detected at runtime:
