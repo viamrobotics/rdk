@@ -32,6 +32,7 @@ import (
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -554,6 +555,7 @@ type RequestCounter struct {
 	counts    sync.Map
 	timeSpent sync.Map
 	errorCnt  sync.Map
+	dataSent  sync.Map
 }
 
 // incrementCounter atomically increments the counter for a given key, creating it first if needed.
@@ -586,6 +588,17 @@ func (rc *RequestCounter) incrementErrorCnt(key string) {
 		newCounter := new(atomic.Int64)
 		newCounter.Add(1)
 		rc.errorCnt.Store(key, newCounter)
+
+	}
+}
+
+func (rc *RequestCounter) incrementSize(key string, size int) {
+	if apiCounts, ok := rc.dataSent.Load(key); ok {
+		apiCounts.(*atomic.Int64).Add(int64(size))
+	} else {
+		newCounter := new(atomic.Int64)
+		newCounter.Add(int64(size))
+		rc.dataSent.Store(key, newCounter)
 	}
 }
 
@@ -596,12 +609,19 @@ func (rc *RequestCounter) Stats() any {
 		ret[key.(string)] = value.(*atomic.Int64).Load()
 		return true
 	})
+
 	rc.timeSpent.Range(func(key, value any) bool {
 		ret[fmt.Sprintf("%v.timeSpent", key.(string))] = value.(*atomic.Int64).Load()
 		return true
 	})
+
 	rc.errorCnt.Range(func(key, value any) bool {
 		ret[fmt.Sprintf("%v.errorCnt", key.(string))] = value.(*atomic.Int64).Load()
+		return true
+	})
+
+	rc.dataSent.Range(func(key, value any) bool {
+		ret[fmt.Sprintf("%v.dataSentBytes", key.(string))] = value.(*atomic.Int64).Load()
 		return true
 	})
 
@@ -643,9 +663,9 @@ func (rc *RequestCounter) UnaryInterceptor(
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
 
+	key := buildRCKey(&req, apiMethod)
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod != "" {
-		key := buildRCKey(&req, apiMethod)
 		rc.incrementCounter(key)
 
 		start := time.Now()
@@ -665,6 +685,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 			// Perhaps the "perfect" solution is to track both "request started" and "request
 			// finished". And have latency graphs use "request finished".
 			rc.incrementTimeSpent(key, time.Since(start).Milliseconds())
+			rc.incrementSize(key, proto.Size(resp.(proto.Message)))
 			if err != nil {
 				rc.incrementErrorCnt(key)
 			}
@@ -672,7 +693,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 	}
 
 	resp, err = handler(ctx, req)
-	return
+	return resp, err
 }
 
 type wrappedStreamWithRC struct {

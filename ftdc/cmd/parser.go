@@ -349,6 +349,7 @@ var ratioMetricToFields = map[string]ratioMetric{
 	"RxPacketsPerSec":        {"RxPackets", ""},
 	"TxBytesPerSec":          {"TxBytes", ""},
 	"RxBytesPerSec":          {"RxBytes", ""},
+	"DataSentBytesPerSec":    {"dataSentBytes", ""},
 
 	// Dan: Just tacking these on -- omitted metrics from this list does not mean they shouldn't* be
 	// here. Also, personally, sometimes I think not* doing PerSec for these can also be
@@ -359,6 +360,7 @@ var ratioMetricToFields = map[string]ratioMetric{
 	"GetImagesPerSec":           {"GetImages", ""},
 	"DoCommandPerSec":           {"DoCommand", ""},
 	"MoveStraightLatencyMillis": {"MoveStraight.timeSpent", "MoveStraight"},
+	"GetClassificationsPerSec":  {"GetClassifications", ""},
 }
 
 // ratioReading is a reading of two metrics described by `ratioMetric`. This is what will be graphed.
