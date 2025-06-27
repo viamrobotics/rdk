@@ -134,7 +134,9 @@ func TestDoCommandCollector(t *testing.T) {
 				tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, []*datasyncpb.SensorData{{
 					Metadata: &datasyncpb.SensorMetadata{},
 					Data: &datasyncpb.SensorData_Struct{
-						Struct: tu.ToStructPBStruct(t, doCommandMap),
+						Struct: tu.ToStructPBStruct(t, map[string]any{
+							"docommand_output": doCommandMap,
+						}),
 					},
 				}})
 			}
