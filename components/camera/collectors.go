@@ -6,12 +6,13 @@ import (
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/utils"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+
+	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/utils"
 )
 
 type method int64

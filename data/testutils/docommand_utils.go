@@ -7,24 +7,25 @@ import (
 
 	"github.com/benbjohnson/clock"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/logging"
-	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/logging"
+	tu "go.viam.com/rdk/testutils"
 )
 
-// DoCommandTestConfig holds configuration for DoCommand tests
+// DoCommandTestConfig holds configuration for DoCommand tests.
 type DoCommandTestConfig struct {
 	ComponentName   string
 	CaptureInterval time.Duration
 	DoCommandMap    map[string]interface{}
 	Collector       data.CollectorConstructor
-	ResourceFactory func() interface{} // Factory function to create the component-specific resource
+	ResourceFactory func() interface{} // Factory function to create the component-specific resource.
 }
 
-// TestDoCommandCollector runs a comprehensive test suite for DoCommand collectors
+// TestDoCommandCollector runs a comprehensive test suite for DoCommand collectors.
 func TestDoCommandCollector(t *testing.T, config DoCommandTestConfig) {
 	tests := []struct {
 		name         string
