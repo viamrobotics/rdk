@@ -76,13 +76,15 @@ func TestSimpleLinearMotion(t *testing.T) {
 	})
 	seedReached := <-m1chan
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
-	near2 := nn.nearestNeighbor(ctx, opt, seedReached, goalMap)
+	near2 := nn.nearestNeighbor(ctx, seedReached, goalMap, nodeConfigurationDistanceFunc)
 	// extend goalMap towards the point in seedMap
 	utils.PanicCapturingGo(func() {
 		cbirrt.constrainedExtend(ctx, cbirrt.randseed, goalMap, near2, seedReached, m1chan)
 	})
 	goalReached := <-m1chan
-	dist := opt.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
+	dist := cbirrt.configurationDistanceFunc(
+		&ik.SegmentFS{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()},
+	)
 	test.That(t, dist < cbirrt.planOpts.InputIdentDist, test.ShouldBeTrue)
 
 	seedReached.SetCorner(true)

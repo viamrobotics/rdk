@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
-	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -379,7 +378,7 @@ func (pm *planManager) planParallelRRTMotion(
 		if pathPlanner.opt().Fallback != nil {
 			//nolint: gosec
 			fallbackPlanner, err = newMotionPlanner(
-				pathPlanner.opt().Fallback.planningAlgorithm,
+				pathPlanner.opt().Fallback.PlanningAlgorithm,
 				pm.fs,
 				rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 				pm.logger,
@@ -394,7 +393,7 @@ func (pm *planManager) planParallelRRTMotion(
 		// If there *was* an error, then either the fallback will not error and will replace it, or the error will be returned
 		if finalSteps.err == nil {
 			if fallbackPlanner != nil {
-				if ok, score := pm.goodPlan(finalSteps, pathPlanner.opt()); ok {
+				if ok, score := pm.goodPlan(finalSteps); ok {
 					pm.logger.CDebugf(ctx, "got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
 					fallbackPlanner = nil
 				} else {
@@ -431,7 +430,7 @@ func (pm *planManager) planParallelRRTMotion(
 		score := math.Inf(1)
 
 		if finalSteps.steps != nil {
-			score = nodesToTrajectory(finalSteps.steps).EvaluateCost(pathPlanner.opt().scoreFunc)
+			score = nodesToTrajectory(finalSteps.steps).EvaluateCost(pm.scoringFunction)
 		}
 
 		// If we ran a fallback, retrieve the result and compare to the smoothed path
@@ -440,7 +439,7 @@ func (pm *planManager) planParallelRRTMotion(
 			if err == nil {
 				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
 				// The fallback should emerge pre-smoothed, so that should be a non-issue
-				altCost := nodesToTrajectory(alternate).EvaluateCost(pathPlanner.opt().scoreFunc)
+				altCost := nodesToTrajectory(alternate).EvaluateCost(pm.scoringFunction)
 				if altCost < score {
 					pm.logger.CDebugf(ctx, "replacing path with score %f with better score %f", score, altCost)
 					finalSteps = &rrtSolution{steps: alternate}
@@ -637,7 +636,7 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	case PositionOnlyMotionProfile:
 		opt.profile = PositionOnlyMotionProfile
 		if !opt.useTPspace() || opt.PositionSeeds <= 0 {
-			opt.goalMetricConstructor = ik.NewPositionOnlyMetric
+			opt.GoalMetricType = ik.PositionOnly
 		}
 	}
 
@@ -673,24 +672,24 @@ func (pm *planManager) plannerSetupFromMoveRequest(
 	}
 	switch planAlg {
 	case cbirrtName:
-		opt.planningAlgorithm = CBiRRT
+		opt.PlanningAlgorithm = CBiRRT
 	case rrtstarName:
 		// no motion profiles for RRT*
 		// TODO(pl): more logic for RRT*?
-		opt.planningAlgorithm = RRTStar
+		opt.PlanningAlgorithm = RRTStar
 		return opt, nil
 	default:
 		// use default, already
 	}
 	if opt.useTPspace() {
 		// overwrite default with TP space
-		opt.planningAlgorithm = TPSpace
+		opt.PlanningAlgorithm = TPSpace
 
-		// Distances are computed in cartesian space rather than configuration space.
-		opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(defaultTPspaceOrientationScale)
+		opt.TPSpaceOrientationScale = defaultTPspaceOrientationScale
+
 		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
 		// Otherwise we just use squared norm on inputs.
-		opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{opt.ptgFrameName()})
+		opt.ScoringMetricStr = ik.PTGDistance
 
 		planAlg = "tpspace"
 	}
@@ -773,7 +772,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 	if !subWaypoints || opt.useTPspace() {
 		//nolint: gosec
 		pathPlanner, err := newMotionPlanner(
-			opt.planningAlgorithm,
+			opt.PlanningAlgorithm,
 			pm.fs,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
@@ -835,7 +834,7 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		}
 		//nolint: gosec
 		pathPlanner, err := newMotionPlanner(
-			wpOpt.planningAlgorithm,
+			wpOpt.PlanningAlgorithm,
 			pm.fs,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
@@ -854,13 +853,13 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 }
 
 // check whether the solution is within some amount of the optimal.
-func (pm *planManager) goodPlan(pr *rrtSolution, opt *plannerOptions) (bool, float64) {
+func (pm *planManager) goodPlan(pr *rrtSolution) (bool, float64) {
 	solutionCost := math.Inf(1)
 	if pr.steps != nil {
 		if pr.maps.optNode.Cost() <= 0 {
 			return true, solutionCost
 		}
-		solutionCost = nodesToTrajectory(pr.steps).EvaluateCost(opt.scoreFunc)
+		solutionCost = nodesToTrajectory(pr.steps).EvaluateCost(pm.scoringFunction)
 		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
 			return true, solutionCost
 		}
@@ -901,7 +900,7 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal atomicWaypoint) (*rrtMap
 	for i := len(planNodes) - 1; i >= 0; i-- {
 		if i != 0 {
 			// Fill in costs
-			cost := goal.mp.opt().configurationDistanceFunc(&ik.SegmentFS{
+			cost := pm.configurationDistanceFunc(&ik.SegmentFS{
 				StartConfiguration: planNodes[i-1].Q(),
 				EndConfiguration:   planNodes[i].Q(),
 				FS:                 pm.fs,

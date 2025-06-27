@@ -99,7 +99,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 
 	opt := newBasicPlannerOptions()
 	opt.SmoothIter = 2
-	orientMetric := ik.NewPoseFlexOVMetricConstructor(0.09)
+	opt.ArcLengthTolerance = 0.09
 
 	// Create a temporary frame system for the transformation
 	fs := frame.NewEmptyFrameSystem("")
@@ -138,7 +138,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 		return errors.New("violation")
 	}
 
-	opt.goalMetricConstructor = orientMetric
+	opt.GoalMetricType = ik.ArcLengthConvergence
 	opt.SetPathMetric(oFuncMet)
 	opt.AddStateConstraint("orientation", orientConstraint)
 

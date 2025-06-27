@@ -5,8 +5,8 @@ import (
 	"runtime"
 
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -86,11 +86,8 @@ const (
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
 func newBasicPlannerOptions() *plannerOptions {
 	opt := &plannerOptions{}
-	opt.goalMetricConstructor = ik.NewSquaredNormMetric
-	opt.configurationDistanceFunc = ik.FSConfigurationL2Distance
-	opt.poseDistanceFunc = ik.WeightedSquaredNormSegmentMetric
-	opt.nodeDistanceFunc = nodeConfigurationDistanceFunc
-	opt.scoreFunc = ik.FSConfigurationL2Distance
+	opt.GoalMetricType = ik.SquaredNorm
+	opt.ConfigurationDistanceMetric = ik.FSConfigurationL2DistanceMetric
 	opt.pathMetric = ik.NewZeroFSMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
 
 	// TODO: RSDK-6079 this should be properly used, and deduplicated with defaultEpsilon, InputIdentDist, etc.
@@ -107,7 +104,7 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.InputIdentDist = defaultInputIdentDist
 	opt.IterBeforeRand = defaultIterBeforeRand
 
-	opt.planningAlgorithm = CBiRRT
+	opt.PlanningAlgorithm = CBiRRT
 
 	opt.SmoothIter = defaultSmoothIter
 
@@ -126,10 +123,13 @@ type plannerOptions struct {
 
 	// This is used to create functions which are passed to IK for solving. This may be used to turn starting or ending state poses into
 	// configurations for nodes.
-	goalMetricConstructor func(spatialmath.Pose) ik.StateMetric
+	GoalMetricType ik.GoalMetricType `json:"goal_metric_type"`
 
-	pathMetric       ik.StateFSMetric         // Distance function which converges on the valid manifold of intermediate path states
-	nodeDistanceFunc func(node, node) float64 // Node distance function used for nearest neighbor
+	// Acceptable arc length around the goal orientation vector for any solution. This is the additional parameter used to acquire
+	// the goal metric only if the GoalMetricType is ik.ArcLengthConvergence
+	ArcLengthTolerance float64 `json:"arc_length_tolerance"`
+
+	pathMetric ik.StateFSMetric // Distance function which converges on the valid manifold of intermediate path states
 
 	extra map[string]interface{}
 
@@ -177,19 +177,20 @@ type plannerOptions struct {
 	// this will if true return the valid plan up to the last solved waypoint.
 	ReturnPartialPlan bool `json:"return_partial_plan"`
 
-	// poseDistanceFunc is the function that the planner will use to measure the degree of "closeness" between two poses
-	poseDistanceFunc ik.SegmentMetric
+	// ScoringMetricStr is an enum indicating the function that the planner will use to evaluate a plan for final cost comparisons.
+	ScoringMetricStr ik.ScoringMetric `json:"scoring_metric"`
 
-	// configurationDistanceFunc is the function that the planner will use to measure the degree of "closeness" between two states of the robot
-	configurationDistanceFunc ik.SegmentFSMetric
+	// TPSpaceOrientationScale is the scale factor on orientation for the squared norm segment metric used
+	// to calculate the distance between poses when planning for a TP-space frame
+	TPSpaceOrientationScale float64 `json:"tp_space_orientation_scale"`
 
-	// scoreFunc is the function that the planner will use to evaluate a plan for final cost comparisons.
-	scoreFunc ik.SegmentFSMetric
+	// Determines the algorithm that the planner will use to measure the degree of "closeness" between two states of the robot
+	ConfigurationDistanceMetric ik.SegmentFSMetricType
 
 	// profile is the string representing the motion profile
 	profile string
 
-	planningAlgorithm PlanningAlgorithm
+	PlanningAlgorithm PlanningAlgorithm `json:"planning_algorithm"`
 
 	Fallback *plannerOptions
 
@@ -200,7 +201,16 @@ type plannerOptions struct {
 func (p *plannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) ik.StateFSMetric {
 	metrics := map[string]ik.StateMetric{}
 	for frame, goalInFrame := range goal {
-		metrics[frame] = p.goalMetricConstructor(goalInFrame.Pose())
+		switch p.GoalMetricType {
+		case ik.PositionOnly:
+			metrics[frame] = ik.NewPositionOnlyMetric(goalInFrame.Pose())
+		case ik.SquaredNorm:
+			metrics[frame] = ik.NewSquaredNormMetric(goalInFrame.Pose())
+		case ik.ArcLengthConvergence:
+			metrics[frame] = ik.NewPoseFlexOVMetricConstructor(p.ArcLengthTolerance)(goalInFrame.Pose())
+		default:
+			metrics[frame] = ik.NewSquaredNormMetric(goalInFrame.Pose())
+		}
 	}
 	return func(state *ik.StateFS) float64 {
 		score := 0.
@@ -218,6 +228,13 @@ func (p *plannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) ik.
 		}
 		return score
 	}
+}
+
+// In the scenario where we use TP-space, we call this to retrieve a function that computes distances
+// in cartesian space rather than configuration space. The planner will use this to measure the degree of "closeness"
+// between two poses.
+func (p *plannerOptions) getPoseDistanceFunc() ik.SegmentMetric {
+	return ik.NewSquaredNormSegmentMetric(p.TPSpaceOrientationScale)
 }
 
 // SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold.
@@ -247,6 +264,26 @@ func (p *plannerOptions) ptgFrameName() string {
 		return ""
 	}
 	return p.motionChains.ptgFrameName
+}
+
+func (p *plannerOptions) ScoringMetric() ik.ScoringMetric {
+	if p.ScoringMetricStr == "" {
+		return ik.FSConfigL2ScoringMetric
+	}
+	return p.ScoringMetricStr
+}
+
+func (p *plannerOptions) getScoringFunction() ik.SegmentFSMetric {
+	switch p.ScoringMetric() {
+	case ik.FSConfigScoringMetric:
+		return ik.FSConfigurationDistance
+	case ik.FSConfigL2ScoringMetric:
+		return ik.FSConfigurationL2Distance
+	case ik.PTGDistance:
+		return tpspace.NewPTGDistanceMetric([]string{p.ptgFrameName()})
+	default:
+		return ik.FSConfigurationL2Distance
+	}
 }
 
 // addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological

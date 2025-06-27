@@ -415,6 +415,9 @@ func uniqInPlaceSlice(s []referenceframe.Frame) []referenceframe.Frame {
 	return s[:j]
 }
 
+// NodeDistanceMetric is a function type used to compute nearest neighbors.
+type NodeDistanceMetric func(node, node) float64
+
 func nodeConfigurationDistanceFunc(node1, node2 node) float64 {
 	return ik.FSConfigurationL2Distance(&ik.SegmentFS{StartConfiguration: node1.Q(), EndConfiguration: node2.Q()})
 }

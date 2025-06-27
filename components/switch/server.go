@@ -3,6 +3,7 @@ package toggleswitch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -59,11 +60,14 @@ func (s *serviceServer) GetNumberOfPositions(
 	if err != nil {
 		return nil, err
 	}
-	count, err := sw.GetNumberOfPositions(ctx, req.Extra.AsMap())
+	count, labels, err := sw.GetNumberOfPositions(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetNumberOfPositionsResponse{NumberOfPositions: count}, nil
+	if len(labels) > 0 && len(labels) != int(count) {
+		return nil, errors.New("the number of labels does not match the number of positions")
+	}
+	return &pb.GetNumberOfPositionsResponse{NumberOfPositions: count, Labels: labels}, nil
 }
 
 // DoCommand receives arbitrary commands.
