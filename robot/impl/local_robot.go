@@ -1448,6 +1448,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	//r.jobManager.UpdateJobs(newConfig.Jobs)
 	//}
 
+	r.logger.Warn("BOG:", !diff.JobsEqual)
+	if !diff.JobsEqual {
+		r.jobManager.UpdateJobs(newConfig.Jobs)
+	}
+
 	if diff.ResourcesEqual {
 		return
 	}
