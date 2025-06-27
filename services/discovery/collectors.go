@@ -62,7 +62,7 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 			return res, data.NewFailedToReadError(params.ComponentName, "DoCommand", err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, values)
+		return data.NewTabularCaptureResultDoCommand(ts, values)
 	})
 	return data.NewCollector(cFunc, params)
 }
