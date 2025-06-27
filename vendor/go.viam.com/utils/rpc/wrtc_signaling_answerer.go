@@ -326,7 +326,6 @@ func (aa *answerAttempt) connect(ctx context.Context) (err error) {
 	signalCtx := metadata.NewOutgoingContext(ctx, md)
 	configResp, err := signalingClient.OptionalWebRTCConfig(signalCtx,
 		&webrtcpb.OptionalWebRTCConfigRequest{})
-	_ = configResp
 	if err != nil {
 		// Any error below indicates the signaling server is not present.
 		if s, ok := status.FromError(err); ok && (s.Code() == codes.Unimplemented ||
@@ -337,7 +336,6 @@ func (aa *answerAttempt) connect(ctx context.Context) (err error) {
 		aa.server.counters.PeerConnectionErrors.Add(1)
 		return err
 	}
-
 	webrtcConfig = extendWebRTCConfig(&webrtcConfig, configResp.GetConfig())
 	iceUrls := make([]string, 0)
 	for _, ice := range webrtcConfig.ICEServers {

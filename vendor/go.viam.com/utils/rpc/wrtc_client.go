@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 	"testing"
@@ -143,8 +142,6 @@ func dialWebRTC(
 		config = *dOpts.webrtcOpts.Config
 	}
 	extendedConfig := extendWebRTCConfig(&config, configResp.GetConfig())
-	fmt.Printf("Client webrtc config: %#v\n", extendedConfig)
-
 	peerConn, dataChannel, err := newPeerConnectionForClient(ctx, extendedConfig, dOpts.webrtcOpts.DisableTrickleICE, logger)
 	if err != nil {
 		return nil, err

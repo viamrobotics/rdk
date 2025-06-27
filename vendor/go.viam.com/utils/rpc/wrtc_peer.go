@@ -284,60 +284,6 @@ func newPeerConnectionForServer(
 		return nil, nil, err
 	}
 
-	fmt.Printf("Server webrtc config: %#v\n", config)
-	/*
-		Server webrtc config: webrtc.Configuration{
-		    ICEServers:[]webrtc.ICEServer{
-		        webrtc.ICEServer{
-		            URLs:[]string{"stun:global.stun.twilio.com:3478"},
-		            Username:"",
-		            Credential:interface {}(nil),
-		            CredentialType:0
-		        },
-		        webrtc.ICEServer{
-		            URLs:[]string(nil),
-		            Username:"",
-		            Credential:interface {}(nil),
-		            CredentialType:0
-		        },
-		        webrtc.ICEServer{
-		            URLs:[]string(nil),
-		            Username:"",
-		            Credential:interface {}(nil),
-		            CredentialType:0
-		        },
-		        webrtc.ICEServer{
-		            URLs:[]string(nil),
-		            Username:"",
-		            Credential:interface {}(nil),
-		            CredentialType:0
-		        }, webrtc.ICEServer{
-		            URLs:[]string{"turn:global.turn.twilio.com:3478?transport=udp", "turn:global.turn.twilio.com:3478?transport=tcp"},
-		            Username:"b4c8085e0b128752ce43eebbc601b3543f9e70001896e994f0afc59b9aeb49ad",
-		            Credential:"A/WvSu5FHKKXVaTYx+Cl/rDedqimxGcYTB+cXgWqlx0=",
-		            CredentialType:0
-		        }, webrtc.ICEServer{
-		            URLs:[]string{"stun:turn.viam.com:443"},
-		            Username:"",
-		            Credential:"",
-		            CredentialType:0
-		        }, webrtc.ICEServer{
-		            URLs:[]string{"turn:turn.viam.com:443?transport=udp", "turn:turn.viam.com:443?transport=tcp"},
-		            Username:"viam-user",
-		            Credential:"FmpLybA0F6mEHWRN",
-		            CredentialType:0
-		        }
-		    },
-		    ICETransportPolicy:0,
-		    BundlePolicy:0,
-		    RTCPMuxPolicy:0,
-		    PeerIdentity:"",
-		    Certificates:[]webrtc.Certificate(nil),
-		    ICECandidatePoolSize:0x0,
-		    SDPSemantics:0
-		}
-	*/
-
 	peerConn, err := webAPI.NewPeerConnection(config)
 	if err != nil {
 		return nil, nil, err
