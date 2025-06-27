@@ -604,6 +604,7 @@ func TestMeshEncompassedBy(t *testing.T) {
 }
 
 func TestBoxTriangleIntersectionArea(t *testing.T) {
+	// should sync w main before making PR, but without 10777 additions, some of these tests will fail
 	b, err := NewBox(NewZeroPose(),
 		r3.Vector{X: 2, Y: 2, Z: 2}, "")
 	bbox := b.(*box)
