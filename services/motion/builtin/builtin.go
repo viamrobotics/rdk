@@ -230,14 +230,14 @@ func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 type validatedExtra struct {
 	maxReplans       int
 	replanCostFactor float64
-	motionProfile    string
+	motionProfile    motionplan.MotionProfile
 	extra            map[string]interface{}
 }
 
 func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 	maxReplans := -1
 	replanCostFactor := defaultReplanCostFactor
-	motionProfile := ""
+	motionProfile := motionplan.FreeMotionProfile
 	v := validatedExtra{}
 	if extra == nil {
 		v.extra = map[string]interface{}{"smooth_iter": defaultSmoothIter}
@@ -249,7 +249,7 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 		}
 	}
 	if profile, ok := extra["motion_profile"]; ok {
-		motionProfile, ok = profile.(string)
+		motionProfile, ok = profile.(motionplan.MotionProfile)
 		if !ok {
 			return v, errors.New("could not interpret motion_profile field as string")
 		}
