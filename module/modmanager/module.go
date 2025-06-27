@@ -326,7 +326,7 @@ func (m *module) killProcessGroup() {
 	m.process.KillGroup()
 }
 
-func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
+func (m *module) registerResourceModels(mgr modmaninterface.ModuleManager) {
 	for api, models := range m.handles {
 		if _, ok := resource.LookupGenericAPIRegistration(api.API); !ok {
 			resource.RegisterAPI(
@@ -370,7 +370,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
 	}
 }
 
-func (m *module) deregisterResources() {
+func (m *module) deregisterResourceModels() {
 	for api, models := range m.handles {
 		for _, model := range models {
 			resource.Deregister(api.API, model)
@@ -388,7 +388,7 @@ func (m *module) cleanupAfterStartupFailure() {
 }
 
 func (m *module) cleanupAfterCrash(mgr *Manager) {
-	m.deregisterResources()
+	m.deregisterResourceModels()
 	if err := m.sharedConn.Close(); err != nil {
 		m.logger.Warnw("Error closing connection to crashed module", "error", err)
 	}
