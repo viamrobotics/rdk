@@ -1,8 +1,9 @@
 package jobmanager
 
 import (
-	//"fmt"
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 )
 
@@ -66,8 +68,6 @@ func New(jobConfigs []config.JobConfig,
 		parentAddr:   parentAddr,
 		namesToUUIDs: make(map[string]uuid.UUID),
 	}
-	// want as a go routine?
-	//go jm.processJobs()
 	return jm, nil
 }
 
@@ -87,16 +87,12 @@ func (jm *Jobmanager) Shutdown() error {
 // fineTune what needs to be here
 // return type could be the Job struct?
 func (jm *Jobmanager) jobTemplate(jc config.JobConfig, res resource.Resource) (any, []any) {
-	// NOTE: with this approach the context deadline must be at least as long as the job
-	// interval
-	ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), 15*time.Second)
-	// how to handle context well?
-	_ = cancelFunc
-	_ = ctxTimeout
 	if jc.Method == "DoCommand" {
 		functionToRun := func() {
+			ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancelFunc()
 			jm.logger.Info("triggering the job: ", jc.Name, "at time: ", time.Now())
-			result, err := res.DoCommand(context.Background(), jc.Command)
+			result, err := res.DoCommand(ctxTimeout, jc.Command)
 			if err != nil {
 				jm.logger.Error("DoCommand for job: ", jc.Name, " failed with error: ", err)
 			} else {
@@ -113,28 +109,56 @@ func (jm *Jobmanager) jobTemplate(jc config.JobConfig, res resource.Resource) (a
 	}
 
 	functionToRun := func() {
-
-		ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), 15*time.Second)
-		_ = cancelFunc
-		// TODO: might need to wrap it around in a function, to close the connection
+		ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancelFunc()
 		dialAddr := "unix://" + jm.parentAddr.UnixAddr
 		conn, err := grpc.Dial(ctxTimeout, dialAddr, jm.logger, rpc.WithDialDebug())
 
+		defer func() {
+			utils.UncheckedError(conn.Close())
+		}()
+
 		if err != nil {
 			jm.logger.Error(err)
+			return
 		}
-		jm.logger.Info("BOG: got here!")
+
+		select {
+		case <-ctxTimeout.Done():
+			return
+		default:
+		}
 
 		refCtx := metadata.NewOutgoingContext(ctxTimeout, nil)
 		refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(conn))
 		reflSource := grpcurl.DescriptorSourceFromServer(ctxTimeout, refClient)
 		descSource := reflSource
 
-		jm.logger.Info(descSource.ListServices())
+		resourceType := res.Name().API.SubtypeName
 
-		grpcMethod := "viam.component.motor.v1.MotorService." + jc.Method
+		services, err := descSource.ListServices()
 
-		data := "{\"name\" : \"motor1\"}" // where arguments are
+		if err != nil {
+			jm.logger.Error(err)
+			return
+		}
+		var grpcService string
+		for _, srv := range services {
+			if strings.Contains(srv, resourceType) {
+				grpcService = srv
+				jm.logger.Info("chosen service: ", srv)
+				break
+			}
+		}
+
+		if grpcService == "" {
+			jm.logger.Error(errors.New(fmt.Sprintf("could not find a service for type: %s", resourceType)))
+			return
+		}
+
+		grpcMethod := grpcService + "." + jc.Method
+
+		data := fmt.Sprintf("{%q : %q}", "name", jc.Resource) // TODO: where arguments are
 		options := grpcurl.FormatOptions{
 			EmitJSONDefaultFields: true,
 			IncludeTextSeparator:  true,
@@ -156,6 +180,13 @@ func (jm *Jobmanager) jobTemplate(jc config.JobConfig, res resource.Resource) (a
 			jm.logger.Error(err)
 		}
 
+		select {
+		case <-ctxTimeout.Done():
+			return
+		default:
+		}
+
+		jm.logger.Info("triggering the job: ", jc.Name, "at time: ", time.Now())
 		err = grpcurl.InvokeRPC(ctxTimeout, descSource, conn, grpcMethod, nil, h, rf.Next)
 
 		if err != nil {
@@ -209,10 +240,15 @@ func (jm *Jobmanager) processJobs() {
 func (jm *Jobmanager) UpdateJobs(jobs []config.JobConfig) {
 	// TODO: definitely wantto make something smarter for jobs that did not change
 	// use the diff strategy to track added/removed/modified?
+	jm.logger.Info("inside updateJobs")
+
 	jm.scheduler.StopJobs()
 
 	for _, uuid := range jm.namesToUUIDs {
-		jm.scheduler.RemoveJob(uuid)
+		err := jm.scheduler.RemoveJob(uuid)
+		if err != nil {
+			jm.logger.Error(err)
+		}
 	}
 	jm.namesToUUIDs = make(map[string]uuid.UUID)
 	jm.jobConfigs = jobs
