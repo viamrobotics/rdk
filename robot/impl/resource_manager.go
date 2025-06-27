@@ -712,18 +712,16 @@ func (manager *resourceManager) completeConfig(
 						return
 					}
 
-					var verb string
+					var prefix string
 					conf := gNode.Config()
 					if gNode.IsUninitialized() {
-						verb = "configuring"
-
 						gNode.InitializeLogger(
 							manager.logger, resName.String(),
 						)
 					} else {
-						verb = "reconfiguring"
+						prefix = "re"
 					}
-					manager.logger.CInfow(ctx, fmt.Sprintf("Now %s resource", verb), "resource", resName)
+					manager.logger.CInfow(ctx, fmt.Sprintf("Now %sconfiguring resource", prefix), "resource", resName)
 
 					// this is done in config validation but partial start rules require us to check again
 					if _, _, err := conf.Validate("", resName.API.Type.Name); err != nil {
@@ -773,6 +771,7 @@ func (manager *resourceManager) completeConfig(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc)
+							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %sconfigured resource", prefix), "resource", resName)
 						}
 
 					default:
@@ -1159,16 +1158,11 @@ func (manager *resourceManager) updateResources(
 			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
 			continue
 		}
-		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
+		affectedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
 		if err != nil {
 			manager.logger.CErrorw(ctx, "error reconfiguring module", "module", mod.Name, "error", err)
 		}
-		for _, resToClose := range manager.markResourcesRemoved(orphanedResourceNames, nil) {
-			if err := resToClose.Close(ctx); err != nil {
-				manager.logger.CErrorw(ctx, "error closing now orphaned resource", "resource",
-					resToClose.Name().String(), "module", mod.Name, "error", err)
-			}
-		}
+		manager.reinitializeResources(affectedResourceNames)
 	}
 
 	if manager.moduleManager != nil {
@@ -1332,6 +1326,25 @@ func (manager *resourceManager) markResourcesRemoved(
 		manager.resources.MarkForRemoval(subG)
 	}
 	return resourcesToCloseBeforeComplete
+}
+
+// reinitializeResources reinitializes resources passed in, forcing a rebuild of the resource during
+// reconfiguration and/or completeConfig loop. This function assumes the resources passed in
+// are already Closed and thus will not call Close.
+func (manager *resourceManager) reinitializeResources(rNames []resource.Name) {
+	for _, rName := range rNames {
+		// Disable changes to shell in untrusted
+		if manager.opts.untrustedEnv && rName.API == shell.API {
+			continue
+		}
+
+		resNode, ok := manager.resources.Node(rName)
+		if !ok {
+			continue
+		}
+		resNode.Reinitialize()
+		manager.markChildrenForUpdate(rName)
+	}
 }
 
 // createConfig will create a config.Config based on the current state of the
