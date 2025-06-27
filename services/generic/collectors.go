@@ -1,13 +1,6 @@
 package generic
 
 import (
-	"context"
-	"errors"
-	"time"
-
-	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 )
@@ -33,38 +26,7 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
-		timeRequested := time.Now()
-		var res data.CaptureResult
-
-		var payload map[string]interface{}
-
-		if payloadAny, exists := params.MethodParams["docommand_input"]; exists && payloadAny != nil {
-			if payloadAny.MessageIs(&structpb.Struct{}) {
-				var s structpb.Struct
-				if err := payloadAny.UnmarshalTo(&s); err != nil {
-					return res, err
-				}
-				payload = s.AsMap()
-			} else {
-				// handle empty payload
-				payload = make(map[string]interface{})
-			}
-		} else {
-			// key does not exist
-			return res, errors.New("missing payload")
-		}
-
-		values, err := generic.DoCommand(ctx, payload)
-		if err != nil {
-			if errors.Is(err, data.ErrNoCaptureToStore) {
-				return res, err
-			}
-			return res, data.NewFailedToReadError(params.ComponentName, "DoCommand", err)
-		}
-		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResultDoCommand(ts, values)
-	})
+	cFunc := data.NewDoCommandCaptureFunc(generic, params)
 	return data.NewCollector(cFunc, params)
 }
 
