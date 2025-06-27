@@ -349,6 +349,7 @@ var ratioMetricToFields = map[string]ratioMetric{
 	"RxPacketsPerSec":        {"RxPackets", ""},
 	"TxBytesPerSec":          {"TxBytes", ""},
 	"RxBytesPerSec":          {"RxBytes", ""},
+	"DataSentBytesPerSec":    {"dataSentBytes", ""},
 
 	// Dan: Just tacking these on -- omitted metrics from this list does not mean they shouldn't* be
 	// here. Also, personally, sometimes I think not* doing PerSec for these can also be
@@ -359,6 +360,7 @@ var ratioMetricToFields = map[string]ratioMetric{
 	"GetImagesPerSec":           {"GetImages", ""},
 	"DoCommandPerSec":           {"DoCommand", ""},
 	"MoveStraightLatencyMillis": {"MoveStraight.timeSpent", "MoveStraight"},
+	"GetClassificationsPerSec":  {"GetClassifications", ""},
 }
 
 // ratioReading is a reading of two metrics described by `ratioMetric`. This is what will be graphed.
@@ -395,6 +397,16 @@ func (rr *ratioReading) diff(other *ratioReading) ratioReading {
 		rr.Time,
 		rr.Numerator - other.Numerator,
 		rr.Denominator - other.Denominator,
+		rr.isRate,
+	}
+}
+
+func (rr *ratioReading) diffAgainstZero(denominator float64) ratioReading {
+	return ratioReading{
+		rr.GraphName,
+		rr.Time,
+		rr.Numerator,
+		rr.Denominator - denominator,
 		rr.isRate,
 	}
 }
@@ -545,9 +557,13 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratio
 				// We expect this to happen when there's only one reading in some window size. This
 				// can be very spammy, so it's at the debug level. A bug could easily introduce
 				// unexpected cases to enter this code path.
-				logger.Debugw("Deferred value missing a previous value to diff",
+				logger.Debugw("Deferred value missing a previous value to diff.",
 					"metricName", metricName, "time", currRatioReading.Time)
-				continue
+
+				// For cases where a metric comes into existence as non-zero, we can assume it's
+				// older readings would have been zero. We additionally make an assumption that this
+				// is a time metric.
+				diff = currRatioReading.diffAgainstZero(float64(currRatioReading.Time) - windowSize.Seconds())
 			}
 
 			value, err := diff.toValue()
