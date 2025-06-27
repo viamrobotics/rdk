@@ -38,7 +38,8 @@ func TestDoCommandCollector(t *testing.T, config DoCommandTestConfig) {
 					structVal := tu.ToStructPBStruct(t, map[string]any{
 						"command": "random",
 					})
-					anyVal, _ := anypb.New(structVal)
+					anyVal, err := anypb.New(structVal)
+					test.That(t, err, test.ShouldBeNil)
 					return anyVal
 				}(),
 			},
@@ -50,7 +51,8 @@ func TestDoCommandCollector(t *testing.T, config DoCommandTestConfig) {
 					emptyStruct := &structpb.Struct{
 						Fields: make(map[string]*structpb.Value),
 					}
-					anyVal, _ := anypb.New(emptyStruct)
+					anyVal, err := anypb.New(emptyStruct)
+					test.That(t, err, test.ShouldBeNil)
 					return anyVal
 				}(),
 			},

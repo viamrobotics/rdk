@@ -46,7 +46,3 @@ func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (ma
 	defer s.mu.Unlock()
 	return map[string]interface{}{"a": 1, "b": 2, "c": 3}, nil
 }
-
-func (s *Sensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return map[string]interface{}{"a": 2, "b": 2, "c": 2}, nil
-}
