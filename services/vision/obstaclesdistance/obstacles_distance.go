@@ -120,7 +120,7 @@ func registerObstacleDistanceDetector(
 			return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
 		}
 	}
-	return svision.NewService(name, r, nil, nil, nil, segmenter, conf.DefaultCamera)
+	return svision.DeprecatedNewService(name, r, nil, nil, nil, segmenter, conf.DefaultCamera)
 }
 
 func medianFromPointClouds(ctx context.Context, clouds []pointcloud.PointCloud) (r3.Vector, error) {

@@ -72,5 +72,5 @@ func register3DSegmenterFromDetector(
 			return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
 		}
 	}
-	return vision.NewService(name, r, nil, nil, detector, segmenter, conf.DefaultCamera)
+	return vision.DeprecatedNewService(name, r, nil, nil, detector, segmenter, conf.DefaultCamera)
 }

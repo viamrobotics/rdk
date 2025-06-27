@@ -17,8 +17,10 @@ import (
 	"go.viam.com/rdk/vision/viscapture"
 )
 
-// vizModel wraps the vision model with all the service interface methods.
-type vizModel struct {
+// deprecatedVizModel wraps the vision model with all the service interface methods. It relies on
+// having access to a robot.Robot, which can be obtained by registering the service using a
+// DeprecatedRobotConstructor.
+type deprecatedVizModel struct {
 	resource.Named
 	resource.AlwaysRebuild
 	r               robot.Robot // in order to get access to all cameras
@@ -30,8 +32,9 @@ type vizModel struct {
 	defaultCamera   string
 }
 
-// NewService wraps the vision model in the struct that fulfills the vision service interface.
-func NewService(
+// DeprecatedNewService wraps the vision model in the struct that fulfills the vision service
+// interface. Register this service with DeprecatedRobotConstructor.
+func DeprecatedNewService(
 	name resource.Name,
 	r robot.Robot,
 	c func(ctx context.Context) error,
@@ -56,7 +59,7 @@ func NewService(
 		p.ObjectPCDsSupported = true
 	}
 
-	return &vizModel{
+	return &deprecatedVizModel{
 		Named:           name.AsNamed(),
 		r:               r,
 		properties:      p,
@@ -69,7 +72,7 @@ func NewService(
 }
 
 // Detections returns the detections of given image if the model implements objectdetector.Detector.
-func (vm *vizModel) Detections(
+func (vm *deprecatedVizModel) Detections(
 	ctx context.Context,
 	img image.Image,
 	extra map[string]interface{},
@@ -83,7 +86,7 @@ func (vm *vizModel) Detections(
 }
 
 // DetectionsFromCamera returns the detections of the next image from the given camera.
-func (vm *vizModel) DetectionsFromCamera(
+func (vm *deprecatedVizModel) DetectionsFromCamera(
 	ctx context.Context,
 	cameraName string,
 	extra map[string]interface{},
@@ -110,7 +113,7 @@ func (vm *vizModel) DetectionsFromCamera(
 }
 
 // Classifications returns the classifications of given image if the model implements classifications.Classifier.
-func (vm *vizModel) Classifications(
+func (vm *deprecatedVizModel) Classifications(
 	ctx context.Context,
 	img image.Image,
 	n int,
@@ -129,7 +132,7 @@ func (vm *vizModel) Classifications(
 }
 
 // ClassificationsFromCamera returns the classifications of the next image from the given camera.
-func (vm *vizModel) ClassificationsFromCamera(
+func (vm *deprecatedVizModel) ClassificationsFromCamera(
 	ctx context.Context,
 	cameraName string,
 	n int,
@@ -161,7 +164,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 }
 
 // GetObjectPointClouds returns all the found objects in a 3D image if the model implements Segmenter3D.
-func (vm *vizModel) GetObjectPointClouds(
+func (vm *deprecatedVizModel) GetObjectPointClouds(
 	ctx context.Context,
 	cameraName string,
 	extra map[string]interface{},
@@ -184,14 +187,14 @@ func (vm *vizModel) GetObjectPointClouds(
 }
 
 // GetProperties returns a Properties object that details the vision capabilities of the model.
-func (vm *vizModel) GetProperties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {
+func (vm *deprecatedVizModel) GetProperties(ctx context.Context, extra map[string]interface{}) (*Properties, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::GetProperties::"+vm.Named.Name().String())
 	defer span.End()
 
 	return &vm.properties, nil
 }
 
-func (vm *vizModel) CaptureAllFromCamera(
+func (vm *deprecatedVizModel) CaptureAllFromCamera(
 	ctx context.Context,
 	cameraName string,
 	opt viscapture.CaptureOptions,
@@ -261,7 +264,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 	}, nil
 }
 
-func (vm *vizModel) Close(ctx context.Context) error {
+func (vm *deprecatedVizModel) Close(ctx context.Context) error {
 	if vm.closerFunc == nil {
 		return nil
 	}
