@@ -11,21 +11,25 @@ import (
 
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
+	componentName   = "servo"
 	captureInterval = time.Millisecond
 )
+
+var doCommandMap = map[string]any{"readings": "random-test"}
 
 func TestCollectors(t *testing.T) {
 	start := time.Now()
 	buf := tu.NewMockBuffer(t)
 	params := data.CollectorParams{
 		DataType:      data.CaptureTypeTabular,
-		ComponentName: "servo",
+		ComponentName: componentName,
 		Interval:      captureInterval,
 		Logger:        logging.NewTestLogger(t),
 		Target:        buf,
@@ -50,10 +54,23 @@ func TestCollectors(t *testing.T) {
 	buf.Close()
 }
 
+func TestDoCommandCollector(t *testing.T) {
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		DoCommandMap:    doCommandMap,
+		Collector:       servo.NewDoCommandCollector,
+		ResourceFactory: func() interface{} { return newServo() },
+	})
+}
+
 func newServo() servo.Servo {
 	s := &inject.Servo{}
 	s.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 		return 1.0, nil
+	}
+	s.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
 	}
 	return s
 }

@@ -66,6 +66,27 @@ func NewTabularCaptureResultReadings(ts Timestamps, readings map[string]interfac
 	}, nil
 }
 
+// NewTabularCaptureResultDoCommand returns a tabular readings result.
+func NewTabularCaptureResultDoCommand(ts Timestamps, readings map[string]interface{}) (CaptureResult, error) {
+	var res CaptureResult
+	values, err := rprotoutils.ReadingGoToProto(readings)
+	if err != nil {
+		return res, err
+	}
+
+	return CaptureResult{
+		Timestamps: ts,
+		Type:       CaptureTypeTabular,
+		TabularData: TabularData{
+			Payload: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"docommand_output": structpb.NewStructValue(&structpb.Struct{Fields: values}),
+				},
+			},
+		},
+	}, nil
+}
+
 // NewTabularCaptureResult returns a tabular result.
 func NewTabularCaptureResult(ts Timestamps, i interface{}) (CaptureResult, error) {
 	var res CaptureResult

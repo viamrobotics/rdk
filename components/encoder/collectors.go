@@ -15,11 +15,15 @@ type method int64
 
 const (
 	ticksCount method = iota
+	doCommand
 )
 
 func (m method) String() string {
 	if m == ticksCount {
 		return "TicksCount"
+	}
+	if m == doCommand {
+		return "DoCommand"
 	}
 	return "Unknown"
 }
@@ -50,6 +54,18 @@ func newTicksCountCollector(resource interface{}, params data.CollectorParams) (
 			PositionType: pb.PositionType(positionType),
 		})
 	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	encoder, err := assertEncoder(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(encoder, params)
 	return data.NewCollector(cFunc, params)
 }
 

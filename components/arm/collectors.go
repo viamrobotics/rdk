@@ -19,6 +19,7 @@ type method int64
 const (
 	endPosition method = iota
 	jointPositions
+	doCommand
 )
 
 func (m method) String() string {
@@ -27,6 +28,8 @@ func (m method) String() string {
 		return "EndPosition"
 	case jointPositions:
 		return "JointPositions"
+	case doCommand:
+		return "DoCommand"
 	}
 	return "Unknown"
 }
@@ -89,6 +92,18 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, pb.GetJointPositionsResponse{Positions: jp})
 	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	arm, err := utils.AssertType[Arm](resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(arm, params)
 	return data.NewCollector(cFunc, params)
 }
 

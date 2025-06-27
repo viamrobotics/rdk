@@ -18,13 +18,16 @@ type method int64
 
 const (
 	captureAllFromCamera method = iota
+	doCommand
 )
 
 func (m method) String() string {
-	if m == captureAllFromCamera {
+	switch m {
+	case captureAllFromCamera:
 		return "CaptureAllFromCamera"
+	case doCommand:
+		return "DoCommand"
 	}
-
 	return "Unknown"
 }
 
@@ -108,6 +111,18 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 		}}), nil
 	})
 
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	vision, err := assertVision(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(vision, params)
 	return data.NewCollector(cFunc, params)
 }
 

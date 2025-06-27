@@ -8,6 +8,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	pb "go.viam.com/api/component/audioinput/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -20,7 +21,10 @@ func init() {
 		RPCServiceDesc:              &pb.AudioInputService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
-
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 	// TODO(RSDK-562): Add RegisterCollector
 }
 

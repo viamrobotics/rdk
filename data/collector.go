@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -400,4 +401,43 @@ func (e *FailedToReadError) Error() string {
 
 func (e *FailedToReadError) Unwrap() error {
 	return e.Err
+}
+
+// NewDoCommandCaptureFunc returns a capture function for DoCommand operations that can be used by any resource.
+// Components should assert their specific type and pass it to this function.
+func NewDoCommandCaptureFunc[T interface {
+	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+}](resource T, params CollectorParams) CaptureFunc {
+	return func(ctx context.Context, _ map[string]*anypb.Any) (CaptureResult, error) {
+		timeRequested := time.Now()
+		var result CaptureResult
+
+		var payload map[string]interface{}
+
+		if payloadAny, exists := params.MethodParams["docommand_input"]; exists && payloadAny != nil {
+			if payloadAny.MessageIs(&structpb.Struct{}) {
+				var s structpb.Struct
+				if err := payloadAny.UnmarshalTo(&s); err != nil {
+					return result, err
+				}
+				payload = s.AsMap()
+			} else {
+				// handle empty payload
+				payload = make(map[string]interface{})
+			}
+		} else {
+			// key does not exist
+			return result, errors.New("missing payload")
+		}
+
+		values, err := resource.DoCommand(ctx, payload)
+		if err != nil {
+			if errors.Is(err, ErrNoCaptureToStore) {
+				return result, err
+			}
+			return result, NewFailedToReadError(params.ComponentName, "DoCommand", err)
+		}
+		ts := Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return NewTabularCaptureResultDoCommand(ts, values)
+	}
 }

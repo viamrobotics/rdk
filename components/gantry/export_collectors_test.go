@@ -3,6 +3,7 @@ package gantry
 
 // Exported variables for testing collectors, see unexported collectors for implementation details.
 var (
-	NewPositionCollector = newPositionCollector
-	NewLengthsCollector  = newLengthsCollector
+	NewPositionCollector  = newPositionCollector
+	NewLengthsCollector   = newLengthsCollector
+	NewDoCommandCollector = newDoCommandCollector
 )

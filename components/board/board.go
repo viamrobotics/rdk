@@ -33,6 +33,10 @@ func init() {
 		API:        API,
 		MethodName: gpios.String(),
 	}, newGPIOCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "board".

@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -20,6 +21,8 @@ const (
 	componentName   = "motor"
 	captureInterval = time.Millisecond
 )
+
+var doCommandMap = map[string]any{"readings": "random-test"}
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -80,6 +83,16 @@ func TestCollectors(t *testing.T) {
 	}
 }
 
+func TestDoCommandCollector(t *testing.T) {
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		DoCommandMap:    doCommandMap,
+		Collector:       motor.NewDoCommandCollector,
+		ResourceFactory: func() interface{} { return newMotor() },
+	})
+}
+
 func newMotor() motor.Motor {
 	m := &inject.Motor{}
 	m.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
@@ -87,6 +100,9 @@ func newMotor() motor.Motor {
 	}
 	m.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		return 1.0, nil
+	}
+	m.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
 	}
 	return m
 }

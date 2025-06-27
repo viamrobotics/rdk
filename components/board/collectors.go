@@ -20,6 +20,7 @@ const (
 	gpioPinNameKey             = "pin_name"
 	analogs             method = iota
 	gpios
+	doCommand
 )
 
 func (m method) String() string {
@@ -28,6 +29,9 @@ func (m method) String() string {
 	}
 	if m == gpios {
 		return "Gpios"
+	}
+	if m == doCommand {
+		return "DoCommand"
 	}
 	return "Unknown"
 }
@@ -103,6 +107,18 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 			High: value,
 		})
 	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	board, err := assertBoard(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(board, params)
 	return data.NewCollector(cFunc, params)
 }
 

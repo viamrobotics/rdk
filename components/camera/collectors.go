@@ -21,6 +21,7 @@ const (
 	nextPointCloud method = iota
 	readImage
 	getImages
+	doCommand
 )
 
 func (m method) String() string {
@@ -31,6 +32,8 @@ func (m method) String() string {
 		return "ReadImage"
 	case getImages:
 		return "GetImages"
+	case doCommand:
+		return "DoCommand"
 	}
 	return "Unknown"
 }
@@ -171,6 +174,18 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 		}
 		return data.NewBinaryCaptureResult(ts, binaries), nil
 	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	camera, err := assertCamera(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(camera, params)
 	return data.NewCollector(cFunc, params)
 }
 

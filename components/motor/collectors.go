@@ -16,6 +16,7 @@ type method int64
 const (
 	position method = iota
 	isPowered
+	doCommand
 )
 
 func (m method) String() string {
@@ -24,6 +25,8 @@ func (m method) String() string {
 		return "Position"
 	case isPowered:
 		return "IsPowered"
+	case doCommand:
+		return "DoCommand"
 	}
 	return "Unknown"
 }
@@ -82,6 +85,18 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 			PowerPct: powerPct,
 		})
 	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	motor, err := assertMotor(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(motor, params)
 	return data.NewCollector(cFunc, params)
 }
 

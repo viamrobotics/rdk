@@ -15,11 +15,15 @@ type method int64
 
 const (
 	position method = iota
+	doCommand
 )
 
 func (m method) String() string {
-	if m == position {
+	switch m {
+	case position:
 		return "Position"
+	case doCommand:
+		return "DoCommand"
 	}
 	return "Unknown"
 }
@@ -49,6 +53,18 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 			PositionDeg: pos,
 		})
 	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	servoResource, err := assertServo(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(servoResource, params)
 	return data.NewCollector(cFunc, params)
 }
 

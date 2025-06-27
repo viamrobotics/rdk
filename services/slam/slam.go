@@ -38,6 +38,10 @@ func init() {
 		API:        API,
 		MethodName: pointCloudMap.String(),
 	}, newPointCloudMapCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is the name of the type of service.
