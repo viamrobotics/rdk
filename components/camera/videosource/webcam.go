@@ -39,7 +39,6 @@ var ModelWebcam = resource.DefaultModelFamily.WithModel("webcam")
 //go:embed data/intrinsics.json
 var intrinsics []byte
 
-
 var (
 	errClosed        = errors.New("camera has been closed")
 	errDisconnected  = errors.New("camera is disconnected; please try again in a few moments")
@@ -54,23 +53,24 @@ var (
 // allowing all real camera resolutions while ensuring proper distance calculations.
 const minResolutionDimension = 2
 
-func init() {
-	resource.RegisterComponent(
-		camera.API,
-		ModelWebcam,
-		resource.Registration[camera.Camera, *WebcamConfig]{
-			Constructor: NewWebcam,
-		})
-	if err := json.Unmarshal(intrinsics, &data); err != nil {
-		logging.Global().Errorw("cannot parse intrinsics json", "error", err)
-	}
-}
+// We only need 2 frames in the buffer because we are only ever using the latest frame.
+// TODO: TRY THIS AS 1
+const sizeOfBuffer = 2
 
 // FrameStruct is the struct used by the webcam buffer to process and release images.
 type FrameStruct struct {
 	img     image.Image
 	release func()
 	err     error
+}
+
+// WebcamBuffer is a buffer for webcam frames.
+type WebcamBuffer struct {
+	frames       []FrameStruct // Holds the frames and their release functions in the buffer
+	mu           sync.RWMutex  // Mutex to synchronize access to the buffer frames
+	currentIndex int           // Index of the current frame we are accessing
+	frameRate    float32       // Frame rate in frames per second
+	ticker       *time.Ticker  // Ticker for controlling frame rate
 }
 
 // WebcamConfig is the native config attribute struct for webcams.
@@ -82,6 +82,42 @@ type WebcamConfig struct {
 	Width                int                                `json:"width_px,omitempty"`
 	Height               int                                `json:"height_px,omitempty"`
 	FrameRate            float32                            `json:"frame_rate,omitempty"`
+}
+
+// webcam is a video driver wrapper camera that ensures its underlying driver stays connected.
+type webcam struct {
+	resource.Named
+	mu                      sync.RWMutex
+	hasLoggedIntrinsicsInfo bool
+
+	cameraModel transform.PinholeCameraModel
+
+	reader video.Reader
+	driver driverutils.Driver
+
+	// this is returned to us as a label in mediadevices but our config
+	// treats it as a video path.
+	targetPath string
+	conf       WebcamConfig
+
+	closed       bool
+	disconnected bool
+	logger       logging.Logger
+	workers      *goutils.StoppableWorkers
+
+	buffer *WebcamBuffer
+}
+
+func init() {
+	resource.RegisterComponent(
+		camera.API,
+		ModelWebcam,
+		resource.Registration[camera.Camera, *WebcamConfig]{
+			Constructor: NewWebcam,
+		})
+	if err := json.Unmarshal(intrinsics, &data); err != nil {
+		logging.Global().Errorw("cannot parse intrinsics json", "error", err)
+	}
 }
 
 // Validate ensures all parts of the config are valid.
@@ -197,30 +233,6 @@ func findReaderAndDriver(
 	path = labels[0] // path is always the first element
 
 	return reader, driver, path, nil
-}
-
-// webcam is a video driver wrapper camera that ensures its underlying driver stays connected.
-type webcam struct {
-	resource.Named
-	mu                      sync.RWMutex
-	hasLoggedIntrinsicsInfo bool
-
-	cameraModel transform.PinholeCameraModel
-
-	reader video.Reader
-	driver driverutils.Driver
-
-	// this is returned to us as a label in mediadevices but our config
-	// treats it as a video path.
-	targetPath string
-	conf       WebcamConfig
-
-	closed       bool
-	disconnected bool
-	logger       logging.Logger
-	workers      *goutils.StoppableWorkers
-
-	buffer *WebcamBuffer
 }
 
 // NewWebcam returns the webcam discovered based on the given config as the Camera interface type.

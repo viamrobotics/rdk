@@ -1,17 +1,3 @@
-
-
-const sizeOfBuffer = 2 // We only need 2 frames in the buffer because we are only ever using the latest frame.
-
-
-// WebcamBuffer is a buffer for webcam frames.
-type WebcamBuffer struct {
-	frames       []FrameStruct // Holds the frames and their release functions in the buffer
-	mu           sync.RWMutex  // Mutex to synchronize access to the buffer frames
-	currentIndex int           // Index of the current frame we are accessing
-	frameRate    float32       // Frame rate in frames per second
-	ticker       *time.Ticker  // Ticker for controlling frame rate
-}
-
 // NewWebcamBuffer creates a new WebcamBuffer struct.
 func NewWebcamBuffer(frameRate float32) *WebcamBuffer {
 	return &WebcamBuffer{
