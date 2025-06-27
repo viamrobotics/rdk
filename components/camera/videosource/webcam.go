@@ -54,7 +54,7 @@ var (
 const minResolutionDimension = 2
 
 // We only need 2 frames in the buffer because we are only ever using the latest frame.
-// TODO: TRY THIS AS 1
+// TODO: TRY THIS AS 1.
 const sizeOfBuffer = 2
 
 // FrameStruct is the struct used by the webcam buffer to process and release images.
@@ -67,9 +67,7 @@ type FrameStruct struct {
 // WebcamBuffer is a buffer for webcam frames.
 type WebcamBuffer struct {
 	frames       []FrameStruct // Holds the frames and their release functions in the buffer
-	mu           sync.RWMutex  // Mutex to synchronize access to the buffer frames
-	currentIndex int           // Index of the current frame we are accessing
-	frameRate    float32       // Frame rate in frames per second
+	currentIndex int           // Index of the current frame to access in the buffer
 	ticker       *time.Ticker  // Ticker for controlling frame rate
 }
 
@@ -254,7 +252,8 @@ func NewWebcam(
 	if cam.conf.FrameRate != 0.0 {
 		defaultFrameRate = cam.conf.FrameRate
 	}
-	cam.buffer = NewWebcamBuffer(defaultFrameRate)
+
+	cam.buffer = NewWebcamBuffer()
 	cam.startBuffer()
 
 	cam.Monitor()
@@ -297,10 +296,12 @@ func (c *webcam) Reconfigure(
 
 	// only set once we're good
 	c.conf = *newConf
+
 	if c.conf.FrameRate != 0.0 {
 		defaultFrameRate = c.conf.FrameRate
 	}
-	c.buffer = NewWebcamBuffer(defaultFrameRate)
+
+	c.buffer = NewWebcamBuffer()
 	c.startBuffer()
 
 	return nil
@@ -515,19 +516,15 @@ func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) (
 }
 
 // NewWebcamBuffer creates a new WebcamBuffer struct.
-func NewWebcamBuffer(frameRate float32) *WebcamBuffer {
+func NewWebcamBuffer() *WebcamBuffer {
 	return &WebcamBuffer{
 		frames:       make([]FrameStruct, sizeOfBuffer),
 		currentIndex: 0,
-		frameRate:    frameRate,
 	}
 }
 
 // GetLatestFrame gets the latest frame from the buffer.
 func (wb *WebcamBuffer) GetLatestFrame() (image.Image, error) {
-	wb.mu.Lock()
-	defer wb.mu.Unlock()
-
 	var latestFrame FrameStruct
 	if wb.currentIndex == 0 {
 		latestFrame = wb.frames[sizeOfBuffer-1]
@@ -554,7 +551,7 @@ func (c *webcam) startBuffer() {
 		return
 	}
 
-	interFrameDuration := time.Duration(float32(time.Second) / c.buffer.frameRate)
+	interFrameDuration := time.Duration(float32(time.Second) / defaultFrameRate)
 
 	c.workers.Add(func(closedCtx context.Context) {
 		c.buffer.ticker = time.NewTicker(interFrameDuration)
