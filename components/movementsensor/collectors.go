@@ -45,7 +45,7 @@ func (m method) String() string {
 	case doCommand:
 		return "DoCommand"
 	}
-	return ""
+	return "Unknown"
 }
 
 func assertMovementSensor(resource interface{}) (MovementSensor, error) {

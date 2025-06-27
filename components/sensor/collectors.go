@@ -24,7 +24,7 @@ func (m method) String() string {
 	case doCommand:
 		return "DoCommand"
 	}
-	return ""
+	return "Unknown"
 }
 
 // newReadingsCollector returns a collector to register a sensor reading method. If one is already registered

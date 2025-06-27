@@ -33,7 +33,7 @@ func (m method) String() string {
 	if m == doCommand {
 		return "DoCommand"
 	}
-	return ""
+	return "Unknown"
 }
 
 // newAnalogCollector returns a collector to register an analog reading method. If one is already registered

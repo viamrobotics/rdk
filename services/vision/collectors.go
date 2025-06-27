@@ -28,7 +28,7 @@ func (m method) String() string {
 	case doCommand:
 		return "DoCommand"
 	}
-	return ""
+	return "Unknown"
 }
 
 type methodParamsDecoded struct {

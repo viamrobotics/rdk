@@ -25,7 +25,7 @@ func (m method) String() string {
 	if m == doCommand {
 		return "DoCommand"
 	}
-	return ""
+	return "Unknown"
 }
 
 // newTicksCountCollector returns a collector to register a ticks count method. If one is already registered

@@ -31,7 +31,7 @@ func (m method) String() string {
 	case doCommand:
 		return "DoCommand"
 	}
-	return ""
+	return "Unknown"
 }
 
 // newEndPositionCollector returns a collector to register an end position method. If one is already registered
