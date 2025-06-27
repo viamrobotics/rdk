@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"image"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -38,10 +39,12 @@ var ModelWebcam = resource.DefaultModelFamily.WithModel("webcam")
 //go:embed data/intrinsics.json
 var intrinsics []byte
 
+
 var (
-	errClosed       = errors.New("camera has been closed")
-	errDisconnected = errors.New("camera is disconnected; please try again in a few moments")
-	data            map[string]transform.PinholeCameraIntrinsics
+	errClosed        = errors.New("camera has been closed")
+	errDisconnected  = errors.New("camera is disconnected; please try again in a few moments")
+	data             map[string]transform.PinholeCameraIntrinsics
+	defaultFrameRate = float32(30.0)
 )
 
 // minResolutionDimension is set to 2 to ensure proper fitness distance calculation for resolution selection.
@@ -61,6 +64,13 @@ func init() {
 	if err := json.Unmarshal(intrinsics, &data); err != nil {
 		logging.Global().Errorw("cannot parse intrinsics json", "error", err)
 	}
+}
+
+// FrameStruct is the struct used by the webcam buffer to process and release images.
+type FrameStruct struct {
+	img     image.Image
+	release func()
+	err     error
 }
 
 // WebcamConfig is the native config attribute struct for webcams.
@@ -209,6 +219,8 @@ type webcam struct {
 	disconnected bool
 	logger       logging.Logger
 	workers      *goutils.StoppableWorkers
+
+	buffer *WebcamBuffer
 }
 
 // NewWebcam returns the webcam discovered based on the given config as the Camera interface type.
@@ -227,12 +239,11 @@ func NewWebcam(
 		return nil, err
 	}
 
-	frameRate := float32(30.0)
 	if cam.conf.FrameRate != 0.0 {
-		frameRate = cam.conf.FrameRate
+		defaultFrameRate = cam.conf.FrameRate
 	}
-	cam.buffer = NewWebcamBuffer(cam.reader, cam.logger, frameRate)
-	cam.buffer.StartBuffer()
+	cam.buffer = NewWebcamBuffer(defaultFrameRate)
+	cam.startBuffer()
 
 	cam.Monitor()
 
@@ -253,7 +264,7 @@ func (c *webcam) Reconfigure(
 	defer c.mu.Unlock()
 
 	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
-
+	c.stopBuffer()
 	driverReinitNotNeeded := c.conf.Format == newConf.Format &&
 		c.conf.Path == newConf.Path &&
 		c.conf.Width == newConf.Width &&
@@ -274,6 +285,12 @@ func (c *webcam) Reconfigure(
 
 	// only set once we're good
 	c.conf = *newConf
+	if c.conf.FrameRate != 0.0 {
+		defaultFrameRate = c.conf.FrameRate
+	}
+	c.buffer = NewWebcamBuffer(defaultFrameRate)
+	c.startBuffer()
+
 	return nil
 }
 
@@ -485,6 +502,72 @@ func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) (
 	return make([]spatialmath.Geometry, 0), nil
 }
 
+// StartBuffer initiates the buffer collection process.
+func (c *webcam) startBuffer() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.buffer.ticker != nil {
+		return
+	}
+
+	interFrameDuration := time.Duration(float32(time.Second) / c.buffer.frameRate)
+
+	c.workers.Add(func(closedCtx context.Context) {
+		c.buffer.ticker = time.NewTicker(interFrameDuration)
+		defer c.buffer.ticker.Stop()
+
+		for {
+			select {
+			case <-closedCtx.Done():
+				return
+			case <-c.buffer.ticker.C:
+				img, release, err := c.reader.Read()
+				if err != nil {
+					c.logger.Errorf("error reading frame: %v", err)
+					continue
+				}
+
+				c.mu.Lock()
+				if c.buffer.frames[c.buffer.currentIndex].release != nil {
+					c.buffer.frames[c.buffer.currentIndex].release()
+				}
+
+				c.buffer.frames[c.buffer.currentIndex] = FrameStruct{
+					img:     img,
+					release: release,
+					err:     err,
+				}
+				c.buffer.currentIndex = (c.buffer.currentIndex + 1) % sizeOfBuffer
+				c.mu.Unlock()
+			}
+		}
+	})
+}
+
+// StopBuffer stops the buffer collection process.
+func (c *webcam) stopBuffer() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.workers != nil {
+		c.workers.Stop()
+	}
+
+	if c.buffer.ticker != nil {
+		c.buffer.ticker.Stop()
+		c.buffer.ticker = nil
+	}
+
+	// Release any remaining frames.
+	for i := range c.buffer.frames {
+		if c.buffer.frames[i].release != nil {
+			c.buffer.frames[i].release()
+			c.buffer.frames[i].release = nil
+		}
+	}
+}
+
 func (c *webcam) Close(ctx context.Context) error {
 	c.mu.Lock()
 	if c.closed {
@@ -496,7 +579,7 @@ func (c *webcam) Close(ctx context.Context) error {
 	c.workers.Stop()
 
 	if c.buffer != nil {
-		c.buffer.StopBuffer()
+		c.stopBuffer()
 	}
 
 	return c.driver.Close()
