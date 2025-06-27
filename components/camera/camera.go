@@ -231,11 +231,12 @@ func GetImagesFromGetImage(
 	}
 
 	resMimetype, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
-	if resMimetype != mimeType {
+	reqMimetype, _ := utils.CheckLazyMIMEType(mimeType)
+	if resMimetype != reqMimetype {
 		logger.Warnf("requested mime type %s, but received %s", mimeType, resMimetype)
 	}
 
-	img, err := rimage.DecodeImage(ctx, resBytes, utils.WithLazyMIMEType(mimeType))
+	img, err := rimage.DecodeImage(ctx, resBytes, utils.WithLazyMIMEType(resMetadata.MimeType))
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not decode into image.Image: %w", err)
 	}
