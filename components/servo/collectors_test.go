@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -54,7 +55,7 @@ func TestCollectors(t *testing.T) {
 }
 
 func TestDoCommandCollector(t *testing.T) {
-	tu.TestDoCommandCollector(t, tu.DoCommandTestConfig{
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
 		ComponentName:   componentName,
 		CaptureInterval: captureInterval,
 		DoCommandMap:    doCommandMap,

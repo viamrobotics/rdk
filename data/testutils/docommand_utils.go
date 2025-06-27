@@ -1,4 +1,4 @@
-package testutils
+package data
 
 import (
 	"context"
@@ -7,12 +7,12 @@ import (
 
 	"github.com/benbjohnson/clock"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/logging"
+	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
-
-	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/logging"
 )
 
 // DoCommandTestConfig holds configuration for DoCommand tests
@@ -35,7 +35,7 @@ func TestDoCommandCollector(t *testing.T, config DoCommandTestConfig) {
 			name: "DoCommand collector should write a list of values",
 			methodParams: map[string]*anypb.Any{
 				"docommand_input": func() *anypb.Any {
-					structVal := ToStructPBStruct(t, map[string]any{
+					structVal := tu.ToStructPBStruct(t, map[string]any{
 						"command": "random",
 					})
 					anyVal, _ := anypb.New(structVal)
@@ -71,7 +71,7 @@ func TestDoCommandCollector(t *testing.T, config DoCommandTestConfig) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			buf := NewMockBuffer(t)
+			buf := tu.NewMockBuffer(t)
 			params := data.CollectorParams{
 				DataType:      data.CaptureTypeTabular,
 				ComponentName: config.ComponentName,
@@ -96,10 +96,10 @@ func TestDoCommandCollector(t *testing.T, config DoCommandTestConfig) {
 			if tc.expectError {
 				test.That(t, len(buf.Writes), test.ShouldEqual, 0)
 			} else {
-				CheckMockBufferWrites(t, ctx, start, buf.Writes, []*datasyncpb.SensorData{{
+				tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, []*datasyncpb.SensorData{{
 					Metadata: &datasyncpb.SensorMetadata{},
 					Data: &datasyncpb.SensorData_Struct{
-						Struct: ToStructPBStruct(t, map[string]any{
+						Struct: tu.ToStructPBStruct(t, map[string]any{
 							"docommand_output": config.DoCommandMap,
 						}),
 					},

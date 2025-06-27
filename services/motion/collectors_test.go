@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	datatu "go.viam.com/rdk/data/testutils"
 	motion "go.viam.com/rdk/services/motion"
-	tu "go.viam.com/rdk/testutils"
 	inject "go.viam.com/rdk/testutils/inject/motion"
 )
 
@@ -18,7 +18,7 @@ const (
 var doCommandMap = map[string]any{"readings": "random-test"}
 
 func TestDoCommandCollector(t *testing.T) {
-	tu.TestDoCommandCollector(t, tu.DoCommandTestConfig{
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
 		ComponentName:   componentName,
 		CaptureInterval: captureInterval,
 		DoCommandMap:    doCommandMap,

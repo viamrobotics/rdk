@@ -21,6 +21,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -176,7 +177,7 @@ func TestDoCommandCollector(t *testing.T) {
 	pcd, err := pointcloud.NewFromFile(artifact.MustPath("pointcloud/test.las"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	tu.TestDoCommandCollector(t, tu.DoCommandTestConfig{
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
 		ComponentName:   serviceName,
 		CaptureInterval: captureInterval,
 		DoCommandMap:    doCommandMap,

@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	visionservice "go.viam.com/rdk/services/vision"
@@ -235,7 +236,7 @@ func TestDoCommandCollector(t *testing.T) {
 	viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
 	test.That(t, err, test.ShouldBeNil)
 	img := rimage.NewLazyEncodedImage(viamLogoJpeg, utils.MimeTypeJPEG)
-	tu.TestDoCommandCollector(t, tu.DoCommandTestConfig{
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
 		ComponentName:   serviceName,
 		CaptureInterval: captureInterval,
 		DoCommandMap:    doCommandMap,
