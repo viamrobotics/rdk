@@ -66,10 +66,9 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 	denom := r1pow2*r2pow2 - d4321*d4321
 	// If denom is 0, the segments are parallel, and we can jump to the endpt case below
 	// If denom is not 0, we finish our algebra
-	if denom != 0 {
+	if math.Abs(denom) > floatEpsilon {
 		// Find the closest points on the lines each segment define
 		// If s or t lie outside of [0,1], the closest points on the lines are NOT on the finite segments
-		// Is overflow a concern?
 		s := (d3121*r2pow2 - d4331*d4321) / denom
 		t := (d3121*d4321 - d4331*r1pow2) / denom
 		if 0 <= s && s <= 1 && 0 <= t && t <= 1 {
@@ -84,13 +83,13 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 	bestSeg1Pt := a1
 	bestSeg2Pt := ClosestPointSegmentPoint(b1, b2, a1)
 	bestDist := bestSeg1Pt.Sub(bestSeg2Pt).Norm2() // actually squared distance, but doesn't matter
-	if bestDist == 0 {
+	if bestDist < defaultCollisionBufferMM {       // this could be problematic if a lesser collision buffer is ever desired
 		return bestSeg1Pt, bestSeg2Pt
 	}
 	seg1Pt := a2
 	seg2Pt := ClosestPointSegmentPoint(b1, b2, a2)
 	dist := seg2Pt.Sub(seg1Pt).Norm2()
-	if dist == 0 {
+	if dist < defaultCollisionBufferMM {
 		return seg1Pt, seg2Pt
 	}
 	if dist < bestDist {
@@ -100,7 +99,7 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 	seg1Pt = ClosestPointSegmentPoint(a1, a2, b1)
 	seg2Pt = b1
 	dist = seg2Pt.Sub(seg1Pt).Norm2()
-	if dist == 0 {
+	if dist < defaultCollisionBufferMM {
 		return seg1Pt, seg2Pt
 	}
 	if dist < bestDist {
@@ -110,9 +109,6 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 	seg1Pt = ClosestPointSegmentPoint(a1, a2, b2)
 	seg2Pt = b2
 	dist = seg2Pt.Sub(seg1Pt).Norm2()
-	if dist == 0 {
-		return seg1Pt, seg2Pt
-	}
 	if dist < bestDist {
 		return seg1Pt, seg2Pt
 	}
@@ -162,12 +158,12 @@ func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *Triangle) (bestSegPt, b
 	// If not inside, check triangle edges for the closest point.
 	bestSegPt, bestTriPt = ClosestPointsSegmentSegment(ap1, ap2, t.p0, t.p1)
 	bestDist := bestSegPt.Sub(bestTriPt).Norm2()
-	if bestDist == 0 {
+	if bestDist < defaultCollisionBufferMM {
 		return bestSegPt, bestTriPt
 	}
 	segPt2, triPt2 := ClosestPointsSegmentSegment(ap1, ap2, t.p1, t.p2)
 	d2 := segPt2.Sub(triPt2).Norm2()
-	if d2 == 0 {
+	if d2 < defaultCollisionBufferMM {
 		return segPt2, triPt2
 	}
 	if d2 < bestDist {
@@ -176,10 +172,6 @@ func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *Triangle) (bestSegPt, b
 	}
 	segPt3, triPt3 := ClosestPointsSegmentSegment(ap1, ap2, t.p0, t.p2)
 	d3 := segPt3.Sub(triPt3).Norm2()
-
-	if d3 == 0 {
-		return segPt3, triPt3
-	}
 	if d3 < bestDist {
 		return segPt3, triPt3
 	}
@@ -203,7 +195,6 @@ func closestPointsSegmentPlane(ap1, ap2, planePt, planeNormal r3.Vector) (segPt,
 		return ap1, coplanarPt
 	}
 
-	// Is overflow a concern?
 	t := (d - planeNormal.Dot(ap1)) / denom // do not pad denom with 1e-k, small error can significantly mess up collisions
 	coplanarPt = segVec.Mul(t).Add(ap1)
 	if t <= 0 {

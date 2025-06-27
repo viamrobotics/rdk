@@ -87,7 +87,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// A mesh has 3 parts: {vertex, edge, face} ==> 6 possible basic collisions, accounting for symmetry
 
-	// v-v
+	// vertex-vertex
 	t.Run("triangle vertex against triangle vertex", func(t *testing.T) {
 		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
@@ -100,7 +100,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
-	// v-e
+	// vertex-edge
 	t.Run("triangle vertex against triangle edge", func(t *testing.T) {
 		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
@@ -113,7 +113,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
-	// v-f
+	// vertex-face
 	t.Run("triangle vertex against triangle face", func(t *testing.T) {
 		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
@@ -126,7 +126,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
-	// e-e
+	// edge-edge
 	t.Run("triangle edge against triangle edge", func(t *testing.T) {
 		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
@@ -139,7 +139,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
-	// e-f. This implies one of the above collision types (e.g., e-e) so if they're all perfectly tested (difficult to guarantee) we're fine
+	// edge-face. This implies one of the above collision types (e.g., e-e) so if they're all perfectly tested (difficult to guarantee) we're fine
 	// nonetheless worth keeping: e-f is the basic collision type checked by collidesWithMesh,
 	// and the special case of e parallel to f is important
 	t.Run("triangle edge against triangle face", func(t *testing.T) {
@@ -154,7 +154,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
-	// f-f. This implies one of the above collision types
+	// face-face. This implies one of the above collision types
 	t.Run("triangle face against triangle face", func(t *testing.T) {
 		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
