@@ -4,7 +4,6 @@
 package ice
 
 import (
-	"encoding/base64"
 	"net"
 	"time"
 
@@ -52,7 +51,7 @@ func (s *controllingSelector) ContactCandidates() {
 	switch {
 	case s.agent.getSelectedPair() != nil:
 		if s.agent.validateSelectedPair() {
-			s.log.Info("Checking keepalive")
+			s.log.Trace("Checking keepalive")
 			s.agent.checkKeepalive()
 		}
 	case s.nominatedPair != nil:
@@ -60,7 +59,7 @@ func (s *controllingSelector) ContactCandidates() {
 	default:
 		p := s.agent.getBestValidCandidatePair()
 		if p != nil && s.isNominatable(p.Local) && s.isNominatable(p.Remote) {
-			s.log.Infof("Nominatable pair found, nominating (%s, %s)", p.Local, p.Remote)
+			s.log.Tracef("Nominatable pair found, nominating (%s, %s)", p.Local, p.Remote)
 			p.nominated = true
 			s.nominatedPair = p
 			s.nominatePair(p)
@@ -88,20 +87,11 @@ func (s *controllingSelector) nominatePair(pair *CandidatePair) {
 		return
 	}
 
-	s.log.Infof("Ping STUN (nominate candidate pair) from %s to %s", pair.Local, pair.Remote)
+	s.log.Tracef("Ping STUN (nominate candidate pair) from %s to %s", pair.Local, pair.Remote)
 	s.agent.sendBindingRequest(msg, pair.Local, pair.Remote)
 }
 
 func (s *controllingSelector) HandleBindingRequest(m *stun.Message, local, remote Candidate) {
-	xorMapped := stun.XORMappedAddress{}
-	err := xorMapped.GetFrom(m)
-	xorMappedStr := "(none)"
-	if err == nil {
-		xorMappedStr = xorMapped.String()
-	}
-
-	s.log.Infof("DBG. ControllINGHandleBindingRequest. Local: %q Remote: %q TxnID: %v Mapped: %v",
-		local.String(), remote.String(), base64.StdEncoding.EncodeToString(m.TransactionID[:]), xorMappedStr)
 	s.agent.sendBindingSuccess(m, local, remote)
 
 	p := s.agent.findPair(local, remote)
@@ -114,9 +104,9 @@ func (s *controllingSelector) HandleBindingRequest(m *stun.Message, local, remot
 	if p.state == CandidatePairStateSucceeded && s.nominatedPair == nil && s.agent.getSelectedPair() == nil {
 		bestPair := s.agent.getBestAvailableCandidatePair()
 		if bestPair == nil {
-			s.log.Infof("No best pair available")
+			s.log.Tracef("No best pair available")
 		} else if bestPair.equal(p) && s.isNominatable(p.Local) && s.isNominatable(p.Remote) {
-			s.log.Infof("The candidate (%s, %s) is the best candidate available, marking it as nominated", p.Local, p.Remote)
+			s.log.Tracef("The candidate (%s, %s) is the best candidate available, marking it as nominated", p.Local, p.Remote)
 			s.nominatedPair = p
 			s.nominatePair(p)
 		}
@@ -141,12 +131,11 @@ func (s *controllingSelector) HandleSuccessResponse(m *stun.Message, local, remo
 	// Assert that NAT is not symmetric
 	// https://tools.ietf.org/html/rfc8445#section-7.2.5.2.1
 	if !addrEqual(transactionAddr, remoteAddr) {
-		s.log.Infof("Discard message: transaction source and destination does not match expected(%s), actual(%s)", transactionAddr, remote)
+		s.log.Debugf("Discard message: transaction source and destination does not match expected(%s), actual(%s)", transactionAddr, remote)
 		return
 	}
 
-	s.log.Infof("Inbound STUN (SuccessResponse) from %s to %s (%v)", remote, local,
-		base64.StdEncoding.EncodeToString(m.TransactionID[:]))
+	s.log.Tracef("Inbound STUN (SuccessResponse) from %s to %s", remote, local)
 	p := s.agent.findPair(local, remote)
 
 	if p == nil {
@@ -156,7 +145,7 @@ func (s *controllingSelector) HandleSuccessResponse(m *stun.Message, local, remo
 	}
 
 	p.state = CandidatePairStateSucceeded
-	s.log.Infof("Found valid candidate pair: %s", p)
+	s.log.Tracef("Found valid candidate pair: %s", p)
 	if pendingRequest.isUseCandidate && s.agent.getSelectedPair() == nil {
 		s.agent.setSelectedPair(p)
 	}
@@ -189,7 +178,7 @@ func (s *controlledSelector) Start() {
 func (s *controlledSelector) ContactCandidates() {
 	if s.agent.getSelectedPair() != nil {
 		if s.agent.validateSelectedPair() {
-			s.log.Info("Checking keepalive")
+			s.log.Trace("Checking keepalive")
 			s.agent.checkKeepalive()
 		}
 	} else {
@@ -233,11 +222,11 @@ func (s *controlledSelector) HandleSuccessResponse(m *stun.Message, local, remot
 	// Assert that NAT is not symmetric
 	// https://tools.ietf.org/html/rfc8445#section-7.2.5.2.1
 	if !addrEqual(transactionAddr, remoteAddr) {
-		s.log.Infof("Discard message: transaction source and destination does not match expected(%s), actual(%s)", transactionAddr, remote)
+		s.log.Debugf("Discard message: transaction source and destination does not match expected(%s), actual(%s)", transactionAddr, remote)
 		return
 	}
 
-	s.log.Infof("Inbound STUN (SuccessResponse) from %s to %s", remote, local)
+	s.log.Tracef("Inbound STUN (SuccessResponse) from %s to %s", remote, local)
 
 	p := s.agent.findPair(local, remote)
 	if p == nil {
@@ -247,13 +236,13 @@ func (s *controlledSelector) HandleSuccessResponse(m *stun.Message, local, remot
 	}
 
 	p.state = CandidatePairStateSucceeded
-	s.log.Infof("Found valid candidate pair: %s", p)
+	s.log.Tracef("Found valid candidate pair: %s", p)
 	if p.nominateOnBindingSuccess {
 		if selectedPair := s.agent.getSelectedPair(); selectedPair == nil ||
 			(selectedPair != p && selectedPair.priority() <= p.priority()) {
 			s.agent.setSelectedPair(p)
 		} else if selectedPair != p {
-			s.log.Infof("Ignore nominate new pair %s, already nominated pair %s", p, selectedPair)
+			s.log.Tracef("Ignore nominate new pair %s, already nominated pair %s", p, selectedPair)
 		}
 	}
 }
@@ -276,8 +265,7 @@ func (s *controlledSelector) HandleBindingRequest(m *stun.Message, local, remote
 			if selectedPair == nil || (selectedPair != p && selectedPair.priority() <= p.priority()) {
 				s.agent.setSelectedPair(p)
 			} else if selectedPair != p {
-				s.log.Infof("Ignore nominate new pair %s, already nominated pair %s TxnID: %v", p, selectedPair,
-					base64.StdEncoding.EncodeToString(m.TransactionID[:]))
+				s.log.Tracef("Ignore nominate new pair %s, already nominated pair %s", p, selectedPair)
 			}
 		} else {
 			// If the received Binding request triggered a new check to be
@@ -292,15 +280,6 @@ func (s *controlledSelector) HandleBindingRequest(m *stun.Message, local, remote
 		}
 	}
 
-	xorMapped := stun.XORMappedAddress{}
-	err := xorMapped.GetFrom(m)
-	xorMappedStr := "(none)"
-	if err == nil {
-		xorMappedStr = xorMapped.String()
-	}
-
-	s.log.Infof("DBG. ControllEDHandleBindingRequest. Local: %q Remote: %q TxnID: %v Mapped: %v",
-		local.String(), remote.String(), base64.StdEncoding.EncodeToString(m.TransactionID[:]), xorMappedStr)
 	s.agent.sendBindingSuccess(m, local, remote)
 	s.PingCandidate(local, remote)
 

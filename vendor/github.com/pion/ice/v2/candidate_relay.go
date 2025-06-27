@@ -5,8 +5,6 @@ package ice
 
 import (
 	"net"
-
-	"github.com/pion/logging"
 )
 
 // CandidateRelay ...
@@ -86,8 +84,8 @@ func (c *CandidateRelay) close() error {
 	return err
 }
 
-func (c *CandidateRelay) copy(log logging.LeveledLogger) (Candidate, error) {
-	cc, err := c.candidateBase.copy(log)
+func (c *CandidateRelay) copy() (Candidate, error) {
+	cc, err := c.candidateBase.copy()
 	if err != nil {
 		return nil, err
 	}
