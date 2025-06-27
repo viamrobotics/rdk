@@ -37,6 +37,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/robot/jobmanager"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -55,6 +56,7 @@ type localRobot struct {
 	operations              *operation.Manager
 	sessionManager          session.Manager
 	packageManager          packages.ManagerSyncer
+	jobManager              *jobmanager.Jobmanager
 	localPackages           packages.ManagerSyncer
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
@@ -188,6 +190,9 @@ func (r *localRobot) Close(ctx context.Context) error {
 	}
 	if r.ftdc != nil {
 		r.ftdc.StopAndJoin(ctx)
+	}
+	if r.jobManager != nil {
+		err = multierr.Combine(err, r.jobManager.Shutdown())
 	}
 
 	return err
@@ -522,6 +527,26 @@ func newWithResources(
 			r.completeConfigWorker()
 		}, r.activeBackgroundWorkers.Done)
 	}
+	// add the job scheduler to the robot
+	// NOTE: this is after reconfigure. Maybe need before?
+	getResource := func(resource string) (resource.Resource, error) {
+		names := r.manager.resources.Names()
+		for _, name := range names {
+			logger.Info(name)
+			if name.Name == resource {
+				return r.manager.ResourceByName(name)
+			}
+		}
+		return nil, errors.Errorf("could not find the resource for name %s", resource)
+	}
+
+	jobManager, err := jobmanager.New(cfg.Jobs, logger, getResource, r.webSvc.ModuleAddresses())
+	if err != nil {
+		logger.Warn("Unable to start the job scheduler")
+		return nil, err
+	}
+
+	r.jobManager = jobManager
 
 	r.reconfigure(ctx, cfg, false)
 
@@ -1430,6 +1455,15 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.manager.updateRevision(res.ResourceName(), revision)
 	}
 
+	//r.logger.Warn("BOG")
+	//r.logger.Warn(diff.Added)
+	//r.logger.Warn(diff.Modified)
+	//r.logger.Warn(diff.Removed)
+	//r.logger.Warn("BOG, the jobsEqual is : ", diff.JobsEqual)
+	//if !diff.JobsEqual {
+	//r.jobManager.UpdateJobs(newConfig.Jobs)
+	//}
+
 	if diff.ResourcesEqual {
 		return
 	}
@@ -1478,6 +1512,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 		// Cleanup extra dirs from previous modules or rogue scripts.
 		allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
+	}
+
+	r.logger.Warn("BOG:", !diff.JobsEqual)
+	if !diff.JobsEqual {
+		r.jobManager.UpdateJobs(newConfig.Jobs)
 	}
 
 	if allErrs != nil {

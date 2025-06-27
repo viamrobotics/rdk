@@ -561,6 +561,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	minimalProcessedConfig.Modules = nil
 	minimalProcessedConfig.Processes = nil
 	minimalProcessedConfig.Packages = nil
+	minimalProcessedConfig.Jobs = nil
 
 	// Mark minimalProcessedConfig as an initial config, so robot reports a
 	// state of initializing until reconfigured with full config.
