@@ -370,8 +370,12 @@ func newWithResources(
 		// - Guarantee that the `rpcServer` is initialized (enough) when the web service is
 		//   constructed to get a valid copy of its stats object (for the schema's sake). Even if
 		//   the web service has not been "started".
-		ftdcDir := ftdc.DefaultDirectory(utils.ViamDotDir, partID)
-		ftdcWorker = ftdc.NewWithUploader(ftdcDir, conn, partID, logger.Sublogger("ftdc"))
+		if rOpts.ftdcWriter != nil {
+			ftdcWorker = ftdc.NewWithWriter(rOpts.ftdcWriter, logger.Sublogger("ftdc"))
+		} else {
+			ftdcDir := ftdc.DefaultDirectory(utils.ViamDotDir, partID)
+			ftdcWorker = ftdc.NewWithUploader(ftdcDir, conn, partID, logger.Sublogger("ftdc"))
+		}
 		if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
 			ftdcWorker.Add("proc.viam-server", statser)
 		}
