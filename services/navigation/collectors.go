@@ -14,7 +14,7 @@ func (m method) String() string {
 	if m == doCommand {
 		return "DoCommand"
 	}
-	return "Unknown"
+	return unknown
 }
 
 // newDoCommandCollector returns a collector to register a doCommand action. If one is already registered

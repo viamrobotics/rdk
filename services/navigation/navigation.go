@@ -47,6 +47,8 @@ const (
 	GPSMap
 )
 
+const unknown = "Unknown"
+
 func (m Mode) String() string {
 	switch m {
 	case ModeManual:
@@ -56,7 +58,7 @@ func (m Mode) String() string {
 	case ModeExplore:
 		return "Explore"
 	default:
-		return "Unknown"
+		return unknown
 	}
 }
 
@@ -67,7 +69,7 @@ func (m MapType) String() string {
 	case GPSMap:
 		return "GPS"
 	default:
-		return "Unknown"
+		return unknown
 	}
 }
 
