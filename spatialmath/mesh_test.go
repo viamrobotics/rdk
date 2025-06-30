@@ -607,7 +607,8 @@ func TestBoxTriangleIntersectionArea(t *testing.T) {
 	// should sync w main before making PR, but without 10777 additions, some of these tests will fail
 	b, err := NewBox(NewZeroPose(),
 		r3.Vector{X: 2, Y: 2, Z: 2}, "")
-	bbox := b.(*box)
+	bbox, ok := b.(*box)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 	t.Run("Fully encompassed triangle", func(t *testing.T) {
 		triangle := NewTriangle(
@@ -617,7 +618,7 @@ func TestBoxTriangleIntersectionArea(t *testing.T) {
 		)
 		area, err := boxTriangleIntersectionArea(bbox, triangle)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0.25)
+		test.That(t, area, test.ShouldEqual, 0.25)
 	})
 	t.Run("Partially encompassed triangle with vertex in box", func(t *testing.T) {
 		triangle := NewTriangle(
@@ -627,7 +628,7 @@ func TestBoxTriangleIntersectionArea(t *testing.T) {
 		)
 		area, err := boxTriangleIntersectionArea(bbox, triangle)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0.5)
+		test.That(t, area, test.ShouldEqual, 0.5)
 	})
 	t.Run("Partially encompassed triangle with no vertices in box", func(t *testing.T) {
 		triangle := NewTriangle(
@@ -647,7 +648,7 @@ func TestBoxTriangleIntersectionArea(t *testing.T) {
 		)
 		area, err := boxTriangleIntersectionArea(bbox, triangle)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 2)
+		test.That(t, area, test.ShouldEqual, 2)
 	})
 	t.Run("Triangle not intersecting box", func(t *testing.T) {
 		triangle := NewTriangle(
@@ -657,6 +658,6 @@ func TestBoxTriangleIntersectionArea(t *testing.T) {
 		)
 		area, err := boxTriangleIntersectionArea(bbox, triangle)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0)
+		test.That(t, area, test.ShouldEqual, 0)
 	})
 }
