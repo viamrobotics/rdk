@@ -1997,9 +1997,31 @@ func TestCrashedModuleModelReregisteredAfterRecovery(t *testing.T) {
 	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Also assert that testmodule's resources were reregistered.
+	// Also assert that testmodule's resources were reregistered and
+	// test that a new resource in the config gets built successfully.
 	_, ok = resource.LookupRegistration(generic.API, helperModel)
 	test.That(t, ok, test.ShouldBeTrue)
+
+	cfg2 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h2",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+	h, err = r.ResourceByName(generic.Named("h2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
 }
 
 var (
