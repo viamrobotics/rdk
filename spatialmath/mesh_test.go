@@ -139,7 +139,8 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
-	// edge-face. This implies one of the above collision types (e.g., e-e) so if they're all perfectly tested (difficult to guarantee) we're fine
+	// edge-face. This implies one of the above collision types (e.g., e-e)
+	// so if they're all perfectly tested (difficult to guarantee) we're fine
 	// nonetheless worth keeping: e-f is the basic collision type checked by collidesWithMesh,
 	// and the special case of e parallel to f is important
 	t.Run("triangle edge against triangle face", func(t *testing.T) {
