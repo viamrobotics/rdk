@@ -21,11 +21,10 @@ import (
 type vizModel struct {
 	resource.Named
 	resource.AlwaysRebuild
-	// TODO: do we actually need this!?
-	deps            resource.Dependencies
 	logger          logging.Logger
 	properties      Properties
 	closerFunc      func(ctx context.Context) error // close the underlying model
+	getCamera       func(cameraName string) (camera.Camera, error)
 	classifierFunc  classification.Classifier
 	detectorFunc    objectdetection.Detector
 	segmenter3DFunc segmentation.Segmenter
@@ -59,12 +58,16 @@ func NewService(
 		p.ObjectPCDsSupported = true
 	}
 
+	cameraGetter := func(cameraName string) (camera.Camera, error) {
+		return camera.FromDependencies(deps, cameraName)
+	}
+
 	return &vizModel{
 		Named:           name.AsNamed(),
-		deps:            deps,
 		logger:          logger,
 		properties:      p,
 		closerFunc:      closer,
+		getCamera:       cameraGetter,
 		classifierFunc:  cf,
 		detectorFunc:    df,
 		segmenter3DFunc: s3f,
@@ -105,7 +108,7 @@ func (vm *vizModel) DetectionsFromCamera(
 		return nil, errors.Errorf("vision model %q does not implement a Detector", vm.Named.Name())
 	}
 
-	cam, err := camera.FromDependencies(vm.deps, cameraName)
+	cam, err := vm.getCamera(cameraName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
@@ -155,7 +158,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 		return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.Named.Name())
 	}
 
-	cam, err := camera.FromDependencies(vm.deps, cameraName)
+	cam, err := vm.getCamera(cameraName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
@@ -188,7 +191,7 @@ func (vm *vizModel) GetObjectPointClouds(
 	} else if cameraName == "" {
 		cameraName = vm.defaultCamera
 	}
-	cam, err := camera.FromDependencies(vm.deps, cameraName)
+	cam, err := vm.getCamera(cameraName)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +220,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 	} else if cameraName == "" {
 		cameraName = vm.defaultCamera
 	}
-	cam, err := camera.FromDependencies(vm.deps, cameraName)
+	cam, err := vm.getCamera(cameraName)
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
