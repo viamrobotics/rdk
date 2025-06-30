@@ -54,7 +54,6 @@ var (
 const minResolutionDimension = 2
 
 // We only need 2 frames in the buffer because we are only ever using the latest frame.
-// TODO: TRY THIS AS 1.
 const sizeOfBuffer = 1
 
 // FrameStruct is the struct used by the webcam buffer to process and release images.
