@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	testVisionServiceName  = "vision1"  // Used both here and server_test.go
-	testVisionServiceName2 = "vision2"  // Used in server_test.go, but not here
+	testVisionServiceName  = "vision1" // Used both here and server_test.go
+	testVisionServiceName2 = "vision2" // Used in server_test.go, but not here
 )
 
 func TestFromRobot(t *testing.T) {
