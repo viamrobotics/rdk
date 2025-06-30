@@ -580,7 +580,7 @@ func TestRegistrationWithDefaultCamera(t *testing.T) {
 	cameraName := camera.Named("test")
 	modelCfg := MLModelConfig{ModelName: modelName.Name}
 
-	r := &inject.Robot{}
+	r := inject.Robot{}
 	r.LoggerFunc = func() logging.Logger {
 		return nil
 	}
@@ -595,23 +595,23 @@ func TestRegistrationWithDefaultCamera(t *testing.T) {
 		}
 	}
 
-	service, err := registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	service, err := registerMLModelVisionService(ctx, modelName, &modelCfg, &r, logging.NewLogger("benchmark"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, service, test.ShouldNotBeNil)
 
 	modelCfg.DefaultCamera = cameraName.Name
-	service, err = registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	service, err = registerMLModelVisionService(ctx, modelName, &modelCfg, &r, logging.NewLogger("benchmark"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, service, test.ShouldNotBeNil)
 
 	modelCfg.DefaultCamera = "not-camera"
-	_, err = registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	_, err = registerMLModelVisionService(ctx, modelName, &modelCfg, &r, logging.NewLogger("benchmark"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "could not find camera \"not-camera\"")
 
 	// Test that *FromCamera errors when camera is not found
 	modelCfg.DefaultCamera = ""
-	service, err = registerMLModelVisionService(ctx, modelName, &modelCfg, r, logging.NewLogger("benchmark"))
+	service, err = registerMLModelVisionService(ctx, modelName, &modelCfg, &r, logging.NewLogger("benchmark"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, service, test.ShouldNotBeNil)
 	_, err = service.DetectionsFromCamera(ctx, "", nil)

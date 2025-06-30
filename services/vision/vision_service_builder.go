@@ -59,7 +59,7 @@ func NewService(
 		p.ObjectPCDsSupported = true
 	}
 
-	cameraGetter := func(cameraName string) (camera.Camera, error) {
+	getCamera := func(cameraName string) (camera.Camera, error) {
 		return camera.FromDependencies(deps, cameraName)
 	}
 
@@ -68,7 +68,7 @@ func NewService(
 		logger:          logger,
 		properties:      p,
 		closerFunc:      closer,
-		getCamera:       cameraGetter,
+		getCamera:       getCamera,
 		classifierFunc:  cf,
 		detectorFunc:    df,
 		segmenter3DFunc: s3f,
@@ -105,7 +105,7 @@ func DeprecatedNewService(
 
 	logger := r.Logger()
 
-	cameraGetter := func(cameraName string) (camera.Camera, error) {
+	getCamera := func(cameraName string) (camera.Camera, error) {
 		return camera.FromRobot(r, cameraName)
 	}
 
@@ -114,7 +114,7 @@ func DeprecatedNewService(
 		logger:          logger,
 		properties:      p,
 		closerFunc:      c,
-		getCamera:       cameraGetter,
+		getCamera:       getCamera,
 		classifierFunc:  cf,
 		detectorFunc:    df,
 		segmenter3DFunc: s3f,
