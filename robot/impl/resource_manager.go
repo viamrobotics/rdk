@@ -721,7 +721,7 @@ func (manager *resourceManager) completeConfig(
 					} else {
 						prefix = "re"
 					}
-					manager.logger.CInfow(ctx, fmt.Sprintf("Now %sconfiguring resource", prefix), "resource", resName)
+					manager.logger.CInfow(ctx, fmt.Sprintf("Now %sconfiguring resource", prefix), "resource", resName, "model", conf.Model)
 
 					// this is done in config validation but partial start rules require us to check again
 					if _, _, err := conf.Validate("", resName.API.Type.Name); err != nil {
@@ -771,7 +771,7 @@ func (manager *resourceManager) completeConfig(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc)
-							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %sconfigured resource", prefix), "resource", resName)
+							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %sconfigured resource", prefix), "resource", resName, "model", conf.Model)
 						}
 
 					default:
