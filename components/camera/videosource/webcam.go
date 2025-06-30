@@ -55,7 +55,7 @@ const minResolutionDimension = 2
 
 // We only need 2 frames in the buffer because we are only ever using the latest frame.
 // TODO: TRY THIS AS 1.
-const sizeOfBuffer = 2
+const sizeOfBuffer = 1
 
 // FrameStruct is the struct used by the webcam buffer to process and release images.
 type FrameStruct struct {
@@ -252,12 +252,9 @@ func NewWebcam(
 	if cam.conf.FrameRate != 0.0 {
 		defaultFrameRate = cam.conf.FrameRate
 	}
-
 	cam.buffer = NewWebcamBuffer()
 	cam.startBuffer()
-
 	cam.Monitor()
-
 	return cam, nil
 }
 
@@ -270,12 +267,11 @@ func (c *webcam) Reconfigure(
 	if err != nil {
 		return err
 	}
-
+	c.stopBuffer()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
-	c.stopBuffer()
 	driverReinitNotNeeded := c.conf.Format == newConf.Format &&
 		c.conf.Path == newConf.Path &&
 		c.conf.Width == newConf.Width &&
@@ -300,10 +296,8 @@ func (c *webcam) Reconfigure(
 	if c.conf.FrameRate != 0.0 {
 		defaultFrameRate = c.conf.FrameRate
 	}
-
 	c.buffer = NewWebcamBuffer()
 	c.startBuffer()
-
 	return nil
 }
 
@@ -419,7 +413,7 @@ func (c *webcam) Images(ctx context.Context) ([]camera.NamedImage, resource.Resp
 		return nil, resource.ResponseMetadata{}, err
 	}
 
-	img, err := c.buffer.GetLatestFrame()
+	img, err := c.getLatestFrame()
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, err
 	}
@@ -448,7 +442,7 @@ func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]in
 	if c.reader == nil {
 		return nil, camera.ImageMetadata{}, errors.New("underlying reader is nil")
 	}
-	img, err := c.buffer.GetLatestFrame()
+	img, err := c.getLatestFrame()
 	if err != nil {
 		return nil, camera.ImageMetadata{}, err
 	}
@@ -524,14 +518,13 @@ func NewWebcamBuffer() *WebcamBuffer {
 }
 
 // GetLatestFrame gets the latest frame from the buffer.
-func (wb *WebcamBuffer) GetLatestFrame() (image.Image, error) {
+func (c *webcam) getLatestFrame() (image.Image, error) {
 	var latestFrame FrameStruct
-	if wb.currentIndex == 0 {
-		latestFrame = wb.frames[sizeOfBuffer-1]
+	if c.buffer.currentIndex == 0 {
+		latestFrame = c.buffer.frames[sizeOfBuffer-1]
 	} else {
-		latestFrame = wb.frames[wb.currentIndex-1]
+		latestFrame = c.buffer.frames[c.buffer.currentIndex-1]
 	}
-
 	if latestFrame.img == nil {
 		if latestFrame.err != nil {
 			return nil, latestFrame.err
@@ -544,19 +537,14 @@ func (wb *WebcamBuffer) GetLatestFrame() (image.Image, error) {
 
 // StartBuffer initiates the buffer collection process.
 func (c *webcam) startBuffer() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if c.buffer.ticker != nil {
 		return
 	}
 
 	interFrameDuration := time.Duration(float32(time.Second) / defaultFrameRate)
-
 	c.workers.Add(func(closedCtx context.Context) {
 		c.buffer.ticker = time.NewTicker(interFrameDuration)
 		defer c.buffer.ticker.Stop()
-
 		for {
 			select {
 			case <-closedCtx.Done():
@@ -590,8 +578,8 @@ func (c *webcam) stopBuffer() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.workers != nil {
-		c.workers.Stop()
+	if c.buffer == nil {
+		return
 	}
 
 	if c.buffer.ticker != nil {
