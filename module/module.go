@@ -30,6 +30,8 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
+	// Register component APIs.
+	_ "go.viam.com/rdk/components/register_apis"
 	"go.viam.com/rdk/config"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -38,6 +40,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/discovery"
+	// Register component APIs.
+	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"
 )
 
