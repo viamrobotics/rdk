@@ -792,7 +792,12 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 				// robot.proto or by overriding the gRPC reflection service to return
 				// reflection results from its remotes.
 				rc.Logger().
-					CDebugw(ctx, "failed to find symbol for resource API", "api", rprotoutils.ResourceNameFromProto(resAPI.Subtype).API.String(), "error", err)
+					CDebugw(
+						ctx,
+						"failed to find symbol for resource API",
+						"api", rprotoutils.ResourceNameFromProto(resAPI.Subtype).API.String(),
+						"error", err,
+					)
 				continue
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
