@@ -192,5 +192,9 @@ func (c *Config) logDiff(o Config, logger logging.Logger) {
 func (c Config) SyncPaths() []string {
 	// TODO(DATA-4287): Remove this once all windows machines have updated to a version of viam-server that uses the new capture directory.
 	oldCaptureDir := filepath.Join(os.Getenv("HOME"), ".viam", "capture")
-	return append([]string{c.CaptureDir, oldCaptureDir}, c.AdditionalSyncPaths...)
+	syncPaths := append([]string{c.CaptureDir}, c.AdditionalSyncPaths...)
+	if c.CaptureDir != oldCaptureDir {
+		syncPaths = append(syncPaths, oldCaptureDir)
+	}
+	return syncPaths
 }
