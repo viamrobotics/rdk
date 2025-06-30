@@ -254,6 +254,7 @@ func NewWebcam(
 	}
 	cam.buffer = NewWebcamBuffer()
 	cam.startBuffer()
+
 	cam.Monitor()
 	return cam, nil
 }
@@ -298,6 +299,7 @@ func (c *webcam) Reconfigure(
 	}
 	c.buffer = NewWebcamBuffer()
 	c.startBuffer()
+
 	return nil
 }
 
@@ -509,7 +511,6 @@ func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) (
 	return make([]spatialmath.Geometry, 0), nil
 }
 
-// NewWebcamBuffer creates a new WebcamBuffer struct.
 func NewWebcamBuffer() *WebcamBuffer {
 	return &WebcamBuffer{
 		frames:       make([]FrameStruct, sizeOfBuffer),
@@ -517,7 +518,6 @@ func NewWebcamBuffer() *WebcamBuffer {
 	}
 }
 
-// GetLatestFrame gets the latest frame from the buffer.
 func (c *webcam) getLatestFrame() (image.Image, error) {
 	var latestFrame FrameStruct
 	if c.buffer.currentIndex == 0 {
@@ -535,7 +535,6 @@ func (c *webcam) getLatestFrame() (image.Image, error) {
 	return latestFrame.img, nil
 }
 
-// StartBuffer initiates the buffer collection process.
 func (c *webcam) startBuffer() {
 	if c.buffer.ticker != nil {
 		return
@@ -573,7 +572,6 @@ func (c *webcam) startBuffer() {
 	})
 }
 
-// StopBuffer stops the buffer collection process.
 func (c *webcam) stopBuffer() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
