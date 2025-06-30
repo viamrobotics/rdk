@@ -43,8 +43,9 @@ func (s *simpleSegmenter) Segment(ctx context.Context, src camera.Camera) ([]*vi
 	return []*visionObject.Object{}, nil
 }
 
-func TestDeprecatedNewService(t *testing.T) {
+func TestNewService(t *testing.T) {
 	var r inject.Robot
+	r.LoggerFunc = func() logging.Logger { return nil }
 	var m simpleDetector
 	svc, err := vision.DeprecatedNewService(vision.Named("testService"), &r, nil, nil, m.Detect, nil, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -70,6 +71,9 @@ func TestDefaultCameraSettings(t *testing.T) {
 		},
 	}
 
+	r.LoggerFunc = func() logging.Logger {
+		return nil
+	}
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return fakeCamera, nil
 	}

@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -29,6 +30,7 @@ func (s *simpleDetector) Detect(context.Context, image.Image) ([]objectdetection
 
 func Test3DSegmentsFromDetector(t *testing.T) {
 	r := &inject.Robot{}
+	r.LoggerFunc = func() logging.Logger { return nil }
 	m := &simpleDetector{}
 	name := vision.Named("testDetector")
 	svc, err := vision.DeprecatedNewService(name, r, nil, nil, m.Detect, nil, "")

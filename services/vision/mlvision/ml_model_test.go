@@ -26,7 +26,11 @@ func BenchmarkAddMLVisionModel(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, logging.NewLogger("benchmark"))
+		r := inject.Robot{}
+		r.LoggerFunc = func() logging.Logger {
+			return nil
+		}
+		service, err := registerMLModelVisionService(ctx, name, &modelCfg, &r, logging.NewLogger("benchmark"))
 		test.That(b, err, test.ShouldBeNil)
 		test.That(b, service, test.ShouldNotBeNil)
 		test.That(b, service.Name(), test.ShouldResemble, name)
@@ -42,7 +46,11 @@ func BenchmarkUseMLVisionModel(b *testing.B) {
 	test.That(b, pic, test.ShouldNotBeNil)
 	modelCfg := MLModelConfig{ModelName: name.Name}
 
-	service, err := registerMLModelVisionService(ctx, name, &modelCfg, &inject.Robot{}, logging.NewLogger("benchmark"))
+	r := inject.Robot{}
+	r.LoggerFunc = func() logging.Logger {
+		return nil
+	}
+	service, err := registerMLModelVisionService(ctx, name, &modelCfg, &r, logging.NewLogger("benchmark"))
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, service, test.ShouldNotBeNil)
 	test.That(b, service.Name(), test.ShouldResemble, name)
@@ -573,6 +581,9 @@ func TestRegistrationWithDefaultCamera(t *testing.T) {
 	modelCfg := MLModelConfig{ModelName: modelName.Name}
 
 	r := &inject.Robot{}
+	r.LoggerFunc = func() logging.Logger {
+		return nil
+	}
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		switch name {
 		case modelName:
