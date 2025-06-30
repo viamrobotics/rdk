@@ -511,6 +511,7 @@ func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) (
 	return make([]spatialmath.Geometry, 0), nil
 }
 
+// NewWebcamBuffer creates a new WebcamBuffer struct.
 func NewWebcamBuffer() *WebcamBuffer {
 	return &WebcamBuffer{
 		frames:       make([]FrameStruct, sizeOfBuffer),
