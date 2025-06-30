@@ -171,18 +171,12 @@ func TestCollectors(t *testing.T) {
 }
 
 func TestDoCommandCollector(t *testing.T) {
-	viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
-	test.That(t, err, test.ShouldBeNil)
-	img := rimage.NewLazyEncodedImage(viamLogoJpeg, utils.MimeTypeJPEG)
-	pcd, err := pointcloud.NewFromFile(artifact.MustPath("pointcloud/test.las"), "")
-	test.That(t, err, test.ShouldBeNil)
-
 	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
 		ComponentName:   serviceName,
 		CaptureInterval: captureInterval,
 		DoCommandMap:    doCommandMap,
 		Collector:       camera.NewDoCommandCollector,
-		ResourceFactory: func() interface{} { return newCamera(img, img, pcd) },
+		ResourceFactory: func() interface{} { return newCamera(nil, nil, nil) },
 	})
 }
 

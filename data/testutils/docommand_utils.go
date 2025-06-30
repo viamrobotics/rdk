@@ -33,7 +33,7 @@ func TestDoCommandCollector(t *testing.T, config DoCommandTestConfig) {
 		expectError  bool
 	}{
 		{
-			name: "DoCommand collector should write a list of values",
+			name: "DoCommand collector should write a map of values",
 			methodParams: map[string]*anypb.Any{
 				"docommand_input": func() *anypb.Any {
 					structVal := tu.ToStructPBStruct(t, map[string]any{

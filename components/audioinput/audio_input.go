@@ -25,7 +25,6 @@ func init() {
 		API:        API,
 		MethodName: doCommand.String(),
 	}, newDoCommandCollector)
-	// TODO(RSDK-562): Add RegisterCollector
 }
 
 // SubtypeName is a constant that identifies the audio input resource subtype string.
