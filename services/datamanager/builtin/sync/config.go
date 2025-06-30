@@ -1,13 +1,12 @@
 package sync
 
 import (
-	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/services/datamanager/builtin/shared"
 )
 
 // Config is the sync config from builtin.
@@ -191,10 +190,9 @@ func (c *Config) logDiff(o Config, logger logging.Logger) {
 // SyncPaths returns the capture directory and additional sync paths as a slice.
 func (c Config) SyncPaths() []string {
 	// TODO(DATA-4287): Remove this once all windows machines have updated to a version of viam-server that uses the new capture directory.
-	oldCaptureDir := filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 	syncPaths := append([]string{c.CaptureDir}, c.AdditionalSyncPaths...)
-	if c.CaptureDir != oldCaptureDir {
-		syncPaths = append(syncPaths, oldCaptureDir)
+	if c.CaptureDir == shared.ViamCaptureDotDir && shared.CaptureDirChanged {
+		syncPaths = append(syncPaths, shared.OldViamCaptureDotDir)
 	}
 	return syncPaths
 }
