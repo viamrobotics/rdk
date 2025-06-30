@@ -9,4 +9,4 @@ import (
 
 var ViamCaptureDotDir = filepath.Join(utils.ViamDotDir, "capture")
 var OldViamCaptureDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
-var CaptureDirChanged = ViamCaptureDotDir != OldViamCaptureDotDir
+var DefaultCaptureDirChanged = ViamCaptureDotDir != OldViamCaptureDotDir
