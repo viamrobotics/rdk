@@ -700,20 +700,19 @@ func TestMeshDensity(t *testing.T) {
 		m, err := NewMeshFromPLYFile("/Users/emiyare.ikwut-ukwa/Documents/lod_" + lod + ".ply")
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
-			continue
 		}
 
-		greatestDiff := 0.0
-		totalDiff := 0.0
+		greatestDiff := 0.
+		totalDiff := 0.
 		var edgeLengths []float64
 
 		for _, tri := range m.triangles {
 			pts := tri.Points()
-			for i := 0; i < 3; i++ {
+			for i := range 3 {
 				p1 := pts[i]
 				p2 := pts[(i+1)%3]
 				diff := p1.Sub(p2).Norm()
-				greatestDiff = math.Max(greatestDiff, diff)
+				greatestDiff = max(greatestDiff, diff)
 				totalDiff += diff
 				edgeLengths = append(edgeLengths, diff)
 			}
