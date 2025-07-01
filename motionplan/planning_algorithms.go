@@ -33,6 +33,22 @@ type AlgorithmSettings struct {
 	RRTStarOpts *rrtStarConnectOptions `json:"rrtstar_settings"`
 }
 
+type cbirrtOptions struct {
+	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
+	SolutionsToSeed int `json:"solutions_to_seed"`
+
+	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
+	qstep map[string][]float64
+}
+
+type rrtStarConnectOptions struct {
+	// The number of nearest neighbors to consider when adding a new sample to the tree
+	NeighborhoodSize int `json:"neighborhood_size"`
+
+	// This is how far rrtStarConnect will try to extend the map towards a goal per-step
+	qstep map[string][]float64
+}
+
 type plannerConstructor func(
 	referenceframe.FrameSystem,
 	*rand.Rand,

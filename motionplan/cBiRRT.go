@@ -25,14 +25,6 @@ const (
 	maxExtendIter = 5000
 )
 
-type cbirrtOptions struct {
-	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
-	SolutionsToSeed int `json:"solutions_to_seed"`
-
-	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
-	qstep map[string][]float64
-}
-
 // cBiRRTMotionPlanner an object able to solve constrained paths around obstacles to some goal for a given referenceframe.
 // It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
 // https://ieeexplore.ieee.org/document/5152399/

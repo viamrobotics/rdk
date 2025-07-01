@@ -24,14 +24,6 @@ const (
 	defaultOptimalityCheckIter = 10
 )
 
-type rrtStarConnectOptions struct {
-	// The number of nearest neighbors to consider when adding a new sample to the tree
-	NeighborhoodSize int `json:"neighborhood_size"`
-
-	// This is how far rrtStarConnect will try to extend the map towards a goal per-step
-	qstep map[string][]float64
-}
-
 // rrtStarConnectMotionPlanner is an object able to asymptotically optimally path around obstacles to some goal for a given referenceframe.
 // It uses the RRT*-Connect algorithm, Klemm et al 2015
 // https://ieeexplore.ieee.org/document/7419012
