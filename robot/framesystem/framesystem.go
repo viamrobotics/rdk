@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/golang/geo/r3"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -90,6 +89,9 @@ type Service interface {
 //	// Transform the first point cloud in the list from its reference frame to the frame of 'myArm'.
 //	transformed, err := fsService.TransformPointCloud(context.Background(), pointClouds[0], referenceframe.World, "myArm")
 type RobotFrameSystem interface {
+	// FrameSystemConfig returns the individual parts that make up a robot's frame system
+	FrameSystemConfig(ctx context.Context) (*Config, error)
+
 	// GetPose returns the pose a component within a frame system.
 	// It returns a `PoseInFrame` describing the pose of the specified component relative to the specified destination frame.
 	// The `supplemental_transforms` argument can be used to augment the machine's existing frame system with additional frames.
@@ -140,6 +142,8 @@ func (svc *frameSystemService) Name() resource.Name {
 	return internalFrameSystemServiceName
 }
 
+// TODO: remove AdditionalTransforms since they aren't something that can really be configured
+// Then make the frame system constructor take a config
 // Config is a slice of *config.FrameSystemPart.
 type Config struct {
 	resource.TriviallyValidateConfig
@@ -225,6 +229,10 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 	return nil
 }
 
+func (svc *frameSystemService) FrameSystemConfig(ctx context.Context) (*Config, error) {
+	return &Config{Parts: svc.parts}, nil
+}
+
 // GetPose returns the pose of the specified component in the given destination frame
 func (svc *frameSystemService) GetPose(
 	ctx context.Context,
@@ -240,7 +248,7 @@ func (svc *frameSystemService) GetPose(
 	}
 	return svc.TransformPose(
 		ctx,
-		referenceframe.NewPoseInFrame(componentName, spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0})),
+		referenceframe.NewPoseInFrame(componentName, spatialmath.NewZeroPose()),
 		destinationFrame,
 		supplementalTransforms,
 	)
@@ -256,97 +264,24 @@ func (svc *frameSystemService) TransformPose(
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::TransformPose")
 	defer span.End()
 
-	fs, err := svc.FrameSystem(ctx, additionalTransforms)
+	fs, err := referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)
 	if err != nil {
 		return nil, err
 	}
-	input := referenceframe.NewZeroInputs(fs)
 
 	svc.partsMu.RLock()
 	defer svc.partsMu.RUnlock()
 
-	// build maps of relevant components and inputs from initial inputs
-	for name, inputs := range input {
-		// skip frame if it does not have input
-		if len(inputs) == 0 {
-			continue
-		}
-
-		// add component to map
-		component, ok := svc.components[name]
-		if !ok {
-			return nil, DependencyNotFoundError(name)
-		}
-		inputEnabled, ok := component.(InputEnabled)
-		if !ok {
-			return nil, NotInputEnabledError(component)
-		}
-
-		// add input to map
-		pos, err := inputEnabled.CurrentInputs(ctx)
-		if err != nil {
-			return nil, err
-		}
-		input[name] = pos
+	input, err := CurrentInputs(ctx, svc.components)
+	if err != nil {
+		return nil, err
 	}
 
 	tf, err := fs.Transform(input, pose, dst)
 	if err != nil {
 		return nil, err
 	}
-	pose, _ = tf.(*referenceframe.PoseInFrame)
-	return pose, nil
-}
-
-// CurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
-// InputEnabled resources that those inputs came from.
-func (svc *frameSystemService) CurrentInputs(
-	ctx context.Context,
-) (referenceframe.FrameSystemInputs, map[string]InputEnabled, error) {
-	fs, err := svc.FrameSystem(ctx, []*referenceframe.LinkInFrame{})
-	if err != nil {
-		return nil, nil, err
-	}
-	input := referenceframe.NewZeroInputs(fs)
-
-	// build maps of relevant components and inputs from initial inputs
-	resources := map[string]InputEnabled{}
-	for name, original := range input {
-		// skip frames with no input
-		if len(original) == 0 {
-			continue
-		}
-
-		// add component to map
-		component, ok := svc.components[name]
-		if !ok {
-			return nil, nil, DependencyNotFoundError(name)
-		}
-		inputEnabled, ok := component.(InputEnabled)
-		if !ok {
-			return nil, nil, NotInputEnabledError(component)
-		}
-		resources[name] = inputEnabled
-
-		// add input to map
-		pos, err := inputEnabled.CurrentInputs(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		input[name] = pos
-	}
-
-	return input, resources, nil
-}
-
-// FrameSystem returns the frame system of the robot.
-func (svc *frameSystemService) FrameSystem(
-	ctx context.Context,
-	additionalTransforms []*referenceframe.LinkInFrame,
-) (referenceframe.FrameSystem, error) {
-	_, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
-	defer span.End()
-	return referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)
+	return tf.(*referenceframe.PoseInFrame), nil
 }
 
 // TransformPointCloud applies the same pose offset to each point in a single pointcloud and returns the transformed point cloud.
@@ -374,6 +309,23 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 		return nil, err
 	}
 	return pc, nil
+}
+
+// CurrentInputs will get the inputs of all provided dependencies
+func CurrentInputs(ctx context.Context, components map[string]resource.Resource) (referenceframe.FrameSystemInputs, error) {
+	input := make(referenceframe.FrameSystemInputs)
+	for name, res := range components {
+		inputEnabled, ok := res.(InputEnabled)
+		if !ok {
+			continue
+		}
+		pos, err := inputEnabled.CurrentInputs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		input[name] = pos
+	}
+	return input, nil
 }
 
 // PrefixRemoteParts applies prefixes to a list of FrameSystemParts appropriate to the remote they originate from.

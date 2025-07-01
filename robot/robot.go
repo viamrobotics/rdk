@@ -111,9 +111,6 @@ type Robot interface {
 	// Logger returns the logger the robot is using.
 	Logger() logging.Logger
 
-	// FrameSystemConfig returns the individual parts that make up a robot's frame system
-	FrameSystemConfig(ctx context.Context) (*framesystem.Config, error)
-
 	// CloudMetadata returns app-related information about the robot.
 	CloudMetadata(ctx context.Context) (cloud.Metadata, error)
 
