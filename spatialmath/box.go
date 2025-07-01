@@ -157,6 +157,10 @@ func (b *box) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) 
 		return capsuleVsBoxCollision(other, b, collisionBufferMM), nil
 	case *point:
 		return pointVsBoxCollision(other.position, b, collisionBufferMM), nil
+	case *points:
+		return pointsVsBoxCollision(other, b, collisionBufferMM), nil
+	case *line:
+		return lineVsBoxCollision(other, b, collisionBufferMM), nil
 	default:
 		return true, newCollisionTypeUnsupportedError(b, g)
 	}
@@ -174,6 +178,10 @@ func (b *box) DistanceFrom(g Geometry) (float64, error) {
 		return capsuleVsBoxDistance(other, b), nil
 	case *point:
 		return pointVsBoxDistance(other.position, b), nil
+	case *points:
+		return pointsVsBoxDistance(other, b), nil
+	case *line:
+		return lineVsBoxDistance(other, b), nil
 	default:
 		return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 	}
@@ -190,6 +198,10 @@ func (b *box) EncompassedBy(g Geometry) (bool, error) {
 	case *capsule:
 		return boxInCapsule(b, other), nil
 	case *point:
+		return false, nil
+	case *points:
+		return false, nil
+	case *line:
 		return false, nil
 	default:
 		return false, newCollisionTypeUnsupportedError(b, g)

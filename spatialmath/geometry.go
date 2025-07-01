@@ -61,6 +61,8 @@ const (
 	SphereType  = GeometryType("sphere")
 	CapsuleType = GeometryType("capsule")
 	PointType   = GeometryType("point")
+	PointsType  = GeometryType("points")
+	LineType    = GeometryType("line")
 )
 
 // GeometryConfig specifies the format of geometries specified through JSON configuration files.
@@ -77,6 +79,12 @@ type GeometryConfig struct {
 
 	// parameter used for defining a capsule's length
 	L float64 `json:"l"`
+
+	// parameter used for defining a points's array
+	Points []r3.Vector `json:"points"`
+
+	// parameter used for defining a line's segments
+	Segments []r3.Vector `json:"segments"`
 
 	// define an offset to position the geometry
 	TranslationOffset r3.Vector         `json:"translation,omitempty"`
@@ -106,6 +114,14 @@ func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 		config.Label = gType.label
 	case *point:
 		config.Type = PointType
+		config.Label = gType.label
+	case *points:
+		config.Type = PointsType
+		config.Points = gType.points
+		config.Label = gType.label
+	case *line:
+		config.Type = LineType
+		config.Segments = gType.segments
 		config.Label = gType.label
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType))
@@ -140,6 +156,10 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		return NewCapsule(offset, config.R, config.L, config.Label)
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
+	case PointsType:
+		return NewPoints(offset, config.Points, config.Label)
+	case LineType:
+		return NewLine(offset, config.Segments, config.Label)
 	case UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
 		boxDims := r3.Vector{X: config.X, Y: config.Y, Z: config.Z}
@@ -156,7 +176,7 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		}
 		// never try to infer point geometry if nothing is specified
 	}
-	return nil, fmt.Errorf("%w: %s", errGeometryTypeUnsupported, string(config.Type))
+	return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, string(config.Type))
 }
 
 // ToProtobuf converts a GeometryConfig to Protobuf.
@@ -178,6 +198,10 @@ func GeometriesAlmostEqual(a, b Geometry) bool {
 	case *capsule:
 		return gType.almostEqual(b)
 	case *point:
+		return gType.almostEqual(b)
+	case *points:
+		return gType.almostEqual(b)
+	case *line:
 		return gType.almostEqual(b)
 	default:
 		return false
@@ -201,6 +225,27 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 			return NewPoint(pose.Point(), geometry.Label), nil
 		}
 		return NewSphere(pose, sphere.RadiusMm, geometry.Label)
+	}
+	if points := geometry.GetPoints(); points != nil {
+		pointsArray := make([]r3.Vector, len(points.Array)/3)
+		for i := 0; i < len(points.Array); i += 3 {
+			pointsArray[i/3] = r3.Vector{
+				X: float64(points.Array[i]),
+				Y: float64(points.Array[i+1]),
+				Z: float64(points.Array[i+2]),
+			}
+		}
+		return NewPoints(pose, pointsArray, geometry.Label)
+	}
+	if line := geometry.GetLine(); line != nil {
+		segments := make([]r3.Vector, len(line.Segments)/3)
+		for i := 0; i < len(line.Segments); i += 3 {
+			segments[i/3] = r3.Vector{
+				X: float64(line.Segments[i]),
+				Y: float64(line.Segments[i+1]),
+				Z: float64(line.Segments[i+2])}
+		}
+		return NewLine(pose, segments, geometry.Label)
 	}
 	if mesh := geometry.GetMesh(); mesh != nil {
 		return newMeshFromProto(pose, mesh, geometry.Label)

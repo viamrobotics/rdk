@@ -102,6 +102,10 @@ func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, erro
 		return sphereVsBoxCollision(s, other, collisionBufferMM), nil
 	case *point:
 		return sphereVsPointDistance(s, other.position) <= collisionBufferMM, nil
+	case *points:
+		return pointsVsSphereDistance(other, s) <= collisionBufferMM, nil
+	case *line:
+		return lineVsSphereDistance(other, s) <= collisionBufferMM, nil
 	default:
 		return true, newCollisionTypeUnsupportedError(s, g)
 	}
@@ -119,6 +123,10 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 		return capsuleVsSphereDistance(other, s), nil
 	case *point:
 		return sphereVsPointDistance(s, other.position), nil
+	case *points:
+		return pointsVsSphereDistance(other, s), nil
+	case *line:
+		return lineVsSphereDistance(other, s), nil
 	default:
 		return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
 	}
@@ -135,6 +143,10 @@ func (s *sphere) EncompassedBy(g Geometry) (bool, error) {
 	case *box:
 		return sphereInBox(s, other), nil
 	case *point:
+		return false, nil
+	case *points:
+		return false, nil
+	case *line:
 		return false, nil
 	default:
 		return true, newCollisionTypeUnsupportedError(s, g)

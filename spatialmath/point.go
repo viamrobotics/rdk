@@ -89,6 +89,10 @@ func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, erro
 		return capsuleVsPointDistance(other, pt.position) <= collisionBufferMM, nil
 	case *point:
 		return pt.position.Sub(other.position).Norm() <= collisionBufferMM, nil
+	case *line:
+		return lineVsPointDistance(other, pt.position) <= collisionBufferMM, nil
+	case *points:
+		return pointsVsPointDistance(other, pt) <= collisionBufferMM, nil
 	default:
 		return true, newCollisionTypeUnsupportedError(pt, g)
 	}
@@ -107,6 +111,10 @@ func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 		return capsuleVsPointDistance(other, pt.position), nil
 	case *point:
 		return pt.position.Sub(other.position).Norm(), nil
+	case *line:
+		return lineVsPointDistance(other, pt.position), nil
+	case *points:
+		return pointsVsPointDistance(other, pt), nil
 	default:
 		return math.Inf(-1), newCollisionTypeUnsupportedError(pt, g)
 	}
@@ -137,4 +145,9 @@ func pointVsBoxDistance(pt r3.Vector, b *box) float64 {
 // ToPointCloud converts a point geometry into a []r3.Vector.
 func (pt *point) ToPoints(resolution float64) []r3.Vector {
 	return []r3.Vector{pt.position}
+}
+
+// ToFloat32Slice converts the points to a float32 slice as represented in proto messages.
+func (p *point) ToFloat32Slice() []float32 {
+	return []float32{float32(p.position.X), float32(p.position.Y), float32(p.position.Z)}
 }
