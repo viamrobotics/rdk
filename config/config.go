@@ -1290,21 +1290,22 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 
 	// If a user-specified log pattern exactly matches the name of a module, update that
 	// module's log level to be "debug." This will cause a restart of the module with
-	// `--log-level=debug`.
+	// `--log-level=debug`. Only do this if the global log level is not already debug.
 	//
 	// NOTE(benji): This is hacky and simply a best-effort to honor user-specified log
 	// patterns. We already emit a warning log in web/server/entrypoint.go#configWatcher
 	// that points users to the 'log_level' and 'log_configuration' fields instead of 'log'
 	// when trying to change levels of modular logs.
-	for _, lpc := range cfg.LogConfig {
-		for i, module := range cfg.Modules {
-			// Only set a log level of "debug" if the pattern exactly matches the name of the
-			// module, the module does not already have a log level set, the pattern has an
-			// associated level of "debug," and the global logger is not already at debug level.
-			shouldSetDebugLevel := lpc.Pattern == module.Name && module.LogLevel == "" &&
-				lpc.Level == moduleLogLevelDebug && globalLogger.logger.GetLevel() != logging.DEBUG
-			if shouldSetDebugLevel {
-				cfg.Modules[i].LogLevel = moduleLogLevelDebug
+	if globalLogger.logger.GetLevel() != logging.DEBUG {
+		for _, lpc := range cfg.LogConfig {
+			for i, module := range cfg.Modules {
+				// Only set a log level of "debug" if the pattern exactly matches the name of the
+				// module, the pattern has an associated level of "debug," and the module does
+				// not already have a log level set
+				if lpc.Pattern == module.Name && lpc.Level == moduleLogLevelDebug &&
+					module.LogLevel == "" {
+					cfg.Modules[i].LogLevel = moduleLogLevelDebug
+				}
 			}
 		}
 	}

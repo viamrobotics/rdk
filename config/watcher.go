@@ -49,16 +49,15 @@ type cloudWatcher struct {
 
 const checkForNewCertInterval = time.Hour
 
-// If "debug" field is set in new config, manually set the log level of each module to
-// "debug" to force a restart of the module with `--log-level=debug` (if the global logger
-// is not already at debug level, and the module does not have a log level set already).
+// If the global log level is not already at debug, and the "debug" field is set in new
+// config, manually set the log level of each module to "debug" to force a restart of the
+// module with `--log-level=debug` (assuming the module does not have a log level set
+// already).
 func alignModuleLogLevels(config *Config) {
-	if config.Debug {
-		if globalLogger.logger.GetLevel() != logging.DEBUG {
-			for i, moduleCfg := range config.Modules {
-				if moduleCfg.LogLevel == "" {
-					config.Modules[i].LogLevel = moduleLogLevelDebug
-				}
+	if globalLogger.logger.GetLevel() != logging.DEBUG && config.Debug {
+		for i, moduleCfg := range config.Modules {
+			if moduleCfg.LogLevel == "" {
+				config.Modules[i].LogLevel = moduleLogLevelDebug
 			}
 		}
 	}
