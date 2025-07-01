@@ -8,6 +8,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	viz "go.viam.com/rdk/vision"
@@ -21,9 +22,10 @@ import (
 type vizModel struct {
 	resource.Named
 	resource.AlwaysRebuild
-	r               robot.Robot // in order to get access to all cameras
+	logger          logging.Logger
 	properties      Properties
 	closerFunc      func(ctx context.Context) error // close the underlying model
+	getCamera       func(cameraName string) (camera.Camera, error)
 	classifierFunc  classification.Classifier
 	detectorFunc    objectdetection.Detector
 	segmenter3DFunc segmentation.Segmenter
@@ -32,6 +34,51 @@ type vizModel struct {
 
 // NewService wraps the vision model in the struct that fulfills the vision service interface.
 func NewService(
+	name resource.Name,
+	deps resource.Dependencies,
+	logger logging.Logger,
+	closer func(ctx context.Context) error,
+	cf classification.Classifier,
+	df objectdetection.Detector,
+	s3f segmentation.Segmenter,
+	defaultCamera string,
+) (Service, error) {
+	if cf == nil && df == nil && s3f == nil {
+		return nil, errors.Errorf(
+			"model %q does not fulfill any method of the vision service. It is neither a detector, nor classifier, nor 3D segmenter", name)
+	}
+
+	p := Properties{false, false, false}
+	if cf != nil {
+		p.ClassificationSupported = true
+	}
+	if df != nil {
+		p.DetectionSupported = true
+	}
+	if s3f != nil {
+		p.ObjectPCDsSupported = true
+	}
+
+	getCamera := func(cameraName string) (camera.Camera, error) {
+		return camera.FromDependencies(deps, cameraName)
+	}
+
+	return &vizModel{
+		Named:           name.AsNamed(),
+		logger:          logger,
+		properties:      p,
+		closerFunc:      closer,
+		getCamera:       getCamera,
+		classifierFunc:  cf,
+		detectorFunc:    df,
+		segmenter3DFunc: s3f,
+		defaultCamera:   defaultCamera,
+	}, nil
+}
+
+// DeprecatedNewService wraps the vision model in the struct that fulfills the vision service
+// interface. Register this service with DeprecatedRobotConstructor.
+func DeprecatedNewService(
 	name resource.Name,
 	r robot.Robot,
 	c func(ctx context.Context) error,
@@ -56,11 +103,18 @@ func NewService(
 		p.ObjectPCDsSupported = true
 	}
 
+	logger := r.Logger()
+
+	getCamera := func(cameraName string) (camera.Camera, error) {
+		return camera.FromRobot(r, cameraName)
+	}
+
 	return &vizModel{
 		Named:           name.AsNamed(),
-		r:               r,
+		logger:          logger,
 		properties:      p,
 		closerFunc:      c,
+		getCamera:       getCamera,
 		classifierFunc:  cf,
 		detectorFunc:    df,
 		segmenter3DFunc: s3f,
@@ -76,6 +130,7 @@ func (vm *vizModel) Detections(
 ) ([]objectdetection.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::Detections::"+vm.Named.Name().String())
 	defer span.End()
+
 	if vm.detectorFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Detector", vm.Named.Name())
 	}
@@ -90,6 +145,7 @@ func (vm *vizModel) DetectionsFromCamera(
 ) ([]objectdetection.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::DetectionsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
+
 	if cameraName == "" && vm.defaultCamera == "" {
 		return nil, errors.New("no camera name provided and no default camera found")
 	} else if cameraName == "" {
@@ -98,7 +154,8 @@ func (vm *vizModel) DetectionsFromCamera(
 	if vm.detectorFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Detector", vm.Named.Name())
 	}
-	cam, err := camera.FromRobot(vm.r, cameraName)
+
+	cam, err := vm.getCamera(cameraName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
@@ -118,6 +175,7 @@ func (vm *vizModel) Classifications(
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::Classifications::"+vm.Named.Name().String())
 	defer span.End()
+
 	if vm.classifierFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.Named.Name())
 	}
@@ -137,6 +195,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
+
 	if cameraName == "" && vm.defaultCamera == "" {
 		return nil, errors.New("no camera name provided and no default camera found")
 	} else if cameraName == "" {
@@ -145,7 +204,8 @@ func (vm *vizModel) ClassificationsFromCamera(
 	if vm.classifierFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.Named.Name())
 	}
-	cam, err := camera.FromRobot(vm.r, cameraName)
+
+	cam, err := vm.getCamera(cameraName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
@@ -153,6 +213,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
+
 	fullClassifications, err := vm.classifierFunc(ctx, img)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get classifications from image")
@@ -166,17 +227,18 @@ func (vm *vizModel) GetObjectPointClouds(
 	cameraName string,
 	extra map[string]interface{},
 ) ([]*viz.Object, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds::"+vm.Named.Name().String())
+	defer span.End()
+
 	if vm.segmenter3DFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a 3D segmenter", vm.Named.Name().String())
 	}
-	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds::"+vm.Named.Name().String())
-	defer span.End()
 	if cameraName == "" && vm.defaultCamera == "" {
 		return nil, errors.New("no camera name provided and no default camera found")
 	} else if cameraName == "" {
 		cameraName = vm.defaultCamera
 	}
-	cam, err := camera.FromRobot(vm.r, cameraName)
+	cam, err := vm.getCamera(cameraName)
 	if err != nil {
 		return nil, err
 	}
@@ -199,12 +261,13 @@ func (vm *vizModel) CaptureAllFromCamera(
 ) (viscapture.VisCapture, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera::"+vm.Named.Name().String())
 	defer span.End()
+
 	if cameraName == "" && vm.defaultCamera == "" {
 		return viscapture.VisCapture{}, errors.New("no camera name provided and no default camera found")
 	} else if cameraName == "" {
 		cameraName = vm.defaultCamera
 	}
-	cam, err := camera.FromRobot(vm.r, cameraName)
+	cam, err := vm.getCamera(cameraName)
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
@@ -212,11 +275,11 @@ func (vm *vizModel) CaptureAllFromCamera(
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not get image from %s", cameraName)
 	}
-	logger := vm.r.Logger()
+
 	var detections []objectdetection.Detection
 	if opt.ReturnDetections {
 		if !vm.properties.DetectionSupported {
-			logger.Debugf("detections requested but vision model %q does not implement a Detector", vm.Named.Name())
+			vm.logger.Debugf("detections requested but vision model %q does not implement a Detector", vm.Named.Name())
 		} else {
 			detections, err = vm.Detections(ctx, img, extra)
 			if err != nil {
@@ -224,11 +287,11 @@ func (vm *vizModel) CaptureAllFromCamera(
 			}
 		}
 	}
+
 	var classifications classification.Classifications
 	if opt.ReturnClassifications {
-		logger := vm.r.Logger()
 		if !vm.properties.ClassificationSupported {
-			logger.Debugf("classifications requested in CaptureAll but vision model %q does not implement a Classifier",
+			vm.logger.Debugf("classifications requested in CaptureAll but vision model %q does not implement a Classifier",
 				vm.Named.Name())
 		} else {
 			classifications, err = vm.Classifications(ctx, img, 0, extra)
@@ -241,8 +304,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 	var objPCD []*viz.Object
 	if opt.ReturnObject {
 		if !vm.properties.ObjectPCDsSupported {
-			logger := vm.r.Logger()
-			logger.Debugf("object point cloud requested in CaptureAll but vision model %q does not implement a 3D Segmenter", vm.Named.Name())
+			vm.logger.Debugf("object point cloud requested in CaptureAll but vision model %q does not implement a 3D Segmenter", vm.Named.Name())
 		} else {
 			objPCD, err = vm.GetObjectPointClouds(ctx, cameraName, extra)
 			if err != nil {
@@ -250,6 +312,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 			}
 		}
 	}
+
 	if !opt.ReturnImage {
 		img = nil
 	}
