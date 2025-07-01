@@ -1,10 +1,11 @@
+// Package jobmanager handles the logic of the jobmanager, responsible for scheduling and
+// keeping track of the "jobs" field of the config.
 package jobmanager
 
 import (
+	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -25,140 +26,117 @@ import (
 	"go.viam.com/utils/rpc"
 )
 
-// The Jobmanager should:
-// - have a concept of a "Job"
-// - add or remove "Jobs" according to mutations of jobConfigs
-// - log when jobs trigger and whether they succeed or fail
-// - gracefully shutdown
-// - should have tests.
+// Jobmanager keeps track of the currently scheduled jobs and updates the schedule with
+// respect to the "jobs" part of the config.
 type Jobmanager struct {
 	scheduler    gocron.Scheduler
-	jobConfigs   []config.JobConfig
 	logger       logging.Logger
 	getResource  func(resource string) (resource.Resource, error)
-	parentAddr   config.ParentSockAddrs
 	namesToUUIDs map[string]uuid.UUID
+	ctx          context.Context
+	conn         rpc.ClientConn
 }
 
-type Job struct {
-	// things to consider:
-	// functions and their arguments
-	// return value of functions
-	// logging
-	// context
-}
-
-// context needed?
-func New(jobConfigs []config.JobConfig,
+// New sets up the context and grpcConn that is used in scheduled jobs. The actual
+// scheduler is initialized and automatically started. Any jobs added to the config will
+// then immediately get scheduled according to their "Schedule" field.
+func New(
+	robotContext context.Context,
 	logger logging.Logger,
 	getResource func(string) (resource.Resource, error),
 	parentAddr config.ParentSockAddrs,
 ) (*Jobmanager, error) {
 	jobLogger := logger.Sublogger("job_manager")
+	// we do not want deduplication on jobs
+	jobLogger.NeverDeduplicate()
 	scheduler, err := gocron.NewScheduler()
+	if err != nil {
+		return nil, err
+	}
+	// Need to call this?
+	err = module.CheckSocketOwner(parentAddr.UnixAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	dialAddr := "unix://" + parentAddr.UnixAddr
+	conn, err := grpc.Dial(robotContext, dialAddr, jobLogger, rpc.WithDialDebug())
 	if err != nil {
 		return nil, err
 	}
 
 	jm := &Jobmanager{
-		jobConfigs:   jobConfigs,
 		logger:       jobLogger,
 		scheduler:    scheduler,
 		getResource:  getResource,
-		parentAddr:   parentAddr,
 		namesToUUIDs: make(map[string]uuid.UUID),
+		ctx:          robotContext,
+		conn:         conn,
 	}
+
+	jm.scheduler.Start()
 	return jm, nil
 }
 
-func (jm *Jobmanager) Start() {
-	jm.scheduler.Start()
-}
-
-func (jm *Jobmanager) Stop() error {
-	return jm.scheduler.StopJobs()
-}
-
+// Shutdown attempts to close the grpcConn of the job scheduler and shuts it down. It is
+// not possible to restart the job scheduler after calling Shutdown().
 func (jm *Jobmanager) Shutdown() error {
-	jm.logger.Info("Shutting down gracefully")
+	jm.logger.CInfo(jm.ctx, "Jobmanager is shutting down")
+	utils.UncheckedError(jm.conn.Close())
 	return jm.scheduler.Shutdown()
 }
 
-// fineTune what needs to be here
-// return type could be the Job struct?
-func (jm *Jobmanager) jobTemplate(jc config.JobConfig, res resource.Resource) (any, []any) {
+// jobTemplate returns a function that the scheduler puts on its queue.
+func (jm *Jobmanager) jobTemplate(jc config.JobConfig) func() {
 	if jc.Method == "DoCommand" {
 		functionToRun := func() {
-			ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancelFunc()
-			jm.logger.Info("triggering the job: ", jc.Name, "at time: ", time.Now())
-			result, err := res.DoCommand(ctxTimeout, jc.Command)
+			resource, err := jm.getResource(jc.Resource)
 			if err != nil {
-				jm.logger.Error("DoCommand for job: ", jc.Name, " failed with error: ", err)
+				jm.logger.Error(err)
+				return
+			}
+			jm.logger.CInfow(jm.ctx, "Job triggered", "name", jc.Name)
+			result, err := resource.DoCommand(jm.ctx, jc.Command)
+			if err != nil {
+				jm.logger.CWarnw(jm.ctx, "Job failed", "name", jc.Name, "error", err)
 			} else {
-				jm.logger.Info("DoCommand for job: ", jc.Name, " succeeded with value: ", result)
+				jm.logger.CInfow(jm.ctx, "Job succeeded", "name", jc.Name, "result", result)
 			}
 		}
-		return functionToRun, nil
-	}
-
-	err := module.CheckSocketOwner(jm.parentAddr.UnixAddr)
-	if err != nil {
-		jm.logger.Error(err)
-		return nil, nil
+		return functionToRun
 	}
 
 	functionToRun := func() {
-		ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancelFunc()
-		dialAddr := "unix://" + jm.parentAddr.UnixAddr
-		conn, err := grpc.Dial(ctxTimeout, dialAddr, jm.logger, rpc.WithDialDebug())
-
-		defer func() {
-			utils.UncheckedError(conn.Close())
-		}()
-
+		resource, err := jm.getResource(jc.Resource)
 		if err != nil {
-			jm.logger.Error(err)
+			jm.logger.CWarnw(jm.ctx, "Could not get resources", "error", err)
 			return
 		}
-
-		select {
-		case <-ctxTimeout.Done():
-			return
-		default:
-		}
-
-		refCtx := metadata.NewOutgoingContext(ctxTimeout, nil)
-		refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(conn))
-		reflSource := grpcurl.DescriptorSourceFromServer(ctxTimeout, refClient)
+		refCtx := metadata.NewOutgoingContext(jm.ctx, nil)
+		refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(jm.conn))
+		reflSource := grpcurl.DescriptorSourceFromServer(jm.ctx, refClient)
 		descSource := reflSource
 
-		resourceType := res.Name().API.SubtypeName
-
+		resourceType := resource.Name().API.SubtypeName
 		services, err := descSource.ListServices()
-
 		if err != nil {
-			jm.logger.Error(err)
+			jm.logger.CWarnw(jm.ctx, "Could not get a list of available grpc services", "error", err)
 			return
 		}
 		var grpcService string
 		for _, srv := range services {
 			if strings.Contains(srv, resourceType) {
 				grpcService = srv
-				jm.logger.Info("chosen service: ", srv)
 				break
 			}
 		}
-
 		if grpcService == "" {
-			jm.logger.Error(errors.New(fmt.Sprintf("could not find a service for type: %s", resourceType)))
+			jm.logger.CWarn(jm.ctx, fmt.Sprintf("could not find a service for type: %s", resourceType))
 			return
 		}
-
 		grpcMethod := grpcService + "." + jc.Method
 
-		data := fmt.Sprintf("{%q : %q}", "name", jc.Resource) // TODO: where arguments are
+		data := fmt.Sprintf("{%q : %q}", "name", jc.Resource)
 		options := grpcurl.FormatOptions{
 			EmitJSONDefaultFields: true,
 			IncludeTextSeparator:  true,
@@ -170,8 +148,9 @@ func (jm *Jobmanager) jobTemplate(jc config.JobConfig, res resource.Resource) (a
 			strings.NewReader(data),
 			options)
 
+		buffer := bytes.NewBuffer(make([]byte, 0))
 		h := &grpcurl.DefaultEventHandler{
-			Out:            os.Stdout,
+			Out:            buffer,
 			Formatter:      formatter,
 			VerbosityLevel: 0,
 		}
@@ -180,77 +159,76 @@ func (jm *Jobmanager) jobTemplate(jc config.JobConfig, res resource.Resource) (a
 			jm.logger.Error(err)
 		}
 
-		select {
-		case <-ctxTimeout.Done():
-			return
-		default:
-		}
-
-		jm.logger.Info("triggering the job: ", jc.Name, "at time: ", time.Now())
-		err = grpcurl.InvokeRPC(ctxTimeout, descSource, conn, grpcMethod, nil, h, rf.Next)
+		jm.logger.CInfow(jm.ctx, "Job triggered", "name", jc.Name)
+		err = grpcurl.InvokeRPC(jm.ctx, descSource, jm.conn, grpcMethod, nil, h, rf.Next)
 
 		if err != nil {
-			jm.logger.Error(err)
-		}
-	}
-
-	return functionToRun, nil
-}
-
-// this should start the first jobs from the config.
-func (jm *Jobmanager) processJobs() {
-	// for each job in the config, create the job
-	for _, jc := range jm.jobConfigs {
-		var jobType gocron.JobDefinition
-		t, err := time.ParseDuration(jc.Schedule)
-		if err != nil {
-			jobType = gocron.CronJob(jc.Schedule, false)
+			jm.logger.CWarnw(jm.ctx, "Job failed", "name", jc.Name, "error", err)
 		} else {
-			jobType = gocron.DurationJob(t)
+			// the output is in JSON, which we want to translate to our logger. So, we manually
+			// remove newlines and extra quotes.
+			toPrint := buffer.String()
+			toPrint = strings.Replace(toPrint, "\n", "", -1)
+			toPrint = strings.Replace(toPrint, "\"", "", -1)
+			jm.logger.CInfow(jm.ctx, "Job succeeded", "name", jc.Name, "result", toPrint)
 		}
-
-		resource, err := jm.getResource(jc.Resource)
-		if err != nil {
-			jm.logger.Error(err)
-			continue
-		}
-		jobFunc, jobArgs := jm.jobTemplate(jc, resource)
-		j, err := jm.scheduler.NewJob(
-			jobType,
-			gocron.NewTask(
-				jobFunc,
-				jobArgs...,
-			),
-			gocron.WithSingletonMode(gocron.LimitModeReschedule),
-		)
-		if err != nil {
-			jm.logger.Error(err)
-			continue
-		}
-
-		jm.logger.Info("created a job with uuid: ", j.ID())
-		jm.namesToUUIDs[jc.Name] = j.ID()
 	}
 
-	// want here or separately?
-	jm.scheduler.Start()
+	return functionToRun
 }
 
-// This should be called when config gets changed.
-func (jm *Jobmanager) UpdateJobs(jobs []config.JobConfig) {
-	// TODO: definitely wantto make something smarter for jobs that did not change
-	// use the diff strategy to track added/removed/modified?
-	jm.logger.Info("inside updateJobs")
-
-	jm.scheduler.StopJobs()
-
-	for _, uuid := range jm.namesToUUIDs {
-		err := jm.scheduler.RemoveJob(uuid)
-		if err != nil {
-			jm.logger.Error(err)
-		}
+// removeJob removes the job from the scheduler and clears the internal map entry.
+func (jm *Jobmanager) removeJob(name string) {
+	jobID := jm.namesToUUIDs[name]
+	err := jm.scheduler.RemoveJob(jobID)
+	if err != nil {
+		jm.logger.CWarnw(jm.ctx, "Removing the job failed", "error", err)
 	}
-	jm.namesToUUIDs = make(map[string]uuid.UUID)
-	jm.jobConfigs = jobs
-	jm.processJobs()
+	delete(jm.namesToUUIDs, name)
+}
+
+// scheduleJob validates the job config and attempts to put a new job on the scheduler
+// queue. If an error happens, it is logged, and the job is not scheduled.
+func (jm *Jobmanager) scheduleJob(jc config.JobConfig) {
+	if err := jc.Validate(""); err != nil {
+		jm.logger.CWarnw(jm.ctx, "Job failed to validate", "name", jc.Name, "error", err)
+		return
+	}
+	var jobType gocron.JobDefinition
+	t, err := time.ParseDuration(jc.Schedule)
+	if err != nil {
+		withSeconds := len(strings.Split(jc.Schedule, " ")) >= 6
+		jobType = gocron.CronJob(jc.Schedule, withSeconds)
+	} else {
+		jobType = gocron.DurationJob(t)
+	}
+
+	jobFunc := jm.jobTemplate(jc)
+	j, err := jm.scheduler.NewJob(
+		jobType,
+		gocron.NewTask(jobFunc),
+		gocron.WithSingletonMode(gocron.LimitModeReschedule),
+	)
+	if err != nil {
+		jm.logger.CErrorw(jm.ctx, "Failed to create a new job", "name", jc.Name, "error", err)
+		return
+	}
+	jobID := j.ID()
+	jm.logger.CInfow(jm.ctx, "Job created", "name", jc.Name, "id", jobID)
+	jm.namesToUUIDs[jc.Name] = jobID
+}
+
+// UpdateJobs is called when the "jobs" part of the config gets updated. It updates
+// scheduled jobs based on the Removed/Added/Modified parts of the diff.
+func (jm *Jobmanager) UpdateJobs(diff *config.Diff) {
+	for _, jc := range diff.Removed.Jobs {
+		jm.removeJob(jc.Name)
+	}
+	for _, jc := range diff.Modified.Jobs {
+		jm.removeJob(jc.Name)
+		jm.scheduleJob(jc)
+	}
+	for _, jc := range diff.Added.Jobs {
+		jm.scheduleJob(jc)
+	}
 }

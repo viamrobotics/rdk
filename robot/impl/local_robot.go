@@ -532,7 +532,6 @@ func newWithResources(
 	getResource := func(resource string) (resource.Resource, error) {
 		names := r.manager.resources.Names()
 		for _, name := range names {
-			logger.Info(name)
 			if name.Name == resource {
 				return r.manager.ResourceByName(name)
 			}
@@ -540,7 +539,7 @@ func newWithResources(
 		return nil, errors.Errorf("could not find the resource for name %s", resource)
 	}
 
-	jobManager, err := jobmanager.New(cfg.Jobs, logger, getResource, r.webSvc.ModuleAddresses())
+	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
 	if err != nil {
 		logger.Warn("Unable to start the job scheduler")
 		return nil, err
@@ -1455,19 +1454,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.manager.updateRevision(res.ResourceName(), revision)
 	}
 
-	//r.logger.Warn("BOG")
-	//r.logger.Warn(diff.Added)
-	//r.logger.Warn(diff.Modified)
-	//r.logger.Warn(diff.Removed)
-	//r.logger.Warn("BOG, the jobsEqual is : ", diff.JobsEqual)
-	//if !diff.JobsEqual {
-	//r.jobManager.UpdateJobs(newConfig.Jobs)
-	//}
-
-	r.logger.Warn("BOG:", !diff.JobsEqual)
-	if !diff.JobsEqual {
-		r.jobManager.UpdateJobs(newConfig.Jobs)
-	}
+	defer func() {
+		if !diff.JobsEqual {
+			r.jobManager.UpdateJobs(diff)
+		}
+	}()
 
 	if diff.ResourcesEqual {
 		return
@@ -1517,11 +1508,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 		// Cleanup extra dirs from previous modules or rogue scripts.
 		allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
-	}
-
-	r.logger.Warn("BOG:", !diff.JobsEqual)
-	if !diff.JobsEqual {
-		r.jobManager.UpdateJobs(newConfig.Jobs)
 	}
 
 	if allErrs != nil {
