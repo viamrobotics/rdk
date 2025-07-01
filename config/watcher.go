@@ -46,6 +46,21 @@ type cloudWatcher struct {
 
 const checkForNewCertInterval = time.Hour
 
+// If "debug" field is set in new config, manually set the log level of each module to
+// "debug" to force a restart of the module with `--log-level=debug` (if the global logger
+// is not already at debug level, and the module does not have a log level set already).
+func alignModuleLogLevels(config *Config) {
+	if config.Debug {
+		if globalLogger.logger.GetLevel() != logging.DEBUG {
+			for i, moduleCfg := range config.Modules {
+				if moduleCfg.LogLevel == "" {
+					config.Modules[i].LogLevel = "debug"
+				}
+			}
+		}
+	}
+}
+
 // newCloudWatcher returns a cloudWatcher that will periodically fetch
 // new configs from the cloud.
 func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger, conn rpc.ClientConn) *cloudWatcher {
@@ -83,7 +98,10 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 			if checkForNewCert {
 				nextCheckForNewCert = time.Now().Add(checkForNewCertInterval)
 			}
+
+			alignModuleLogLevels(newConfig)
 			UpdateCloudConfigDebug(newConfig.Debug)
+
 			select {
 			case <-cancelCtx.Done():
 				return
@@ -169,7 +187,10 @@ func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger,
 							logger.Errorw("error reading config after write", "error", err)
 							return
 						}
+
+						alignModuleLogLevels(newConfig)
 						UpdateFileConfigDebug(newConfig.Debug)
+
 						select {
 						case <-cancelCtx.Done():
 							return
