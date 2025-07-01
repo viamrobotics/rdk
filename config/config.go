@@ -1296,7 +1296,7 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 	// patterns. We already emit a warning log in web/server/entrypoint.go#configWatcher
 	// that points users to the 'log_level' and 'log_configuration' fields instead of 'log'
 	// when trying to change levels of modular logs.
-	if globalLogger.logger.GetLevel() != logging.DEBUG {
+	if globalLogger.logger != nil && globalLogger.logger.GetLevel() != logging.DEBUG {
 		for _, lpc := range cfg.LogConfig {
 			for i, module := range cfg.Modules {
 				// Only set a log level of "debug" if the pattern exactly matches the name of the
