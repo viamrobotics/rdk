@@ -214,6 +214,9 @@ func NewCollisionConstraint(
 	if err != nil {
 		return nil, err
 	}
+	for _, collision := range zeroCG.collisions(collisionBufferMM) {
+		logging.Global().Debugf("whitelisting collision between %s and %s\n", collision.name1, collision.name2)
+	}
 
 	// create constraint from reference collision graph
 	constraint := func(state *ik.State) error {
