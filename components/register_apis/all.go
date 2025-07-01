@@ -1,4 +1,4 @@
-// Package registerapis is a convinience package to register the APIs for all
+// Package registerapis is a convenience package to register the APIs for all
 // built-in components.
 package registerapis
 
