@@ -157,12 +157,13 @@ func newTPSpaceMotionPlanner(
 	logger logging.Logger,
 	opt *plannerOptions,
 	constraintHandler *ConstraintHandler,
+	chains *motionChains,
 ) (motionPlanner, error) {
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
 
-	mp, err := newPlanner(fs, seed, logger, opt, constraintHandler)
+	mp, err := newPlanner(fs, seed, logger, opt, constraintHandler, chains)
 	if err != nil {
 		return nil, err
 	}
@@ -170,10 +171,10 @@ func newTPSpaceMotionPlanner(
 		planner: mp,
 	}
 	// TODO: Only one motion chain allowed if tpspace for now. Eventually this may not be a restriction.
-	if len(opt.motionChains.inner) != 1 {
-		return nil, fmt.Errorf("exactly one motion chain permitted for tpspace, but planner option had %d", len(opt.motionChains.inner))
+	if len(chains.inner) != 1 {
+		return nil, fmt.Errorf("exactly one motion chain permitted for tpspace, but planner option had %d", len(chains.inner))
 	}
-	for _, frame := range opt.motionChains.inner[0].frames {
+	for _, frame := range chains.inner[0].frames {
 		if tpFrame, ok := frame.(tpspace.PTGProvider); ok {
 			tpPlanner.tpFrame = frame
 			tpPlanner.solvers = tpFrame.PTGSolvers()
@@ -894,7 +895,7 @@ func ptgSolution(ptg tpspace.PTGSolver,
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
 	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
-	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.fs, mp.randseed, mp.logger, mp.planOpts, mp.ConstraintHandler)
+	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.fs, mp.randseed, mp.logger, mp.planOpts, mp.ConstraintHandler, mp.motionChains)
 	if err != nil {
 		return path
 	}

@@ -116,15 +116,11 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.OrientationTolerance = defaultOrientationDeviation
 	opt.ToleranceFactor = defaultPseudolinearTolerance
 
-	opt.motionChains = &motionChains{}
-
 	return opt
 }
 
 // plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
 type plannerOptions struct {
-	motionChains *motionChains
-
 	// This is used to create functions which are passed to IK for solving. This may be used to turn starting or ending state poses into
 	// configurations for nodes.
 	GoalMetricType ik.GoalMetricType `json:"goal_metric_type"`
@@ -254,20 +250,6 @@ func (p *plannerOptions) SetMaxSolutions(maxSolutions int) {
 // SetMinScore specifies the IK stopping score for the planner.
 func (p *plannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
-}
-
-func (p *plannerOptions) useTPspace() bool {
-	if p.motionChains == nil {
-		return false
-	}
-	return p.motionChains.useTPspace
-}
-
-func (p *plannerOptions) ptgFrameName() string {
-	if p.motionChains == nil {
-		return ""
-	}
-	return p.motionChains.ptgFrameName
 }
 
 func (p *plannerOptions) ScoringMetric() ik.ScoringMetric {
