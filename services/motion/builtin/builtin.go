@@ -468,6 +468,18 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		req.Extra["waypoints"] = nil
 	}
 
+	// TODO: REMOVE THIS ONE RELEASE AFTER THE RELEASE THAT INTRODUCED THIS CODE. It is only here
+	// to deprecate rather than break the "planning_alg" key and give us time to inform users/engineers
+	// how to use the "planning_algorithm_settings" option
+	if deprecatedKeyAlg, ok := req.Extra["planning_alg"]; ok {
+		logger.Warn("the 'planning_alg' key is deprecated and will soon no longer be accepted, please use 'planning_algorithm_settings' instead")
+		if deprecatedKeyAlgParsed, ok := deprecatedKeyAlg.(string); ok {
+			req.Extra["planning_algorithm_settings"] = map[string]interface{}{
+				"algorithm": deprecatedKeyAlgParsed,
+			}
+		}
+	}
+
 	// re-evaluate goal poses to be in the frame of World
 	// TODO (RSDK-8847) : this is a workaround to help account for us not yet being able to properly synchronize simultaneous motion across
 	// multiple components. If we are moving component1, mounted on arm2, to a goal in frame of component2, which is mounted on arm2, then

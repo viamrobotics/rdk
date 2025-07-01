@@ -58,7 +58,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	opt.motionChains = motionChains
 
 	mp, err := newTPSpaceMotionPlanner(
-		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler())
+		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler(), &opt.PlanningAlgorithmSettings)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -135,7 +135,9 @@ func TestPtgWithObstacle(t *testing.T) {
 	opt := newBasicPlannerOptions()
 	opt.TPSpaceOrientationScale = 30.
 	opt.GoalThreshold = 5
-	opt.PlanningAlgorithm = TPSpace
+	opt.PlanningAlgorithmSettings = AlgorithmSettings{
+		Algorithm: TPSpace,
+	}
 	motionChains, err := motionChainsFromPlanState(fs, goal)
 	test.That(t, err, test.ShouldBeNil)
 	opt.motionChains = motionChains
@@ -160,7 +162,7 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	// Create and initialize planner
 	mp, err := newTPSpaceMotionPlanner(
-		fs, rand.New(rand.NewSource(42)), logger, opt, constraintHandler)
+		fs, rand.New(rand.NewSource(42)), logger, opt, constraintHandler, &opt.PlanningAlgorithmSettings)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 
@@ -241,7 +243,7 @@ func TestTPsmoothing(t *testing.T) {
 
 	// Create and initialize planner
 	mp, err := newTPSpaceMotionPlanner(
-		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler())
+		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler(), &opt.PlanningAlgorithmSettings)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 

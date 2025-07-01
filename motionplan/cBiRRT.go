@@ -4,7 +4,6 @@ package motionplan
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
@@ -34,26 +33,6 @@ type cbirrtOptions struct {
 	qstep map[string][]float64
 }
 
-// newCbirrtOptions creates a struct controlling the running of a single invocation of cbirrt. All values are pre-set to reasonable
-// defaults, but can be tweaked if needed.
-func newCbirrtOptions(planOpts *plannerOptions, lfs *linearizedFrameSystem) (*cbirrtOptions, error) {
-	algOpts := &cbirrtOptions{
-		SolutionsToSeed: defaultSolutionsToSeed,
-	}
-	// convert map to json
-	jsonString, err := json.Marshal(planOpts.extra)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(jsonString, algOpts)
-	if err != nil {
-		return nil, err
-	}
-	algOpts.qstep = getFrameSteps(lfs, defaultFrameStep)
-
-	return algOpts, nil
-}
-
 // cBiRRTMotionPlanner an object able to solve constrained paths around obstacles to some goal for a given referenceframe.
 // It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
 // https://ieeexplore.ieee.org/document/5152399/
@@ -70,6 +49,7 @@ func newCBiRRTMotionPlanner(
 	logger logging.Logger,
 	opt *plannerOptions,
 	constraintHandler *ConstraintHandler,
+	algSettings *AlgorithmSettings,
 ) (motionPlanner, error) {
 	if opt == nil {
 		return nil, errNoPlannerOptions
@@ -83,10 +63,13 @@ func newCBiRRTMotionPlanner(
 	if err != nil {
 		return nil, err
 	}
-	algOpts, err := newCbirrtOptions(opt, mp.lfs)
-	if err != nil {
-		return nil, err
+	algOpts := opt.PlanningAlgorithmSettings.CBirrtOpts
+	if algOpts == nil {
+		algOpts = &cbirrtOptions{
+			SolutionsToSeed: defaultSolutionsToSeed,
+		}
 	}
+	algOpts.qstep = getFrameSteps(mp.lfs, defaultFrameStep)
 	return &cBiRRTMotionPlanner{
 		planner:         mp,
 		fastGradDescent: nlopt,

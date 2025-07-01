@@ -105,7 +105,9 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.InputIdentDist = defaultInputIdentDist
 	opt.IterBeforeRand = defaultIterBeforeRand
 
-	opt.PlanningAlgorithm = CBiRRT
+	opt.PlanningAlgorithmSettings = AlgorithmSettings{
+		Algorithm: UnspecifiedAlgorithm,
+	}
 
 	opt.SmoothIter = defaultSmoothIter
 
@@ -132,8 +134,6 @@ type plannerOptions struct {
 	// Acceptable arc length around the goal orientation vector for any solution. This is the additional parameter used to acquire
 	// the goal metric only if the GoalMetricType is ik.ArcLengthConvergence
 	ArcLengthTolerance float64 `json:"arc_length_tolerance"`
-
-	extra map[string]interface{}
 
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
 	// Max number of ik solutions to consider
@@ -199,11 +199,16 @@ type plannerOptions struct {
 
 	CollisionBufferMM float64 `json:"collision_buffer_mm"`
 
-	PlanningAlgorithm PlanningAlgorithm `json:"planning_algorithm"`
+	PlanningAlgorithmSettings AlgorithmSettings `json:"planning_algorithm_settings"`
 
-	Fallback *plannerOptions
+	Fallback *plannerOptions `json:"fallback_options"`
 
-	TimeMultipleAfterFindingFirstSolution int
+	TimeMultipleAfterFindingFirstSolution int `json:"time_multiple_after_finding_first_solution"`
+}
+
+// PlanningAlgorithm returns the label of the planning algorithm in plannerOptions.
+func (p *plannerOptions) PlanningAlgorithm() PlanningAlgorithm {
+	return p.PlanningAlgorithmSettings.Algorithm
 }
 
 // getGoalMetric creates the distance metric for the solver using the configured options.

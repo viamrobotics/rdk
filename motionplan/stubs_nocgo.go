@@ -22,6 +22,7 @@ func newCBiRRTMotionPlanner(
 	logger logging.Logger,
 	opt *plannerOptions,
 	constraintHandler *ConstraintHandler,
+	algorithmSettings *AlgorithmSettings,
 ) (motionPlanner, error) {
 	return nil, errNotSupported
 }
@@ -33,6 +34,7 @@ func newTPSpaceMotionPlanner(
 	logger logging.Logger,
 	opt *plannerOptions,
 	constraintHandler *ConstraintHandler,
+	algorithmSettings *AlgorithmSettings,
 ) (motionPlanner, error) {
 	return nil, errNotSupported
 }
@@ -44,6 +46,7 @@ func newRRTStarConnectMotionPlanner(
 	logger logging.Logger,
 	opt *plannerOptions,
 	constraintHandler *ConstraintHandler,
+	algorithmSettings *AlgorithmSettings,
 ) (motionPlanner, error) {
 	return nil, errNotSupported
 }

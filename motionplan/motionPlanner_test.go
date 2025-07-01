@@ -454,7 +454,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	cfg, err := config()
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := plannerFunc(
-		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander)
+		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander, &cfg.Options.PlanningAlgorithmSettings)
 	test.That(t, err, test.ShouldBeNil)
 
 	nodes, err := mp.plan(context.Background(), cfg.Start, cfg.Goal)
