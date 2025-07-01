@@ -1335,7 +1335,7 @@ var app = &cli.App{
 										"data tag ids add", []string{generalFlagTags, dataFlagBinaryDataIDs}, false, false,
 									),
 									Flags:  dataTagByIDsFlags,
-									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
+									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIDs),
 								},
 								{
 									Name:  "remove",
@@ -1344,7 +1344,7 @@ var app = &cli.App{
 										"data tag ids remove", []string{generalFlagTags, dataFlagBinaryDataIDs}, false, false,
 									),
 									Flags:  dataTagByIDsFlags,
-									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
+									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIDs),
 								},
 							},
 						},

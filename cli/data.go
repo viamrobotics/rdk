@@ -160,8 +160,8 @@ type dataTagByIDsArgs struct {
 	BinaryDataIDs []string
 }
 
-// DataTagActionByIds is the corresponding action for 'data tag'.
-func DataTagActionByIds(c *cli.Context, args dataTagByIDsArgs) error { //nolint:var-naming,revive
+// DataTagActionByIDs is the corresponding action for 'data tag'.
+func DataTagActionByIDs(c *cli.Context, args dataTagByIDsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
