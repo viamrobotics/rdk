@@ -473,9 +473,6 @@ func (mp *planner) getSolutions(ctx context.Context, seed referenceframe.FrameSy
 	failures := map[string]int{}
 	constraintFailCnt := 0
 
-	startTime := time.Now()
-	firstSolutionTime := time.Hour
-
 	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
 IK:
 	for {
@@ -533,16 +530,6 @@ IK:
 					if len(solutions) >= nSolutions {
 						// sufficient solutions found, stopping early
 						break IK
-					}
-
-					if len(solutions) == 1 {
-						firstSolutionTime = time.Since(startTime)
-					} else {
-						elapsed := time.Since(startTime)
-						if elapsed > (time.Duration(mp.planOpts.TimeMultipleAfterFindingFirstSolution) * firstSolutionTime) {
-							mp.logger.Infof("ending early because of time elapsed: %v firstSolutionTime: %v", elapsed, firstSolutionTime)
-							break IK
-						}
 					}
 				} else {
 					constraintFailCnt++
