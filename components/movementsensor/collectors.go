@@ -23,6 +23,7 @@ const (
 	linearAcceleration
 	orientation
 	readings
+	doCommand
 )
 
 func (m method) String() string {
@@ -41,6 +42,8 @@ func (m method) String() string {
 		return "Orientation"
 	case readings:
 		return "Readings"
+	case doCommand:
+		return "DoCommand"
 	}
 	return "Unknown"
 }
@@ -281,5 +284,17 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResultReadings(ts, values)
 	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	ms, err := assertMovementSensor(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(ms, params)
 	return data.NewCollector(cFunc, params)
 }

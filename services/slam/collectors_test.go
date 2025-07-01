@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
@@ -26,6 +27,8 @@ const (
 	serviceName     = "slam"
 	captureInterval = time.Millisecond
 )
+
+var doCommandMap = map[string]any{"readings": "random-test"}
 
 func TestCollectors(t *testing.T) {
 	pcdPath := filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd"))
@@ -99,6 +102,17 @@ func TestCollectors(t *testing.T) {
 	}
 }
 
+func TestDoCommandCollector(t *testing.T) {
+	pcdPath := filepath.Clean(artifact.MustPath("pointcloud/octagonspace.pcd"))
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
+		ComponentName:   serviceName,
+		CaptureInterval: captureInterval,
+		DoCommandMap:    doCommandMap,
+		Collector:       slam.NewDoCommandCollector,
+		ResourceFactory: func() interface{} { return newSlamService(pcdPath) },
+	})
+}
+
 func getPointCloudMap(path string) (func() ([]byte, error), error) {
 	const chunkSizeBytes = 1 * 1024 * 1024
 	file, err := os.Open(path)
@@ -118,14 +132,18 @@ func getPointCloudMap(path string) (func() ([]byte, error), error) {
 }
 
 func newSlamService(pcdPath string) slam.Service {
-	v := &inject.SLAMService{}
-	v.PositionFunc = func(ctx context.Context) (spatialmath.Pose, error) {
+	s := &inject.SLAMService{}
+	s.PositionFunc = func(ctx context.Context) (spatialmath.Pose, error) {
 		return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
 	}
 
-	v.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
+	s.PointCloudMapFunc = func(ctx context.Context, returnEditedMap bool) (func() ([]byte, error), error) {
 		return getPointCloudMap(pcdPath)
 	}
 
-	return v
+	s.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
+	}
+
+	return s
 }
