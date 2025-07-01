@@ -540,7 +540,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
-				Name:    "mod",
+				Name:    "testModule",
 				ExePath: testModulePath,
 			},
 		},
@@ -599,9 +599,35 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Debug"})
 	})
 
+	// Change "debug" to be false in the temporary config file.
+	cfg.Debug = false
+	cfgBytes, err = json.Marshal(&cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+
+	// Wait for the helper to reconfigure and report a log level of "Info."
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		resp, err = helper.DoCommand(ctx,
+			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Info"})
+	})
+
+	// Specify a "log" pattern of { "testModule": "debug" } in the temporary config file.
+	cfg.LogConfig = []logging.LoggerPatternConfig{{"testModule", "debug"}}
+	cfgBytes, err = json.Marshal(&cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+
+	// Wait for the helper to reconfigure and report a log level of "Debug."
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		resp, err = helper.DoCommand(ctx,
+			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Debug"})
+	})
+
 	// Cancel context and wait for server goroutine to stop running.
 	cancel()
 	wg.Wait()
-
-	// TODO: Test that `log` changes propagate correctly.
 }

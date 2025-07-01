@@ -14,6 +14,9 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
+// The debug LogLevel value for a module config.
+const moduleLogLevelDebug = "debug"
+
 // A Watcher is responsible for watching for changes
 // to a config from some source and delivering those changes
 // to some destination.
@@ -54,7 +57,7 @@ func alignModuleLogLevels(config *Config) {
 		if globalLogger.logger.GetLevel() != logging.DEBUG {
 			for i, moduleCfg := range config.Modules {
 				if moduleCfg.LogLevel == "" {
-					config.Modules[i].LogLevel = "debug"
+					config.Modules[i].LogLevel = moduleLogLevelDebug
 				}
 			}
 		}
