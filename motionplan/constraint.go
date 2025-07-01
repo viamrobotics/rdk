@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	motionpb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -268,6 +269,10 @@ func NewCollisionConstraintFS(
 	if err != nil {
 		return nil, err
 	}
+	for _, collision := range zeroCG.collisions(collisionBufferMM) {
+		logging.Global().Debugf("whitelisting collision between %s and %s\n", collision.name1, collision.name2)
+	}
+
 	movingMap := map[string]spatial.Geometry{}
 	for _, geom := range moving {
 		movingMap[geom.Label()] = geom
