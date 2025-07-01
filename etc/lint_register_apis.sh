@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Ensures that all component and service APIs have a corresponding import line in 'rdk/[services|components]/register_apis/all.go'.
 
 pkgs=(components services)
 
