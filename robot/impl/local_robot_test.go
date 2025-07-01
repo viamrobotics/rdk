@@ -1906,7 +1906,7 @@ func TestOrphanedResources(t *testing.T) {
 		// Wait for restart attempt in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessage("Some modules failed to re-add after crashed module restart and will be removed").Len(),
+			test.That(tb, logs.FilterMessage("Some resources failed to re-add after crashed module restart and will be removed").Len(),
 				test.ShouldBeGreaterThanOrEqualTo, 1)
 		})
 		time.Sleep(2 * time.Second)
