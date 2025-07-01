@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aptible/supercronic/cronexpr"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/jwks"
@@ -1367,20 +1366,6 @@ func (jc *JobConfig) Validate(path string) error {
 
 	if jc.Schedule == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "schedule")
-	}
-	// Assuming the schedule is the harder part of the JobConfig to get right,
-	// it's parsed here as either Golang's time.Duration or a valid cron expression.
-	// If both cases fail, an error is returned right away, rather than waiting
-	// for the JobManager to report an error.
-	_, err := time.ParseDuration(jc.Schedule)
-	if err != nil {
-		_, err = cronexpr.ParseStrict(jc.Schedule)
-		if err != nil {
-			// If both parsing attempts fail, return an error.
-			return resource.NewConfigValidationError(path,
-				errors.New(
-					"Invalid schedule format, expected a golang duration string or a valid cron expression"))
-		}
 	}
 
 	return nil
