@@ -278,8 +278,6 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 
 // CaptureFilePathWithReplacedReservedChars returns the filepath with substitutions
 // for reserved characters.
-// CaptureFilePathWithReplacedReservedChars returns the filepath with substitutions
-// for reserved characters.
 func CaptureFilePathWithReplacedReservedChars(filepath string) string {
 	// Handle Windows drive letters by preserving them and replacing other colons.
 	if runtime.GOOS == "windows" && len(filepath) >= 2 && filepath[1] == ':' {
