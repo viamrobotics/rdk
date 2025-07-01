@@ -69,11 +69,12 @@ func newRRTStarConnectMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
+	constraintHandler *ConstraintHandler,
 ) (motionPlanner, error) {
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
-	mp, err := newPlanner(fs, seed, logger, opt)
+	mp, err := newPlanner(fs, seed, logger, opt, constraintHandler)
 	if err != nil {
 		return nil, err
 	}

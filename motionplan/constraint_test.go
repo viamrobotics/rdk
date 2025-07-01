@@ -25,7 +25,8 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs := frame.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())
-	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(1)), logger, newBasicPlannerOptions())
+	mp, err := newCBiRRTMotionPlanner(
+		fs, rand.New(rand.NewSource(1)), logger, newBasicPlannerOptions(), newEmptyConstraintHandler())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
@@ -41,7 +42,7 @@ func TestIKTolerances(t *testing.T) {
 	opt := newBasicPlannerOptions()
 	opt.GoalMetricType = ik.PositionOnly
 	opt.SetMaxSolutions(50)
-	mp, err = newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(1)), logger, opt)
+	mp, err = newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(1)), logger, opt, newEmptyConstraintHandler())
 	test.That(t, err, test.ShouldBeNil)
 	_, err = mp.plan(context.Background(), seed, goal)
 	test.That(t, err, test.ShouldBeNil)
@@ -145,7 +146,7 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	goalFrame := fs.World()
 
-	opt := newBasicPlannerOptions()
+	opt := newEmptyConstraintHandler()
 	startCfg := map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mp1)}
 	from := frame.FrameSystemPoses{markerFrame.Name(): frame.NewPoseInFrame(markerFrame.Name(), p1)}
 	to := frame.FrameSystemPoses{markerFrame.Name(): frame.NewPoseInFrame(goalFrame.Name(), p2)}
@@ -157,7 +158,7 @@ func TestLineFollow(t *testing.T) {
 	pointGrad := innerGradFunc(&ik.State{Position: query})
 	test.That(t, pointGrad, test.ShouldBeLessThan, 0.001*0.001)
 
-	opt.SetPathMetric(gradFunc)
+	opt.pathMetric = gradFunc
 	opt.AddStateFSConstraint("whiteboard", validFunc)
 
 	// This tests that we are able to advance partway, but not entirely, to the goal while keeping constraints, and return the last good

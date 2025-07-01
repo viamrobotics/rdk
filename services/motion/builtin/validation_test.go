@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
@@ -283,7 +284,8 @@ func TestMoveCallInputs(t *testing.T) {
 				timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
 				defer timeoutFn()
 				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
-				test.That(t, err, test.ShouldBeError, errors.New("could not interpret collision_buffer_mm field as float64"))
+				test.That(t, err, test.ShouldBeError, errors.New(
+					"json: cannot unmarshal string into Go struct field plannerOptions.collision_buffer_mm of type float64"))
 				test.That(t, executionID, test.ShouldNotBeEmpty)
 			})
 
@@ -498,7 +500,7 @@ func TestMoveCallInputs(t *testing.T) {
 				Heading:            90,
 				Destination:        dst,
 				Extra: map[string]interface{}{
-					"motion_profile": "position_only",
+					"motion_profile": motionplan.PositionOnlyMotionProfile,
 					"timeout":        5.,
 					"smooth_iter":    5.,
 				},
@@ -518,7 +520,7 @@ func TestMoveCallInputs(t *testing.T) {
 				Heading:            90,
 				Destination:        dst,
 				Extra: map[string]interface{}{
-					"motion_profile": "position_only",
+					"motion_profile": motionplan.PositionOnlyMotionProfile,
 					"timeout":        5.,
 					"smooth_iter":    5.,
 				},
@@ -705,7 +707,8 @@ func TestMoveCallInputs(t *testing.T) {
 					Extra:              map[string]interface{}{"collision_buffer_mm": "not a float"},
 				}
 				executionID, err := ms.MoveOnGlobe(ctx, req)
-				test.That(t, err, test.ShouldBeError, errors.New("could not interpret collision_buffer_mm field as float64"))
+				test.That(t, err, test.ShouldBeError, errors.New(
+					"json: cannot unmarshal string into Go struct field plannerOptions.collision_buffer_mm of type float64"))
 				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 			})
 
