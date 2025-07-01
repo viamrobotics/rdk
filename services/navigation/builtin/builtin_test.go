@@ -986,7 +986,7 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.mogrs[0].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
 
 					test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
-						"motion_profile": motionplan.PositionOnlyMotionProfile,
+						"motion_profile": "position_only",
 					})
 					test.That(t, s.mogrs[0].MotionCfg, test.ShouldResemble, expectedMotionCfg)
 					test.That(t, s.mogrs[0].Obstacles, test.ShouldBeNil)
@@ -997,7 +997,7 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, math.IsNaN(s.mogrs[1].Heading), test.ShouldBeTrue)
 					test.That(t, s.mogrs[1].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
 					test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{
-						"motion_profile": motionplan.PositionOnlyMotionProfile,
+						"motion_profile": "position_only",
 					})
 					test.That(t, s.mogrs[1].MotionCfg, test.ShouldResemble, expectedMotionCfg)
 					test.That(t, s.mogrs[1].Obstacles, test.ShouldBeNil)
@@ -1115,13 +1115,13 @@ func TestStartWaypoint(t *testing.T) {
 			if len(s.mogrs) == 3 {
 				// MoveOnGlobe was called twice, once for each waypoint
 				test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
-					"motion_profile": motionplan.PositionOnlyMotionProfile,
+					"motion_profile": "position_only",
 				})
 				test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{
-					"motion_profile": motionplan.PositionOnlyMotionProfile,
+					"motion_profile": "position_only",
 				})
 				test.That(t, s.mogrs[2].Extra, test.ShouldResemble, map[string]interface{}{
-					"motion_profile": motionplan.PositionOnlyMotionProfile,
+					"motion_profile": "position_only",
 					"some_other":     "config_param",
 				})
 				s.RUnlock()
