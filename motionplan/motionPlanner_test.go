@@ -1018,7 +1018,7 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, -8000, 0})
 
-	extra := map[string]interface{}{"motion_profile": "position_only", "position_seeds": 2, "smooth_iter": 5}
+	extra := map[string]interface{}{"motion_profile": PositionOnlyMotionProfile, "position_seeds": 2, "smooth_iter": 5}
 
 	baseFS := frame.NewEmptyFrameSystem("baseFS")
 	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
