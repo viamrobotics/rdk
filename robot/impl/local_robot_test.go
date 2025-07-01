@@ -1,6 +1,7 @@
 package robotimpl
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -44,6 +45,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
+	"go.viam.com/rdk/ftdc"
 	rgrpc "go.viam.com/rdk/grpc"
 	internalcloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
@@ -4652,4 +4654,78 @@ func TestListTunnels(t *testing.T) {
 	ttes, err := r.ListTunnels(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ttes, test.ShouldResemble, trafficTunnelEndpoints)
+}
+
+// TestModuleStats asserts that modular resources that respond to a `DoCommand({"command":
+// "stats"})` will be captured into FTDC.
+func TestModuleStats(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	testMotor := resource.NewModel("rdk", "test", "motor")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "h",
+				Model:      testMotor,
+				API:        motor.API,
+				Attributes: rutils.AttributeMap{},
+			},
+		},
+	}
+
+	// We will capture FTDC data to an in-memory buffer.
+	serializedFTDCData := bytes.NewBuffer(nil)
+	robot, err := New(ctx, cfg, nil, logger, WithFTDCWriter(serializedFTDCData))
+	test.That(t, err, test.ShouldBeNil)
+	defer robot.Close(ctx)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = robot.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create a client connection to the robot.
+	robotConn, err := rgrpc.Dial(ctx, addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(robotConn.Close)
+
+	// Wrap the client connection as a motor connection.
+	motorRes, err := motor.NewClientFromConn(ctx, robotConn, "some-remote", motor.Named("h"), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that a call to `motor.client.Stats` results in a valid response.
+	resp := motorRes.(ftdc.Statser).Stats()
+	test.That(t, resp.(map[string]any)["BadSetPowers"], test.ShouldEqual, 5)
+
+	// Wait for a few seconds, hoping data gets written to FTDC and stop the robot.
+	time.Sleep(3 * time.Second)
+	robot.Close(ctx)
+
+	// Parse the FTDC data.
+	parsed, err := ftdc.Parse(serializedFTDCData)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert we have some datapoints
+	test.That(t, len(parsed), test.ShouldBeGreaterThan, 0)
+
+	// Iterate over the FTDC data. Count the number of `BadSetPowers` occurrences.
+	badSetPowerCnt := 0
+	for _, datum := range parsed {
+		for _, reading := range datum.Readings {
+			if reading.MetricName == "rdk:component:motor/h.ResStats.BadSetPowers" {
+				badSetPowerCnt++
+			}
+		}
+	}
+
+	// We cannot assert that `badSetPowerCnt` ought to be exactly `len(parsed)`. FTDC may accrue
+	// data points before the module and resource are registered/created.
+	test.That(t, badSetPowerCnt, test.ShouldBeGreaterThan, 0)
 }

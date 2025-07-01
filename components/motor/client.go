@@ -172,3 +172,12 @@ func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	}
 	return resp.IsMoving, nil
 }
+
+func (c *client) Stats() any {
+	resp, err := c.DoCommand(context.Background(), map[string]any{"command": "stats"})
+	if err != nil {
+		return nil
+	}
+
+	return resp
+}
