@@ -536,6 +536,7 @@ func diffLogCfg(left, right *Config, servicesDifferent, componentsDifferent bool
 	return false
 }
 
+//nolint:dupl
 func diffJobCfg(leftJobs, rightJobs []JobConfig, diff *Diff) bool {
 	leftIndex := make(map[string]int)
 	leftJ := make(map[string]JobConfig)

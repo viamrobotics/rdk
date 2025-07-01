@@ -12,8 +12,9 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
-
 	"github.com/jhump/protoreflect/grpcreflect"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
@@ -22,8 +23,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 )
 
 // Jobmanager keeps track of the currently scheduled jobs and updates the schedule with
@@ -168,8 +167,8 @@ func (jm *Jobmanager) jobTemplate(jc config.JobConfig) func() {
 			// the output is in JSON, which we want to translate to our logger. So, we manually
 			// remove newlines and extra quotes.
 			toPrint := buffer.String()
-			toPrint = strings.Replace(toPrint, "\n", "", -1)
-			toPrint = strings.Replace(toPrint, "\"", "", -1)
+			toPrint = strings.ReplaceAll(toPrint, "\n", "")
+			toPrint = strings.ReplaceAll(toPrint, "\"", "")
 			jm.logger.CInfow(jm.ctx, "Job succeeded", "name", jc.Name, "result", toPrint)
 		}
 	}
