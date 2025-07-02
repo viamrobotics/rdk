@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -1288,7 +1289,7 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 		logger.Infof("Noisy log deduplication is now %s", state)
 	}
 
-	// If a user-specified log pattern exactly matches the name of a module, update that
+	// If a user-specified log pattern regex-matches the name of a module, update that
 	// module's log level to be "debug." This will cause a restart of the module with
 	// `--log-level=debug`. Only do this if the global log level is not already debug.
 	//
@@ -1298,13 +1299,21 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 	// when trying to change levels of modular logs.
 	if globalLogger.logger != nil && globalLogger.logger.GetLevel() != logging.DEBUG {
 		for _, lpc := range cfg.LogConfig {
-			for i, module := range cfg.Modules {
-				// Only set a log level of "debug" if the pattern exactly matches the name of the
-				// module, the pattern has an associated level of "debug," and the module does
-				// not already have a log level set
-				if lpc.Pattern == module.Name && lpc.Level == moduleLogLevelDebug &&
-					module.LogLevel == "" {
-					cfg.Modules[i].LogLevel = moduleLogLevelDebug
+			// Only examine log patterns that have an associated level of "debug."
+			if lpc.Level == moduleLogLevelDebug {
+				for i, module := range cfg.Modules {
+					// Only set a log level of "debug" if the pattern regex-matches the name of the
+					// module, and the module does not already have a log level set
+					r, err := regexp.Compile(logging.BuildRegexFromPattern(lpc.Pattern))
+					if err != nil {
+						// No need to log a warning here. The call to `registry.Update` above will
+						// have logged one already.
+						continue
+					}
+
+					if r.MatchString(module.Name) && module.LogLevel == "" {
+						cfg.Modules[i].LogLevel = moduleLogLevelDebug
+					}
 				}
 			}
 		}
