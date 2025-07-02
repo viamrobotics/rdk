@@ -528,7 +528,6 @@ func newWithResources(
 		}, r.activeBackgroundWorkers.Done)
 	}
 	// add the job scheduler to the robot
-	// NOTE: this is after reconfigure. Maybe need before?
 	getResource := func(resource string) (resource.Resource, error) {
 		names := r.manager.resources.Names()
 		for _, name := range names {
@@ -1454,6 +1453,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.manager.updateRevision(res.ResourceName(), revision)
 	}
 
+	// this check is deferred because it has to happen at the end of reconfigure.
+	// UpdatingJobs depends on the resource graph being populated, which
+	// happens after the "diff.ResourcesEqual" check during startup. However, we also want
+	// to allow modifications to jobs to trigger Updates even if the rest of the config is
+	// the same -- to cover these two cases, we always want to UpdateJobs at the end of reconfigure.
 	defer func() {
 		if !diff.JobsEqual {
 			r.jobManager.UpdateJobs(diff)

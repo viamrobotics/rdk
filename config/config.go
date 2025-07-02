@@ -1351,8 +1351,7 @@ func (jc *JobConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Validate checks every required field and ensures the schedule to be a
-// valid interval.
+// Validate checks that every required field is present.
 func (jc *JobConfig) Validate(path string) error {
 	if jc.Name == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "name")
@@ -1363,11 +1362,12 @@ func (jc *JobConfig) Validate(path string) error {
 	if jc.Resource == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "resource")
 	}
-
 	if jc.Schedule == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "schedule")
 	}
-
+	// At this point, the schedule could still be invalid (not a golang duration string or a
+	// cron expression). Such errors will be caught later, when the job manager will try to
+	// schedule the job and parse this field. The error will be displayed to the user.
 	return nil
 }
 
