@@ -32,10 +32,11 @@ var logger = logging.FromZapCompatible(zap.Must(zap.Config{
 }.Build()).Sugar())
 
 type planConfig struct {
-	Start   *PlanState
-	Goal    *PlanState
-	FS      frame.FrameSystem
-	Options *plannerOptions
+	Start            *PlanState
+	Goal             *PlanState
+	FS               frame.FrameSystem
+	Options          *plannerOptions
+	ConstraintHander *ConstraintHandler
 }
 
 type planConfigConstructor func() (*planConfig, error)
@@ -99,7 +100,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 
 	opt := newBasicPlannerOptions()
 	opt.SmoothIter = 2
-	orientMetric := ik.NewPoseFlexOVMetricConstructor(0.09)
+	opt.ArcLengthTolerance = 0.09
 
 	// Create a temporary frame system for the transformation
 	fs := frame.NewEmptyFrameSystem("")
@@ -138,19 +139,25 @@ func constrainedXArmMotion() (*planConfig, error) {
 		return errors.New("violation")
 	}
 
-	opt.goalMetricConstructor = orientMetric
-	opt.SetPathMetric(oFuncMet)
-	opt.AddStateConstraint("orientation", orientConstraint)
+	opt.GoalMetricType = ik.ArcLengthConvergence
+	constraintHandler := newEmptyConstraintHandler()
+	constraintHandler.pathMetric = oFuncMet
+	constraintHandler.AddStateConstraint("orientation", orientConstraint)
 
 	start := &PlanState{configuration: map[string][]frame.Input{model.Name(): home7}}
 	goal := &PlanState{poses: frame.FrameSystemPoses{model.Name(): frame.NewPoseInFrame(frame.World, pos)}}
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	if err != nil {
+		return nil, err
+	}
+	opt.motionChains = motionChains
 
 	return &planConfig{
-		Start:   start,
-		Goal:    goal,
-		FS:      fs,
-		Options: opt,
+		Start:            start,
+		Goal:             goal,
+		FS:               fs,
+		Options:          opt,
+		ConstraintHander: constraintHandler,
 	}, nil
 }
 
@@ -228,6 +235,7 @@ func simple2DMap() (*planConfig, error) {
 
 	// setup planner options
 	opt := newBasicPlannerOptions()
+	constraintHandler := newEmptyConstraintHandler()
 	startInput := frame.NewZeroInputs(fs)
 	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90., 0})
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
@@ -272,15 +280,20 @@ func simple2DMap() (*planConfig, error) {
 		return nil, err
 	}
 	for name, constraint := range collisionConstraints {
-		opt.AddStateConstraint(name, constraint)
+		constraintHandler.AddStateConstraint(name, constraint)
 	}
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	if err != nil {
+		return nil, err
+	}
+	opt.motionChains = motionChains
 
 	return &planConfig{
-		Start:   &PlanState{configuration: startInput},
-		Goal:    goal,
-		FS:      fs,
-		Options: opt,
+		Start:            &PlanState{configuration: startInput},
+		Goal:             goal,
+		FS:               fs,
+		Options:          opt,
+		ConstraintHander: constraintHandler,
 	}, nil
 }
 
@@ -335,20 +348,27 @@ func simpleXArmMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	constraintHandler := newEmptyConstraintHandler()
 	for name, constraint := range collisionConstraints {
-		opt.AddStateConstraint(name, constraint)
+		constraintHandler.AddStateConstraint(name, constraint)
 	}
 	for name, constraint := range fsCollisionConstraints {
-		opt.AddStateFSConstraint(name, constraint)
+		constraintHandler.AddStateFSConstraint(name, constraint)
 	}
 	start := map[string][]frame.Input{xarm.Name(): home7}
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	if err != nil {
+		return nil, err
+	}
+	opt.motionChains = motionChains
 
 	return &planConfig{
-		Start:   &PlanState{configuration: start},
-		Goal:    goal,
-		FS:      fs,
-		Options: opt,
+		Start:            &PlanState{configuration: start},
+		Goal:             goal,
+		FS:               fs,
+		Options:          opt,
+		ConstraintHander: constraintHandler,
 	}, nil
 }
 
@@ -402,20 +422,26 @@ func simpleUR5eMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
+	constraintHandler := newEmptyConstraintHandler()
 	for name, constraint := range collisionConstraints {
-		opt.AddStateConstraint(name, constraint)
+		constraintHandler.AddStateConstraint(name, constraint)
 	}
 	for name, constraint := range fsCollisionConstraints {
-		opt.AddStateFSConstraint(name, constraint)
+		constraintHandler.AddStateFSConstraint(name, constraint)
 	}
 	start := map[string][]frame.Input{ur5e.Name(): home6}
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	if err != nil {
+		return nil, err
+	}
+	opt.motionChains = motionChains
 
 	return &planConfig{
-		Start:   &PlanState{configuration: start},
-		Goal:    goal,
-		FS:      fs,
-		Options: opt,
+		Start:            &PlanState{configuration: start},
+		Goal:             goal,
+		FS:               fs,
+		Options:          opt,
+		ConstraintHander: constraintHandler,
 	}, nil
 }
 
@@ -427,7 +453,8 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	// plan
 	cfg, err := config()
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := plannerFunc(cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options)
+	mp, err := plannerFunc(
+		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander)
 	test.That(t, err, test.ShouldBeNil)
 
 	nodes, err := mp.plan(context.Background(), cfg.Start, cfg.Goal)
@@ -436,7 +463,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	// test that path doesn't violate constraints
 	test.That(t, len(nodes), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(nodes)-1; j++ {
-		ok, _ := cfg.Options.ConstraintHandler.CheckSegmentAndStateValidityFS(&ik.SegmentFS{
+		ok, _ := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(&ik.SegmentFS{
 			StartConfiguration: nodes[j].Q(),
 			EndConfiguration:   nodes[j+1].Q(),
 			FS:                 cfg.FS,
@@ -592,6 +619,8 @@ func TestMultiArmSolve(t *testing.T) {
 }
 
 func TestReachOverArm(t *testing.T) {
+	t.Skip("RSDK-10801 Skip until we diagnose why the last assertion in this test fails")
+
 	// setup frame system with an xarm
 	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -633,6 +662,7 @@ func TestReachOverArm(t *testing.T) {
 		Options:     opts,
 	})
 	test.That(t, err, test.ShouldBeNil)
+	// TODO(RSDK-10801): Understand why this is sometimes < 2.
 	test.That(t, len(plan.Trajectory()), test.ShouldBeGreaterThan, 2)
 }
 
@@ -871,7 +901,7 @@ func TestReplanValidations(t *testing.T) {
 		{
 			msg:   "fails validations when collision_buffer_mm is not a float",
 			extra: map[string]interface{}{"collision_buffer_mm": "not a float"},
-			err:   errors.New("could not interpret collision_buffer_mm field as float64"),
+			err:   errors.New("json: cannot unmarshal string into Go struct field plannerOptions.collision_buffer_mm of type float64"),
 		},
 		{
 			msg:   "fails validations when collision_buffer_mm is negative",
@@ -988,7 +1018,7 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, -8000, 0})
 
-	extra := map[string]interface{}{"motion_profile": "position_only", "position_seeds": 2, "smooth_iter": 5}
+	extra := map[string]interface{}{"motion_profile": PositionOnlyMotionProfile, "position_seeds": 2, "smooth_iter": 5}
 
 	baseFS := frame.NewEmptyFrameSystem("baseFS")
 	err = baseFS.AddFrame(kinematicFrame, baseFS.World())

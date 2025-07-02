@@ -9,6 +9,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/utils/rpc"
 )
 
 // New returns a new web service for the given robot.
@@ -43,12 +44,7 @@ func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependenci
 func (svc *webService) closeStreamServer() {}
 
 // stub implementation when gostream not available
-func (svc *webService) initStreamServer(ctx context.Context) error {
-	return nil
-}
-
-// stub implementation when gostream is not available.
-func (svc *webService) initStreamServerForModule(ctx context.Context) error {
+func (svc *webService) initStreamServer(_ context.Context, _ rpc.Server) error {
 	return nil
 }
 

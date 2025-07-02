@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aptible/supercronic/cronexpr"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/jwks"
@@ -40,6 +41,7 @@ type Config struct {
 	Debug             bool
 	LogConfig         []logging.LoggerPatternConfig
 	MaintenanceConfig *MaintenanceConfig
+	Jobs              []JobConfig
 
 	ConfigFilePath string
 
@@ -113,6 +115,7 @@ type configData struct {
 	MaintenanceConfig       *MaintenanceConfig            `json:"maintenance,omitempty"`
 	PackagePath             string                        `json:"package_path,omitempty"`
 	DisableLogDeduplication bool                          `json:"disable_log_deduplication"`
+	Jobs                    []JobConfig                   `json:"jobs,omitempty"`
 }
 
 // AppValidationStatus refers to the.
@@ -152,6 +155,27 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	// Updates ValidatedKeySet once validated.
 	if err := c.Auth.Validate("auth"); err != nil {
 		return err
+	}
+
+	// Validate the jobs and check the uniqueness of job names.
+	seenJobs := make(map[string]bool)
+	for idx := 0; idx < len(c.Jobs); idx++ {
+		jobName := fmt.Sprintf("jobs.%s", c.Jobs[idx].Name)
+		if err := c.Jobs[idx].Validate(fmt.Sprintf("%s.%d", "jobs", idx)); err != nil {
+			fullErr := errors.Errorf("error validating jobs config %s", err)
+			if c.DisablePartialStart {
+				return fullErr
+			}
+			logger.Errorw("jobs config error; starting robot without job", "name", jobName, "error", err)
+		}
+		if _, exists := seenJobs[jobName]; exists {
+			errString := errors.Errorf("duplicate job %s in robot config", jobName)
+			if c.DisablePartialStart {
+				return errString
+			}
+			logger.Error(errString)
+		}
+		seenJobs[jobName] = true
 	}
 
 	for idx := 0; idx < len(c.Modules); idx++ {
@@ -324,6 +348,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.MaintenanceConfig = conf.MaintenanceConfig
 	c.PackagePath = conf.PackagePath
 	c.DisableLogDeduplication = conf.DisableLogDeduplication
+	c.Jobs = conf.Jobs
 
 	return nil
 }
@@ -358,6 +383,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		MaintenanceConfig:       c.MaintenanceConfig,
 		PackagePath:             c.PackagePath,
 		DisableLogDeduplication: c.DisableLogDeduplication,
+		Jobs:                    c.Jobs,
 	})
 }
 
@@ -1261,4 +1287,75 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 		registry.DeduplicateLogs.Store(!cfg.DisableLogDeduplication)
 		logger.Infof("Noisy log deduplication is now %s", state)
 	}
+}
+
+// JobConfig describes regular job settings for the robot from the client.
+type JobConfig struct {
+	JobConfigData
+}
+
+// JobConfigData is the job config data that gets marshaled/unmarshaled.
+type JobConfigData struct {
+	Name     string         `json:"name"`
+	Schedule string         `json:"schedule"`
+	Resource string         `json:"resource"`
+	Method   string         `json:"method"`
+	Command  map[string]any `json:"command,omitempty"`
+}
+
+// MarshalJSON marshals out this config.
+func (jc JobConfig) MarshalJSON() ([]byte, error) {
+	return json.Marshal(jc.JobConfigData)
+}
+
+// UnmarshalJSON unmarshals JSON data into this config.
+func (jc *JobConfig) UnmarshalJSON(data []byte) error {
+	var temp JobConfigData
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	*jc = JobConfig{
+		temp,
+	}
+	return nil
+}
+
+// Validate checks every required field and ensures the schedule to be a
+// valid interval.
+func (jc *JobConfig) Validate(path string) error {
+	if jc.Name == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if jc.Method == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "method")
+	}
+	if jc.Resource == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "resource")
+	}
+
+	if jc.Schedule == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "schedule")
+	}
+	// Assuming the schedule is the harder part of the JobConfig to get right,
+	// it's parsed here as either Golang's time.Duration or a valid cron expression.
+	// If both cases fail, an error is returned right away, rather than waiting
+	// for the JobManager to report an error.
+	_, err := time.ParseDuration(jc.Schedule)
+	if err != nil {
+		_, err = cronexpr.ParseStrict(jc.Schedule)
+		if err != nil {
+			// If both parsing attempts fail, return an error.
+			return resource.NewConfigValidationError(path,
+				errors.New(
+					"Invalid schedule format, expected a golang duration string or a valid cron expression"))
+		}
+	}
+
+	return nil
+}
+
+// Equals checks if the two configs are deeply equal to each other.
+func (jc JobConfig) Equals(other JobConfig) bool {
+	return reflect.DeepEqual(jc, other)
 }

@@ -101,7 +101,7 @@ func (manager *resourceManager) ExportDot(index int) (resource.GetSnapshotInfo, 
 
 func (manager *resourceManager) startModuleManager(
 	ctx context.Context,
-	parentAddr string,
+	parentAddrs config.ParentSockAddrs,
 	removeOrphanedResources func(context.Context, []resource.Name),
 	untrustedEnv bool,
 	viamHomeDir string,
@@ -119,7 +119,7 @@ func (manager *resourceManager) startModuleManager(
 		FTDC:                    manager.opts.ftdc,
 		ModPeerConnTracker:      modPeerConnTracker,
 	}
-	modmanager, err := modmanager.NewManager(ctx, parentAddr, logger, mmOpts)
+	modmanager, err := modmanager.NewManager(ctx, parentAddrs, logger, mmOpts)
 	if err != nil {
 		return err
 	}
@@ -712,18 +712,16 @@ func (manager *resourceManager) completeConfig(
 						return
 					}
 
-					var verb string
+					var prefix string
 					conf := gNode.Config()
 					if gNode.IsUninitialized() {
-						verb = "configuring"
-
 						gNode.InitializeLogger(
 							manager.logger, resName.String(),
 						)
 					} else {
-						verb = "reconfiguring"
+						prefix = "re"
 					}
-					manager.logger.CInfow(ctx, fmt.Sprintf("Now %s resource", verb), "resource", resName)
+					manager.logger.CInfow(ctx, fmt.Sprintf("Now %sconfiguring resource", prefix), "resource", resName, "model", conf.Model)
 
 					// this is done in config validation but partial start rules require us to check again
 					if _, _, err := conf.Validate("", resName.API.Type.Name); err != nil {
@@ -773,6 +771,7 @@ func (manager *resourceManager) completeConfig(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc)
+							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %sconfigured resource", prefix), "resource", resName, "model", conf.Model)
 						}
 
 					default:

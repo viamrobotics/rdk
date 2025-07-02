@@ -83,6 +83,11 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 		return nil, errors.Wrap(err, "error converting packages config from proto")
 	}
 
+	cfg.Jobs, err = toRDKSlice(proto.Jobs, JobsConfigFromProto, disablePartialStart, logger)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting jobs config from proto")
+	}
+
 	if proto.Debug != nil {
 		cfg.Debug = *proto.Debug
 	}
@@ -313,6 +318,7 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 		Env:             module.Environment,
 		Status:          status,
 		FirstRunTimeout: durationpb.New(module.FirstRunTimeout.Unwrap()),
+		TcpMode:         module.TCPMode,
 	}
 
 	return &proto, nil
@@ -334,6 +340,7 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 		Environment:     proto.GetEnv(),
 		Status:          status,
 		FirstRunTimeout: utils.Duration(proto.GetFirstRunTimeout().AsDuration()),
+		TCPMode:         proto.GetTcpMode(),
 	}
 	return &module, nil
 }
@@ -1047,4 +1054,40 @@ func LogConfigFromProto(proto *pb.LogPatternConfig) (*logging.LoggerPatternConfi
 		Pattern: proto.Pattern,
 		Level:   proto.Level,
 	}, nil
+}
+
+// JobsConfigToProto converts a JobConfig to its proto equivalent.
+func JobsConfigToProto(jc *JobConfig) (*pb.JobConfig, error) {
+	protoConfig := &pb.JobConfig{
+		Name:     jc.Name,
+		Schedule: jc.Schedule,
+		Resource: jc.Resource,
+		Method:   jc.Method,
+	}
+
+	if jc.Command != nil {
+		command, err := protoutils.StructToStructPb(jc.Command)
+		if err != nil {
+			return nil, err
+		}
+		protoConfig.Command = command
+	}
+	return protoConfig, nil
+}
+
+// JobsConfigFromProto converts a proto JobConfig to its rdk equivalent.
+func JobsConfigFromProto(proto *pb.JobConfig) (*JobConfig, error) {
+	jobConfig := &JobConfig{
+		JobConfigData{
+			Name:     proto.Name,
+			Schedule: proto.Schedule,
+			Resource: proto.Resource,
+			Method:   proto.Method,
+		},
+	}
+
+	if proto.Command != nil {
+		jobConfig.Command = proto.Command.AsMap()
+	}
+	return jobConfig, nil
 }

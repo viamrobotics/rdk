@@ -1253,7 +1253,7 @@ func (c *AppClient) DeleteRobotPart(ctx context.Context, partID string) error {
 
 // GetRobotPartMetadata gets the user-defined metadata for a robot part.
 func (c *AppClient) GetRobotPartMetadata(ctx context.Context, robotID string) (map[string]interface{}, error) {
-	resp, err := c.client.GetRobotMetadata(ctx, &pb.GetRobotMetadataRequest{
+	resp, err := c.client.GetRobotPartMetadata(ctx, &pb.GetRobotPartMetadataRequest{
 		Id: robotID,
 	})
 	if err != nil {

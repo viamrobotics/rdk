@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -36,6 +37,9 @@ func TestObstacleDist(t *testing.T) {
 
 	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
 		return nil, errors.New("no pointcloud")
+	}
+	r.LoggerFunc = func() logging.Logger {
+		return nil
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{camera.Named("fakeCamera")}
@@ -139,6 +143,9 @@ func TestRegistrationWithDefaultCamera(t *testing.T) {
 	}
 
 	r := &inject.Robot{}
+	r.LoggerFunc = func() logging.Logger {
+		return nil
+	}
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		if name == cameraName {
 			return inject.NewCamera(cameraName.Name), nil

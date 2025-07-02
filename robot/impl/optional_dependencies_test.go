@@ -46,6 +46,7 @@ func (ocCfg *optionalChildConfig) Validate(path string) ([]string, []string, err
 type optionalChild struct {
 	resource.Named
 	resource.TriviallyCloseable
+
 	logger logging.Logger
 
 	requiredMotor motor.Motor
@@ -95,7 +96,7 @@ func (oc *optionalChild) Reconfigure(ctx context.Context, deps resource.Dependen
 	return nil
 }
 
-func TestNonModularOptionalDependencies(t *testing.T) {
+func TestOptionalDependencies(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
@@ -347,8 +348,8 @@ func TestNonModularOptionalDependencies(t *testing.T) {
 }
 
 func TestModularOptionalDependencies(t *testing.T) {
-	// A copy of TestNonModularOptionalDependencies with a modular component instead of a
-	// resource defined in this file.
+	// A copy of TestOptionalDependencies with a modular component instead of a resource
+	// defined in this file.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -637,6 +638,7 @@ func (mocCfg *mutualOptionalChildConfig) Validate(path string) ([]string, []stri
 type mutualOptionalChild struct {
 	resource.Named
 	resource.TriviallyCloseable
+
 	logger logging.Logger
 
 	otherMOC      resource.Resource
@@ -680,7 +682,9 @@ func (moc *mutualOptionalChild) Reconfigure(ctx context.Context, deps resource.D
 }
 
 func TestOptionalDependenciesCycles(t *testing.T) {
-	// This test ensures that there can be a "cycle" of optional dependencies.
+	// This test ensures that there can be a "cycle" of non-modular optional dependencies.
+	// Note that the usage of non-modular optional dependencies requires that the resource
+	// have a `Reconfigure` method (defined above).
 	//
 	// A resource 'moc' will optionally depend upon 'moc2', and 'moc2' will optionally
 	// depend upon 'moc'. We will start with only 'moc' in the config, and assert that 'moc'
@@ -841,5 +845,165 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 
 		// Assert that, on the 'moc2' component itself, `otherMOC` is no longer set.
 		test.That(t, moc2.otherMOC, test.ShouldBeNil)
+	}
+}
+
+func TestModularOptionalDependenciesCycles(t *testing.T) {
+	// This test is a copy of TestOptionalDependenciesCycles, but it also ensures that
+	// modular resources can optionally depend upon each other _and_ lack a `Reconfigure`
+	// method (leverage `resource.AlwaysRebuild`).
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+
+	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
+
+	mutualOptionalChildModel := resource.NewModel("acme", "demo", "moc")
+	mocName := generic.Named("moc")
+	mocName2 := generic.Named("moc2")
+
+	// Reconfigure the robot to have a mutual optional child component that is missing its
+	// mutual.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  mocName.Name,
+				API:   generic.API,
+				Model: mutualOptionalChildModel,
+				Attributes: rutils.AttributeMap{
+					"other_moc": mocName2.Name,
+				},
+			},
+		},
+	}
+	// Ensure here and for all configs below before `Reconfigure`ing to make sure optional
+	// dependencies are calculated (`ImplicitOptionalDependsOn` is filled in).
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	{ // Assertions
+		// Assert that the mutual optional child component built successfully (optional
+		// dependency on non-existent 'moc2' did not cause a failure to build).
+		mocRes, err := lr.ResourceByName(mocName)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that the mutual optional logged its inability to get 'moc2' from
+		// dependencies _twice_. The first is from construction of the resource, and the
+		// second is from reconstruction of the resource (always rebuild) due to a call to
+		// `updateWeakAndOptionalDependents` directly after `completeConfig`.
+		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
+		test.That(t, msgNum, test.ShouldEqual, 2)
+
+		// Assert that, on the component itself, `otherMOC` remains unset.
+		doCommandResp, err := mocRes.DoCommand(ctx, map[string]any{"command": "other_moc_state"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"other_moc_state": "unset"})
+	}
+
+	// Reconfigure the robot to have the other MOC.
+	cfg = config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  mocName.Name,
+				API:   generic.API,
+				Model: mutualOptionalChildModel,
+				Attributes: rutils.AttributeMap{
+					"other_moc": mocName2.Name,
+				},
+			},
+			{
+				Name:  mocName2.Name,
+				API:   generic.API,
+				Model: mutualOptionalChildModel,
+				Attributes: rutils.AttributeMap{
+					"other_moc": mocName.Name,
+				},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	{ // Assertions
+		// Assert that the first 'moc' component is still accessible (did not fail to
+		// reconstruct).
+		mocRes, err := lr.ResourceByName(mocName)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that there were no more logs (still 2) about failures to "get other MOC."
+		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
+		test.That(t, msgNum, test.ShouldEqual, 2)
+
+		// Assert that, on the 'moc' component itself, `otherMOC` is now usable.
+		doCommandResp, err := mocRes.DoCommand(ctx, map[string]any{"command": "other_moc_state"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"other_moc_state": "usable"})
+
+		// Assert that the second 'moc2' component is now accessible (did not fail to
+		// construct).
+		mocRes2, err := lr.ResourceByName(mocName2)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that, on the 'moc2' component itself, `otherMOC` is now usable.
+		doCommandResp, err = mocRes2.DoCommand(ctx, map[string]any{"command": "other_moc_state"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"other_moc_state": "usable"})
+	}
+
+	// Reconfigure the robot to remove the original 'moc'.
+	cfg = config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  mocName2.Name,
+				API:   generic.API,
+				Model: mutualOptionalChildModel,
+				Attributes: rutils.AttributeMap{
+					"other_moc": mocName.Name,
+				},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	{ // Assertions
+		// Assert that the original optional child component 'moc' is no longer accessible.
+		_, err := lr.ResourceByName(mocName)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+
+		// Assert that the second optional child component 'moc2' is still accessible (did not
+		// fail to reconstruct).
+		mocRes2, err := lr.ResourceByName(mocName2)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that there was another log (now 3) about failures to "get other MOC."
+		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
+		test.That(t, msgNum, test.ShouldEqual, 3)
+
+		// Assert that, on the 'moc2' component itself, `otherMOC` is no longer set.
+		doCommandResp, err := mocRes2.DoCommand(ctx, map[string]any{"command": "other_moc_state"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"other_moc_state": "unset"})
 	}
 }

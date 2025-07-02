@@ -40,8 +40,6 @@ type motionPlanner interface {
 	sample(node, int) (node, error)
 }
 
-type plannerConstructor func(referenceframe.FrameSystem, *rand.Rand, logging.Logger, *plannerOptions) (motionPlanner, error)
-
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
 	Logger logging.Logger
@@ -252,8 +250,8 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	}
 
 	if replanCostFactor > 0 && currentPlan != nil {
-		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.opt().scoreFunc)
-		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.opt().scoreFunc)
+		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
+		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
 		request.Logger.CDebugf(ctx,
 			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
 			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
@@ -268,16 +266,26 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 }
 
 type planner struct {
-	fs       referenceframe.FrameSystem
-	lfs      *linearizedFrameSystem
-	solver   ik.Solver
-	logger   logging.Logger
-	randseed *rand.Rand
-	start    time.Time
-	planOpts *plannerOptions
+	*ConstraintHandler
+	fs                        referenceframe.FrameSystem
+	lfs                       *linearizedFrameSystem
+	solver                    ik.Solver
+	logger                    logging.Logger
+	randseed                  *rand.Rand
+	start                     time.Time
+	scoringFunction           ik.SegmentFSMetric
+	poseDistanceFunc          ik.SegmentMetric
+	configurationDistanceFunc ik.SegmentFSMetric
+	planOpts                  *plannerOptions
 }
 
-func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.Logger, opt *plannerOptions) (*planner, error) {
+func newPlanner(
+	fs referenceframe.FrameSystem,
+	seed *rand.Rand,
+	logger logging.Logger,
+	opt *plannerOptions,
+	constraintHandler *ConstraintHandler,
+) (*planner, error) {
 	lfs, err := newLinearizedFrameSystem(fs)
 	if err != nil {
 		return nil, err
@@ -285,31 +293,38 @@ func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.L
 	if opt == nil {
 		opt = newBasicPlannerOptions()
 	}
+	if constraintHandler == nil {
+		constraintHandler = newEmptyConstraintHandler()
+	}
 
 	solver, err := ik.CreateCombinedIKSolver(lfs.dof, logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
 	mp := &planner{
-		solver:   solver,
-		fs:       fs,
-		lfs:      lfs,
-		logger:   logger,
-		randseed: seed,
-		planOpts: opt,
+		ConstraintHandler:         constraintHandler,
+		solver:                    solver,
+		fs:                        fs,
+		lfs:                       lfs,
+		logger:                    logger,
+		randseed:                  seed,
+		planOpts:                  opt,
+		scoringFunction:           opt.getScoringFunction(),
+		poseDistanceFunc:          opt.getPoseDistanceFunc(),
+		configurationDistanceFunc: ik.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
 	}
 	return mp, nil
 }
 
 func (mp *planner) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
-	return mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
+	return mp.CheckStateFSConstraints(&ik.StateFS{
 		Configuration: inputs,
 		FS:            mp.fs,
 	}) == nil
 }
 
 func (mp *planner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) bool {
-	ok, _ := mp.planOpts.CheckSegmentAndStateValidityFS(
+	ok, _ := mp.CheckSegmentAndStateValidityFS(
 		&ik.SegmentFS{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
@@ -483,7 +498,7 @@ IK:
 				step = alteredStep
 			}
 			// Ensure the end state is a valid one
-			err = mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
+			err = mp.CheckStateFSConstraints(&ik.StateFS{
 				Configuration: step,
 				FS:            mp.fs,
 			})
@@ -493,9 +508,9 @@ IK:
 					EndConfiguration:   step,
 					FS:                 mp.fs,
 				}
-				err := mp.planOpts.CheckSegmentFSConstraints(stepArc)
+				err := mp.CheckSegmentFSConstraints(stepArc)
 				if err == nil {
-					score := mp.planOpts.configurationDistanceFunc(stepArc)
+					score := mp.configurationDistanceFunc(stepArc)
 					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 						solutions = map[float64]referenceframe.FrameSystemInputs{}
 						solutions[score] = step
@@ -508,7 +523,7 @@ IK:
 							EndConfiguration:   step,
 							FS:                 mp.fs,
 						}
-						simscore := mp.planOpts.configurationDistanceFunc(similarity)
+						simscore := mp.configurationDistanceFunc(similarity)
 						if simscore < defaultSimScore {
 							continue IK
 						}
@@ -597,25 +612,6 @@ func (mp *planner) linearizeFSmetric(metric ik.StateFSMetric) func([]float64) fl
 	}
 }
 
-func (mp *planner) frameLists() (moving, nonmoving []string) {
-	movingMap := map[string]referenceframe.Frame{}
-	for _, chain := range mp.planOpts.motionChains {
-		for _, frame := range chain.frames {
-			movingMap[frame.Name()] = frame
-		}
-	}
-
-	// Here we account for anything in the framesystem that is not part of a motion chain
-	for _, frameName := range mp.fs.FrameNames() {
-		if _, ok := movingMap[frameName]; ok {
-			moving = append(moving, frameName)
-		} else {
-			nonmoving = append(nonmoving, frameName)
-		}
-	}
-	return moving, nonmoving
-}
-
 // The purpose of this function is to allow solves that require the movement of components not in a motion chain, while preventing wild or
 // random motion of these components unnecessarily. A classic example would be a scene with two arms. One arm is given a goal in World
 // which it could reach, but the other arm is in the way. Randomly seeded IK will produce a valid configuration for the moving arm, and a
@@ -623,7 +619,7 @@ func (mp *planner) frameLists() (moving, nonmoving []string) {
 // and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
 // configuration to the seed.
 func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
-	moving, nonmoving := mp.frameLists()
+	moving, nonmoving := mp.planOpts.motionChains.framesFilteredByMovingAndNonmoving(mp.fs)
 	// Create a map with nonmoving configurations replaced with their seed values
 	alteredStep := referenceframe.FrameSystemInputs{}
 	for _, frame := range moving {
@@ -637,7 +633,7 @@ func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs)
 	}
 	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
 
-	_, lastGood := mp.planOpts.CheckStateConstraintsAcrossSegmentFS(
+	_, lastGood := mp.CheckStateConstraintsAcrossSegmentFS(
 		&ik.SegmentFS{
 			StartConfiguration: step,
 			EndConfiguration:   alteredStep,

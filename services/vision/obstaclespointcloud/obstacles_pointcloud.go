@@ -60,5 +60,5 @@ func registerOPSegmenter(
 			return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
 		}
 	}
-	return vision.NewService(name, r, nil, nil, nil, segmenter, conf.DefaultCamera)
+	return vision.DeprecatedNewService(name, r, nil, nil, nil, segmenter, conf.DefaultCamera)
 }

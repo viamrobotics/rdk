@@ -14,6 +14,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -29,6 +30,10 @@ func init() {
 		RPCServiceDesc:              &pb.MotionService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // PlanHistoryReq describes the request to PlanHistory().

@@ -96,8 +96,10 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 		return rrt
 	}
 
+	configDistMetric := ik.GetConfigurationDistanceFunc(wp.mp.opt().ConfigurationDistanceMetric)
+
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	optimalCost := wp.mp.opt().configurationDistanceFunc(&ik.SegmentFS{
+	optimalCost := configDistMetric(&ik.SegmentFS{
 		StartConfiguration: startNodes[0].Q(),
 		EndConfiguration:   goalNodes[0].Q(),
 	})
@@ -110,7 +112,9 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 	for _, seed := range startNodes {
 		for _, solution := range goalNodes {
 			if canInterp {
-				cost := wp.mp.opt().configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: seed.Q(), EndConfiguration: solution.Q()})
+				cost := configDistMetric(
+					&ik.SegmentFS{StartConfiguration: seed.Q(), EndConfiguration: solution.Q()},
+				)
 				if cost < optimalCost*defaultOptimalityMultiple {
 					if wp.mp.checkPath(seed.Q(), solution.Q()) {
 						rrt.steps = []node{seed, solution}

@@ -9,6 +9,7 @@ import (
 
 	pb "go.viam.com/api/component/gripper/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -23,6 +24,10 @@ func init() {
 		RPCServiceDesc:              &pb.GripperService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string.
@@ -34,6 +39,13 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 // Named is a helper for getting the named grippers's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
+}
+
+// HoldingStatus represents whether the gripper is currently holding onto
+// an object as well as any additional contextual information (stored in `Meta`).
+type HoldingStatus struct {
+	IsHoldingSomething bool
+	Meta               map[string]interface{}
 }
 
 // A Gripper represents a physical robotic gripper.
@@ -74,6 +86,9 @@ type Gripper interface {
 	// returns true if we grabbed something.
 	// This will block until done or a new operation cancels this one.
 	Grab(ctx context.Context, extra map[string]interface{}) (bool, error)
+
+	// IsHoldingSomething returns whether the gripper is currently holding onto an object.
+	IsHoldingSomething(ctx context.Context, extra map[string]interface{}) (HoldingStatus, error)
 }
 
 // FromRobot is a helper for getting the named Gripper from the given Robot.

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -48,13 +49,16 @@ func setupSocketWithRobot(t *testing.T) string {
 	var socketAddress string
 	var err error
 	if rutils.ViamTCPSockets() {
-		socketAddress = "127.0.0.1:" + strconv.Itoa(web.TestTCPParentPort)
+		socketAddress = "127.0.0.1:" + strconv.Itoa(web.TCPParentPort)
 	} else {
 		socketAddress, err = modlib.CreateSocketAddress(t.TempDir(), "parent")
 		test.That(t, err, test.ShouldBeNil)
 	}
 
-	rtestutils.MakeRobotForModuleLogging(t, socketAddress)
+	server := rtestutils.MakeRobotForModuleLogging(t, socketAddress)
+	if rutils.ViamTCPSockets() {
+		return server.InternalAddr().String()
+	}
 	return socketAddress
 }
 
@@ -66,7 +70,13 @@ func setupModManager(
 	options modmanageroptions.Options,
 ) modmaninterface.ModuleManager {
 	t.Helper()
-	mgr, err := NewManager(ctx, parentAddr, logger, options)
+	var parentAddrs config.ParentSockAddrs
+	if strings.HasPrefix(parentAddr, "127.0.0.1:") {
+		parentAddrs.TCPAddr = parentAddr
+	} else {
+		parentAddrs.UnixAddr = parentAddr
+	}
+	mgr, err := NewManager(ctx, parentAddrs, logger, options)
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() {
 		// Wait for module recovery processes here because modmanager.Close does not.
@@ -141,13 +151,13 @@ func TestModManagerFunctions(t *testing.T) {
 			err = mod.checkReady(ctx, parentAddr)
 			test.That(t, err, test.ShouldBeNil)
 
-			mod.registerResources(mgr)
+			mod.registerResourceModels(mgr)
 			reg, ok := resource.LookupRegistration(generic.API, myCounterModel)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, reg, test.ShouldNotBeNil)
 			test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
-			mod.deregisterResources()
+			mod.deregisterResourceModels()
 			_, ok = resource.LookupRegistration(generic.API, myCounterModel)
 			test.That(t, ok, test.ShouldBeFalse)
 
@@ -1188,7 +1198,7 @@ func TestRTPPassthrough(t *testing.T) {
 	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
-	mgr, err := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := NewManager(ctx, config.ParentSockAddrs{UnixAddr: parentAddr}, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 
 	// add module executable
@@ -1394,7 +1404,7 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
-	mgr, err := NewManager(ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := NewManager(ctx, config.ParentSockAddrs{UnixAddr: parentAddr}, logger, modmanageroptions.Options{UntrustedEnv: false})
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)

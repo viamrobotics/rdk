@@ -8,6 +8,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
@@ -23,6 +24,7 @@ func TestColorDetector(t *testing.T) {
 	}
 	ctx := context.Background()
 	r := &inject.Robot{}
+	r.LoggerFunc = func() logging.Logger { return nil }
 	name := vision.Named("test_cd")
 	srv, err := registerColorDetector(ctx, name, &inp, r)
 	test.That(t, err, test.ShouldBeNil)
@@ -68,6 +70,7 @@ func TestRegistrationWithDefaultCamera(t *testing.T) {
 	}
 
 	r := &inject.Robot{}
+	r.LoggerFunc = func() logging.Logger { return nil }
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		if name == cameraName {
 			return inject.NewCamera(cameraName.Name), nil

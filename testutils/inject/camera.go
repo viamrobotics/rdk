@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // Camera is an injected camera.
@@ -24,6 +25,7 @@ type Camera struct {
 	ProjectorFunc        func(ctx context.Context) (transform.Projector, error)
 	PropertiesFunc       func(ctx context.Context) (camera.Properties, error)
 	CloseFunc            func(ctx context.Context) error
+	GeometriesFunc       func(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error)
 }
 
 // NewCamera returns a new injected camera.
@@ -96,6 +98,14 @@ func (c *Camera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 		return c.DoFunc(ctx, cmd)
 	}
 	return c.Camera.DoCommand(ctx, cmd)
+}
+
+// Geometries calls the injected Geometries or the real version.
+func (c *Camera) Geometries(ctx context.Context, cmd map[string]interface{}) ([]spatialmath.Geometry, error) {
+	if c.GeometriesFunc != nil {
+		return c.GeometriesFunc(ctx, cmd)
+	}
+	return c.Camera.Geometries(ctx, cmd)
 }
 
 // SubscribeRTP calls the injected RTPPassthroughSource or returns an error if unimplemented.

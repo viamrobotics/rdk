@@ -1906,7 +1906,7 @@ func TestOrphanedResources(t *testing.T) {
 		// Wait for restart attempt in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessage("Some modules failed to re-add after crashed module restart and will be removed").Len(),
+			test.That(tb, logs.FilterMessage("Some resources failed to re-add after crashed module restart and will be removed").Len(),
 				test.ShouldBeGreaterThanOrEqualTo, 1)
 		})
 		time.Sleep(2 * time.Second)
@@ -1923,6 +1923,105 @@ func TestOrphanedResources(t *testing.T) {
 		_, ok = resource.LookupRegistration(motor.API, testMotorModel)
 		test.That(t, ok, test.ShouldBeFalse)
 	})
+}
+
+func TestCrashedModuleModelReregisteredAfterRecovery(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger)
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg)
+
+	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that removing testmodule binary and killing testmodule orphans
+	// helper 'h' after the first restart attempt
+	err = os.Rename(testPath, testPath+".disabled")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
+
+	// Wait for restart attempt in logs.
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage("Error while restarting crashed module").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
+
+	// Also assert that testmodule's resources were deregistered.
+	_, ok := resource.LookupRegistration(generic.API, helperModel)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	// Check that h is still present but commands fail
+	h, err = r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Assert that restoring the testmodule binary makes h start working again
+	// after the auto-restart code succeeds.
+	err = os.Rename(testPath+".disabled", testPath)
+	test.That(t, err, test.ShouldBeNil)
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage("Module resources successfully re-added after module restart").Len(),
+			test.ShouldEqual, 1)
+	})
+
+	h, err = r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Also assert that testmodule's resources were reregistered and
+	// test that a new resource in the config gets built successfully.
+	_, ok = resource.LookupRegistration(generic.API, helperModel)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	cfg2 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h2",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+	h, err = r.ResourceByName(generic.Named("h2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
 }
 
 var (

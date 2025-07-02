@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/pion/rtp"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
@@ -35,6 +36,7 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -51,6 +53,7 @@ func TestClient(t *testing.T) {
 
 	injectCamera := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
 
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
@@ -104,6 +107,9 @@ func TestClient(t *testing.T) {
 		resBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
 		test.That(t, err, test.ShouldBeNil)
 		return resBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+	}
+	injectCamera.GeometriesFunc = func(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error) {
+		return expectedGeometries, nil
 	}
 	// depth camera
 	injectCameraDepth := &inject.Camera{}
@@ -218,6 +224,13 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
+
+		// Geometries
+		geometries, err := camera1Client.Geometries(context.Background(), map[string]interface{}{"foo": "Geometries"})
+		test.That(t, err, test.ShouldBeNil)
+		for i, geometry := range geometries {
+			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
+		}
 
 		test.That(t, camera1Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

@@ -69,11 +69,12 @@ func newRRTStarConnectMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
+	constraintHandler *ConstraintHandler,
 ) (motionPlanner, error) {
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
-	mp, err := newPlanner(fs, seed, logger, opt)
+	mp, err := newPlanner(fs, seed, logger, opt, constraintHandler)
 	if err != nil {
 		return nil, err
 	}
@@ -192,8 +193,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 			return
 		}
-
-		reachedDelta := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+		reachedDelta := mp.configurationDistanceFunc(&ik.SegmentFS{
 			StartConfiguration: map1reached.Q(),
 			EndConfiguration:   map2reached.Q(),
 		})
@@ -211,7 +211,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
-			reachedDelta = mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+			reachedDelta = mp.configurationDistanceFunc(&ik.SegmentFS{
 				StartConfiguration: map1reached.Q(),
 				EndConfiguration:   map2reached.Q(),
 			})
@@ -227,7 +227,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 				solution := shortestPath(rrt.maps, shared)
 				traj := nodesToTrajectory(solution.steps)
 				// if cost of trajectory is sufficiently small, exit early
-				solutionCost := traj.EvaluateCost(mp.planOpts.scoreFunc)
+				solutionCost := traj.EvaluateCost(mp.scoringFunction)
 				if solutionCost-rrt.maps.optNode.Cost() < defaultOptimalityThreshold*rrt.maps.optNode.Cost() {
 					mp.logger.CDebug(ctx, "RRT* progress: sufficiently optimal path found, exiting")
 					rrt.solutionChan <- solution
@@ -262,7 +262,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 	// 3) we are no longer approaching the target and our "best" node is further away than the previous best
 	// 4) further iterations change our best node by close-to-zero amounts
 	// 5) we have iterated more than maxExtendIter times
-	near := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: target.Q()}, mp.algOpts.NeighborhoodSize)[0].node
+	near := kNearestNeighbors(rrtMap, &basicNode{q: target.Q()}, mp.algOpts.NeighborhoodSize, nodeConfigurationDistanceFunc)[0].node
 	oldNear := near
 	for i := 0; i < maxExtendIter; i++ {
 		select {
@@ -271,8 +271,9 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			return
 		default:
 		}
-
-		dist := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
+		dist := mp.configurationDistanceFunc(
+			&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()},
+		)
 		if dist < mp.planOpts.InputIdentDist {
 			mchan <- near
 			return
@@ -285,7 +286,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			break
 		}
 
-		extendCost := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+		extendCost := mp.configurationDistanceFunc(&ik.SegmentFS{
 			StartConfiguration: oldNear.Q(),
 			EndConfiguration:   near.Q(),
 		})
@@ -293,7 +294,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		rrtMap[near] = oldNear
 
 		// rewire the tree
-		neighbors := kNearestNeighbors(mp.planOpts, rrtMap, &basicNode{q: newNear}, mp.algOpts.NeighborhoodSize)
+		neighbors := kNearestNeighbors(rrtMap, &basicNode{q: newNear}, mp.algOpts.NeighborhoodSize, nodeConfigurationDistanceFunc)
 		for i, thisNeighbor := range neighbors {
 			// dont need to try to rewire nearest neighbor, so skip it
 			if i == 0 {
@@ -301,7 +302,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			}
 
 			// check to see if a shortcut is possible, and rewire the node if it is
-			connectionCost := mp.planOpts.configurationDistanceFunc(&ik.SegmentFS{
+			connectionCost := mp.configurationDistanceFunc(&ik.SegmentFS{
 				StartConfiguration: thisNeighbor.node.Q(),
 				EndConfiguration:   near.Q(),
 			})

@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -273,4 +274,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 		return nil, err
 	}
 	return protoutils.DoFromResourceServer(ctx, camera, req)
+}
+
+func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
+	res, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
 }

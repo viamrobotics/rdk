@@ -6,6 +6,7 @@ import (
 
 	pb "go.viam.com/api/component/switch/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -17,6 +18,10 @@ func init() {
 		RPCServiceDesc:              &pb.SwitchService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string.
@@ -41,8 +46,9 @@ type Switch interface {
 	// GetPosition returns the current position of the switch.
 	GetPosition(ctx context.Context, extra map[string]interface{}) (uint32, error)
 
-	// GetNumberOfPositions returns the total number of valid positions for this switch.
-	GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, error)
+	// GetNumberOfPositions returns the total number of valid positions for this switch, along with their labels.
+	// Labels should either be nil, empty, or the same length has the number of positions.
+	GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, []string, error)
 }
 
 // FromRobot is a helper for getting the named Switch from the given Robot.

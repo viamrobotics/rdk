@@ -96,7 +96,7 @@ func ToBasicOctree(cloud PointCloud, confidenceThreshold int) (*BasicOctree, err
 	meta := cloud.MetaData()
 	center := meta.Center()
 	maxSideLength := meta.MaxSideLength()
-	basicOctree := newBasicOctree(center, maxSideLength, defaultConfidenceThreshold)
+	basicOctree := newBasicOctree(center, maxSideLength, confidenceThreshold)
 
 	var err error
 	cloud.Iterate(0, 0, func(p r3.Vector, d Data) bool {

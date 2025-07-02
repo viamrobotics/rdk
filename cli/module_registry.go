@@ -74,11 +74,25 @@ type moduleID struct {
 	name   string
 }
 
+// MachinePickerCustomizations holds custom branding text for the machine picker UI.
+type MachinePickerCustomizations struct {
+	Heading    string `json:"heading,omitempty"`
+	Subheading string `json:"subheading,omitempty"`
+}
+
+// AppCustomizations holds customizations for different app UI components.
+type AppCustomizations struct {
+	MachinePicker *MachinePickerCustomizations `json:"machinePicker,omitempty"`
+}
+
 // AppComponent represents metadata used to distinguish and describe an app.
 type AppComponent struct {
-	Name       string `json:"name"`
-	Type       string `json:"type"`
-	Entrypoint string `json:"entrypoint"`
+	Name           string             `json:"name"`
+	Type           string             `json:"type"`
+	Entrypoint     string             `json:"entrypoint"`
+	FragmentIDs    []string           `json:"fragmentIds,omitempty"`
+	LogoPath       string             `json:"logoPath,omitempty"`
+	Customizations *AppCustomizations `json:"customizations,omitempty"`
 }
 
 // manifestBuildInfo is the "build" section of meta.json.
@@ -680,9 +694,27 @@ func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 
 func appComponentToProto(appComponent AppComponent) *apppb.App {
 	app := &apppb.App{
-		Name:       appComponent.Name,
-		Type:       appComponent.Type,
-		Entrypoint: appComponent.Entrypoint,
+		Name:        appComponent.Name,
+		Type:        appComponent.Type,
+		Entrypoint:  appComponent.Entrypoint,
+		FragmentIds: appComponent.FragmentIDs,
+	}
+
+	if appComponent.LogoPath != "" {
+		app.LogoPath = &appComponent.LogoPath
+	}
+
+	if appComponent.Customizations != nil && appComponent.Customizations.MachinePicker != nil {
+		machinePicker := &apppb.MachinePickerCustomizations{}
+		if appComponent.Customizations.MachinePicker.Heading != "" {
+			machinePicker.Heading = &appComponent.Customizations.MachinePicker.Heading
+		}
+		if appComponent.Customizations.MachinePicker.Subheading != "" {
+			machinePicker.Subheading = &appComponent.Customizations.MachinePicker.Subheading
+		}
+		app.Customizations = &apppb.AppCustomizations{
+			MachinePicker: machinePicker,
+		}
 	}
 
 	return app
@@ -898,7 +930,8 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 		ExePath: path,
 	}
 
-	mgr, err := modmanager.NewManager(context.Background(), parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	parentAddrs := modconfig.ParentSockAddrs{UnixAddr: parentAddr}
+	mgr, err := modmanager.NewManager(context.Background(), parentAddrs, logger, modmanageroptions.Options{UntrustedEnv: false})
 	if err != nil {
 		return nil, err
 	}

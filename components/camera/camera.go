@@ -8,12 +8,14 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"time"
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -42,6 +44,10 @@ func init() {
 		API:        API,
 		MethodName: getImages.String(),
 	}, newGetImagesCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the camera resource subtype string.
@@ -125,6 +131,7 @@ type ImageMetadata struct {
 // [Close method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#close
 type Camera interface {
 	resource.Resource
+	resource.Shaped
 
 	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
 	// Image also may return metadata about the frame.
@@ -143,18 +150,6 @@ type Camera interface {
 	Properties(ctx context.Context) (Properties, error)
 }
 
-// VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.
-// Note that generally, when writing camera components from scratch, embedding `Stream` is an anti-pattern.
-type VideoSource interface {
-	Camera
-	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
-}
-
-// ReadImage reads an image from the given source that is immediately available.
-func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func(), error) {
-	return gostream.ReadImage(ctx, src)
-}
-
 // DecodeImageFromCamera retrieves image bytes from a camera resource and serializes it as an image.Image.
 func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[string]interface{}, cam Camera) (image.Image, error) {
 	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
@@ -169,6 +164,101 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
 	}
 	return img, nil
+}
+
+// GetImageFromGetImages is a utility function to quickly implement GetImage from an already-implemented GetImages method.
+// It returns a byte slice and ImageMetadata, which is the same response signature as the Image method.
+//
+// If sourceName is nil, it returns the first image in the response slice.
+// If sourceName is not nil, it returns the image with the matching source name.
+// If no image is found with the matching source name, it returns an error.
+//
+// It uses the mimeType arg to specify how to encode the bytes returned from GetImages.
+func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType string, cam Camera) ([]byte, ImageMetadata, error) {
+	// TODO(RSDK-10991): pass through extra field when implemented
+	images, _, err := cam.Images(ctx)
+	if err != nil {
+		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
+	}
+	if len(images) == 0 {
+		return nil, ImageMetadata{}, errors.New("no images returned from camera")
+	}
+
+	// if mimeType is empty, use JPEG as default
+	if mimeType == "" {
+		mimeType = utils.MimeTypeJPEG
+	}
+
+	var img image.Image
+	if sourceName == nil {
+		img = images[0].Image
+	} else {
+		for _, i := range images {
+			if i.SourceName == *sourceName {
+				img = i.Image
+				break
+			}
+		}
+		if img == nil {
+			return nil, ImageMetadata{}, errors.New("no image found with source name: " + *sourceName)
+		}
+	}
+
+	if img == nil {
+		return nil, ImageMetadata{}, errors.New("image is nil")
+	}
+
+	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, ImageMetadata{}, fmt.Errorf("could not encode image: %w", err)
+	}
+	return imgBytes, ImageMetadata{MimeType: mimeType}, nil
+}
+
+// GetImagesFromGetImage is a utility function to quickly implement GetImages from an already-implemented GetImage method.
+// It takes a mimeType and a camera as args, and returns a slice of NamedImage and ResponseMetadata,
+// which is the same response signature as the Images method. We use the mimeType arg to specify
+// how to decode the image bytes returned from GetImage. Source name is empty string always.
+// It returns a slice of NamedImage of length 1 and ResponseMetadata, using the camera's name as the source name.
+func GetImagesFromGetImage(
+	ctx context.Context,
+	mimeType string,
+	cam Camera,
+	logger logging.Logger,
+) ([]NamedImage, resource.ResponseMetadata, error) {
+	// TODO(RSDK-10991): pass through extra field when implemented
+	resBytes, resMetadata, err := cam.Image(ctx, mimeType, nil)
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not get image bytes from camera: %w", err)
+	}
+	if len(resBytes) == 0 {
+		return nil, resource.ResponseMetadata{}, errors.New("received empty bytes from camera")
+	}
+
+	resMimetype, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
+	reqMimetype, _ := utils.CheckLazyMIMEType(mimeType)
+	if resMimetype != reqMimetype {
+		logger.Warnf("requested mime type %s, but received %s", mimeType, resMimetype)
+	}
+
+	img, err := rimage.DecodeImage(ctx, resBytes, utils.WithLazyMIMEType(resMetadata.MimeType))
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not decode into image.Image: %w", err)
+	}
+
+	return []NamedImage{{Image: img, SourceName: ""}}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+}
+
+// VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.
+// Note that generally, when writing camera components from scratch, embedding `Stream` is an anti-pattern.
+type VideoSource interface {
+	Camera
+	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
+}
+
+// ReadImage reads an image from the given source that is immediately available.
+func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func(), error) {
+	return gostream.ReadImage(ctx, src)
 }
 
 // A PointCloudSource is a source that can generate pointclouds.

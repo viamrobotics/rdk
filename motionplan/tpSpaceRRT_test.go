@@ -12,7 +12,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -52,13 +51,14 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	}}
 
 	opt := newBasicPlannerOptions()
-	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
-	opt.PlannerConstructor = newTPSpaceMotionPlanner
+	opt.TPSpaceOrientationScale = 30.
 
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	test.That(t, err, test.ShouldBeNil)
+	opt.motionChains = motionChains
 
-	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
+	mp, err := newTPSpaceMotionPlanner(
+		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler())
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -133,11 +133,12 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	// Initialize planner options
 	opt := newBasicPlannerOptions()
-	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
+	opt.TPSpaceOrientationScale = 30.
 	opt.GoalThreshold = 5
-	opt.PlannerConstructor = newTPSpaceMotionPlanner
-	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
-	opt.fillMotionChains(fs, goal)
+	opt.PlanningAlgorithm = TPSpace
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	test.That(t, err, test.ShouldBeNil)
+	opt.motionChains = motionChains
 
 	// Create collision constraints
 	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, nil)
@@ -152,12 +153,14 @@ func TestPtgWithObstacle(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	constraintHandler := newEmptyConstraintHandler()
 	for name, constraint := range collisionConstraints {
-		opt.AddStateConstraint(name, constraint)
+		constraintHandler.AddStateConstraint(name, constraint)
 	}
 
 	// Create and initialize planner
-	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
+	mp, err := newTPSpaceMotionPlanner(
+		fs, rand.New(rand.NewSource(42)), logger, opt, constraintHandler)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 
@@ -224,9 +227,7 @@ func TestTPsmoothing(t *testing.T) {
 
 	// Initialize planner options
 	opt := newBasicPlannerOptions()
-	opt.poseDistanceFunc = ik.NewSquaredNormSegmentMetric(30.)
-	opt.scoreFunc = tpspace.NewPTGDistanceMetric([]string{ackermanFrame.Name()})
-	opt.PlannerConstructor = newTPSpaceMotionPlanner
+	opt.TPSpaceOrientationScale = 30.
 
 	// Needed to determine motion chains
 	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 6500, Y: 0, Z: 0})
@@ -234,10 +235,13 @@ func TestTPsmoothing(t *testing.T) {
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos),
 	}}
 
-	opt.fillMotionChains(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal)
+	test.That(t, err, test.ShouldBeNil)
+	opt.motionChains = motionChains
 
 	// Create and initialize planner
-	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
+	mp, err := newTPSpaceMotionPlanner(
+		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler())
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 
