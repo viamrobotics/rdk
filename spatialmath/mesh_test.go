@@ -1,16 +1,11 @@
 package spatialmath
 
 import (
-	"fmt"
-	"log"
 	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
-	"gonum.org/v1/plot"
-	"gonum.org/v1/plot/plotter"
-	"gonum.org/v1/plot/vg"
 
 	"go.viam.com/rdk/utils"
 )
@@ -609,7 +604,6 @@ func TestMeshEncompassedBy(t *testing.T) {
 }
 
 func TestBoxTriangleIntersectionArea(t *testing.T) {
-	// should sync w main before making PR, but without 10777 additions, some of these tests will fail
 	b, err := NewBox(NewZeroPose(), r3.Vector{X: 2, Y: 2, Z: 2}, "")
 	bbox, ok := b.(*box)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -664,95 +658,4 @@ func TestBoxTriangleIntersectionArea(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, area, test.ShouldEqual, 0)
 	})
-}
-
-// func TestMeshDensity(t *testing.T) {
-// 	lods := []string{"100", "200", "300", "400", "500", "1000", "2000", "5000"}
-// 	for _, lod := range lods {
-// 		m, err := NewMeshFromPLYFile("/Users/emiyare.ikwut-ukwa/Documents/lod_" + lod + ".ply")
-// 		if err != nil {
-// 			fmt.Println("Error: %/v", err)
-// 		}
-
-// 		greatestDiff := 0.
-// 		numTriangles := float64(len(m.triangles))
-// 		totalDiff := 0.
-
-//			for _, tri := range m.triangles {
-//				pts := tri.Points()
-//				for i := range 3 {
-//					p1 := pts[i]
-//					p2 := pts[(i+1)%3]
-//					diff := p1.Sub(p2).Norm()
-//					greatestDiff = max(greatestDiff, diff)
-//					totalDiff += diff
-//				}
-//			}
-//			fmt.Printf("lod is %v\n", lod)
-//			fmt.Printf("Greatest edge is %v\n", greatestDiff)
-//			fmt.Printf("Average edge is %v\n", totalDiff/(numTriangles*3))
-//			fmt.Println(" ")
-//		}
-//	}
-func TestMeshDensity(t *testing.T) {
-	lods := []string{"100", "200", "300", "400", "500", "1000", "2000", "5000"}
-	for _, lod := range lods {
-		m, err := NewMeshFromPLYFile("/Users/emiyare.ikwut-ukwa/Documents/lod_" + lod + ".ply")
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-		}
-
-		greatestDiff := 0.
-		totalDiff := 0.
-		var edgeLengths []float64
-
-		for _, tri := range m.triangles {
-			pts := tri.Points()
-			for i := range 3 {
-				p1 := pts[i]
-				p2 := pts[(i+1)%3]
-				diff := p1.Sub(p2).Norm()
-				greatestDiff = max(greatestDiff, diff)
-				totalDiff += diff
-				edgeLengths = append(edgeLengths, diff)
-			}
-		}
-
-		numTriangles := float64(len(m.triangles))
-		fmt.Printf("lod is %v\n", lod)
-		fmt.Printf("Greatest edge is %v\n", greatestDiff)
-		fmt.Printf("Average edge is %v\n\n", totalDiff/(numTriangles*3))
-
-		err = plotHistogram(edgeLengths, lod)
-		if err != nil {
-			log.Printf("Error plotting histogram for lod %s: %v\n", lod, err)
-		}
-	}
-}
-
-func plotHistogram(data []float64, lod string) error {
-	values := make(plotter.Values, len(data))
-	for i, v := range data {
-		values[i] = v
-	}
-
-	p := plot.New()
-	p.Title.Text = "Edge Length Histogram (LOD " + lod + ")"
-	p.X.Label.Text = "Edge Length"
-	p.Y.Label.Text = "Frequency"
-
-	hist, err := plotter.NewHist(values, 30) // 30 buckets
-	if err != nil {
-		return err
-	}
-	hist.Normalize(1)
-
-	p.Add(hist)
-
-	filePath := "/Users/emiyare.ikwut-ukwa/Documents/edge_histogram_" + lod + ".png"
-	if err := p.Save(6*vg.Inch, 4*vg.Inch, filePath); err != nil {
-		return err
-	}
-	fmt.Println("Saved histogram: edge_histogram_" + lod + ".png")
-	return nil
 }
