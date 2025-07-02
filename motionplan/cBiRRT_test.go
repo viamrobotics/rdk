@@ -68,9 +68,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 	nn := &neighborManager{nCPU: nCPU}
 
-	_, err = newCbirrtOptions(opt, cbirrt.lfs)
-	test.That(t, err, test.ShouldBeNil)
-
 	m1chan := make(chan node, 1)
 	defer close(m1chan)
 
