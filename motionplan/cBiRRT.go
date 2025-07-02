@@ -41,7 +41,6 @@ func newCBiRRTMotionPlanner(
 	logger logging.Logger,
 	opt *plannerOptions,
 	constraintHandler *ConstraintHandler,
-	algSettings *AlgorithmSettings,
 ) (motionPlanner, error) {
 	if opt == nil {
 		return nil, errNoPlannerOptions

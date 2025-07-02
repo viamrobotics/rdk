@@ -43,7 +43,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	fs := referenceframe.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())
 	mp, err := newCBiRRTMotionPlanner(
-		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler(), &opt.PlanningAlgorithmSettings)
+		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler())
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goalMetric)

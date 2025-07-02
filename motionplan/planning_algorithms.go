@@ -33,6 +33,7 @@ type AlgorithmSettings struct {
 	RRTStarOpts *rrtStarConnectOptions `json:"rrtstar_settings"`
 }
 
+// move back to cBiRRT.go when motionplan is taken out of RDK.
 type cbirrtOptions struct {
 	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
 	SolutionsToSeed int `json:"solutions_to_seed"`
@@ -41,6 +42,7 @@ type cbirrtOptions struct {
 	qstep map[string][]float64
 }
 
+// move back to rrtStarConnect.go when motionplan is taken out of RDK.
 type rrtStarConnectOptions struct {
 	// The number of nearest neighbors to consider when adding a new sample to the tree
 	NeighborhoodSize int `json:"neighborhood_size"`
@@ -55,7 +57,6 @@ type plannerConstructor func(
 	logging.Logger,
 	*plannerOptions,
 	*ConstraintHandler,
-	*AlgorithmSettings,
 ) (motionPlanner, error)
 
 func newPlannerConstructor(algo PlanningAlgorithm) plannerConstructor {
@@ -81,5 +82,5 @@ func newMotionPlanner(
 	constraintHandler *ConstraintHandler,
 ) (motionPlanner, error) {
 	return newPlannerConstructor(opt.PlanningAlgorithm())(
-		fs, seed, logger, opt, constraintHandler, &opt.PlanningAlgorithmSettings)
+		fs, seed, logger, opt, constraintHandler)
 }

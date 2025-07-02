@@ -468,7 +468,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		req.Extra["waypoints"] = nil
 	}
 
-	// TODO: REMOVE THIS ONE RELEASE AFTER THE RELEASE THAT INTRODUCED THIS CODE. It is only here
+	// TODO: RSDK-11198 REMOVE THIS IN THE RELEASE AFTER THE RELEASE THAT INTRODUCED THIS CODE. It is only here
 	// to deprecate rather than break the "planning_alg" key and give us time to inform users/engineers
 	// how to use the "planning_algorithm_settings" option
 	if deprecatedKeyAlg, ok := req.Extra["planning_alg"]; ok {
