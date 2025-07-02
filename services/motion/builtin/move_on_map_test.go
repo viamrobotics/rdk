@@ -155,7 +155,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	extra := map[string]interface{}{
-		"motion_profile": "position_only",
+		"motion_profile": motionplan.PositionOnlyMotionProfile,
 		"timeout":        5.,
 		"smooth_iter":    10.,
 	}

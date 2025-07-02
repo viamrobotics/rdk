@@ -57,7 +57,8 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	opt.motionChains = motionChains
 
-	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
+	mp, err := newTPSpaceMotionPlanner(
+		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler())
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -152,12 +153,14 @@ func TestPtgWithObstacle(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	constraintHandler := newEmptyConstraintHandler()
 	for name, constraint := range collisionConstraints {
-		opt.AddStateConstraint(name, constraint)
+		constraintHandler.AddStateConstraint(name, constraint)
 	}
 
 	// Create and initialize planner
-	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
+	mp, err := newTPSpaceMotionPlanner(
+		fs, rand.New(rand.NewSource(42)), logger, opt, constraintHandler)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 
@@ -237,7 +240,8 @@ func TestTPsmoothing(t *testing.T) {
 	opt.motionChains = motionChains
 
 	// Create and initialize planner
-	mp, err := newTPSpaceMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
+	mp, err := newTPSpaceMotionPlanner(
+		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler())
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 

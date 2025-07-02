@@ -7,7 +7,9 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var defaultMinStepCount = 2
@@ -19,6 +21,224 @@ type ConstraintHandler struct {
 	segmentFSConstraints map[string]SegmentFSConstraint
 	stateConstraints     map[string]StateConstraint
 	stateFSConstraints   map[string]StateFSConstraint
+	pathMetric           ik.StateFSMetric // Distance function which converges on the valid manifold of intermediate path states
+}
+
+func newEmptyConstraintHandler() *ConstraintHandler {
+	handler := ConstraintHandler{}
+	handler.pathMetric = ik.NewZeroFSMetric()
+	return &handler
+}
+
+func newConstraintHandler(
+	opt *plannerOptions,
+	constraints *Constraints,
+	from, to *PlanState,
+	fs referenceframe.FrameSystem,
+	seedMap referenceframe.FrameSystemInputs,
+	worldState *referenceframe.WorldState,
+	boundingRegions []spatialmath.Geometry,
+) (*ConstraintHandler, error) {
+	handler := newEmptyConstraintHandler()
+
+	startPoses, err := from.ComputePoses(fs)
+	if err != nil {
+		return nil, err
+	}
+	goalPoses, err := to.ComputePoses(fs)
+	if err != nil {
+		return nil, err
+	}
+
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, seedMap)
+	if err != nil {
+		return nil, err
+	}
+
+	movingRobotGeometries, staticRobotGeometries := opt.motionChains.geometries(fs, frameSystemGeometries)
+
+	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
+	if err != nil {
+		return nil, err
+	}
+	worldGeometries := obstaclesInFrame.Geometries()
+
+	frameNames := map[string]bool{}
+	for _, fName := range fs.FrameNames() {
+		frameNames[fName] = true
+	}
+
+	allowedCollisions, err := collisionSpecifications(
+		constraints.GetCollisionSpecification(),
+		frameSystemGeometries,
+		frameNames,
+		worldState.ObstacleNames(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// If we are planning on a SLAM map we want to not allow a collision with the pointcloud to start our move call
+	// Typically starting collisions are whitelisted,
+	// TODO: This is not the most robust way to deal with this but is better than driving through walls.
+	if opt.useTPspace() {
+		var zeroCG *collisionGraph
+		for _, geom := range worldGeometries {
+			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
+				if zeroCG == nil {
+					zeroCG, err = setupZeroCG(movingRobotGeometries, worldGeometries, allowedCollisions, false, opt.CollisionBufferMM)
+					if err != nil {
+						return nil, err
+					}
+				}
+				// Check if a moving geometry is in collision with a pointcloud. If so, error.
+				for _, collision := range zeroCG.collisions(opt.CollisionBufferMM) {
+					if collision.name1 == octree.Label() {
+						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name2)
+					} else if collision.name2 == octree.Label() {
+						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name1)
+					}
+				}
+			}
+		}
+	}
+
+	// add collision constraints
+	fsCollisionConstraints, stateCollisionConstraints, err := createAllCollisionConstraints(
+		movingRobotGeometries,
+		staticRobotGeometries,
+		worldGeometries,
+		boundingRegions,
+		allowedCollisions,
+		opt.CollisionBufferMM,
+	)
+	if err != nil {
+		return nil, err
+	}
+	// For TPspace
+	for name, constraint := range stateCollisionConstraints {
+		handler.AddStateConstraint(name, constraint)
+	}
+	for name, constraint := range fsCollisionConstraints {
+		handler.AddStateFSConstraint(name, constraint)
+	}
+
+	constraints.updateFromOptions(opt)
+
+	_, err = handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
+	if err != nil {
+		return nil, err
+	}
+
+	return handler, nil
+}
+
+// addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological
+// constraints. It will return a bool indicating whether there are any to add.
+func (c *ConstraintHandler) addTopoConstraints(
+	fs referenceframe.FrameSystem,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
+	constraints *Constraints,
+) (bool, error) {
+	topoConstraints := false
+	for _, linearConstraint := range constraints.GetLinearConstraint() {
+		topoConstraints = true
+		// TODO RSDK-9224: Our proto for constraints does not allow the specification of which frames should be constrainted relative to
+		// which other frames. If there is only one goal specified, then we assume that the constraint is between the moving and goal frame.
+		err := c.addLinearConstraints(fs, startCfg, from, to, linearConstraint)
+		if err != nil {
+			return false, err
+		}
+	}
+	for _, pseudolinearConstraint := range constraints.GetPseudolinearConstraint() {
+		// pseudolinear constraints
+		err := c.addPseudolinearConstraints(fs, startCfg, from, to, pseudolinearConstraint)
+		if err != nil {
+			return false, err
+		}
+	}
+	for _, orientationConstraint := range constraints.GetOrientationConstraint() {
+		topoConstraints = true
+		// TODO RSDK-9224: Our proto for constraints does not allow the specification of which frames should be constrainted relative to
+		// which other frames. If there is only one goal specified, then we assume that the constraint is between the moving and goal frame.
+		err := c.addOrientationConstraints(fs, startCfg, from, to, orientationConstraint)
+		if err != nil {
+			return false, err
+		}
+	}
+	return topoConstraints, nil
+}
+
+func (c *ConstraintHandler) addLinearConstraints(
+	fs referenceframe.FrameSystem,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
+	linConstraint LinearConstraint,
+) error {
+	// Linear constraints
+	linTol := linConstraint.LineToleranceMm
+	if linTol == 0 {
+		// Default
+		linTol = defaultLinearDeviation
+	}
+	orientTol := linConstraint.OrientationToleranceDegs
+	if orientTol == 0 {
+		orientTol = defaultOrientationDeviation
+	}
+	constraint, pathDist, err := CreateAbsoluteLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
+	if err != nil {
+		return err
+	}
+	c.AddStateFSConstraint(defaultConstraintName, constraint)
+
+	c.pathMetric = ik.CombineFSMetrics(c.pathMetric, pathDist)
+	return nil
+}
+
+func (c *ConstraintHandler) addPseudolinearConstraints(
+	fs referenceframe.FrameSystem,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
+	plinConstraint PseudolinearConstraint,
+) error {
+	// Linear constraints
+	linTol := plinConstraint.LineToleranceFactor
+	if linTol == 0 {
+		// Default
+		linTol = defaultPseudolinearTolerance
+	}
+	orientTol := plinConstraint.OrientationToleranceFactor
+	if orientTol == 0 {
+		orientTol = defaultPseudolinearTolerance
+	}
+	constraint, pathDist, err := CreateProportionalLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
+	if err != nil {
+		return err
+	}
+	c.AddStateFSConstraint(defaultConstraintName, constraint)
+
+	c.pathMetric = ik.CombineFSMetrics(c.pathMetric, pathDist)
+	return nil
+}
+
+func (c *ConstraintHandler) addOrientationConstraints(
+	fs referenceframe.FrameSystem,
+	startCfg referenceframe.FrameSystemInputs,
+	from, to referenceframe.FrameSystemPoses,
+	orientConstraint OrientationConstraint,
+) error {
+	orientTol := orientConstraint.OrientationToleranceDegs
+	if orientTol == 0 {
+		orientTol = defaultOrientationDeviation
+	}
+	constraint, pathDist, err := CreateSlerpOrientationConstraintFS(fs, startCfg, from, to, orientTol)
+	if err != nil {
+		return err
+	}
+	c.AddStateFSConstraint(defaultConstraintName, constraint)
+	c.pathMetric = ik.CombineFSMetrics(c.pathMetric, pathDist)
+	return nil
 }
 
 // CheckStateConstraints will check a given input against all state constraints.
