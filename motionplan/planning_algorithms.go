@@ -75,6 +75,8 @@ func newMotionPlanner(
 		return newRRTStarConnectMotionPlanner(fs, seed, logger, opt, constraintHandler, chains)
 	case TPSpace:
 		return newTPSpaceMotionPlanner(fs, seed, logger, opt, constraintHandler, chains)
+	case UnspecifiedAlgorithm:
+		fallthrough
 	default:
 		return newCBiRRTMotionPlanner(fs, seed, logger, opt, constraintHandler, chains)
 	}
