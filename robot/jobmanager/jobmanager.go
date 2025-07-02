@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 )
 
@@ -52,14 +51,9 @@ func New(
 	if err != nil {
 		return nil, err
 	}
-	// Need to call this?
-	err = module.CheckSocketOwner(parentAddr.UnixAddr)
-	if err != nil {
-		return nil, err
-	}
 
 	dialAddr := "unix://" + parentAddr.UnixAddr
-	conn, err := grpc.Dial(robotContext, dialAddr, jobLogger, rpc.WithDialDebug())
+	conn, err := grpc.Dial(robotContext, dialAddr, jobLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -85,13 +79,13 @@ func (jm *Jobmanager) Shutdown() error {
 	return jm.scheduler.Shutdown()
 }
 
-// jobTemplate returns a function that the scheduler puts on its queue.
-func (jm *Jobmanager) jobTemplate(jc config.JobConfig) func() {
+// createJobFunction returns a function that the job scheduler puts on its queue.
+func (jm *Jobmanager) createJobFunction(jc config.JobConfig) func() {
 	if jc.Method == "DoCommand" {
 		functionToRun := func() {
 			resource, err := jm.getResource(jc.Resource)
 			if err != nil {
-				jm.logger.Error(err)
+				jm.logger.CWarnw(jm.ctx, "Could not get resource", "error", err)
 				return
 			}
 			jm.logger.CInfow(jm.ctx, "Job triggered", "name", jc.Name)
@@ -108,7 +102,7 @@ func (jm *Jobmanager) jobTemplate(jc config.JobConfig) func() {
 	functionToRun := func() {
 		resource, err := jm.getResource(jc.Resource)
 		if err != nil {
-			jm.logger.CWarnw(jm.ctx, "Could not get resources", "error", err)
+			jm.logger.CWarnw(jm.ctx, "Could not get resource", "error", err)
 			return
 		}
 		refCtx := metadata.NewOutgoingContext(jm.ctx, nil)
@@ -202,7 +196,7 @@ func (jm *Jobmanager) scheduleJob(jc config.JobConfig) {
 		jobType = gocron.DurationJob(t)
 	}
 
-	jobFunc := jm.jobTemplate(jc)
+	jobFunc := jm.createJobFunction(jc)
 	j, err := jm.scheduler.NewJob(
 		jobType,
 		gocron.NewTask(jobFunc),
