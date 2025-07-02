@@ -19,7 +19,7 @@ on:
 
 jobs:
   viam-cli:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
