@@ -10,9 +10,9 @@ import (
 // DataServiceClient represents a fake instance of a data service client.
 type DataServiceClient struct {
 	datapb.DataServiceClient
-	//nolint:deprecated,staticcheck
+	//nolint:staticcheck
 	TabularDataByFilterFunc func(ctx context.Context, in *datapb.TabularDataByFilterRequest,
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		opts ...grpc.CallOption) (*datapb.TabularDataByFilterResponse, error)
 	TabularDataBySQLFunc func(ctx context.Context, in *datapb.TabularDataBySQLRequest,
 		opts ...grpc.CallOption) (*datapb.TabularDataBySQLResponse, error)
@@ -62,13 +62,13 @@ type DataServiceClient struct {
 
 // TabularDataByFilter calls the injected TabularDataByFilter or the real version.
 //
-//nolint:deprecated,staticcheck
+//nolint:staticcheck
 func (client *DataServiceClient) TabularDataByFilter(ctx context.Context, in *datapb.TabularDataByFilterRequest,
 	opts ...grpc.CallOption,
-	//nolint:deprecated,staticcheck
+	//nolint:staticcheck
 ) (*datapb.TabularDataByFilterResponse, error) {
 	if client.TabularDataByFilterFunc == nil {
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		return client.DataServiceClient.TabularDataByFilter(ctx, in, opts...)
 	}
 	return client.TabularDataByFilterFunc(ctx, in, opts...)
