@@ -64,14 +64,8 @@ const (
 )
 
 var (
-	defaultNumThreads                            = utils.MinInt(runtime.NumCPU()/2, 10)
-	defaultTimeMultipleAfterFindingFirstSolution = 10
+	defaultNumThreads = utils.MinInt(runtime.NumCPU()/2, 10)
 )
-
-func init() {
-	defaultTimeMultipleAfterFindingFirstSolution = utils.GetenvInt("MP_TIME_MULTIPLIER", defaultTimeMultipleAfterFindingFirstSolution)
-	defaultNumThreads = utils.GetenvInt("MP_NUM_THREADS", defaultNumThreads)
-}
 
 // MotionProfile is an enum which indicates the motion profile to use when planning.
 type MotionProfile string
@@ -109,7 +103,6 @@ func newBasicPlannerOptions() *plannerOptions {
 
 	opt.SmoothIter = defaultSmoothIter
 
-	opt.TimeMultipleAfterFindingFirstSolution = defaultTimeMultipleAfterFindingFirstSolution
 	opt.NumThreads = defaultNumThreads
 
 	opt.LineTolerance = defaultLinearDeviation
@@ -202,8 +195,6 @@ type plannerOptions struct {
 	PlanningAlgorithm PlanningAlgorithm `json:"planning_algorithm"`
 
 	Fallback *plannerOptions
-
-	TimeMultipleAfterFindingFirstSolution int
 }
 
 // getGoalMetric creates the distance metric for the solver using the configured options.
