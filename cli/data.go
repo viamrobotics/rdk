@@ -686,7 +686,7 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 
 	// If there is no file name, this is a data capture file.
 	if fileName == "" {
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		fileName = timeRequested + "_" + meta.GetId() + meta.GetFileExt()
 	} else if filepath.Dir(fileName) == "." {
 		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
