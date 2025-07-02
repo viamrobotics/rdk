@@ -298,6 +298,9 @@ func newPlanner(
 	if constraintHandler == nil {
 		constraintHandler = newEmptyConstraintHandler()
 	}
+	if chains == nil {
+		chains = &motionChains{}
+	}
 
 	solver, err := ik.CreateCombinedIKSolver(lfs.dof, logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
