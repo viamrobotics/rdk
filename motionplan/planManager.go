@@ -22,9 +22,6 @@ const (
 	defaultOptimalityMultiple      = 2.0
 	defaultFallbackTimeout         = 1.5
 	defaultTPspaceOrientationScale = 500.
-
-	cbirrtName  = "cbirrt"
-	rrtstarName = "rrtstar"
 )
 
 // planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
@@ -378,7 +375,6 @@ func (pm *planManager) planParallelRRTMotion(
 		if pathPlanner.opt().Fallback != nil {
 			//nolint: gosec
 			fallbackPlanner, err = newMotionPlanner(
-				pathPlanner.opt().Fallback.PlanningAlgorithm,
 				pm.fs,
 				rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 				pm.logger,
@@ -476,18 +472,9 @@ func (pm *planManager) plannerAndConstraintSetupFromMoveRequest(
 		// Constraints may be nil, but if a motion profile is set in planningOpts we need it to be a valid pointer to an empty struct.
 		constraints = &Constraints{}
 	}
-	planAlg := ""
 
 	// Start with normal options
 	opt := newBasicPlannerOptions()
-	opt.extra = planningOpts
-
-	if partial, ok := planningOpts["return_partial_plan"]; ok {
-		if use, ok := partial.(bool); ok && use {
-			opt.ReturnPartialPlan = true
-		}
-	}
-
 	// convert map to json, then to a struct, overwriting present defaults
 	jsonString, err := json.Marshal(planningOpts)
 	if err != nil {
@@ -513,7 +500,7 @@ func (pm *planManager) plannerAndConstraintSetupFromMoveRequest(
 		return nil, nil, err
 	}
 	opt.motionChains = motionChains
-	if opt.useTPspace() {
+	if motionChains.useTPspace {
 		opt.Resolution = defaultPTGCollisionResolution
 	}
 
@@ -535,55 +522,39 @@ func (pm *planManager) plannerAndConstraintSetupFromMoveRequest(
 		opt.GoalMetricType = ik.PositionOnly
 	}
 
-	alg, ok := planningOpts["planning_alg"]
-	if ok {
-		planAlg, ok = alg.(string)
-		if !ok {
-			return nil, nil, errors.New("could not interpret planning_alg field as string")
-		}
-	}
-	if opt.useTPspace() && planAlg != "" {
-		return nil, nil, fmt.Errorf("cannot specify a planning_alg when planning for a TP-space frame. alg specified was %s", planAlg)
+	if motionChains.useTPspace && (opt.PlanningAlgorithm() != UnspecifiedAlgorithm) && (opt.PlanningAlgorithm() != TPSpace) {
+		return nil, nil, fmt.Errorf("cannot specify a planning algorithm when planning for a TP-space frame. alg specified was %s",
+			opt.PlanningAlgorithm())
 	}
 	if constraints.hasTopoConstraint() {
-		if planAlg != "" && planAlg != cbirrtName {
-			return nil, nil, fmt.Errorf("cannot specify a planning alg other than cbirrt with topo constraints. alg specified was %s", planAlg)
+		if opt.PlanningAlgorithm() != CBiRRT {
+			return nil, nil, fmt.Errorf(
+				"cannot specify a planning algorithm other than cbirrt with topo constraints. alg specified was %s", opt.PlanningAlgorithm())
 		}
-		planAlg = cbirrtName
-	}
-	switch planAlg {
-	case cbirrtName:
-		opt.PlanningAlgorithm = CBiRRT
-	case rrtstarName:
-		// no motion profiles for RRT*
-		// TODO(pl): more logic for RRT*?
-		opt.PlanningAlgorithm = RRTStar
-		return opt, constraintHandler, nil
-	default:
-		// use default, already
 	}
 	if opt.useTPspace() {
 		// overwrite default with TP space
-		opt.PlanningAlgorithm = TPSpace
+		opt.PlanningAlgorithmSettings = AlgorithmSettings{
+			Algorithm: TPSpace,
+		}
 
 		opt.TPSpaceOrientationScale = defaultTPspaceOrientationScale
 
 		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
 		// Otherwise we just use squared norm on inputs.
 		opt.ScoringMetricStr = ik.PTGDistance
-
-		planAlg = "tpspace"
 	}
 
 	if opt.MotionProfile == FreeMotionProfile || opt.MotionProfile == PositionOnlyMotionProfile {
-		if planAlg == "" {
+		if opt.PlanningAlgorithm() == UnspecifiedAlgorithm {
 			// set up deep copy for fallback
 			try1 := deepAtomicCopyMap(planningOpts)
 			// No need to generate tons more IK solutions when the first alg will do it
 
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
-			try1["planning_alg"] = "rrtstar"
+			try1["planning_algorithm"] = "rrtstar"
+
 			try1Opt, _, err := pm.plannerAndConstraintSetupFromMoveRequest(from, to, seedMap, worldState, boundingRegions, constraints, try1)
 			if err != nil {
 				return nil, nil, err
@@ -654,7 +625,6 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 	if !subWaypoints || opt.useTPspace() {
 		//nolint: gosec
 		pathPlanner, err := newMotionPlanner(
-			opt.PlanningAlgorithm,
 			pm.fs,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
@@ -717,7 +687,6 @@ func (pm *planManager) generateWaypoints(request *PlanRequest, seedPlan Plan, wp
 		}
 		//nolint: gosec
 		pathPlanner, err := newMotionPlanner(
-			wpOpt.PlanningAlgorithm,
 			pm.fs,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,

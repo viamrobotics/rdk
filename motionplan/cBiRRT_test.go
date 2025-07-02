@@ -42,7 +42,8 @@ func TestSimpleLinearMotion(t *testing.T) {
 	goalMetric := opt.getGoalMetric(referenceframe.FrameSystemPoses{m.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos)})
 	fs := referenceframe.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())
-	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler())
+	mp, err := newCBiRRTMotionPlanner(
+		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler())
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goalMetric)
@@ -63,9 +64,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 		goalMap[solution] = nil
 	}
 	nn := &neighborManager{nCPU: nCPU}
-
-	_, err = newCbirrtOptions(opt, cbirrt.lfs)
-	test.That(t, err, test.ShouldBeNil)
 
 	m1chan := make(chan node, 1)
 	defer close(m1chan)

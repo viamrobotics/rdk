@@ -19,7 +19,7 @@ const (
 	// FSConfigurationDistanceMetric indicates calculating distance by summing the absolute differences of the inputs.
 	FSConfigurationDistanceMetric SegmentFSMetricType = "fs_config"
 	// FSConfigurationL2DistanceMetric indicates calculating distance by summing the L2 norm differences of the inputs.
-	FSConfigurationL2DistanceMetric = "fs_config_l2"
+	FSConfigurationL2DistanceMetric SegmentFSMetricType = "fs_config_l2"
 )
 
 // ScoringMetric is a string enum indicating a choice of plan scoring algorithm.
@@ -29,9 +29,9 @@ const (
 	// FSConfigScoringMetric indicates the use of FS configuration distance for scoring.
 	FSConfigScoringMetric ScoringMetric = "fs_config"
 	// FSConfigL2ScoringMetric indicates the use of the L2 norm in FS configuration space for scoring.
-	FSConfigL2ScoringMetric = "fs_config_l2"
+	FSConfigL2ScoringMetric ScoringMetric = "fs_config_l2"
 	// PTGDistance indicates the use of distance in TP-space for scoring.
-	PTGDistance = "ptg_distance"
+	PTGDistance ScoringMetric = "ptg_distance"
 )
 
 // GoalMetricType is a string enum indicating the type of goal metric to use.
@@ -41,10 +41,10 @@ const (
 	// PositionOnly indicates the use of point-wise distance.
 	PositionOnly GoalMetricType = "position_only"
 	// SquaredNorm indicates the use of the norm between two poses.
-	SquaredNorm = "squared_norm"
+	SquaredNorm GoalMetricType = "squared_norm"
 	// ArcLengthConvergence indicates the use of an algorithm that converges on a pose
 	// that lies within an arc length of a goal pose.
-	ArcLengthConvergence = "pose_flex_ov"
+	ArcLengthConvergence GoalMetricType = "pose_flex_ov"
 )
 
 // Segment is a referenceframe.Frame-specific contains all the information a constraint needs to determine validity for a movement.

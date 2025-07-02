@@ -135,7 +135,9 @@ func TestPtgWithObstacle(t *testing.T) {
 	opt := newBasicPlannerOptions()
 	opt.TPSpaceOrientationScale = 30.
 	opt.GoalThreshold = 5
-	opt.PlanningAlgorithm = TPSpace
+	opt.PlanningAlgorithmSettings = AlgorithmSettings{
+		Algorithm: TPSpace,
+	}
 	motionChains, err := motionChainsFromPlanState(fs, goal)
 	test.That(t, err, test.ShouldBeNil)
 	opt.motionChains = motionChains

@@ -894,7 +894,8 @@ func ptgSolution(ptg tpspace.PTGSolver,
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
 	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
-	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.fs, mp.randseed, mp.logger, mp.planOpts, mp.ConstraintHandler)
+	smoothPlannerMP, err := newTPSpaceMotionPlanner(
+		mp.fs, mp.randseed, mp.logger, mp.planOpts, mp.ConstraintHandler)
 	if err != nil {
 		return path
 	}
