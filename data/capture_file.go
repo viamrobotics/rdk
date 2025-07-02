@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -280,8 +279,14 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 // for reserved characters.
 func CaptureFilePathWithReplacedReservedChars(filepath string) string {
 	// Handle Windows drive letters by preserving them and replacing other colons.
-	if runtime.GOOS == "windows" && len(filepath) >= 2 && filepath[1] == ':' {
+	if isWindowsAbsolutePath(filepath) {
 		return filepath[:2] + strings.ReplaceAll(filepath[2:], filePathReservedChars, "_")
 	}
 	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
+}
+
+// isWindowsAbsolutePath returns true if the path is a Windows absolute path. Ex: C:\path\to\file.txt
+func isWindowsAbsolutePath(path string) bool {
+	driveLetter := path[0] | 32 // convert to lowercase.
+	return len(path) >= 2 && path[1] == ':' && driveLetter >= 'a' && driveLetter <= 'z'
 }
