@@ -187,7 +187,8 @@ type plannerOptions struct {
 	TPSpaceOrientationScale float64 `json:"tp_space_orientation_scale"`
 
 	// Determines the algorithm that the planner will use to measure the degree of "closeness" between two states of the robot
-	ConfigurationDistanceMetric ik.SegmentFSMetricType
+	// See metrics.go for options
+	ConfigurationDistanceMetric ik.SegmentFSMetricType `json:"configuration_distance_metric"`
 
 	MotionProfile MotionProfile `json:"motion_profile"`
 
