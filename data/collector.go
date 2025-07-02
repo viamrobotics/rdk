@@ -432,7 +432,7 @@ func NewDoCommandCaptureFunc[T interface {
 			}
 		} else {
 			// key does not exist
-			return result, errors.New("missing payload")
+			return result, errors.New("DoCommand missing payload with key: \"docommand_input\"")
 		}
 
 		values, err := resource.DoCommand(ctx, payload)
