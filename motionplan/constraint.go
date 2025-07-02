@@ -661,19 +661,6 @@ func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 	}
 }
 
-func (c *Constraints) updateFromOptions(opt *plannerOptions) {
-	switch opt.MotionProfile {
-	case LinearMotionProfile:
-		c.AddLinearConstraint(LinearConstraint{opt.LineTolerance, opt.OrientationTolerance})
-	case PseudolinearMotionProfile:
-		c.AddPseudolinearConstraint(PseudolinearConstraint{opt.ToleranceFactor, opt.ToleranceFactor})
-	case OrientationMotionProfile:
-		c.AddOrientationConstraint(OrientationConstraint{opt.OrientationTolerance})
-	// FreeMotionProfile or PositionOnlyMotionProfile produce no additional constraints.
-	case FreeMotionProfile, PositionOnlyMotionProfile:
-	}
-}
-
 func (c *Constraints) hasTopoConstraint() bool {
 	return (len(c.LinearConstraint) + len(c.OrientationConstraint)) != 0
 }

@@ -311,9 +311,10 @@ func newPlanner(
 		logger:                    logger,
 		randseed:                  seed,
 		planOpts:                  opt,
-		scoringFunction:           opt.getScoringFunction(),
+		scoringFunction:           opt.getScoringFunction(chains),
 		poseDistanceFunc:          opt.getPoseDistanceFunc(),
 		configurationDistanceFunc: ik.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
+		motionChains:              chains,
 	}
 	return mp, nil
 }

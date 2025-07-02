@@ -37,6 +37,7 @@ type planConfig struct {
 	FS               frame.FrameSystem
 	Options          *plannerOptions
 	ConstraintHander *ConstraintHandler
+	MotionChains     *motionChains
 }
 
 type planConfigConstructor func() (*planConfig, error)
@@ -150,7 +151,6 @@ func constrainedXArmMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	opt.motionChains = motionChains
 
 	return &planConfig{
 		Start:            start,
@@ -158,6 +158,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 		FS:               fs,
 		Options:          opt,
 		ConstraintHander: constraintHandler,
+		MotionChains:     motionChains,
 	}, nil
 }
 
@@ -286,7 +287,6 @@ func simple2DMap() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	opt.motionChains = motionChains
 
 	return &planConfig{
 		Start:            &PlanState{configuration: startInput},
@@ -294,6 +294,7 @@ func simple2DMap() (*planConfig, error) {
 		FS:               fs,
 		Options:          opt,
 		ConstraintHander: constraintHandler,
+		MotionChains:     motionChains,
 	}, nil
 }
 
@@ -361,7 +362,6 @@ func simpleXArmMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	opt.motionChains = motionChains
 
 	return &planConfig{
 		Start:            &PlanState{configuration: start},
@@ -369,6 +369,7 @@ func simpleXArmMotion() (*planConfig, error) {
 		FS:               fs,
 		Options:          opt,
 		ConstraintHander: constraintHandler,
+		MotionChains:     motionChains,
 	}, nil
 }
 
@@ -434,7 +435,6 @@ func simpleUR5eMotion() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	opt.motionChains = motionChains
 
 	return &planConfig{
 		Start:            &PlanState{configuration: start},
@@ -442,6 +442,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 		FS:               fs,
 		Options:          opt,
 		ConstraintHander: constraintHandler,
+		MotionChains:     motionChains,
 	}, nil
 }
 
@@ -454,7 +455,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	cfg, err := config()
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := plannerFunc(
-		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander)
+		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander, cfg.MotionChains)
 	test.That(t, err, test.ShouldBeNil)
 
 	nodes, err := mp.plan(context.Background(), cfg.Start, cfg.Goal)

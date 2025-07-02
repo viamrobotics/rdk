@@ -259,14 +259,14 @@ func (p *plannerOptions) ScoringMetric() ik.ScoringMetric {
 	return p.ScoringMetricStr
 }
 
-func (p *plannerOptions) getScoringFunction() ik.SegmentFSMetric {
+func (p *plannerOptions) getScoringFunction(mcs *motionChains) ik.SegmentFSMetric {
 	switch p.ScoringMetric() {
 	case ik.FSConfigScoringMetric:
 		return ik.FSConfigurationDistance
 	case ik.FSConfigL2ScoringMetric:
 		return ik.FSConfigurationL2Distance
 	case ik.PTGDistance:
-		return tpspace.NewPTGDistanceMetric([]string{p.ptgFrameName()})
+		return tpspace.NewPTGDistanceMetric([]string{mcs.ptgFrameName})
 	default:
 		return ik.FSConfigurationL2Distance
 	}
