@@ -48,7 +48,6 @@ func CheckPlan(
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
 	// Currently this is only TP-space, so we check if the PTG length is >0.
 	if motionChains.useTPspace {
-		// sfPlanner.ConstraintHandler = newEmptyConstraintHandler()
 		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
 	}
 	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)

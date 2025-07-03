@@ -464,7 +464,6 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 		return nil, err
 	}
 
-	// opt, err := FromMoveReqOptions(pm.request.Options, motionChains.useTPspace)
 	opt, err := updateOptionsForPlanning(pm.request.PlannerOptions, motionChains.useTPspace)
 	if err != nil {
 		return nil, err

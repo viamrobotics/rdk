@@ -299,7 +299,6 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 		}
 	}
 
-	// opt, err := FromMoveReqOptions(request.Options, mChains.useTPspace)
 	opt, err := updateOptionsForPlanning(request.PlannerOptions, mChains.useTPspace)
 	if err != nil {
 		return nil, err
