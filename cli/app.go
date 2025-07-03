@@ -126,6 +126,7 @@ const (
 	datapipelineFlagMQL            = "mql"
 	datapipelineFlagMQLFile        = "mql-path"
 	datapipelineFlagDataSourceType = "data-source-type"
+	datapipelineFlagEnableBackfill = "enable-backfill"
 
 	packageFlagFramework = "model-framework"
 
@@ -1626,7 +1627,7 @@ var app = &cli.App{
 					Name:  "create",
 					Usage: "create a new data pipeline",
 					UsageText: createUsageText("datapipelines create",
-						[]string{generalFlagOrgID, generalFlagName, datapipelineFlagSchedule}, false, false,
+						[]string{generalFlagOrgID, generalFlagName, datapipelineFlagSchedule, datapipelineFlagEnableBackfill}, false, false,
 						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
 							datapipelineFlagMQL, datapipelineFlagMQL,
 							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
@@ -1654,6 +1655,11 @@ var app = &cli.App{
 						&cli.StringFlag{
 							Name:  datapipelineFlagMQLFile,
 							Usage: "path to JSON file containing MQL query for the new data pipeline",
+						},
+						&cli.BoolFlag{
+							Name:     datapipelineFlagEnableBackfill,
+							Usage:    "enable data pipeline to run over organization's historical data",
+							Required: true,
 						},
 						&cli.StringFlag{
 							Name: datapipelineFlagDataSourceType,
