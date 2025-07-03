@@ -94,7 +94,7 @@ type tpspaceOptions struct {
 	attemptSolveEvery int
 
 	// Cached functions for calculating TP-space distances for each PTG
-	distOptions map[tpspace.PTG]*plannerOptions
+	distOptions map[tpspace.PTG]*PlannerOptions
 }
 
 // candidate is putative node which could be added to an RRT tree. It includes a distance score, the new node and its future parent.
@@ -155,7 +155,7 @@ func newTPSpaceMotionPlanner(
 	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
-	opt *plannerOptions,
+	opt *PlannerOptions,
 	constraintHandler *ConstraintHandler,
 	chains *motionChains,
 ) (motionPlanner, error) {
@@ -864,7 +864,7 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 
 		identicalNodeDistance: defaultIdenticalNodeDistance,
 
-		distOptions: map[tpspace.PTG]*plannerOptions{},
+		distOptions: map[tpspace.PTG]*PlannerOptions{},
 	}
 
 	mp.algOpts = tpOpt
@@ -1056,13 +1056,17 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 	randPosTheta := math.Pi * (mp.randseed.Float64() - 0.5)
 	randPos := spatialmath.NewPose(
 		r3.Vector{
-			mp.tpFramePose(rSeed.Poses()).Point().X + (randPosX - rDist/2.),
-			mp.tpFramePose(rSeed.Poses()).Point().Y + (randPosY - rDist/2.),
-			0,
+			X: mp.tpFramePose(rSeed.Poses()).Point().X + (randPosX - rDist/2.),
+			Y: mp.tpFramePose(rSeed.Poses()).Point().Y + (randPosY - rDist/2.),
+			Z: 0,
 		},
 		&spatialmath.OrientationVector{OZ: 1, Theta: randPosTheta},
 	)
 	return &basicNode{poses: mp.tpFramePoseToFrameSystemPoses(randPos)}, nil
+}
+
+func (mp *tpSpaceRRTMotionPlanner) getScoringFunction() ik.SegmentFSMetric {
+	return mp.scoringFunction
 }
 
 // rectifyTPspacePath is needed because of how trees are currently stored. As trees grow from the start or goal, the Pose stored in the node

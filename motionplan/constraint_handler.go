@@ -31,7 +31,7 @@ func newEmptyConstraintHandler() *ConstraintHandler {
 }
 
 func newConstraintHandler(
-	opt *plannerOptions,
+	opt *PlannerOptions,
 	constraints *Constraints,
 	from, to *PlanState,
 	fs referenceframe.FrameSystem,
@@ -40,6 +40,11 @@ func newConstraintHandler(
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
 ) (*ConstraintHandler, error) {
+	if constraints == nil {
+		// Constraints may be nil, but if a motion profile is set in planningOpts
+		// we need it to be a valid pointer to an empty struct.
+		constraints = &Constraints{}
+	}
 	handler := newEmptyConstraintHandler()
 
 	startPoses, err := from.ComputePoses(fs)
@@ -135,9 +140,12 @@ func newConstraintHandler(
 	case FreeMotionProfile, PositionOnlyMotionProfile:
 	}
 
-	_, err = handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
+	hasTopoConstraint, err := handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
 	if err != nil {
 		return nil, err
+	}
+	if hasTopoConstraint && (opt.PlanningAlgorithm() != CBiRRT) {
+		return nil, NewAlgAndConstraintMismatchErr(string(opt.PlanningAlgorithm()))
 	}
 
 	return handler, nil

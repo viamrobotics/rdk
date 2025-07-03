@@ -38,7 +38,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	goalPos := spatialmath.NewPose(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	goal := referenceframe.FrameSystemPoses{m.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos)}
 	goalMetric := opt.getGoalMetric(goal)
 	fs := referenceframe.NewEmptyFrameSystem("")

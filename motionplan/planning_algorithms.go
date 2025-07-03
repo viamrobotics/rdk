@@ -55,7 +55,7 @@ type plannerConstructor func(
 	referenceframe.FrameSystem,
 	*rand.Rand,
 	logging.Logger,
-	*plannerOptions,
+	*PlannerOptions,
 	*ConstraintHandler,
 	*motionChains,
 ) (motionPlanner, error)
@@ -64,7 +64,7 @@ func newMotionPlanner(
 	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
-	opt *plannerOptions,
+	opt *PlannerOptions,
 	constraintHandler *ConstraintHandler,
 	chains *motionChains,
 ) (motionPlanner, error) {

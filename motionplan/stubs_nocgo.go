@@ -20,7 +20,7 @@ func newCBiRRTMotionPlanner(
 	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
-	opt *plannerOptions,
+	opt *PlannerOptions,
 	constraintHandler *ConstraintHandler,
 	motionChains *motionChains,
 ) (motionPlanner, error) {
@@ -32,7 +32,7 @@ func newTPSpaceMotionPlanner(
 	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
-	opt *plannerOptions,
+	opt *PlannerOptions,
 	constraintHandler *ConstraintHandler,
 	motionChains *motionChains,
 ) (motionPlanner, error) {
@@ -44,7 +44,7 @@ func newRRTStarConnectMotionPlanner(
 	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
-	opt *plannerOptions,
+	opt *PlannerOptions,
 	constraintHandler *ConstraintHandler,
 	motionChains *motionChains,
 ) (motionPlanner, error) {

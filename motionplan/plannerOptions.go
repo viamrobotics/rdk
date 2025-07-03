@@ -1,6 +1,9 @@
 package motionplan
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"math"
 	"runtime"
 
@@ -86,10 +89,11 @@ const (
 )
 
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
-func newBasicPlannerOptions() *plannerOptions {
-	opt := &plannerOptions{}
+func NewBasicPlannerOptions() *PlannerOptions {
+	opt := &PlannerOptions{}
 	opt.GoalMetricType = ik.SquaredNorm
 	opt.ConfigurationDistanceMetric = ik.FSConfigurationL2DistanceMetric
+	opt.ScoringMetric = ik.FSConfigL2ScoringMetric
 
 	// TODO: RSDK-6079 this should be properly used, and deduplicated with defaultEpsilon, InputIdentDist, etc.
 	opt.GoalThreshold = 0.1
@@ -118,11 +122,15 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.OrientationTolerance = defaultOrientationDeviation
 	opt.ToleranceFactor = defaultPseudolinearTolerance
 
+	opt.PathStepSize = defaultStepSizeMM
+	opt.CollisionBufferMM = defaultCollisionBufferMM
+	opt.RandomSeed = defaultRandomSeed
+
 	return opt
 }
 
-// plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
-type plannerOptions struct {
+// PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
+type PlannerOptions struct {
 	// This is used to create functions which are passed to IK for solving. This may be used to turn starting or ending state poses into
 	// configurations for nodes.
 	GoalMetricType ik.GoalMetricType `json:"goal_metric_type"`
@@ -176,7 +184,7 @@ type plannerOptions struct {
 	ReturnPartialPlan bool `json:"return_partial_plan"`
 
 	// ScoringMetricStr is an enum indicating the function that the planner will use to evaluate a plan for final cost comparisons.
-	ScoringMetricStr ik.ScoringMetric `json:"scoring_metric"`
+	ScoringMetric ik.ScoringMetric `json:"scoring_metric"`
 
 	// TPSpaceOrientationScale is the scale factor on orientation for the squared norm segment metric used
 	// to calculate the distance between poses when planning for a TP-space frame
@@ -198,18 +206,100 @@ type plannerOptions struct {
 
 	PlanningAlgorithmSettings AlgorithmSettings `json:"planning_algorithm_settings"`
 
-	Fallback *plannerOptions `json:"fallback_options"`
+	RandomSeed int `json:"rseed"`
+
+	PathStepSize float64 `json:"path_step_size"`
+
+	MeshesAsOctrees bool `json:"meshes_as_octrees"`
+
+	Fallback *PlannerOptions `json:"fallback_options"`
 
 	TimeMultipleAfterFindingFirstSolution int `json:"time_multiple_after_finding_first_solution"`
 }
 
+// NewPlannerOptionsFromExtra returns basic default settings updated by overridden parameters
+// found in the "extra" of protobuf MoveRequest. The extra must be converted to an instance of
+// map[string]interface{} first.
+func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, error) {
+	opt := NewBasicPlannerOptions()
+
+	jsonString, err := json.Marshal(extra)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(jsonString, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	if opt.CollisionBufferMM < 0 {
+		return nil, errors.New("collision_buffer_mm can't be negative")
+	}
+
+	// we want to deprecate, rather than break, usage of the "tolerance" key for
+	// OrientationMotionProfile
+	if opt.MotionProfile == OrientationMotionProfile {
+		opt.OrientationTolerance = opt.ToleranceFactor
+	}
+	return opt, nil
+}
+
+// Returns an updated PlannerOptions taking into account whether TP-Space is being used and whether
+// a Free or Position-Only motion profile was requested with an unspecified algorithm (indicating the desire
+// to let motionplan handle what algorithm to use and allow for a fallback).
+func updateOptionsForPlanning(opt *PlannerOptions, useTPSpace bool) (*PlannerOptions, error) {
+	planningAlgorithm := opt.PlanningAlgorithm()
+	if useTPSpace && (planningAlgorithm != UnspecifiedAlgorithm) && (planningAlgorithm != TPSpace) {
+		return nil, fmt.Errorf("cannot specify a planning algorithm when planning for a TP-space frame. alg specified was %s",
+			planningAlgorithm)
+	}
+
+	if useTPSpace {
+		// overwrite default with TP space
+		opt.PlanningAlgorithmSettings = AlgorithmSettings{
+			Algorithm: TPSpace,
+		}
+
+		opt.TPSpaceOrientationScale = defaultTPspaceOrientationScale
+
+		opt.Resolution = defaultPTGCollisionResolution
+
+		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
+		// Otherwise we just use squared norm on inputs.
+		opt.ScoringMetric = ik.PTGDistance
+	}
+
+	if opt.MotionProfile == FreeMotionProfile || opt.MotionProfile == PositionOnlyMotionProfile {
+		if opt.PlanningAlgorithm() == UnspecifiedAlgorithm {
+			// set up deep copy for fallback
+			fallbackOpts := &PlannerOptions{}
+			jsonString, err := json.Marshal(opt)
+			if err != nil {
+				return nil, err
+			}
+			err = json.Unmarshal(jsonString, fallbackOpts)
+			if err != nil {
+				return nil, err
+			}
+
+			opt.Timeout = defaultFallbackTimeout
+			opt.PlanningAlgorithmSettings = AlgorithmSettings{
+				Algorithm: RRTStar,
+			}
+			opt.Fallback = fallbackOpts
+		}
+	}
+
+	return opt, nil
+}
+
 // PlanningAlgorithm returns the label of the planning algorithm in plannerOptions.
-func (p *plannerOptions) PlanningAlgorithm() PlanningAlgorithm {
+func (p *PlannerOptions) PlanningAlgorithm() PlanningAlgorithm {
 	return p.PlanningAlgorithmSettings.Algorithm
 }
 
 // getGoalMetric creates the distance metric for the solver using the configured options.
-func (p *plannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) ik.StateFSMetric {
+func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) ik.StateFSMetric {
 	metrics := map[string]ik.StateMetric{}
 	for frame, goalInFrame := range goal {
 		switch p.GoalMetricType {
@@ -244,29 +334,22 @@ func (p *plannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) ik.
 // In the scenario where we use TP-space, we call this to retrieve a function that computes distances
 // in cartesian space rather than configuration space. The planner will use this to measure the degree of "closeness"
 // between two poses.
-func (p *plannerOptions) getPoseDistanceFunc() ik.SegmentMetric {
+func (p *PlannerOptions) getPoseDistanceFunc() ik.SegmentMetric {
 	return ik.NewSquaredNormSegmentMetric(p.TPSpaceOrientationScale)
 }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
-func (p *plannerOptions) SetMaxSolutions(maxSolutions int) {
+func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
 	p.MaxSolutions = maxSolutions
 }
 
 // SetMinScore specifies the IK stopping score for the planner.
-func (p *plannerOptions) SetMinScore(minScore float64) {
+func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
 }
 
-func (p *plannerOptions) ScoringMetric() ik.ScoringMetric {
-	if p.ScoringMetricStr == "" {
-		return ik.FSConfigL2ScoringMetric
-	}
-	return p.ScoringMetricStr
-}
-
-func (p *plannerOptions) getScoringFunction(mcs *motionChains) ik.SegmentFSMetric {
-	switch p.ScoringMetric() {
+func (p *PlannerOptions) getScoringFunction(mcs *motionChains) ik.SegmentFSMetric {
+	switch p.ScoringMetric {
 	case ik.FSConfigScoringMetric:
 		return ik.FSConfigurationDistance
 	case ik.FSConfigL2ScoringMetric:
