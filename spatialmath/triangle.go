@@ -62,7 +62,7 @@ func (t *Triangle) Transform(toPremultiply Pose) *Triangle {
 // Otherwise it will return the query point.
 // To visualize this- if one draws a tetrahedron using the triangle and the query point, all angles from the triangle to the query point
 // must be <= 90 degrees.
-func closestTriangleInsidePoint(t *Triangle, point r3.Vector) (r3.Vector, bool) {
+func ClosestTriangleInsidePoint(t *Triangle, point r3.Vector) (r3.Vector, bool) {
 	eps := 1e-6
 
 	// Parametrize the triangle s.t. a point inside the triangle is
@@ -85,9 +85,9 @@ func closestTriangleInsidePoint(t *Triangle, point r3.Vector) (r3.Vector, bool) 
 }
 
 // ClosestPointTrianglePoint takes a point, and returns the closest point on the triangle to the given point.
-func closestPointTrianglePoint(t *Triangle, point r3.Vector) r3.Vector {
+func ClosestPointTrianglePoint(t *Triangle, point r3.Vector) r3.Vector {
 	pts := t.Points()
-	closestPtInside, inside := closestTriangleInsidePoint(t, point)
+	closestPtInside, inside := ClosestTriangleInsidePoint(t, point)
 	if inside {
 		return closestPtInside
 	}

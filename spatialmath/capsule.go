@@ -281,7 +281,7 @@ func capsuleVsMeshDistance(c *capsule, other *Mesh) float64 {
 }
 
 func capsuleVsTriangleDistance(c *capsule, other *Triangle) float64 {
-	capPt, triPt := closestPointsSegmentTriangle(c.segA, c.segB, other)
+	capPt, triPt := ClosestPointsSegmentTriangle(c.segA, c.segB, other)
 	return capPt.Sub(triPt).Norm() - c.radius
 }
 
