@@ -36,6 +36,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
+	"go.viam.com/rdk/services/datamanager/builtin/shared"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -143,7 +144,7 @@ func TestNew(t *testing.T) {
 		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
 			mockDeps := mockDeps(nil, nil)
 			c := &Config{}
-			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, viamCaptureDotDir)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, shared.ViamCaptureDotDir)
 			b, err := New(
 				ctx,
 				mockDeps,
@@ -225,7 +226,7 @@ func TestReconfigure(t *testing.T) {
 		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
 			mockDeps := mockDeps(nil, nil)
 			c := &Config{}
-			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, viamCaptureDotDir)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, shared.ViamCaptureDotDir)
 			err := b.Reconfigure(ctx, mockDeps, resource.Config{ConvertedAttributes: c})
 			test.That(t, err, test.ShouldBeNil)
 		})
