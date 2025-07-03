@@ -1165,7 +1165,9 @@ func (manager *resourceManager) updateResources(
 		if err != nil {
 			manager.logger.CErrorw(ctx, "error reconfiguring module", "module", mod.Name, "error", err)
 		}
-		manager.reinitializeResources(affectedResourceNames)
+		// resources passed into markRebuildResources have already been closed during module reconfiguration, so
+		// not necessary to Close again.
+		manager.markRebuildResources(affectedResourceNames)
 	}
 
 	if manager.moduleManager != nil {
@@ -1331,10 +1333,10 @@ func (manager *resourceManager) markResourcesRemoved(
 	return resourcesToCloseBeforeComplete
 }
 
-// reinitializeResources reinitializes resources passed in, forcing a rebuild of the resource during
-// reconfiguration and/or completeConfig loop. This function assumes the resources passed in
-// are already Closed and thus will not call Close.
-func (manager *resourceManager) reinitializeResources(rNames []resource.Name) {
+// markRebuildResources reinitializes resources passed in, forcing a rebuild of the resource during
+// reconfiguration and/or completeConfig loop. This function expects the caller to clean up any resources
+// if necessary.
+func (manager *resourceManager) markRebuildResources(rNames []resource.Name) {
 	for _, rName := range rNames {
 		// Disable changes to shell in untrusted
 		if manager.opts.untrustedEnv && rName.API == shell.API {
@@ -1345,7 +1347,7 @@ func (manager *resourceManager) reinitializeResources(rNames []resource.Name) {
 		if !ok {
 			continue
 		}
-		resNode.Reinitialize()
+		resNode.SetNeedsRebuild()
 		manager.markChildrenForUpdate(rName)
 	}
 }

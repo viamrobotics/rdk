@@ -591,13 +591,15 @@ func New(
 
 // removeOrphanedResources is called by the module manager to remove resources
 // orphaned due to module crashes. Resources passed into this function will be
-// reinitialized and handled by the completeConfig worker.
+// marked for rebuilding and handled by the completeConfig worker.
 func (r *localRobot) removeOrphanedResources(ctx context.Context,
 	rNames []resource.Name,
 ) {
 	r.reconfigurationLock.Lock()
 	defer r.reconfigurationLock.Unlock()
-	r.manager.reinitializeResources(rNames)
+	// resource names passed into markRebuildResources are already closed as the module
+	// crashed and thus do not need to be closed.
+	r.manager.markRebuildResources(rNames)
 	r.updateWeakAndOptionalDependents(ctx)
 }
 

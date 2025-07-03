@@ -386,10 +386,10 @@ func (w *GraphNode) SetNeedsUpdate() {
 	w.setNeedsReconfigure(w.Config(), false, w.UnresolvedDependencies())
 }
 
-// Reinitialize is used to inform the node that it should
-// rebuild itself with the same config in cases where modules reconfigured
-// or crashed.
-func (w *GraphNode) Reinitialize() {
+// SetNeedsRebuild is used to inform the node that it should
+// rebuild itself with the same config. The caller is expected to
+// handle closing of the resource on the node if necessary.
+func (w *GraphNode) SetNeedsRebuild() {
 	// doing two mutex ops here but we assume there's only one caller.
 	w.UnsetResource()
 	w.setNeedsReconfigure(w.Config(), true, w.UnresolvedDependencies())
