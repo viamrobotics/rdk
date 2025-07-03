@@ -6,11 +6,9 @@ import (
 	"unsafe"
 )
 
-//#cgo LDFLAGS: -L../build-shared/install/lib -lgenerator_api -lgenerator
-
 /*
-#cgo LDFLAGS: -L../build-static -L/opt/homebrew/opt/llvm@15/lib -lgenerator_api -lgenerator -lclangIndex -lclangTooling -lclangFrontend -lclangParse -lclangSerialization -lclangSema -lclangEdit -lclangAnalysis -lclangASTMatchers -lclangSupport -lclangDriver -lclangFormat -lclangToolingInclusions -lclangAST -lclangToolingCore -lclangRewrite -lclangLex -lclangBasic -lLLVM -lLLVMSupport -lstdc++
-#include "../gen_api.h"
+#cgo LDFLAGS: -L./lib -Wl,-rpath,./lib -lgenerator_api -lgenerator
+#include "include/gen_api.h"
 #include <stdlib.h>
 */
 import "C"
