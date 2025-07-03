@@ -40,9 +40,9 @@ var ModelWebcam = resource.DefaultModelFamily.WithModel("webcam")
 var intrinsics []byte
 
 var (
-	errClosed        = errors.New("camera has been closed")
-	errDisconnected  = errors.New("camera is disconnected; please try again in a few moments")
-	data             map[string]transform.PinholeCameraIntrinsics
+	errClosed       = errors.New("camera has been closed")
+	errDisconnected = errors.New("camera is disconnected; please try again in a few moments")
+	data            map[string]transform.PinholeCameraIntrinsics
 )
 
 // minResolutionDimension is set to 2 to ensure proper fitness distance calculation for resolution selection.
@@ -50,15 +50,18 @@ var (
 // as equally acceptable. See https://github.com/pion/mediadevices/blob/c10fb000dbbb28597e068468f3175dc68a281bfd/pkg/prop/int.go#L104
 // Setting it to 1 could theoretically allow 1x1 resolutions. 2 is small enough and even,
 // allowing all real camera resolutions while ensuring proper distance calculations.
-const minResolutionDimension = 2
-const defaultFrameRate = float32(30.0)
+const (
+	minResolutionDimension = 2
+	defaultFrameRate       = float32(30.0)
+)
+
 // WebcamBuffer is a buffer for webcam frames.
 type WebcamBuffer struct {
 	resource.AlwaysRebuild
-	frame       image.Image // Holds the frames and their release functions in the buffer
-	ticker       *time.Ticker  // Ticker for controlling frame rate
-	release      func()
-	err          error
+	frame   image.Image  // Holds the frames and their release functions in the buffer
+	ticker  *time.Ticker // Ticker for controlling frame rate
+	release func()
+	err     error
 }
 
 // WebcamConfig is the native config attribute struct for webcams.
@@ -75,7 +78,6 @@ type WebcamConfig struct {
 // webcam is a video driver wrapper camera that ensures its underlying driver stays connected.
 type webcam struct {
 	resource.Named
-	resource.AlwaysRebuild
 	mu                      sync.RWMutex
 	hasLoggedIntrinsicsInfo bool
 
@@ -231,9 +233,10 @@ func NewWebcam(
 	logger logging.Logger,
 ) (camera.Camera, error) {
 	cam := &webcam{
-		Named:   conf.ResourceName().AsNamed(),
-		logger:  logger.WithFields("camera_name", conf.ResourceName().ShortName()),
-		workers: goutils.NewBackgroundStoppableWorkers(),
+		Named:                   conf.ResourceName().AsNamed(),
+		logger:                  logger.WithFields("camera_name", conf.ResourceName().ShortName()),
+		workers:                 goutils.NewBackgroundStoppableWorkers(),
+		hasLoggedIntrinsicsInfo: false,
 	}
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
@@ -249,49 +252,49 @@ func NewWebcam(
 	return cam, nil
 }
 
-// func (c *webcam) Reconfigure(
-// 	ctx context.Context,
-// 	_ resource.Dependencies,
-// 	conf resource.Config,
-// ) error {
-// 	newConf, err := resource.NativeConfig[*WebcamConfig](conf)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	c.stopBuffer()
-// 	c.mu.Lock()
-// 	defer c.mu.Unlock()
+func (c *webcam) Reconfigure(
+	ctx context.Context,
+	_ resource.Dependencies,
+	conf resource.Config,
+) error {
+	newConf, err := resource.NativeConfig[*WebcamConfig](conf)
+	if err != nil {
+		return err
+	}
+	c.stopBuffer()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-// 	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
-// 	driverReinitNotNeeded := c.conf.Format == newConf.Format &&
-// 		c.conf.Path == newConf.Path &&
-// 		c.conf.Width == newConf.Width &&
-// 		c.conf.Height == newConf.Height
+	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
+	driverReinitNotNeeded := c.conf.Format == newConf.Format &&
+		c.conf.Path == newConf.Path &&
+		c.conf.Width == newConf.Width &&
+		c.conf.Height == newConf.Height
 
-// 	if c.driver != nil && c.reader != nil && driverReinitNotNeeded {
-// 		c.conf = *newConf
-// 		return nil
-// 	}
-// 	c.logger.CDebug(ctx, "reinitializing driver")
+	if c.driver != nil && c.reader != nil && driverReinitNotNeeded {
+		c.conf = *newConf
+		return nil
+	}
+	c.logger.CDebug(ctx, "reinitializing driver")
 
-// 	c.targetPath = newConf.Path
-// 	if err := c.reconnectCamera(newConf); err != nil {
-// 		return err
-// 	}
+	c.targetPath = newConf.Path
+	if err := c.reconnectCamera(newConf); err != nil {
+		return err
+	}
 
-// 	c.hasLoggedIntrinsicsInfo = false
+	c.hasLoggedIntrinsicsInfo = false
 
-// 	// only set once we're good
-// 	c.conf = *newConf
+	// only set once we're good
+	c.conf = *newConf
 
-// 	if c.conf.FrameRate == 0.0 {
-// 		c.conf.FrameRate = defaultFrameRate
-// 	}
-// 	c.buffer = NewWebcamBuffer()
-// 	c.startBuffer()
+	if c.conf.FrameRate == 0.0 {
+		c.conf.FrameRate = defaultFrameRate
+	}
+	c.buffer = NewWebcamBuffer()
+	c.startBuffer()
 
-// 	return nil
-// }
+	return nil
+}
 
 // isCameraConnected is a helper for monitoring connectivity to the driver.
 func (c *webcam) isCameraConnected() (bool, error) {
@@ -504,10 +507,10 @@ func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) (
 // NewWebcamBuffer creates a new WebcamBuffer struct.
 func NewWebcamBuffer() *WebcamBuffer {
 	return &WebcamBuffer{
-		frame: nil,
+		frame:   nil,
 		release: nil,
-		err: nil,
-		ticker: nil,
+		err:     nil,
+		ticker:  nil,
 	}
 }
 
