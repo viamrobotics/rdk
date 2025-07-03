@@ -36,40 +36,37 @@ type motionPlanner interface {
 	checkPath(referenceframe.FrameSystemInputs, referenceframe.FrameSystemInputs) bool
 	checkInputs(referenceframe.FrameSystemInputs) bool
 	getSolutions(context.Context, referenceframe.FrameSystemInputs, ik.StateFSMetric) ([]node, error)
-	opt() *plannerOptions
+	opt() *PlannerOptions
 	sample(node, int) (node, error)
+	getScoringFunction() ik.SegmentFSMetric
 }
 
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
-	Logger logging.Logger
 	// The planner will hit each Goal in order. Each goal may be a configuration or FrameSystemPoses for holonomic motion, or must be a
 	// FrameSystemPoses for non-holonomic motion. For holonomic motion, if both a configuration and FrameSystemPoses are given,
 	// an error is thrown.
 	// TODO: Perhaps we could do something where some components are enforced to arrive at a certain configuration, but others can have IK
 	// run to solve for poses. Doing this while enforcing configurations may be tricky.
-	Goals       []*PlanState
-	FrameSystem referenceframe.FrameSystem
+	Goals       []*PlanState               `json:"goals"`
+	FrameSystem referenceframe.FrameSystem `json:"framesystem"`
 
 	// This must always have a configuration filled in, for geometry placement purposes.
 	// If poses are also filled in, the configuration will be used to determine geometry collisions, but the poses will be used
 	// in IK to generate plan start configurations. The given configuration will NOT automatically be added to the seed tree.
 	// The use case here is that if a particularly difficult path must be planned between two poses, that can be done first to ensure
 	// feasibility, and then other plans can be requested to connect to that returned plan's configurations.
-	StartState      *PlanState
-	WorldState      *referenceframe.WorldState
-	BoundingRegions []spatialmath.Geometry
-	Constraints     *Constraints
-	Options         map[string]interface{}
+	StartState      *PlanState                 `json:"start_state"`
+	WorldState      *referenceframe.WorldState `json:"world_state"`
+	BoundingRegions []spatialmath.Geometry     `json:"bounding_regions"`
+	Constraints     *Constraints               `json:"constraints"`
+	PlannerOptions  *PlannerOptions            `json:"planner_options"`
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
 func (req *PlanRequest) validatePlanRequest() error {
 	if req == nil {
 		return errors.New("PlanRequest cannot be nil")
-	}
-	if req.Logger == nil {
-		return errors.New("PlanRequest cannot have nil logger")
 	}
 
 	if req.FrameSystem == nil {
@@ -102,7 +99,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 		return errors.New("PlanRequest must have at least one goal")
 	}
 
-	if useOc, ok := req.Options["meshes_as_octrees"].(bool); useOc && ok {
+	if req.PlannerOptions.MeshesAsOctrees {
 		// convert any meshes in the worldstate to octrees
 		if req.WorldState == nil {
 			return errors.New("PlanRequest must have non-nil WorldState if 'meshes_as_octrees' option is enabled")
@@ -150,10 +147,11 @@ func (req *PlanRequest) validatePlanRequest() error {
 					if goalFrame == nil {
 						return referenceframe.NewFrameMissingError(fName)
 					}
-					buffer, ok := req.Options["collision_buffer_mm"].(float64)
-					if !ok {
-						buffer = defaultCollisionBufferMM
-					}
+					buffer := req.PlannerOptions.CollisionBufferMM
+					// buffer, ok := req.Options["collision_buffer_mm"].(float64)
+					// if !ok {
+					// 	buffer = defaultCollisionBufferMM
+					// }
 					// check that the request frame's geometries are within or in collision with the bounding regions
 					robotGifs, err := goalFrame.Geometries(make([]referenceframe.Input, len(goalFrame.DoF())))
 					if err != nil {
@@ -189,9 +187,9 @@ func (req *PlanRequest) validatePlanRequest() error {
 }
 
 // PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, request *PlanRequest) (Plan, error) {
+func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (Plan, error) {
 	// Calls Replan but without a seed plan
-	return Replan(ctx, request, nil, 0)
+	return Replan(ctx, logger, request, nil, 0)
 }
 
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
@@ -209,15 +207,18 @@ func PlanFrameMotion(ctx context.Context,
 	if err := fs.AddFrame(f, fs.World()); err != nil {
 		return nil, err
 	}
-	plan, err := PlanMotion(ctx, &PlanRequest{
-		Logger: logger,
+	planOpts, err := NewPlannerOptionsFromExtra(planningOpts)
+	if err != nil {
+		return nil, err
+	}
+	plan, err := PlanMotion(ctx, logger, &PlanRequest{
 		Goals: []*PlanState{
 			{poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
 		},
-		StartState:  &PlanState{configuration: referenceframe.FrameSystemInputs{f.Name(): seed}},
-		FrameSystem: fs,
-		Constraints: constraints,
-		Options:     planningOpts,
+		StartState:     &PlanState{configuration: referenceframe.FrameSystemInputs{f.Name(): seed}},
+		FrameSystem:    fs,
+		Constraints:    constraints,
+		PlannerOptions: planOpts,
 	})
 	if err != nil {
 		return nil, err
@@ -227,24 +228,20 @@ func PlanFrameMotion(ctx context.Context,
 
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
 // passed-in plan multiplied by `replanCostFactor`.
-func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
+func Replan(ctx context.Context, logger logging.Logger, request *PlanRequest, currentPlan Plan, replanCostFactor float64) (Plan, error) {
 	// Make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
 	}
-	request.Logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
-	request.Logger.CDebugf(ctx, "motion config for this step: %v", request.Options)
+	logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
+	logger.CDebugf(ctx, "motion config for this step: %v", request.PlannerOptions)
 
-	rseed := defaultRandomSeed
-	if seed, ok := request.Options["rseed"].(int); ok {
-		rseed = seed
-	}
-	sfPlanner, err := newPlanManager(request.FrameSystem, request.Logger, rseed)
+	sfPlanner, err := newPlanManager(logger, request)
 	if err != nil {
 		return nil, err
 	}
 
-	newPlan, err := sfPlanner.planMultiWaypoint(ctx, request, currentPlan)
+	newPlan, err := sfPlanner.planMultiWaypoint(ctx, currentPlan)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +249,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
 		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
-		request.Logger.CDebugf(ctx,
+		logger.CDebugf(ctx,
 			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
 			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
 		)
@@ -276,15 +273,70 @@ type planner struct {
 	scoringFunction           ik.SegmentFSMetric
 	poseDistanceFunc          ik.SegmentMetric
 	configurationDistanceFunc ik.SegmentFSMetric
-	planOpts                  *plannerOptions
+	planOpts                  *PlannerOptions
 	motionChains              *motionChains
+}
+
+func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*planner, error) {
+	mChains, err := motionChainsFromPlanState(request.FrameSystem, request.Goals[0])
+	if err != nil {
+		return nil, err
+	}
+
+	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
+	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
+	// are allowed to collide with one another.
+	if !mChains.useTPspace && (request.StartState.configuration == nil) {
+		return nil, errors.New("must populate start state configuration if not planning for 2d base/tpspace")
+	}
+
+	if mChains.useTPspace {
+		if request.StartState.poses == nil {
+			return nil, errors.New("must provide a startPose if solving for PTGs")
+		}
+		if len(request.Goals) != 1 {
+			return nil, errors.New("can only provide one goal if solving for PTGs")
+		}
+	}
+
+	// opt, err := FromMoveReqOptions(request.Options, mChains.useTPspace)
+	opt, err := updateOptionsForPlanning(request.PlannerOptions, mChains.useTPspace)
+	if err != nil {
+		return nil, err
+	}
+
+	constraintHandler, err := newConstraintHandler(
+		opt,
+		request.Constraints,
+		request.StartState,
+		request.Goals[0],
+		request.FrameSystem,
+		mChains,
+		request.StartState.configuration,
+		request.WorldState,
+		request.BoundingRegions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	seed := opt.RandomSeed
+
+	//nolint:gosec
+	return newPlanner(
+		request.FrameSystem,
+		rand.New(rand.NewSource(int64(seed))),
+		logger,
+		opt,
+		constraintHandler,
+		mChains,
+	)
 }
 
 func newPlanner(
 	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
-	opt *plannerOptions,
+	opt *PlannerOptions,
 	constraintHandler *ConstraintHandler,
 	chains *motionChains,
 ) (*planner, error) {
@@ -293,7 +345,7 @@ func newPlanner(
 		return nil, err
 	}
 	if opt == nil {
-		opt = newBasicPlannerOptions()
+		opt = NewBasicPlannerOptions()
 	}
 	if constraintHandler == nil {
 		constraintHandler = newEmptyConstraintHandler()
@@ -370,8 +422,12 @@ func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 	return newConfigurationNode(newInputs), nil
 }
 
-func (mp *planner) opt() *plannerOptions {
+func (mp *planner) opt() *PlannerOptions {
 	return mp.planOpts
+}
+
+func (mp *planner) getScoringFunction() ik.SegmentFSMetric {
+	return mp.scoringFunction
 }
 
 // smoothPath will try to naively smooth the path by picking points partway between waypoints and seeing if it can interpolate

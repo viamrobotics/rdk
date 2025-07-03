@@ -504,15 +504,19 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		}
 	}
 
+	planOpts, err := motionplan.NewPlannerOptionsFromExtra(req.Extra)
+	if err != nil {
+		return nil, err
+	}
+
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:      logger,
-		Goals:       worldWaypoints,
-		StartState:  startState,
-		FrameSystem: frameSys,
-		WorldState:  req.WorldState,
-		Constraints: req.Constraints,
-		Options:     req.Extra,
+	return motionplan.PlanMotion(ctx, logger, &motionplan.PlanRequest{
+		Goals:          worldWaypoints,
+		StartState:     startState,
+		FrameSystem:    frameSys,
+		WorldState:     req.WorldState,
+		Constraints:    req.Constraints,
+		PlannerOptions: planOpts,
 	})
 }
 

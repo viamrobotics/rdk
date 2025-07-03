@@ -129,7 +129,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	}
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
-	return motionplan.Replan(ctx, &planRequestCopy, nil, 0)
+	return motionplan.Replan(ctx, mr.logger, &planRequestCopy, nil, 0)
 }
 
 func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
@@ -355,9 +355,9 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				worldState, // detected obstacles by this instance of camera + service
 				mr.localizingFS,
 				lookAheadDistanceMM,
-				mr.planRequest.Logger,
+				mr.logger,
 			); err != nil {
-				mr.planRequest.Logger.CInfo(ctx, err.Error())
+				mr.logger.CInfo(ctx, err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
 			}
 		}
@@ -684,7 +684,6 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
 		motionCfg,
-		ms.logger,
 		kb,
 		goalPoseRaw,
 		fs,
@@ -794,7 +793,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
 		motionCfg,
-		ms.logger,
 		kb,
 		goalPoseAdj,
 		fs,
@@ -811,7 +809,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 func (ms *builtIn) createBaseMoveRequest(
 	ctx context.Context,
 	motionCfg *validatedMotionConfiguration,
-	logger logging.Logger,
 	kb kinematicbase.KinematicBase,
 	goalPoseInWorld spatialmath.Pose,
 	fs referenceframe.FrameSystem,
@@ -948,16 +945,19 @@ func (ms *builtIn) createBaseMoveRequest(
 	)
 	goals := []*motionplan.PlanState{motionplan.NewPlanState(referenceframe.FrameSystemPoses{kinematicFrame.Name(): goal}, nil)}
 
+	planOpts, err := motionplan.NewPlannerOptionsFromExtra(valExtra.extra)
+	if err != nil {
+		return nil, err
+	}
 	mr := &moveRequest{
 		config: motionCfg,
 		logger: ms.logger,
 		planRequest: &motionplan.PlanRequest{
-			Logger:      logger,
-			Goals:       goals,
-			FrameSystem: planningFS,
-			StartState:  startState,
-			WorldState:  worldState,
-			Options:     valExtra.extra,
+			Goals:          goals,
+			FrameSystem:    planningFS,
+			StartState:     startState,
+			WorldState:     worldState,
+			PlannerOptions: planOpts,
 		},
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,

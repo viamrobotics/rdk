@@ -507,10 +507,10 @@ type CollisionSpecification struct {
 // Constraints is a struct to store the constraints imposed upon a robot
 // It serves as a convenenient RDK wrapper for the protobuf object.
 type Constraints struct {
-	LinearConstraint       []LinearConstraint
-	PseudolinearConstraint []PseudolinearConstraint
-	OrientationConstraint  []OrientationConstraint
-	CollisionSpecification []CollisionSpecification
+	LinearConstraint       []LinearConstraint       `json:"linear_constraints"`
+	PseudolinearConstraint []PseudolinearConstraint `json:"pseudolinear_constraints"`
+	OrientationConstraint  []OrientationConstraint  `json:"orientation_constraints"`
+	CollisionSpecification []CollisionSpecification `json:"collision_specifications"`
 }
 
 // NewEmptyConstraints creates a new, empty Constraints object.
@@ -659,10 +659,6 @@ func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 		OrientationConstraint:  convertOrientConstraintToProto(c.OrientationConstraint),
 		CollisionSpecification: convertCollSpecToProto(c.CollisionSpecification),
 	}
-}
-
-func (c *Constraints) hasTopoConstraint() bool {
-	return (len(c.LinearConstraint) + len(c.OrientationConstraint)) != 0
 }
 
 // AddLinearConstraint appends a LinearConstraint to a Constraints object.

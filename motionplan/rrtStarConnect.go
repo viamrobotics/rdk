@@ -37,7 +37,7 @@ func newRRTStarConnectMotionPlanner(
 	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
-	opt *plannerOptions,
+	opt *PlannerOptions,
 	constraintHandler *ConstraintHandler,
 	chains *motionChains,
 ) (motionPlanner, error) {
