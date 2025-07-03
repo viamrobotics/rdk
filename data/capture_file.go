@@ -285,7 +285,7 @@ func CaptureFilePathWithReplacedReservedChars(filepath string) string {
 	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
 }
 
-// isWindowsAbsolutePath returns true if the path is a Windows absolute path. Ex: C:\path\to\file.txt
+// isWindowsAbsolutePath returns true if the path is a Windows absolute path. Ex: C:\path\to\file.txt.
 func isWindowsAbsolutePath(path string) bool {
 	driveLetter := path[0] | 32 // convert to lowercase.
 	return len(path) >= 2 && path[1] == ':' && driveLetter >= 'a' && driveLetter <= 'z'
