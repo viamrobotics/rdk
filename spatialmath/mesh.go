@@ -6,7 +6,6 @@ import (
 	"io"
 	"math"
 	"os"
-	"strconv"
 
 	"github.com/chenzhekl/goply"
 	"github.com/golang/geo/r3"
@@ -378,17 +377,42 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 	pointMap := make(map[string]r3.Vector)
 
 	// Add all triangle vertices, formatting as a string for map deduplication
-	for i, tri := range m.triangles {
-		for _, pt := range tri.Points() {
-			// Transform point to world space
-			worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
-			key := fmt.Sprintf("%.10f,%.10f,%.10f", worldPt.X, worldPt.Y, worldPt.Z)
-			pointMap[key] = worldPt
+	for _, tri := range m.triangles {
+		triPts := tri.Points()
+		baseLen := 0.
+		var baseP0, baseP1, vertex r3.Vector
+		for i := range 3 {
+			p0 := triPts[i]
+			p1 := triPts[(i+1)%3]
+			p2 := triPts[(i+2)%3]
+			len := p0.Sub(p1).Norm()
+			if len > baseLen {
+				baseLen = len
+				baseP0 = p0
+				baseP1 = p1
+				vertex = p2
+			}
 		}
-		pointMap[strconv.Itoa(i)] = tri.Transform(m.pose).Centroid()
+		// could definitely remove a var or 2 here but I think this is readable which is good
+		miniBaseCount := int(math.Ceil(baseLen / density))
+		// do we need to protect for miniBaseCount == 0? chat says so but I disagree
+		// if it is a problem, just do like miniBaseCount = max(miniBaseCount, 1) and all should be good
+
+		// now we're basically ready to tile
+		rowVec := vertex.Sub(baseP0).Mul(1.0 / float64(miniBaseCount)) // runs in column direction towards vertex
+		colVec := baseP1.Sub(baseP0).Mul(1.0 / float64(miniBaseCount)) // runs in row direction towards baseP1
+
+		for row := range miniBaseCount + 1 {
+			for col := range miniBaseCount + 1 - row {
+				pt := rowVec.Mul(float64(row)).Add(colVec.Mul(float64(col))).Add(baseP0)
+				worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
+				key := fmt.Sprintf("%.10f,%.10f,%.10f", worldPt.X, worldPt.Y, worldPt.Z)
+				pointMap[key] = worldPt
+			}
+		}
 	}
 
-	// Convert map back to slice
+	// Convert map back to slice (to deal with double-counted vertices)
 	points := make([]r3.Vector, 0, len(pointMap))
 	for _, pt := range pointMap {
 		points = append(points, pt)
