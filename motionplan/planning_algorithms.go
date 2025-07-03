@@ -57,22 +57,8 @@ type plannerConstructor func(
 	logging.Logger,
 	*plannerOptions,
 	*ConstraintHandler,
+	*motionChains,
 ) (motionPlanner, error)
-
-func newPlannerConstructor(algo PlanningAlgorithm) plannerConstructor {
-	switch algo {
-	case CBiRRT:
-		return newCBiRRTMotionPlanner
-	case RRTStar:
-		return newRRTStarConnectMotionPlanner
-	case TPSpace:
-		return newTPSpaceMotionPlanner
-	case UnspecifiedAlgorithm:
-		return newCBiRRTMotionPlanner
-	default:
-		return newCBiRRTMotionPlanner
-	}
-}
 
 func newMotionPlanner(
 	fs referenceframe.FrameSystem,
@@ -80,7 +66,18 @@ func newMotionPlanner(
 	logger logging.Logger,
 	opt *plannerOptions,
 	constraintHandler *ConstraintHandler,
+	chains *motionChains,
 ) (motionPlanner, error) {
-	return newPlannerConstructor(opt.PlanningAlgorithm())(
-		fs, seed, logger, opt, constraintHandler)
+	switch opt.PlanningAlgorithm() {
+	case CBiRRT:
+		return newCBiRRTMotionPlanner(fs, seed, logger, opt, constraintHandler, chains)
+	case RRTStar:
+		return newRRTStarConnectMotionPlanner(fs, seed, logger, opt, constraintHandler, chains)
+	case TPSpace:
+		return newTPSpaceMotionPlanner(fs, seed, logger, opt, constraintHandler, chains)
+	case UnspecifiedAlgorithm:
+		fallthrough
+	default:
+		return newCBiRRTMotionPlanner(fs, seed, logger, opt, constraintHandler, chains)
+	}
 }

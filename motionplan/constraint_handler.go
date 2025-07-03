@@ -35,6 +35,7 @@ func newConstraintHandler(
 	constraints *Constraints,
 	from, to *PlanState,
 	fs referenceframe.FrameSystem,
+	motionChains *motionChains,
 	seedMap referenceframe.FrameSystemInputs,
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
@@ -55,7 +56,7 @@ func newConstraintHandler(
 		return nil, err
 	}
 
-	movingRobotGeometries, staticRobotGeometries := opt.motionChains.geometries(fs, frameSystemGeometries)
+	movingRobotGeometries, staticRobotGeometries := motionChains.geometries(fs, frameSystemGeometries)
 
 	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
 	if err != nil {
@@ -81,7 +82,7 @@ func newConstraintHandler(
 	// If we are planning on a SLAM map we want to not allow a collision with the pointcloud to start our move call
 	// Typically starting collisions are whitelisted,
 	// TODO: This is not the most robust way to deal with this but is better than driving through walls.
-	if opt.useTPspace() {
+	if motionChains.useTPspace {
 		var zeroCG *collisionGraph
 		for _, geom := range worldGeometries {
 			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
@@ -123,7 +124,16 @@ func newConstraintHandler(
 		handler.AddStateFSConstraint(name, constraint)
 	}
 
-	constraints.updateFromOptions(opt)
+	switch opt.MotionProfile {
+	case LinearMotionProfile:
+		constraints.AddLinearConstraint(LinearConstraint{opt.LineTolerance, opt.OrientationTolerance})
+	case PseudolinearMotionProfile:
+		constraints.AddPseudolinearConstraint(PseudolinearConstraint{opt.ToleranceFactor, opt.ToleranceFactor})
+	case OrientationMotionProfile:
+		constraints.AddOrientationConstraint(OrientationConstraint{opt.OrientationTolerance})
+	// FreeMotionProfile or PositionOnlyMotionProfile produce no additional constraints.
+	case FreeMotionProfile, PositionOnlyMotionProfile:
+	}
 
 	_, err = handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
 	if err != nil {

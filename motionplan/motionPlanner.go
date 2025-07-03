@@ -277,6 +277,7 @@ type planner struct {
 	poseDistanceFunc          ik.SegmentMetric
 	configurationDistanceFunc ik.SegmentFSMetric
 	planOpts                  *plannerOptions
+	motionChains              *motionChains
 }
 
 func newPlanner(
@@ -285,6 +286,7 @@ func newPlanner(
 	logger logging.Logger,
 	opt *plannerOptions,
 	constraintHandler *ConstraintHandler,
+	chains *motionChains,
 ) (*planner, error) {
 	lfs, err := newLinearizedFrameSystem(fs)
 	if err != nil {
@@ -295,6 +297,9 @@ func newPlanner(
 	}
 	if constraintHandler == nil {
 		constraintHandler = newEmptyConstraintHandler()
+	}
+	if chains == nil {
+		chains = &motionChains{}
 	}
 
 	solver, err := ik.CreateCombinedIKSolver(lfs.dof, logger, opt.NumThreads, opt.GoalThreshold)
@@ -309,9 +314,10 @@ func newPlanner(
 		logger:                    logger,
 		randseed:                  seed,
 		planOpts:                  opt,
-		scoringFunction:           opt.getScoringFunction(),
+		scoringFunction:           opt.getScoringFunction(chains),
 		poseDistanceFunc:          opt.getPoseDistanceFunc(),
 		configurationDistanceFunc: ik.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
+		motionChains:              chains,
 	}
 	return mp, nil
 }
@@ -619,7 +625,7 @@ func (mp *planner) linearizeFSmetric(metric ik.StateFSMetric) func([]float64) fl
 // and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
 // configuration to the seed.
 func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
-	moving, nonmoving := mp.planOpts.motionChains.framesFilteredByMovingAndNonmoving(mp.fs)
+	moving, nonmoving := mp.motionChains.framesFilteredByMovingAndNonmoving(mp.fs)
 	// Create a map with nonmoving configurations replaced with their seed values
 	alteredStep := referenceframe.FrameSystemInputs{}
 	for _, frame := range moving {
