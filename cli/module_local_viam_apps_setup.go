@@ -115,26 +115,28 @@ func setupHTTPServer(port int, targetURL string, writer io.Writer) *http.Server 
 				}
 			}()
 
-			// inject a <base> tag into the <head> to ensure all relative URLs resolve correctly
-			// under the current machine-specific path (e.g., /machine/:machineId/).
-			// The regex (?i)<head[^>]*> matches the opening <head> tag (case-insensitively),
-			// allowing for optional attributes like <head lang="en">
-			re := regexp.MustCompile(`(?i)<head[^>]*>`)
-			newBody := re.ReplaceAllStringFunc(string(body), func(match string) string {
-				// Use a more robust base href that works for different types of relative URLs
-				// For machine-specific paths, we want to ensure the base includes the full machine path
-				baseHref := originalPath
-				if !strings.HasSuffix(baseHref, "/") {
-					baseHref += "/"
-				}
+			if strings.Contains(originalPath, "/machine") {
+				// take first 3 components if available ([1 empty]/[2 machine]/[3 machine ID]/....)
+				baseHrefComponents := strings.Split(originalPath, "/")[:3]
+				baseHref := fmt.Sprintf("%s/", strings.Join(baseHrefComponents, "/"))
 
-				baseTag := fmt.Sprintf(`<base href="%s">`, baseHref)
-				return match + "\n" + baseTag
-			})
+				// inject a <base> tag into the <head> to ensure all relative URLs resolve correctly
+				// under the current machine-specific path (e.g., /machine/:machineId/).
+				// The regex (?i)<head[^>]*> matches the opening <head> tag (case-insensitively),
+				// allowing for optional attributes like <head lang="en">
+				re := regexp.MustCompile(`(?i)<head[^>]*>`)
+				newBody := re.ReplaceAllStringFunc(string(body), func(match string) string {
+					// Use a more robust base href that works for different types of relative URLs
+					// For machine-specific paths, we want to ensure the base includes the full machine path
 
-			resp.Body = io.NopCloser(strings.NewReader(newBody))
-			resp.ContentLength = int64(len(newBody))
-			resp.Header.Set("Content-Length", strconv.Itoa(len(newBody)))
+					baseTag := fmt.Sprintf(`<base href="%s">`, baseHref)
+					return match + "\n" + baseTag
+				})
+
+				resp.Body = io.NopCloser(strings.NewReader(newBody))
+				resp.ContentLength = int64(len(newBody))
+				resp.Header.Set("Content-Length", strconv.Itoa(len(newBody)))
+			}
 		}
 
 		return nil
