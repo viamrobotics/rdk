@@ -530,10 +530,7 @@ func (pm *planManager) plannerAndConstraintSetupFromMoveRequest(
 	}
 	if constraints.hasTopoConstraint() {
 		if opt.PlanningAlgorithm() != CBiRRT {
-			return nil, nil, fmt.Errorf(
-				"cannot specify a planning algorithm other than cbirrt with topo constraints. algorithm specified was %s",
-				opt.PlanningAlgorithm(),
-			)
+			return nil, nil, NewAlgAndConstraintMismatchErr(string(opt.PlanningAlgorithm()))
 		}
 	}
 	if pm.motionChains.useTPspace {
