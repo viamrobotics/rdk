@@ -2491,7 +2491,7 @@ Note: There is no progress meter while copying is in progress.
 						},
 						&cli.StringFlag{
 							Name:     "app-url",
-							Usage:    "url where local app is running",
+							Usage:    "url where local app is running (including port number), e.g http://localhost:5000",
 							Required: true,
 						},
 					},

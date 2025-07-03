@@ -2,16 +2,12 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
-	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -27,12 +23,7 @@ type localAppTestingArgs struct {
 
 // LocalAppTestingAction is the action for the local-app-testing command.
 func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
-	htmlPath, err := getHTMLFilePath()
-	if err != nil {
-		return err
-	}
-
-	server := setupHTTPServer(htmlPath, args.Port, args.AppURL, ctx.App.Writer)
+	server := setupHTTPServer(args.Port, args.AppURL, ctx.App.Writer)
 	serverURL := fmt.Sprintf("http://localhost:%d", args.Port)
 
 	printf(ctx.App.Writer, "Starting server to locally test viam apps on %s", serverURL)
@@ -41,10 +32,6 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 
 	if err := startServerInBackground(server, ctx.App.Writer); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
-	}
-
-	if err := openbrowser(serverURL); err != nil {
-		printf(ctx.App.Writer, "Warning: Could not open browser: %v", err)
 	}
 
 	<-ctx.Context.Done()
@@ -56,29 +43,8 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 	return nil
 }
 
-// getHTMLFilePath returns the absolute path to module_local_viam_apps_test.html.
-func getHTMLFilePath() (string, error) {
-	_, currentFile, _, ok := runtime.Caller(0)
-	if !ok {
-		return "", errors.New("error getting current file path")
-	}
-	sourceDir := filepath.Dir(currentFile)
-
-	htmlPath := filepath.Join(sourceDir, "module_local_viam_apps_test.html")
-	absPath, err := filepath.Abs(htmlPath)
-	if err != nil {
-		return "", fmt.Errorf("error getting absolute path: %w", err)
-	}
-
-	if _, err := os.Stat(absPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("module_local_viam_apps_test.html not found at: %s", absPath)
-	}
-
-	return absPath, nil
-}
-
 // setupHTTPServer creates and configures an HTTP server with the given HTML file.
-func setupHTTPServer(htmlPath string, port int, targetURL string, writer io.Writer) *http.Server {
+func setupHTTPServer(port int, targetURL string, writer io.Writer) *http.Server {
 	targetURLParsed, err := url.Parse(targetURL)
 	if err != nil {
 		printf(writer, "Error parsing target URL: %v", err)
@@ -174,15 +140,7 @@ func setupHTTPServer(htmlPath string, port int, targetURL string, writer io.Writ
 		return nil
 	}
 
-	http.Handle("/machine/", proxy)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-		w.Header().Set("Pragma", "no-cache")
-		w.Header().Set("Expires", "0")
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-		http.ServeFile(w, r, htmlPath)
-	})
+	http.Handle("/", proxy)
 
 	return &http.Server{
 		Addr:              fmt.Sprintf(":%d", port),
