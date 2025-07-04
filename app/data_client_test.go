@@ -452,7 +452,7 @@ func TestDataClient(t *testing.T) {
 			}, nil
 		}
 
-		resp, err := client.GetLatestTabularData(context.Background(), partID, componentName, componentType, method)
+		resp, err := client.GetLatestTabularData(context.Background(), partID, componentName, componentType, method, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &latestTabularData)
 	})
@@ -481,7 +481,7 @@ func TestDataClient(t *testing.T) {
 			return mockStream, nil
 		}
 
-		responses, err := client.ExportTabularData(context.Background(), partID, componentName, componentType, method, captureInterval)
+		responses, err := client.ExportTabularData(context.Background(), partID, componentName, componentType, method, captureInterval, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, responses[0], test.ShouldResemble, exportTabularDataResponseFromProto(exportTabularResponse))
 	})
