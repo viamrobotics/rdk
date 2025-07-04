@@ -549,7 +549,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}
 
 	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove
-	// all components, services, remotes, modules, processes, and packages from
+	// all components, services, remotes, modules, processes, packages, and jobs from
 	// `minimalProcessedConfig`. Create new robot with `minimalProcessedConfig`
 	// and immediately start web service. We need the machine to be reachable
 	// through the web service ASAP, even if some resources take a long time to
@@ -561,6 +561,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	minimalProcessedConfig.Modules = nil
 	minimalProcessedConfig.Processes = nil
 	minimalProcessedConfig.Packages = nil
+	minimalProcessedConfig.Jobs = nil
 
 	// Mark minimalProcessedConfig as an initial config, so robot reports a
 	// state of initializing until reconfigured with full config.
