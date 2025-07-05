@@ -578,7 +578,8 @@ func (d *DataClient) TabularDataByMQL(
 
 // GetLatestTabularData gets the most recent tabular data captured from the specified data source, as well as the time that it was captured
 // and synced. If no data was synced to the data source within the last year, LatestTabularDataReturn will be empty.
-func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceName, resourceSubtype, methodName string, opts *TabularDataOptions) (
+func (d *DataClient) GetLatestTabularData(
+	ctx context.Context, partID, resourceName, resourceSubtype, methodName string, opts *TabularDataOptions) (
 	*GetLatestTabularDataResponse, error,
 ) {
 	var additionalParameters *structpb.Struct
