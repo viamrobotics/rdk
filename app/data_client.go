@@ -1904,7 +1904,7 @@ func dataPipelineRunStatusFromProto(proto datapipelinesPb.DataPipelineRunStatus)
 }
 
 func additionalParametersToProto(additionalParameters map[string]interface{}) *structpb.Struct {
-	if additionalParameters == nil || len(additionalParameters) == 0 {
+	if len(additionalParameters) == 0 {
 		return &structpb.Struct{
 			Fields: make(map[string]*structpb.Value),
 		}
