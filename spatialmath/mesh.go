@@ -416,7 +416,7 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 		}
 	}
 
-	// Convert map back to slice (to deal with double-counted vertices)
+	// Convert map back to slice
 	points := make([]r3.Vector, 0, len(pointMap))
 	for _, pt := range pointMap {
 		points = append(points, pt)
