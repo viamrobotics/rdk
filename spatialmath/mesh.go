@@ -400,7 +400,7 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 		}
 		// If we have density points per mm^2, we have 1 point per 1/density mm^2
 		// We achieve this by tiling each mesh triangle with mini similar triangles whose edge lengths are <= 1/density
-		// We choose a miniBaseCount such that we have side length <= than 1/density and can fit an integer # of tiles
+		// We choose a miniBaseCount such that we have side length <= 1/density and can fit an integer # of tiles
 		// If density = 0, we just take the triangle vertices
 		miniBaseCount := max(int(math.Ceil(baseLen*density)), 1)
 		rowVec := vertex.Sub(baseP0).Mul(1.0 / float64(miniBaseCount)) // runs in column direction towards vertex
