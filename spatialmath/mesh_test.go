@@ -1,7 +1,6 @@
 package spatialmath
 
 import (
-	"fmt"
 	"math"
 	"testing"
 
@@ -554,26 +553,33 @@ func TestMeshDistanceFrom(t *testing.T) {
 }
 
 func TestMeshToPoints(t *testing.T) {
-	mesh := makeSimpleTriangleMesh()
-	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 3)
+	mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		[]*Triangle{NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 3, Y: 0, Z: 0},
+			r3.Vector{X: -3, Y: 3, Z: 0},
+		)})
 
-	// Verify points match triangle vertices
+	points := mesh.ToPoints(0.3)
+
+	// Verify points match those expected for similar tiling method
 	expectedPoints := []r3.Vector{
 		{X: 0, Y: 0, Z: 0},
 		{X: 1, Y: 0, Z: 0},
+		{X: 2, Y: 0, Z: 0},
+		{X: 3, Y: 0, Z: 0},
+
+		{X: -1, Y: 1, Z: 0},
 		{X: 0, Y: 1, Z: 0},
-		{X: 0.6, Y: 0.6, Z: 0},
-		{X: 0, Y: 0, Z: 10},
-		{X: 1, Y: 0, Z: 10},
-		{X: 0, Y: 1, Z: 10},
-		// mesh.Triangles()[0].Centroid(),
-		// mesh.Triangles()[1].Centroid(),
-		// mesh.Triangles()[2].Centroid(),
+		{X: 1, Y: 1, Z: 0},
+
+		{X: -2, Y: 2, Z: 0},
+		{X: -1, Y: 2, Z: 0},
+
+		{X: -3, Y: 3, Z: 0},
 	}
 
-	points := mesh.ToPoints(1)
-	// test.That(t, len(points), test.ShouldEqual, len(expectedPoints))
-	fmt.Println(points)
+	test.That(t, len(points), test.ShouldEqual, 10)
 	for _, expected := range expectedPoints {
 		found := false
 		for _, actual := range points {
