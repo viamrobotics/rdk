@@ -1332,6 +1332,19 @@ func TestDoCommand(t *testing.T) {
 		// test that DoPlan correctly breaks if bad inputs are provided, meaning it is being parsed correctly
 		moveReq.Extra = map[string]interface{}{
 			"motion_profile": motionplan.LinearMotionProfile,
+			"planning_algorithm_settings": map[string]interface{}{
+				"algorithm": "rrtstar",
+			},
+		}
+		_, err = testDoPlan(moveReq)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldResemble, motionplan.NewAlgAndConstraintMismatchErr("rrtstar"))
+	})
+
+	t.Run("Extras transmitted correctly (with deprecated key)", func(t *testing.T) {
+		// test that DoPlan correctly breaks if bad inputs are provided, meaning it is being parsed correctly
+		moveReq.Extra = map[string]interface{}{
+			"motion_profile": motionplan.LinearMotionProfile,
 			"planning_alg":   "rrtstar",
 		}
 		_, err = testDoPlan(moveReq)

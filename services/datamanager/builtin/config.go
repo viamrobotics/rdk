@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
+	"go.viam.com/rdk/services/datamanager/builtin/shared"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/utils"
 )
@@ -91,7 +92,7 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 }
 
 func (c *Config) getCaptureDir(logger logging.Logger) string {
-	captureDir := viamCaptureDotDir
+	captureDir := shared.ViamCaptureDotDir
 	if c.CaptureDir != "" {
 		captureDir = c.CaptureDir
 		if strings.HasPrefix(captureDir, "~") {

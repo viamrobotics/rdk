@@ -328,24 +328,24 @@ func TestDataClient(t *testing.T) {
 
 	t.Run("TabularDataByFilter", func(t *testing.T) {
 		dataStruct, _ := utils.StructToStructPb(data)
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
 			MetadataIndex: 0,
 			TimeRequested: timestamppb.New(start),
 			TimeReceived:  timestamppb.New(end),
 		}
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		grpcClient.TabularDataByFilterFunc = func(ctx context.Context, in *pb.TabularDataByFilterRequest,
 			opts ...grpc.CallOption,
-			//nolint:deprecated,staticcheck
+			//nolint:staticcheck
 		) (*pb.TabularDataByFilterResponse, error) {
 			test.That(t, in.DataRequest, test.ShouldResemble, dataRequestToProto(dataRequest))
 			test.That(t, in.CountOnly, test.ShouldBeTrue)
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
-			//nolint:deprecated,staticcheck
+			//nolint:staticcheck
 			return &pb.TabularDataByFilterResponse{
-				//nolint:deprecated,staticcheck
+				//nolint:staticcheck
 				Data:     []*pb.TabularData{tabularDataPb},
 				Count:    pbCount,
 				Last:     last,
@@ -823,7 +823,7 @@ func TestDataSyncClient(t *testing.T) {
 	t.Run("TabularDataCaptureUpload", func(t *testing.T) {
 		uploadMetadata.Type = DataTypeTabularSensor
 		dataStruct, _ := utils.StructToStructPb(data)
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
 			MetadataIndex: 0,
@@ -1144,6 +1144,7 @@ func TestDataPipelineClient(t *testing.T) {
 			test.That(t, in.Name, test.ShouldEqual, name)
 			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
 			test.That(t, in.Schedule, test.ShouldEqual, "0 9 * * *")
+			test.That(t, *in.EnableBackfill, test.ShouldBeTrue)
 			test.That(t, *in.DataSourceType, test.ShouldEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD)
 			return &datapipelinesPb.CreateDataPipelineResponse{
 				Id: "new-data-pipeline-id",
@@ -1152,7 +1153,7 @@ func TestDataPipelineClient(t *testing.T) {
 		options := &CreateDataPipelineOptions{
 			TabularDataSourceType: TabularDataSourceTypeStandard,
 		}
-		resp, err := client.CreateDataPipeline(context.Background(), organizationID, name, mqlQueries, "0 9 * * *", options)
+		resp, err := client.CreateDataPipeline(context.Background(), organizationID, name, mqlQueries, "0 9 * * *", true, options)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, "new-data-pipeline-id")
 	})

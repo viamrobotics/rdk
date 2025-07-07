@@ -39,10 +39,14 @@ func TestSimpleLinearMotion(t *testing.T) {
 	goalPos := spatialmath.NewPose(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 
 	opt := newBasicPlannerOptions()
-	goalMetric := opt.getGoalMetric(referenceframe.FrameSystemPoses{m.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos)})
+	goal := referenceframe.FrameSystemPoses{m.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos)}
+	goalMetric := opt.getGoalMetric(goal)
 	fs := referenceframe.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())
-	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt)
+	chains, err := motionChainsFromPlanState(fs, &PlanState{poses: goal})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chains, test.ShouldNotBeNil)
+	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler(), chains)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goalMetric)
@@ -64,9 +68,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 	nn := &neighborManager{nCPU: nCPU}
 
-	_, err = newCbirrtOptions(opt, cbirrt.lfs)
-	test.That(t, err, test.ShouldBeNil)
-
 	m1chan := make(chan node, 1)
 	defer close(m1chan)
 
@@ -76,13 +77,15 @@ func TestSimpleLinearMotion(t *testing.T) {
 	})
 	seedReached := <-m1chan
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
-	near2 := nn.nearestNeighbor(ctx, opt, seedReached, goalMap)
+	near2 := nn.nearestNeighbor(ctx, seedReached, goalMap, nodeConfigurationDistanceFunc)
 	// extend goalMap towards the point in seedMap
 	utils.PanicCapturingGo(func() {
 		cbirrt.constrainedExtend(ctx, cbirrt.randseed, goalMap, near2, seedReached, m1chan)
 	})
 	goalReached := <-m1chan
-	dist := opt.configurationDistanceFunc(&ik.SegmentFS{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()})
+	dist := cbirrt.configurationDistanceFunc(
+		&ik.SegmentFS{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()},
+	)
 	test.That(t, dist < cbirrt.planOpts.InputIdentDist, test.ShouldBeTrue)
 
 	seedReached.SetCorner(true)

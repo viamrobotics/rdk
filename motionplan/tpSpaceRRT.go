@@ -122,18 +122,48 @@ type tpSpaceRRTMotionPlanner struct {
 	goalNodes []node
 }
 
+// Returns a custom DistanceFunc constructed such that distances can be computed in TP space using the given PTG.
+// Also returns a pointer to a sync.Map of nearest poses -> ik.Solution so the (expensive to compute) solution can be reused.
+func getNodeDistanceFunc(distMap *sync.Map, ptg tpspace.PTGSolver, tpFrameName string) NodeDistanceMetric {
+	segMetric := func(seg *ik.Segment) float64 {
+		// When running NearestNeighbor:
+		// StartPosition is the seed/query
+		// EndPosition is the pose already in the RRT tree
+		if seg.StartPosition == nil || seg.EndPosition == nil {
+			return math.Inf(1)
+		}
+		solution, err := ptgSolution(ptg, seg.EndPosition, seg.StartPosition)
+
+		if err != nil || solution == nil {
+			return math.Inf(1)
+		}
+
+		distMap.Store(seg.EndPosition, solution)
+
+		return solution.Score
+	}
+	return func(node1, node2 node) float64 {
+		return segMetric(&ik.Segment{
+			StartPosition: node1.Poses()[tpFrameName].Pose(),
+			EndPosition:   node2.Poses()[tpFrameName].Pose(),
+		})
+	}
+}
+
 // newTPSpaceMotionPlanner creates a newTPSpaceMotionPlanner object with a user specified random seed.
 func newTPSpaceMotionPlanner(
 	fs referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
+	constraintHandler *ConstraintHandler,
+	chains *motionChains,
 ) (motionPlanner, error) {
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
 
-	mp, err := newPlanner(fs, seed, logger, opt)
+	mp, err := newPlanner(fs, seed, logger, opt, constraintHandler, chains)
 	if err != nil {
 		return nil, err
 	}
@@ -141,10 +171,10 @@ func newTPSpaceMotionPlanner(
 		planner: mp,
 	}
 	// TODO: Only one motion chain allowed if tpspace for now. Eventually this may not be a restriction.
-	if len(opt.motionChains.inner) != 1 {
-		return nil, fmt.Errorf("exactly one motion chain permitted for tpspace, but planner option had %d", len(opt.motionChains.inner))
+	if len(chains.inner) != 1 {
+		return nil, fmt.Errorf("exactly one motion chain permitted for tpspace, but planner option had %d", len(chains.inner))
 	}
-	for _, frame := range opt.motionChains.inner[0].frames {
+	for _, frame := range chains.inner[0].frames {
 		if tpFrame, ok := frame.(tpspace.PTGProvider); ok {
 			tpPlanner.tpFrame = frame
 			tpPlanner.solvers = tpFrame.PTGSolvers()
@@ -236,7 +266,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			// There may be more than one node in the tree which satisfies the goal, i.e. its parent is nil.
 			// However for the purposes of this we can just take the first one we see.
 			if k.Poses() != nil {
-				dist := mp.planOpts.poseDistanceFunc(
+				dist := mp.poseDistanceFunc(
 					&ik.Segment{
 						StartPosition: startPose,
 						EndPosition:   k.Poses()[mp.tpFrame.Name()].Pose(),
@@ -342,7 +372,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		var reachedDelta float64
 		if seedReached.node != nil && goalReached.node != nil {
 			// Flip the orientation of the goal node for distance calculation and seed extension
-			reachedDelta = mp.planOpts.poseDistanceFunc(&ik.Segment{
+			reachedDelta = mp.poseDistanceFunc(&ik.Segment{
 				StartPosition: mp.tpFramePose(seedReached.node.Poses()),
 				EndPosition:   mp.tpFramePose(flipNodePoses(goalReached.node).Poses()),
 			})
@@ -354,7 +384,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					return
 				}
 				if seedReached.node != nil {
-					reachedDelta = mp.planOpts.poseDistanceFunc(&ik.Segment{
+					reachedDelta = mp.poseDistanceFunc(&ik.Segment{
 						StartPosition: mp.tpFramePose(seedReached.node.Poses()),
 						EndPosition:   mp.tpFramePose(flipNodePoses(goalReached.node).Poses()),
 					})
@@ -366,7 +396,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 						}
 					}
 					if goalReached.node != nil {
-						reachedDelta = mp.planOpts.poseDistanceFunc(&ik.Segment{
+						reachedDelta = mp.poseDistanceFunc(&ik.Segment{
 							StartPosition: mp.tpFramePose(seedReached.node.Poses()),
 							EndPosition:   mp.tpFramePose(flipNodePoses(goalReached.node).Poses()),
 						})
@@ -420,7 +450,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				if seedReached.node == nil {
 					continue
 				}
-				reachedDelta = mp.planOpts.poseDistanceFunc(&ik.Segment{
+				reachedDelta = mp.poseDistanceFunc(&ik.Segment{
 					StartPosition: mp.tpFramePose(seedReached.node.Poses()),
 					EndPosition:   mp.tpFramePose(flipNodePoses(goalMapNode).Poses()),
 				})
@@ -471,7 +501,8 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	nearest node,
 ) (*candidate, error) {
 	// Get the distance function that will find the nearest RRT map node in TP-space of *this* PTG
-	ptgDistOpt, distMap := mp.make2DTPSpaceDistanceOptions(curPtg)
+	distMap := sync.Map{}
+	nodeDistanceFunc := getNodeDistanceFunc(&distMap, curPtg, mp.tpFrame.Name())
 
 	nm := &neighborManager{nCPU: mp.planOpts.NumThreads / len(mp.solvers)}
 	nm.parallelNeighbors = 10
@@ -482,7 +513,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 
 	if nearest == nil {
 		// Get nearest neighbor to rand config in tree using this PTG
-		nearest = nm.nearestNeighbor(ctx, ptgDistOpt, randPosNode, rrt)
+		nearest = nm.nearestNeighbor(ctx, randPosNode, rrt, nodeDistanceFunc)
 		if nearest == nil {
 			return nil, errNoNeighbors
 		}
@@ -499,7 +530,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 			return nil, errNoNeighbors
 		}
 	} else {
-		solution, err = mp.ptgSolution(curPtg, mp.tpFramePose(nearest.Poses()), mp.tpFramePose(randPosNode.Poses()))
+		solution, err = ptgSolution(curPtg, mp.tpFramePose(nearest.Poses()), mp.tpFramePose(randPosNode.Poses()))
 		if err != nil || solution == nil {
 			return nil, err
 		}
@@ -568,11 +599,11 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNodes: successNodes}
 	// check if this  successNode is too close to nodes already in the tree, and if so, do not add.
-	// Get nearest neighbor to new node that's already in the tree. Note that this uses cartesian distance (planOpts.poseDistanceFunc)
+	// Get nearest neighbor to new node that's already in the tree. Note that this uses cartesian distance
 	// rather than the TP-space distance functions in algOpts.
-	nearest = nm.nearestNeighbor(ctx, mp.planOpts, successNode, rrt)
+	nearest = nm.nearestNeighbor(ctx, successNode, rrt, nodeConfigurationDistanceFunc)
 	if nearest != nil {
-		dist := mp.planOpts.poseDistanceFunc(&ik.Segment{
+		dist := mp.poseDistanceFunc(&ik.Segment{
 			StartPosition: mp.tpFramePose(successNode.Poses()),
 			EndPosition:   mp.tpFramePose(nearest.Poses()),
 		})
@@ -594,7 +625,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStart
 		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.tpFrame}
 
 		// In addition to checking every `Resolution`, we also check both endpoints.
-		err := mp.planOpts.CheckStateConstraints(trajState)
+		err := mp.CheckStateConstraints(trajState)
 		if err != nil {
 			okDist := trajPt.Dist * defaultCollisionWalkbackPct
 			if okDist > defaultMinTrajectoryLength {
@@ -839,7 +870,7 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 	mp.algOpts = tpOpt
 }
 
-func (mp *tpSpaceRRTMotionPlanner) ptgSolution(ptg tpspace.PTGSolver,
+func ptgSolution(ptg tpspace.PTGSolver,
 	nearestPose, randPosNodePose spatialmath.Pose,
 ) (*ik.Solution, error) {
 	relPose := spatialmath.PoseBetween(nearestPose, randPosNodePose)
@@ -859,46 +890,19 @@ func (mp *tpSpaceRRTMotionPlanner) ptgSolution(ptg tpspace.PTGSolver,
 	return solution, err
 }
 
-// make2DTPSpaceDistanceOptions will create a plannerOptions object with a custom DistanceFunc constructed such that
-// distances can be computed in TP space using the given PTG.
-// Also returns a pointer to a sync.Map of nearest poses -> ik.Solution so the (expensive to compute) solution can be reused.
-func (mp *tpSpaceRRTMotionPlanner) make2DTPSpaceDistanceOptions(ptg tpspace.PTGSolver) (*plannerOptions, *sync.Map) {
-	m := sync.Map{}
-	opts := newBasicPlannerOptions()
-	segMetric := func(seg *ik.Segment) float64 {
-		// When running NearestNeighbor:
-		// StartPosition is the seed/query
-		// EndPosition is the pose already in the RRT tree
-		if seg.StartPosition == nil || seg.EndPosition == nil {
-			return math.Inf(1)
-		}
-		solution, err := mp.ptgSolution(ptg, seg.EndPosition, seg.StartPosition)
-
-		if err != nil || solution == nil {
-			return math.Inf(1)
-		}
-
-		m.Store(seg.EndPosition, solution)
-
-		return solution.Score
-	}
-	opts.poseDistanceFunc = segMetric
-	opts.nodeDistanceFunc = func(node1, node2 node) float64 {
-		return segMetric(&ik.Segment{
-			StartPosition: mp.tpFramePose(node1.Poses()),
-			EndPosition:   mp.tpFramePose(node2.Poses()),
-		})
-	}
-	opts.Resolution = defaultPTGCollisionResolution
-	return opts, &m
-}
-
 // smoothPath takes in a path and attempts to smooth it by randomly sampling edges in the path and seeing
 // if they can be connected.
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
 	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
-	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.fs, mp.randseed, mp.logger, mp.planOpts)
+	smoothPlannerMP, err := newTPSpaceMotionPlanner(
+		mp.fs,
+		mp.randseed,
+		mp.logger,
+		mp.planOpts,
+		mp.ConstraintHandler,
+		mp.motionChains,
+	)
 	if err != nil {
 		return path
 	}
@@ -1016,7 +1020,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		return nil, errors.New("could not extend to smoothing destination")
 	}
 
-	reachedDelta := mp.planOpts.poseDistanceFunc(&ik.Segment{
+	reachedDelta := mp.poseDistanceFunc(&ik.Segment{
 		StartPosition: mp.tpFramePose(reached.node.Poses()),
 		EndPosition:   mp.tpFramePose(path[secondEdge].Poses()),
 	})

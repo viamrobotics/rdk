@@ -25,7 +25,7 @@ type neighbor struct {
 	node node
 }
 
-func kNearestNeighbors(planOpts *plannerOptions, tree rrtMap, target node, neighborhoodSize int) []*neighbor {
+func kNearestNeighbors(tree rrtMap, target node, neighborhoodSize int, nodeDistanceFunc NodeDistanceMetric) []*neighbor {
 	kNeighbors := neighborhoodSize
 	if neighborhoodSize > len(tree) {
 		kNeighbors = len(tree)
@@ -33,7 +33,7 @@ func kNearestNeighbors(planOpts *plannerOptions, tree rrtMap, target node, neigh
 
 	allCosts := make([]*neighbor, 0)
 	for rrtnode := range tree {
-		dist := planOpts.nodeDistanceFunc(target, rrtnode)
+		dist := nodeDistanceFunc(target, rrtnode)
 		allCosts = append(allCosts, &neighbor{dist: dist, node: rrtnode})
 	}
 	// sort neighbors by their distance to target first so that first nearest neighbor isn't always the start node of tree
@@ -62,9 +62,9 @@ func kNearestNeighbors(planOpts *plannerOptions, tree rrtMap, target node, neigh
 // Can return `nil` when the context is canceled during processing.
 func (nm *neighborManager) nearestNeighbor(
 	ctx context.Context,
-	planOpts *plannerOptions,
 	seed node,
 	tree rrtMap,
+	nodeDistanceFunc NodeDistanceMetric,
 ) node {
 	if nm.parallelNeighbors == 0 {
 		nm.parallelNeighbors = defaultNeighborsBeforeParallelization
@@ -72,12 +72,12 @@ func (nm *neighborManager) nearestNeighbor(
 
 	if len(tree) > nm.parallelNeighbors && nm.nCPU > 1 {
 		// If the map is large, calculate distances in parallel
-		return nm.parallelNearestNeighbor(ctx, planOpts, seed, tree)
+		return nm.parallelNearestNeighbor(ctx, seed, tree, nodeDistanceFunc)
 	}
 	bestDist := math.Inf(1)
 	var best node
 	for k := range tree {
-		dist := planOpts.nodeDistanceFunc(seed, k)
+		dist := nodeDistanceFunc(seed, k)
 		if dist < bestDist {
 			bestDist = dist
 			best = k
@@ -88,9 +88,9 @@ func (nm *neighborManager) nearestNeighbor(
 
 func (nm *neighborManager) parallelNearestNeighbor(
 	ctx context.Context,
-	planOpts *plannerOptions,
 	seed node,
 	tree rrtMap,
+	nodeDistanceFunc NodeDistanceMetric,
 ) node {
 	nm.seedPos = seed
 
@@ -100,7 +100,7 @@ func (nm *neighborManager) parallelNearestNeighbor(
 
 	for i := 0; i < nm.nCPU; i++ {
 		utils.PanicCapturingGo(func() {
-			nm.nnWorker(ctx, planOpts)
+			nm.nnWorker(ctx, nodeDistanceFunc)
 		})
 	}
 
@@ -133,7 +133,7 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	return best
 }
 
-func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOptions) {
+func (nm *neighborManager) nnWorker(ctx context.Context, nodeDistanceFunc NodeDistanceMetric) {
 	var best node
 	bestDist := math.Inf(1)
 
@@ -146,7 +146,7 @@ func (nm *neighborManager) nnWorker(ctx context.Context, planOpts *plannerOption
 		default:
 		}
 
-		dist := planOpts.nodeDistanceFunc(nm.seedPos, candidate)
+		dist := nodeDistanceFunc(nm.seedPos, candidate)
 		if dist < bestDist {
 			bestDist = dist
 			best = candidate

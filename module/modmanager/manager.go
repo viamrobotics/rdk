@@ -383,7 +383,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 
-	mod.registerResources(mgr)
+	mod.registerResourceModels(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
 	mod.logger.Infow("Module successfully added", "module", mod.cfg.Name)
 	success = true
@@ -506,7 +506,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		mod.logger.Warnw("Error closing connection to module", "error", err)
 	}
 
-	mod.deregisterResources()
+	mod.deregisterResourceModels()
 
 	for r, m := range mgr.rMap.Range {
 		if m == mod {
@@ -982,7 +982,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			for _, n := range orphanedResourceNames {
 				orphanedResourceNamesStr = append(orphanedResourceNamesStr, n.String())
 			}
-			mod.logger.Warnw("Some modules failed to re-add after crashed module restart and will be removed",
+			mod.logger.Warnw("Some resources failed to re-add after crashed module restart and will be removed",
 				"module", mod.cfg.Name,
 				"orphanedResources", orphanedResourceNamesStr)
 			unlock()
@@ -1062,7 +1062,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
-
+	mod.registerResourceModels(mgr)
 	success = true
 	return nil
 }

@@ -21,6 +21,8 @@ func newCBiRRTMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
+	constraintHandler *ConstraintHandler,
+	motionChains *motionChains,
 ) (motionPlanner, error) {
 	return nil, errNotSupported
 }
@@ -31,6 +33,8 @@ func newTPSpaceMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
+	constraintHandler *ConstraintHandler,
+	motionChains *motionChains,
 ) (motionPlanner, error) {
 	return nil, errNotSupported
 }
@@ -41,6 +45,8 @@ func newRRTStarConnectMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *plannerOptions,
+	constraintHandler *ConstraintHandler,
+	motionChains *motionChains,
 ) (motionPlanner, error) {
 	return nil, errNotSupported
 }

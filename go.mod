@@ -72,7 +72,7 @@ require (
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v2 v2.10.3
 	github.com/viamrobotics/evdev v0.1.3
-	github.com/viamrobotics/webrtc/v3 v3.99.13
+	github.com/viamrobotics/webrtc/v3 v3.99.15
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.32.1
 	go.mongodb.org/mongo-driver v1.17.1
@@ -80,9 +80,9 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.450
+	go.viam.com/api v0.1.452
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.1.147
+	go.viam.com/utils v0.1.149
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.19.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
@@ -388,7 +388,7 @@ require (
 	github.com/ultraware/whitespace v0.1.1 // indirect
 	github.com/uudashr/gocognit v1.1.3 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
-	github.com/viamrobotics/ice/v2 v2.3.37 // indirect
+	github.com/viamrobotics/ice/v2 v2.3.39 // indirect
 	github.com/viamrobotics/zeroconf v1.0.12 // indirect
 	github.com/wlynxg/anet v0.0.3 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect

@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"time"
 
 	"go.viam.com/rdk/components/button"
 	"go.viam.com/rdk/logging"
@@ -36,6 +37,6 @@ func NewButton(
 
 // Push logs the push.
 func (b *Button) Push(ctx context.Context, extra map[string]interface{}) error {
-	b.logger.Info("pushed button")
+	b.logger.Infof("Button pushed at %s", time.Now().Format(time.RFC3339))
 	return nil
 }

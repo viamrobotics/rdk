@@ -228,14 +228,14 @@ func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 type validatedExtra struct {
 	maxReplans       int
 	replanCostFactor float64
-	motionProfile    string
+	motionProfile    motionplan.MotionProfile
 	extra            map[string]interface{}
 }
 
 func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 	maxReplans := -1
 	replanCostFactor := defaultReplanCostFactor
-	motionProfile := ""
+	motionProfile := motionplan.FreeMotionProfile
 	v := validatedExtra{}
 	if extra == nil {
 		v.extra = map[string]interface{}{"smooth_iter": defaultSmoothIter}
@@ -247,7 +247,7 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 		}
 	}
 	if profile, ok := extra["motion_profile"]; ok {
-		motionProfile, ok = profile.(string)
+		motionProfile, ok = profile.(motionplan.MotionProfile)
 		if !ok {
 			return v, errors.New("could not interpret motion_profile field as string")
 		}
@@ -455,6 +455,18 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	// keep it in `extra`.
 	if req.Extra != nil {
 		req.Extra["waypoints"] = nil
+	}
+
+	// TODO: RSDK-11198 REMOVE THIS IN THE RELEASE AFTER THE RELEASE THAT INTRODUCED THIS CODE. It is only here
+	// to deprecate rather than break the "planning_alg" key and give us time to inform users/engineers
+	// how to use the "planning_algorithm_settings" option
+	if deprecatedKeyAlg, ok := req.Extra["planning_alg"]; ok {
+		logger.Warn("the 'planning_alg' key is deprecated and will soon no longer be accepted, please use 'planning_algorithm_settings' instead")
+		if deprecatedKeyAlgParsed, ok := deprecatedKeyAlg.(string); ok {
+			req.Extra["planning_algorithm_settings"] = map[string]interface{}{
+				"algorithm": deprecatedKeyAlgParsed,
+			}
+		}
 	}
 
 	// re-evaluate goal poses to be in the frame of World

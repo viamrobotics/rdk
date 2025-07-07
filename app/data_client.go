@@ -481,7 +481,7 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 		countOnly = opts.CountOnly
 		includeInternalData = opts.IncludeInternalData
 	}
-	//nolint:deprecated,staticcheck
+	//nolint:staticcheck
 	resp, err := d.dataClient.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest:         &dataReq,
 		CountOnly:           countOnly,
@@ -1349,7 +1349,8 @@ func (d *DataClient) GetDataPipeline(ctx context.Context, id string) (*DataPipel
 
 // CreateDataPipeline creates a new data pipeline using the given query and schedule.
 func (d *DataClient) CreateDataPipeline(
-	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string, opts *CreateDataPipelineOptions,
+	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string,
+	enableBackfill bool, opts *CreateDataPipelineOptions,
 ) (string, error) {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
@@ -1369,6 +1370,7 @@ func (d *DataClient) CreateDataPipeline(
 		MqlBinary:      mqlBinary,
 		Schedule:       schedule,
 		DataSourceType: &dataSourceType,
+		EnableBackfill: &enableBackfill,
 	})
 	if err != nil {
 		return "", err
@@ -1571,7 +1573,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) (*BinaryMetadata, error) 
 		return nil, err
 	}
 	return &BinaryMetadata{
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		ID:              proto.Id,
 		BinaryDataID:    proto.BinaryDataId,
 		CaptureMetadata: *captureMetadata,
@@ -1585,7 +1587,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) (*BinaryMetadata, error) 
 	}, nil
 }
 
-//nolint:deprecated,staticcheck
+//nolint:staticcheck
 func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) (*TabularData, error) {
 	if proto == nil {
 		return nil, nil

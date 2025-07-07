@@ -16,6 +16,7 @@ type method int64
 const (
 	position method = iota
 	pointCloudMap
+	doCommand
 )
 
 func (m method) String() string {
@@ -24,6 +25,9 @@ func (m method) String() string {
 	}
 	if m == pointCloudMap {
 		return "PointCloudMap"
+	}
+	if m == doCommand {
+		return "DoCommand"
 	}
 	return "Unknown"
 }
@@ -76,6 +80,18 @@ func newPointCloudMapCollector(resource interface{}, params data.CollectorParams
 			MimeType: data.MimeTypeApplicationPcd,
 		}}), nil
 	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	slam, err := assertSLAM(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(slam, params)
 	return data.NewCollector(cFunc, params)
 }
 

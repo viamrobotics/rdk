@@ -1287,6 +1287,7 @@ func TestStreamingRequestCounter(t *testing.T) {
 	s, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = s.Recv()
+
 	test.That(t, err, test.ShouldBeNil)
 	count := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
 	test.That(t, count, test.ShouldEqual, 1)
@@ -1307,8 +1308,10 @@ func TestStreamingRequestCounter(t *testing.T) {
 	ch, err := client.Recv()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ch.GetMessage(), test.ShouldEqual, "a")
-	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
-	test.That(t, count, test.ShouldEqual, 1)
+	stats := svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats["qwerty.TestEchoService/EchoBiDi"], test.ShouldEqual, 1)
+	test.That(t, stats, test.ShouldContainKey, "qwerty.TestEchoService/EchoBiDi.dataSentBytes")
+	test.That(t, stats["qwerty.TestEchoService/EchoBiDi.dataSentBytes"], test.ShouldBeGreaterThan, 0)
 
 	err = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "zxcvb"})
 	test.That(t, err, test.ShouldBeNil)
@@ -1559,12 +1562,15 @@ func TestPerRequestFTDC(t *testing.T) {
 	_, err = armClient.EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// We can assert that there are two counters in our stats. THe fact that `GetEndPosition` was
+	// We can assert that there are two counters in our stats. The fact that `GetEndPosition` was
 	// called once and we hence spent (negligible) time in that RPC call.
 	stats := svc.RequestCounter().Stats().(map[string]int64)
-	test.That(t, len(stats), test.ShouldEqual, 2)
+	test.That(t, len(stats), test.ShouldEqual, 4)
 	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 1)
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.dataSentBytes")
+	test.That(t, stats["arm1.ArmService/GetEndPosition.dataSentBytes"], test.ShouldBeGreaterThan, 0)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.errorCnt")
 
 	// Get a handle on the inject arm resource.
 	injectArmRes, err := injectRobot.ResourceByName(arm.Named(arm1String))
@@ -1582,8 +1588,9 @@ func TestPerRequestFTDC(t *testing.T) {
 	// Now observe that we called `GetEndPosition` a second time. And one of the responses returned
 	// an error.
 	stats = svc.RequestCounter().Stats().(map[string]int64)
-	test.That(t, len(stats), test.ShouldEqual, 3)
+	test.That(t, len(stats), test.ShouldEqual, 4)
 	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 2)
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
 	test.That(t, stats["arm1.ArmService/GetEndPosition.errorCnt"], test.ShouldEqual, 1)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.dataSentBytes")
 }

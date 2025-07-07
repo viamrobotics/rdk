@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -32,6 +33,7 @@ import (
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -548,60 +550,63 @@ type Namer interface {
 	GetName() string
 }
 
+type requestStats struct {
+	count     atomic.Int64
+	errorCnt  atomic.Int64
+	timeSpent atomic.Int64
+	dataSent  atomic.Int64
+}
+
 // RequestCounter maps string keys to atomic ints that get bumped on every incoming gRPC request for
 // components.
 type RequestCounter struct {
-	counts    sync.Map
-	timeSpent sync.Map
-	errorCnt  sync.Map
+	requestKeyToStats sync.Map
 }
 
-// incrementCounter atomically increments the counter for a given key, creating it first if needed.
-func (rc *RequestCounter) incrementCounter(key string) {
-	if apiCounts, ok := rc.counts.Load(key); ok {
-		apiCounts.(*atomic.Int64).Add(1)
+func (rc *RequestCounter) preRequestIncrement(key string) {
+	if stats, ok := rc.requestKeyToStats.Load(key); ok {
+		stats.(*requestStats).count.Add(1)
 	} else {
-		newCounter := new(atomic.Int64)
-		newCounter.Add(1)
-		rc.counts.Store(key, newCounter)
+		// If a key for the request did not yet exist, create a new `requestStats` to add to the
+		// map.
+		newStats := new(requestStats)
+		newStats.count.Add(1)
+
+		// However, it is also possible that our store into the map races with another concurrent
+		// store for the "first" request.
+		storedStats, exists := rc.requestKeyToStats.LoadOrStore(key, newStats)
+		// If we lost that race, instead bump the counter of the `requestStats` object that was
+		// inserted.
+		if exists {
+			storedStats.(*requestStats).count.Add(1)
+		}
 	}
 }
 
-// incrementTimeSpent atomically increments the latency tracker for a given key, creating it first
-// if needed.
-func (rc *RequestCounter) incrementTimeSpent(key string, timeSpentMillis int64) {
-	if timeSpent, ok := rc.timeSpent.Load(key); ok {
-		timeSpent.(*atomic.Int64).Add(timeSpentMillis)
-	} else {
-		newCounter := new(atomic.Int64)
-		newCounter.Add(timeSpentMillis)
-		rc.timeSpent.Store(key, newCounter)
-	}
-}
-
-func (rc *RequestCounter) incrementErrorCnt(key string) {
-	if errCnt, ok := rc.errorCnt.Load(key); ok {
-		errCnt.(*atomic.Int64).Add(1)
-	} else {
-		newCounter := new(atomic.Int64)
-		newCounter.Add(1)
-		rc.errorCnt.Store(key, newCounter)
+func (rc *RequestCounter) postRequestIncrement(key string, timeSpent time.Duration, dataSent int, wasError bool) {
+	if statsI, ok := rc.requestKeyToStats.Load(key); ok {
+		stats := statsI.(*requestStats)
+		stats.timeSpent.Add(timeSpent.Milliseconds())
+		stats.dataSent.Add(int64(dataSent))
+		if wasError {
+			stats.errorCnt.Add(1)
+		}
+	} else if testing.Testing() {
+		panic(fmt.Sprintf("Invariant failed. Key must exist in `postRequestIncrement`. Key: %v", key))
 	}
 }
 
 // Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
 func (rc *RequestCounter) Stats() any {
 	ret := make(map[string]int64)
-	rc.counts.Range(func(key, value any) bool {
-		ret[key.(string)] = value.(*atomic.Int64).Load()
-		return true
-	})
-	rc.timeSpent.Range(func(key, value any) bool {
-		ret[fmt.Sprintf("%v.timeSpent", key.(string))] = value.(*atomic.Int64).Load()
-		return true
-	})
-	rc.errorCnt.Range(func(key, value any) bool {
-		ret[fmt.Sprintf("%v.errorCnt", key.(string))] = value.(*atomic.Int64).Load()
+	rc.requestKeyToStats.Range(func(requestKeyI, requestStatsI any) bool {
+		requestKey := requestKeyI.(string)
+		requestStats := requestStatsI.(*requestStats)
+		ret[fmt.Sprintf("%v", requestKey)] = requestStats.count.Load()
+		ret[fmt.Sprintf("%v.errorCnt", requestKey)] = requestStats.errorCnt.Load()
+		ret[fmt.Sprintf("%v.timeSpent", requestKey)] = requestStats.timeSpent.Load()
+		ret[fmt.Sprintf("%v.dataSentBytes", requestKey)] = requestStats.dataSent.Load()
+
 		return true
 	})
 
@@ -627,9 +632,9 @@ func extractViamAPI(fullMethod string) string {
 // buildRCKey builds the key to be used in the RequestCounter's counts map.
 // If the msg satisfies web.Namer, the key will be in the format "name.method",
 // Otherwise, the key will be just "method".
-func buildRCKey(clientMsg *any, apiMethod string) string {
+func buildRCKey(clientMsg any, apiMethod string) string {
 	if clientMsg != nil {
-		if namer, ok := (*clientMsg).(Namer); ok {
+		if namer, ok := clientMsg.(Namer); ok {
 			return fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
 		}
 	}
@@ -643,10 +648,10 @@ func (rc *RequestCounter) UnaryInterceptor(
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
 
+	requestCounterKey := buildRCKey(req, apiMethod)
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod != "" {
-		key := buildRCKey(&req, apiMethod)
-		rc.incrementCounter(key)
+		rc.preRequestIncrement(requestCounterKey)
 
 		start := time.Now()
 		defer func() {
@@ -658,29 +663,34 @@ func (rc *RequestCounter) UnaryInterceptor(
 			//
 			// This can create difficult to parse data when requests start taking a "window size"
 			// amount of time to complete. We may want to consider calling `incrementCounter` in the
-			// defer. But that could lead to a scenario where an RPC call causes deadlock, getting
-			// itself blocked in the process. FTDC wouldn't be able to show that server was in that
-			// code path.
+			// defer. But that could lead to a scenario where, if an RPC call causes a deadlock,
+			// FTDC wouldn't have any record of that RPC call being invoked.
 			//
 			// Perhaps the "perfect" solution is to track both "request started" and "request
 			// finished". And have latency graphs use "request finished".
-			rc.incrementTimeSpent(key, time.Since(start).Milliseconds())
-			if err != nil {
-				rc.incrementErrorCnt(key)
+			respSize := 0
+			if protoMsg, ok := resp.(proto.Message); ok {
+				respSize = proto.Size(protoMsg)
 			}
+			rc.postRequestIncrement(
+				requestCounterKey,
+				time.Since(start),
+				respSize,
+				err != nil)
 		}()
 	}
 
 	resp, err = handler(ctx, req)
-	return
+	return resp, err
 }
 
 type wrappedStreamWithRC struct {
 	googlegrpc.ServerStream
 	apiMethod string
 	rc        *RequestCounter
-	// marks once the first message has been received
-	seenFirst atomic.Bool
+
+	// Set on the initial client request.
+	requestKey atomic.Pointer[string]
 }
 
 // RecvMsg increments the reference counter upon receiving the first message from the client.
@@ -689,11 +699,28 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 	// Unmarshalls into m (to populate fields).
 	err := w.ServerStream.RecvMsg(m)
 
-	if w.seenFirst.CompareAndSwap(false, true) && err == nil {
-		key := buildRCKey(&m, w.apiMethod)
-		w.rc.incrementCounter(key)
+	if w.requestKey.Load() == nil {
+		requestKey := buildRCKey(m, w.apiMethod)
+		w.requestKey.Store(&requestKey)
+		// Dan: As above, we have to call the underlying handler first before
+		// `preRequestIncrement`. Because the message object has not been initialized yet. It's not
+		// clear to me what options we have to pull out the message's `name` field before
+		w.rc.preRequestIncrement(requestKey)
 	}
 
+	return err
+}
+
+func (w *wrappedStreamWithRC) SendMsg(m any) error {
+	if requestKeyPtr := w.requestKey.Load(); requestKeyPtr != nil {
+		if protoMsg, ok := m.(proto.Message); ok {
+			w.rc.postRequestIncrement(*requestKeyPtr, 0, proto.Size(protoMsg), false)
+		}
+	} else { // if testing.Testing() {
+		panic(fmt.Sprintf("Invariant failed. Key must exist for `postRequestIncrement`. Key: %v", w.requestKey.Load()))
+	}
+
+	err := w.ServerStream.SendMsg(m)
 	return err
 }
 
@@ -712,7 +739,7 @@ func (rc *RequestCounter) StreamInterceptor(
 
 	// Only count Viam apiMethods
 	if apiMethod != "" {
-		return handler(srv, &wrappedStreamWithRC{ss, apiMethod, rc, atomic.Bool{}})
+		return handler(srv, &wrappedStreamWithRC{ss, apiMethod, rc, atomic.Pointer[string]{}})
 	}
 	return handler(srv, ss)
 }
