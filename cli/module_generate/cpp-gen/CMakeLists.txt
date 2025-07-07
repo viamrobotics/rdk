@@ -90,12 +90,6 @@ add_library(generator_api SHARED
 
 target_link_libraries(generator_api PRIVATE generator)
 
-add_executable(cl_gen
-    main.cpp
-)
-
-target_link_libraries(cl_gen PRIVATE generator)
-
 install(
     TARGETS generator_api generator
     DESTINATION lib
