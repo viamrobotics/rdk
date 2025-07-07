@@ -527,23 +527,31 @@ func newWithResources(
 			r.completeConfigWorker()
 		}, r.activeBackgroundWorkers.Done)
 	}
-	// add the job scheduler to the robot
-	getResource := func(resource string) (resource.Resource, error) {
+
+	// getResource is passed in to the jobmanager to have access to the resource graph.
+	getResource := func(res string) (resource.Resource, error) {
+		var found bool
+		var match resource.Name
 		names := r.manager.resources.Names()
 		for _, name := range names {
-			if name.Name == resource {
-				return r.manager.ResourceByName(name)
+			if name.Name == res {
+				if found {
+					return nil, errors.Errorf("found duplicate entries for name %s: %s and %s", res, name.String(), match.String())
+				}
+				match = name
+				found = true
 			}
 		}
-		return nil, errors.Errorf("could not find the resource for name %s", resource)
+		if !found {
+			return nil, errors.Errorf("could not find the resource for name %s", res)
+		}
+		return r.manager.ResourceByName(match)
 	}
 
 	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
 	if err != nil {
-		logger.Warn("Unable to start the job scheduler")
 		return nil, err
 	}
-
 	r.jobManager = jobManager
 
 	r.reconfigure(ctx, cfg, false)
