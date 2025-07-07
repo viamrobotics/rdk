@@ -156,9 +156,9 @@ func generateNodeListForPlanState(
 	ikSeed referenceframe.FrameSystemInputs,
 ) ([]node, error) {
 	nodes := []node{}
-	if len(state.poses) != 0 {
+	if len(state.FsPoses) != 0 {
 		// If we have goal state poses, add them to the goal state configurations
-		goalMetric := mp.opt().getGoalMetric(state.poses)
+		goalMetric := mp.opt().getGoalMetric(state.FsPoses)
 		// get many potential end goals from IK solver
 		solutions, err := mp.getSolutions(ctx, ikSeed, goalMetric)
 		if err != nil {
@@ -166,8 +166,8 @@ func generateNodeListForPlanState(
 		}
 		nodes = append(nodes, solutions...)
 	}
-	if len(state.configuration) > 0 {
-		nodes = append(nodes, newConfigurationNode(state.configuration))
+	if len(state.Inputs) > 0 {
+		nodes = append(nodes, newConfigurationNode(state.Inputs))
 	}
 	if len(nodes) == 0 {
 		return nil, fmt.Errorf("could not create any nodes for state %v", state)

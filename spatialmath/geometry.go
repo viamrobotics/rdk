@@ -54,6 +54,39 @@ type Geometry interface {
 // GeometryType defines what geometry representations are known.
 type GeometryType string
 
+// GeometrySet represents a slice of geometries for the purpose of JSON serialization/deserialization.
+type GeometrySet []Geometry
+
+// MarshalJSON converts a slice of geometries to JSON bytes.
+func (geometries *GeometrySet) MarshalJSON() ([]byte, error) {
+	var configs []*GeometryConfig
+	for _, geometry := range *geometries {
+		geometryCfg, err := NewGeometryConfig(geometry)
+		if err != nil {
+			return nil, err
+		}
+		configs = append(configs, geometryCfg)
+	}
+	return json.Marshal(configs)
+}
+
+// UnmarshalJSON parses a collection of geometries from JSON data.
+func (geometries *GeometrySet) UnmarshalJSON(data []byte) error {
+	var configs []*GeometryConfig
+	if err := json.Unmarshal(data, &configs); err != nil {
+		return err
+	}
+	for _, config := range configs {
+		newGeometry, err := config.ParseConfig()
+		if err != nil {
+			return err
+		}
+		*geometries = append(*geometries, newGeometry)
+	}
+	// *geometries = append(*geometries, newGeometries...)
+	return nil
+}
+
 // The set of allowed representations for the Type in a geometry config.
 const (
 	UnknownType = GeometryType("")

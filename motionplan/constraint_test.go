@@ -30,11 +30,11 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
-	goal := &PlanState{poses: frame.FrameSystemPoses{m.Name(): frame.NewPoseInFrame(
+	goal := &PlanState{FsPoses: frame.FrameSystemPoses{m.Name(): frame.NewPoseInFrame(
 		frame.World,
 		spatial.NewPoseFromProtobuf(&commonpb.Pose{X: -46, Y: 0, Z: 372, OX: -1.78, OY: -3.3, OZ: -1.11}),
 	)}}
-	seed := &PlanState{configuration: map[string][]frame.Input{m.Name(): frame.FloatsToInputs(make([]float64, 6))}}
+	seed := &PlanState{Inputs: map[string][]frame.Input{m.Name(): frame.FloatsToInputs(make([]float64, 6))}}
 	_, err = mp.plan(context.Background(), seed, goal)
 	test.That(t, err, test.ShouldNotBeNil)
 

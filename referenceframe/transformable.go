@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -21,6 +22,25 @@ type PoseInFrame struct {
 	parent string
 	pose   spatialmath.Pose
 	name   string
+}
+
+// MarshalJSON converts a PoseInFrame to JSON data.
+func (pF *PoseInFrame) MarshalJSON() ([]byte, error) {
+	posePb := PoseInFrameToProtobuf(pF)
+	return json.Marshal(posePb)
+}
+
+// UnmarshalJSON parses a PoseInFrame from JSON data.
+func (pF *PoseInFrame) UnmarshalJSON(data []byte) error {
+	posePb := &commonpb.PoseInFrame{}
+	if err := json.Unmarshal(data, posePb); err != nil {
+		return err
+	}
+	newPF := ProtobufToPoseInFrame(posePb)
+	pF.parent = newPF.parent
+	pF.pose = newPF.pose
+	pF.name = newPF.name
+	return nil
 }
 
 // NewPoseInFrame generates a new PoseInFrame.
@@ -79,6 +99,30 @@ func (pF *PoseInFrame) String() string {
 type LinkInFrame struct {
 	*PoseInFrame
 	geometry spatialmath.Geometry
+}
+
+// MarshalJSON converts a LinkInFrame to JSON data.
+func (lF *LinkInFrame) MarshalJSON() ([]byte, error) {
+	proto, err := LinkInFrameToTransformProtobuf(lF)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(proto)
+}
+
+// UnmarshalJSON parses a LinkInFrame from JSON data.
+func (lF *LinkInFrame) UnmarshalJSON(data []byte) error {
+	proto := &commonpb.Transform{}
+	if err := json.Unmarshal(data, proto); err != nil {
+		return err
+	}
+	newLF, err := LinkInFrameFromTransformProtobuf(proto)
+	if err != nil {
+		return err
+	}
+	lF.PoseInFrame = newLF.PoseInFrame
+	lF.geometry = newLF.geometry
+	return nil
 }
 
 // NewLinkInFrame generates a new LinkInFrame.
@@ -213,8 +257,8 @@ func LinkInFramesFromTransformsProtobuf(protoSlice []*commonpb.Transform) ([]*Li
 
 // GeometriesInFrame is a data structure that packages geometries with the name of the frame in which it was observed.
 type GeometriesInFrame struct {
-	frame      string
-	geometries []spatialmath.Geometry
+	Frame       string                  `json:"frame"`
+	GeometrySet spatialmath.GeometrySet `json:"geometries"`
 
 	// This is an internal data structure used for O(1) access to named sub-geometries.
 	// Do not access directly. This will not be accurate for unnamed geometries.
@@ -228,23 +272,23 @@ func NewGeometriesInFrame(frame string, geometries []spatialmath.Geometry) *Geom
 		nameIndexMap[geometry.Label()] = i
 	}
 	return &GeometriesInFrame{
-		frame:        frame,
-		geometries:   geometries,
+		Frame:        frame,
+		GeometrySet:  geometries,
 		nameIndexMap: nameIndexMap,
 	}
 }
 
 // Parent returns the name of the frame in which the geometries were observed.
 func (gF *GeometriesInFrame) Parent() string {
-	return gF.frame
+	return gF.Frame
 }
 
 // Geometries returns the geometries observed.
 func (gF *GeometriesInFrame) Geometries() []spatialmath.Geometry {
-	if gF.geometries == nil {
+	if gF.GeometrySet == nil {
 		return []spatialmath.Geometry{}
 	}
-	return gF.geometries
+	return gF.GeometrySet
 }
 
 // GeometryByName returns the named geometry if it exists in the GeometriesInFrame, and nil otherwise.
@@ -254,7 +298,7 @@ func (gF *GeometriesInFrame) GeometryByName(name string) spatialmath.Geometry {
 		return nil
 	}
 	if i, ok := gF.nameIndexMap[name]; ok {
-		return gF.geometries[i]
+		return gF.GeometrySet[i]
 	}
 	return nil
 }
@@ -262,8 +306,8 @@ func (gF *GeometriesInFrame) GeometryByName(name string) spatialmath.Geometry {
 // Transform changes the GeometriesInFrame gF into the reference frame specified by the tf argument.
 // The tf PoseInFrame represents the pose of the gF reference frame with respect to the destination reference frame.
 func (gF *GeometriesInFrame) Transform(tf *PoseInFrame) Transformable {
-	geometries := make([]spatialmath.Geometry, 0, len(gF.geometries))
-	for _, geometry := range gF.geometries {
+	geometries := make([]spatialmath.Geometry, 0, len(gF.GeometrySet))
+	for _, geometry := range gF.GeometrySet {
 		geometries = append(geometries, geometry.Transform(tf.pose))
 	}
 	return NewGeometriesInFrame(tf.parent, geometries)
@@ -272,7 +316,7 @@ func (gF *GeometriesInFrame) Transform(tf *PoseInFrame) Transformable {
 // GeometriesInFrameToProtobuf converts a GeometriesInFrame struct to a GeometriesInFrame message as specified in common.proto.
 func GeometriesInFrameToProtobuf(framedGeometries *GeometriesInFrame) *commonpb.GeometriesInFrame {
 	return &commonpb.GeometriesInFrame{
-		ReferenceFrame: framedGeometries.frame,
+		ReferenceFrame: framedGeometries.Frame,
 		Geometries:     spatialmath.NewGeometriesToProto(framedGeometries.Geometries()),
 	}
 }

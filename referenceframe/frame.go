@@ -208,7 +208,7 @@ func (nf *namedFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewGeometriesInFrame(nf.name, gif.geometries), nil
+	return NewGeometriesInFrame(nf.name, gif.GeometrySet), nil
 }
 
 // NewNamedFrame will return a frame which has a new name but otherwise passes through all functions of the original frame.

@@ -43,10 +43,10 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	goalPos := spatialmath.NewPose(r3.Vector{X: 200, Y: 7000, Z: 0}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 90})
-	goal := &PlanState{poses: referenceframe.FrameSystemPoses{
+	goal := &PlanState{FsPoses: referenceframe.FrameSystemPoses{
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos),
 	}}
-	start := &PlanState{poses: referenceframe.FrameSystemPoses{
+	start := &PlanState{FsPoses: referenceframe.FrameSystemPoses{
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 	}}
 
@@ -100,10 +100,10 @@ func TestPtgWithObstacle(t *testing.T) {
 	startPose := spatialmath.NewPoseFromPoint(r3.Vector{0, -1000, 0})
 	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 6500, Y: 0, Z: 0})
 
-	start := &PlanState{poses: map[string]*referenceframe.PoseInFrame{
+	start := &PlanState{FsPoses: map[string]*referenceframe.PoseInFrame{
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose),
 	}}
-	goal := &PlanState{poses: map[string]*referenceframe.PoseInFrame{
+	goal := &PlanState{FsPoses: map[string]*referenceframe.PoseInFrame{
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos),
 	}}
 
@@ -231,7 +231,7 @@ func TestTPsmoothing(t *testing.T) {
 
 	// Needed to determine motion chains
 	goalPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 6500, Y: 0, Z: 0})
-	goal := &PlanState{poses: map[string]*referenceframe.PoseInFrame{
+	goal := &PlanState{FsPoses: map[string]*referenceframe.PoseInFrame{
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos),
 	}}
 

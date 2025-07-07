@@ -85,12 +85,12 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 		},
 	}
 
-	startNodes, err := generateNodeListForPlanState(ctx, wp.mp, wp.startState, wp.goalState.configuration)
+	startNodes, err := generateNodeListForPlanState(ctx, wp.mp, wp.startState, wp.goalState.Inputs)
 	if err != nil {
 		rrt.err = err
 		return rrt
 	}
-	goalNodes, err := generateNodeListForPlanState(ctx, wp.mp, wp.goalState, wp.startState.configuration)
+	goalNodes, err := generateNodeListForPlanState(ctx, wp.mp, wp.goalState, wp.startState.Inputs)
 	if err != nil {
 		rrt.err = err
 		return rrt

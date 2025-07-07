@@ -198,10 +198,10 @@ func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, seed, goal *PlanSta
 		poses: referenceframe.FrameSystemPoses{mp.tpFrame.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)},
 	}
 	if seed != nil {
-		startNode = &basicNode{q: zeroInputs, poses: seed.poses}
+		startNode = &basicNode{q: zeroInputs, poses: seed.FsPoses}
 	}
 	maps.startMap = map[node]node{startNode: nil}
-	goalNode := &basicNode{q: zeroInputs, poses: goal.poses}
+	goalNode := &basicNode{q: zeroInputs, poses: goal.FsPoses}
 	maps.goalMap = map[node]node{flipNodePoses(goalNode): nil}
 
 	var planRunners sync.WaitGroup
