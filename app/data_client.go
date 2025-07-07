@@ -582,14 +582,7 @@ func (d *DataClient) GetLatestTabularData(
 	ctx context.Context, partID, resourceName, resourceSubtype, methodName string, opts *TabularDataOptions) (
 	*GetLatestTabularDataResponse, error,
 ) {
-	var additionalParameters *structpb.Struct
-	if opts == nil {
-		additionalParameters = &structpb.Struct{
-			Fields: make(map[string]*structpb.Value),
-		}
-	} else {
-		additionalParameters = additionalParametersToProto(opts.AdditionalParameters)
-	}
+	additionalParameters := additionalParametersToProto(opts)
 
 	resp, err := d.dataClient.GetLatestTabularData(ctx, &pb.GetLatestTabularDataRequest{
 		PartId:               partID,
@@ -613,14 +606,7 @@ func (d *DataClient) GetLatestTabularData(
 func (d *DataClient) ExportTabularData(
 	ctx context.Context, partID, resourceName, resourceSubtype, method string, interval CaptureInterval, opts *TabularDataOptions,
 ) ([]*ExportTabularDataResponse, error) {
-	var additionalParameters *structpb.Struct
-	if opts == nil {
-		additionalParameters = &structpb.Struct{
-			Fields: make(map[string]*structpb.Value),
-		}
-	} else {
-		additionalParameters = additionalParametersToProto(opts.AdditionalParameters)
-	}
+	additionalParameters := additionalParametersToProto(opts)
 
 	stream, err := d.dataClient.ExportTabularData(ctx, &pb.ExportTabularDataRequest{
 		PartId:               partID,
@@ -1904,14 +1890,15 @@ func dataPipelineRunStatusFromProto(proto datapipelinesPb.DataPipelineRunStatus)
 	}
 }
 
-func additionalParametersToProto(additionalParameters map[string]interface{}) *structpb.Struct {
-	if len(additionalParameters) == 0 {
+func additionalParametersToProto(opts *TabularDataOptions) *structpb.Struct {
+	if opts == nil || len(opts.AdditionalParameters) == 0 {
 		return &structpb.Struct{
 			Fields: make(map[string]*structpb.Value),
 		}
 	}
+
 	fields := make(map[string]*structpb.Value)
-	for key, value := range additionalParameters {
+	for key, value := range opts.AdditionalParameters {
 		val, err := structpb.NewValue(value)
 		if err != nil {
 			return &structpb.Struct{
