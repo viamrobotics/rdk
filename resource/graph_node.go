@@ -387,8 +387,8 @@ func (w *GraphNode) SetNeedsUpdate() {
 }
 
 // SetNeedsRebuild is used to inform the node that it should
-// rebuild itself with the same config. The caller is expected to
-// handle closing of the resource on the node if necessary.
+// rebuild itself with the same config and will also unset the resource
+// from the node. The caller is expected to handle closing of the resource in the node if necessary.
 func (w *GraphNode) SetNeedsRebuild() {
 	// doing two mutex ops here but we assume there's only one caller.
 	w.UnsetResource()

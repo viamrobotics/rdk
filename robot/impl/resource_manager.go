@@ -1333,9 +1333,9 @@ func (manager *resourceManager) markResourcesRemoved(
 	return resourcesToCloseBeforeComplete
 }
 
-// markRebuildResources reinitializes resources passed in, forcing a rebuild of the resource during
-// reconfiguration and/or completeConfig loop. This function expects the caller to clean up any resources
-// if necessary.
+// markRebuildResources marks resources passed in as needing a rebuild during
+// reconfiguration and/or completeConfig loop. This function expects the caller
+// to close any resources if necessary.
 func (manager *resourceManager) markRebuildResources(rNames []resource.Name) {
 	for _, rName := range rNames {
 		// Disable changes to shell in untrusted

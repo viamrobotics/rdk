@@ -695,8 +695,7 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 }
 
 // ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
-// and modified resources. It also puts modular resources whose module has been modified or added in conf.Added if
-// they are not already there since the resources themselves are not necessarily new.
+// and modified resources.
 func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
 	// If something was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
