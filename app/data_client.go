@@ -313,7 +313,7 @@ type CreateDataPipelineOptions struct {
 	TabularDataSourceType TabularDataSourceType
 }
 
-// TabularDataOptions contains optional parameters for GetLatestTabularData and ExportTabularData
+// TabularDataOptions contains optional parameters for GetLatestTabularData and ExportTabularData.
 type TabularDataOptions struct {
 	AdditionalParameters map[string]interface{}
 }
