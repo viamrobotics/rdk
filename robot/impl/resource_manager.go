@@ -1345,7 +1345,9 @@ func (manager *resourceManager) markRebuildResources(rNames []resource.Name) {
 			continue
 		}
 		resNode.SetNeedsRebuild()
-		manager.markChildrenForUpdate(rName)
+		if err := manager.markChildrenForUpdate(rName); err != nil {
+			manager.logger.Errorw("error marking children for update", "resource", rName, "error", err)
+		}
 	}
 }
 
