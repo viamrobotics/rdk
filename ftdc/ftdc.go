@@ -146,6 +146,12 @@ func NewWithUploader(ftdcDirectory string, cloudConn rpc.ClientConn, partID stri
 	ret := New(ftdcDirectory, logger)
 	if cloudConn != nil {
 		ret.uploader = newUploader(cloudConn, ftdcDirectory, partID, logger.Sublogger("uploader"))
+
+		// It's imperative this operation is performed `Start` is called. Once `Start` is called, a
+		// new file can be written out with data from the current running `viam-server`.
+		if latestFilename := getLatestFTDCFilename(ftdcDirectory, logger); latestFilename != "" {
+			ret.uploader.addFileToUpload(latestFilename)
+		}
 	}
 	return ret
 }
@@ -572,6 +578,41 @@ type fileTime struct {
 	time time.Time
 }
 
+func getLatestFTDCFilename(ftdcDir string, logger logging.Logger) string {
+	var files []fileTime
+
+	// Walk the `ftdcDir` and gather all of the found files into the captured `files` variable.
+	err := filepath.Walk(ftdcDir, filepath.WalkFunc(func(path string, info fs.FileInfo, walkErr error) error {
+		if !strings.HasSuffix(path, ".ftdc") {
+			return nil
+		}
+
+		if walkErr != nil {
+			logger.Warnw("Unexpected walk error. Continuing under the assumption any actual* problem will",
+				"be caught by the assertions.", "err", walkErr)
+			return nil
+		}
+
+		parsedTime, err := parseTimeFromFilename(path)
+		if err == nil {
+			files = append(files, fileTime{path, parsedTime})
+		} else {
+			logger.Warnw("Error parsing time from FTDC file", "filename", path)
+		}
+		return nil
+	}))
+	if err != nil || len(files) == 0 {
+		return ""
+	}
+
+	slices.SortFunc(files, func(left, right fileTime) int {
+		// Sort in descending order.
+		return right.time.Compare(left.time)
+	})
+
+	return files[0].name
+}
+
 func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 	var files []fileTime
 
@@ -627,7 +668,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 // deletion testing. Filename generation uses padding such that we can rely on there before 2/4
 // digits for every numeric value.
 //
-//nolint
+// nolint
 // Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
 var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
 
