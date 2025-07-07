@@ -14,17 +14,17 @@ const unnamedWorldStateGeometryPrefix = "unnamedWorldStateGeometry_"
 
 // WorldState is a struct to store the data representation of the robot's environment.
 type WorldState struct {
-	ObstacleNamesInner map[string]bool      `json:"obstacle_names"`
-	ObstaclesInner     []*GeometriesInFrame `json:"obstacles"`
-	TransformsInner    []*LinkInFrame       `json:"transforms"`
+	obstacleNames map[string]bool
+	obstacles     []*GeometriesInFrame
+	transforms    []*LinkInFrame
 }
 
 // NewEmptyWorldState is a constructor for a WorldState object that has no obstacles or transforms.
 func NewEmptyWorldState() *WorldState {
 	return &WorldState{
-		ObstacleNamesInner: make(map[string]bool),
-		ObstaclesInner:     make([]*GeometriesInFrame, 0),
-		TransformsInner:    make([]*LinkInFrame, 0),
+		obstacleNames: make(map[string]bool),
+		obstacles:     make([]*GeometriesInFrame, 0),
+		transforms:    make([]*LinkInFrame, 0),
 	}
 }
 
@@ -32,9 +32,9 @@ func NewEmptyWorldState() *WorldState {
 // and transforms which are meant to represent additional links that augment a FrameSystem.
 func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*WorldState, error) {
 	ws := &WorldState{
-		ObstacleNamesInner: make(map[string]bool),
-		ObstaclesInner:     make([]*GeometriesInFrame, 0),
-		TransformsInner:    transforms,
+		obstacleNames: make(map[string]bool),
+		obstacles:     make([]*GeometriesInFrame, 0),
+		transforms:    transforms,
 	}
 	unnamedCount := 0
 	for _, gf := range obstacles {
@@ -50,13 +50,13 @@ func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*
 				unnamedCount++
 			}
 
-			if _, present := ws.ObstacleNamesInner[name]; present {
+			if _, present := ws.obstacleNames[name]; present {
 				return nil, NewDuplicateGeometryNameError(name)
 			}
-			ws.ObstacleNamesInner[name] = true
+			ws.obstacleNames[name] = true
 			checkedGeometries = append(checkedGeometries, geometry)
 		}
-		ws.ObstaclesInner = append(ws.ObstaclesInner, NewGeometriesInFrame(gf.Frame, checkedGeometries))
+		ws.obstacles = append(ws.obstacles, NewGeometriesInFrame(gf.frame, checkedGeometries))
 	}
 	return ws, nil
 }
@@ -94,13 +94,13 @@ func (ws *WorldState) ToProtobuf() (*commonpb.WorldState, error) {
 		return list
 	}
 
-	transforms, err := LinkInFramesToTransformsProtobuf(ws.Transforms())
+	transforms, err := LinkInFramesToTransformsProtobuf(ws.transforms)
 	if err != nil {
 		return nil, err
 	}
 
 	return &commonpb.WorldState{
-		Obstacles:  convertGeometriesToProto(ws.ObstaclesInner),
+		Obstacles:  convertGeometriesToProto(ws.obstacles),
 		Transforms: transforms,
 	}, nil
 }
@@ -113,12 +113,12 @@ func (ws *WorldState) String() string {
 
 	t := table.NewWriter()
 	t.AppendHeader(table.Row{"Name", "Geometry Type", "Parent"})
-	for _, geometries := range ws.ObstaclesInner {
-		for _, geometry := range geometries.GeometrySet {
+	for _, geometries := range ws.obstacles {
+		for _, geometry := range geometries.geometries {
 			t.AppendRow([]interface{}{
 				geometry.Label(),
 				fmt.Sprint(geometry),
-				geometries.Frame,
+				geometries.frame,
 			})
 		}
 	}
@@ -132,7 +132,7 @@ func (ws *WorldState) ObstacleNames() map[string]bool {
 	}
 
 	copiedMap := make(map[string]bool)
-	for key, value := range ws.ObstacleNamesInner {
+	for key, value := range ws.obstacleNames {
 		copiedMap[key] = value
 	}
 	return copiedMap
@@ -143,7 +143,7 @@ func (ws *WorldState) Obstacles() []*GeometriesInFrame {
 	if ws == nil {
 		return []*GeometriesInFrame{}
 	}
-	return ws.ObstaclesInner
+	return ws.obstacles
 }
 
 // Transforms returns the transforms that have been added to the WorldState.
@@ -151,7 +151,7 @@ func (ws *WorldState) Transforms() []*LinkInFrame {
 	if ws == nil {
 		return []*LinkInFrame{}
 	}
-	return ws.TransformsInner
+	return ws.transforms
 }
 
 // ObstaclesInWorldFrame takes a frame system and a set of inputs for that frame system and converts all the obstacles
@@ -161,8 +161,8 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs FrameSystemIn
 		return NewGeometriesInFrame(World, []spatialmath.Geometry{}), nil
 	}
 
-	allGeometries := make([]spatialmath.Geometry, 0, len(ws.ObstaclesInner))
-	for _, gf := range ws.ObstaclesInner {
+	allGeometries := make([]spatialmath.Geometry, 0, len(ws.obstacles))
+	for _, gf := range ws.obstacles {
 		tf, err := fs.Transform(inputs, gf, World)
 		if err != nil {
 			return nil, err

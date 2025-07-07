@@ -120,16 +120,16 @@ func motionChainsFromPlanState(fs referenceframe.FrameSystem, to *PlanState) (*m
 	// create motion chains for each goal, and error check for PTG frames
 	// TODO: currently, if any motion chain has a PTG frame, that must be the only motion chain and that frame must be the only
 	// frame in the chain with nonzero DoF. Eventually this need not be the case.
-	inner := make([]*motionChain, 0, len(to.FsPoses)+len(to.Inputs))
+	inner := make([]*motionChain, 0, len(to.poses)+len(to.configuration))
 
-	for frame, pif := range to.FsPoses {
+	for frame, pif := range to.poses {
 		chain, err := motionChainFromGoal(fs, frame, pif.Parent())
 		if err != nil {
 			return nil, err
 		}
 		inner = append(inner, chain)
 	}
-	for frame := range to.Inputs {
+	for frame := range to.configuration {
 		chain, err := motionChainFromGoal(fs, frame, frame)
 		if err != nil {
 			return nil, err
@@ -203,10 +203,10 @@ func (mC *motionChains) translateGoalsToWorldPosition(
 	goal *PlanState,
 ) (*PlanState, error) {
 	alteredGoals := referenceframe.FrameSystemPoses{}
-	if goal.FsPoses != nil {
+	if goal.poses != nil {
 		for _, chain := range mC.inner {
 			// chain solve frame may only be in the goal configuration, in which case we skip as the configuration will be passed through
-			if goalPif, ok := goal.FsPoses[chain.solveFrameName]; ok {
+			if goalPif, ok := goal.poses[chain.solveFrameName]; ok {
 				if chain.worldRooted {
 					tf, err := fs.Transform(start, goalPif, referenceframe.World)
 					if err != nil {
@@ -218,7 +218,7 @@ func (mC *motionChains) translateGoalsToWorldPosition(
 				}
 			}
 		}
-		return &PlanState{FsPoses: alteredGoals, Inputs: goal.Inputs}, nil
+		return &PlanState{poses: alteredGoals, configuration: goal.configuration}, nil
 	}
 	return goal, nil
 }

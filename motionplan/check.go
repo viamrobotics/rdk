@@ -40,7 +40,7 @@ func CheckPlan(
 		return errors.New("wayPointIdx outside of plan bounds")
 	}
 
-	motionChains, err := motionChainsFromPlanState(fs, &PlanState{FsPoses: plan.Path()[len(plan.Path())-1]})
+	motionChains, err := motionChainsFromPlanState(fs, &PlanState{poses: plan.Path()[len(plan.Path())-1]})
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func checkPlanRelative(
 	plan := executionState.Plan()
 	zeroPosePIF := referenceframe.NewPoseInFrame(checkFrame.Name(), spatialmath.NewZeroPose())
 
-	motionChains, err := motionChainsFromPlanState(fs, &PlanState{FsPoses: plan.Path()[len(plan.Path())-1]})
+	motionChains, err := motionChainsFromPlanState(fs, &PlanState{poses: plan.Path()[len(plan.Path())-1]})
 	if err != nil {
 		return err
 	}
@@ -94,8 +94,8 @@ func checkPlanRelative(
 	constraintHandler, err := newConstraintHandler(
 		planOpts,
 		nil,
-		&PlanState{FsPoses: plan.Path()[0], Inputs: plan.Trajectory()[0]},
-		&PlanState{FsPoses: plan.Path()[len(plan.Path())-1]},
+		&PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
+		&PlanState{poses: plan.Path()[len(plan.Path())-1]},
 		fs,
 		motionChains,
 		plan.Trajectory()[0],
@@ -227,7 +227,7 @@ func checkPlanAbsolute(
 	// get plan poses for checkFrame
 	poses := offsetPlan.Path()
 
-	motionChains, err := motionChainsFromPlanState(fs, &PlanState{FsPoses: poses[len(poses)-1]})
+	motionChains, err := motionChainsFromPlanState(fs, &PlanState{poses: poses[len(poses)-1]})
 	if err != nil {
 		return err
 	}
@@ -240,8 +240,8 @@ func checkPlanAbsolute(
 	constraintHandler, err := newConstraintHandler(
 		planOpts,
 		nil,
-		&PlanState{FsPoses: executionState.CurrentPoses(), Inputs: startingInputs},
-		&PlanState{FsPoses: poses[len(poses)-1]},
+		&PlanState{poses: executionState.CurrentPoses(), configuration: startingInputs},
+		&PlanState{poses: poses[len(poses)-1]},
 		fs,
 		motionChains,
 		startingInputs,
