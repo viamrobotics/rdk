@@ -57,7 +57,7 @@ endif()
 
 message(STATUS "Clang include ${CLANG_INCLUDE_DIRS}")
 
-add_library(generator
+add_library(generator SHARED
     compilation_db.cpp
     compiler_info.cpp
     generator.cpp
@@ -84,7 +84,7 @@ target_link_libraries(generator PUBLIC
 target_compile_features(generator PUBLIC cxx_std_17)
 target_compile_options(generator PUBLIC "-fno-rtti")
 
-add_library(generator_api
+add_library(generator_api SHARED
     gen_api.cpp
 )
 
