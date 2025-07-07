@@ -22,6 +22,7 @@ if (LLVM_ROOT)
     endif()
     message(STATUS "LLVM_ROOT: ${LLVM_ROOT}")
 endif()
+
 if (Clang_ROOT)
     # Clang_ROOT is absolute
     get_filename_component(Clang_ROOT "${Clang_ROOT}" ABSOLUTE)
@@ -37,6 +38,24 @@ find_package(Clang REQUIRED CONFIG)
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
 include(HandleLLVMOptions)
 add_definitions(${LLVM_DEFINITIONS})
+
+# ClangConfig.cmake does not specify a version so we manually check below for the only supported version
+set(_clang_version_header_path "${CLANG_INCLUDE_DIRS}/clang/Basic/Version.inc")
+
+if(NOT EXISTS ${_clang_version_header_path})
+    message(FATAL_ERROR "Could not find ${_clang_version_header_path} at ${CLANG_INCLUDE_DIRS}")
+endif()
+
+file(READ ${_clang_version_header_path}  _clang_version_header_contents)
+string(FIND "${_clang_version_header_contents}" "#define CLANG_VERSION_MAJOR 15" _version_match)
+
+if (${_version_match} EQUAL -1)
+    message(FATAL_ERROR "Incorrect version or no version found in clang version header ${_clang_version_header_path}
+    ${_clang_version_header_contents}
+    required version is Clang 15")
+endif()
+
+message(STATUS "Clang include ${CLANG_INCLUDE_DIRS}")
 
 add_library(generator
     compilation_db.cpp
