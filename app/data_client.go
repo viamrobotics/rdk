@@ -582,14 +582,17 @@ func (d *DataClient) GetLatestTabularData(
 	ctx context.Context, partID, resourceName, resourceSubtype, methodName string, opts *TabularDataOptions) (
 	*GetLatestTabularDataResponse, error,
 ) {
-	additionalParameters := additionalParametersToProto(opts)
+	additionalParameters, err := additionalParametersToProto(opts)
+	if err != nil {
+		return nil, err
+	}
 
 	resp, err := d.dataClient.GetLatestTabularData(ctx, &pb.GetLatestTabularDataRequest{
 		PartId:               partID,
 		ResourceName:         resourceName,
 		ResourceSubtype:      resourceSubtype,
 		MethodName:           methodName,
-		AdditionalParameters: additionalParameters, // TODOEMERALD: if nil should we still pass
+		AdditionalParameters: additionalParameters,
 	})
 	if err != nil {
 		return nil, err
@@ -606,7 +609,10 @@ func (d *DataClient) GetLatestTabularData(
 func (d *DataClient) ExportTabularData(
 	ctx context.Context, partID, resourceName, resourceSubtype, method string, interval CaptureInterval, opts *TabularDataOptions,
 ) ([]*ExportTabularDataResponse, error) {
-	additionalParameters := additionalParametersToProto(opts)
+	additionalParameters, err := additionalParametersToProto(opts)
+	if err != nil {
+		return nil, err
+	}
 
 	stream, err := d.dataClient.ExportTabularData(ctx, &pb.ExportTabularDataRequest{
 		PartId:               partID,
@@ -1890,11 +1896,11 @@ func dataPipelineRunStatusFromProto(proto datapipelinesPb.DataPipelineRunStatus)
 	}
 }
 
-func additionalParametersToProto(opts *TabularDataOptions) *structpb.Struct {
+func additionalParametersToProto(opts *TabularDataOptions) (*structpb.Struct, error) {
 	if opts == nil || len(opts.AdditionalParameters) == 0 {
 		return &structpb.Struct{
 			Fields: make(map[string]*structpb.Value),
-		}
+		}, nil
 	}
 
 	fields := make(map[string]*structpb.Value)
@@ -1903,11 +1909,11 @@ func additionalParametersToProto(opts *TabularDataOptions) *structpb.Struct {
 		if err != nil {
 			return &structpb.Struct{
 				Fields: make(map[string]*structpb.Value),
-			}
+			}, err
 		}
 		fields[key] = val
 	}
 	return &structpb.Struct{
 		Fields: fields,
-	}
+	}, nil
 }
