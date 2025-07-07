@@ -510,10 +510,9 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	}
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	return motionplan.PlanMotion(ctx, logger, &motionplan.PlanRequest{
+	return motionplan.PlanMotion(ctx, logger, frameSys, &motionplan.PlanRequest{
 		Goals:          worldWaypoints,
 		StartState:     startState,
-		FrameSystem:    frameSys,
 		WorldState:     req.WorldState,
 		Constraints:    req.Constraints,
 		PlannerOptions: planOpts,

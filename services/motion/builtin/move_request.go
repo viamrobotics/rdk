@@ -61,6 +61,7 @@ type moveRequest struct {
 	geoPoseOrigin     *spatialmath.GeoPose
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
+	frameSystem       referenceframe.FrameSystem
 	planRequest       *motionplan.PlanRequest
 	seedPlan          motionplan.Plan
 	kinematicBase     kinematicbase.KinematicBase
@@ -103,7 +104,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	mr.planRequest.StartState = motionplan.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
 
 	// get existing elements of the worldstate
-	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(mr.planRequest.FrameSystem, startConf)
+	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(mr.frameSystem, startConf)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +130,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	}
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
-	return motionplan.Replan(ctx, mr.logger, &planRequestCopy, nil, 0)
+	return motionplan.Replan(ctx, mr.logger, mr.frameSystem, &planRequestCopy, nil, 0)
 }
 
 func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
@@ -297,7 +298,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	// we need the original input to place that thing in its original position
 	// hence, cached CurrentInputs from the start are used i.e. mr.planRequest.StartConfiguration
 	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(
-		mr.planRequest.FrameSystem, mr.planRequest.StartState.Configuration(),
+		mr.frameSystem, mr.planRequest.StartState.Configuration(),
 	)
 	if err != nil {
 		return state.ExecuteResponse{}, err
@@ -950,11 +951,11 @@ func (ms *builtIn) createBaseMoveRequest(
 		return nil, err
 	}
 	mr := &moveRequest{
-		config: motionCfg,
-		logger: ms.logger,
+		config:      motionCfg,
+		logger:      ms.logger,
+		frameSystem: planningFS,
 		planRequest: &motionplan.PlanRequest{
 			Goals:          goals,
-			FrameSystem:    planningFS,
 			StartState:     startState,
 			WorldState:     worldState,
 			PlannerOptions: planOpts,

@@ -176,10 +176,9 @@ func TestPlanningWithGripper(t *testing.T) {
 	zeroPos := frame.NewZeroInputs(fs)
 
 	newPose := frame.NewPoseInFrame("gripper", spatialmath.NewPoseFromPoint(r3.Vector{100, 100, 0}))
-	solutionMap, err := PlanMotion(context.Background(), logger, &PlanRequest{
+	solutionMap, err := PlanMotion(context.Background(), logger, fs, &PlanRequest{
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"gripper": newPose}}},
 		StartState:     &PlanState{configuration: zeroPos},
-		FrameSystem:    fs,
 		PlannerOptions: NewBasicPlannerOptions(),
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -520,10 +519,9 @@ func TestArmOOBSolve(t *testing.T) {
 
 	// Set a goal unreachable by the UR due to sheer distance
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 21000, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
-	_, err := PlanMotion(context.Background(), logger, &PlanRequest{
+	_, err := PlanMotion(context.Background(), logger, fs, &PlanRequest{
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"urCamera": frame.NewPoseInFrame(frame.World, goal1)}}},
 		StartState:     &PlanState{configuration: positions},
-		FrameSystem:    fs,
 		PlannerOptions: NewBasicPlannerOptions(),
 	})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -545,10 +543,9 @@ func TestArmObstacleSolve(t *testing.T) {
 
 	// Set a goal unreachable by the UR
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 210, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
-	_, err = PlanMotion(context.Background(), logger, &PlanRequest{
+	_, err = PlanMotion(context.Background(), logger, fs, &PlanRequest{
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"urCamera": frame.NewPoseInFrame(frame.World, goal1)}}},
 		StartState:     &PlanState{configuration: positions},
-		FrameSystem:    fs,
 		WorldState:     worldState,
 		PlannerOptions: NewBasicPlannerOptions(),
 	})
@@ -573,10 +570,9 @@ func TestArmAndGantrySolve(t *testing.T) {
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 2100, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	planOpts, err := NewPlannerOptionsFromExtra(map[string]interface{}{"smooth_iter": 5})
 	test.That(t, err, test.ShouldBeNil)
-	plan, err := PlanMotion(context.Background(), logger, &PlanRequest{
+	plan, err := PlanMotion(context.Background(), logger, fs, &PlanRequest{
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal1)}}},
 		StartState:     &PlanState{configuration: positions},
-		FrameSystem:    fs,
 		PlannerOptions: planOpts,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -598,10 +594,9 @@ func TestMultiArmSolve(t *testing.T) {
 		map[string]interface{}{"max_ik_solutions": 10, "timeout": 150.0, "smooth_iter": 5},
 	)
 	test.That(t, err, test.ShouldBeNil)
-	plan, err := PlanMotion(context.Background(), logger, &PlanRequest{
+	plan, err := PlanMotion(context.Background(), logger, fs, &PlanRequest{
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame("urCamera", goal2)}}},
 		StartState:     &PlanState{configuration: positions},
-		FrameSystem:    fs,
 		PlannerOptions: planOpts,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -643,10 +638,9 @@ func TestReachOverArm(t *testing.T) {
 	opts := map[string]interface{}{"timeout": 150.0}
 	planOpts, err := NewPlannerOptionsFromExtra(opts)
 	test.That(t, err, test.ShouldBeNil)
-	plan, err := PlanMotion(context.Background(), logger, &PlanRequest{
+	plan, err := PlanMotion(context.Background(), logger, fs, &PlanRequest{
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{xarm.Name(): goal}}},
 		StartState:     &PlanState{configuration: frame.NewZeroInputs(fs)},
-		FrameSystem:    fs,
 		PlannerOptions: planOpts,
 	})
 
@@ -662,10 +656,9 @@ func TestReachOverArm(t *testing.T) {
 	opts = map[string]interface{}{"timeout": 150.0, "smooth_iter": 5}
 	planOpts, err = NewPlannerOptionsFromExtra(opts)
 	test.That(t, err, test.ShouldBeNil)
-	plan, err = PlanMotion(context.Background(), logger, &PlanRequest{
+	plan, err = PlanMotion(context.Background(), logger, fs, &PlanRequest{
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{xarm.Name(): goal}}},
 		StartState:     &PlanState{configuration: frame.NewZeroInputs(fs)},
-		FrameSystem:    fs,
 		PlannerOptions: planOpts,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -710,10 +703,9 @@ func TestPlanMapMotion(t *testing.T) {
 		}
 		destination := frame.NewPoseInFrame(frame.World, dst)
 		seedMap := map[string][]frame.Input{f.Name(): seed}
-		plan, err := PlanMotion(ctx, logger, &PlanRequest{
+		plan, err := PlanMotion(ctx, logger, fs, &PlanRequest{
 			Goals:          []*PlanState{{poses: frame.FrameSystemPoses{f.Name(): destination}}},
 			StartState:     &PlanState{configuration: seedMap},
-			FrameSystem:    fs,
 			WorldState:     worldState,
 			PlannerOptions: NewBasicPlannerOptions(),
 		})
@@ -752,10 +744,9 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 
 	checkReachable := func(worldState *frame.WorldState, constraints *Constraints) error {
 		goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
-		_, err := PlanMotion(context.Background(), logger, &PlanRequest{
+		_, err := PlanMotion(context.Background(), logger, fs, &PlanRequest{
 			Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
 			StartState:     &PlanState{configuration: frame.NewZeroInputs(fs)},
-			FrameSystem:    fs,
 			WorldState:     worldState,
 			Constraints:    constraints,
 			PlannerOptions: NewBasicPlannerOptions(),
@@ -839,10 +830,9 @@ func TestMovementWithGripper(t *testing.T) {
 	request := &PlanRequest{
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
 		StartState:     &PlanState{configuration: startConfig},
-		FrameSystem:    fs,
 		PlannerOptions: planOpts,
 	}
-	solution, err := PlanMotion(context.Background(), logger, request)
+	solution, err := PlanMotion(context.Background(), logger, fs, request)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 
@@ -855,19 +845,19 @@ func TestMovementWithGripper(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	request.WorldState = worldState
-	solution, err = PlanMotion(context.Background(), logger, request)
+	solution, err = PlanMotion(context.Background(), logger, fs, request)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 
 	// plan with end of arm with gripper attached - this will fail
 	goal = spatialmath.NewPose(r3.Vector{500, 0, -100}, &spatialmath.OrientationVector{OZ: -1})
 	request.Goals = []*PlanState{{poses: frame.FrameSystemPoses{"xArm6": frame.NewPoseInFrame(frame.World, goal)}}}
-	_, err = PlanMotion(context.Background(), logger, request)
+	_, err = PlanMotion(context.Background(), logger, fs, request)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// remove linear constraint and try again
 	request.PlannerOptions = NewBasicPlannerOptions()
-	solution, err = PlanMotion(context.Background(), logger, request)
+	solution, err = PlanMotion(context.Background(), logger, fs, request)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 
@@ -876,7 +866,7 @@ func TestMovementWithGripper(t *testing.T) {
 	planOpts, err = NewPlannerOptionsFromExtra(motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	request.PlannerOptions = planOpts
-	solution, err = PlanMotion(context.Background(), logger, request)
+	solution, err = PlanMotion(context.Background(), logger, fs, request)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
 }
@@ -944,13 +934,12 @@ func TestReplanValidations(t *testing.T) {
 				return
 			}
 			test.That(t, err, test.ShouldBeNil)
-			_, err = Replan(ctx, logger, &PlanRequest{
+			_, err = Replan(ctx, logger, baseFS, &PlanRequest{
 				Goals: []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
 				StartState: &PlanState{
 					configuration: frame.NewZeroInputs(baseFS),
 					poses:         frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
 				},
-				FrameSystem:    baseFS,
 				PlannerOptions: planOpts,
 			}, nil, 0)
 			if tc.err != nil {
@@ -991,11 +980,10 @@ func TestReplan(t *testing.T) {
 	planRequest := &PlanRequest{
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
 		StartState:     &PlanState{configuration: frame.NewZeroInputs(baseFS)},
-		FrameSystem:    baseFS,
 		PlannerOptions: NewBasicPlannerOptions(),
 	}
 
-	firstplan, err := PlanMotion(ctx, logger, planRequest)
+	firstplan, err := PlanMotion(ctx, logger, baseFS, planRequest)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Let's pretend we've moved towards the goal, so the goal is now closer
@@ -1003,12 +991,12 @@ func TestReplan(t *testing.T) {
 	planRequest.Goals = []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}}
 
 	// This should easily pass
-	newPlan1, err := Replan(ctx, logger, planRequest, firstplan, 1.0)
+	newPlan1, err := Replan(ctx, logger, baseFS, planRequest, firstplan, 1.0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(newPlan1.Trajectory()), test.ShouldBeGreaterThan, 2)
 
 	// But if we drop the replan factor to a very low number, it should now fail
-	newPlan2, err := Replan(ctx, logger, planRequest, firstplan, 0.1)
+	newPlan2, err := Replan(ctx, logger, baseFS, planRequest, firstplan, 0.1)
 	test.That(t, newPlan2, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeError, errHighReplanCost) // Replan factor too low!
 }
@@ -1042,8 +1030,7 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 	planOpts, err := NewPlannerOptionsFromExtra(extra)
 	test.That(t, err, test.ShouldBeNil)
 	planRequest := &PlanRequest{
-		Goals:       []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
-		FrameSystem: baseFS,
+		Goals: []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
 		StartState: &PlanState{
 			configuration: frame.NewZeroInputs(baseFS),
 			poses:         frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
@@ -1052,7 +1039,7 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 		PlannerOptions: planOpts,
 	}
 
-	bidirectionalPlanRaw, err := PlanMotion(ctx, logger, planRequest)
+	bidirectionalPlanRaw, err := PlanMotion(ctx, logger, baseFS, planRequest)
 	test.That(t, err, test.ShouldBeNil)
 
 	// If bidirectional planning worked properly, this plan should wind up at the goal with an orientation of Theta = 180 degrees
@@ -1092,22 +1079,15 @@ func TestValidatePlanRequest(t *testing.T) {
 
 	testCases := []testCase{
 		{
-			name:        "nil framesystem - fail",
-			request:     PlanRequest{},
-			expectedErr: errors.New("PlanRequest cannot have nil framesystem"),
-		},
-		{
 			name: "absent start state - fail",
 			request: PlanRequest{
-				FrameSystem: fs,
-				Goals:       validGoal,
+				Goals: validGoal,
 			},
 			expectedErr: errors.New("PlanRequest cannot have nil StartState"),
 		},
 		{
 			name: "nil goal - fail",
 			request: PlanRequest{
-				FrameSystem: fs,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
 					"frame1": {}, "frame2": {{0}},
 				}},
@@ -1117,8 +1097,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		{
 			name: "goal's parent not in frame system - fail",
 			request: PlanRequest{
-				FrameSystem: fs,
-				Goals:       badGoal,
+				Goals: badGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
 					"frame1": {}, "frame2": {{0}},
 				}},
@@ -1129,17 +1108,15 @@ func TestValidatePlanRequest(t *testing.T) {
 		{
 			name: "absent StartState Configuration - fail",
 			request: PlanRequest{
-				FrameSystem: fs,
-				Goals:       validGoal,
-				StartState:  &PlanState{},
+				Goals:      validGoal,
+				StartState: &PlanState{},
 			},
 			expectedErr: errors.New("PlanRequest cannot have nil StartState configuration"),
 		},
 		{
 			name: "incorrect length StartConfiguration - fail",
 			request: PlanRequest{
-				FrameSystem: fs,
-				Goals:       validGoal,
+				Goals: validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
 					"frame1": {}, "frame2": frame.FloatsToInputs([]float64{0, 0, 0, 0, 0}),
 				}},
@@ -1150,8 +1127,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		{
 			name: "well formed PlanRequest",
 			request: PlanRequest{
-				FrameSystem: fs,
-				Goals:       validGoal,
+				Goals: validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
 					"frame1": {}, "frame2": {{0}},
 				}},
@@ -1162,7 +1138,7 @@ func TestValidatePlanRequest(t *testing.T) {
 	}
 
 	testFn := func(t *testing.T, tc testCase) {
-		err := tc.request.validatePlanRequest()
+		err := tc.request.validatePlanRequest(fs)
 		if tc.expectedErr != nil {
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldEqual, tc.expectedErr.Error())
@@ -1179,8 +1155,13 @@ func TestValidatePlanRequest(t *testing.T) {
 		})
 	}
 
+	// test nil frame system caught
+	_, err = PlanMotion(context.Background(), logger, nil, &PlanRequest{})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual, errors.New("PlanRequest cannot have nil framesystem").Error())
+
 	// ensure nil PlanRequests are caught
-	_, err = PlanMotion(context.Background(), logger, nil)
+	_, err = PlanMotion(context.Background(), logger, fs, nil)
 	test.That(t, err.Error(), test.ShouldEqual, "PlanRequest cannot be nil")
 }
 
@@ -1210,11 +1191,10 @@ func TestArmGantryCheckPlan(t *testing.T) {
 	planReq := PlanRequest{
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArm6": frame.NewPoseInFrame(frame.World, goal)}}},
 		StartState:     &PlanState{configuration: frame.NewZeroInputs(fs)},
-		FrameSystem:    fs,
 		PlannerOptions: NewBasicPlannerOptions(),
 	}
 
-	plan, err := PlanMotion(context.Background(), logger, &planReq)
+	plan, err := PlanMotion(context.Background(), logger, fs, &planReq)
 	test.That(t, err, test.ShouldBeNil)
 
 	startPose := plan.Path()[0][f.Name()].Pose()
