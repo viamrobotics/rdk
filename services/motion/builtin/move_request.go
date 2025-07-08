@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/base"
@@ -687,10 +686,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 
 	// TODO (GV) - Remove this unnecessary converion/re-conversion when an
 	// opinionated proto message is created for PlanRequest
-	boundingRegionsProto := make([]*commonpb.Geometry, 0)
-	for _, region := range boundingRegions {
-		boundingRegionsProto = append(boundingRegionsProto, region.ToProtobuf())
-	}
+	boundingRegionsProto := spatialmath.NewGeometriesToProto(boundingRegions)
 
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
