@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -18,8 +19,6 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
-
-	commonpb "go.viam.com/api/common/v1"
 )
 
 // When we generate solutions, if a new solution is within this level of similarity to an existing one, discard it as a duplicate.
@@ -188,6 +187,8 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 	return nil
 }
 
+// GetBoundingRegionGeometries parses the Geometry protobuf objects in `BoundingRegions` into
+// instances of spatialmath.Geometry.
 func (req *PlanRequest) GetBoundingRegionGeometries() ([]spatialmath.Geometry, error) {
 	boundingRegions := make([]spatialmath.Geometry, 0)
 	for _, regionProto := range req.BoundingRegions {

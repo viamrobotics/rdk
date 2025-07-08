@@ -1,11 +1,11 @@
 package referenceframe
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/spatialmath"
 )
@@ -79,13 +79,13 @@ func (pF *PoseInFrame) String() string {
 // MarshalJSON converts a PoseInFrame to JSON through its protobuf representation.
 func (pF *PoseInFrame) MarshalJSON() ([]byte, error) {
 	pFProto := PoseInFrameToProtobuf(pF)
-	return json.Marshal(&pFProto)
+	return protojson.Marshal(pFProto)
 }
 
-// UnmarshalJSON parses a PoseInFrame from its protobuf representation in JSON bytes
+// UnmarshalJSON parses a PoseInFrame from its protobuf representation in JSON bytes.
 func (pF *PoseInFrame) UnmarshalJSON(data []byte) error {
 	var pFProto commonpb.PoseInFrame
-	if err := json.Unmarshal(data, &pFProto); err != nil {
+	if err := protojson.Unmarshal(data, &pFProto); err != nil {
 		return err
 	}
 	newPF := ProtobufToPoseInFrame(&pFProto)

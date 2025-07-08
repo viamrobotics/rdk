@@ -2,8 +2,10 @@ package motionplan
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"math/rand"
+	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -511,6 +513,107 @@ func makeTestFS(t *testing.T) frame.FrameSystem {
 	fs.AddFrame(xArmVgripper, modelXarm)
 
 	return fs
+}
+
+func TestSerializedPlanRequest(t *testing.T) {
+	fs := frame.NewEmptyFrameSystem("")
+	x, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(x, fs.World()), test.ShouldBeNil)
+	bc, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{Z: 100}), r3.Vector{200, 200, 200}, "")
+	test.That(t, err, test.ShouldBeNil)
+	xArmVgripper, err := frame.NewStaticFrameWithGeometry("xArmVgripper", spatialmath.NewPoseFromPoint(r3.Vector{Z: 200}), bc)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(xArmVgripper, x), test.ShouldBeNil)
+
+	planOpts := NewBasicPlannerOptions()
+	planOpts.PlanningAlgorithmSettings = AlgorithmSettings{
+		Algorithm: CBiRRT,
+		CBirrtOpts: &cbirrtOptions{
+			SolutionsToSeed: 150,
+		},
+	}
+
+	constraints := &Constraints{
+		CollisionSpecification: []CollisionSpecification{
+			{
+				Allows: []CollisionSpecificationAllowedFrameCollisions{
+					{Frame1: "xArmVgripper", Frame2: "theWall"},
+					{Frame1: "xArm6:wrist_link", Frame2: "theWall"},
+					{Frame1: "xArm6:lower_forearm", Frame2: "theWall"},
+				},
+			},
+		},
+	}
+
+	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{350, 0, 0}), r3.Vector{10, 8000, 8000}, "theWall")
+	test.That(t, err, test.ShouldBeNil)
+	worldState1, err := frame.NewWorldState(
+		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})},
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
+
+	pr := &PlanRequest{
+		Goals:          []*PlanState{{Poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
+		StartState:     &PlanState{Configuration: frame.NewZeroInputs(fs)},
+		WorldState:     worldState1,
+		Constraints:    constraints,
+		PlannerOptions: planOpts,
+	}
+
+	jsonData, err := os.ReadFile("data/plan_request_sample.json")
+	test.That(t, err, test.ShouldBeNil)
+	parsedPr := &PlanRequest{}
+	err = json.Unmarshal(jsonData, parsedPr)
+	test.That(t, err, test.ShouldBeNil)
+
+	goalPose1 := pr.Goals[0].Poses["xArmVgripper"].Pose()
+	goalPoseInFrame2, ok := parsedPr.Goals[0].Poses["xArmVgripper"]
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, spatialmath.PoseAlmostEqual(goalPose1, goalPoseInFrame2.Pose()), test.ShouldBeTrue)
+
+	alg1 := pr.PlannerOptions.PlanningAlgorithmSettings
+	alg2 := parsedPr.PlannerOptions.PlanningAlgorithmSettings
+	test.That(t, alg1.Algorithm, test.ShouldEqual, alg2.Algorithm)
+	alg1Cbirrt := alg1.CBirrtOpts
+	alg2Cbiirt := alg2.CBirrtOpts
+	test.That(t, alg2Cbiirt, test.ShouldNotBeNil)
+	test.That(t, alg1Cbirrt.SolutionsToSeed, test.ShouldEqual, alg2Cbiirt.SolutionsToSeed)
+
+	collisionSpecification1 := pr.Constraints.CollisionSpecification[0]
+	test.That(t, parsedPr.Constraints, test.ShouldNotBeNil)
+	collisionSpecification2 := parsedPr.Constraints.CollisionSpecification[0]
+	allows1 := collisionSpecification1.Allows
+	allows2 := collisionSpecification2.Allows
+	test.That(t, allows1[0].Frame1, test.ShouldEqual, allows2[0].Frame1)
+	test.That(t, allows1[0].Frame2, test.ShouldEqual, allows2[0].Frame2)
+
+	test.That(t, allows1[1].Frame1, test.ShouldEqual, allows2[1].Frame1)
+	test.That(t, allows1[1].Frame2, test.ShouldEqual, allows2[1].Frame2)
+
+	test.That(t, allows1[2].Frame1, test.ShouldEqual, allows2[2].Frame1)
+	test.That(t, allows1[2].Frame2, test.ShouldEqual, allows2[2].Frame2)
+
+	startStateConf1 := pr.StartState.Configuration["xArm6"]
+	test.That(t, parsedPr.StartState, test.ShouldNotBeNil)
+	startStateConfColl2 := parsedPr.StartState.Configuration
+	startStateConf2, ok := startStateConfColl2["xArm6"]
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, startStateConf1, test.ShouldResemble, startStateConf2)
+
+	geometryIF1 := pr.WorldState.Obstacles()[0]
+	test.That(t, parsedPr.WorldState, test.ShouldNotBeNil)
+	test.That(t, parsedPr.WorldState.Obstacles(), test.ShouldNotBeEmpty)
+	geometryIF2 := parsedPr.WorldState.Obstacles()[0]
+	test.That(t, geometryIF1.Parent(), test.ShouldEqual, geometryIF2.Parent())
+	geometries1 := geometryIF1.Geometries()
+	geometries2 := geometryIF2.Geometries()
+	test.That(t, len(geometries1), test.ShouldEqual, len(geometries2))
+	geometry1 := geometries1[0]
+	geometry2 := geometries2[0]
+	test.That(t, spatialmath.PoseAlmostEqual(geometry1.Pose(), geometry2.Pose()), test.ShouldBeTrue)
 }
 
 func TestArmOOBSolve(t *testing.T) {

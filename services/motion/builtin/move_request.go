@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	goutils "go.viam.com/utils"
 
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/logging"

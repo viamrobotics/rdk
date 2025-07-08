@@ -1,12 +1,12 @@
 package referenceframe
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	commonpb "go.viam.com/api/common/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/spatialmath"
 )
@@ -112,14 +112,14 @@ func (ws *WorldState) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(wsProto)
+	return protojson.Marshal(wsProto)
 }
 
 // UnmarshalJSON takes JSON bytes of a world state protobuf message and parses it
 // into an instance of WorldState.
 func (ws *WorldState) UnmarshalJSON(data []byte) error {
 	var wsProto commonpb.WorldState
-	if err := json.Unmarshal(data, &wsProto); err != nil {
+	if err := protojson.Unmarshal(data, &wsProto); err != nil {
 		return err
 	}
 	newWs, err := WorldStateFromProtobuf(&wsProto)
