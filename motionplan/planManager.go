@@ -27,7 +27,10 @@ const (
 // Intended information flow should be:
 // motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> planManager.planSingleWaypoint().
 type planManager struct {
-	*planner                // TODO: This should probably be removed
+	*planner // TODO: This should probably be removed
+	// We store the request because we want to be able to inspect the original state of the plan
+	// that was requested at any point during the process of creating multiple planners
+	// for waypoints and such.
 	request                 *PlanRequest
 	activeBackgroundWorkers sync.WaitGroup
 }
@@ -577,7 +580,6 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 			return nil, err
 		}
 
-		// wpOpt, err := FromMoveReqOptions(pm.request.Options, wpChains.useTPspace)
 		wpOpt, err := updateOptionsForPlanning(pm.request.PlannerOptions, wpChains.useTPspace)
 		if err != nil {
 			return nil, err

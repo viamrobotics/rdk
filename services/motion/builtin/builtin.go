@@ -480,6 +480,22 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		}
 	}
 
+	// TODO: RSDK-11198 Similar to above
+	if deprecatedKeySeed, ok := req.Extra["solutions_to_seed"]; ok {
+		logger.Warn(
+			"the top level 'solutions_to_seed' key is deprecated and will soon no longer be accepted," +
+				"please include it in 'planning_algorithm_settings' instead",
+		)
+		if deprecatedSeedParsed, ok := deprecatedKeySeed.(int); ok {
+			req.Extra["planning_algorithm_settings"] = map[string]interface{}{
+				"algorithm": motionplan.CBiRRT,
+				"cbirrt_settings": map[string]interface{}{
+					"solutions_to_seed": deprecatedSeedParsed,
+				},
+			}
+		}
+	}
+
 	// re-evaluate goal poses to be in the frame of World
 	// TODO (RSDK-8847) : this is a workaround to help account for us not yet being able to properly synchronize simultaneous motion across
 	// multiple components. If we are moving component1, mounted on arm2, to a goal in frame of component2, which is mounted on arm2, then

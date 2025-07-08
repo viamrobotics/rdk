@@ -248,7 +248,8 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 // a Free or Position-Only motion profile was requested with an unspecified algorithm (indicating the desire
 // to let motionplan handle what algorithm to use and allow for a fallback).
 func updateOptionsForPlanning(opt *PlannerOptions, useTPSpace bool) (*PlannerOptions, error) {
-	planningAlgorithm := opt.PlanningAlgorithm()
+	optCopy := *opt
+	planningAlgorithm := optCopy.PlanningAlgorithm()
 	if useTPSpace && (planningAlgorithm != UnspecifiedAlgorithm) && (planningAlgorithm != TPSpace) {
 		return nil, fmt.Errorf("cannot specify a planning algorithm when planning for a TP-space frame. alg specified was %s",
 			planningAlgorithm)
@@ -256,21 +257,21 @@ func updateOptionsForPlanning(opt *PlannerOptions, useTPSpace bool) (*PlannerOpt
 
 	if useTPSpace {
 		// overwrite default with TP space
-		opt.PlanningAlgorithmSettings = AlgorithmSettings{
+		optCopy.PlanningAlgorithmSettings = AlgorithmSettings{
 			Algorithm: TPSpace,
 		}
 
-		opt.TPSpaceOrientationScale = defaultTPspaceOrientationScale
+		optCopy.TPSpaceOrientationScale = defaultTPspaceOrientationScale
 
-		opt.Resolution = defaultPTGCollisionResolution
+		optCopy.Resolution = defaultPTGCollisionResolution
 
 		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
 		// Otherwise we just use squared norm on inputs.
-		opt.ScoringMetric = ik.PTGDistance
+		optCopy.ScoringMetric = ik.PTGDistance
 	}
 
-	if opt.MotionProfile == FreeMotionProfile || opt.MotionProfile == PositionOnlyMotionProfile {
-		if opt.PlanningAlgorithm() == UnspecifiedAlgorithm {
+	if optCopy.MotionProfile == FreeMotionProfile || optCopy.MotionProfile == PositionOnlyMotionProfile {
+		if optCopy.PlanningAlgorithm() == UnspecifiedAlgorithm {
 			// set up deep copy for fallback
 			fallbackOpts := &PlannerOptions{}
 			jsonString, err := json.Marshal(opt)
@@ -282,15 +283,15 @@ func updateOptionsForPlanning(opt *PlannerOptions, useTPSpace bool) (*PlannerOpt
 				return nil, err
 			}
 
-			opt.Timeout = defaultFallbackTimeout
-			opt.PlanningAlgorithmSettings = AlgorithmSettings{
+			optCopy.Timeout = defaultFallbackTimeout
+			optCopy.PlanningAlgorithmSettings = AlgorithmSettings{
 				Algorithm: RRTStar,
 			}
-			opt.Fallback = fallbackOpts
+			optCopy.Fallback = fallbackOpts
 		}
 	}
 
-	return opt, nil
+	return &optCopy, nil
 }
 
 // PlanningAlgorithm returns the label of the planning algorithm in plannerOptions.
