@@ -555,7 +555,7 @@ func (pm *planManager) plannerAndConstraintSetupFromMoveRequest(
 		if opt.PlanningAlgorithm() == UnspecifiedAlgorithm {
 			// In the case where an algorithm was not specified and we have no hard topo constraint, we first run RRTStar for a short
 			// period of time (it's faster) and then if we have no solution fall back to CBiRRT (better at navigating constrained areas)
-			
+
 			// set up deep copy for fallback
 			try1 := deepAtomicCopyMap(planningOpts)
 
