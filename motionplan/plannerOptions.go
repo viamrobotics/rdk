@@ -272,16 +272,7 @@ func updateOptionsForPlanning(opt *PlannerOptions, useTPSpace bool) (*PlannerOpt
 
 	if optCopy.MotionProfile == FreeMotionProfile || optCopy.MotionProfile == PositionOnlyMotionProfile {
 		if optCopy.PlanningAlgorithm() == UnspecifiedAlgorithm {
-			// set up deep copy for fallback
-			fallbackOpts := &PlannerOptions{}
-			jsonString, err := json.Marshal(opt)
-			if err != nil {
-				return nil, err
-			}
-			err = json.Unmarshal(jsonString, fallbackOpts)
-			if err != nil {
-				return nil, err
-			}
+			fallbackOpts := &optCopy
 
 			optCopy.Timeout = defaultFallbackTimeout
 			optCopy.PlanningAlgorithmSettings = AlgorithmSettings{
