@@ -43,7 +43,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	goalMetric := opt.getGoalMetric(goal)
 	fs := referenceframe.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())
-	chains, err := motionChainsFromPlanState(fs, &PlanState{poses: goal})
+	chains, err := motionChainsFromPlanState(fs, &PlanState{Poses: goal})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, chains, test.ShouldNotBeNil)
 	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler(), chains)

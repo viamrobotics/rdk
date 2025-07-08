@@ -352,36 +352,26 @@ func newFrameNotFoundError(frameName string) error {
 // PlanState is a struct which holds both a referenceframe.FrameSystemPoses and a configuration.
 // This is intended to be used as start or goal states for plans. Either field may be nil.
 type PlanState struct {
-	poses         referenceframe.FrameSystemPoses
-	configuration referenceframe.FrameSystemInputs
+	Poses         referenceframe.FrameSystemPoses  `json:"poses"`
+	Configuration referenceframe.FrameSystemInputs `json:"configuration"`
 }
 
 // NewPlanState creates a PlanState from the given poses and configuration. Either or both may be nil.
 func NewPlanState(poses referenceframe.FrameSystemPoses, configuration referenceframe.FrameSystemInputs) *PlanState {
-	return &PlanState{poses: poses, configuration: configuration}
-}
-
-// Poses returns the poses of the PlanState.
-func (p *PlanState) Poses() referenceframe.FrameSystemPoses {
-	return p.poses
-}
-
-// Configuration returns the configuration of the PlanState.
-func (p *PlanState) Configuration() referenceframe.FrameSystemInputs {
-	return p.configuration
+	return &PlanState{Poses: poses, Configuration: configuration}
 }
 
 // ComputePoses returns the poses of a PlanState if they are populated, or computes them using the given FrameSystem if not.
 func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (referenceframe.FrameSystemPoses, error) {
-	if len(p.poses) > 0 {
-		return p.poses, nil
+	if len(p.Poses) > 0 {
+		return p.Poses, nil
 	}
 
-	if len(p.configuration) == 0 {
+	if len(p.Configuration) == 0 {
 		return nil, errors.New("cannot computes poses, neither poses nor configuration are populated")
 	}
 
-	return p.configuration.ComputePoses(fs)
+	return p.Configuration.ComputePoses(fs)
 }
 
 // Serialize turns a PlanState into a map[string]interface suitable for being transmitted over proto.
@@ -389,17 +379,17 @@ func (p PlanState) Serialize() map[string]interface{} {
 	m := map[string]interface{}{}
 	poseMap := map[string]interface{}{}
 	confMap := map[string]interface{}{}
-	for fName, pif := range p.poses {
+	for fName, pif := range p.Poses {
 		pifProto := referenceframe.PoseInFrameToProtobuf(pif)
 		poseMap[fName] = pifProto
 	}
-	for fName, conf := range p.configuration {
+	for fName, conf := range p.Configuration {
 		confMap[fName] = referenceframe.InputsToFloats(conf)
 	}
-	if p.poses != nil {
+	if p.Poses != nil {
 		m["poses"] = poseMap
 	}
-	if p.configuration != nil {
+	if p.Configuration != nil {
 		m["configuration"] = confMap
 	}
 	return m
@@ -408,8 +398,8 @@ func (p PlanState) Serialize() map[string]interface{} {
 // DeserializePlanState turns a serialized PlanState back into a PlanState.
 func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 	ps := &PlanState{
-		poses:         referenceframe.FrameSystemPoses{},
-		configuration: referenceframe.FrameSystemInputs{},
+		Poses:         referenceframe.FrameSystemPoses{},
+		Configuration: referenceframe.FrameSystemInputs{},
 	}
 	if posesIface, ok := iface["poses"]; ok {
 		if frameSystemPoseMap, ok := posesIface.(map[string]interface{}); ok {
@@ -424,13 +414,13 @@ func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 					return nil, err
 				}
 				pif := referenceframe.ProtobufToPoseInFrame(pifPb)
-				ps.poses[fName] = pif
+				ps.Poses[fName] = pif
 			}
 		} else {
 			return nil, errors.New("could not decode contents of poses")
 		}
 	} else {
-		ps.poses = nil
+		ps.Poses = nil
 	}
 	if confIface, ok := iface["configuration"]; ok {
 		if confMap, ok := confIface.(map[string]interface{}); ok {
@@ -444,7 +434,7 @@ func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 							return nil, errors.New("configuration input array did not contain floats")
 						}
 					}
-					ps.configuration[fName] = referenceframe.FloatsToInputs(floats)
+					ps.Configuration[fName] = referenceframe.FloatsToInputs(floats)
 				} else {
 					return nil, errors.New("configuration did not contain array of inputs")
 				}
@@ -453,7 +443,7 @@ func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 			return nil, errors.New("could not decode contents of configuration")
 		}
 	} else {
-		ps.configuration = nil
+		ps.Configuration = nil
 	}
 	return ps, nil
 }
