@@ -146,6 +146,15 @@ func NewWithUploader(ftdcDirectory string, cloudConn rpc.ClientConn, partID stri
 	ret := New(ftdcDirectory, logger)
 	if cloudConn != nil {
 		ret.uploader = newUploader(cloudConn, ftdcDirectory, partID, logger.Sublogger("uploader"))
+
+		// It's imperative this operation is performed `Start` is called. Once `Start` is called, a
+		// new file can be written out with data from the current running `viam-server`.
+		files, err := getFTDCFilesDescendingTimeOrder(ftdcDirectory, logger)
+		if len(files) > 0 && err == nil {
+			// Be conservative and only upload a file if there was no directory walking error. To
+			// avoid double inserting an FTDC file into cloud due to a robot disk issue.
+			ret.uploader.addFileToUpload(files[0].name)
+		}
 	}
 	return ret
 }
@@ -572,17 +581,17 @@ type fileTime struct {
 	time time.Time
 }
 
-func (ftdc *FTDC) checkAndDeleteOldFiles() error {
+func getFTDCFilesDescendingTimeOrder(ftdcDir string, logger logging.Logger) ([]fileTime, error) {
 	var files []fileTime
 
 	// Walk the `ftdcDir` and gather all of the found files into the captured `files` variable.
-	err := filepath.Walk(ftdc.ftdcDir, filepath.WalkFunc(func(path string, info fs.FileInfo, walkErr error) error {
+	err := filepath.Walk(ftdcDir, filepath.WalkFunc(func(path string, info fs.FileInfo, walkErr error) error {
 		if !strings.HasSuffix(path, ".ftdc") {
 			return nil
 		}
 
 		if walkErr != nil {
-			ftdc.logger.Warnw("Unexpected walk error. Continuing under the assumption any actual* problem will",
+			logger.Warnw("Unexpected walk error. Continuing under the assumption any actual* problem will",
 				"be caught by the assertions.", "err", walkErr)
 			return nil
 		}
@@ -591,10 +600,24 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 		if err == nil {
 			files = append(files, fileTime{path, parsedTime})
 		} else {
-			ftdc.logger.Warnw("Error parsing time from FTDC file", "filename", path)
+			logger.Warnw("Error parsing time from FTDC file", "filename", path)
 		}
 		return nil
 	}))
+	if err != nil {
+		return nil, err
+	}
+
+	slices.SortFunc(files, func(left, right fileTime) int {
+		// Sort in descending order.
+		return right.time.Compare(left.time)
+	})
+
+	return files, nil
+}
+
+func (ftdc *FTDC) checkAndDeleteOldFiles() error {
+	files, err := getFTDCFilesDescendingTimeOrder(ftdc.ftdcDir, ftdc.logger)
 	if err != nil {
 		return err
 	}
@@ -606,13 +629,11 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 	}
 
 	slices.SortFunc(files, func(left, right fileTime) int {
-		// Sort in descending order. Such that files indexed first are safe. This eases walking the
-		// slice of files.
 		return right.time.Compare(left.time)
 	})
 
-	// If we, for example, have 30 files and we want to keep the newest 10, we delete the trailing
-	// 20 files.
+	// The files are conveniently in descending time order. If we, for example, have 30 files and we
+	// want to keep the newest 10, we delete the trailing 20 files.
 	for _, file := range files[ftdc.maxNumFiles:] {
 		ftdc.logger.Debugw("Deleting aged out FTDC file", "filename", file.name)
 		if err := os.Remove(file.name); err != nil {
@@ -627,8 +648,7 @@ func (ftdc *FTDC) checkAndDeleteOldFiles() error {
 // deletion testing. Filename generation uses padding such that we can rely on there before 2/4
 // digits for every numeric value.
 //
-//nolint
-// Example filename: countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc
+// Example filename: `countingBytesTest1228324349/viam-server-2024-11-18T20-37-01Z.ftdc`.
 var filenameTimeRe = regexp.MustCompile(`viam-server-(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})Z.ftdc`)
 
 func parseTimeFromFilename(path string) (time.Time, error) {
