@@ -203,7 +203,9 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 			h.logger.CErrorw(ctx, msg, "foo", "bar")
 		}
 
-		return map[string]any{}, nil
+		// Beyond just logging at the specified level, also report the current log level back
+		// in the DoCommand response.
+		return map[string]any{"level": h.logger.GetLevel().String()}, nil
 	case "get_num_reconfigurations":
 		return map[string]any{"num_reconfigurations": h.numReconfigurations}, nil
 	case "do_readings_on_dep":

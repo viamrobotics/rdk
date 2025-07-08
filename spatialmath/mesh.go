@@ -176,9 +176,9 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error)
 		dist := capsuleVsMeshDistance(other, m)
 		return dist <= collisionBufferMM, nil
 	case *point:
-		return m.collidesWithSphere(other.position, 0, collisionBufferMM), nil
+		return m.collidesWithSphere(&sphere{pose: NewPoseFromPoint(other.position)}, collisionBufferMM), nil
 	case *sphere:
-		return m.collidesWithSphere(other.pose.Point(), other.radius, collisionBufferMM), nil
+		return m.collidesWithSphere(other, collisionBufferMM), nil
 	case *Mesh:
 		return m.collidesWithMesh(other, collisionBufferMM), nil
 	case *points:
@@ -230,9 +230,9 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 	case *capsule:
 		return capsuleVsMeshDistance(other, m), nil
 	case *point:
-		return m.distanceFromSphere(other.position, 0), nil
+		return m.distanceFromSphere(&sphere{pose: NewPoseFromPoint(other.position)}), nil
 	case *sphere:
-		return m.distanceFromSphere(other.pose.Point(), other.radius), nil
+		return m.distanceFromSphere(other), nil
 	case *Mesh:
 		return m.distanceFromMesh(other), nil
 	case *points:
@@ -254,17 +254,13 @@ func (m *Mesh) boxIntersectsVertex(b *box) bool {
 	return false
 }
 
-func (m *Mesh) distanceFromSphere(pt r3.Vector, radius float64) float64 {
+func (m *Mesh) distanceFromSphere(s *sphere) float64 {
+	pt := s.pose.Point()
 	minDist := math.Inf(1)
-
+	// Transform all triangles to world space once
 	for _, tri := range m.triangles {
-		worldTri := NewTriangle(
-			Compose(m.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
-		closestPt := ClosestPointTrianglePoint(worldTri, pt)
-		dist := closestPt.Sub(pt).Norm() - radius
+		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose), pt)
+		dist := closestPt.Sub(pt).Norm() - s.radius
 		if dist < minDist {
 			minDist = dist
 		}
@@ -272,16 +268,12 @@ func (m *Mesh) distanceFromSphere(pt r3.Vector, radius float64) float64 {
 	return minDist
 }
 
-func (m *Mesh) collidesWithSphere(pt r3.Vector, radius, buffer float64) bool {
+func (m *Mesh) collidesWithSphere(s *sphere, buffer float64) bool {
+	pt := s.pose.Point()
 	// Transform all triangles to world space once
 	for _, tri := range m.triangles {
-		worldTri := NewTriangle(
-			Compose(m.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
-		closestPt := ClosestPointTrianglePoint(worldTri, pt)
-		if closestPt.Sub(pt).Norm() <= radius+buffer {
+		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose), pt)
+		if closestPt.Sub(pt).Norm() <= s.radius+buffer {
 			return true
 		}
 	}
@@ -291,23 +283,14 @@ func (m *Mesh) collidesWithSphere(pt r3.Vector, radius, buffer float64) bool {
 // collidesWithMesh checks if this mesh collides with another mesh
 // TODO: This function is *begging* for GPU acceleration.
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
-	// Transform all triangles to world space once
+	// Transform all triangles to world space
 	worldTris1 := make([]*Triangle, len(m.triangles))
 	for i, tri := range m.triangles {
-		worldTris1[i] = NewTriangle(
-			Compose(m.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
+		worldTris1[i] = tri.Transform(m.pose)
 	}
-
 	worldTris2 := make([]*Triangle, len(other.triangles))
 	for i, tri := range other.triangles {
-		worldTris2[i] = NewTriangle(
-			Compose(other.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(other.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(other.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
+		worldTris2[i] = tri.Transform(other.pose)
 	}
 
 	// Check if any triangles from either mesh collide.
@@ -322,7 +305,7 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
 			for i := 0; i < 3; i++ {
 				start := p1[i]
 				end := p1[(i+1)%3]
-				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, worldTri2)
+				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri2)
 				if bestSegPt.Sub(bestTriPt).Norm() <= collisionBufferMM {
 					return true
 				}
@@ -332,7 +315,7 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
 			for i := 0; i < 3; i++ {
 				start := p2[i]
 				end := p2[(i+1)%3]
-				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, worldTri1)
+				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri1)
 				if bestSegPt.Sub(bestTriPt).Norm() <= collisionBufferMM {
 					return true
 				}
@@ -344,23 +327,15 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
 
 // distanceFromMesh returns the minimum distance between this mesh and another mesh.
 func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
-	// Transform all triangles to world space once
+	// Transform all triangles to world space
 	worldTris1 := make([]*Triangle, len(m.triangles))
 	for i, tri := range m.triangles {
-		worldTris1[i] = NewTriangle(
-			Compose(m.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(m.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
+		worldTris1[i] = tri.Transform(m.pose)
 	}
 
 	worldTris2 := make([]*Triangle, len(other.triangles))
 	for i, tri := range other.triangles {
-		worldTris2[i] = NewTriangle(
-			Compose(other.pose, NewPoseFromPoint(tri.p0)).Point(),
-			Compose(other.pose, NewPoseFromPoint(tri.p1)).Point(),
-			Compose(other.pose, NewPoseFromPoint(tri.p2)).Point(),
-		)
+		worldTris2[i] = tri.Transform(other.pose)
 	}
 
 	minDist := math.Inf(1)
@@ -374,7 +349,7 @@ func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
 			for i := 0; i < 3; i++ {
 				start := p1[i]
 				end := p1[(i+1)%3]
-				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, worldTri2)
+				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri2)
 				dist := bestSegPt.Sub(bestTriPt).Norm()
 				if dist < minDist {
 					minDist = dist
@@ -385,7 +360,7 @@ func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
 			for i := 0; i < 3; i++ {
 				start := p2[i]
 				end := p2[(i+1)%3]
-				bestSegPt, bestTriPt := closestPointsSegmentTriangle(start, end, worldTri1)
+				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri1)
 				dist := bestSegPt.Sub(bestTriPt).Norm()
 				if dist < minDist {
 					minDist = dist

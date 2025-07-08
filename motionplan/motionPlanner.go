@@ -266,6 +266,7 @@ func Replan(ctx context.Context, request *PlanRequest, currentPlan Plan, replanC
 }
 
 type planner struct {
+	*ConstraintHandler
 	fs                        referenceframe.FrameSystem
 	lfs                       *linearizedFrameSystem
 	solver                    ik.Solver
@@ -276,9 +277,17 @@ type planner struct {
 	poseDistanceFunc          ik.SegmentMetric
 	configurationDistanceFunc ik.SegmentFSMetric
 	planOpts                  *plannerOptions
+	motionChains              *motionChains
 }
 
-func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.Logger, opt *plannerOptions) (*planner, error) {
+func newPlanner(
+	fs referenceframe.FrameSystem,
+	seed *rand.Rand,
+	logger logging.Logger,
+	opt *plannerOptions,
+	constraintHandler *ConstraintHandler,
+	chains *motionChains,
+) (*planner, error) {
 	lfs, err := newLinearizedFrameSystem(fs)
 	if err != nil {
 		return nil, err
@@ -286,34 +295,42 @@ func newPlanner(fs referenceframe.FrameSystem, seed *rand.Rand, logger logging.L
 	if opt == nil {
 		opt = newBasicPlannerOptions()
 	}
+	if constraintHandler == nil {
+		constraintHandler = newEmptyConstraintHandler()
+	}
+	if chains == nil {
+		chains = &motionChains{}
+	}
 
 	solver, err := ik.CreateCombinedIKSolver(lfs.dof, logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
 	mp := &planner{
+		ConstraintHandler:         constraintHandler,
 		solver:                    solver,
 		fs:                        fs,
 		lfs:                       lfs,
 		logger:                    logger,
 		randseed:                  seed,
 		planOpts:                  opt,
-		scoringFunction:           opt.getScoringFunction(),
+		scoringFunction:           opt.getScoringFunction(chains),
 		poseDistanceFunc:          opt.getPoseDistanceFunc(),
 		configurationDistanceFunc: ik.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
+		motionChains:              chains,
 	}
 	return mp, nil
 }
 
 func (mp *planner) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
-	return mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
+	return mp.CheckStateFSConstraints(&ik.StateFS{
 		Configuration: inputs,
 		FS:            mp.fs,
 	}) == nil
 }
 
 func (mp *planner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) bool {
-	ok, _ := mp.planOpts.CheckSegmentAndStateValidityFS(
+	ok, _ := mp.CheckSegmentAndStateValidityFS(
 		&ik.SegmentFS{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
@@ -487,7 +504,7 @@ IK:
 				step = alteredStep
 			}
 			// Ensure the end state is a valid one
-			err = mp.planOpts.CheckStateFSConstraints(&ik.StateFS{
+			err = mp.CheckStateFSConstraints(&ik.StateFS{
 				Configuration: step,
 				FS:            mp.fs,
 			})
@@ -497,7 +514,7 @@ IK:
 					EndConfiguration:   step,
 					FS:                 mp.fs,
 				}
-				err := mp.planOpts.CheckSegmentFSConstraints(stepArc)
+				err := mp.CheckSegmentFSConstraints(stepArc)
 				if err == nil {
 					score := mp.configurationDistanceFunc(stepArc)
 					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
@@ -608,7 +625,7 @@ func (mp *planner) linearizeFSmetric(metric ik.StateFSMetric) func([]float64) fl
 // and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
 // configuration to the seed.
 func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
-	moving, nonmoving := mp.planOpts.motionChains.framesFilteredByMovingAndNonmoving(mp.fs)
+	moving, nonmoving := mp.motionChains.framesFilteredByMovingAndNonmoving(mp.fs)
 	// Create a map with nonmoving configurations replaced with their seed values
 	alteredStep := referenceframe.FrameSystemInputs{}
 	for _, frame := range moving {
@@ -622,7 +639,7 @@ func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs)
 	}
 	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
 
-	_, lastGood := mp.planOpts.CheckStateConstraintsAcrossSegmentFS(
+	_, lastGood := mp.CheckStateConstraintsAcrossSegmentFS(
 		&ik.SegmentFS{
 			StartConfiguration: step,
 			EndConfiguration:   alteredStep,

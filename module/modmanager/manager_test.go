@@ -151,13 +151,13 @@ func TestModManagerFunctions(t *testing.T) {
 			err = mod.checkReady(ctx, parentAddr)
 			test.That(t, err, test.ShouldBeNil)
 
-			mod.registerResources(mgr)
+			mod.registerResourceModels(mgr)
 			reg, ok := resource.LookupRegistration(generic.API, myCounterModel)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, reg, test.ShouldNotBeNil)
 			test.That(t, reg.Constructor, test.ShouldNotBeNil)
 
-			mod.deregisterResources()
+			mod.deregisterResourceModels()
 			_, ok = resource.LookupRegistration(generic.API, myCounterModel)
 			test.That(t, ok, test.ShouldBeFalse)
 

@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
@@ -25,6 +26,9 @@ func TestFromRobot(t *testing.T) {
 		return []objectdetection.Detection{det1}, nil
 	}
 	var r inject.Robot
+	r.LoggerFunc = func() logging.Logger {
+		return nil
+	}
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return svc1, nil
 	}

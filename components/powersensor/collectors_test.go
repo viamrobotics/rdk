@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -21,7 +22,10 @@ const (
 	captureInterval = time.Millisecond
 )
 
-var readingMap = map[string]any{"reading1": false, "reading2": "test"}
+var (
+	readingMap   = map[string]any{"reading1": false, "reading2": "test"}
+	doCommandMap = map[string]any{"readings": "random-test"}
+)
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -106,6 +110,16 @@ func TestCollectors(t *testing.T) {
 	}
 }
 
+func TestDoCommandCollector(t *testing.T) {
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		DoCommandMap:    doCommandMap,
+		Collector:       powersensor.NewDoCommandCollector,
+		ResourceFactory: func() interface{} { return newPowerSensor() },
+	})
+}
+
 func newPowerSensor() powersensor.PowerSensor {
 	p := &inject.PowerSensor{}
 	p.VoltageFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
@@ -119,6 +133,9 @@ func newPowerSensor() powersensor.PowerSensor {
 	}
 	p.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 		return readingMap, nil
+	}
+	p.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
 	}
 	return p
 }

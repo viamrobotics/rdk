@@ -6,6 +6,7 @@ import (
 
 	servicepb "go.viam.com/api/service/shell/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 )
 
@@ -16,6 +17,10 @@ func init() {
 		RPCServiceDesc:              &servicepb.ShellService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // A Service handles shells for a local robot.

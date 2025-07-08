@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 	tu "go.viam.com/rdk/testutils"
@@ -30,7 +31,10 @@ var vec = r3.Vector{
 	Z: 3.0,
 }
 
-var readingMap = map[string]any{"reading1": false, "reading2": "test"}
+var (
+	readingMap   = map[string]any{"reading1": false, "reading2": "test"}
+	doCommandMap = map[string]any{"readings": "random-test"}
+)
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -172,6 +176,16 @@ func TestCollectors(t *testing.T) {
 	}
 }
 
+func TestDoCommandCollector(t *testing.T) {
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		DoCommandMap:    doCommandMap,
+		Collector:       movementsensor.NewDoCommandCollector,
+		ResourceFactory: func() interface{} { return newMovementSensor() },
+	})
+}
+
 func newMovementSensor() movementsensor.MovementSensor {
 	m := &inject.MovementSensor{}
 	m.LinearVelocityFunc = func(ctx context.Context, extra map[string]interface{}) (r3.Vector, error) {
@@ -198,6 +212,9 @@ func newMovementSensor() movementsensor.MovementSensor {
 	}
 	m.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 		return readingMap, nil
+	}
+	m.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
 	}
 	return m
 }

@@ -13,7 +13,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -28,6 +27,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
+	"go.viam.com/rdk/services/datamanager/builtin/shared"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
@@ -38,7 +38,6 @@ var (
 	// ErrCaptureDirectoryConfigurationDisabled happens when the viam-server is run with
 	// `-untrusted-env` and the capture directory is not `~/.viam/capture`.
 	ErrCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
-	viamCaptureDotDir                        = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 	// This clock only exists for tests.
 	// At time of writing only a single test depends on it.
 	// We should endevor to not add more tests that depend on it unless absolutiely necessary.
@@ -180,7 +179,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		return err
 	}
 
-	if !utils.IsTrustedEnvironment(ctx) && c.CaptureDir != "" && c.CaptureDir != viamCaptureDotDir {
+	if !utils.IsTrustedEnvironment(ctx) && c.CaptureDir != "" && c.CaptureDir != shared.ViamCaptureDotDir {
 		// see comment above this error definition for when this happens
 		return ErrCaptureDirectoryConfigurationDisabled
 	}

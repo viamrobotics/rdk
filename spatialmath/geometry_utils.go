@@ -139,8 +139,8 @@ func BoundingSphere(geometry Geometry) (Geometry, error) {
 	return NewSphere(NewZeroPose(), r, geometry.Label())
 }
 
-// closestSegmentTrianglePoints takes a line segment and a triangle, and returns the point on each closest to the other.
-func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *Triangle) (bestSegPt, bestTriPt r3.Vector) {
+// ClosestPointsSegmentTriangle takes a line segment and a triangle, and returns the point on each closest to the other.
+func ClosestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *Triangle) (bestSegPt, bestTriPt r3.Vector) {
 	// The closest triangle point is either on the edge or within the triangle.
 
 	// First, handle the case where the closest triangle point is inside the
@@ -148,8 +148,8 @@ func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *Triangle) (bestSegPt, b
 	// endpoint is closest to a point inside the triangle.
 	// If the line overlaps the triangle and is parallel to the triangle plane,
 	// the chosen triangle point is arbitrary.
-	segPt, _ := closestPointsSegmentPlane(ap1, ap2, t.p0, t.normal)
-	triPt, inside := closestTriangleInsidePoint(t, segPt)
+	segPt, _ := ClosestPointsSegmentPlane(ap1, ap2, t.p0, t.normal)
+	triPt, inside := ClosestTriangleInsidePoint(t, segPt)
 	if inside {
 		// If inside is false, then these will not be the best points, because they are based on the segment-plane intersection
 		return segPt, triPt
@@ -179,9 +179,9 @@ func closestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *Triangle) (bestSegPt, b
 	return bestSegPt, bestTriPt
 }
 
-// closestSegmentPointToPlane takes a line segment, plus a plane defined by a point and a normal vector, and returns the point on the
+// ClosestPointsSegmentPlane takes a line segment, plus a plane defined by a point and a normal vector, and returns the point on the
 // segment which is closest to the plane, as well as the coplanar point in line with the line.
-func closestPointsSegmentPlane(ap1, ap2, planePt, planeNormal r3.Vector) (segPt, coplanarPt r3.Vector) {
+func ClosestPointsSegmentPlane(ap1, ap2, planePt, planeNormal r3.Vector) (segPt, coplanarPt r3.Vector) {
 	// If a line segment is parametrized as S(t) = a + t * (b - a), we can
 	// plug it into the plane equation dot(n, S(t)) - d = 0, then solve for t to
 	// get the line-plane intersection. We then clip t to be in [0, 1] to be on

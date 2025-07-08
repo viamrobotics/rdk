@@ -221,7 +221,7 @@ func registerMLModelVisionService(
 	}
 
 	// Don't return a close function, because you don't want to close the underlying ML service
-	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc, params.DefaultCamera)
+	return vision.DeprecatedNewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc, params.DefaultCamera)
 }
 
 func getLabelsFromFile(labelPath string) []string {

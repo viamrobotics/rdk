@@ -101,7 +101,7 @@ func registerObstaclesDepth(
 	}
 
 	segmenter := myObsDep.buildObsDepth(logger) // does the thing
-	return svision.NewService(name, r, nil, nil, nil, segmenter, conf.DefaultCamera)
+	return svision.DeprecatedNewService(name, r, nil, nil, nil, segmenter, conf.DefaultCamera)
 }
 
 // BuildObsDepth will check for intrinsics and determine how to build based on that.

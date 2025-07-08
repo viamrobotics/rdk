@@ -73,14 +73,16 @@ func init() {
 	defaultNumThreads = utils.GetenvInt("MP_NUM_THREADS", defaultNumThreads)
 }
 
-// TODO: Make this an enum
-// the set of supported motion profiles.
+// MotionProfile is an enum which indicates the motion profile to use when planning.
+type MotionProfile string
+
+// These are the currently supported motion profiles.
 const (
-	FreeMotionProfile         = "free"
-	LinearMotionProfile       = "linear"
-	PseudolinearMotionProfile = "pseudolinear"
-	OrientationMotionProfile  = "orientation"
-	PositionOnlyMotionProfile = "position_only"
+	FreeMotionProfile         MotionProfile = "free"
+	LinearMotionProfile       MotionProfile = "linear"
+	PseudolinearMotionProfile MotionProfile = "pseudolinear"
+	OrientationMotionProfile  MotionProfile = "orientation"
+	PositionOnlyMotionProfile MotionProfile = "position_only"
 )
 
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
@@ -88,7 +90,6 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt := &plannerOptions{}
 	opt.GoalMetricType = ik.SquaredNorm
 	opt.ConfigurationDistanceMetric = ik.FSConfigurationL2DistanceMetric
-	opt.pathMetric = ik.NewZeroFSMetric() // By default, the distance to the valid manifold is zero, unless constraints say otherwise
 
 	// TODO: RSDK-6079 this should be properly used, and deduplicated with defaultEpsilon, InputIdentDist, etc.
 	opt.GoalThreshold = 0.1
@@ -104,23 +105,24 @@ func newBasicPlannerOptions() *plannerOptions {
 	opt.InputIdentDist = defaultInputIdentDist
 	opt.IterBeforeRand = defaultIterBeforeRand
 
-	opt.PlanningAlgorithm = CBiRRT
+	opt.PlanningAlgorithmSettings = AlgorithmSettings{
+		Algorithm: UnspecifiedAlgorithm,
+	}
 
 	opt.SmoothIter = defaultSmoothIter
 
 	opt.TimeMultipleAfterFindingFirstSolution = defaultTimeMultipleAfterFindingFirstSolution
 	opt.NumThreads = defaultNumThreads
 
-	opt.motionChains = &motionChains{}
+	opt.LineTolerance = defaultLinearDeviation
+	opt.OrientationTolerance = defaultOrientationDeviation
+	opt.ToleranceFactor = defaultPseudolinearTolerance
 
 	return opt
 }
 
 // plannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
 type plannerOptions struct {
-	ConstraintHandler
-	motionChains *motionChains
-
 	// This is used to create functions which are passed to IK for solving. This may be used to turn starting or ending state poses into
 	// configurations for nodes.
 	GoalMetricType ik.GoalMetricType `json:"goal_metric_type"`
@@ -128,10 +130,6 @@ type plannerOptions struct {
 	// Acceptable arc length around the goal orientation vector for any solution. This is the additional parameter used to acquire
 	// the goal metric only if the GoalMetricType is ik.ArcLengthConvergence
 	ArcLengthTolerance float64 `json:"arc_length_tolerance"`
-
-	pathMetric ik.StateFSMetric // Distance function which converges on the valid manifold of intermediate path states
-
-	extra map[string]interface{}
 
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
 	// Max number of ik solutions to consider
@@ -185,16 +183,29 @@ type plannerOptions struct {
 	TPSpaceOrientationScale float64 `json:"tp_space_orientation_scale"`
 
 	// Determines the algorithm that the planner will use to measure the degree of "closeness" between two states of the robot
-	ConfigurationDistanceMetric ik.SegmentFSMetricType
+	// See metrics.go for options
+	ConfigurationDistanceMetric ik.SegmentFSMetricType `json:"configuration_distance_metric"`
 
-	// profile is the string representing the motion profile
-	profile string
+	MotionProfile MotionProfile `json:"motion_profile"`
 
-	PlanningAlgorithm PlanningAlgorithm `json:"planning_algorithm"`
+	LineTolerance float64 `json:"line_tolerance"`
 
-	Fallback *plannerOptions
+	OrientationTolerance float64 `json:"orient_tolerance"`
 
-	TimeMultipleAfterFindingFirstSolution int
+	ToleranceFactor float64 `json:"tolerance"`
+
+	CollisionBufferMM float64 `json:"collision_buffer_mm"`
+
+	PlanningAlgorithmSettings AlgorithmSettings `json:"planning_algorithm_settings"`
+
+	Fallback *plannerOptions `json:"fallback_options"`
+
+	TimeMultipleAfterFindingFirstSolution int `json:"time_multiple_after_finding_first_solution"`
+}
+
+// PlanningAlgorithm returns the label of the planning algorithm in plannerOptions.
+func (p *plannerOptions) PlanningAlgorithm() PlanningAlgorithm {
+	return p.PlanningAlgorithmSettings.Algorithm
 }
 
 // getGoalMetric creates the distance metric for the solver using the configured options.
@@ -237,11 +248,6 @@ func (p *plannerOptions) getPoseDistanceFunc() ik.SegmentMetric {
 	return ik.NewSquaredNormSegmentMetric(p.TPSpaceOrientationScale)
 }
 
-// SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold.
-func (p *plannerOptions) SetPathMetric(m ik.StateFSMetric) {
-	p.pathMetric = m
-}
-
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
 func (p *plannerOptions) SetMaxSolutions(maxSolutions int) {
 	p.MaxSolutions = maxSolutions
@@ -252,20 +258,6 @@ func (p *plannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
 }
 
-func (p *plannerOptions) useTPspace() bool {
-	if p.motionChains == nil {
-		return false
-	}
-	return p.motionChains.useTPspace
-}
-
-func (p *plannerOptions) ptgFrameName() string {
-	if p.motionChains == nil {
-		return ""
-	}
-	return p.motionChains.ptgFrameName
-}
-
 func (p *plannerOptions) ScoringMetric() ik.ScoringMetric {
 	if p.ScoringMetricStr == "" {
 		return ik.FSConfigL2ScoringMetric
@@ -273,123 +265,15 @@ func (p *plannerOptions) ScoringMetric() ik.ScoringMetric {
 	return p.ScoringMetricStr
 }
 
-func (p *plannerOptions) getScoringFunction() ik.SegmentFSMetric {
+func (p *plannerOptions) getScoringFunction(mcs *motionChains) ik.SegmentFSMetric {
 	switch p.ScoringMetric() {
 	case ik.FSConfigScoringMetric:
 		return ik.FSConfigurationDistance
 	case ik.FSConfigL2ScoringMetric:
 		return ik.FSConfigurationL2Distance
 	case ik.PTGDistance:
-		return tpspace.NewPTGDistanceMetric([]string{p.ptgFrameName()})
+		return tpspace.NewPTGDistanceMetric([]string{mcs.ptgFrameName})
 	default:
 		return ik.FSConfigurationL2Distance
 	}
-}
-
-// addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological
-// constraints. It will return a bool indicating whether there are any to add.
-func (p *plannerOptions) addTopoConstraints(
-	fs referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
-	from, to referenceframe.FrameSystemPoses,
-	constraints *Constraints,
-) (bool, error) {
-	topoConstraints := false
-	for _, linearConstraint := range constraints.GetLinearConstraint() {
-		topoConstraints = true
-		// TODO RSDK-9224: Our proto for constraints does not allow the specification of which frames should be constrainted relative to
-		// which other frames. If there is only one goal specified, then we assume that the constraint is between the moving and goal frame.
-		err := p.addLinearConstraints(fs, startCfg, from, to, linearConstraint)
-		if err != nil {
-			return false, err
-		}
-	}
-	for _, pseudolinearConstraint := range constraints.GetPseudolinearConstraint() {
-		// pseudolinear constraints
-		err := p.addPseudolinearConstraints(fs, startCfg, from, to, pseudolinearConstraint)
-		if err != nil {
-			return false, err
-		}
-	}
-	for _, orientationConstraint := range constraints.GetOrientationConstraint() {
-		topoConstraints = true
-		// TODO RSDK-9224: Our proto for constraints does not allow the specification of which frames should be constrainted relative to
-		// which other frames. If there is only one goal specified, then we assume that the constraint is between the moving and goal frame.
-		err := p.addOrientationConstraints(fs, startCfg, from, to, orientationConstraint)
-		if err != nil {
-			return false, err
-		}
-	}
-	return topoConstraints, nil
-}
-
-func (p *plannerOptions) addLinearConstraints(
-	fs referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
-	from, to referenceframe.FrameSystemPoses,
-	linConstraint LinearConstraint,
-) error {
-	// Linear constraints
-	linTol := linConstraint.LineToleranceMm
-	if linTol == 0 {
-		// Default
-		linTol = defaultLinearDeviation
-	}
-	orientTol := linConstraint.OrientationToleranceDegs
-	if orientTol == 0 {
-		orientTol = defaultOrientationDeviation
-	}
-	constraint, pathDist, err := CreateAbsoluteLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
-	if err != nil {
-		return err
-	}
-	p.AddStateFSConstraint(defaultConstraintName, constraint)
-
-	p.pathMetric = ik.CombineFSMetrics(p.pathMetric, pathDist)
-	return nil
-}
-
-func (p *plannerOptions) addPseudolinearConstraints(
-	fs referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
-	from, to referenceframe.FrameSystemPoses,
-	plinConstraint PseudolinearConstraint,
-) error {
-	// Linear constraints
-	linTol := plinConstraint.LineToleranceFactor
-	if linTol == 0 {
-		// Default
-		linTol = defaultPseudolinearTolerance
-	}
-	orientTol := plinConstraint.OrientationToleranceFactor
-	if orientTol == 0 {
-		orientTol = defaultPseudolinearTolerance
-	}
-	constraint, pathDist, err := CreateProportionalLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
-	if err != nil {
-		return err
-	}
-	p.AddStateFSConstraint(defaultConstraintName, constraint)
-
-	p.pathMetric = ik.CombineFSMetrics(p.pathMetric, pathDist)
-	return nil
-}
-
-func (p *plannerOptions) addOrientationConstraints(
-	fs referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
-	from, to referenceframe.FrameSystemPoses,
-	orientConstraint OrientationConstraint,
-) error {
-	orientTol := orientConstraint.OrientationToleranceDegs
-	if orientTol == 0 {
-		orientTol = defaultOrientationDeviation
-	}
-	constraint, pathDist, err := CreateSlerpOrientationConstraintFS(fs, startCfg, from, to, orientTol)
-	if err != nil {
-		return err
-	}
-	p.AddStateFSConstraint(defaultConstraintName, constraint)
-	p.pathMetric = ik.CombineFSMetrics(p.pathMetric, pathDist)
-	return nil
 }
