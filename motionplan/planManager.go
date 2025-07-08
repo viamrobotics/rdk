@@ -530,7 +530,12 @@ func (pm *planManager) plannerAndConstraintSetupFromMoveRequest(
 	}
 	if constraints.hasTopoConstraint() {
 		if opt.PlanningAlgorithm() != CBiRRT {
-			return nil, nil, NewAlgAndConstraintMismatchErr(string(opt.PlanningAlgorithm()))
+			if opt.PlanningAlgorithm() != UnspecifiedAlgorithm {
+				return nil, nil, NewAlgAndConstraintMismatchErr(string(opt.PlanningAlgorithm()))
+			}
+			opt.PlanningAlgorithmSettings = AlgorithmSettings{
+				Algorithm: CBiRRT,
+			}
 		}
 	}
 	if pm.motionChains.useTPspace {
@@ -548,13 +553,16 @@ func (pm *planManager) plannerAndConstraintSetupFromMoveRequest(
 
 	if opt.MotionProfile == FreeMotionProfile || opt.MotionProfile == PositionOnlyMotionProfile {
 		if opt.PlanningAlgorithm() == UnspecifiedAlgorithm {
+			// In the case where an algorithm was not specified and we have no hard topo constraint, we first run RRTStar for a short
+			// period of time (it's faster) and then if we have no solution fall back to CBiRRT (better at navigating constrained areas)
+			
 			// set up deep copy for fallback
 			try1 := deepAtomicCopyMap(planningOpts)
-			// No need to generate tons more IK solutions when the first alg will do it
 
 			// time to run the first planning attempt before falling back
 			try1["timeout"] = defaultFallbackTimeout
-			try1["planning_algorithm"] = "rrtstar"
+			algSettings := map[string]interface{}{"algorithm": RRTStar}
+			try1["planning_algorithm_settings"] = algSettings
 
 			try1Opt, _, err := pm.plannerAndConstraintSetupFromMoveRequest(from, to, seedMap, worldState, boundingRegions, constraints, try1)
 			if err != nil {
