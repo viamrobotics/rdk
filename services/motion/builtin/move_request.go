@@ -101,7 +101,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 		inputs = inputs[:2]
 	}
 	startConf := referenceframe.FrameSystemInputs{k.Name(): inputs}
-	mr.planRequest.StartState = motionplan.NewPlanState(mr.planRequest.StartState.Poses, startConf)
+	mr.planRequest.StartState = motionplan.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
 
 	// get existing elements of the worldstate
 
@@ -155,7 +155,7 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 	// If our motion profile is position_only then, we only check against our current & desired position
 	// Conversely if our motion profile is anything else, then we also need to check again our
 	// current & desired orientation
-	if resp := mr.atGoalCheck(mr.planRequest.StartState.Poses[mr.kinematicBase.Name().ShortName()].Pose()); resp {
+	if resp := mr.atGoalCheck(mr.planRequest.StartState.Poses()[mr.kinematicBase.Name().ShortName()].Pose()); resp {
 		mr.logger.Info("no need to move, already within planDeviationMM of the goal")
 		return state.ExecuteResponse{Replan: false}, nil
 	}
@@ -300,7 +300,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	// we need the original input to place that thing in its original position
 	// hence, cached CurrentInputs from the start are used i.e. mr.planRequest.StartConfiguration
 	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(
-		mr.frameSystem, mr.planRequest.StartState.Configuration,
+		mr.frameSystem, mr.planRequest.StartState.Configuration(),
 	)
 	if err != nil {
 		return state.ExecuteResponse{}, err

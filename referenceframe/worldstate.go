@@ -106,7 +106,7 @@ func (ws *WorldState) ToProtobuf() (*commonpb.WorldState, error) {
 	}, nil
 }
 
-// MarshalJSON serializes an instance of WorldState to JSON through its protobuf representation.
+// MarshalJSON serializes an instance of WorldState to JSON through its protobuf representation
 func (ws *WorldState) MarshalJSON() ([]byte, error) {
 	wsProto, err := ws.ToProtobuf()
 	if err != nil {
@@ -116,7 +116,7 @@ func (ws *WorldState) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON takes JSON bytes of a world state protobuf message and parses it
-// into an instance of WorldState.
+// into an instance of WorldState
 func (ws *WorldState) UnmarshalJSON(data []byte) error {
 	var wsProto commonpb.WorldState
 	if err := protojson.Unmarshal(data, &wsProto); err != nil {

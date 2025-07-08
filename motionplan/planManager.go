@@ -68,7 +68,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, seedPlan Plan) (Pl
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
-	if pm.request.StartState.Configuration == nil {
+	if pm.request.StartState.configuration == nil {
 		return nil, errors.New("must populate start state configuration if not planning for 2d base/tpspace")
 	}
 
@@ -143,7 +143,7 @@ func (pm *planManager) planAtomicWaypoints(
 			break
 		}
 		pm.logger.Info("planning step", i, "of", len(waypoints), ":", wp.goalState)
-		for k, v := range wp.goalState.Poses {
+		for k, v := range wp.goalState.Poses() {
 			pm.logger.Info(k, v)
 		}
 
@@ -165,7 +165,7 @@ func (pm *planManager) planAtomicWaypoints(
 		if !pm.motionChains.useTPspace && maps == nil {
 			if seed != nil {
 				// If we have a seed, we are linking multiple waypoints, so the next one MUST start at the ending configuration of the last
-				wp.startState = &PlanState{Configuration: seed}
+				wp.startState = &PlanState{configuration: seed}
 			}
 			planSeed := initRRTSolutions(ctx, wp)
 			if planSeed.err != nil {
@@ -251,7 +251,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	if err != nil {
 		return nil, nil, err
 	}
-	pm.logger.Debug("start configuration", wp.startState.Configuration)
+	pm.logger.Debug("start configuration", wp.startState.Configuration())
 	pm.logger.Debug("start planning from\n", fromPoses, "\nto\n", toPoses)
 
 	if _, ok := wp.mp.(rrtParallelPlanner); ok {
@@ -479,7 +479,7 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 		wpGoals,
 		pm.fs,
 		motionChains,
-		pm.request.StartState.Configuration,
+		pm.request.StartState.configuration,
 		pm.request.WorldState,
 		pm.boundingRegions,
 	)
@@ -487,9 +487,9 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 		return nil, err
 	}
 
-	if wpGoals.Poses != nil {
+	if wpGoals.poses != nil {
 		// Transform goal poses into world frame if needed. This is used for e.g. when a component's goal is given in terms of itself.
-		alteredGoals, err := motionChains.translateGoalsToWorldPosition(pm.fs, pm.request.StartState.Configuration, wpGoals)
+		alteredGoals, err := motionChains.translateGoalsToWorldPosition(pm.fs, pm.request.StartState.configuration, wpGoals)
 		if err != nil {
 			return nil, err
 		}
@@ -513,7 +513,7 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 			wpGoals,
 			pm.fs,
 			motionChains,
-			pm.request.StartState.Configuration,
+			pm.request.StartState.configuration,
 			pm.request.WorldState,
 			pm.boundingRegions,
 		)
@@ -558,21 +558,21 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 	for i := 1; i <= numSteps; i++ {
 		by := float64(i) / float64(numSteps)
 		to := &PlanState{referenceframe.FrameSystemPoses{}, referenceframe.FrameSystemInputs{}}
-		if wpGoals.Poses != nil {
-			for frameName, pif := range wpGoals.Poses {
+		if wpGoals.poses != nil {
+			for frameName, pif := range wpGoals.poses {
 				toPose := spatialmath.Interpolate(startPoses[frameName].Pose(), pif.Pose(), by)
-				to.Poses[frameName] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
+				to.poses[frameName] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
 			}
 		}
-		if wpGoals.Configuration != nil {
-			for frameName, inputs := range wpGoals.Configuration {
+		if wpGoals.configuration != nil {
+			for frameName, inputs := range wpGoals.configuration {
 				frame := pm.fs.Frame(frameName)
 				// If subWaypoints was true, then StartState had a configuration, and if our goal does, so will `from`
-				toInputs, err := frame.Interpolate(from.Configuration[frameName], inputs, by)
+				toInputs, err := frame.Interpolate(from.configuration[frameName], inputs, by)
 				if err != nil {
 					return nil, err
 				}
-				to.Configuration[frameName] = toInputs
+				to.configuration[frameName] = toInputs
 			}
 		}
 		wpChains, err := motionChainsFromPlanState(pm.fs, to)
@@ -592,7 +592,7 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 			to,
 			pm.fs,
 			wpChains,
-			pm.request.StartState.Configuration,
+			pm.request.StartState.configuration,
 			pm.request.WorldState,
 			pm.boundingRegions,
 		)
@@ -657,7 +657,7 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal atomicWaypoint) (*rrtMap
 
 		// Figure out where our new starting point is relative to our last one, and re-rectify using the new adjusted location
 		oldGoal := planNodesOld[len(planNodesOld)-1].Poses()[pm.motionChains.ptgFrameName].Pose()
-		pathDiff := spatialmath.PoseBetween(oldGoal, goal.goalState.Poses[pm.motionChains.ptgFrameName].Pose())
+		pathDiff := spatialmath.PoseBetween(oldGoal, goal.goalState.poses[pm.motionChains.ptgFrameName].Pose())
 		planNodes, err = rectifyTPspacePath(planNodes, pm.fs.Frame(pm.motionChains.ptgFrameName), pathDiff)
 		if err != nil {
 			return nil, err
@@ -691,14 +691,14 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal atomicWaypoint) (*rrtMap
 // planRelativeWaypoint will solve the PTG frame to one individual pose. This is used for frames whose inputs are relative, that
 // is, the pose returned by `Transform` is a transformation rather than an absolute position.
 func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan Plan) (Plan, error) {
-	if pm.request.StartState.Poses == nil {
+	if pm.request.StartState.poses == nil {
 		return nil, errors.New("must provide a startPose if solving for PTGs")
 	}
 	if len(pm.request.Goals) != 1 {
 		return nil, errors.New("can only provide one goal if solving for PTGs")
 	}
-	startPose := pm.request.StartState.Poses[pm.motionChains.ptgFrameName].Pose()
-	goalPif := pm.request.Goals[0].Poses[pm.motionChains.ptgFrameName]
+	startPose := pm.request.StartState.poses[pm.motionChains.ptgFrameName].Pose()
+	goalPif := pm.request.Goals[0].poses[pm.motionChains.ptgFrameName]
 
 	pm.logger.CInfof(ctx,
 		"planning relative motion for frame %s\nGoal: %v\nstartPose %v\n, worldstate: %v\n",
@@ -712,7 +712,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan Plan) 
 		pm.logger.Debug("$type,X,Y")
 		pm.logger.Debugf("$SG,%f,%f", startPose.Point().X, startPose.Point().Y)
 		pm.logger.Debugf("$SG,%f,%f", goalPif.Pose().Point().X, goalPif.Pose().Point().Y)
-		gifs, err := pm.request.WorldState.ObstaclesInWorldFrame(pm.fs, pm.request.StartState.Configuration)
+		gifs, err := pm.request.WorldState.ObstaclesInWorldFrame(pm.fs, pm.request.StartState.configuration)
 		if err == nil {
 			for _, geom := range gifs.Geometries() {
 				pts := geom.ToPoints(1.)
@@ -762,19 +762,19 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan Plan) 
 		}
 	}
 	if pm.planOpts.PositionSeeds > 0 && pm.planOpts.MotionProfile == PositionOnlyMotionProfile {
-		err = maps.fillPosOnlyGoal(wp.goalState.Poses, pm.planOpts.PositionSeeds)
+		err = maps.fillPosOnlyGoal(wp.goalState.poses, pm.planOpts.PositionSeeds)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		goalPose := wp.goalState.Poses[pm.motionChains.ptgFrameName].Pose()
+		goalPose := wp.goalState.poses[pm.motionChains.ptgFrameName].Pose()
 		goalMapFlip := map[string]*referenceframe.PoseInFrame{
 			pm.motionChains.ptgFrameName: referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(goalPose, flipPose)),
 		}
 		goalNode := &basicNode{q: zeroInputs, poses: goalMapFlip}
 		maps.goalMap = map[node]node{goalNode: nil}
 	}
-	startNode := &basicNode{q: zeroInputs, poses: pm.request.StartState.Poses}
+	startNode := &basicNode{q: zeroInputs, poses: pm.request.StartState.poses}
 	maps.startMap = map[node]node{startNode: nil}
 
 	// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
@@ -808,12 +808,12 @@ func (pm *planManager) useSubWaypoints(seedPlan Plan, wpi int) bool {
 	// We can interpolate from a pose or configuration to a pose, or a configuration to a configuration, but not from a pose to a
 	// configuration.
 	// TODO: If we run planning backwards, we could remove this restriction.
-	if pm.request.Goals[wpi].Configuration != nil {
+	if pm.request.Goals[wpi].configuration != nil {
 		startState := pm.request.StartState
 		if wpi > 0 {
 			startState = pm.request.Goals[wpi-1]
 		}
-		if startState.Configuration == nil {
+		if startState.configuration == nil {
 			return false
 		}
 	}

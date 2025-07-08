@@ -14,7 +14,7 @@ import (
 //   - revolute inputs should be in radians.
 //   - prismatic inputs should be in mm.
 type Input struct {
-	Value float64 `json:"value"`
+	Value float64
 }
 
 // JointPositionsFromInputs converts the given slice of Input to a JointPositions struct,

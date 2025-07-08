@@ -504,9 +504,9 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	worldWaypoints := []*motionplan.PlanState{}
 	solvingFrame := referenceframe.World
 	for _, wp := range waypoints {
-		if wp.Poses != nil {
+		if wp.Poses() != nil {
 			step := referenceframe.FrameSystemPoses{}
-			for fName, destination := range wp.Poses {
+			for fName, destination := range wp.Poses() {
 				tf, err := frameSys.Transform(fsInputs, destination, solvingFrame)
 				if err != nil {
 					return nil, err
@@ -514,7 +514,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 				goalPose, _ := tf.(*referenceframe.PoseInFrame)
 				step[fName] = goalPose
 			}
-			worldWaypoints = append(worldWaypoints, motionplan.NewPlanState(step, wp.Configuration))
+			worldWaypoints = append(worldWaypoints, motionplan.NewPlanState(step, wp.Configuration()))
 		} else {
 			worldWaypoints = append(worldWaypoints, wp)
 		}
@@ -652,8 +652,8 @@ func waypointsFromRequest(
 		} else {
 			return nil, nil, errors.New("extras start_state could not be interpreted as map[string]interface{}")
 		}
-		if startState.Configuration == nil {
-			startState = motionplan.NewPlanState(startState.Poses, fsInputs)
+		if startState.Configuration() == nil {
+			startState = motionplan.NewPlanState(startState.Poses(), fsInputs)
 		}
 	} else {
 		startState = motionplan.NewPlanState(nil, fsInputs)

@@ -75,18 +75,18 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 	if req.StartState == nil {
 		return errors.New("PlanRequest cannot have nil StartState")
 	}
-	if req.StartState.Configuration == nil {
+	if req.StartState.configuration == nil {
 		return errors.New("PlanRequest cannot have nil StartState configuration")
 	}
 	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
-	if len(req.StartState.Configuration) > 0 {
-		_, err := req.StartState.Configuration.ComputePoses(fs)
+	if len(req.StartState.configuration) > 0 {
+		_, err := req.StartState.configuration.ComputePoses(fs)
 		if err != nil {
 			return err
 		}
 	}
 	// if we have start poses, check we have valid frames
-	for fName, pif := range req.StartState.Poses {
+	for fName, pif := range req.StartState.poses {
 		if fs.Frame(fName) == nil {
 			return referenceframe.NewFrameMissingError(fName)
 		}
@@ -134,8 +134,8 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 
 	// Validate the goals. Each goal with a pose must not also have a configuration specified. The parent frame of the pose must exist.
 	for i, goalState := range req.Goals {
-		for fName, pif := range goalState.Poses {
-			if len(goalState.Configuration) > 0 {
+		for fName, pif := range goalState.poses {
+			if len(goalState.configuration) > 0 {
 				return errors.New("individual goals cannot have both configuration and poses populated")
 			}
 
@@ -147,7 +147,7 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 			if len(boundingRegions) > 0 {
 				// Check that robot components start within bounding regions.
 				// Bounding regions are for 2d planning, which requires a start pose
-				if len(goalState.Poses) > 0 && len(req.StartState.Poses) > 0 {
+				if len(goalState.poses) > 0 && len(req.StartState.poses) > 0 {
 					goalFrame := fs.Frame(fName)
 					if goalFrame == nil {
 						return referenceframe.NewFrameMissingError(fName)
@@ -160,7 +160,7 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 					}
 					if i == 0 {
 						// Only need to check start poses once
-						startPose, ok := req.StartState.Poses[fName]
+						startPose, ok := req.StartState.poses[fName]
 						if !ok {
 							return fmt.Errorf("goal frame %s does not have a start pose", fName)
 						}
@@ -214,9 +214,9 @@ func PlanFrameMotion(ctx context.Context,
 	}
 	plan, err := PlanMotion(ctx, logger, fs, &PlanRequest{
 		Goals: []*PlanState{
-			{Poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
+			{poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
 		},
-		StartState:     &PlanState{Configuration: referenceframe.FrameSystemInputs{f.Name(): seed}},
+		StartState:     &PlanState{configuration: referenceframe.FrameSystemInputs{f.Name(): seed}},
 		Constraints:    constraints,
 		PlannerOptions: planOpts,
 	})
@@ -293,12 +293,12 @@ func newPlannerFromPlanRequest(logger logging.Logger, fs referenceframe.FrameSys
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
-	if !mChains.useTPspace && (request.StartState.Configuration == nil) {
+	if !mChains.useTPspace && (request.StartState.configuration == nil) {
 		return nil, errors.New("must populate start state configuration if not planning for 2d base/tpspace")
 	}
 
 	if mChains.useTPspace {
-		if request.StartState.Poses == nil {
+		if request.StartState.poses == nil {
 			return nil, errors.New("must provide a startPose if solving for PTGs")
 		}
 		if len(request.Goals) != 1 {
@@ -323,7 +323,7 @@ func newPlannerFromPlanRequest(logger logging.Logger, fs referenceframe.FrameSys
 		request.Goals[0],
 		fs,
 		mChains,
-		request.StartState.Configuration,
+		request.StartState.configuration,
 		request.WorldState,
 		boundingRegions,
 	)
