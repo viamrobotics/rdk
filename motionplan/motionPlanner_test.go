@@ -556,8 +556,8 @@ func TestSerializedPlanRequest(t *testing.T) {
 	goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 
 	pr := &PlanRequest{
-		Goals:          []*PlanState{{Poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
-		StartState:     &PlanState{Configuration: frame.NewZeroInputs(fs)},
+		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
+		StartState:     &PlanState{configuration: frame.NewZeroInputs(fs)},
 		WorldState:     worldState1,
 		Constraints:    constraints,
 		PlannerOptions: planOpts,
@@ -569,8 +569,8 @@ func TestSerializedPlanRequest(t *testing.T) {
 	err = json.Unmarshal(jsonData, parsedPr)
 	test.That(t, err, test.ShouldBeNil)
 
-	goalPose1 := pr.Goals[0].Poses["xArmVgripper"].Pose()
-	goalPoseInFrame2, ok := parsedPr.Goals[0].Poses["xArmVgripper"]
+	goalPose1 := pr.Goals[0].Poses()["xArmVgripper"].Pose()
+	goalPoseInFrame2, ok := parsedPr.Goals[0].Poses()["xArmVgripper"]
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, spatialmath.PoseAlmostEqual(goalPose1, goalPoseInFrame2.Pose()), test.ShouldBeTrue)
 
@@ -596,9 +596,9 @@ func TestSerializedPlanRequest(t *testing.T) {
 	test.That(t, allows1[2].Frame1, test.ShouldEqual, allows2[2].Frame1)
 	test.That(t, allows1[2].Frame2, test.ShouldEqual, allows2[2].Frame2)
 
-	startStateConf1 := pr.StartState.Configuration["xArm6"]
+	startStateConf1 := pr.StartState.Configuration()["xArm6"]
 	test.That(t, parsedPr.StartState, test.ShouldNotBeNil)
-	startStateConfColl2 := parsedPr.StartState.Configuration
+	startStateConfColl2 := parsedPr.StartState.Configuration()
 	startStateConf2, ok := startStateConfColl2["xArm6"]
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, startStateConf1, test.ShouldResemble, startStateConf2)
