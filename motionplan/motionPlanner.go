@@ -18,6 +18,8 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+
+	commonpb "go.viam.com/api/common/v1"
 )
 
 // When we generate solutions, if a new solution is within this level of similarity to an existing one, discard it as a duplicate.
@@ -57,7 +59,7 @@ type PlanRequest struct {
 	// feasibility, and then other plans can be requested to connect to that returned plan's configurations.
 	StartState      *PlanState                 `json:"start_state"`
 	WorldState      *referenceframe.WorldState `json:"world_state"`
-	BoundingRegions []spatialmath.Geometry     `json:"bounding_regions"`
+	BoundingRegions []*commonpb.Geometry       `json:"bounding_regions"`
 	Constraints     *Constraints               `json:"constraints"`
 	PlannerOptions  *PlannerOptions            `json:"planner_options"`
 }
@@ -126,6 +128,11 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 		req.WorldState = newWS
 	}
 
+	boundingRegions, err := req.GetBoundingRegionGeometries()
+	if err != nil {
+		return err
+	}
+
 	// Validate the goals. Each goal with a pose must not also have a configuration specified. The parent frame of the pose must exist.
 	for i, goalState := range req.Goals {
 		for fName, pif := range goalState.poses {
@@ -138,7 +145,7 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 				return referenceframe.NewParentFrameMissingError(fName, goalParentFrame)
 			}
 
-			if len(req.BoundingRegions) > 0 {
+			if len(boundingRegions) > 0 {
 				// Check that robot components start within bounding regions.
 				// Bounding regions are for 2d planning, which requires a start pose
 				if len(goalState.poses) > 0 && len(req.StartState.poses) > 0 {
@@ -147,10 +154,6 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 						return referenceframe.NewFrameMissingError(fName)
 					}
 					buffer := req.PlannerOptions.CollisionBufferMM
-					// buffer, ok := req.Options["collision_buffer_mm"].(float64)
-					// if !ok {
-					// 	buffer = defaultCollisionBufferMM
-					// }
 					// check that the request frame's geometries are within or in collision with the bounding regions
 					robotGifs, err := goalFrame.Geometries(make([]referenceframe.Input, len(goalFrame.DoF())))
 					if err != nil {
@@ -166,7 +169,7 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 						for _, geom := range robotGifs.Geometries() {
 							robotGeoms = append(robotGeoms, geom.Transform(startPose.Pose()))
 						}
-						robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, req.BoundingRegions, buffer)
+						robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, boundingRegions, buffer)
 						if robotGeomBoundingRegionCheck(&ik.State{}) != nil {
 							return fmt.Errorf("frame named %s is not within the provided bounding regions", fName)
 						}
@@ -174,7 +177,7 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 
 					// check that the destination is within or in collision with the bounding regions
 					destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(pif.Pose().Point(), "")}
-					destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, req.BoundingRegions, buffer)
+					destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, boundingRegions, buffer)
 					if destinationBoundingRegionCheck(&ik.State{}) != nil {
 						return errors.New("destination was not within the provided bounding regions")
 					}
@@ -183,6 +186,18 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 		}
 	}
 	return nil
+}
+
+func (req *PlanRequest) GetBoundingRegionGeometries() ([]spatialmath.Geometry, error) {
+	boundingRegions := make([]spatialmath.Geometry, 0)
+	for _, regionProto := range req.BoundingRegions {
+		region, err := spatialmath.NewGeometryFromProto(regionProto)
+		if err != nil {
+			return nil, err
+		}
+		boundingRegions = append(boundingRegions, region)
+	}
+	return boundingRegions, nil
 }
 
 // PlanMotion plans a motion from a provided plan request.
@@ -309,6 +324,11 @@ func newPlannerFromPlanRequest(logger logging.Logger, fs referenceframe.FrameSys
 		return nil, err
 	}
 
+	boundingRegions, err := request.GetBoundingRegionGeometries()
+	if err != nil {
+		return nil, err
+	}
+
 	constraintHandler, err := newConstraintHandler(
 		opt,
 		request.Constraints,
@@ -318,7 +338,7 @@ func newPlannerFromPlanRequest(logger logging.Logger, fs referenceframe.FrameSys
 		mChains,
 		request.StartState.configuration,
 		request.WorldState,
-		request.BoundingRegions,
+		boundingRegions,
 	)
 	if err != nil {
 		return nil, err

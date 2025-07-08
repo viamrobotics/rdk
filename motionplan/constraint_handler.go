@@ -22,6 +22,7 @@ type ConstraintHandler struct {
 	stateConstraints     map[string]StateConstraint
 	stateFSConstraints   map[string]StateFSConstraint
 	pathMetric           ik.StateFSMetric // Distance function which converges on the valid manifold of intermediate path states
+	boundingRegions      []spatialmath.Geometry
 }
 
 func newEmptyConstraintHandler() *ConstraintHandler {
@@ -46,6 +47,7 @@ func newConstraintHandler(
 		constraints = &Constraints{}
 	}
 	handler := newEmptyConstraintHandler()
+	handler.boundingRegions = boundingRegions
 
 	startPoses, err := from.ComputePoses(fs)
 	if err != nil {
@@ -144,7 +146,9 @@ func newConstraintHandler(
 	if err != nil {
 		return nil, err
 	}
-	if hasTopoConstraint && (opt.PlanningAlgorithm() != CBiRRT) {
+	if hasTopoConstraint &&
+		(opt.PlanningAlgorithm() != CBiRRT) &&
+		(opt.PlanningAlgorithm() != UnspecifiedAlgorithm) {
 		return nil, NewAlgAndConstraintMismatchErr(string(opt.PlanningAlgorithm()))
 	}
 

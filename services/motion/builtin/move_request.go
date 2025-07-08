@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/logging"
@@ -104,6 +105,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	mr.planRequest.StartState = motionplan.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
 
 	// get existing elements of the worldstate
+
 	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(mr.frameSystem, startConf)
 	if err != nil {
 		return nil, err
@@ -124,10 +126,11 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 
 	// update worldstate to include transient detections
 	planRequestCopy := *mr.planRequest
-	planRequestCopy.WorldState, err = referenceframe.NewWorldState(gifs, nil)
+	worldState, err := referenceframe.NewWorldState(gifs, nil)
 	if err != nil {
 		return nil, err
 	}
+	planRequestCopy.WorldState = worldState
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
 	return motionplan.Replan(ctx, mr.logger, mr.frameSystem, &planRequestCopy, nil, 0)
@@ -682,6 +685,13 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	// convert bounding regions which are GeoGeometries into Geometries
 	boundingRegions := spatialmath.GeoGeometriesToGeometries(req.BoundingRegions, origin)
 
+	// TODO (GV) - Remove this unnecessary converion/re-conversion when an
+	// opinionated proto message is created for PlanRequest
+	boundingRegionsProto := make([]*commonpb.Geometry, 0)
+	for _, region := range boundingRegions {
+		boundingRegionsProto = append(boundingRegionsProto, region.ToProtobuf())
+	}
+
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
 		motionCfg,
@@ -698,7 +708,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
 	mr.geoPoseOrigin = spatialmath.NewGeoPose(origin, heading)
-	mr.planRequest.BoundingRegions = boundingRegions
+	mr.planRequest.BoundingRegions = boundingRegionsProto
 	return mr, nil
 }
 

@@ -744,7 +744,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 
 	checkReachable := func(worldState *frame.WorldState, constraints *Constraints) error {
 		goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
-		_, err := PlanMotion(context.Background(), logger, fs, &PlanRequest{
+		_, err = PlanMotion(context.Background(), logger, fs, &PlanRequest{
 			Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
 			StartState:     &PlanState{configuration: frame.NewZeroInputs(fs)},
 			WorldState:     worldState,
