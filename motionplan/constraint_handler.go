@@ -146,9 +146,7 @@ func newConstraintHandler(
 	if err != nil {
 		return nil, err
 	}
-	if hasTopoConstraint &&
-		(opt.PlanningAlgorithm() != CBiRRT) &&
-		(opt.PlanningAlgorithm() != UnspecifiedAlgorithm) {
+	if hasTopoConstraint && (opt.PlanningAlgorithm() != CBiRRT) && (opt.PlanningAlgorithm() != UnspecifiedAlgorithm) {
 		return nil, NewAlgAndConstraintMismatchErr(string(opt.PlanningAlgorithm()))
 	}
 

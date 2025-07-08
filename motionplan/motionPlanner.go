@@ -127,7 +127,7 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 		req.WorldState = newWS
 	}
 
-	boundingRegions, err := req.GetBoundingRegionGeometries()
+	boundingRegions, err := spatialmath.NewGeometriesFromProto(req.BoundingRegions)
 	if err != nil {
 		return err
 	}
@@ -185,20 +185,6 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 		}
 	}
 	return nil
-}
-
-// GetBoundingRegionGeometries parses the Geometry protobuf objects in `BoundingRegions` into
-// instances of spatialmath.Geometry.
-func (req *PlanRequest) GetBoundingRegionGeometries() ([]spatialmath.Geometry, error) {
-	boundingRegions := make([]spatialmath.Geometry, 0)
-	for _, regionProto := range req.BoundingRegions {
-		region, err := spatialmath.NewGeometryFromProto(regionProto)
-		if err != nil {
-			return nil, err
-		}
-		boundingRegions = append(boundingRegions, region)
-	}
-	return boundingRegions, nil
 }
 
 // PlanMotion plans a motion from a provided plan request.
@@ -325,7 +311,7 @@ func newPlannerFromPlanRequest(logger logging.Logger, fs referenceframe.FrameSys
 		return nil, err
 	}
 
-	boundingRegions, err := request.GetBoundingRegionGeometries()
+	boundingRegions, err := spatialmath.NewGeometriesFromProto(request.BoundingRegions)
 	if err != nil {
 		return nil, err
 	}
