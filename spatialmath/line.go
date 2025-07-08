@@ -250,24 +250,14 @@ func lineVsBoxCollision(ln *line, box *box, collisionBufferMM float64) bool {
 // lineVsPlaneIntersection checks for line-plane intersection.
 func lineVsPlaneIntersection(p0 r3.Vector, d r3.Vector, segmentLength float64, axis r3.Axis, k float64, halfSize [3]float64) bool {
 	// n*d (dot product of normal and direction)
-	nDotD := d.X
-	if axis == r3.YAxis {
-		nDotD = d.Y
-	} else if axis == r3.ZAxis {
-		nDotD = d.Z
-	}
+	nDotD := pointByAxis(d, axis)
 
 	if math.Abs(nDotD) < lineEpsilon {
 		return false
 	}
 
 	// n*p0 (dot product of normal and line start point)
-	nDotP0 := p0.X
-	if axis == r3.YAxis {
-		nDotP0 = p0.Y
-	} else if axis == r3.ZAxis {
-		nDotP0 = p0.Z
-	}
+	nDotP0 := pointByAxis(p0, axis)
 
 	// Calculate intersection parameter t
 	t := (k - nDotP0) / nDotD
@@ -284,12 +274,7 @@ func lineVsPlaneIntersection(p0 r3.Vector, d r3.Vector, segmentLength float64, a
 		if intersectAxis == axis {
 			continue
 		}
-		coord := intersection.X
-		if intersectAxis == r3.YAxis {
-			coord = intersection.Y
-		} else if intersectAxis == r3.ZAxis {
-			coord = intersection.Z
-		}
+		coord := pointByAxis(intersection, intersectAxis)
 		if coord < -halfSize[axisIdx] || coord > halfSize[axisIdx] {
 			return false
 		}

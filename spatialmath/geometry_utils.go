@@ -205,3 +205,16 @@ func closestPointsSegmentPlane(ap1, ap2, planePt, planeNormal r3.Vector) (segPt,
 	}
 	return coplanarPt, coplanarPt
 }
+
+func pointByAxis(point r3.Vector, axis r3.Axis) float64 {
+	switch axis {
+	case r3.XAxis:
+		return point.X
+	case r3.YAxis:
+		return point.Y
+	case r3.ZAxis:
+		return point.Z
+	}
+
+	return 0
+}
