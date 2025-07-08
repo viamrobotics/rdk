@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -103,6 +104,30 @@ func (ws *WorldState) ToProtobuf() (*commonpb.WorldState, error) {
 		Obstacles:  convertGeometriesToProto(ws.obstacles),
 		Transforms: transforms,
 	}, nil
+}
+
+// MarshalJSON serializes an instance of WorldState to JSON through its protobuf representation
+func (ws *WorldState) MarshalJSON() ([]byte, error) {
+	wsProto, err := ws.ToProtobuf()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(wsProto)
+}
+
+// UnmarshalJSON takes JSON bytes of a world state protobuf message and parses it
+// into an instance of WorldState
+func (ws *WorldState) UnmarshalJSON(data []byte) error {
+	var wsProto commonpb.WorldState
+	if err := json.Unmarshal(data, &wsProto); err != nil {
+		return err
+	}
+	newWs, err := WorldStateFromProtobuf(&wsProto)
+	if err != nil {
+		return err
+	}
+	*ws = *newWs
+	return nil
 }
 
 // String returns a string representation of the geometries in the WorldState.
