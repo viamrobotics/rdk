@@ -27,7 +27,7 @@ func TestEmptyConfigFrameService(t *testing.T) {
 	fsCfg, err := r.FrameSystemConfig(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsCfg.Parts, test.ShouldHaveLength, 0)
-	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, fsCfg.AdditionalTransforms)
+	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 0)
 }
@@ -108,7 +108,7 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
-	fsCfg.AdditionalTransforms = []*referenceframe.LinkInFrame{
+	additionalTransforms := []*referenceframe.LinkInFrame{
 		referenceframe.NewLinkInFrame("pieceArm", testPose, "frame1", nil),
 		referenceframe.NewLinkInFrame("pieceGripper", testPose, "frame2", nil),
 		referenceframe.NewLinkInFrame("frame2", testPose, "frame2a", nil),
@@ -116,7 +116,7 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 		referenceframe.NewLinkInFrame(referenceframe.World, testPose, "frame3", nil),
 	}
 
-	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, fsCfg.AdditionalTransforms)
+	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, additionalTransforms)
 	test.That(t, err, test.ShouldBeNil)
 	// 4 frames defined + 5 from transforms, 18 frames when including the offset,
 	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 18)
@@ -235,7 +235,7 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 				test.That(t, err, test.ShouldBeError, tc.err)
 				return
 			}
-			_, err = referenceframe.NewFrameSystem(tc.num, fsCfg.Parts, fsCfg.AdditionalTransforms)
+			_, err = referenceframe.NewFrameSystem(tc.num, fsCfg.Parts, nil)
 			test.That(t, err, test.ShouldBeError, tc.err)
 		})
 	}
@@ -255,8 +255,7 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 		}
 		fsCfg, err := r.FrameSystemConfig(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		fsCfg.AdditionalTransforms = transforms
-		fs, err := referenceframe.NewFrameSystem("", fsCfg.Parts, fsCfg.AdditionalTransforms)
+		fs, err := referenceframe.NewFrameSystem("", fsCfg.Parts, transforms)
 		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("frame2", "noParent"))
 		test.That(t, fs, test.ShouldBeNil)
 	})
@@ -267,8 +266,7 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 		}
 		fsCfg, err := r.FrameSystemConfig(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		fsCfg.AdditionalTransforms = transforms
-		fs, err := referenceframe.NewFrameSystem("", fsCfg.Parts, fsCfg.AdditionalTransforms)
+		fs, err := referenceframe.NewFrameSystem("", fsCfg.Parts, transforms)
 		test.That(t, err, test.ShouldBeError, referenceframe.ErrEmptyStringFrameName)
 		test.That(t, fs, test.ShouldBeNil)
 	})

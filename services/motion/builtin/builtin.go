@@ -105,7 +105,8 @@ type builtIn struct {
 	movementSensors         map[resource.Name]movementsensor.MovementSensor
 	slamServices            map[resource.Name]slam.Service
 	visionServices          map[resource.Name]vision.Service
-	components              map[resource.Name]resource.Resource
+	componentMap            map[string]resource.Resource
+	components              []resource.Resource
 	logger                  logging.Logger
 	state                   *state.State
 	configuredDefaultExtras map[string]any
@@ -151,7 +152,8 @@ func (ms *builtIn) Reconfigure(
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
 	visionServices := make(map[resource.Name]vision.Service)
-	components := make(map[resource.Name]resource.Resource)
+	componentMap := make(map[string]resource.Resource)
+	components := make([]resource.Resource, 0)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
@@ -163,7 +165,8 @@ func (ms *builtIn) Reconfigure(
 		case vision.Service:
 			visionServices[name] = dep
 		default:
-			components[name] = dep
+			componentMap[name.ShortName()] = dep
+			components = append(components, dep)
 		}
 	}
 	ms.movementSensors = movementSensors
@@ -426,13 +429,13 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 }
 
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
-	frameSys, err := ms.fsService.FrameSystem(ctx, req.WorldState.Transforms())
+	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
 	}
 
 	// build maps of relevant components and inputs from initial inputs
-	fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
+	fsInputs, err := framesystem.CurrentInputs(ctx, ms.components)
 	if err != nil {
 		return nil, err
 	}
@@ -506,12 +509,6 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
-	// build maps of relevant components from initial inputs
-	_, resources, err := ms.fsService.CurrentInputs(ctx)
-	if err != nil {
-		return err
-	}
-
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
@@ -574,11 +571,15 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			if len(inputs) == 0 {
 				continue
 			}
-			r, ok := resources[name]
+			r, ok := ms.componentMap[name]
 			if !ok {
-				return fmt.Errorf("plan had step for resource %s but no resource with that name found in framesystem", name)
+				return fmt.Errorf("plan had step for resource %s but it was not found in the motion", name)
 			}
-			if err := r.GoToInputs(ctx, inputs...); err != nil {
+			ie, err := utils.AssertType[framesystem.InputEnabled](r)
+			if err != nil {
+				return err
+			}
+			if err := ie.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if actuator, ok := r.(inputEnabledActuator); ok {
 					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {

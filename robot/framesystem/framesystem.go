@@ -108,7 +108,7 @@ type RobotFrameSystem interface {
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
-		additionalTransforms []*referenceframe.LinkInFrame,
+		supplementalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 
 	// TransformPointCloud returns a new point cloud with points adjusted from one reference frame to a specified destination frame.
@@ -124,7 +124,7 @@ func FromDependencies(deps resource.Dependencies) (Service, error) {
 func New(ctx context.Context, deps resource.Dependencies, logger logging.Logger) (Service, error) {
 	fs := &frameSystemService{
 		Named:      InternalServiceName.AsNamed(),
-		components: make(map[string]resource.Resource),
+		components: make([]resource.Resource, 0),
 		logger:     logger,
 	}
 	if err := fs.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}); err != nil {
@@ -147,8 +147,7 @@ func (svc *frameSystemService) Name() resource.Name {
 // Config is a slice of *config.FrameSystemPart.
 type Config struct {
 	resource.TriviallyValidateConfig
-	Parts                []*referenceframe.FrameSystemPart
-	AdditionalTransforms []*referenceframe.LinkInFrame
+	Parts []*referenceframe.FrameSystemPart
 }
 
 // String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.
@@ -189,7 +188,7 @@ func (cfg Config) String() string {
 type frameSystemService struct {
 	resource.Named
 	resource.TriviallyCloseable
-	components map[string]resource.Resource
+	components []resource.Resource
 	logger     logging.Logger
 
 	parts   []*referenceframe.FrameSystemPart
@@ -204,14 +203,15 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	components := make(map[string]resource.Resource)
+	seen := make(map[string]resource.Resource)
+	components := make([]resource.Resource, 0)
 	for name, r := range deps {
 		short := name.ShortName()
-		// is this only for InputEnabled components or everything?
-		if _, present := components[short]; present {
+		if _, present := seen[short]; present {
 			return DuplicateResourceShortNameError(short)
 		}
-		components[short] = r
+		seen[short] = r
+		components = append(components, r)
 	}
 	svc.components = components
 
@@ -311,10 +311,22 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 	return pc, nil
 }
 
+func NewFromService(
+	ctx context.Context,
+	service Service,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+) (referenceframe.FrameSystem, error) {
+	fsCfg, err := service.FrameSystemConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.NewFrameSystem(service.Name().ShortName(), fsCfg.Parts, supplementalTransforms)
+}
+
 // CurrentInputs will get the inputs of all provided dependencies
-func CurrentInputs(ctx context.Context, components map[string]resource.Resource) (referenceframe.FrameSystemInputs, error) {
+func CurrentInputs(ctx context.Context, components []resource.Resource) (referenceframe.FrameSystemInputs, error) {
 	input := make(referenceframe.FrameSystemInputs)
-	for name, res := range components {
+	for _, res := range components {
 		inputEnabled, ok := res.(InputEnabled)
 		if !ok {
 			continue
@@ -323,7 +335,7 @@ func CurrentInputs(ctx context.Context, components map[string]resource.Resource)
 		if err != nil {
 			return nil, err
 		}
-		input[name] = pos
+		input[res.Name().ShortName()] = pos
 	}
 	return input, nil
 }

@@ -230,13 +230,12 @@ func (mr *moveRequest) getTransientDetections(
 	if err != nil {
 		return nil, err
 	}
-	// the inputMap informs where we are in the world
-	// the inputMap will be used downstream to transform the observed geometry from the camera frame
-	// into the world frame
-	inputMap, _, err := mr.fsService.CurrentInputs(ctx)
-	if err != nil {
-		return nil, err
-	}
+
+	// NOTE: this used to call CurrentInputs on the frameSystemService but when that was removed from the RobotFrameSystem API
+	// this became impossible.  If we need other components' inputs the assumption to use the zero inputs is not valid,
+	// but at the time of writing this note that is explicitly an unsupported feature for the Base motion stack
+	inputMap := referenceframe.NewZeroInputs(mr.localizingFS)
+
 	k, err := mr.kinematicBase.Kinematics(ctx)
 	if err != nil {
 		return nil, err
@@ -639,7 +638,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose()))
 
 	// create a KinematicBase from the componentName
-	baseComponent, ok := ms.components[req.ComponentName]
+	baseComponent, ok := ms.componentMap[req.ComponentName.ShortName()]
 	if !ok {
 		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
@@ -648,7 +647,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", baseComponent)
 	}
 
-	fs, err := ms.fsService.FrameSystem(ctx, nil)
+	fs, err := framesystem.NewFromService(ctx, ms.fsService, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -752,7 +751,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
 	// create a KinematicBase from the componentName
-	component, ok := ms.components[req.ComponentName]
+	component, ok := ms.componentMap[req.ComponentName.ShortName()]
 	if !ok {
 		return nil, resource.DependencyNotFoundError(req.ComponentName)
 	}
@@ -764,7 +763,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	// build kinematic options
 	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
 
-	fs, err := ms.fsService.FrameSystem(ctx, nil)
+	fs, err := framesystem.NewFromService(ctx, ms.fsService, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -915,7 +914,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		}
 	}
 
-	currentInputs, _, err := ms.fsService.CurrentInputs(ctx)
+	currentInputs, err := framesystem.CurrentInputs(ctx, ms.components)
 	if err != nil {
 		return nil, err
 	}
