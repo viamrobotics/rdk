@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/spatialmath"
 )
@@ -73,6 +74,23 @@ func (pF *PoseInFrame) Transform(tf *PoseInFrame) Transformable {
 // String returns the string representation of the PoseInFrame.
 func (pF *PoseInFrame) String() string {
 	return fmt.Sprintf("parent: %s, pose: %v", pF.parent, pF.pose)
+}
+
+// MarshalJSON converts a PoseInFrame to JSON through its protobuf representation.
+func (pF *PoseInFrame) MarshalJSON() ([]byte, error) {
+	pFProto := PoseInFrameToProtobuf(pF)
+	return protojson.Marshal(pFProto)
+}
+
+// UnmarshalJSON parses a PoseInFrame from its protobuf representation in JSON bytes.
+func (pF *PoseInFrame) UnmarshalJSON(data []byte) error {
+	var pFProto commonpb.PoseInFrame
+	if err := protojson.Unmarshal(data, &pFProto); err != nil {
+		return err
+	}
+	newPF := ProtobufToPoseInFrame(&pFProto)
+	*pF = *newPF
+	return nil
 }
 
 // LinkInFrame is a PoseInFrame plus a Geometry.
