@@ -1139,7 +1139,7 @@ func (r *localRobot) extractModelFrameJSON(ctx context.Context, name resource.Na
 	return nil, referenceframe.ErrNoModelInformation
 }
 
-// GetPose returns the pose of the specified component in the given destination frame
+// GetPose returns the pose of the specified component in the given destination frame.
 func (r *localRobot) GetPose(
 	ctx context.Context,
 	componentName, destinationFrame string,

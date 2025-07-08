@@ -306,29 +306,6 @@ type PlanWithStatus struct {
 //
 // For more information, see the [MoveOnGlobe method docs].
 //
-// GetPose example:
-//
-//	// Insert code to connect to your machine.
-//	// (see CONNECT tab of your machine's page in the Viam app)
-//
-//	// Assumes a gripper configured with name "my_gripper" on the machine
-//	gripperName := gripper.Named("my_gripper")
-//
-//	// Access the motion service
-//	motionService, err := motion.FromRobot(machine, "builtin")
-//	if err != nil {
-//	  logger.Fatal(err)
-//	}
-//
-//	myGripperPose, err := motionService.GetPose(context.Background(), gripperName, referenceframe.World, nil, nil)
-//	if err != nil {
-//	  logger.Fatal(err)
-//	}
-//	logger.Info("Position of my_gripper from the motion service:", myGripperPose.Pose().Point())
-//	logger.Info("Orientation of my_gripper from the motion service:", myGripperPose.Pose().Orientation())
-//
-// For more information, see the [GetPose method docs].
-//
 // StopPlan example:
 //
 //	motionService, err := motion.FromRobot(machine, "builtin")
@@ -373,6 +350,7 @@ type PlanWithStatus struct {
 // [StopPlan method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#stopplan
 // [ListPlanStatuses method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#listplanstatuses
 // [PlanHistory method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getplan
+//
 // [GetPose method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getpose
 type Service interface {
 	resource.Resource

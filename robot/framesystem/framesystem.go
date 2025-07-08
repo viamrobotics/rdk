@@ -39,36 +39,18 @@ type InputEnabled interface {
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }
 
-// Service is an interface that wraps a RobotFrameSystem in a Resource
+// Service is an interface that wraps a RobotFrameSystem in a Resource.
 type Service interface {
 	resource.Resource
 	RobotFrameSystem
 }
 
-// TODO this comment needs a bunch of work
+// RobotFrameSystem defines the API to interact with the FrameSystemService
 //
 // GetPose example:
 //
-//	// Insert code to connect to your machine.
-//	// (see CONNECT tab of your machine's page in the Viam app)
-//
-//	// Assumes a gripper configured with name "my_gripper" on the machine
-//	gripperName := gripper.Named("my_gripper")
-//
-//	// Access the motion service
-//	motionService, err := motion.FromRobot(machine, "builtin")
-//	if err != nil {
-//	  logger.Fatal(err)
-//	}
-//
-//	myGripperPose, err := motionService.GetPose(context.Background(), gripperName, referenceframe.World, nil, nil)
-//	if err != nil {
-//	  logger.Fatal(err)
-//	}
-//	logger.Info("Position of my_gripper from the motion service:", myGripperPose.Pose().Point())
-//	logger.Info("Orientation of my_gripper from the motion service:", myGripperPose.Pose().Orientation())
-//
-// For more information, see the [GetPose method docs].
+//	 // Assume that a gripper is correctly configured with a frame on your machine
+//	myGripperPose, err := machine.GetPose(context.Background(), gripperName, referenceframe.World, nil, nil)
 //
 // TransformPose example:
 //
@@ -142,8 +124,6 @@ func (svc *frameSystemService) Name() resource.Name {
 	return internalFrameSystemServiceName
 }
 
-// TODO: remove AdditionalTransforms since they aren't something that can really be configured
-// Then make the frame system constructor take a config
 // Config is a slice of *config.FrameSystemPart.
 type Config struct {
 	resource.TriviallyValidateConfig
@@ -233,7 +213,7 @@ func (svc *frameSystemService) FrameSystemConfig(ctx context.Context) (*Config, 
 	return &Config{Parts: svc.parts}, nil
 }
 
-// GetPose returns the pose of the specified component in the given destination frame
+// GetPose returns the pose of the specified component in the given destination frame.
 func (svc *frameSystemService) GetPose(
 	ctx context.Context,
 	componentName, destinationFrame string,
@@ -311,6 +291,8 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 	return pc, nil
 }
 
+// NewFromService creates a referenceframe.FrameSystem from the given Service's FrameSystemConfig and returns it.
+// Supplemental transforms can be provided to augment the FrameSystemConfig.
 func NewFromService(
 	ctx context.Context,
 	service Service,
@@ -323,7 +305,7 @@ func NewFromService(
 	return referenceframe.NewFrameSystem(service.Name().ShortName(), fsCfg.Parts, supplementalTransforms)
 }
 
-// CurrentInputs will get the inputs of all provided dependencies
+// CurrentInputs will get the inputs of all provided dependencies.
 func CurrentInputs(ctx context.Context, components []resource.Resource) (referenceframe.FrameSystemInputs, error) {
 	input := make(referenceframe.FrameSystemInputs)
 	for _, res := range components {

@@ -50,7 +50,6 @@ import (
 	"go.viam.com/rdk/tunnel"
 	"go.viam.com/rdk/utils/contextutils"
 	nc "go.viam.com/rdk/web/networkcheck"
-	vprotoutils "go.viam.com/utils/protoutils"
 )
 
 var (
@@ -974,14 +973,14 @@ func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Conf
 	return &framesystem.Config{Parts: result}, nil
 }
 
-// GetPose returns the pose of the specified component in the given destination frame
+// GetPose returns the pose of the specified component in the given destination frame.
 func (rc *RobotClient) GetPose(
 	ctx context.Context,
 	componentName, destinationFrame string,
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
-	ext, err := vprotoutils.StructToStructPb(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}

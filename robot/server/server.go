@@ -302,13 +302,7 @@ func (s *Server) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPo
 	if err != nil {
 		return nil, err
 	}
-	pose, err := s.robot.GetPose(
-		ctx,
-		req.ComponentName,
-		req.DestinationFrame,
-		transforms,
-		req.Extra.AsMap(),
-	)
+	pose, err := s.robot.GetPose(ctx, req.ComponentName, req.DestinationFrame, transforms, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

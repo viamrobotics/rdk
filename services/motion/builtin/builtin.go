@@ -297,7 +297,7 @@ func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (
 	return id, nil
 }
 
-// GetPose is deprecated
+// GetPose is deprecated.
 func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,

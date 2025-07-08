@@ -63,10 +63,12 @@ func Connect(port int) (*grpc.ClientConn, error) {
 	defer cancelFunc()
 
 	var conn *grpc.ClientConn
-	conn, err := grpc.DialContext(ctxTimeout, //nolint:staticcheck
+	//nolint:staticcheck
+	conn, err := grpc.DialContext(ctxTimeout,
 		fmt.Sprintf("dns:///localhost:%d", port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(), //nolint:staticcheck
+		//nolint:staticcheck
+		grpc.WithBlock(),
 	)
 	if err != nil {
 		return nil, err
