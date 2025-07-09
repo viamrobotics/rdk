@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 )
@@ -460,13 +461,13 @@ func TestPCDCompressed(t *testing.T) {
 	found2 := false
 	found3 := false
 	cloud2.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
-		if math.Abs(pos.X-(-1)) < 0.1 && math.Abs(pos.Y-(-2)) < 0.1 && math.Abs(pos.Z-5) < 0.1 {
+		if spatialmath.R3VectorAlmostEqual(pos, r3.Vector{-1, -2, 5}, .1) {
 			found1 = true
 		}
-		if math.Abs(pos.X-582) < 0.1 && math.Abs(pos.Y-12) < 0.1 && math.Abs(pos.Z-0) < 0.1 {
+		if spatialmath.R3VectorAlmostEqual(pos, r3.Vector{582, 12, 0}, .1) {
 			found2 = true
 		}
-		if math.Abs(pos.X-7) < 0.1 && math.Abs(pos.Y-6) < 0.1 && math.Abs(pos.Z-1) < 0.1 {
+		if spatialmath.R3VectorAlmostEqual(pos, r3.Vector{7, 6, 1}, .1) {
 			found3 = true
 		}
 		return true
