@@ -15,6 +15,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	lzf "github.com/zhuyie/golzf"
 	"gonum.org/v1/gonum/num/quat"
 
 	"go.viam.com/rdk/spatialmath"
@@ -139,13 +140,16 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 			return err
 		}
 	case PCDCompressed:
-		// _, err = fmt.Fprintf(out, "DATA binary_compressed\n")
-		// if err != nil {
-		// 	return err
-		// }
-		return errors.New("compressed PCD not yet implemented")
+		_, err = fmt.Fprintf(out, "DATA binary_compressed\n")
+		if err != nil {
+			return err
+		}
 	}
-	err = writePCDData(cloud, out, outputType)
+	if outputType == PCDCompressed {
+		err = writePCDCompressed(cloud, out)
+	} else {
+		err = writePCDData(cloud, out, outputType)
+	}
 	if err != nil {
 		return err
 	}
@@ -153,8 +157,8 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 }
 
 func writePCDData(cloud PointCloud, out io.Writer, pcdtype PCDType) error {
+	var err error
 	cloud.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
-		var err error
 		// Converts RDK units (millimeters) to meters for PCD
 		x := pos.X / 1000.
 		y := pos.Y / 1000.
@@ -194,7 +198,7 @@ func writePCDData(cloud PointCloud, out io.Writer, pcdtype PCDType) error {
 		}
 		return err == nil
 	})
-	return nil
+	return err
 }
 
 func readFloat(n uint32) float64 {
@@ -382,7 +386,7 @@ func readPCDHelper(inRaw io.Reader, cfg TypeConfig) (PointCloud, error) {
 	case PCDBinary:
 		return readPCDBinary(in, *header, pc)
 	case PCDCompressed:
-		return nil, errors.New("compressed pcd not yet supported")
+		return readPCDCompressed(in, *header, pc)
 	default:
 		return nil, fmt.Errorf("unsupported pcd data type %v", header.data)
 	}
@@ -501,4 +505,216 @@ func readSliceToPoint(slice []float64, header pcdHeader) (r3.Vector, Data, error
 	default:
 		return r3.Vector{}, nil, fmt.Errorf("unsupported pcd field type %d", header.fields)
 	}
+}
+
+// reorganizeToStructureOfArrays converts point cloud data from array-of-structures
+// to structure-of-arrays format for better compression.
+func reorganizeToStructureOfArrays(cloud PointCloud) ([]byte, error) {
+	size := cloud.Size()
+	if size == 0 {
+		return nil, errors.New("empty point cloud")
+	}
+
+	hasColor := cloud.MetaData().HasColor
+	var data []byte
+
+	if hasColor {
+		// Reserve space for x, y, z, rgb arrays
+		data = make([]byte, 0, size*16) // 4 float32s per point
+
+		// Separate arrays for x, y, z, rgb
+		xData := make([]byte, 0, size*4)
+		yData := make([]byte, 0, size*4)
+		zData := make([]byte, 0, size*4)
+		rgbData := make([]byte, 0, size*4)
+
+		cloud.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
+			// Convert RDK units (millimeters) to meters for PCD
+			x := pos.X / 1000.
+			y := pos.Y / 1000.
+			z := pos.Z / 1000.
+
+			buf := make([]byte, 4)
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(x)))
+			xData = append(xData, buf...)
+
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(y)))
+			yData = append(yData, buf...)
+
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(z)))
+			zData = append(zData, buf...)
+
+			c := _colorToPCDInt(d)
+			binary.LittleEndian.PutUint32(buf, uint32(c))
+			rgbData = append(rgbData, buf...)
+
+			return true
+		})
+
+		// Combine all arrays
+		data = append(data, xData...)
+		data = append(data, yData...)
+		data = append(data, zData...)
+		data = append(data, rgbData...)
+	} else {
+		// Reserve space for x, y, z arrays
+		data = make([]byte, 0, size*12) // 3 float32s per point
+
+		// Separate arrays for x, y, z
+		xData := make([]byte, 0, size*4)
+		yData := make([]byte, 0, size*4)
+		zData := make([]byte, 0, size*4)
+
+		cloud.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
+			// Convert RDK units (millimeters) to meters for PCD
+			x := pos.X / 1000.
+			y := pos.Y / 1000.
+			z := pos.Z / 1000.
+
+			buf := make([]byte, 4)
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(x)))
+			xData = append(xData, buf...)
+
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(y)))
+			yData = append(yData, buf...)
+
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(z)))
+			zData = append(zData, buf...)
+
+			return true
+		})
+
+		// Combine all arrays
+		data = append(data, xData...)
+		data = append(data, yData...)
+		data = append(data, zData...)
+	}
+
+	return data, nil
+}
+
+// writePCDCompressed writes compressed point cloud data using LZF compression.
+func writePCDCompressed(cloud PointCloud, out io.Writer) error {
+	// Reorganize data to structure-of-arrays format
+	uncompressedData, err := reorganizeToStructureOfArrays(cloud)
+	if err != nil {
+		return err
+	}
+
+	// Compress the data using LZF
+	// Allocate output buffer with maximum possible size
+	compressedData := make([]byte, len(uncompressedData)+len(uncompressedData)/64+16+3)
+	compressedBytes, err := lzf.Compress(uncompressedData, compressedData)
+	if err != nil {
+		return errors.Wrap(err, "failed to compress point cloud data")
+	}
+	compressedData = compressedData[:compressedBytes]
+
+	// Write compressed size (4 bytes)
+	compressedSize := uint32(len(compressedData))
+	if err := binary.Write(out, binary.LittleEndian, compressedSize); err != nil {
+		return errors.Wrap(err, "failed to write compressed size")
+	}
+
+	// Write uncompressed size (4 bytes)
+	uncompressedSize := uint32(len(uncompressedData))
+	if err := binary.Write(out, binary.LittleEndian, uncompressedSize); err != nil {
+		return errors.Wrap(err, "failed to write uncompressed size")
+	}
+
+	// Write compressed data
+	if _, err := out.Write(compressedData); err != nil {
+		return errors.Wrap(err, "failed to write compressed data")
+	}
+
+	return nil
+}
+
+// readPCDCompressed reads compressed point cloud data using LZF decompression.
+func readPCDCompressed(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud, error) {
+	// Read compressed size (4 bytes)
+	var compressedSize uint32
+	if err := binary.Read(in, binary.LittleEndian, &compressedSize); err != nil {
+		return nil, errors.Wrap(err, "failed to read compressed size")
+	}
+
+	// Read uncompressed size (4 bytes)
+	var uncompressedSize uint32
+	if err := binary.Read(in, binary.LittleEndian, &uncompressedSize); err != nil {
+		return nil, errors.Wrap(err, "failed to read uncompressed size")
+	}
+
+	// Read compressed data
+	compressedData := make([]byte, compressedSize)
+	if _, err := io.ReadFull(in, compressedData); err != nil {
+		return nil, errors.Wrap(err, "failed to read compressed data")
+	}
+
+	// Decompress the data
+	uncompressedData := make([]byte, uncompressedSize)
+	decompressedBytes, err := lzf.Decompress(compressedData, uncompressedData)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to decompress point cloud data")
+	}
+	if decompressedBytes != int(uncompressedSize) {
+		return nil, fmt.Errorf("decompressed size mismatch: expected %d, got %d", uncompressedSize, decompressedBytes)
+	}
+
+	// Parse the decompressed data from structure-of-arrays format
+	return parseStructureOfArrays(uncompressedData, header, pc)
+}
+
+// parseStructureOfArrays parses structure-of-arrays format data back to point cloud.
+func parseStructureOfArrays(data []byte, header pcdHeader, pc PointCloud) (PointCloud, error) {
+	numPoints := int(header.points)
+	if numPoints == 0 {
+		return pc, nil
+	}
+
+	hasColor := header.fields == pcdPointColor
+	expectedSize := numPoints * 3 * 4 // 3 float32s per point minimum
+	if hasColor {
+		expectedSize = numPoints * 4 * 4 // 4 float32s per point with color
+	}
+
+	if len(data) != expectedSize {
+		return nil, fmt.Errorf("unexpected data size: got %d, expected %d", len(data), expectedSize)
+	}
+
+	// Parse structure-of-arrays format
+	offset := 0
+	pointSize := 4 // 4 bytes per float32
+
+	for i := 0; i < numPoints; i++ {
+		// Read x coordinate
+		xOffset := offset + i*pointSize
+		x := math.Float32frombits(binary.LittleEndian.Uint32(data[xOffset : xOffset+4]))
+
+		// Read y coordinate
+		yOffset := offset + numPoints*pointSize + i*pointSize
+		y := math.Float32frombits(binary.LittleEndian.Uint32(data[yOffset : yOffset+4]))
+
+		// Read z coordinate
+		zOffset := offset + 2*numPoints*pointSize + i*pointSize
+		z := math.Float32frombits(binary.LittleEndian.Uint32(data[zOffset : zOffset+4]))
+
+		// Convert PCD units (meters) to millimeters for RDK
+		point := r3.Vector{X: 1000. * float64(x), Y: 1000. * float64(y), Z: 1000. * float64(z)}
+
+		var colorData Data
+		if hasColor {
+			// Read RGB data
+			rgbOffset := offset + 3*numPoints*pointSize + i*pointSize
+			rgb := binary.LittleEndian.Uint32(data[rgbOffset : rgbOffset+4])
+			colorData = NewColoredData(_pcdIntToColor(int(rgb)))
+		} else {
+			colorData = NewBasicData()
+		}
+
+		if err := pc.Set(point, colorData); err != nil {
+			return nil, err
+		}
+	}
+
+	return pc, nil
 }
