@@ -72,7 +72,6 @@ func New(
 	}
 	conn, err := grpc.Dial(robotContext, dialAddr, jobLogger)
 	if err != nil {
-		jobLogger.Error(err)
 		return nil, err
 	}
 
@@ -100,7 +99,7 @@ func (jm *Jobmanager) Shutdown() error {
 // createDescriptorSourceAndgRPCMethod sets up a DescriptorSource for grpc translations
 // and sets up a grpcMethod string that will be invoked later.
 func (jm *Jobmanager) createDescriptorSourceAndgRPCMethod(
-	resource resource.Resource,
+	res resource.Resource,
 	method string) (grpcurl.DescriptorSource, string, error) {
 
 	refCtx := metadata.NewOutgoingContext(jm.ctx, nil)
@@ -108,7 +107,8 @@ func (jm *Jobmanager) createDescriptorSourceAndgRPCMethod(
 	reflSource := grpcurl.DescriptorSourceFromServer(jm.ctx, refClient)
 	descSource := reflSource
 
-	resourceType := resource.Name().API.SubtypeName
+	resourceType := res.Name().API.SubtypeName
+	resourceType = strings.ReplaceAll(resourceType, "_", "")
 	services, err := descSource.ListServices()
 	if err != nil {
 		return nil, "", err
@@ -131,7 +131,6 @@ func (jm *Jobmanager) createDescriptorSourceAndgRPCMethod(
 func (jm *Jobmanager) createJobFunction(jc config.JobConfig, jobLogger logging.Logger) func() {
 	return func() {
 		res, err := jm.getResource(jc.Resource)
-		jobLogger.Debug("test")
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "Could not get resource", "error", err)
 			return
@@ -152,6 +151,7 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig, jobLogger logging.L
 		descSource, grpcMethod, err := jm.createDescriptorSourceAndgRPCMethod(res, jc.Method)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "grpc setup failed", "error", err)
+			return
 		}
 
 		data := fmt.Sprintf("{%q : %q}", "name", jc.Resource)
