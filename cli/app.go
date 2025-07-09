@@ -1176,6 +1176,10 @@ var app = &cli.App{
 									Name:  "end",
 									Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval",
 								},
+								&cli.StringFlag{
+									Name:  "additional-params",
+									Usage: "additional parameters to pass to the tabular data export query. accepts a JSON string of key-value pairs",
+								},
 							},
 							Action: createCommandWithT[dataExportTabularArgs](DataExportTabularAction),
 						},
