@@ -185,14 +185,14 @@ func (r *localRobot) Close(ctx context.Context) error {
 	if r.packageManager != nil {
 		err = multierr.Combine(err, r.packageManager.Close(ctx))
 	}
+	if r.jobManager != nil {
+		err = multierr.Combine(err, r.jobManager.Shutdown())
+	}
 	if r.webSvc != nil {
 		err = multierr.Combine(err, r.webSvc.Close(ctx))
 	}
 	if r.ftdc != nil {
 		r.ftdc.StopAndJoin(ctx)
-	}
-	if r.jobManager != nil {
-		err = multierr.Combine(err, r.jobManager.Shutdown())
 	}
 
 	return err
