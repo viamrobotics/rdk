@@ -938,6 +938,12 @@ func TestDiffJobCfg(t *testing.T) {
 		Resource: "my-resource",
 		Method:   "my-method",
 	}
+	job7 := config.JobConfigData{
+		Name:     "my-job-6",
+		Schedule: "0 */3 * * *",
+		Resource: "my-new-resource",
+		Method:   "my-new-method",
+	}
 
 	jobs1 := []config.JobConfig{
 		{job1},
@@ -966,6 +972,12 @@ func TestDiffJobCfg(t *testing.T) {
 		{job3},
 		{job1},
 		{job2},
+	}
+	jobs8 := []config.JobConfig{
+		{job2},
+	}
+	jobs9 := []config.JobConfig{
+		{job7},
 	}
 
 	for _, tc := range []struct {
@@ -1016,11 +1028,22 @@ func TestDiffJobCfg(t *testing.T) {
 			config.Config{Jobs: jobs6},
 			false,
 		},
+		{
+			"Differ in commands",
+			config.Config{Jobs: jobs2},
+			config.Config{Jobs: jobs8},
+			false,
+		},
+		{
+			"Modified jobs",
+			config.Config{Jobs: jobs6},
+			config.Config{Jobs: jobs9},
+			false,
+		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			diff, err := config.DiffConfigs(tc.LeftCfg, tc.RightCfg, true)
 			test.That(t, err, test.ShouldBeNil)
-
 			test.That(t, diff.JobsEqual, test.ShouldEqual, tc.JobsEqual)
 		})
 	}
