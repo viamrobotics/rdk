@@ -3,7 +3,10 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,6 +20,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/service/motion/v1"
+	vutils "go.viam.com/utils"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -90,6 +94,10 @@ type inputEnabledActuator interface {
 type Config struct {
 	LogFilePath string `json:"log_file_path"`
 	NumThreads  int    `json:"num_threads"`
+
+	PlanFilePath           string `json:"plan_file_path"`
+	LogPlannerErrors       bool   `json:"log_planner_errors"`
+	LogSlowPlanThresholdMS int    `json:"log_slow_plan_threshold_ms"`
 }
 
 // Validate here adds a dependency on the internal framesystem service.
@@ -97,11 +105,21 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.NumThreads < 0 {
 		return nil, nil, fmt.Errorf("cannot configure with %d number of threads, number must be positive", c.NumThreads)
 	}
+
+	if c.LogPlannerErrors && c.PlanFilePath == "" {
+		return nil, nil, fmt.Errorf("need a plan_file_path if you sent log_planner_errors to %v", c.LogPlannerErrors)
+	}
+
+	if c.LogSlowPlanThresholdMS != 0 && c.PlanFilePath == "" {
+		return nil, nil, fmt.Errorf("need a plan_file_path if you sent LogSlowPlanThresholdMS to %v", c.LogSlowPlanThresholdMS)
+	}
+
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
 }
 
 type builtIn struct {
 	resource.Named
+	conf                    *Config
 	mu                      sync.RWMutex
 	fsService               framesystem.Service
 	movementSensors         map[resource.Name]movementsensor.MovementSensor
@@ -142,6 +160,8 @@ func (ms *builtIn) Reconfigure(
 	if err != nil {
 		return err
 	}
+	ms.conf = config
+
 	if config.LogFilePath != "" {
 		fileAppender, _ := logging.NewFileAppender(config.LogFilePath)
 		ms.logger.AddAppender(fileAppender)
@@ -526,13 +546,28 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	}
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	return motionplan.PlanMotion(ctx, logger, frameSys, &motionplan.PlanRequest{
+
+	planRequest := &motionplan.PlanRequest{
 		Goals:          worldWaypoints,
 		StartState:     startState,
 		WorldState:     req.WorldState,
 		Constraints:    req.Constraints,
 		PlannerOptions: planOpts,
-	})
+	}
+
+	start := time.Now()
+	plan, err := motionplan.PlanMotion(ctx, logger, frameSys, planRequest)
+	if (err != nil && ms.conf.LogPlannerErrors) ||
+		(ms.conf.LogSlowPlanThresholdMS != 0 &&
+			time.Since(start) > (time.Duration(ms.conf.LogSlowPlanThresholdMS)*time.Millisecond)) {
+		fn := filepath.Join(ms.conf.PlanFilePath, fmt.Sprintf("plan-%s.json", start.Format(time.RFC3339)))
+		ms.logger.Infof("writing plan to %s", fn)
+		err := writePlan(fn, planRequest)
+		if err != nil {
+			ms.logger.Warnf("couldn't write plan: %v", err)
+		}
+	}
+	return plan, err
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
@@ -693,4 +728,21 @@ func waypointsFromRequest(
 		waypoints = append(waypoints, goalState)
 	}
 	return startState, waypoints, nil
+}
+
+func writePlan(fn string, req *motionplan.PlanRequest) error {
+	data, err := json.MarshalIndent(req, "", "  ")
+	if err != nil {
+		return err
+	}
+	file, err := os.OpenFile(filepath.Clean(fn), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer vutils.UncheckedErrorFunc(file.Close)
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
 }
