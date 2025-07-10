@@ -435,7 +435,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	}
 
 	// build maps of relevant components and inputs from initial inputs
-	fsInputs, err := framesystem.CurrentInputs(ctx, ms.components)
+	fsInputs, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -902,7 +902,7 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	getTransientDetectionMock := func(currentPose, obstaclePose spatialmath.Pose) []spatialmath.Geometry {
-		inputMap, err := framesystem.CurrentInputs(ctx, ms.(*builtIn).components)
+		inputMap, err := ms.(*builtIn).fsService.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		k, err := mr.kinematicBase.Kinematics(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -1400,7 +1400,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
 
 		// Verify start configuration matches current robot state
-		fsInputs, err := framesystem.CurrentInputs(ctx, ms.(*builtIn).components)
+		fsInputs, err := ms.(*builtIn).fsService.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, plan[0], test.ShouldResemble, fsInputs)
 

@@ -1063,6 +1063,12 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 	return output, nil
 }
 
+// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
+// and a map of statuses indicating which of the machine's components may be actuated through input values.
+func (rc *RobotClient) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
+	panic("this feels wrong")
+}
+
 // StopAll cancels all current and outstanding operations for the machine and stops all actuators and movement.
 //
 //	err := machine.StopAll(ctx.Background())

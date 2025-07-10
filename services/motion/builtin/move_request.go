@@ -914,7 +914,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		}
 	}
 
-	currentInputs, err := framesystem.CurrentInputs(ctx, ms.components)
+	currentInputs, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}

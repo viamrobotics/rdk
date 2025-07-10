@@ -1891,6 +1891,10 @@ func (rr *dummyRobot) TransformPointCloud(ctx context.Context, srcpc pointcloud.
 	panic("change to return nil")
 }
 
+func (rr *dummyRobot) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
+	panic("change to return nil")
+}
+
 func (rr *dummyRobot) ProcessManager() pexec.ProcessManager {
 	panic("change to return nil")
 }

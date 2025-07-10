@@ -1170,6 +1170,12 @@ func (r *localRobot) TransformPointCloud(
 	return r.frameSvc.TransformPointCloud(ctx, srcpc, srcName, dstName)
 }
 
+// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
+// and a map of statuses indicating which of the machine's components may be actuated through input values.
+func (r *localRobot) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
+	return r.frameSvc.CurrentInputs(ctx)
+}
+
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
 func RobotFromConfigPath(
 	ctx context.Context,

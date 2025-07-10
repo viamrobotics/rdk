@@ -104,7 +104,7 @@ type RobotFrameSystem interface {
 
 	// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
 	// and a map of statuses indicating which of the machine's components may be actuated through input values.
-	CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, map[string]InputEnabled, error)
+	CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error)
 }
 
 // FromDependencies is a helper for getting the framesystem from a collection of dependencies.
@@ -260,7 +260,7 @@ func (svc *frameSystemService) TransformPose(
 	svc.partsMu.RLock()
 	defer svc.partsMu.RUnlock()
 
-	input, _, err := svc.CurrentInputs(ctx)
+	input, err := svc.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -301,15 +301,14 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 
 // CurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
 // InputEnabled resources that those inputs came from.
-func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, map[string]InputEnabled, error) {
+func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
 	fs, err := NewFromService(ctx, svc, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	input := referenceframe.NewZeroInputs(fs)
 
 	// build maps of relevant components and inputs from initial inputs
-	resources := map[string]InputEnabled{}
 	for name, original := range input {
 		// skip frames with no input
 		if len(original) == 0 {
@@ -319,23 +318,22 @@ func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referencefram
 		// add component to map
 		component, ok := svc.components[name]
 		if !ok {
-			return nil, nil, DependencyNotFoundError(name)
+			return nil, DependencyNotFoundError(name)
 		}
 		inputEnabled, ok := component.(InputEnabled)
 		if !ok {
-			return nil, nil, NotInputEnabledError(component)
+			return nil, NotInputEnabledError(component)
 		}
-		resources[name] = inputEnabled
 
 		// add input to map
 		pos, err := inputEnabled.CurrentInputs(ctx)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		input[name] = pos
-		return nil, nil, err
 	}
-	return input, resources, nil
+
+	return input, nil
 }
 
 // NewFromService creates a referenceframe.FrameSystem from the given Service's FrameSystemConfig and returns it.
