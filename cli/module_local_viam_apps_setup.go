@@ -30,12 +30,12 @@ type localAppTestingArgs struct {
 }
 
 type localAppTestingServer struct {
-	MachineID       string
-	MachineApiKey   string
-	MachineApiKeyID string
-	ServerURL       string
+	machineID       string
+	machineApiKey   string
+	machineApiKeyID string
+	serverURL       string
 	viamClient      *appclient.ViamClient
-	Logger          io.Writer
+	logger          io.Writer
 }
 
 // LocalAppTestingAction is the action for the local-app-testing command.
@@ -56,17 +56,17 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 	}
 
 	localAppTesting := localAppTestingServer{
-		MachineID:       args.MachineID,
-		MachineApiKey:   args.MachineApiKey,
-		MachineApiKeyID: args.MachineApiKeyID,
-		ServerURL:       fmt.Sprintf("http://localhost:%d", serverPort),
+		machineID:       args.MachineID,
+		machineApiKey:   args.MachineApiKey,
+		machineApiKeyID: args.MachineApiKeyID,
+		serverURL:       fmt.Sprintf("http://localhost:%d", serverPort),
 		viamClient:      viamClient,
-		Logger:          ctx.App.Writer,
+		logger:          ctx.App.Writer,
 	}
 
 	httpServer := localAppTesting.setupHTTPServer(serverPort, args.AppURL)
 
-	printf(ctx.App.Writer, "Starting server to locally test viam apps on %s", localAppTesting.ServerURL)
+	printf(ctx.App.Writer, "Starting server to locally test viam apps on %s", localAppTesting.serverURL)
 	printf(ctx.App.Writer, "Proxying local app from: %s", args.AppURL)
 	printf(ctx.App.Writer, "Press Ctrl+C to stop the server")
 
@@ -74,7 +74,7 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
 
-	if err := openbrowser(fmt.Sprintf("%s/start", localAppTesting.ServerURL)); err != nil {
+	if err := openbrowser(fmt.Sprintf("%s/start", localAppTesting.serverURL)); err != nil {
 		printf(ctx.App.Writer, "Warning: Could not open browser: %v", err)
 	}
 
@@ -95,7 +95,7 @@ func (l *localAppTestingServer) setupHTTPServer(port int, targetURL string) *htt
 	// Proxy setup
 	targetURLParsed, err := url.Parse(targetURL)
 	if err != nil {
-		printf(l.Logger, "Error parsing target URL: %v", err)
+		printf(l.logger, "Error parsing target URL: %v", err)
 		return nil
 	}
 	proxy := httputil.NewSingleHostReverseProxy(targetURLParsed)
@@ -104,7 +104,7 @@ func (l *localAppTestingServer) setupHTTPServer(port int, targetURL string) *htt
 	proxy.Director = removeMachinePathFromURL(proxy.Director)
 
 	// Add response interceptor
-	proxy.ModifyResponse = addBaseTagToResponseBody(l.Logger)
+	proxy.ModifyResponse = addBaseTagToResponseBody(l.logger)
 
 	http.Handle("/", proxy)
 
@@ -134,35 +134,35 @@ type machineAPIKey struct {
 
 func (l *localAppTestingServer) cookieSetup(resp http.ResponseWriter, req *http.Request) {
 	// Generate machine auth cookie
-	machineHostname, err := l.getRobotHostname(l.MachineID)
+	machineHostname, err := l.getRobotHostname(l.machineID)
 	if err != nil {
-		printf(l.Logger, "Could not resolve machine hostname, defaulting to UNKNOWN: %s", err.Error())
+		printf(l.logger, "Could not resolve machine hostname, defaulting to UNKNOWN: %s", err.Error())
 		machineHostname = "UNKNOWN"
 	}
 
 	cookieValue := machineAuthcCokieValue{
 		Hostname:  machineHostname,
-		MachineID: l.MachineID,
+		MachineID: l.machineID,
 		Credentials: machineCredentials{
 			Type:       "api-key",
-			Payload:    l.MachineApiKey,
-			AuthEntity: l.MachineApiKeyID,
+			Payload:    l.machineApiKey,
+			AuthEntity: l.machineApiKeyID,
 		},
 		ApiKey: machineAPIKey{
-			Key: l.MachineApiKey,
-			ID:  l.MachineApiKeyID,
+			Key: l.machineApiKey,
+			ID:  l.machineApiKeyID,
 		},
 	}
 
 	cookieValueBytes, err := json.Marshal(cookieValue)
 	if err != nil {
-		printf(l.Logger, err.Error())
+		printf(l.logger, err.Error())
 	}
 	cookieValueString := url.QueryEscape(string(cookieValueBytes))
 
 	// Add cookies
 	http.SetCookie(resp, &http.Cookie{
-		Name:  l.MachineID,
+		Name:  l.machineID,
 		Value: cookieValueString,
 	})
 
@@ -172,7 +172,7 @@ func (l *localAppTestingServer) cookieSetup(resp http.ResponseWriter, req *http.
 	})
 
 	// redirect to the machine path
-	http.Redirect(resp, req, fmt.Sprintf("%s/machine/%s", l.ServerURL, l.MachineID), http.StatusFound)
+	http.Redirect(resp, req, fmt.Sprintf("%s/machine/%s", l.serverURL, l.machineID), http.StatusFound)
 }
 
 func (l *localAppTestingServer) getRobotHostname(machineID string) (string, error) {
