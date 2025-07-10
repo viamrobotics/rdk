@@ -485,9 +485,13 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		context.Background(), "Waiting for module to complete shutdown", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
-	// need to actually close the resources within the module itself before stopping
+	// Remove all resources associated with the module. Only allow 20s across all removals.
+	// Stopping the module process can take up to 10s, and we want closure of a module to
+	// take <= 30s.
+	resourceRemovalCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
 	for res := range mod.resources {
-		_, err := mod.client.RemoveResource(context.Background(), &pb.RemoveResourceRequest{Name: res.String()})
+		_, err := mod.client.RemoveResource(resourceRemovalCtx, &pb.RemoveResourceRequest{Name: res.String()})
 		if err != nil {
 			mod.logger.Errorw("Error removing resource", "module", mod.cfg.Name, "resource", res.Name, "error", err)
 		} else {
