@@ -444,3 +444,6 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e
 )
+
+// TODO: remove this when the api changes are merged
+replace go.viam.com/api => ../api

@@ -110,7 +110,8 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 	}, nil
 }
 
-func newMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) {
+// NewMeshFromProto creates a new mesh from a protobuf mesh.
+func NewMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) {
 	switch m.ContentType {
 	case string(plyType):
 		return newMeshFromBytes(pose, m.Mesh, label)
