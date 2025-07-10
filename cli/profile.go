@@ -32,7 +32,9 @@ func getProfiles() (map[string]profile, error) {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-		rd = make([]byte, 0)
+		emptyDict := make(map[string]profile)
+		emptyJson, _ := json.Marshal(emptyDict)
+		rd = emptyJson
 	}
 
 	profiles := make(map[string]profile)
