@@ -114,7 +114,7 @@ func (l *localAppTestingServer) setupHTTPServer(port int, targetURL string) *htt
 	}
 }
 
-type machineAuthcCokieValue struct {
+type machineAuthCookieValue struct {
 	Hostname    string             `json:"hostname"`
 	MachineID   string             `json:"machineId"`
 	Credentials machineCredentials `json:"credentials"`
@@ -140,7 +140,7 @@ func (l *localAppTestingServer) cookieSetup(resp http.ResponseWriter, req *http.
 		machineHostname = "UNKNOWN"
 	}
 
-	cookieValue := machineAuthcCokieValue{
+	cookieValue := machineAuthCookieValue{
 		Hostname:  machineHostname,
 		MachineID: l.machineID,
 		Credentials: machineCredentials{
