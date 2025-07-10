@@ -2489,6 +2489,21 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "url where local app is running (including port number), e.g http://localhost:5000",
 							Required: true,
 						},
+						&cli.StringFlag{
+							Name:     "machine-id",
+							Usage:    "get the machine ID of the machine you want to test with at https://app.viam.com/fleet/machines",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     "machine-api-key-id",
+							Usage:    "get the machine API key ID for the machine you provided the ID of, you can get it at https://app.viam.comm/machine/<machineID>/connect/api-keys",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     "machine-api-key",
+							Usage:    "get the machine API key for the machine you provided the ID of, you can get it at https://app.viam.comm/machine/<machineID>/connect/api-keys",
+							Required: true,
+						},
 					},
 					Action: createCommandWithT[localAppTestingArgs](LocalAppTestingAction),
 				},

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,26 +18,48 @@ import (
 
 // localAppTestingArgs contains the arguments for the local-app-testing command.
 type localAppTestingArgs struct {
-	Port   int    `json:"port"`
-	AppURL string `json:"app-url"`
+	AppURL          string `json:"app-url"`
+	MachineID       string `json:"machine-id"`
+	MachineApiKey   string `json:"machine-api-key"`
+	MachineApiKeyID string `json:"machine-api-key-id"`
+}
+
+type localAppTestingServer struct {
+	MachineID       string
+	MachineApiKey   string
+	MachineApiKeyID string
+	ServerURL       string
+	Logger          io.Writer
 }
 
 // LocalAppTestingAction is the action for the local-app-testing command.
 func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
-	server := setupHTTPServer(args.Port, args.AppURL, ctx.App.Writer)
-	serverURL := fmt.Sprintf("http://localhost:%d", args.Port)
+	serverPort := 8000
+	localAppTesting := localAppTestingServer{
+		MachineID:       args.MachineID,
+		MachineApiKey:   args.MachineApiKey,
+		MachineApiKeyID: args.MachineApiKeyID,
+		ServerURL:       fmt.Sprintf("http://localhost:%d", serverPort),
+		Logger:          ctx.App.Writer,
+	}
 
-	printf(ctx.App.Writer, "Starting server to locally test viam apps on %s", serverURL)
+	httpServer := localAppTesting.setupHTTPServer(serverPort, args.AppURL)
+
+	printf(ctx.App.Writer, "Starting server to locally test viam apps on %s", localAppTesting.ServerURL)
 	printf(ctx.App.Writer, "Proxying local app from: %s", args.AppURL)
 	printf(ctx.App.Writer, "Press Ctrl+C to stop the server")
 
-	if err := startServerInBackground(server, ctx.App.Writer); err != nil {
+	if err := startServerInBackground(httpServer, ctx.App.Writer); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
+	}
+
+	if err := openbrowser(fmt.Sprintf("%s/start", localAppTesting.ServerURL)); err != nil {
+		printf(ctx.App.Writer, "Warning: Could not open browser: %v", err)
 	}
 
 	<-ctx.Context.Done()
 
-	if err := server.Shutdown(context.Background()); err != nil {
+	if err := httpServer.Shutdown(context.Background()); err != nil {
 		return fmt.Errorf("error shutting down server: %w", err)
 	}
 
@@ -44,17 +67,92 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 }
 
 // setupHTTPServer creates and configures an HTTP server with the given HTML file.
-func setupHTTPServer(port int, targetURL string, writer io.Writer) *http.Server {
+func (l *localAppTestingServer) setupHTTPServer(port int, targetURL string) *http.Server {
+	// Endpoint to start the flow
+	http.HandleFunc("/start", l.cookieSetup)
+
+	// Proxy setup
 	targetURLParsed, err := url.Parse(targetURL)
 	if err != nil {
-		printf(writer, "Error parsing target URL: %v", err)
+		printf(l.Logger, "Error parsing target URL: %v", err)
 		return nil
 	}
 	proxy := httputil.NewSingleHostReverseProxy(targetURLParsed)
 
 	// Modify the director to properly handle the /machine/ prefix and machine IDs
-	originalDirector := proxy.Director
-	proxy.Director = func(req *http.Request) {
+	proxy.Director = removeMachinePathFromURL(proxy.Director)
+
+	// Add response interceptor
+	proxy.ModifyResponse = addBaseTagToResponseBody(l.Logger)
+
+	http.Handle("/", proxy)
+
+	return &http.Server{
+		Addr:              fmt.Sprintf(":%d", port),
+		ReadHeaderTimeout: time.Minute * 5,
+	}
+}
+
+type machineAuthcCokieValue struct {
+	Hostname    string             `json:"hostname"`
+	MachineID   string             `json:"machineId"`
+	Credentials machineCredentials `json:"credentials"`
+	ApiKey      machineAPIKey      `json:"apiKey"`
+}
+
+type machineCredentials struct {
+	Type       string `json:"type"`
+	Payload    string `json:"payload"`
+	AuthEntity string `json:"authEntity"`
+}
+
+type machineAPIKey struct {
+	Key string `json:"key"`
+	ID  string `json:"id"`
+}
+
+func (l *localAppTestingServer) cookieSetup(resp http.ResponseWriter, req *http.Request) {
+	// Generate machine auth cookie
+	// TODO
+	machineHostname := "TODO"
+
+	cookieValue := machineAuthcCokieValue{
+		Hostname:  machineHostname,
+		MachineID: l.MachineID,
+		Credentials: machineCredentials{
+			Type:       "api-key",
+			Payload:    l.MachineApiKey,
+			AuthEntity: l.MachineApiKeyID,
+		},
+		ApiKey: machineAPIKey{
+			Key: l.MachineApiKey,
+			ID:  l.MachineApiKeyID,
+		},
+	}
+
+	cookieValueBytes, err := json.Marshal(cookieValue)
+	if err != nil {
+		printf(l.Logger, err.Error())
+	}
+	cookieValueString := url.QueryEscape(string(cookieValueBytes))
+
+	// Add cookies
+	http.SetCookie(resp, &http.Cookie{
+		Name:  l.MachineID,
+		Value: cookieValueString,
+	})
+
+	http.SetCookie(resp, &http.Cookie{
+		Name:  machineHostname,
+		Value: cookieValueString,
+	})
+
+	// redirect to the machine path
+	http.Redirect(resp, req, fmt.Sprintf("%s/machine/%s", l.ServerURL, l.MachineID), http.StatusFound)
+}
+
+func removeMachinePathFromURL(originalDirector func(*http.Request)) func(*http.Request) {
+	return func(req *http.Request) {
 		// Store the original path before modifying it
 		originalPath := req.URL.Path
 
@@ -87,9 +185,10 @@ func setupHTTPServer(port int, targetURL string, writer io.Writer) *http.Server 
 		// Store the original path in the request context for later use
 		req.Header.Set("X-Original-Path", originalPath)
 	}
+}
 
-	// Add response interceptor
-	proxy.ModifyResponse = func(resp *http.Response) error {
+func addBaseTagToResponseBody(writer io.Writer) func(resp *http.Response) error {
+	return func(resp *http.Response) error {
 		contentType := resp.Header.Get("Content-Type")
 		isHTML := strings.Contains(strings.ToLower(contentType), "text/html")
 
@@ -138,15 +237,7 @@ func setupHTTPServer(port int, targetURL string, writer io.Writer) *http.Server 
 				resp.Header.Set("Content-Length", strconv.Itoa(len(newBody)))
 			}
 		}
-
 		return nil
-	}
-
-	http.Handle("/", proxy)
-
-	return &http.Server{
-		Addr:              fmt.Sprintf(":%d", port),
-		ReadHeaderTimeout: time.Minute * 5,
 	}
 }
 
@@ -164,7 +255,7 @@ func startServerInBackground(server *http.Server, writer io.Writer) error {
 	select {
 	case err := <-errChan:
 		return err
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(1000 * time.Millisecond):
 		return nil // Server started successfully
 	}
 }
