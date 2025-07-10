@@ -2482,7 +2482,7 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "local-app-testing",
 					Usage:     "test your viam application locally",
-					UsageText: createUsageText("module local-app-testing", []string{"port", "app-url"}, false, false),
+					UsageText: createUsageText("module local-app-testing", []string{"app-url", "machine-id", "machine-api-key", "machine-api-key-id"}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     "app-url",
