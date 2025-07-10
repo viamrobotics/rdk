@@ -215,7 +215,7 @@ func NewCollisionConstraint(
 		return nil, err
 	}
 	for _, collision := range zeroCG.collisions(collisionBufferMM) {
-		logging.Global().Debugf("whitelisting collision between %s and %s\n", collision.name1, collision.name2)
+		logging.Global().Debugf("whitelisting collision between %s and %s", collision.name1, collision.name2)
 	}
 
 	// create constraint from reference collision graph
@@ -273,7 +273,7 @@ func NewCollisionConstraintFS(
 		return nil, err
 	}
 	for _, collision := range zeroCG.collisions(collisionBufferMM) {
-		logging.Global().Debugf("whitelisting collision between %s and %s\n", collision.name1, collision.name2)
+		logging.Global().Debugf("whitelisting collision between %s and %s", collision.name1, collision.name2)
 	}
 
 	movingMap := map[string]spatial.Geometry{}
