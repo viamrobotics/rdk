@@ -33,7 +33,7 @@ type Config struct {
 	ModelFilePath string `json:"model-path,omitempty"`
 }
 
-// Known values that can be provided for the ArmModel field
+// Known values that can be provided for the ArmModel field.
 var (
 	ur5eModel  = "ur5e"
 	xArm6Model = "xarm6"
