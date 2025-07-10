@@ -56,11 +56,15 @@ type PlanRequest struct {
 	// in IK to generate plan start configurations. The given configuration will NOT automatically be added to the seed tree.
 	// The use case here is that if a particularly difficult path must be planned between two poses, that can be done first to ensure
 	// feasibility, and then other plans can be requested to connect to that returned plan's configurations.
-	StartState      *PlanState                 `json:"start_state"`
-	WorldState      *referenceframe.WorldState `json:"world_state"`
-	BoundingRegions []*commonpb.Geometry       `json:"bounding_regions"`
-	Constraints     *Constraints               `json:"constraints"`
-	PlannerOptions  *PlannerOptions            `json:"planner_options"`
+	StartState *PlanState `json:"start_state"`
+	// The data representation of the robot's environment.
+	WorldState *referenceframe.WorldState `json:"world_state"`
+	// Set of bounds which the robot must remain within while navigating.
+	BoundingRegions []*commonpb.Geometry `json:"bounding_regions"`
+	// Additional parameters constraining the motion of the robot.
+	Constraints *Constraints `json:"constraints"`
+	// Other more granular parameters for the plan used to move the robot.
+	PlannerOptions *PlannerOptions `json:"planner_options"`
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.

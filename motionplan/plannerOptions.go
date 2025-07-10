@@ -194,26 +194,45 @@ type PlannerOptions struct {
 	// See metrics.go for options
 	ConfigurationDistanceMetric ik.SegmentFSMetricType `json:"configuration_distance_metric"`
 
+	// A profile indicating which of the tolerance parameters listed below should be considered
+	// for further constraining the motion.
 	MotionProfile MotionProfile `json:"motion_profile"`
 
+	// Linear tolerance for translational deviation for a path. Only used when the
+	// `MotionProfile` is `LinearMotionProfile`.
 	LineTolerance float64 `json:"line_tolerance"`
 
+	// Orientation tolerance for angular deviation for a path. Used for either the `LinearMotionProfile`
+	// or the `OrientationMotionProfile`.
 	OrientationTolerance float64 `json:"orient_tolerance"`
 
+	// A factor by which the entire pose is allowed to deviate for a path. Used only for a PseudolinearMotionProfile.
 	ToleranceFactor float64 `json:"tolerance"`
 
+	// CollisionBufferMM dictates how far the robot should be from any obstacle during its motion.
 	CollisionBufferMM float64 `json:"collision_buffer_mm"`
 
+	// The algorithm used for pathfinding along with any configurable settings for that algorithm. If this
+	// object is not provided, the algorithm will default to cBiRRT.
 	PlanningAlgorithmSettings AlgorithmSettings `json:"planning_algorithm_settings"`
 
+	// The random seed used by some motion algorithms during planning.
 	RandomSeed int `json:"rseed"`
 
+	// The max movement allowed for each step on the path from the initial random seed for a solution
+	// to the goal.
 	PathStepSize float64 `json:"path_step_size"`
 
+	// Setting indicating that all mesh geometries should be converted into octrees (only for
+	// base navigation).
 	MeshesAsOctrees bool `json:"meshes_as_octrees"`
 
+	// A set of fallback options to use on initial planning failure.
 	Fallback *PlannerOptions `json:"fallback_options"`
 
+	// After the first potential solution is computed, the time that each pending solution is to finish
+	// computing is a multiple of the time taken to compute the first solution. This parameter is a way to
+	// set that multiplicative factor.
 	TimeMultipleAfterFindingFirstSolution int `json:"time_multiple_after_finding_first_solution"`
 }
 
