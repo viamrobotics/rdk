@@ -59,6 +59,18 @@ func init() {
 	})
 }
 
+// NewArm returns a new fake arm.
+func NewArm(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
+	a := &Arm{
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
+	}
+	if err := a.Reconfigure(ctx, deps, conf); err != nil {
+		return nil, err
+	}
+	return a, nil
+}
+
 func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, error) {
 	var (
 		model referenceframe.Model
@@ -80,18 +92,6 @@ func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, err
 	}
 
 	return model, err
-}
-
-// NewArm returns a new fake arm.
-func NewArm(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
-	a := &Arm{
-		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
-	}
-	if err := a.Reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
-	}
-	return a, nil
 }
 
 // Arm is a fake arm that can simply read and set properties.

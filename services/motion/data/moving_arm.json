@@ -21,7 +21,7 @@
             "type": "arm",
             "model": "fake",
             "attributes": {
-                "model-path": "../../../components/arm/example_kinematics/ur5e.json"
+                "arm-model": "ur5e"
             },
             "frame": {
                 "parent": "world",
