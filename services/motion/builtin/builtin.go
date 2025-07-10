@@ -202,6 +202,7 @@ func (ms *builtIn) Reconfigure(
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
+	ms.components = componentMap
 	if ms.state != nil {
 		ms.state.Stop()
 	}
