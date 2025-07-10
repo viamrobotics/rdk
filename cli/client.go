@@ -1488,7 +1488,7 @@ func (c *viamClient) machinesPartGetFTDCAction(
 	gArgs, err := getGlobalArgs(ctx)
 	quiet := err == nil && gArgs != nil && gArgs.Quiet
 	if !quiet {
-		printf(ctx.App.Writer, "Saving to %s...", targetPath)
+		printf(ctx.App.Writer, "Saving to %s ...", path.Join(targetPath, part.GetId()))
 	}
 	if err := c.copyFilesFromMachine(
 		flagArgs.Organization,
