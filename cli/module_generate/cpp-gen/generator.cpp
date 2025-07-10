@@ -18,57 +18,40 @@
 
 namespace viam::gen {
 
-Generator Generator::create(llvm::StringRef className,
-                            llvm::StringRef componentName,
-                            llvm::StringRef buildDir,
-                            llvm::StringRef sourceDir,
+Generator Generator::create(Generator::ModuleInfo moduleInfo,
+                            Generator::CppTreeInfo cppInfo,
                             llvm::raw_ostream& moduleFile) {
     std::string error;
-    auto jsonDb = clang::tooling::JSONCompilationDatabase::autoDetectFromDirectory(buildDir, error);
+    auto jsonDb =
+        clang::tooling::JSONCompilationDatabase::autoDetectFromDirectory(cppInfo.buildDir, error);
     if (!jsonDb) {
         throw std::runtime_error(error);
     }
 
-    llvm::outs() << llvm::formatv("class {0} component {1} build {2} source {3}\n",
-                                  className,
-                                  componentName,
-                                  buildDir,
-                                  sourceDir);
-
     return Generator(GeneratorCompDB(*jsonDb, getCompilersDefaultIncludeDir(*jsonDb, true)),
-                     className.str(),
-                     componentName.str(),
-                     (sourceDir + componentNameToSource(componentName)).str(),
+                     moduleInfo.resourceType,
+                     moduleInfo.resourceSubtype.str(),
+                     moduleInfo.modelName.str(),
+                     (cppInfo.sourceDir.str() +
+                      resourceToSource(moduleInfo.resourceSubtype, moduleInfo.resourceType))
+                         .str(),
                      moduleFile);
 }
 
-Generator Generator::createFromCommandLine(const clang::tooling::CompilationDatabase& compDb,
-                                           llvm::StringRef sourceFile,
-                                           llvm::raw_ostream& moduleFile) {
-    llvm::SmallVector<llvm::StringRef, 3> splits;
-    auto componentFileName = llvm::sys::path::filename(sourceFile);
-
-    componentFileName.substr(0, componentFileName.find('.')).split(splits, '_');
-
-    std::string componentName;
-
-    llvm::raw_string_ostream os(componentName);
-
-    for (llvm::StringRef component : splits) {
-        os << static_cast<char>(std::toupper(*component.bytes_begin())) << component.drop_front();
-    }
-
-    return Generator(GeneratorCompDB(compDb, getCompilersDefaultIncludeDir(compDb, true)),
-                     "My" + componentName,
-                     componentName,
-                     sourceFile.str(),
-                     moduleFile);
-}
+Generator::Generator(GeneratorCompDB db,
+                     ResourceType resourceType,
+                     std::string resourceSubtype,
+                     std::string modelName,
+                     std::string resourcePath,
+                     llvm::raw_ostream& moduleFile)
+    : db_(std::move(db)),
+      resourceType_(resourceType),
+      resourceSubtype_(std::move(resourceSubtype)),
+      modelName_(std::move(modelName)),
+      resourcePath_(std::move(resourcePath)),
+      moduleFile_(moduleFile) {}
 
 int Generator::run() {
-    // TODO: this should store the result of do_stubs in an intermediate and only write to the
-    // output stream if it succeeded
-    // also should take a config option for the class name and module/ns name
     include_stmts();
 
     const char* fmt =
@@ -81,7 +64,7 @@ public:
 
 )--";
 
-    moduleFile_ << llvm::formatv(fmt, className_, componentName_);
+    moduleFile_ << llvm::formatv(fmt, modelName_, resourceSubtype_);
 
     moduleFile_ << R"--(
     static std::vector<std::string> validate(const viam::sdk::ResourceConfig&)
@@ -109,8 +92,9 @@ public:
     return 0;
 }
 
-void Generator::include_stmts() {
-    const char* fmt = R"--(
+template <>
+const char* Generator::include_fmt<Generator::ResourceType::component>() {
+    constexpr const char* fmt = R"--(
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -118,7 +102,7 @@ void Generator::include_stmts() {
 #include <viam/sdk/common/exception.hpp>
 #include <viam/sdk/common/instance.hpp>
 #include <viam/sdk/common/proto_value.hpp>
-#include <viam/sdk/components/{0}.hpp
+#include <viam/sdk/{0}>
 #include <viam/sdk/config/resource.hpp>
 #include <viam/sdk/log/logging.hpp>
 #include <viam/sdk/module/service.hpp>
@@ -127,18 +111,48 @@ void Generator::include_stmts() {
 
     )--";
 
-    llvm::StringRef cppFilename = componentNameToSource(componentName_);
+    return fmt;
+}
 
-    moduleFile_ << llvm::formatv(fmt,
-                                 llvm::StringRef(cppFilename).substr(0, cppFilename.find('.')));
+template <>
+const char* Generator::include_fmt<Generator::ResourceType::service>() {
+    constexpr const char* fmt = R"--(
+#include <iostream>
+#include <memory>
+#include <vector>
+
+#include <viam/sdk/common/exception.hpp>
+#include <viam/sdk/common/instance.hpp>
+#include <viam/sdk/common/proto_value.hpp>
+#include <viam/sdk/config/resource.hpp>
+#include <viam/sdk/log/logging.hpp>
+#include <viam/sdk/module/service.hpp>
+#include <viam/sdk/registry/registry.hpp>
+#include <viam/sdk/resource/reconfigurable.hpp>
+#include <viam/sdk/{0}>
+    )--";
+
+    return fmt;
+}
+
+void Generator::include_stmts() {
+    const char* fmt = (resourceType_ == ResourceType::component)
+                          ? include_fmt<ResourceType::component>()
+                          : include_fmt<ResourceType::service>();
+
+    std::string cppPath = resourceToSource(resourceSubtype_, ResourceType::component).str();
+
+    cppPath[cppPath.rfind('c')] = 'h';
+
+    moduleFile_ << llvm::formatv(fmt, cppPath);
 }
 
 int Generator::do_stubs() {
-    clang::tooling::ClangTool tool(db_, componentPath_);
+    clang::tooling::ClangTool tool(db_, resourcePath_);
 
     using namespace clang::ast_matchers;
 
-    std::string qualName = ("viam::sdk::" + componentName_);
+    std::string qualName = ("viam::sdk::" + resourceSubtype_);
 
     DeclarationMatcher methodMatcher =
         cxxMethodDecl(isPure(), hasParent(cxxRecordDecl(hasName(qualName)))).bind("method");
@@ -199,12 +213,6 @@ int Generator::do_stubs() {
 }
 
 void Generator::main_fn() {
-    llvm::StringRef cppFilename = componentNameToSource(componentName_);
-
-    llvm::StringRef c1 = cppFilename.substr(0, cppFilename.find('.'));
-
-    std::string c2 = ("my_" + c1).str();
-
     moduleFile_ << "int main(int argc, char** argv) try {\n"
                 << llvm::formatv(R"--(
     // Every Viam C++ SDK program must have one and only one Instance object which is created before
@@ -215,8 +223,8 @@ void Generator::main_fn() {
     VIAM_SDK_LOG(info) << "Starting up {1} module";
 
     Model model("viam", "{0}", "{1}");)--",
-                                 c1,
-                                 c2)
+                                 resourceSubtype_,
+                                 modelName_)
                 << "\n\n"
                 << llvm::formatv(
                        R"--(
@@ -228,8 +236,8 @@ void Generator::main_fn() {
         },
         &{1}::validate);
 )--",
-                       componentName_,
-                       className_)
+                       resourceSubtype_,
+                       modelName_)
                 << "\n\n"
                 <<
         R"--(
@@ -245,39 +253,35 @@ void Generator::main_fn() {
 )--";
 }
 
-Generator::Generator(GeneratorCompDB db,
-                     std::string className,
-                     std::string componentName,
-                     std::string componentPath,
-                     llvm::raw_ostream& moduleFile)
-    : db_(std::move(db)),
-      className_(std::move(className)),
-      componentName_(std::move(componentName)),
-      componentPath_(std::move(componentPath)),
-      moduleFile_(moduleFile) {
-    llvm::outs() << llvm::formatv(
-        "class {0} component {1} path {2}\n", className_, componentName_, componentPath_);
-}
+llvm::StringRef Generator::resourceToSource(llvm::StringRef resourceSubtype,
+                                            Generator::ResourceType resourceType) {
+    static std::unordered_map<std::string_view, std::string_view> componentCorrespondence{
+        {"Arm", "components/arm.cpp"},
+        {"Base", "components/base.cpp"},
+        {"Board", "components/board.cpp"},
+        {"Camera", "components/camera.cpp"},
+        {"Component", "components/component.cpp"},
+        {"Encoder", "components/encoder.cpp"},
+        {"Gantry", "components/gantry.cpp"},
+        {"Generic", "components/generic.cpp"},
+        {"Gripper", "components/gripper.cpp"},
+        {"Motor", "components/motor.cpp"},
+        {"MovementSensor", "components/movement_sensor.cpp"},
+        {"PoseTracker", "components/pose_tracker.cpp"},
+        {"PowerSensor", "components/power_sensor.cpp"},
+        {"Sensor", "components/sensor.cpp"},
+        {"Servo", "components/servo.cpp"}};
 
-llvm::StringRef Generator::componentNameToSource(llvm::StringRef componentName) {
-    static std::unordered_map<std::string_view, std::string_view> correspondence{
-        {"Arm", "arm.cpp"},
-        {"Base", "base.cpp"},
-        {"Board", "board.cpp"},
-        {"Camera", "camera.cpp"},
-        {"Component", "component.cpp"},
-        {"Encoder", "encoder.cpp"},
-        {"Gantry", "gantry.cpp"},
-        {"Generic", "generic.cpp"},
-        {"Gripper", "gripper.cpp"},
-        {"Motor", "motor.cpp"},
-        {"MovementSensor", "movement_sensor.cpp"},
-        {"PoseTracker", "pose_tracker.cpp"},
-        {"PowerSensor", "power_sensor.cpp"},
-        {"Sensor", "sensor.cpp"},
-        {"Servo", "servo.cpp"}};
+    static std::unordered_map<std::string_view, std::string_view> serviceCorrespondence{
+        {"Discovery", "components/discovery.cpp"},
+        {"Generic", "components/generic.cpp"},
+        {"MLModel", "components/mlmodel.cpp"},
+        {"Motion", "components/motion.cpp"},
+        {"Navigation", "components/navigation.cpp"}};
 
-    return correspondence.at(componentName);
+    return (resourceType == ResourceType::component ? componentCorrespondence
+                                                    : serviceCorrespondence)
+        .at(resourceSubtype);
 }
 
 }  // namespace viam::gen

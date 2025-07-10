@@ -9,8 +9,8 @@
 
 extern "C" {
 
-int viam_cli_generate_cpp_module(const char* className,
-                                 const char* componentName,
+int viam_cli_generate_cpp_module(const char* modelName,
+                                 const char* resourceSubtype,
                                  const char* buildDir,
                                  const char* sourceDir,
                                  const char* outPath) try {
@@ -33,8 +33,14 @@ int viam_cli_generate_cpp_module(const char* className,
         return 1;
     }
 
+    using Generator = viam::gen::Generator;
+
     auto gen =
-        viam::gen::Generator::create(className, componentName, buildDir, sourceDir, outStream);
+        Generator::create(Generator::ModuleInfo{.resourceType = Generator::ResourceType::component,
+                                                .resourceSubtype = resourceSubtype,
+                                                .modelName = modelName},
+                          Generator::CppTreeInfo{.buildDir = buildDir, .sourceDir = sourceDir},
+                          outStream);
 
     if (gen.run() != 0) {
         std::cerr << "Generator::run failed\n";

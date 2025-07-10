@@ -10,37 +10,50 @@ namespace viam::gen {
 
 class Generator {
    public:
-    static Generator create(llvm::StringRef className,
-                            llvm::StringRef componentName,
-                            llvm::StringRef buildDir,
-                            llvm::StringRef sourceDir,
-                            llvm::raw_ostream& moduleFile);
+    enum class ResourceType : bool { component, service };
 
-    static Generator createFromCommandLine(const clang::tooling::CompilationDatabase& compDb,
-                                           llvm::StringRef sourceFile,
-                                           llvm::raw_ostream& moduleFile);
+    struct ModuleInfo {
+        ResourceType resourceType;
+        llvm::StringRef resourceSubtype;
+        llvm::StringRef modelName;
+    };
+
+    struct CppTreeInfo {
+        llvm::StringRef buildDir;
+        llvm::StringRef sourceDir;
+    };
+
+    static Generator create(ModuleInfo moduleInfo,
+                            CppTreeInfo cppInfo,
+                            llvm::raw_ostream& moduleFile);
 
     int run();
 
    private:
+    template <ResourceType>
+    const char* include_fmt();
+
     void include_stmts();
     int do_stubs();
     void main_fn();
 
     Generator(GeneratorCompDB db,
-              std::string className,
-              std::string componentName,
-              std::string componentPath,
+              ResourceType resourceType,
+              std::string resourceSubtype,
+              std::string modelName,
+              std::string resourcePath,
               llvm::raw_ostream& moduleFile);
 
-    static llvm::StringRef componentNameToSource(llvm::StringRef className);
+    static llvm::StringRef resourceToSource(llvm::StringRef resourceSubtype,
+                                            ResourceType resourceType);
 
     GeneratorCompDB db_;
 
-    std::string className_;
-    std::string componentName_;
+    ResourceType resourceType_;
+    std::string resourceSubtype_;
+    std::string modelName_;
 
-    std::string componentPath_;
+    std::string resourcePath_;
 
     llvm::raw_ostream& moduleFile_;
 };
