@@ -100,6 +100,19 @@ type Config struct {
 	LogSlowPlanThresholdMS int    `json:"log_slow_plan_threshold_ms"`
 }
 
+func (c *Config) shouldWritePlan(start time.Time, err error) bool {
+	if err != nil && c.LogPlannerErrors {
+		return true
+	}
+
+	if c.LogSlowPlanThresholdMS != 0 &&
+		time.Since(start) > (time.Duration(c.LogSlowPlanThresholdMS)*time.Millisecond) {
+		return true
+	}
+
+	return false
+}
+
 // Validate here adds a dependency on the internal framesystem service.
 func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.NumThreads < 0 {
@@ -557,12 +570,8 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 
 	start := time.Now()
 	plan, err := motionplan.PlanMotion(ctx, logger, frameSys, planRequest)
-	if (err != nil && ms.conf.LogPlannerErrors) ||
-		(ms.conf.LogSlowPlanThresholdMS != 0 &&
-			time.Since(start) > (time.Duration(ms.conf.LogSlowPlanThresholdMS)*time.Millisecond)) {
-		fn := filepath.Join(ms.conf.PlanFilePath, fmt.Sprintf("plan-%s.json", start.Format(time.RFC3339)))
-		ms.logger.Infof("writing plan to %s", fn)
-		err := writePlan(fn, planRequest)
+	if ms.conf.shouldWritePlan(start, err) {
+		err := ms.writePlan(planRequest)
 		if err != nil {
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
@@ -730,7 +739,10 @@ func waypointsFromRequest(
 	return startState, waypoints, nil
 }
 
-func writePlan(fn string, req *motionplan.PlanRequest) error {
+func (ms *builtIn) writePlan(req *motionplan.PlanRequest) error {
+	fn := filepath.Join(ms.conf.PlanFilePath, fmt.Sprintf("plan-%s.json", time.Now().Format(time.RFC3339)))
+	ms.logger.Infof("writing plan to %s", fn)
+
 	data, err := json.MarshalIndent(req, "", "  ")
 	if err != nil {
 		return err
