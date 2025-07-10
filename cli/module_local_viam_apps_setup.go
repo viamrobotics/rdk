@@ -13,7 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+
+	appclient "go.viam.com/rdk/app"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/utils/rpc"
 )
 
 // localAppTestingArgs contains the arguments for the local-app-testing command.
@@ -29,17 +34,33 @@ type localAppTestingServer struct {
 	MachineApiKey   string
 	MachineApiKeyID string
 	ServerURL       string
+	viamClient      *appclient.ViamClient
 	Logger          io.Writer
 }
 
 // LocalAppTestingAction is the action for the local-app-testing command.
 func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 	serverPort := 8000
+
+	viamClient, err := appclient.CreateViamClientWithOptions(context.Background(), appclient.Options{
+		Entity:  args.MachineApiKeyID,
+		BaseURL: "https://app.viam.com",
+		Credentials: rpc.Credentials{
+			Type:    rpc.CredentialsTypeAPIKey,
+			Payload: args.MachineApiKey,
+		},
+	}, logging.NewLogger("appClient"))
+	if err != nil {
+		printf(ctx.App.ErrWriter, "error initializing the Viam client: "+err.Error())
+		return err
+	}
+
 	localAppTesting := localAppTestingServer{
 		MachineID:       args.MachineID,
 		MachineApiKey:   args.MachineApiKey,
 		MachineApiKeyID: args.MachineApiKeyID,
 		ServerURL:       fmt.Sprintf("http://localhost:%d", serverPort),
+		viamClient:      viamClient,
 		Logger:          ctx.App.Writer,
 	}
 
@@ -113,8 +134,11 @@ type machineAPIKey struct {
 
 func (l *localAppTestingServer) cookieSetup(resp http.ResponseWriter, req *http.Request) {
 	// Generate machine auth cookie
-	// TODO
-	machineHostname := "TODO"
+	machineHostname, err := l.getRobotHostname(l.MachineID)
+	if err != nil {
+		printf(l.Logger, "Could not resolve machine hostname, defaulting to UNKNOWN: %s", err.Error())
+		machineHostname = "UNKNOWN"
+	}
 
 	cookieValue := machineAuthcCokieValue{
 		Hostname:  machineHostname,
@@ -149,6 +173,21 @@ func (l *localAppTestingServer) cookieSetup(resp http.ResponseWriter, req *http.
 
 	// redirect to the machine path
 	http.Redirect(resp, req, fmt.Sprintf("%s/machine/%s", l.ServerURL, l.MachineID), http.StatusFound)
+}
+
+func (l *localAppTestingServer) getRobotHostname(machineID string) (string, error) {
+	robotParts, err := l.viamClient.AppClient().GetRobotParts(context.Background(), machineID)
+	if err != nil {
+		return "", err
+	}
+
+	for _, robotPart := range robotParts {
+		if robotPart.MainPart {
+			return robotPart.FQDN, nil
+		}
+	}
+
+	return "", errors.New("Could not resolve machine hostname, no main part found")
 }
 
 func removeMachinePathFromURL(originalDirector func(*http.Request)) func(*http.Request) {
