@@ -22,7 +22,7 @@ func TestReconfigure(t *testing.T) {
 	conf1 := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
-			ModelFilePath: "../example_kinematics/xarm6_kinematics_test.json",
+			ArmModel: xArm6Model,
 		},
 	}
 
@@ -37,6 +37,14 @@ func TestReconfigure(t *testing.T) {
 		Name: "testArm",
 		ConvertedAttributes: &Config{
 			ModelFilePath: "DNE",
+		},
+	}
+
+	conf4 := resource.Config{
+		Name: "testArm",
+		ConvertedAttributes: &Config{
+			ModelFilePath: "a.json",
+			ArmModel:      ur5eModel,
 		},
 	}
 
@@ -67,6 +75,10 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only files")
 	test.That(t, fakeArm.joints, test.ShouldResemble, modelJoints)
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
+
+	err = fakeArm.Reconfigure(ctx, nil, conf4)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldResemble, errAttrCfgPopulation)
 }
 
 func TestJointPositions(t *testing.T) {
@@ -75,7 +87,7 @@ func TestJointPositions(t *testing.T) {
 	cfg := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
-			ModelFilePath: "../example_kinematics/ur5e.json",
+			ArmModel: ur5eModel,
 		},
 	}
 

@@ -17,6 +17,9 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// errAttrCfgPopulation is the returned error if the Config's fields are fully populated.
+var errAttrCfgPopulation = errors.New("can only populate either ArmModel or ModelPath - not both")
+
 // Model is the name used to refer to the fake arm model.
 var Model = resource.DefaultModelFamily.WithModel("fake")
 
@@ -25,15 +28,26 @@ var fakejson []byte
 
 // Config is used for converting config attributes.
 type Config struct {
+	ArmModel      string `json:"arm-model,omitempty"`
 	ModelFilePath string `json:"model-path,omitempty"`
 }
+
+// Known values that can be provided for the ArmModel field
+var (
+	ur5eModel  = "ur5e"
+	xArm6Model = "xarm6"
+	xArm7Model = "xarm7"
+)
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var err error
-	if conf.ModelFilePath == "" {
-		_, err = referenceframe.UnmarshalModelJSON(fakejson, "")
-	} else {
+	switch {
+	case conf.ArmModel != "" && conf.ModelFilePath != "":
+		err = errAttrCfgPopulation
+	case conf.ArmModel != "" && conf.ModelFilePath == "":
+		_, err = modelFromName(conf.ArmModel, "")
+	case conf.ArmModel == "" && conf.ModelFilePath != "":
 		_, err = referenceframe.KinematicModelFromFile(conf.ModelFilePath, "")
 	}
 	return nil, nil, err
@@ -43,6 +57,29 @@ func init() {
 	resource.RegisterComponent(arm.API, Model, resource.Registration[arm.Arm, *Config]{
 		Constructor: NewArm,
 	})
+}
+
+func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, error) {
+	var (
+		model referenceframe.Model
+		err   error
+	)
+	armModel := newConf.ArmModel
+	modelPath := newConf.ModelFilePath
+
+	switch {
+	case armModel != "" && modelPath != "":
+		err = errAttrCfgPopulation
+	case armModel != "":
+		model, err = modelFromName(armModel, cfg.Name)
+	case modelPath != "":
+		model, err = referenceframe.KinematicModelFromFile(modelPath, cfg.Name)
+	default:
+		// if no arm model is specified, we return a fake arm with 1 dof and 0 spatial transformation
+		model, err = modelFromName(Model.Name, cfg.Name)
+	}
+
+	return model, err
 }
 
 // NewArm returns a new fake arm.
@@ -75,13 +112,7 @@ func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 		return err
 	}
 
-	var model referenceframe.Model
-	if newConf.ModelFilePath != "" {
-		model, err = referenceframe.KinematicModelFromFile(newConf.ModelFilePath, conf.Name)
-	} else {
-		// if no arm model is specified, we use a fake arm with 1 dof and 0 spatial transformation
-		model, err = referenceframe.UnmarshalModelJSON(fakejson, conf.Name)
-	}
+	model, err := buildModel(conf, newConf)
 	if err != nil {
 		return err
 	}
@@ -219,4 +250,19 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 		return nil, err
 	}
 	return gif.Geometries(), nil
+}
+
+func modelFromName(model, name string) (referenceframe.Model, error) {
+	switch model {
+	case ur5eModel:
+		return referenceframe.ParseModelJSONFile("../example_kinematics/ur5e.json", name)
+	case xArm6Model:
+		return referenceframe.ParseModelJSONFile("../example_kinematics/xarm6_kinematics_test.json", name)
+	case xArm7Model:
+		return referenceframe.ParseModelJSONFile("../example_kinematics/xarm7_kinematics_test.json", name)
+	case Model.Name:
+		return referenceframe.UnmarshalModelJSON(fakejson, name)
+	default:
+		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
+	}
 }
