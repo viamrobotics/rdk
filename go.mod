@@ -74,6 +74,7 @@ require (
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/viamrobotics/webrtc/v3 v3.99.15
 	github.com/xfmoulet/qoi v0.2.0
+	github.com/zhuyie/golzf v0.0.0-20161112031142-8387b0307ade
 	go-hep.org/x/hep v0.32.1
 	go.mongodb.org/mongo-driver v1.17.1
 	go.opencensus.io v0.24.0

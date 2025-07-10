@@ -61,6 +61,7 @@ type moveRequest struct {
 	geoPoseOrigin     *spatialmath.GeoPose
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
+	frameSystem       referenceframe.FrameSystem
 	planRequest       *motionplan.PlanRequest
 	seedPlan          motionplan.Plan
 	kinematicBase     kinematicbase.KinematicBase
@@ -103,7 +104,8 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	mr.planRequest.StartState = motionplan.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
 
 	// get existing elements of the worldstate
-	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(mr.planRequest.FrameSystem, startConf)
+
+	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(mr.frameSystem, startConf)
 	if err != nil {
 		return nil, err
 	}
@@ -123,13 +125,14 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 
 	// update worldstate to include transient detections
 	planRequestCopy := *mr.planRequest
-	planRequestCopy.WorldState, err = referenceframe.NewWorldState(gifs, nil)
+	worldState, err := referenceframe.NewWorldState(gifs, nil)
 	if err != nil {
 		return nil, err
 	}
+	planRequestCopy.WorldState = worldState
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
-	return motionplan.Replan(ctx, &planRequestCopy, nil, 0)
+	return motionplan.Replan(ctx, mr.logger, mr.frameSystem, &planRequestCopy, nil, 0)
 }
 
 func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
@@ -296,7 +299,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 	// we need the original input to place that thing in its original position
 	// hence, cached CurrentInputs from the start are used i.e. mr.planRequest.StartConfiguration
 	existingGifs, err := mr.planRequest.WorldState.ObstaclesInWorldFrame(
-		mr.planRequest.FrameSystem, mr.planRequest.StartState.Configuration(),
+		mr.frameSystem, mr.planRequest.StartState.Configuration(),
 	)
 	if err != nil {
 		return state.ExecuteResponse{}, err
@@ -354,9 +357,9 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				worldState, // detected obstacles by this instance of camera + service
 				mr.localizingFS,
 				lookAheadDistanceMM,
-				mr.planRequest.Logger,
+				mr.logger,
 			); err != nil {
-				mr.planRequest.Logger.CInfo(ctx, err.Error())
+				mr.logger.CInfo(ctx, err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
 			}
 		}
@@ -680,10 +683,13 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	// convert bounding regions which are GeoGeometries into Geometries
 	boundingRegions := spatialmath.GeoGeometriesToGeometries(req.BoundingRegions, origin)
 
+	// TODO (GV) - Remove this unnecessary converion/re-conversion when an
+	// opinionated proto message is created for PlanRequest
+	boundingRegionsProto := spatialmath.NewGeometriesToProto(boundingRegions)
+
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
 		motionCfg,
-		ms.logger,
 		kb,
 		goalPoseRaw,
 		fs,
@@ -697,7 +703,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	mr.replanCostFactor = valExtra.replanCostFactor
 	mr.requestType = requestTypeMoveOnGlobe
 	mr.geoPoseOrigin = spatialmath.NewGeoPose(origin, heading)
-	mr.planRequest.BoundingRegions = boundingRegions
+	mr.planRequest.BoundingRegions = boundingRegionsProto
 	return mr, nil
 }
 
@@ -793,7 +799,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
 		motionCfg,
-		ms.logger,
 		kb,
 		goalPoseAdj,
 		fs,
@@ -810,7 +815,6 @@ func (ms *builtIn) newMoveOnMapRequest(
 func (ms *builtIn) createBaseMoveRequest(
 	ctx context.Context,
 	motionCfg *validatedMotionConfiguration,
-	logger logging.Logger,
 	kb kinematicbase.KinematicBase,
 	goalPoseInWorld spatialmath.Pose,
 	fs referenceframe.FrameSystem,
@@ -947,16 +951,19 @@ func (ms *builtIn) createBaseMoveRequest(
 	)
 	goals := []*motionplan.PlanState{motionplan.NewPlanState(referenceframe.FrameSystemPoses{kinematicFrame.Name(): goal}, nil)}
 
+	planOpts, err := motionplan.NewPlannerOptionsFromExtra(valExtra.extra)
+	if err != nil {
+		return nil, err
+	}
 	mr := &moveRequest{
-		config: motionCfg,
-		logger: ms.logger,
+		config:      motionCfg,
+		logger:      ms.logger,
+		frameSystem: planningFS,
 		planRequest: &motionplan.PlanRequest{
-			Logger:      logger,
-			Goals:       goals,
-			FrameSystem: planningFS,
-			StartState:  startState,
-			WorldState:  worldState,
-			Options:     valExtra.extra,
+			Goals:          goals,
+			StartState:     startState,
+			WorldState:     worldState,
+			PlannerOptions: planOpts,
 		},
 		kinematicBase:     kb,
 		replanCostFactor:  valExtra.replanCostFactor,

@@ -22,6 +22,7 @@ type ConstraintHandler struct {
 	stateConstraints     map[string]StateConstraint
 	stateFSConstraints   map[string]StateFSConstraint
 	pathMetric           ik.StateFSMetric // Distance function which converges on the valid manifold of intermediate path states
+	boundingRegions      []spatialmath.Geometry
 }
 
 func newEmptyConstraintHandler() *ConstraintHandler {
@@ -31,7 +32,7 @@ func newEmptyConstraintHandler() *ConstraintHandler {
 }
 
 func newConstraintHandler(
-	opt *plannerOptions,
+	opt *PlannerOptions,
 	constraints *Constraints,
 	from, to *PlanState,
 	fs referenceframe.FrameSystem,
@@ -40,7 +41,13 @@ func newConstraintHandler(
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
 ) (*ConstraintHandler, error) {
+	if constraints == nil {
+		// Constraints may be nil, but if a motion profile is set in planningOpts
+		// we need it to be a valid pointer to an empty struct.
+		constraints = &Constraints{}
+	}
 	handler := newEmptyConstraintHandler()
+	handler.boundingRegions = boundingRegions
 
 	startPoses, err := from.ComputePoses(fs)
 	if err != nil {
@@ -135,9 +142,12 @@ func newConstraintHandler(
 	case FreeMotionProfile, PositionOnlyMotionProfile:
 	}
 
-	_, err = handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
+	hasTopoConstraint, err := handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
 	if err != nil {
 		return nil, err
+	}
+	if hasTopoConstraint && (opt.PlanningAlgorithm() != CBiRRT) && (opt.PlanningAlgorithm() != UnspecifiedAlgorithm) {
+		return nil, NewAlgAndConstraintMismatchErr(string(opt.PlanningAlgorithm()))
 	}
 
 	return handler, nil

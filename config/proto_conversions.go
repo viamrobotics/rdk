@@ -51,6 +51,7 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	disablePartialStart := false
 	if proto.DisablePartialStart != nil {
 		disablePartialStart = *proto.DisablePartialStart
+		cfg.DisablePartialStart = disablePartialStart
 	}
 
 	cfg.Modules, err = toRDKSlice(proto.Modules, ModuleConfigFromProto, disablePartialStart, logger)

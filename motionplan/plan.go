@@ -356,6 +356,31 @@ type PlanState struct {
 	configuration referenceframe.FrameSystemInputs
 }
 
+type planStateJSON struct {
+	Poses         referenceframe.FrameSystemPoses  `json:"poses"`
+	Configuration referenceframe.FrameSystemInputs `json:"configuration"`
+}
+
+// MarshalJSON serializes a PlanState to JSON.
+func (p *PlanState) MarshalJSON() ([]byte, error) {
+	stateJSON := planStateJSON{
+		Poses:         p.poses,
+		Configuration: p.configuration,
+	}
+	return json.Marshal(stateJSON)
+}
+
+// UnmarshalJSON deserializes a PlanState from JSON.
+func (p *PlanState) UnmarshalJSON(data []byte) error {
+	var stateJSON planStateJSON
+	if err := json.Unmarshal(data, &stateJSON); err != nil {
+		return err
+	}
+	p.poses = stateJSON.Poses
+	p.configuration = stateJSON.Configuration
+	return nil
+}
+
 // NewPlanState creates a PlanState from the given poses and configuration. Either or both may be nil.
 func NewPlanState(poses referenceframe.FrameSystemPoses, configuration referenceframe.FrameSystemInputs) *PlanState {
 	return &PlanState{poses: poses, configuration: configuration}

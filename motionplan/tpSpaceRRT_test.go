@@ -50,7 +50,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 	}}
 
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.TPSpaceOrientationScale = 30.
 
 	motionChains, err := motionChainsFromPlanState(fs, goal)
@@ -131,7 +131,7 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Initialize planner options
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.TPSpaceOrientationScale = 30.
 	opt.GoalThreshold = 5
 	opt.PlanningAlgorithmSettings = AlgorithmSettings{
@@ -226,7 +226,7 @@ func TestTPsmoothing(t *testing.T) {
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	// Initialize planner options
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.TPSpaceOrientationScale = 30.
 
 	// Needed to determine motion chains

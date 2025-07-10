@@ -3,7 +3,10 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +19,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/service/motion/v1"
+	vutils "go.viam.com/utils"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -88,6 +92,23 @@ type inputEnabledActuator interface {
 type Config struct {
 	LogFilePath string `json:"log_file_path"`
 	NumThreads  int    `json:"num_threads"`
+
+	PlanFilePath           string `json:"plan_file_path"`
+	LogPlannerErrors       bool   `json:"log_planner_errors"`
+	LogSlowPlanThresholdMS int    `json:"log_slow_plan_threshold_ms"`
+}
+
+func (c *Config) shouldWritePlan(start time.Time, err error) bool {
+	if err != nil && c.LogPlannerErrors {
+		return true
+	}
+
+	if c.LogSlowPlanThresholdMS != 0 &&
+		time.Since(start) > (time.Duration(c.LogSlowPlanThresholdMS)*time.Millisecond) {
+		return true
+	}
+
+	return false
 }
 
 // Validate here adds a dependency on the internal framesystem service.
@@ -95,11 +116,21 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.NumThreads < 0 {
 		return nil, nil, fmt.Errorf("cannot configure with %d number of threads, number must be positive", c.NumThreads)
 	}
+
+	if c.LogPlannerErrors && c.PlanFilePath == "" {
+		return nil, nil, fmt.Errorf("need a plan_file_path if you sent log_planner_errors to %v", c.LogPlannerErrors)
+	}
+
+	if c.LogSlowPlanThresholdMS != 0 && c.PlanFilePath == "" {
+		return nil, nil, fmt.Errorf("need a plan_file_path if you sent LogSlowPlanThresholdMS to %v", c.LogSlowPlanThresholdMS)
+	}
+
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
 }
 
 type builtIn struct {
 	resource.Named
+	conf                    *Config
 	mu                      sync.RWMutex
 	fsService               framesystem.Service
 	movementSensors         map[resource.Name]movementsensor.MovementSensor
@@ -140,6 +171,8 @@ func (ms *builtIn) Reconfigure(
 	if err != nil {
 		return err
 	}
+	ms.conf = config
+
 	if config.LogFilePath != "" {
 		fileAppender, _ := logging.NewFileAppender(config.LogFilePath)
 		ms.logger.AddAppender(fileAppender)
@@ -468,6 +501,22 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		}
 	}
 
+	// TODO: RSDK-11198 Similar to above
+	if deprecatedKeySeed, ok := req.Extra["solutions_to_seed"]; ok {
+		logger.Warn(
+			"the top level 'solutions_to_seed' key is deprecated and will soon no longer be accepted," +
+				"please include it in 'planning_algorithm_settings' instead",
+		)
+		if deprecatedSeedParsed, ok := deprecatedKeySeed.(int); ok {
+			req.Extra["planning_algorithm_settings"] = map[string]interface{}{
+				"algorithm": motionplan.CBiRRT,
+				"cbirrt_settings": map[string]interface{}{
+					"solutions_to_seed": deprecatedSeedParsed,
+				},
+			}
+		}
+	}
+
 	// re-evaluate goal poses to be in the frame of World
 	// TODO (RSDK-8847) : this is a workaround to help account for us not yet being able to properly synchronize simultaneous motion across
 	// multiple components. If we are moving component1, mounted on arm2, to a goal in frame of component2, which is mounted on arm2, then
@@ -492,16 +541,30 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		}
 	}
 
+	planOpts, err := motionplan.NewPlannerOptionsFromExtra(req.Extra)
+	if err != nil {
+		return nil, err
+	}
+
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:      logger,
-		Goals:       worldWaypoints,
-		StartState:  startState,
-		FrameSystem: frameSys,
-		WorldState:  req.WorldState,
-		Constraints: req.Constraints,
-		Options:     req.Extra,
-	})
+
+	planRequest := &motionplan.PlanRequest{
+		Goals:          worldWaypoints,
+		StartState:     startState,
+		WorldState:     req.WorldState,
+		Constraints:    req.Constraints,
+		PlannerOptions: planOpts,
+	}
+
+	start := time.Now()
+	plan, err := motionplan.PlanMotion(ctx, logger, frameSys, planRequest)
+	if ms.conf.shouldWritePlan(start, err) {
+		err := ms.writePlanRequest(planRequest)
+		if err != nil {
+			ms.logger.Warnf("couldn't write plan: %v", err)
+		}
+	}
+	return plan, err
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
@@ -660,4 +723,24 @@ func waypointsFromRequest(
 		waypoints = append(waypoints, goalState)
 	}
 	return startState, waypoints, nil
+}
+
+func (ms *builtIn) writePlanRequest(req *motionplan.PlanRequest) error {
+	fn := filepath.Join(ms.conf.PlanFilePath, fmt.Sprintf("plan-%s.json", time.Now().Format(time.RFC3339)))
+	ms.logger.Infof("writing plan to %s", fn)
+
+	data, err := json.MarshalIndent(req, "", "  ")
+	if err != nil {
+		return err
+	}
+	file, err := os.OpenFile(filepath.Clean(fn), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer vutils.UncheckedErrorFunc(file.Close)
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
 }
