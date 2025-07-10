@@ -19,7 +19,6 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	armFake "go.viam.com/rdk/components/arm/fake"
-	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
@@ -522,7 +521,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			API:   arm.API,
 			Model: resource.DefaultModelFamily.WithModel("ur5e"),
 			ConvertedAttributes: &armFake.Config{
-				ArmModel: "ur5e",
+				ModelFilePath: "../../../arm/example_kinematics/ur5e.json",
 			},
 			Frame: &referenceframe.LinkConfig{
 				Parent: "world",
@@ -541,9 +540,6 @@ func TestStoppableMoveFunctions(t *testing.T) {
 		}
 		injectArm.GoToInputsFunc = func(ctx context.Context, goal ...[]referenceframe.Input) error {
 			return failToReachGoalError
-		}
-		injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-			return ur.MakeModelFrame("ur5e")
 		}
 		injectArm.MoveToPositionFunc = func(ctx context.Context, to spatialmath.Pose, extra map[string]interface{}) error {
 			return failToReachGoalError

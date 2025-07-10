@@ -107,7 +107,7 @@ func TestOOBArmMotion(t *testing.T) {
 		Name:  arm.API.String(),
 		Model: resource.DefaultModelFamily.WithModel("ur5e"),
 		ConvertedAttributes: &fake.Config{
-			ArmModel: "ur5e",
+			ModelFilePath: "ur5e",
 		},
 	}
 
