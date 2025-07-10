@@ -84,7 +84,10 @@ func addOrUpdateProfile(c *cli.Context, args addOrUpdateProfileArgs, isAdd bool)
 
 		conf, err := configFromCacheInner(getCLIProfilePath(profile.Name))
 		if err != nil {
-			return err
+			if !os.IsNotExist(err) {
+				return err
+			}
+			conf = &Config{}
 		}
 
 		conf.Auth = &profile.APIKey
@@ -141,7 +144,9 @@ func RemoveProfileAction(c *cli.Context, args removeProfileArgs) error {
 
 	delete(profiles, args.ProfileName)
 	if err := os.Remove(getCLIProfilePath(args.ProfileName)); err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return err
+		}
 	}
 	if err := writeProfiles(profiles); err != nil {
 		return err
