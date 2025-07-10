@@ -43,12 +43,14 @@ func TestReconfigure(t *testing.T) {
 	a, err := NewArm(ctx, nil, conf0, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	fakeArm, _ := a.(*Arm)
-	model, err := a.Kinematics(ctx)
+
+	model, err := fakeArm.Kinematics(ctx)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeArm.joints, test.ShouldResemble, make([]referenceframe.Input, len(model.DoF())))
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
 	test.That(t, fakeArm.Reconfigure(ctx, nil, conf1), test.ShouldBeNil)
-	model, err = a.Kinematics(ctx)
+	model, err = fakeArm.Kinematics(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	modelJoints := make([]referenceframe.Input, len(model.DoF()))
 	test.That(t, fakeArm.joints, test.ShouldResemble, modelJoints)
