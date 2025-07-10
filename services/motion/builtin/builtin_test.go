@@ -915,7 +915,7 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		cam, ok := ms.(*builtIn).componentMap[resource.NewName(camera.API, "injectedCamera").ShortName()]
+		cam, ok := ms.(*builtIn).components[resource.NewName(camera.API, "injectedCamera").ShortName()]
 		test.That(t, ok, test.ShouldBeTrue)
 
 		tf, err := mr.localizingFS.Transform(
@@ -1055,7 +1055,7 @@ func TestCheckPlan(t *testing.T) {
 	movementSensor, ok := localizer.(movementsensor.MovementSensor)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	fakeBase, ok := ms.(*builtIn).componentMap[baseResource.ShortName()]
+	fakeBase, ok := ms.(*builtIn).components[baseResource.ShortName()]
 	test.That(t, ok, test.ShouldBeTrue)
 
 	req := motion.MoveOnGlobeReq{

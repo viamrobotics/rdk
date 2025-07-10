@@ -136,7 +136,7 @@ type builtIn struct {
 	movementSensors         map[resource.Name]movementsensor.MovementSensor
 	slamServices            map[resource.Name]slam.Service
 	visionServices          map[resource.Name]vision.Service
-	componentMap            map[string]resource.Resource
+	components              map[string]resource.Resource
 	logger                  logging.Logger
 	state                   *state.State
 	configuredDefaultExtras map[string]any
@@ -630,7 +630,7 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			if len(inputs) == 0 {
 				continue
 			}
-			r, ok := ms.componentMap[name]
+			r, ok := ms.components[name]
 			if !ok {
 				return fmt.Errorf("plan had step for resource %s but it was not found in the motion", name)
 			}

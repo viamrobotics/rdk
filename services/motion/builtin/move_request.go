@@ -234,10 +234,13 @@ func (mr *moveRequest) getTransientDetections(
 		return nil, err
 	}
 
-	// NOTE: this used to call CurrentInputs on the frameSystemService but when that was removed from the RobotFrameSystem API
-	// this became impossible.  If we need other components' inputs the assumption to use the zero inputs is not valid,
-	// but at the time of writing this note that is explicitly an unsupported feature for the Base motion stack
-	inputMap := referenceframe.NewZeroInputs(mr.localizingFS)
+	// the inputMap informs where we are in the world
+	// the inputMap will be used downstream to transform the observed geometry from the camera frame
+	// into the world frame
+	inputMap, err := mr.fsService.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	k, err := mr.kinematicBase.Kinematics(ctx)
 	if err != nil {
@@ -641,7 +644,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose()))
 
 	// create a KinematicBase from the componentName
-	baseComponent, ok := ms.componentMap[req.ComponentName.ShortName()]
+	baseComponent, ok := ms.components[req.ComponentName.ShortName()]
 	if !ok {
 		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
@@ -757,7 +760,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
 	// create a KinematicBase from the componentName
-	component, ok := ms.componentMap[req.ComponentName.ShortName()]
+	component, ok := ms.components[req.ComponentName.ShortName()]
 	if !ok {
 		return nil, resource.DependencyNotFoundError(req.ComponentName)
 	}

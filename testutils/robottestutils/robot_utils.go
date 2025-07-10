@@ -63,12 +63,10 @@ func Connect(port int) (*grpc.ClientConn, error) {
 	defer cancelFunc()
 
 	var conn *grpc.ClientConn
-	//nolint:staticcheck
-	conn, err := grpc.DialContext(ctxTimeout,
+	conn, err := grpc.DialContext(ctxTimeout, //nolint:staticcheck
 		fmt.Sprintf("dns:///localhost:%d", port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		//nolint:staticcheck
-		grpc.WithBlock(),
+		grpc.WithBlock(), //nolint:staticcheck
 	)
 	if err != nil {
 		return nil, err
@@ -135,7 +133,7 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 //
 // WaitForServing will return true if the server has started successfully in the allotted time, and
 // false otherwise.
-//nolint
+// nolint
 func WaitForServing(observer *observer.ObservedLogs, port int) bool {
 	// Message:"\n\\_ 2024-02-07T20:47:03.576Z\tINFO\trobot_server\tweb/web.go:598\tserving\t{\"url\":\"http://127.0.0.1:20000\"}"
 	successRegex := regexp.MustCompile(fmt.Sprintf("\tserving\t.*:%d\"", port))
