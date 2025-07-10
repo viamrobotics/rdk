@@ -41,10 +41,17 @@ type localAppTestingServer struct {
 // LocalAppTestingAction is the action for the local-app-testing command.
 func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 	serverPort := 8000
+	viamURL := "https://app.viam.com"
+	baseURL, _, err := getBaseURL(ctx)
+	if err != nil || baseURL == nil {
+		printf(ctx.App.Writer, "could not determine Viam base URL from context, defaulting to https://app.viam.com")
+	} else {
+		viamURL = baseURL.String()
+	}
 
 	viamClient, err := appclient.CreateViamClientWithOptions(context.Background(), appclient.Options{
 		Entity:  args.MachineApiKeyID,
-		BaseURL: "https://app.viam.com",
+		BaseURL: viamURL,
 		Credentials: rpc.Credentials{
 			Type:    rpc.CredentialsTypeAPIKey,
 			Payload: args.MachineApiKey,
