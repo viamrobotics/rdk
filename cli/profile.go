@@ -33,11 +33,11 @@ func getProfiles() (map[string]profile, error) {
 			return nil, err
 		}
 		emptyDict := make(map[string]profile)
-		emptyJson, err := json.Marshal(emptyDict)
+		emptyJSON, err := json.Marshal(emptyDict)
 		if err != nil {
 			rd = make([]byte, 0)
 		} else {
-			rd = emptyJson
+			rd = emptyJSON
 		}
 	}
 
