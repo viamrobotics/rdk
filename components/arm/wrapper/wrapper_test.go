@@ -19,7 +19,7 @@ func TestReconfigure(t *testing.T) {
 	cfg := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
-			ModelFilePath: "../universalrobots/ur5e.json",
+			ModelFilePath: "../example_kinematics/ur5e.json",
 			ArmName:       "does not exist0",
 		},
 	}

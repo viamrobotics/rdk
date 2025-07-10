@@ -27,7 +27,7 @@ func BenchmarkFK(b *testing.B) {
 // This should test forward kinematics functions.
 func TestForwardKinematics(t *testing.T) {
 	// Test the 5DOF yahboom arm to confirm kinematics works with non-6dof arms
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/dofbot.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/dofbot.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 248.55, 0, 115
@@ -216,7 +216,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	fs.AddFrame(modelXarm, gantryY)
 
 	// ur5
-	modelUR5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
+	modelUR5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelUR5e, urOffset)
 
@@ -276,7 +276,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 }
 
 func TestSVAvsDH(t *testing.T) {
-	mSVA, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
+	mSVA, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mDH, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/ur5eDH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -298,7 +298,7 @@ func TestSVAvsDH(t *testing.T) {
 func TestKinematicsJSONvsURDF(t *testing.T) {
 	numTests := 100
 
-	mJSON, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
+	mJSON, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mURDF, err := frame.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)

@@ -10,12 +10,12 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/arm"
-	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // errAttrCfgPopulation is the returned error if the Config's fields are fully populated.
@@ -24,19 +24,21 @@ var errAttrCfgPopulation = errors.New("can only populate either ArmModel or Mode
 // Model is the name used to refer to the fake arm model.
 var Model = resource.DefaultModelFamily.WithModel("fake")
 
-var dofbotModel = "yahboom-dofbot"
-
 //go:embed fake_model.json
 var fakejson []byte
-
-//go:embed dofbot.json
-var dofbotjson []byte
 
 // Config is used for converting config attributes.
 type Config struct {
 	ArmModel      string `json:"arm-model,omitempty"`
 	ModelFilePath string `json:"model-path,omitempty"`
 }
+
+// Known values that can be provided for the ArmModel field.
+var (
+	ur5eModel  = "ur5e"
+	xArm6Model = "xarm6"
+	xArm7Model = "xarm7"
+)
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
@@ -253,10 +255,12 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
-	case ur.Model.Name:
-		return ur.MakeModelFrame(name)
-	case dofbotModel:
-		return referenceframe.UnmarshalModelJSON(dofbotjson, name)
+	case ur5eModel:
+		return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), name)
+	case xArm6Model:
+		return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), name)
+	case xArm7Model:
+		return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), name)
 	case Model.Name:
 		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:
