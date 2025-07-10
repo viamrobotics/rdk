@@ -17,7 +17,7 @@ func TestParseJSONFile(t *testing.T) {
 		"components/arm/example_kinematics/xarm6_kinematics_test.json",
 		"components/arm/example_kinematics/xarm7_kinematics_test.json",
 		"referenceframe/testfiles/ur5eDH.json",
-		"components/arm/universalrobots/ur5e.json",
+		"components/arm/example_kinematics/ur5e.json",
 		"components/arm/fake/dofbot.json",
 	}
 
