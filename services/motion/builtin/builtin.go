@@ -571,7 +571,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	start := time.Now()
 	plan, err := motionplan.PlanMotion(ctx, logger, frameSys, planRequest)
 	if ms.conf.shouldWritePlan(start, err) {
-		err := ms.writePlan(planRequest)
+		err := ms.writePlanRequest(planRequest)
 		if err != nil {
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
@@ -739,7 +739,7 @@ func waypointsFromRequest(
 	return startState, waypoints, nil
 }
 
-func (ms *builtIn) writePlan(req *motionplan.PlanRequest) error {
+func (ms *builtIn) writePlanRequest(req *motionplan.PlanRequest) error {
 	fn := filepath.Join(ms.conf.PlanFilePath, fmt.Sprintf("plan-%s.json", time.Now().Format(time.RFC3339)))
 	ms.logger.Infof("writing plan to %s", fn)
 
