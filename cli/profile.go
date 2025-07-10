@@ -32,7 +32,13 @@ func getProfiles() (map[string]profile, error) {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-		rd = make([]byte, 0)
+		emptyDict := make(map[string]profile)
+		emptyJSON, err := json.Marshal(emptyDict)
+		if err != nil {
+			rd = make([]byte, 0)
+		} else {
+			rd = emptyJSON
+		}
 	}
 
 	profiles := make(map[string]profile)
@@ -82,7 +88,10 @@ func addOrUpdateProfile(c *cli.Context, args addOrUpdateProfileArgs, isAdd bool)
 
 		conf, err := configFromCacheInner(getCLIProfilePath(profile.Name))
 		if err != nil {
-			return err
+			if !os.IsNotExist(err) {
+				return err
+			}
+			conf = &Config{}
 		}
 
 		conf.Auth = &profile.APIKey
@@ -139,7 +148,9 @@ func RemoveProfileAction(c *cli.Context, args removeProfileArgs) error {
 
 	delete(profiles, args.ProfileName)
 	if err := os.Remove(getCLIProfilePath(args.ProfileName)); err != nil {
-		return err
+		if !os.IsNotExist(err) {
+			return err
+		}
 	}
 	if err := writeProfiles(profiles); err != nil {
 		return err
