@@ -521,7 +521,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			API:   arm.API,
 			Model: resource.DefaultModelFamily.WithModel("ur5e"),
 			ConvertedAttributes: &armFake.Config{
-				ModelFilePath: "../../../arm/example_kinematics/ur5e.json",
+				ArmModel: "ur5e",
 			},
 			Frame: &referenceframe.LinkConfig{
 				Parent: "world",
@@ -543,6 +543,9 @@ func TestStoppableMoveFunctions(t *testing.T) {
 		}
 		injectArm.MoveToPositionFunc = func(ctx context.Context, to spatialmath.Pose, extra map[string]interface{}) error {
 			return failToReachGoalError
+		}
+		injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+			return ur.MakeModelFrame("ur5e")
 		}
 
 		// create arm link

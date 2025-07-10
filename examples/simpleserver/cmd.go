@@ -24,9 +24,11 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
 	arm1Name := arm.Named("arm1")
 	cfg := resource.Config{
-		Name:                arm1Name.Name,
-		Model:               resource.DefaultModelFamily.WithModel("ur5e"),
-		ConvertedAttributes: &fake.Config{},
+		Name:  arm1Name.Name,
+		Model: resource.DefaultModelFamily.WithModel("ur5e"),
+		ConvertedAttributes: &fake.Config{
+			ArmModel: "ur5e",
+		},
 	}
 	arm1, err := fake.NewArm(context.Background(), nil, cfg, logger)
 	if err != nil {
