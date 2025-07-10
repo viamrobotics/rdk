@@ -106,7 +106,6 @@ type builtIn struct {
 	slamServices            map[resource.Name]slam.Service
 	visionServices          map[resource.Name]vision.Service
 	componentMap            map[string]resource.Resource
-	components              []resource.Resource
 	logger                  logging.Logger
 	state                   *state.State
 	configuredDefaultExtras map[string]any
@@ -153,7 +152,6 @@ func (ms *builtIn) Reconfigure(
 	slamServices := make(map[resource.Name]slam.Service)
 	visionServices := make(map[resource.Name]vision.Service)
 	componentMap := make(map[string]resource.Resource)
-	components := make([]resource.Resource, 0)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
@@ -166,13 +164,11 @@ func (ms *builtIn) Reconfigure(
 			visionServices[name] = dep
 		default:
 			componentMap[name.ShortName()] = dep
-			components = append(components, dep)
 		}
 	}
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
-	ms.components = components
 	if ms.state != nil {
 		ms.state.Stop()
 	}
