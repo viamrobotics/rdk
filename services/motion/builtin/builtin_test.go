@@ -37,6 +37,7 @@ import (
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 )
 
@@ -545,7 +546,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			return failToReachGoalError
 		}
 		injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-			return ur.MakeModelFrame("ur5e")
+			return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
 		}
 
 		// create arm link

@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // errAttrCfgPopulation is the returned error if the Config's fields are fully populated.
@@ -255,11 +256,11 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
 	case ur5eModel:
-		return referenceframe.ParseModelJSONFile("../example_kinematics/ur5e.json", name)
+		return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), name)
 	case xArm6Model:
-		return referenceframe.ParseModelJSONFile("../example_kinematics/xarm6_kinematics_test.json", name)
+		return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), name)
 	case xArm7Model:
-		return referenceframe.ParseModelJSONFile("../example_kinematics/xarm7_kinematics_test.json", name)
+		return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), name)
 	case Model.Name:
 		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:
