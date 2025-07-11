@@ -276,13 +276,19 @@ func (gpw *gnuplotWriter) copyPreviousPoint(timeSeconds int64, metricName string
 		return
 	}
 
-	gi, newlyCreated := gpw.getGraphInfo(metricName)
-	if newlyCreated {
-		gi.writeStartingDatapoints(gpw.firstTimeSecs, timeSeconds)
+	// Do not use `getGraphInfo`. As we are returning in the case where this is newly created. And
+	// the actual code that writes a first data point would not know its the first write.
+	//
+	// Perhaps we should either:
+	// - Only call `copyPreviousPoint` when there is a previous point or
+	// - Determine if a graph is new by looking at how many points we've added. Not the existence of
+	//   the graph in our internal map.
+	gi, exists := gpw.metricFiles[metricName]
+	if !exists {
 		return
 	}
 
-	writelnf(gi.file, "%v %.5f", timeSeconds, gi.prevVal)
+	gpw.addPoint(timeSeconds, metricName, gi.prevVal)
 }
 
 func (gi *graphInfo) writeStartingDatapoints(firstTimeSecs, datapointTimeSecs int64) {
@@ -312,7 +318,12 @@ func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricV
 	// graphs. As we've found gnuplots auto scaling to be a bit clunky.
 	gi, newlyCreated := gpw.getGraphInfo(metricName)
 	if newlyCreated {
-		gi.writeStartingDatapoints(gpw.firstTimeSecs, timeSeconds)
+		startingTime := gpw.firstTimeSecs
+		if gpw.options.minTimeSeconds > startingTime {
+			startingTime = gpw.options.minTimeSeconds
+		}
+
+		gi.writeStartingDatapoints(startingTime, timeSeconds)
 	}
 
 	gi.prevVal = metricValue
