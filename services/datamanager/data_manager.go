@@ -7,9 +7,11 @@ package datamanager
 import (
 	"context"
 	"encoding/json"
+	"image"
 	"reflect"
 	"slices"
 
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	servicepb "go.viam.com/api/service/datamanager/v1"
 
 	"go.viam.com/rdk/resource"
@@ -50,8 +52,10 @@ type Service interface {
 	resource.Resource
 	// Sync will sync data stored on the machine to the cloud.
 	Sync(ctx context.Context, extra map[string]interface{}) error
-	UploadImageToDataset(ctx context.Context, image []byte, datasetIDs, tags []string,
+	UploadRawDataToDataset(ctx context.Context, image []byte, datasetIDs, tags []string,
 		extra map[string]interface{}) error
+	UploadImageToDataset(ctx context.Context, image image.Image, dataseteIDs, tags []string,
+		mimeType datasyncpb.MimeType, extra map[string]interface{}) error
 }
 
 // SubtypeName is the name of the type of service.

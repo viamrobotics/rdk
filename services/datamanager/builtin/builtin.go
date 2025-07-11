@@ -154,7 +154,7 @@ func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error 
 	return b.sync.Sync(ctx, extra)
 }
 
-func (b *builtIn) UploadImageToDataset(ctx context.Context,
+func (b *builtIn) UploadRawDataToDataset(ctx context.Context,
 	image []byte,
 	datasetIDs []string,
 	tags []string,

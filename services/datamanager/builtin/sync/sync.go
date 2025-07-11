@@ -379,7 +379,8 @@ func (s *Sync) UploadImageToDataset(ctx context.Context, image []byte, datasetID
 		s.logger.Errorw("error reading file", "err", err)
 		return err
 	}
-	s.syncArbitraryFile(f, tags, datasetIDs, 0, s.logger)
+	// TODO: Make this async.
+	go s.syncArbitraryFile(f, tags, datasetIDs, int(time.Now().UnixMilli()), s.logger)
 	return nil
 }
 

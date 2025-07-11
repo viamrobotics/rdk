@@ -42,7 +42,7 @@ func (server *serviceServer) UploadImageToDataset(
 	if err != nil {
 		return nil, err
 	}
-	if err := svc.UploadImageToDataset(ctx, req.Image, req.DatasetIds, req.Tags, req.Extra.AsMap()); err != nil {
+	if err := svc.UploadRawDataToDataset(ctx, req.Image, req.DatasetIds, req.Tags, req.Extra.AsMap()); err != nil {
 		return nil, err
 	}
 	return &pb.UploadImageToDatasetResponse{}, nil
