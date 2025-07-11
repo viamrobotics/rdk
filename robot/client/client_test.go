@@ -2008,6 +2008,67 @@ func TestShutDown(t *testing.T) {
 	test.That(t, shutdownCalled, test.ShouldBeTrue)
 }
 
+func TestCurrentInputs(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+
+	testAPI := resource.APINamespaceRDK.WithComponentType(arm.SubtypeName)
+	testName := resource.NewName(testAPI, "arm1")
+	testName2 := resource.NewName(testAPI, "arm2")
+
+	expectedInputs := referenceframe.FrameSystemInputs{
+		testName.ShortName():  []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}},
+		testName2.ShortName(): []referenceframe.Input{{math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}, {0}},
+	}
+	injectArm := &inject.Arm{
+		JointPositionsFunc: func(ctx context.Context, extra map[string]any) ([]referenceframe.Input, error) {
+			return expectedInputs[testName.ShortName()], nil
+		},
+		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
+			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+		},
+	}
+	injectArm2 := &inject.Arm{
+		JointPositionsFunc: func(ctx context.Context, extra map[string]any) ([]referenceframe.Input, error) {
+			return expectedInputs[testName2.ShortName()], nil
+		},
+		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
+			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+		},
+	}
+	resourceNames := []resource.Name{testName, testName2}
+	resources := map[resource.Name]arm.Arm{testName: injectArm, testName2: injectArm2}
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:  func() []resource.Name { return resourceNames },
+		ResourceByNameFunc: func(n resource.Name) (resource.Resource, error) { return resources[n], nil },
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+	}
+
+	armSvc, err := resource.NewAPIResourceCollection(arm.API, resources)
+	test.That(t, err, test.ShouldBeNil)
+	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc))
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	inputs, err := client.CurrentInputs(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(inputs), test.ShouldEqual, 2)
+	test.That(t, inputs, test.ShouldResemble, expectedInputs)
+}
+
 func TestUnregisteredResourceByName(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
