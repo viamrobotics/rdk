@@ -1487,7 +1487,9 @@ func (c *viamClient) machinesPartGetFTDCAction(
 	src := path.Join(ftdcPath, part.Id)
 	gArgs, err := getGlobalArgs(ctx)
 	quiet := err == nil && gArgs != nil && gArgs.Quiet
+	var startTime time.Time
 	if !quiet {
+		startTime = time.Now()
 		printf(ctx.App.Writer, "Saving to %s ...", path.Join(targetPath, part.GetId()))
 	}
 	if err := c.copyFilesFromMachine(
@@ -1510,7 +1512,7 @@ func (c *viamClient) machinesPartGetFTDCAction(
 		return err
 	}
 	if !quiet {
-		printf(ctx.App.Writer, "Done.")
+		printf(ctx.App.Writer, "Done in %s.", time.Since(startTime))
 	}
 	return nil
 }
