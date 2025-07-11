@@ -572,7 +572,7 @@ type requestStats struct {
 	dataSent  atomic.Int64
 }
 
-type countTracker struct {
+type requestCounter struct {
 	mu   sync.Mutex
 	curr int
 	max  int
@@ -583,7 +583,7 @@ type countTracker struct {
 // but this can be changed by setting the `VIAM_RESOURCE_REQUESTS_LIMIT`
 // environment variable.
 type requestLimiter struct {
-	counts ssync.Map[string, *countTracker]
+	counts ssync.Map[string, *requestCounter]
 	limit  int
 }
 
@@ -598,36 +598,36 @@ func (l *requestLimiter) ensureLimit() int {
 	return l.limit
 }
 
-func (l *requestLimiter) ensureKey(resource string) *countTracker {
-	tr, ok := l.counts.Load(resource)
+func (l *requestLimiter) ensureKey(resource string) *requestCounter {
+	counter, ok := l.counts.Load(resource)
 	if !ok {
-		tr, _ = l.counts.LoadOrStore(resource, &countTracker{})
+		counter, _ = l.counts.LoadOrStore(resource, &requestCounter{})
 	}
-	return tr
+	return counter
 }
 
 // Incr attempts to increment the in-flight request counter for a given
 // resource. It returns true if it was successful and false if an additional
 // request would exceed the configured limit.
 func (l *requestLimiter) Incr(resource string) bool {
-	tr := l.ensureKey(resource)
-	tr.mu.Lock()
-	defer tr.mu.Unlock()
+	counter := l.ensureKey(resource)
+	counter.mu.Lock()
+	defer counter.mu.Unlock()
 	limit := l.ensureLimit()
-	if tr.curr >= limit {
+	if counter.curr >= limit {
 		return false
 	}
-	tr.curr++
-	tr.max = max(tr.curr, tr.max)
+	counter.curr++
+	counter.max = max(counter.curr, counter.max)
 	return true
 }
 
 // Decr decrements the in-flight request counter for a given resource.
 func (l *requestLimiter) Decr(resource string) {
-	tr := l.ensureKey(resource)
-	tr.mu.Lock()
-	defer tr.mu.Unlock()
-	tr.curr--
+	counter := l.ensureKey(resource)
+	counter.mu.Lock()
+	defer counter.mu.Unlock()
+	counter.curr--
 }
 
 // RequestCounter is used to track and limit incoming requests. It maps string
