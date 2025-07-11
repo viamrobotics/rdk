@@ -16,15 +16,18 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.viam.com/utils/rpc"
+
 	appclient "go.viam.com/rdk/app"
 	"go.viam.com/rdk/logging"
 )
 
 // localAppTestingArgs contains the arguments for the local-app-testing command.
 type localAppTestingArgs struct {
-	AppURL          string `json:"app-url"`
-	MachineID       string `json:"machine-id"`
-	MachineApiKey   string `json:"machine-api-key"`
+	AppURL    string `json:"app-url"`
+	MachineID string `json:"machine-id"`
+	//nolint: revive,stylecheck // The CLI args parsing prevents us from using API (uppercase)
+	MachineApiKey string `json:"machine-api-key"`
+	//nolint: revive,stylecheck // The CLI args parsing prevents us from using API (uppercase)
 	MachineApiKeyID string `json:"machine-api-key-id"`
 }
 
@@ -110,6 +113,7 @@ func (l *localAppTestingServer) setupHTTPServer(port int, targetURL string) *htt
 	proxy.Director = removeMachinePathFromURL(proxy.Director)
 
 	// Add response interceptor
+	//nolint: bodyclose
 	proxy.ModifyResponse = l.addBaseTagToHTMLResponse()
 
 	http.Handle("/", proxy)

@@ -42,7 +42,7 @@ func CreateViamClientWithOptions(ctx context.Context, options Options, logger lo
 		return nil, errors.New("use valid URL")
 	}
 	if !strings.HasSuffix(options.BaseURL, ":443") {
-		options.BaseURL = options.BaseURL + ":443"
+		options.BaseURL += ":443"
 	}
 	serviceHost, err := url.Parse(options.BaseURL)
 	if err != nil {
