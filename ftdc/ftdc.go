@@ -291,7 +291,9 @@ func (ftdc *FTDC) StopAndJoin(ctx context.Context) {
 	ftdc.stopOnce.Do(func() {
 		// Only one caller should close the datum channel. And it should be the caller that called
 		// stop on the worker writing to the channel.
-		ftdc.readStatsWorker.Stop()
+		if ftdc.readStatsWorker != nil {
+			ftdc.readStatsWorker.Stop()
+		}
 		close(ftdc.datumCh)
 	})
 
