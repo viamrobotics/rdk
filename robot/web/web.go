@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -720,13 +719,17 @@ func buildRCKey(clientMsg any, apiMethod string) string {
 func getResourceName(clientMsg any, fullMethod string) string {
 	if namer, ok := clientMsg.(Namer); ok {
 		name := namer.GetName()
-		if !slices.Contains([]string{"builtin"}, name) {
+		if name != "builtin" {
 			return name
 		}
 	}
-	robotSvcStr := "viam.robot.RobotService"
-	if strings.HasPrefix(fullMethod, "/"+robotSvcStr+"/") {
-		return robotSvcStr
+	switch {
+	case strings.HasPrefix(fullMethod, "/viam.component."):
+		fallthrough
+	case strings.HasPrefix(fullMethod, "/viam.service."):
+		fallthrough
+	case strings.HasPrefix(fullMethod, "/viam.robot."):
+		return strings.SplitN(fullMethod, "/", 3)[1]
 	}
 	return ""
 }
