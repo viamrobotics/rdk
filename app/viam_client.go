@@ -41,7 +41,10 @@ func CreateViamClientWithOptions(ctx context.Context, options Options, logger lo
 	} else if !strings.HasPrefix(options.BaseURL, "http://") && !strings.HasPrefix(options.BaseURL, "https://") {
 		return nil, errors.New("use valid URL")
 	}
-	serviceHost, err := url.Parse(options.BaseURL + ":443")
+	if !strings.HasSuffix(options.BaseURL, ":443") {
+		options.BaseURL = options.BaseURL + ":443"
+	}
+	serviceHost, err := url.Parse(options.BaseURL)
 	if err != nil {
 		return nil, err
 	}
