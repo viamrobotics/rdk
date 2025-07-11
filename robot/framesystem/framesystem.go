@@ -85,7 +85,7 @@ type Service interface {
 	CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, map[string]InputEnabled, error)
 
 	// FrameSystem returns the frame system of the machine and incorporates any specified additional transformations.
-	FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
+	FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (*referenceframe.FrameSystem, error)
 }
 
 // FromDependencies is a helper for getting the framesystem from a collection of dependencies.
@@ -297,7 +297,7 @@ func (svc *frameSystemService) CurrentInputs(
 func (svc *frameSystemService) FrameSystem(
 	ctx context.Context,
 	additionalTransforms []*referenceframe.LinkInFrame,
-) (referenceframe.FrameSystem, error) {
+) (*referenceframe.FrameSystem, error) {
 	_, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
 	defer span.End()
 	return referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)

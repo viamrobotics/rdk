@@ -36,7 +36,7 @@ var logger = logging.FromZapCompatible(zap.Must(zap.Config{
 type planConfig struct {
 	Start            *PlanState
 	Goal             *PlanState
-	FS               frame.FrameSystem
+	FS               *frame.FrameSystem
 	Options          *PlannerOptions
 	ConstraintHander *ConstraintHandler
 	MotionChains     *motionChains
@@ -474,7 +474,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	}
 }
 
-func makeTestFS(t *testing.T) frame.FrameSystem {
+func makeTestFS(t *testing.T) *frame.FrameSystem {
 	t.Helper()
 	fs := frame.NewEmptyFrameSystem("test")
 

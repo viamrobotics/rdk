@@ -61,7 +61,7 @@ type moveRequest struct {
 	geoPoseOrigin     *spatialmath.GeoPose
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
-	frameSystem       referenceframe.FrameSystem
+	frameSystem       *referenceframe.FrameSystem
 	planRequest       *motionplan.PlanRequest
 	seedPlan          motionplan.Plan
 	kinematicBase     kinematicbase.KinematicBase
@@ -77,7 +77,7 @@ type moveRequest struct {
 	// singulare frame moniker wrapperFrame. The wrapperFrame allows us to position the geometries of the base
 	// using only provided referenceframe.Input values and we do not have to compose with a separate pose
 	/// to absolutely position ourselves in the world frame.
-	localizingFS referenceframe.FrameSystem
+	localizingFS *referenceframe.FrameSystem
 
 	executeBackgroundWorkers *sync.WaitGroup
 	responseChan             chan moveResponse
@@ -818,7 +818,7 @@ func (ms *builtIn) createBaseMoveRequest(
 	motionCfg *validatedMotionConfiguration,
 	kb kinematicbase.KinematicBase,
 	goalPoseInWorld spatialmath.Pose,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	worldObstacles []spatialmath.Geometry,
 	valExtra validatedExtra,
 ) (*moveRequest, error) {

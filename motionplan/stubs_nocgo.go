@@ -17,7 +17,7 @@ var errNotSupported = errors.New("not supported on this build")
 var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
 
 func newCBiRRTMotionPlanner(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
@@ -29,7 +29,7 @@ func newCBiRRTMotionPlanner(
 
 // newTPSpaceMotionPlanner creates a newTPSpaceMotionPlanner object with a user specified random seed.
 func newTPSpaceMotionPlanner(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
@@ -41,7 +41,7 @@ func newTPSpaceMotionPlanner(
 
 // NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
 func newRRTStarConnectMotionPlanner(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,

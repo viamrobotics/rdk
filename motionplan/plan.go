@@ -120,7 +120,7 @@ func (traj Trajectory) EvaluateCost(distFunc ik.SegmentFSMetric) float64 {
 // The pose of the referenceframe.FrameSystemPoses is the pose at the end of the corresponding set of inputs in the Trajectory.
 type Path []referenceframe.FrameSystemPoses
 
-func newPath(solution []node, fs referenceframe.FrameSystem) (Path, error) {
+func newPath(solution []node, fs *referenceframe.FrameSystem) (Path, error) {
 	path := make(Path, 0, len(solution))
 	for _, inputNode := range solution {
 		poseMap := make(map[string]*referenceframe.PoseInFrame)
@@ -397,7 +397,7 @@ func (p *PlanState) Configuration() referenceframe.FrameSystemInputs {
 }
 
 // ComputePoses returns the poses of a PlanState if they are populated, or computes them using the given FrameSystem if not.
-func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (referenceframe.FrameSystemPoses, error) {
+func (p *PlanState) ComputePoses(fs *referenceframe.FrameSystem) (referenceframe.FrameSystemPoses, error) {
 	if len(p.poses) > 0 {
 		return p.poses, nil
 	}

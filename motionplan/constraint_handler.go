@@ -35,7 +35,7 @@ func newConstraintHandler(
 	opt *PlannerOptions,
 	constraints *Constraints,
 	from, to *PlanState,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	motionChains *motionChains,
 	seedMap referenceframe.FrameSystemInputs,
 	worldState *referenceframe.WorldState,
@@ -156,7 +156,7 @@ func newConstraintHandler(
 // addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological
 // constraints. It will return a bool indicating whether there are any to add.
 func (c *ConstraintHandler) addTopoConstraints(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	constraints *Constraints,
@@ -191,7 +191,7 @@ func (c *ConstraintHandler) addTopoConstraints(
 }
 
 func (c *ConstraintHandler) addLinearConstraints(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	linConstraint LinearConstraint,
@@ -217,7 +217,7 @@ func (c *ConstraintHandler) addLinearConstraints(
 }
 
 func (c *ConstraintHandler) addPseudolinearConstraints(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	plinConstraint PseudolinearConstraint,
@@ -243,7 +243,7 @@ func (c *ConstraintHandler) addPseudolinearConstraints(
 }
 
 func (c *ConstraintHandler) addOrientationConstraints(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	orientConstraint OrientationConstraint,
