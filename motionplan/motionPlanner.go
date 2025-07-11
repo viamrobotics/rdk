@@ -59,7 +59,8 @@ type PlanRequest struct {
 	StartState *PlanState `json:"start_state"`
 	// The data representation of the robot's environment.
 	WorldState *referenceframe.WorldState `json:"world_state"`
-	// Set of bounds which the robot must remain within while navigating.
+	// Set of bounds which the robot must remain within while navigating. This is used only for kinematic bases
+	// and not arms.
 	BoundingRegions []*commonpb.Geometry `json:"bounding_regions"`
 	// Additional parameters constraining the motion of the robot.
 	Constraints *Constraints `json:"constraints"`

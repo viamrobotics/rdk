@@ -209,29 +209,33 @@ type PlannerOptions struct {
 	// A factor by which the entire pose is allowed to deviate for a path. Used only for a PseudolinearMotionProfile.
 	ToleranceFactor float64 `json:"tolerance"`
 
-	// CollisionBufferMM dictates how far the robot should be from any obstacle during its motion.
+	// No two geometries that did not start the motion in collision may come within this distance of
+	// one another at any time during a motion.
 	CollisionBufferMM float64 `json:"collision_buffer_mm"`
 
 	// The algorithm used for pathfinding along with any configurable settings for that algorithm. If this
-	// object is not provided, the algorithm will default to cBiRRT.
+	// object is not provided, motion planning will attempt to use RRT* and, in the event of failure
+	// to find an acceptable path, it will fallback to cBiRRT.
 	PlanningAlgorithmSettings AlgorithmSettings `json:"planning_algorithm_settings"`
 
-	// The random seed used by some motion algorithms during planning.
+	// The random seed used by motion algorithms during planning. This parameter guarantees deterministic
+	// outputs despite a random initial state.
 	RandomSeed int `json:"rseed"`
 
 	// The max movement allowed for each step on the path from the initial random seed for a solution
 	// to the goal.
 	PathStepSize float64 `json:"path_step_size"`
 
-	// Setting indicating that all mesh geometries should be converted into octrees (only for
-	// base navigation).
+	// Setting indicating that all mesh geometries should be converted into octrees.
 	MeshesAsOctrees bool `json:"meshes_as_octrees"`
 
-	// A set of fallback options to use on initial planning failure.
+	// A set of fallback options to use on initial planning failure. This is used to facilitate the default
+	// behavior described above in the comment for `PlanningAlgorithmSettings`. This will be populated
+	// automatically if needed and is not meant to be set by users of the library.
 	Fallback *PlannerOptions `json:"fallback_options"`
 
-	// After the first potential solution is computed, the time that each pending solution is to finish
-	// computing is a multiple of the time taken to compute the first solution. This parameter is a way to
+	// For inverse kinematics, the time within which each pending solution must finish its computation is
+	// a multiple of the time taken to compute the first solution. This parameter is a way to
 	// set that multiplicative factor.
 	TimeMultipleAfterFindingFirstSolution int `json:"time_multiple_after_finding_first_solution"`
 }
