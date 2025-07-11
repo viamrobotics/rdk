@@ -147,6 +147,7 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 
 	svc.cancelCtx = cancelCtx
 	svc.cancelFunc = cancelFunc
+	svc.requestCounter.limiter.ensureLimit()
 
 	if err := svc.runWeb(svc.cancelCtx, o); err != nil {
 		if svc.cancelFunc != nil {
@@ -587,7 +588,7 @@ type requestLimiter struct {
 	limit  int
 }
 
-func (l *requestLimiter) ensureLimit() int {
+func (l *requestLimiter) ensureLimit() {
 	if l.limit == 0 {
 		if limitVar, err := strconv.Atoi(os.Getenv("VIAM_RESOURCE_REQUESTS_LIMIT")); err == nil && limitVar > 0 {
 			l.limit = limitVar
@@ -595,7 +596,6 @@ func (l *requestLimiter) ensureLimit() int {
 			l.limit = 100
 		}
 	}
-	return l.limit
 }
 
 func (l *requestLimiter) ensureKey(resource string) *requestCounter {
@@ -613,8 +613,7 @@ func (l *requestLimiter) Incr(resource string) bool {
 	counter := l.ensureKey(resource)
 	counter.mu.Lock()
 	defer counter.mu.Unlock()
-	limit := l.ensureLimit()
-	if counter.curr >= limit {
+	if counter.curr >= l.limit {
 		return false
 	}
 	counter.curr++
