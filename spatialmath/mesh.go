@@ -391,7 +391,7 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 			p1 := triPts[(i+1)%3]
 			p2 := triPts[(i+2)%3]
 			edgeLen := p0.Sub(p1).Norm()
-			if edgeLen > baseLen {
+			if edgeLen >= baseLen { // checking >= instead of > accounts for edge case p0=p1=p2
 				baseLen = edgeLen
 				baseP0 = p0
 				baseP1 = p1

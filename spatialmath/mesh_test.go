@@ -553,43 +553,61 @@ func TestMeshDistanceFrom(t *testing.T) {
 }
 
 func TestMeshToPoints(t *testing.T) {
-	mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
-		[]*Triangle{NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 0},
-			r3.Vector{X: 3, Y: 0, Z: 0},
-			r3.Vector{X: -3, Y: 3, Z: 0},
-		)})
+	t.Run("Simple triangle with density enforced", func(t *testing.T) {
+		mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+			[]*Triangle{NewTriangle(
+				r3.Vector{X: 0, Y: 0, Z: 0},
+				r3.Vector{X: 3, Y: 0, Z: 0},
+				r3.Vector{X: -3, Y: 3, Z: 0},
+			)})
 
-	points := mesh.ToPoints(0.3)
+		points := mesh.ToPoints(0.3)
 
-	// Verify points match those expected for similar tiling method
-	expectedPoints := []r3.Vector{
-		{X: 0, Y: 0, Z: 0},
-		{X: 1, Y: 0, Z: 0},
-		{X: 2, Y: 0, Z: 0},
-		{X: 3, Y: 0, Z: 0},
+		// Verify points match those expected for similar tiling method
+		expectedPoints := []r3.Vector{
+			{X: 0, Y: 0, Z: 0},
+			{X: 1, Y: 0, Z: 0},
+			{X: 2, Y: 0, Z: 0},
+			{X: 3, Y: 0, Z: 0},
 
-		{X: -1, Y: 1, Z: 0},
-		{X: 0, Y: 1, Z: 0},
-		{X: 1, Y: 1, Z: 0},
+			{X: -1, Y: 1, Z: 0},
+			{X: 0, Y: 1, Z: 0},
+			{X: 1, Y: 1, Z: 0},
 
-		{X: -2, Y: 2, Z: 0},
-		{X: -1, Y: 2, Z: 0},
+			{X: -2, Y: 2, Z: 0},
+			{X: -1, Y: 2, Z: 0},
 
-		{X: -3, Y: 3, Z: 0},
-	}
-
-	test.That(t, len(points), test.ShouldEqual, 10)
-	for _, expected := range expectedPoints {
-		found := false
-		for _, actual := range points {
-			if R3VectorAlmostEqual(actual, expected, 1e-10) {
-				found = true
-				break
-			}
+			{X: -3, Y: 3, Z: 0},
 		}
-		test.That(t, found, test.ShouldBeTrue)
-	}
+
+		test.That(t, len(points), test.ShouldEqual, len(expectedPoints))
+		for _, expected := range expectedPoints {
+			found := false
+			for _, actual := range points {
+				if R3VectorAlmostEqual(actual, expected, 1e-10) {
+					found = true
+					break
+				}
+			}
+			test.That(t, found, test.ShouldBeTrue)
+		}
+	})
+
+	t.Run("Degenerate triangle", func(t *testing.T) {
+		mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+			[]*Triangle{NewTriangle(
+				r3.Vector{X: 1, Y: 1, Z: 1},
+				r3.Vector{X: 1, Y: 1, Z: 1},
+				r3.Vector{X: 1, Y: 1, Z: 1},
+			)})
+
+		points := mesh.ToPoints(5)
+
+		expectedPoint := r3.Vector{X: 1, Y: 1, Z: 1}
+
+		test.That(t, len(points), test.ShouldEqual, 1)
+		test.That(t, points[0], test.ShouldResemble, expectedPoint)
+	})
 }
 
 func TestMeshEncompassedBy(t *testing.T) {
