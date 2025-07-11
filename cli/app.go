@@ -2480,9 +2480,10 @@ Note: There is no progress meter while copying is in progress.
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:      "local-app-testing",
-					Usage:     "test your viam application locally",
-					UsageText: createUsageText("module local-app-testing", []string{"app-url", "machine-id", "machine-api-key", "machine-api-key-id"}, false, false),
+					Name:  "local-app-testing",
+					Usage: "test your viam application locally",
+					UsageText: createUsageText("module local-app-testing",
+						[]string{"app-url", "machine-id", "machine-api-key", "machine-api-key-id"}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     "app-url",
@@ -2490,18 +2491,21 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     "machine-id",
-							Usage:    "get the machine ID of the machine you want to test with at https://app.viam.com/fleet/machines",
+							Name: "machine-id",
+							Usage: "machine ID of the machine you want to test with, you can get it at " +
+								"https://app.viam.com/fleet/machines",
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     "machine-api-key-id",
-							Usage:    "get the machine API key ID for the machine you provided the ID of, you can get it at https://app.viam.comm/machine/<machineID>/connect/api-keys",
+							Name: "machine-api-key-id",
+							Usage: "machine API key ID for the machine you provided the ID of, you can get it at " +
+								"https://app.viam.comm/machine/<machineID>/connect/api-keys",
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     "machine-api-key",
-							Usage:    "get the machine API key for the machine you provided the ID of, you can get it at https://app.viam.comm/machine/<machineID>/connect/api-keys",
+							Name: "machine-api-key",
+							Usage: "machine API key for the machine you provided the ID of, you can get it at " +
+								"https://app.viam.comm/machine/<machineID>/connect/api-keys",
 							Required: true,
 						},
 					},

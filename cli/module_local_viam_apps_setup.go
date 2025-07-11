@@ -15,10 +15,9 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-
+	"go.viam.com/utils/rpc"
 	appclient "go.viam.com/rdk/app"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/utils/rpc"
 )
 
 // localAppTestingArgs contains the arguments for the local-app-testing command.
@@ -31,8 +30,8 @@ type localAppTestingArgs struct {
 
 type localAppTestingServer struct {
 	machineID       string
-	machineApiKey   string
-	machineApiKeyID string
+	machineAPIKey   string
+	machineAPIKeyID string
 	serverURL       string
 	viamClient      *appclient.ViamClient
 	logger          io.Writer
@@ -64,8 +63,8 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 
 	localAppTesting := localAppTestingServer{
 		machineID:       args.MachineID,
-		machineApiKey:   args.MachineApiKey,
-		machineApiKeyID: args.MachineApiKeyID,
+		machineAPIKey:   args.MachineApiKey,
+		machineAPIKeyID: args.MachineApiKeyID,
 		serverURL:       fmt.Sprintf("http://localhost:%d", serverPort),
 		viamClient:      viamClient,
 		logger:          ctx.App.Writer,
@@ -111,7 +110,7 @@ func (l *localAppTestingServer) setupHTTPServer(port int, targetURL string) *htt
 	proxy.Director = removeMachinePathFromURL(proxy.Director)
 
 	// Add response interceptor
-	proxy.ModifyResponse = addBaseTagToResponseBody(l.logger)
+	proxy.ModifyResponse = l.addBaseTagToHTMLResponse()
 
 	http.Handle("/", proxy)
 
@@ -125,7 +124,7 @@ type machineAuthCookieValue struct {
 	Hostname    string             `json:"hostname"`
 	MachineID   string             `json:"machineId"`
 	Credentials machineCredentials `json:"credentials"`
-	ApiKey      machineAPIKey      `json:"apiKey"`
+	APIKey      machineAPIKey      `json:"apiKey"`
 }
 
 type machineCredentials struct {
@@ -152,12 +151,12 @@ func (l *localAppTestingServer) cookieSetup(resp http.ResponseWriter, req *http.
 		MachineID: l.machineID,
 		Credentials: machineCredentials{
 			Type:       "api-key",
-			Payload:    l.machineApiKey,
-			AuthEntity: l.machineApiKeyID,
+			Payload:    l.machineAPIKey,
+			AuthEntity: l.machineAPIKeyID,
 		},
-		ApiKey: machineAPIKey{
-			Key: l.machineApiKey,
-			ID:  l.machineApiKeyID,
+		APIKey: machineAPIKey{
+			Key: l.machineAPIKey,
+			ID:  l.machineAPIKeyID,
 		},
 	}
 
@@ -233,7 +232,7 @@ func removeMachinePathFromURL(originalDirector func(*http.Request)) func(*http.R
 	}
 }
 
-func addBaseTagToResponseBody(writer io.Writer) func(resp *http.Response) error {
+func (l *localAppTestingServer) addBaseTagToHTMLResponse() func(resp *http.Response) error {
 	return func(resp *http.Response) error {
 		contentType := resp.Header.Get("Content-Type")
 		isHTML := strings.Contains(strings.ToLower(contentType), "text/html")
@@ -256,7 +255,7 @@ func addBaseTagToResponseBody(writer io.Writer) func(resp *http.Response) error 
 			}
 			defer func() {
 				if err := resp.Body.Close(); err != nil {
-					printf(writer, "Error closing response body: %v", err)
+					printf(l.logger, "Error closing response body: %v", err)
 				}
 			}()
 
