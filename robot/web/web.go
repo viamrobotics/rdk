@@ -573,10 +573,15 @@ type requestStats struct {
 }
 
 type countTracker struct {
-	ch  chan struct{}
-	max int
+	mu   sync.Mutex
+	curr int
+	max  int
 }
 
+// requestLimiter is used to track and limit the number of concurrent requests
+// for resources. By default the per-resource limit is 100 concurrent requests
+// but this can be changed by setting the `VIAM_RESOURCE_REQUESTS_LIMIT`
+// environment variable.
 type requestLimiter struct {
 	counts ssync.Map[string, *countTracker]
 	limit  int
@@ -584,7 +589,7 @@ type requestLimiter struct {
 
 func (l *requestLimiter) ensureLimit() int {
 	if l.limit == 0 {
-		if limitVar, err := strconv.Atoi(os.Getenv("VIAM_RESOURCE_LIMIT")); err == nil && limitVar > 0 {
+		if limitVar, err := strconv.Atoi(os.Getenv("VIAM_RESOURCE_REQUESTS_LIMIT")); err == nil && limitVar > 0 {
 			l.limit = limitVar
 		} else {
 			l.limit = 100
@@ -596,36 +601,39 @@ func (l *requestLimiter) ensureLimit() int {
 func (l *requestLimiter) ensureKey(resource string) *countTracker {
 	tr, ok := l.counts.Load(resource)
 	if !ok {
-		limit := l.ensureLimit()
-		newTr := countTracker{
-			ch: make(chan struct{}, limit),
-		}
-		tr, _ = l.counts.LoadOrStore(resource, &newTr)
+		tr, _ = l.counts.LoadOrStore(resource, &countTracker{})
 	}
 	return tr
 }
 
+// Incr attempts to increment the in-flight request counter for a given
+// resource. It returns true if it was successful and false if an additional
+// request would exceed the configured limit.
 func (l *requestLimiter) Incr(resource string) bool {
 	tr := l.ensureKey(resource)
-	select {
-	case tr.ch <- struct{}{}:
-		tr.max = max(tr.max, len(tr.ch))
-		return true
-	default:
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+	limit := l.ensureLimit()
+	if tr.curr >= limit {
+		return false
 	}
-	return false
+	tr.curr++
+	tr.max = max(tr.curr, tr.max)
+	return true
 }
 
+// Decr decrements the in-flight request counter for a given resource.
 func (l *requestLimiter) Decr(resource string) {
 	tr := l.ensureKey(resource)
-	select {
-	case <-tr.ch:
-	default:
-	}
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
+	tr.curr--
 }
 
-// RequestCounter maps string keys to atomic ints that get bumped on every incoming gRPC request for
-// components.
+// RequestCounter is used to track and limit incoming requests. It maps string
+// keys to atomic ints that get bumped on every incoming gRPC request for
+// components. For resources it maintains a count of currently active requests
+// and rejects any requests that would exceed the configured limit.
 type RequestCounter struct {
 	requestKeyToStats ssync.Map[string, *requestStats]
 	limiter           requestLimiter
@@ -674,8 +682,9 @@ func (rc *RequestCounter) Stats() any {
 	}
 
 	for k, v := range rc.limiter.counts.Range {
-		ret[fmt.Sprintf("%v.concurrentRequests", k)] = int64(v.max)
-		v.max = len(v.ch)
+		max := v.max
+		v.max = v.curr
+		ret[fmt.Sprintf("%v.concurrentRequests", k)] = int64(max)
 	}
 
 	return ret
