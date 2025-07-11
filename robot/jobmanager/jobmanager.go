@@ -32,22 +32,12 @@ import (
 // Jobmanager keeps track of the currently scheduled jobs and updates the schedule with
 // respect to the "jobs" part of the config.
 type Jobmanager struct {
-	scheduler   gocron.Scheduler
-	logger      logging.Logger
-	getResource func(resource string) (resource.Resource, error)
-	namesToJobs map[string]job
-	ctx         context.Context
-	conn        rpc.ClientConn
-}
-
-// job keeps track of a per-job logger and the job id.
-// NOTE: with the current log distribution, we don't have to have this struct and can come
-// back to the map from names to ids. However, if a per-job logger will be used somewhere
-// outside createJobFunction (or we will want to keep track of some internal gocron.Job)
-// state, this could be useful.
-type job struct {
-	logger logging.Logger
-	id     uuid.UUID
+	scheduler     gocron.Scheduler
+	logger        logging.Logger
+	getResource   func(resource string) (resource.Resource, error)
+	namesToJobIDs map[string]uuid.UUID
+	ctx           context.Context
+	conn          rpc.ClientConn
 }
 
 // New sets up the context and grpcConn that is used in scheduled jobs. The actual
@@ -76,12 +66,12 @@ func New(
 	}
 
 	jm := &Jobmanager{
-		logger:      jobLogger,
-		scheduler:   scheduler,
-		getResource: getResource,
-		namesToJobs: make(map[string]job),
-		ctx:         robotContext,
-		conn:        conn,
+		logger:        jobLogger,
+		scheduler:     scheduler,
+		getResource:   getResource,
+		namesToJobIDs: make(map[string]uuid.UUID),
+		ctx:           robotContext,
+		conn:          conn,
 	}
 
 	jm.scheduler.Start()
@@ -128,11 +118,15 @@ func (jm *Jobmanager) createDescriptorSourceAndgRPCMethod(
 }
 
 // createJobFunction returns a function that the job scheduler puts on its queue.
-func (jm *Jobmanager) createJobFunction(jc config.JobConfig, jobLogger logging.Logger) func() {
+func (jm *Jobmanager) createJobFunction(jc config.JobConfig) func() {
+	jobLogger := jm.logger.Sublogger(jc.Name)
+	// To support logging for quick jobs (~ on the seconds schedule), we disable log
+	// deduplication for job loggers.
+	jobLogger.NeverDeduplicate()
 	return func() {
 		res, err := jm.getResource(jc.Resource)
 		if err != nil {
-			jobLogger.CWarnw(jm.ctx, "Could not get resource", "error", err)
+			jobLogger.CWarnw(jm.ctx, "Could not get resource", "error", err.Error())
 			return
 		}
 		if jc.Method == "DoCommand" {
@@ -141,7 +135,7 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig, jobLogger logging.L
 			jobLogger.CInfo(jm.ctx, "Job triggered")
 			response, err := res.DoCommand(jm.ctx, jc.Command)
 			if err != nil {
-				jobLogger.CWarnw(jm.ctx, "Job failed", "error", err)
+				jobLogger.CWarnw(jm.ctx, "Job failed", "error", err.Error())
 			} else {
 				jobLogger.CInfow(jm.ctx, "Job succeeded", "response", response)
 			}
@@ -167,7 +161,7 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig, jobLogger logging.L
 			options)
 
 		if err != nil {
-			jobLogger.CWarnw(jm.ctx, "could not create parser and formatter for grpc requests", "error", err)
+			jobLogger.CWarnw(jm.ctx, "could not create parser and formatter for grpc requests", "error", err.Error())
 			return
 		}
 
@@ -181,12 +175,12 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig, jobLogger logging.L
 		err = grpcurl.InvokeRPC(jm.ctx, descSource, jm.conn, grpcMethod, nil, h, rf.Next)
 
 		if err != nil {
-			jobLogger.CWarnw(jm.ctx, "Job failed", "error", err)
+			jobLogger.CWarnw(jm.ctx, "Job failed", "error", err.Error())
 		} else {
 			response := map[string]any{}
 			err := json.Unmarshal(buffer.Bytes(), &response)
 			if err != nil {
-				jobLogger.CWarnw(jm.ctx, "Unmarshalling grpc response failed with error", "error", err)
+				jobLogger.CWarnw(jm.ctx, "Unmarshalling grpc response failed with error", "error", err.Error())
 			}
 			jobLogger.CInfow(jm.ctx, "Job succeeded", "response", response)
 		}
@@ -195,22 +189,22 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig, jobLogger logging.L
 
 // removeJob removes the job from the scheduler and clears the internal map entry.
 func (jm *Jobmanager) removeJob(name string, verbose bool) {
-	job := jm.namesToJobs[name]
+	jobID := jm.namesToJobIDs[name]
 	if verbose {
 		jm.logger.CInfow(jm.ctx, "Removing job", "name", name)
 	}
-	err := jm.scheduler.RemoveJob(job.id)
+	err := jm.scheduler.RemoveJob(jobID)
 	if err != nil {
-		jm.logger.CWarnw(jm.ctx, "Removing the job failed", "error", err)
+		jm.logger.CWarnw(jm.ctx, "Removing the job failed", "error", err.Error())
 	}
-	delete(jm.namesToJobs, name)
+	delete(jm.namesToJobIDs, name)
 }
 
 // scheduleJob validates the job config and attempts to put a new job on the scheduler
 // queue. If an error happens, it is logged, and the job is not scheduled.
 func (jm *Jobmanager) scheduleJob(jc config.JobConfig, verbose bool) {
 	if err := jc.Validate(""); err != nil {
-		jm.logger.CWarnw(jm.ctx, "Job failed to validate", "name", jc.Name, "error", err)
+		jm.logger.CWarnw(jm.ctx, "Job failed to validate", "name", jc.Name, "error", err.Error())
 		return
 	}
 	var jobType gocron.JobDefinition
@@ -225,12 +219,7 @@ func (jm *Jobmanager) scheduleJob(jc config.JobConfig, verbose bool) {
 		jobLimitMode = gocron.LimitModeWait
 	}
 
-	jobLogger := jm.logger.Sublogger(jc.Name)
-	// To support logging for quick jobs (~ on the seconds schedule), we disable log
-	// deduplication for job loggers.
-	jobLogger.NeverDeduplicate()
-
-	jobFunc := jm.createJobFunction(jc, jobLogger)
+	jobFunc := jm.createJobFunction(jc)
 	j, err := jm.scheduler.NewJob(
 		jobType,
 		gocron.NewTask(jobFunc),
@@ -255,7 +244,7 @@ func (jm *Jobmanager) scheduleJob(jc config.JobConfig, verbose bool) {
 		// second takes 3 seconds.
 		// second 0: job starts
 		// second 5: job is asleep, the new job is put on the queue
-		// second 6: job wakes up, finishes. The new job starts right now.
+		// second 6: job wakes up, finishes. The new job (2nd) starts right now.
 		// second 9: the new job is finished. Nothing is on the queue.
 		// second 10: another (3rd) iteration of the job starts, based on the original 5s
 		// timer.
@@ -265,7 +254,7 @@ func (jm *Jobmanager) scheduleJob(jc config.JobConfig, verbose bool) {
 		gocron.WithSingletonMode(jobLimitMode),
 	)
 	if err != nil {
-		jm.logger.CErrorw(jm.ctx, "Failed to create a new job", "name", jc.Name, "error", err)
+		jm.logger.CErrorw(jm.ctx, "Failed to create a new job", "name", jc.Name, "error", err.Error())
 		return
 	}
 	jobID := j.ID()
@@ -273,12 +262,8 @@ func (jm *Jobmanager) scheduleJob(jc config.JobConfig, verbose bool) {
 	if verbose {
 		jm.logger.CInfow(jm.ctx, "Job created", "name", jc.Name)
 	}
-	job := job{
-		logger: jobLogger,
-		id:     jobID,
-	}
 
-	jm.namesToJobs[jc.Name] = job
+	jm.namesToJobIDs[jc.Name] = jobID
 }
 
 // UpdateJobs is called when the "jobs" part of the config gets updated. It updates
