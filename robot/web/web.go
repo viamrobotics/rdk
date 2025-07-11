@@ -146,7 +146,6 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 
 	svc.cancelCtx = cancelCtx
 	svc.cancelFunc = cancelFunc
-	svc.requestCounter.limiter.ensureLimit()
 
 	if err := svc.runWeb(svc.cancelCtx, o); err != nil {
 		if svc.cancelFunc != nil {

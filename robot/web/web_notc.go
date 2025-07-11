@@ -27,6 +27,7 @@ func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
 		modPeerConnTracker: grpc.NewModPeerConnTracker(),
 		opts:               wOpts,
 	}
+	webSvc.requestCounter.limiter.ensureLimit()
 	return webSvc
 }
 
