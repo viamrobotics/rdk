@@ -1485,6 +1485,13 @@ func (c *viamClient) machinesPartGetFTDCAction(
 	// \ as path separators, and we don't want a cli running on Windows to send
 	// a path using \ to a *NIX machine.
 	src := path.Join(ftdcPath, part.Id)
+	gArgs, err := getGlobalArgs(ctx)
+	quiet := err == nil && gArgs != nil && gArgs.Quiet
+	var startTime time.Time
+	if !quiet {
+		startTime = time.Now()
+		printf(ctx.App.Writer, "Saving to %s ...", path.Join(targetPath, part.GetId()))
+	}
 	if err := c.copyFilesFromMachine(
 		flagArgs.Organization,
 		flagArgs.Location,
@@ -1503,6 +1510,9 @@ func (c *viamClient) machinesPartGetFTDCAction(
 			return errDirectoryCopyRequestNoRecursion
 		}
 		return err
+	}
+	if !quiet {
+		printf(ctx.App.Writer, "Done in %s.", time.Since(startTime))
 	}
 	return nil
 }
