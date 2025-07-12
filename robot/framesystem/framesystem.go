@@ -104,6 +104,7 @@ type RobotFrameSystem interface {
 
 	// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
 	// and a map of statuses indicating which of the machine's components may be actuated through input values.
+
 	CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error)
 }
 
@@ -342,7 +343,7 @@ func NewFromService(
 	ctx context.Context,
 	service Service,
 	supplementalTransforms []*referenceframe.LinkInFrame,
-) (referenceframe.FrameSystem, error) {
+) (*referenceframe.FrameSystem, error) {
 	fsCfg, err := service.FrameSystemConfig(ctx)
 	if err != nil {
 		return nil, err

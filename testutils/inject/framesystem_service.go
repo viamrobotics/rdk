@@ -36,7 +36,7 @@ type FrameSystemService struct {
 	FrameSystemFunc   func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (referenceframe.FrameSystem, error)
+	) (*referenceframe.FrameSystem, error)
 	DoCommandFunc func(
 		ctx context.Context,
 		cmd map[string]interface{},

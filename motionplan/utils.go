@@ -48,12 +48,12 @@ func (r *resultPromise) result() ([]node, error) {
 // linearizedFrameSystem wraps a framesystem, allowing conversion in a known order between a FrameConfiguratinos and a flat array of floats,
 // useful for being able to call IK solvers against framesystems.
 type linearizedFrameSystem struct {
-	fs     referenceframe.FrameSystem
+	fs     *referenceframe.FrameSystem
 	frames []referenceframe.Frame // cached ordering of frames. Order is unimportant but cannot change once set.
 	dof    []referenceframe.Limit
 }
 
-func newLinearizedFrameSystem(fs referenceframe.FrameSystem) (*linearizedFrameSystem, error) {
+func newLinearizedFrameSystem(fs *referenceframe.FrameSystem) (*linearizedFrameSystem, error) {
 	frames := []referenceframe.Frame{}
 	dof := []referenceframe.Limit{}
 	for _, fName := range fs.FrameNames() {
@@ -116,7 +116,7 @@ type motionChains struct {
 	ptgFrameName string
 }
 
-func motionChainsFromPlanState(fs referenceframe.FrameSystem, to *PlanState) (*motionChains, error) {
+func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to *PlanState) (*motionChains, error) {
 	// create motion chains for each goal, and error check for PTG frames
 	// TODO: currently, if any motion chain has a PTG frame, that must be the only motion chain and that frame must be the only
 	// frame in the chain with nonzero DoF. Eventually this need not be the case.
@@ -170,7 +170,7 @@ func motionChainsFromPlanState(fs referenceframe.FrameSystem, to *PlanState) (*m
 }
 
 func (mC *motionChains) geometries(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
 ) (movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry) {
 	// find all geometries that are not moving but are in the frame system
@@ -198,7 +198,7 @@ func (mC *motionChains) geometries(
 // If a motion chain is worldrooted, then goals are translated to their position in `World` before solving.
 // This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper.
 func (mC *motionChains) translateGoalsToWorldPosition(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	start referenceframe.FrameSystemInputs,
 	goal *PlanState,
 ) (*PlanState, error) {
@@ -223,7 +223,7 @@ func (mC *motionChains) translateGoalsToWorldPosition(
 	return goal, nil
 }
 
-func (mC *motionChains) framesFilteredByMovingAndNonmoving(fs referenceframe.FrameSystem) (moving, nonmoving []string) {
+func (mC *motionChains) framesFilteredByMovingAndNonmoving(fs *referenceframe.FrameSystem) (moving, nonmoving []string) {
 	movingMap := map[string]referenceframe.Frame{}
 	for _, chain := range mC.inner {
 		for _, frame := range chain.frames {
@@ -247,7 +247,7 @@ func (mC *motionChains) framesFilteredByMovingAndNonmoving(fs referenceframe.Fra
 type motionChain struct {
 	// List of names of all frames that could move, used for collision detection
 	// As an example a gripper attached to an arm which is moving relative to World, would not be in frames below but in this object
-	movingFS       referenceframe.FrameSystem
+	movingFS       *referenceframe.FrameSystem
 	frames         []referenceframe.Frame // all frames directly between and including solveFrame and goalFrame. Order not important.
 	solveFrameName string
 	goalFrameName  string
@@ -257,7 +257,7 @@ type motionChain struct {
 	worldRooted bool
 }
 
-func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame, goalFrameName string) (*motionChain, error) {
+func motionChainFromGoal(fs *referenceframe.FrameSystem, moveFrame, goalFrameName string) (*motionChain, error) {
 	// get goal frame
 	goalFrame := fs.Frame(goalFrameName)
 	if goalFrame == nil {
@@ -281,7 +281,7 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame, goalFrameName
 		return nil, errors.New("solveFrameList was empty")
 	}
 
-	movingFS := func(frameList []referenceframe.Frame) (referenceframe.FrameSystem, error) {
+	movingFS := func(frameList []referenceframe.Frame) (*referenceframe.FrameSystem, error) {
 		// Find first moving frame
 		var moveF referenceframe.Frame
 		for i := len(frameList) - 1; i >= 0; i-- {
@@ -297,7 +297,7 @@ func motionChainFromGoal(fs referenceframe.FrameSystem, moveFrame, goalFrameName
 	}
 
 	// find pivot frame between goal and solve frames
-	var moving referenceframe.FrameSystem
+	var moving *referenceframe.FrameSystem
 	var frames []referenceframe.Frame
 	worldRooted := false
 	pivotFrame, err := findPivotFrame(solveFrameList, goalFrameList)
