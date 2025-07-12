@@ -45,6 +45,7 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/ssync"
 )
 
 // SubtypeName is a constant that identifies the internal web resource subtype string.
@@ -59,6 +60,18 @@ var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
 // InternalServiceName is used to refer to/depend on this service internally.
 var InternalServiceName = resource.NewName(API, "builtin")
+
+// RequestLimitExceededError is an error returned when a request is rejected
+// because it would exceed the limit for concurrent requests to a given
+// resource.
+type RequestLimitExceededError struct {
+	resource string
+	limit    int
+}
+
+func (e *RequestLimitExceededError) Error() string {
+	return fmt.Sprintf("Exceeded request limit %v on resource %v", e.limit, e.resource)
+}
 
 // A Service controls the web server for a robot.
 type Service interface {
@@ -558,15 +571,74 @@ type requestStats struct {
 	dataSent  atomic.Int64
 }
 
-// RequestCounter maps string keys to atomic ints that get bumped on every incoming gRPC request for
-// components.
+type requestCounter struct {
+	mu   sync.Mutex
+	curr int
+	max  int
+}
+
+// requestLimiter is used to track and limit the number of concurrent requests
+// for resources. By default the per-resource limit is 100 concurrent requests
+// but this can be changed by setting the `VIAM_RESOURCE_REQUESTS_LIMIT`
+// environment variable.
+type requestLimiter struct {
+	counts ssync.Map[string, *requestCounter]
+	limit  int
+}
+
+func (l *requestLimiter) ensureLimit() {
+	if l.limit == 0 {
+		if limitVar, err := strconv.Atoi(os.Getenv("VIAM_RESOURCE_REQUESTS_LIMIT")); err == nil && limitVar > 0 {
+			l.limit = limitVar
+		} else {
+			l.limit = 100
+		}
+	}
+}
+
+func (l *requestLimiter) ensureKey(resource string) *requestCounter {
+	counter, ok := l.counts.Load(resource)
+	if !ok {
+		counter, _ = l.counts.LoadOrStore(resource, &requestCounter{})
+	}
+	return counter
+}
+
+// Incr attempts to increment the in-flight request counter for a given
+// resource. It returns true if it was successful and false if an additional
+// request would exceed the configured limit.
+func (l *requestLimiter) Incr(resource string) bool {
+	counter := l.ensureKey(resource)
+	counter.mu.Lock()
+	defer counter.mu.Unlock()
+	if counter.curr >= l.limit {
+		return false
+	}
+	counter.curr++
+	counter.max = max(counter.curr, counter.max)
+	return true
+}
+
+// Decr decrements the in-flight request counter for a given resource.
+func (l *requestLimiter) Decr(resource string) {
+	counter := l.ensureKey(resource)
+	counter.mu.Lock()
+	defer counter.mu.Unlock()
+	counter.curr--
+}
+
+// RequestCounter is used to track and limit incoming requests. It maps string
+// keys to atomic ints that get bumped on every incoming gRPC request for
+// components. For resources it maintains a count of currently active requests
+// and rejects any requests that would exceed the configured limit.
 type RequestCounter struct {
-	requestKeyToStats sync.Map
+	requestKeyToStats ssync.Map[string, *requestStats]
+	limiter           requestLimiter
 }
 
 func (rc *RequestCounter) preRequestIncrement(key string) {
 	if stats, ok := rc.requestKeyToStats.Load(key); ok {
-		stats.(*requestStats).count.Add(1)
+		stats.count.Add(1)
 	} else {
 		// If a key for the request did not yet exist, create a new `requestStats` to add to the
 		// map.
@@ -579,14 +651,13 @@ func (rc *RequestCounter) preRequestIncrement(key string) {
 		// If we lost that race, instead bump the counter of the `requestStats` object that was
 		// inserted.
 		if exists {
-			storedStats.(*requestStats).count.Add(1)
+			storedStats.count.Add(1)
 		}
 	}
 }
 
 func (rc *RequestCounter) postRequestIncrement(key string, timeSpent time.Duration, dataSent int, wasError bool) {
-	if statsI, ok := rc.requestKeyToStats.Load(key); ok {
-		stats := statsI.(*requestStats)
+	if stats, ok := rc.requestKeyToStats.Load(key); ok {
 		stats.timeSpent.Add(timeSpent.Milliseconds())
 		stats.dataSent.Add(int64(dataSent))
 		if wasError {
@@ -600,16 +671,18 @@ func (rc *RequestCounter) postRequestIncrement(key string, timeSpent time.Durati
 // Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
 func (rc *RequestCounter) Stats() any {
 	ret := make(map[string]int64)
-	rc.requestKeyToStats.Range(func(requestKeyI, requestStatsI any) bool {
-		requestKey := requestKeyI.(string)
-		requestStats := requestStatsI.(*requestStats)
+	for requestKey, requestStats := range rc.requestKeyToStats.Range {
 		ret[fmt.Sprintf("%v", requestKey)] = requestStats.count.Load()
 		ret[fmt.Sprintf("%v.errorCnt", requestKey)] = requestStats.errorCnt.Load()
 		ret[fmt.Sprintf("%v.timeSpent", requestKey)] = requestStats.timeSpent.Load()
 		ret[fmt.Sprintf("%v.dataSentBytes", requestKey)] = requestStats.dataSent.Load()
+	}
 
-		return true
-	})
+	for k, v := range rc.limiter.counts.Range {
+		max := v.max
+		v.max = v.curr
+		ret[fmt.Sprintf("%v.concurrentRequests", k)] = int64(max)
+	}
 
 	return ret
 }
@@ -642,11 +715,39 @@ func buildRCKey(clientMsg any, apiMethod string) string {
 	return apiMethod
 }
 
+func getResourceName(clientMsg any, fullMethod string) string {
+	if namer, ok := clientMsg.(Namer); ok {
+		name := namer.GetName()
+		if name != "builtin" {
+			return name
+		}
+	}
+	switch {
+	case strings.HasPrefix(fullMethod, "/viam.component."):
+		fallthrough
+	case strings.HasPrefix(fullMethod, "/viam.service."):
+		fallthrough
+	case strings.HasPrefix(fullMethod, "/viam.robot."):
+		return strings.SplitN(fullMethod, "/", 3)[1]
+	}
+	return ""
+}
+
 // UnaryInterceptor returns an incoming server interceptor that will pull method information and
 // optionally resource information to bump the request counters.
 func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
+	if resource := getResourceName(req, info.FullMethod); resource != "" {
+		if ok := rc.limiter.Incr(resource); !ok {
+			return nil, &RequestLimitExceededError{
+				resource: resource,
+				limit:    rc.limiter.limit,
+			}
+		}
+		defer rc.limiter.Decr(resource)
+	}
+
 	apiMethod := extractViamAPI(info.FullMethod)
 
 	requestCounterKey := buildRCKey(req, apiMethod)
@@ -685,13 +786,24 @@ func (rc *RequestCounter) UnaryInterceptor(
 	return resp, err
 }
 
+type streamRequestKey struct {
+	request  string
+	resource string
+}
+
 type wrappedStreamWithRC struct {
 	googlegrpc.ServerStream
 	apiMethod string
 	rc        *RequestCounter
 
 	// Set on the initial client request.
-	requestKey atomic.Pointer[string]
+	requestKey atomic.Pointer[streamRequestKey]
+}
+
+func (w *wrappedStreamWithRC) tryDecr() {
+	if rk := w.requestKey.Load(); rk != nil && rk.resource != "" {
+		w.rc.limiter.Decr(rk.resource)
+	}
 }
 
 // RecvMsg increments the reference counter upon receiving the first message from the client.
@@ -701,8 +813,20 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 	err := w.ServerStream.RecvMsg(m)
 
 	if w.requestKey.Load() == nil {
+		resource := getResourceName(m, w.apiMethod)
+		if resource != "" {
+			if ok := w.rc.limiter.Incr(resource); !ok {
+				return &RequestLimitExceededError{
+					resource: resource,
+					limit:    w.rc.limiter.limit,
+				}
+			}
+		}
 		requestKey := buildRCKey(m, w.apiMethod)
-		w.requestKey.Store(&requestKey)
+		w.requestKey.Store(&streamRequestKey{
+			request:  requestKey,
+			resource: resource,
+		})
 		// Dan: As above, we have to call the underlying handler first before
 		// `preRequestIncrement`. Because the message object has not been initialized yet. It's not
 		// clear to me what options we have to pull out the message's `name` field before
@@ -715,9 +839,9 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 func (w *wrappedStreamWithRC) SendMsg(m any) error {
 	if requestKeyPtr := w.requestKey.Load(); requestKeyPtr != nil {
 		if protoMsg, ok := m.(proto.Message); ok {
-			w.rc.postRequestIncrement(*requestKeyPtr, 0, proto.Size(protoMsg), false)
+			w.rc.postRequestIncrement(requestKeyPtr.request, 0, proto.Size(protoMsg), false)
 		}
-	} else { // if testing.Testing() {
+	} else {
 		panic(fmt.Sprintf("Invariant failed. Key must exist for `postRequestIncrement`. Key: %v", w.requestKey.Load()))
 	}
 
@@ -740,7 +864,9 @@ func (rc *RequestCounter) StreamInterceptor(
 
 	// Only count Viam apiMethods
 	if apiMethod != "" {
-		return handler(srv, &wrappedStreamWithRC{ss, apiMethod, rc, atomic.Pointer[string]{}})
+		wrappedStream := wrappedStreamWithRC{ss, apiMethod, rc, atomic.Pointer[streamRequestKey]{}}
+		defer wrappedStream.tryDecr()
+		return handler(srv, &wrappedStream)
 	}
 	return handler(srv, ss)
 }

@@ -1565,7 +1565,7 @@ func TestPerRequestFTDC(t *testing.T) {
 	// We can assert that there are two counters in our stats. The fact that `GetEndPosition` was
 	// called once and we hence spent (negligible) time in that RPC call.
 	stats := svc.RequestCounter().Stats().(map[string]int64)
-	test.That(t, len(stats), test.ShouldEqual, 4)
+	test.That(t, len(stats), test.ShouldEqual, 5)
 	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 1)
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.dataSentBytes")
