@@ -67,7 +67,8 @@ func (m *module) dial() error {
 	if !rutils.TCPRegex.MatchString(addrToDial) {
 		addrToDial = "unix:" + addrToDial
 	}
-	conn, err := grpc.Dial( //nolint:staticcheck
+	//nolint:staticcheck
+	conn, err := grpc.Dial(
 		addrToDial,
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(rpc.MaxMessageSize)),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

@@ -30,6 +30,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/state"
@@ -901,7 +902,7 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	getTransientDetectionMock := func(currentPose, obstaclePose spatialmath.Pose) []spatialmath.Geometry {
-		inputMap, _, err := mr.fsService.CurrentInputs(ctx)
+		inputMap, err := ms.(*builtIn).fsService.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		k, err := mr.kinematicBase.Kinematics(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -914,7 +915,7 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		cam, ok := ms.(*builtIn).components[resource.NewName(camera.API, "injectedCamera")]
+		cam, ok := ms.(*builtIn).components[resource.NewName(camera.API, "injectedCamera").ShortName()]
 		test.That(t, ok, test.ShouldBeTrue)
 
 		tf, err := mr.localizingFS.Transform(
@@ -1054,7 +1055,7 @@ func TestCheckPlan(t *testing.T) {
 	movementSensor, ok := localizer.(movementsensor.MovementSensor)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	fakeBase, ok := ms.(*builtIn).components[baseResource]
+	fakeBase, ok := ms.(*builtIn).components[baseResource.ShortName()]
 	test.That(t, ok, test.ShouldBeTrue)
 
 	req := motion.MoveOnGlobeReq{
@@ -1399,12 +1400,12 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
 
 		// Verify start configuration matches current robot state
-		fsInputs, _, err := ms.(*builtIn).fsService.CurrentInputs(ctx)
+		fsInputs, err := ms.(*builtIn).fsService.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, plan[0], test.ShouldResemble, fsInputs)
 
 		// Verify final pose
-		frameSys, err := ms.(*builtIn).fsService.FrameSystem(ctx, nil)
+		frameSys, err := framesystem.NewFromService(ctx, ms.(*builtIn).fsService, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		finalConfig := plan[len(plan)-1]
@@ -1438,7 +1439,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		plan := getPlanFromMove(t, moveReq)
 		test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
 
-		frameSys, err := ms.(*builtIn).fsService.FrameSystem(ctx, nil)
+		frameSys, err := framesystem.NewFromService(ctx, ms.(*builtIn).fsService, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Verify start configuration matches start pose
@@ -1509,7 +1510,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		test.That(t, foundMatchingConfig, test.ShouldBeTrue)
 
 		// Verify final pose
-		frameSys, err := ms.(*builtIn).fsService.FrameSystem(ctx, nil)
+		frameSys, err := framesystem.NewFromService(ctx, ms.(*builtIn).fsService, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		finalConfig := plan[len(plan)-1]
@@ -1546,7 +1547,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		test.That(t, startArmConfig, test.ShouldResemble, referenceframe.FloatsToInputs(startConfig))
 
 		// Verify final pose
-		frameSys, err := ms.(*builtIn).fsService.FrameSystem(ctx, nil)
+		frameSys, err := framesystem.NewFromService(ctx, ms.(*builtIn).fsService, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		finalConfig := plan[len(plan)-1]
