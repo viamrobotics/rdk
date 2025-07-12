@@ -1158,16 +1158,13 @@ func (manager *resourceManager) updateResources(
 			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
 			continue
 		}
-		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
+		affectedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
 		if err != nil {
 			manager.logger.CErrorw(ctx, "error reconfiguring module", "module", mod.Name, "error", err)
 		}
-		for _, resToClose := range manager.markResourcesRemoved(orphanedResourceNames, nil) {
-			if err := resToClose.Close(ctx); err != nil {
-				manager.logger.CErrorw(ctx, "error closing now orphaned resource", "resource",
-					resToClose.Name().String(), "module", mod.Name, "error", err)
-			}
-		}
+		// resources passed into markRebuildResources have already been closed during module reconfiguration, so
+		// not necessary to Close again.
+		manager.markRebuildResources(affectedResourceNames)
 	}
 
 	if manager.moduleManager != nil {
@@ -1331,6 +1328,27 @@ func (manager *resourceManager) markResourcesRemoved(
 		manager.resources.MarkForRemoval(subG)
 	}
 	return resourcesToCloseBeforeComplete
+}
+
+// markRebuildResources marks resources passed in as needing a rebuild during
+// reconfiguration and/or completeConfig loop. This function expects the caller
+// to close any resources if necessary.
+func (manager *resourceManager) markRebuildResources(rNames []resource.Name) {
+	for _, rName := range rNames {
+		// Disable changes to shell in untrusted
+		if manager.opts.untrustedEnv && rName.API == shell.API {
+			continue
+		}
+
+		resNode, ok := manager.resources.Node(rName)
+		if !ok {
+			continue
+		}
+		resNode.SetNeedsRebuild()
+		if err := manager.markChildrenForUpdate(rName); err != nil {
+			manager.logger.Errorw("error marking children for update", "resource", rName, "error", err)
+		}
+	}
 }
 
 // createConfig will create a config.Config based on the current state of the

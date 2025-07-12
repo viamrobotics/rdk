@@ -552,17 +552,16 @@ func New(
 }
 
 // removeOrphanedResources is called by the module manager to remove resources
-// orphaned due to module crashes.
+// orphaned due to module crashes. Resources passed into this function will be
+// marked for rebuilding and handled by the completeConfig worker.
 func (r *localRobot) removeOrphanedResources(ctx context.Context,
 	rNames []resource.Name,
 ) {
 	r.reconfigurationLock.Lock()
 	defer r.reconfigurationLock.Unlock()
-	r.manager.markResourcesRemoved(rNames, nil)
-	if err := r.manager.removeMarkedAndClose(ctx, nil); err != nil {
-		r.logger.CErrorw(ctx, "error removing and closing marked resources",
-			"error", err)
-	}
+	// resource names passed into markRebuildResources are already closed as the module
+	// crashed and thus do not need to be closed.
+	r.manager.markRebuildResources(rNames)
 	r.updateWeakAndOptionalDependents(ctx)
 }
 
@@ -1556,7 +1555,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 	} else {
 		diff.Added.Modules = append(diff.Added.Modules, *mod)
 	}
-
+	r.logger.CInfow(ctx, "restarting single module", "module_name", mod.Name, "module_id", mod.ModuleID)
 	return r.manager.updateResources(ctx, &diff)
 }
 
