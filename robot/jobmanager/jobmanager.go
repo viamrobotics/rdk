@@ -96,7 +96,6 @@ func (jm *Jobmanager) createDescriptorSourceAndgRPCMethod(
 	refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(jm.conn))
 	reflSource := grpcurl.DescriptorSourceFromServer(jm.ctx, refClient)
 	descSource := reflSource
-
 	resourceType := res.Name().API.SubtypeName
 	resourceType = strings.ReplaceAll(resourceType, "_", "")
 	services, err := descSource.ListServices()
