@@ -610,11 +610,14 @@ func (l *requestLimiter) ensureKey(resource string) *requestCounter {
 func (l *requestLimiter) Incr(resource string) bool {
 	counter := l.ensureKey(resource)
 	counter.mu.Lock()
-	defer counter.mu.Unlock()
 	if counter.curr >= l.limit {
+		counter.mu.Unlock()
 		return false
 	}
 	counter.curr++
+	counter.mu.Unlock()
+	// Intentionally leave this outside the critical section so we can overwrite
+	// it in Stats() without the race detector failing our tests.
 	counter.max = max(counter.curr, counter.max)
 	return true
 }
