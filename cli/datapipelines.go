@@ -75,6 +75,7 @@ type datapipelineCreateArgs struct {
 	MQL            string
 	MqlPath        string
 	DataSourceType string
+	EnableBackfill bool
 }
 
 // DatapipelineCreateAction creates a new data pipeline.
@@ -100,6 +101,7 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 		Schedule:       args.Schedule,
 		MqlBinary:      mqlBinary,
 		DataSourceType: &dataSourceType,
+		EnableBackfill: &args.EnableBackfill,
 	})
 	if err != nil {
 		return fmt.Errorf("error creating data pipeline: %w", err)
