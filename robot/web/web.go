@@ -571,58 +571,61 @@ type requestStats struct {
 	dataSent  atomic.Int64
 }
 
-// requestLimiter is used to track and limit the number of concurrent requests
-// for resources. By default the per-resource limit is 100 concurrent requests
-// but this can be changed by setting the `VIAM_RESOURCE_REQUESTS_LIMIT`
-// environment variable.
-type requestLimiter struct {
-	counts ssync.Map[string, *atomic.Int64]
-	limit  int64
-}
-
-func (l *requestLimiter) ensureLimit() {
-	if l.limit == 0 {
+func (rc *RequestCounter) ensureLimit() {
+	if rc.inFlightLimit == 0 {
 		if limitVar, err := strconv.Atoi(os.Getenv("VIAM_RESOURCE_REQUESTS_LIMIT")); err == nil && limitVar > 0 {
-			l.limit = int64(limitVar)
+			rc.inFlightLimit = int64(limitVar)
 		} else {
-			l.limit = 100
+			rc.inFlightLimit = 100
 		}
 	}
 }
 
-func (l *requestLimiter) ensureKey(resource string) *atomic.Int64 {
-	counter, ok := l.counts.Load(resource)
+func (rc *RequestCounter) ensureKey(resource string) *atomic.Int64 {
+	counter, ok := rc.inFlightRequests.Load(resource)
 	if !ok {
-		counter, _ = l.counts.LoadOrStore(resource, &atomic.Int64{})
+		counter, _ = rc.inFlightRequests.LoadOrStore(resource, &atomic.Int64{})
 	}
 	return counter
 }
 
-// Incr attempts to increment the in-flight request counter for a given
+// incrInFlight attempts to increment the in flight request counter for a given
 // resource. It returns true if it was successful and false if an additional
 // request would exceed the configured limit.
-func (l *requestLimiter) Incr(resource string) bool {
-	counter := l.ensureKey(resource)
-	if counter.Add(1) >= l.limit {
+func (rc *RequestCounter) incrInFlight(resource string) bool {
+	counter := rc.ensureKey(resource)
+	if counter.Add(1) >= rc.inFlightLimit {
 		counter.Add(-1)
 		return false
 	}
 	return true
 }
 
-// Decr decrements the in-flight request counter for a given resource.
-func (l *requestLimiter) Decr(resource string) {
-	counter := l.ensureKey(resource)
+// decrInFlight decrements the in flight request counter for a given resource.
+func (rc *RequestCounter) decrInFlight(resource string) {
+	counter := rc.ensureKey(resource)
 	counter.Add(-1)
 }
 
-// RequestCounter is used to track and limit incoming requests. It maps string
-// keys to atomic ints that get bumped on every incoming gRPC request for
-// components. For resources it maintains a count of currently active requests
-// and rejects any requests that would exceed the configured limit.
+// RequestCounter is used to track and limit incoming requests. It instruments
+// every unary and streaming request coming in from both external clients and
+// internal modules.
 type RequestCounter struct {
+	// requestKeyToStats maps individual API calls for each resource to a set of
+	// metrics. E.g: `motor-foo.IsPowered` and `motor-foo.GoFor` would each have
+	// their own set of stats.
 	requestKeyToStats ssync.Map[string, *requestStats]
-	limiter           requestLimiter
+
+	// inFlightRequests maps resource names to how many in flight requests are
+	// currently targeting that resource name. There can only be `limit` API
+	// calls for any resource. E.g: `motor-foo` can have 50 `IsPowered`
+	// concurrent calls with 50 more `GoFor` calls, or instead 100 `IsPowered`
+	// calls before it starts to reject new incoming requests. Unary and
+	// streaming RPCs both count against the limit.`limit` defaults to 100 but
+	// can be configured with the `VIAM_RESOURCE_REQUESTS_LIMIT`
+	// environment variable.
+	inFlightRequests  ssync.Map[string, *atomic.Int64]
+	inFlightLimit     int64
 }
 
 func (rc *RequestCounter) preRequestIncrement(key string) {
@@ -667,7 +670,7 @@ func (rc *RequestCounter) Stats() any {
 		ret[fmt.Sprintf("%v.dataSentBytes", requestKey)] = requestStats.dataSent.Load()
 	}
 
-	for k, v := range rc.limiter.counts.Range {
+	for k, v := range rc.inFlightRequests.Range {
 		ret[fmt.Sprintf("%v.concurrentRequests", k)] = v.Load()
 	}
 
@@ -702,8 +705,18 @@ func buildRCKey(clientMsg any, apiMethod string) string {
 	return apiMethod
 }
 
-func getResourceName(clientMsg any, apiMethod string) string {
-	apiNamespace := strings.SplitN(apiMethod, "/", 2)[0]
+func getResourceName(clientMsg any, fullMethod string) string {
+	apiNamespace := ""
+	switch {
+	case strings.HasPrefix(fullMethod, "/viam.component."):
+		fallthrough
+	case strings.HasPrefix(fullMethod, "/viam.service."):
+		fallthrough
+	case strings.HasPrefix(fullMethod, "/viam.robot."):
+		apiNamespace = strings.SplitN(fullMethod, "/", 3)[1]
+	default:
+		return ""
+	}
 	if namer, ok := clientMsg.(Namer); ok {
 		name := namer.GetName()
 		return name + "." + apiNamespace
@@ -720,14 +733,14 @@ func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
-	if resource := getResourceName(req, apiMethod); resource != "" {
-		if ok := rc.limiter.Incr(resource); !ok {
+	if resource := getResourceName(req, info.FullMethod); resource != "" {
+		if ok := rc.incrInFlight(resource); !ok {
 			return nil, &RequestLimitExceededError{
 				resource: resource,
-				limit:    rc.limiter.limit,
+				limit:    rc.inFlightLimit,
 			}
 		}
-		defer rc.limiter.Decr(resource)
+		defer rc.decrInFlight(resource)
 	}
 	requestCounterKey := buildRCKey(req, apiMethod)
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
@@ -781,7 +794,7 @@ type wrappedStreamWithRC struct {
 
 func (w *wrappedStreamWithRC) tryDecr() {
 	if rk := w.requestKey.Load(); rk != nil && rk.resource != "" {
-		w.rc.limiter.Decr(rk.resource)
+		w.rc.decrInFlight(rk.resource)
 	}
 }
 
@@ -794,10 +807,10 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 	if w.requestKey.Load() == nil {
 		resource := getResourceName(m, w.apiMethod)
 		if resource != "" {
-			if ok := w.rc.limiter.Incr(resource); !ok {
+			if ok := w.rc.incrInFlight(resource); !ok {
 				return &RequestLimitExceededError{
 					resource: resource,
-					limit:    w.rc.limiter.limit,
+					limit:    w.rc.inFlightLimit,
 				}
 			}
 		}
