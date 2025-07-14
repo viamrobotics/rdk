@@ -11,6 +11,7 @@ extern "C" {
 
 int viam_cli_generate_cpp_module(const char* modelName,
                                  const char* resourceSubtype,
+                                 const char* resourceType,
                                  const char* buildDir,
                                  const char* sourceDir,
                                  const char* outPath) try {
@@ -35,12 +36,12 @@ int viam_cli_generate_cpp_module(const char* modelName,
 
     using Generator = viam::gen::Generator;
 
-    auto gen =
-        Generator::create(Generator::ModuleInfo{.resourceType = Generator::ResourceType::component,
-                                                .resourceSubtype = resourceSubtype,
-                                                .modelName = modelName},
-                          Generator::CppTreeInfo{.buildDir = buildDir, .sourceDir = sourceDir},
-                          outStream);
+    auto gen = Generator::create(
+        Generator::ModuleInfo{.resourceType = Generator::to_resource_type(resourceType),
+                              .resourceSubtype = resourceSubtype,
+                              .modelName = modelName},
+        Generator::CppTreeInfo{.buildDir = buildDir, .sourceDir = sourceDir},
+        outStream);
 
     if (gen.run() != 0) {
         std::cerr << "Generator::run failed\n";

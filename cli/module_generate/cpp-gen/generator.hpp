@@ -27,6 +27,8 @@ class Generator {
                             CppTreeInfo cppInfo,
                             llvm::raw_ostream& moduleFile);
 
+    static ResourceType to_resource_type(llvm::StringRef resourceType);
+
     int run();
 
    private:

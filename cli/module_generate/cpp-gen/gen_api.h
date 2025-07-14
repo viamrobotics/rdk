@@ -4,6 +4,7 @@ extern "C" {
 
 int viam_cli_generate_cpp_module(const char* modelName,
                                  const char* resourceSubtype,
+                                 const char* resourceType,
                                  const char* buildDir,
                                  const char* sourceDir,
                                  const char* outPath);

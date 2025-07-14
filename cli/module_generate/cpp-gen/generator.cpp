@@ -40,6 +40,18 @@ Generator Generator::create(Generator::ModuleInfo moduleInfo,
         moduleFile);
 }
 
+Generator::ResourceType Generator::to_resource_type(llvm::StringRef resourceType) {
+    if (resourceType == "component") {
+        return ResourceType::component;
+    }
+
+    if (resourceType == "service") {
+        return ResourceType::service;
+    }
+
+    throw std::runtime_error("Invalid resource type");
+}
+
 Generator::Generator(GeneratorCompDB db,
                      ResourceType resourceType,
                      std::string resourceSubtype,
@@ -52,7 +64,11 @@ Generator::Generator(GeneratorCompDB db,
       modelName_(std::move(modelName)),
       className_(llvm::convertToCamelFromSnakeCase(resourceSubtype_, true)),
       resourcePath_(std::move(resourcePath)),
-      moduleFile_(moduleFile) {}
+      moduleFile_(moduleFile) {
+    if (llvm::StringRef(resourceSubtype_).startswith("generic_")) {
+        resourceSubtype_ = "generic";
+    }
+}
 
 int Generator::run() {
     include_stmts();
@@ -256,6 +272,10 @@ void Generator::main_fn() {
 std::string Generator::resourceToSource(llvm::StringRef resourceSubtype,
                                         Generator::ResourceType resourceType,
                                         Generator::SrcType srcType) {
+    if (resourceSubtype.startswith("generic_")) {
+        resourceSubtype = "generic";
+    }
+
     return llvm::formatv("{0}/{1}.{2}",
                          (resourceType == ResourceType::component) ? "components" : "services",
                          resourceSubtype,
