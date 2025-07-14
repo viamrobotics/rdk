@@ -624,8 +624,8 @@ type RequestCounter struct {
 	// streaming RPCs both count against the limit.`limit` defaults to 100 but
 	// can be configured with the `VIAM_RESOURCE_REQUESTS_LIMIT`
 	// environment variable.
-	inFlightRequests  ssync.Map[string, *atomic.Int64]
-	inFlightLimit     int64
+	inFlightRequests ssync.Map[string, *atomic.Int64]
+	inFlightLimit    int64
 }
 
 func (rc *RequestCounter) preRequestIncrement(key string) {
@@ -706,7 +706,7 @@ func buildRCKey(clientMsg any, apiMethod string) string {
 }
 
 func getResourceName(clientMsg any, fullMethod string) string {
-	apiNamespace := ""
+	var apiNamespace string
 	switch {
 	case strings.HasPrefix(fullMethod, "/viam.component."):
 		fallthrough
