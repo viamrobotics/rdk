@@ -2,8 +2,14 @@
 package datamanager
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"image"
+	"image/jpeg"
+	"image/png"
 
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	pb "go.viam.com/api/service/datamanager/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -55,4 +61,72 @@ func (c *client) Sync(ctx context.Context, extra map[string]interface{}) error {
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+}
+
+func (c *client) UploadBinaryDataToDataset(ctx context.Context, image []byte, datasetIDs, tags []string, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.UploadBinaryDataToDataset(ctx, &pb.UploadBinaryDataToDatasetRequest{
+		BinaryData: image,
+		DatasetIds: datasetIDs,
+		Tags:       tags,
+		Extra:      ext,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) UploadImageToDataset(
+	ctx context.Context,
+	image image.Image,
+	datasetIDs, tags []string,
+	mimeType datasyncpb.MimeType,
+	extra map[string]interface{},
+) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+
+	imgBytes, err := ConvertImageToBytes(image, mimeType)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.UploadBinaryDataToDataset(ctx, &pb.UploadBinaryDataToDatasetRequest{
+		BinaryData: imgBytes,
+		DatasetIds: datasetIDs,
+		Tags:       tags,
+		Extra:      ext,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ConvertImageToBytes(image image.Image, mimeType datasyncpb.MimeType) ([]byte, error) {
+	var buf bytes.Buffer
+	var imgBytes []byte
+	switch mimeType {
+	case datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG:
+		err := jpeg.Encode(&buf, image, nil)
+		if err != nil {
+			return nil, err
+		}
+		imgBytes = buf.Bytes()
+	case datasyncpb.MimeType_MIME_TYPE_IMAGE_PNG:
+		err := png.Encode(&buf, image)
+		if err != nil {
+			return nil, err
+		}
+		imgBytes = buf.Bytes()
+	default:
+		return nil, errors.New("mime type must png or jpeg")
+	}
+	return imgBytes, nil
 }

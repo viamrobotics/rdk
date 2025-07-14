@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -362,7 +363,7 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	if data.IsDataCaptureFile(f) {
 		s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
 	} else {
-		s.syncArbitraryFile(f, config.Tags, config.FileLastModifiedMillis, s.logger)
+		s.syncArbitraryFile(f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger)
 	}
 }
 
@@ -434,10 +435,10 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	}
 }
 
-func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMillis int, logger logging.Logger) {
+func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int, logger logging.Logger) {
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
-		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock, logger)
+		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
@@ -474,6 +475,23 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 	}
 	s.atomicUploadStats.arbitrary.uploadedFileCount.Add(1)
 	s.atomicUploadStats.arbitrary.uploadedBytes.Add(bytesUploaded)
+}
+
+func (s *Sync) UploadBinaryDataToDataset(ctx context.Context, data []byte, datasetIDs, tags []string) error {
+	filename := uuid.NewString()
+	err := os.WriteFile(filename, data, os.ModeAppend)
+	if err != nil {
+		s.logger.Errorw("error writing file", "err", err)
+		return err
+	}
+	f, err := os.Open(filename)
+	if err != nil {
+		s.logger.Errorw("error reading file", "err", err)
+		return err
+	}
+	// TODO: Make this async.
+	go s.syncArbitraryFile(f, tags, datasetIDs, int(time.Now().UnixMilli()), s.logger)
+	return nil
 }
 
 // moveFailedData takes any data that could not be synced in the parentDir and

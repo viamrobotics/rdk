@@ -12,6 +12,7 @@ package builtin
 import (
 	"context"
 	"errors"
+	"image"
 	"os"
 	"sync"
 	"time"
@@ -258,4 +259,37 @@ func lookupCollectorConfigsByResource(
 		collectorConfigsByResource[res] = collectorConfigs
 	}
 	return collectorConfigsByResource, nil
+}
+
+func (b *builtIn) UploadBinaryDataToDataset(ctx context.Context,
+	image []byte,
+	datasetIDs []string,
+	tags []string,
+	extra map[string]interface{},
+) error {
+	b.logger.Info("UploadBinaryDataToDataset START")
+	defer b.logger.Info("UploadBinaryDataToDataset END")
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.sync.UploadBinaryDataToDataset(ctx, image, datasetIDs, tags)
+	return nil
+}
+
+func (b *builtIn) UploadImageToDataset(ctx context.Context,
+	image image.Image,
+	datasetIDs []string,
+	tags []string,
+	mimeType v1.MimeType,
+	extra map[string]interface{},
+) error {
+	b.logger.Info("UploadImageToDataset START")
+	defer b.logger.Info("UploadImageToDataset END")
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	imgBytes, err := datamanager.ConvertImageToBytes(image, mimeType)
+	if err != nil {
+		return err
+	}
+	b.sync.UploadBinaryDataToDataset(ctx, imgBytes, datasetIDs, tags)
+	return nil
 }
