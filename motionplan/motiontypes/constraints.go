@@ -1,4 +1,4 @@
-package referenceframe
+package motiontypes
 
 import motionpb "go.viam.com/api/service/motion/v1"
 

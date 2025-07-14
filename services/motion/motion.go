@@ -16,6 +16,7 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -57,7 +58,7 @@ type MoveReq struct {
 	// The external environment to be considered for the duration of the move
 	WorldState *referenceframe.WorldState
 	// Constraints which need to be satisfied during the movement
-	Constraints *referenceframe.Constraints
+	Constraints *motiontypes.Constraints
 	Extra       map[string]interface{}
 }
 
@@ -140,7 +141,7 @@ type PlanWithMetadata struct {
 	ComponentName resource.Name
 	// Unique ID of the execution
 	ExecutionID ExecutionID
-	// The motionplan itself
+	// The motion plan itself
 	motionplan.Plan
 	// The GPS point to anchor visualized plans at
 	AnchorGeoPose *spatialmath.GeoPose

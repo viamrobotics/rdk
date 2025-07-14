@@ -11,6 +11,7 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -59,7 +60,7 @@ func MoveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
 		rprotoutils.ResourceNameFromProto(req.GetComponentName()),
 		destination,
 		worldState,
-		referenceframe.ConstraintsFromProtobuf(req.GetConstraints()),
+		motiontypes.ConstraintsFromProtobuf(req.GetConstraints()),
 		req.Extra.AsMap(),
 	}, nil
 }

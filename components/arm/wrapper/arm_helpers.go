@@ -8,12 +8,13 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
-var defaultArmPlannerOptions = &referenceframe.Constraints{
-	LinearConstraint: []referenceframe.LinearConstraint{},
+var defaultArmPlannerOptions = &motiontypes.Constraints{
+	LinearConstraint: []motiontypes.LinearConstraint{},
 }
 
 // MoveArm is a helper function to abstract away movement for general arms.

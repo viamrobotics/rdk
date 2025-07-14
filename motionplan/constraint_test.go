@@ -13,7 +13,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
-	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -326,12 +326,12 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 }
 
 func TestConstraintConstructors(t *testing.T) {
-	c := referenceframe.NewEmptyConstraints()
+	c := motiontypes.NewEmptyConstraints()
 
 	desiredLinearTolerance := float64(1000.0)
 	desiredOrientationTolerance := float64(0.0)
 
-	c.AddLinearConstraint(referenceframe.LinearConstraint{
+	c.AddLinearConstraint(motiontypes.LinearConstraint{
 		LineToleranceMm:          desiredLinearTolerance,
 		OrientationToleranceDegs: desiredOrientationTolerance,
 	})
@@ -340,14 +340,14 @@ func TestConstraintConstructors(t *testing.T) {
 	test.That(t, c.LinearConstraint[0].LineToleranceMm, test.ShouldEqual, desiredLinearTolerance)
 	test.That(t, c.LinearConstraint[0].OrientationToleranceDegs, test.ShouldEqual, desiredOrientationTolerance)
 
-	c.AddOrientationConstraint(referenceframe.OrientationConstraint{
+	c.AddOrientationConstraint(motiontypes.OrientationConstraint{
 		OrientationToleranceDegs: desiredOrientationTolerance,
 	})
 	test.That(t, len(c.OrientationConstraint), test.ShouldEqual, 1)
 	test.That(t, c.OrientationConstraint[0].OrientationToleranceDegs, test.ShouldEqual, desiredOrientationTolerance)
 
-	c.AddCollisionSpecification(referenceframe.CollisionSpecification{
-		Allows: []referenceframe.CollisionSpecificationAllowedFrameCollisions{
+	c.AddCollisionSpecification(motiontypes.CollisionSpecification{
+		Allows: []motiontypes.CollisionSpecificationAllowedFrameCollisions{
 			{
 				Frame1: "frame1",
 				Frame2: "frame2",
@@ -365,6 +365,6 @@ func TestConstraintConstructors(t *testing.T) {
 	test.That(t, c.CollisionSpecification[0].Allows[1].Frame2, test.ShouldEqual, "frame4")
 
 	pbConstraint := c.ToProtobuf()
-	pbToRDKConstraint := referenceframe.ConstraintsFromProtobuf(pbConstraint)
+	pbToRDKConstraint := motiontypes.ConstraintsFromProtobuf(pbConstraint)
 	test.That(t, c, test.ShouldResemble, pbToRDKConstraint)
 }

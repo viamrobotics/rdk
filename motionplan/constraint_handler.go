@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -33,7 +34,7 @@ func newEmptyConstraintHandler() *ConstraintHandler {
 
 func newConstraintHandler(
 	opt *PlannerOptions,
-	constraints *referenceframe.Constraints,
+	constraints *motiontypes.Constraints,
 	from, to *PlanState,
 	fs *referenceframe.FrameSystem,
 	motionChains *motionChains,
@@ -44,7 +45,7 @@ func newConstraintHandler(
 	if constraints == nil {
 		// Constraints may be nil, but if a motion profile is set in planningOpts
 		// we need it to be a valid pointer to an empty struct.
-		constraints = &referenceframe.Constraints{}
+		constraints = &motiontypes.Constraints{}
 	}
 	handler := newEmptyConstraintHandler()
 	handler.boundingRegions = boundingRegions
@@ -133,11 +134,11 @@ func newConstraintHandler(
 
 	switch opt.MotionProfile {
 	case LinearMotionProfile:
-		constraints.AddLinearConstraint(referenceframe.LinearConstraint{opt.LineTolerance, opt.OrientationTolerance})
+		constraints.AddLinearConstraint(motiontypes.LinearConstraint{opt.LineTolerance, opt.OrientationTolerance})
 	case PseudolinearMotionProfile:
-		constraints.AddPseudolinearConstraint(referenceframe.PseudolinearConstraint{opt.ToleranceFactor, opt.ToleranceFactor})
+		constraints.AddPseudolinearConstraint(motiontypes.PseudolinearConstraint{opt.ToleranceFactor, opt.ToleranceFactor})
 	case OrientationMotionProfile:
-		constraints.AddOrientationConstraint(referenceframe.OrientationConstraint{opt.OrientationTolerance})
+		constraints.AddOrientationConstraint(motiontypes.OrientationConstraint{opt.OrientationTolerance})
 	// FreeMotionProfile or PositionOnlyMotionProfile produce no additional constraints.
 	case FreeMotionProfile, PositionOnlyMotionProfile:
 	}
@@ -159,7 +160,7 @@ func (c *ConstraintHandler) addTopoConstraints(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
-	constraints *referenceframe.Constraints,
+	constraints *motiontypes.Constraints,
 ) (bool, error) {
 	topoConstraints := false
 	for _, linearConstraint := range constraints.GetLinearConstraint() {
@@ -194,7 +195,7 @@ func (c *ConstraintHandler) addLinearConstraints(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
-	linConstraint referenceframe.LinearConstraint,
+	linConstraint motiontypes.LinearConstraint,
 ) error {
 	// Linear constraints
 	linTol := linConstraint.LineToleranceMm
@@ -220,7 +221,7 @@ func (c *ConstraintHandler) addPseudolinearConstraints(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
-	plinConstraint referenceframe.PseudolinearConstraint,
+	plinConstraint motiontypes.PseudolinearConstraint,
 ) error {
 	// Linear constraints
 	linTol := plinConstraint.LineToleranceFactor
@@ -246,7 +247,7 @@ func (c *ConstraintHandler) addOrientationConstraints(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
-	orientConstraint referenceframe.OrientationConstraint,
+	orientConstraint motiontypes.OrientationConstraint,
 ) error {
 	orientTol := orientConstraint.OrientationToleranceDegs
 	if orientTol == 0 {

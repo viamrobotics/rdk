@@ -1,4 +1,4 @@
-package motionplan
+package motiontypes
 
 import (
 	"encoding/json"
