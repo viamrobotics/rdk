@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -325,12 +326,12 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 }
 
 func TestConstraintConstructors(t *testing.T) {
-	c := NewEmptyConstraints()
+	c := referenceframe.NewEmptyConstraints()
 
 	desiredLinearTolerance := float64(1000.0)
 	desiredOrientationTolerance := float64(0.0)
 
-	c.AddLinearConstraint(LinearConstraint{
+	c.AddLinearConstraint(referenceframe.LinearConstraint{
 		LineToleranceMm:          desiredLinearTolerance,
 		OrientationToleranceDegs: desiredOrientationTolerance,
 	})
@@ -339,14 +340,14 @@ func TestConstraintConstructors(t *testing.T) {
 	test.That(t, c.LinearConstraint[0].LineToleranceMm, test.ShouldEqual, desiredLinearTolerance)
 	test.That(t, c.LinearConstraint[0].OrientationToleranceDegs, test.ShouldEqual, desiredOrientationTolerance)
 
-	c.AddOrientationConstraint(OrientationConstraint{
+	c.AddOrientationConstraint(referenceframe.OrientationConstraint{
 		OrientationToleranceDegs: desiredOrientationTolerance,
 	})
 	test.That(t, len(c.OrientationConstraint), test.ShouldEqual, 1)
 	test.That(t, c.OrientationConstraint[0].OrientationToleranceDegs, test.ShouldEqual, desiredOrientationTolerance)
 
-	c.AddCollisionSpecification(CollisionSpecification{
-		Allows: []CollisionSpecificationAllowedFrameCollisions{
+	c.AddCollisionSpecification(referenceframe.CollisionSpecification{
+		Allows: []referenceframe.CollisionSpecificationAllowedFrameCollisions{
 			{
 				Frame1: "frame1",
 				Frame2: "frame2",
@@ -364,6 +365,6 @@ func TestConstraintConstructors(t *testing.T) {
 	test.That(t, c.CollisionSpecification[0].Allows[1].Frame2, test.ShouldEqual, "frame4")
 
 	pbConstraint := c.ToProtobuf()
-	pbToRDKConstraint := ConstraintsFromProtobuf(pbConstraint)
+	pbToRDKConstraint := referenceframe.ConstraintsFromProtobuf(pbConstraint)
 	test.That(t, c, test.ShouldResemble, pbToRDKConstraint)
 }

@@ -59,7 +59,7 @@ func MoveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
 		rprotoutils.ResourceNameFromProto(req.GetComponentName()),
 		destination,
 		worldState,
-		motionplan.ConstraintsFromProtobuf(req.GetConstraints()),
+		referenceframe.ConstraintsFromProtobuf(req.GetConstraints()),
 		req.Extra.AsMap(),
 	}, nil
 }

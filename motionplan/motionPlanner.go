@@ -56,11 +56,11 @@ type PlanRequest struct {
 	// in IK to generate plan start configurations. The given configuration will NOT automatically be added to the seed tree.
 	// The use case here is that if a particularly difficult path must be planned between two poses, that can be done first to ensure
 	// feasibility, and then other plans can be requested to connect to that returned plan's configurations.
-	StartState      *PlanState                 `json:"start_state"`
-	WorldState      *referenceframe.WorldState `json:"world_state"`
-	BoundingRegions []*commonpb.Geometry       `json:"bounding_regions"`
-	Constraints     *Constraints               `json:"constraints"`
-	PlannerOptions  *PlannerOptions            `json:"planner_options"`
+	StartState      *PlanState                  `json:"start_state"`
+	WorldState      *referenceframe.WorldState  `json:"world_state"`
+	BoundingRegions []*commonpb.Geometry        `json:"bounding_regions"`
+	Constraints     *referenceframe.Constraints `json:"constraints"`
+	PlannerOptions  *PlannerOptions             `json:"planner_options"`
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
@@ -200,7 +200,7 @@ func PlanFrameMotion(ctx context.Context,
 	dst spatialmath.Pose,
 	f referenceframe.Frame,
 	seed []referenceframe.Input,
-	constraints *Constraints,
+	constraints *referenceframe.Constraints,
 	planningOpts map[string]interface{},
 ) ([][]referenceframe.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve

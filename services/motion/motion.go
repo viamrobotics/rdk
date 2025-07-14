@@ -57,7 +57,7 @@ type MoveReq struct {
 	// The external environment to be considered for the duration of the move
 	WorldState *referenceframe.WorldState
 	// Constraints which need to be satisfied during the movement
-	Constraints *motionplan.Constraints
+	Constraints *referenceframe.Constraints
 	Extra       map[string]interface{}
 }
 

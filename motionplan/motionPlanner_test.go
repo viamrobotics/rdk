@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -534,10 +535,10 @@ func TestSerializedPlanRequest(t *testing.T) {
 		},
 	}
 
-	constraints := &Constraints{
-		CollisionSpecification: []CollisionSpecification{
+	constraints := &referenceframe.Constraints{
+		CollisionSpecification: []referenceframe.CollisionSpecification{
 			{
-				Allows: []CollisionSpecificationAllowedFrameCollisions{
+				Allows: []referenceframe.CollisionSpecificationAllowedFrameCollisions{
 					{Frame1: "xArmVgripper", Frame2: "theWall"},
 					{Frame1: "xArm6:wrist_link", Frame2: "theWall"},
 					{Frame1: "xArm6:lower_forearm", Frame2: "theWall"},
@@ -845,7 +846,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.AddFrame(xArmVgripper, x), test.ShouldBeNil)
 
-	checkReachable := func(worldState *frame.WorldState, constraints *Constraints) error {
+	checkReachable := func(worldState *frame.WorldState, constraints *referenceframe.Constraints) error {
 		goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 		_, err = PlanMotion(context.Background(), logger, fs, &PlanRequest{
 			Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
@@ -858,7 +859,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	}
 
 	// Verify that the goal position is reachable with no obstacles
-	test.That(t, checkReachable(frame.NewEmptyWorldState(), &Constraints{}), test.ShouldBeNil)
+	test.That(t, checkReachable(frame.NewEmptyWorldState(), &referenceframe.Constraints{}), test.ShouldBeNil)
 
 	// Add an obstacle to the WorldState
 	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{350, 0, 0}), r3.Vector{10, 8000, 8000}, "theWall")
@@ -879,15 +880,15 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Not reachable without a collision specification
-			constraints := &Constraints{}
+			constraints := &referenceframe.Constraints{}
 			err = checkReachable(tc.worldState, constraints)
 			test.That(t, err, test.ShouldNotBeNil)
 
 			// Reachable if xarm6 and gripper ignore collisions with The Wall
-			constraints = &Constraints{
-				CollisionSpecification: []CollisionSpecification{
+			constraints = &referenceframe.Constraints{
+				CollisionSpecification: []referenceframe.CollisionSpecification{
 					{
-						Allows: []CollisionSpecificationAllowedFrameCollisions{
+						Allows: []referenceframe.CollisionSpecificationAllowedFrameCollisions{
 							{Frame1: "xArm6", Frame2: "theWall"}, {Frame1: "xArmVgripper", Frame2: "theWall"},
 						},
 					},
@@ -897,10 +898,10 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Reachable if the specific bits of the xarm that collide are specified instead
-			constraints = &Constraints{
-				CollisionSpecification: []CollisionSpecification{
+			constraints = &referenceframe.Constraints{
+				CollisionSpecification: []referenceframe.CollisionSpecification{
 					{
-						Allows: []CollisionSpecificationAllowedFrameCollisions{
+						Allows: []referenceframe.CollisionSpecificationAllowedFrameCollisions{
 							{Frame1: "xArmVgripper", Frame2: "theWall"},
 							{Frame1: "xArm6:wrist_link", Frame2: "theWall"},
 							{Frame1: "xArm6:lower_forearm", Frame2: "theWall"},

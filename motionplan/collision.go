@@ -52,7 +52,7 @@ func collisionListsAlmostEqual(cs1, cs2 []Collision) bool {
 }
 
 func collisionSpecifications(
-	pbConstraint []CollisionSpecification,
+	pbConstraint []referenceframe.CollisionSpecification,
 	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
 	frameNames, validGeoms map[string]bool,
 ) (allowedCollisions []*Collision, err error) {
