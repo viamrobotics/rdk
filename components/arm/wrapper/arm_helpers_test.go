@@ -1,0 +1,55 @@
+package wrapper
+
+import (
+	"context"
+	"testing"
+
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/test"
+)
+
+func TestOOBArmMotion(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	cfg := resource.Config{
+		Name:  arm.API.String(),
+		Model: resource.DefaultModelFamily.WithModel("ur5e"),
+		ConvertedAttributes: &fake.Config{
+			ArmModel: "ur5e",
+		},
+	}
+
+	// instantiate out of bounds arm
+	notReal, err := fake.NewArm(context.Background(), nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	OOBFloats := []float64{0, 0, 0, 0, 0, 720}
+	injectedArm := &inject.Arm{
+		Arm: notReal,
+		JointPositionsFunc: func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
+			return referenceframe.FloatsToInputs(OOBFloats), nil
+		},
+		CurrentInputsFunc: func(ctx context.Context) ([]referenceframe.Input, error) {
+			return referenceframe.FloatsToInputs(OOBFloats), nil
+		},
+	}
+
+	t.Run("EndPosition works when OOB", func(t *testing.T) {
+		pose, err := injectedArm.EndPosition(context.Background(), nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pose, test.ShouldNotBeNil)
+	})
+
+	t.Run("MoveToJointPositions fails OOB and moving further OOB", func(t *testing.T) {
+		err := injectedArm.MoveToJointPositions(context.Background(), referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 900}), nil)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("MoveToJointPositions succeeds when OOB and moving further in-bounds", func(t *testing.T) {
+		err := injectedArm.MoveToJointPositions(context.Background(), referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), nil)
+		test.That(t, err, test.ShouldBeNil)
+	})
+}

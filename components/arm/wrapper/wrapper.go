@@ -10,7 +10,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -108,7 +107,7 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 func (wrapper *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
-	return motion.MoveArm(ctx, wrapper.logger, wrapper, pos)
+	return MoveArm(ctx, wrapper.logger, wrapper, pos)
 }
 
 // MoveToJointPositions sets the joints.
