@@ -66,7 +66,7 @@ var InternalServiceName = resource.NewName(API, "builtin")
 // resource.
 type RequestLimitExceededError struct {
 	resource string
-	limit    int
+	limit    int64
 }
 
 func (e *RequestLimitExceededError) Error() string {
@@ -571,35 +571,29 @@ type requestStats struct {
 	dataSent  atomic.Int64
 }
 
-type requestCounter struct {
-	mu   sync.Mutex
-	curr int
-	max  int
-}
-
 // requestLimiter is used to track and limit the number of concurrent requests
 // for resources. By default the per-resource limit is 100 concurrent requests
 // but this can be changed by setting the `VIAM_RESOURCE_REQUESTS_LIMIT`
 // environment variable.
 type requestLimiter struct {
-	counts ssync.Map[string, *requestCounter]
-	limit  int
+	counts ssync.Map[string, *atomic.Int64]
+	limit  int64
 }
 
 func (l *requestLimiter) ensureLimit() {
 	if l.limit == 0 {
 		if limitVar, err := strconv.Atoi(os.Getenv("VIAM_RESOURCE_REQUESTS_LIMIT")); err == nil && limitVar > 0 {
-			l.limit = limitVar
+			l.limit = int64(limitVar)
 		} else {
 			l.limit = 100
 		}
 	}
 }
 
-func (l *requestLimiter) ensureKey(resource string) *requestCounter {
+func (l *requestLimiter) ensureKey(resource string) *atomic.Int64 {
 	counter, ok := l.counts.Load(resource)
 	if !ok {
-		counter, _ = l.counts.LoadOrStore(resource, &requestCounter{})
+		counter, _ = l.counts.LoadOrStore(resource, &atomic.Int64{})
 	}
 	return counter
 }
@@ -609,25 +603,17 @@ func (l *requestLimiter) ensureKey(resource string) *requestCounter {
 // request would exceed the configured limit.
 func (l *requestLimiter) Incr(resource string) bool {
 	counter := l.ensureKey(resource)
-	counter.mu.Lock()
-	if counter.curr >= l.limit {
-		counter.mu.Unlock()
+	if counter.Add(1) >= l.limit {
+		counter.Add(-1)
 		return false
 	}
-	counter.curr++
-	counter.mu.Unlock()
-	// Intentionally leave this outside the critical section so we can overwrite
-	// it in Stats() without the race detector failing our tests.
-	counter.max = max(counter.curr, counter.max)
 	return true
 }
 
 // Decr decrements the in-flight request counter for a given resource.
 func (l *requestLimiter) Decr(resource string) {
 	counter := l.ensureKey(resource)
-	counter.mu.Lock()
-	defer counter.mu.Unlock()
-	counter.curr--
+	counter.Add(-1)
 }
 
 // RequestCounter is used to track and limit incoming requests. It maps string
@@ -682,9 +668,7 @@ func (rc *RequestCounter) Stats() any {
 	}
 
 	for k, v := range rc.limiter.counts.Range {
-		max := v.max
-		v.max = v.curr
-		ret[fmt.Sprintf("%v.concurrentRequests", k)] = int64(max)
+		ret[fmt.Sprintf("%v.concurrentRequests", k)] = v.Load()
 	}
 
 	return ret
