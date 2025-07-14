@@ -219,7 +219,7 @@ type PlannerOptions struct {
 	PlanningAlgorithmSettings AlgorithmSettings `json:"planning_algorithm_settings"`
 
 	// The random seed used by motion algorithms during planning. This parameter guarantees deterministic
-	// outputs despite a random initial state.
+	// outputs for a given set of identical inputs
 	RandomSeed int `json:"rseed"`
 
 	// The max movement allowed for each step on the path from the initial random seed for a solution
