@@ -675,6 +675,16 @@ func TestBoxTriangleIntersectionArea(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, area, test.ShouldAlmostEqual, 2)
 	})
+	t.Run("Triangle edge against box", func(t *testing.T) {
+		triangle := NewTriangle(
+			r3.Vector{X: 1, Y: 1, Z: 0},
+			r3.Vector{X: 1, Y: -1, Z: 0},
+			r3.Vector{X: 2, Y: 0, Z: 0},
+		)
+		area, err := boxTriangleIntersectionArea(bbox, triangle)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, area, test.ShouldAlmostEqual, 0)
+	})
 	t.Run("Triangle not intersecting box", func(t *testing.T) {
 		triangle := NewTriangle(
 			r3.Vector{X: -1, Y: 1.1, Z: -2},
