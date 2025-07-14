@@ -702,20 +702,14 @@ func buildRCKey(clientMsg any, apiMethod string) string {
 	return apiMethod
 }
 
-func getResourceName(clientMsg any, fullMethod string) string {
+func getResourceName(clientMsg any, apiMethod string) string {
+	apiNamespace := strings.SplitN(apiMethod, "/", 2)[0]
 	if namer, ok := clientMsg.(Namer); ok {
 		name := namer.GetName()
-		if name != "builtin" {
-			return name
-		}
+		return name + "." + apiNamespace
 	}
-	switch {
-	case strings.HasPrefix(fullMethod, "/viam.component."):
-		fallthrough
-	case strings.HasPrefix(fullMethod, "/viam.service."):
-		fallthrough
-	case strings.HasPrefix(fullMethod, "/viam.robot."):
-		return strings.SplitN(fullMethod, "/", 3)[1]
+	if apiNamespace == "RobotService" {
+		return apiNamespace
 	}
 	return ""
 }
@@ -725,7 +719,8 @@ func getResourceName(clientMsg any, fullMethod string) string {
 func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
-	if resource := getResourceName(req, info.FullMethod); resource != "" {
+	apiMethod := extractViamAPI(info.FullMethod)
+	if resource := getResourceName(req, apiMethod); resource != "" {
 		if ok := rc.limiter.Incr(resource); !ok {
 			return nil, &RequestLimitExceededError{
 				resource: resource,
@@ -734,9 +729,6 @@ func (rc *RequestCounter) UnaryInterceptor(
 		}
 		defer rc.limiter.Decr(resource)
 	}
-
-	apiMethod := extractViamAPI(info.FullMethod)
-
 	requestCounterKey := buildRCKey(req, apiMethod)
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod != "" {
