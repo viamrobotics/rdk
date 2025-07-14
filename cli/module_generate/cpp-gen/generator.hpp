@@ -44,14 +44,19 @@ class Generator {
               std::string resourcePath,
               llvm::raw_ostream& moduleFile);
 
-    static llvm::StringRef resourceToSource(llvm::StringRef resourceSubtype,
-                                            ResourceType resourceType);
+    enum SrcType { cpp, hpp };
+
+    static std::string resourceToSource(llvm::StringRef resourceSubtype,
+                                        ResourceType resourceType,
+                                        SrcType);
 
     GeneratorCompDB db_;
 
     ResourceType resourceType_;
     std::string resourceSubtype_;
     std::string modelName_;
+
+    std::string className_;
 
     std::string resourcePath_;
 

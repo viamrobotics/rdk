@@ -8,6 +8,7 @@
 #include <clang/Frontend/FrontendActions.h>
 #include <clang/Tooling/JSONCompilationDatabase.h>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/StringExtras.h>
 #include <llvm/ADT/StringMap.h>
 #include <llvm/Support/FormatVariadic.h>
 #include <llvm/Support/Path.h>
@@ -28,14 +29,15 @@ Generator Generator::create(Generator::ModuleInfo moduleInfo,
         throw std::runtime_error(error);
     }
 
-    return Generator(GeneratorCompDB(*jsonDb, getCompilersDefaultIncludeDir(*jsonDb, true)),
-                     moduleInfo.resourceType,
-                     moduleInfo.resourceSubtype.str(),
-                     moduleInfo.modelName.str(),
-                     (cppInfo.sourceDir.str() +
-                      resourceToSource(moduleInfo.resourceSubtype, moduleInfo.resourceType))
-                         .str(),
-                     moduleFile);
+    return Generator(
+        GeneratorCompDB(*jsonDb, getCompilersDefaultIncludeDir(*jsonDb, true)),
+        moduleInfo.resourceType,
+        moduleInfo.resourceSubtype.str(),
+        moduleInfo.modelName.str(),
+        (cppInfo.sourceDir +
+         resourceToSource(moduleInfo.resourceSubtype, moduleInfo.resourceType, SrcType::cpp))
+            .str(),
+        moduleFile);
 }
 
 Generator::Generator(GeneratorCompDB db,
@@ -48,6 +50,7 @@ Generator::Generator(GeneratorCompDB db,
       resourceType_(resourceType),
       resourceSubtype_(std::move(resourceSubtype)),
       modelName_(std::move(modelName)),
+      className_(llvm::convertToCamelFromSnakeCase(resourceSubtype_, true)),
       resourcePath_(std::move(resourcePath)),
       moduleFile_(moduleFile) {}
 
@@ -64,7 +67,7 @@ public:
 
 )--";
 
-    moduleFile_ << llvm::formatv(fmt, modelName_, resourceSubtype_);
+    moduleFile_ << llvm::formatv(fmt, modelName_, className_);
 
     moduleFile_ << R"--(
     static std::vector<std::string> validate(const viam::sdk::ResourceConfig&)
@@ -140,11 +143,8 @@ void Generator::include_stmts() {
                           ? include_fmt<ResourceType::component>()
                           : include_fmt<ResourceType::service>();
 
-    std::string cppPath = resourceToSource(resourceSubtype_, ResourceType::component).str();
-
-    cppPath[cppPath.rfind('c')] = 'h';
-
-    moduleFile_ << llvm::formatv(fmt, cppPath);
+    moduleFile_ << llvm::formatv(fmt,
+                                 resourceToSource(resourceSubtype_, resourceType_, SrcType::hpp));
 }
 
 int Generator::do_stubs() {
@@ -152,7 +152,7 @@ int Generator::do_stubs() {
 
     using namespace clang::ast_matchers;
 
-    std::string qualName = ("viam::sdk::" + resourceSubtype_);
+    std::string qualName = ("viam::sdk::" + className_);
 
     DeclarationMatcher methodMatcher =
         cxxMethodDecl(isPure(), hasParent(cxxRecordDecl(hasName(qualName)))).bind("method");
@@ -229,14 +229,14 @@ void Generator::main_fn() {
                 << llvm::formatv(
                        R"--(
     std::shared_ptr<ModelRegistration> mr = std::make_shared<ModelRegistration>(
-        API::get<{0}>,
+        API::get<{viam::sdk::0}>,
         model,
         [](viam::sdk::Dependencies deps, viam::sdk::ResourceConfig cfg) {
             return std::make_unique<{1}>(deps, cfg);
         },
         &{1}::validate);
 )--",
-                       resourceSubtype_,
+                       className_,
                        modelName_)
                 << "\n\n"
                 <<
@@ -253,35 +253,13 @@ void Generator::main_fn() {
 )--";
 }
 
-llvm::StringRef Generator::resourceToSource(llvm::StringRef resourceSubtype,
-                                            Generator::ResourceType resourceType) {
-    static std::unordered_map<std::string_view, std::string_view> componentCorrespondence{
-        {"Arm", "components/arm.cpp"},
-        {"Base", "components/base.cpp"},
-        {"Board", "components/board.cpp"},
-        {"Camera", "components/camera.cpp"},
-        {"Component", "components/component.cpp"},
-        {"Encoder", "components/encoder.cpp"},
-        {"Gantry", "components/gantry.cpp"},
-        {"Generic", "components/generic.cpp"},
-        {"Gripper", "components/gripper.cpp"},
-        {"Motor", "components/motor.cpp"},
-        {"MovementSensor", "components/movement_sensor.cpp"},
-        {"PoseTracker", "components/pose_tracker.cpp"},
-        {"PowerSensor", "components/power_sensor.cpp"},
-        {"Sensor", "components/sensor.cpp"},
-        {"Servo", "components/servo.cpp"}};
-
-    static std::unordered_map<std::string_view, std::string_view> serviceCorrespondence{
-        {"Discovery", "components/discovery.cpp"},
-        {"Generic", "components/generic.cpp"},
-        {"MLModel", "components/mlmodel.cpp"},
-        {"Motion", "components/motion.cpp"},
-        {"Navigation", "components/navigation.cpp"}};
-
-    return (resourceType == ResourceType::component ? componentCorrespondence
-                                                    : serviceCorrespondence)
-        .at(resourceSubtype);
+std::string Generator::resourceToSource(llvm::StringRef resourceSubtype,
+                                        Generator::ResourceType resourceType,
+                                        Generator::SrcType srcType) {
+    return llvm::formatv("{0}/{1}.{2}",
+                         (resourceType == ResourceType::component) ? "components" : "services",
+                         resourceSubtype,
+                         (srcType == SrcType::hpp) ? "hpp" : "cpp");
 }
 
 }  // namespace viam::gen
