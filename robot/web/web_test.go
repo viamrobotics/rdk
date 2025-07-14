@@ -1588,7 +1588,7 @@ func TestPerRequestFTDC(t *testing.T) {
 	// Now observe that we called `GetEndPosition` a second time. And one of the responses returned
 	// an error.
 	stats = svc.RequestCounter().Stats().(map[string]int64)
-	test.That(t, len(stats), test.ShouldEqual, 4)
+	test.That(t, len(stats), test.ShouldEqual, 5)
 	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 2)
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
 	test.That(t, stats["arm1.ArmService/GetEndPosition.errorCnt"], test.ShouldEqual, 1)
