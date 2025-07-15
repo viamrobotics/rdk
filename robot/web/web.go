@@ -70,7 +70,7 @@ type RequestLimitExceededError struct {
 }
 
 func (e *RequestLimitExceededError) Error() string {
-	return fmt.Sprintf("Exceeded request limit %v on resource %v", e.limit, e.resource)
+	return fmt.Sprintf("exceeded request limit %v on resource %v", e.limit, e.resource)
 }
 
 // A Service controls the web server for a robot.
