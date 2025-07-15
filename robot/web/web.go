@@ -721,7 +721,7 @@ func getResourceName(clientMsg any, fullMethod string) string {
 		name := namer.GetName()
 		return name + "." + apiNamespace
 	}
-	if apiNamespace == "RobotService" {
+	if apiNamespace == "viam.robot.v1.RobotService" {
 		return apiNamespace
 	}
 	return ""
