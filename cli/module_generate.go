@@ -303,8 +303,17 @@ func promptUser(module *modulegen.ModuleInputs) error {
 }
 
 func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *modulegen.ModuleInputs) error {
-	match, err := regexp.MatchString("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", newModule.Namespace)
-	if !match || err != nil {
+	// If we're not registering on app, we don't need to resolve the org
+	if !newModule.RegisterOnApp {
+		nonAlphanumericRegex := regexp.MustCompile(`[^a-zA-Z0-9]+`)
+		cleanNamespace := nonAlphanumericRegex.ReplaceAllString(newModule.Namespace, "")
+		newModule.Namespace = cleanNamespace
+		newModule.OrgID = newModule.Namespace
+		return nil
+	}
+
+	uuidMatch, err := regexp.MatchString("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", newModule.Namespace)
+	if !uuidMatch || err != nil {
 		// If newModule.Namespace is NOT a UUID
 		org, err := resolveOrg(c, newModule.Namespace, "")
 		if err != nil {
