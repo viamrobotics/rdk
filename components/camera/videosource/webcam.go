@@ -57,7 +57,6 @@ const (
 
 // WebcamBuffer is a buffer for webcam frames.
 type WebcamBuffer struct {
-	resource.AlwaysRebuild
 	frame   image.Image  // Holds the frames and their release functions in the buffer
 	ticker  *time.Ticker // Ticker for controlling frame rate
 	release func()
@@ -233,10 +232,7 @@ func NewWebcam(
 	logger logging.Logger,
 ) (camera.Camera, error) {
 	cam := &webcam{
-		Named:                   conf.ResourceName().AsNamed(),
-		logger:                  logger.WithFields("camera_name", conf.ResourceName().ShortName()),
 		workers:                 goutils.NewBackgroundStoppableWorkers(),
-		hasLoggedIntrinsicsInfo: false,
 	}
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
