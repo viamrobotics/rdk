@@ -10,7 +10,8 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/audioinput"
-	"go.viam.com/rdk/gostream"
+	//"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 
 	//weboptions "go.viam.com/rdk/robot/web/options"
@@ -58,6 +59,8 @@ import (
 // test that checks every service (one method each)
 // test that checks DoCommand unimplemented
 // test that checks that jobs can be modified/added/removed
+// tcp test
+// test singleton mode for duration and for cron
 
 func TestDurationsAndCronJobManager(t *testing.T) {
 	logger := logging.NewTestLogger(t)
@@ -239,9 +242,9 @@ func TestEveryComponentJobManager(t *testing.T) {
 		}
 		return audio, nil
 	}
-	dummyAudioInput.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.AudioStream, error) {
-		return nil, nil
-	}
+	//dummyAudioInput.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.AudioStream, error) {
+	//return nil, nil
+	//}
 	resource.RegisterComponent(
 		audioinput.API,
 		model,
@@ -291,8 +294,15 @@ func TestEveryComponentJobManager(t *testing.T) {
 		) (board.Board, error) {
 			return dummyBoard, nil
 		}})
+
 	// button
-	dummyButton := &inject.Button{}
+	dummyButton := inject.NewButton("button")
+	dummyButton.PushFunc = func(ctx context.Context, extra map[string]any) error {
+		return nil
+	}
+	dummyButton.CloseFunc = func(ctx context.Context) error {
+		return nil
+	}
 	resource.RegisterComponent(
 		button.API,
 		model,
@@ -305,7 +315,10 @@ func TestEveryComponentJobManager(t *testing.T) {
 			return dummyButton, nil
 		}})
 	// camera
-	dummyCamera := &inject.Camera{}
+	dummyCamera := inject.NewCamera("camera")
+	dummyCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{SupportsPCD: true}, nil
+	}
 	resource.RegisterComponent(
 		camera.API,
 		model,
@@ -318,7 +331,11 @@ func TestEveryComponentJobManager(t *testing.T) {
 			return dummyCamera, nil
 		}})
 	// encoder
-	dummyEncoder := &inject.Encoder{}
+	dummyEncoder := inject.NewEncoder("encoder")
+	dummyEncoder.PropertiesFunc = func(ctx context.Context,
+		extra map[string]any) (encoder.Properties, error) {
+		return encoder.Properties{TicksCountSupported: true}, nil
+	}
 	resource.RegisterComponent(
 		encoder.API,
 		model,
@@ -331,7 +348,10 @@ func TestEveryComponentJobManager(t *testing.T) {
 			return dummyEncoder, nil
 		}})
 	// gantry
-	dummyGantry := &inject.Gantry{}
+	dummyGantry := inject.NewGantry("gantry")
+	dummyGantry.HomeFunc = func(ctx context.Context, extra map[string]any) (bool, error) {
+		return true, nil
+	}
 	resource.RegisterComponent(
 		gantry.API,
 		model,
@@ -345,13 +365,12 @@ func TestEveryComponentJobManager(t *testing.T) {
 		}})
 	// generic
 	var genericCounter = 0
-	dummyGeneric := &inject.GenericComponent{
-		DoFunc: func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
-			genericCounter++
-			return map[string]any{
-				"generic_count": genericCounter,
-			}, nil
-		},
+	dummyGeneric := inject.NewGenericComponent("generic")
+	dummyGeneric.DoFunc = func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
+		genericCounter++
+		return map[string]any{
+			"generic_count": genericCounter,
+		}, nil
 	}
 	resource.RegisterComponent(
 		generic.API,
@@ -365,7 +384,10 @@ func TestEveryComponentJobManager(t *testing.T) {
 			return dummyGeneric, nil
 		}})
 	// gripper
-	dummyGripper := &inject.Gripper{}
+	dummyGripper := inject.NewGripper("gripper")
+	dummyGripper.GrabFunc = func(ctx context.Context, extra map[string]any) (bool, error) {
+		return true, nil
+	}
 	resource.RegisterComponent(
 		gripper.API,
 		model,
@@ -378,7 +400,13 @@ func TestEveryComponentJobManager(t *testing.T) {
 			return dummyGripper, nil
 		}})
 	// inputcontroller
-	dummyInputController := &inject.InputController{}
+	dummyInputController := inject.NewInputController("my_input")
+	dummyInputController.EventsFunc = func(ctx context.Context,
+		extra map[string]any) (map[input.Control]input.Event, error) {
+		control := make(map[input.Control]input.Event)
+		control[input.AbsoluteHat0X] = input.Event{}
+		return control, nil
+	}
 	resource.RegisterComponent(
 		input.API,
 		model,
@@ -391,7 +419,10 @@ func TestEveryComponentJobManager(t *testing.T) {
 			return dummyInputController, nil
 		}})
 	// motor
-	dummyMotor := &inject.Motor{}
+	dummyMotor := inject.NewMotor("motor")
+	dummyMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]any) error {
+		return nil
+	}
 	resource.RegisterComponent(
 		motor.API,
 		model,
@@ -404,7 +435,10 @@ func TestEveryComponentJobManager(t *testing.T) {
 			return dummyMotor, nil
 		}})
 	// movementsensor
-	dummyMovementSensor := &inject.MovementSensor{}
+	dummyMovementSensor := inject.NewMovementSensor("move_sensor")
+	dummyMovementSensor.OrientationFunc = func(ctx context.Context, extra map[string]any) (spatialmath.Orientation, error) {
+		return nil, nil
+	}
 	resource.RegisterComponent(
 		movementsensor.API,
 		model,
@@ -417,7 +451,12 @@ func TestEveryComponentJobManager(t *testing.T) {
 			return dummyMovementSensor, nil
 		}})
 	// posetracker
-	dummyPoseTracker := &inject.PoseTracker{}
+	dummyPoseTracker := inject.NewPoseTracker("pose")
+	dummyPoseTracker.PosesFunc = func(ctx context.Context,
+		bodyNames []string,
+		extra map[string]any) (referenceframe.FrameSystemPoses, error) {
+		return make(referenceframe.FrameSystemPoses), nil
+	}
 	resource.RegisterComponent(
 		posetracker.API,
 		model,
@@ -430,7 +469,10 @@ func TestEveryComponentJobManager(t *testing.T) {
 			return dummyPoseTracker, nil
 		}})
 	// powersensor
-	dummyPowerSensor := &inject.PowerSensor{}
+	dummyPowerSensor := inject.NewPowerSensor("power_sensor")
+	dummyPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]any) (float64, bool, error) {
+		return 14.3, false, nil
+	}
 	resource.RegisterComponent(
 		powersensor.API,
 		model,
@@ -443,7 +485,12 @@ func TestEveryComponentJobManager(t *testing.T) {
 			return dummyPowerSensor, nil
 		}})
 	// sensor
-	dummySensor := &inject.Sensor{}
+	dummySensor := inject.NewSensor("sensor")
+	dummySensor.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
+		output := make(map[string]any)
+		output["test"] = "sensor"
+		return output, nil
+	}
 	resource.RegisterComponent(
 		sensor.API,
 		model,
@@ -456,7 +503,10 @@ func TestEveryComponentJobManager(t *testing.T) {
 			return dummySensor, nil
 		}})
 	// servo
-	dummyServo := &inject.Servo{}
+	dummyServo := inject.NewServo("servo")
+	dummyServo.PositionFunc = func(ctx context.Context, extra map[string]any) (uint32, error) {
+		return 43, nil
+	}
 	resource.RegisterComponent(
 		servo.API,
 		model,
@@ -469,7 +519,13 @@ func TestEveryComponentJobManager(t *testing.T) {
 			return dummyServo, nil
 		}})
 	// switch
-	dummySwitch := &inject.Switch{}
+	dummySwitch := inject.NewSwitch("switch")
+	dummySwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
+		return 1, []string{"test"}, nil
+	}
+	dummySwitch.CloseFunc = func(ctx context.Context) error {
+		return nil
+	}
 	resource.RegisterComponent(
 		sw.API,
 		model,
@@ -505,6 +561,76 @@ func TestEveryComponentJobManager(t *testing.T) {
 				Name:  "board",
 				API:   board.API,
 			},
+			{
+				Model: model,
+				Name:  "button",
+				API:   button.API,
+			},
+			{
+				Model: model,
+				Name:  "camera",
+				API:   camera.API,
+			},
+			{
+				Model: model,
+				Name:  "encoder",
+				API:   encoder.API,
+			},
+			{
+				Model: model,
+				Name:  "gantry",
+				API:   gantry.API,
+			},
+			{
+				Model: model,
+				Name:  "generic",
+				API:   generic.API,
+			},
+			{
+				Model: model,
+				Name:  "gripper",
+				API:   gripper.API,
+			},
+			{
+				Model: model,
+				Name:  "my_input",
+				API:   input.API,
+			},
+			{
+				Model: model,
+				Name:  "motor",
+				API:   motor.API,
+			},
+			{
+				Model: model,
+				Name:  "mov_sensor",
+				API:   movementsensor.API,
+			},
+			{
+				Model: model,
+				Name:  "pose",
+				API:   posetracker.API,
+			},
+			{
+				Model: model,
+				Name:  "power_sensor",
+				API:   powersensor.API,
+			},
+			{
+				Model: model,
+				Name:  "sensor",
+				API:   sensor.API,
+			},
+			{
+				Model: model,
+				Name:  "servo",
+				API:   servo.API,
+			},
+			{
+				Model: model,
+				Name:  "switch",
+				API:   sw.API,
+			},
 		},
 		Jobs: []config.JobConfig{
 			{
@@ -539,6 +665,121 @@ func TestEveryComponentJobManager(t *testing.T) {
 					Method:   "GetGPIO",
 				},
 			},
+			{
+				config.JobConfigData{
+					Name:     "button job",
+					Schedule: "2s",
+					Resource: "button",
+					Method:   "Push",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "camera job",
+					Schedule: "2s",
+					Resource: "camera",
+					Method:   "GetProperties",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "encoder job",
+					Schedule: "2s",
+					Resource: "encoder",
+					Method:   "GetProperties",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "gantry job",
+					Schedule: "2s",
+					Resource: "gantry",
+					Method:   "Home",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "generic job",
+					Schedule: "2s",
+					Resource: "generic",
+					Method:   "DoCommand",
+					Command: map[string]any{
+						"any": "any",
+					},
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "gripper job",
+					Schedule: "2s",
+					Resource: "gripper",
+					Method:   "Grab",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "input job",
+					Schedule: "2s",
+					Resource: "my_input",
+					Method:   "GetEvents",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "motor job",
+					Schedule: "2s",
+					Resource: "motor",
+					Method:   "SetPower",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "movement sensor job",
+					Schedule: "2s",
+					Resource: "mov_sensor",
+					Method:   "GetOrientation",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "pose job",
+					Schedule: "2s",
+					Resource: "pose",
+					Method:   "GetPoses",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "power sensor job",
+					Schedule: "2s",
+					Resource: "power_sensor",
+					Method:   "GetVoltage",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "sensor job",
+					Schedule: "2s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "servo job",
+					Schedule: "2s",
+					Resource: "servo",
+					Method:   "GetPosition",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "switch job",
+					Schedule: "2s",
+					Resource: "switch",
+					Method:   "GetNumberOfPositions",
+				},
+			},
 		},
 	}
 	defer func() {
@@ -546,6 +787,20 @@ func TestEveryComponentJobManager(t *testing.T) {
 		resource.Deregister(audioinput.API, model)
 		resource.Deregister(base.API, model)
 		resource.Deregister(board.API, model)
+		resource.Deregister(button.API, model)
+		resource.Deregister(camera.API, model)
+		resource.Deregister(encoder.API, model)
+		resource.Deregister(gantry.API, model)
+		resource.Deregister(generic.API, model)
+		resource.Deregister(gripper.API, model)
+		resource.Deregister(input.API, model)
+		resource.Deregister(motor.API, model)
+		resource.Deregister(movementsensor.API, model)
+		resource.Deregister(posetracker.API, model)
+		resource.Deregister(powersensor.API, model)
+		resource.Deregister(sensor.API, model)
+		resource.Deregister(servo.API, model)
+		resource.Deregister(sw.API, model)
 	}()
 
 	ctx := context.Background()
@@ -556,9 +811,9 @@ func TestEveryComponentJobManager(t *testing.T) {
 		// we will test for succeeded jobs to be the amount we started,
 		// and that there are no failed jobs
 		test.That(tb, logs.FilterMessage("Job triggered").Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 4)
+			test.ShouldBeGreaterThanOrEqualTo, 18)
 		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 4)
+			test.ShouldBeGreaterThanOrEqualTo, 18)
 		test.That(tb, logs.FilterMessage("Job failed").Len(),
 			test.ShouldBeLessThanOrEqualTo, 0)
 	})

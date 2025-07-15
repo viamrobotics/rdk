@@ -13,9 +13,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 
-	"github.com/pkg/errors"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -27,6 +28,26 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+)
+
+const (
+	// componentServiceIndex is an index for the desired component or service within the
+	// viam service notation. For example, viam.component.movementsensor.v1.MovementSensorService
+	// has movementsensor as its second index in a dot separated slice, which is the resource
+	// the job manager will be looking for.
+	componentServiceIndex int = 2
+)
+
+var (
+	// TODO: document
+	controllerAPIs = map[string]map[string]struct{}{
+		"viam.component.inputcontroller.v1.InputControllerService": {
+			"GetControls":   {},
+			"GetEvents":     {},
+			"StreamEvents":  {},
+			"TriggerEvents": {},
+		},
+	}
 )
 
 // Jobmanager keeps track of the currently scheduled jobs and updates the schedule with
@@ -90,7 +111,7 @@ func (jm *Jobmanager) Shutdown() error {
 // and sets up a grpcMethod string that will be invoked later.
 func (jm *Jobmanager) createDescriptorSourceAndgRPCMethod(
 	res resource.Resource,
-	method string) (grpcurl.DescriptorSource, string, error) {
+	method string) (grpcurl.DescriptorSource, string, string, error) {
 
 	refCtx := metadata.NewOutgoingContext(jm.ctx, nil)
 	refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(jm.conn))
@@ -100,20 +121,19 @@ func (jm *Jobmanager) createDescriptorSourceAndgRPCMethod(
 	resourceType = strings.ReplaceAll(resourceType, "_", "")
 	services, err := descSource.ListServices()
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	var grpcService string
 	for _, srv := range services {
-		if strings.Contains(srv, resourceType) {
+		if strings.Split(srv, ".")[componentServiceIndex] == resourceType {
 			grpcService = srv
 			break
 		}
 	}
 	if grpcService == "" {
-		return nil, "", errors.Errorf("could not find a service for type: %s", resourceType)
+		return nil, "", "", errors.Errorf("could not find a service for type: %s", resourceType)
 	}
-	grpcMethod := grpcService + "." + method
-	return descSource, grpcMethod, nil
+	return descSource, grpcService, method, nil
 }
 
 // createJobFunction returns a function that the job scheduler puts on its queue.
@@ -141,13 +161,22 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig) func() {
 			return
 		}
 
-		descSource, grpcMethod, err := jm.createDescriptorSourceAndgRPCMethod(res, jc.Method)
+		descSource, grpcService, grpcMethod, err := jm.createDescriptorSourceAndgRPCMethod(res, jc.Method)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "grpc setup failed", "error", err)
 			return
 		}
 
-		data := fmt.Sprintf("{%q : %q}", "name", jc.Resource)
+		var data string
+		// TODO: document
+		if methods, ok := controllerAPIs[grpcService]; ok {
+			if _, ok := methods[grpcMethod]; ok {
+				data = fmt.Sprintf("{%q : %q}", "controller", jc.Resource)
+			}
+		} else {
+			data = fmt.Sprintf("{%q : %q}", "name", jc.Resource)
+		}
+
 		options := grpcurl.FormatOptions{
 			EmitJSONDefaultFields: true,
 			IncludeTextSeparator:  true,
@@ -171,18 +200,22 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig) func() {
 			VerbosityLevel: 0,
 		}
 		jobLogger.CInfo(jm.ctx, "Job triggered")
-		err = grpcurl.InvokeRPC(jm.ctx, descSource, jm.conn, grpcMethod, nil, h, rf.Next)
-
+		grpcMethodCombined := grpcService + "." + grpcMethod
+		err = grpcurl.InvokeRPC(jm.ctx, descSource, jm.conn, grpcMethodCombined, nil, h, rf.Next)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "Job failed", "error", err.Error())
+		} else if h.Status != nil && h.Status.Err() != nil {
+			jobLogger.CWarnw(jm.ctx, "Job failed", "error", h.Status.Err())
 		} else {
 			response := map[string]any{}
 			err := json.Unmarshal(buffer.Bytes(), &response)
 			if err != nil {
 				jobLogger.CWarnw(jm.ctx, "Unmarshalling grpc response failed with error", "error", err.Error())
+			} else {
+				jobLogger.CInfow(jm.ctx, "Job succeeded", "response", response)
 			}
-			jobLogger.CInfow(jm.ctx, "Job succeeded", "response", response)
 		}
+
 	}
 }
 
