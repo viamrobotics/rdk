@@ -745,7 +745,7 @@ func TestModuleReloading(t *testing.T) {
 		// and fail the test during cleanup.
 		mod, _ := mgr.(*Manager).modules.Load(modCfg.Name)
 		err = mod.process.Stop()
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, err.Error(), test.ShouldEqual, "exit status 1")
 	})
 	t.Run("timed out module process is stopped", func(t *testing.T) {
