@@ -48,6 +48,8 @@ var (
 	templatesPath = filepath.Join(basePath, "_templates")
 )
 
+var unauthenticatedMode = false
+
 type generateModuleArgs struct {
 	Name            string
 	Language        string
@@ -64,9 +66,36 @@ type generateModuleArgs struct {
 func GenerateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
-		return err
+		shouldContinueGeneration := promptUnauthenticated()
+		if !shouldContinueGeneration {
+			return err
+		}
 	}
 	return c.generateModuleAction(cCtx, args)
+}
+
+func promptUnauthenticated() bool {
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Unable to authenticate"),
+			huh.NewConfirm().
+				Title("Continue without authenticating?").
+				Description("In order to register a module with Viam, you must be authenticatd.\nYou can continue to generate a module, but you will be unable to\nregister the module with Viam.\n\nWould you like to conitnue without authenticating?").
+				Value(&unauthenticatedMode).
+				Affirmative("Contiue without authentication").
+				Negative("Do not continue"),
+		),
+	).WithHeight(15).WithWidth(77)
+	err := form.Run()
+	if err != nil {
+		return false
+	}
+	if !unauthenticatedMode {
+		return false
+	}
+
+	return true
 }
 
 func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
@@ -217,6 +246,29 @@ func promptUser(module *modulegen.ModuleInputs) error {
 		}
 		resourceOptions = append(resourceOptions, huh.NewOption(resType, resource))
 	}
+
+	var registerWidget huh.Field
+	if unauthenticatedMode {
+		registerWidget = huh.NewSelect[bool]().
+			Title("Register module").
+			Description("You are unauthenticated and cannot register this module with Viam.\n\nThis module will be a local-only module.").
+			Options(
+				huh.NewOption("Continue", false),
+			).
+			Value(&module.RegisterOnApp)
+	} else {
+		registerWidget = huh.NewConfirm().
+			Title("Register module").
+			DescriptionFunc(func() string {
+				if unauthenticatedMode {
+					return "You are unauthenticated and cannot register this module with Viam.\n\nThis module will be a local-only module."
+				}
+				return "Register this module with Viam.\nIf selected, " +
+					"this will associate the module with your organization.\nOtherwise, this will be a local-only module."
+			}, unauthenticatedMode).
+			Value(&module.RegisterOnApp)
+	}
+
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().
@@ -287,11 +339,7 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Title("Enable cloud build").
 				Description("If enabled, this will generate GitHub workflows to build your module.").
 				Value(&module.EnableCloudBuild),
-			huh.NewConfirm().
-				Title("Register module").
-				Description("Register this module with Viam.\nIf selected, "+
-					"this will associate the module with your organization.\nOtherwise, this will be a local-only module.").
-				Value(&module.RegisterOnApp),
+			registerWidget,
 		),
 	).WithHeight(25).WithWidth(88)
 	err := form.Run()
