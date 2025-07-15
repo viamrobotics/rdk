@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -975,13 +976,35 @@ func TestWebStreamImmediateClose(t *testing.T) {
 	<-ctx.Done()
 }
 
-func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
+type (
+	setupRobotOption   func(*setupRobotOptions) *setupRobotOptions
+	armEndPositionFunc func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
+	setupRobotOptions  struct {
+		armEndPosition armEndPositionFunc
+	}
+)
+
+func withArmEndPosition(f armEndPositionFunc) setupRobotOption {
+	return func(sro *setupRobotOptions) *setupRobotOptions {
+		sro.armEndPosition = f
+		return sro
+	}
+}
+
+func setupRobotCtx(t *testing.T, opts ...setupRobotOption) (context.Context, robot.Robot) {
 	t.Helper()
 
-	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-		return pos, nil
+	options := &setupRobotOptions{
+		armEndPosition: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+			return pos, nil
+		},
 	}
+	for _, o := range opts {
+		options = o(options)
+	}
+
+	injectArm := &inject.Arm{}
+	injectArm.EndPositionFunc = options.armEndPosition
 	injectRobot := &inject.Robot{}
 	injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
@@ -1571,6 +1594,7 @@ func TestPerRequestFTDC(t *testing.T) {
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.dataSentBytes")
 	test.That(t, stats["arm1.ArmService/GetEndPosition.dataSentBytes"], test.ShouldBeGreaterThan, 0)
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.errorCnt")
+	test.That(t, stats, test.ShouldContainKey, "arm1.viam.component.arm.v1.ArmService.inFlightRequests")
 
 	// Get a handle on the inject arm resource.
 	injectArmRes, err := injectRobot.ResourceByName(arm.Named(arm1String))
@@ -1593,4 +1617,81 @@ func TestPerRequestFTDC(t *testing.T) {
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
 	test.That(t, stats["arm1.ArmService/GetEndPosition.errorCnt"], test.ShouldEqual, 1)
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.dataSentBytes")
+}
+
+func TestPerResourceLimitsAndFTDC(t *testing.T) {
+	// This test creates a robot with a resource running with a web service. It will then assert
+	// that making gRPC requests will increment counters output by the `RequestCounter`s `Stats`
+	// call.
+	logger := logging.NewTestLogger(t)
+
+	blockCalls := make(chan struct{})
+	callBlocking := make(chan struct{})
+	ctx, injectRobot := setupRobotCtx(t, withArmEndPosition(func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+		close(callBlocking)
+		<-blockCalls
+		return pos, nil
+	}))
+	defer injectRobot.Close(ctx)
+
+	originalRequestLimit := os.Getenv(web.ViamResourceRequestsLimitEnv)
+	os.Setenv(web.ViamResourceRequestsLimitEnv, "1")
+	t.Cleanup(func() {
+		os.Setenv(web.ViamResourceRequestsLimitEnv, originalRequestLimit)
+	})
+
+	svc := web.New(injectRobot, logger)
+	defer svc.Stop()
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Dial to the robot and create a gRPC client object to the "arm" specifically.
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(conn.Close)
+	armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+	//nolint
+	defer armClient.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Check that the in flight request counter is zero
+	armResourceKey := "arm1.viam.component.arm.v1.ArmService.inFlightRequests"
+	stats := svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats[armResourceKey], test.ShouldEqual, 0)
+
+	// Make a gRPC `EndPosition` call that hangs until we close the channel
+	clientCallsWg := sync.WaitGroup{}
+	clientCallsWg.Add(1)
+	go func() {
+		defer clientCallsWg.Done()
+		_, err = armClient.EndPosition(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	// Wait for the gRPC call to reach our function so we know the request
+	// counters have been updated.
+	<-callBlocking
+
+	// Check that the in flight request counter has increased to 1
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats[armResourceKey], test.ShouldEqual, 1)
+
+	// Make a second request that should return an error due to the limit.
+	_, err = armClient.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEndWith, "Exceeded request limit 1 on resource arm1.viam.component.arm.v1.ArmService")
+
+	// In flight requests counter should still only be 1
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats[armResourceKey], test.ShouldEqual, 1)
+
+	// Release the original call and wait for it to complete
+	close(blockCalls)
+	clientCallsWg.Wait()
+
+	// In flight requests counter should be back to 0
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats[armResourceKey], test.ShouldEqual, 0)
 }

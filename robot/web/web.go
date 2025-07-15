@@ -52,7 +52,8 @@ import (
 const (
 	SubtypeName = "web"
 	// TCPParentPort is the port of the parent socket when VIAM_TCP_MODE is set.
-	TCPParentPort = 0
+	TCPParentPort                = 0
+	ViamResourceRequestsLimitEnv = "VIAM_RESOURCE_REQUESTS_LIMIT"
 )
 
 // API is the fully qualified API for the internal web service.
@@ -594,7 +595,7 @@ func (rc *RequestCounter) ensureKey(resource string) *atomic.Int64 {
 // request would exceed the configured limit.
 func (rc *RequestCounter) incrInFlight(resource string) bool {
 	counter := rc.ensureKey(resource)
-	if counter.Add(1) >= rc.inFlightLimit {
+	if newCount := counter.Add(1); newCount > rc.inFlightLimit {
 		counter.Add(-1)
 		return false
 	}
@@ -603,8 +604,7 @@ func (rc *RequestCounter) incrInFlight(resource string) bool {
 
 // decrInFlight decrements the in flight request counter for a given resource.
 func (rc *RequestCounter) decrInFlight(resource string) {
-	counter := rc.ensureKey(resource)
-	counter.Add(-1)
+	rc.ensureKey(resource).Add(-1)
 }
 
 // RequestCounter is used to track and limit incoming requests. It instruments
@@ -671,7 +671,7 @@ func (rc *RequestCounter) Stats() any {
 	}
 
 	for k, v := range rc.inFlightRequests.Range {
-		ret[fmt.Sprintf("%v.concurrentRequests", k)] = v.Load()
+		ret[fmt.Sprintf("%v.inFlightRequests", k)] = v.Load()
 	}
 
 	return ret
