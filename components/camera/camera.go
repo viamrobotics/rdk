@@ -219,7 +219,7 @@ func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType str
 // It takes a mimeType and a camera as args, and returns a slice of NamedImage and ResponseMetadata,
 // which is the same response signature as the Images method. We use the mimeType arg to specify
 // how to decode the image bytes returned from GetImage. Source name is empty string always.
-// It returns a slice of NamedImage of length 1 and ResponseMetadata, using the camera's name as the source name.
+// It returns a slice of NamedImage of length 1 and ResponseMetadata, with empty string as the source name.
 func GetImagesFromGetImage(
 	ctx context.Context,
 	mimeType string,
