@@ -1599,8 +1599,9 @@ func TestPerRequestFTDC(t *testing.T) {
 	_, err = armClient.EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// We can assert that there are two counters in our stats. The fact that `GetEndPosition` was
-	// called once and we hence spent (negligible) time in that RPC call.
+	// We can assert that there are 5 counters in our stats: 4 for the api and 1
+	// for the resource. The fact that `GetEndPosition` was called once and we
+	// hence spent (negligible) time in that RPC call.
 	stats := svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, len(stats), test.ShouldEqual, 5)
 	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 1)
