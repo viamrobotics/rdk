@@ -571,6 +571,12 @@ type Namer interface {
 	GetName() string
 }
 
+// The InputControllerService uses a field called controller instead of name to
+// identify its resources.
+type controllerNamer interface {
+	GetController() string
+}
+
 type requestStats struct {
 	count     atomic.Int64
 	errorCnt  atomic.Int64
@@ -699,13 +705,25 @@ func extractViamAPI(fullMethod string) string {
 	}
 }
 
+func getName(msg any) string {
+	if msg == nil {
+		return ""
+	}
+	if namer, ok := msg.(Namer); ok {
+		return namer.GetName()
+	} else if cNamer, ok := msg.(controllerNamer); ok {
+		return cNamer.GetController()
+	}
+	return ""
+}
+
 // buildRCKey builds the key to be used in the RequestCounter's counts map.
 // If the msg satisfies web.Namer, the key will be in the format "name.method",
 // Otherwise, the key will be just "method".
 func buildRCKey(clientMsg any, apiMethod string) string {
 	if clientMsg != nil {
-		if namer, ok := clientMsg.(Namer); ok {
-			return fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
+		if name := getName(clientMsg); name != "" {
+			return fmt.Sprintf("%v.%v", name, apiMethod)
 		}
 	}
 	return apiMethod
@@ -723,8 +741,7 @@ func getResourceName(clientMsg any, fullMethod string) string {
 	default:
 		return ""
 	}
-	if namer, ok := clientMsg.(Namer); ok {
-		name := namer.GetName()
+	if name := getName(clientMsg); name != "" {
 		return name + "." + apiNamespace
 	}
 	if apiNamespace == "viam.robot.v1.RobotService" {
