@@ -1664,10 +1664,10 @@ func testResourceLimitsAndFTDC(
 	ctx, injectRobot := setupRobotCtx(t, opt)
 	defer injectRobot.Close(ctx)
 
-	originalRequestLimit := os.Getenv(web.ViamResourceRequestsLimitEnv)
-	os.Setenv(web.ViamResourceRequestsLimitEnv, "1")
+	originalRequestLimit := os.Getenv(rutils.ViamResourceRequestsLimitEnvVar)
+	os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, "1")
 	t.Cleanup(func() {
-		os.Setenv(web.ViamResourceRequestsLimitEnv, originalRequestLimit)
+		os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, originalRequestLimit)
 	})
 
 	svc := web.New(injectRobot, logger)
@@ -1764,7 +1764,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				})
 			},
 			func(addr string, logger logging.Logger) clientCall {
-				// The robot client implicitly calls MachineStatus by defualt when run
+				// The robot client implicitly calls MachineStatus by default when run
 				// in a test. Disable that behavior since we're going to block the
 				// first call to that method.
 				originalDoNotWaitForRunning := rclient.DoNotWaitForRunning.Load()

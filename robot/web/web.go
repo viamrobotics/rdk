@@ -52,8 +52,7 @@ import (
 const (
 	SubtypeName = "web"
 	// TCPParentPort is the port of the parent socket when VIAM_TCP_MODE is set.
-	TCPParentPort                = 0
-	ViamResourceRequestsLimitEnv = "VIAM_RESOURCE_REQUESTS_LIMIT"
+	TCPParentPort = 0
 )
 
 // API is the fully qualified API for the internal web service.
@@ -574,7 +573,7 @@ type requestStats struct {
 
 func (rc *RequestCounter) ensureLimit() {
 	if rc.inFlightLimit == 0 {
-		if limitVar, err := strconv.Atoi(os.Getenv("VIAM_RESOURCE_REQUESTS_LIMIT")); err == nil && limitVar > 0 {
+		if limitVar, err := strconv.Atoi(os.Getenv(rutils.ViamResourceRequestsLimitEnvVar)); err == nil && limitVar > 0 {
 			rc.inFlightLimit = int64(limitVar)
 		} else {
 			rc.inFlightLimit = 100
