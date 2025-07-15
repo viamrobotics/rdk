@@ -81,7 +81,10 @@ func promptUnauthenticated() bool {
 				Title("Unable to authenticate"),
 			huh.NewConfirm().
 				Title("Continue without authenticating?").
-				Description("In order to register a module with Viam, you must be authenticatd.\nYou can continue to generate a module, but you will be unable to\nregister the module with Viam.\n\nWould you like to conitnue without authenticating?").
+				Description("In order to register a module with Viam, you must be authenticated.\n"+
+					"You can continue to generate a module, but you will be unable to\n"+
+					"register the module with Viam.\n\n"+
+					"Would you like to conitnue without authenticating?").
 				Value(&unauthenticatedMode).
 				Affirmative("Contiue without authentication").
 				Negative("Do not continue"),
