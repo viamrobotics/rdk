@@ -52,7 +52,7 @@ type rrtStarConnectOptions struct {
 }
 
 type plannerConstructor func(
-	referenceframe.FrameSystem,
+	*referenceframe.FrameSystem,
 	*rand.Rand,
 	logging.Logger,
 	*PlannerOptions,
@@ -61,7 +61,7 @@ type plannerConstructor func(
 ) (motionPlanner, error)
 
 func newMotionPlanner(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,

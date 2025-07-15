@@ -108,8 +108,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fsCfg, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	fsCfg.AdditionalTransforms = transforms
-	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, fsCfg.AdditionalTransforms)
+	fs, err := referenceframe.NewFrameSystem("", fsCfg.Parts, transforms)
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 34)

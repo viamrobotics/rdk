@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -35,7 +34,6 @@ import (
 	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -138,7 +136,7 @@ type builtIn struct {
 	movementSensors         map[resource.Name]movementsensor.MovementSensor
 	slamServices            map[resource.Name]slam.Service
 	visionServices          map[resource.Name]vision.Service
-	components              map[resource.Name]resource.Resource
+	components              map[string]resource.Resource
 	logger                  logging.Logger
 	state                   *state.State
 	configuredDefaultExtras map[string]any
@@ -186,7 +184,7 @@ func (ms *builtIn) Reconfigure(
 	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
 	slamServices := make(map[resource.Name]slam.Service)
 	visionServices := make(map[resource.Name]vision.Service)
-	components := make(map[resource.Name]resource.Resource)
+	componentMap := make(map[string]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
@@ -198,13 +196,13 @@ func (ms *builtIn) Reconfigure(
 		case vision.Service:
 			visionServices[name] = dep
 		default:
-			components[name] = dep
+			componentMap[name.ShortName()] = dep
 		}
 	}
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
-	ms.components = components
+	ms.components = componentMap
 	if ms.state != nil {
 		ms.state.Stop()
 	}
@@ -329,6 +327,7 @@ func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (
 	return id, nil
 }
 
+// GetPose is deprecated.
 func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
@@ -336,20 +335,10 @@ func (ms *builtIn) GetPose(
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
+	ms.logger.Warn("GetPose is deprecated. Please switch to using the GetPose method defined on the FrameSystem service")
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	if destinationFrame == "" {
-		destinationFrame = referenceframe.World
-	}
-	return ms.fsService.TransformPose(
-		ctx,
-		referenceframe.NewPoseInFrame(
-			componentName.ShortName(),
-			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
-		),
-		destinationFrame,
-		supplementalTransforms,
-	)
+	return ms.fsService.GetPose(ctx, componentName.ShortName(), destinationFrame, supplementalTransforms, extra)
 }
 
 func (ms *builtIn) StopPlan(
@@ -470,13 +459,13 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 }
 
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
-	frameSys, err := ms.fsService.FrameSystem(ctx, req.WorldState.Transforms())
+	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
 	}
 
 	// build maps of relevant components and inputs from initial inputs
-	fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
+	fsInputs, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -580,12 +569,6 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
-	// build maps of relevant components from initial inputs
-	_, resources, err := ms.fsService.CurrentInputs(ctx)
-	if err != nil {
-		return err
-	}
-
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
@@ -648,11 +631,15 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			if len(inputs) == 0 {
 				continue
 			}
-			r, ok := resources[name]
+			r, ok := ms.components[name]
 			if !ok {
-				return fmt.Errorf("plan had step for resource %s but no resource with that name found in framesystem", name)
+				return fmt.Errorf("plan had step for resource %s but it was not found in the motion", name)
 			}
-			if err := r.GoToInputs(ctx, inputs...); err != nil {
+			ie, err := utils.AssertType[framesystem.InputEnabled](r)
+			if err != nil {
+				return err
+			}
+			if err := ie.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if actuator, ok := r.(inputEnabledActuator); ok {
 					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {

@@ -34,7 +34,7 @@ type rrtStarConnectMotionPlanner struct {
 
 // NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
 func newRRTStarConnectMotionPlanner(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,

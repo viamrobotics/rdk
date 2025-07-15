@@ -25,7 +25,7 @@ func CheckPlan(
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	lookAheadDistanceMM float64,
 	logger logging.Logger,
 ) error {
@@ -57,7 +57,7 @@ func checkPlanRelative(
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	lookAheadDistanceMM float64,
 ) error {
 	var err error
@@ -197,7 +197,7 @@ func checkPlanAbsolute(
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	lookAheadDistanceMM float64,
 ) error {
 	plan := executionState.Plan()
@@ -274,7 +274,7 @@ func checkSegmentsFS(
 	resolution float64,
 	motionChains *motionChains,
 	constraintHandler *ConstraintHandler,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 ) error {
 	// go through segments and check that we satisfy constraints
 	moving, _ := motionChains.framesFilteredByMovingAndNonmoving(fs)
@@ -339,7 +339,7 @@ func checkSegments(
 	lookAheadDistanceMM float64,
 	checkFrame referenceframe.Frame,
 	resolution float64,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	cHandler *ConstraintHandler,
 ) error {
 	// go through segments and check that we satisfy constraints

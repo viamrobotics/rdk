@@ -33,9 +33,9 @@ require (
 	github.com/go-audio/wav v1.1.0
 	github.com/go-gl/mathgl v1.0.0
 	github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5
-	github.com/go-viper/mapstructure/v2 v2.1.0
+	github.com/go-viper/mapstructure/v2 v2.3.0
 	github.com/goccy/go-graphviz v0.1.3
-	github.com/golang-jwt/jwt/v4 v4.5.1
+	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/geo v0.0.0-20230421003525-6adc56603217
 	github.com/golang/protobuf v1.5.4
@@ -81,9 +81,9 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.452
+	go.viam.com/api v0.1.455
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.1.149
+	go.viam.com/utils v0.1.151
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.19.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
@@ -215,7 +215,7 @@ require (
 	github.com/ghostiam/protogetter v0.3.6 // indirect
 	github.com/gin-gonic/gin v1.9.1 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
-	github.com/go-chi/chi/v5 v5.2.1 // indirect
+	github.com/go-chi/chi/v5 v5.2.2 // indirect
 	github.com/go-critic/go-critic v0.11.4 // indirect
 	github.com/go-fonts/liberation v0.3.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect

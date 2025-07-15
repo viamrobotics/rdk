@@ -56,15 +56,20 @@ type PlanRequest struct {
 	// in IK to generate plan start configurations. The given configuration will NOT automatically be added to the seed tree.
 	// The use case here is that if a particularly difficult path must be planned between two poses, that can be done first to ensure
 	// feasibility, and then other plans can be requested to connect to that returned plan's configurations.
-	StartState      *PlanState                 `json:"start_state"`
-	WorldState      *referenceframe.WorldState `json:"world_state"`
-	BoundingRegions []*commonpb.Geometry       `json:"bounding_regions"`
-	Constraints     *Constraints               `json:"constraints"`
-	PlannerOptions  *PlannerOptions            `json:"planner_options"`
+	StartState *PlanState `json:"start_state"`
+	// The data representation of the robot's environment.
+	WorldState *referenceframe.WorldState `json:"world_state"`
+	// Set of bounds which the robot must remain within while navigating. This is used only for kinematic bases
+	// and not arms.
+	BoundingRegions []*commonpb.Geometry `json:"bounding_regions"`
+	// Additional parameters constraining the motion of the robot.
+	Constraints *Constraints `json:"constraints"`
+	// Other more granular parameters for the plan used to move the robot.
+	PlannerOptions *PlannerOptions `json:"planner_options"`
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
-func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error {
+func (req *PlanRequest) validatePlanRequest(fs *referenceframe.FrameSystem) error {
 	if req == nil {
 		return errors.New("PlanRequest cannot be nil")
 	}
@@ -188,7 +193,7 @@ func (req *PlanRequest) validatePlanRequest(fs referenceframe.FrameSystem) error
 }
 
 // PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, logger logging.Logger, fs referenceframe.FrameSystem, request *PlanRequest) (Plan, error) {
+func PlanMotion(ctx context.Context, logger logging.Logger, fs *referenceframe.FrameSystem, request *PlanRequest) (Plan, error) {
 	// Calls Replan but without a seed plan
 	return Replan(ctx, logger, fs, request, nil, 0)
 }
@@ -231,7 +236,7 @@ func PlanFrameMotion(ctx context.Context,
 func Replan(
 	ctx context.Context,
 	logger logging.Logger,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	request *PlanRequest,
 	currentPlan Plan,
 	replanCostFactor float64,
@@ -271,7 +276,7 @@ func Replan(
 
 type planner struct {
 	*ConstraintHandler
-	fs                        referenceframe.FrameSystem
+	fs                        *referenceframe.FrameSystem
 	lfs                       *linearizedFrameSystem
 	solver                    ik.Solver
 	logger                    logging.Logger
@@ -284,7 +289,7 @@ type planner struct {
 	motionChains              *motionChains
 }
 
-func newPlannerFromPlanRequest(logger logging.Logger, fs referenceframe.FrameSystem, request *PlanRequest) (*planner, error) {
+func newPlannerFromPlanRequest(logger logging.Logger, fs *referenceframe.FrameSystem, request *PlanRequest) (*planner, error) {
 	mChains, err := motionChainsFromPlanState(fs, request.Goals[0])
 	if err != nil {
 		return nil, err
@@ -344,7 +349,7 @@ func newPlannerFromPlanRequest(logger logging.Logger, fs referenceframe.FrameSys
 }
 
 func newPlanner(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
