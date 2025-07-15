@@ -305,7 +305,7 @@ func promptUser(module *modulegen.ModuleInputs) error {
 func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *modulegen.ModuleInputs) error {
 	// If we're not registering on app, we don't need to resolve the org
 	if !newModule.RegisterOnApp {
-		nonAlphanumericRegex := regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
+		nonAlphanumericRegex := regexp.MustCompile(`[^a-zA-Z0-9]+`)
 		cleanNamespace := nonAlphanumericRegex.ReplaceAllString(newModule.Namespace, "")
 		newModule.Namespace = cleanNamespace
 		newModule.OrgID = newModule.Namespace
