@@ -33,6 +33,8 @@ import (
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"go.viam.com/rdk/config"
@@ -69,8 +71,13 @@ type RequestLimitExceededError struct {
 	limit    int64
 }
 
-func (e *RequestLimitExceededError) Error() string {
+func (e RequestLimitExceededError) Error() string {
 	return fmt.Sprintf("exceeded request limit %v on resource %v", e.limit, e.resource)
+}
+
+// GRPCStatus allows this error to be converted to a [status.Status].
+func (e RequestLimitExceededError) GRPCStatus() *status.Status {
+	return status.New(codes.ResourceExhausted, e.Error())
 }
 
 // A Service controls the web server for a robot.

@@ -1646,14 +1646,6 @@ func testResourceLimitsAndFTDC(
 
 	blockCall := make(chan struct{})
 	callBlocking := make(chan struct{})
-	t.Cleanup(func() {
-		select {
-		case <-blockCall:
-			break
-		default:
-			close(blockCall)
-		}
-	})
 	opt := setupBlock(
 		func() {
 			close(callBlocking)
@@ -1706,8 +1698,9 @@ func testResourceLimitsAndFTDC(
 	// Make a second request that should return an error due to the limit.
 	err = call(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
 	test.That(t, err.Error(), test.ShouldEndWith,
-		fmt.Sprintf("Exceeded request limit 1 on resource %v", keyPrefix))
+		fmt.Sprintf("exceeded request limit 1 on resource %v", keyPrefix))
 
 	// In flight requests counter should still only be 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
