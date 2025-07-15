@@ -11,11 +11,7 @@ import (
 )
 
 func makeTestMesh(o Orientation, pt r3.Vector, triangles []*Triangle) *Mesh {
-	mesh, err := NewMesh(NewPose(pt, o), triangles, "")
-	if err != nil {
-		panic(err)
-	}
-	return mesh
+	return NewMesh(NewPose(pt, o), triangles, "")
 }
 
 func makeSimpleTriangleMesh() *Mesh {
@@ -46,8 +42,7 @@ func TestNewMesh(t *testing.T) {
 	)
 	pose := NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, NewZeroOrientation())
 
-	mesh, err := NewMesh(pose, []*Triangle{tri}, "test_mesh")
-	test.That(t, err, test.ShouldBeNil)
+	mesh := NewMesh(pose, []*Triangle{tri}, "test_mesh")
 
 	test.That(t, mesh.Label(), test.ShouldEqual, "test_mesh")
 	test.That(t, PoseAlmostEqual(mesh.Pose(), pose), test.ShouldBeTrue)
@@ -676,8 +671,7 @@ func TestMeshProtoConversionFromTriangles(t *testing.T) {
 
 	// Create mesh with a pose and label
 	originalPose := NewPose(r3.Vector{X: 100, Y: 200, Z: 300}, NewZeroOrientation())
-	originalMesh, err := NewMesh(originalPose, triangles, "test_mesh_from_triangles")
-	test.That(t, err, test.ShouldBeNil)
+	originalMesh := NewMesh(originalPose, triangles, "test_mesh_from_triangles")
 
 	// Convert to protobuf
 	proto := originalMesh.ToProtobuf()

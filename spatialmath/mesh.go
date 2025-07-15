@@ -38,7 +38,7 @@ type Mesh struct {
 }
 
 // NewMesh creates a mesh from the given triangles and pose.
-func NewMesh(pose Pose, triangles []*Triangle, label string) (*Mesh, error) {
+func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 	mesh := &Mesh{
 		pose:      pose,
 		triangles: triangles,
@@ -46,14 +46,11 @@ func NewMesh(pose Pose, triangles []*Triangle, label string) (*Mesh, error) {
 	}
 
 	// Convert triangles to PLY for protobuf
-	plyBytes, err := mesh.trianglesToPLYBytes()
-	if err != nil {
-		return nil, err
-	}
+	plyBytes := mesh.trianglesToPLYBytes()
 	mesh.fileType = plyType
 	mesh.rawBytes = plyBytes
 
-	return mesh, nil
+	return mesh
 }
 
 // NewMeshFromPLYFile is a helper function to create a Mesh geometry from a PLY file.
@@ -439,10 +436,7 @@ func MeshBoxIntersectionArea(mesh, theBox Geometry) (float64, error) {
 // or the actual intersection area otherwise.
 func boxTriangleIntersectionArea(b *box, t *Triangle) (float64, error) {
 	// Quick check if they don't intersect at all
-	mesh, err := NewMesh(NewZeroPose(), []*Triangle{t}, "")
-	if err != nil {
-		return -1, err
-	}
+	mesh := NewMesh(NewZeroPose(), []*Triangle{t}, "")
 	collides, err := b.CollidesWith(mesh, defaultCollisionBufferMM)
 	if err != nil {
 		return -1, err
@@ -552,11 +546,7 @@ func calculatePolygonAreaWithTriangulation(vertices []r3.Vector) float64 {
 }
 
 // trianglesToPLYBytes converts the mesh's triangles to bytes in PLY format.
-func (m *Mesh) trianglesToPLYBytes() ([]byte, error) {
-	if len(m.triangles) == 0 {
-		return nil, errors.New("no triangles to convert")
-	}
-
+func (m *Mesh) trianglesToPLYBytes() []byte {
 	// Collect all unique vertices and create vertex-to-index mapping
 	vertexMap := make(map[string]int)
 	vertices := make([]r3.Vector, 0)
@@ -605,5 +595,5 @@ func (m *Mesh) trianglesToPLYBytes() ([]byte, error) {
 		buf.WriteString("\n")
 	}
 
-	return buf.Bytes(), nil
+	return buf.Bytes()
 }
