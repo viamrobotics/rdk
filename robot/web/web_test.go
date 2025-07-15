@@ -45,6 +45,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	rclient "go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -977,16 +978,25 @@ func TestWebStreamImmediateClose(t *testing.T) {
 }
 
 type (
-	setupRobotOption   func(*setupRobotOptions) *setupRobotOptions
-	armEndPositionFunc func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
-	setupRobotOptions  struct {
+	setupRobotOption  func(*setupRobotOptions) *setupRobotOptions
+	setupRobotOptions struct {
 		armEndPosition armEndPositionFunc
+		machineStatus  machineStatusFunc
 	}
+	armEndPositionFunc func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
+	machineStatusFunc  func(ctx context.Context) (robot.MachineStatus, error)
 )
 
 func withArmEndPosition(f armEndPositionFunc) setupRobotOption {
 	return func(sro *setupRobotOptions) *setupRobotOptions {
 		sro.armEndPosition = f
+		return sro
+	}
+}
+
+func withMachineStatus(f machineStatusFunc) setupRobotOption {
+	return func(sro *setupRobotOptions) *setupRobotOptions {
+		sro.machineStatus = f
 		return sro
 	}
 }
@@ -1015,6 +1025,10 @@ func setupRobotCtx(t *testing.T, opts ...setupRobotOption) (context.Context, rob
 	injectRobot.LoggerFunc = func() logging.Logger { return logging.NewTestLogger(t) }
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
 		return &framesystem.Config{}, nil
+	}
+
+	if options.machineStatus != nil {
+		injectRobot.MachineStatusFunc = options.machineStatus
 	}
 
 	return context.Background(), injectRobot
@@ -1619,19 +1633,35 @@ func TestPerRequestFTDC(t *testing.T) {
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.dataSentBytes")
 }
 
-func TestPerResourceLimitsAndFTDC(t *testing.T) {
-	// This test creates a robot with a resource running with a web service. It will then assert
-	// that making gRPC requests will increment counters output by the `RequestCounter`s `Stats`
-	// call.
+type clientCall = func(context.Context) error
+
+func testResourceLimitsAndFTDC(
+	t *testing.T,
+	keyPrefix string,
+	setupBlock func(onEnter, wait func()) setupRobotOption,
+	createCall func(string, logging.Logger) clientCall,
+) {
 	logger := logging.NewTestLogger(t)
 
-	blockCalls := make(chan struct{})
+	blockCall := make(chan struct{})
 	callBlocking := make(chan struct{})
-	ctx, injectRobot := setupRobotCtx(t, withArmEndPosition(func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-		close(callBlocking)
-		<-blockCalls
-		return pos, nil
-	}))
+	t.Cleanup(func() {
+		select {
+		case <-blockCall:
+			break
+		default:
+			close(blockCall)
+		}
+	})
+	opt := setupBlock(
+		func() {
+			close(callBlocking)
+		},
+		func() {
+			<-blockCall
+		},
+	)
+	ctx, injectRobot := setupRobotCtx(t, opt)
 	defer injectRobot.Close(ctx)
 
 	originalRequestLimit := os.Getenv(web.ViamResourceRequestsLimitEnv)
@@ -1647,26 +1677,20 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Dial to the robot and create a gRPC client object to the "arm" specifically.
-	conn, err := rgrpc.Dial(context.Background(), addr, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer utils.UncheckedErrorFunc(conn.Close)
-	armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	//nolint
-	defer armClient.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
+	// Create a caller to invoke the gRPC method used for testing
+	call := createCall(addr, logger)
 
 	// Check that the in flight request counter is zero
-	armResourceKey := "arm1.viam.component.arm.v1.ArmService.inFlightRequests"
+	statsKey := keyPrefix + ".inFlightRequests"
 	stats := svc.RequestCounter().Stats().(map[string]int64)
-	test.That(t, stats[armResourceKey], test.ShouldEqual, 0)
+	test.That(t, stats[statsKey], test.ShouldEqual, 0)
 
 	// Make a gRPC `EndPosition` call that hangs until we close the channel
 	clientCallsWg := sync.WaitGroup{}
 	clientCallsWg.Add(1)
 	go func() {
 		defer clientCallsWg.Done()
-		_, err = armClient.EndPosition(ctx, nil)
+		err := call(ctx)
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
@@ -1676,22 +1700,88 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 
 	// Check that the in flight request counter has increased to 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
-	test.That(t, stats[armResourceKey], test.ShouldEqual, 1)
+	test.That(t, stats[statsKey], test.ShouldEqual, 1)
 
 	// Make a second request that should return an error due to the limit.
-	_, err = armClient.EndPosition(ctx, nil)
+	err = call(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldEndWith, "Exceeded request limit 1 on resource arm1.viam.component.arm.v1.ArmService")
+	test.That(t, err.Error(), test.ShouldEndWith,
+		fmt.Sprintf("Exceeded request limit 1 on resource %v", keyPrefix))
 
 	// In flight requests counter should still only be 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
-	test.That(t, stats[armResourceKey], test.ShouldEqual, 1)
+	test.That(t, stats[statsKey], test.ShouldEqual, 1)
 
 	// Release the original call and wait for it to complete
-	close(blockCalls)
+	close(blockCall)
 	clientCallsWg.Wait()
 
 	// In flight requests counter should be back to 0
 	stats = svc.RequestCounter().Stats().(map[string]int64)
-	test.That(t, stats[armResourceKey], test.ShouldEqual, 0)
+	test.That(t, stats[statsKey], test.ShouldEqual, 0)
+}
+
+func TestPerResourceLimitsAndFTDC(t *testing.T) {
+	t.Run("arm resource", func(t *testing.T) {
+		t.SkipNow()
+		testResourceLimitsAndFTDC(
+			t,
+			"arm1.viam.component.arm.v1.ArmService",
+			func(onEnter, wait func()) setupRobotOption {
+				return withArmEndPosition(func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+					onEnter()
+					wait()
+					return pos, nil
+				})
+			},
+			func(addr string, logger logging.Logger) clientCall {
+				conn, err := rgrpc.Dial(context.Background(), addr, logger)
+				test.That(t, err, test.ShouldBeNil)
+				t.Cleanup(func() {
+					utils.UncheckedErrorFunc(conn.Close)
+				})
+				armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+				test.That(t, err, test.ShouldBeNil)
+				t.Cleanup(func() {
+					armClient.Close(context.Background())
+				})
+				return func(ctx context.Context) error {
+					_, err := armClient.EndPosition(ctx, nil)
+					return err
+				}
+			},
+		)
+	})
+	t.Run("robot service", func(t *testing.T) {
+		testResourceLimitsAndFTDC(
+			t,
+			"viam.robot.v1.RobotService",
+			func(onEnter, wait func()) setupRobotOption {
+				return withMachineStatus(func(ctx context.Context) (robot.MachineStatus, error) {
+					onEnter()
+					wait()
+					return robot.MachineStatus{}, nil
+				})
+			},
+			func(addr string, logger logging.Logger) clientCall {
+				// The robot client implicitly calls MachineStatus by defualt when run
+				// in a test. Disable that behavior since we're going to block the
+				// first call to that method.
+				originalDoNotWaitForRunning := rclient.DoNotWaitForRunning.Load()
+				rclient.DoNotWaitForRunning.Store(true)
+				t.Cleanup(func() {
+					rclient.DoNotWaitForRunning.Store(originalDoNotWaitForRunning)
+				})
+				robotClient, err := rclient.New(context.Background(), addr, logger)
+				test.That(t, err, test.ShouldBeNil)
+				t.Cleanup(func() {
+					robotClient.Close(context.Background())
+				})
+				return func(ctx context.Context) error {
+					_, err := robotClient.MachineStatus(ctx)
+					return err
+				}
+			},
+		)
+	})
 }
