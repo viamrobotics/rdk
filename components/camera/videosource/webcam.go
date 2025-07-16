@@ -232,7 +232,7 @@ func NewWebcam(
 	logger logging.Logger,
 ) (camera.Camera, error) {
 	cam := &webcam{
-		workers:                 goutils.NewBackgroundStoppableWorkers(),
+		workers: goutils.NewBackgroundStoppableWorkers(),
 	}
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
@@ -257,9 +257,9 @@ func (c *webcam) Reconfigure(
 	if err != nil {
 		return err
 	}
-	c.stopBuffer()
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.stopBuffer()
 
 	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
 	driverReinitNotNeeded := c.conf.Format == newConf.Format &&
@@ -406,7 +406,7 @@ func (c *webcam) Images(ctx context.Context) ([]camera.NamedImage, resource.Resp
 
 	img, err := c.getLatestFrame()
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, err
+		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "monitoredWebcam: call to get Images failed")
 	}
 
 	return []camera.NamedImage{{img, c.Name().Name}}, resource.ResponseMetadata{time.Now()}, nil
@@ -502,14 +502,10 @@ func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) (
 
 // NewWebcamBuffer creates a new WebcamBuffer struct.
 func NewWebcamBuffer() *WebcamBuffer {
-	return &WebcamBuffer{
-		frame:   nil,
-		release: nil,
-		err:     nil,
-		ticker:  nil,
-	}
+	return &WebcamBuffer{}
 }
 
+// Must lock the mutex before calling this function
 func (c *webcam) getLatestFrame() (image.Image, error) {
 	if c.buffer.frame == nil {
 		if c.buffer.err != nil {
@@ -555,10 +551,8 @@ func (c *webcam) startBuffer() {
 	})
 }
 
+// Must lock the mutex before using this function
 func (c *webcam) stopBuffer() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if c.buffer == nil {
 		return
 	}
