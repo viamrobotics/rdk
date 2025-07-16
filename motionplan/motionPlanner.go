@@ -44,6 +44,8 @@ type motionPlanner interface {
 
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
+	FrameSystem referenceframe.FrameSystem `json:"frame_system"`
+
 	// The planner will hit each Goal in order. Each goal may be a configuration or FrameSystemPoses for holonomic motion, or must be a
 	// FrameSystemPoses for non-holonomic motion. For holonomic motion, if both a configuration and FrameSystemPoses are given,
 	// an error is thrown.
@@ -69,14 +71,11 @@ type PlanRequest struct {
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
-func (req *PlanRequest) validatePlanRequest(fs *referenceframe.FrameSystem) error {
+func (req *PlanRequest) validatePlanRequest() error {
 	if req == nil {
 		return errors.New("PlanRequest cannot be nil")
 	}
 
-	if fs == nil {
-		return errors.New("PlanRequest cannot have nil framesystem")
-	}
 	if req.StartState == nil {
 		return errors.New("PlanRequest cannot have nil StartState")
 	}
@@ -85,17 +84,17 @@ func (req *PlanRequest) validatePlanRequest(fs *referenceframe.FrameSystem) erro
 	}
 	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
 	if len(req.StartState.configuration) > 0 {
-		_, err := req.StartState.configuration.ComputePoses(fs)
+		_, err := req.StartState.configuration.ComputePoses(&req.FrameSystem)
 		if err != nil {
 			return err
 		}
 	}
 	// if we have start poses, check we have valid frames
 	for fName, pif := range req.StartState.poses {
-		if fs.Frame(fName) == nil {
+		if req.FrameSystem.Frame(fName) == nil {
 			return referenceframe.NewFrameMissingError(fName)
 		}
-		if fs.Frame(pif.Parent()) == nil {
+		if req.FrameSystem.Frame(pif.Parent()) == nil {
 			return referenceframe.NewParentFrameMissingError(fName, pif.Parent())
 		}
 	}
@@ -145,7 +144,7 @@ func (req *PlanRequest) validatePlanRequest(fs *referenceframe.FrameSystem) erro
 			}
 
 			goalParentFrame := pif.Parent()
-			if fs.Frame(goalParentFrame) == nil {
+			if req.FrameSystem.Frame(goalParentFrame) == nil {
 				return referenceframe.NewParentFrameMissingError(fName, goalParentFrame)
 			}
 
@@ -153,7 +152,7 @@ func (req *PlanRequest) validatePlanRequest(fs *referenceframe.FrameSystem) erro
 				// Check that robot components start within bounding regions.
 				// Bounding regions are for 2d planning, which requires a start pose
 				if len(goalState.poses) > 0 && len(req.StartState.poses) > 0 {
-					goalFrame := fs.Frame(fName)
+					goalFrame := req.FrameSystem.Frame(fName)
 					if goalFrame == nil {
 						return referenceframe.NewFrameMissingError(fName)
 					}
@@ -193,9 +192,9 @@ func (req *PlanRequest) validatePlanRequest(fs *referenceframe.FrameSystem) erro
 }
 
 // PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, logger logging.Logger, fs *referenceframe.FrameSystem, request *PlanRequest) (Plan, error) {
+func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (Plan, error) {
 	// Calls Replan but without a seed plan
-	return Replan(ctx, logger, fs, request, nil, 0)
+	return Replan(ctx, logger, request, nil, 0)
 }
 
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
@@ -217,7 +216,8 @@ func PlanFrameMotion(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	plan, err := PlanMotion(ctx, logger, fs, &PlanRequest{
+	plan, err := PlanMotion(ctx, logger, &PlanRequest{
+		FrameSystem: *fs,
 		Goals: []*PlanState{
 			{poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
 		},
@@ -236,19 +236,18 @@ func PlanFrameMotion(ctx context.Context,
 func Replan(
 	ctx context.Context,
 	logger logging.Logger,
-	fs *referenceframe.FrameSystem,
 	request *PlanRequest,
 	currentPlan Plan,
 	replanCostFactor float64,
 ) (Plan, error) {
 	// Make sure request is well formed and not missing vital information
-	if err := request.validatePlanRequest(fs); err != nil {
+	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
 	}
 	logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	logger.CDebugf(ctx, "motion config for this step: %v", request.PlannerOptions)
 
-	sfPlanner, err := newPlanManager(logger, fs, request)
+	sfPlanner, err := newPlanManager(logger, request)
 	if err != nil {
 		return nil, err
 	}
@@ -289,8 +288,8 @@ type planner struct {
 	motionChains              *motionChains
 }
 
-func newPlannerFromPlanRequest(logger logging.Logger, fs *referenceframe.FrameSystem, request *PlanRequest) (*planner, error) {
-	mChains, err := motionChainsFromPlanState(fs, request.Goals[0])
+func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*planner, error) {
+	mChains, err := motionChainsFromPlanState(&request.FrameSystem, request.Goals[0])
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +325,7 @@ func newPlannerFromPlanRequest(logger logging.Logger, fs *referenceframe.FrameSy
 		request.Constraints,
 		request.StartState,
 		request.Goals[0],
-		fs,
+		&request.FrameSystem,
 		mChains,
 		request.StartState.configuration,
 		request.WorldState,
@@ -339,7 +338,7 @@ func newPlannerFromPlanRequest(logger logging.Logger, fs *referenceframe.FrameSy
 
 	//nolint:gosec
 	return newPlanner(
-		fs,
+		&request.FrameSystem,
 		rand.New(rand.NewSource(int64(seed))),
 		logger,
 		opt,

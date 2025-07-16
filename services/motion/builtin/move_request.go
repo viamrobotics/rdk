@@ -132,7 +132,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	planRequestCopy.WorldState = worldState
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
-	return motionplan.Replan(ctx, mr.logger, mr.frameSystem, &planRequestCopy, nil, 0)
+	return motionplan.Replan(ctx, mr.logger, &planRequestCopy, nil, 0)
 }
 
 func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
@@ -963,6 +963,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		logger:      ms.logger,
 		frameSystem: planningFS,
 		planRequest: &motionplan.PlanRequest{
+			FrameSystem:    *planningFS,
 			Goals:          goals,
 			StartState:     startState,
 			WorldState:     worldState,

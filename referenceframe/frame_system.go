@@ -436,6 +436,51 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInput
 	return q, errAll
 }
 
+type serializableFrameSystem struct {
+	Name    string                `json:"name"`
+	World   TypedFrame            `json:"world"`
+	Frames  map[string]TypedFrame `json:"frames"`
+	Parents map[string]string     `json:"parents"`
+}
+
+// MarshalJSON serializes a FrameSystem into JSON format.
+func (sfs *FrameSystem) MarshalJSON() ([]byte, error) {
+	worldFrame := TypedFrame{
+		FrameType: sfs.World().FrameType(),
+		Frame:     sfs.World(),
+	}
+	typedFrames := make(map[string]TypedFrame, 0)
+	for name, frame := range sfs.frames {
+		typedFrames[name] = TypedFrame{
+			FrameType: frame.FrameType(),
+			Frame:     frame,
+		}
+	}
+	serializedFS := serializableFrameSystem{
+		Name:   sfs.name,
+		World:  worldFrame,
+		Frames: typedFrames,
+	}
+	return json.Marshal(serializedFS)
+}
+
+// UnmarshalJSON parses a FrameSystem from JSON data.
+func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
+	var serFS serializableFrameSystem
+	if err := json.Unmarshal(data, &serFS); err != nil {
+		return err
+	}
+	frameMap := make(map[string]Frame, 0)
+	for name, tF := range serFS.Frames {
+		frameMap[name] = tF.Frame
+	}
+	sfs.frames = frameMap
+	sfs.parents = serFS.Parents
+	sfs.world = serFS.World.Frame
+	sfs.name = serFS.Name
+	return nil
+}
+
 // NewZeroInputs returns a zeroed input map ensuring all frames have inputs.
 func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	positions := make(FrameSystemInputs)

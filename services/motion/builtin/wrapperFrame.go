@@ -120,6 +120,10 @@ func (wf *wrapperFrame) DoF() []referenceframe.Limit {
 	return append(wf.executionFrame.DoF(), wf.localizationFrame.DoF()...)
 }
 
+func (wf *wrapperFrame) FrameType() referenceframe.FrameType {
+	return referenceframe.UnserializableFrameType
+}
+
 // MarshalJSON serializes a given frame.
 func (wf *wrapperFrame) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("serializing a poseFrame is currently not supported")

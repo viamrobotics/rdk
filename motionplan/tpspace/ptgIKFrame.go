@@ -30,6 +30,11 @@ func (pf *ptgIKFrame) Name() string {
 	return ""
 }
 
+// FrameType for ptgIKFrame indicates that it is not a serializable frame type.
+func (pf *ptgIKFrame) FrameType() referenceframe.FrameType {
+	return referenceframe.UnserializableFrameType
+}
+
 func (pf *ptgIKFrame) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("marshal json not implemented for ptg IK frame")
 }

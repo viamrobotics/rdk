@@ -115,7 +115,82 @@ type Frame interface {
 	// ProtobufFromInput does there correct thing for this frame to convert input units (radians/mm) to protobuf units (degrees/mm)
 	ProtobufFromInput([]Input) *pb.JointPositions
 
+	// FrameType returns an enum indicating the struct variant of this interface.
+	FrameType() FrameType
+
 	json.Marshaler
+}
+
+// FrameType is an enum indicating the variant of an implementer of the Frame interface.
+type FrameType string
+
+const (
+	// StaticFrameType indicates that the frame is static.
+	StaticFrameType FrameType = "static"
+	// TranslationalFrameType indicates that the frame is for a translational joint.
+	TranslationalFrameType FrameType = "translational"
+	// RotationalFrameType indicates that the frame is for a rotational joint.
+	RotationalFrameType FrameType = "rotational"
+	// SimpleModelFrameType indicates that the reference frame is for a model from a kinematics file.
+	SimpleModelFrameType FrameType = "simple_model"
+	// UnserializableFrameType is what implementers of the `Frame`` interface should return for `FrameType()`
+	// if serialization/deserialization is not yet supported.
+	UnserializableFrameType FrameType = ""
+)
+
+// TypedFrame is a wrapper around the Frame interface that is knowledgeable about the underlying struct
+// for serialization/deserialization purposes.
+type TypedFrame struct {
+	FrameType FrameType `json:"frame_type"`
+	Frame     Frame     `json:"frame"`
+}
+
+// UnmarshalJSON parses a TypedFrame from JSON bytes.
+func (typedFrame *TypedFrame) UnmarshalJSON(data []byte) error {
+	var sF map[string]json.RawMessage
+	if err := json.Unmarshal(data, &sF); err != nil {
+		return err
+	}
+	var frameType FrameType
+	if err := json.Unmarshal(sF["frame_type"], &frameType); err != nil {
+		return err
+	}
+
+	var frameI Frame
+	switch frameType {
+	case StaticFrameType:
+		var linkConfig LinkConfig
+		if err := json.Unmarshal(sF["frame"], &linkConfig); err != nil {
+			return err
+		}
+		frame, err := staticFrameFromLinkConfig(linkConfig)
+		if err != nil {
+			return err
+		}
+		frameI = frame
+	case TranslationalFrameType, RotationalFrameType:
+		var jointConfig JointConfig
+		if err := json.Unmarshal(sF["frame"], &jointConfig); err != nil {
+			return err
+		}
+		frame, err := jointConfig.ToFrame()
+		if err != nil {
+			return err
+		}
+		frameI = frame
+	case SimpleModelFrameType:
+		var modelConfig ModelConfigJSON
+		if err := json.Unmarshal(sF["frame"], &modelConfig); err != nil {
+			return err
+		}
+		simpleModel := NewSimpleModel(modelConfig.Name)
+		simpleModel.modelConfig = &modelConfig
+	case UnserializableFrameType:
+		return errors.New("encountered a frame type that does not support JSON unmarshal")
+	}
+	typedFrame.FrameType = frameType
+	typedFrame.Frame = frameI
+	return nil
 }
 
 // baseFrame contains all the data and methods common to all frames, notably it does not implement the Frame interface itself.
@@ -272,6 +347,11 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
 }
 
+// FrameType indicates the type of Frame implementer represented by staticFrame.
+func (sf staticFrame) FrameType() FrameType {
+	return StaticFrameType
+}
+
 func (sf staticFrame) MarshalJSON() ([]byte, error) {
 	temp := LinkConfig{
 		ID:          sf.name,
@@ -291,6 +371,33 @@ func (sf staticFrame) MarshalJSON() ([]byte, error) {
 		}
 	}
 	return json.Marshal(temp)
+}
+
+func staticFrameFromLinkConfig(lc LinkConfig) (*staticFrame, error) {
+	var transform spatial.Pose
+	var geometry spatial.Geometry
+	if lc.Orientation != nil {
+		orientation, err := lc.Orientation.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		transform = spatial.NewPose(lc.Translation, orientation)
+	} else {
+		transform = spatial.NewPose(lc.Translation, nil)
+	}
+	if lc.Geometry != nil {
+		geo, err := lc.Geometry.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		geometry = geo
+	}
+	res := staticFrame{
+		baseFrame: &baseFrame{name: lc.ID, limits: []Limit{}},
+		transform: transform,
+		geometry:  geometry,
+	}
+	return &res, nil
 }
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions.
@@ -356,6 +463,11 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 		return nil, err
 	}
 	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(pose)}), err
+}
+
+// FrameType indicates the type of Frame implementer represented by translational frame.
+func (pf *translationalFrame) FrameType() FrameType {
+	return TranslationalFrameType
 }
 
 func (pf translationalFrame) MarshalJSON() ([]byte, error) {
@@ -429,6 +541,11 @@ func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // design choice made for simplicity. staticFrame and translationalFrame should be used instead.
 func (rf *rotationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	return NewGeometriesInFrame(rf.Name(), nil), nil
+}
+
+// FrameType indicates the type of Frame implementer represented by rotationalFrame.
+func (rf *rotationalFrame) FrameType() FrameType {
+	return RotationalFrameType
 }
 
 func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
@@ -520,6 +637,11 @@ func (pf *poseFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 		transformedGeometries = append(transformedGeometries, geom.Transform(transformByPose))
 	}
 	return NewGeometriesInFrame(pf.name, transformedGeometries), nil
+}
+
+// FrameType for poseFrame indicates that it is not a serializable frame type.
+func (pf *poseFrame) FrameType() FrameType {
+	return UnserializableFrameType
 }
 
 // DoF returns the number of degrees of freedom within a model.
