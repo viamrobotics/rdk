@@ -504,12 +504,12 @@ func (pf *translationalFrame) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	pf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{Limit{Min: cfg.Min, Max: cfg.Max}}}
+	pf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{{Min: cfg.Min, Max: cfg.Max}}}
 	pf.transAxis = r3.Vector(cfg.Axis).Normalize()
 	if cfg.Geometry != nil {
 		geometry, err := cfg.Geometry.ParseConfig()
 		if err != nil {
-			return nil
+			return err
 		}
 		pf.geometry = geometry
 	}
@@ -593,7 +593,7 @@ func (rf *rotationalFrame) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	rf.baseFrame = &baseFrame{name: rf.Name(), limits: []Limit{Limit{Min: cfg.Min, Max: cfg.Max}}}
+	rf.baseFrame = &baseFrame{name: rf.Name(), limits: []Limit{{Min: cfg.Min, Max: cfg.Max}}}
 	rotAxis := cfg.Axis.ParseConfig()
 	rf.rotAxis = r3.Vector{X: rotAxis.RX, Y: rotAxis.RY, Z: rotAxis.RZ}
 	return nil

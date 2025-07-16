@@ -963,7 +963,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		logger:      ms.logger,
 		frameSystem: planningFS,
 		planRequest: &motionplan.PlanRequest{
-			FrameSystem:    *planningFS,
+			FrameSystem:    planningFS,
 			Goals:          goals,
 			StartState:     startState,
 			WorldState:     worldState,

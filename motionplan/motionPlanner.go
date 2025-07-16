@@ -44,7 +44,7 @@ type motionPlanner interface {
 
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
-	FrameSystem referenceframe.FrameSystem `json:"frame_system"`
+	FrameSystem *referenceframe.FrameSystem `json:"frame_system"`
 
 	// The planner will hit each Goal in order. Each goal may be a configuration or FrameSystemPoses for holonomic motion, or must be a
 	// FrameSystemPoses for non-holonomic motion. For holonomic motion, if both a configuration and FrameSystemPoses are given,
@@ -75,6 +75,9 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req == nil {
 		return errors.New("PlanRequest cannot be nil")
 	}
+	if req.FrameSystem == nil {
+		return errors.New("PlanRequest cannot have nil framesystem")
+	}
 
 	if req.StartState == nil {
 		return errors.New("PlanRequest cannot have nil StartState")
@@ -84,7 +87,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 	}
 	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
 	if len(req.StartState.configuration) > 0 {
-		_, err := req.StartState.configuration.ComputePoses(&req.FrameSystem)
+		_, err := req.StartState.configuration.ComputePoses(req.FrameSystem)
 		if err != nil {
 			return err
 		}
@@ -217,7 +220,7 @@ func PlanFrameMotion(ctx context.Context,
 		return nil, err
 	}
 	plan, err := PlanMotion(ctx, logger, &PlanRequest{
-		FrameSystem: *fs,
+		FrameSystem: fs,
 		Goals: []*PlanState{
 			{poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
 		},
@@ -289,7 +292,7 @@ type planner struct {
 }
 
 func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*planner, error) {
-	mChains, err := motionChainsFromPlanState(&request.FrameSystem, request.Goals[0])
+	mChains, err := motionChainsFromPlanState(request.FrameSystem, request.Goals[0])
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +328,7 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 		request.Constraints,
 		request.StartState,
 		request.Goals[0],
-		&request.FrameSystem,
+		request.FrameSystem,
 		mChains,
 		request.StartState.configuration,
 		request.WorldState,
@@ -338,7 +341,7 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 
 	//nolint:gosec
 	return newPlanner(
-		&request.FrameSystem,
+		request.FrameSystem,
 		rand.New(rand.NewSource(int64(seed))),
 		logger,
 		opt,
