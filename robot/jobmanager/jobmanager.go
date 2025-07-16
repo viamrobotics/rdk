@@ -39,7 +39,9 @@ const (
 )
 
 var (
-	// TODO: document
+	// controllerAPIs is a map for an edge case handling of the "inputcontroller" API. This
+	// API expects a different argument ("controller", rather than "name") for this set of
+	// functions.
 	controllerAPIs = map[string]map[string]struct{}{
 		"viam.component.inputcontroller.v1.InputControllerService": {
 			"GetControls":   {},
@@ -167,16 +169,14 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig) func() {
 			return
 		}
 
-		var data string
-		// TODO: document
+		data := fmt.Sprintf("{%q : %q}", "name", jc.Resource)
+		// In case this grpcService needs a special, different argument, we will check it
+		// using this map.
 		if methods, ok := controllerAPIs[grpcService]; ok {
 			if _, ok := methods[grpcMethod]; ok {
 				data = fmt.Sprintf("{%q : %q}", "controller", jc.Resource)
 			}
-		} else {
-			data = fmt.Sprintf("{%q : %q}", "name", jc.Resource)
 		}
-
 		options := grpcurl.FormatOptions{
 			EmitJSONDefaultFields: true,
 			IncludeTextSeparator:  true,
