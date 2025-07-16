@@ -39,6 +39,10 @@ func (pf *ptgIKFrame) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("marshal json not implemented for ptg IK frame")
 }
 
+func (pf *ptgIKFrame) UnmarshalJSON(data []byte) error {
+	return errors.New("unmarshal json not implemented for ptg IK frame")
+}
+
 func (pf *ptgIKFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
 	n := make([]referenceframe.Input, len(jp.Values))
 	for idx, d := range jp.Values {

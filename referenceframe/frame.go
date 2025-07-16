@@ -119,6 +119,7 @@ type Frame interface {
 	FrameType() FrameType
 
 	json.Marshaler
+	json.Unmarshaler
 }
 
 // FrameType is an enum indicating the variant of an implementer of the Frame interface.
@@ -166,32 +167,29 @@ func JSONToFrame(data json.RawMessage) (Frame, error) {
 	var frameI Frame
 	switch frameType {
 	case StaticFrameType:
-		var linkConfig LinkConfig
-		if err := json.Unmarshal(sF["frame"], &linkConfig); err != nil {
+		var frame staticFrame
+		if err := json.Unmarshal(sF["frame"], &frame); err != nil {
 			return nil, err
 		}
-		frame, err := staticFrameFromLinkConfig(linkConfig)
-		if err != nil {
+		frameI = &frame
+	case TranslationalFrameType:
+		var frame translationalFrame
+		if err := json.Unmarshal(sF["frame"], &frame); err != nil {
 			return nil, err
 		}
-		frameI = frame
-	case TranslationalFrameType, RotationalFrameType:
-		var jointConfig JointConfig
-		if err := json.Unmarshal(sF["frame"], &jointConfig); err != nil {
+		frameI = &frame
+	case RotationalFrameType:
+		var frame rotationalFrame
+		if err := json.Unmarshal(sF["frame"], &frame); err != nil {
 			return nil, err
 		}
-		frame, err := jointConfig.ToFrame()
-		if err != nil {
-			return nil, err
-		}
-		frameI = frame
+		frameI = &frame
 	case SimpleModelFrameType:
-		var modelConfig ModelConfigJSON
-		if err := json.Unmarshal(sF["frame"], &modelConfig); err != nil {
+		var frame SimpleModel
+		if err := json.Unmarshal(sF["frame"], &frame); err != nil {
 			return nil, err
 		}
-		simpleModel := NewSimpleModel(modelConfig.Name)
-		simpleModel.modelConfig = &modelConfig
+		frameI = &frame
 	case UnserializableFrameType:
 		return nil, errors.New("encountered a frame type that does not support JSON unmarshal")
 	}
@@ -378,13 +376,18 @@ func (sf staticFrame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
-func staticFrameFromLinkConfig(lc LinkConfig) (*staticFrame, error) {
+func (sf *staticFrame) UnmarshalJSON(data []byte) error {
+	var lc LinkConfig
+	if err := json.Unmarshal(data, &lc); err != nil {
+		return err
+	}
+
 	var transform spatial.Pose
 	var geometry spatial.Geometry
 	if lc.Orientation != nil {
 		orientation, err := lc.Orientation.ParseConfig()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		transform = spatial.NewPose(lc.Translation, orientation)
 	} else {
@@ -393,16 +396,14 @@ func staticFrameFromLinkConfig(lc LinkConfig) (*staticFrame, error) {
 	if lc.Geometry != nil {
 		geo, err := lc.Geometry.ParseConfig()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		geometry = geo
 	}
-	res := staticFrame{
-		baseFrame: &baseFrame{name: lc.ID, limits: []Limit{}},
-		transform: transform,
-		geometry:  geometry,
-	}
-	return &res, nil
+	sf.baseFrame = &baseFrame{name: lc.ID, limits: []Limit{}}
+	sf.transform = transform
+	sf.geometry = geometry
+	return nil
 }
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions.
@@ -497,6 +498,24 @@ func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
+func (pf *translationalFrame) UnmarshalJSON(data []byte) error {
+	var cfg JointConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return err
+	}
+
+	pf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{Limit{Min: cfg.Min, Max: cfg.Max}}}
+	pf.transAxis = r3.Vector(cfg.Axis).Normalize()
+	if cfg.Geometry != nil {
+		geometry, err := cfg.Geometry.ParseConfig()
+		if err != nil {
+			return nil
+		}
+		pf.geometry = geometry
+	}
+	return nil
+}
+
 type rotationalFrame struct {
 	*baseFrame
 	rotAxis r3.Vector
@@ -566,6 +585,18 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(temp)
+}
+
+func (rf *rotationalFrame) UnmarshalJSON(data []byte) error {
+	var cfg JointConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return err
+	}
+
+	rf.baseFrame = &baseFrame{name: rf.Name(), limits: []Limit{Limit{Min: cfg.Min, Max: cfg.Max}}}
+	rotAxis := cfg.Axis.ParseConfig()
+	rf.rotAxis = r3.Vector{X: rotAxis.RX, Y: rotAxis.RY, Z: rotAxis.RZ}
+	return nil
 }
 
 type poseFrame struct {
@@ -657,6 +688,11 @@ func (pf *poseFrame) DoF() []Limit {
 // MarshalJSON serializes a Model.
 func (pf *poseFrame) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("serializing a poseFrame is currently not supported")
+}
+
+// UnmarshalJSON parses a poseFrame.
+func (pf *poseFrame) UnmarshalJSON(data []byte) error {
+	return errors.New("deserializing a poseFrame is currently not supported")
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.

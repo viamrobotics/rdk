@@ -129,6 +129,11 @@ func (wf *wrapperFrame) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("serializing a poseFrame is currently not supported")
 }
 
+// UnmarshalJSON serializes a given frame.
+func (wf *wrapperFrame) UnmarshalJSON(data []byte) error {
+	return errors.New("serializing a wrapperFrame is currently not supported")
+}
+
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (wf *wrapperFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
 	jpValues := jp.Values
