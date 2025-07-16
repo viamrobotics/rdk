@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"sort"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -619,7 +620,11 @@ func TestSerializedPlanRequest(t *testing.T) {
 
 	fs1 := pr.FrameSystem
 	fs2 := parsedPr.FrameSystem
-	test.That(t, fs1.FrameNames(), test.ShouldResemble, fs2.FrameNames())
+	frames1 := fs1.FrameNames()
+	frames2 := fs2.FrameNames()
+	sort.Strings(frames1)
+	sort.Strings(frames2)
+	test.That(t, frames1, test.ShouldResemble, frames2)
 }
 
 func TestArmOOBSolve(t *testing.T) {
