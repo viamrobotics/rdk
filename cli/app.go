@@ -2508,8 +2508,8 @@ Note: There is no progress meter while copying is in progress.
 			Subcommands: []*cli.Command{
 				{
 					Name:      "read",
-					Usage:     "read metadata attached to your orgs, locations, machines, or machine parts",
-					UsageText: createUsageText("metadata read", nil, false, false, "organization-id", "location-id", "machine-id", "machine-part-id"),
+					Usage:     "read metadata attached to your orgs, locations, machines, and/or machine parts",
+					UsageText: "Provide at least one of the identifiers using CLI arguments to fetch the corresponding metadata",
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  "organization-id",
