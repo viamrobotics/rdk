@@ -2,30 +2,33 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
-	"strings"
+	"errors"
+	"slices"
 	"testing"
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/audioinput"
-	//"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/discovery"
+	genSvc "go.viam.com/rdk/services/generic"
+	"go.viam.com/rdk/services/mlmodel"
+	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/services/shell"
+	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 
-	//weboptions "go.viam.com/rdk/robot/web/options"
-
-	//"google.golang.org/grpc/codes"
-	//"google.golang.org/grpc/status"
-	//"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/button"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/encoder"
 
-	//fakeencoder "go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
@@ -36,7 +39,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 
-	//fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	sw "go.viam.com/rdk/components/switch"
@@ -49,62 +51,69 @@ import (
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/utils"
 
-	//"go.viam.com/utils/rpc"
 	"go.viam.com/rdk/testutils/inject"
-	//robottestutils "go.viam.com/rdk/testutils/robottestutils"
+	injectmotion "go.viam.com/rdk/testutils/inject/motion"
+
 	"go.viam.com/utils/testutils"
 )
 
-// tests to do:
-// test that checks every service (one method each)
-// test that checks DoCommand unimplemented
-// test that checks that jobs can be modified/added/removed
-// tcp test
-// test singleton mode for duration and for cron
-
-func TestDurationsAndCronJobManager(t *testing.T) {
+func TestJobManagerDurationAndCronFromJson(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake_jobs.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 	logger, logs := logging.NewObservedTestLogger(t)
-	robotContext := context.Background()
-	setupLocalRobot(t, robotContext, cfg, logger)
+	setupLocalRobot(t, context.Background(), cfg, logger)
 
-	testutils.WaitForAssertionWithSleep(t, time.Second, 22, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Second, 7, func(tb testing.TB) {
 		tb.Helper()
-		// this config has a 10s job, a 20s jobs, and a 5s cron job. After (around) 20 seconds,
-		// it should have about 7 instances of finished jobs (since cron depends on the clock,
-		// not on program start time)
+		// the jobs in the config are on 4-5s schedules so after 6-7 seconds, all of them
+		// should run at least once
 		test.That(tb, logs.FilterMessage("Job triggered").Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 7)
+			test.ShouldBeGreaterThanOrEqualTo, 3)
 		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 7)
+			test.ShouldBeGreaterThanOrEqualTo, 3)
 	})
 }
 
-func TestJobManagerDoCommand(t *testing.T) {
+func TestJobManagerConfigChanges(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	//channel := make(chan struct{})
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 
-	//logger, logs := logging.NewObservedTestLogger(t)
 	var (
-		doCommandCount1 int
-		doCommandCount2 int
+		doCommandFirstCount1 int
+		doCommandFirstCount2 int
+		doCommandSecondCount int
+		doCommandThirdCount  int
 	)
 	dummyArm1 := &inject.Arm{
 		DoFunc: func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
-			doCommandCount1++
+			myCommand, exists := cmd["command"]
+			if !exists {
+				return nil, errors.New("command not in the map")
+			}
+			if myCommand == "first 1" {
+				doCommandFirstCount1++
+			} else {
+				doCommandFirstCount2++
+			}
 			return map[string]any{
-				"count1": doCommandCount1,
+				"count": "done",
 			}, nil
 		},
 	}
 	dummyArm2 := &inject.Arm{
 		DoFunc: func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
-			doCommandCount2++
+			doCommandSecondCount++
 			return map[string]any{
-				"count2": doCommandCount2,
+				"count2": "done",
+			}, nil
+		},
+	}
+	dummyArm3 := &inject.Arm{
+		DoFunc: func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
+			doCommandThirdCount++
+			return map[string]any{
+				"count3": "done",
 			}, nil
 		},
 	}
@@ -119,99 +128,113 @@ func TestJobManagerDoCommand(t *testing.T) {
 		) (arm.Arm, error) {
 			if conf.Name == "arm1" {
 				return dummyArm1, nil
+			} else if conf.Name == "arm2" {
+				return dummyArm2, nil
 			}
-			return dummyArm2, nil
+			return dummyArm3, nil
 		}})
 
-	armConfig := fmt.Sprintf(`{
-		"components": [
+	cfg := &config.Config{
+		Components: []resource.Config{
 			{
-				"model": "%[1]s",
-				"name": "arm1",
-				"type": "arm"
+				Model: model,
+				Name:  "arm1",
+				API:   arm.API,
 			},
 			{
-				"model": "%[1]s",
-				"name": "arm2",
-				"type": "arm"
-			}
-		],
-	"jobs" : [
-	{
-		"name" : "arm1 job",
-		"schedule" : "*/3 * * * * *",
-		"resource" : "arm1",
-		"method" : "DoCommand",
-		"command" : {
-			"command" : "test"
-		}
-	},
-	{
-		"name" : "arm2 job",
-		"schedule" : "5s",
-		"resource" : "arm2",
-		"method" : "DoCommand",
-		"command" : {
-			"command" : "test"
-		}
+				Model: model,
+				Name:  "arm2",
+				API:   arm.API,
+			},
+			{
+				Model: model,
+				Name:  "arm3",
+				API:   arm.API,
+			},
+		},
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "arm1 job",
+					Schedule: "3s",
+					Resource: "arm1",
+					Method:   "DoCommand",
+					Command: map[string]any{
+						"command": "first 1",
+					},
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "arm2 job",
+					Schedule: "3s",
+					Resource: "arm2",
+					Method:   "DoCommand",
+					Command: map[string]any{
+						"command": "second",
+					},
+				},
+			},
+		},
 	}
-	]
-	} 
-	`, model.String())
+
 	defer func() {
 		resource.Deregister(arm.API, model)
 	}()
 
-	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger, nil)
-	test.That(t, err, test.ShouldBeNil)
-
 	ctx := context.Background()
-	setupLocalRobot(t, ctx, cfg, logger)
+	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
 		tb.Helper()
-		//test.That(tb, logs.FilterMessage(fmt.Sprintf("{%q:{%q:5}}", "response", "count1")).Len(),
-		//test.ShouldBeGreaterThanOrEqualTo, 1)
-		//test.That(tb, logs.FilterMessage(fmt.Sprintf("{%q:{%q:3}}", "response", "count2")).Len(),
-		//test.ShouldBeGreaterThanOrEqualTo, 1)
-
-		test.That(tb, doCommandCount1, test.ShouldEqual, 5)
-		test.That(tb, doCommandCount2, test.ShouldEqual, 3)
+		// after 3 seconds, FirstCount1 and SecondCount should fire at least once
+		test.That(tb, doCommandFirstCount1, test.ShouldEqual, 1)
+		test.That(tb, doCommandSecondCount, test.ShouldEqual, 1)
 	})
 
-	// Test OPID cancellation
-	//options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	//err = r.StartWeb(ctx, options)
-	//test.That(t, err, test.ShouldBeNil)
+	// then, we reconfigure to change the first job, remove second, add third
+	newJobs := []config.JobConfig{
+		{
+			config.JobConfigData{
+				Name:     "arm1 job",
+				Schedule: "3s",
+				Resource: "arm1",
+				Method:   "DoCommand",
+				Command: map[string]any{
+					"command": "first 2",
+				},
+			},
+		},
+		{
+			config.JobConfigData{
+				Name:     "arm3 job",
+				Schedule: "3s",
+				Resource: "arm3",
+				Method:   "DoCommand",
+				Command: map[string]any{
+					"command": "third",
+				},
+			},
+		},
+	}
 
-	//conn, err := rgrpc.Dial(ctx, addr, logger)
-	//test.That(t, err, test.ShouldBeNil)
-	//defer utils.UncheckedErrorFunc(conn.Close)
-	//arm1, err := arm.NewClientFromConn(ctx, conn, "somerem", arm.Named("arm1"), logger)
-	//test.That(t, err, test.ShouldBeNil)
+	cfg.Jobs = newJobs
 
-	//foundOPID := false
-	//stopAllErrCh := make(chan error, 1)
-	//go func() {
-	//<-channel
-	//for _, opid := range r.OperationManager().All() {
-	//if opid.Method == "/viam.component.arm.v1.ArmService/DoCommand" {
-	//foundOPID = true
-	//stopAllErrCh <- r.StopAll(ctx, nil)
-	//}
-	//}
-	//}()
-	//_, err = arm1.DoCommand(ctx, map[string]interface{}{})
-	//s, isGRPCErr := status.FromError(err)
-	//test.That(t, isGRPCErr, test.ShouldBeTrue)
-	//test.That(t, s.Code(), test.ShouldEqual, codes.Canceled)
+	r.Reconfigure(context.Background(), cfg)
 
-	//stopAllErr := <-stopAllErrCh
-	//test.That(t, foundOPID, test.ShouldBeTrue)
-	//test.That(t, stopAllErr, test.ShouldBeNil)
+	// NOTE: test could flake because of precies "ShouldEqual"
+	testutils.WaitForAssertionWithSleep(t, time.Second, 8, func(tb testing.TB) {
+		tb.Helper()
+		// after two rounds of 3 second jobs, the FirstCount2 and ThirdCount should
+		// have happened twice, while the other two jobs only once.
+		test.That(tb, doCommandFirstCount1, test.ShouldEqual, 1)
+		test.That(tb, doCommandSecondCount, test.ShouldEqual, 1)
+		test.That(tb, doCommandFirstCount2, test.ShouldEqual, 2)
+		test.That(tb, doCommandThirdCount, test.ShouldEqual, 2)
+	})
 }
 
-func TestEveryComponentJobManager(t *testing.T) {
+func TestJobManagerComponents(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 
@@ -242,9 +265,6 @@ func TestEveryComponentJobManager(t *testing.T) {
 		}
 		return audio, nil
 	}
-	//dummyAudioInput.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.AudioStream, error) {
-	//return nil, nil
-	//}
 	resource.RegisterComponent(
 		audioinput.API,
 		model,
@@ -636,7 +656,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "arm job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "arm",
 					Method:   "GetGeometries",
 				},
@@ -644,7 +664,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "audio input job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "audio",
 					Method:   "Properties",
 				},
@@ -652,7 +672,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "base job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "base",
 					Method:   "IsMoving",
 				},
@@ -660,7 +680,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "board job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "board",
 					Method:   "GetGPIO",
 				},
@@ -668,7 +688,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "button job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "button",
 					Method:   "Push",
 				},
@@ -676,7 +696,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "camera job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "camera",
 					Method:   "GetProperties",
 				},
@@ -684,7 +704,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "encoder job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "encoder",
 					Method:   "GetProperties",
 				},
@@ -692,7 +712,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "gantry job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "gantry",
 					Method:   "Home",
 				},
@@ -700,7 +720,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "generic job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "generic",
 					Method:   "DoCommand",
 					Command: map[string]any{
@@ -711,7 +731,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "gripper job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "gripper",
 					Method:   "Grab",
 				},
@@ -719,7 +739,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "input job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "my_input",
 					Method:   "GetEvents",
 				},
@@ -727,7 +747,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "motor job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "motor",
 					Method:   "SetPower",
 				},
@@ -735,7 +755,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "movement sensor job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "mov_sensor",
 					Method:   "GetOrientation",
 				},
@@ -743,7 +763,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "pose job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "pose",
 					Method:   "GetPoses",
 				},
@@ -751,7 +771,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "power sensor job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "power_sensor",
 					Method:   "GetVoltage",
 				},
@@ -759,7 +779,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "sensor job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "sensor",
 					Method:   "GetReadings",
 				},
@@ -767,7 +787,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "servo job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "servo",
 					Method:   "GetPosition",
 				},
@@ -775,7 +795,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "switch job",
-					Schedule: "2s",
+					Schedule: "3s",
 					Resource: "switch",
 					Method:   "GetNumberOfPositions",
 				},
@@ -806,7 +826,7 @@ func TestEveryComponentJobManager(t *testing.T) {
 	ctx := context.Background()
 	setupLocalRobot(t, ctx, cfg, logger)
 
-	testutils.WaitForAssertionWithSleep(t, time.Second, 3, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
 		tb.Helper()
 		// we will test for succeeded jobs to be the amount we started,
 		// and that there are no failed jobs
@@ -817,20 +837,453 @@ func TestEveryComponentJobManager(t *testing.T) {
 		test.That(tb, logs.FilterMessage("Job failed").Len(),
 			test.ShouldBeLessThanOrEqualTo, 0)
 	})
-
 }
 
-func TestEveryServiceJobManager(t *testing.T) {
+func TestJobManagerServices(t *testing.T) {
+	logger, logs := logging.NewObservedTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 
-	// services:
 	// datamanager
+	dummyDataManager := inject.NewDataManagerService("data_manager")
+	dummyDataManager.SyncFunc = func(ctx context.Context, extra map[string]any) error {
+		return nil
+	}
+	resource.RegisterService(
+		datamanager.API,
+		model,
+		resource.Registration[datamanager.Service, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (datamanager.Service, error) {
+			return dummyDataManager, nil
+		}})
+
 	// discovery
+	dummyDiscovery := inject.NewDiscoveryService("discovery")
+	dummyDiscovery.DiscoverResourcesFunc = func(ctx context.Context,
+		extra map[string]any) ([]resource.Config, error) {
+		return make([]resource.Config, 0), nil
+	}
+	dummyDiscovery.DoFunc = func(ctx context.Context,
+		cmd map[string]interface{}) (map[string]interface{}, error) {
+		return nil, nil
+	}
+	resource.RegisterService(
+		discovery.API,
+		model,
+		resource.Registration[discovery.Service, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (discovery.Service, error) {
+			return dummyDiscovery, nil
+		}})
+
 	// generic
+	var genericCounter int
+	dummyGeneric := inject.NewGenericService("generic")
+	dummyGeneric.DoFunc = func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
+		genericCounter++
+		return map[string]any{
+			"generic_count": genericCounter,
+		}, nil
+	}
+	resource.RegisterService(
+		genSvc.API,
+		model,
+		resource.Registration[genSvc.Service, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (genSvc.Service, error) {
+			return dummyGeneric, nil
+		}})
 	// ml_model
+	dummyML := inject.NewMLModelService("ml_model")
+	dummyML.InferFunc = func(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
+		return make(ml.Tensors), nil
+	}
+	resource.RegisterService(
+		mlmodel.API,
+		model,
+		resource.Registration[mlmodel.Service, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (mlmodel.Service, error) {
+			return dummyML, nil
+		}})
 	// motion
+	dummyMotion := injectmotion.NewMotionService("motion")
+	dummyMotion.ListPlanStatusesFunc = func(ctx context.Context, req motion.ListPlanStatusesReq) ([]motion.PlanStatusWithID, error) {
+		return make([]motion.PlanStatusWithID, 0), nil
+	}
+	resource.RegisterService(
+		motion.API,
+		model,
+		resource.Registration[motion.Service, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (motion.Service, error) {
+			return dummyMotion, nil
+		}})
 	// navigation
-	// sensors
+	dummyNav := inject.NewNavigationService("navigation")
+	dummyNav.ModeFunc = func(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
+		return navigation.ModeExplore, nil
+	}
+	resource.RegisterService(
+		navigation.API,
+		model,
+		resource.Registration[navigation.Service, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (navigation.Service, error) {
+			return dummyNav, nil
+		}})
 	// shell
+	var shellCounter int
+	dummyShell := inject.NewShellService("shell")
+	dummyShell.DoCommandFunc = func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
+		shellCounter++
+		return map[string]any{
+			"shell_count": shellCounter,
+		}, nil
+	}
+	resource.RegisterService(
+		shell.API,
+		model,
+		resource.Registration[shell.Service, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (shell.Service, error) {
+			return dummyShell, nil
+		}})
 	// slam
+	dummySlam := inject.NewSLAMService("slam")
+	dummySlam.PropertiesFunc = func(ctx context.Context) (slam.Properties, error) {
+		return slam.Properties{
+			CloudSlam: true,
+		}, nil
+	}
+	resource.RegisterService(
+		slam.API,
+		model,
+		resource.Registration[slam.Service, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (slam.Service, error) {
+			return dummySlam, nil
+		}})
 	// vision
+	dummyVision := inject.NewVisionService("vision")
+	dummyVision.GetPropertiesFunc = func(ctx context.Context, extra map[string]any) (*vision.Properties, error) {
+		return &vision.Properties{
+			ClassificationSupported: true,
+			ObjectPCDsSupported:     false,
+			DetectionSupported:      true,
+		}, nil
+	}
+	resource.RegisterService(
+		vision.API,
+		model,
+		resource.Registration[vision.Service, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (vision.Service, error) {
+			return dummyVision, nil
+		}})
+	cfg := &config.Config{
+		Services: []resource.Config{
+			{
+				Model: model,
+				Name:  "data_manager",
+				API:   datamanager.API,
+			},
+			{
+				Model: model,
+				Name:  "discovery",
+				API:   discovery.API,
+			},
+			{
+				Model: model,
+				Name:  "generic",
+				API:   genSvc.API,
+			},
+			{
+				Model: model,
+				Name:  "ml_model",
+				API:   mlmodel.API,
+			},
+			{
+				Model: model,
+				Name:  "navigation",
+				API:   navigation.API,
+			},
+			{
+				Model: model,
+				Name:  "shell",
+				API:   shell.API,
+			},
+			{
+				Model: model,
+				Name:  "slam",
+				API:   slam.API,
+			},
+			{
+				Model: model,
+				Name:  "vision",
+				API:   vision.API,
+			},
+			{
+				Model: model,
+				Name:  "motion",
+				API:   motion.API,
+			},
+		},
+		Jobs: []config.JobConfig{
+			//{
+			//config.JobConfigData{
+			//Name:     "discovery job",
+			//Schedule: "3s",
+			//Resource: "discovery",
+			//Method:   "DiscoverResources",
+			//},
+			//},
+			{
+				config.JobConfigData{
+					Name:     "data manager job",
+					Schedule: "3s",
+					Resource: "data_manager",
+					Method:   "Sync",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "generic job",
+					Schedule: "3s",
+					Resource: "generic",
+					Method:   "DoCommand",
+					Command: map[string]any{
+						"command": "test",
+					},
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "ml job",
+					Schedule: "3s",
+					Resource: "ml_model",
+					Method:   "Infer",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "nav job",
+					Schedule: "3s",
+					Resource: "navigation",
+					Method:   "GetMode",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "shell job",
+					Schedule: "3s",
+					Resource: "shell",
+					Method:   "DoCommand",
+					Command: map[string]any{
+						"command": "test",
+					},
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "slam job",
+					Schedule: "3s",
+					Resource: "slam",
+					Method:   "GetProperties",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "vision job",
+					Schedule: "3s",
+					Resource: "vision",
+					Method:   "GetProperties",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "motion job",
+					Schedule: "3s",
+					Resource: "motion",
+					Method:   "ListPlanStatuses",
+				},
+			},
+		},
+	}
+	defer func() {
+		resource.Deregister(datamanager.API, model)
+		resource.Deregister(discovery.API, model)
+		resource.Deregister(genSvc.API, model)
+		resource.Deregister(mlmodel.API, model)
+		resource.Deregister(navigation.API, model)
+		resource.Deregister(shell.API, model)
+		resource.Deregister(slam.API, model)
+		resource.Deregister(vision.API, model)
+		resource.Deregister(motion.API, model)
+	}()
+
+	ctx := context.Background()
+	setupLocalRobot(t, ctx, cfg, logger)
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage("Job triggered").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 8)
+		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 8)
+		test.That(tb, logs.FilterMessage("Job failed").Len(),
+			test.ShouldBeLessThanOrEqualTo, 0)
+	})
+}
+func TestJobManagerErrors(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake_jobs.json", logger, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(cfg.Jobs), test.ShouldBeGreaterThanOrEqualTo, 1)
+	// components in the fake config do not implement do command; we can alter the config of
+	// of the first job and check the error message
+	unimplementedDoCommandCfg := config.JobConfig{
+		config.JobConfigData{
+			Name:     "test unimplemented",
+			Schedule: "3s",
+			Resource: cfg.Jobs[0].Resource,
+			Method:   "DoCommand",
+			Command: map[string]any{
+				"command": "test unimplemented",
+			},
+		},
+	}
+	cfg.Jobs = []config.JobConfig{
+		unimplementedDoCommandCfg,
+	}
+	logger, logs := logging.NewObservedTestLogger(t)
+	r := setupLocalRobot(t, context.Background(), cfg, logger)
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage("Job triggered").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+		test.That(tb, logs.FilterMessage("Job failed").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
+
+	// get the error log and check the actual message
+	foundErrorLogs := logs.FilterFieldKey("error").All()
+
+	test.That(t, len(foundErrorLogs), test.ShouldBeGreaterThanOrEqualTo, 1)
+	test.That(t, foundErrorLogs[0].ContextMap()["error"], test.ShouldEqual, "DoCommand unimplemented")
+	badResourceJobCfg := config.JobConfig{
+		config.JobConfigData{
+			Name:     "resource not in graph",
+			Schedule: "1s",
+			Resource: "unexpected",
+			Method:   "method",
+		},
+	}
+
+	cfg.Jobs = append(cfg.Jobs, badResourceJobCfg)
+	r.Reconfigure(context.Background(), cfg)
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 3, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessageSnippet("Could not get resource").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
+
+	// reset logs
+	logs.TakeAll()
+
+	// create functions that return errors
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	dummyArm := inject.NewArm("arm")
+	dummyArm.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+		return nil, errors.New("test error api function")
+	}
+	dummyArm.DoFunc = func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
+		return nil, errors.New("test error do command")
+	}
+	resource.RegisterComponent(
+		arm.API,
+		model,
+		resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (arm.Arm, error) {
+			return dummyArm, nil
+		}})
+
+	newConf := config.Config{
+		Components: []resource.Config{
+			{
+				Model: model,
+				Name:  "arm",
+				API:   arm.API,
+			},
+		},
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "arm job",
+					Schedule: "3s",
+					Resource: "arm",
+					Method:   "GetGeometries",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "arm job do command",
+					Schedule: "3s",
+					Resource: "arm",
+					Method:   "DoCommand",
+					Command: map[string]any{
+						"command": "test",
+					},
+				},
+			},
+		},
+	}
+	r.Reconfigure(context.Background(), &newConf)
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+		tb.Helper()
+		// check that we have two errors, one from doCommand and one from an rpc call
+		test.That(tb, logs.FilterMessageSnippet("Job failed").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 2)
+		errorLogs := logs.FilterFieldKey("error").All()
+		errorMessages := []any{}
+		for _, log := range errorLogs {
+			errorMessages = append(errorMessages, log.ContextMap()["error"])
+		}
+		test.That(tb, slices.Contains(errorMessages, "test error do command"), test.ShouldBeTrue)
+		test.That(tb, slices.Contains(errorMessages, "rpc error: code = Unknown desc = test error api function"), test.ShouldBeTrue)
+	})
 }
