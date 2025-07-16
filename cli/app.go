@@ -2510,7 +2510,7 @@ Note: There is no progress meter while copying is in progress.
 					Name:  "local-app-testing",
 					Usage: "test your viam application locally",
 					UsageText: createUsageText("module local-app-testing",
-						[]string{"app-url", "machine-id", "machine-api-key", "machine-api-key-id"}, false, false),
+						[]string{"app-url", "machine-id"}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     "app-url",
@@ -2521,18 +2521,6 @@ Note: There is no progress meter while copying is in progress.
 							Name: "machine-id",
 							Usage: "machine ID of the machine you want to test with, you can get it at " +
 								"https://app.viam.com/fleet/machines",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name: "machine-api-key-id",
-							Usage: "machine API key ID for the machine you provided the ID of, you can get it at " +
-								"https://app.viam.comm/machine/<machineID>/connect/api-keys",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name: "machine-api-key",
-							Usage: "machine API key for the machine you provided the ID of, you can get it at " +
-								"https://app.viam.comm/machine/<machineID>/connect/api-keys",
 							Required: true,
 						},
 					},
