@@ -138,22 +138,29 @@ const (
 	UnserializableFrameType FrameType = ""
 )
 
-// TypedFrame is a wrapper around the Frame interface that is knowledgeable about the underlying struct
-// for serialization/deserialization purposes.
-type TypedFrame struct {
-	FrameType FrameType `json:"frame_type"`
-	Frame     Frame     `json:"frame"`
+// FrameToJSON marshals an implementer of the Frame interface into JSON.
+func FrameToJSON(frame Frame) ([]byte, error) {
+	type typedFrame struct {
+		FrameType FrameType `json:"frame_type"`
+		Frame     Frame     `json:"frame"`
+	}
+	return json.Marshal(&typedFrame{
+		FrameType: frame.FrameType(),
+		Frame:     frame,
+	})
 }
 
-// UnmarshalJSON parses a TypedFrame from JSON bytes.
-func (typedFrame *TypedFrame) UnmarshalJSON(data []byte) error {
+// JSONToFrame converts raw JSON into a Frame by using a key called "frame_type"
+// to determine the explicit struct type to which the frame data (found under the key
+// "frame") should be marshalled.
+func JSONToFrame(data json.RawMessage) (Frame, error) {
 	var sF map[string]json.RawMessage
 	if err := json.Unmarshal(data, &sF); err != nil {
-		return err
+		return nil, err
 	}
 	var frameType FrameType
 	if err := json.Unmarshal(sF["frame_type"], &frameType); err != nil {
-		return err
+		return nil, err
 	}
 
 	var frameI Frame
@@ -161,36 +168,34 @@ func (typedFrame *TypedFrame) UnmarshalJSON(data []byte) error {
 	case StaticFrameType:
 		var linkConfig LinkConfig
 		if err := json.Unmarshal(sF["frame"], &linkConfig); err != nil {
-			return err
+			return nil, err
 		}
 		frame, err := staticFrameFromLinkConfig(linkConfig)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		frameI = frame
 	case TranslationalFrameType, RotationalFrameType:
 		var jointConfig JointConfig
 		if err := json.Unmarshal(sF["frame"], &jointConfig); err != nil {
-			return err
+			return nil, err
 		}
 		frame, err := jointConfig.ToFrame()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		frameI = frame
 	case SimpleModelFrameType:
 		var modelConfig ModelConfigJSON
 		if err := json.Unmarshal(sF["frame"], &modelConfig); err != nil {
-			return err
+			return nil, err
 		}
 		simpleModel := NewSimpleModel(modelConfig.Name)
 		simpleModel.modelConfig = &modelConfig
 	case UnserializableFrameType:
-		return errors.New("encountered a frame type that does not support JSON unmarshal")
+		return nil, errors.New("encountered a frame type that does not support JSON unmarshal")
 	}
-	typedFrame.FrameType = frameType
-	typedFrame.Frame = frameI
-	return nil
+	return frameI, nil
 }
 
 // baseFrame contains all the data and methods common to all frames, notably it does not implement the Frame interface itself.

@@ -437,28 +437,30 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInput
 }
 
 type serializableFrameSystem struct {
-	Name    string                `json:"name"`
-	World   TypedFrame            `json:"world"`
-	Frames  map[string]TypedFrame `json:"frames"`
-	Parents map[string]string     `json:"parents"`
+	Name    string                     `json:"name"`
+	World   json.RawMessage            `json:"world"`
+	Frames  map[string]json.RawMessage `json:"frames"`
+	Parents map[string]string          `json:"parents"`
 }
 
 // MarshalJSON serializes a FrameSystem into JSON format.
 func (sfs *FrameSystem) MarshalJSON() ([]byte, error) {
-	worldFrame := TypedFrame{
-		FrameType: sfs.World().FrameType(),
-		Frame:     sfs.World(),
+	worldFrameJSON, err := FrameToJSON(sfs.World())
+	if err != nil {
+		return nil, err
 	}
-	typedFrames := make(map[string]TypedFrame, 0)
+
+	typedFrames := make(map[string]json.RawMessage, 0)
 	for name, frame := range sfs.frames {
-		typedFrames[name] = TypedFrame{
-			FrameType: frame.FrameType(),
-			Frame:     frame,
+		frameJSON, err := FrameToJSON(frame)
+		if err != nil {
+			return nil, err
 		}
+		typedFrames[name] = frameJSON
 	}
 	serializedFS := serializableFrameSystem{
 		Name:   sfs.name,
-		World:  worldFrame,
+		World:  worldFrameJSON,
 		Frames: typedFrames,
 	}
 	return json.Marshal(serializedFS)
@@ -470,13 +472,24 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &serFS); err != nil {
 		return err
 	}
+
+	worldFrame, err := JSONToFrame(serFS.World)
+	if err != nil {
+		return err
+	}
+
 	frameMap := make(map[string]Frame, 0)
 	for name, tF := range serFS.Frames {
-		frameMap[name] = tF.Frame
+		frame, err := JSONToFrame(tF)
+		if err != nil {
+			return err
+		}
+		frameMap[name] = frame
 	}
+
 	sfs.frames = frameMap
 	sfs.parents = serFS.Parents
-	sfs.world = serFS.World.Frame
+	sfs.world = worldFrame
 	sfs.name = serFS.Name
 	return nil
 }
