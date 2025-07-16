@@ -11,15 +11,15 @@ import (
 )
 
 type metadataReadArgs struct {
-	OrganizationID string
-	LocationID     string
-	MachineID      string
-	MachinePartID  string
+	OrgID      string
+	LocationID string
+	MachineID  string
+	PartID     string
 }
 
 // MetadataReadAction is the action for the CLI command "viam metadata read".
 func MetadataReadAction(ctx *cli.Context, args metadataReadArgs) error {
-	if args.OrganizationID == "" && args.LocationID == "" && args.MachineID == "" && args.MachinePartID == "" {
+	if args.OrgID == "" && args.LocationID == "" && args.MachineID == "" && args.PartID == "" {
 		return errors.New("You must specify at least one of --organization-id, --location-id, --machine-id, --machine-part-id")
 	}
 
@@ -30,8 +30,8 @@ func MetadataReadAction(ctx *cli.Context, args metadataReadArgs) error {
 	}
 
 	// Organization
-	if args.OrganizationID != "" {
-		err = displayOrganizationMetadata(ctx, viamClient.client, args.OrganizationID)
+	if args.OrgID != "" {
+		err = displayOrganizationMetadata(ctx, viamClient.client, args.OrgID)
 		if err != nil {
 			return err
 		}
@@ -54,8 +54,8 @@ func MetadataReadAction(ctx *cli.Context, args metadataReadArgs) error {
 	}
 
 	// Machine Part
-	if args.MachinePartID != "" {
-		err = displayMachinePartMetadata(ctx, viamClient.client, args.MachinePartID)
+	if args.PartID != "" {
+		err = displayMachinePartMetadata(ctx, viamClient.client, args.PartID)
 		if err != nil {
 			return err
 		}
@@ -97,15 +97,15 @@ func displayMachineMetadata(ctx *cli.Context, viamClient apppb.AppServiceClient,
 	return displayMetadata(ctx, "machine", machineID, resp.GetData())
 }
 
-func displayMachinePartMetadata(ctx *cli.Context, viamClient apppb.AppServiceClient, machinePartID string) error {
+func displayMachinePartMetadata(ctx *cli.Context, viamClient apppb.AppServiceClient, partID string) error {
 	resp, err := viamClient.GetRobotPartMetadata(ctx.Context, &apppb.GetRobotPartMetadataRequest{
-		Id: machinePartID,
+		Id: partID,
 	})
 	if err != nil {
 		return errors.Wrap(err, "error fetching machine part metadata")
 	}
 
-	return displayMetadata(ctx, "machine part", machinePartID, resp.GetData())
+	return displayMetadata(ctx, "part", partID, resp.GetData())
 }
 
 func displayMetadata(ctx *cli.Context, metadataType, metadataTypeID string, metadata *structpb.Struct) error {

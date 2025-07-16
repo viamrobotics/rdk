@@ -2509,23 +2509,35 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "read",
 					Usage:     "read metadata attached to your orgs, locations, machines, and/or machine parts",
-					UsageText: "Provide at least one of the identifiers using CLI arguments to fetch the corresponding metadata",
+					UsageText: "Provide at least one of the identifiers using CLI arguments to fetch the corresponding metadata.",
 					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:  "organization-id",
-							Usage: "ID of the organization you want to read the metadata from",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagOrgID,
+								Aliases: []string{generalFlagAliasOrg, generalFlagOrganization},
+								Usage:   "ID of the organization you want to read the metadata from",
+							},
 						},
-						&cli.StringFlag{
-							Name:  "location-id",
-							Usage: "ID of the location you want to read the metadata from",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagLocationID,
+								Aliases: []string{generalFlagLocation},
+								Usage:   "ID of the location you want to read the metadata from",
+							},
 						},
-						&cli.StringFlag{
-							Name:  "machine-id",
-							Usage: "ID of the machine you want to read the metadata from",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagMachineID,
+								Aliases: []string{generalFlagMachine, generalFlagAliasRobotID, generalFlagAliasRobot},
+								Usage:   "ID of the machine you want to read the metadata from",
+							},
 						},
-						&cli.StringFlag{
-							Name:  "machine-part-id",
-							Usage: "ID of the machine part you want to read the metadata from",
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagPartID,
+								Aliases: []string{generalFlagPart},
+								Usage:   "ID of the machine part you want to read the metadata from",
+							},
 						},
 					},
 					Action: createCommandWithT[metadataReadArgs](MetadataReadAction),
