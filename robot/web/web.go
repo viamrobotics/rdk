@@ -689,7 +689,15 @@ func (rc *RequestCounter) Stats() any {
 	return ret
 }
 
-func extractViamAPI(fullMethod string) string {
+// apiMethod is used to store information about an api path in a denormalized
+// way to avoid repeatedly parsing the same string.
+type apiMethod struct {
+	full      string
+	namespace string
+	name      string
+}
+
+func extractViamAPI(fullMethod string) apiMethod {
 	// Extract Service and Method name from `fullMethod` values such as:
 	// - `/viam.component.motor.v1.MotorService/IsMoving` -> MotorService/IsMoving
 	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> RobotService/SendSessionHeartbeat
@@ -699,20 +707,30 @@ func extractViamAPI(fullMethod string) string {
 	case strings.HasPrefix(fullMethod, "/viam.service."):
 		fallthrough
 	case strings.HasPrefix(fullMethod, "/viam.robot."):
-		return fullMethod[strings.LastIndexByte(fullMethod, byte('.'))+1:]
+		return apiMethod{
+			full:      fullMethod,
+			name:      fullMethod[strings.LastIndexByte(fullMethod, byte('.'))+1:],
+			namespace: strings.SplitN(fullMethod, "/", 3)[1],
+		}
 	default:
-		return ""
+		return apiMethod{}
 	}
 }
 
-func getName(msg any) string {
+// getResourceName is a best effort function to get the name of a resource from
+// an arbitrary gRCP request. It should be replaced if and when we impose a
+// consistent way to identify resources in requests.
+func getResourceName(msg any, method apiMethod) string {
 	if msg == nil {
 		return ""
 	}
-	if namer, ok := msg.(Namer); ok {
+	isInputController := method.namespace == "viam.component.inputcontroller.v1.InputControllerService"
+	if isInputController {
+		if cNamer, ok := msg.(controllerNamer); ok {
+			return cNamer.GetController()
+		}
+	} else if namer, ok := msg.(Namer); ok {
 		return namer.GetName()
-	} else if cNamer, ok := msg.(controllerNamer); ok {
-		return cNamer.GetController()
 	}
 	return ""
 }
@@ -720,32 +738,25 @@ func getName(msg any) string {
 // buildRCKey builds the key to be used in the RequestCounter's counts map.
 // If the msg satisfies web.Namer, the key will be in the format "name.method",
 // Otherwise, the key will be just "method".
-func buildRCKey(clientMsg any, apiMethod string) string {
+func buildRCKey(clientMsg any, method apiMethod) string {
 	if clientMsg != nil {
-		if name := getName(clientMsg); name != "" {
-			return fmt.Sprintf("%v.%v", name, apiMethod)
+		if name := getResourceName(clientMsg, method); name != "" {
+			return fmt.Sprintf("%v.%v", name, method.name)
 		}
 	}
-	return apiMethod
+	return method.name
 }
 
-func getResourceName(clientMsg any, fullMethod string) string {
-	var apiNamespace string
-	switch {
-	case strings.HasPrefix(fullMethod, "/viam.component."):
-		fallthrough
-	case strings.HasPrefix(fullMethod, "/viam.service."):
-		fallthrough
-	case strings.HasPrefix(fullMethod, "/viam.robot."):
-		apiNamespace = strings.SplitN(fullMethod, "/", 3)[1]
-	default:
+func buildResourceLimitKey(clientMsg any, method apiMethod) string {
+	if method.name == "" {
+		// Ignore for nun-Viam APIs
 		return ""
 	}
-	if name := getName(clientMsg); name != "" {
-		return name + "." + apiNamespace
+	if name := getResourceName(clientMsg, method); name != "" {
+		return name + "." + method.namespace
 	}
-	if apiNamespace == "viam.robot.v1.RobotService" {
-		return apiNamespace
+	if method.namespace == "viam.robot.v1.RobotService" {
+		return method.namespace
 	}
 	return ""
 }
@@ -756,7 +767,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
-	if resource := getResourceName(req, info.FullMethod); resource != "" {
+	if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
 		if ok := rc.incrInFlight(resource); !ok {
 			return nil, &RequestLimitExceededError{
 				resource: resource,
@@ -767,7 +778,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 	}
 	requestCounterKey := buildRCKey(req, apiMethod)
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
-	if apiMethod != "" {
+	if apiMethod.name != "" {
 		rc.preRequestIncrement(requestCounterKey)
 
 		start := time.Now()
@@ -808,7 +819,7 @@ type streamRequestKey struct {
 
 type wrappedStreamWithRC struct {
 	googlegrpc.ServerStream
-	apiMethod string
+	apiMethod apiMethod
 	rc        *RequestCounter
 
 	// Set on the initial client request.
@@ -828,7 +839,7 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 	err := w.ServerStream.RecvMsg(m)
 
 	if w.requestKey.Load() == nil {
-		resource := getResourceName(m, w.apiMethod)
+		resource := buildResourceLimitKey(m, w.apiMethod)
 		if resource != "" {
 			if ok := w.rc.incrInFlight(resource); !ok {
 				return &RequestLimitExceededError{
@@ -878,8 +889,13 @@ func (rc *RequestCounter) StreamInterceptor(
 	apiMethod := extractViamAPI(info.FullMethod)
 
 	// Only count Viam apiMethods
-	if apiMethod != "" {
-		wrappedStream := wrappedStreamWithRC{ss, apiMethod, rc, atomic.Pointer[streamRequestKey]{}}
+	if apiMethod.name != "" {
+		wrappedStream := wrappedStreamWithRC{
+			ServerStream: ss,
+			apiMethod:    apiMethod,
+			rc:           rc,
+			requestKey:   atomic.Pointer[streamRequestKey]{},
+		}
 		defer wrappedStream.tryDecr()
 		return handler(srv, &wrappedStream)
 	}
