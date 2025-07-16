@@ -38,15 +38,19 @@ type Mesh struct {
 }
 
 // NewMesh creates a mesh from the given triangles and pose.
-// A Mesh created this way should not be attempted to be converted to protobuf
-// as there are not conversion functions to support it currently.
 func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
-	// TODO(RSDK-10314): Fix proto for meshes created from triangles.
-	return &Mesh{
+	mesh := &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
 	}
+
+	// Convert triangles to PLY for protobuf
+	plyBytes := mesh.trianglesToPLYBytes()
+	mesh.fileType = plyType
+	mesh.rawBytes = plyBytes
+
+	return mesh
 }
 
 // NewMeshFromPLYFile is a helper function to create a Mesh geometry from a PLY file.
@@ -432,7 +436,8 @@ func MeshBoxIntersectionArea(mesh, theBox Geometry) (float64, error) {
 // or the actual intersection area otherwise.
 func boxTriangleIntersectionArea(b *box, t *Triangle) (float64, error) {
 	// Quick check if they don't intersect at all
-	collides, err := b.CollidesWith(NewMesh(NewZeroPose(), []*Triangle{t}, ""), defaultCollisionBufferMM)
+	mesh := NewMesh(NewZeroPose(), []*Triangle{t}, "")
+	collides, err := b.CollidesWith(mesh, defaultCollisionBufferMM)
 	if err != nil {
 		return -1, err
 	}
@@ -538,4 +543,57 @@ func calculatePolygonAreaWithTriangulation(vertices []r3.Vector) float64 {
 		}
 		return totalArea
 	}
+}
+
+// trianglesToPLYBytes converts the mesh's triangles to bytes in PLY format.
+func (m *Mesh) trianglesToPLYBytes() []byte {
+	// Collect all unique vertices and create vertex-to-index mapping
+	vertexMap := make(map[string]int)
+	vertices := make([]r3.Vector, 0)
+
+	for _, tri := range m.triangles {
+		for _, pt := range tri.Points() {
+			scaledPt := r3.Vector{X: pt.X / 1000.0, Y: pt.Y / 1000.0, Z: pt.Z / 1000.0}
+			key := fmt.Sprintf("%.10f,%.10f,%.10f", scaledPt.X, scaledPt.Y, scaledPt.Z)
+			if _, exists := vertexMap[key]; !exists {
+				vertexMap[key] = len(vertices)
+				vertices = append(vertices, scaledPt)
+			}
+		}
+	}
+
+	var buf bytes.Buffer
+
+	// Write PLY header
+	buf.WriteString("ply\n")
+	buf.WriteString("format ascii 1.0\n")
+	buf.WriteString(fmt.Sprintf("element vertex %d\n", len(vertices)))
+	buf.WriteString("property float x\n")
+	buf.WriteString("property float y\n")
+	buf.WriteString("property float z\n")
+	buf.WriteString(fmt.Sprintf("element face %d\n", len(m.triangles)))
+	buf.WriteString("property list uchar int vertex_indices\n")
+	buf.WriteString("end_header\n")
+
+	// Write vertices
+	for _, vertex := range vertices {
+		buf.WriteString(fmt.Sprintf("%f %f %f\n", vertex.X, vertex.Y, vertex.Z))
+	}
+
+	// Write faces
+	for _, tri := range m.triangles {
+		buf.WriteString("3 ")
+		for i, pt := range tri.Points() {
+			// Convert from millimeters back to meters for lookup
+			scaledPt := r3.Vector{X: pt.X / 1000.0, Y: pt.Y / 1000.0, Z: pt.Z / 1000.0}
+			key := fmt.Sprintf("%.10f,%.10f,%.10f", scaledPt.X, scaledPt.Y, scaledPt.Z)
+			if i > 0 {
+				buf.WriteString(" ")
+			}
+			buf.WriteString(fmt.Sprintf("%d", vertexMap[key]))
+		}
+		buf.WriteString("\n")
+	}
+
+	return buf.Bytes()
 }
