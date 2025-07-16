@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -279,4 +280,69 @@ func TestFrame(t *testing.T) {
 	expStaticFrame, err := NewStaticFrameWithGeometry("test", expPose, bc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sFrame, test.ShouldResemble, expStaticFrame)
+}
+
+type trivialFrame struct{}
+
+func (tF *trivialFrame) Name() string {
+	return ""
+}
+
+func (tF *trivialFrame) Transform([]Input) (spatial.Pose, error) {
+	return nil, nil
+}
+
+func (tF *trivialFrame) Interpolate([]Input, []Input, float64) ([]Input, error) {
+	return nil, nil
+}
+
+func (tF *trivialFrame) Geometries([]Input) (*GeometriesInFrame, error) {
+	return nil, nil
+}
+
+func (tF *trivialFrame) InputFromProtobuf(*pb.JointPositions) []Input {
+	return nil
+}
+
+func (tF *trivialFrame) ProtobufFromInput([]Input) *pb.JointPositions {
+	return nil
+}
+
+func (tF *trivialFrame) MarshalJSON() ([]byte, error) {
+	return []byte{}, nil
+}
+
+func (tF *trivialFrame) UnmarshalJSON([]byte) error {
+	return nil
+}
+
+func (tF *trivialFrame) DoF() []Limit {
+	return nil
+}
+
+func (tF *trivialFrame) FrameType() FrameType {
+	return FrameType("trivial")
+}
+
+type brokenFrame struct {
+	*trivialFrame
+}
+
+func (tF *brokenFrame) FrameType() FrameType {
+	return StaticFrameType
+}
+
+func TestImplementerRegistration(t *testing.T) {
+	// test that we get an error when trying to register something that doesn't implement Frame
+	type brokenThing struct{}
+	err := RegisterFrameImplementer(reflect.TypeOf((*brokenThing)(nil)))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// test that we get an error trying to register an already registered frame type
+	err = RegisterFrameImplementer(reflect.TypeOf((*brokenFrame)(nil)))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// test that we can successfully register a Frame implementation
+	err = RegisterFrameImplementer(reflect.TypeOf((*trivialFrame)(nil)))
+	test.That(t, err, test.ShouldBeNil)
 }
