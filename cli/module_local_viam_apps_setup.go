@@ -15,7 +15,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-
 	apppb "go.viam.com/api/app/v1"
 )
 
@@ -38,9 +37,6 @@ type localAppTestingServer struct {
 func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 	serverPort := 8000
 	viamClient, err := newViamClient(ctx)
-	if err != nil {
-		return err
-	}
 	if err != nil {
 		printf(ctx.App.ErrWriter, "error initializing the Viam client: "+err.Error())
 		return err
@@ -98,14 +94,14 @@ func getMachineAPIKeys(ctx context.Context, viamAppClient apppb.AppServiceClient
 
 	keys := resp.GetApiKeys()
 	if len(keys) == 0 {
-		return "", "", errors.Errorf("Machine % has no API keys", machineID)
+		return "", "", errors.Errorf("Machine %s has no API keys", machineID)
 	}
 
 	return keys[0].GetApiKey().GetId(), keys[0].GetApiKey().GetKey(), nil
 }
 
 func getMachineHostname(ctx context.Context, viamAppClient apppb.AppServiceClient, machineID string) (string, error) {
-	resp, err := viamAppClient.GetRobotParts(context.Background(), &apppb.GetRobotPartsRequest{
+	resp, err := viamAppClient.GetRobotParts(ctx, &apppb.GetRobotPartsRequest{
 		RobotId: machineID,
 	})
 	if err != nil {
