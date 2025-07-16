@@ -2501,6 +2501,38 @@ Note: There is no progress meter while copying is in progress.
 			},
 		},
 		{
+			Name:            "metadata",
+			Usage:           "manage the metadata attached to your orgs, locations, machines, and/or machine parts",
+			UsageText:       createUsageText("metadata", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:      "read",
+					Usage:     "read metadata attached to your orgs, locations, machines, or machine parts",
+					UsageText: createUsageText("metadata read", nil, false, false, "organization-id", "location-id", "machine-id", "machine-part-id"),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  "organization-id",
+							Usage: "ID of the organization you want to read the metadata from",
+						},
+						&cli.StringFlag{
+							Name:  "location-id",
+							Usage: "ID of the location you want to read the metadata from",
+						},
+						&cli.StringFlag{
+							Name:  "machine-id",
+							Usage: "ID of the machine you want to read the metadata from",
+						},
+						&cli.StringFlag{
+							Name:  "machine-part-id",
+							Usage: "ID of the machine part you want to read the metadata from",
+						},
+					},
+					Action: createCommandWithT[metadataReadArgs](MetadataReadAction),
+				},
+			},
+		},
+		{
 			Name:            "module",
 			Usage:           "manage your modules in Viam's registry",
 			UsageText:       createUsageText("module", nil, false, true),
