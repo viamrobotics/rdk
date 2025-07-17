@@ -28,7 +28,7 @@ const SubtypeName = "frame_system"
 var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
 // InternalServiceName is used to refer to/depend on this service internally.
-var InternalServiceName = resource.NewName(API, "builtin")
+var InternalServiceName = resource.NewName(API, "$framesystem")
 
 // PublicServiceName is used by modules to refer to the robot's frame system.
 var PublicServiceName = resource.NewName(API, "$framesystem")
