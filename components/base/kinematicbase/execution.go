@@ -13,8 +13,8 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -593,9 +593,9 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	return goals
 }
 
-func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) motionplan.Plan {
-	traj := motionplan.Trajectory{}
-	path := motionplan.Path{}
+func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) motiontypes.Plan {
+	traj := motiontypes.Trajectory{}
+	path := motiontypes.Path{}
 	for _, step := range steps {
 		traj = append(traj, referenceframe.FrameSystemInputs{ptgk.planningModel.Name(): step.arcSegment.EndConfiguration})
 		path = append(path, map[string]*referenceframe.PoseInFrame{
@@ -603,7 +603,7 @@ func (ptgk *ptgBaseKinematics) stepsToPlan(steps []arcStep, parentFrame string) 
 		})
 	}
 
-	return motionplan.NewSimplePlan(path, traj)
+	return motiontypes.NewSimplePlan(path, traj)
 }
 
 func copyArcStep(step arcStep) arcStep {

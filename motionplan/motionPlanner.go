@@ -31,7 +31,7 @@ const defaultSimScore = 0.05
 type motionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	plan(ctx context.Context, seed, goal *PlanState) ([]node, error)
+	plan(ctx context.Context, seed, goal *motiontypes.PlanState) ([]node, error)
 
 	// Everything below this point should be covered by anything that wraps the generic `planner`
 	smoothPath(context.Context, []node) []node
@@ -50,18 +50,23 @@ type PlanRequest struct {
 	// an error is thrown.
 	// TODO: Perhaps we could do something where some components are enforced to arrive at a certain configuration, but others can have IK
 	// run to solve for poses. Doing this while enforcing configurations may be tricky.
-	Goals []*PlanState `json:"goals"`
+	Goals []*motiontypes.PlanState `json:"goals"`
 
 	// This must always have a configuration filled in, for geometry placement purposes.
 	// If poses are also filled in, the configuration will be used to determine geometry collisions, but the poses will be used
 	// in IK to generate plan start configurations. The given configuration will NOT automatically be added to the seed tree.
 	// The use case here is that if a particularly difficult path must be planned between two poses, that can be done first to ensure
 	// feasibility, and then other plans can be requested to connect to that returned plan's configurations.
-	StartState      *PlanState                 `json:"start_state"`
-	WorldState      *referenceframe.WorldState `json:"world_state"`
-	BoundingRegions []*commonpb.Geometry       `json:"bounding_regions"`
-	Constraints     *motiontypes.Constraints   `json:"constraints"`
-	PlannerOptions  *PlannerOptions            `json:"planner_options"`
+	StartState *motiontypes.PlanState `json:"start_state"`
+	// The data representation of the robot's environment.
+	WorldState *referenceframe.WorldState `json:"world_state"`
+	// Set of bounds which the robot must remain within while navigating. This is used only for kinematic bases
+	// and not arms.
+	BoundingRegions []*commonpb.Geometry `json:"bounding_regions"`
+	// Additional parameters constraining the motion of the robot.
+	Constraints *motiontypes.Constraints `json:"constraints"`
+	// Other more granular parameters for the plan used to move the robot.
+	PlannerOptions *PlannerOptions `json:"planner_options"`
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
@@ -234,9 +239,9 @@ func Replan(
 	logger logging.Logger,
 	fs *referenceframe.FrameSystem,
 	request *PlanRequest,
-	currentPlan Plan,
+	currentPlan motiontypes.Plan,
 	replanCostFactor float64,
-) (Plan, error) {
+) (motiontypes.Plan, error) {
 	// Make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(fs); err != nil {
 		return nil, err

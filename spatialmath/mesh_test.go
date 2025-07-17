@@ -603,3 +603,117 @@ func TestMeshEncompassedBy(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, encompassed, test.ShouldBeFalse)
 }
+
+func TestMeshProtoConversionFromTriangles(t *testing.T) {
+	// Manually create a mesh with a variety of shapes and shared vertices
+	triangles := []*Triangle{
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 1000, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1000, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: -500, Y: -500, Z: 0},
+			r3.Vector{X: 500, Y: -500, Z: 0},
+			r3.Vector{X: 0, Y: 500, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 1000},
+			r3.Vector{X: 1000, Y: 0, Z: 1000},
+			r3.Vector{X: 500, Y: 1000, Z: 1000},
+		),
+		NewTriangle(
+			r3.Vector{X: 123.456, Y: 789.012, Z: 345.678},
+			r3.Vector{X: 456.789, Y: 123.456, Z: 678.901},
+			r3.Vector{X: 789.012, Y: 456.789, Z: 123.456},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 10000, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 10000, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 1, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: -1000, Y: -1000, Z: -1000},
+			r3.Vector{X: -500, Y: -1000, Z: -1000},
+			r3.Vector{X: -1000, Y: -500, Z: -1000},
+		),
+		NewTriangle(
+			r3.Vector{X: 100, Y: 100, Z: -500},
+			r3.Vector{X: 200, Y: 100, Z: 500},
+			r3.Vector{X: 150, Y: 200, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 1000, Y: 0, Z: 0},
+			r3.Vector{X: 1000, Y: 1000, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 1000, Y: 1000, Z: 0},
+			r3.Vector{X: 0, Y: 1000, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1000, Z: 0},
+			r3.Vector{X: 0, Y: 1000, Z: 1000},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1000, Z: 1000},
+			r3.Vector{X: 0, Y: 0, Z: 1000},
+		),
+	}
+
+	// Create mesh with a pose and label
+	originalPose := NewPose(r3.Vector{X: 100, Y: 200, Z: 300}, NewZeroOrientation())
+	originalMesh := NewMesh(originalPose, triangles, "test_mesh_from_triangles")
+
+	// Convert to protobuf
+	proto := originalMesh.ToProtobuf()
+	test.That(t, proto, test.ShouldNotBeNil)
+	test.That(t, proto.Label, test.ShouldEqual, "test_mesh_from_triangles")
+
+	// Restore from protobuf
+	restoredGeometry, err := NewGeometryFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+	restoredMesh, ok := restoredGeometry.(*Mesh)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	test.That(t, restoredMesh.Label(), test.ShouldEqual, originalMesh.Label())
+	test.That(t, PoseAlmostEqual(restoredMesh.Pose(), originalMesh.Pose()), test.ShouldBeTrue)
+	test.That(t, len(restoredMesh.Triangles()), test.ShouldEqual, len(originalMesh.Triangles()))
+
+	// Verify all triangles match
+	originalTriangles := originalMesh.Triangles()
+	restoredTriangles := restoredMesh.Triangles()
+	for i, originalTri := range originalTriangles {
+		restoredTri := restoredTriangles[i]
+		origPoints := originalTri.Points()
+		restoredPoints := restoredTri.Points()
+
+		test.That(t, len(restoredPoints), test.ShouldEqual, len(origPoints))
+
+		for j, origPoint := range origPoints {
+			restoredPoint := restoredPoints[j]
+			// The conversion from mm to meters and back can create micrometer-level float changes
+			epsilon := 1e-4
+			test.That(t, math.Abs(origPoint.X-restoredPoint.X), test.ShouldBeLessThan, epsilon)
+			test.That(t, math.Abs(origPoint.Y-restoredPoint.Y), test.ShouldBeLessThan, epsilon)
+			test.That(t, math.Abs(origPoint.Z-restoredPoint.Z), test.ShouldBeLessThan, epsilon)
+		}
+	}
+
+	// Verify that the mesh can be converted to protobuf again
+	secondProto := restoredMesh.ToProtobuf()
+	test.That(t, secondProto, test.ShouldNotBeNil)
+	test.That(t, secondProto.Label, test.ShouldEqual, originalMesh.Label())
+
+	// Verify the protobuf content is the same
+	test.That(t, secondProto.GetMesh().ContentType, test.ShouldEqual, proto.GetMesh().ContentType)
+	test.That(t, len(secondProto.GetMesh().Mesh), test.ShouldEqual, len(proto.GetMesh().Mesh))
+}
