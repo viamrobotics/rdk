@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -63,7 +64,7 @@ type moveRequest struct {
 	config            *validatedMotionConfiguration
 	frameSystem       *referenceframe.FrameSystem
 	planRequest       *motionplan.PlanRequest
-	seedPlan          motionplan.Plan
+	seedPlan          motiontypes.Plan
 	kinematicBase     kinematicbase.KinematicBase
 	obstacleDetectors map[vision.Service][]resource.Name
 	replanCostFactor  float64
@@ -87,7 +88,7 @@ type moveRequest struct {
 }
 
 // plan creates a plan using the currentInputs of the robot and the moveRequest's planRequest.
-func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
+func (mr *moveRequest) Plan(ctx context.Context) (motiontypes.Plan, error) {
 	inputs, err := mr.kinematicBase.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
@@ -101,7 +102,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 		inputs = inputs[:2]
 	}
 	startConf := referenceframe.FrameSystemInputs{k.Name(): inputs}
-	mr.planRequest.StartState = motionplan.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
+	mr.planRequest.StartState = motiontypes.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
 
 	// get existing elements of the worldstate
 
@@ -135,7 +136,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	return motionplan.Replan(ctx, mr.logger, mr.frameSystem, &planRequestCopy, nil, 0)
 }
 
-func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
+func (mr *moveRequest) Execute(ctx context.Context, plan motiontypes.Plan) (state.ExecuteResponse, error) {
 	defer mr.executeBackgroundWorkers.Wait()
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	defer cancelFn()
@@ -150,7 +151,7 @@ func (mr *moveRequest) AnchorGeoPose() *spatialmath.GeoPose {
 
 // execute attempts to follow a given Plan starting from the index percribed by waypointIndex.
 // Note that waypointIndex is an atomic int that is incremented in this function after each waypoint has been successfully reached.
-func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
+func (mr *moveRequest) execute(ctx context.Context, plan motiontypes.Plan) (state.ExecuteResponse, error) {
 	// Determine if we already are at the goal
 	// If our motion profile is position_only then, we only check against our current & desired position
 	// Conversely if our motion profile is anything else, then we also need to check again our
@@ -191,7 +192,7 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 
 // deviatedFromPlan takes a plan and an index of a waypoint on that Plan and returns whether or not it is still
 // following the plan as described by the PlanDeviation specified for the moveRequest.
-func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
+func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motiontypes.Plan) (state.ExecuteResponse, error) {
 	// calculate the error state
 	executionState, err := mr.kinematicBase.ExecutionState(ctx)
 	if err != nil {
@@ -293,7 +294,7 @@ func (mr *moveRequest) getTransientDetections(
 // following the Plan.
 func (mr *moveRequest) obstaclesIntersectPlan(
 	ctx context.Context,
-	plan motionplan.Plan,
+	plan motiontypes.Plan,
 ) (state.ExecuteResponse, error) {
 	// if the camera is mounted on something InputEnabled that isn't the base, then that
 	// input needs to be known in order to properly calculate the pose of the obstacle
@@ -389,7 +390,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 	}
 	// update plan
 	existingPlan := baseExecutionState.Plan()
-	newTrajectory := make(motionplan.Trajectory, 0, len(existingPlan.Trajectory()))
+	newTrajectory := make(motiontypes.Trajectory, 0, len(existingPlan.Trajectory()))
 	for idx, currTraj := range existingPlan.Trajectory() {
 		// Suppose we have some plan of the following form:
 		// Path = [s, p1, p2, g, g]
@@ -435,7 +436,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 			newTrajectory, referenceframe.FrameSystemInputs{k.Name(): updatedTraj},
 		)
 	}
-	augmentedPlan := motionplan.NewSimplePlan(existingPlan.Path(), newTrajectory)
+	augmentedPlan := motiontypes.NewSimplePlan(existingPlan.Path(), newTrajectory)
 
 	// update currentInputs
 	allCurrentInputsFromBaseExecutionState := baseExecutionState.CurrentInputs()
@@ -583,7 +584,7 @@ func newValidatedMotionCfg(motionCfg *motion.MotionConfiguration, reqType reques
 func (ms *builtIn) newMoveOnGlobeRequest(
 	ctx context.Context,
 	req motion.MoveOnGlobeReq,
-	seedPlan motionplan.Plan,
+	seedPlan motiontypes.Plan,
 	replanCount int,
 ) (state.PlannerExecutor, error) {
 	valExtra, err := newValidatedExtra(req.Extra)
@@ -714,7 +715,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 func (ms *builtIn) newMoveOnMapRequest(
 	ctx context.Context,
 	req motion.MoveOnMapReq,
-	seedPlan motionplan.Plan,
+	seedPlan motiontypes.Plan,
 	replanCount int,
 ) (state.PlannerExecutor, error) {
 	valExtra, err := newValidatedExtra(req.Extra)
@@ -948,11 +949,11 @@ func (ms *builtIn) createBaseMoveRequest(
 	}
 
 	var backgroundWorkers sync.WaitGroup
-	startState := motionplan.NewPlanState(
+	startState := motiontypes.NewPlanState(
 		referenceframe.FrameSystemPoses{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose)},
 		currentInputs,
 	)
-	goals := []*motionplan.PlanState{motionplan.NewPlanState(referenceframe.FrameSystemPoses{kinematicFrame.Name(): goal}, nil)}
+	goals := []*motiontypes.PlanState{motiontypes.NewPlanState(referenceframe.FrameSystemPoses{kinematicFrame.Name(): goal}, nil)}
 
 	planOpts, err := motionplan.NewPlannerOptionsFromExtra(valExtra.extra)
 	if err != nil {
@@ -995,7 +996,7 @@ func (mr moveResponse) String() string {
 	return fmt.Sprintf("builtin.moveResponse{executeResponse: %#v, err: %v}", mr.executeResponse, mr.err)
 }
 
-func (mr *moveRequest) start(ctx context.Context, plan motionplan.Plan) {
+func (mr *moveRequest) start(ctx context.Context, plan motiontypes.Plan) {
 	if ctx.Err() != nil {
 		return
 	}

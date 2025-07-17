@@ -16,7 +16,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -24,8 +24,8 @@ import (
 
 // PlannerExecutor implements Plan and Execute.
 type PlannerExecutor interface {
-	Plan(ctx context.Context) (motionplan.Plan, error)
-	Execute(context.Context, motionplan.Plan) (ExecuteResponse, error)
+	Plan(ctx context.Context) (motiontypes.Plan, error)
+	Execute(context.Context, motiontypes.Plan) (ExecuteResponse, error)
 	AnchorGeoPose() *spatialmath.GeoPose
 }
 
@@ -49,7 +49,7 @@ type ExecuteResponse struct {
 type PlannerExecutorConstructor[R any] func(
 	ctx context.Context,
 	req R,
-	seedPlan motionplan.Plan,
+	seedPlan motiontypes.Plan,
 	replanCount int,
 ) (PlannerExecutor, error)
 
@@ -115,7 +115,7 @@ type planWithExecutor struct {
 }
 
 // NewPlan creates a new motion.Plan from an execution & returns an error if one was not able to be created.
-func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan motionplan.Plan, replanCount int) (planWithExecutor, error) {
+func (e *execution[R]) newPlanWithExecutor(ctx context.Context, seedPlan motiontypes.Plan, replanCount int) (planWithExecutor, error) {
 	pe, err := e.plannerExecutorConstructor(e.cancelCtx, e.req, seedPlan, replanCount)
 	if err != nil {
 		return planWithExecutor{}, err

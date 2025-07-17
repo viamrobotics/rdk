@@ -23,7 +23,7 @@ import (
 	_ "go.viam.com/rdk/components/movementsensor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -735,7 +735,7 @@ func TestPaths(t *testing.T) {
 				{
 					Plan: motion.PlanWithMetadata{
 						ExecutionID: executionID,
-						Plan: motionplan.NewSimplePlan(
+						Plan: motiontypes.NewSimplePlan(
 							[]referenceframe.FrameSystemPoses{{s.base.Name().ShortName(): referenceframe.NewPoseInFrame(
 								referenceframe.World,
 								spatialmath.NewPose(r3.Vector{X: expectedLng, Y: expectedLat}, nil),

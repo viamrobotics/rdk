@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -116,7 +117,7 @@ type motionChains struct {
 	ptgFrameName string
 }
 
-func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to *PlanState) (*motionChains, error) {
+func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to *motiontypes.PlanState) (*motionChains, error) {
 	// create motion chains for each goal, and error check for PTG frames
 	// TODO: currently, if any motion chain has a PTG frame, that must be the only motion chain and that frame must be the only
 	// frame in the chain with nonzero DoF. Eventually this need not be the case.
@@ -200,8 +201,8 @@ func (mC *motionChains) geometries(
 func (mC *motionChains) translateGoalsToWorldPosition(
 	fs *referenceframe.FrameSystem,
 	start referenceframe.FrameSystemInputs,
-	goal *PlanState,
-) (*PlanState, error) {
+	goal *motiontypes.PlanState,
+) (*motiontypes.PlanState, error) {
 	alteredGoals := referenceframe.FrameSystemPoses{}
 	if goal.poses != nil {
 		for _, chain := range mC.inner {
@@ -218,7 +219,7 @@ func (mC *motionChains) translateGoalsToWorldPosition(
 				}
 			}
 		}
-		return &PlanState{poses: alteredGoals, configuration: goal.configuration}, nil
+		return &motiontypes.PlanState{poses: alteredGoals, configuration: goal.configuration}, nil
 	}
 	return goal, nil
 }

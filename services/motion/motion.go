@@ -7,15 +7,16 @@ package motion
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/motiontypes"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -142,7 +143,7 @@ type PlanWithMetadata struct {
 	// Unique ID of the execution
 	ExecutionID ExecutionID
 	// The motion plan itself
-	motionplan.Plan
+	motiontypes.Plan
 	// The GPS point to anchor visualized plans at
 	AnchorGeoPose *spatialmath.GeoPose
 }
@@ -484,7 +485,7 @@ func (p PlanWithMetadata) ToProto() *pb.Plan {
 	steps := []*pb.PlanStep{}
 	if p.Plan != nil {
 		for _, s := range p.Path() {
-			steps = append(steps, motionplan.FrameSystemPosesToProto(s))
+			steps = append(steps, referenceframe.FrameSystemPosesToProto(s))
 		}
 	}
 
@@ -506,7 +507,7 @@ func (p PlanWithMetadata) Renderable() PlanWithMetadata {
 		ID:            p.ID,
 		ComponentName: p.ComponentName,
 		ExecutionID:   p.ExecutionID,
-		Plan:          motionplan.NewGeoPlan(p.Plan, p.AnchorGeoPose.Location()),
+		Plan:          newGeoPlan(p.Plan, p.AnchorGeoPose.Location()),
 	}
 }
 
@@ -541,4 +542,24 @@ func (ps PlanState) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+// newGeoPlan returns a Plan containing a Path with GPS coordinates smuggled into the Pose struct. Each GPS point is created using:
+// A Point with X as the longitude and Y as the latitude
+// An orientation using the heading as the theta in an OrientationVector with Z=1.
+func newGeoPlan(plan motiontypes.Plan, pt *geo.Point) motiontypes.Plan {
+	newPath := make([]referenceframe.FrameSystemPoses, 0, len(plan.Path()))
+	for _, step := range plan.Path() {
+		newStep := make(referenceframe.FrameSystemPoses)
+		for frame, pif := range step {
+			pose := pif.Pose()
+			geoPose := spatialmath.PoseToGeoPose(spatialmath.NewGeoPose(pt, 0), pose)
+			heading := math.Mod(math.Abs(geoPose.Heading()-360), 360)
+			o := &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: heading}
+			smuggledGeoPose := spatialmath.NewPose(r3.Vector{X: geoPose.Location().Lng(), Y: geoPose.Location().Lat()}, o)
+			newStep[frame] = referenceframe.NewPoseInFrame(pif.Parent(), smuggledGeoPose)
+		}
+		newPath = append(newPath, newStep)
+	}
+	return motiontypes.NewSimplePlan(newPath, plan.Trajectory())
 }

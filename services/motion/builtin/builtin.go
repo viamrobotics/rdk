@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -381,10 +382,10 @@ func (ms *builtIn) PlanHistory(
 //   - DoPlan generates and returns a Trajectory for a given motionpb.MoveRequest without executing it
 //     required key: DoPlan
 //     input value: a motionpb.MoveRequest which will be used to create a Trajectory
-//     output value: a motionplan.Trajectory specified as a map (the mapstructure.Decode function is useful for decoding this)
+//     output value: a motiontypes.Trajectory specified as a map (the mapstructure.Decode function is useful for decoding this)
 //   - DoExecute takes a Trajectory and executes it
 //     required key: DoExecute
-//     input value: a motionplan.Trajectory
+//     input value: a motiontypes.Trajectory
 //     output value: a bool
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	ms.mu.RLock()
@@ -446,7 +447,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		resp[DoPlan] = plan.Trajectory()
 	}
 	if req, ok := cmd[DoExecute]; ok {
-		var trajectory motionplan.Trajectory
+		var trajectory motiontypes.Trajectory
 		if err := mapstructure.Decode(req, &trajectory); err != nil {
 			return nil, err
 		}
@@ -458,7 +459,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 	return resp, nil
 }
 
-func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
+func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motiontypes.Plan, error) {
 	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
@@ -523,7 +524,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	// multiple components. If we are moving component1, mounted on arm2, to a goal in frame of component2, which is mounted on arm2, then
 	// passing that raw poseInFrame will certainly result in a plan which moves arm1 and arm2. We cannot guarantee that this plan is
 	// collision-free until RSDK-8847 is complete. By transforming goals to world, only one arm should move for such a plan.
-	worldWaypoints := []*motionplan.PlanState{}
+	worldWaypoints := []*motiontypes.PlanState{}
 	solvingFrame := referenceframe.World
 	for _, wp := range waypoints {
 		if wp.Poses() != nil {
@@ -536,7 +537,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 				goalPose, _ := tf.(*referenceframe.PoseInFrame)
 				step[fName] = goalPose
 			}
-			worldWaypoints = append(worldWaypoints, motionplan.NewPlanState(step, wp.Configuration()))
+			worldWaypoints = append(worldWaypoints, motiontypes.NewPlanState(step, wp.Configuration()))
 		} else {
 			worldWaypoints = append(worldWaypoints, wp)
 		}
@@ -568,7 +569,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	return plan, err
 }
 
-func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
+func (ms *builtIn) execute(ctx context.Context, trajectory motiontypes.Trajectory) error {
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
@@ -669,14 +670,14 @@ func (ms *builtIn) applyDefaultExtras(extras map[string]any) {
 func waypointsFromRequest(
 	req motion.MoveReq,
 	fsInputs referenceframe.FrameSystemInputs,
-) (*motionplan.PlanState, []*motionplan.PlanState, error) {
-	var startState *motionplan.PlanState
-	var waypoints []*motionplan.PlanState
+) (*motiontypes.PlanState, []*motiontypes.PlanState, error) {
+	var startState *motiontypes.PlanState
+	var waypoints []*motiontypes.PlanState
 	var err error
 
 	if startStateIface, ok := req.Extra["start_state"]; ok {
 		if startStateMap, ok := startStateIface.(map[string]interface{}); ok {
-			startState, err = motionplan.DeserializePlanState(startStateMap)
+			startState, err = motiontypes.DeserializePlanState(startStateMap)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -684,17 +685,17 @@ func waypointsFromRequest(
 			return nil, nil, errors.New("extras start_state could not be interpreted as map[string]interface{}")
 		}
 		if startState.Configuration() == nil {
-			startState = motionplan.NewPlanState(startState.Poses(), fsInputs)
+			startState = motiontypes.NewPlanState(startState.Poses(), fsInputs)
 		}
 	} else {
-		startState = motionplan.NewPlanState(nil, fsInputs)
+		startState = motiontypes.NewPlanState(nil, fsInputs)
 	}
 
 	if waypointsIface, ok := req.Extra["waypoints"]; ok {
 		if waypointsIfaceList, ok := waypointsIface.([]interface{}); ok {
 			for _, wpIface := range waypointsIfaceList {
 				if wpMap, ok := wpIface.(map[string]interface{}); ok {
-					wp, err := motionplan.DeserializePlanState(wpMap)
+					wp, err := motiontypes.DeserializePlanState(wpMap)
 					if err != nil {
 						return nil, nil, err
 					}
@@ -711,7 +712,7 @@ func waypointsFromRequest(
 	// If goal state is specified, it overrides the request goal
 	if goalStateIface, ok := req.Extra["goal_state"]; ok {
 		if goalStateMap, ok := goalStateIface.(map[string]interface{}); ok {
-			goalState, err := motionplan.DeserializePlanState(goalStateMap)
+			goalState, err := motiontypes.DeserializePlanState(goalStateMap)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -720,7 +721,7 @@ func waypointsFromRequest(
 			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
 		}
 	} else if req.Destination != nil {
-		goalState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName.ShortName(): req.Destination}, nil)
+		goalState := motiontypes.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName.ShortName(): req.Destination}, nil)
 		waypoints = append(waypoints, goalState)
 	}
 	return startState, waypoints, nil

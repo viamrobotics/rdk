@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -147,7 +148,7 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtSolution {
 }
 
 type rrtPlan struct {
-	SimplePlan
+	motiontypes.SimplePlan
 
 	// nodes corresponding to inputs can be cached with the Plan for easy conversion back into a form usable by RRT
 	// depending on how the trajectory is constructed these may be nil and should be computed before usage
@@ -178,4 +179,63 @@ func newRRTPlan(solution []node, fs *referenceframe.FrameSystem, relative bool, 
 		plan = OffsetPlan(plan, offsetPose)
 	}
 	return plan, nil
+}
+
+// OffsetPlan returns a new Plan that is equivalent to the given Plan if its Path was offset by the given Pose.
+// Does not modify Trajectory.
+func offsetPlan(plan motiontypes.Plan, offset spatialmath.Pose) motiontypes.Plan {
+	path := plan.Path()
+	if path == nil {
+		return motiontypes.NewSimplePlan(nil, plan.Trajectory())
+	}
+	newPath := make([]referenceframe.FrameSystemPoses, 0, len(path))
+	for _, step := range path {
+		newStep := make(referenceframe.FrameSystemPoses, len(step))
+		for frame, pose := range step {
+			newStep[frame] = referenceframe.NewPoseInFrame(pose.Parent(), spatialmath.Compose(offset, pose.Pose()))
+		}
+		newPath = append(newPath, newStep)
+	}
+	simplePlan := motiontypes.NewSimplePlan(newPath, plan.Trajectory())
+	if rrt, ok := plan.(*rrtPlan); ok {
+		return &rrtPlan{SimplePlan: *simplePlan, nodes: rrt.nodes}
+	}
+	return simplePlan
+}
+
+func newPath(solution []node, fs *referenceframe.FrameSystem) (motiontypes.Path, error) {
+	path := make(motiontypes.Path, 0, len(solution))
+	for _, inputNode := range solution {
+		poseMap := make(map[string]*referenceframe.PoseInFrame)
+		for frame := range inputNode.Q() {
+			tf, err := fs.Transform(inputNode.Q(), referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World)
+			if err != nil {
+				return nil, err
+			}
+			pose, ok := tf.(*referenceframe.PoseInFrame)
+			if !ok {
+				return nil, errors.New("pose not transformable")
+			}
+			poseMap[frame] = pose
+		}
+		path = append(path, poseMap)
+	}
+	return path, nil
+}
+
+func newPathFromRelativePath(path motiontypes.Path) (motiontypes.Path, error) {
+	if len(path) < 2 {
+		return nil, errors.New("need to have at least 2 elements in path")
+	}
+	newPath := make([]referenceframe.FrameSystemPoses, 0, len(path))
+	newPath = append(newPath, path[0])
+	for i, step := range path[1:] {
+		newStep := make(referenceframe.FrameSystemPoses, len(step))
+		for frame, pose := range step {
+			lastPose := newPath[i][frame].Pose()
+			newStep[frame] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(lastPose, pose.Pose()))
+		}
+		newPath = append(newPath, newStep)
+	}
+	return newPath, nil
 }

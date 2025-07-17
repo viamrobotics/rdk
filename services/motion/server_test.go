@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -678,14 +678,14 @@ func TestServerGetPlan(t *testing.T) {
 			ID:            planID1,
 			ComponentName: base1,
 			ExecutionID:   executionID,
-			Plan:          motionplan.NewSimplePlan(steps, nil),
+			Plan:          motiontypes.NewSimplePlan(steps, nil),
 		}
 
 		plan2 := motion.PlanWithMetadata{
 			ID:            planID2,
 			ComponentName: base1,
 			ExecutionID:   executionID,
-			Plan:          motionplan.NewSimplePlan(steps, nil),
+			Plan:          motiontypes.NewSimplePlan(steps, nil),
 		}
 
 		time1A := time.Now()

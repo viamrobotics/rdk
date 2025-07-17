@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -500,7 +500,7 @@ func TestClient(t *testing.T) {
 				ID:            id,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Plan:          motionplan.NewSimplePlan(steps, nil),
+				Plan:          motiontypes.NewSimplePlan(steps, nil),
 			}
 			statusHistory := []motion.PlanStatus{
 				{motion.PlanStateFailed, timeB, &reason},
@@ -534,7 +534,7 @@ func TestClient(t *testing.T) {
 				ID:            idA,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Plan:          motionplan.NewSimplePlan(steps, nil),
+				Plan:          motiontypes.NewSimplePlan(steps, nil),
 			}
 			statusHistoryA := []motion.PlanStatus{
 				{motion.PlanStateFailed, timeAB, &reason},
@@ -548,7 +548,7 @@ func TestClient(t *testing.T) {
 				ID:            idB,
 				ComponentName: base.Named("mybase"),
 				ExecutionID:   executionID,
-				Plan:          motionplan.NewSimplePlan(steps, nil),
+				Plan:          motiontypes.NewSimplePlan(steps, nil),
 			}
 
 			statusHistoryB := []motion.PlanStatus{

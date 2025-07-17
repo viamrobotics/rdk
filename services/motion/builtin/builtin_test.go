@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/motiontypes"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -1277,7 +1278,7 @@ func TestDoCommand(t *testing.T) {
 		return respProto.AsMap(), nil
 	}
 
-	testDoPlan := func(moveReq motion.MoveReq) (motionplan.Trajectory, error) {
+	testDoPlan := func(moveReq motion.MoveReq) (motiontypes.Trajectory, error) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 
@@ -1297,7 +1298,7 @@ func TestDoCommand(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// the client will need to decode the response still
-		var trajectory motionplan.Trajectory
+		var trajectory motiontypes.Trajectory
 		err = mapstructure.Decode(resp, &trajectory)
 		return trajectory, err
 	}
@@ -1360,7 +1361,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	ctx := context.Background()
 
 	// Helper function to extract plan from Move call using DoCommand
-	getPlanFromMove := func(t *testing.T, req motion.MoveReq) motionplan.Trajectory {
+	getPlanFromMove := func(t *testing.T, req motion.MoveReq) motiontypes.Trajectory {
 		t.Helper()
 		// Convert MoveReq to proto format for DoCommand
 		moveReqProto, err := req.ToProto("")
@@ -1373,7 +1374,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		plan, ok := resp[DoPlan].(motionplan.Trajectory)
+		plan, ok := resp[DoPlan].(motiontypes.Trajectory)
 		test.That(t, ok, test.ShouldBeTrue)
 		return plan
 	}
@@ -1384,8 +1385,8 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		waypoint2 := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30}))
 		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -200, Z: 30}))
 
-		wp1State := motionplan.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint1}, nil)
-		wp2State := motionplan.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint2}, nil)
+		wp1State := motiontypes.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint1}, nil)
+		wp2State := motiontypes.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint2}, nil)
 
 		moveReq := motion.MoveReq{
 			ComponentName: gripper.Named("pieceGripper"),
@@ -1423,8 +1424,8 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		waypoint := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30}))
 		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -200, Z: 30}))
 
-		startState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": start}, nil)
-		wpState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint}, nil)
+		startState := motiontypes.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": start}, nil)
+		wpState := motiontypes.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint}, nil)
 
 		moveReq := motion.MoveReq{
 			ComponentName: gripper.Named("pieceGripper"),
@@ -1464,13 +1465,13 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	t.Run("plan through mixed pose and configuration waypoints", func(t *testing.T) {
 		// Define specific arm configuration for first waypoint
 		armConfig := []float64{0.2, 0.3, 0.4, 0.5, 0.6, 0.7}
-		wp1State := motionplan.NewPlanState(nil, referenceframe.FrameSystemInputs{
+		wp1State := motiontypes.NewPlanState(nil, referenceframe.FrameSystemInputs{
 			"pieceArm": referenceframe.FloatsToInputs(armConfig),
 		})
 
 		// Define pose for second waypoint
 		intermediatePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30})
-		wp2State := motionplan.NewPlanState(
+		wp2State := motiontypes.NewPlanState(
 			referenceframe.FrameSystemPoses{"pieceGripper": referenceframe.NewPoseInFrame("world", intermediatePose)},
 			nil,
 		)
@@ -1524,7 +1525,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 
 	t.Run("plan with custom start state", func(t *testing.T) {
 		startConfig := []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6}
-		startState := motionplan.NewPlanState(nil, referenceframe.FrameSystemInputs{
+		startState := motiontypes.NewPlanState(nil, referenceframe.FrameSystemInputs{
 			"pieceArm": referenceframe.FloatsToInputs(startConfig),
 		})
 
@@ -1562,7 +1563,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	t.Run("plan with explicit goal state configuration", func(t *testing.T) {
 		goalConfig := []float64{0.7, 0.6, 0.5, 0.4, 0.3, 0.2}
 
-		goalState := motionplan.NewPlanState(nil, referenceframe.FrameSystemInputs{"pieceArm": referenceframe.FloatsToInputs(goalConfig)})
+		goalState := motiontypes.NewPlanState(nil, referenceframe.FrameSystemInputs{"pieceArm": referenceframe.FloatsToInputs(goalConfig)})
 
 		moveReq := motion.MoveReq{
 			ComponentName: gripper.Named("pieceGripper"),

@@ -10,7 +10,6 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/motiontypes"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -172,15 +171,15 @@ func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 		return plan, nil
 	}
 
-	steps := motionplan.Path{}
+	steps := motiontypes.Path{}
 	for _, s := range p.Steps {
-		step, err := motionplan.FrameSystemPosesFromProto(s)
+		step, err := referenceframe.FrameSystemPosesFromProto(s)
 		if err != nil {
 			return PlanWithMetadata{}, err
 		}
 		steps = append(steps, step)
 	}
-	plan.Plan = motionplan.NewSimplePlan(steps, nil)
+	plan.Plan = motiontypes.NewSimplePlan(steps, nil)
 	return plan, nil
 }
 

@@ -21,9 +21,6 @@ const World = "world"
 // defaultPointDensity ensures we use the default value specified within the spatialmath package.
 const defaultPointDensity = 0.
 
-// FrameSystemPoses is an alias for a mapping of frame names to PoseInFrame.
-type FrameSystemPoses map[string]*PoseInFrame
-
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
 // FrameConfig gives the frame's location relative to parent,
 // and ModelFrame is an optional ModelJSON that describes the internal kinematics of the robot part.
