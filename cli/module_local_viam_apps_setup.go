@@ -15,61 +15,49 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-	"go.viam.com/utils/rpc"
-
-	appclient "go.viam.com/rdk/app"
-	"go.viam.com/rdk/logging"
+	apppb "go.viam.com/api/app/v1"
 )
 
 // localAppTestingArgs contains the arguments for the local-app-testing command.
 type localAppTestingArgs struct {
 	AppURL    string `json:"app-url"`
 	MachineID string `json:"machine-id"`
-	//nolint: revive,stylecheck // The CLI args parsing prevents us from using API (uppercase)
-	MachineApiKey string `json:"machine-api-key"`
-	//nolint: revive,stylecheck // The CLI args parsing prevents us from using API (uppercase)
-	MachineApiKeyID string `json:"machine-api-key-id"`
 }
 
 type localAppTestingServer struct {
 	machineID       string
+	machineHostname string
 	machineAPIKey   string
 	machineAPIKeyID string
 	serverURL       string
-	viamClient      *appclient.ViamClient
 	logger          io.Writer
 }
 
 // LocalAppTestingAction is the action for the local-app-testing command.
 func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 	serverPort := 8000
-	viamURL := "https://app.viam.com"
-	baseURL, _, err := getBaseURL(ctx)
-	if err != nil || baseURL == nil {
-		printf(ctx.App.Writer, "could not determine Viam base URL from context, defaulting to https://app.viam.com")
-	} else {
-		viamURL = baseURL.String()
-	}
-
-	viamClient, err := appclient.CreateViamClientWithOptions(context.Background(), appclient.Options{
-		Entity:  args.MachineApiKeyID,
-		BaseURL: viamURL,
-		Credentials: rpc.Credentials{
-			Type:    rpc.CredentialsTypeAPIKey,
-			Payload: args.MachineApiKey,
-		},
-	}, logging.NewLogger("appClient"))
+	viamClient, err := newViamClient(ctx)
 	if err != nil {
 		printf(ctx.App.ErrWriter, "error initializing the Viam client: "+err.Error())
 		return err
 	}
 
+	machineAPIKeyID, machineAPIKey, err := getMachineAPIKeys(ctx.Context, viamClient.client, args.MachineID)
+	if err != nil {
+		return err
+	}
+
+	machineHostname, err := getMachineHostname(ctx.Context, viamClient.client, args.MachineID)
+	if err != nil {
+		return err
+	}
+
 	localAppTesting := localAppTestingServer{
 		machineID:       args.MachineID,
-		machineAPIKey:   args.MachineApiKey,
-		machineAPIKeyID: args.MachineApiKeyID,
+		machineHostname: machineHostname,
+		machineAPIKey:   machineAPIKey,
+		machineAPIKeyID: machineAPIKeyID,
 		serverURL:       fmt.Sprintf("http://localhost:%d", serverPort),
-		viamClient:      viamClient,
 		logger:          ctx.App.Writer,
 	}
 
@@ -94,6 +82,40 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 	}
 
 	return nil
+}
+
+func getMachineAPIKeys(ctx context.Context, viamAppClient apppb.AppServiceClient, machineID string) (string, string, error) {
+	resp, err := viamAppClient.GetRobotAPIKeys(ctx, &apppb.GetRobotAPIKeysRequest{
+		RobotId: machineID,
+	})
+	if err != nil {
+		return "", "", err
+	}
+
+	keys := resp.GetApiKeys()
+	if len(keys) == 0 {
+		return "", "", errors.Errorf("Machine %s has no API keys", machineID)
+	}
+
+	return keys[0].GetApiKey().GetId(), keys[0].GetApiKey().GetKey(), nil
+}
+
+func getMachineHostname(ctx context.Context, viamAppClient apppb.AppServiceClient, machineID string) (string, error) {
+	resp, err := viamAppClient.GetRobotParts(ctx, &apppb.GetRobotPartsRequest{
+		RobotId: machineID,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	robotParts := resp.GetParts()
+	for _, robotPart := range robotParts {
+		if robotPart.MainPart {
+			return robotPart.Fqdn, nil
+		}
+	}
+
+	return "", errors.New("Could not resolve machine hostname, no main part found")
 }
 
 // setupHTTPServer creates and configures an HTTP server with the given HTML file.
@@ -144,14 +166,8 @@ type machineAPIKey struct {
 
 func (l *localAppTestingServer) cookieSetup(resp http.ResponseWriter, req *http.Request) {
 	// Generate machine auth cookie
-	machineHostname, err := l.getRobotHostname(l.machineID)
-	if err != nil {
-		printf(l.logger, "Could not resolve machine hostname, defaulting to UNKNOWN: %s", err.Error())
-		machineHostname = "UNKNOWN"
-	}
-
 	cookieValue := machineAuthCookieValue{
-		Hostname:  machineHostname,
+		Hostname:  l.machineHostname,
 		MachineID: l.machineID,
 		Credentials: machineCredentials{
 			Type:       "api-key",
@@ -177,27 +193,12 @@ func (l *localAppTestingServer) cookieSetup(resp http.ResponseWriter, req *http.
 	})
 
 	http.SetCookie(resp, &http.Cookie{
-		Name:  machineHostname,
+		Name:  l.machineHostname,
 		Value: cookieValueString,
 	})
 
 	// redirect to the machine path
-	http.Redirect(resp, req, fmt.Sprintf("%s/machine/%s", l.serverURL, l.machineID), http.StatusFound)
-}
-
-func (l *localAppTestingServer) getRobotHostname(machineID string) (string, error) {
-	robotParts, err := l.viamClient.AppClient().GetRobotParts(context.Background(), machineID)
-	if err != nil {
-		return "", err
-	}
-
-	for _, robotPart := range robotParts {
-		if robotPart.MainPart {
-			return robotPart.FQDN, nil
-		}
-	}
-
-	return "", errors.New("Could not resolve machine hostname, no main part found")
+	http.Redirect(resp, req, fmt.Sprintf("%s/machine/%s", l.serverURL, l.machineHostname), http.StatusFound)
 }
 
 func removeMachinePathFromURL(originalDirector func(*http.Request)) func(*http.Request) {
