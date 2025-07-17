@@ -50,15 +50,14 @@ func TestPtgRrtBidirectional(t *testing.T) {
 		ackermanFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 	}}
 
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.TPSpaceOrientationScale = 30.
 
 	motionChains, err := motionChainsFromPlanState(fs, goal)
 	test.That(t, err, test.ShouldBeNil)
-	opt.motionChains = motionChains
 
 	mp, err := newTPSpaceMotionPlanner(
-		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler())
+		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler(), motionChains)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -132,13 +131,14 @@ func TestPtgWithObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Initialize planner options
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.TPSpaceOrientationScale = 30.
 	opt.GoalThreshold = 5
-	opt.PlanningAlgorithm = TPSpace
+	opt.PlanningAlgorithmSettings = AlgorithmSettings{
+		Algorithm: TPSpace,
+	}
 	motionChains, err := motionChainsFromPlanState(fs, goal)
 	test.That(t, err, test.ShouldBeNil)
-	opt.motionChains = motionChains
 
 	// Create collision constraints
 	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, nil)
@@ -160,7 +160,7 @@ func TestPtgWithObstacle(t *testing.T) {
 
 	// Create and initialize planner
 	mp, err := newTPSpaceMotionPlanner(
-		fs, rand.New(rand.NewSource(42)), logger, opt, constraintHandler)
+		fs, rand.New(rand.NewSource(42)), logger, opt, constraintHandler, motionChains)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 
@@ -226,7 +226,7 @@ func TestTPsmoothing(t *testing.T) {
 	fs.AddFrame(ackermanFrame, fs.World())
 
 	// Initialize planner options
-	opt := newBasicPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.TPSpaceOrientationScale = 30.
 
 	// Needed to determine motion chains
@@ -237,11 +237,10 @@ func TestTPsmoothing(t *testing.T) {
 
 	motionChains, err := motionChainsFromPlanState(fs, goal)
 	test.That(t, err, test.ShouldBeNil)
-	opt.motionChains = motionChains
 
 	// Create and initialize planner
 	mp, err := newTPSpaceMotionPlanner(
-		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler())
+		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler(), motionChains)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 

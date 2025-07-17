@@ -22,6 +22,7 @@ type ConstraintHandler struct {
 	stateConstraints     map[string]StateConstraint
 	stateFSConstraints   map[string]StateFSConstraint
 	pathMetric           ik.StateFSMetric // Distance function which converges on the valid manifold of intermediate path states
+	boundingRegions      []spatialmath.Geometry
 }
 
 func newEmptyConstraintHandler() *ConstraintHandler {
@@ -31,15 +32,22 @@ func newEmptyConstraintHandler() *ConstraintHandler {
 }
 
 func newConstraintHandler(
-	opt *plannerOptions,
+	opt *PlannerOptions,
 	constraints *Constraints,
 	from, to *PlanState,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
+	motionChains *motionChains,
 	seedMap referenceframe.FrameSystemInputs,
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
 ) (*ConstraintHandler, error) {
+	if constraints == nil {
+		// Constraints may be nil, but if a motion profile is set in planningOpts
+		// we need it to be a valid pointer to an empty struct.
+		constraints = &Constraints{}
+	}
 	handler := newEmptyConstraintHandler()
+	handler.boundingRegions = boundingRegions
 
 	startPoses, err := from.ComputePoses(fs)
 	if err != nil {
@@ -55,7 +63,7 @@ func newConstraintHandler(
 		return nil, err
 	}
 
-	movingRobotGeometries, staticRobotGeometries := opt.motionChains.geometries(fs, frameSystemGeometries)
+	movingRobotGeometries, staticRobotGeometries := motionChains.geometries(fs, frameSystemGeometries)
 
 	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
 	if err != nil {
@@ -81,7 +89,7 @@ func newConstraintHandler(
 	// If we are planning on a SLAM map we want to not allow a collision with the pointcloud to start our move call
 	// Typically starting collisions are whitelisted,
 	// TODO: This is not the most robust way to deal with this but is better than driving through walls.
-	if opt.useTPspace() {
+	if motionChains.useTPspace {
 		var zeroCG *collisionGraph
 		for _, geom := range worldGeometries {
 			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
@@ -123,11 +131,23 @@ func newConstraintHandler(
 		handler.AddStateFSConstraint(name, constraint)
 	}
 
-	constraints.updateFromOptions(opt)
+	switch opt.MotionProfile {
+	case LinearMotionProfile:
+		constraints.AddLinearConstraint(LinearConstraint{opt.LineTolerance, opt.OrientationTolerance})
+	case PseudolinearMotionProfile:
+		constraints.AddPseudolinearConstraint(PseudolinearConstraint{opt.ToleranceFactor, opt.ToleranceFactor})
+	case OrientationMotionProfile:
+		constraints.AddOrientationConstraint(OrientationConstraint{opt.OrientationTolerance})
+	// FreeMotionProfile or PositionOnlyMotionProfile produce no additional constraints.
+	case FreeMotionProfile, PositionOnlyMotionProfile:
+	}
 
-	_, err = handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
+	hasTopoConstraint, err := handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
 	if err != nil {
 		return nil, err
+	}
+	if hasTopoConstraint && (opt.PlanningAlgorithm() != CBiRRT) && (opt.PlanningAlgorithm() != UnspecifiedAlgorithm) {
+		return nil, NewAlgAndConstraintMismatchErr(string(opt.PlanningAlgorithm()))
 	}
 
 	return handler, nil
@@ -136,7 +156,7 @@ func newConstraintHandler(
 // addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological
 // constraints. It will return a bool indicating whether there are any to add.
 func (c *ConstraintHandler) addTopoConstraints(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	constraints *Constraints,
@@ -171,7 +191,7 @@ func (c *ConstraintHandler) addTopoConstraints(
 }
 
 func (c *ConstraintHandler) addLinearConstraints(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	linConstraint LinearConstraint,
@@ -197,7 +217,7 @@ func (c *ConstraintHandler) addLinearConstraints(
 }
 
 func (c *ConstraintHandler) addPseudolinearConstraints(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	plinConstraint PseudolinearConstraint,
@@ -223,7 +243,7 @@ func (c *ConstraintHandler) addPseudolinearConstraints(
 }
 
 func (c *ConstraintHandler) addOrientationConstraints(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	orientConstraint OrientationConstraint,

@@ -285,7 +285,7 @@ func TestMoveCallInputs(t *testing.T) {
 				defer timeoutFn()
 				executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 				test.That(t, err, test.ShouldBeError, errors.New(
-					"json: cannot unmarshal string into Go struct field plannerOptions.collision_buffer_mm of type float64"))
+					"json: cannot unmarshal string into Go struct field PlannerOptions.collision_buffer_mm of type float64"))
 				test.That(t, executionID, test.ShouldNotBeEmpty)
 			})
 
@@ -708,7 +708,7 @@ func TestMoveCallInputs(t *testing.T) {
 				}
 				executionID, err := ms.MoveOnGlobe(ctx, req)
 				test.That(t, err, test.ShouldBeError, errors.New(
-					"json: cannot unmarshal string into Go struct field plannerOptions.collision_buffer_mm of type float64"))
+					"json: cannot unmarshal string into Go struct field PlannerOptions.collision_buffer_mm of type float64"))
 				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 			})
 

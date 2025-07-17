@@ -6,6 +6,7 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	commonpb "go.viam.com/api/common/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/spatialmath"
 )
@@ -105,6 +106,30 @@ func (ws *WorldState) ToProtobuf() (*commonpb.WorldState, error) {
 	}, nil
 }
 
+// MarshalJSON serializes an instance of WorldState to JSON through its protobuf representation.
+func (ws *WorldState) MarshalJSON() ([]byte, error) {
+	wsProto, err := ws.ToProtobuf()
+	if err != nil {
+		return nil, err
+	}
+	return protojson.Marshal(wsProto)
+}
+
+// UnmarshalJSON takes JSON bytes of a world state protobuf message and parses it
+// into an instance of WorldState.
+func (ws *WorldState) UnmarshalJSON(data []byte) error {
+	var wsProto commonpb.WorldState
+	if err := protojson.Unmarshal(data, &wsProto); err != nil {
+		return err
+	}
+	newWs, err := WorldStateFromProtobuf(&wsProto)
+	if err != nil {
+		return err
+	}
+	*ws = *newWs
+	return nil
+}
+
 // String returns a string representation of the geometries in the WorldState.
 func (ws *WorldState) String() string {
 	if ws == nil {
@@ -156,7 +181,7 @@ func (ws *WorldState) Transforms() []*LinkInFrame {
 
 // ObstaclesInWorldFrame takes a frame system and a set of inputs for that frame system and converts all the obstacles
 // in the WorldState such that they are in the frame system's World reference frame.
-func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs FrameSystemInputs) (*GeometriesInFrame, error) {
+func (ws *WorldState) ObstaclesInWorldFrame(fs *FrameSystem, inputs FrameSystemInputs) (*GeometriesInFrame, error) {
 	if ws == nil {
 		return NewGeometriesInFrame(World, []spatialmath.Geometry{}), nil
 	}

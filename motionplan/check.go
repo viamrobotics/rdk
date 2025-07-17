@@ -25,7 +25,7 @@ func CheckPlan(
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	lookAheadDistanceMM float64,
 	logger logging.Logger,
 ) error {
@@ -40,42 +40,25 @@ func CheckPlan(
 		return errors.New("wayPointIdx outside of plan bounds")
 	}
 
-	// construct planager
-	sfPlanner, err := newPlanManager(fs, logger, defaultRandomSeed)
-	if err != nil {
-		return err
-	}
-
-	// Spot check plan for options
-	planOpts, _, err := sfPlanner.plannerAndConstraintSetupFromMoveRequest(
-		&PlanState{poses: plan.Path()[0]},
-		&PlanState{poses: plan.Path()[len(plan.Path())-1]},
-		plan.Trajectory()[0],
-		worldState,
-		nil,
-		nil, // no pb.Constraints
-		nil, // no plannOpts
-	)
+	motionChains, err := motionChainsFromPlanState(fs, &PlanState{poses: plan.Path()[len(plan.Path())-1]})
 	if err != nil {
 		return err
 	}
 
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
 	// Currently this is only TP-space, so we check if the PTG length is >0.
-	if planOpts.useTPspace() {
-		sfPlanner.ConstraintHandler = newEmptyConstraintHandler()
-		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
+	if motionChains.useTPspace {
+		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
 	}
-	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, sfPlanner)
+	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
 }
 
 func checkPlanRelative(
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	lookAheadDistanceMM float64,
-	sfPlanner *planManager,
 ) error {
 	var err error
 	toWorld := func(pif *referenceframe.PoseInFrame, inputs referenceframe.FrameSystemInputs) (*referenceframe.PoseInFrame, error) {
@@ -94,20 +77,34 @@ func checkPlanRelative(
 	plan := executionState.Plan()
 	zeroPosePIF := referenceframe.NewPoseInFrame(checkFrame.Name(), spatialmath.NewZeroPose())
 
+	motionChains, err := motionChainsFromPlanState(fs, &PlanState{poses: plan.Path()[len(plan.Path())-1]})
+	if err != nil {
+		return err
+	}
+
 	// setup the planOpts. Poses should be in world frame. This allows us to know e.g. which obstacles may ephemerally collide.
-	if sfPlanner.planOpts, sfPlanner.ConstraintHandler, err = sfPlanner.plannerAndConstraintSetupFromMoveRequest(
+	planOpts, err := updateOptionsForPlanning(NewBasicPlannerOptions(), motionChains.useTPspace)
+	if err != nil {
+		return err
+	}
+
+	// change from 60mm to 30mm so we have finer interpolation along segments
+	planOpts.Resolution = relativePlanOptsResolution
+
+	constraintHandler, err := newConstraintHandler(
+		planOpts,
+		nil,
 		&PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
 		&PlanState{poses: plan.Path()[len(plan.Path())-1]},
+		fs,
+		motionChains,
 		plan.Trajectory()[0],
 		worldState,
 		nil,
-		nil, // no pb.Constraints
-		nil, // no plannOpts
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
-	// change from 60mm to 30mm so we have finer interpolation along segments
-	sfPlanner.planOpts.Resolution = relativePlanOptsResolution
 
 	currentInputs := executionState.CurrentInputs()
 	wayPointIdx := executionState.Index()
@@ -193,16 +190,15 @@ func checkPlanRelative(
 		segments = append(segments, segment)
 	}
 
-	return checkSegments(sfPlanner, segments, lookAheadDistanceMM, checkFrame)
+	return checkSegments(segments, lookAheadDistanceMM, checkFrame, relativePlanOptsResolution, fs, constraintHandler)
 }
 
 func checkPlanAbsolute(
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	lookAheadDistanceMM float64,
-	sfPlanner *planManager,
 ) error {
 	plan := executionState.Plan()
 	startingInputs := plan.Trajectory()[0]
@@ -231,16 +227,28 @@ func checkPlanAbsolute(
 	// get plan poses for checkFrame
 	poses := offsetPlan.Path()
 
-	// setup the planOpts
-	if sfPlanner.planOpts, sfPlanner.ConstraintHandler, err = sfPlanner.plannerAndConstraintSetupFromMoveRequest(
+	motionChains, err := motionChainsFromPlanState(fs, &PlanState{poses: poses[len(poses)-1]})
+	if err != nil {
+		return err
+	}
+
+	planOpts, err := updateOptionsForPlanning(NewBasicPlannerOptions(), motionChains.useTPspace)
+	if err != nil {
+		return err
+	}
+
+	constraintHandler, err := newConstraintHandler(
+		planOpts,
+		nil,
 		&PlanState{poses: executionState.CurrentPoses(), configuration: startingInputs},
 		&PlanState{poses: poses[len(poses)-1]},
+		fs,
+		motionChains,
 		startingInputs,
 		worldState,
 		nil,
-		nil, // no Constraints
-		nil, // no planOpts
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
 
@@ -252,27 +260,34 @@ func checkPlanAbsolute(
 		segment := &ik.SegmentFS{
 			StartConfiguration: offsetPlan.Trajectory()[i],
 			EndConfiguration:   offsetPlan.Trajectory()[i+1],
-			FS:                 sfPlanner.fs,
+			FS:                 fs,
 		}
 		segments = append(segments, segment)
 	}
 
-	return checkSegmentsFS(sfPlanner, segments, lookAheadDistanceMM)
+	return checkSegmentsFS(segments, lookAheadDistanceMM, planOpts.Resolution, motionChains, constraintHandler, fs)
 }
 
-func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAheadDistanceMM float64) error {
+func checkSegmentsFS(
+	segments []*ik.SegmentFS,
+	lookAheadDistanceMM float64,
+	resolution float64,
+	motionChains *motionChains,
+	constraintHandler *ConstraintHandler,
+	fs *referenceframe.FrameSystem,
+) error {
 	// go through segments and check that we satisfy constraints
-	moving, _ := sfPlanner.planOpts.motionChains.framesFilteredByMovingAndNonmoving(sfPlanner.fs)
+	moving, _ := motionChains.framesFilteredByMovingAndNonmoving(fs)
 	dists := map[string]float64{}
 	for _, segment := range segments {
-		ok, lastValid := sfPlanner.CheckSegmentAndStateValidityFS(segment, sfPlanner.planOpts.Resolution)
+		ok, lastValid := constraintHandler.CheckSegmentAndStateValidityFS(segment, resolution)
 		if !ok {
 			checkConf := segment.StartConfiguration
 			if lastValid != nil {
 				checkConf = lastValid.EndConfiguration
 			}
 			var reason string
-			err := sfPlanner.CheckStateFSConstraints(&ik.StateFS{Configuration: checkConf, FS: sfPlanner.fs})
+			err := constraintHandler.CheckStateFSConstraints(&ik.StateFS{Configuration: checkConf, FS: fs})
 			if err != nil {
 				reason = " reason: " + err.Error()
 			} else {
@@ -287,7 +302,7 @@ func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAhead
 		}
 
 		for _, checkFrame := range moving {
-			poseInPathStart, err := sfPlanner.fs.Transform(
+			poseInPathStart, err := fs.Transform(
 				segment.EndConfiguration,
 				referenceframe.NewZeroPoseInFrame(checkFrame),
 				referenceframe.World,
@@ -295,7 +310,7 @@ func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAhead
 			if err != nil {
 				return err
 			}
-			poseInPathEnd, err := sfPlanner.fs.Transform(
+			poseInPathEnd, err := fs.Transform(
 				segment.StartConfiguration,
 				referenceframe.NewZeroPoseInFrame(checkFrame),
 				referenceframe.World,
@@ -319,20 +334,27 @@ func checkSegmentsFS(sfPlanner *planManager, segments []*ik.SegmentFS, lookAhead
 }
 
 // TODO: Remove this function.
-func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDistanceMM float64, checkFrame referenceframe.Frame) error {
+func checkSegments(
+	segments []*ik.Segment,
+	lookAheadDistanceMM float64,
+	checkFrame referenceframe.Frame,
+	resolution float64,
+	fs *referenceframe.FrameSystem,
+	cHandler *ConstraintHandler,
+) error {
 	// go through segments and check that we satisfy constraints
 	var totalTravelDistanceMM float64
 	for _, segment := range segments {
-		interpolatedConfigurations, err := interpolateSegment(segment, sfPlanner.planOpts.Resolution)
+		interpolatedConfigurations, err := interpolateSegment(segment, resolution)
 		if err != nil {
 			return err
 		}
-		parent, err := sfPlanner.fs.Parent(checkFrame)
+		parent, err := fs.Parent(checkFrame)
 		if err != nil {
 			return err
 		}
 		for _, interpConfig := range interpolatedConfigurations {
-			poseInPathTf, err := sfPlanner.fs.Transform(
+			poseInPathTf, err := fs.Transform(
 				referenceframe.FrameSystemInputs{checkFrame.Name(): interpConfig},
 				referenceframe.NewZeroPoseInFrame(checkFrame.Name()),
 				parent.Name(),
@@ -356,7 +378,7 @@ func checkSegments(sfPlanner *planManager, segments []*ik.Segment, lookAheadDist
 			}
 
 			// Checks for collision along the interpolated route and returns a the first interpolated pose where a collision is detected.
-			if err := sfPlanner.CheckStateConstraints(interpolatedState); err != nil {
+			if err := cHandler.CheckStateConstraints(interpolatedState); err != nil {
 				return errors.Wrapf(err,
 					"found constraint violation or collision in segment between %v and %v at %v",
 					segment.StartPosition.Point(),

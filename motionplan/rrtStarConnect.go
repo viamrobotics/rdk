@@ -4,7 +4,6 @@ package motionplan
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"math/rand"
 	"time"
@@ -25,36 +24,6 @@ const (
 	defaultOptimalityCheckIter = 10
 )
 
-type rrtStarConnectOptions struct {
-	// The number of nearest neighbors to consider when adding a new sample to the tree
-	NeighborhoodSize int `json:"neighborhood_size"`
-
-	// This is how far rrtStarConnect will try to extend the map towards a goal per-step
-	qstep map[string][]float64
-}
-
-// newRRTStarConnectOptions creates a struct controlling the running of a single invocation of the algorithm.
-// All values are pre-set to reasonable defaults, but can be tweaked if needed.
-func newRRTStarConnectOptions(planOpts *plannerOptions, lfs *linearizedFrameSystem) (*rrtStarConnectOptions, error) {
-	algOpts := &rrtStarConnectOptions{
-		NeighborhoodSize: defaultNeighborhoodSize,
-	}
-	// convert map to json
-	jsonString, err := json.Marshal(planOpts.extra)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(jsonString, algOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	// Initialize qstep using the same helper function as CBIRRT
-	algOpts.qstep = getFrameSteps(lfs, defaultFrameStep)
-
-	return algOpts, nil
-}
-
 // rrtStarConnectMotionPlanner is an object able to asymptotically optimally path around obstacles to some goal for a given referenceframe.
 // It uses the RRT*-Connect algorithm, Klemm et al 2015
 // https://ieeexplore.ieee.org/document/7419012
@@ -65,23 +34,27 @@ type rrtStarConnectMotionPlanner struct {
 
 // NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
 func newRRTStarConnectMotionPlanner(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
-	opt *plannerOptions,
+	opt *PlannerOptions,
 	constraintHandler *ConstraintHandler,
+	chains *motionChains,
 ) (motionPlanner, error) {
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
-	mp, err := newPlanner(fs, seed, logger, opt, constraintHandler)
+	mp, err := newPlanner(fs, seed, logger, opt, constraintHandler, chains)
 	if err != nil {
 		return nil, err
 	}
-	algOpts, err := newRRTStarConnectOptions(opt, mp.lfs)
-	if err != nil {
-		return nil, err
+	algOpts := opt.PlanningAlgorithmSettings.RRTStarOpts
+	if algOpts == nil {
+		algOpts = &rrtStarConnectOptions{
+			NeighborhoodSize: defaultNeighborhoodSize,
+		}
 	}
+	algOpts.qstep = getFrameSteps(mp.lfs, defaultFrameStep)
 	return &rrtStarConnectMotionPlanner{mp, algOpts}, nil
 }
 

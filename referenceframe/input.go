@@ -112,7 +112,7 @@ func (inputs FrameSystemInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 }
 
 // ComputePoses computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
-func (inputs FrameSystemInputs) ComputePoses(fs FrameSystem) (FrameSystemPoses, error) {
+func (inputs FrameSystemInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) {
 	// Compute poses from configuration using the FrameSystem
 	computedPoses := make(FrameSystemPoses)
 	for _, frameName := range fs.FrameNames() {

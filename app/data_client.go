@@ -313,6 +313,11 @@ type CreateDataPipelineOptions struct {
 	TabularDataSourceType TabularDataSourceType
 }
 
+// TabularDataOptions contains optional parameters for GetLatestTabularData and ExportTabularData.
+type TabularDataOptions struct {
+	AdditionalParameters map[string]interface{}
+}
+
 // BinaryDataCaptureUploadOptions represents optional parameters for the BinaryDataCaptureUpload method.
 type BinaryDataCaptureUploadOptions struct {
 	Type             *DataType
@@ -481,7 +486,7 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 		countOnly = opts.CountOnly
 		includeInternalData = opts.IncludeInternalData
 	}
-	//nolint:deprecated,staticcheck
+	//nolint:staticcheck
 	resp, err := d.dataClient.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest:         &dataReq,
 		CountOnly:           countOnly,
@@ -573,14 +578,21 @@ func (d *DataClient) TabularDataByMQL(
 
 // GetLatestTabularData gets the most recent tabular data captured from the specified data source, as well as the time that it was captured
 // and synced. If no data was synced to the data source within the last year, LatestTabularDataReturn will be empty.
-func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceName, resourceSubtype, methodName string) (
+func (d *DataClient) GetLatestTabularData(
+	ctx context.Context, partID, resourceName, resourceSubtype, methodName string, opts *TabularDataOptions) (
 	*GetLatestTabularDataResponse, error,
 ) {
+	additionalParameters, err := additionalParametersToProto(opts)
+	if err != nil {
+		return nil, err
+	}
+
 	resp, err := d.dataClient.GetLatestTabularData(ctx, &pb.GetLatestTabularDataRequest{
-		PartId:          partID,
-		ResourceName:    resourceName,
-		ResourceSubtype: resourceSubtype,
-		MethodName:      methodName,
+		PartId:               partID,
+		ResourceName:         resourceName,
+		ResourceSubtype:      resourceSubtype,
+		MethodName:           methodName,
+		AdditionalParameters: additionalParameters,
 	})
 	if err != nil {
 		return nil, err
@@ -595,14 +607,20 @@ func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceN
 
 // ExportTabularData returns a stream of ExportTabularDataResponses.
 func (d *DataClient) ExportTabularData(
-	ctx context.Context, partID, resourceName, resourceSubtype, method string, interval CaptureInterval,
+	ctx context.Context, partID, resourceName, resourceSubtype, method string, interval CaptureInterval, opts *TabularDataOptions,
 ) ([]*ExportTabularDataResponse, error) {
+	additionalParameters, err := additionalParametersToProto(opts)
+	if err != nil {
+		return nil, err
+	}
+
 	stream, err := d.dataClient.ExportTabularData(ctx, &pb.ExportTabularDataRequest{
-		PartId:          partID,
-		ResourceName:    resourceName,
-		ResourceSubtype: resourceSubtype,
-		MethodName:      method,
-		Interval:        captureIntervalToProto(interval),
+		PartId:               partID,
+		ResourceName:         resourceName,
+		ResourceSubtype:      resourceSubtype,
+		MethodName:           method,
+		Interval:             captureIntervalToProto(interval),
+		AdditionalParameters: additionalParameters,
 	})
 	if err != nil {
 		return nil, err
@@ -1349,7 +1367,8 @@ func (d *DataClient) GetDataPipeline(ctx context.Context, id string) (*DataPipel
 
 // CreateDataPipeline creates a new data pipeline using the given query and schedule.
 func (d *DataClient) CreateDataPipeline(
-	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string, opts *CreateDataPipelineOptions,
+	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string,
+	enableBackfill bool, opts *CreateDataPipelineOptions,
 ) (string, error) {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
@@ -1369,6 +1388,7 @@ func (d *DataClient) CreateDataPipeline(
 		MqlBinary:      mqlBinary,
 		Schedule:       schedule,
 		DataSourceType: &dataSourceType,
+		EnableBackfill: &enableBackfill,
 	})
 	if err != nil {
 		return "", err
@@ -1571,7 +1591,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) (*BinaryMetadata, error) 
 		return nil, err
 	}
 	return &BinaryMetadata{
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		ID:              proto.Id,
 		BinaryDataID:    proto.BinaryDataId,
 		CaptureMetadata: *captureMetadata,
@@ -1585,7 +1605,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) (*BinaryMetadata, error) 
 	}, nil
 }
 
-//nolint:deprecated,staticcheck
+//nolint:staticcheck
 func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) (*TabularData, error) {
 	if proto == nil {
 		return nil, nil
@@ -1876,4 +1896,26 @@ func dataPipelineRunStatusFromProto(proto datapipelinesPb.DataPipelineRunStatus)
 	default:
 		return DataPipelineRunStatusUnspecified
 	}
+}
+
+func additionalParametersToProto(opts *TabularDataOptions) (*structpb.Struct, error) {
+	if opts == nil || len(opts.AdditionalParameters) == 0 {
+		return &structpb.Struct{
+			Fields: make(map[string]*structpb.Value),
+		}, nil
+	}
+
+	fields := make(map[string]*structpb.Value)
+	for key, value := range opts.AdditionalParameters {
+		val, err := structpb.NewValue(value)
+		if err != nil {
+			return &structpb.Struct{
+				Fields: make(map[string]*structpb.Value),
+			}, err
+		}
+		fields[key] = val
+	}
+	return &structpb.Struct{
+		Fields: fields,
+	}, nil
 }

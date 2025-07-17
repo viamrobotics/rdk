@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	motionpb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -213,6 +214,13 @@ func NewCollisionConstraint(
 	if err != nil {
 		return nil, err
 	}
+	if whitelist := zeroCG.collisions(collisionBufferMM); len(whitelist) > 0 {
+		logStr := "whitelisting collision pairs: "
+		for _, pair := range whitelist {
+			logStr += fmt.Sprintf("{%s, %s}, ", pair.name1, pair.name2)
+		}
+		logging.Global().Debug(logStr)
+	}
 
 	// create constraint from reference collision graph
 	constraint := func(state *ik.State) error {
@@ -268,6 +276,14 @@ func NewCollisionConstraintFS(
 	if err != nil {
 		return nil, err
 	}
+	if whitelist := zeroCG.collisions(collisionBufferMM); len(whitelist) > 0 {
+		logStr := "whitelisting collision pairs: "
+		for _, pair := range whitelist {
+			logStr += fmt.Sprintf("{%s, %s}, ", pair.name1, pair.name2)
+		}
+		logging.Global().Debug(logStr)
+	}
+
 	movingMap := map[string]spatial.Geometry{}
 	for _, geom := range moving {
 		movingMap[geom.Label()] = geom
@@ -507,10 +523,10 @@ type CollisionSpecification struct {
 // Constraints is a struct to store the constraints imposed upon a robot
 // It serves as a convenenient RDK wrapper for the protobuf object.
 type Constraints struct {
-	LinearConstraint       []LinearConstraint
-	PseudolinearConstraint []PseudolinearConstraint
-	OrientationConstraint  []OrientationConstraint
-	CollisionSpecification []CollisionSpecification
+	LinearConstraint       []LinearConstraint       `json:"linear_constraints"`
+	PseudolinearConstraint []PseudolinearConstraint `json:"pseudolinear_constraints"`
+	OrientationConstraint  []OrientationConstraint  `json:"orientation_constraints"`
+	CollisionSpecification []CollisionSpecification `json:"collision_specifications"`
 }
 
 // NewEmptyConstraints creates a new, empty Constraints object.
@@ -661,23 +677,6 @@ func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 	}
 }
 
-func (c *Constraints) updateFromOptions(opt *plannerOptions) {
-	switch opt.MotionProfile {
-	case LinearMotionProfile:
-		c.AddLinearConstraint(LinearConstraint{opt.LineTolerance, opt.OrientationTolerance})
-	case PseudolinearMotionProfile:
-		c.AddPseudolinearConstraint(PseudolinearConstraint{opt.ToleranceFactor, opt.ToleranceFactor})
-	case OrientationMotionProfile:
-		c.AddOrientationConstraint(OrientationConstraint{opt.OrientationTolerance})
-	// FreeMotionProfile or PositionOnlyMotionProfile produce no additional constraints.
-	case FreeMotionProfile, PositionOnlyMotionProfile:
-	}
-}
-
-func (c *Constraints) hasTopoConstraint() bool {
-	return (len(c.LinearConstraint) + len(c.OrientationConstraint)) != 0
-}
-
 // AddLinearConstraint appends a LinearConstraint to a Constraints object.
 func (c *Constraints) AddLinearConstraint(linConstraint LinearConstraint) {
 	c.LinearConstraint = append(c.LinearConstraint, linConstraint)
@@ -734,7 +733,7 @@ type fsPathConstraint struct {
 	metricMap     map[string]ik.StateMetric
 	constraintMap map[string]StateConstraint
 	goalMap       referenceframe.FrameSystemPoses
-	fs            referenceframe.FrameSystem
+	fs            *referenceframe.FrameSystem
 }
 
 func (fpc *fsPathConstraint) constraint(state *ik.StateFS) error {
@@ -776,7 +775,7 @@ func (fpc *fsPathConstraint) metric(state *ik.StateFS) float64 {
 }
 
 func newFsPathConstraintSeparatedLinOrientTol(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	constructor func(spatial.Pose, spatial.Pose, float64, float64) (StateConstraint, ik.StateMetric),
@@ -808,7 +807,7 @@ func newFsPathConstraintSeparatedLinOrientTol(
 }
 
 func newFsPathConstraintTol(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	constructor func(spatial.Pose, spatial.Pose, float64) (StateConstraint, ik.StateMetric),
@@ -843,7 +842,7 @@ func newFsPathConstraintTol(
 // and return a constraint that returns whether given orientations are within a given tolerance distance of the shortest segment between
 // their respective orientations, as well as a metric which returns the distance to that valid region.
 func CreateSlerpOrientationConstraintFS(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	tolerance float64,
@@ -859,7 +858,7 @@ func CreateSlerpOrientationConstraintFS(
 // and return a constraint that checks whether given positions are within a specified tolerance distance of the shortest
 // line segment between their respective positions, as well as a metric which returns the distance to that valid region.
 func CreateLineConstraintFS(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	tolerance float64,
@@ -879,7 +878,7 @@ func CreateLineConstraintFS(
 // shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
 // orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
 func CreateAbsoluteLinearInterpolatingConstraintFS(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	linTol, orientTol float64,
@@ -903,7 +902,7 @@ func CreateAbsoluteLinearInterpolatingConstraintFS(
 // CreateAbsoluteLinearInterpolatingConstraintFS, except that allowable linear and orientation deviation is scaled based on the distance
 // from start to goal.
 func CreateProportionalLinearInterpolatingConstraintFS(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	linTol, orientTol float64,

@@ -376,7 +376,7 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	testTransformPoint(t, fs, FrameSystemInputs{}, poseStart, poseEnd)
 }
 
-func testTransformPoint(t *testing.T, fs FrameSystem, positions FrameSystemInputs, start, end *PoseInFrame) {
+func testTransformPoint(t *testing.T, fs *FrameSystem, positions FrameSystemInputs, start, end *PoseInFrame) {
 	t.Helper()
 	tf, err := fs.Transform(positions, start, end.Parent())
 	test.That(t, err, test.ShouldBeNil)

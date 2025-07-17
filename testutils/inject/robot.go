@@ -46,6 +46,7 @@ type Robot struct {
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
+	CurrentInputsFunc       func(ctx context.Context) (referenceframe.FrameSystemInputs, error)
 	ModuleAddressesFunc     func() (config.ParentSockAddrs, error)
 	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
 	MachineStatusFunc       func(ctx context.Context) (robot.MachineStatus, error)
@@ -254,6 +255,17 @@ func (r *Robot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointC
 		return r.LocalRobot.TransformPointCloud(ctx, srcpc, srcName, dstName)
 	}
 	return r.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
+}
+
+// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
+// and a map of statuses indicating which of the machine's components may be actuated through input values.
+func (r *Robot) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.CurrentInputsFunc == nil {
+		return r.LocalRobot.CurrentInputs(ctx)
+	}
+	return r.CurrentInputs(ctx)
 }
 
 // ModuleAddresses calls the injected ModuleAddresses or the real one.

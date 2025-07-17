@@ -126,6 +126,7 @@ const (
 	datapipelineFlagMQL            = "mql"
 	datapipelineFlagMQLFile        = "mql-path"
 	datapipelineFlagDataSourceType = "data-source-type"
+	datapipelineFlagEnableBackfill = "enable-backfill"
 
 	packageFlagFramework = "model-framework"
 
@@ -1175,6 +1176,10 @@ var app = &cli.App{
 									Name:  "end",
 									Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval",
 								},
+								&cli.StringFlag{
+									Name:  "additional-params",
+									Usage: "additional parameters to pass to the tabular data export query. accepts a JSON string of key-value pairs",
+								},
 							},
 							Action: createCommandWithT[dataExportTabularArgs](DataExportTabularAction),
 						},
@@ -1335,7 +1340,7 @@ var app = &cli.App{
 										"data tag ids add", []string{generalFlagTags, dataFlagBinaryDataIDs}, false, false,
 									),
 									Flags:  dataTagByIDsFlags,
-									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
+									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIDs),
 								},
 								{
 									Name:  "remove",
@@ -1344,7 +1349,7 @@ var app = &cli.App{
 										"data tag ids remove", []string{generalFlagTags, dataFlagBinaryDataIDs}, false, false,
 									),
 									Flags:  dataTagByIDsFlags,
-									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
+									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIDs),
 								},
 							},
 						},
@@ -1626,7 +1631,7 @@ var app = &cli.App{
 					Name:  "create",
 					Usage: "create a new data pipeline",
 					UsageText: createUsageText("datapipelines create",
-						[]string{generalFlagOrgID, generalFlagName, datapipelineFlagSchedule}, false, false,
+						[]string{generalFlagOrgID, generalFlagName, datapipelineFlagSchedule, datapipelineFlagEnableBackfill}, false, false,
 						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
 							datapipelineFlagMQL, datapipelineFlagMQL,
 							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
@@ -1654,6 +1659,11 @@ var app = &cli.App{
 						&cli.StringFlag{
 							Name:  datapipelineFlagMQLFile,
 							Usage: "path to JSON file containing MQL query for the new data pipeline",
+						},
+						&cli.BoolFlag{
+							Name:     datapipelineFlagEnableBackfill,
+							Usage:    "enable data pipeline to run over organization's historical data",
+							Required: true,
 						},
 						&cli.StringFlag{
 							Name: datapipelineFlagDataSourceType,
@@ -2491,11 +2501,75 @@ Note: There is no progress meter while copying is in progress.
 			},
 		},
 		{
+			Name:            "metadata",
+			Usage:           "manage the metadata attached to your orgs, locations, machines, and/or machine parts",
+			UsageText:       createUsageText("metadata", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:      "read",
+					Usage:     "read metadata attached to your orgs, locations, machines, and/or machine parts",
+					UsageText: "Provide at least one of the identifiers using CLI arguments to fetch the corresponding metadata.",
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagOrgID,
+								Aliases: []string{generalFlagAliasOrg, generalFlagOrganization},
+								Usage:   "ID of the organization you want to read the metadata from",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagLocationID,
+								Aliases: []string{generalFlagLocation},
+								Usage:   "ID of the location you want to read the metadata from",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagMachineID,
+								Aliases: []string{generalFlagMachine, generalFlagAliasRobotID, generalFlagAliasRobot},
+								Usage:   "ID of the machine you want to read the metadata from",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagPartID,
+								Aliases: []string{generalFlagPart},
+								Usage:   "ID of the machine part you want to read the metadata from",
+							},
+						},
+					},
+					Action: createCommandWithT[metadataReadArgs](MetadataReadAction),
+				},
+			},
+		},
+		{
 			Name:            "module",
 			Usage:           "manage your modules in Viam's registry",
 			UsageText:       createUsageText("module", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
+				{
+					Name:  "local-app-testing",
+					Usage: "test your viam application locally",
+					UsageText: createUsageText("module local-app-testing",
+						[]string{"app-url", "machine-id"}, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     "app-url",
+							Usage:    "url where local app is running (including port number), e.g http://localhost:5000",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name: "machine-id",
+							Usage: "machine ID of the machine you want to test with, you can get it at " +
+								"https://app.viam.com/fleet/machines",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[localAppTestingArgs](LocalAppTestingAction),
+				},
 				{
 					Name:  "create",
 					Usage: "create & register a module on app.viam.com",

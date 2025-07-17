@@ -94,7 +94,7 @@ type tpspaceOptions struct {
 	attemptSolveEvery int
 
 	// Cached functions for calculating TP-space distances for each PTG
-	distOptions map[tpspace.PTG]*plannerOptions
+	distOptions map[tpspace.PTG]*PlannerOptions
 }
 
 // candidate is putative node which could be added to an RRT tree. It includes a distance score, the new node and its future parent.
@@ -152,17 +152,18 @@ func getNodeDistanceFunc(distMap *sync.Map, ptg tpspace.PTGSolver, tpFrameName s
 
 // newTPSpaceMotionPlanner creates a newTPSpaceMotionPlanner object with a user specified random seed.
 func newTPSpaceMotionPlanner(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
-	opt *plannerOptions,
+	opt *PlannerOptions,
 	constraintHandler *ConstraintHandler,
+	chains *motionChains,
 ) (motionPlanner, error) {
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
 
-	mp, err := newPlanner(fs, seed, logger, opt, constraintHandler)
+	mp, err := newPlanner(fs, seed, logger, opt, constraintHandler, chains)
 	if err != nil {
 		return nil, err
 	}
@@ -170,10 +171,10 @@ func newTPSpaceMotionPlanner(
 		planner: mp,
 	}
 	// TODO: Only one motion chain allowed if tpspace for now. Eventually this may not be a restriction.
-	if len(opt.motionChains.inner) != 1 {
-		return nil, fmt.Errorf("exactly one motion chain permitted for tpspace, but planner option had %d", len(opt.motionChains.inner))
+	if len(chains.inner) != 1 {
+		return nil, fmt.Errorf("exactly one motion chain permitted for tpspace, but planner option had %d", len(chains.inner))
 	}
-	for _, frame := range opt.motionChains.inner[0].frames {
+	for _, frame := range chains.inner[0].frames {
 		if tpFrame, ok := frame.(tpspace.PTGProvider); ok {
 			tpPlanner.tpFrame = frame
 			tpPlanner.solvers = tpFrame.PTGSolvers()
@@ -863,7 +864,7 @@ func (mp *tpSpaceRRTMotionPlanner) setupTPSpaceOptions() {
 
 		identicalNodeDistance: defaultIdenticalNodeDistance,
 
-		distOptions: map[tpspace.PTG]*plannerOptions{},
+		distOptions: map[tpspace.PTG]*PlannerOptions{},
 	}
 
 	mp.algOpts = tpOpt
@@ -894,7 +895,14 @@ func ptgSolution(ptg tpspace.PTGSolver,
 func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) []node {
 	toIter := int(math.Min(float64(len(path)*len(path))/2, float64(mp.planOpts.SmoothIter)))
 	currCost := sumCosts(path)
-	smoothPlannerMP, err := newTPSpaceMotionPlanner(mp.fs, mp.randseed, mp.logger, mp.planOpts, mp.ConstraintHandler)
+	smoothPlannerMP, err := newTPSpaceMotionPlanner(
+		mp.fs,
+		mp.randseed,
+		mp.logger,
+		mp.planOpts,
+		mp.ConstraintHandler,
+		mp.motionChains,
+	)
 	if err != nil {
 		return path
 	}
@@ -1048,13 +1056,17 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 	randPosTheta := math.Pi * (mp.randseed.Float64() - 0.5)
 	randPos := spatialmath.NewPose(
 		r3.Vector{
-			mp.tpFramePose(rSeed.Poses()).Point().X + (randPosX - rDist/2.),
-			mp.tpFramePose(rSeed.Poses()).Point().Y + (randPosY - rDist/2.),
-			0,
+			X: mp.tpFramePose(rSeed.Poses()).Point().X + (randPosX - rDist/2.),
+			Y: mp.tpFramePose(rSeed.Poses()).Point().Y + (randPosY - rDist/2.),
+			Z: 0,
 		},
 		&spatialmath.OrientationVector{OZ: 1, Theta: randPosTheta},
 	)
 	return &basicNode{poses: mp.tpFramePoseToFrameSystemPoses(randPos)}, nil
+}
+
+func (mp *tpSpaceRRTMotionPlanner) getScoringFunction() ik.SegmentFSMetric {
+	return mp.scoringFunction
 }
 
 // rectifyTPspacePath is needed because of how trees are currently stored. As trees grow from the start or goal, the Pose stored in the node

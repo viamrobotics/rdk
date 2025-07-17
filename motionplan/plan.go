@@ -120,7 +120,7 @@ func (traj Trajectory) EvaluateCost(distFunc ik.SegmentFSMetric) float64 {
 // The pose of the referenceframe.FrameSystemPoses is the pose at the end of the corresponding set of inputs in the Trajectory.
 type Path []referenceframe.FrameSystemPoses
 
-func newPath(solution []node, fs referenceframe.FrameSystem) (Path, error) {
+func newPath(solution []node, fs *referenceframe.FrameSystem) (Path, error) {
 	path := make(Path, 0, len(solution))
 	for _, inputNode := range solution {
 		poseMap := make(map[string]*referenceframe.PoseInFrame)
@@ -356,6 +356,31 @@ type PlanState struct {
 	configuration referenceframe.FrameSystemInputs
 }
 
+type planStateJSON struct {
+	Poses         referenceframe.FrameSystemPoses  `json:"poses"`
+	Configuration referenceframe.FrameSystemInputs `json:"configuration"`
+}
+
+// MarshalJSON serializes a PlanState to JSON.
+func (p *PlanState) MarshalJSON() ([]byte, error) {
+	stateJSON := planStateJSON{
+		Poses:         p.poses,
+		Configuration: p.configuration,
+	}
+	return json.Marshal(stateJSON)
+}
+
+// UnmarshalJSON deserializes a PlanState from JSON.
+func (p *PlanState) UnmarshalJSON(data []byte) error {
+	var stateJSON planStateJSON
+	if err := json.Unmarshal(data, &stateJSON); err != nil {
+		return err
+	}
+	p.poses = stateJSON.Poses
+	p.configuration = stateJSON.Configuration
+	return nil
+}
+
 // NewPlanState creates a PlanState from the given poses and configuration. Either or both may be nil.
 func NewPlanState(poses referenceframe.FrameSystemPoses, configuration referenceframe.FrameSystemInputs) *PlanState {
 	return &PlanState{poses: poses, configuration: configuration}
@@ -372,7 +397,7 @@ func (p *PlanState) Configuration() referenceframe.FrameSystemInputs {
 }
 
 // ComputePoses returns the poses of a PlanState if they are populated, or computes them using the given FrameSystem if not.
-func (p *PlanState) ComputePoses(fs referenceframe.FrameSystem) (referenceframe.FrameSystemPoses, error) {
+func (p *PlanState) ComputePoses(fs *referenceframe.FrameSystem) (referenceframe.FrameSystemPoses, error) {
 	if len(p.poses) > 0 {
 		return p.poses, nil
 	}

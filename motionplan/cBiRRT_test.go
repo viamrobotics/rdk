@@ -38,11 +38,15 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	goalPos := spatialmath.NewPose(r3.Vector{X: 206, Y: 100, Z: 120.5}, &spatialmath.OrientationVectorDegrees{OY: -1})
 
-	opt := newBasicPlannerOptions()
-	goalMetric := opt.getGoalMetric(referenceframe.FrameSystemPoses{m.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos)})
+	opt := NewBasicPlannerOptions()
+	goal := referenceframe.FrameSystemPoses{m.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos)}
+	goalMetric := opt.getGoalMetric(goal)
 	fs := referenceframe.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())
-	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler())
+	chains, err := motionChainsFromPlanState(fs, &PlanState{poses: goal})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chains, test.ShouldNotBeNil)
+	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler(), chains)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goalMetric)
@@ -63,9 +67,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 		goalMap[solution] = nil
 	}
 	nn := &neighborManager{nCPU: nCPU}
-
-	_, err = newCbirrtOptions(opt, cbirrt.lfs)
-	test.That(t, err, test.ShouldBeNil)
 
 	m1chan := make(chan node, 1)
 	defer close(m1chan)

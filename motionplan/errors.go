@@ -33,7 +33,7 @@ var (
 
 // NewAlgAndConstraintMismatchErr is returned when an incompatible planning_alg is specified and there are contraints.
 func NewAlgAndConstraintMismatchErr(planAlg string) error {
-	return fmt.Errorf("cannot specify a planning alg other than cbirrt with topo constraints. alg specified was %s", planAlg)
+	return fmt.Errorf("cannot specify a planning algorithm other than cbirrt with topo constraints. algorithm specified was %s", planAlg)
 }
 
 func newIKConstraintErr(failures map[string]int, constraintFailCnt int) error {

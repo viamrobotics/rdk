@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
+	"go.viam.com/rdk/services/datamanager/builtin/shared"
 	"go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -101,7 +102,7 @@ func TestConfig(t *testing.T) {
 	t.Run("getCaptureDir", func(t *testing.T) {
 		t.Run("returns the default capture directory by default", func(t *testing.T) {
 			c := &Config{}
-			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, viamCaptureDotDir)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, shared.ViamCaptureDotDir)
 		})
 
 		t.Run("returns home directory if starts with ~", func(t *testing.T) {
@@ -121,7 +122,7 @@ func TestConfig(t *testing.T) {
 		t.Run("returns a capture config with defaults when called on an empty config", func(t *testing.T) {
 			c := &Config{}
 			test.That(t, c.captureConfig(logger), test.ShouldResemble, capture.Config{
-				CaptureDir:                  viamCaptureDotDir,
+				CaptureDir:                  shared.ViamCaptureDotDir,
 				MaximumCaptureFileSizeBytes: defaultMaxCaptureSize,
 			})
 		})
@@ -140,7 +141,7 @@ func TestConfig(t *testing.T) {
 		t.Run("returns a sync config with defaults when called on an empty config", func(t *testing.T) {
 			c := &Config{}
 			test.That(t, c.syncConfig(nil, false, logger), test.ShouldResemble, sync.Config{
-				CaptureDir:                  viamCaptureDotDir,
+				CaptureDir:                  shared.ViamCaptureDotDir,
 				DeleteEveryNthWhenDiskFull:  5,
 				FileLastModifiedMillis:      10000,
 				MaximumNumSyncThreads:       runtime.NumCPU() / 2,
@@ -153,7 +154,7 @@ func TestConfig(t *testing.T) {
 		t.Run("returns a sync config with defaults when called on a config with SyncIntervalMins which is practically 0", func(t *testing.T) {
 			c := &Config{SyncIntervalMins: 0.000000000000000001}
 			test.That(t, c.syncConfig(nil, false, logger), test.ShouldResemble, sync.Config{
-				CaptureDir:                  viamCaptureDotDir,
+				CaptureDir:                  shared.ViamCaptureDotDir,
 				DeleteEveryNthWhenDiskFull:  5,
 				FileLastModifiedMillis:      10000,
 				MaximumNumSyncThreads:       runtime.NumCPU() / 2,
