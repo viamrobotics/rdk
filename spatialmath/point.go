@@ -67,13 +67,9 @@ func (pt *point) Transform(toPremultiply Pose) Geometry {
 func (pt *point) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(NewPoseFromPoint(pt.position)),
-		GeometryType: &commonpb.Geometry_Point{
-			Point: &commonpb.Point{
-				Position: &commonpb.Vector3{
-					X: pt.position.X,
-					Y: pt.position.Y,
-					Z: pt.position.Z,
-				},
+		GeometryType: &commonpb.Geometry_Sphere{
+			Sphere: &commonpb.Sphere{
+				RadiusMm: 0,
 			},
 		},
 		Label: pt.label,
@@ -119,11 +115,6 @@ func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 // EncompassedBy returns a bool describing if the given point is completely encompassed by the given geometry.
 func (pt *point) EncompassedBy(g Geometry) (bool, error) {
 	return pt.CollidesWith(g, defaultCollisionBufferMM)
-}
-
-// NewPointFromProto creates a new point from a protobuf point.
-func NewPointFromProto(point *commonpb.Point, label string) (Geometry, error) {
-	return NewPoint(r3.Vector{X: point.Position.X, Y: point.Position.Y, Z: point.Position.Z}, label), nil
 }
 
 // pointVsBoxCollision takes a box and a point as arguments and returns a bool describing if they are in collision. \

@@ -35,9 +35,6 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (spatialmath.Geometry, er
 	if pointCloud := geometry.GetPointcloud(); pointCloud != nil {
 		return pointcloud.NewPointCloudFromProto(pointCloud, geometry.Label)
 	}
-	if point := geometry.GetPoint(); point != nil {
-		return spatialmath.NewPoint(r3.Vector{X: point.Position.X, Y: point.Position.Y, Z: point.Position.Z}, geometry.Label), nil
-	}
 	return nil, errGeometryTypeUnsupported
 }
 
