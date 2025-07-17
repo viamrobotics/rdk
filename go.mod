@@ -445,4 +445,4 @@ require (
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e
 )
 
-replace go.viam.com/api => ../api
+replace go.viam.com/api => github.com/viamrobotics/api v0.1.458-0.20250717192712-d9437d8203b6 // upload-to-dataset
