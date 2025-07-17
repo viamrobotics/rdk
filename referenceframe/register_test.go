@@ -48,11 +48,6 @@ func (tF *trivialFrame) DoF() []Limit {
 }
 
 func TestImplementerRegistration(t *testing.T) {
-	// test that we get an error when trying to register something that doesn't implement Frame
-	// type brokenThing struct{}
-	// err := RegisterFrameImplementer(reflect.TypeOf((*brokenThing)(nil)))
-	// test.That(t, err, test.ShouldNotBeNil)
-
 	type staticFrame struct {
 		*trivialFrame
 	}
