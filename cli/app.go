@@ -2501,6 +2501,50 @@ Note: There is no progress meter while copying is in progress.
 			},
 		},
 		{
+			Name:            "metadata",
+			Usage:           "manage the metadata attached to your orgs, locations, machines, and/or machine parts",
+			UsageText:       createUsageText("metadata", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:      "read",
+					Usage:     "read metadata attached to your orgs, locations, machines, and/or machine parts",
+					UsageText: "Provide at least one of the identifiers using CLI arguments to fetch the corresponding metadata.",
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagOrgID,
+								Aliases: []string{generalFlagAliasOrg, generalFlagOrganization},
+								Usage:   "ID of the organization you want to read the metadata from",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagLocationID,
+								Aliases: []string{generalFlagLocation},
+								Usage:   "ID of the location you want to read the metadata from",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagMachineID,
+								Aliases: []string{generalFlagMachine, generalFlagAliasRobotID, generalFlagAliasRobot},
+								Usage:   "ID of the machine you want to read the metadata from",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagPartID,
+								Aliases: []string{generalFlagPart},
+								Usage:   "ID of the machine part you want to read the metadata from",
+							},
+						},
+					},
+					Action: createCommandWithT[metadataReadArgs](MetadataReadAction),
+				},
+			},
+		},
+		{
 			Name:            "module",
 			Usage:           "manage your modules in Viam's registry",
 			UsageText:       createUsageText("module", nil, false, true),
