@@ -7,17 +7,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/fullstorydev/grpcurl"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
-
-	"strings"
-	"time"
-
 	"github.com/pkg/errors"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/metadata"
@@ -38,19 +35,17 @@ const (
 	componentServiceIndex int = 2
 )
 
-var (
-	// controllerAPIs is a map for an edge case handling of the "inputcontroller" API. This
-	// API expects a different argument ("controller", rather than "name") for this set of
-	// functions.
-	controllerAPIs = map[string]map[string]struct{}{
-		"viam.component.inputcontroller.v1.InputControllerService": {
-			"GetControls":   {},
-			"GetEvents":     {},
-			"StreamEvents":  {},
-			"TriggerEvents": {},
-		},
-	}
-)
+// controllerAPIs is a map for an edge case handling of the "inputcontroller" API. This
+// API expects a different argument ("controller", rather than "name") for this set of
+// functions.
+var controllerAPIs = map[string]map[string]struct{}{
+	"viam.component.inputcontroller.v1.InputControllerService": {
+		"GetControls":   {},
+		"GetEvents":     {},
+		"StreamEvents":  {},
+		"TriggerEvents": {},
+	},
+}
 
 // Jobmanager keeps track of the currently scheduled jobs and updates the schedule with
 // respect to the "jobs" part of the config.
@@ -110,16 +105,18 @@ func (jm *Jobmanager) Shutdown() error {
 }
 
 // createDescriptorSourceAndgRPCMethod sets up a DescriptorSource for grpc translations
-// and sets up a grpcMethod string that will be invoked later.
+// and sets up parts of the grpc method string that will be invoked later.
 func (jm *Jobmanager) createDescriptorSourceAndgRPCMethod(
 	res resource.Resource,
-	method string) (grpcurl.DescriptorSource, string, string, error) {
-
+	method string,
+) (grpcurl.DescriptorSource, string, string, error) {
 	refCtx := metadata.NewOutgoingContext(jm.ctx, nil)
 	refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(jm.conn))
 	reflSource := grpcurl.DescriptorSourceFromServer(jm.ctx, refClient)
 	descSource := reflSource
 	resourceType := res.Name().API.SubtypeName
+	// some subtypes have an underscore in their name, like audio_input, input_controller,
+	// or pose_tracker, while their APIs do not - so we have to remove the underscore.
 	resourceType = strings.ReplaceAll(resourceType, "_", "")
 	services, err := descSource.ListServices()
 	if err != nil {
@@ -151,8 +148,6 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig) func() {
 			return
 		}
 		if jc.Method == "DoCommand" {
-			// if the method is DoCommand, we can call the corresponding resource's DoCommand
-			// right away.
 			jobLogger.CInfo(jm.ctx, "Job triggered")
 			response, err := res.DoCommand(jm.ctx, jc.Command)
 			if err != nil {
@@ -171,7 +166,7 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig) func() {
 
 		data := fmt.Sprintf("{%q : %q}", "name", jc.Resource)
 		// In case this grpcService needs a special, different argument, we will check it
-		// using this map.
+		// using the controllerAPIs map.
 		if methods, ok := controllerAPIs[grpcService]; ok {
 			if _, ok := methods[grpcMethod]; ok {
 				data = fmt.Sprintf("{%q : %q}", "controller", jc.Resource)
@@ -187,7 +182,6 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig) func() {
 			descSource,
 			strings.NewReader(data),
 			options)
-
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "could not create parser and formatter for grpc requests", "error", err.Error())
 			return
@@ -204,18 +198,18 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig) func() {
 		err = grpcurl.InvokeRPC(jm.ctx, descSource, jm.conn, grpcMethodCombined, nil, h, rf.Next)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "Job failed", "error", err.Error())
+			return
 		} else if h.Status != nil && h.Status.Err() != nil {
 			jobLogger.CWarnw(jm.ctx, "Job failed", "error", h.Status.Err())
-		} else {
-			response := map[string]any{}
-			err := json.Unmarshal(buffer.Bytes(), &response)
-			if err != nil {
-				jobLogger.CWarnw(jm.ctx, "Unmarshalling grpc response failed with error", "error", err.Error())
-			} else {
-				jobLogger.CInfow(jm.ctx, "Job succeeded", "response", response)
-			}
+			return
 		}
-
+		response := map[string]any{}
+		err = json.Unmarshal(buffer.Bytes(), &response)
+		if err != nil {
+			jobLogger.CWarnw(jm.ctx, "Unmarshalling grpc response failed with error", "error", err.Error())
+		} else {
+			jobLogger.CInfow(jm.ctx, "Job succeeded", "response", response)
+		}
 	}
 }
 
@@ -261,7 +255,7 @@ func (jm *Jobmanager) scheduleJob(jc config.JobConfig, verbose bool) {
 		// iteration is running, the job scheduler will treat them differently based on
 		// jobLimitMode.
 		// If the job is a CRON job, it will get rescheduled until its next
-		// occurance based on the cron schedule.
+		// occurrence based on the cron schedule.
 		// If the job is a DURATION job, the new job will run as soon as the previous one
 		// finishes. This has no effect on the schedule (timer) of the job.
 

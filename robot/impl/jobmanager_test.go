@@ -8,53 +8,46 @@ import (
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/audioinput"
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/button"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/components/gantry"
+	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/components/input"
+	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/components/posetracker"
+	"go.viam.com/rdk/components/powersensor"
+	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/components/servo"
+	sw "go.viam.com/rdk/components/switch"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/discovery"
 	genSvc "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
-
-	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/button"
-	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/encoder"
-
-	"go.viam.com/rdk/components/gantry"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/components/motor"
-	"go.viam.com/rdk/components/posetracker"
-	"go.viam.com/rdk/components/powersensor"
-	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/components/servo"
-
-	"go.viam.com/rdk/components/movementsensor"
-	_ "go.viam.com/rdk/components/register"
-	sw "go.viam.com/rdk/components/switch"
-	"go.viam.com/test"
-
-	_ "go.viam.com/rdk/components/register"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
-	_ "go.viam.com/rdk/services/register"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/testutils/inject"
 	injectmotion "go.viam.com/rdk/testutils/inject/motion"
-
-	"go.viam.com/utils/testutils"
 )
 
 func TestJobManagerDurationAndCronFromJson(t *testing.T) {
@@ -353,7 +346,8 @@ func TestJobManagerComponents(t *testing.T) {
 	// encoder
 	dummyEncoder := inject.NewEncoder("encoder")
 	dummyEncoder.PropertiesFunc = func(ctx context.Context,
-		extra map[string]any) (encoder.Properties, error) {
+		extra map[string]any,
+	) (encoder.Properties, error) {
 		return encoder.Properties{TicksCountSupported: true}, nil
 	}
 	resource.RegisterComponent(
@@ -384,7 +378,7 @@ func TestJobManagerComponents(t *testing.T) {
 			return dummyGantry, nil
 		}})
 	// generic
-	var genericCounter = 0
+	genericCounter := 0
 	dummyGeneric := inject.NewGenericComponent("generic")
 	dummyGeneric.DoFunc = func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 		genericCounter++
@@ -422,7 +416,8 @@ func TestJobManagerComponents(t *testing.T) {
 	// inputcontroller
 	dummyInputController := inject.NewInputController("my_input")
 	dummyInputController.EventsFunc = func(ctx context.Context,
-		extra map[string]any) (map[input.Control]input.Event, error) {
+		extra map[string]any,
+	) (map[input.Control]input.Event, error) {
 		control := make(map[input.Control]input.Event)
 		control[input.AbsoluteHat0X] = input.Event{}
 		return control, nil
@@ -474,7 +469,8 @@ func TestJobManagerComponents(t *testing.T) {
 	dummyPoseTracker := inject.NewPoseTracker("pose")
 	dummyPoseTracker.PosesFunc = func(ctx context.Context,
 		bodyNames []string,
-		extra map[string]any) (referenceframe.FrameSystemPoses, error) {
+		extra map[string]any,
+	) (referenceframe.FrameSystemPoses, error) {
 		return make(referenceframe.FrameSystemPoses), nil
 	}
 	resource.RegisterComponent(
@@ -863,11 +859,13 @@ func TestJobManagerServices(t *testing.T) {
 	// discovery
 	dummyDiscovery := inject.NewDiscoveryService("discovery")
 	dummyDiscovery.DiscoverResourcesFunc = func(ctx context.Context,
-		extra map[string]any) ([]resource.Config, error) {
+		extra map[string]any,
+	) ([]resource.Config, error) {
 		return make([]resource.Config, 0), nil
 	}
 	dummyDiscovery.DoFunc = func(ctx context.Context,
-		cmd map[string]interface{}) (map[string]interface{}, error) {
+		cmd map[string]interface{},
+	) (map[string]interface{}, error) {
 		return nil, nil
 	}
 	resource.RegisterService(
@@ -1057,14 +1055,16 @@ func TestJobManagerServices(t *testing.T) {
 			},
 		},
 		Jobs: []config.JobConfig{
-			//{
-			//config.JobConfigData{
-			//Name:     "discovery job",
-			//Schedule: "3s",
-			//Resource: "discovery",
-			//Method:   "DiscoverResources",
-			//},
-			//},
+			// Discovery Service is currently excluded from the list of services; it will be
+			// available after a change in the API repo.
+			// {
+			// config.JobConfigData{
+			// Name:     "discovery job",
+			// Schedule: "3s",
+			// Resource: "discovery",
+			// Method:   "DiscoverResources",
+			// },
+			// },
 			{
 				config.JobConfigData{
 					Name:     "data manager job",
@@ -1162,6 +1162,7 @@ func TestJobManagerServices(t *testing.T) {
 			test.ShouldBeLessThanOrEqualTo, 0)
 	})
 }
+
 func TestJobManagerErrors(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake_jobs.json", logger, nil)

@@ -1,3 +1,6 @@
+// Package inject provides dependency injected structures for mocking interfaces.
+//
+//nolint:dupl
 package inject
 
 import (
