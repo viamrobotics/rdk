@@ -35,7 +35,7 @@ const (
 	// FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 	FailedDir = "failed"
 	// DatasetDir is a subdirectory of the capture directory that holds any files that are simultaneously uploaded and added to a dataset outside of the regularly scheduled sync.
-	DatasetDir = "failed"
+	DatasetDir = "dataset"
 	// grpcConnectionTimeout defines the timeout for getting a connection with app.viam.com.
 	grpcConnectionTimeout = 10 * time.Second
 	// durationBetweenAcquireConnection defines how long to wait after a call to cloud.AcquireConnection fails
@@ -481,14 +481,19 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 
 // UploadBinaryDataToDataset simultaneously uploads binary data and adds it to a dataset.
 func (s *Sync) UploadBinaryDataToDataset(ctx context.Context, data []byte, datasetIDs, tags []string, mimeType v1.MimeType) error {
+	// Create a new directory CaptureDir/DatasetDir
+	newDir := filepath.Join(s.config.CaptureDir, DatasetDir)
+	if err := os.MkdirAll(newDir, 0o700); err != nil {
+		return errors.Wrapf(err, "failed to create file in dataset directory: error making new dataset directory: %s", newDir)
+	}
 	filename := uuid.NewString()
 	fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
 	if fileExtensionFromMimeType != "" {
-		filename = filename + "." + fileExtensionFromMimeType
+		filename = filename + fileExtensionFromMimeType
 
 	}
 	filename = filepath.Clean(filepath.Join(s.config.CaptureDir, DatasetDir, filename))
-	err := os.WriteFile(filename, data, os.ModeAppend)
+	err := os.WriteFile(filename, data, 0o640)
 	if err != nil {
 		s.logger.Errorw("error writing file", "err", err)
 		return err
@@ -498,7 +503,9 @@ func (s *Sync) UploadBinaryDataToDataset(ctx context.Context, data []byte, datas
 		s.logger.Errorw("error reading file", "err", err)
 		return err
 	}
-	go s.syncArbitraryFile(f, tags, datasetIDs, int(time.Now().UnixMilli()), s.logger)
+	// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
+	// before deciding this file is ready for upload and is not still being written to.
+	go s.syncArbitraryFile(f, tags, datasetIDs, 0, s.logger)
 	return nil
 }
 
