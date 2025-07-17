@@ -712,6 +712,9 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 			// Call upload to dataset.
 			datasetBytes := []byte("hi")
+			datasetsMetadata := []string{"dataset1"}
+			tagsMetadata := []string{"tag1"}
+			mimeType := v1.MimeType_MIME_TYPE_IMAGE_PNG
 			if tc.uploadToDataset {
 				t.Log("calling upload to a dataset")
 				// Add the bytes to the file contents.
@@ -719,7 +722,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*5)
 				defer timeoutFn()
 				for {
-					if err = b.UploadBinaryDataToDataset(context.Background(), datasetBytes, []string{"dataset1"}, []string{"tag1"}, v1.MimeType_MIME_TYPE_IMAGE_PNG, nil); err == nil {
+					if err = b.UploadBinaryDataToDataset(context.Background(), datasetBytes, datasetsMetadata, tagsMetadata, mimeType, nil); err == nil {
 						break
 					}
 
@@ -748,6 +751,16 @@ func TestArbitraryFileUpload(t *testing.T) {
 				test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
 				test.That(t, actMD.PartId, test.ShouldNotBeBlank)
 
+				// Validate metadata for dataset upload.
+				if tc.uploadToDataset {
+					datasetMD := rs[2].GetMetadata()
+					test.That(t, datasetMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
+					test.That(t, filepath.Base(datasetMD.FileName), test.ShouldNotBeBlank)
+					test.That(t, datasetMD.FileExtension, test.ShouldEqual, ".png")
+					test.That(t, datasetMD.PartId, test.ShouldNotBeBlank)
+					test.That(t, datasetMD.Tags, test.ShouldResemble, tagsMetadata)
+					test.That(t, datasetMD.DatasetIds, test.ShouldResemble, datasetsMetadata)
+				}
 				// Validate ensuing data messages.
 				dataRequests := rs[1:]
 				var actData []byte
