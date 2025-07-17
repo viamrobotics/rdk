@@ -42,7 +42,7 @@ func (server *serviceServer) UploadImageToDataset(
 	if err != nil {
 		return nil, err
 	}
-	if err := svc.UploadBinaryDataToDataset(ctx, req.BinaryData, req.DatasetIds, req.Tags, req.Extra.AsMap()); err != nil {
+	if err := svc.UploadBinaryDataToDataset(ctx, req.GetBinaryData(), req.GetDatasetIds(), req.GetTags(), req.GetMimeType(), req.Extra.AsMap()); err != nil {
 		return nil, err
 	}
 	return &pb.UploadBinaryDataToDatasetRequest{}, nil

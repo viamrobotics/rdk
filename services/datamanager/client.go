@@ -63,7 +63,13 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
-func (c *client) UploadBinaryDataToDataset(ctx context.Context, image []byte, datasetIDs, tags []string, extra map[string]interface{}) error {
+func (c *client) UploadBinaryDataToDataset(
+	ctx context.Context,
+	image []byte,
+	datasetIDs, tags []string,
+	mimeType datasyncpb.MimeType,
+	extra map[string]interface{},
+) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -101,6 +107,7 @@ func (c *client) UploadImageToDataset(
 		BinaryData: imgBytes,
 		DatasetIds: datasetIDs,
 		Tags:       tags,
+		MimeType:   mimeType,
 		Extra:      ext,
 	})
 	if err != nil {
@@ -109,6 +116,7 @@ func (c *client) UploadImageToDataset(
 	return nil
 }
 
+// ConvertImageToBytes converts an image.Image to a byte slice based on the specified MIME type.
 func ConvertImageToBytes(image image.Image, mimeType datasyncpb.MimeType) ([]byte, error) {
 	var buf bytes.Buffer
 	var imgBytes []byte
@@ -125,8 +133,10 @@ func ConvertImageToBytes(image image.Image, mimeType datasyncpb.MimeType) ([]byt
 			return nil, err
 		}
 		imgBytes = buf.Bytes()
+	case datasyncpb.MimeType_MIME_TYPE_UNSPECIFIED, datasyncpb.MimeType_MIME_TYPE_APPLICATION_PCD:
+		fallthrough
 	default:
-		return nil, errors.New("mime type must png or jpeg")
+		return nil, errors.New("mime type must be either png or jpeg for images")
 	}
 	return imgBytes, nil
 }

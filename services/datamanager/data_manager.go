@@ -53,7 +53,7 @@ type Service interface {
 	// Sync will sync data stored on the machine to the cloud.
 	Sync(ctx context.Context, extra map[string]interface{}) error
 	UploadBinaryDataToDataset(ctx context.Context, image []byte, datasetIDs, tags []string,
-		extra map[string]interface{}) error
+		mimeType datasyncpb.MimeType, extra map[string]interface{}) error
 	UploadImageToDataset(ctx context.Context, image image.Image, datasetIDs, tags []string,
 		mimeType datasyncpb.MimeType, extra map[string]interface{}) error
 }

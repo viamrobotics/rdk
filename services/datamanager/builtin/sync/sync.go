@@ -477,8 +477,15 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 	s.atomicUploadStats.arbitrary.uploadedBytes.Add(bytesUploaded)
 }
 
-func (s *Sync) UploadBinaryDataToDataset(ctx context.Context, data []byte, datasetIDs, tags []string) error {
+// UploadBinaryDataToDataset simultaneously uploads binary data and adds it to a dataset.
+func (s *Sync) UploadBinaryDataToDataset(ctx context.Context, data []byte, datasetIDs, tags []string, mimeType v1.MimeType) error {
 	filename := uuid.NewString()
+	fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
+	if fileExtensionFromMimeType != "" {
+		filename = filename + "." + fileExtensionFromMimeType
+
+	}
+	filename = filepath.Clean(filepath.Join(s.config.CaptureDir, filename))
 	err := os.WriteFile(filename, data, os.ModeAppend)
 	if err != nil {
 		s.logger.Errorw("error writing file", "err", err)
@@ -489,7 +496,6 @@ func (s *Sync) UploadBinaryDataToDataset(ctx context.Context, data []byte, datas
 		s.logger.Errorw("error reading file", "err", err)
 		return err
 	}
-	// TODO: Make this async.
 	go s.syncArbitraryFile(f, tags, datasetIDs, int(time.Now().UnixMilli()), s.logger)
 	return nil
 }
