@@ -124,30 +124,30 @@ var registeredFrameImplementers = map[string]reflect.Type{}
 
 // RegisterFrameImplementer allows outside packages to register their implementations of the Frame
 // interface for serialization/deserialization.
-func RegisterFrameImplementer(typ reflect.Type) error {
-	if !typ.Implements(reflect.TypeOf((*Frame)(nil)).Elem()) {
-		return fmt.Errorf("cannot register Frame type, %v does not implement the Frame interface", typ)
-	}
-	frameType := typ.Elem().Name()
-	if _, ok := registeredFrameImplementers[frameType]; ok {
+func RegisterFrameImplementer(frame Frame) error {
+	// if !typ.Implements(reflect.TypeOf((*Frame)(nil)).Elem()) {
+	// 	return fmt.Errorf("cannot register Frame type, %v does not implement the Frame interface", typ)
+	// }
+	frameType := reflect.TypeOf(frame).Elem()
+	if _, ok := registeredFrameImplementers[frameType.Name()]; ok {
 		return fmt.Errorf(
 			"frame type %s already registered, consider changing your struct name", frameType)
 	}
-	registeredFrameImplementers[frameType] = typ
+	registeredFrameImplementers[frameType.Name()] = frameType
 	return nil
 }
 
 func init() {
-	if err := RegisterFrameImplementer(reflect.TypeOf((*staticFrame)(nil))); err != nil {
+	if err := RegisterFrameImplementer((*staticFrame)(nil)); err != nil {
 		panic(err)
 	}
-	if err := RegisterFrameImplementer(reflect.TypeOf((*translationalFrame)(nil))); err != nil {
+	if err := RegisterFrameImplementer((*translationalFrame)(nil)); err != nil {
 		panic(err)
 	}
-	if err := RegisterFrameImplementer(reflect.TypeOf((*rotationalFrame)(nil))); err != nil {
+	if err := RegisterFrameImplementer((*rotationalFrame)(nil)); err != nil {
 		panic(err)
 	}
-	if err := RegisterFrameImplementer(reflect.TypeOf((*SimpleModel)(nil))); err != nil {
+	if err := RegisterFrameImplementer((*SimpleModel)(nil)); err != nil {
 		panic(err)
 	}
 }
@@ -186,7 +186,7 @@ func JSONToFrame(data json.RawMessage) (Frame, error) {
 	if err := json.Unmarshal(sF["frame"], frameZeroStruct.Addr().Interface()); err != nil {
 		return nil, err
 	}
-	frame, ok := frameZeroStruct.Interface().(Frame)
+	frame, ok := frameZeroStruct.Addr().Interface().(Frame)
 	if !ok {
 		return nil, fmt.Errorf("registered frame type %s does not implement the Frame interface", frameType)
 	}

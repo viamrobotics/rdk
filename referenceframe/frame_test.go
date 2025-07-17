@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"reflect"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -322,18 +321,18 @@ func (tF *trivialFrame) DoF() []Limit {
 
 func TestImplementerRegistration(t *testing.T) {
 	// test that we get an error when trying to register something that doesn't implement Frame
-	type brokenThing struct{}
-	err := RegisterFrameImplementer(reflect.TypeOf((*brokenThing)(nil)))
-	test.That(t, err, test.ShouldNotBeNil)
+	// type brokenThing struct{}
+	// err := RegisterFrameImplementer(reflect.TypeOf((*brokenThing)(nil)))
+	// test.That(t, err, test.ShouldNotBeNil)
 
 	type staticFrame struct {
 		*trivialFrame
 	}
 	// test that we get an error trying to register an already registered frame type
-	err = RegisterFrameImplementer(reflect.TypeOf((*staticFrame)(nil)))
+	err := RegisterFrameImplementer((*staticFrame)(nil))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// test that we can successfully register a Frame implementation
-	err = RegisterFrameImplementer(reflect.TypeOf((*trivialFrame)(nil)))
+	err = RegisterFrameImplementer((*trivialFrame)(nil))
 	test.That(t, err, test.ShouldBeNil)
 }
