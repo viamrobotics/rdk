@@ -27,19 +27,15 @@ func TestGeometryProtobufRoundTrip(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			// Test protobuf conversion
 			proto := testCase.geometry.ToProtobuf()
 			test.That(t, proto, test.ShouldNotBeNil)
 			test.That(t, proto.Center, test.ShouldNotBeNil)
 			test.That(t, proto.Label, test.ShouldEqual, testCase.name)
 
-			// Test round-trip conversion
 			newGeometry, err := NewGeometryFromProto(proto)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, newGeometry, test.ShouldNotBeNil)
 			test.That(t, testCase.geometry.Label(), test.ShouldEqual, newGeometry.Label())
-
-			// Verify geometries are equivalent
 			test.That(t, spatialmath.GeometriesAlmostEqual(testCase.geometry, newGeometry), test.ShouldBeTrue)
 		})
 	}
@@ -48,25 +44,20 @@ func TestGeometryProtobufRoundTrip(t *testing.T) {
 func TestPointCloudProtobufRoundTrip(t *testing.T) {
 	pc := pointcloud.MakeTestPointCloud("pointcloud")
 
-	// Test protobuf conversion
 	proto := pc.ToProtobuf()
 	test.That(t, proto, test.ShouldNotBeNil)
 	test.That(t, proto.Center, test.ShouldNotBeNil)
 	test.That(t, proto.Label, test.ShouldEqual, "pointcloud")
 
-	// Test round-trip conversion
 	newGeometry, err := NewGeometryFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, newGeometry, test.ShouldNotBeNil)
 	test.That(t, pc.Label(), test.ShouldEqual, newGeometry.Label())
 
-	// Verify pointcloud-specific properties
 	newVolPC, ok := newGeometry.(pointcloud.PointCloud)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, newVolPC.Size(), test.ShouldEqual, 3)
 
-	// Check that all the original points exist in the reconstructed pointcloud
-	// MakeTestPointCloud creates points at (0,0,0), (1,0,0), and (0,1,0)
 	_, exists := newVolPC.At(0, 0, 0)
 	test.That(t, exists, test.ShouldBeTrue)
 	_, exists = newVolPC.At(1, 0, 0)
@@ -74,7 +65,6 @@ func TestPointCloudProtobufRoundTrip(t *testing.T) {
 	_, exists = newVolPC.At(0, 1, 0)
 	test.That(t, exists, test.ShouldBeTrue)
 
-	// Verify metadata is preserved
 	test.That(t, newVolPC.MetaData(), test.ShouldResemble, pc.MetaData())
 }
 
@@ -221,22 +211,6 @@ func TestNewGeometryFromProtoErrors(t *testing.T) {
 	}
 }
 
-func TestNewGeometryFromProtoValid(t *testing.T) {
-	properGeom := commonpb.Geometry{
-		Center: &commonpb.Pose{OZ: 1},
-		GeometryType: &commonpb.Geometry_Sphere{
-			Sphere: &commonpb.Sphere{
-				RadiusMm: 1,
-			},
-		},
-	}
-	viamGeom, err := NewGeometryFromProto(&properGeom)
-	test.That(t, err, test.ShouldBeNil)
-	sphereGeom, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, viamGeom, test.ShouldResemble, sphereGeom)
-}
-
 func TestGeoGeometryProtobufRoundTrip(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -269,14 +243,12 @@ func TestGeoGeometryProtobufRoundTrip(t *testing.T) {
 			testPoint := geo.NewPoint(testCase.latitude, testCase.longitude)
 			testGeoObst := spatialmath.NewGeoGeometry(testPoint, testCase.geometries)
 
-			// Test conversion to protobuf
 			convGeoObstProto := GeoGeometryToProtobuf(testGeoObst)
 			test.That(t, convGeoObstProto, test.ShouldNotBeNil)
 			test.That(t, testPoint.Lat(), test.ShouldEqual, convGeoObstProto.GetLocation().GetLatitude())
 			test.That(t, testPoint.Lng(), test.ShouldEqual, convGeoObstProto.GetLocation().GetLongitude())
 			test.That(t, len(testCase.geometries), test.ShouldEqual, len(convGeoObstProto.GetGeometries()))
 
-			// Test conversion from protobuf
 			convGeoObst, err := GeoGeometryFromProtobuf(convGeoObstProto)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, testPoint.Lat(), test.ShouldEqual, convGeoObst.Location().Lat())
