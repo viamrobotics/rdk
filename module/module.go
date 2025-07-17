@@ -23,6 +23,9 @@ import (
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
@@ -474,6 +477,58 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	return resp, nil
 }
 
+type frameSystemClient struct {
+	robotClient *client.RobotClient
+	resource.TriviallyCloseable
+	resource.TriviallyReconfigurable
+}
+
+func NewFrameSystemClient(robotClient *client.RobotClient) framesystem.Service {
+	return &frameSystemClient{robotClient: robotClient}
+}
+
+func (f *frameSystemClient) Name() resource.Name {
+	return f.robotClient.Name()
+}
+
+func (f *frameSystemClient) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return f.robotClient.DoCommand(ctx, cmd)
+}
+
+func (f *frameSystemClient) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
+	return f.robotClient.FrameSystemConfig(ctx)
+}
+
+func (f *frameSystemClient) GetPose(ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	return f.robotClient.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+}
+
+func (f *frameSystemClient) TransformPose(
+	ctx context.Context,
+	pose *referenceframe.PoseInFrame,
+	dst string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+) (*referenceframe.PoseInFrame, error) {
+	return f.robotClient.TransformPose(ctx, pose, dst, supplementalTransforms)
+}
+
+func (f *frameSystemClient) TransformPointCloud(
+	ctx context.Context,
+	srcpc pointcloud.PointCloud,
+	srcName,
+	dstName string,
+) (pointcloud.PointCloud, error) {
+	return f.robotClient.TransformPointCloud(ctx, srcpc, srcName, dstName)
+}
+
+func (f *frameSystemClient) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
+	return f.robotClient.CurrentInputs(ctx)
+}
+
 // AddResource receives the component/service configuration from the parent.
 func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
 	select {
@@ -493,6 +548,9 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		}
 		deps[name] = c
 	}
+
+	// let modules access RobotFrameSystem (name $framesystem) without needing entire RobotClient
+	deps[framesystem.PublicServiceName] = NewFrameSystemClient(m.parent)
 
 	conf, err := config.ComponentConfigFromProto(req.Config)
 	if err != nil {
