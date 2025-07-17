@@ -1,7 +1,9 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/golang/geo/r3"
 
@@ -166,4 +168,43 @@ func (cfg *DHParamConfig) ToDHFrames() (Frame, Frame, error) {
 		}
 	}
 	return rFrame, lFrame, nil
+}
+
+// FrameToJSON marshals an implementer of the Frame interface into JSON.
+func FrameToJSON(frame Frame) ([]byte, error) {
+	type typedFrame struct {
+		FrameType string `json:"frame_type"`
+		Frame     Frame  `json:"frame"`
+	}
+	typName := reflect.ValueOf(frame).Type().Elem().Name()
+	return json.Marshal(&typedFrame{
+		FrameType: typName,
+		Frame:     frame,
+	})
+}
+
+// JSONToFrame converts raw JSON into a Frame by using a key called "frame_type"
+// to determine the explicit struct type to which the frame data (found under the key
+// "frame") should be marshalled.
+func JSONToFrame(data json.RawMessage) (Frame, error) {
+	var sF map[string]json.RawMessage
+	if err := json.Unmarshal(data, &sF); err != nil {
+		return nil, err
+	}
+	var frameType string
+	if err := json.Unmarshal(sF["frame_type"], &frameType); err != nil {
+		return nil, err
+	}
+
+	implementer, ok := registeredFrameImplementers[frameType]
+	if !ok {
+		return nil, fmt.Errorf("%s is not a registered Frame implementation", frameType)
+	}
+	frameZeroStruct := reflect.New(implementer).Elem()
+	if err := json.Unmarshal(sF["frame"], frameZeroStruct.Addr().Interface()); err != nil {
+		return nil, err
+	}
+	frame := frameZeroStruct.Addr().Interface()
+
+	return utils.AssertType[Frame](frame)
 }

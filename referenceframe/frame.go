@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"reflect"
 	"strings"
 
 	"github.com/golang/geo/r3"
@@ -118,79 +117,6 @@ type Frame interface {
 
 	json.Marshaler
 	json.Unmarshaler
-}
-
-var registeredFrameImplementers = map[string]reflect.Type{}
-
-// RegisterFrameImplementer allows outside packages to register their implementations of the Frame
-// interface for serialization/deserialization.
-func RegisterFrameImplementer(frame Frame) error {
-	// if !typ.Implements(reflect.TypeOf((*Frame)(nil)).Elem()) {
-	// 	return fmt.Errorf("cannot register Frame type, %v does not implement the Frame interface", typ)
-	// }
-	frameType := reflect.TypeOf(frame).Elem()
-	if _, ok := registeredFrameImplementers[frameType.Name()]; ok {
-		return fmt.Errorf(
-			"frame type %s already registered, consider changing your struct name", frameType)
-	}
-	registeredFrameImplementers[frameType.Name()] = frameType
-	return nil
-}
-
-func init() {
-	if err := RegisterFrameImplementer((*staticFrame)(nil)); err != nil {
-		panic(err)
-	}
-	if err := RegisterFrameImplementer((*translationalFrame)(nil)); err != nil {
-		panic(err)
-	}
-	if err := RegisterFrameImplementer((*rotationalFrame)(nil)); err != nil {
-		panic(err)
-	}
-	if err := RegisterFrameImplementer((*SimpleModel)(nil)); err != nil {
-		panic(err)
-	}
-}
-
-// FrameToJSON marshals an implementer of the Frame interface into JSON.
-func FrameToJSON(frame Frame) ([]byte, error) {
-	type typedFrame struct {
-		FrameType string `json:"frame_type"`
-		Frame     Frame  `json:"frame"`
-	}
-	typName := reflect.ValueOf(frame).Type().Elem().Name()
-	return json.Marshal(&typedFrame{
-		FrameType: typName,
-		Frame:     frame,
-	})
-}
-
-// JSONToFrame converts raw JSON into a Frame by using a key called "frame_type"
-// to determine the explicit struct type to which the frame data (found under the key
-// "frame") should be marshalled.
-func JSONToFrame(data json.RawMessage) (Frame, error) {
-	var sF map[string]json.RawMessage
-	if err := json.Unmarshal(data, &sF); err != nil {
-		return nil, err
-	}
-	var frameType string
-	if err := json.Unmarshal(sF["frame_type"], &frameType); err != nil {
-		return nil, err
-	}
-
-	implementer, ok := registeredFrameImplementers[frameType]
-	if !ok {
-		return nil, fmt.Errorf("%s is not a registered Frame implementation", frameType)
-	}
-	frameZeroStruct := reflect.New(implementer).Elem()
-	if err := json.Unmarshal(sF["frame"], frameZeroStruct.Addr().Interface()); err != nil {
-		return nil, err
-	}
-	frame, ok := frameZeroStruct.Addr().Interface().(Frame)
-	if !ok {
-		return nil, fmt.Errorf("registered frame type %s does not implement the Frame interface", frameType)
-	}
-	return frame, nil
 }
 
 // baseFrame contains all the data and methods common to all frames, notably it does not implement the Frame interface itself.
