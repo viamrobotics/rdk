@@ -6,7 +6,6 @@ import (
 	"io"
 	"math"
 	"os"
-	"strconv"
 
 	"github.com/chenzhekl/goply"
 	"github.com/golang/geo/r3"
@@ -375,21 +374,50 @@ func (m *Mesh) Label() string {
 }
 
 // ToPoints returns a vector of points that together represent a point cloud of the Mesh.
-// The points returned are the triangle vertices as well as the centroid of each triangle.
-// TODO: the density variable doesn't do anything here and arguably we shouldn't be also returning the centroid every time.
+// This method takes one argument which  determines how many points to place per square mm.
+// If the argument is set to 0. we automatically substitute the value with defaultPointDensity.
 func (m *Mesh) ToPoints(density float64) []r3.Vector {
+	if density == 0 {
+		density = defaultPointDensity // defaultPointDensity is currently 0, so this isn't doing anything
+		// But this is consistent with the use of density/resolution in other geometries (see box.go)
+	}
+
 	// Use map to deduplicate vertices
 	pointMap := make(map[string]r3.Vector)
 
-	// Add all triangle vertices, formatting as a string for map deduplication
-	for i, tri := range m.triangles {
-		for _, pt := range tri.Points() {
-			// Transform point to world space
-			worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
-			key := fmt.Sprintf("%.10f,%.10f,%.10f", worldPt.X, worldPt.Y, worldPt.Z)
-			pointMap[key] = worldPt
+	// Add all points, formatting as a string for map deduplication
+	for _, tri := range m.triangles {
+		triPts := tri.Points()
+		baseLen := 0.
+		var baseP0, baseP1, vertex r3.Vector
+		for i := range 3 {
+			p0 := triPts[i]
+			p1 := triPts[(i+1)%3]
+			p2 := triPts[(i+2)%3]
+			edgeLen := p0.Sub(p1).Norm()
+			if edgeLen >= baseLen { // checking >= instead of > accounts for edge case p0=p1=p2
+				baseLen = edgeLen
+				baseP0 = p0
+				baseP1 = p1
+				vertex = p2
+			}
 		}
-		pointMap[strconv.Itoa(i)] = tri.Transform(m.pose).Centroid()
+		// If we have density points per mm^2, we have 1 point per 1/density mm^2
+		// We achieve this by tiling each mesh triangle with mini similar triangles whose edge lengths are <= 1/density
+		// We choose a miniBaseCount such that we have side length <= 1/density and can fit an integer # of tiles
+		// If density = 0, we just take the triangle vertices
+		miniBaseCount := max(int(math.Ceil(baseLen*density)), 1)
+		rowVec := vertex.Sub(baseP0).Mul(1.0 / float64(miniBaseCount)) // runs in column direction towards vertex
+		colVec := baseP1.Sub(baseP0).Mul(1.0 / float64(miniBaseCount)) // runs in row direction towards baseP1
+
+		for row := range miniBaseCount + 1 {
+			for col := range miniBaseCount + 1 - row {
+				pt := rowVec.Mul(float64(row)).Add(colVec.Mul(float64(col))).Add(baseP0)
+				worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
+				key := fmt.Sprintf("%.10f,%.10f,%.10f", worldPt.X, worldPt.Y, worldPt.Z)
+				pointMap[key] = worldPt
+			}
+		}
 	}
 
 	// Convert map back to slice
