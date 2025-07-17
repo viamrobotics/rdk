@@ -10,6 +10,9 @@ import (
 
 	armpb "go.viam.com/api/component/arm/v1"
 	robotpb "go.viam.com/api/robot/v1"
+	"go.viam.com/test"
+	"google.golang.org/grpc"
+
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
@@ -20,8 +23,6 @@ import (
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
-	"go.viam.com/test"
-	"google.golang.org/grpc"
 )
 
 func TestGetFrameSystem(t *testing.T) {
