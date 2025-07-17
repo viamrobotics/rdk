@@ -489,7 +489,7 @@ func NewFrameSystemClient(robotClient *client.RobotClient) framesystem.Service {
 }
 
 func (f *frameSystemClient) Name() resource.Name {
-	return f.robotClient.Name()
+	return framesystem.PublicServiceName
 }
 
 func (f *frameSystemClient) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
