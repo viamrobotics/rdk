@@ -483,6 +483,7 @@ type frameSystemClient struct {
 	resource.TriviallyReconfigurable
 }
 
+// NewFrameSystemClient provides access to only the framesystem.Service functions contained inside RobotClient.
 func NewFrameSystemClient(robotClient *client.RobotClient) framesystem.Service {
 	return &frameSystemClient{robotClient: robotClient}
 }

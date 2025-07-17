@@ -29,6 +29,8 @@ var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
 // InternalServiceName is used to refer to/depend on this service internally.
 var InternalServiceName = resource.NewName(API, "builtin")
+
+// PublicServiceName is used by modules to refer to the robot's frame system.
 var PublicServiceName = resource.NewName(API, "$framesystem")
 
 // InputEnabled is a standard interface for all things that interact with the frame system
