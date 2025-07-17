@@ -56,6 +56,7 @@ type Jobmanager struct {
 	namesToJobIDs map[string]uuid.UUID
 	ctx           context.Context
 	conn          rpc.ClientConn
+	isClosed      bool
 }
 
 // New sets up the context and grpcConn that is used in scheduled jobs. The actual
@@ -99,6 +100,10 @@ func New(
 // Shutdown attempts to close the grpcConn of the job scheduler and shuts it down. It is
 // not possible to restart the job scheduler after calling Shutdown().
 func (jm *Jobmanager) Shutdown() error {
+	if jm.isClosed {
+		return nil
+	}
+	jm.isClosed = true
 	jm.logger.CInfo(jm.ctx, "Jobmanager is shutting down.")
 	utils.UncheckedError(jm.conn.Close())
 	return jm.scheduler.Shutdown()
