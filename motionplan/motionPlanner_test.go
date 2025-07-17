@@ -36,7 +36,7 @@ var logger = logging.FromZapCompatible(zap.Must(zap.Config{
 type planConfig struct {
 	Start            *PlanState
 	Goal             *PlanState
-	FS               frame.FrameSystem
+	FS               *frame.FrameSystem
 	Options          *PlannerOptions
 	ConstraintHander *ConstraintHandler
 	MotionChains     *motionChains
@@ -166,7 +166,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 
 func TestPlanningWithGripper(t *testing.T) {
 	fs := frame.NewEmptyFrameSystem("")
-	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "ur")
+	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "ur")
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(ur5e, fs.World())
 	test.That(t, err, test.ShouldBeNil)
@@ -376,7 +376,7 @@ func simpleXArmMotion() (*planConfig, error) {
 
 // simpleUR5eMotion tests a simple motion for a UR5e.
 func simpleUR5eMotion() (*planConfig, error) {
-	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
+	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
 	if err != nil {
 		return nil, err
 	}
@@ -474,7 +474,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	}
 }
 
-func makeTestFS(t *testing.T) frame.FrameSystem {
+func makeTestFS(t *testing.T) *frame.FrameSystem {
 	t.Helper()
 	fs := frame.NewEmptyFrameSystem("test")
 
@@ -496,7 +496,7 @@ func makeTestFS(t *testing.T) frame.FrameSystem {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantryY)
 
-	modelUR5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
+	modelUR5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelUR5e, urOffset)
 
@@ -751,7 +751,7 @@ func TestReachOverArm(t *testing.T) {
 	test.That(t, len(plan.Trajectory()), test.ShouldEqual, 2)
 
 	// now add a UR arm in its way
-	ur5, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
+	ur5, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(ur5, fs.World())
 

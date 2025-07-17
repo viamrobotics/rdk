@@ -63,7 +63,7 @@ type Segment struct {
 type SegmentFS struct {
 	StartConfiguration referenceframe.FrameSystemInputs
 	EndConfiguration   referenceframe.FrameSystemInputs
-	FS                 referenceframe.FrameSystem
+	FS                 *referenceframe.FrameSystem
 }
 
 func (s *Segment) String() string {
@@ -99,7 +99,7 @@ type State struct {
 // Pose field may be empty, and may be filled in by a constraint that needs it.
 type StateFS struct {
 	Configuration referenceframe.FrameSystemInputs
-	FS            referenceframe.FrameSystem
+	FS            *referenceframe.FrameSystem
 }
 
 // StateMetric are functions which, given a State, produces some score. Lower is better.

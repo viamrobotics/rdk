@@ -194,26 +194,49 @@ type PlannerOptions struct {
 	// See metrics.go for options
 	ConfigurationDistanceMetric ik.SegmentFSMetricType `json:"configuration_distance_metric"`
 
+	// A profile indicating which of the tolerance parameters listed below should be considered
+	// for further constraining the motion.
 	MotionProfile MotionProfile `json:"motion_profile"`
 
+	// Linear tolerance for translational deviation for a path. Only used when the
+	// `MotionProfile` is `LinearMotionProfile`.
 	LineTolerance float64 `json:"line_tolerance"`
 
+	// Orientation tolerance for angular deviation for a path. Used for either the `LinearMotionProfile`
+	// or the `OrientationMotionProfile`.
 	OrientationTolerance float64 `json:"orient_tolerance"`
 
+	// A factor by which the entire pose is allowed to deviate for a path. Used only for a PseudolinearMotionProfile.
 	ToleranceFactor float64 `json:"tolerance"`
 
+	// No two geometries that did not start the motion in collision may come within this distance of
+	// one another at any time during a motion.
 	CollisionBufferMM float64 `json:"collision_buffer_mm"`
 
+	// The algorithm used for pathfinding along with any configurable settings for that algorithm. If this
+	// object is not provided, motion planning will attempt to use RRT* and, in the event of failure
+	// to find an acceptable path, it will fallback to cBiRRT.
 	PlanningAlgorithmSettings AlgorithmSettings `json:"planning_algorithm_settings"`
 
+	// The random seed used by motion algorithms during planning. This parameter guarantees deterministic
+	// outputs for a given set of identical inputs
 	RandomSeed int `json:"rseed"`
 
+	// The max movement allowed for each step on the path from the initial random seed for a solution
+	// to the goal.
 	PathStepSize float64 `json:"path_step_size"`
 
+	// Setting indicating that all mesh geometries should be converted into octrees.
 	MeshesAsOctrees bool `json:"meshes_as_octrees"`
 
+	// A set of fallback options to use on initial planning failure. This is used to facilitate the default
+	// behavior described above in the comment for `PlanningAlgorithmSettings`. This will be populated
+	// automatically if needed and is not meant to be set by users of the library.
 	Fallback *PlannerOptions `json:"fallback_options"`
 
+	// For inverse kinematics, the time within which each pending solution must finish its computation is
+	// a multiple of the time taken to compute the first solution. This parameter is a way to
+	// set that multiplicative factor.
 	TimeMultipleAfterFindingFirstSolution int `json:"time_multiple_after_finding_first_solution"`
 }
 

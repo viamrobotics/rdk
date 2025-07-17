@@ -35,7 +35,7 @@ type planManager struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newPlanManager(logger logging.Logger, fs referenceframe.FrameSystem, request *PlanRequest) (*planManager, error) {
+func newPlanManager(logger logging.Logger, fs *referenceframe.FrameSystem, request *PlanRequest) (*planManager, error) {
 	p, err := newPlannerFromPlanRequest(logger, fs, request)
 	if err != nil {
 		return nil, err

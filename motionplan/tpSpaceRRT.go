@@ -152,7 +152,7 @@ func getNodeDistanceFunc(distMap *sync.Map, ptg tpspace.PTGSolver, tpFrameName s
 
 // newTPSpaceMotionPlanner creates a newTPSpaceMotionPlanner object with a user specified random seed.
 func newTPSpaceMotionPlanner(
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,

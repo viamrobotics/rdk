@@ -154,7 +154,7 @@ type rrtPlan struct {
 	nodes []node
 }
 
-func newRRTPlan(solution []node, fs referenceframe.FrameSystem, relative bool, offsetPose spatialmath.Pose) (Plan, error) {
+func newRRTPlan(solution []node, fs *referenceframe.FrameSystem, relative bool, offsetPose spatialmath.Pose) (Plan, error) {
 	if len(solution) == 0 {
 		return nil, errors.New("cannot create plan, no solution was found")
 	} else if len(solution) == 1 {

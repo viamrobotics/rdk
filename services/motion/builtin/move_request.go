@@ -61,7 +61,7 @@ type moveRequest struct {
 	geoPoseOrigin     *spatialmath.GeoPose
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
-	frameSystem       referenceframe.FrameSystem
+	frameSystem       *referenceframe.FrameSystem
 	planRequest       *motionplan.PlanRequest
 	seedPlan          motionplan.Plan
 	kinematicBase     kinematicbase.KinematicBase
@@ -77,7 +77,7 @@ type moveRequest struct {
 	// singulare frame moniker wrapperFrame. The wrapperFrame allows us to position the geometries of the base
 	// using only provided referenceframe.Input values and we do not have to compose with a separate pose
 	/// to absolutely position ourselves in the world frame.
-	localizingFS referenceframe.FrameSystem
+	localizingFS *referenceframe.FrameSystem
 
 	executeBackgroundWorkers *sync.WaitGroup
 	responseChan             chan moveResponse
@@ -233,13 +233,15 @@ func (mr *moveRequest) getTransientDetections(
 	if err != nil {
 		return nil, err
 	}
+
 	// the inputMap informs where we are in the world
 	// the inputMap will be used downstream to transform the observed geometry from the camera frame
 	// into the world frame
-	inputMap, _, err := mr.fsService.CurrentInputs(ctx)
+	inputMap, err := mr.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	k, err := mr.kinematicBase.Kinematics(ctx)
 	if err != nil {
 		return nil, err
@@ -642,7 +644,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose()))
 
 	// create a KinematicBase from the componentName
-	baseComponent, ok := ms.components[req.ComponentName]
+	baseComponent, ok := ms.components[req.ComponentName.ShortName()]
 	if !ok {
 		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
@@ -651,7 +653,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 		return nil, fmt.Errorf("cannot move component of type %T because it is not a Base", baseComponent)
 	}
 
-	fs, err := ms.fsService.FrameSystem(ctx, nil)
+	fs, err := framesystem.NewFromService(ctx, ms.fsService, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -758,7 +760,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
 	// create a KinematicBase from the componentName
-	component, ok := ms.components[req.ComponentName]
+	component, ok := ms.components[req.ComponentName.ShortName()]
 	if !ok {
 		return nil, resource.DependencyNotFoundError(req.ComponentName)
 	}
@@ -770,7 +772,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	// build kinematic options
 	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
 
-	fs, err := ms.fsService.FrameSystem(ctx, nil)
+	fs, err := framesystem.NewFromService(ctx, ms.fsService, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -818,7 +820,7 @@ func (ms *builtIn) createBaseMoveRequest(
 	motionCfg *validatedMotionConfiguration,
 	kb kinematicbase.KinematicBase,
 	goalPoseInWorld spatialmath.Pose,
-	fs referenceframe.FrameSystem,
+	fs *referenceframe.FrameSystem,
 	worldObstacles []spatialmath.Geometry,
 	valExtra validatedExtra,
 ) (*moveRequest, error) {
@@ -919,7 +921,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		}
 	}
 
-	currentInputs, _, err := ms.fsService.CurrentInputs(ctx)
+	currentInputs, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}

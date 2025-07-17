@@ -1868,6 +1868,15 @@ func (rr *dummyRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Confi
 	panic("change to return nil")
 }
 
+func (rr *dummyRobot) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	panic("change to return nil")
+}
+
 func (rr *dummyRobot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
@@ -1879,6 +1888,10 @@ func (rr *dummyRobot) TransformPose(
 
 func (rr *dummyRobot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string,
 ) (pointcloud.PointCloud, error) {
+	panic("change to return nil")
+}
+
+func (rr *dummyRobot) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
 	panic("change to return nil")
 }
 

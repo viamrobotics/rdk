@@ -105,7 +105,7 @@ func setGoModuleTemplate(clientCode string, module modulegen.ModuleInputs) (*mod
 				module.ModuleCamel+module.ModelPascal,
 				funcDecl,
 			)
-			if name != "" {
+			if name != "" && name != "NewClientFromConn" {
 				functions = append(functions, formatEmptyFunction(receiver, name, args, returns))
 			}
 		}
