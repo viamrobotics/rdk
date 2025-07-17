@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -54,8 +55,9 @@ func init() {
 
 // export keys to be used with DoCommand so they can be referenced by clients.
 const (
-	DoPlan    = "plan"
-	DoExecute = "execute"
+	DoPlan              = "plan"
+	DoExecute           = "execute"
+	DoCheckStartExecute = "checkStartExecute"
 )
 
 const (
@@ -449,6 +451,43 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		var trajectory motionplan.Trajectory
 		if err := mapstructure.Decode(req, &trajectory); err != nil {
 			return nil, err
+		}
+		// if included and set to true
+		if check, ok := cmd[DoCheckStartExecute].(bool); check && ok {
+			componentName := ""
+			componentInputs := []referenceframe.Input{}
+
+			for name, inputs := range trajectory[0] {
+				if len(inputs) == 0 {
+					continue
+				}
+				componentName = name
+				componentInputs = inputs
+			}
+			if componentName == "" {
+				return nil, fmt.Errorf("no starting input found: %v", trajectory[0])
+			}
+			r, ok := ms.components[componentName]
+			if !ok {
+				return nil, fmt.Errorf("plan had step for resource %s but it was not found in the motion", componentName)
+			}
+			ie, err := utils.AssertType[framesystem.InputEnabled](r)
+			if err != nil {
+				return nil, err
+			}
+			curr, err := ie.CurrentInputs(ctx)
+			if err != nil {
+				return nil, err
+			}
+			epsilon := 0.01 // rad OR mm
+			for index := range curr {
+				if math.Abs(curr[index].Value-componentInputs[index].Value) > epsilon {
+					ms.logger.Info("yo epsilon: ", math.Abs(curr[index].Value-componentInputs[index].Value))
+					return nil, fmt.Errorf("yo not at start")
+				}
+			}
+
+			resp[DoCheckStartExecute] = "resource at starting location"
 		}
 		if err := ms.execute(ctx, trajectory); err != nil {
 			return nil, err
