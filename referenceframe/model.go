@@ -243,11 +243,6 @@ func (m *SimpleModel) DoF() []Limit {
 	return limits
 }
 
-// FrameType indicates the type of Frame implementer represented by SimpleModel.
-func (m *SimpleModel) FrameType() FrameType {
-	return SimpleModelFrameType
-}
-
 // MarshalJSON serializes a Model.
 func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.modelConfig)

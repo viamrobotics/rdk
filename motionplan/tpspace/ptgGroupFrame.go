@@ -158,11 +158,6 @@ func (pf *ptgGroupFrame) ModelPieceFrames([]referenceframe.Input) (map[string]re
 	return nil, errors.New("ModelPieceFrames unimplemented")
 }
 
-// FrameType for ptgGroupFrame indicates that it is not a serializable frame type.
-func (pf *ptgGroupFrame) FrameType() referenceframe.FrameType {
-	return referenceframe.UnserializableFrameType
-}
-
 // TODO: Define some sort of config struct for a PTG frame.
 func (pf *ptgGroupFrame) MarshalJSON() ([]byte, error) {
 	return nil, nil

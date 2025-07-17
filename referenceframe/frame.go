@@ -116,37 +116,11 @@ type Frame interface {
 	// ProtobufFromInput does there correct thing for this frame to convert input units (radians/mm) to protobuf units (degrees/mm)
 	ProtobufFromInput([]Input) *pb.JointPositions
 
-	// FrameType returns an enum indicating the struct variant of this interface. This must return the same value
-	// for every instance of the implementer of this interface (e.g. every staticFrame returns "static" for FrameType).
-	FrameType() FrameType
-
 	json.Marshaler
 	json.Unmarshaler
 }
 
-// FrameType is an enum indicating the variant of an implementer of the Frame interface.
-type FrameType string
-
-const (
-	// StaticFrameType indicates that the frame is static.
-	StaticFrameType FrameType = "static"
-	// TranslationalFrameType indicates that the frame is for a translational joint.
-	TranslationalFrameType FrameType = "translational"
-	// RotationalFrameType indicates that the frame is for a rotational joint.
-	RotationalFrameType FrameType = "rotational"
-	// SimpleModelFrameType indicates that the reference frame is for a model from a kinematics file.
-	SimpleModelFrameType FrameType = "simple_model"
-	// UnserializableFrameType is what implementers of the `Frame`` interface should return for `FrameType()`
-	// if serialization/deserialization is not yet supported.
-	UnserializableFrameType FrameType = ""
-)
-
-var registeredFrameImplementers = map[FrameType]reflect.Type{
-	StaticFrameType:        reflect.TypeOf((*staticFrame)(nil)),
-	TranslationalFrameType: reflect.TypeOf((*translationalFrame)(nil)),
-	RotationalFrameType:    reflect.TypeOf((*rotationalFrame)(nil)),
-	SimpleModelFrameType:   reflect.TypeOf((*SimpleModel)(nil)),
-}
+var registeredFrameImplementers = map[string]reflect.Type{}
 
 // RegisterFrameImplementer allows outside packages to register their implementations of the Frame
 // interface for serialization/deserialization.
@@ -154,23 +128,39 @@ func RegisterFrameImplementer(typ reflect.Type) error {
 	if !typ.Implements(reflect.TypeOf((*Frame)(nil)).Elem()) {
 		return fmt.Errorf("cannot register Frame type, %v does not implement the Frame interface", typ)
 	}
-	frameZeroStruct := reflect.New(typ).Elem()
-	frameType := frameZeroStruct.Interface().(Frame).FrameType()
+	frameType := typ.Elem().Name()
 	if _, ok := registeredFrameImplementers[frameType]; ok {
-		return fmt.Errorf("frame type %s already registered", frameType)
+		return fmt.Errorf(
+			"frame type %s already registered, consider changing your struct name", frameType)
 	}
 	registeredFrameImplementers[frameType] = typ
 	return nil
 }
 
+func init() {
+	if err := RegisterFrameImplementer(reflect.TypeOf((*staticFrame)(nil))); err != nil {
+		panic(err)
+	}
+	if err := RegisterFrameImplementer(reflect.TypeOf((*translationalFrame)(nil))); err != nil {
+		panic(err)
+	}
+	if err := RegisterFrameImplementer(reflect.TypeOf((*rotationalFrame)(nil))); err != nil {
+		panic(err)
+	}
+	if err := RegisterFrameImplementer(reflect.TypeOf((*SimpleModel)(nil))); err != nil {
+		panic(err)
+	}
+}
+
 // FrameToJSON marshals an implementer of the Frame interface into JSON.
 func FrameToJSON(frame Frame) ([]byte, error) {
 	type typedFrame struct {
-		FrameType FrameType `json:"frame_type"`
-		Frame     Frame     `json:"frame"`
+		FrameType string `json:"frame_type"`
+		Frame     Frame  `json:"frame"`
 	}
+	typName := reflect.ValueOf(frame).Type().Elem().Name()
 	return json.Marshal(&typedFrame{
-		FrameType: frame.FrameType(),
+		FrameType: typName,
 		Frame:     frame,
 	})
 }
@@ -183,16 +173,15 @@ func JSONToFrame(data json.RawMessage) (Frame, error) {
 	if err := json.Unmarshal(data, &sF); err != nil {
 		return nil, err
 	}
-	var frameType FrameType
+	var frameType string
 	if err := json.Unmarshal(sF["frame_type"], &frameType); err != nil {
 		return nil, err
 	}
 
-	if frameType == UnserializableFrameType {
-		return nil, errors.New("encountered a frame type that does not support JSON unmarshal")
+	implementer, ok := registeredFrameImplementers[frameType]
+	if !ok {
+		return nil, fmt.Errorf("%s is not a registered Frame implementation", frameType)
 	}
-
-	implementer := registeredFrameImplementers[frameType]
 	frameZeroStruct := reflect.New(implementer).Elem()
 	if err := json.Unmarshal(sF["frame"], frameZeroStruct.Addr().Interface()); err != nil {
 		return nil, err
@@ -358,11 +347,6 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
 }
 
-// FrameType indicates the type of Frame implementer represented by staticFrame.
-func (sf staticFrame) FrameType() FrameType {
-	return StaticFrameType
-}
-
 func (sf staticFrame) MarshalJSON() ([]byte, error) {
 	temp := LinkConfig{
 		ID:          sf.name,
@@ -479,11 +463,6 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(pose)}), err
 }
 
-// FrameType indicates the type of Frame implementer represented by translational frame.
-func (pf *translationalFrame) FrameType() FrameType {
-	return TranslationalFrameType
-}
-
 func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 	if len(pf.limits) > 1 {
 		return nil, ErrMarshalingHighDOFFrame
@@ -573,11 +552,6 @@ func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // design choice made for simplicity. staticFrame and translationalFrame should be used instead.
 func (rf *rotationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	return NewGeometriesInFrame(rf.Name(), nil), nil
-}
-
-// FrameType indicates the type of Frame implementer represented by rotationalFrame.
-func (rf *rotationalFrame) FrameType() FrameType {
-	return RotationalFrameType
 }
 
 func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
@@ -681,11 +655,6 @@ func (pf *poseFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 		transformedGeometries = append(transformedGeometries, geom.Transform(transformByPose))
 	}
 	return NewGeometriesInFrame(pf.name, transformedGeometries), nil
-}
-
-// FrameType for poseFrame indicates that it is not a serializable frame type.
-func (pf *poseFrame) FrameType() FrameType {
-	return UnserializableFrameType
 }
 
 // DoF returns the number of degrees of freedom within a model.
