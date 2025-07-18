@@ -161,7 +161,7 @@ func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) 
 }
 
 // ComponentConfigFromProto creates Component from the proto equivalent.
-func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, error) {
+func ComponentConfigFromProto(protoConf *pb.ComponentConfig, logger logging.Logger) (*resource.Config, error) {
 	serviceConfigs, err := mapSliceWithErrors(protoConf.ServiceConfigs, AssociatedResourceConfigFromProto)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert service configs")
@@ -193,7 +193,7 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 		if err != nil {
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
-			logging.Global().Warnw(
+			logger.Warnw(
 				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
 		}
 		logConfig = &resource.LogConfig{Level: level}
@@ -256,7 +256,7 @@ func ServiceConfigToProto(conf *resource.Config) (*pb.ServiceConfig, error) {
 }
 
 // ServiceConfigFromProto creates Service from the proto equivalent shared with Components.
-func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, error) {
+func ServiceConfigFromProto(protoConf *pb.ServiceConfig, logger logging.Logger) (*resource.Config, error) {
 	// for consistency, nil out empty map (otherwise go>proto>go conversion doesn't match)
 	attrs := protoConf.GetAttributes().AsMap()
 	if len(attrs) == 0 {
@@ -284,7 +284,7 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 		if err != nil {
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
-			logging.Global().Warnw(
+			logger.Warnw(
 				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
 		}
 		logConfig = &resource.LogConfig{Level: level}

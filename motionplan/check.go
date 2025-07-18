@@ -48,9 +48,9 @@ func CheckPlan(
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
 	// Currently this is only TP-space, so we check if the PTG length is >0.
 	if motionChains.useTPspace {
-		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
+		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, logger)
 	}
-	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
+	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM, logger)
 }
 
 func checkPlanRelative(
@@ -59,6 +59,7 @@ func checkPlanRelative(
 	worldState *referenceframe.WorldState,
 	fs *referenceframe.FrameSystem,
 	lookAheadDistanceMM float64,
+	logger logging.Logger,
 ) error {
 	var err error
 	toWorld := func(pif *referenceframe.PoseInFrame, inputs referenceframe.FrameSystemInputs) (*referenceframe.PoseInFrame, error) {
@@ -101,6 +102,7 @@ func checkPlanRelative(
 		plan.Trajectory()[0],
 		worldState,
 		nil,
+		logger,
 	)
 	if err != nil {
 		return err
@@ -199,6 +201,7 @@ func checkPlanAbsolute(
 	worldState *referenceframe.WorldState,
 	fs *referenceframe.FrameSystem,
 	lookAheadDistanceMM float64,
+	logger logging.Logger,
 ) error {
 	plan := executionState.Plan()
 	startingInputs := plan.Trajectory()[0]
@@ -247,6 +250,7 @@ func checkPlanAbsolute(
 		startingInputs,
 		worldState,
 		nil,
+		logger,
 	)
 	if err != nil {
 		return err

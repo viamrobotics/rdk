@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -40,6 +41,7 @@ func newConstraintHandler(
 	seedMap referenceframe.FrameSystemInputs,
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
+	logger logging.Logger,
 ) (*ConstraintHandler, error) {
 	if constraints == nil {
 		// Constraints may be nil, but if a motion profile is set in planningOpts
@@ -119,6 +121,7 @@ func newConstraintHandler(
 		boundingRegions,
 		allowedCollisions,
 		opt.CollisionBufferMM,
+		logger,
 	)
 	if err != nil {
 		return nil, err

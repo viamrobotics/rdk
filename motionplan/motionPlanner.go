@@ -253,7 +253,7 @@ func Replan(
 		return nil, err
 	}
 
-	newPlan, err := sfPlanner.planMultiWaypoint(ctx, currentPlan)
+	newPlan, err := sfPlanner.planMultiWaypoint(ctx, currentPlan, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -331,6 +331,7 @@ func newPlannerFromPlanRequest(logger logging.Logger, fs *referenceframe.FrameSy
 		request.StartState.configuration,
 		request.WorldState,
 		boundingRegions,
+		logger,
 	)
 	if err != nil {
 		return nil, err

@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -115,15 +116,15 @@ func (dm *DepthMap) SubImage(rect image.Rectangle) *DepthMap {
 
 // ConvertImageToDepthMap takes an image and figures out if it's already a DepthMap
 // or if it can be converted into one.
-func ConvertImageToDepthMap(ctx context.Context, img image.Image) (*DepthMap, error) {
+func ConvertImageToDepthMap(ctx context.Context, img image.Image, logger logging.Logger) (*DepthMap, error) {
 	switch ii := img.(type) {
 	case *LazyEncodedImage:
 		lazyImg, _ := img.(*LazyEncodedImage)
-		decodedImg, err := DecodeImage(ctx, lazyImg.RawData(), lazyImg.MIMEType())
+		decodedImg, err := DecodeImage(ctx, lazyImg.RawData(), lazyImg.MIMEType(), logger)
 		if err != nil {
 			return nil, err
 		}
-		return ConvertImageToDepthMap(ctx, decodedImg)
+		return ConvertImageToDepthMap(ctx, decodedImg, logger)
 	case *DepthMap:
 		return ii, nil
 	case *imageWithDepth:

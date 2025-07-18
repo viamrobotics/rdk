@@ -29,23 +29,25 @@ type Graph struct {
 	// pointer to this logicalClock. Whenever SwapResource is called on a node
 	// (the resource updates), the logicalClock is incremented.
 	logicalClock *atomic.Int64
+	logger       logging.Logger
 	ftdc         *ftdc.FTDC
 }
 
 // NewGraph creates a new resource graph.
-func NewGraph() *Graph {
+func NewGraph(logger logging.Logger) *Graph {
 	return &Graph{
 		children:                resourceDependencies{},
 		parents:                 resourceDependencies{},
 		nodes:                   graphNodes{},
 		transitiveClosureMatrix: transitiveClosureMatrix{},
 		logicalClock:            &atomic.Int64{},
+		logger:                  logger,
 	}
 }
 
 // NewGraphWithFTDC creates a new resource graph with ftdc.
-func NewGraphWithFTDC(ftdc *ftdc.FTDC) *Graph {
-	ret := NewGraph()
+func NewGraphWithFTDC(logger logging.Logger, ftdc *ftdc.FTDC) *Graph {
+	ret := NewGraph(logger)
 	ret.ftdc = ftdc
 	return ret
 }
@@ -275,7 +277,7 @@ func (g *Graph) GetAllParentsOf(node Name) []Name {
 
 func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 	if nodeVal == nil {
-		logging.Global().Errorw("addNode called with a nil value; setting to uninitialized", "name", node)
+		g.logger.Errorw("addNode called with a nil value; setting to uninitialized", "name", node)
 		nodeVal = NewUninitializedNode()
 	}
 	if val, ok := g.nodes[node]; ok {
@@ -418,7 +420,7 @@ func (g *Graph) RemoveMarked() []Resource {
 		rNode, ok := g.nodes[name]
 		if !ok {
 			// will never happen
-			logging.Global().Errorw("invariant: expected to find node during removal", "name", name)
+			g.logger.Errorw("invariant: expected to find node during removal", "name", name)
 			continue
 		}
 		if rNode.MarkedForRemoval() {
