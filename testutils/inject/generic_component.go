@@ -1,3 +1,6 @@
+// Package inject provides dependency injected structures for mocking interfaces.
+//
+//nolint:dupl
 package inject
 
 import (
@@ -10,8 +13,9 @@ import (
 // GenericComponent is an injectable generic component.
 type GenericComponent struct {
 	resource.Resource
-	name   resource.Name
-	DoFunc func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	name      resource.Name
+	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc func(ctx context.Context) error
 }
 
 // NewGenericComponent returns a new injected generic component.
@@ -30,4 +34,15 @@ func (g *GenericComponent) DoCommand(ctx context.Context, cmd map[string]interfa
 		return g.Resource.DoCommand(ctx, cmd)
 	}
 	return g.DoFunc(ctx, cmd)
+}
+
+// Close calls the injected Close or the real version.
+func (g *GenericComponent) Close(ctx context.Context) error {
+	if g.CloseFunc == nil {
+		if g.Resource == nil {
+			return nil
+		}
+		return g.Resource.Close(ctx)
+	}
+	return g.CloseFunc(ctx)
 }

@@ -16,6 +16,7 @@ type Servo struct {
 	PositionFunc func(ctx context.Context, extra map[string]interface{}) (uint32, error)
 	StopFunc     func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc func(context.Context) (bool, error)
+	CloseFunc    func(ctx context.Context) error
 }
 
 // NewServo returns a new injected servo.
@@ -66,4 +67,15 @@ func (s *Servo) IsMoving(ctx context.Context) (bool, error) {
 		return s.Servo.IsMoving(ctx)
 	}
 	return s.IsMovingFunc(ctx)
+}
+
+// Close calls the injected Close or the real version.
+func (s *Servo) Close(ctx context.Context) error {
+	if s.CloseFunc == nil {
+		if s.Servo == nil {
+			return nil
+		}
+		return s.Servo.Close(ctx)
+	}
+	return s.CloseFunc(ctx)
 }

@@ -21,6 +21,7 @@ type InputController struct {
 		ctrlFunc input.ControlFunction,
 		extra map[string]interface{},
 	) error
+	CloseFunc func(ctx context.Context) error
 }
 
 // NewInputController returns a new injected input controller.
@@ -85,4 +86,15 @@ func (s *TriggerableInputController) TriggerEvent(ctx context.Context, event inp
 		return s.TriggerEvent(ctx, event, extra)
 	}
 	return s.TriggerEventFunc(ctx, event, extra)
+}
+
+// Close calls the injected Close or the real version.
+func (s *InputController) Close(ctx context.Context) error {
+	if s.CloseFunc == nil {
+		if s.Controller == nil {
+			return nil
+		}
+		return s.Controller.Close(ctx)
+	}
+	return s.CloseFunc(ctx)
 }

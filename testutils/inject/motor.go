@@ -22,6 +22,7 @@ type Motor struct {
 	StopFunc              func(ctx context.Context, extra map[string]interface{}) error
 	IsPoweredFunc         func(ctx context.Context, extra map[string]interface{}) (bool, float64, error)
 	IsMovingFunc          func(context.Context) (bool, error)
+	CloseFunc             func(ctx context.Context) error
 }
 
 // NewMotor returns a new injected motor.
@@ -120,4 +121,15 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 		return m.Motor.IsMoving(ctx)
 	}
 	return m.IsMovingFunc(ctx)
+}
+
+// Close calls the injected Close or the real version.
+func (m *Motor) Close(ctx context.Context) error {
+	if m.CloseFunc == nil {
+		if m.Motor == nil {
+			return nil
+		}
+		return m.Motor.Close(ctx)
+	}
+	return m.CloseFunc(ctx)
 }
