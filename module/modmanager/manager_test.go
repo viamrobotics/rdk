@@ -1058,7 +1058,7 @@ func TestModuleMisc(t *testing.T) {
 		}
 
 		allowedCfg2 := config.Module{
-			Name:     "test-module",
+			Name:     "test-module-2",
 			ExePath:  modPath,
 			Type:     config.ModuleTypeLocal,
 			ModuleID: "viam:tflite_cpu",
@@ -1068,7 +1068,7 @@ func TestModuleMisc(t *testing.T) {
 		err = mgr.Add(ctx, allowedCfg, allowedCfg2, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
-		// confirm only the 	spberry-pi and tflite_cpu modules were added
+		// confirm only the raspberry-pi and tflite_cpu modules were added
 		test.That(t, len(mgr.Configs()), test.ShouldEqual, 2)
 		for _, conf := range mgr.Configs() {
 			test.That(t, conf.ModuleID, test.ShouldContainSubstring, "viam")
