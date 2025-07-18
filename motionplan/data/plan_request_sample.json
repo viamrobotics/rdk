@@ -2,7 +2,7 @@
   "frame_system": {
     "name": "",
     "world": {
-      "frame_type": "staticFrame",
+      "frame_type": "static",
       "frame": {
         "id": "world",
         "translation": {
@@ -23,7 +23,7 @@
     },
     "frames": {
       "xArm6": {
-        "frame_type": "SimpleModel",
+        "frame_type": "model",
         "frame": {
           "name": "xArm6",
           "links": [
@@ -284,7 +284,7 @@
         }
       },
       "xArmVgripper": {
-        "frame_type": "staticFrame",
+        "frame_type": "static",
         "frame": {
           "id": "xArmVgripper",
           "translation": {
