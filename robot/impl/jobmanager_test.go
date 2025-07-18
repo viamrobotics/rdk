@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -73,10 +74,10 @@ func TestJobManagerConfigChanges(t *testing.T) {
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 
 	var (
-		doCommandFirstCount1 int
-		doCommandFirstCount2 int
-		doCommandSecondCount int
-		doCommandThirdCount  int
+		doCommandFirstCount1 atomic.Int64
+		doCommandFirstCount2 atomic.Int64
+		doCommandSecondCount atomic.Int64
+		doCommandThirdCount  atomic.Int64
 	)
 	dummyArm1 := &inject.Arm{
 		DoFunc: func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
@@ -85,9 +86,9 @@ func TestJobManagerConfigChanges(t *testing.T) {
 				return nil, errors.New("command not in the map")
 			}
 			if myCommand == "first 1" {
-				doCommandFirstCount1++
+				doCommandFirstCount1.Add(1)
 			} else {
-				doCommandFirstCount2++
+				doCommandFirstCount2.Add(1)
 			}
 			return map[string]any{
 				"count": "done",
@@ -96,7 +97,7 @@ func TestJobManagerConfigChanges(t *testing.T) {
 	}
 	dummyArm2 := &inject.Arm{
 		DoFunc: func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
-			doCommandSecondCount++
+			doCommandSecondCount.Add(1)
 			return map[string]any{
 				"count2": "done",
 			}, nil
@@ -104,7 +105,7 @@ func TestJobManagerConfigChanges(t *testing.T) {
 	}
 	dummyArm3 := &inject.Arm{
 		DoFunc: func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
-			doCommandThirdCount++
+			doCommandThirdCount.Add(1)
 			return map[string]any{
 				"count3": "done",
 			}, nil
@@ -181,8 +182,8 @@ func TestJobManagerConfigChanges(t *testing.T) {
 	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
 		tb.Helper()
 		// after 3 seconds, FirstCount1 and SecondCount should fire at least once
-		test.That(tb, doCommandFirstCount1, test.ShouldEqual, 1)
-		test.That(tb, doCommandSecondCount, test.ShouldEqual, 1)
+		test.That(tb, doCommandFirstCount1.Load(), test.ShouldEqual, 1)
+		test.That(tb, doCommandSecondCount.Load(), test.ShouldEqual, 1)
 	})
 
 	// then, we reconfigure to change the first job, remove second, add third
@@ -220,10 +221,10 @@ func TestJobManagerConfigChanges(t *testing.T) {
 		tb.Helper()
 		// after two rounds of 3 second jobs, the FirstCount2 and ThirdCount should
 		// have happened twice, while the other two jobs only once.
-		test.That(tb, doCommandFirstCount1, test.ShouldEqual, 1)
-		test.That(tb, doCommandSecondCount, test.ShouldEqual, 1)
-		test.That(tb, doCommandFirstCount2, test.ShouldEqual, 2)
-		test.That(tb, doCommandThirdCount, test.ShouldEqual, 2)
+		test.That(tb, doCommandFirstCount1.Load(), test.ShouldEqual, 1)
+		test.That(tb, doCommandSecondCount.Load(), test.ShouldEqual, 1)
+		test.That(tb, doCommandFirstCount2.Load(), test.ShouldEqual, 2)
+		test.That(tb, doCommandThirdCount.Load(), test.ShouldEqual, 2)
 	})
 }
 
