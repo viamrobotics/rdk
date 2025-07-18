@@ -911,7 +911,7 @@ func TestModuleSocketAddrTruncation(t *testing.T) {
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "module socket base path")
 }
 
-func TestGetFrameSystem(t *testing.T) {
+func TestNewFrameSystemClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
