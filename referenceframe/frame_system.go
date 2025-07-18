@@ -444,14 +444,14 @@ func (sfs *FrameSystem) MarshalJSON() ([]byte, error) {
 		Frames  map[string]json.RawMessage `json:"frames"`
 		Parents map[string]string          `json:"parents"`
 	}
-	worldFrameJSON, err := FrameToJSON(sfs.World())
+	worldFrameJSON, err := frameToJSON(sfs.World())
 	if err != nil {
 		return nil, err
 	}
 
 	typedFrames := make(map[string]json.RawMessage, 0)
 	for name, frame := range sfs.frames {
-		frameJSON, err := FrameToJSON(frame)
+		frameJSON, err := frameToJSON(frame)
 		if err != nil {
 			return nil, err
 		}
@@ -478,14 +478,14 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	worldFrame, err := JSONToFrame(serFS.World)
+	worldFrame, err := jsonToFrame(serFS.World)
 	if err != nil {
 		return err
 	}
 
 	frameMap := make(map[string]Frame, 0)
 	for name, tF := range serFS.Frames {
-		frame, err := JSONToFrame(tF)
+		frame, err := jsonToFrame(tF)
 		if err != nil {
 			return err
 		}

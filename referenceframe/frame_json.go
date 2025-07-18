@@ -170,8 +170,8 @@ func (cfg *DHParamConfig) ToDHFrames() (Frame, Frame, error) {
 	return rFrame, lFrame, nil
 }
 
-// FrameToJSON marshals an implementer of the Frame interface into JSON.
-func FrameToJSON(frame Frame) ([]byte, error) {
+// frameToJSON marshals an implementer of the Frame interface into JSON.
+func frameToJSON(frame Frame) ([]byte, error) {
 	type typedFrame struct {
 		FrameType string `json:"frame_type"`
 		Frame     Frame  `json:"frame"`
@@ -183,10 +183,10 @@ func FrameToJSON(frame Frame) ([]byte, error) {
 	})
 }
 
-// JSONToFrame converts raw JSON into a Frame by using a key called "frame_type"
+// jsonToFrame converts raw JSON into a Frame by using a key called "frame_type"
 // to determine the explicit struct type to which the frame data (found under the key
 // "frame") should be marshalled.
-func JSONToFrame(data json.RawMessage) (Frame, error) {
+func jsonToFrame(data json.RawMessage) (Frame, error) {
 	var sF map[string]json.RawMessage
 	if err := json.Unmarshal(data, &sF); err != nil {
 		return nil, err
