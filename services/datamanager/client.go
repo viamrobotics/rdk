@@ -70,15 +70,16 @@ func (c *client) UploadBinaryDataToDataset(
 	mimeType datasyncpb.MimeType,
 	extra map[string]interface{},
 ) error {
-	ext, err := protoutils.StructToStructPb(extra)
+	extraPb, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
 	_, err = c.client.UploadBinaryDataToDataset(ctx, &pb.UploadBinaryDataToDatasetRequest{
 		BinaryData: image,
 		DatasetIds: datasetIDs,
+		MimeType:   mimeType,
 		Tags:       tags,
-		Extra:      ext,
+		Extra:      extraPb,
 	})
 	if err != nil {
 		return err

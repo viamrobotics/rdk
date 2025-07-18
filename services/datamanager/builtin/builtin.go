@@ -262,7 +262,7 @@ func lookupCollectorConfigsByResource(
 }
 
 func (b *builtIn) UploadBinaryDataToDataset(ctx context.Context,
-	image []byte,
+	binaryData []byte,
 	datasetIDs, tags []string,
 	mimeType v1.MimeType,
 	extra map[string]interface{},
@@ -271,7 +271,7 @@ func (b *builtIn) UploadBinaryDataToDataset(ctx context.Context,
 	defer b.logger.Info("UploadBinaryDataToDataset END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.sync.UploadBinaryDataToDataset(ctx, image, datasetIDs, tags, mimeType)
+	return b.sync.UploadBinaryDataToDataset(ctx, binaryData, datasetIDs, tags, mimeType)
 }
 
 func (b *builtIn) UploadImageToDataset(ctx context.Context,
