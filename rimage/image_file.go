@@ -21,7 +21,6 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/logging"
 	ut "go.viam.com/rdk/utils"
 )
 
@@ -144,12 +143,12 @@ func NewImageFromFile(fn string) (*Image, error) {
 }
 
 // NewDepthMapFromFile extract the depth map from a Z16 image file or a .dat image file.
-func NewDepthMapFromFile(ctx context.Context, fn string, logger logging.Logger) (*DepthMap, error) {
+func NewDepthMapFromFile(ctx context.Context, fn string) (*DepthMap, error) {
 	img, err := ReadImageFromFile(fn)
 	if err != nil {
 		return nil, err
 	}
-	return ConvertImageToDepthMap(ctx, img, logger)
+	return ConvertImageToDepthMap(ctx, img)
 }
 
 // WriteImageToFile writes the given image to a file at the supplied path.
@@ -272,12 +271,12 @@ func SaveImage(pic image.Image, loc string) error {
 
 // DecodeImage takes an image buffer and decodes it, using the mimeType
 // and the dimensions, to return the image.
-func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, logger logging.Logger) (image.Image, error) {
+func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.Image, error) {
 	_, span := trace.StartSpan(ctx, "rimage::DecodeImage::"+mimeType)
 	defer span.End()
 	mimeType, returnLazy := ut.CheckLazyMIMEType(mimeType)
 	if returnLazy {
-		return NewLazyEncodedImage(imgBytes, mimeType, logger), nil
+		return NewLazyEncodedImage(imgBytes, mimeType), nil
 	}
 	switch mimeType {
 	case "":
