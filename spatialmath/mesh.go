@@ -238,9 +238,21 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 
 // Returns true if any triangle vertex of the mesh intersects the box.
 func (m *Mesh) boxIntersectsVertex(b *box) bool {
-	for _, p := range m.ToPoints(1) {
-		if pointVsBoxCollision(p, b, defaultCollisionBufferMM) {
-			return true
+	// Use map to deduplicate vertices
+	pointMap := make(map[string]r3.Vector)
+	// Add all triangle vertices, formatting as a string for map deduplication
+	for _, tri := range m.triangles {
+		for _, pt := range tri.Points() {
+			// If this is a shared vertex we can skip the math after the first time
+			key := fmt.Sprintf("%.10f,%.10f,%.10f", pt.X, pt.Y, pt.Z)
+			if _, ok := pointMap[key]; ok {
+				continue
+			}
+			pointMap[key] = pt
+			worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
+			if pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM) {
+				return true
+			}
 		}
 	}
 	return false
