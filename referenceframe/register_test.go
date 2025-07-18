@@ -52,10 +52,10 @@ func TestImplementerRegistration(t *testing.T) {
 		*trivialFrame
 	}
 	// test that we get an error trying to register an already registered frame type
-	err := RegisterFrameImplementer((*staticFrame)(nil))
+	err := RegisterFrameImplementer((*staticFrame)(nil), "static")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// test that we can successfully register a Frame implementation
-	err = RegisterFrameImplementer((*trivialFrame)(nil))
+	err = RegisterFrameImplementer((*trivialFrame)(nil), "trivial")
 	test.That(t, err, test.ShouldBeNil)
 }

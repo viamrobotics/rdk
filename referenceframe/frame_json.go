@@ -176,11 +176,15 @@ func frameToJSON(frame Frame) ([]byte, error) {
 		FrameType string `json:"frame_type"`
 		Frame     Frame  `json:"frame"`
 	}
-	typName := reflect.ValueOf(frame).Type().Elem().Name()
-	return json.Marshal(&typedFrame{
-		FrameType: typName,
-		Frame:     frame,
-	})
+	for name, f := range registeredFrameImplementers {
+		if reflect.ValueOf(frame).Type().Elem() == f {
+			return json.Marshal(&typedFrame{
+				FrameType: name,
+				Frame:     frame,
+			})
+		}
+	}
+	return []byte{}, fmt.Errorf("Frame of type %T is not a registered Frame implementation", frame)
 }
 
 // jsonToFrame converts raw JSON into a Frame by using a key called "frame_type"
