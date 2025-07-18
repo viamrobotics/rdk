@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"image"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -49,7 +50,10 @@ var (
 // as equally acceptable. See https://github.com/pion/mediadevices/blob/c10fb000dbbb28597e068468f3175dc68a281bfd/pkg/prop/int.go#L104
 // Setting it to 1 could theoretically allow 1x1 resolutions. 2 is small enough and even,
 // allowing all real camera resolutions while ensuring proper distance calculations.
-const minResolutionDimension = 2
+const (
+	minResolutionDimension = 2
+	defaultFrameRate       = float32(30.0)
+)
 
 func init() {
 	resource.RegisterComponent(
@@ -61,6 +65,16 @@ func init() {
 	if err := json.Unmarshal(intrinsics, &data); err != nil {
 		logging.Global().Errorw("cannot parse intrinsics json", "error", err)
 	}
+}
+
+// WebcamBuffer is a buffer for webcam frames.
+// WARNING: This struct is NOT thread safe. It must be protected by the mutex in the webcam struct.
+type WebcamBuffer struct {
+	frame   image.Image  // Holds the frames and their release functions in the buffer
+	ticker  *time.Ticker // Ticker for controlling frame rate
+	release func()
+	err     error
+	worker  *goutils.StoppableWorkers
 }
 
 // WebcamConfig is the native config attribute struct for webcams.
@@ -208,6 +222,8 @@ type webcam struct {
 	disconnected bool
 	logger       logging.Logger
 	workers      *goutils.StoppableWorkers
+
+	buffer *WebcamBuffer
 }
 
 // NewWebcam returns the webcam discovered based on the given config as the Camera interface type.
@@ -239,12 +255,11 @@ func (c *webcam) Reconfigure(
 	if err != nil {
 		return err
 	}
-
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.stopBuffer()
 
 	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
-
 	driverReinitNotNeeded := c.conf.Format == newConf.Format &&
 		c.conf.Path == newConf.Path &&
 		c.conf.Width == newConf.Width &&
@@ -265,6 +280,13 @@ func (c *webcam) Reconfigure(
 
 	// only set once we're good
 	c.conf = *newConf
+
+	if c.conf.FrameRate == 0.0 {
+		c.conf.FrameRate = defaultFrameRate
+	}
+	c.buffer = NewWebcamBuffer(c.workers.Context())
+	c.startBuffer()
+
 	return nil
 }
 
@@ -380,15 +402,11 @@ func (c *webcam) Images(ctx context.Context) ([]camera.NamedImage, resource.Resp
 		return nil, resource.ResponseMetadata{}, err
 	}
 
-	img, release, err := c.reader.Read()
+	img, err := c.getLatestFrame()
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "monitoredWebcam: call to get Images failed")
 	}
-	defer func() {
-		if release != nil {
-			release()
-		}
-	}()
+
 	return []camera.NamedImage{{img, c.Name().Name}}, resource.ResponseMetadata{time.Now()}, nil
 }
 
@@ -413,11 +431,10 @@ func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]in
 	if c.reader == nil {
 		return nil, camera.ImageMetadata{}, errors.New("underlying reader is nil")
 	}
-	img, release, err := c.reader.Read()
+	img, err := c.getLatestFrame()
 	if err != nil {
 		return nil, camera.ImageMetadata{}, err
 	}
-	defer release()
 
 	if mimeType == "" {
 		mimeType = utils.MimeTypeJPEG
@@ -481,15 +498,96 @@ func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) (
 	return make([]spatialmath.Geometry, 0), nil
 }
 
+// NewWebcamBuffer creates a new WebcamBuffer struct.
+func NewWebcamBuffer(ctx context.Context) *WebcamBuffer {
+	return &WebcamBuffer{
+		worker: goutils.NewStoppableWorkers(ctx),
+	}
+}
+
+// Must lock the mutex before calling this function.
+func (c *webcam) getLatestFrame() (image.Image, error) {
+	if c.buffer.frame == nil {
+		if c.buffer.err != nil {
+			return nil, c.buffer.err
+		}
+		return nil, errors.New("no frames available to read")
+	}
+
+	return c.buffer.frame, nil
+}
+
+func (c *webcam) startBuffer() {
+	if c.buffer.ticker != nil {
+		return // webcam buffer already started
+	}
+
+	interFrameDuration := time.Duration(float32(time.Second) / c.conf.FrameRate)
+	c.buffer.ticker = time.NewTicker(interFrameDuration)
+	c.buffer.worker.Add(func(closedCtx context.Context) {
+		defer c.buffer.ticker.Stop()
+		for {
+			select {
+			case <-closedCtx.Done():
+				return
+			case <-c.buffer.ticker.C:
+				// We must unlock the mutex even if the release() or read() functions panic.
+				func() {
+					c.mu.Lock()
+					defer c.mu.Unlock()
+					if c.buffer.release != nil {
+						c.buffer.release()
+						c.buffer.release = nil
+						c.buffer.frame = nil
+					}
+					img, release, err := c.reader.Read()
+					c.buffer.err = err
+					if err != nil {
+						c.logger.Errorf("error reading frame: %v", err)
+						return // next iteration of for loop
+					}
+					c.buffer.frame = img
+					c.buffer.release = release
+				}()
+			}
+		}
+	})
+}
+
+// Must lock the mutex before using this function.
+func (c *webcam) stopBuffer() {
+	if c.buffer == nil {
+		return
+	}
+
+	if c.buffer.ticker != nil {
+		c.buffer.ticker.Stop()
+		c.buffer.ticker = nil
+	}
+
+	if c.buffer.worker != nil {
+		c.buffer.worker.Stop()
+		c.buffer.worker = nil
+	}
+	// Release the remaining frame.
+	if c.buffer.release != nil {
+		c.buffer.release()
+		c.buffer.release = nil
+	}
+}
+
 func (c *webcam) Close(ctx context.Context) error {
+	c.workers.Stop()
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.closed {
-		c.mu.Unlock()
 		return errors.New("webcam already closed")
 	}
 	c.closed = true
-	c.mu.Unlock()
-	c.workers.Stop()
+
+	if c.buffer != nil {
+		c.stopBuffer()
+	}
 
 	return c.driver.Close()
 }
