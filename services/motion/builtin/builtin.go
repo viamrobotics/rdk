@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -54,8 +55,9 @@ func init() {
 
 // export keys to be used with DoCommand so they can be referenced by clients.
 const (
-	DoPlan    = "plan"
-	DoExecute = "execute"
+	DoPlan              = "plan"
+	DoExecute           = "execute"
+	DoExecuteCheckStart = "executeCheckStart"
 )
 
 const (
@@ -68,6 +70,7 @@ const (
 	defaultSlamPlanDeviationM          = 1.
 	defaultGlobePlanDeviationM         = 2.6
 	defaultCollisionBuffer             = 150. // mm
+	defaultExecuteEpsilon              = 0.01 // rad or mm
 )
 
 var (
@@ -234,7 +237,7 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = ms.execute(ctx, plan.Trajectory())
+	err = ms.execute(ctx, plan.Trajectory(), math.MaxFloat64)
 	return err == nil, err
 }
 
@@ -450,7 +453,20 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		if err := mapstructure.Decode(req, &trajectory); err != nil {
 			return nil, err
 		}
-		if err := ms.execute(ctx, trajectory); err != nil {
+		// if included and set to true
+		epsilon := math.MaxFloat64
+		if val, ok := cmd[DoExecuteCheckStart]; ok {
+			// we don't actually care if the value was set.
+			// just ensure we always use a non zero, non negative epsilon
+			epsilon, _ = val.(float64)
+			if epsilon <= 0 {
+				// use default allowable error in position for an input
+				epsilon = defaultExecuteEpsilon // rad OR mm
+			}
+
+			resp[DoExecuteCheckStart] = "resource at starting location"
+		}
+		if err := ms.execute(ctx, trajectory, epsilon); err != nil {
 			return nil, err
 		}
 		resp[DoExecute] = true
@@ -569,7 +585,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	return plan, err
 }
 
-func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
+func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
@@ -578,6 +594,22 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			for name, inputs := range step {
 				if len(inputs) == 0 {
 					continue
+				}
+
+				r, ok := ms.components[name]
+				if !ok {
+					return fmt.Errorf("plan had step for resource %s but the motion service is not aware of a component of that name", name)
+				}
+				ie, err := utils.AssertType[framesystem.InputEnabled](r)
+				if err != nil {
+					return err
+				}
+				curr, err := ie.CurrentInputs(ctx)
+				if err != nil {
+					return err
+				}
+				if referenceframe.InputsLinfDistance(curr, inputs) > epsilon {
+					return fmt.Errorf("component %v is not within %v of the current position", name, epsilon)
 				}
 				currStep[name] = append(currStep[name], inputs)
 			}
