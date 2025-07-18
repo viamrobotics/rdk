@@ -459,7 +459,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			// we don't actually care if the value was set.
 			// just ensure we always use a non zero, non negative epsilon
 			epsilon, _ = val.(float64)
-			if epsilon <= 0 {
+			if epsilon < 0 {
 				// use default allowable error in position for an input
 				epsilon = defaultExecuteEpsilon // rad OR mm
 			}

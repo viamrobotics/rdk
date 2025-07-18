@@ -1338,7 +1338,7 @@ func TestDoCommand(t *testing.T) {
 		defer teardown()
 
 		// format the command to sent DoCommand
-		cmd := map[string]interface{}{DoExecute: trajectory, DoExecuteCheckStart: ""}
+		cmd := map[string]interface{}{DoExecute: trajectory, DoExecuteCheckStart: "not a float"}
 
 		// simulate going over the wire
 		respMap, err := doOverWire(ms, cmd)
