@@ -67,7 +67,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
+			return camera.FromVideoSource(conf.ResourceName(), src), nil
 		},
 	})
 }
@@ -208,7 +208,8 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 		ctx,
 		ffCam,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: conf.CameraParameters},
-		camera.ColorStream)
+		camera.ColorStream,
+	)
 }
 
 func (fc *ffmpegCamera) Close(ctx context.Context) error {

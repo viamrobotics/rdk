@@ -148,7 +148,7 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 			for _, name := range fromConfig {
 				select {
 				case <-ctx.Done():
-					return newMotors, rdkutils.NewBuildTimeoutError(wb.Name().String())
+					return newMotors, rdkutils.NewBuildTimeoutError(wb.Name().String(), wb.logger)
 				default:
 				}
 				m, err := motor.FromDependencies(deps, name)
@@ -162,7 +162,7 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 			for i := range curr {
 				select {
 				case <-ctx.Done():
-					return newMotors, rdkutils.NewBuildTimeoutError(wb.Name().String())
+					return newMotors, rdkutils.NewBuildTimeoutError(wb.Name().String(), wb.logger)
 				default:
 				}
 				if (curr)[i].Name().String() != (fromConfig)[i] {

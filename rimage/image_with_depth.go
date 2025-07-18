@@ -7,7 +7,6 @@ import (
 	"image/color"
 
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/utils"
 )
 
@@ -184,13 +183,13 @@ func (i *imageWithDepth) Overlay() *image.NRGBA {
 }
 
 // newImageWithDepth returns a new image from the given color image and depth data files.
-func newImageWithDepth(ctx context.Context, colorFN, depthFN string, isAligned bool, logger logging.Logger) (*imageWithDepth, error) {
+func newImageWithDepth(ctx context.Context, colorFN, depthFN string, isAligned bool) (*imageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot read color file (%s)", colorFN)
 	}
 
-	dm, err := NewDepthMapFromFile(ctx, depthFN, logger)
+	dm, err := NewDepthMapFromFile(ctx, depthFN)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot read depth file (%s)", depthFN)
 	}

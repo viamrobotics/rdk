@@ -142,7 +142,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	logging.RegisterEventLogger(logger)
-	logging.ReplaceGlobal(logger)
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
 	if argsParsed.Version {

@@ -111,7 +111,7 @@ func NewCamera(
 			return nil, err
 		}
 	}
-	return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
+	return camera.FromVideoSource(conf.ResourceName(), src), nil
 }
 
 // Config are the attributes of the fake camera config.

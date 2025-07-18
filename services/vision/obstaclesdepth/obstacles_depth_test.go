@@ -83,13 +83,13 @@ func TestObstacleDepth(t *testing.T) {
 	myCamSrcIntrinsics, err := camera.NewVideoSourceFromReader(ctx, fr, &syst, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myCamSrcIntrinsics, test.ShouldNotBeNil)
-	myIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrcIntrinsics, testLogger)
+	myIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrcIntrinsics)
 	// camera without intrinsics
 	tr := testReader{}
 	myCamSrcNoIntrinsics, err := camera.NewVideoSourceFromReader(ctx, tr, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myCamSrcNoIntrinsics, test.ShouldNotBeNil)
-	noIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "noIntrinsicsCam"}, myCamSrcNoIntrinsics, testLogger)
+	noIntrinsicsCam := camera.FromVideoSource(resource.Name{Name: "noIntrinsicsCam"}, myCamSrcNoIntrinsics)
 	// set up the fake robot
 	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
@@ -222,7 +222,7 @@ func BenchmarkObstacleDepthIntrinsics(b *testing.B) {
 	tr := fullReader{}
 	syst := transform.PinholeCameraModel{&someIntrinsics, nil}
 	myCamSrc, _ := camera.NewVideoSourceFromReader(ctx, tr, &syst, camera.DepthStream)
-	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc, testLogger)
+	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc)
 	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
 		case "testCam":
@@ -250,7 +250,7 @@ func BenchmarkObstacleDepthNoIntrinsics(b *testing.B) {
 	}}
 	tr := fullReader{}
 	myCamSrc, _ := camera.NewVideoSourceFromReader(ctx, tr, nil, camera.DepthStream)
-	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc, testLogger)
+	myCam := camera.FromVideoSource(resource.Name{Name: "testCam"}, myCamSrc)
 	r.ResourceByNameFunc = func(n resource.Name) (resource.Resource, error) {
 		switch n.Name {
 		case "testCam":

@@ -681,7 +681,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 
 		disableBrowserOpen: disableBrowserOpen,
 		httpClient:         &http.Client{Timeout: time.Second * 30},
-		logger:             logging.Global(),
+		logger:             logging.NewLogger("cli"),
 		console:            console,
 	}
 }

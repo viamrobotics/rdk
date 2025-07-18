@@ -25,7 +25,7 @@ import (
 // Note: this strips away Reconfiguration and DoCommand abilities.
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
-func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) VideoSource {
+func FromVideoSource(name resource.Name, src VideoSource) VideoSource {
 	var rtpPassthroughSource rtppassthrough.Source
 	if ps, ok := src.(rtppassthrough.Source); ok {
 		rtpPassthroughSource = ps
@@ -34,7 +34,6 @@ func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger)
 		rtpPassthroughSource: rtpPassthroughSource,
 		VideoSource:          src,
 		Named:                name.AsNamed(),
-		Logger:               logger,
 	}
 }
 
