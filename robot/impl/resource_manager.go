@@ -1272,14 +1272,15 @@ type PartsMergeResult struct {
 func (manager *resourceManager) markRemoved(
 	ctx context.Context,
 	conf *config.Config,
-) ([]resource.Resource, map[resource.Name]struct{}) {
-	var resourcesToMark []resource.Name
+) ([]resource.Resource, map[resource.Name]struct{}, []resource.Name) {
+	var resourcesToMark, resourcesToRebuild []resource.Name
 	for _, conf := range conf.Modules {
-		orphanedResourceNames, err := manager.moduleManager.Remove(conf.Name)
+		affectedResourceNames, err := manager.moduleManager.Remove(conf.Name)
 		if err != nil {
 			manager.logger.CErrorw(ctx, "error removing module", "module", conf.Name, "error", err)
 		}
-		resourcesToMark = append(resourcesToMark, orphanedResourceNames...)
+		resourcesToMark = append(resourcesToMark, affectedResourceNames...)
+		resourcesToRebuild = append(resourcesToRebuild, affectedResourceNames...)
 	}
 
 	for _, conf := range conf.Remotes {
@@ -1298,7 +1299,7 @@ func (manager *resourceManager) markRemoved(
 		}
 	}
 	resourcesToCloseBeforeComplete := manager.markResourcesRemoved(resourcesToMark, addNames)
-	return resourcesToCloseBeforeComplete, markedResourceNames
+	return resourcesToCloseBeforeComplete, markedResourceNames, resourcesToRebuild
 }
 
 // markResourcesRemoved marks all passed in resources (assumed to be resource

@@ -911,6 +911,11 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 					err,
 				)
 				orphanedResourceNames = append(orphanedResourceNames, name)
+
+				// At this point, the modmanager is no longer managing this resource and should remove it
+				// from its state.
+				mgr.rMap.Delete(name)
+				delete(mod.resources, name)
 				continue
 			}
 			restoredResourceNamesStr = append(restoredResourceNamesStr, name.String())
