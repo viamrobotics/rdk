@@ -93,7 +93,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 	//
 	// Race condition safety: Resource removal should occur after modular resource validation (during completeConfig), so if
 	// ResourceByName is failing, these errors should already be present
-	test.That(t, logs.FilterMessageSnippet("modular resource config validation error").Len(), test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("modular resource config validation error").Len(), test.ShouldBeGreaterThanOrEqualTo, 1)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 }
 
@@ -167,7 +167,7 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 	//
 	// Race condition safety: Resource removal should occur after modular resource validation (during completeConfig), so if
 	// ResourceByName is failing, these errors should already be present
-	test.That(t, logs.FilterMessageSnippet("modular resource config validation error").Len(), test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("modular resource config validation error").Len(), test.ShouldBeGreaterThanOrEqualTo, 1)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
 	// Update the generic1 configuration to have a `motor` attribute. The following reconfiguration

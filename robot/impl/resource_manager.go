@@ -1268,7 +1268,7 @@ type PartsMergeResult struct {
 
 // markRemoved marks all resources in the config (assumed to be a removed diff) for removal. This must be called
 // before updateResources. After updateResources is called, any resources still marked will be fully removed from
-// the graph and closed.
+// the graph and closed. markRemoved also returns a list of resources to be rebuilt.
 func (manager *resourceManager) markRemoved(
 	ctx context.Context,
 	conf *config.Config,
