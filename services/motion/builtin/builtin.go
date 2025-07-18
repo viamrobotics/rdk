@@ -584,10 +584,6 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	return plan, err
 }
 
-func checkSameInputs(a, b []referenceframe.Input, epsilon float64) bool {
-	return referenceframe.InputsLinfDistance(a, b) < epsilon
-}
-
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
@@ -611,7 +607,7 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 				if err != nil {
 					return err
 				}
-				if !checkSameInputs(inputs, curr, epsilon) {
+				if referenceframe.InputsLinfDistance(curr, inputs) > epsilon {
 					return fmt.Errorf("component %v is not within %v of the current position", name, epsilon)
 				}
 				currStep[name] = append(currStep[name], inputs)
