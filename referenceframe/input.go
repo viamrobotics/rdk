@@ -138,6 +138,7 @@ func InputsL2Distance(from, to []Input) float64 {
 	return floats.Norm(diff, 2)
 }
 
+// InputsLinfDistance returns the inf-norm between two Input sets.
 func InputsLinfDistance(from, to []Input) float64 {
 	max := 0.
 	for index := range from {
