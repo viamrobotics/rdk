@@ -34,7 +34,8 @@ var CheckDeleteExcessFilesInterval = 30 * time.Second
 const (
 	// FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 	FailedDir = "failed"
-	// DatasetDir is a subdirectory of the capture directory that holds any files that are simultaneously uploaded and added to a dataset outside of the regularly scheduled sync.
+	// DatasetDir is a subdirectory of the capture directory that holds any files that are simultaneously uploaded
+	// and added to a dataset outside of the regularly scheduled sync.
 	DatasetDir = "dataset"
 	// grpcConnectionTimeout defines the timeout for getting a connection with app.viam.com.
 	grpcConnectionTimeout = 10 * time.Second
@@ -489,11 +490,10 @@ func (s *Sync) UploadBinaryDataToDataset(ctx context.Context, data []byte, datas
 	filename := uuid.NewString()
 	fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
 	if fileExtensionFromMimeType != "" {
-		filename = filename + fileExtensionFromMimeType
-
+		filename += fileExtensionFromMimeType
 	}
-	filename = filepath.Clean(filepath.Join(s.config.CaptureDir, DatasetDir, filename))
-	err := os.WriteFile(filename, data, 0o640)
+	filename = filepath.Join(s.config.CaptureDir, DatasetDir, filepath.Clean(filename))
+	err := os.WriteFile(filename, data, 0o600)
 	if err != nil {
 		s.logger.Errorw("error writing file", "err", err)
 		return err
@@ -603,7 +603,8 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 				return nil
 			}
 
-			// Do not sync the files in the corrupted data directory or in the directory that holds files that are simultaneously uploaded and added to a dataset.
+			// Do not sync the files in the corrupted data directory or in the directory that holds files
+			// that are simultaneously uploaded and added to a dataset.
 			if info.IsDir() && (info.Name() == FailedDir || info.Name() == DatasetDir) {
 				return filepath.SkipDir
 			}

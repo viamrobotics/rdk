@@ -740,7 +740,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				// Validate first metadata message.
 				expectedUploadedCount := 1
 				if tc.uploadToDataset {
-					expectedUploadedCount += 1
+					expectedUploadedCount++
 				}
 				test.That(t, uploadCount.Load(), test.ShouldEqual, expectedUploadedCount)
 				test.That(t, len(rs), test.ShouldBeGreaterThan, 0)
