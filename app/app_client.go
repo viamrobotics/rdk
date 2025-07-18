@@ -1401,11 +1401,14 @@ func (c *AppClient) ListFragments(
 	return fragments, nil
 }
 
-// GetFragment gets a single fragment.
-func (c *AppClient) GetFragment(ctx context.Context, id string) (*Fragment, error) {
-	resp, err := c.client.GetFragment(ctx, &pb.GetFragmentRequest{
-		Id: id,
-	})
+// GetFragment gets a single fragment. a nil version will return the latest version.
+func (c *AppClient) GetFragment(ctx context.Context, id string, version *string) (*Fragment, error) {
+	req := &pb.GetFragmentRequest{
+		Id:      id,
+		Version: version,
+	}
+
+	resp, err := c.client.GetFragment(ctx, req)
 	if err != nil {
 		return nil, err
 	}
