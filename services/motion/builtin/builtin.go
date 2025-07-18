@@ -606,7 +606,7 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 
 				r, ok := ms.components[name]
 				if !ok {
-					return fmt.Errorf("plan had step for resource %s but it was not found in the motion", name)
+					return fmt.Errorf("plan had step for resource %s but the motion service is not aware of a component of that name", name)
 				}
 				ie, err := utils.AssertType[framesystem.InputEnabled](r)
 				if err != nil {
