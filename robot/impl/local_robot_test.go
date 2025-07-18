@@ -1797,11 +1797,19 @@ func TestOrphanedResources(t *testing.T) {
 
 		res, err := r.ResourceByName(gizmoapi.Named("g"))
 		test.That(t, err, test.ShouldBeError,
-			resource.NewNotFoundError(gizmoapi.Named("g")))
+			resource.NewNotAvailableError(
+				gizmoapi.Named("g"),
+				errors.New(`resource build error: unknown resource type: API "acme:component:gizmo" with model "acme:demo:mygizmo" not registered`),
+			),
+		)
 		test.That(t, res, test.ShouldBeNil)
 		res, err = r.ResourceByName(summationapi.Named("s"))
 		test.That(t, err, test.ShouldBeError,
-			resource.NewNotFoundError(summationapi.Named("s")))
+			resource.NewNotAvailableError(
+				summationapi.Named("s"),
+				errors.New(`resource build error: unknown resource type: API "acme:service:summation" with model "acme:demo:mysum" not registered`),
+			),
+		)
 		test.That(t, res, test.ShouldBeNil)
 
 		// Remove module entirely.
@@ -1913,8 +1921,7 @@ func TestOrphanedResources(t *testing.T) {
 
 		_, err = r.ResourceByName(generic.Named("h"))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError,
-			resource.NewNotFoundError(generic.Named("h")))
+		test.That(t, err.Error(), test.ShouldContainSubstring, `resource "rdk:component:generic/h" not available`)
 
 		// Also assert that testmodule's resources were deregistered.
 		_, ok := resource.LookupRegistration(generic.API, helperModel)
@@ -2157,11 +2164,17 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 
 	res, err := r.ResourceByName(gizmoapi.Named("g"))
 	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(gizmoapi.Named("g")))
+		resource.NewNotAvailableError(
+			gizmoapi.Named("g"),
+			errors.New(`resource build error: unknown resource type: API "acme:component:gizmo" with model "acme:demo:mygizmo" not registered`),
+		),
+	)
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(resource.NewName(doodadAPI, "d"))
-	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(resource.NewName(doodadAPI, "d")))
+	test.That(
+		t, err.Error(), test.ShouldContainSubstring,
+		`resource "rdk:component:doodad/d" not available; reason="resource build error: dependency \"g\" is not ready yet`,
+	)
 	test.That(t, res, test.ShouldBeNil)
 	_, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeNil)
@@ -2365,7 +2378,12 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 
 		_, err = r.ResourceByName(generic.Named("h"))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("h")))
+		test.That(t, err, test.ShouldBeError,
+			resource.NewNotAvailableError(
+				generic.Named("h"),
+				errors.New(`resource build error: unknown resource type: API "rdk:component:generic" with model "rdk:test:helper" not registered`),
+			),
+		)
 	})
 
 	// Reconfigure module back to testmodule. Assert that 'h' is eventually

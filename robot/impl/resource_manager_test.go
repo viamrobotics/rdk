@@ -720,10 +720,10 @@ func TestManagerMarkRemoved(t *testing.T) {
 		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
 	}
 
-	resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{})
+	resourcesToCloseBeforeComplete, markedResourceNames, _ := manager.markRemoved(ctx, &config.Config{})
 	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames)
 
-	resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	resourcesToCloseBeforeComplete, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "what",
@@ -772,7 +772,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	})
 	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames)
 
-	resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	resourcesToCloseBeforeComplete, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
 				Name: "what1",
@@ -788,7 +788,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	_, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
 				Name: "arm2",
@@ -868,7 +868,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	_, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote2",
@@ -981,7 +981,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	_, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote1",
@@ -1262,7 +1262,7 @@ func TestConfigUntrustedEnv(t *testing.T) {
 		})
 		test.That(t, errors.Is(err, errShellServiceDisabled), test.ShouldBeTrue)
 
-		resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{
+		resourcesToCloseBeforeComplete, markedResourceNames, _ := manager.markRemoved(ctx, &config.Config{
 			Services: []resource.Config{{
 				Name: "shell-service",
 				API:  shell.API,
