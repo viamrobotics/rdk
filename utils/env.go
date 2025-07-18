@@ -60,6 +60,11 @@ const (
 
 	// PrimaryOrgIDEnvVar is the environment variable that contains the primary org ID of the machine.
 	PrimaryOrgIDEnvVar = "VIAM_PRIMARY_ORG_ID"
+
+	// ViamResourceRequestsLimitEnvVar is the environment that controls the
+	// per-resource gRPC request limit. If it is unset or invalid the limit
+	// defaults to 100.
+	ViamResourceRequestsLimitEnvVar = "VIAM_RESOURCE_REQUESTS_LIMIT"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
