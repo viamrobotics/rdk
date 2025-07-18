@@ -232,6 +232,8 @@ func NewWebcam(
 	logger logging.Logger,
 ) (camera.Camera, error) {
 	cam := &webcam{
+		Named:   conf.ResourceName().AsNamed(),
+		logger:  logger.WithFields("camera_name", conf.ResourceName().ShortName()),
 		workers: goutils.NewBackgroundStoppableWorkers(),
 	}
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
