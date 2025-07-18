@@ -482,31 +482,39 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 
 // UploadBinaryDataToDataset simultaneously uploads binary data and adds it to a dataset.
 func (s *Sync) UploadBinaryDataToDataset(ctx context.Context, data []byte, datasetIDs, tags []string, mimeType v1.MimeType) error {
-	// Create a new directory CaptureDir/DatasetDir
-	newDir := filepath.Join(s.config.CaptureDir, DatasetDir)
-	if err := os.MkdirAll(newDir, 0o700); err != nil {
-		return errors.Wrapf(err, "failed to create file in dataset directory: error making new dataset directory: %s", newDir)
-	}
-	filename := uuid.NewString()
-	fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
-	if fileExtensionFromMimeType != "" {
-		filename += fileExtensionFromMimeType
-	}
-	filename = filepath.Join(s.config.CaptureDir, DatasetDir, filepath.Clean(filename))
-	err := os.WriteFile(filename, data, 0o600)
-	if err != nil {
-		s.logger.Errorw("error writing file", "err", err)
-		return err
-	}
-	f, err := os.Open(filename)
-	if err != nil {
-		s.logger.Errorw("error reading file", "err", err)
-		return err
-	}
-	// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
-	// before deciding this file is ready for upload and is not still being written to.
-	go s.syncArbitraryFile(f, tags, datasetIDs, 0, s.logger)
-	return nil
+	errChan := make(chan error, 1)
+	go func() {
+		defer close(errChan)
+		// Create a new directory CaptureDir/DatasetDir
+		newDir := filepath.Join(s.config.CaptureDir, DatasetDir)
+		if err := os.MkdirAll(newDir, 0o700); err != nil {
+			errChan <- errors.Wrapf(err, "failed to create file in dataset directory: error making new dataset directory: %s", newDir)
+			return
+		}
+		filename := uuid.NewString()
+		fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
+		if fileExtensionFromMimeType != "" {
+			filename += fileExtensionFromMimeType
+		}
+		filename = filepath.Join(s.config.CaptureDir, DatasetDir, filepath.Clean(filename))
+		err := os.WriteFile(filename, data, 0o600)
+		if err != nil {
+			s.logger.Errorw("error writing file", "err", err)
+			errChan <- err
+			return
+		}
+		f, err := os.Open(filename)
+		if err != nil {
+			s.logger.Errorw("error reading file", "err", err)
+			errChan <- err
+			return
+		}
+		// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
+		// before deciding this file is ready for upload and is not still being written to.
+		s.syncArbitraryFile(f, tags, datasetIDs, 0, s.logger)
+	}()
+
+	return <-errChan
 }
 
 // moveFailedData takes any data that could not be synced in the parentDir and
