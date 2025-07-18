@@ -493,7 +493,7 @@ func (f *frameSystemClient) Name() resource.Name {
 }
 
 func (f *frameSystemClient) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return nil, errors.New("unimplemented")
+	return nil, resource.ErrDoUnimplemented
 }
 
 func (f *frameSystemClient) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
