@@ -68,6 +68,7 @@ func init() {
 }
 
 // WebcamBuffer is a buffer for webcam frames.
+// WARNING: This struct is NOT thread safe. It must be protected by the mutex in the webcam struct.
 type WebcamBuffer struct {
 	frame   image.Image  // Holds the frames and their release functions in the buffer
 	ticker  *time.Ticker // Ticker for controlling frame rate
@@ -507,7 +508,7 @@ func NewWebcamBuffer() *WebcamBuffer {
 	return &WebcamBuffer{}
 }
 
-// Must lock the mutex before calling this function
+// Must lock the mutex before calling this function.
 func (c *webcam) getLatestFrame() (image.Image, error) {
 	if c.buffer.frame == nil {
 		if c.buffer.err != nil {
@@ -521,39 +522,42 @@ func (c *webcam) getLatestFrame() (image.Image, error) {
 
 func (c *webcam) startBuffer() {
 	if c.buffer.ticker != nil {
-		return
+		return // webcam buffer already started
 	}
 
 	interFrameDuration := time.Duration(float32(time.Second) / c.conf.FrameRate)
+	c.buffer.ticker = time.NewTicker(interFrameDuration)
 	c.workers.Add(func(closedCtx context.Context) {
-		c.buffer.ticker = time.NewTicker(interFrameDuration)
 		defer c.buffer.ticker.Stop()
 		for {
 			select {
 			case <-closedCtx.Done():
 				return
 			case <-c.buffer.ticker.C:
-				img, release, err := c.reader.Read()
-				if err != nil {
-					c.logger.Errorf("error reading frame: %v", err)
-					continue
-				}
-
-				c.mu.Lock()
-				if c.buffer.release != nil {
-					c.buffer.release()
-				}
-
-				c.buffer.frame = img
-				c.buffer.release = release
-				c.buffer.err = err
-				c.mu.Unlock()
+				// We must unlock the mutex even if the release() or read() functions panic.
+				func() {
+					c.mu.Lock()
+					defer c.mu.Unlock()
+					if c.buffer.release != nil {
+						c.buffer.release()
+						c.buffer.release = nil
+						c.buffer.frame = nil
+					}
+					img, release, err := c.reader.Read()
+					c.buffer.err = err
+					if err != nil {
+						c.logger.Errorf("error reading frame: %v", err)
+						return // next iteration of for loop
+					}
+					c.buffer.frame = img
+					c.buffer.release = release
+				}()
 			}
 		}
 	})
 }
 
-// Must lock the mutex before using this function
+// Must lock the mutex before using this function.
 func (c *webcam) stopBuffer() {
 	if c.buffer == nil {
 		return
@@ -572,14 +576,13 @@ func (c *webcam) stopBuffer() {
 }
 
 func (c *webcam) Close(ctx context.Context) error {
+	c.workers.Stop()
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.closed {
-		c.mu.Unlock()
 		return errors.New("webcam already closed")
 	}
 	c.closed = true
-	c.mu.Unlock()
-	c.workers.Stop()
 
 	if c.buffer != nil {
 		c.stopBuffer()
