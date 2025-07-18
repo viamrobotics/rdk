@@ -383,8 +383,16 @@ func (w *GraphNode) SetNewConfig(newConfig Config, dependencies []string) {
 // dependency updates. If the node was previously marked for removal,
 // this makes no changes.
 func (w *GraphNode) SetNeedsUpdate() {
-	// doing two mutex ops here but we assume there's only one caller.
 	w.setNeedsReconfigure(w.Config(), false, w.UnresolvedDependencies())
+}
+
+// SetNeedsRebuild is used to inform the node that it should
+// rebuild itself with the same config and will also unset the resource
+// from the node. The caller is expected to handle closing of the resource in the node if necessary.
+func (w *GraphNode) SetNeedsRebuild() {
+	// doing two mutex ops here but we assume there's only one caller.
+	w.UnsetResource()
+	w.setNeedsReconfigure(w.Config(), true, w.UnresolvedDependencies())
 }
 
 // setUnresolvedDependencies sets names that are yet to be resolved as
