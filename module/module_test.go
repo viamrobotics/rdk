@@ -995,7 +995,7 @@ func TestFrameSystemFromDependencies(t *testing.T) {
 			th.constructCount++
 			fsc, err := framesystem.FromDependencies(deps)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, fsc, test.ShouldNotBeNil)
+			test.That(t, fsc.Name(), test.ShouldResemble, framesystem.PublicServiceName)
 
 			return &inject.ShellService{}, nil
 		},
