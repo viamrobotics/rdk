@@ -74,6 +74,7 @@ type WebcamBuffer struct {
 	ticker  *time.Ticker // Ticker for controlling frame rate
 	release func()
 	err     error
+	worker  *goutils.StoppableWorkers
 }
 
 // WebcamConfig is the native config attribute struct for webcams.
@@ -244,7 +245,7 @@ func NewWebcam(
 	if cam.conf.FrameRate == 0.0 {
 		cam.conf.FrameRate = defaultFrameRate
 	}
-	cam.buffer = NewWebcamBuffer()
+	cam.buffer = NewWebcamBuffer(cam.workers.Context())
 	cam.startBuffer()
 
 	cam.Monitor()
@@ -289,7 +290,7 @@ func (c *webcam) Reconfigure(
 	if c.conf.FrameRate == 0.0 {
 		c.conf.FrameRate = defaultFrameRate
 	}
-	c.buffer = NewWebcamBuffer()
+	c.buffer = NewWebcamBuffer(c.workers.Context())
 	c.startBuffer()
 
 	return nil
@@ -504,8 +505,10 @@ func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) (
 }
 
 // NewWebcamBuffer creates a new WebcamBuffer struct.
-func NewWebcamBuffer() *WebcamBuffer {
-	return &WebcamBuffer{}
+func NewWebcamBuffer(ctx context.Context) *WebcamBuffer {
+	return &WebcamBuffer{
+		worker: goutils.NewStoppableWorkers(ctx),
+	}
 }
 
 // Must lock the mutex before calling this function.
@@ -527,7 +530,7 @@ func (c *webcam) startBuffer() {
 
 	interFrameDuration := time.Duration(float32(time.Second) / c.conf.FrameRate)
 	c.buffer.ticker = time.NewTicker(interFrameDuration)
-	c.workers.Add(func(closedCtx context.Context) {
+	c.buffer.worker.Add(func(closedCtx context.Context) {
 		defer c.buffer.ticker.Stop()
 		for {
 			select {
@@ -568,6 +571,10 @@ func (c *webcam) stopBuffer() {
 		c.buffer.ticker = nil
 	}
 
+	if c.buffer.worker != nil {
+		c.buffer.worker.Stop()
+		c.buffer.worker = nil
+	}
 	// Release the remaining frame.
 	if c.buffer.release != nil {
 		c.buffer.release()
