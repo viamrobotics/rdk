@@ -351,7 +351,6 @@ func LookupRegistration(api API, model Model) (Registration[Resource, ConfigVali
 
 // RegisterAPI register a ResourceAPI to its corresponding resource api.
 func RegisterAPI[ResourceT Resource](api API, creator APIRegistration[ResourceT]) {
-	initLogger.Info("API Registered:", api)
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	_, old := apiRegistry[api]
