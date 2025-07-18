@@ -585,12 +585,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 }
 
 func checkSameInputs(a, b []referenceframe.Input, epsilon float64) bool {
-	for index := range a {
-		if math.Abs(a[index].Value-b[index].Value) > epsilon {
-			return false
-		}
-	}
-	return true
+	return referenceframe.InputsLinfDistance(a, b) < epsilon
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {

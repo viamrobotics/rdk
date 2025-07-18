@@ -137,3 +137,14 @@ func InputsL2Distance(from, to []Input) float64 {
 	// 2 is the L value returning a standard L2 Normalization
 	return floats.Norm(diff, 2)
 }
+
+func InputsLinfDistance(from, to []Input) float64 {
+	max := 0.
+	for index := range from {
+		norm := math.Abs(from[index].Value - to[index].Value)
+		if norm > max {
+			max = norm
+		}
+	}
+	return max
+}
