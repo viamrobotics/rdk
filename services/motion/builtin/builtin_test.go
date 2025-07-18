@@ -1673,14 +1673,14 @@ func TestCheckSameInputs(t *testing.T) {
 			description: "different inputs within the epsilon",
 			a:           []referenceframe.Input{{0.005}, {0.992}, {2}},
 			b:           []referenceframe.Input{{0}, {1}, {2}},
-			epsilon:     defaultExecuteEpsilon,
+			epsilon:     0.01,
 			result:      true,
 		},
 		{
 			description: "different inputs outside the epsilon",
 			a:           []referenceframe.Input{{0.1}, {0.5}, {2}},
 			b:           []referenceframe.Input{{0}, {1}, {2}},
-			epsilon:     defaultExecuteEpsilon,
+			epsilon:     0.01,
 			result:      false,
 		},
 	}
