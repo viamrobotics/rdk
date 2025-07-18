@@ -1328,7 +1328,7 @@ func TestDoCommand(t *testing.T) {
 		// the client will need to decode the response still
 		test.That(t, resp, test.ShouldBeTrue)
 	})
-	t.Run("DoCheckStartExectute", func(t *testing.T) {
+	t.Run("DoExecuteCheckStart", func(t *testing.T) {
 		// generate a separate trajectory plan first. that way this state will not be affected by future executions
 		trajectory, err := testDoPlan(moveReq)
 		test.That(t, err, test.ShouldBeNil)
@@ -1352,7 +1352,8 @@ func TestDoCommand(t *testing.T) {
 
 		// do it again
 		respMap, err = doOverWire(ms, cmd)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "do not match the current inputs")
+		test.That(t, err, test.ShouldBeError,
+			fmt.Errorf("component %v is not within %v of the current position", "pieceArm", defaultExecuteEpsilon))
 		test.That(t, respMap, test.ShouldBeEmpty)
 	})
 
