@@ -453,10 +453,14 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			return nil, err
 		}
 		// if included and set to true
-		if check, ok := cmd[DoCheckStartExecute].(bool); check && ok {
+		if val, ok := cmd[DoCheckStartExecute]; ok {
+			epsilon, ok := val.(float64)
+			if !ok {
+				// use default allowable error in position for an input
+				epsilon = 0.01 // rad OR mm
+			}
 			componentName := ""
 			componentInputs := []referenceframe.Input{}
-
 			for name, inputs := range trajectory[0] {
 				if len(inputs) == 0 {
 					continue
@@ -479,14 +483,11 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			if err != nil {
 				return nil, err
 			}
-			epsilon := 0.01 // rad OR mm
 			for index := range curr {
 				if math.Abs(curr[index].Value-componentInputs[index].Value) > epsilon {
-					ms.logger.Info("yo epsilon: ", math.Abs(curr[index].Value-componentInputs[index].Value))
-					return nil, fmt.Errorf("yo not at start")
+					return nil, fmt.Errorf("starting inputs of execution (%v) do not match the current inputs(%v)", componentInputs, curr)
 				}
 			}
-
 			resp[DoCheckStartExecute] = "resource at starting location"
 		}
 		if err := ms.execute(ctx, trajectory); err != nil {

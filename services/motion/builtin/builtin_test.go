@@ -1328,6 +1328,34 @@ func TestDoCommand(t *testing.T) {
 		// the client will need to decode the response still
 		test.That(t, resp, test.ShouldBeTrue)
 	})
+	t.Run("DoCheckStartExectute", func(t *testing.T) {
+		// generate a separate trajectory plan first. that way this state will not be affected by future executions
+		trajectory, err := testDoPlan(moveReq)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(trajectory), test.ShouldEqual, 2)
+
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
+
+		// format the command to sent DoCommand
+		cmd := map[string]interface{}{DoExecute: trajectory, DoCheckStartExecute: ""}
+
+		// simulate going over the wire
+		respMap, err := doOverWire(ms, cmd)
+		test.That(t, err, test.ShouldBeNil)
+		resp, ok := respMap[DoExecute]
+		test.That(t, ok, test.ShouldBeTrue)
+
+		// the client will need to decode the response still
+		test.That(t, resp, test.ShouldBeTrue)
+		test.That(t, respMap[DoCheckStartExecute], test.ShouldEqual, "resource at starting location")
+
+		// do it again
+		respMap, err = doOverWire(ms, cmd)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "do not match the current inputs")
+		test.That(t, respMap, test.ShouldBeEmpty)
+
+	})
 
 	t.Run("Extras transmitted correctly", func(t *testing.T) {
 		// test that DoPlan correctly breaks if bad inputs are provided, meaning it is being parsed correctly
