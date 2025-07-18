@@ -455,7 +455,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		// if included and set to true
 		if val, ok := cmd[DoCheckStartExecute]; ok {
 			// we don't actually care if the value was set.
-			// just ensure we always pass in a non zero, non negative epsilon
+			// just ensure we always use a non zero, non negative epsilon
 			epsilon, _ := val.(float64)
 			if epsilon <= 0 {
 				// use default allowable error in position for an input

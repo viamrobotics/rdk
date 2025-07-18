@@ -1354,7 +1354,6 @@ func TestDoCommand(t *testing.T) {
 		respMap, err = doOverWire(ms, cmd)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "do not match the current inputs")
 		test.That(t, respMap, test.ShouldBeEmpty)
-
 	})
 
 	t.Run("Extras transmitted correctly", func(t *testing.T) {
