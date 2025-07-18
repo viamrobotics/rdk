@@ -241,14 +241,8 @@ func NewWebcam(
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
-
-	if cam.conf.FrameRate == 0.0 {
-		cam.conf.FrameRate = defaultFrameRate
-	}
-	cam.buffer = NewWebcamBuffer(cam.workers.Context())
-	cam.startBuffer()
-
 	cam.Monitor()
+
 	return cam, nil
 }
 
