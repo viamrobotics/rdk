@@ -21,18 +21,6 @@ var (
 	GlobalLogLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
 )
 
-// ReplaceGlobal replaces the global loggers.
-func ReplaceGlobal(logger Logger) {
-	globalMu.Lock()
-	globalLogger = logger
-	globalMu.Unlock()
-}
-
-// Global returns the global logger.
-func Global() Logger {
-	return globalLogger
-}
-
 // NewZapLoggerConfig returns a new default logger config.
 func NewZapLoggerConfig() zap.Config {
 	// from https://github.com/uber-go/zap/blob/2314926ec34c23ee21f3dd4399438469668f8097/config.go#L135

@@ -281,6 +281,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		logger:              logger,
 		dialOptions:         rOpts.dialOptions,
 		notifyParent:        nil,
+		conn:                grpc.ReconfigurableClientConn{Logger: clientLogger},
 		resourceClients:     make(map[resource.Name]resource.Resource),
 		remoteNameMap:       make(map[resource.Name]resource.Name),
 		sessionsDisabled:    rOpts.disableSessions,

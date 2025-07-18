@@ -25,7 +25,7 @@ import (
 // a resource may register with a SharedConn which supports WebRTC.
 type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 
-//nolint
+// nolint
 // The following describes the SharedConn lifetime for viam-server's modmanager communicating with
 // modules it has spawned.
 //
@@ -101,6 +101,7 @@ func NewSharedConnForModule(grpcConn rpc.ClientConn, peerConn *webrtc.PeerConnec
 	close(pcReady)
 
 	ret := &SharedConn{
+		grpcConn:      ReconfigurableClientConn{Logger: logger},
 		peerConn:      peerConn,
 		peerConnReady: pcReady,
 		// We were passed in a ready connection. Only create this for when `Close` is called.
@@ -211,6 +212,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		// we never write to the member variable, everything can continue to access this without
 		// locks.
 		sc.logger = moduleLogger.Sublogger("networking.conn")
+		sc.grpcConn.Logger = moduleLogger
 	}
 
 	// It is safe to access this without a mutex as it is only ever nil once at the beginning of the

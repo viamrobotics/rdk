@@ -26,6 +26,8 @@ type LazyEncodedImage struct {
 	decodeConfigErr  interface{}
 	bounds           *image.Rectangle
 	colorModel       color.Model
+
+	logger logging.Logger
 }
 
 // NewLazyEncodedImage returns a new image that will only get decoded once actual data is needed
@@ -34,20 +36,21 @@ type LazyEncodedImage struct {
 // away with reading all metadata from the header of the image bytes.
 // NOTE: It is recommended to call one of the Decode* methods and check for errors before using
 // image.Image methods (Bounds, ColorModel, or At) to avoid panics.
-func NewLazyEncodedImage(imgBytes []byte, mimeType string) image.Image {
+func NewLazyEncodedImage(imgBytes []byte, mimeType string, logger logging.Logger) image.Image {
 	if mimeType == "" {
-		logging.Global().Warn("NewLazyEncodedImage called without a mime_type. " +
+		logger.Warn("NewLazyEncodedImage called without a mime_type. " +
 			"Sniffing bytes to detect mime_type. Specify mime_type to reduce CPU utilization")
 		mimeType = http.DetectContentType(imgBytes)
 	}
 
 	if !strings.HasPrefix(mimeType, "image/") {
-		logging.Global().Warnf("NewLazyEncodedImage resolving to non image mime_type: %s", mimeType)
+		logger.Warnf("NewLazyEncodedImage resolving to non image mime_type: %s", mimeType)
 	}
 
 	return &LazyEncodedImage{
 		imgBytes: imgBytes,
 		mimeType: mimeType,
+		logger:   logger,
 	}
 }
 
@@ -78,6 +81,7 @@ func (lei *LazyEncodedImage) DecodeImage() error {
 			context.Background(),
 			lei.imgBytes,
 			lei.mimeType,
+			lei.logger,
 		)
 	})
 	return checkError(lei.decodeImageErr)
