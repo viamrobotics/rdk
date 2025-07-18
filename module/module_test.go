@@ -17,6 +17,7 @@ import (
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
@@ -967,4 +968,48 @@ func TestNewFrameSystemClient(t *testing.T) {
 	fsCurrentInputs, err := fsc.CurrentInputs(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsCurrentInputs, test.ShouldResemble, inputs)
+}
+
+func TestFrameSystemFromDependencies(t *testing.T) {
+	type testHarness struct {
+		ctx context.Context
+
+		m              *module.Module
+		cfg            *v1.ComponentConfig
+		constructCount int
+	}
+
+	var th testHarness
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(func() { cancelFunc() })
+	th.ctx = ctx
+
+	modelName := utils.RandomAlphaString(5)
+	model := resource.DefaultModelFamily.WithModel(modelName)
+
+	resource.RegisterService(shell.API, model, resource.Registration[shell.Service, *MockConfig]{
+		Constructor: func(
+			ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
+		) (shell.Service, error) {
+			th.constructCount++
+			fsc, err := framesystem.FromDependencies(deps)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, fsc, test.ShouldNotBeNil)
+
+			return &inject.ShellService{}, nil
+		},
+	})
+	t.Cleanup(func() {
+		resource.Deregister(shell.API, model)
+	})
+
+	th.m = setupLocalModule(t, ctx, logging.NewTestLogger(t))
+	test.That(t, th.m.AddModelFromRegistry(ctx, shell.API, model), test.ShouldBeNil)
+
+	th.cfg = &v1.ComponentConfig{Name: "mymock", Api: shell.API.String(), Model: model.String()}
+
+	_, err := th.m.AddResource(th.ctx, &pb.AddResourceRequest{Config: th.cfg})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, th.constructCount, test.ShouldEqual, 1)
 }
