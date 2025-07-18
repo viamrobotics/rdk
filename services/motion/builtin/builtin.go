@@ -57,7 +57,7 @@ func init() {
 const (
 	DoPlan              = "plan"
 	DoExecute           = "execute"
-	DoCheckStartExecute = "checkStartExecute"
+	DoExecuteCheckStart = "executeCheckStart"
 )
 
 const (
@@ -70,6 +70,7 @@ const (
 	defaultSlamPlanDeviationM          = 1.
 	defaultGlobePlanDeviationM         = 2.6
 	defaultCollisionBuffer             = 150. // mm
+	defaultExecuteEpsilon              = 0.01 // rad or mm
 )
 
 var (
@@ -236,7 +237,7 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = ms.execute(ctx, plan.Trajectory())
+	err = ms.execute(ctx, plan.Trajectory(), math.MaxFloat64)
 	return err == nil, err
 }
 
@@ -453,46 +454,19 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			return nil, err
 		}
 		// if included and set to true
-		if val, ok := cmd[DoCheckStartExecute]; ok {
+		epsilon := math.MaxFloat64
+		if val, ok := cmd[DoExecuteCheckStart]; ok {
 			// we don't actually care if the value was set.
 			// just ensure we always use a non zero, non negative epsilon
-			epsilon, _ := val.(float64)
+			epsilon, _ = val.(float64)
 			if epsilon <= 0 {
 				// use default allowable error in position for an input
-				epsilon = 0.01 // rad OR mm
+				epsilon = defaultExecuteEpsilon // rad OR mm
 			}
-			componentName := ""
-			componentInputs := []referenceframe.Input{}
-			for name, inputs := range trajectory[0] {
-				if len(inputs) == 0 {
-					continue
-				}
-				componentName = name
-				componentInputs = inputs
-			}
-			if componentName == "" {
-				return nil, fmt.Errorf("no starting input found: %v", trajectory[0])
-			}
-			r, ok := ms.components[componentName]
-			if !ok {
-				return nil, fmt.Errorf("plan had step for resource %s but it was not found in the motion", componentName)
-			}
-			ie, err := utils.AssertType[framesystem.InputEnabled](r)
-			if err != nil {
-				return nil, err
-			}
-			curr, err := ie.CurrentInputs(ctx)
-			if err != nil {
-				return nil, err
-			}
-			for index := range curr {
-				if math.Abs(curr[index].Value-componentInputs[index].Value) > epsilon {
-					return nil, fmt.Errorf("starting inputs of execution (%v) do not match the current inputs(%v)", componentInputs, curr)
-				}
-			}
-			resp[DoCheckStartExecute] = "resource at starting location"
+
+			resp[DoExecuteCheckStart] = "resource at starting location"
 		}
-		if err := ms.execute(ctx, trajectory); err != nil {
+		if err := ms.execute(ctx, trajectory, epsilon); err != nil {
 			return nil, err
 		}
 		resp[DoExecute] = true
@@ -610,7 +584,16 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	return plan, err
 }
 
-func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
+func checkSameInputs(a, b []referenceframe.Input, epsilon float64) bool {
+	for index := range a {
+		if math.Abs(a[index].Value-b[index].Value) > epsilon {
+			return false
+		}
+	}
+	return true
+}
+
+func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
@@ -619,6 +602,22 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			for name, inputs := range step {
 				if len(inputs) == 0 {
 					continue
+				}
+
+				r, ok := ms.components[name]
+				if !ok {
+					return fmt.Errorf("plan had step for resource %s but it was not found in the motion", name)
+				}
+				ie, err := utils.AssertType[framesystem.InputEnabled](r)
+				if err != nil {
+					return err
+				}
+				curr, err := ie.CurrentInputs(ctx)
+				if err != nil {
+					return err
+				}
+				if !checkSameInputs(inputs, curr, epsilon) {
+					return fmt.Errorf("component %v is not within %v of the current position", name, epsilon)
 				}
 				currStep[name] = append(currStep[name], inputs)
 			}

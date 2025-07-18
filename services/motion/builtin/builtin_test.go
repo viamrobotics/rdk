@@ -1338,7 +1338,7 @@ func TestDoCommand(t *testing.T) {
 		defer teardown()
 
 		// format the command to sent DoCommand
-		cmd := map[string]interface{}{DoExecute: trajectory, DoCheckStartExecute: ""}
+		cmd := map[string]interface{}{DoExecute: trajectory, DoExecuteCheckStart: ""}
 
 		// simulate going over the wire
 		respMap, err := doOverWire(ms, cmd)
@@ -1348,7 +1348,7 @@ func TestDoCommand(t *testing.T) {
 
 		// the client will need to decode the response still
 		test.That(t, resp, test.ShouldBeTrue)
-		test.That(t, respMap[DoCheckStartExecute], test.ShouldEqual, "resource at starting location")
+		test.That(t, respMap[DoExecuteCheckStart], test.ShouldEqual, "resource at starting location")
 
 		// do it again
 		respMap, err = doOverWire(ms, cmd)
@@ -1652,4 +1652,41 @@ func TestConfiguredDefaultExtras(t *testing.T) {
 		_, _, err := cfg.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
+}
+
+func TestCheckSameInputs(t *testing.T) {
+	cases := []struct {
+		description string
+		a           []referenceframe.Input
+		b           []referenceframe.Input
+		epsilon     float64
+		result      bool
+	}{
+		{
+			description: "the same inputs",
+			a:           []referenceframe.Input{{0}, {1}, {2}},
+			b:           []referenceframe.Input{{0}, {1}, {2}},
+			epsilon:     defaultExecuteEpsilon,
+			result:      true,
+		},
+		{
+			description: "different inputs within the epsilon",
+			a:           []referenceframe.Input{{0.005}, {0.992}, {2}},
+			b:           []referenceframe.Input{{0}, {1}, {2}},
+			epsilon:     defaultExecuteEpsilon,
+			result:      true,
+		},
+		{
+			description: "different inputs outside the epsilon",
+			a:           []referenceframe.Input{{0.1}, {0.5}, {2}},
+			b:           []referenceframe.Input{{0}, {1}, {2}},
+			epsilon:     defaultExecuteEpsilon,
+			result:      false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.description, func(t *testing.T) {
+			test.That(t, checkSameInputs(tt.a, tt.b, tt.epsilon), test.ShouldEqual, tt.result)
+		})
+	}
 }
