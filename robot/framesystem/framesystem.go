@@ -30,6 +30,9 @@ var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 // InternalServiceName is used to refer to/depend on this service internally.
 var InternalServiceName = resource.NewName(API, "builtin")
 
+// PublicServiceName is used by modules to refer to the robot's frame system.
+var PublicServiceName = resource.NewName(API, "$framesystem")
+
 // InputEnabled is a standard interface for all things that interact with the frame system
 // This allows us to figure out where they currently are, and then move them.
 // Input units are always in meters or radians.
@@ -110,7 +113,7 @@ type RobotFrameSystem interface {
 
 // FromDependencies is a helper for getting the framesystem from a collection of dependencies.
 func FromDependencies(deps resource.Dependencies) (Service, error) {
-	return resource.FromDependencies[Service](deps, InternalServiceName)
+	return resource.FromDependencies[Service](deps, PublicServiceName)
 }
 
 // New returns a new frame system service for the given robot.
