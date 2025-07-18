@@ -65,6 +65,7 @@ import (
 	"go.viam.com/rdk/session"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	injectMod "go.viam.com/rdk/testutils/inject/modmanager"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
@@ -712,7 +713,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	modmanager := &inject.ModuleManager{}
+	modmanager := &injectMod.ModuleManager{}
 	manager := managerForTest(t, modmanager, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
@@ -792,7 +793,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	modmanager = &inject.ModuleManager{}
+	modmanager = &injectMod.ModuleManager{}
 	manager = managerForTest(t, modmanager, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
@@ -873,7 +874,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	modmanager = &inject.ModuleManager{}
+	modmanager = &injectMod.ModuleManager{}
 	manager = managerForTest(t, modmanager, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
@@ -987,7 +988,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	modmanager = &inject.ModuleManager{}
+	modmanager = &injectMod.ModuleManager{}
 	manager = managerForTest(t, modmanager, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
