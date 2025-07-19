@@ -6,33 +6,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
-
-	"go.viam.com/rdk/utils"
 )
-
-func makeTestMesh(o Orientation, pt r3.Vector, triangles []*Triangle) *Mesh {
-	return NewMesh(NewPose(pt, o), triangles, "")
-}
-
-func makeSimpleTriangleMesh() *Mesh {
-	// Create a simple triangle mesh at origin
-	tri1 := NewTriangle(
-		r3.Vector{X: 0, Y: 0, Z: 0},
-		r3.Vector{X: 1, Y: 0, Z: 0},
-		r3.Vector{X: 0, Y: 1, Z: 0},
-	)
-	tri2 := NewTriangle(
-		r3.Vector{X: 0.6, Y: 0.6, Z: 0},
-		r3.Vector{X: 1, Y: 0, Z: 0},
-		r3.Vector{X: 0, Y: 1, Z: 0},
-	)
-	tri3 := NewTriangle(
-		r3.Vector{X: 0, Y: 0, Z: 10},
-		r3.Vector{X: 1, Y: 0, Z: 10},
-		r3.Vector{X: 0, Y: 1, Z: 10},
-	)
-	return makeTestMesh(NewZeroOrientation(), r3.Vector{}, []*Triangle{tri1, tri2, tri3})
-}
 
 func TestNewMesh(t *testing.T) {
 	tri := NewTriangle(
@@ -49,22 +23,8 @@ func TestNewMesh(t *testing.T) {
 	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 1)
 }
 
-func TestMeshProtoConversion(t *testing.T) {
-	m, err := NewMeshFromPLYFile(utils.ResolveFile("spatialmath/data/simple.ply"))
-	test.That(t, err, test.ShouldBeNil)
-	m2, err := NewGeometryFromProto(m.ToProtobuf())
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, PoseAlmostEqual(m.Pose(), m2.Pose()), test.ShouldBeTrue)
-	test.That(t, m.Label(), test.ShouldResemble, m2.Label())
-	test.That(t, len(m.Triangles()), test.ShouldEqual, 2)
-	test.That(t, len(m2.(*Mesh).Triangles()), test.ShouldEqual, 2)
-	test.That(t, m.Triangles()[0], test.ShouldResemble, m2.(*Mesh).Triangles()[0])
-	test.That(t, m.Triangles()[1], test.ShouldResemble, m2.(*Mesh).Triangles()[1])
-}
-
 func TestMeshTransform(t *testing.T) {
-	mesh := makeSimpleTriangleMesh()
+	mesh := MakeSimpleTriangleMesh("test_mesh")
 
 	// Transform mesh by translation
 	newPose := NewPose(r3.Vector{X: 1, Y: 0, Z: 0}, NewZeroOrientation())
@@ -78,23 +38,23 @@ func TestMeshTransform(t *testing.T) {
 }
 
 func TestMeshCollidesWithMesh(t *testing.T) {
-	mesh1 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+	mesh1 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
 			r3.Vector{X: 0, Y: 1, Z: 0},
-		)})
+		)}, "test_mesh")
 
 	// A mesh has 3 parts: {vertex, edge, face} ==> 6 possible basic collisions, accounting for symmetry
 
 	// vertex-vertex
 	t.Run("triangle vertex against triangle vertex", func(t *testing.T) {
-		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0, Y: 0, Z: 0},
 				r3.Vector{X: 0, Y: 0, Z: 1},
 				r3.Vector{X: 1, Y: 0, Z: 1},
-			)})
+			)}, "test_mesh")
 		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
@@ -102,12 +62,12 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// vertex-edge
 	t.Run("triangle vertex against triangle edge", func(t *testing.T) {
-		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0, Y: 0, Z: 1},
 				r3.Vector{X: 0, Y: 0, Z: -1},
 				r3.Vector{X: -1, Y: 0, Z: 0},
-			)})
+			)}, "test_mesh")
 		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
@@ -115,12 +75,12 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// vertex-face
 	t.Run("triangle vertex against triangle face", func(t *testing.T) {
-		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0.4, Y: 0.4, Z: 0},
 				r3.Vector{X: 0, Y: 0.4, Z: 1},
 				r3.Vector{X: 1, Y: 0.4, Z: 1},
-			)})
+			)}, "test_mesh")
 		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
@@ -128,12 +88,12 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// edge-edge
 	t.Run("triangle edge against triangle edge", func(t *testing.T) {
-		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0.5, Y: 0, Z: 0.5},
 				r3.Vector{X: 0.5, Y: 0, Z: -0.5},
 				r3.Vector{X: 0.5, Y: -1, Z: 0},
-			)})
+			)}, "test_mesh")
 		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
@@ -144,12 +104,12 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 	// nonetheless worth keeping: e-f is the basic collision type checked by collidesWithMesh,
 	// and the special case of e parallel to f is important
 	t.Run("triangle edge against triangle face", func(t *testing.T) {
-		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0.5, Y: -0.1, Z: 0},
 				r3.Vector{X: -0.1, Y: 0.5, Z: 0},
 				r3.Vector{X: 0, Y: 0, Z: 1},
-			)})
+			)}, "test_mesh")
 		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
@@ -157,12 +117,12 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// face-face. This implies one of the above collision types
 	t.Run("triangle face against triangle face", func(t *testing.T) {
-		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0.5, Y: -0.1, Z: 0},
 				r3.Vector{X: -0.1, Y: 0.5, Z: 0},
 				r3.Vector{X: 0.6, Y: 0.6, Z: 0},
-			)})
+			)}, "test_mesh")
 		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
@@ -170,12 +130,12 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// Test collision with no edge intersections
 	t.Run("clipped triangles", func(t *testing.T) {
-		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0.5, Y: 0.1, Z: 0.5},
 				r3.Vector{X: 0.5, Y: 0.1, Z: -0.5},
 				r3.Vector{X: -1, Y: 0, Z: 0},
-			)})
+			)}, "test_mesh")
 		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
@@ -183,12 +143,12 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// Test collision with non-overlapping mesh
 	t.Run("non-overlapping triangles", func(t *testing.T) {
-		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0, Y: 0, Z: 0.2},
 				r3.Vector{X: 1, Y: 0, Z: 0.5},
 				r3.Vector{X: 0, Y: 1, Z: 0.3},
-			)})
+			)}, "test_mesh")
 		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeFalse)
@@ -196,12 +156,12 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 }
 
 func TestMeshCollidesWithCapsule(t *testing.T) {
-	mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+	mesh := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
 			r3.Vector{X: 0, Y: 1, Z: 0},
-		)})
+		)}, "test_mesh")
 
 	// A mesh has 3 parts: {vertex, edge, face}
 	// A capsule has approx 3 parts: {extreme point, general spherical point, cylinder point}
@@ -331,7 +291,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 }
 
 func TestMeshCollidesWithBox(t *testing.T) {
-	mesh := makeSimpleTriangleMesh()
+	mesh := MakeSimpleTriangleMesh("test_mesh")
 	// Types of triangle points: {vertex, edge, face}
 	// Types of box points: {vertex, edge, face}
 	// We exhaust the 9 collision options
@@ -421,12 +381,12 @@ func TestMeshCollidesWithBox(t *testing.T) {
 }
 
 func TestMeshCollidesWithPoint(t *testing.T) {
-	mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+	mesh := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
 			r3.Vector{X: 0, Y: 1, Z: 0},
-		)})
+		)}, "test_mesh")
 
 	// Collision with triangle vertex
 	t.Run("Point against triangle vertex", func(t *testing.T) {
@@ -462,12 +422,12 @@ func TestMeshCollidesWithPoint(t *testing.T) {
 }
 
 func TestMeshCollidesWithSphere(t *testing.T) {
-	mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+	mesh := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
 			r3.Vector{X: 0, Y: 1, Z: 0},
-		)})
+		)}, "test_mesh")
 
 	// Collision with triangle vertex
 	t.Run("Sphere against triangle vertex", func(t *testing.T) {
@@ -525,27 +485,27 @@ func TestMeshCollidesWithSphere(t *testing.T) {
 }
 
 func TestMeshDistanceFrom(t *testing.T) {
-	mesh1 := makeSimpleTriangleMesh()
+	mesh1 := MakeSimpleTriangleMesh("test_mesh")
 
 	// Test distance from overlapping mesh
-	mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+	mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
 			r3.Vector{X: 0, Y: 1, Z: 0},
-		)})
+		)}, "test_mesh")
 
 	dist, err := mesh1.DistanceFrom(mesh2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dist, test.ShouldEqual, 0)
 
 	// Test distance from non-overlapping mesh
-	mesh3 := makeTestMesh(NewZeroOrientation(), r3.Vector{X: 2, Y: 0, Z: 0},
+	mesh3 := MakeTestMesh(NewZeroOrientation(), r3.Vector{X: 2, Y: 0, Z: 0},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
 			r3.Vector{X: 0, Y: 1, Z: 0},
-		)})
+		)}, "test_mesh")
 
 	dist, err = mesh1.DistanceFrom(mesh3)
 	test.That(t, err, test.ShouldBeNil)
@@ -554,12 +514,12 @@ func TestMeshDistanceFrom(t *testing.T) {
 
 func TestMeshToPoints(t *testing.T) {
 	t.Run("Simple triangle with density enforced", func(t *testing.T) {
-		mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0, Y: 0, Z: 0},
 				r3.Vector{X: 3, Y: 0, Z: 0},
 				r3.Vector{X: -3, Y: 3, Z: 0},
-			)})
+			)}, "test_mesh")
 
 		points := mesh.ToPoints(0.3)
 
@@ -594,12 +554,12 @@ func TestMeshToPoints(t *testing.T) {
 	})
 
 	t.Run("Degenerate triangle", func(t *testing.T) {
-		mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 1, Y: 1, Z: 1},
 				r3.Vector{X: 1, Y: 1, Z: 1},
 				r3.Vector{X: 1, Y: 1, Z: 1},
-			)})
+			)}, "test_mesh")
 
 		points := mesh.ToPoints(5)
 
@@ -611,7 +571,7 @@ func TestMeshToPoints(t *testing.T) {
 }
 
 func TestMeshEncompassedBy(t *testing.T) {
-	mesh := makeSimpleTriangleMesh()
+	mesh := MakeSimpleTriangleMesh("")
 
 	// Test with encompassing box
 	box, err := NewBox(NewZeroPose(), r3.Vector{X: 20, Y: 20, Z: 20}, "")
@@ -628,120 +588,6 @@ func TestMeshEncompassedBy(t *testing.T) {
 	encompassed, err = mesh.EncompassedBy(smallBox)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, encompassed, test.ShouldBeFalse)
-}
-
-func TestMeshProtoConversionFromTriangles(t *testing.T) {
-	// Manually create a mesh with a variety of shapes and shared vertices
-	triangles := []*Triangle{
-		NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 0},
-			r3.Vector{X: 1000, Y: 0, Z: 0},
-			r3.Vector{X: 0, Y: 1000, Z: 0},
-		),
-		NewTriangle(
-			r3.Vector{X: -500, Y: -500, Z: 0},
-			r3.Vector{X: 500, Y: -500, Z: 0},
-			r3.Vector{X: 0, Y: 500, Z: 0},
-		),
-		NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 1000},
-			r3.Vector{X: 1000, Y: 0, Z: 1000},
-			r3.Vector{X: 500, Y: 1000, Z: 1000},
-		),
-		NewTriangle(
-			r3.Vector{X: 123.456, Y: 789.012, Z: 345.678},
-			r3.Vector{X: 456.789, Y: 123.456, Z: 678.901},
-			r3.Vector{X: 789.012, Y: 456.789, Z: 123.456},
-		),
-		NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 0},
-			r3.Vector{X: 10000, Y: 0, Z: 0},
-			r3.Vector{X: 0, Y: 10000, Z: 0},
-		),
-		NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 0},
-			r3.Vector{X: 1, Y: 0, Z: 0},
-			r3.Vector{X: 0, Y: 1, Z: 0},
-		),
-		NewTriangle(
-			r3.Vector{X: -1000, Y: -1000, Z: -1000},
-			r3.Vector{X: -500, Y: -1000, Z: -1000},
-			r3.Vector{X: -1000, Y: -500, Z: -1000},
-		),
-		NewTriangle(
-			r3.Vector{X: 100, Y: 100, Z: -500},
-			r3.Vector{X: 200, Y: 100, Z: 500},
-			r3.Vector{X: 150, Y: 200, Z: 0},
-		),
-		NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 0},
-			r3.Vector{X: 1000, Y: 0, Z: 0},
-			r3.Vector{X: 1000, Y: 1000, Z: 0},
-		),
-		NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 0},
-			r3.Vector{X: 1000, Y: 1000, Z: 0},
-			r3.Vector{X: 0, Y: 1000, Z: 0},
-		),
-		NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 0},
-			r3.Vector{X: 0, Y: 1000, Z: 0},
-			r3.Vector{X: 0, Y: 1000, Z: 1000},
-		),
-		NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 0},
-			r3.Vector{X: 0, Y: 1000, Z: 1000},
-			r3.Vector{X: 0, Y: 0, Z: 1000},
-		),
-	}
-
-	// Create mesh with a pose and label
-	originalPose := NewPose(r3.Vector{X: 100, Y: 200, Z: 300}, NewZeroOrientation())
-	originalMesh := NewMesh(originalPose, triangles, "test_mesh_from_triangles")
-
-	// Convert to protobuf
-	proto := originalMesh.ToProtobuf()
-	test.That(t, proto, test.ShouldNotBeNil)
-	test.That(t, proto.Label, test.ShouldEqual, "test_mesh_from_triangles")
-
-	// Restore from protobuf
-	restoredGeometry, err := NewGeometryFromProto(proto)
-	test.That(t, err, test.ShouldBeNil)
-	restoredMesh, ok := restoredGeometry.(*Mesh)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	test.That(t, restoredMesh.Label(), test.ShouldEqual, originalMesh.Label())
-	test.That(t, PoseAlmostEqual(restoredMesh.Pose(), originalMesh.Pose()), test.ShouldBeTrue)
-	test.That(t, len(restoredMesh.Triangles()), test.ShouldEqual, len(originalMesh.Triangles()))
-
-	// Verify all triangles match
-	originalTriangles := originalMesh.Triangles()
-	restoredTriangles := restoredMesh.Triangles()
-	for i, originalTri := range originalTriangles {
-		restoredTri := restoredTriangles[i]
-		origPoints := originalTri.Points()
-		restoredPoints := restoredTri.Points()
-
-		test.That(t, len(restoredPoints), test.ShouldEqual, len(origPoints))
-
-		for j, origPoint := range origPoints {
-			restoredPoint := restoredPoints[j]
-			// The conversion from mm to meters and back can create micrometer-level float changes
-			epsilon := 1e-4
-			test.That(t, math.Abs(origPoint.X-restoredPoint.X), test.ShouldBeLessThan, epsilon)
-			test.That(t, math.Abs(origPoint.Y-restoredPoint.Y), test.ShouldBeLessThan, epsilon)
-			test.That(t, math.Abs(origPoint.Z-restoredPoint.Z), test.ShouldBeLessThan, epsilon)
-		}
-	}
-
-	// Verify that the mesh can be converted to protobuf again
-	secondProto := restoredMesh.ToProtobuf()
-	test.That(t, secondProto, test.ShouldNotBeNil)
-	test.That(t, secondProto.Label, test.ShouldEqual, originalMesh.Label())
-
-	// Verify the protobuf content is the same
-	test.That(t, secondProto.GetMesh().ContentType, test.ShouldEqual, proto.GetMesh().ContentType)
-	test.That(t, len(secondProto.GetMesh().Mesh), test.ShouldEqual, len(proto.GetMesh().Mesh))
 }
 
 func TestBoxTriangleIntersectionArea(t *testing.T) {

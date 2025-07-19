@@ -6,10 +6,12 @@
 package pointcloud
 
 import (
+	"bytes"
 	"math"
 	"sync"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
 
@@ -236,4 +238,19 @@ func CloudMatrix(pc PointCloud) (*mat.Dense, []CloudMatrixCol) {
 		matData = append(matData, <-matChan...)
 	}
 	return mat.NewDense(pc.Size(), pointSize, matData), header
+}
+
+// NewPointCloudFromProto creates a new point cloud from a protobuf point cloud.
+func NewPointCloudFromProto(pointCloud *commonpb.PointCloud, label string) (*BasicOctree, error) {
+	reader := bytes.NewReader(pointCloud.PointCloud)
+	pc, err := ReadPCD(reader, BasicOctreeType)
+	if err != nil {
+		return nil, err
+	}
+	octree, err := ToBasicOctree(pc, 0)
+	if err != nil {
+		return nil, err
+	}
+	octree.SetLabel(label)
+	return octree, nil
 }
