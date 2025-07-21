@@ -47,9 +47,9 @@ var controllerAPIs = map[string]map[string]struct{}{
 	},
 }
 
-// Jobmanager keeps track of the currently scheduled jobs and updates the schedule with
+// JobManager keeps track of the currently scheduled jobs and updates the schedule with
 // respect to the "jobs" part of the config.
-type Jobmanager struct {
+type JobManager struct {
 	scheduler     gocron.Scheduler
 	logger        logging.Logger
 	getResource   func(resource string) (resource.Resource, error)
@@ -67,7 +67,7 @@ func New(
 	logger logging.Logger,
 	getResource func(string) (resource.Resource, error),
 	parentAddr config.ParentSockAddrs,
-) (*Jobmanager, error) {
+) (*JobManager, error) {
 	jobLogger := logger.Sublogger("job_manager")
 
 	scheduler, err := gocron.NewScheduler()
@@ -84,7 +84,7 @@ func New(
 		return nil, err
 	}
 
-	jm := &Jobmanager{
+	jm := &JobManager{
 		logger:        jobLogger,
 		scheduler:     scheduler,
 		getResource:   getResource,
@@ -99,24 +99,25 @@ func New(
 
 // Shutdown attempts to close the grpcConn of the job scheduler and shuts it down. It is
 // not possible to restart the job scheduler after calling Shutdown().
-func (jm *Jobmanager) Shutdown() error {
+func (jm *JobManager) Shutdown() error {
 	if jm.isClosed {
 		return nil
 	}
 	jm.isClosed = true
-	jm.logger.CInfo(jm.ctx, "Jobmanager is shutting down.")
+	jm.logger.CInfo(jm.ctx, "JobManager is shutting down.")
 	utils.UncheckedError(jm.conn.Close())
 	return jm.scheduler.Shutdown()
 }
 
 // createDescriptorSourceAndgRPCMethod sets up a DescriptorSource for grpc translations
 // and sets up parts of the grpc method string that will be invoked later.
-func (jm *Jobmanager) createDescriptorSourceAndgRPCMethod(
+func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 	res resource.Resource,
 	method string,
 ) (grpcurl.DescriptorSource, string, string, error) {
 	refCtx := metadata.NewOutgoingContext(jm.ctx, nil)
 	refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(jm.conn))
+	refClient.AllowMissingFileDescriptors()
 	reflSource := grpcurl.DescriptorSourceFromServer(jm.ctx, refClient)
 	descSource := reflSource
 	resourceType := res.Name().API.SubtypeName
@@ -141,7 +142,7 @@ func (jm *Jobmanager) createDescriptorSourceAndgRPCMethod(
 }
 
 // createJobFunction returns a function that the job scheduler puts on its queue.
-func (jm *Jobmanager) createJobFunction(jc config.JobConfig) func() {
+func (jm *JobManager) createJobFunction(jc config.JobConfig) func() {
 	jobLogger := jm.logger.Sublogger(jc.Name)
 	// To support logging for quick jobs (~ on the seconds schedule), we disable log
 	// deduplication for job loggers.
@@ -219,7 +220,7 @@ func (jm *Jobmanager) createJobFunction(jc config.JobConfig) func() {
 }
 
 // removeJob removes the job from the scheduler and clears the internal map entry.
-func (jm *Jobmanager) removeJob(name string, verbose bool) {
+func (jm *JobManager) removeJob(name string, verbose bool) {
 	jobID := jm.namesToJobIDs[name]
 	if verbose {
 		jm.logger.CInfow(jm.ctx, "Removing job", "name", name)
@@ -233,7 +234,7 @@ func (jm *Jobmanager) removeJob(name string, verbose bool) {
 
 // scheduleJob validates the job config and attempts to put a new job on the scheduler
 // queue. If an error happens, it is logged, and the job is not scheduled.
-func (jm *Jobmanager) scheduleJob(jc config.JobConfig, verbose bool) {
+func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 	if err := jc.Validate(""); err != nil {
 		jm.logger.CWarnw(jm.ctx, "Job failed to validate", "name", jc.Name, "error", err.Error())
 		return
@@ -299,7 +300,7 @@ func (jm *Jobmanager) scheduleJob(jc config.JobConfig, verbose bool) {
 
 // UpdateJobs is called when the "jobs" part of the config gets updated. It updates
 // scheduled jobs based on the Removed/Added/Modified parts of the diff.
-func (jm *Jobmanager) UpdateJobs(diff *config.Diff) {
+func (jm *JobManager) UpdateJobs(diff *config.Diff) {
 	for _, jc := range diff.Removed.Jobs {
 		jm.removeJob(jc.Name, true)
 	}

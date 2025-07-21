@@ -56,7 +56,7 @@ type localRobot struct {
 	operations              *operation.Manager
 	sessionManager          session.Manager
 	packageManager          packages.ManagerSyncer
-	jobManager              *jobmanager.Jobmanager
+	jobManager              *jobmanager.JobManager
 	localPackages           packages.ManagerSyncer
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
