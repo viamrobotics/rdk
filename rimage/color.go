@@ -386,6 +386,7 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 	res := math.Sqrt(sum)
 
 	if debug {
+		//nolint
 		fmt.Printf("%v -- %v\n", c, b)
 		fmt.Printf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
 		fmt.Printf("\t	   %5.3f	 %5.3f	   %5.3f\n", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
