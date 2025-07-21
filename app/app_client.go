@@ -1402,7 +1402,7 @@ func (c *AppClient) ListFragments(
 }
 
 // GetFragment gets a single fragment.
-func (c *AppClient) GetFragment(ctx context.Context, id string, version string) (*Fragment, error) {
+func (c *AppClient) GetFragment(ctx context.Context, id, version string) (*Fragment, error) {
 	req := &pb.GetFragmentRequest{
 		Id: id,
 	}
