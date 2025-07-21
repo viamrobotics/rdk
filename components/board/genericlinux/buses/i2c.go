@@ -6,7 +6,7 @@ package buses
 
 import (
 	"context"
-	"fmt"
+	fmtnolint "fmt"
 	"sync"
 
 	"periph.io/x/conn/v3/i2c"
@@ -16,8 +16,8 @@ import (
 
 func init() {
 	if _, err := host.Init(); err != nil {
-		//nolint
-		fmt.Println("Error initializing host:", err)
+		//nolint:gosec
+		fmtnolint.Println("Error initializing host:", err)
 	}
 }
 

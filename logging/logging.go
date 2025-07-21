@@ -2,7 +2,6 @@
 package logging
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 )
 
 var (
-	globalMu     sync.RWMutex
 	globalLogger = NewDebugLogger("global")
 
 	// GlobalLogLevel should be used whenever a zap logger is created that wants to obey the debug

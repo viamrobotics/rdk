@@ -3,7 +3,6 @@ package videosource
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
 	"path/filepath"
 	"strings"

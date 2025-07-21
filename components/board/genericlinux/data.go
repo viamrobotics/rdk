@@ -27,7 +27,9 @@ type pwmChipData struct {
 }
 
 // GetGPIOBoardMappings attempts to find a compatible GPIOBoardMapping for the given board.
-func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation, logger logging.Logger) (map[string]GPIOBoardMapping, error) {
+func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation, logger logging.Logger) (
+	map[string]GPIOBoardMapping, error,
+) {
 	pinDefs, err := getCompatiblePinDefs(modelName, boardInfoMappings)
 	if err != nil {
 		return nil, err

@@ -181,7 +181,8 @@ func createAllCollisionConstraints(
 			return nil, nil, err
 		}
 		constraintMap[selfCollisionConstraintDescription] = selfCollisionConstraint
-		selfCollisionConstraintFS, err := NewCollisionConstraintFS(movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM, logger)
+		selfCollisionConstraintFS, err := NewCollisionConstraintFS(
+			movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM, logger)
 		if err != nil {
 			return nil, nil, err
 		}
