@@ -257,7 +257,7 @@ func (c *webcam) Reconfigure(
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.stopBuffer()
+	c.buffer.stopBuffer()
 
 	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
 	driverReinitNotNeeded := c.conf.Format == newConf.Format &&
@@ -555,24 +555,25 @@ func (c *webcam) startBuffer() {
 }
 
 // Must lock the mutex before using this function.
-func (c *webcam) stopBuffer() {
-	if c.buffer == nil {
+func (buffer *WebcamBuffer) stopBuffer() {
+	if buffer == nil {
 		return
 	}
 
-	if c.buffer.ticker != nil {
-		c.buffer.ticker.Stop()
-		c.buffer.ticker = nil
+	if buffer.worker != nil {
+		buffer.worker.Stop()
+		buffer.worker = nil
 	}
 
-	if c.buffer.worker != nil {
-		c.buffer.worker.Stop()
-		c.buffer.worker = nil
+	if buffer.ticker != nil {
+		buffer.ticker.Stop()
+		buffer.ticker = nil
 	}
+
 	// Release the remaining frame.
-	if c.buffer.release != nil {
-		c.buffer.release()
-		c.buffer.release = nil
+	if buffer.release != nil {
+		buffer.release()
+		buffer.release = nil
 	}
 }
 
@@ -586,7 +587,7 @@ func (c *webcam) Close(ctx context.Context) error {
 	c.closed = true
 
 	if c.buffer != nil {
-		c.stopBuffer()
+		c.buffer.stopBuffer()
 	}
 
 	return c.driver.Close()
