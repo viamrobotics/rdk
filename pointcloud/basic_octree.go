@@ -470,7 +470,7 @@ func (octree *BasicOctree) PointsWithinRadius(center r3.Vector, radius float64) 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return octree.PointsCollidingWith([]spatialmath.Geometry{sphere}, floatEpsilon), nil
 }
 

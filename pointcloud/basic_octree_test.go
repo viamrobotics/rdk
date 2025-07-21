@@ -762,9 +762,9 @@ func TestBasicOctreePointsCollidingWith(t *testing.T) {
 
 	// Add points with different confidence values
 	pointsAndData := []PointAndData{
-		{P: r3.Vector{X: 1, Y: 1, Z: 1}, D: NewValueData(60)},   // above threshold
-		{P: r3.Vector{X: 2, Y: 2, Z: 2}, D: NewValueData(40)},   // below threshold
-		{P: r3.Vector{X: 3, Y: 3, Z: 3}, D: NewValueData(70)},   // above threshold
+		{P: r3.Vector{X: 1, Y: 1, Z: 1}, D: NewValueData(60)},    // above threshold
+		{P: r3.Vector{X: 2, Y: 2, Z: 2}, D: NewValueData(40)},    // below threshold
+		{P: r3.Vector{X: 3, Y: 3, Z: 3}, D: NewValueData(70)},    // above threshold
 		{P: r3.Vector{X: -1, Y: -1, Z: -1}, D: NewValueData(80)}, // above threshold, outside box
 		{P: r3.Vector{X: 10, Y: 10, Z: 10}, D: NewValueData(90)}, // above threshold, outside box
 	}
@@ -790,7 +790,7 @@ func TestBasicOctreePointsCollidingWith(t *testing.T) {
 		{X: 1, Y: 1, Z: 1},
 		{X: 3, Y: 3, Z: 3},
 	}
-	
+
 	test.That(t, len(collidingPoints), test.ShouldEqual, len(expectedPoints))
 	for _, expected := range expectedPoints {
 		found := false
@@ -811,10 +811,10 @@ func TestBasicOctreePointsWithinRadius(t *testing.T) {
 
 	// Add points with different confidence values
 	pointsAndData := []PointAndData{
-		{P: r3.Vector{X: 1, Y: 0, Z: 0}, D: NewValueData(60)},   // distance 1 from origin, above threshold
-		{P: r3.Vector{X: 2, Y: 0, Z: 0}, D: NewValueData(40)},   // distance 2 from origin, below threshold
-		{P: r3.Vector{X: 0, Y: 3, Z: 0}, D: NewValueData(70)},   // distance 3 from origin, above threshold
-		{P: r3.Vector{X: 0, Y: 0, Z: 5}, D: NewValueData(80)},   // distance 5 from origin, above threshold
+		{P: r3.Vector{X: 1, Y: 0, Z: 0}, D: NewValueData(60)}, // distance 1 from origin, above threshold
+		{P: r3.Vector{X: 2, Y: 0, Z: 0}, D: NewValueData(40)}, // distance 2 from origin, below threshold
+		{P: r3.Vector{X: 0, Y: 3, Z: 0}, D: NewValueData(70)}, // distance 3 from origin, above threshold
+		{P: r3.Vector{X: 0, Y: 0, Z: 5}, D: NewValueData(80)}, // distance 5 from origin, above threshold
 	}
 	err := addPoints(octree, pointsAndData)
 	test.That(t, err, test.ShouldBeNil)
@@ -828,7 +828,7 @@ func TestBasicOctreePointsWithinRadius(t *testing.T) {
 	expectedPoints := []r3.Vector{
 		{X: 1, Y: 0, Z: 0},
 	}
-	
+
 	test.That(t, len(pointsWithinRadius), test.ShouldEqual, len(expectedPoints))
 	for _, expected := range expectedPoints {
 		found := false
@@ -851,7 +851,7 @@ func TestBasicOctreePointsWithinRadius(t *testing.T) {
 		{X: 1, Y: 0, Z: 0}, // distance 1
 		{X: 0, Y: 3, Z: 0}, // distance 3
 	}
-	
+
 	test.That(t, len(pointsWithinRadius), test.ShouldEqual, len(expectedPoints))
 	for _, expected := range expectedPoints {
 		found := false
