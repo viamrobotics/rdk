@@ -74,7 +74,7 @@ type WebcamBuffer struct {
 	ticker  *time.Ticker // Ticker for controlling frame rate
 	release func()
 	err     error
-	worker  *goutils.StoppableWorkers
+	worker  *goutils.StoppableWorkers // A separate worker for the webcam buffer that allows stronger concurrency control.
 }
 
 // WebcamConfig is the native config attribute struct for webcams.
@@ -238,6 +238,8 @@ func NewWebcam(
 		logger:  logger.WithFields("camera_name", conf.ResourceName().ShortName()),
 		workers: goutils.NewBackgroundStoppableWorkers(),
 	}
+	cam.buffer = NewWebcamBuffer(cam.workers.Context()) // Ensures no nil pointer errors by initializing the webcam on startup.
+
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
@@ -255,9 +257,7 @@ func (c *webcam) Reconfigure(
 	if err != nil {
 		return err
 	}
-	if c.buffer != nil {
-		c.buffer.worker.Stop()
-	}
+	c.buffer.worker.Stop() // Calling this before locking shuts down the goroutines, and then allows stopBuffer() to handle the rest of the shutdown.
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.buffer.stopBuffer()
@@ -577,19 +577,13 @@ func (buffer *WebcamBuffer) stopBuffer() {
 
 func (c *webcam) Close(ctx context.Context) error {
 	c.workers.Stop()
-	if c.buffer != nil {
-		c.buffer.worker.Stop()
-	}
+	c.buffer.worker.Stop()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed {
 		return errors.New("webcam already closed")
 	}
 	c.closed = true
-
-	if c.buffer != nil {
-		c.buffer = nil
-	}
 
 	return c.driver.Close()
 }
