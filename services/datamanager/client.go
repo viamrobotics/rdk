@@ -63,7 +63,7 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
-func (c *client) UploadBinaryDataToDataset(
+func (c *client) UploadBinaryDataToDatasets(
 	ctx context.Context,
 	binaryData []byte,
 	datasetIDs, tags []string,
@@ -74,7 +74,7 @@ func (c *client) UploadBinaryDataToDataset(
 	if err != nil {
 		return err
 	}
-	_, err = c.client.UploadBinaryDataToDataset(ctx, &pb.UploadBinaryDataToDatasetRequest{
+	_, err = c.client.UploadBinaryDataToDatasets(ctx, &pb.UploadBinaryDataToDatasetsRequest{
 		BinaryData: binaryData,
 		DatasetIds: datasetIDs,
 		MimeType:   mimeType,
@@ -87,7 +87,7 @@ func (c *client) UploadBinaryDataToDataset(
 	return nil
 }
 
-func (c *client) UploadImageToDataset(
+func (c *client) UploadImageToDatasets(
 	ctx context.Context,
 	image image.Image,
 	datasetIDs, tags []string,
@@ -104,7 +104,7 @@ func (c *client) UploadImageToDataset(
 		return err
 	}
 
-	_, err = c.client.UploadBinaryDataToDataset(ctx, &pb.UploadBinaryDataToDatasetRequest{
+	_, err = c.client.UploadBinaryDataToDatasets(ctx, &pb.UploadBinaryDataToDatasetsRequest{
 		BinaryData: imgBytes,
 		DatasetIds: datasetIDs,
 		Tags:       tags,

@@ -52,9 +52,9 @@ type Service interface {
 	resource.Resource
 	// Sync will sync data stored on the machine to the cloud.
 	Sync(ctx context.Context, extra map[string]interface{}) error
-	UploadBinaryDataToDataset(ctx context.Context, image []byte, datasetIDs, tags []string,
+	UploadBinaryDataToDatasets(ctx context.Context, image []byte, datasetIDs, tags []string,
 		mimeType datasyncpb.MimeType, extra map[string]interface{}) error
-	UploadImageToDataset(ctx context.Context, image image.Image, datasetIDs, tags []string,
+	UploadImageToDatasets(ctx context.Context, image image.Image, datasetIDs, tags []string,
 		mimeType datasyncpb.MimeType, extra map[string]interface{}) error
 }
 

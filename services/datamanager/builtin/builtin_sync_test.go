@@ -722,7 +722,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 				timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*5)
 				defer timeoutFn()
 				for {
-					if err = b.UploadBinaryDataToDataset(context.Background(), datasetBytes, datasetsMetadata, tagsMetadata, mimeType, nil); err == nil {
+					if err = b.UploadBinaryDataToDatasets(context.Background(), datasetBytes, datasetsMetadata, tagsMetadata, mimeType, nil); err == nil {
 						break
 					}
 

@@ -261,7 +261,7 @@ func lookupCollectorConfigsByResource(
 	return collectorConfigsByResource, nil
 }
 
-func (b *builtIn) UploadBinaryDataToDataset(ctx context.Context,
+func (b *builtIn) UploadBinaryDataToDatasets(ctx context.Context,
 	binaryData []byte,
 	datasetIDs, tags []string,
 	mimeType v1.MimeType,
@@ -274,7 +274,7 @@ func (b *builtIn) UploadBinaryDataToDataset(ctx context.Context,
 	return b.sync.UploadBinaryDataToDataset(ctx, binaryData, datasetIDs, tags, mimeType)
 }
 
-func (b *builtIn) UploadImageToDataset(ctx context.Context,
+func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 	image image.Image,
 	datasetIDs []string,
 	tags []string,
