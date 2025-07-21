@@ -255,7 +255,7 @@ func (m *module) startProcess(
 		select {
 		case <-ctxTimeout.Done():
 			if errors.Is(ctxTimeout.Err(), context.DeadlineExceeded) {
-				return rutils.NewModuleStartUpTimeoutError(m.cfg.Name)
+				return rutils.NewModuleStartUpTimeoutError(m.cfg.Name, m.logger)
 			}
 			return ctxTimeout.Err()
 		case <-checkTicker.C:

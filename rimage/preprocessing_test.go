@@ -5,9 +5,8 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/logging"
+	"go.viam.com/test"
 )
 
 // Smoothing with Morphological filters.
