@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -34,18 +33,6 @@ const (
 	// the job manager will be looking for.
 	componentServiceIndex int = 2
 )
-
-// controllerAPIs is a map for an edge case handling of the "inputcontroller" API. This
-// API expects a different argument ("controller", rather than "name") for this set of
-// functions.
-var controllerAPIs = map[string]map[string]struct{}{
-	"viam.component.inputcontroller.v1.InputControllerService": {
-		"GetControls":   {},
-		"GetEvents":     {},
-		"StreamEvents":  {},
-		"TriggerEvents": {},
-	},
-}
 
 // JobManager keeps track of the currently scheduled jobs and updates the schedule with
 // respect to the "jobs" part of the config.
@@ -170,13 +157,14 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig) func() {
 			return
 		}
 
-		data := fmt.Sprintf("{%q : %q}", "name", jc.Resource)
-		// In case this grpcService needs a special, different argument, we will check it
-		// using the controllerAPIs map.
-		if methods, ok := controllerAPIs[grpcService]; ok {
-			if _, ok := methods[grpcMethod]; ok {
-				data = fmt.Sprintf("{%q : %q}", "controller", jc.Resource)
-			}
+		gRPCArgument := resource.GetResourceNameOverride(grpcService, grpcMethod)
+		argumentMap := map[string]string{
+			gRPCArgument: jc.Resource,
+		}
+		argumentBytes, err := json.Marshal(argumentMap)
+		if err != nil {
+			jobLogger.CWarnw(jm.ctx, "could not serialize gRPC method arguments", "error", err.Error())
+			return
 		}
 		options := grpcurl.FormatOptions{
 			EmitJSONDefaultFields: true,
@@ -186,7 +174,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig) func() {
 		rf, formatter, err := grpcurl.RequestParserAndFormatter(
 			grpcurl.Format("json"),
 			descSource,
-			strings.NewReader(data),
+			bytes.NewBuffer(argumentBytes),
 			options)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "could not create parser and formatter for grpc requests", "error", err.Error())
