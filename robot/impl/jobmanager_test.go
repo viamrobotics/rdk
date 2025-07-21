@@ -128,6 +128,10 @@ func TestJobManagerConfigChanges(t *testing.T) {
 			return dummyArm3, nil
 		}})
 
+	defer func() {
+		resource.Deregister(arm.API, model)
+	}()
+
 	cfg := &config.Config{
 		Components: []resource.Config{
 			{
@@ -171,10 +175,6 @@ func TestJobManagerConfigChanges(t *testing.T) {
 			},
 		},
 	}
-
-	defer func() {
-		resource.Deregister(arm.API, model)
-	}()
 
 	ctx := context.Background()
 	r := setupLocalRobot(t, ctx, cfg, logger)
@@ -1056,15 +1056,16 @@ func TestJobManagerServices(t *testing.T) {
 			},
 		},
 		Jobs: []config.JobConfig{
+			// {
+			// TODO(RSDK-9718)
 			// Discovery Service is currently excluded from the list of services; it will be
 			// available after a change in the API repo.
-			// {
 			// config.JobConfigData{
 			// Name:     "discovery job",
 			// Schedule: "3s",
 			// Resource: "discovery",
 			// Method:   "DiscoverResources",
-			// },
+			//  },
 			// },
 			{
 				config.JobConfigData{
