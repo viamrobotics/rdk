@@ -1,4 +1,4 @@
-package injectMod
+package injectmod
 
 import (
 	"context"
