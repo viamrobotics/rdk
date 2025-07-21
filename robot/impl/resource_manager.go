@@ -37,8 +37,8 @@ import (
 
 func init() {
 	if err := cleanAppImageEnv(); err != nil {
-		//nolint
-		fmt.Println("Error cleaning up app image environement:", err)
+		nolintPrintln := fmt.Println
+		nolintPrintln("Error cleaning up app image environement:", err)
 	}
 }
 
