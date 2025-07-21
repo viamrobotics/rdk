@@ -224,6 +224,12 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	anythingChanged := false
 
 	for _, resName := range newResources {
+		// Do not store any remote resources named "builtin" (e.g. default motion service) in
+		// our resource graph.
+		if resName.Name == "builtin" {
+			continue
+		}
+
 		remoteResName := resName
 		resLogger := logger.WithFields("resource", remoteResName)
 		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
