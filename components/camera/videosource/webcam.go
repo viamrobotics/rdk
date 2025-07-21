@@ -257,7 +257,7 @@ func (c *webcam) Reconfigure(
 	if err != nil {
 		return err
 	}
-	c.buffer.worker.Stop() // Calling this before locking shuts down the goroutines, and then allows stopBuffer() to handle the rest of the shutdown.
+	c.buffer.worker.Stop() // Calling this before locking shuts down the goroutines, and allows stopBuffer() to handle rest of the shutdown.
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.buffer.stopBuffer()
