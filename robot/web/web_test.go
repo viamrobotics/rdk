@@ -1717,7 +1717,6 @@ func testResourceLimitsAndFTDC(
 
 func TestPerResourceLimitsAndFTDC(t *testing.T) {
 	t.Run("arm resource", func(t *testing.T) {
-		t.SkipNow()
 		testResourceLimitsAndFTDC(
 			t,
 			"arm1.viam.component.arm.v1.ArmService",
