@@ -594,7 +594,7 @@ func (rc *RequestCounter) ensureLimit() {
 	}
 }
 
-func (rc *RequestCounter) ensureKey(resource string) *atomic.Int64 {
+func (rc *RequestCounter) ensureInFlightCounterForResource(resource string) *atomic.Int64 {
 	counter, ok := rc.inFlightRequests.Load(resource)
 	if !ok {
 		counter, _ = rc.inFlightRequests.LoadOrStore(resource, &atomic.Int64{})
@@ -606,7 +606,7 @@ func (rc *RequestCounter) ensureKey(resource string) *atomic.Int64 {
 // resource. It returns true if it was successful and false if an additional
 // request would exceed the configured limit.
 func (rc *RequestCounter) incrInFlight(resource string) bool {
-	counter := rc.ensureKey(resource)
+	counter := rc.ensureInFlightCounterForResource(resource)
 	if newCount := counter.Add(1); newCount > rc.inFlightLimit {
 		counter.Add(-1)
 		return false
@@ -616,7 +616,7 @@ func (rc *RequestCounter) incrInFlight(resource string) bool {
 
 // decrInFlight decrements the in flight request counter for a given resource.
 func (rc *RequestCounter) decrInFlight(resource string) {
-	rc.ensureKey(resource).Add(-1)
+	rc.ensureInFlightCounterForResource(resource).Add(-1)
 }
 
 // RequestCounter is used to track and limit incoming requests. It instruments
