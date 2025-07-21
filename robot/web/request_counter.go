@@ -13,6 +13,7 @@ import (
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 
+	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/utils/ssync"
 )
@@ -23,6 +24,11 @@ type apiMethod struct {
 	full      string
 	namespace string
 	name      string
+	shortPath string
+}
+
+func (m apiMethod) getResourceName(msg any) string {
+	return resource.GetResourceNameFromRequest(m.namespace, m.name, msg)
 }
 
 type requestStats struct {
@@ -30,18 +36,6 @@ type requestStats struct {
 	errorCnt  atomic.Int64
 	timeSpent atomic.Int64
 	dataSent  atomic.Int64
-}
-
-// namer is used to get a resource name from incoming requests for countingfor request. Requests for
-// resources are expected to be a gRPC object that includes a `GetName` method.
-type namer interface {
-	GetName() string
-}
-
-// The InputControllerService uses a field called controller instead of name to
-// identify its resources.
-type controllerNamer interface {
-	GetController() string
 }
 
 // RequestCounter is used to track and limit incoming requests. It instruments
@@ -136,7 +130,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 	}
 	requestCounterKey := buildRCKey(req, apiMethod)
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
-	if apiMethod.name != "" {
+	if apiMethod.shortPath != "" {
 		rc.preRequestIncrement(requestCounterKey)
 
 		start := time.Now()
@@ -214,7 +208,7 @@ func (rc *RequestCounter) StreamInterceptor(
 	apiMethod := extractViamAPI(info.FullMethod)
 
 	// Only count Viam apiMethods
-	if apiMethod.name != "" {
+	if apiMethod.shortPath != "" {
 		wrappedStream := wrappedStreamWithRC{
 			ServerStream: ss,
 			apiMethod:    apiMethod,
@@ -270,13 +264,15 @@ func extractViamAPI(fullMethod string) apiMethod {
 	// Extract API information from `fullMethod` values such as:
 	// - `/viam.component.motor.v1.MotorService/IsMoving` -> {
 	//     full:      "/viam.component.motor.v1.MotorService/IsMoving",
-	//     name:      "MotorService/IsMoving",
 	//     namespace: "viam.component.motor.v1.MotorService",
+	//     name:      "IsMoving",
+	//     shortPath: "MotorService/IsMoving",
 	//   }
 	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> {
 	//     full:      "/viam.robot.v1.RobotService/SendSessionHeartbeat",
-	//     name:      "RobotService/SendSessionHeartbeat",
 	//     namespace: "viam.robot.v1.RobotService",
+	//     name:      "SendSessionHeartbeat",
+	//     shortPath: "RobotService/SendSessionHeartbeat",
 	//   }
 	switch {
 	case strings.HasPrefix(fullMethod, "/viam.component."):
@@ -284,37 +280,18 @@ func extractViamAPI(fullMethod string) apiMethod {
 	case strings.HasPrefix(fullMethod, "/viam.service."):
 		fallthrough
 	case strings.HasPrefix(fullMethod, "/viam.robot."):
+		split := strings.SplitN(fullMethod, "/", 3)
+		namespace := split[1]
+		method := split[2]
 		return apiMethod{
 			full:      fullMethod,
-			name:      fullMethod[strings.LastIndexByte(fullMethod, byte('.'))+1:],
-			namespace: strings.SplitN(fullMethod, "/", 3)[1],
+			name:      method,
+			shortPath: namespace[strings.LastIndexByte(namespace, byte('.'))+1:] + "." + method,
+			namespace: namespace,
 		}
 	default:
 		return apiMethod{}
 	}
-}
-
-// getResourceName is a best effort function to get the name of a resource from
-// an arbitrary gRCP request. It should be replaced if and when we impose a
-// consistent way to identify resources in requests.
-func getResourceName(msg any, method apiMethod) string {
-	if msg == nil {
-		return ""
-	}
-	isInputController := method.namespace == "viam.component.inputcontroller.v1.InputControllerService"
-	if isInputController {
-		// InputControllerService uses `controller` to specify a resource instead
-		// of `name`. Read the `controller` field iff that's where a message is
-		// going. This guards against potential future bugs where an
-		// InputControllerService API adds a `name` field or an API on a different
-		// service adds a `controller` field, neither of which refer to a resource.
-		if cNamer, ok := msg.(controllerNamer); ok {
-			return cNamer.GetController()
-		}
-	} else if namer, ok := msg.(namer); ok {
-		return namer.GetName()
-	}
-	return ""
 }
 
 // buildRCKey builds the key to be used in the RequestCounter's counts map.
@@ -322,19 +299,19 @@ func getResourceName(msg any, method apiMethod) string {
 // Otherwise, the key will be just "method".
 func buildRCKey(clientMsg any, method apiMethod) string {
 	if clientMsg != nil {
-		if name := getResourceName(clientMsg, method); name != "" {
-			return fmt.Sprintf("%v.%v", name, method.name)
+		if name := method.getResourceName(clientMsg); name != "" {
+			return fmt.Sprintf("%v.%v", name, method.shortPath)
 		}
 	}
-	return method.name
+	return method.shortPath
 }
 
 func buildResourceLimitKey(clientMsg any, method apiMethod) string {
-	if method.name == "" {
+	if method.shortPath == "" {
 		// Ignore for nun-Viam APIs
 		return ""
 	}
-	if name := getResourceName(clientMsg, method); name != "" {
+	if name := method.getResourceName(clientMsg); name != "" {
 		return name + "." + method.namespace
 	}
 	if method.namespace == "viam.robot.v1.RobotService" {
