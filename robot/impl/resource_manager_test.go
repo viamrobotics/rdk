@@ -49,7 +49,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/module/modmaninterface"
 	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -1791,7 +1790,7 @@ type dummyRobot struct {
 	mu         sync.Mutex
 	robot      robot.Robot
 	manager    *resourceManager
-	modmanager modmaninterface.ModuleManager
+	modmanager modif.ModuleManager
 
 	offline bool
 }
@@ -1914,7 +1913,7 @@ func (rr *dummyRobot) OperationManager() *operation.Manager {
 	panic("change to return nil")
 }
 
-func (rr *dummyRobot) ModuleManager() modmaninterface.ModuleManager {
+func (rr *dummyRobot) ModuleManager() modif.ModuleManager {
 	return rr.modmanager
 }
 
