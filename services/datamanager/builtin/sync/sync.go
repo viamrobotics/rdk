@@ -480,8 +480,8 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 	s.atomicUploadStats.arbitrary.uploadedBytes.Add(bytesUploaded)
 }
 
-// UploadBinaryDataToDataset simultaneously uploads binary data and adds it to a dataset.
-func (s *Sync) UploadBinaryDataToDataset(ctx context.Context, data []byte, datasetIDs, tags []string, mimeType v1.MimeType) error {
+// UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.
+func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, data []byte, datasetIDs, tags []string, mimeType v1.MimeType) error {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(errChan)
