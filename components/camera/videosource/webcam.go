@@ -255,6 +255,9 @@ func (c *webcam) Reconfigure(
 	if err != nil {
 		return err
 	}
+	if c.buffer != nil {
+		c.buffer.worker.Stop()
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.buffer.stopBuffer()
@@ -560,11 +563,6 @@ func (buffer *WebcamBuffer) stopBuffer() {
 		return
 	}
 
-	if buffer.worker != nil {
-		buffer.worker.Stop()
-		buffer.worker = nil
-	}
-
 	if buffer.ticker != nil {
 		buffer.ticker.Stop()
 		buffer.ticker = nil
@@ -579,6 +577,9 @@ func (buffer *WebcamBuffer) stopBuffer() {
 
 func (c *webcam) Close(ctx context.Context) error {
 	c.workers.Stop()
+	if c.buffer != nil {
+		c.buffer.worker.Stop()
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed {
@@ -587,7 +588,7 @@ func (c *webcam) Close(ctx context.Context) error {
 	c.closed = true
 
 	if c.buffer != nil {
-		c.buffer.stopBuffer()
+		c.buffer = nil
 	}
 
 	return c.driver.Close()
