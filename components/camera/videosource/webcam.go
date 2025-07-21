@@ -70,8 +70,7 @@ func init() {
 // WebcamBuffer is a buffer for webcam frames.
 // WARNING: This struct is NOT thread safe. It must be protected by the mutex in the webcam struct.
 type WebcamBuffer struct {
-	frame   image.Image  // Holds the frames and their release functions in the buffer
-	ticker  *time.Ticker // Ticker for controlling frame rate
+	frame   image.Image // Holds the frames and their release functions in the buffer
 	release func()
 	err     error
 	worker  *goutils.StoppableWorkers // A separate worker for the webcam buffer that allows stronger concurrency control.
@@ -238,7 +237,7 @@ func NewWebcam(
 		logger:  logger.WithFields("camera_name", conf.ResourceName().ShortName()),
 		workers: goutils.NewBackgroundStoppableWorkers(),
 	}
-	cam.buffer = NewWebcamBuffer(cam.workers.Context()) // Ensures no nil pointer errors by initializing the webcam on startup.
+	cam.buffer = NewWebcamBuffer(cam.workers.Context())
 
 	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
@@ -521,19 +520,19 @@ func (c *webcam) getLatestFrame() (image.Image, error) {
 }
 
 func (c *webcam) startBuffer() {
-	if c.buffer.ticker != nil {
+	if c.buffer.frame != nil {
 		return // webcam buffer already started
 	}
 
 	interFrameDuration := time.Duration(float32(time.Second) / c.conf.FrameRate)
-	c.buffer.ticker = time.NewTicker(interFrameDuration)
+	ticker := time.NewTicker(interFrameDuration)
 	c.buffer.worker.Add(func(closedCtx context.Context) {
-		defer c.buffer.ticker.Stop()
+		defer ticker.Stop()
 		for {
 			select {
 			case <-closedCtx.Done():
 				return
-			case <-c.buffer.ticker.C:
+			case <-ticker.C:
 				// We must unlock the mutex even if the release() or read() functions panic.
 				func() {
 					c.mu.Lock()
@@ -561,11 +560,6 @@ func (c *webcam) startBuffer() {
 func (buffer *WebcamBuffer) stopBuffer() {
 	if buffer == nil {
 		return
-	}
-
-	if buffer.ticker != nil {
-		buffer.ticker.Stop()
-		buffer.ticker = nil
 	}
 
 	// Release the remaining frame.
