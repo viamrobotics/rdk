@@ -265,7 +265,7 @@ func (b *builtIn) UploadBinaryDataToDataset(ctx context.Context,
 	binaryData []byte,
 	datasetIDs, tags []string,
 	mimeType v1.MimeType,
-	extra map[string]interface{},
+	_ map[string]interface{},
 ) error {
 	b.logger.Info("UploadBinaryDataToDataset START")
 	defer b.logger.Info("UploadBinaryDataToDataset END")
@@ -279,7 +279,7 @@ func (b *builtIn) UploadImageToDataset(ctx context.Context,
 	datasetIDs []string,
 	tags []string,
 	mimeType v1.MimeType,
-	extra map[string]interface{},
+	_ map[string]interface{},
 ) error {
 	b.logger.Info("UploadImageToDataset START")
 	defer b.logger.Info("UploadImageToDataset END")

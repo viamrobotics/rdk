@@ -65,7 +65,7 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 
 func (c *client) UploadBinaryDataToDataset(
 	ctx context.Context,
-	image []byte,
+	binaryData []byte,
 	datasetIDs, tags []string,
 	mimeType datasyncpb.MimeType,
 	extra map[string]interface{},
@@ -75,7 +75,7 @@ func (c *client) UploadBinaryDataToDataset(
 		return err
 	}
 	_, err = c.client.UploadBinaryDataToDataset(ctx, &pb.UploadBinaryDataToDatasetRequest{
-		BinaryData: image,
+		BinaryData: binaryData,
 		DatasetIds: datasetIDs,
 		MimeType:   mimeType,
 		Tags:       tags,
