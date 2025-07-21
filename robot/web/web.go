@@ -698,9 +698,17 @@ type apiMethod struct {
 }
 
 func extractViamAPI(fullMethod string) apiMethod {
-	// Extract Service and Method name from `fullMethod` values such as:
-	// - `/viam.component.motor.v1.MotorService/IsMoving` -> MotorService/IsMoving
-	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> RobotService/SendSessionHeartbeat
+	// Extract API information from `fullMethod` values such as:
+	// - `/viam.component.motor.v1.MotorService/IsMoving` -> {
+	//     full:      "/viam.component.motor.v1.MotorService/IsMoving",
+	//     name:      "MotorService/IsMoving",
+	//     namespace: "viam.component.motor.v1.MotorService",
+	//   }
+	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> {
+	//     full:      "/viam.robot.v1.RobotService/SendSessionHeartbeat",
+	//     name:      "RobotService/SendSessionHeartbeat",
+	//     namespace: "viam.robot.v1.RobotService",
+	//   }
 	switch {
 	case strings.HasPrefix(fullMethod, "/viam.component."):
 		fallthrough
