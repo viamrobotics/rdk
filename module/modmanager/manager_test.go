@@ -1040,7 +1040,7 @@ func TestModuleMisc(t *testing.T) {
 		test.That(t, modWorkingDirectory, test.ShouldEndWith, filepath.Dir(modPath))
 	})
 
-	t.Run("allowed viam modules only in untrusted environment", func(t *testing.T) {
+	t.Run("only viam namespace is allowed in untrusted environment", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
 		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: true,
@@ -1057,14 +1057,22 @@ func TestModuleMisc(t *testing.T) {
 			ModuleID: "viam:raspberry-pi",
 		}
 
+		allowedCfg2 := config.Module{
+			Name:     "test-module-2",
+			ExePath:  modPath,
+			Type:     config.ModuleTypeLocal,
+			ModuleID: "viam:tflite_cpu",
+		}
+
 		// this currently logs and does not return an error
-		err = mgr.Add(ctx, allowedCfg, modCfg)
+		err = mgr.Add(ctx, allowedCfg, allowedCfg2, modCfg)
 		test.That(t, err, test.ShouldBeNil)
 
-		// confirm only the raspberry-pi module was added
-		test.That(t, len(mgr.Configs()), test.ShouldEqual, 1)
+		// confirm only the raspberry-pi and tflite_cpu modules were added
+		test.That(t, len(mgr.Configs()), test.ShouldEqual, 2)
 		for _, conf := range mgr.Configs() {
 			test.That(t, conf.ModuleID, test.ShouldContainSubstring, "viam")
+			test.That(t, conf.ModuleID, test.ShouldNotContainSubstring, "testmodule")
 		}
 	})
 }

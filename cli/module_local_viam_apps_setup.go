@@ -35,7 +35,7 @@ type localAppTestingServer struct {
 
 // LocalAppTestingAction is the action for the local-app-testing command.
 func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
-	serverPort := 8000
+	serverPort := 8012
 	viamClient, err := newViamClient(ctx)
 	if err != nil {
 		printf(ctx.App.ErrWriter, "error initializing the Viam client: "+err.Error())

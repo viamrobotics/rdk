@@ -115,7 +115,8 @@ func newHelper(
 		}
 	}
 
-	if len(deps) > 0 && dependsOnSensor == nil {
+	// deps contains at least $framesystem
+	if len(deps) > 1 && dependsOnSensor == nil {
 		return nil, fmt.Errorf("sensor not found in deps: %v", deps)
 	}
 
