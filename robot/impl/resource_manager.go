@@ -524,7 +524,10 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 	resName := res.Name()
 	if manager.moduleManager != nil && manager.moduleManager.IsModularResource(resName) {
 		if err := manager.moduleManager.RemoveResource(closeCtx, resName); err != nil {
-			allErrs = multierr.Combine(allErrs, fmt.Errorf("error removing modular resource for closure: %w", err))
+			allErrs = multierr.Combine(
+				allErrs,
+				fmt.Errorf("error removing modular resource for closure: %w, resource_name: %s", err, res.Name().String()),
+			)
 		}
 	}
 
