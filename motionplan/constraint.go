@@ -112,7 +112,7 @@ func createAllCollisionConstraints(
 
 	if len(worldGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting world state obstacles
-		obstacleConstraint, err := newCollisionConstraint(
+		obstacleConstraint, err := NewCollisionConstraint(
 			movingRobotGeometries,
 			worldGeometries,
 			allowedCollisions,
@@ -124,7 +124,7 @@ func createAllCollisionConstraints(
 			return nil, nil, err
 		}
 		// create constraint to keep moving geometries from hitting world state obstacles
-		obstacleConstraintFS, err := newCollisionConstraintFS(
+		obstacleConstraintFS, err := NewCollisionConstraintFS(
 			movingRobotGeometries,
 			worldGeometries,
 			allowedCollisions,
@@ -148,7 +148,7 @@ func createAllCollisionConstraints(
 
 	if len(staticRobotGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting other geometries on robot that are not moving
-		robotConstraint, err := newCollisionConstraint(
+		robotConstraint, err := NewCollisionConstraint(
 			movingRobotGeometries,
 			staticRobotGeometries,
 			allowedCollisions,
@@ -159,7 +159,7 @@ func createAllCollisionConstraints(
 		if err != nil {
 			return nil, nil, err
 		}
-		robotConstraintFS, err := newCollisionConstraintFS(
+		robotConstraintFS, err := NewCollisionConstraintFS(
 			movingRobotGeometries,
 			staticRobotGeometries,
 			allowedCollisions,
@@ -176,7 +176,7 @@ func createAllCollisionConstraints(
 
 	// create constraint to keep moving geometries from hitting themselves
 	if len(movingRobotGeometries) > 1 {
-		selfCollisionConstraint, err := newCollisionConstraint(
+		selfCollisionConstraint, err := NewCollisionConstraint(
 			movingRobotGeometries,
 			nil,
 			allowedCollisions,
@@ -188,7 +188,7 @@ func createAllCollisionConstraints(
 			return nil, nil, err
 		}
 		constraintMap[selfCollisionConstraintDescription] = selfCollisionConstraint
-		selfCollisionConstraintFS, err := newCollisionConstraintFS(
+		selfCollisionConstraintFS, err := NewCollisionConstraintFS(
 			movingRobotGeometries,
 			nil,
 			allowedCollisions,
@@ -221,11 +221,11 @@ func setupZeroCG(
 	return zeroCG, nil
 }
 
-// newCollisionConstraint is the most general method to create a collision constraint, which will be violated if geometries constituting
+// NewCollisionConstraint is the most general method to create a collision constraint, which will be violated if geometries constituting
 // the given frame ever come into collision with obstacle geometries outside of the collisions present for the observationInput.
 // Collisions specified as collisionSpecifications will also be ignored
 // if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
-func newCollisionConstraint(
+func NewCollisionConstraint(
 	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
@@ -284,11 +284,11 @@ func newCollisionConstraint(
 	return constraint, nil
 }
 
-// newCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
+// NewCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
 // which will be violated if geometries constituting the given frame ever come into collision with obstacle geometries
 // outside of the collisions present for the observationInput. Collisions specified as collisionSpecifications will also be ignored.
 // If reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
-func newCollisionConstraintFS(
+func NewCollisionConstraintFS(
 	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
