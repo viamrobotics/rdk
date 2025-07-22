@@ -144,11 +144,9 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 
 	// Validate jobs, modules, remotes, packages, and processes, and log errors for lack of
-	// uniqueness within each category. We have to use the old for loop pattern instead of a
-	// more modern range statement in order to actually mutate c.Jobs[idx], e.g., instead of
-	// some copy.
+	// uniqueness within each category.
 	seenJobs := make(map[string]struct{})
-	for idx := 0; idx < len(c.Jobs); idx++ {
+	for idx := range len(c.Jobs) {
 		if err := c.Jobs[idx].Validate(fmt.Sprintf("%s.%d", "jobs", idx)); err != nil {
 			logger.Errorw("Jobs config error; starting robot without job", "name", c.Jobs[idx].Name, "error", err.Error())
 		}
@@ -158,7 +156,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		seenJobs[c.Jobs[idx].Name] = struct{}{}
 	}
 	seenModules := make(map[string]struct{})
-	for idx := 0; idx < len(c.Modules); idx++ {
+	for idx := range len(c.Modules) {
 		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
 			logger.Errorw("Module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err.Error())
 		}
@@ -168,7 +166,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		seenModules[c.Modules[idx].Name] = struct{}{}
 	}
 	seenRemotes := make(map[string]struct{})
-	for idx := 0; idx < len(c.Remotes); idx++ {
+	for idx := range len(c.Remotes) {
 		if _, _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
 			logger.Errorw("Remote config error; starting robot without remote", "name", c.Remotes[idx].Name, "error", err.Error())
 		}
@@ -178,7 +176,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		seenRemotes[c.Remotes[idx].Name] = struct{}{}
 	}
 	seenPackages := make(map[string]struct{})
-	for idx := 0; idx < len(c.Packages); idx++ {
+	for idx := range len(c.Packages) {
 		if err := c.Packages[idx].Validate(fmt.Sprintf("%s.%d", "packages", idx)); err != nil {
 			logger.Errorw("Package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err.Error())
 		}
@@ -188,7 +186,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		seenPackages[c.Packages[idx].Name] = struct{}{}
 	}
 	seenProcesses := make(map[string]struct{})
-	for idx := 0; idx < len(c.Processes); idx++ {
+	for idx := range len(c.Processes) {
 		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
 			logger.Errorw("Process config error; starting robot without process", "name", c.Processes[idx].Name, "error", err.Error())
 		}
@@ -201,7 +199,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	// Validate components and services as above but also populate implicit dependencies.
 	seenComponents := make(map[string]struct{})
 	//nolint:dupl
-	for idx := 0; idx < len(c.Components); idx++ {
+	for idx := range len(c.Components) {
 		// requiredDeps and optionalDeps will only be populated if attributes have been converted, which does not happen in this function.
 		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
 		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
@@ -223,7 +221,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 	seenServices := make(map[string]struct{})
 	//nolint:dupl
-	for idx := 0; idx < len(c.Services); idx++ {
+	for idx := range len(c.Services) {
 		requiredDeps, optionalDeps, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
 			resLogger := logger.Sublogger(c.Services[idx].ResourceName().String())
