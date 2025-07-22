@@ -367,15 +367,15 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 			overflowMsg := fmt.Sprintf("Overflowed %d logs while offline. Check local system logs for anything important.",
 				toLogOverflowsSinceLastSync)
 
+			// This logger also writes to App, but perhaps was not originally designed to do so
+			nl.loggerWithoutNet.Warn(overflowMsg)
+
 			// Manually create new log entry & add to queue
 			le := newInternalLogEntry(zapcore.WarnLevel, overflowMsg)
 			err := nl.Write(le.Entry, le.Fields)
 			if err != nil {
 				nl.loggerWithoutNet.Warnw("Unable to write overflow message to App", "msg", overflowMsg, "err", err)
 			}
-
-			// This logger also writes to App, but perhaps was not originally designed to do so
-			nl.loggerWithoutNet.Warn(overflowMsg)
 		}
 	}()
 
