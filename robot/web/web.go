@@ -109,6 +109,26 @@ type webService struct {
 	modPeerConnTracker *grpc.ModPeerConnTracker
 }
 
+// New returns a new web service for the given robot.
+func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
+	var wOpts options
+	for _, opt := range opts {
+		opt.apply(&wOpts)
+	}
+	webSvc := &webService{
+		Named:              InternalServiceName.AsNamed(),
+		r:                  r,
+		logger:             logger,
+		rpcServer:          nil,
+		streamServer:       nil,
+		services:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
+		modPeerConnTracker: grpc.NewModPeerConnTracker(),
+		opts:               wOpts,
+	}
+	webSvc.requestCounter.ensureLimit()
+	return webSvc
+}
+
 var internalWebServiceName = resource.NewName(
 	resource.APINamespaceRDKInternal.WithServiceType("web"),
 	"builtin",
