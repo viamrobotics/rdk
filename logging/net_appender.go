@@ -382,6 +382,7 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	// Remove successfully synced logs from the queue. If we've overflowed more times than the size of the batch
 	// we wrote, do not mutate toLog at all. If we've synced more logs than there are logs left, set idx to length
 	// of array to prevent panics.
+	// A side effect of this is it may double-log the first batchSize in the queue (see RSDK-7064).
 	if batchSize > nl.toLogOverflowsSinceLastSync {
 		idx := min(batchSize-nl.toLogOverflowsSinceLastSync, len(nl.toLog))
 		nl.toLog = nl.toLog[idx:]
