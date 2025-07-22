@@ -474,6 +474,7 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 
 	constraintHandler, err := newConstraintHandler(
 		opt,
+		pm.logger,
 		pm.request.Constraints,
 		startState,
 		wpGoals,
@@ -508,6 +509,7 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 
 		constraintHandler, err = newConstraintHandler(
 			opt,
+			pm.logger,
 			pm.request.Constraints,
 			startState,
 			wpGoals,
@@ -587,6 +589,7 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 
 		wpConstraintHandler, err := newConstraintHandler(
 			wpOpt,
+			pm.logger,
 			pm.request.Constraints,
 			from,
 			to,

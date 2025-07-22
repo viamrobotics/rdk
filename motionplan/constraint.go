@@ -105,29 +105,32 @@ func createAllCollisionConstraints(
 	movingRobotGeometries, staticRobotGeometries, worldGeometries, boundingRegions []spatial.Geometry,
 	allowedCollisions []*Collision,
 	collisionBufferMM float64,
+	logger logging.Logger,
 ) (map[string]StateFSConstraint, map[string]StateConstraint, error) {
 	constraintFSMap := map[string]StateFSConstraint{}
 	constraintMap := map[string]StateConstraint{}
 
 	if len(worldGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting world state obstacles
-		obstacleConstraint, err := NewCollisionConstraint(
+		obstacleConstraint, err := newCollisionConstraint(
 			movingRobotGeometries,
 			worldGeometries,
 			allowedCollisions,
 			false,
 			collisionBufferMM,
+			logger,
 		)
 		if err != nil {
 			return nil, nil, err
 		}
 		// create constraint to keep moving geometries from hitting world state obstacles
-		obstacleConstraintFS, err := NewCollisionConstraintFS(
+		obstacleConstraintFS, err := newCollisionConstraintFS(
 			movingRobotGeometries,
 			worldGeometries,
 			allowedCollisions,
 			false,
 			collisionBufferMM,
+			logger,
 		)
 		if err != nil {
 			return nil, nil, err
@@ -145,21 +148,25 @@ func createAllCollisionConstraints(
 
 	if len(staticRobotGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting other geometries on robot that are not moving
-		robotConstraint, err := NewCollisionConstraint(
+		robotConstraint, err := newCollisionConstraint(
 			movingRobotGeometries,
 			staticRobotGeometries,
 			allowedCollisions,
 			false,
-			collisionBufferMM)
+			collisionBufferMM,
+			logger,
+		)
 		if err != nil {
 			return nil, nil, err
 		}
-		robotConstraintFS, err := NewCollisionConstraintFS(
+		robotConstraintFS, err := newCollisionConstraintFS(
 			movingRobotGeometries,
 			staticRobotGeometries,
 			allowedCollisions,
 			false,
-			collisionBufferMM)
+			collisionBufferMM,
+			logger,
+		)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -169,12 +176,26 @@ func createAllCollisionConstraints(
 
 	// create constraint to keep moving geometries from hitting themselves
 	if len(movingRobotGeometries) > 1 {
-		selfCollisionConstraint, err := NewCollisionConstraint(movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM)
+		selfCollisionConstraint, err := newCollisionConstraint(
+			movingRobotGeometries,
+			nil,
+			allowedCollisions,
+			false,
+			collisionBufferMM,
+			logger,
+		)
 		if err != nil {
 			return nil, nil, err
 		}
 		constraintMap[selfCollisionConstraintDescription] = selfCollisionConstraint
-		selfCollisionConstraintFS, err := NewCollisionConstraintFS(movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM)
+		selfCollisionConstraintFS, err := newCollisionConstraintFS(
+			movingRobotGeometries,
+			nil,
+			allowedCollisions,
+			false,
+			collisionBufferMM,
+			logger,
+		)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -200,15 +221,16 @@ func setupZeroCG(
 	return zeroCG, nil
 }
 
-// NewCollisionConstraint is the most general method to create a collision constraint, which will be violated if geometries constituting
+// newCollisionConstraint is the most general method to create a collision constraint, which will be violated if geometries constituting
 // the given frame ever come into collision with obstacle geometries outside of the collisions present for the observationInput.
 // Collisions specified as collisionSpecifications will also be ignored
 // if reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
-func NewCollisionConstraint(
+func newCollisionConstraint(
 	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
 	collisionBufferMM float64,
+	logger logging.Logger,
 ) (StateConstraint, error) {
 	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, true, collisionBufferMM)
 	if err != nil {
@@ -219,7 +241,7 @@ func NewCollisionConstraint(
 		for _, pair := range whitelist {
 			logStr += fmt.Sprintf("{%s, %s}, ", pair.name1, pair.name2)
 		}
-		logging.Global().Debug(logStr)
+		logger.Debug(logStr)
 	}
 
 	// create constraint from reference collision graph
@@ -262,15 +284,16 @@ func NewCollisionConstraint(
 	return constraint, nil
 }
 
-// NewCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
+// newCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
 // which will be violated if geometries constituting the given frame ever come into collision with obstacle geometries
 // outside of the collisions present for the observationInput. Collisions specified as collisionSpecifications will also be ignored.
 // If reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
-func NewCollisionConstraintFS(
+func newCollisionConstraintFS(
 	moving, static []spatial.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
 	collisionBufferMM float64,
+	logger logging.Logger,
 ) (StateFSConstraint, error) {
 	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, true, collisionBufferMM)
 	if err != nil {
@@ -281,7 +304,7 @@ func NewCollisionConstraintFS(
 		for _, pair := range whitelist {
 			logStr += fmt.Sprintf("{%s, %s}, ", pair.name1, pair.name2)
 		}
-		logging.Global().Debug(logStr)
+		logger.Debug(logStr)
 	}
 
 	movingMap := map[string]spatial.Geometry{}
