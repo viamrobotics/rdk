@@ -42,13 +42,13 @@ func (e RequestLimitExceededError) GRPCStatus() *status.Status {
 // way to avoid repeatedly parsing the same string.
 type apiMethod struct {
 	full      string
-	namespace string
+	service   string
 	name      string
 	shortPath string
 }
 
 func (m apiMethod) getResourceName(msg any) string {
-	return resource.GetResourceNameFromRequest(m.namespace, m.name, msg)
+	return resource.GetResourceNameFromRequest(m.service, m.name, msg)
 }
 
 type requestStats struct {
@@ -293,13 +293,13 @@ func extractViamAPI(fullMethod string) apiMethod {
 	// Extract API information from `fullMethod` values such as:
 	// - `/viam.component.motor.v1.MotorService/IsMoving` -> {
 	//     full:      "/viam.component.motor.v1.MotorService/IsMoving",
-	//     namespace: "viam.component.motor.v1.MotorService",
+	//     service:   "viam.component.motor.v1.MotorService",
 	//     name:      "IsMoving",
 	//     shortPath: "MotorService/IsMoving",
 	//   }
 	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> {
 	//     full:      "/viam.robot.v1.RobotService/SendSessionHeartbeat",
-	//     namespace: "viam.robot.v1.RobotService",
+	//     service:   "viam.robot.v1.RobotService",
 	//     name:      "SendSessionHeartbeat",
 	//     shortPath: "RobotService/SendSessionHeartbeat",
 	//   }
@@ -310,13 +310,13 @@ func extractViamAPI(fullMethod string) apiMethod {
 		fallthrough
 	case strings.HasPrefix(fullMethod, "/viam.robot."):
 		split := strings.SplitN(fullMethod, "/", 3)
-		namespace := split[1]
+		service := split[1]
 		method := split[2]
 		return apiMethod{
 			full:      fullMethod,
 			name:      method,
-			shortPath: namespace[strings.LastIndexByte(namespace, byte('.'))+1:] + "." + method,
-			namespace: namespace,
+			shortPath: service[strings.LastIndexByte(service, byte('.'))+1:] + "/" + method,
+			service:   service,
 		}
 	default:
 		return apiMethod{}
@@ -341,10 +341,10 @@ func buildResourceLimitKey(clientMsg any, method apiMethod) string {
 		return ""
 	}
 	if name := method.getResourceName(clientMsg); name != "" {
-		return name + "." + method.namespace
+		return name + "." + method.service
 	}
-	if method.namespace == "viam.robot.v1.RobotService" {
-		return method.namespace
+	if method.service == "viam.robot.v1.RobotService" {
+		return method.service
 	}
 	return ""
 }
