@@ -11,12 +11,31 @@ import (
 	"time"
 
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/utils/ssync"
 )
+
+// RequestLimitExceededError is an error returned when a request is rejected
+// because it would exceed the limit for concurrent requests to a given
+// resource.
+type RequestLimitExceededError struct {
+	resource string
+	limit    int64
+}
+
+func (e RequestLimitExceededError) Error() string {
+	return fmt.Sprintf("exceeded request limit %v on resource %v", e.limit, e.resource)
+}
+
+// GRPCStatus allows this error to be converted to a [status.Status].
+func (e RequestLimitExceededError) GRPCStatus() *status.Status {
+	return status.New(codes.ResourceExhausted, e.Error())
+}
 
 // apiMethod is used to store information about an api path in a denormalized
 // way to avoid repeatedly parsing the same string.
