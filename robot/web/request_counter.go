@@ -175,6 +175,11 @@ func (rc *RequestCounter) ensureLimit() {
 }
 
 func (rc *RequestCounter) ensureInFlightCounterForResource(resource string) *atomic.Int64 {
+	// This could be a single call to LoadOrStore, but doing so would create GC
+	// pressure as every call would heap-allocate an atomic.Int64, only the first
+	// of which is actually used. Checking if the counter already exists with
+	// Load first avoids those unnecessary allocations at the cost of making the
+	// initial call for each resource slower.
 	counter, ok := rc.inFlightRequests.Load(resource)
 	if !ok {
 		counter, _ = rc.inFlightRequests.LoadOrStore(resource, &atomic.Int64{})
