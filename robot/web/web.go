@@ -124,6 +124,7 @@ func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
 		services:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
 		modPeerConnTracker: grpc.NewModPeerConnTracker(),
 		opts:               wOpts,
+		requestCounter:     RequestCounter{logger: logger},
 	}
 	webSvc.requestCounter.ensureLimit()
 	return webSvc

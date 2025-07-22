@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/utils/ssync"
@@ -61,6 +62,8 @@ type requestStats struct {
 // every unary and streaming request coming in from both external clients and
 // internal modules.
 type RequestCounter struct {
+	logger logging.Logger
+
 	// requestKeyToStats maps individual API calls for each resource to a set of
 	// metrics. E.g: `motor-foo.IsPowered` and `motor-foo.GoFor` would each have
 	// their own set of stats.
@@ -140,6 +143,8 @@ func (rc *RequestCounter) UnaryInterceptor(
 	apiMethod := extractViamAPI(info.FullMethod)
 	if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
 		if ok := rc.incrInFlight(resource); !ok {
+			rc.logger.Warnw("Request limit exceeded for resource",
+				"method", apiMethod.full, "resource", resource)
 			return nil, &RequestLimitExceededError{
 				resource: resource,
 				limit:    rc.inFlightLimit,
