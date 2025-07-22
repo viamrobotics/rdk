@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fullstorydev/grpcurl"
@@ -44,6 +45,7 @@ type JobManager struct {
 	ctx           context.Context
 	conn          rpc.ClientConn
 	isClosed      bool
+	closeMutex    sync.Mutex
 }
 
 // New sets up the context and grpcConn that is used in scheduled jobs. The actual
@@ -78,15 +80,19 @@ func New(
 		namesToJobIDs: make(map[string]uuid.UUID),
 		ctx:           robotContext,
 		conn:          conn,
+		closeMutex:    sync.Mutex{},
 	}
 
 	jm.scheduler.Start()
 	return jm, nil
 }
 
-// Shutdown attempts to close the grpcConn of the job scheduler and shuts it down. It is
+// Close attempts to close the grpcConn of the job scheduler and shuts it down. It is
 // not possible to restart the job scheduler after calling Shutdown().
-func (jm *JobManager) Shutdown() error {
+func (jm *JobManager) Close() error {
+	// some tests cause Close() to be called twice, so we need mutex protection here.
+	jm.closeMutex.Lock()
+	defer jm.closeMutex.Unlock()
 	if jm.isClosed {
 		return nil
 	}

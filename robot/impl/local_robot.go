@@ -186,7 +186,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 		err = multierr.Combine(err, r.packageManager.Close(ctx))
 	}
 	if r.jobManager != nil {
-		err = multierr.Combine(err, r.jobManager.Shutdown())
+		err = multierr.Combine(err, r.jobManager.Close())
 	}
 	if r.webSvc != nil {
 		err = multierr.Combine(err, r.webSvc.Close(ctx))
