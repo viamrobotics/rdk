@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/mpimpl1"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -264,14 +265,14 @@ func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 type validatedExtra struct {
 	maxReplans       int
 	replanCostFactor float64
-	motionProfile    motionplan.MotionProfile
+	motionProfile    mpimpl1.MotionProfile
 	extra            map[string]interface{}
 }
 
 func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 	maxReplans := -1
 	replanCostFactor := defaultReplanCostFactor
-	motionProfile := motionplan.FreeMotionProfile
+	motionProfile := mpimpl1.FreeMotionProfile
 	v := validatedExtra{}
 	if extra == nil {
 		v.extra = map[string]interface{}{"smooth_iter": defaultSmoothIter}
@@ -283,7 +284,7 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 		}
 	}
 	if profile, ok := extra["motion_profile"]; ok {
-		motionProfile, ok = profile.(motionplan.MotionProfile)
+		motionProfile, ok = profile.(mpimpl1.MotionProfile)
 		if !ok {
 			return v, errors.New("could not interpret motion_profile field as string")
 		}
@@ -526,7 +527,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		)
 		if deprecatedSeedParsed, ok := deprecatedKeySeed.(int); ok {
 			req.Extra["planning_algorithm_settings"] = map[string]interface{}{
-				"algorithm": motionplan.CBiRRT,
+				"algorithm": mpimpl1.CBiRRT,
 				"cbirrt_settings": map[string]interface{}{
 					"solutions_to_seed": deprecatedSeedParsed,
 				},
@@ -539,7 +540,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	// multiple components. If we are moving component1, mounted on arm2, to a goal in frame of component2, which is mounted on arm2, then
 	// passing that raw poseInFrame will certainly result in a plan which moves arm1 and arm2. We cannot guarantee that this plan is
 	// collision-free until RSDK-8847 is complete. By transforming goals to world, only one arm should move for such a plan.
-	worldWaypoints := []*motionplan.PlanState{}
+	worldWaypoints := []*mpimpl1.PlanState{}
 	solvingFrame := referenceframe.World
 	for _, wp := range waypoints {
 		if wp.Poses() != nil {
@@ -552,20 +553,20 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 				goalPose, _ := tf.(*referenceframe.PoseInFrame)
 				step[fName] = goalPose
 			}
-			worldWaypoints = append(worldWaypoints, motionplan.NewPlanState(step, wp.Configuration()))
+			worldWaypoints = append(worldWaypoints, mpimpl1.NewPlanState(step, wp.Configuration()))
 		} else {
 			worldWaypoints = append(worldWaypoints, wp)
 		}
 	}
 
-	planOpts, err := motionplan.NewPlannerOptionsFromExtra(req.Extra)
+	planOpts, err := mpimpl1.NewPlannerOptionsFromExtra(req.Extra)
 	if err != nil {
 		return nil, err
 	}
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 
-	planRequest := &motionplan.PlanRequest{
+	planRequest := &mpimpl1.PlanRequest{
 		FrameSystem:    frameSys,
 		Goals:          worldWaypoints,
 		StartState:     startState,
@@ -575,7 +576,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	}
 
 	start := time.Now()
-	plan, err := motionplan.PlanMotion(ctx, logger, planRequest)
+	plan, err := mpimpl1.PlanMotion(ctx, logger, planRequest)
 	if ms.conf.shouldWritePlan(start, err) {
 		err := ms.writePlanRequest(planRequest)
 		if err != nil {
@@ -702,14 +703,14 @@ func (ms *builtIn) applyDefaultExtras(extras map[string]any) {
 func waypointsFromRequest(
 	req motion.MoveReq,
 	fsInputs referenceframe.FrameSystemInputs,
-) (*motionplan.PlanState, []*motionplan.PlanState, error) {
-	var startState *motionplan.PlanState
-	var waypoints []*motionplan.PlanState
+) (*mpimpl1.PlanState, []*mpimpl1.PlanState, error) {
+	var startState *mpimpl1.PlanState
+	var waypoints []*mpimpl1.PlanState
 	var err error
 
 	if startStateIface, ok := req.Extra["start_state"]; ok {
 		if startStateMap, ok := startStateIface.(map[string]interface{}); ok {
-			startState, err = motionplan.DeserializePlanState(startStateMap)
+			startState, err = mpimpl1.DeserializePlanState(startStateMap)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -717,17 +718,17 @@ func waypointsFromRequest(
 			return nil, nil, errors.New("extras start_state could not be interpreted as map[string]interface{}")
 		}
 		if startState.Configuration() == nil {
-			startState = motionplan.NewPlanState(startState.Poses(), fsInputs)
+			startState = mpimpl1.NewPlanState(startState.Poses(), fsInputs)
 		}
 	} else {
-		startState = motionplan.NewPlanState(nil, fsInputs)
+		startState = mpimpl1.NewPlanState(nil, fsInputs)
 	}
 
 	if waypointsIface, ok := req.Extra["waypoints"]; ok {
 		if waypointsIfaceList, ok := waypointsIface.([]interface{}); ok {
 			for _, wpIface := range waypointsIfaceList {
 				if wpMap, ok := wpIface.(map[string]interface{}); ok {
-					wp, err := motionplan.DeserializePlanState(wpMap)
+					wp, err := mpimpl1.DeserializePlanState(wpMap)
 					if err != nil {
 						return nil, nil, err
 					}
@@ -744,7 +745,7 @@ func waypointsFromRequest(
 	// If goal state is specified, it overrides the request goal
 	if goalStateIface, ok := req.Extra["goal_state"]; ok {
 		if goalStateMap, ok := goalStateIface.(map[string]interface{}); ok {
-			goalState, err := motionplan.DeserializePlanState(goalStateMap)
+			goalState, err := mpimpl1.DeserializePlanState(goalStateMap)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -753,13 +754,13 @@ func waypointsFromRequest(
 			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
 		}
 	} else if req.Destination != nil {
-		goalState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName.ShortName(): req.Destination}, nil)
+		goalState := mpimpl1.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName.ShortName(): req.Destination}, nil)
 		waypoints = append(waypoints, goalState)
 	}
 	return startState, waypoints, nil
 }
 
-func (ms *builtIn) writePlanRequest(req *motionplan.PlanRequest) error {
+func (ms *builtIn) writePlanRequest(req *mpimpl1.PlanRequest) error {
 	fn := filepath.Join(ms.conf.PlanFilePath, fmt.Sprintf("plan-%s.json", time.Now().Format(time.RFC3339)))
 	ms.logger.Infof("writing plan to %s", fn)
 

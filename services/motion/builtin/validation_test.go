@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
-	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/mpimpl1"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
@@ -500,7 +500,7 @@ func TestMoveCallInputs(t *testing.T) {
 				Heading:            90,
 				Destination:        dst,
 				Extra: map[string]interface{}{
-					"motion_profile": motionplan.PositionOnlyMotionProfile,
+					"motion_profile": mpimpl1.PositionOnlyMotionProfile,
 					"timeout":        5.,
 					"smooth_iter":    5.,
 				},
@@ -520,7 +520,7 @@ func TestMoveCallInputs(t *testing.T) {
 				Heading:            90,
 				Destination:        dst,
 				Extra: map[string]interface{}{
-					"motion_profile": motionplan.PositionOnlyMotionProfile,
+					"motion_profile": mpimpl1.PositionOnlyMotionProfile,
 					"timeout":        5.,
 					"smooth_iter":    5.,
 				},
