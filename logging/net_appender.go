@@ -197,7 +197,7 @@ type wrappedEntryCaller struct {
 	Function string
 }
 
-// newInternalLogEntry creates a minimal LogEntry for internal use that can be used with NetAppender.Write
+// newInternalLogEntry creates a minimal LogEntry for internal use that can be used with NetAppender.Write.
 func newInternalLogEntry(level zapcore.Level, message string) *LogEntry {
 	return &LogEntry{
 		Entry: zapcore.Entry{
