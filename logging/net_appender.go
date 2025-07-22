@@ -197,6 +197,20 @@ type wrappedEntryCaller struct {
 	Function string
 }
 
+// newInternalLogEntry creates a minimal LogEntry for internal use that can be used with NetAppender.Write
+func newInternalLogEntry(level zapcore.Level, message string) *LogEntry {
+	return &LogEntry{
+		Entry: zapcore.Entry{
+			Level:      level,
+			Time:       time.Now(),
+			LoggerName: "NetAppender",
+			Message:    message,
+			Caller:     zapcore.EntryCaller{},
+			Stack:      "",
+		},
+	}
+}
+
 func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 	log := &commonpb.LogEntry{
 		Host:       nl.hostname,
@@ -342,7 +356,28 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	}
 
 	nl.toLogMutex.Lock()
-	defer nl.toLogMutex.Unlock()
+	toLogOverflowsSinceLastSync := nl.toLogOverflowsSinceLastSync
+	defer func() {
+		nl.toLogMutex.Unlock()
+
+		// Log about overflowed logs *after* we write out the latest batch. Dropped logs were technically before, but here
+		// 1) we know we're back online (don't clog up queue with this message)
+		// 2) both loggers used below acquire toLogMutex
+		if toLogOverflowsSinceLastSync > 0 {
+			overflowMsg := fmt.Sprintf("Overflowed %d logs while offline. Check local system logs for anything important.",
+				toLogOverflowsSinceLastSync)
+
+			// Manually create new log entry & add to queue
+			le := newInternalLogEntry(zapcore.WarnLevel, overflowMsg)
+			err := nl.Write(le.Entry, le.Fields)
+			if err != nil {
+				nl.loggerWithoutNet.Warnw("Unable to write overflow message to App", "msg", overflowMsg, "err", err)
+			}
+
+			// This logger also writes to App, but perhaps was not originally designed to do so
+			nl.loggerWithoutNet.Warn(overflowMsg)
+		}
+	}()
 
 	// Remove successfully synced logs from the queue. If we've overflowed more times than the size of the batch
 	// we wrote, do not mutate toLog at all. If we've synced more logs than there are logs left, set idx to length
