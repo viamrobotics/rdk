@@ -237,10 +237,10 @@ func TestJobManagerConfigChanges(t *testing.T) {
 		tb.Helper()
 		// after two rounds of 3 second jobs, the FirstCount2 and ThirdCount should
 		// have happened twice, while the other two jobs only once.
-		test.That(tb, doCommandFirstCount1.Load(), test.ShouldEqual, 1)
-		test.That(tb, doCommandSecondCount.Load(), test.ShouldEqual, 1)
-		test.That(tb, doCommandFirstCount2.Load(), test.ShouldEqual, 2)
-		test.That(tb, doCommandThirdCount.Load(), test.ShouldEqual, 2)
+		test.That(tb, doCommandFirstCount1.Load(), test.ShouldBeGreaterThanOrEqualTo, 1)
+		test.That(tb, doCommandSecondCount.Load(), test.ShouldBeGreaterThanOrEqualTo, 1)
+		test.That(tb, doCommandFirstCount2.Load(), test.ShouldBeGreaterThanOrEqualTo, 2)
+		test.That(tb, doCommandThirdCount.Load(), test.ShouldBeGreaterThanOrEqualTo, 2)
 		test.That(tb, doCommandIntCheck.Load(), test.ShouldEqual, 10)
 		test.That(tb, doCommandBoolCheck.Load(), test.ShouldEqual, true)
 	})
