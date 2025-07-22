@@ -48,61 +48,6 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 		}
 		cfg.Auth = *auth
 	}
-	disablePartialStart := false
-	if proto.DisablePartialStart != nil {
-		disablePartialStart = *proto.DisablePartialStart
-		cfg.DisablePartialStart = disablePartialStart
-	}
-
-	cfg.Modules, err = toRDKSlice(proto.Modules, ModuleConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting modules config from proto")
-	}
-
-	cfg.Components, err = toRDKSlice(proto.Components, ComponentConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting components config from proto")
-	}
-
-	cfg.Remotes, err = toRDKSlice(proto.Remotes, RemoteConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting remotes config from proto")
-	}
-
-	cfg.Processes, err = toRDKSlice(proto.Processes, ProcessConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting processes config from proto")
-	}
-
-	cfg.Services, err = toRDKSlice(proto.Services, ServiceConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting services config from proto")
-	}
-
-	cfg.Packages, err = toRDKSlice(proto.Packages, PackageConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting packages config from proto")
-	}
-
-	cfg.Jobs, err = toRDKSlice(proto.Jobs, JobsConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting jobs config from proto")
-	}
-
-	if proto.Debug != nil {
-		cfg.Debug = *proto.Debug
-	}
-
-	cfg.EnableWebProfile = proto.EnableWebProfile
-
-	cfg.LogConfig, err = toRDKSlice(proto.Log, LogConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting log config from proto")
-	}
-
-	cfg.Revision = proto.Revision
-
-	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
 
 	if proto.Maintenance != nil {
 		maintenanceConfig, err := MaintenanceConfigFromProto(proto.Maintenance)
@@ -112,7 +57,23 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 		cfg.MaintenanceConfig = maintenanceConfig
 	}
 
+	cfg.Modules = toRDKSlice(proto.Modules, ModuleConfigFromProto, logger)
+	cfg.Components = toRDKSlice(proto.Components, ComponentConfigFromProto, logger)
+	cfg.Remotes = toRDKSlice(proto.Remotes, RemoteConfigFromProto, logger)
+	cfg.Processes = toRDKSlice(proto.Processes, ProcessConfigFromProto, logger)
+	cfg.Services = toRDKSlice(proto.Services, ServiceConfigFromProto, logger)
+	cfg.Packages = toRDKSlice(proto.Packages, PackageConfigFromProto, logger)
+	cfg.Jobs = toRDKSlice(proto.Jobs, JobsConfigFromProto, logger)
+	cfg.EnableWebProfile = proto.EnableWebProfile
+	cfg.LogConfig = toRDKSlice(proto.Log, LogConfigFromProto, logger)
+	cfg.Revision = proto.Revision
 	cfg.DisableLogDeduplication = proto.DisableLogDeduplication
+
+	if proto.Debug != nil {
+		cfg.Debug = *proto.Debug
+	}
+
+	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
 
 	return &cfg, nil
 }
@@ -970,22 +931,18 @@ func mapSliceWithErrors[T, U any](a []T, f func(T) (U, error)) ([]U, error) {
 func toRDKSlice[PT, RT any](
 	protoList []*PT,
 	toRDK func(*PT) (*RT, error),
-	disablePartialStart bool,
 	logger logging.Logger,
-) ([]RT, error) {
+) []RT {
 	out := make([]RT, 0, len(protoList))
 	for _, proto := range protoList {
 		rdk, err := toRDK(proto)
 		if err != nil {
 			logger.Errorw("error converting from proto to config", "type", reflect.TypeOf(proto).String(), "error", err)
-			if disablePartialStart {
-				return nil, err
-			}
 		} else {
 			out = append(out, *rdk)
 		}
 	}
-	return out, nil
+	return out
 }
 
 // PackageConfigToProto converts a rdk package config to the proto version.

@@ -943,20 +943,18 @@ func TestPartialStart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	debug := true
-	disablePartialStart := false
 
 	input := &pb.RobotConfig{
-		Cloud:               cloudConfig,
-		Remotes:             []*pb.RemoteConfig{remoteConfig, remoteInvalidConfig},
-		Modules:             []*pb.ModuleConfig{moduleConfig, moduleInvalidConfig},
-		Components:          []*pb.ComponentConfig{componentConfig, componentInvalidConfig},
-		Processes:           []*pb.ProcessConfig{processConfig, processInvalidConfig},
-		Services:            []*pb.ServiceConfig{serviceConfig, serviceInvalidConfig},
-		Packages:            []*pb.PackageConfig{packageConfig, packageInvalidConfig},
-		Network:             networkConfig,
-		Auth:                authConfig,
-		Debug:               &debug,
-		DisablePartialStart: &disablePartialStart,
+		Cloud:      cloudConfig,
+		Remotes:    []*pb.RemoteConfig{remoteConfig, remoteInvalidConfig},
+		Modules:    []*pb.ModuleConfig{moduleConfig, moduleInvalidConfig},
+		Components: []*pb.ComponentConfig{componentConfig, componentInvalidConfig},
+		Processes:  []*pb.ProcessConfig{processConfig, processInvalidConfig},
+		Services:   []*pb.ServiceConfig{serviceConfig, serviceInvalidConfig},
+		Packages:   []*pb.PackageConfig{packageConfig, packageInvalidConfig},
+		Network:    networkConfig,
+		Auth:       authConfig,
+		Debug:      &debug,
 	}
 
 	out, err := FromProto(input, logger)
@@ -979,53 +977,6 @@ func TestPartialStart(t *testing.T) {
 	test.That(t, out.Debug, test.ShouldEqual, debug)
 	test.That(t, out.Packages[0], test.ShouldResemble, testPackageConfig)
 	test.That(t, out.Packages[1], test.ShouldResemble, testInvalidPackage)
-}
-
-func TestDisablePartialStart(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
-	test.That(t, err, test.ShouldBeNil)
-
-	remoteConfig, err := RemoteConfigToProto(&testRemote)
-	test.That(t, err, test.ShouldBeNil)
-
-	moduleConfig, err := ModuleConfigToProto(&testModule)
-	test.That(t, err, test.ShouldBeNil)
-
-	componentInvalidConfig, err := ComponentConfigToProto(&testInvalidComponent)
-	test.That(t, err, test.ShouldBeNil)
-
-	processConfig, err := ProcessConfigToProto(&testProcessConfig)
-	test.That(t, err, test.ShouldBeNil)
-
-	serviceConfig, err := ServiceConfigToProto(&testService)
-	test.That(t, err, test.ShouldBeNil)
-
-	networkConfig, err := NetworkConfigToProto(&testNetworkConfig)
-	test.That(t, err, test.ShouldBeNil)
-
-	authConfig, err := AuthConfigToProto(&testAuthConfig)
-	test.That(t, err, test.ShouldBeNil)
-
-	debug := true
-	disablePartialStart := true
-
-	input := &pb.RobotConfig{
-		Cloud:               cloudConfig,
-		Remotes:             []*pb.RemoteConfig{remoteConfig},
-		Modules:             []*pb.ModuleConfig{moduleConfig},
-		Components:          []*pb.ComponentConfig{componentInvalidConfig},
-		Processes:           []*pb.ProcessConfig{processConfig},
-		Services:            []*pb.ServiceConfig{serviceConfig},
-		Network:             networkConfig,
-		Auth:                authConfig,
-		Debug:               &debug,
-		DisablePartialStart: &disablePartialStart,
-	}
-
-	out, err := FromProto(input, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, out, test.ShouldBeNil)
 }
 
 func TestPackageTypeConversion(t *testing.T) {
