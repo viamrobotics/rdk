@@ -78,6 +78,8 @@ func TestJobManagerConfigChanges(t *testing.T) {
 		doCommandFirstCount2 atomic.Int64
 		doCommandSecondCount atomic.Int64
 		doCommandThirdCount  atomic.Int64
+		doCommandIntCheck    atomic.Int64
+		doCommandBoolCheck   atomic.Bool
 	)
 	dummyArm1 := &inject.Arm{
 		DoFunc: func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
@@ -106,6 +108,18 @@ func TestJobManagerConfigChanges(t *testing.T) {
 	dummyArm3 := &inject.Arm{
 		DoFunc: func(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 			doCommandThirdCount.Add(1)
+			boolVal, ok := cmd["bool"].(bool)
+			if !ok {
+				return nil, errors.New("bool argument must be a boolean")
+			}
+			doCommandBoolCheck.Store(boolVal)
+			logger.Info(cmd["int"])
+			intVal, ok := cmd["int"].(int)
+			logger.Info(intVal)
+			if !ok {
+				return nil, errors.New("int argument must be an integer")
+			}
+			doCommandIntCheck.Store(int64(intVal))
 			return map[string]any{
 				"count3": "done",
 			}, nil
@@ -207,6 +221,8 @@ func TestJobManagerConfigChanges(t *testing.T) {
 				Method:   "DoCommand",
 				Command: map[string]any{
 					"command": "third",
+					"int":     10,
+					"bool":    true,
 				},
 			},
 		},
@@ -225,6 +241,8 @@ func TestJobManagerConfigChanges(t *testing.T) {
 		test.That(tb, doCommandSecondCount.Load(), test.ShouldEqual, 1)
 		test.That(tb, doCommandFirstCount2.Load(), test.ShouldEqual, 2)
 		test.That(tb, doCommandThirdCount.Load(), test.ShouldEqual, 2)
+		test.That(tb, doCommandIntCheck.Load(), test.ShouldEqual, 10)
+		test.That(tb, doCommandBoolCheck.Load(), test.ShouldEqual, true)
 	})
 }
 
