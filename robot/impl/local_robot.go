@@ -377,10 +377,11 @@ func newWithResources(
 		//   constructed to get a valid copy of its stats object (for the schema's sake). Even if
 		//   the web service has not been "started".
 		ftdcDir := ftdc.DefaultDirectory(utils.ViamDotDir, partID)
-		ftdcWorker = ftdc.NewWithUploader(ftdcDir, conn, partID, logger.Sublogger("ftdc"))
+		ftdcLogger := logger.Sublogger("ftdc")
+		ftdcWorker = ftdc.NewWithUploader(ftdcDir, conn, partID, ftdcLogger)
 		if runtime.GOOS == "windows" {
 			// note: this logs a panic on RDK start on windows.
-			logger.Debug("System level FTDC not implemented on windows, not starting CPU and network metrics")
+			ftdcLogger.Debug("System level FTDC not implemented on windows, not starting CPU and network metrics")
 		} else {
 			if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
 				ftdcWorker.Add("proc.viam-server", statser)
