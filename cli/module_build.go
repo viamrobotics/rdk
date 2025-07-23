@@ -535,8 +535,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	var partArch string
 	if part.Part.UserSuppliedInfo != nil {
 		platform := part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
-		partInfo := strings.SplitN(platform, "/", 2)
-		if len(partInfo) == 2 {
+		if partInfo := strings.SplitN(platform, "/", 2); len(partInfo) == 2 {
 			partOs = partInfo[0]
 			partArch = partInfo[1]
 		}
