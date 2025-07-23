@@ -184,11 +184,12 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 			if err != nil {
 				return nil, err
 			}
-			return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(gifs.Geometries())}, nil
+			return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(
+				gifs.Geometries())}, nil
 		}
 		return nil, err
 	}
-	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
+	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }
 
 // GetKinematics returns the kinematics information associated with the arm.

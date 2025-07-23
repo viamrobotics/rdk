@@ -13,7 +13,6 @@ import (
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // ErrGeometriesNil is the returned error if gripper geometries are nil.
@@ -118,7 +117,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	if geometries == nil {
 		return nil, ErrGeometriesNil(req.GetName())
 	}
-	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
+	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }
 
 func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
