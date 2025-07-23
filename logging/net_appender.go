@@ -41,9 +41,9 @@ func NewNetAppender(
 	config *CloudConfig,
 	conn rpc.ClientConn,
 	sharedConn bool,
-	internalLogger Logger,
+	loggerWithoutNet Logger,
 ) (*NetAppender, error) {
-	return newNetAppender(config, conn, sharedConn, true, internalLogger)
+	return newNetAppender(config, conn, sharedConn, true, loggerWithoutNet)
 }
 
 // inner function for NewNetAppender which can disable background worker in tests.
@@ -52,7 +52,7 @@ func newNetAppender(
 	conn rpc.ClientConn,
 	sharedConn,
 	startBackgroundWorker bool,
-	internalLogger Logger,
+	loggerWithoutNet Logger,
 ) (*NetAppender, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -60,20 +60,20 @@ func newNetAppender(
 	}
 
 	logWriter := &remoteLogWriterGRPC{
-		cfg:            config,
-		sharedConn:     sharedConn,
-		internalLogger: internalLogger,
+		cfg:              config,
+		sharedConn:       sharedConn,
+		loggerWithoutNet: loggerWithoutNet,
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 
 	nl := &NetAppender{
-		hostname:       hostname,
-		cancelCtx:      cancelCtx,
-		cancel:         cancel,
-		remoteWriter:   logWriter,
-		maxQueueSize:   defaultMaxQueueSize,
-		internalLogger: internalLogger,
+		hostname:         hostname,
+		cancelCtx:        cancelCtx,
+		cancel:           cancel,
+		remoteWriter:     logWriter,
+		maxQueueSize:     defaultMaxQueueSize,
+		loggerWithoutNet: loggerWithoutNet,
 	}
 
 	nl.SetConn(conn, sharedConn)
@@ -101,9 +101,9 @@ type NetAppender struct {
 	cancel                  func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	// `internalLogger` is the logger to use for meta/internal logs
+	// `loggerWithoutNet` is the logger to use for meta/internal logs
 	// from the `NetAppender`.
-	internalLogger Logger
+	loggerWithoutNet Logger
 }
 
 func (w *remoteLogWriterGRPC) setConn(ctx context.Context, logger Logger, conn rpc.ClientConn, sharedConn bool) {
@@ -129,7 +129,7 @@ func (w *remoteLogWriterGRPC) setConn(ctx context.Context, logger Logger, conn r
 func (nl *NetAppender) SetConn(conn rpc.ClientConn, sharedConn bool) {
 	nl.toLogMutex.Lock()
 	defer nl.toLogMutex.Unlock()
-	nl.remoteWriter.setConn(nl.cancelCtx, nl.internalLogger, conn, sharedConn)
+	nl.remoteWriter.setConn(nl.cancelCtx, nl.loggerWithoutNet, conn, sharedConn)
 }
 
 func (nl *NetAppender) queueSize() int {
@@ -178,7 +178,7 @@ func (nl *NetAppender) close(exitIfNoProgressIters, totalIters int, sleepFn func
 				lastProgressIter = i
 			}
 			if i-lastProgressIter >= exitIfNoProgressIters {
-				nl.internalLogger.Warnf("NetAppender.Close() did not progress in %s, closing with %d still in queue",
+				nl.loggerWithoutNet.Warnf("NetAppender.Close() did not progress in %s, closing with %d still in queue",
 					time.Duration(exitIfNoProgressIters)*sleepInterval, curQueue)
 				break
 			}
@@ -307,7 +307,7 @@ func (nl *NetAppender) backgroundWorker() {
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
 			if !errors.Is(err, errUninitializedConnection) {
-				nl.internalLogger.Infof("error logging to network: %s", err)
+				nl.loggerWithoutNet.Infof("error logging to network: %s", err)
 			}
 		} else {
 			interval = normalInterval
@@ -356,7 +356,7 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 			// This logger has a NetAppender as of a6e455af13cc1a85e9421e65ce64be94d7aec16b,
 			// so it will write to both local & cloud.
 			// If this were not the case, create a new LogEntry and pass it into nl.Write()
-			nl.internalLogger.Warn(overflowMsg)
+			nl.loggerWithoutNet.Warn(overflowMsg)
 		}
 	}()
 
@@ -403,8 +403,8 @@ type remoteLogWriterGRPC struct {
 	// When sharedConn = true, don't create or destroy connections; use what we're given.
 	sharedConn bool
 
-	// `internalLogger` is the logger to use for meta/internal logs from the `remoteLogWriterGRPC`.
-	internalLogger Logger
+	// `loggerWithoutNet` is the logger to use for meta/internal logs from the `remoteLogWriterGRPC`.
+	loggerWithoutNet Logger
 }
 
 func (w *remoteLogWriterGRPC) write(ctx context.Context, logs []*commonpb.LogEntry) error {
@@ -442,7 +442,7 @@ func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.Robo
 		return nil, errUninitializedConnection
 	}
 
-	client, err := CreateNewGRPCClient(ctx, w.cfg, w.internalLogger)
+	client, err := CreateNewGRPCClient(ctx, w.cfg, w.loggerWithoutNet)
 	if err != nil {
 		return nil, err
 	}
