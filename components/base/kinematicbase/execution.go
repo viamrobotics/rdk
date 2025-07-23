@@ -14,7 +14,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -44,7 +43,7 @@ type arcStep struct {
 	// Compose(arcSegment.StartPosition, subTraj[n].Pose) is the expected pose at that node.
 	// A single trajectory may be broken into multiple arcSteps, so we need to be able to track the total distance elapsed through
 	// the trajectory.
-	arcSegment ik.Segment
+	arcSegment motionplan.Segment
 
 	subTraj []*tpspace.TrajNode
 }
@@ -252,7 +251,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 		inputs[startDistanceAlongTrajectoryIndex],
 	}
 	runningPose := startPose
-	segment := ik.Segment{
+	segment := motionplan.Segment{
 		StartConfiguration: startInputs,
 		StartPosition:      runningPose,
 		Frame:              ptgk.planningModel,
@@ -306,7 +305,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 				{curDist},
 				{curDist},
 			}
-			segment = ik.Segment{
+			segment = motionplan.Segment{
 				StartConfiguration: stepStartInputs,
 				StartPosition:      runningPose,
 				Frame:              ptgk.planningModel,
@@ -494,7 +493,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 
 func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals []courseCorrectionGoal) (courseCorrectionGoal, error) {
 	for _, goal := range goals {
-		solveMetric := ik.NewScaledSquaredNormMetric(goal.Goal, 50)
+		solveMetric := motionplan.NewScaledSquaredNormMetric(goal.Goal, 50)
 		ptgk.logger.Debug("attempting goal", goal.Goal)
 		seed := []referenceframe.Input{{math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}, {math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}}
 		if goal.Goal.Point().X > 0 {
@@ -612,7 +611,7 @@ func copyArcStep(step arcStep) arcStep {
 		linVelMMps:      step.linVelMMps,
 		angVelDegps:     step.angVelDegps,
 		durationSeconds: step.durationSeconds,
-		arcSegment:      ik.Segment{},
+		arcSegment:      motionplan.Segment{},
 		subTraj:         make([]*tpspace.TrajNode, len(step.subTraj)),
 	}
 

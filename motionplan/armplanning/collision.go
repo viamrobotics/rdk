@@ -1,10 +1,11 @@
-package motionplan
+package armplanning
 
 import (
 	"fmt"
 	"math"
 	"strconv"
 
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -52,7 +53,7 @@ func collisionListsAlmostEqual(cs1, cs2 []Collision) bool {
 }
 
 func collisionSpecifications(
-	pbConstraint []CollisionSpecification,
+	pbConstraint []motionplan.CollisionSpecification,
 	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
 	frameNames, validGeoms map[string]bool,
 ) (allowedCollisions []*Collision, err error) {

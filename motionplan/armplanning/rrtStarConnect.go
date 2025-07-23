@@ -1,6 +1,6 @@
 //go:build !no_cgo
 
-package motionplan
+package armplanning
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -166,7 +166,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 			rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 			return
 		}
-		reachedDelta := mp.configurationDistanceFunc(&ik.SegmentFS{
+		reachedDelta := mp.configurationDistanceFunc(&motionplan.SegmentFS{
 			StartConfiguration: map1reached.Q(),
 			EndConfiguration:   map2reached.Q(),
 		})
@@ -184,7 +184,7 @@ func (mp *rrtStarConnectMotionPlanner) rrtBackgroundRunner(ctx context.Context,
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
-			reachedDelta = mp.configurationDistanceFunc(&ik.SegmentFS{
+			reachedDelta = mp.configurationDistanceFunc(&motionplan.SegmentFS{
 				StartConfiguration: map1reached.Q(),
 				EndConfiguration:   map2reached.Q(),
 			})
@@ -245,7 +245,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 		default:
 		}
 		dist := mp.configurationDistanceFunc(
-			&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()},
+			&motionplan.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()},
 		)
 		if dist < mp.planOpts.InputIdentDist {
 			mchan <- near
@@ -259,7 +259,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			break
 		}
 
-		extendCost := mp.configurationDistanceFunc(&ik.SegmentFS{
+		extendCost := mp.configurationDistanceFunc(&motionplan.SegmentFS{
 			StartConfiguration: oldNear.Q(),
 			EndConfiguration:   near.Q(),
 		})
@@ -275,7 +275,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(
 			}
 
 			// check to see if a shortcut is possible, and rewire the node if it is
-			connectionCost := mp.configurationDistanceFunc(&ik.SegmentFS{
+			connectionCost := mp.configurationDistanceFunc(&motionplan.SegmentFS{
 				StartConfiguration: thisNeighbor.node.Q(),
 				EndConfiguration:   near.Q(),
 			})

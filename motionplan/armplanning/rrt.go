@@ -1,10 +1,10 @@
-package motionplan
+package armplanning
 
 import (
 	"context"
 	"errors"
 
-	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -96,10 +96,10 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 		return rrt
 	}
 
-	configDistMetric := ik.GetConfigurationDistanceFunc(wp.mp.opt().ConfigurationDistanceMetric)
+	configDistMetric := motionplan.GetConfigurationDistanceFunc(wp.mp.opt().ConfigurationDistanceMetric)
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	optimalCost := configDistMetric(&ik.SegmentFS{
+	optimalCost := configDistMetric(&motionplan.SegmentFS{
 		StartConfiguration: startNodes[0].Q(),
 		EndConfiguration:   goalNodes[0].Q(),
 	})
@@ -113,7 +113,7 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 		for _, solution := range goalNodes {
 			if canInterp {
 				cost := configDistMetric(
-					&ik.SegmentFS{StartConfiguration: seed.Q(), EndConfiguration: solution.Q()},
+					&motionplan.SegmentFS{StartConfiguration: seed.Q(), EndConfiguration: solution.Q()},
 				)
 				if cost < optimalCost*defaultOptimalityMultiple {
 					if wp.mp.checkPath(seed.Q(), solution.Q()) {
@@ -147,14 +147,14 @@ func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtSolution {
 }
 
 type rrtPlan struct {
-	SimplePlan
+	motionplan.SimplePlan
 
 	// nodes corresponding to inputs can be cached with the Plan for easy conversion back into a form usable by RRT
 	// depending on how the trajectory is constructed these may be nil and should be computed before usage
 	nodes []node
 }
 
-func newRRTPlan(solution []node, fs *referenceframe.FrameSystem, relative bool, offsetPose spatialmath.Pose) (Plan, error) {
+func newRRTPlan(solution []node, fs *referenceframe.FrameSystem, relative bool, offsetPose spatialmath.Pose) (motionplan.Plan, error) {
 	if len(solution) == 0 {
 		return nil, errors.New("cannot create plan, no solution was found")
 	} else if len(solution) == 1 {
@@ -172,8 +172,8 @@ func newRRTPlan(solution []node, fs *referenceframe.FrameSystem, relative bool, 
 			return nil, err
 		}
 	}
-	var plan Plan
-	plan = &rrtPlan{SimplePlan: *NewSimplePlan(path, traj), nodes: solution}
+	var plan motionplan.Plan
+	plan = &rrtPlan{SimplePlan: *motionplan.NewSimplePlan(path, traj), nodes: solution}
 	if relative {
 		plan = OffsetPlan(plan, offsetPose)
 	}

@@ -1,4 +1,4 @@
-package motionplan
+package armplanning
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -61,7 +61,7 @@ type atomicWaypoint struct {
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
-func (pm *planManager) planMultiWaypoint(ctx context.Context, seedPlan Plan) (Plan, error) {
+func (pm *planManager) planMultiWaypoint(ctx context.Context, seedPlan motionplan.Plan) (motionplan.Plan, error) {
 	if pm.motionChains.useTPspace {
 		return pm.planRelativeWaypoint(ctx, seedPlan)
 	}
@@ -114,8 +114,8 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, seedPlan Plan) (Pl
 func (pm *planManager) planAtomicWaypoints(
 	ctx context.Context,
 	waypoints []atomicWaypoint,
-	seedPlan Plan,
-) (Plan, error) {
+	seedPlan motionplan.Plan,
+) (motionplan.Plan, error) {
 	var err error
 	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
 	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
@@ -444,7 +444,7 @@ func (pm *planManager) planParallelRRTMotion(
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
-func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoint, error) {
+func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]atomicWaypoint, error) {
 	wpGoals := pm.request.Goals[wpi]
 	startState := pm.request.StartState
 	if wpi > 0 {
@@ -640,7 +640,7 @@ func (pm *planManager) goodPlan(pr *rrtSolution) (bool, float64) {
 	return false, solutionCost
 }
 
-func (pm *planManager) planToRRTGoalMap(plan Plan, goal atomicWaypoint) (*rrtMaps, error) {
+func (pm *planManager) planToRRTGoalMap(plan motionplan.Plan, goal atomicWaypoint) (*rrtMaps, error) {
 	traj := plan.Trajectory()
 	path := plan.Path()
 	if len(traj) != len(path) {
@@ -672,7 +672,7 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal atomicWaypoint) (*rrtMap
 	for i := len(planNodes) - 1; i >= 0; i-- {
 		if i != 0 {
 			// Fill in costs
-			cost := pm.configurationDistanceFunc(&ik.SegmentFS{
+			cost := pm.configurationDistanceFunc(&motionplan.SegmentFS{
 				StartConfiguration: planNodes[i-1].Q(),
 				EndConfiguration:   planNodes[i].Q(),
 				FS:                 pm.fs,
@@ -693,7 +693,7 @@ func (pm *planManager) planToRRTGoalMap(plan Plan, goal atomicWaypoint) (*rrtMap
 
 // planRelativeWaypoint will solve the PTG frame to one individual pose. This is used for frames whose inputs are relative, that
 // is, the pose returned by `Transform` is a transformation rather than an absolute position.
-func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan Plan) (Plan, error) {
+func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan motionplan.Plan) (motionplan.Plan, error) {
 	if pm.request.StartState.poses == nil {
 		return nil, errors.New("must provide a startPose if solving for PTGs")
 	}
@@ -793,8 +793,8 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan Plan) 
 	return newRRTPlan(steps, pm.fs, pm.motionChains.useTPspace, startPose)
 }
 
-func nodesToTrajectory(nodes []node) Trajectory {
-	traj := make(Trajectory, 0, len(nodes))
+func nodesToTrajectory(nodes []node) motionplan.Trajectory {
+	traj := make(motionplan.Trajectory, 0, len(nodes))
 	for _, n := range nodes {
 		traj = append(traj, n.Q())
 	}
@@ -802,7 +802,7 @@ func nodesToTrajectory(nodes []node) Trajectory {
 }
 
 // Determines whether to break a motion down into sub-waypoints if all intermediate points are known.
-func (pm *planManager) useSubWaypoints(seedPlan Plan, wpi int) bool {
+func (pm *planManager) useSubWaypoints(seedPlan motionplan.Plan, wpi int) bool {
 	// If we are seeding off of a pre-existing plan, we don't need the speedup of subwaypoints
 	if seedPlan != nil {
 		return false

@@ -1,6 +1,6 @@
 //go:build !no_cgo
 
-package motionplan
+package armplanning
 
 import (
 	"context"

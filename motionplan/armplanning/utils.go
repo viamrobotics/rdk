@@ -1,11 +1,11 @@
-package motionplan
+package armplanning
 
 import (
 	"errors"
 	"fmt"
 	"math"
 
-	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -419,5 +419,5 @@ func uniqInPlaceSlice(s []referenceframe.Frame) []referenceframe.Frame {
 type NodeDistanceMetric func(node, node) float64
 
 func nodeConfigurationDistanceFunc(node1, node2 node) float64 {
-	return ik.FSConfigurationL2Distance(&ik.SegmentFS{StartConfiguration: node1.Q(), EndConfiguration: node2.Q()})
+	return motionplan.FSConfigurationL2Distance(&motionplan.SegmentFS{StartConfiguration: node1.Q(), EndConfiguration: node2.Q()})
 }

@@ -1,4 +1,4 @@
-package motionplan
+package armplanning
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -84,7 +84,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	})
 	goalReached := <-m1chan
 	dist := cbirrt.configurationDistanceFunc(
-		&ik.SegmentFS{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()},
+		&motionplan.SegmentFS{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()},
 	)
 	test.That(t, dist < cbirrt.planOpts.InputIdentDist, test.ShouldBeTrue)
 

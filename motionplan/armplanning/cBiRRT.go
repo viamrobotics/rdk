@@ -1,6 +1,6 @@
 //go:build !windows && !no_cgo
 
-package motionplan
+package armplanning
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 )
@@ -194,7 +195,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		}
 
 		reachedDelta := mp.configurationDistanceFunc(
-			&ik.SegmentFS{
+			&motionplan.SegmentFS{
 				StartConfiguration: map1reached.Q(),
 				EndConfiguration:   map2reached.Q(),
 			},
@@ -213,7 +214,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
-			reachedDelta = mp.configurationDistanceFunc(&ik.SegmentFS{
+			reachedDelta = mp.configurationDistanceFunc(&motionplan.SegmentFS{
 				StartConfiguration: map1reached.Q(),
 				EndConfiguration:   map2reached.Q(),
 			})
@@ -277,9 +278,9 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		}
 		configDistMetric := mp.configurationDistanceFunc
 		dist := configDistMetric(
-			&ik.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
+			&motionplan.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
 		oldDist := configDistMetric(
-			&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
+			&motionplan.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
 
 		switch {
 		case dist < mp.planOpts.InputIdentDist:
@@ -298,7 +299,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		if newNear != nil {
 			nearDist := mp.configurationDistanceFunc(
-				&ik.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
+				&motionplan.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
 
 			if nearDist < math.Pow(mp.planOpts.InputIdentDist, 3) {
 				if !doubled {
@@ -348,7 +349,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		default:
 		}
 
-		newArc := &ik.SegmentFS{
+		newArc := &motionplan.SegmentFS{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
 			FS:                 mp.fs,
@@ -383,7 +384,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		ok, failpos := mp.CheckSegmentAndStateValidityFS(
-			&ik.SegmentFS{
+			&motionplan.SegmentFS{
 				StartConfiguration: seedInputs,
 				EndConfiguration:   solutionMap,
 				FS:                 mp.fs,
@@ -394,7 +395,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return solutionMap
 		}
 		if failpos != nil {
-			dist := mp.configurationDistanceFunc(&ik.SegmentFS{
+			dist := mp.configurationDistanceFunc(&motionplan.SegmentFS{
 				StartConfiguration: target,
 				EndConfiguration:   failpos.EndConfiguration,
 			})
@@ -455,7 +456,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []node
 			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 			// so we allow elongation here.
-			dist := mp.configurationDistanceFunc(&ik.SegmentFS{
+			dist := mp.configurationDistanceFunc(&motionplan.SegmentFS{
 				StartConfiguration: inputSteps[i].Q(),
 				EndConfiguration:   reached.Q(),
 			})

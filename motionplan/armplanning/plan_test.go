@@ -1,4 +1,4 @@
-package motionplan
+package armplanning
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -20,27 +20,27 @@ import (
 )
 
 func TestEvaluateTrajectory(t *testing.T) {
-	plan := Trajectory{
+	plan := motionplan.Trajectory{
 		referenceframe.FrameSystemInputs{"": {{1.}, {2.}, {3.}}},
 		referenceframe.FrameSystemInputs{"": {{1.}, {2.}, {3.}}},
 	}
 	// Test no change
-	score := plan.EvaluateCost(ik.FSConfigurationL2Distance)
+	score := plan.EvaluateCost(motionplan.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, 0)
 
 	// Test L2 for "", and nothing for plan with only one entry
 	plan = append(plan, referenceframe.FrameSystemInputs{"": {{4.}, {5.}, {6.}}, "test": {{2.}, {3.}, {4.}}})
-	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
+	score = plan.EvaluateCost(motionplan.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27))
 
 	// Test cumulative L2 after returning to original inputs
 	plan = append(plan, referenceframe.FrameSystemInputs{"": {{1.}, {2.}, {3.}}})
-	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
+	score = plan.EvaluateCost(motionplan.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27)*2)
 
 	// Test that the "test" inputs are properly evaluated after skipping a step
 	plan = append(plan, referenceframe.FrameSystemInputs{"test": {{3.}, {5.}, {6.}}})
-	score = plan.EvaluateCost(ik.FSConfigurationL2Distance)
+	score = plan.EvaluateCost(motionplan.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27)*2+3)
 
 	// Evaluated with the tp-space metric, should be the sum of the distance values (third input) ignoring the first input step
@@ -93,7 +93,7 @@ func TestPlanStep(t *testing.T) {
 		}
 		for _, tc := range testCases {
 			t.Run(tc.description, func(t *testing.T) {
-				res, err := FrameSystemPosesFromProto(tc.input)
+				res, err := motionplan.FrameSystemPosesFromProto(tc.input)
 				if tc.err != nil {
 					test.That(t, err, test.ShouldBeError, tc.err)
 				} else {
@@ -131,7 +131,7 @@ func TestPlanStep(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(tc.description, func(t *testing.T) {
-				res := FrameSystemPosesToProto(tc.input)
+				res := motionplan.FrameSystemPosesToProto(tc.input)
 				test.That(t, res, test.ShouldResemble, tc.result)
 			})
 		}
@@ -196,7 +196,7 @@ func TestNewGeoPlan(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			// test Path gets converted to a GeoPlan correctly
-			gps := NewGeoPlan(plan, tc.origin)
+			gps := motionplan.NewGeoPlan(plan, tc.origin)
 			test.That(t, err, test.ShouldBeNil)
 			pose := gps.Path()[0][baseName].Pose()
 			pt := pose.Point()

@@ -1,5 +1,5 @@
-// Package motionplan is a motion planning library.
-package motionplan
+// Package armplanning is a motion planning library.
+package armplanning
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -36,10 +37,10 @@ type motionPlanner interface {
 	smoothPath(context.Context, []node) []node
 	checkPath(referenceframe.FrameSystemInputs, referenceframe.FrameSystemInputs) bool
 	checkInputs(referenceframe.FrameSystemInputs) bool
-	getSolutions(context.Context, referenceframe.FrameSystemInputs, ik.StateFSMetric) ([]node, error)
+	getSolutions(context.Context, referenceframe.FrameSystemInputs, motionplan.StateFSMetric) ([]node, error)
 	opt() *PlannerOptions
 	sample(node, int) (node, error)
-	getScoringFunction() ik.SegmentFSMetric
+	getScoringFunction() motionplan.SegmentFSMetric
 }
 
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
@@ -65,7 +66,7 @@ type PlanRequest struct {
 	// and not arms.
 	BoundingRegions []*commonpb.Geometry `json:"bounding_regions"`
 	// Additional parameters constraining the motion of the robot.
-	Constraints *Constraints `json:"constraints"`
+	Constraints *motionplan.Constraints `json:"constraints"`
 	// Other more granular parameters for the plan used to move the robot.
 	PlannerOptions *PlannerOptions `json:"planner_options"`
 }
@@ -176,7 +177,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 							robotGeoms = append(robotGeoms, geom.Transform(startPose.Pose()))
 						}
 						robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, boundingRegions, buffer)
-						if robotGeomBoundingRegionCheck(&ik.State{}) != nil {
+						if robotGeomBoundingRegionCheck(&motionplan.State{}) != nil {
 							return fmt.Errorf("frame named %s is not within the provided bounding regions", fName)
 						}
 					}
@@ -184,7 +185,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 					// check that the destination is within or in collision with the bounding regions
 					destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(pif.Pose().Point(), "")}
 					destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, boundingRegions, buffer)
-					if destinationBoundingRegionCheck(&ik.State{}) != nil {
+					if destinationBoundingRegionCheck(&motionplan.State{}) != nil {
 						return errors.New("destination was not within the provided bounding regions")
 					}
 				}
@@ -195,7 +196,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 }
 
 // PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (Plan, error) {
+func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, error) {
 	// Calls Replan but without a seed plan
 	return Replan(ctx, logger, request, nil, 0)
 }
@@ -207,7 +208,7 @@ func PlanFrameMotion(ctx context.Context,
 	dst spatialmath.Pose,
 	f referenceframe.Frame,
 	seed []referenceframe.Input,
-	constraints *Constraints,
+	constraints *motionplan.Constraints,
 	planningOpts map[string]interface{},
 ) ([][]referenceframe.Input, error) {
 	// ephemerally create a framesystem containing just the frame for the solve
@@ -240,9 +241,9 @@ func Replan(
 	ctx context.Context,
 	logger logging.Logger,
 	request *PlanRequest,
-	currentPlan Plan,
+	currentPlan motionplan.Plan,
 	replanCostFactor float64,
-) (Plan, error) {
+) (motionplan.Plan, error) {
 	// Make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
@@ -284,9 +285,9 @@ type planner struct {
 	logger                    logging.Logger
 	randseed                  *rand.Rand
 	start                     time.Time
-	scoringFunction           ik.SegmentFSMetric
-	poseDistanceFunc          ik.SegmentMetric
-	configurationDistanceFunc ik.SegmentFSMetric
+	scoringFunction           motionplan.SegmentFSMetric
+	poseDistanceFunc          motionplan.SegmentMetric
+	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
 	motionChains              *motionChains
 }
@@ -387,14 +388,14 @@ func newPlanner(
 		planOpts:                  opt,
 		scoringFunction:           opt.getScoringFunction(chains),
 		poseDistanceFunc:          opt.getPoseDistanceFunc(),
-		configurationDistanceFunc: ik.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
+		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
 		motionChains:              chains,
 	}
 	return mp, nil
 }
 
 func (mp *planner) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
-	return mp.CheckStateFSConstraints(&ik.StateFS{
+	return mp.CheckStateFSConstraints(&motionplan.StateFS{
 		Configuration: inputs,
 		FS:            mp.fs,
 	}) == nil
@@ -402,7 +403,7 @@ func (mp *planner) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
 
 func (mp *planner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) bool {
 	ok, _ := mp.CheckSegmentAndStateValidityFS(
-		&ik.SegmentFS{
+		&motionplan.SegmentFS{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
 			FS:                 mp.fs,
@@ -445,7 +446,7 @@ func (mp *planner) opt() *PlannerOptions {
 	return mp.planOpts
 }
 
-func (mp *planner) getScoringFunction() ik.SegmentFSMetric {
+func (mp *planner) getScoringFunction() motionplan.SegmentFSMetric {
 	return mp.scoringFunction
 }
 
@@ -502,7 +503,11 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
-func (mp *planner) getSolutions(ctx context.Context, seed referenceframe.FrameSystemInputs, metric ik.StateFSMetric) ([]node, error) {
+func (mp *planner) getSolutions(
+	ctx context.Context,
+	seed referenceframe.FrameSystemInputs,
+	metric motionplan.StateFSMetric,
+) ([]node, error) {
 	// Linter doesn't properly handle loop labels
 	nSolutions := mp.planOpts.MaxSolutions
 	if nSolutions == 0 {
@@ -579,12 +584,12 @@ IK:
 				step = alteredStep
 			}
 			// Ensure the end state is a valid one
-			err = mp.CheckStateFSConstraints(&ik.StateFS{
+			err = mp.CheckStateFSConstraints(&motionplan.StateFS{
 				Configuration: step,
 				FS:            mp.fs,
 			})
 			if err == nil {
-				stepArc := &ik.SegmentFS{
+				stepArc := &motionplan.SegmentFS{
 					StartConfiguration: seed,
 					EndConfiguration:   step,
 					FS:                 mp.fs,
@@ -599,7 +604,7 @@ IK:
 						break IK
 					}
 					for _, oldSol := range solutions {
-						similarity := &ik.SegmentFS{
+						similarity := &motionplan.SegmentFS{
 							StartConfiguration: oldSol,
 							EndConfiguration:   step,
 							FS:                 mp.fs,
@@ -683,13 +688,13 @@ IK:
 // linearize the goal metric for use with solvers.
 // Since our solvers operate on arrays of floats, there needs to be a way to map bidirectionally between the framesystem configuration
 // of FrameSystemInputs and the []float64 that the solver expects. This is that mapping.
-func (mp *planner) linearizeFSmetric(metric ik.StateFSMetric) func([]float64) float64 {
+func (mp *planner) linearizeFSmetric(metric motionplan.StateFSMetric) func([]float64) float64 {
 	return func(query []float64) float64 {
 		inputs, err := mp.lfs.sliceToMap(query)
 		if err != nil {
 			return math.Inf(1)
 		}
-		return metric(&ik.StateFS{Configuration: inputs, FS: mp.fs})
+		return metric(&motionplan.StateFS{Configuration: inputs, FS: mp.fs})
 	}
 }
 
@@ -715,7 +720,7 @@ func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs)
 	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
 
 	_, lastGood := mp.CheckStateConstraintsAcrossSegmentFS(
-		&ik.SegmentFS{
+		&motionplan.SegmentFS{
 			StartConfiguration: step,
 			EndConfiguration:   alteredStep,
 			FS:                 mp.fs,

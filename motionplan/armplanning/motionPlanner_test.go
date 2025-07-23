@@ -1,4 +1,4 @@
-package motionplan
+package armplanning
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -113,8 +113,8 @@ func constrainedXArmMotion() (*planConfig, error) {
 		return nil, err
 	}
 
-	oFunc := ik.OrientDistToRegion(pos.Orientation(), 0.1)
-	oFuncMet := func(from *ik.StateFS) float64 {
+	oFunc := motionplan.OrientDistToRegion(pos.Orientation(), 0.1)
+	oFuncMet := func(from *motionplan.StateFS) float64 {
 		if err != nil {
 			return math.Inf(1)
 		}
@@ -131,7 +131,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 
 		return oFunc(currPose.(*frame.PoseInFrame).Pose().Orientation())
 	}
-	orientConstraint := func(cInput *ik.State) error {
+	orientConstraint := func(cInput *motionplan.State) error {
 		err := resolveStatesToPositions(cInput)
 		if err != nil {
 			return err
@@ -143,7 +143,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 		return errors.New("violation")
 	}
 
-	opt.GoalMetricType = ik.ArcLengthConvergence
+	opt.GoalMetricType = motionplan.ArcLengthConvergence
 	constraintHandler := newEmptyConstraintHandler()
 	constraintHandler.pathMetric = oFuncMet
 	constraintHandler.AddStateConstraint("orientation", orientConstraint)
@@ -470,7 +470,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	// test that path doesn't violate constraints
 	test.That(t, len(nodes), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(nodes)-1; j++ {
-		ok, _ := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(&ik.SegmentFS{
+		ok, _ := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(&motionplan.SegmentFS{
 			StartConfiguration: nodes[j].Q(),
 			EndConfiguration:   nodes[j+1].Q(),
 			FS:                 cfg.FS,
@@ -539,10 +539,10 @@ func TestSerializedPlanRequest(t *testing.T) {
 		},
 	}
 
-	constraints := &Constraints{
-		CollisionSpecification: []CollisionSpecification{
+	constraints := &motionplan.Constraints{
+		CollisionSpecification: []motionplan.CollisionSpecification{
 			{
-				Allows: []CollisionSpecificationAllowedFrameCollisions{
+				Allows: []motionplan.CollisionSpecificationAllowedFrameCollisions{
 					{Frame1: "xArmVgripper", Frame2: "theWall"},
 					{Frame1: "xArm6:wrist_link", Frame2: "theWall"},
 					{Frame1: "xArm6:lower_forearm", Frame2: "theWall"},
@@ -866,7 +866,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.AddFrame(xArmVgripper, x), test.ShouldBeNil)
 
-	checkReachable := func(worldState *frame.WorldState, constraints *Constraints) error {
+	checkReachable := func(worldState *frame.WorldState, constraints *motionplan.Constraints) error {
 		goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 		_, err = PlanMotion(context.Background(), logger, &PlanRequest{
 			FrameSystem:    fs,
@@ -880,7 +880,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	}
 
 	// Verify that the goal position is reachable with no obstacles
-	test.That(t, checkReachable(frame.NewEmptyWorldState(), &Constraints{}), test.ShouldBeNil)
+	test.That(t, checkReachable(frame.NewEmptyWorldState(), &motionplan.Constraints{}), test.ShouldBeNil)
 
 	// Add an obstacle to the WorldState
 	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{350, 0, 0}), r3.Vector{10, 8000, 8000}, "theWall")
@@ -901,15 +901,15 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Not reachable without a collision specification
-			constraints := &Constraints{}
+			constraints := &motionplan.Constraints{}
 			err = checkReachable(tc.worldState, constraints)
 			test.That(t, err, test.ShouldNotBeNil)
 
 			// Reachable if xarm6 and gripper ignore collisions with The Wall
-			constraints = &Constraints{
-				CollisionSpecification: []CollisionSpecification{
+			constraints = &motionplan.Constraints{
+				CollisionSpecification: []motionplan.CollisionSpecification{
 					{
-						Allows: []CollisionSpecificationAllowedFrameCollisions{
+						Allows: []motionplan.CollisionSpecificationAllowedFrameCollisions{
 							{Frame1: "xArm6", Frame2: "theWall"}, {Frame1: "xArmVgripper", Frame2: "theWall"},
 						},
 					},
@@ -919,10 +919,10 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Reachable if the specific bits of the xarm that collide are specified instead
-			constraints = &Constraints{
-				CollisionSpecification: []CollisionSpecification{
+			constraints = &motionplan.Constraints{
+				CollisionSpecification: []motionplan.CollisionSpecification{
 					{
-						Allows: []CollisionSpecificationAllowedFrameCollisions{
+						Allows: []motionplan.CollisionSpecificationAllowedFrameCollisions{
 							{Frame1: "xArmVgripper", Frame2: "theWall"},
 							{Frame1: "xArm6:wrist_link", Frame2: "theWall"},
 							{Frame1: "xArm6:lower_forearm", Frame2: "theWall"},

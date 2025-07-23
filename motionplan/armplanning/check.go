@@ -1,7 +1,6 @@
 //go:build !no_cgo
 
-// Package motionplan is a motion planning library.
-package motionplan
+package armplanning
 
 import (
 	"fmt"
@@ -9,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -161,10 +160,10 @@ func checkPlanRelative(
 		return err
 	}
 
-	segments := make([]*ik.Segment, 0, len(plan.Path())-wayPointIdx)
+	segments := make([]*motionplan.Segment, 0, len(plan.Path())-wayPointIdx)
 	// pre-pend to segments so we can connect to the input we have not finished actuating yet
 
-	segments = append(segments, &ik.Segment{
+	segments = append(segments, &motionplan.Segment{
 		StartPosition:      currentPoseInWorld.Pose(),
 		EndPosition:        currentArcEndPose,
 		StartConfiguration: frameCurrentInputs,
@@ -181,7 +180,7 @@ func checkPlanRelative(
 			return err
 		}
 		thisArcEndPose := spatialmath.Compose(thisArcEndPoseInWorld.Pose(), errorState)
-		segment := &ik.Segment{
+		segment := &motionplan.Segment{
 			StartPosition:      lastArcEndPose,
 			EndPosition:        thisArcEndPose,
 			StartConfiguration: frameTrajectory[i-1],
@@ -257,11 +256,11 @@ func checkPlanAbsolute(
 	}
 
 	// create a list of segments to iterate through
-	segments := make([]*ik.SegmentFS, 0, len(poses)-wayPointIdx)
+	segments := make([]*motionplan.SegmentFS, 0, len(poses)-wayPointIdx)
 
 	// iterate through remaining plan and append remaining segments to check
 	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
-		segment := &ik.SegmentFS{
+		segment := &motionplan.SegmentFS{
 			StartConfiguration: offsetPlan.Trajectory()[i],
 			EndConfiguration:   offsetPlan.Trajectory()[i+1],
 			FS:                 fs,
@@ -273,7 +272,7 @@ func checkPlanAbsolute(
 }
 
 func checkSegmentsFS(
-	segments []*ik.SegmentFS,
+	segments []*motionplan.SegmentFS,
 	lookAheadDistanceMM float64,
 	resolution float64,
 	motionChains *motionChains,
@@ -291,7 +290,7 @@ func checkSegmentsFS(
 				checkConf = lastValid.EndConfiguration
 			}
 			var reason string
-			err := constraintHandler.CheckStateFSConstraints(&ik.StateFS{Configuration: checkConf, FS: fs})
+			err := constraintHandler.CheckStateFSConstraints(&motionplan.StateFS{Configuration: checkConf, FS: fs})
 			if err != nil {
 				reason = " reason: " + err.Error()
 			} else {
@@ -339,7 +338,7 @@ func checkSegmentsFS(
 
 // TODO: Remove this function.
 func checkSegments(
-	segments []*ik.Segment,
+	segments []*motionplan.Segment,
 	lookAheadDistanceMM float64,
 	checkFrame referenceframe.Frame,
 	resolution float64,
@@ -376,7 +375,7 @@ func checkSegments(
 
 			// define State which only houses inputs, pose information not needed since we cannot get arcs from
 			// an interpolating poses, this would only yield a straight line.
-			interpolatedState := &ik.State{
+			interpolatedState := &motionplan.State{
 				Frame:         checkFrame,
 				Configuration: interpConfig,
 			}

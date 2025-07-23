@@ -1,4 +1,4 @@
-package motionplan
+package armplanning
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"math"
 	"runtime"
 
-	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
@@ -91,9 +91,9 @@ const (
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
 func NewBasicPlannerOptions() *PlannerOptions {
 	opt := &PlannerOptions{}
-	opt.GoalMetricType = ik.SquaredNorm
-	opt.ConfigurationDistanceMetric = ik.FSConfigurationL2DistanceMetric
-	opt.ScoringMetric = ik.FSConfigL2ScoringMetric
+	opt.GoalMetricType = motionplan.SquaredNorm
+	opt.ConfigurationDistanceMetric = motionplan.FSConfigurationL2DistanceMetric
+	opt.ScoringMetric = motionplan.FSConfigL2ScoringMetric
 
 	// TODO: RSDK-6079 this should be properly used, and deduplicated with defaultEpsilon, InputIdentDist, etc.
 	opt.GoalThreshold = 0.1
@@ -133,7 +133,7 @@ func NewBasicPlannerOptions() *PlannerOptions {
 type PlannerOptions struct {
 	// This is used to create functions which are passed to IK for solving. This may be used to turn starting or ending state poses into
 	// configurations for nodes.
-	GoalMetricType ik.GoalMetricType `json:"goal_metric_type"`
+	GoalMetricType motionplan.GoalMetricType `json:"goal_metric_type"`
 
 	// Acceptable arc length around the goal orientation vector for any solution. This is the additional parameter used to acquire
 	// the goal metric only if the GoalMetricType is ik.ArcLengthConvergence
@@ -184,7 +184,7 @@ type PlannerOptions struct {
 	ReturnPartialPlan bool `json:"return_partial_plan"`
 
 	// ScoringMetricStr is an enum indicating the function that the planner will use to evaluate a plan for final cost comparisons.
-	ScoringMetric ik.ScoringMetric `json:"scoring_metric"`
+	ScoringMetric motionplan.ScoringMetric `json:"scoring_metric"`
 
 	// TPSpaceOrientationScale is the scale factor on orientation for the squared norm segment metric used
 	// to calculate the distance between poses when planning for a TP-space frame
@@ -192,7 +192,7 @@ type PlannerOptions struct {
 
 	// Determines the algorithm that the planner will use to measure the degree of "closeness" between two states of the robot
 	// See metrics.go for options
-	ConfigurationDistanceMetric ik.SegmentFSMetricType `json:"configuration_distance_metric"`
+	ConfigurationDistanceMetric motionplan.SegmentFSMetricType `json:"configuration_distance_metric"`
 
 	// A profile indicating which of the tolerance parameters listed below should be considered
 	// for further constraining the motion.
@@ -290,7 +290,7 @@ func updateOptionsForPlanning(opt *PlannerOptions, useTPSpace bool) (*PlannerOpt
 
 		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
 		// Otherwise we just use squared norm on inputs.
-		optCopy.ScoringMetric = ik.PTGDistance
+		optCopy.ScoringMetric = motionplan.PTGDistance
 	}
 
 	if optCopy.MotionProfile == FreeMotionProfile || optCopy.MotionProfile == PositionOnlyMotionProfile {
@@ -314,21 +314,21 @@ func (p *PlannerOptions) PlanningAlgorithm() PlanningAlgorithm {
 }
 
 // getGoalMetric creates the distance metric for the solver using the configured options.
-func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) ik.StateFSMetric {
-	metrics := map[string]ik.StateMetric{}
+func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) motionplan.StateFSMetric {
+	metrics := map[string]motionplan.StateMetric{}
 	for frame, goalInFrame := range goal {
 		switch p.GoalMetricType {
-		case ik.PositionOnly:
-			metrics[frame] = ik.NewPositionOnlyMetric(goalInFrame.Pose())
-		case ik.SquaredNorm:
-			metrics[frame] = ik.NewSquaredNormMetric(goalInFrame.Pose())
-		case ik.ArcLengthConvergence:
-			metrics[frame] = ik.NewPoseFlexOVMetricConstructor(p.ArcLengthTolerance)(goalInFrame.Pose())
+		case motionplan.PositionOnly:
+			metrics[frame] = motionplan.NewPositionOnlyMetric(goalInFrame.Pose())
+		case motionplan.SquaredNorm:
+			metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
+		case motionplan.ArcLengthConvergence:
+			metrics[frame] = motionplan.NewPoseFlexOVMetricConstructor(p.ArcLengthTolerance)(goalInFrame.Pose())
 		default:
-			metrics[frame] = ik.NewSquaredNormMetric(goalInFrame.Pose())
+			metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
 		}
 	}
-	return func(state *ik.StateFS) float64 {
+	return func(state *motionplan.StateFS) float64 {
 		score := 0.
 		for frame, goalMetric := range metrics {
 			poseParent := goal[frame].Parent()
@@ -336,7 +336,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) ik.
 			if err != nil {
 				score += math.Inf(1)
 			}
-			score += goalMetric(&ik.State{
+			score += goalMetric(&motionplan.State{
 				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
 				Configuration: state.Configuration[frame],
 				Frame:         state.FS.Frame(frame),
@@ -349,8 +349,8 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) ik.
 // In the scenario where we use TP-space, we call this to retrieve a function that computes distances
 // in cartesian space rather than configuration space. The planner will use this to measure the degree of "closeness"
 // between two poses.
-func (p *PlannerOptions) getPoseDistanceFunc() ik.SegmentMetric {
-	return ik.NewSquaredNormSegmentMetric(p.TPSpaceOrientationScale)
+func (p *PlannerOptions) getPoseDistanceFunc() motionplan.SegmentMetric {
+	return motionplan.NewSquaredNormSegmentMetric(p.TPSpaceOrientationScale)
 }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
@@ -363,15 +363,15 @@ func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
 }
 
-func (p *PlannerOptions) getScoringFunction(mcs *motionChains) ik.SegmentFSMetric {
+func (p *PlannerOptions) getScoringFunction(mcs *motionChains) motionplan.SegmentFSMetric {
 	switch p.ScoringMetric {
-	case ik.FSConfigScoringMetric:
-		return ik.FSConfigurationDistance
-	case ik.FSConfigL2ScoringMetric:
-		return ik.FSConfigurationL2Distance
-	case ik.PTGDistance:
+	case motionplan.FSConfigScoringMetric:
+		return motionplan.FSConfigurationDistance
+	case motionplan.FSConfigL2ScoringMetric:
+		return motionplan.FSConfigurationL2Distance
+	case motionplan.PTGDistance:
 		return tpspace.NewPTGDistanceMetric([]string{mcs.ptgFrameName})
 	default:
-		return ik.FSConfigurationL2Distance
+		return motionplan.FSConfigurationL2Distance
 	}
 }

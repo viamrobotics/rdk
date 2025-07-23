@@ -1,6 +1,6 @@
 //go:build !windows
 
-package motionplan
+package armplanning
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -290,7 +291,7 @@ func TestTPsmoothing(t *testing.T) {
 	test.That(t, smoothcost, test.ShouldBeLessThan, oldcost)
 }
 
-func planToTpspaceRec(plan Plan, f referenceframe.Frame) ([]node, error) {
+func planToTpspaceRec(plan motionplan.Plan, f referenceframe.Frame) ([]node, error) {
 	nodes := []node{}
 	for _, inp := range plan.Trajectory() {
 		thisNode := &basicNode{

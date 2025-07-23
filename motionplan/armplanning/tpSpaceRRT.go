@@ -1,6 +1,6 @@
 //go:build !windows && !no_cgo
 
-package motionplan
+package armplanning
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
@@ -72,7 +73,7 @@ const (
 // Using the standard SquaredNormMetric, we run into issues where far apart distances will underflow gradient calculations.
 // This metric, used only for gradient descent, computes the gradient using centimeters rather than millimeters allowing for smaller
 // values that do not underflow.
-var defaultGoalMetricConstructor = ik.NewPosWeightSquaredNormMetric
+var defaultGoalMetricConstructor = motionplan.NewPosWeightSquaredNormMetric
 
 // Used to flip goal nodes so they can solve forwards.
 var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
@@ -125,7 +126,7 @@ type tpSpaceRRTMotionPlanner struct {
 // Returns a custom DistanceFunc constructed such that distances can be computed in TP space using the given PTG.
 // Also returns a pointer to a sync.Map of nearest poses -> ik.Solution so the (expensive to compute) solution can be reused.
 func getNodeDistanceFunc(distMap *sync.Map, ptg tpspace.PTGSolver, tpFrameName string) NodeDistanceMetric {
-	segMetric := func(seg *ik.Segment) float64 {
+	segMetric := func(seg *motionplan.Segment) float64 {
 		// When running NearestNeighbor:
 		// StartPosition is the seed/query
 		// EndPosition is the pose already in the RRT tree
@@ -143,7 +144,7 @@ func getNodeDistanceFunc(distMap *sync.Map, ptg tpspace.PTGSolver, tpFrameName s
 		return solution.Score
 	}
 	return func(node1, node2 node) float64 {
-		return segMetric(&ik.Segment{
+		return segMetric(&motionplan.Segment{
 			StartPosition: node1.Poses()[tpFrameName].Pose(),
 			EndPosition:   node2.Poses()[tpFrameName].Pose(),
 		})
@@ -267,7 +268,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			// However for the purposes of this we can just take the first one we see.
 			if k.Poses() != nil {
 				dist := mp.poseDistanceFunc(
-					&ik.Segment{
+					&motionplan.Segment{
 						StartPosition: startPose,
 						EndPosition:   k.Poses()[mp.tpFrame.Name()].Pose(),
 					})
@@ -372,7 +373,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 		var reachedDelta float64
 		if seedReached.node != nil && goalReached.node != nil {
 			// Flip the orientation of the goal node for distance calculation and seed extension
-			reachedDelta = mp.poseDistanceFunc(&ik.Segment{
+			reachedDelta = mp.poseDistanceFunc(&motionplan.Segment{
 				StartPosition: mp.tpFramePose(seedReached.node.Poses()),
 				EndPosition:   mp.tpFramePose(flipNodePoses(goalReached.node).Poses()),
 			})
@@ -384,7 +385,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 					return
 				}
 				if seedReached.node != nil {
-					reachedDelta = mp.poseDistanceFunc(&ik.Segment{
+					reachedDelta = mp.poseDistanceFunc(&motionplan.Segment{
 						StartPosition: mp.tpFramePose(seedReached.node.Poses()),
 						EndPosition:   mp.tpFramePose(flipNodePoses(goalReached.node).Poses()),
 					})
@@ -396,7 +397,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 						}
 					}
 					if goalReached.node != nil {
-						reachedDelta = mp.poseDistanceFunc(&ik.Segment{
+						reachedDelta = mp.poseDistanceFunc(&motionplan.Segment{
 							StartPosition: mp.tpFramePose(seedReached.node.Poses()),
 							EndPosition:   mp.tpFramePose(flipNodePoses(goalReached.node).Poses()),
 						})
@@ -450,7 +451,7 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 				if seedReached.node == nil {
 					continue
 				}
-				reachedDelta = mp.poseDistanceFunc(&ik.Segment{
+				reachedDelta = mp.poseDistanceFunc(&motionplan.Segment{
 					StartPosition: mp.tpFramePose(seedReached.node.Poses()),
 					EndPosition:   mp.tpFramePose(flipNodePoses(goalMapNode).Poses()),
 				})
@@ -595,7 +596,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	}
 
 	targetFunc := defaultGoalMetricConstructor(spatialmath.PoseBetween(arcStartPose, mp.tpFramePose(randPosNode.Poses())))
-	bestDist := targetFunc(&ik.State{Position: arcPose})
+	bestDist := targetFunc(&motionplan.State{Position: arcPose})
 
 	cand := &candidate{dist: bestDist, treeNode: nearest, newNodes: successNodes}
 	// check if this  successNode is too close to nodes already in the tree, and if so, do not add.
@@ -603,7 +604,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	// rather than the TP-space distance functions in algOpts.
 	nearest = nm.nearestNeighbor(ctx, successNode, rrt, nodeConfigurationDistanceFunc)
 	if nearest != nil {
-		dist := mp.poseDistanceFunc(&ik.Segment{
+		dist := mp.poseDistanceFunc(&motionplan.Segment{
 			StartPosition: mp.tpFramePose(successNode.Poses()),
 			EndPosition:   mp.tpFramePose(nearest.Poses()),
 		})
@@ -622,7 +623,7 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStart
 	for i := 0; i < len(trajK); i++ {
 		trajPt := trajK[i]
 
-		trajState := &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.tpFrame}
+		trajState := &motionplan.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose), Frame: mp.tpFrame}
 
 		// In addition to checking every `Resolution`, we also check both endpoints.
 		err := mp.CheckStateConstraints(trajState)
@@ -808,7 +809,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 		lastDist := 0.
 		sinceLastNode := 0.
 
-		var trajState *ik.State
+		var trajState *motionplan.State
 		for i := 0; i < len(trajK); i++ {
 			trajPt := trajK[i]
 			if i == 0 {
@@ -817,7 +818,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
-			trajState = &ik.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose)}
+			trajState = &motionplan.State{Position: spatialmath.Compose(arcStartPose, trajPt.Pose)}
 			if pathdebug {
 				if !isGoalTree {
 					mp.logger.CDebugf(ctx, "$FWDTREE,%f,%f", trajState.Position.Point().X, trajState.Position.Point().Y)
@@ -1020,7 +1021,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		return nil, errors.New("could not extend to smoothing destination")
 	}
 
-	reachedDelta := mp.poseDistanceFunc(&ik.Segment{
+	reachedDelta := mp.poseDistanceFunc(&motionplan.Segment{
 		StartPosition: mp.tpFramePose(reached.node.Poses()),
 		EndPosition:   mp.tpFramePose(path[secondEdge].Poses()),
 	})
@@ -1065,7 +1066,7 @@ func (mp *tpSpaceRRTMotionPlanner) sample(rSeed node, iter int) (node, error) {
 	return &basicNode{poses: mp.tpFramePoseToFrameSystemPoses(randPos)}, nil
 }
 
-func (mp *tpSpaceRRTMotionPlanner) getScoringFunction() ik.SegmentFSMetric {
+func (mp *tpSpaceRRTMotionPlanner) getScoringFunction() motionplan.SegmentFSMetric {
 	return mp.scoringFunction
 }
 

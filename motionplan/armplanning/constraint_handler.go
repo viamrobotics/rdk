@@ -1,4 +1,4 @@
-package motionplan
+package armplanning
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/ik"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -22,20 +22,20 @@ type ConstraintHandler struct {
 	segmentFSConstraints map[string]SegmentFSConstraint
 	stateConstraints     map[string]StateConstraint
 	stateFSConstraints   map[string]StateFSConstraint
-	pathMetric           ik.StateFSMetric // Distance function which converges on the valid manifold of intermediate path states
+	pathMetric           motionplan.StateFSMetric // Distance function which converges on the valid manifold of intermediate path states
 	boundingRegions      []spatialmath.Geometry
 }
 
 func newEmptyConstraintHandler() *ConstraintHandler {
 	handler := ConstraintHandler{}
-	handler.pathMetric = ik.NewZeroFSMetric()
+	handler.pathMetric = motionplan.NewZeroFSMetric()
 	return &handler
 }
 
 func newConstraintHandler(
 	opt *PlannerOptions,
 	logger logging.Logger,
-	constraints *Constraints,
+	constraints *motionplan.Constraints,
 	from, to *PlanState,
 	fs *referenceframe.FrameSystem,
 	motionChains *motionChains,
@@ -46,7 +46,7 @@ func newConstraintHandler(
 	if constraints == nil {
 		// Constraints may be nil, but if a motion profile is set in planningOpts
 		// we need it to be a valid pointer to an empty struct.
-		constraints = &Constraints{}
+		constraints = &motionplan.Constraints{}
 	}
 	handler := newEmptyConstraintHandler()
 	handler.boundingRegions = boundingRegions
@@ -136,11 +136,11 @@ func newConstraintHandler(
 
 	switch opt.MotionProfile {
 	case LinearMotionProfile:
-		constraints.AddLinearConstraint(LinearConstraint{opt.LineTolerance, opt.OrientationTolerance})
+		constraints.AddLinearConstraint(motionplan.LinearConstraint{opt.LineTolerance, opt.OrientationTolerance})
 	case PseudolinearMotionProfile:
-		constraints.AddPseudolinearConstraint(PseudolinearConstraint{opt.ToleranceFactor, opt.ToleranceFactor})
+		constraints.AddPseudolinearConstraint(motionplan.PseudolinearConstraint{opt.ToleranceFactor, opt.ToleranceFactor})
 	case OrientationMotionProfile:
-		constraints.AddOrientationConstraint(OrientationConstraint{opt.OrientationTolerance})
+		constraints.AddOrientationConstraint(motionplan.OrientationConstraint{opt.OrientationTolerance})
 	// FreeMotionProfile or PositionOnlyMotionProfile produce no additional constraints.
 	case FreeMotionProfile, PositionOnlyMotionProfile:
 	}
@@ -162,7 +162,7 @@ func (c *ConstraintHandler) addTopoConstraints(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
-	constraints *Constraints,
+	constraints *motionplan.Constraints,
 ) (bool, error) {
 	topoConstraints := false
 	for _, linearConstraint := range constraints.GetLinearConstraint() {
@@ -197,7 +197,7 @@ func (c *ConstraintHandler) addLinearConstraints(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
-	linConstraint LinearConstraint,
+	linConstraint motionplan.LinearConstraint,
 ) error {
 	// Linear constraints
 	linTol := linConstraint.LineToleranceMm
@@ -215,7 +215,7 @@ func (c *ConstraintHandler) addLinearConstraints(
 	}
 	c.AddStateFSConstraint(defaultConstraintName, constraint)
 
-	c.pathMetric = ik.CombineFSMetrics(c.pathMetric, pathDist)
+	c.pathMetric = motionplan.CombineFSMetrics(c.pathMetric, pathDist)
 	return nil
 }
 
@@ -223,7 +223,7 @@ func (c *ConstraintHandler) addPseudolinearConstraints(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
-	plinConstraint PseudolinearConstraint,
+	plinConstraint motionplan.PseudolinearConstraint,
 ) error {
 	// Linear constraints
 	linTol := plinConstraint.LineToleranceFactor
@@ -241,7 +241,7 @@ func (c *ConstraintHandler) addPseudolinearConstraints(
 	}
 	c.AddStateFSConstraint(defaultConstraintName, constraint)
 
-	c.pathMetric = ik.CombineFSMetrics(c.pathMetric, pathDist)
+	c.pathMetric = motionplan.CombineFSMetrics(c.pathMetric, pathDist)
 	return nil
 }
 
@@ -249,7 +249,7 @@ func (c *ConstraintHandler) addOrientationConstraints(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
-	orientConstraint OrientationConstraint,
+	orientConstraint motionplan.OrientationConstraint,
 ) error {
 	orientTol := orientConstraint.OrientationToleranceDegs
 	if orientTol == 0 {
@@ -260,12 +260,12 @@ func (c *ConstraintHandler) addOrientationConstraints(
 		return err
 	}
 	c.AddStateFSConstraint(defaultConstraintName, constraint)
-	c.pathMetric = ik.CombineFSMetrics(c.pathMetric, pathDist)
+	c.pathMetric = motionplan.CombineFSMetrics(c.pathMetric, pathDist)
 	return nil
 }
 
 // CheckStateConstraints will check a given input against all state constraints.
-func (c *ConstraintHandler) CheckStateConstraints(state *ik.State) error {
+func (c *ConstraintHandler) CheckStateConstraints(state *motionplan.State) error {
 	for name, cFunc := range c.stateConstraints {
 		if err := cFunc(state); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -276,7 +276,7 @@ func (c *ConstraintHandler) CheckStateConstraints(state *ik.State) error {
 }
 
 // CheckStateFSConstraints will check a given input against all FS state constraints.
-func (c *ConstraintHandler) CheckStateFSConstraints(state *ik.StateFS) error {
+func (c *ConstraintHandler) CheckStateFSConstraints(state *motionplan.StateFS) error {
 	for name, cFunc := range c.stateFSConstraints {
 		if err := cFunc(state); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -287,7 +287,7 @@ func (c *ConstraintHandler) CheckStateFSConstraints(state *ik.StateFS) error {
 }
 
 // CheckSegmentConstraints will check a given input against all segment constraints.
-func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) error {
+func (c *ConstraintHandler) CheckSegmentConstraints(segment *motionplan.Segment) error {
 	for name, cFunc := range c.segmentConstraints {
 		if err := cFunc(segment); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -298,7 +298,7 @@ func (c *ConstraintHandler) CheckSegmentConstraints(segment *ik.Segment) error {
 }
 
 // CheckSegmentFSConstraints will check a given input against all FS segment constraints.
-func (c *ConstraintHandler) CheckSegmentFSConstraints(segment *ik.SegmentFS) error {
+func (c *ConstraintHandler) CheckSegmentFSConstraints(segment *motionplan.SegmentFS) error {
 	for name, cFunc := range c.segmentFSConstraints {
 		if err := cFunc(segment); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -312,14 +312,14 @@ func (c *ConstraintHandler) CheckSegmentFSConstraints(segment *ik.SegmentFS) err
 // states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will return `true, nil`.
 // If any constraints fail, this will return false, and an Segment representing the valid portion of the segment, if any. If no
 // part of the segment is valid, then `false, nil` is returned.
-func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, resolution float64) (bool, *ik.Segment) {
+func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *motionplan.Segment, resolution float64) (bool, *motionplan.Segment) {
 	interpolatedConfigurations, err := interpolateSegment(ci, resolution)
 	if err != nil {
 		return false, nil
 	}
 	var lastGood []referenceframe.Input
 	for i, interpConfig := range interpolatedConfigurations {
-		interpC := &ik.State{Frame: ci.Frame, Configuration: interpConfig}
+		interpC := &motionplan.State{Frame: ci.Frame, Configuration: interpConfig}
 		if resolveStatesToPositions(interpC) != nil {
 			return false, nil
 		}
@@ -328,7 +328,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, r
 				// fail on start pos
 				return false, nil
 			}
-			return false, &ik.Segment{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, Frame: ci.Frame}
+			return false, &motionplan.Segment{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, Frame: ci.Frame}
 		}
 		lastGood = interpC.Configuration
 	}
@@ -338,7 +338,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *ik.Segment, r
 
 // interpolateSegment is a helper function which produces a list of intermediate inputs, between the start and end
 // configuration of a segment at a given resolution value.
-func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.Input, error) {
+func interpolateSegment(ci *motionplan.Segment, resolution float64) ([][]referenceframe.Input, error) {
 	// ensure we have cartesian positions
 	if err := resolveSegmentsToPositions(ci); err != nil {
 		return nil, err
@@ -364,7 +364,7 @@ func interpolateSegment(ci *ik.Segment, resolution float64) ([][]referenceframe.
 
 // interpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
 // configuration of a segment at a given resolution value.
-func interpolateSegmentFS(ci *ik.SegmentFS, resolution float64) ([]referenceframe.FrameSystemInputs, error) {
+func interpolateSegmentFS(ci *motionplan.SegmentFS, resolution float64) ([]referenceframe.FrameSystemInputs, error) {
 	// Find the frame with the most steps by calculating steps for each frame
 	maxSteps := defaultMinStepCount
 	for frameName, startConfig := range ci.StartConfiguration {
@@ -427,7 +427,7 @@ func interpolateSegmentFS(ci *ik.SegmentFS, resolution float64) ([]referencefram
 // CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
-func (c *ConstraintHandler) CheckSegmentAndStateValidity(segment *ik.Segment, resolution float64) (bool, *ik.Segment) {
+func (c *ConstraintHandler) CheckSegmentAndStateValidity(segment *motionplan.Segment, resolution float64) (bool, *motionplan.Segment) {
 	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution)
 	if !valid {
 		if subSegment != nil {
@@ -542,20 +542,23 @@ func (c *ConstraintHandler) SegmentFSConstraints() []string {
 // that all intermediate states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will
 // return `true, nil`. If any constraints fail, this will return false, and an SegmentFS representing the valid portion of the segment,
 // if any. If no part of the segment is valid, then `false, nil` is returned.
-func (c *ConstraintHandler) CheckStateConstraintsAcrossSegmentFS(ci *ik.SegmentFS, resolution float64) (bool, *ik.SegmentFS) {
+func (c *ConstraintHandler) CheckStateConstraintsAcrossSegmentFS(
+	ci *motionplan.SegmentFS,
+	resolution float64,
+) (bool, *motionplan.SegmentFS) {
 	interpolatedConfigurations, err := interpolateSegmentFS(ci, resolution)
 	if err != nil {
 		return false, nil
 	}
 	var lastGood referenceframe.FrameSystemInputs
 	for i, interpConfig := range interpolatedConfigurations {
-		interpC := &ik.StateFS{FS: ci.FS, Configuration: interpConfig}
+		interpC := &motionplan.StateFS{FS: ci.FS, Configuration: interpConfig}
 		if c.CheckStateFSConstraints(interpC) != nil {
 			if i == 0 {
 				// fail on start pos
 				return false, nil
 			}
-			return false, &ik.SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}
+			return false, &motionplan.SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}
 		}
 		lastGood = interpC.Configuration
 	}
@@ -566,7 +569,10 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegmentFS(ci *ik.SegmentF
 // CheckSegmentAndStateValidityFS will check a segment input and confirm that it 1) meets all segment constraints, and 2) meets all
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
-func (c *ConstraintHandler) CheckSegmentAndStateValidityFS(segment *ik.SegmentFS, resolution float64) (bool, *ik.SegmentFS) {
+func (c *ConstraintHandler) CheckSegmentAndStateValidityFS(
+	segment *motionplan.SegmentFS,
+	resolution float64,
+) (bool, *motionplan.SegmentFS) {
 	valid, subSegment := c.CheckStateConstraintsAcrossSegmentFS(segment, resolution)
 	if !valid {
 		if subSegment != nil {

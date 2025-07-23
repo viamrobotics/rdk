@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math"
 
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -28,7 +29,7 @@ type PTGSolver interface {
 	// This will return `TrajNode`s starting at dist=start, and every `resolution` increments thereafter, and finally at `end` exactly.
 	Trajectory(alpha, start, end, resolution float64) ([]*TrajNode, error)
 	// Solve will return the (alpha, dist) TP-space coordinates whose corresponding relative pose minimizes the given function
-	Solve(context.Context, []referenceframe.Input, ik.StateMetric) (*ik.Solution, error)
+	Solve(context.Context, []referenceframe.Input, motionplan.StateMetric) (*ik.Solution, error)
 }
 
 // PTGProvider is something able to provide a set of PTGs associsated with it. For example, a frame which precomputes
@@ -170,14 +171,14 @@ func invertComputedPTG(forwardsPTG []*TrajNode) []*TrajNode {
 
 // PTGSegmentMetric is a metric which returns the TP-space distance traversed in a segment. Since PTG inputs are relative, the distance
 // travelled is the distance field of the ending configuration.
-func PTGSegmentMetric(segment *ik.Segment) float64 {
+func PTGSegmentMetric(segment *motionplan.Segment) float64 {
 	return segment.EndConfiguration[len(segment.EndConfiguration)-1].Value
 }
 
 // NewPTGDistanceMetric creates a metric which returns the TP-space distance traversed in a segment for a frame. Since PTG inputs are
 // relative, the distance travelled is the distance field of the ending configuration.
-func NewPTGDistanceMetric(ptgFrames []string) ik.SegmentFSMetric {
-	return func(segment *ik.SegmentFS) float64 {
+func NewPTGDistanceMetric(ptgFrames []string) motionplan.SegmentFSMetric {
+	return func(segment *motionplan.SegmentFS) float64 {
 		score := 0.
 		for _, ptgFrame := range ptgFrames {
 			if frameCfg, ok := segment.EndConfiguration[ptgFrame]; ok {
