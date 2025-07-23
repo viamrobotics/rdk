@@ -222,14 +222,14 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			appConn, false, logger.Sublogger("networking").Sublogger("netlogger"),
+			appConn, false, logger.Sublogger("networking").Sublogger("netlogger-local"),
 		)
 		if err != nil {
 			return err
 		}
 		defer netAppender.Close()
 
-		registry.AddAppenderToAll(netAppender)
+		registry.AddAppenderToAll(netAppender, map[string]struct{}{"rdk.networking.netlogger-local": {}})
 	}
 	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(logger)
