@@ -80,7 +80,6 @@ func New(
 		namesToJobIDs: make(map[string]uuid.UUID),
 		ctx:           robotContext,
 		conn:          conn,
-		closeMutex:    sync.Mutex{},
 	}
 
 	jm.scheduler.Start()
@@ -255,7 +254,7 @@ func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 		// job running at the same time. If a job reaches its schedule while the previous
 		// iteration is running, the job scheduler will treat them differently based on
 		// jobLimitMode.
-		// If the job is a CRON job, the run will be skipped/cancelled if a previous
+		// If the job is a CRON job, the run will be skipped if a previous
 		// invocation of a job is still running.
 		// If the job is a DURATION job, the new job will run as soon as the previous one
 		// finishes. This has no effect on the schedule (timer) of the job.
