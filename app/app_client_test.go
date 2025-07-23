@@ -1620,7 +1620,7 @@ func TestAppClient(t *testing.T) {
 				Fragment: &pbFragment,
 			}, nil
 		}
-		resp, err := client.GetFragment(context.Background(), fragmentID)
+		resp, err := client.GetFragment(context.Background(), fragmentID, "")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &fragment)
 	})

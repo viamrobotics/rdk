@@ -116,6 +116,7 @@ type Frame interface {
 	ProtobufFromInput([]Input) *pb.JointPositions
 
 	json.Marshaler
+	json.Unmarshaler
 }
 
 // baseFrame contains all the data and methods common to all frames, notably it does not implement the Frame interface itself.
@@ -293,6 +294,36 @@ func (sf staticFrame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
+func (sf *staticFrame) UnmarshalJSON(data []byte) error {
+	var lc LinkConfig
+	if err := json.Unmarshal(data, &lc); err != nil {
+		return err
+	}
+
+	var transform spatial.Pose
+	var geometry spatial.Geometry
+	if lc.Orientation != nil {
+		orientation, err := lc.Orientation.ParseConfig()
+		if err != nil {
+			return err
+		}
+		transform = spatial.NewPose(lc.Translation, orientation)
+	} else {
+		transform = spatial.NewPose(lc.Translation, nil)
+	}
+	if lc.Geometry != nil {
+		geo, err := lc.Geometry.ParseConfig()
+		if err != nil {
+			return err
+		}
+		geometry = geo
+	}
+	sf.baseFrame = &baseFrame{name: lc.ID, limits: []Limit{}}
+	sf.transform = transform
+	sf.geometry = geometry
+	return nil
+}
+
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions.
 type translationalFrame struct {
 	*baseFrame
@@ -380,6 +411,24 @@ func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
+func (pf *translationalFrame) UnmarshalJSON(data []byte) error {
+	var cfg JointConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return err
+	}
+
+	pf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{{Min: cfg.Min, Max: cfg.Max}}}
+	pf.transAxis = r3.Vector(cfg.Axis).Normalize()
+	if cfg.Geometry != nil {
+		geometry, err := cfg.Geometry.ParseConfig()
+		if err != nil {
+			return err
+		}
+		pf.geometry = geometry
+	}
+	return nil
+}
+
 type rotationalFrame struct {
 	*baseFrame
 	rotAxis r3.Vector
@@ -444,6 +493,18 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(temp)
+}
+
+func (rf *rotationalFrame) UnmarshalJSON(data []byte) error {
+	var cfg JointConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return err
+	}
+
+	rf.baseFrame = &baseFrame{name: rf.Name(), limits: []Limit{{Min: cfg.Min, Max: cfg.Max}}}
+	rotAxis := cfg.Axis.ParseConfig()
+	rf.rotAxis = r3.Vector{X: rotAxis.RX, Y: rotAxis.RY, Z: rotAxis.RZ}
+	return nil
 }
 
 type poseFrame struct {
@@ -530,6 +591,11 @@ func (pf *poseFrame) DoF() []Limit {
 // MarshalJSON serializes a Model.
 func (pf *poseFrame) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("serializing a poseFrame is currently not supported")
+}
+
+// UnmarshalJSON parses a poseFrame.
+func (pf *poseFrame) UnmarshalJSON(data []byte) error {
+	return errors.New("deserializing a poseFrame is currently not supported")
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.

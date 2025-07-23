@@ -35,8 +35,8 @@ type planManager struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newPlanManager(logger logging.Logger, fs *referenceframe.FrameSystem, request *PlanRequest) (*planManager, error) {
-	p, err := newPlannerFromPlanRequest(logger, fs, request)
+func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, error) {
+	p, err := newPlannerFromPlanRequest(logger, request)
 	if err != nil {
 		return nil, err
 	}
@@ -474,6 +474,7 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 
 	constraintHandler, err := newConstraintHandler(
 		opt,
+		pm.logger,
 		pm.request.Constraints,
 		startState,
 		wpGoals,
@@ -508,6 +509,7 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 
 		constraintHandler, err = newConstraintHandler(
 			opt,
+			pm.logger,
 			pm.request.Constraints,
 			startState,
 			wpGoals,
@@ -587,6 +589,7 @@ func (pm *planManager) generateWaypoints(seedPlan Plan, wpi int) ([]atomicWaypoi
 
 		wpConstraintHandler, err := newConstraintHandler(
 			wpOpt,
+			pm.logger,
 			pm.request.Constraints,
 			from,
 			to,

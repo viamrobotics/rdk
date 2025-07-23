@@ -9,9 +9,7 @@ import (
 	_ "go.viam.com/rdk/services/discovery"
 	_ "go.viam.com/rdk/services/generic"
 	_ "go.viam.com/rdk/services/mlmodel"
-	_ "go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/shell"
 	_ "go.viam.com/rdk/services/slam"
-	_ "go.viam.com/rdk/services/vision"
 )

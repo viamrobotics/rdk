@@ -41,9 +41,6 @@ func (server *serviceServer) DiscoverResources(ctx context.Context, req *pb.Disc
 	if err != nil {
 		return nil, err
 	}
-	if configs == nil {
-		return nil, ErrNilResponse
-	}
 
 	protoConfigs := []*apppb.ComponentConfig{}
 	for _, cfg := range configs {

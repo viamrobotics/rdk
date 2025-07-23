@@ -200,10 +200,10 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
-// An allowed list of specific viam namespace modules. We want to allow running some of our official
-// modules even in an untrusted environment.
-var allowedModules = map[string]bool{
-	"viam:raspberry-pi": true,
+// An allowed list of specific namespaces that are allowed to run in an untrusted environment.
+// We want to allow running all of our official modules even in an untrusted environment.
+var allowedModulesNamespaces = map[string]bool{
+	"viam": true,
 }
 
 // Checks if the modules added in an untrusted environment are Viam modules
@@ -212,7 +212,12 @@ func checkIfAllowed(confs ...config.Module) (
 	allowed bool /*false*/, newConfs []config.Module,
 ) {
 	for _, conf := range confs {
-		if ok := allowedModules[conf.ModuleID]; ok {
+		parts := strings.Split(conf.ModuleID, ":")
+		if len(parts) == 0 {
+			continue
+		}
+		namespace := parts[0]
+		if ok := allowedModulesNamespaces[namespace]; ok {
 			allowed = true
 			newConfs = append(newConfs, conf)
 		}
