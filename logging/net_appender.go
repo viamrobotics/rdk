@@ -319,7 +319,14 @@ func (nl *NetAppender) backgroundWorker() {
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
 			if !errors.Is(err, errUninitializedConnection) {
-				nl.loggerWithoutNet.Infof("error logging to network: %s", err)
+				errMsg := fmt.Sprintf("error logging to network: %s", err)
+				nl.loggerWithoutNet.Info(errMsg)
+
+				entry := newInternalLogEntry(zapcore.InfoLevel, errMsg)
+				err := nl.Write(entry, nil)
+				if err != nil {
+					nl.loggerWithoutNet.Warnw("Unable to add to net log queue", "entry", entry, "err", err)
+				}
 			}
 		} else {
 			interval = normalInterval
