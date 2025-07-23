@@ -1,4 +1,5 @@
-// Package sys provides functionality for gathering system metrics in an FTDC compliant API.
+//go:build unix
+
 package sys
 
 import (
@@ -55,14 +56,6 @@ func NewPidSysUsageStatser(pid int) (*UsageStatser, error) {
 	}
 
 	return &UsageStatser{process}, nil
-}
-
-type stats struct {
-	UserCPUSecs     float64
-	SystemCPUSecs   float64
-	ElapsedTimeSecs float64
-	VssMB           float64
-	RssMB           float64
 }
 
 // Stats returns Stats.
