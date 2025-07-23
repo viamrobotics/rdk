@@ -11,7 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/mpimpl1"
+	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
@@ -187,14 +187,14 @@ func (ptgk *ptgBaseKinematics) CurrentInputs(ctx context.Context) ([]referencefr
 	return ptgk.currentState.currentInputs, nil
 }
 
-func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (mpimpl1.ExecutionState, error) {
+func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (armplanning.ExecutionState, error) {
 	if ptgk.Localizer == nil {
-		return mpimpl1.ExecutionState{}, errors.New("cannot call ExecutionState on a base without a localizer")
+		return armplanning.ExecutionState{}, errors.New("cannot call ExecutionState on a base without a localizer")
 	}
 
 	actualPIF, err := ptgk.Localizer.CurrentPosition(ctx)
 	if err != nil {
-		return mpimpl1.ExecutionState{}, err
+		return armplanning.ExecutionState{}, err
 	}
 
 	ptgk.inputLock.RLock()
@@ -204,7 +204,7 @@ func (ptgk *ptgBaseKinematics) ExecutionState(ctx context.Context) (mpimpl1.Exec
 	currentExecutingSteps := ptgk.currentState.currentExecutingSteps
 	currentPlan := ptgk.stepsToPlan(currentExecutingSteps, actualPIF.Parent())
 	ptgk.inputLock.RUnlock()
-	return mpimpl1.NewExecutionState(
+	return armplanning.NewExecutionState(
 		currentPlan,
 		currentIdx,
 		referenceframe.FrameSystemInputs{ptgk.planningModel.Name(): currentInputs},

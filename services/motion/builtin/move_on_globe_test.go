@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
-	"go.viam.com/rdk/motionplan/mpimpl1"
+	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -35,7 +35,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+7e-5)
 	// create motion config
 	extra := map[string]interface{}{
-		"motion_profile": mpimpl1.PositionOnlyMotionProfile,
+		"motion_profile": armplanning.PositionOnlyMotionProfile,
 		"timeout":        15.,
 		"smooth_iter":    5.,
 	}
@@ -167,7 +167,7 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 	origin := geo.NewPoint(0, 0)
 	dst := geo.NewPoint(origin.Lat(), origin.Lng()+1e-5)
 	extra := map[string]interface{}{
-		"motion_profile": mpimpl1.PositionOnlyMotionProfile,
+		"motion_profile": armplanning.PositionOnlyMotionProfile,
 		"timeout":        5.,
 		"smooth_iter":    5.,
 	}
@@ -323,7 +323,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 		"max_replans":      10,
 		"max_ik_solutions": 1,
 		"smooth_iter":      1,
-		"motion_profile":   mpimpl1.PositionOnlyMotionProfile,
+		"motion_profile":   armplanning.PositionOnlyMotionProfile,
 	}
 	extraNoReplan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 

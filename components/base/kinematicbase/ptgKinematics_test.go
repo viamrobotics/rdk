@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/mpimpl1"
+	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -78,17 +78,17 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 	fs.AddFrame(f, fs.World())
 	inputMap := referenceframe.NewZeroInputs(fs)
 
-	startState := mpimpl1.NewPlanState(
+	startState := armplanning.NewPlanState(
 		referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)},
 		inputMap,
 	)
-	goalState := mpimpl1.NewPlanState(referenceframe.FrameSystemPoses{f.Name(): dstPIF}, nil)
+	goalState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{f.Name(): dstPIF}, nil)
 
-	plan, err := mpimpl1.PlanMotion(ctx, logger, &mpimpl1.PlanRequest{
+	plan, err := armplanning.PlanMotion(ctx, logger, &armplanning.PlanRequest{
 		FrameSystem:    fs,
-		Goals:          []*mpimpl1.PlanState{goalState},
+		Goals:          []*armplanning.PlanState{goalState},
 		StartState:     startState,
-		PlannerOptions: mpimpl1.NewBasicPlannerOptions(),
+		PlannerOptions: armplanning.NewBasicPlannerOptions(),
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
@@ -169,17 +169,17 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	startState := mpimpl1.NewPlanState(
+	startState := armplanning.NewPlanState(
 		referenceframe.FrameSystemPoses{k.Name(): referenceframe.NewZeroPoseInFrame(referenceframe.World)},
 		inputMap,
 	)
-	goalState := mpimpl1.NewPlanState(referenceframe.FrameSystemPoses{k.Name(): dstPIF}, nil)
-	plan, err := mpimpl1.PlanMotion(ctx, logger, &mpimpl1.PlanRequest{
+	goalState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{k.Name(): dstPIF}, nil)
+	plan, err := armplanning.PlanMotion(ctx, logger, &armplanning.PlanRequest{
 		FrameSystem:    fs,
-		Goals:          []*mpimpl1.PlanState{goalState},
+		Goals:          []*armplanning.PlanState{goalState},
 		StartState:     startState,
 		WorldState:     worldState,
-		PlannerOptions: mpimpl1.NewBasicPlannerOptions(),
+		PlannerOptions: armplanning.NewBasicPlannerOptions(),
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, plan, test.ShouldNotBeNil)
@@ -249,7 +249,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		t.Run("ErrorState", func(t *testing.T) {
 			executionState, err := kb.ExecutionState(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			errorState, err := mpimpl1.CalculateFrameErrorState(executionState, k, kb.LocalizationFrame())
+			errorState, err := armplanning.CalculateFrameErrorState(executionState, k, kb.LocalizationFrame())
 			test.That(t, err, test.ShouldBeNil)
 
 			// Error State should be computed based on current inputs, current executing steps, and the localizer's position function
@@ -291,7 +291,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 			// After course correction, error state should always be zero
 			executionState, err := kb.ExecutionState(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			errorState, err := mpimpl1.CalculateFrameErrorState(executionState, k, kb.LocalizationFrame())
+			errorState, err := armplanning.CalculateFrameErrorState(executionState, k, kb.LocalizationFrame())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, spatialmath.PoseAlmostEqualEps(errorState, spatialmath.NewZeroPose(), 1e-5), test.ShouldBeTrue)
 		})

@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/mpimpl1"
+	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
@@ -368,6 +368,6 @@ func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired 
 	return capsule, nil
 }
 
-func (ddk *differentialDriveKinematics) ExecutionState(ctx context.Context) (mpimpl1.ExecutionState, error) {
-	return mpimpl1.ExecutionState{}, errors.New("differentialDriveKinematics does not support executionState")
+func (ddk *differentialDriveKinematics) ExecutionState(ctx context.Context) (armplanning.ExecutionState, error) {
+	return armplanning.ExecutionState{}, errors.New("differentialDriveKinematics does not support executionState")
 }
