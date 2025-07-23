@@ -361,29 +361,6 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	}
 
 	nl.toLogMutex.Lock()
-	toLogOverflowsSinceLastSync := nl.toLogOverflowsSinceLastSync
-	defer func() {
-		nl.toLogMutex.Unlock()
-
-		// Log about overflowed logs *after* we write out the latest batch. Dropped logs were technically before, but here
-		// 1) we know we're back online (don't clog up queue with this message)
-		// 2) both loggers used below acquire toLogMutex
-		if toLogOverflowsSinceLastSync > 0 {
-			overflowMsg := fmt.Sprintf("Overflowed %d logs while offline. Check local system logs for anything important.",
-				toLogOverflowsSinceLastSync)
-
-			// This logger also writes to App, but perhaps was not originally designed to do so
-			nl.loggerWithoutNet.Warn(overflowMsg)
-
-			// Manually create new log entry & add to queue
-			entry := newInternalLogEntry(zapcore.WarnLevel, overflowMsg)
-			err := nl.Write(entry, nil)
-			if err != nil {
-				nl.loggerWithoutNet.Warnw("Unable to add to net log queue", "entry", entry, "err", err)
-			}
-		}
-	}()
-
 	// Remove successfully synced logs from the queue. If we've overflowed more times than the size of the batch
 	// we wrote, do not mutate toLog at all. If we've synced more logs than there are logs left, set idx to length
 	// of array to prevent panics.
@@ -392,8 +369,31 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 		idx := min(batchSize-nl.toLogOverflowsSinceLastSync, len(nl.toLog))
 		nl.toLog = nl.toLog[idx:]
 	}
+
+	toLogOverflowsSinceLastSync := nl.toLogOverflowsSinceLastSync
 	nl.toLogOverflowsSinceLastSync = 0
-	return len(nl.toLog) > 0, nil
+
+	hasMoreToLog := len(nl.toLog) > 0
+	nl.toLogMutex.Unlock()
+
+	// Log about overflowed logs *after* we write out the latest batch. Dropped logs were technically before, but here
+	// 1) we know we're back online (don't clog up queue with this message)
+	// 2) adding to queue requires toLogMutex
+	if toLogOverflowsSinceLastSync > 0 {
+		overflowMsg := fmt.Sprintf("Overflowed %d logs while offline. Check local system logs for anything important.",
+			toLogOverflowsSinceLastSync)
+
+		// Log to console immediately
+		nl.loggerWithoutNet.Warn(overflowMsg)
+
+		// Manually create new log entry & add to cloud queue
+		entry := newInternalLogEntry(zapcore.WarnLevel, overflowMsg)
+		err := nl.Write(entry, nil)
+		if err != nil {
+			nl.loggerWithoutNet.Warnw("Unable to add to net log queue", "entry", entry, "err", err)
+		}
+	}
+	return hasMoreToLog, nil
 }
 
 // sync will flush the internal buffer of logs. This is not exposed as multiple calls to sync at
