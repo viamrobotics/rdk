@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"runtime"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -379,16 +378,14 @@ func newWithResources(
 		ftdcDir := ftdc.DefaultDirectory(utils.ViamDotDir, partID)
 		ftdcLogger := logger.Sublogger("ftdc")
 		ftdcWorker = ftdc.NewWithUploader(ftdcDir, conn, partID, ftdcLogger)
-		if runtime.GOOS == "windows" {
-			// note: this logs a panic on RDK start on windows.
-			ftdcLogger.Debug("System level FTDC not implemented on windows, not starting CPU and network metrics")
-		} else {
-			if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
-				ftdcWorker.Add("proc.viam-server", statser)
-			}
-			if statser, err := sys.NewNetUsage(); err == nil {
-				ftdcWorker.Add("net", statser)
-			}
+		if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
+			ftdcWorker.Add("proc.viam-server", statser)
+		}
+		if statser, err := sys.NewNetUsage(); err == nil {
+			ftdcWorker.Add("net", statser)
+		}
+		if statser, err := sys.NewNetUsage(); err == nil {
+			ftdcWorker.Add("net", statser)
 		}
 	}
 
