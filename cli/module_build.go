@@ -123,19 +123,20 @@ func ModuleBuildLocalAction(cCtx *cli.Context, args moduleBuildLocalArgs) error 
 	if err != nil {
 		return err
 	}
-	return moduleBuildLocalAction(cCtx, &manifest)
+	return moduleBuildLocalAction(cCtx, &manifest, nil)
 }
 
-func moduleBuildLocalAction(cCtx *cli.Context, manifest *moduleManifest) error {
+func moduleBuildLocalAction(cCtx *cli.Context, manifest *moduleManifest, environment map[string]string) error {
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
 	infof(cCtx.App.Writer, "Starting build")
 	processConfig := pexec.ProcessConfig{
-		Name:      "bash",
-		OneShot:   true,
-		Log:       true,
-		LogWriter: cCtx.App.Writer,
+		Environment: environment,
+		Name:        "bash",
+		OneShot:     true,
+		Log:         true,
+		LogWriter:   cCtx.App.Writer,
 	}
 	// Required logger for the ManagedProcess. Not used
 	logger := logging.NewLogger("x")
@@ -529,6 +530,25 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	if part.Part == nil {
 		return fmt.Errorf("part with id=%s not found", partID)
 	}
+
+	platform := part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
+	partInfo := strings.SplitN(platform, "/", 2)
+	partOs := partInfo[0]
+	partArch := partInfo[1]
+
+	// Create environment map with platform info
+	environment := map[string]string{
+		"VIAM_BUILD_OS":   partOs,
+		"VIAM_BUILD_ARCH": partArch,
+	}
+
+	// Add all environment variables with VIAM_ prefix
+	for _, envVar := range os.Environ() {
+		if parts := strings.SplitN(envVar, "=", 2); len(parts) == 2 && strings.HasPrefix(parts[0], "VIAM_") {
+			environment[parts[0]] = parts[1]
+		}
+	}
+
 	// note: configureModule and restartModule signal the robot via different channels.
 	// Running this command in rapid succession can cause an extra restart because the
 	// CLI will see configuration changes before the robot, and skip to the needsRestart
@@ -540,7 +560,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 			if manifest == nil {
 				return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
 			}
-			err = moduleBuildLocalAction(c, manifest)
+			err = moduleBuildLocalAction(c, manifest, environment)
 			if err != nil {
 				return err
 			}
