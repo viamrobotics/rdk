@@ -531,10 +531,16 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 		return fmt.Errorf("part with id=%s not found", partID)
 	}
 
-	platform := part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
-	partInfo := strings.SplitN(platform, "/", 2)
-	partOs := partInfo[0]
-	partArch := partInfo[1]
+	var partOs string
+	var partArch string
+	if part.Part.UserSuppliedInfo != nil {
+		platform := part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
+		partInfo := strings.SplitN(platform, "/", 2)
+		if len(partInfo) == 2 {
+			partOs = partInfo[0]
+			partArch = partInfo[1]
+		}
+	}
 
 	// Create environment map with platform info
 	environment := map[string]string{
