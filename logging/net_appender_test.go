@@ -109,8 +109,8 @@ func TestNetLoggerSync(t *testing.T) {
 	defer server.stop()
 
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
-	loggerWithoutNet := NewTestLogger(t)
-	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, loggerWithoutNet)
+	netAppenderInternalLogger := NewTestLogger(t)
+	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, netAppenderInternalLogger)
 	test.That(t, err, test.ShouldBeNil)
 
 	logger := NewDebugLogger("test logger")
@@ -140,8 +140,8 @@ func TestNetLoggerSyncFailureAndRetry(t *testing.T) {
 	defer server.stop()
 
 	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
-	loggerWithoutNet := NewTestLogger(t)
-	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, loggerWithoutNet)
+	netAppenderInternalLogger := NewTestLogger(t)
+	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, netAppenderInternalLogger)
 	test.That(t, err, test.ShouldBeNil)
 
 	logger := NewDebugLogger("test logger")
@@ -192,8 +192,8 @@ func TestNetLoggerOverflowDuringWrite(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
 
-	loggerWithoutNet := NewDebugLogger("logger-without-net")
-	netAppender, err := NewNetAppender(server.cloudConfig, nil, false, loggerWithoutNet)
+	netAppenderInternalLogger := NewDebugLogger("logger-without-net")
+	netAppender, err := NewNetAppender(server.cloudConfig, nil, false, netAppenderInternalLogger)
 	test.That(t, err, test.ShouldBeNil)
 	logger := NewDebugLogger("test logger")
 	logger.AddAppender(netAppender)
@@ -240,11 +240,11 @@ func TestNetLoggerOverflowDuringWrite(t *testing.T) {
 func TestProvidedClientConn(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()
-	loggerWithoutNet := NewTestLogger(t)
-	conn, err := CreateNewGRPCClient(context.Background(), server.cloudConfig, loggerWithoutNet)
+	netAppenderInternalLogger := NewTestLogger(t)
+	conn, err := CreateNewGRPCClient(context.Background(), server.cloudConfig, netAppenderInternalLogger)
 	test.That(t, err, test.ShouldBeNil)
 	defer conn.Close()
-	netAppender, err := NewNetAppender(server.cloudConfig, conn, true, loggerWithoutNet)
+	netAppender, err := NewNetAppender(server.cloudConfig, conn, true, netAppenderInternalLogger)
 	test.That(t, err, test.ShouldBeNil)
 	// make sure these are the same object, i.e. that the constructor set it properly.
 	test.That(t, netAppender.remoteWriter.rpcClient == conn, test.ShouldBeTrue)
@@ -264,8 +264,8 @@ func TestSetConn(t *testing.T) {
 	defer server.stop()
 
 	// when inheritConn=true, getOrCreateClient should return uninitializedConnectionError
-	loggerWithoutNet := NewTestLogger(t)
-	netAppender, err := NewNetAppender(server.cloudConfig, nil, true, loggerWithoutNet)
+	netAppenderInternalLogger := NewTestLogger(t)
+	netAppender, err := NewNetAppender(server.cloudConfig, nil, true, netAppenderInternalLogger)
 	test.That(t, err, test.ShouldBeNil)
 	client, err := netAppender.remoteWriter.getOrCreateClient(context.Background())
 	test.That(t, client, test.ShouldBeNil)
@@ -277,7 +277,7 @@ func TestSetConn(t *testing.T) {
 	logger.Info("pre-connect")
 
 	// now set a connection
-	conn, err := CreateNewGRPCClient(context.Background(), server.cloudConfig, loggerWithoutNet)
+	conn, err := CreateNewGRPCClient(context.Background(), server.cloudConfig, netAppenderInternalLogger)
 	test.That(t, err, test.ShouldBeNil)
 	netAppender.SetConn(conn, true)
 	test.That(t, server.service.logs, test.ShouldBeEmpty)
@@ -292,10 +292,10 @@ func TestSetConn(t *testing.T) {
 func quickFakeAppender(t *testing.T) *NetAppender {
 	t.Helper()
 	return &NetAppender{
-		toLog:            make([]*commonpb.LogEntry, 0),
-		remoteWriter:     &remoteLogWriterGRPC{},
-		cancel:           func() {},
-		loggerWithoutNet: NewTestLogger(t),
+		toLog:          make([]*commonpb.LogEntry, 0),
+		remoteWriter:   &remoteLogWriterGRPC{},
+		cancel:         func() {},
+		internalLogger: NewTestLogger(t),
 	}
 }
 
