@@ -197,17 +197,15 @@ type wrappedEntryCaller struct {
 	Function string
 }
 
-// newInternalLogEntry creates a minimal LogEntry for internal use that can be used with NetAppender.Write.
-func newInternalLogEntry(level zapcore.Level, message string) *LogEntry {
-	return &LogEntry{
-		Entry: zapcore.Entry{
-			Level:      level,
-			Time:       time.Now(),
-			LoggerName: "NetAppender",
-			Message:    message,
-			Caller:     zapcore.EntryCaller{},
-			Stack:      "",
-		},
+// newInternalLogEntry creates a minimal zapcore.Entry that can be used with NetAppender.Write.
+func newInternalLogEntry(level zapcore.Level, message string) zapcore.Entry {
+	return zapcore.Entry{
+		Level:      level,
+		Time:       time.Now(),
+		LoggerName: "NetAppender",
+		Message:    message,
+		Caller:     zapcore.EntryCaller{},
+		Stack:      "",
 	}
 }
 
@@ -371,10 +369,10 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 			nl.loggerWithoutNet.Warn(overflowMsg)
 
 			// Manually create new log entry & add to queue
-			le := newInternalLogEntry(zapcore.WarnLevel, overflowMsg)
-			err := nl.Write(le.Entry, le.Fields)
+			entry := newInternalLogEntry(zapcore.WarnLevel, overflowMsg)
+			err := nl.Write(entry, nil)
 			if err != nil {
-				nl.loggerWithoutNet.Warnw("Unable to write overflow message to App", "msg", overflowMsg, "err", err)
+				nl.loggerWithoutNet.Warnw("Unable to add to net log queue", "entry", entry, "err", err)
 			}
 		}
 	}()
