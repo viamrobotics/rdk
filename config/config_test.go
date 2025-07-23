@@ -1206,7 +1206,6 @@ func TestPackageConfig(t *testing.T) {
 }
 
 func TestJobsConfig(t *testing.T) {
-	invSched := "Invalid schedule format, expected a golang duration string or a valid cron expression"
 	errString := func(field string) string {
 		return fmt.Sprintf("Error validating, missing required field. Field: %q", field)
 	}
@@ -1259,55 +1258,6 @@ func TestJobsConfig(t *testing.T) {
 			shouldFailValidation: true,
 			expRespErr:           errString("schedule"),
 		},
-		{
-			config: config.JobConfig{
-				config.JobConfigData{
-					Name:     "too many cron fields",
-					Schedule: "* 0 * * * * * *",
-					Method:   "my_method",
-					Resource: "my_resource",
-				},
-			},
-			shouldFailValidation: true,
-			expRespErr:           invSched,
-		},
-		{
-			config: config.JobConfig{
-				config.JobConfigData{
-					Name:     "invalid schedule",
-					Schedule: "Invalid duration",
-					Method:   "my_method",
-					Resource: "my_resource",
-				},
-			},
-			shouldFailValidation: true,
-			expRespErr:           invSched,
-		},
-		{
-			config: config.JobConfig{
-				config.JobConfigData{
-					Name:     "too few cron fields",
-					Schedule: "0 0 * *",
-					Method:   "my_method",
-					Resource: "my_resource",
-				},
-			},
-			shouldFailValidation: true,
-			expRespErr:           invSched,
-		},
-		{
-			config: config.JobConfig{
-				config.JobConfigData{
-					Name:     "schedule in the past",
-					Schedule: "0 0 * * * 2",
-					Method:   "my_method",
-					Resource: "my_resource",
-				},
-			},
-			shouldFailValidation: true,
-			expRespErr:           invSched,
-		},
-
 		{
 			config: config.JobConfig{
 				config.JobConfigData{
@@ -1514,7 +1464,7 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 					{
 						config.JobConfigData{
 							Name:     "my-job",
-							Schedule: "30 5 10 7 2 Sun *",
+							Schedule: "30 5 10 7 2 Sun",
 							Resource: "my-resource",
 							Method:   "my-method",
 						},
@@ -1558,7 +1508,7 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 					{
 						config.JobConfigData{
 							Name:     "my-job",
-							Schedule: "30 5 10 7 2 Sun *",
+							Schedule: "30 5 10 7 2 Sun",
 							Resource: "my-resource",
 							Method:   "my-method",
 						},

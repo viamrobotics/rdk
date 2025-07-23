@@ -151,6 +151,7 @@ func TestPtgWithObstacle(t *testing.T) {
 		worldGeometries.Geometries(),
 		nil, nil,
 		defaultCollisionBufferMM,
+		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -33,6 +34,7 @@ func newEmptyConstraintHandler() *ConstraintHandler {
 
 func newConstraintHandler(
 	opt *PlannerOptions,
+	logger logging.Logger,
 	constraints *motionplan.Constraints,
 	from, to *PlanState,
 	fs *referenceframe.FrameSystem,
@@ -119,6 +121,7 @@ func newConstraintHandler(
 		boundingRegions,
 		allowedCollisions,
 		opt.CollisionBufferMM,
+		logger,
 	)
 	if err != nil {
 		return nil, err

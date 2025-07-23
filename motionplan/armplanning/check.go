@@ -47,12 +47,13 @@ func CheckPlan(
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
 	// Currently this is only TP-space, so we check if the PTG length is >0.
 	if motionChains.useTPspace {
-		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
+		return checkPlanRelative(logger, checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
 	}
-	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
+	return checkPlanAbsolute(logger, checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
 }
 
 func checkPlanRelative(
+	logger logging.Logger,
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
@@ -92,6 +93,7 @@ func checkPlanRelative(
 
 	constraintHandler, err := newConstraintHandler(
 		planOpts,
+		logger,
 		nil,
 		&PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
 		&PlanState{poses: plan.Path()[len(plan.Path())-1]},
@@ -193,6 +195,7 @@ func checkPlanRelative(
 }
 
 func checkPlanAbsolute(
+	logger logging.Logger,
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
@@ -238,6 +241,7 @@ func checkPlanAbsolute(
 
 	constraintHandler, err := newConstraintHandler(
 		planOpts,
+		logger,
 		nil,
 		&PlanState{poses: executionState.CurrentPoses(), configuration: startingInputs},
 		&PlanState{poses: poses[len(poses)-1]},

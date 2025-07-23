@@ -17,10 +17,10 @@ for p in "${pkgs[@]}"; do
       fi
       continue
     fi
-    # if ! grep -q "$regexp" register_apis/*; then
-    #   echo "Missing expected import '$expectedImport' in 'rdk/$p/register_apis'"
-    #   exit 1
-    # fi
+    if ! grep -q "$regexp" register_apis/*; then
+      echo "Missing expected import '$expectedImport' in 'rdk/$p/register_apis'"
+      exit 1
+    fi
   done
   popd > /dev/null
 done

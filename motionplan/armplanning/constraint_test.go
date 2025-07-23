@@ -245,6 +245,7 @@ func TestCollisionConstraints(t *testing.T) {
 		worldGeometries.Geometries(),
 		nil, nil,
 		defaultCollisionBufferMM,
+		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
@@ -309,6 +310,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 		worldGeometries.Geometries(),
 		nil, nil,
 		defaultCollisionBufferMM,
+		logger,
 	)
 	test.That(b, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
