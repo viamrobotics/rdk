@@ -267,8 +267,8 @@ func (b *builtIn) UploadBinaryDataToDatasets(ctx context.Context,
 	mimeType v1.MimeType,
 	_ map[string]interface{},
 ) error {
-	b.logger.Info("UploadBinaryDataToDatasets START")
-	defer b.logger.Info("UploadBinaryDataToDatasets END")
+	b.logger.Debug("UploadBinaryDataToDatasets START")
+	defer b.logger.Debug("UploadBinaryDataToDatasets END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.sync.UploadBinaryDataToDatasets(ctx, binaryData, datasetIDs, tags, mimeType)
@@ -281,13 +281,13 @@ func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 	mimeType v1.MimeType,
 	_ map[string]interface{},
 ) error {
-	b.logger.Info("UploadImageToDataset START")
-	defer b.logger.Info("UploadImageToDataset END")
-	b.mu.Lock()
-	defer b.mu.Unlock()
+	b.logger.Debug("UploadImageToDataset START")
+	defer b.logger.Debug("UploadImageToDataset END")
 	imgBytes, err := datamanager.ConvertImageToBytes(image, mimeType)
 	if err != nil {
 		return err
 	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType)
 }

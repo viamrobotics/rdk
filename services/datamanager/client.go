@@ -94,24 +94,12 @@ func (c *client) UploadImageToDatasets(
 	mimeType datasyncpb.MimeType,
 	extra map[string]interface{},
 ) error {
-	ext, err := protoutils.StructToStructPb(extra)
-	if err != nil {
-		return err
-	}
-
 	imgBytes, err := ConvertImageToBytes(image, mimeType)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.client.UploadBinaryDataToDatasets(ctx, &pb.UploadBinaryDataToDatasetsRequest{
-		BinaryData: imgBytes,
-		DatasetIds: datasetIDs,
-		Tags:       tags,
-		MimeType:   mimeType,
-		Extra:      ext,
-	})
-	if err != nil {
+	if err = c.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType, extra); err != nil {
 		return err
 	}
 	return nil
