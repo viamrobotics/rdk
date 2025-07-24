@@ -17,6 +17,7 @@ var (
 )
 
 func init() {
+	// windows doesn't need pageSize because RSS is in bytes already
 	osPageSize = os.Getpagesize()
 
 	// Get boot time using gopsutil
@@ -71,7 +72,7 @@ func (sys *UsageStatser) Stats() any {
 		return stats{}
 	}
 
-	// Get process creation time
+	// Get process creation time, in ms
 	createTime, err := sys.proc.CreateTime()
 	if err != nil {
 		return stats{}
@@ -80,6 +81,7 @@ func (sys *UsageStatser) Stats() any {
 	// Calculate elapsed time
 	elapsedTimeSecs := float64(time.Now().UnixMilli()-createTime) / 1000.0
 	sys.logger.Info(elapsedTimeSecs)
+	sys.logger.Infow("The stats are ", "cpu", cpuTimes.CPU, "system", cpuTimes.System, "user", cpuTimes.User)
 
 	return stats{
 		UserCPUSecs:     cpuTimes.User,   // Already in seconds
