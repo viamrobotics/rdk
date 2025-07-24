@@ -305,6 +305,22 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 	}
 }
 
+func (r *localRobot) updateRemotesAndRetryResourceConfigure() bool {
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
+
+	anyChanges := r.manager.updateRemotesResourceNames(r.closeContext)
+	if r.manager.anyResourcesNotConfigured() {
+		anyChanges = true
+		r.manager.completeConfig(r.closeContext, r, false)
+	}
+	if anyChanges {
+		r.updateWeakAndOptionalDependents(r.closeContext)
+
+	}
+	return anyChanges
+}
+
 // completeConfigWorker tries to complete the config and update weak/optional dependencies
 // if any resources are not configured. It will also update the resource graph if remotes
 // have changed. It executes every 5 seconds or when manually triggered. Manual triggers
@@ -325,17 +341,10 @@ func (r *localRobot) completeConfigWorker() {
 			trigger = "remote"
 			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by remote")
 		}
-		r.reconfigurationLock.Lock()
-		anyChanges := r.manager.updateRemotesResourceNames(r.closeContext)
-		if r.manager.anyResourcesNotConfigured() {
-			anyChanges = true
-			r.manager.completeConfig(r.closeContext, r, false)
-		}
+		anyChanges := r.updateRemotesAndRetryResourceConfigure()
 		if anyChanges {
-			r.updateWeakAndOptionalDependents(r.closeContext)
 			r.logger.CDebugw(r.closeContext, "configuration attempt completed with changes", "trigger", trigger)
 		}
-		r.reconfigurationLock.Unlock()
 	}
 }
 
