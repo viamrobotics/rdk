@@ -394,8 +394,8 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	return nil
 }
 
-// Reconfigure reconfigures an existing resource module and returns the names of
-// now orphaned resources.
+// Reconfigure reconfigures an existing resource module and returns the names of resources previously
+// handled by the module.
 func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()

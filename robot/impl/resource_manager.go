@@ -1028,7 +1028,6 @@ func (manager *resourceManager) markChildrenForUpdate(rName resource.Name) error
 		if !ok {
 			continue
 		}
-
 		gNode.SetNeedsUpdate()
 	}
 	return nil
@@ -1282,7 +1281,6 @@ func (manager *resourceManager) markRemoved(
 		if err != nil {
 			manager.logger.CErrorw(ctx, "error removing module", "module", conf.Name, "error", err)
 		}
-		resourcesToMark = append(resourcesToMark, affectedResourceNames...)
 		resourcesToRebuild = append(resourcesToRebuild, affectedResourceNames...)
 	}
 
@@ -1301,7 +1299,10 @@ func (manager *resourceManager) markRemoved(
 			markedResourceNames[name] = struct{}{}
 		}
 	}
-	resourcesToCloseBeforeComplete := manager.markResourcesRemoved(resourcesToMark, addNames)
+	resourcesToCloseBeforeComplete := manager.markResourcesRemoved(resourcesToMark, addNames, true)
+	resourcesToCloseBeforeComplete = append(
+		resourcesToCloseBeforeComplete,
+		manager.markResourcesRemoved(resourcesToRebuild, addNames, false)...)
 	return resourcesToCloseBeforeComplete, markedResourceNames, resourcesToRebuild
 }
 
@@ -1310,6 +1311,7 @@ func (manager *resourceManager) markRemoved(
 func (manager *resourceManager) markResourcesRemoved(
 	rNames []resource.Name,
 	addNames func(names ...resource.Name),
+	withDependents bool,
 ) []resource.Resource {
 	var resourcesToCloseBeforeComplete []resource.Resource
 	for _, rName := range rNames {
@@ -1324,15 +1326,19 @@ func (manager *resourceManager) markResourcesRemoved(
 		}
 		resourcesToCloseBeforeComplete = append(resourcesToCloseBeforeComplete,
 			resource.NewCloseOnlyResource(rName, resNode.Close))
-		subG, err := manager.resources.SubGraphFrom(rName)
-		if err != nil {
-			manager.logger.Errorw("error while getting a subgraph", "error", err)
-			continue
+		resNode.MarkForRemoval()
+
+		if withDependents {
+			subG, err := manager.resources.SubGraphFrom(rName)
+			if err != nil {
+				manager.logger.Errorw("error while getting a subgraph", "error", err)
+				continue
+			}
+			if addNames != nil {
+				addNames(subG.Names()...)
+			}
+			manager.resources.MarkForRemoval(subG)
 		}
-		if addNames != nil {
-			addNames(subG.Names()...)
-		}
-		manager.resources.MarkForRemoval(subG)
 	}
 	return resourcesToCloseBeforeComplete
 }
