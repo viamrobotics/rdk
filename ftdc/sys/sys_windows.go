@@ -8,6 +8,7 @@ import (
 
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/process"
+	"go.viam.com/rdk/logging"
 )
 
 var (
@@ -30,26 +31,30 @@ func init() {
 
 // UsageStatser can be used to get system metrics for a process.
 type UsageStatser struct {
-	proc *process.Process
+	proc   *process.Process
+	logger logging.Logger
 }
 
 // NewSelfSysUsageStatser will return a `SysUsageStatser` for the current process.
-func NewSelfSysUsageStatser() (*UsageStatser, error) {
+func NewSelfSysUsageStatser(logger logging.Logger) (*UsageStatser, error) {
+	usageLogger := logger.Sublogger("sys-metrics-windows")
+	usageLogger.NeverDeduplicate()
 	pid := int32(os.Getpid())
 	proc, err := process.NewProcess(pid)
 	if err != nil {
+		usageLogger.Warn(err)
 		return nil, err
 	}
-	return &UsageStatser{proc}, nil
+	return &UsageStatser{proc, usageLogger}, nil
 }
 
 // NewPidSysUsageStatser will return a `SysUsageStatser` for the given process id.
-func NewPidSysUsageStatser(pid int) (*UsageStatser, error) {
+func NewPidSysUsageStatser(pid int, logger logging.Logger) (*UsageStatser, error) {
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		return nil, err
 	}
-	return &UsageStatser{proc}, nil
+	return &UsageStatser{proc, logger.Sublogger("sys-metrics-windows")}, nil
 }
 
 // Stats returns Stats.
@@ -74,6 +79,7 @@ func (sys *UsageStatser) Stats() any {
 
 	// Calculate elapsed time
 	elapsedTimeSecs := float64(time.Now().UnixMilli()-createTime) / 1000.0
+	sys.logger.Info(elapsedTimeSecs)
 
 	return stats{
 		UserCPUSecs:     cpuTimes.User,   // Already in seconds

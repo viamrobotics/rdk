@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/prometheus/procfs"
+	"go.viam.com/rdk/logging"
 )
 
 // On linux, getting the page size is a system call. Cache the page size for the entirety of the
@@ -35,27 +36,28 @@ func init() {
 
 // UsageStatser can be used to get system metrics for a process.
 type UsageStatser struct {
-	proc procfs.Proc
+	proc   procfs.Proc
+	logger logging.Logger
 }
 
 // NewSelfSysUsageStatser will return a `SysUsageStatser` for the current process.
-func NewSelfSysUsageStatser() (*UsageStatser, error) {
+func NewSelfSysUsageStatser(logger logging.Logger) (*UsageStatser, error) {
 	process, err := procfs.Self()
 	if err != nil {
 		return nil, err
 	}
 
-	return &UsageStatser{process}, nil
+	return &UsageStatser{process, logger.Sublogger("sys-metrics")}, nil
 }
 
 // NewPidSysUsageStatser will return a `SysUsageStatser` for the given process id.
-func NewPidSysUsageStatser(pid int) (*UsageStatser, error) {
+func NewPidSysUsageStatser(pid int, logger logging.Logger) (*UsageStatser, error) {
 	process, err := procfs.NewProc(pid)
 	if err != nil {
 		return nil, err
 	}
 
-	return &UsageStatser{process}, nil
+	return &UsageStatser{process, logger.Sublogger("sys-metrics")}, nil
 }
 
 // Stats returns Stats.
