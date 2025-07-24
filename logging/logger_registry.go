@@ -114,7 +114,7 @@ func (lr *Registry) GetCurrentConfig() []LoggerPatternConfig {
 	return lr.logConfig
 }
 
-// AddAppenderToAll adds the specified appender to loggers in the registry. Specific names can be excluded.
+// AddAppenderToAll adds the specified appender to all loggers in the registry.
 func (lr *Registry) AddAppenderToAll(appender Appender) {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
