@@ -30,7 +30,7 @@ func uploadArbitraryFile(
 	ctx context.Context,
 	f *os.File,
 	conn cloudConn,
-	tags []string,
+	tags, datasetIDs []string,
 	fileLastModifiedMillis int,
 	clock clock.Clock,
 	logger logging.Logger,
@@ -86,6 +86,7 @@ func uploadArbitraryFile(
 				FileName:      path,
 				FileExtension: filepath.Ext(f.Name()),
 				Tags:          tags,
+				DatasetIds:    datasetIDs,
 			},
 		},
 	}); err != nil {
