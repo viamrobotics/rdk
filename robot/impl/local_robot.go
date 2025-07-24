@@ -1488,7 +1488,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
 	}
 
-	// First we mark diff.Removed resources and their children for removal.
+	// First we mark diff.Removed resources and their children for removal. Modular resources removed this way
+	// will only have their children marked for update, since there is a chance that the resource is served by
+	// a different module.
 	resourcesToCloseBeforeComplete, _, resourcesToRebuild := r.manager.markRemoved(ctx, diff.Removed)
 
 	// Second we attempt to Close resources.
