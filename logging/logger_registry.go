@@ -115,13 +115,11 @@ func (lr *Registry) GetCurrentConfig() []LoggerPatternConfig {
 }
 
 // AddAppenderToAll adds the specified appender to loggers in the registry. Specific names can be excluded.
-func (lr *Registry) AddAppenderToAll(appender Appender, exclude map[string]struct{}) {
+func (lr *Registry) AddAppenderToAll(appender Appender) {
 	lr.mu.RLock()
 	defer lr.mu.RUnlock()
-	for name, logger := range lr.loggers {
-		if _, ok := exclude[name]; !ok {
-			logger.AddAppender(appender)
-		}
+	for _, logger := range lr.loggers {
+		logger.AddAppender(appender)
 	}
 }
 
