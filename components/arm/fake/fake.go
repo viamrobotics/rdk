@@ -11,7 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/armplanning"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -157,7 +157,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra m
 		return err
 	}
 
-	plan, err := armplanning.PlanFrameMotion(ctx, a.logger, pose, model, a.joints, nil, nil)
+	plan, err := motionplan.GetGlobal().PlanFrameMotion(ctx, a.logger, pose, model, a.joints, nil, nil)
 	if err != nil {
 		return err
 	}
