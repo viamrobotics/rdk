@@ -17,12 +17,8 @@ import (
 	rtestutils "go.viam.com/rdk/testutils"
 )
 
-func TestRenamedModuleDependentRecovery(t *testing.T) {
-	// on module 1 'mod' rename, test that a modular resource on module 2 'mod2'
-	// and a builtin resource that depends on a modular resource on 'mod'
-	// continues to exist and work.
-	ctx := context.Background()
-	logger, _ := logging.NewObservedTestLogger(t)
+func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger logging.Logger) (robot.LocalRobot, config.Config) {
+	t.Helper()
 
 	// Precompile modules to avoid timeout issues when building takes too long.
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
@@ -32,13 +28,19 @@ func TestRenamedModuleDependentRecovery(t *testing.T) {
 	helperModel := resource.NewModel("rdk", "test", "helper")
 	helper2Model := resource.NewModel("rdk", "test", "helper2")
 
-	r := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
+	// VIAM_TESTMODULE_FAIL_ON_FIRST will make it so that resource 'h' will always fail on the first
+	// construction and succeed on the second.
+	env := make(map[string]string)
+	if failOnFirst {
+		env["VIAM_TESTMODULE_FAIL_ON_FIRST"] = "1"
+	}
 
-	cfg := &config.Config{
+	cfg := config.Config{
 		Modules: []config.Module{
 			{
-				Name:    "mod",
-				ExePath: testPath,
+				Name:        "mod",
+				ExePath:     testPath,
+				Environment: env,
 			},
 			{
 				Name:    "mod2",
@@ -65,62 +67,76 @@ func TestRenamedModuleDependentRecovery(t *testing.T) {
 			},
 		},
 	}
-	r.Reconfigure(ctx, cfg)
 
+	r := setupLocalRobot(t, ctx, &cfg, logger, withDisableCompleteConfigWorker())
+
+	// Assert that if failOnFirst is false, resources are all available after the first pass.
+	if !failOnFirst {
+		h, err := r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldBeNil)
+		_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+		test.That(t, err, test.ShouldBeNil)
+
+		h2, err := r.ResourceByName(generic.Named("h2"))
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
+
+		_, err = r.ResourceByName(generic.Named("h3"))
+		test.That(t, err, test.ShouldBeNil)
+	} else {
+		// Assert that if failOnFirst is true, none of the resources are available after the first attempt.
+		_, err := r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldNotBeNil)
+
+		_, err = r.ResourceByName(generic.Named("h2"))
+		test.That(t, err, test.ShouldNotBeNil)
+
+		_, err = r.ResourceByName(generic.Named("h3"))
+		test.That(t, err, test.ShouldNotBeNil)
+
+		// Assert that retrying resource construction creates all of the resources.
+		anyChanges := r.(*localRobot).updateRemotesAndRetryResourceConfigure()
+		test.That(t, anyChanges, test.ShouldBeTrue)
+
+		_, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldBeNil)
+
+		h2, err := r.ResourceByName(generic.Named("h2"))
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
+
+		_, err = r.ResourceByName(generic.Named("h3"))
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	return r, cfg
+}
+
+func TestRenamedModuleDependentRecovery(t *testing.T) {
+	// on module 1 'mod' rename, test that a modular resource on module 2 'mod2'
+	// and a builtin resource that depends on a modular resource on 'mod'
+	// continues to exist and work.
+	ctx := context.Background()
+	logger, _ := logging.NewObservedTestLogger(t)
+	r, cfg := setupModuleTest(t, ctx, false, logger)
+
+	// rename 'mod' to 'mod1'.
+	cfg.Modules[0].Name = "mod1"
+	r.Reconfigure(ctx, &cfg)
+
+	// Assert that after a module rename, 'h', 'h2', and 'h3' continue to exist and work.
 	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 
 	h2, err := r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
 	resp, err := h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
-
-	_, err = r.ResourceByName(generic.Named("h3"))
-	test.That(t, err, test.ShouldBeNil)
-
-	cfg = &config.Config{
-		Modules: []config.Module{
-			{
-				Name:    "mod1",
-				ExePath: testPath,
-			},
-			{
-				Name:    "mod2",
-				ExePath: test2Path,
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "h",
-				Model: helperModel,
-				API:   generic.API,
-			},
-			{
-				Name:      "h2",
-				Model:     helper2Model,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-			{
-				Name:      "h3",
-				Model:     fakeModel,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-		},
-	}
-	r.Reconfigure(ctx, cfg)
-
-	h, err = r.ResourceByName(generic.Named("h"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
-	test.That(t, err, test.ShouldBeNil)
-
-	// h2 and h3 should also continue to exist and requests that go to h should not fail.
-	h2, err = r.ResourceByName(generic.Named("h2"))
-	test.That(t, err, test.ShouldBeNil)
-	resp, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
 
@@ -132,57 +148,18 @@ func TestRenamedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	// on module 1 'mod' rename, test that a modular resource on module 2 'mod2'
 	// and a builtin resource that depends on a modular resource on 'mod'
 	// continues to exist and work.
-	//
-	// VIAM_TESTMODULE_FAIL_ON_FIRST will make it so that resource 'h' will always fail on the first
-	// construction and succeed on the second.
-	t.Setenv("VIAM_TESTMODULE_FAIL_ON_FIRST", "1")
 	ctx := context.Background()
 	logger, _ := logging.NewObservedTestLogger(t)
 
-	// Precompile modules to avoid timeout issues when building takes too long.
-	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
-	test2Path := rtestutils.BuildTempModule(t, "module/testmodule2")
+	// set up the test so that 'h' will always fail on first construction.
+	r, cfg := setupModuleTest(t, ctx, true, logger)
 
-	// Manually define models, as importing them can cause double registration.
-	helperModel := resource.NewModel("rdk", "test", "helper")
-	helper2Model := resource.NewModel("rdk", "test", "helper2")
+	// rename 'mod' to 'mod1'.
+	cfg.Modules[0].Name = "mod1"
+	r.Reconfigure(ctx, &cfg)
 
-	r := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
-
-	cfg := &config.Config{
-		Modules: []config.Module{
-			{
-				Name:    "mod",
-				ExePath: testPath,
-			},
-			{
-				Name:    "mod2",
-				ExePath: test2Path,
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "h",
-				Model: helperModel,
-				API:   generic.API,
-			},
-			{
-				Name:      "h2",
-				Model:     helper2Model,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-			{
-				Name:      "h3",
-				Model:     fakeModel,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-		},
-	}
-	r.Reconfigure(ctx, cfg)
-
-	// Assert that on first Reconfigure, none of the resources are available.
+	// Assert that 'h', 'h2', and 'h3' are all not available because 'h' failed construction,
+	// meaning 'h2' and 'h3' will also get removed.
 	_, err := r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -192,78 +169,18 @@ func TestRenamedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldNotBeNil)
 
+	// Assert that retrying resource construction creates all of the resources.
 	anyChanges := r.(*localRobot).updateRemotesAndRetryResourceConfigure()
 	test.That(t, anyChanges, test.ShouldBeTrue)
 
-	// Assert that retrying a resource construction creates all of the resources.
 	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 
 	h2, err := r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
 	resp, err := h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
-
-	_, err = r.ResourceByName(generic.Named("h3"))
-	test.That(t, err, test.ShouldBeNil)
-
-	cfg = &config.Config{
-		Modules: []config.Module{
-			{
-				Name:    "mod1",
-				ExePath: testPath,
-			},
-			{
-				Name:    "mod2",
-				ExePath: test2Path,
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "h",
-				Model: helperModel,
-				API:   generic.API,
-			},
-			{
-				Name:      "h2",
-				Model:     helper2Model,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-			{
-				Name:      "h3",
-				Model:     fakeModel,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-		},
-	}
-	r.Reconfigure(ctx, cfg)
-
-	// Assert that h is not available, but h2 and h3 are.
-	// h2 and h3 should to fail any requests that depends on h.
-	_, err = r.ResourceByName(generic.Named("h"))
-	test.That(t, err, test.ShouldNotBeNil)
-
-	_, err = r.ResourceByName(generic.Named("h2"))
-	test.That(t, err, test.ShouldNotBeNil)
-
-	_, err = r.ResourceByName(generic.Named("h3"))
-	test.That(t, err, test.ShouldNotBeNil)
-
-	anyChanges = r.(*localRobot).updateRemotesAndRetryResourceConfigure()
-	test.That(t, anyChanges, test.ShouldBeTrue)
-
-	h, err = r.ResourceByName(generic.Named("h"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
-	test.That(t, err, test.ShouldBeNil)
-
-	// h2 and h3 should also now be updated and requests that go to h should not fail.
-	h2, err = r.ResourceByName(generic.Named("h2"))
-	test.That(t, err, test.ShouldBeNil)
-	resp, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
 
@@ -277,105 +194,22 @@ func TestReconfiguredModuleDependentRecovery(t *testing.T) {
 	// continues to exist and work.
 	ctx := context.Background()
 	logger, _ := logging.NewObservedTestLogger(t)
+	r, cfg := setupModuleTest(t, ctx, false, logger)
 
-	// Precompile modules to avoid timeout issues when building takes too long.
-	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	// reconfigure 'mod' by changing the ExePath.
 	testPathReconf := rtestutils.BuildTempModule(t, "module/testmodule")
-	test2Path := rtestutils.BuildTempModule(t, "module/testmodule2")
+	cfg.Modules[0].ExePath = testPathReconf
+	r.Reconfigure(ctx, &cfg)
 
-	// Manually define models, as importing them can cause double registration.
-	helperModel := resource.NewModel("rdk", "test", "helper")
-	helper2Model := resource.NewModel("rdk", "test", "helper2")
-
-	r := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
-
-	cfg := &config.Config{
-		Modules: []config.Module{
-			{
-				Name:    "mod",
-				ExePath: testPath,
-			},
-			{
-				Name:    "mod2",
-				ExePath: test2Path,
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "h",
-				Model: helperModel,
-				API:   generic.API,
-			},
-			{
-				Name:      "h2",
-				Model:     helper2Model,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-			{
-				Name:      "h3",
-				Model:     fakeModel,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-		},
-	}
-	r.Reconfigure(ctx, cfg)
-
+	// Assert that after a module rename, 'h', 'h2', and 'h3' continue to exist and work.
 	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 
 	h2, err := r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
 	resp, err := h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
-
-	_, err = r.ResourceByName(generic.Named("h3"))
-	test.That(t, err, test.ShouldBeNil)
-
-	cfg = &config.Config{
-		Modules: []config.Module{
-			{
-				Name:    "mod",
-				ExePath: testPathReconf,
-			},
-			{
-				Name:    "mod2",
-				ExePath: test2Path,
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "h",
-				Model: helperModel,
-				API:   generic.API,
-			},
-			{
-				Name:      "h2",
-				Model:     helper2Model,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-			{
-				Name:      "h3",
-				Model:     fakeModel,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-		},
-	}
-	r.Reconfigure(ctx, cfg)
-
-	h, err = r.ResourceByName(generic.Named("h"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
-	test.That(t, err, test.ShouldBeNil)
-
-	// h2 and h3 should also continue to exist and requests that go to h should not fail.
-	h2, err = r.ResourceByName(generic.Named("h2"))
-	test.That(t, err, test.ShouldBeNil)
-	resp, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
 
@@ -387,58 +221,19 @@ func TestReconfiguredModuleDependentRecoveryAfterFailedFirstConstruction(t *test
 	// on module 1 'mod' reconfigure, test that a modular resource on module 2 'mod2'
 	// and a builtin resource that depends on a modular resource on 'mod'
 	// continues to exist and work.
-	//
-	// VIAM_TESTMODULE_FAIL_ON_FIRST will make it so that resource 'h' will always fail on the first
-	// construction and succeed on the second.
-	t.Setenv("VIAM_TESTMODULE_FAIL_ON_FIRST", "1")
 	ctx := context.Background()
 	logger, _ := logging.NewObservedTestLogger(t)
 
-	// Precompile modules to avoid timeout issues when building takes too long.
-	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	// set up the test so that 'h' will always fail on first construction.
+	r, cfg := setupModuleTest(t, ctx, true, logger)
+
+	// reconfigure 'mod' by changing the ExePath.
 	testPathReconf := rtestutils.BuildTempModule(t, "module/testmodule")
-	test2Path := rtestutils.BuildTempModule(t, "module/testmodule2")
+	cfg.Modules[0].ExePath = testPathReconf
+	r.Reconfigure(ctx, &cfg)
 
-	// Manually define models, as importing them can cause double registration.
-	helperModel := resource.NewModel("rdk", "test", "helper")
-	helper2Model := resource.NewModel("rdk", "test", "helper2")
-
-	r := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
-
-	cfg := &config.Config{
-		Modules: []config.Module{
-			{
-				Name:    "mod",
-				ExePath: testPath,
-			},
-			{
-				Name:    "mod2",
-				ExePath: test2Path,
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "h",
-				Model: helperModel,
-				API:   generic.API,
-			},
-			{
-				Name:      "h2",
-				Model:     helper2Model,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-			{
-				Name:      "h3",
-				Model:     fakeModel,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-		},
-	}
-	r.Reconfigure(ctx, cfg)
-
-	// Assert that on first Reconfigure, none of the resources are available.
+	// Assert that 'h', 'h2', and 'h3' are all not available because 'h' failed construction,
+	// meaning 'h2' and 'h3' will also get removed.
 	_, err := r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -448,78 +243,18 @@ func TestReconfiguredModuleDependentRecoveryAfterFailedFirstConstruction(t *test
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldNotBeNil)
 
+	// Assert that retrying resource construction creates all of the resources.
 	anyChanges := r.(*localRobot).updateRemotesAndRetryResourceConfigure()
 	test.That(t, anyChanges, test.ShouldBeTrue)
 
-	// Assert that retrying a resource construction creates all of the resources.
 	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 
 	h2, err := r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
 	resp, err := h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
-
-	_, err = r.ResourceByName(generic.Named("h3"))
-	test.That(t, err, test.ShouldBeNil)
-
-	cfg = &config.Config{
-		Modules: []config.Module{
-			{
-				Name:    "mod",
-				ExePath: testPathReconf,
-			},
-			{
-				Name:    "mod2",
-				ExePath: test2Path,
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "h",
-				Model: helperModel,
-				API:   generic.API,
-			},
-			{
-				Name:      "h2",
-				Model:     helper2Model,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-			{
-				Name:      "h3",
-				Model:     fakeModel,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-		},
-	}
-	r.Reconfigure(ctx, cfg)
-
-	// Assert that h is not available, but h2 and h3 are.
-	// h2 and h3 should continue to fail any requests that depends on h.
-	_, err = r.ResourceByName(generic.Named("h"))
-	test.That(t, err, test.ShouldNotBeNil)
-
-	_, err = r.ResourceByName(generic.Named("h2"))
-	test.That(t, err, test.ShouldNotBeNil)
-
-	_, err = r.ResourceByName(generic.Named("h3"))
-	test.That(t, err, test.ShouldNotBeNil)
-
-	anyChanges = r.(*localRobot).updateRemotesAndRetryResourceConfigure()
-	test.That(t, anyChanges, test.ShouldBeTrue)
-
-	h, err = r.ResourceByName(generic.Named("h"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
-	test.That(t, err, test.ShouldBeNil)
-
-	// h2 and h3 should also now be recreated and requests that go to h should not fail.
-	h2, err = r.ResourceByName(generic.Named("h2"))
-	test.That(t, err, test.ShouldBeNil)
-	resp, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
 
@@ -527,76 +262,22 @@ func TestReconfiguredModuleDependentRecoveryAfterFailedFirstConstruction(t *test
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestReloadModuleDependentRecovery(t *testing.T) {
+func TestRestartModuleDependentRecovery(t *testing.T) {
 	// on module 1 'mod' reload, test that a modular resource on module 2 'mod2'
 	// and a builtin resource that depends on a modular resource on 'mod'
 	// continues to exist and work.
 	ctx := context.Background()
 	logger, _ := logging.NewObservedTestLogger(t)
-
-	// Precompile modules to avoid timeout issues when building takes too long.
-	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
-	test2Path := rtestutils.BuildTempModule(t, "module/testmodule2")
-
-	// Manually define models, as importing them can cause double registration.
-	helperModel := resource.NewModel("rdk", "test", "helper")
-	helper2Model := resource.NewModel("rdk", "test", "helper2")
-
-	r := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
-
-	cfg := &config.Config{
-		Modules: []config.Module{
-			{
-				Name:    "mod",
-				ExePath: testPath,
-			},
-			{
-				Name:    "mod2",
-				ExePath: test2Path,
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "h",
-				Model: helperModel,
-				API:   generic.API,
-			},
-			{
-				Name:      "h2",
-				Model:     helper2Model,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-			{
-				Name:      "h3",
-				Model:     fakeModel,
-				API:       generic.API,
-				DependsOn: []string{"h"},
-			},
-		},
-	}
-	r.Reconfigure(ctx, cfg)
-
-	h, err := r.ResourceByName(generic.Named("h"))
-	test.That(t, err, test.ShouldBeNil)
-
-	h2, err := r.ResourceByName(generic.Named("h2"))
-	test.That(t, err, test.ShouldBeNil)
-	resp, err := h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
-
-	_, err = r.ResourceByName(generic.Named("h3"))
-	test.That(t, err, test.ShouldBeNil)
+	r, _ := setupModuleTest(t, ctx, false, logger)
 
 	r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: "mod"})
 
 	// Assert that h is not available, but h2 and h3 are.
 	// h2 and h3 should fail any requests that depends on h.
-	_, err = r.ResourceByName(generic.Named("h"))
+	_, err := r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldNotBeNil)
 
-	_, err = r.ResourceByName(generic.Named("h2"))
+	h2, err := r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -608,7 +289,7 @@ func TestReloadModuleDependentRecovery(t *testing.T) {
 	anyChanges := r.(*localRobot).updateRemotesAndRetryResourceConfigure()
 	test.That(t, anyChanges, test.ShouldBeTrue)
 
-	h, err = r.ResourceByName(generic.Named("h"))
+	h, err := r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
@@ -616,7 +297,7 @@ func TestReloadModuleDependentRecovery(t *testing.T) {
 	// h2 and h3 should also continue to exist and requests that go to h should not fail.
 	h2, err = r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
-	resp, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	resp, err := h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
 
@@ -624,7 +305,7 @@ func TestReloadModuleDependentRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestReloadModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
+func TestRestartModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
 	// on module 1 'mod' reload, test that a modular resource on module 2 'mod2'
 	// and a builtin resource that depends on a modular resource on 'mod'
 	// continues to exist and work.
