@@ -79,13 +79,13 @@ func (n *netStatser) Stats() any {
 		Ifaces: make(map[string]netDevLine),
 	}
 
-	// Get network interface statistics using GetIfTable
+	// Windows makes it a bit harder to get network interfaces than linux. Using the LazyDLL
+	// from the library, we can create a "Process" for each of the metrics we are tracking,
+	// and Call into specific APIs with according structs defined above.
 	n.getInterfaceStats(&ret)
 
-	// Get TCP statistics
 	n.getTCPStats(&ret)
 
-	// Get UDP statistics
 	n.getUDPStats(&ret)
 
 	return ret
@@ -123,7 +123,6 @@ func (n *netStatser) getInterfaceStats(ret *networkStats) {
 		// Convert interface name from UTF-16
 		name := windows.UTF16ToString(row.Name[:])
 		if name == "" {
-			// Fallback to description if name is empty
 			name = string(row.Descr[:row.DescrLen])
 		}
 
@@ -148,12 +147,12 @@ func (n *netStatser) getTCPStats(ret *networkStats) {
 	var stats mibTcpStats
 	r1, _, _ := getTcpStatistics.Call(uintptr(unsafe.Pointer(&stats)))
 
-	if r1 == 0 { // NO_ERROR
+	if r1 == 0 {
 		ret.TCP.UsedSockets = uint64(stats.CurrEstab)
 		// Windows doesn't directly expose TX/RX queue lengths like Linux /proc
 		// These values would need additional API calls to GetTcpTable for per-connection data
-		ret.TCP.TxQueueLength = 0 // Not directly available
-		ret.TCP.RxQueueLength = 0 // Not directly available
+		ret.TCP.TxQueueLength = 0
+		ret.TCP.RxQueueLength = 0
 	}
 }
 
@@ -163,11 +162,10 @@ func (n *netStatser) getUDPStats(ret *networkStats) {
 	var stats mibUdpStats
 	r1, _, _ := getUdpStatistics.Call(uintptr(unsafe.Pointer(&stats)))
 
-	if r1 == 0 { // NO_ERROR
+	if r1 == 0 {
 		ret.UDP.UsedSockets = uint64(stats.NumAddrs)
 		ret.UDP.Drops = uint64(stats.InErrors)
-		// Windows doesn't directly expose TX/RX queue lengths like Linux /proc
-		ret.UDP.TxQueueLength = 0 // Not directly available
-		ret.UDP.RxQueueLength = 0 // Not directly available
+		ret.UDP.TxQueueLength = 0
+		ret.UDP.RxQueueLength = 0
 	}
 }

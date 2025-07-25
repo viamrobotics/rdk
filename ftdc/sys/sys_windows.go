@@ -16,12 +16,13 @@ var (
 )
 
 func init() {
-	osPageSize = os.Getpagesize()
+	// Windows API provides RSS in bytes already, so there is no need
+	// to get the osPageSize
+	//osPageSize = os.Getpagesize()
 
-	// Get boot time using gopsutil
 	bootTime, err := host.BootTime()
 	if err != nil {
-		// Fallback - could also use WMI or other methods
+		// heuristic for failing
 		machineBootTimeSecsSinceEpoch = 0
 	} else {
 		machineBootTimeSecsSinceEpoch = float64(bootTime)
@@ -54,32 +55,31 @@ func NewPidSysUsageStatser(pid int) (*UsageStatser, error) {
 
 // Stats returns Stats.
 func (sys *UsageStatser) Stats() any {
-	// Get CPU times
 	cpuTimes, err := sys.proc.Times()
 	if err != nil {
 		return stats{}
 	}
 
-	// Get memory info
 	memInfo, err := sys.proc.MemoryInfo()
 	if err != nil {
 		return stats{}
 	}
 
-	// Get process creation time
+	// Get process creation time, in milliseconds
 	createTime, err := sys.proc.CreateTime()
 	if err != nil {
 		return stats{}
 	}
 
-	// Calculate elapsed time
+	// elapsedTimeSecs is the time the program started in seconds since the epoch.
 	elapsedTimeSecs := float64(time.Now().UnixMilli()-createTime) / 1000.0
 
 	return stats{
-		UserCPUSecs:     cpuTimes.User,   // Already in seconds
-		SystemCPUSecs:   cpuTimes.System, // Already in seconds
+		UserCPUSecs:     cpuTimes.User,
+		SystemCPUSecs:   cpuTimes.System,
 		ElapsedTimeSecs: elapsedTimeSecs,
-		VssMB:           float64(memInfo.VMS) / 1_000_000.0, // Virtual memory
-		RssMB:           float64(memInfo.RSS) / 1_000_000.0, // Resident memory
+		// memInfo is already in bytes
+		VssMB: float64(memInfo.VMS) / 1_000_000.0,
+		RssMB: float64(memInfo.RSS) / 1_000_000.0,
 	}
 }
