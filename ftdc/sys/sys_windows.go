@@ -85,10 +85,6 @@ func (sys *UsageStatser) Stats() any {
 
 	// Calculate elapsed time
 	elapsedTimeSecs := float64(time.Now().UnixMilli()-createTime) / 1000.0
-	sys.logger.Info(elapsedTimeSecs)
-	sys.logger.Info(cpuTimes)
-	sys.logger.Info("test", cpuTimes.User)
-	sys.logger.Infow("The stats are ", "cpu", cpuTimes.CPU, "system", cpuTimes.System, "user", cpuTimes.User)
 
 	return stats{
 		UserCPUSecs:     cpuTimes.User,   // Already in seconds
