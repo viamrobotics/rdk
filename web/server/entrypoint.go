@@ -222,7 +222,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			appConn, false, logger.Sublogger("networking").Sublogger("netlogger"),
+			appConn, false, logging.NewLogger("NetAppender-loggerWithoutNet"),
 		)
 		if err != nil {
 			return err
