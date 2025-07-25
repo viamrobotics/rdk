@@ -110,7 +110,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 			motion.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:remoteArm"),
-			motion.Named("foo:builtin"),
 		},
 	)
 
@@ -123,9 +122,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		arm.Named("arm1"),
 		arm.Named("arm2"),
 		arm.Named("foo:remoteArm"),
-		motion.Named("foo:builtin"),
 		arm.Named("bar:remoteArm"),
-		motion.Named("bar:builtin"),
 	}
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), mainPartAndFooAndBarResources)
@@ -139,7 +136,6 @@ func TestRemoteRobotsGold(t *testing.T) {
 				motion.Named(resource.DefaultServiceName),
 				arm.Named("arm1"),
 				arm.Named("foo:remoteArm"),
-				motion.Named("foo:builtin"),
 			},
 		)
 	})
@@ -207,13 +203,9 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 	expectedSet := []resource.Name{
 		motion.Named(resource.DefaultServiceName),
 		arm.Named("foo:arm1"),
-		motion.Named("foo:builtin"),
 		arm.Named("bar:arm1"),
-		motion.Named("bar:builtin"),
 		arm.Named("hello:arm1"),
-		motion.Named("hello:builtin"),
 		arm.Named("world:arm1"),
-		motion.Named("world:builtin"),
 	}
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), expectedSet)
@@ -279,7 +271,6 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 		motion.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("foo:pieceArm"),
-		motion.Named("foo:builtin"),
 	}
 
 	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedSet)
@@ -366,7 +357,6 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 		motion.Named(resource.DefaultServiceName),
 		arm.Named("arm1"),
 		arm.Named("foo:pieceArm"),
-		motion.Named("foo:builtin"),
 	}
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), expectedSet)
@@ -443,9 +433,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	expectedSet := []resource.Name{
 		motion.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
-		motion.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
-		motion.Named("bar:builtin"),
 	}
 
 	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedSet)
@@ -484,9 +472,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	finalSet := []resource.Name{
 		motion.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
-		motion.Named("foo:builtin"),
 		arm.Named("bar:pieceArm"),
-		motion.Named("bar:builtin"),
 		arm.Named("arm1"),
 	}
 

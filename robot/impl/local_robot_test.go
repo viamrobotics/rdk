@@ -195,9 +195,6 @@ func TestConfigRemote(t *testing.T) {
 		gripper.Named("squee:pieceGripper"),
 		gripper.Named("foo:pieceGripper"),
 		gripper.Named("bar:pieceGripper"),
-		motion.Named("squee:builtin"),
-		motion.Named("foo:builtin"),
-		motion.Named("bar:builtin"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -371,8 +368,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				movementsensor.Named("foo:movement_sensor2"),
 				gripper.Named("bar:pieceGripper"),
 				gripper.Named("foo:pieceGripper"),
-				motion.Named("foo:builtin"),
-				motion.Named("bar:builtin"),
 			}
 
 			resources2 := r2.ResourceNames()
@@ -506,7 +501,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		movementsensor.Named("foo:movement_sensor1"),
 		movementsensor.Named("foo:movement_sensor2"),
 		gripper.Named("foo:pieceGripper"),
-		motion.Named("foo:builtin"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -520,7 +514,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	statuses, err := r2.MachineStatus(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses.Resources), test.ShouldEqual, 13)
+	test.That(t, len(statuses.Resources), test.ShouldEqual, 12)
 	test.That(t, statuses, test.ShouldNotBeNil)
 }
 
@@ -834,8 +828,6 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			movementsensor.Named("remote:movement_sensor1"),
 			movementsensor.Named("remote:movement_sensor2"),
 			gripper.Named("remote:pieceGripper"),
-			motion.Named("remote:builtin"),
-			motion.Named("remote:foo:builtin"),
 		},
 	)
 	arm1, err := r.ResourceByName(arm.Named("remote:foo:arm1"))
@@ -3756,13 +3748,6 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 					{
 						NodeStatus: resource.NodeStatus{
 							Name:  resource.NewName(client.RemoteAPI, remoteName1),
-							State: resource.NodeStateReady,
-						},
-						CloudMetadata: expectedMd,
-					},
-					{
-						NodeStatus: resource.NodeStatus{
-							Name:  motion.Named("builtin").PrependRemote(remoteName1),
 							State: resource.NodeStateReady,
 						},
 						CloudMetadata: expectedMd,
