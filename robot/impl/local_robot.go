@@ -379,11 +379,11 @@ func newWithResources(
 		//logger.Debug("System FTDC metrics are not implemented on windows")
 		//} else {
 		//logger.Info("Inside 1")
+		if statser, err := sys.NewSelfSysUsageStatser(ftdcLogger); err == nil {
+			ftdcWorker.Add("proc.viam-server", statser)
+		}
 		if runtime.GOOS != "windows" {
 
-			if statser, err := sys.NewSelfSysUsageStatser(ftdcLogger); err == nil {
-				ftdcWorker.Add("proc.viam-server", statser)
-			}
 			if statser, err := sys.NewNetUsage(); err == nil {
 				ftdcWorker.Add("net", statser)
 			}
