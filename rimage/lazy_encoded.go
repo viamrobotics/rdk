@@ -7,10 +7,7 @@ import (
 	"image"
 	"image/color"
 	"net/http"
-	"strings"
 	"sync"
-
-	"go.viam.com/rdk/logging"
 )
 
 // LazyEncodedImage defers the decoding of an image until necessary.
@@ -36,13 +33,9 @@ type LazyEncodedImage struct {
 // image.Image methods (Bounds, ColorModel, or At) to avoid panics.
 func NewLazyEncodedImage(imgBytes []byte, mimeType string) image.Image {
 	if mimeType == "" {
-		logging.Global().Warn("NewLazyEncodedImage called without a mime_type. " +
-			"Sniffing bytes to detect mime_type. Specify mime_type to reduce CPU utilization")
+		// Callsites are encouraged to check for a mime type and explicitly call
+		// `DetectContentType`/log unexpected cases if desired.
 		mimeType = http.DetectContentType(imgBytes)
-	}
-
-	if !strings.HasPrefix(mimeType, "image/") {
-		logging.Global().Warnf("NewLazyEncodedImage resolving to non image mime_type: %s", mimeType)
 	}
 
 	return &LazyEncodedImage{

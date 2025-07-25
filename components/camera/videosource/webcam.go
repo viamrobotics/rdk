@@ -3,8 +3,6 @@ package videosource
 
 import (
 	"context"
-	_ "embed"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -35,13 +33,9 @@ import (
 // ModelWebcam is the name of the webcam component.
 var ModelWebcam = resource.DefaultModelFamily.WithModel("webcam")
 
-//go:embed data/intrinsics.json
-var intrinsics []byte
-
 var (
 	errClosed       = errors.New("camera has been closed")
 	errDisconnected = errors.New("camera is disconnected; please try again in a few moments")
-	data            map[string]transform.PinholeCameraIntrinsics
 )
 
 // minResolutionDimension is set to 2 to ensure proper fitness distance calculation for resolution selection.
@@ -58,9 +52,6 @@ func init() {
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,
 		})
-	if err := json.Unmarshal(intrinsics, &data); err != nil {
-		logging.Global().Errorw("cannot parse intrinsics json", "error", err)
-	}
 }
 
 // WebcamConfig is the native config attribute struct for webcams.

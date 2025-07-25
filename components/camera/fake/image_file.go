@@ -43,6 +43,7 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 		PointCloudFN:   newConf.PointCloud,
 		Intrinsics:     newConf.CameraParameters,
 		PreloadedImage: newConf.PreloadedImage,
+		logger:         logger,
 	}
 
 	imgType := camera.ColorStream
@@ -59,7 +60,7 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 	if err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(name, src, logger), nil
+	return camera.FromVideoSource(name, src), nil
 }
 
 // fileSource stores the paths to a color and depth image and a pointcloud.
@@ -69,6 +70,7 @@ type fileSource struct {
 	PointCloudFN   string
 	Intrinsics     *transform.PinholeCameraIntrinsics
 	PreloadedImage string
+	logger         logging.Logger
 }
 
 // fileSourceConfig is the attribute struct for fileSource.

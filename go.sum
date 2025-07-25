@@ -348,8 +348,6 @@ github.com/eapache/queue v1.1.0/go.mod h1:6eCeP0CKFpHLu8blIFXhExK/dRa7WDZfr6jVFP
 github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848 h1:JVz0wMVFlh5ziW4aZcGnet1IxRfrQjf9IaLRh/2rAhA=
 github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848/go.mod h1:FXvLMxXtMPU+U9Kp8kDOrEW258kzh6PKlRkHEW5h9CY=
 github.com/edaniels/golinters v0.0.4/go.mod h1:KzjC7OrCrRlFxufhH+kQ1Sdyzuj2eanHHzPaWxD3lgk=
-github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742 h1:ZoFlzcasiB47esGHs8W0GzTKUDUfIa94ZUWzBqEI1fw=
-github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742/go.mod h1:i/zcokIKs893VZA41BS8jTOHW23PlqiiZEa7Y+4Nujk=
 github.com/edaniels/golog v0.0.0-20220930140416-6e52e83a97fc/go.mod h1:Ms3gOPiAEPRrgN3kBOF8YIkT2JEXxPFk/HBx/FAkmgA=
 github.com/edaniels/golog v0.0.0-20230215213219-28954395e8d0 h1:nNKMo+7J87eEtmp/tdmaORLS+u6mmcmW/ZpxJCQ+Mu8=
 github.com/edaniels/golog v0.0.0-20230215213219-28954395e8d0/go.mod h1:+Fw6jgiaW75M1z173j7FFZB2Ug5SccFxroA/eM2YFaM=
@@ -379,7 +377,6 @@ github.com/esimonov/ifshort v1.0.1/go.mod h1:yZqNJUrNn20K8Q9n2CrjTKYyVEmX209Hgu+
 github.com/ettle/strcase v0.2.0 h1:fGNiVF21fHXpX1niBgk0aROov1LagYsOwV/xqKDKR/Q=
 github.com/ettle/strcase v0.2.0/go.mod h1:DajmHElDSaX76ITe3/VHVyMin4LWSJN5Z909Wp+ED1A=
 github.com/fatih/addlint v0.0.0-20190906181921-76b21bd409a2/go.mod h1:jDmgAsni5lF2hjg3Eozc5y+Uh9hE26oBfZ1fCLSet0U=
-github.com/fatih/camelcase v1.0.0 h1:hxNvNX/xYBp0ovncs8WyWZrOrpBNub/JfaMvbURyft8=
 github.com/fatih/camelcase v1.0.0/go.mod h1:yN2Sb0lFhZJUdVvtELVWefmrXpuZESvPmqwoZc+/fpc=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/color v1.9.0/go.mod h1:eQcE1qtQxscV5RaZvpXrrb8Drkc3/DdQ+uUYCNjL+zU=
