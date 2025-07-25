@@ -49,7 +49,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/module/modmaninterface"
+	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -64,6 +64,7 @@ import (
 	"go.viam.com/rdk/session"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	injectmod "go.viam.com/rdk/testutils/inject/modmanager"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
@@ -684,10 +685,13 @@ func TestManagerNewComponent(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "board3")
 }
 
-func managerForTest(t *testing.T, l logging.Logger) *resourceManager {
+func managerForTest(t *testing.T, m modif.ModuleManager, l logging.Logger) *resourceManager {
 	t.Helper()
 	injectRobot := setupInjectRobot(l)
 	manager := managerForDummyRobot(t, injectRobot)
+	// replace the module manager with an injected one
+	manager.moduleManager.Close(context.Background())
+	manager.moduleManager = m
 
 	manager.addRemote(
 		context.Background(),
@@ -708,22 +712,25 @@ func TestManagerMarkRemoved(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	manager := managerForTest(t, logger)
+	modmanager := &injectmod.ModuleManager{}
+	manager := managerForTest(t, modmanager, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
 	checkEmpty := func(
 		resourcesToCloseBeforeComplete []resource.Resource,
 		names map[resource.Name]struct{},
+		toRebuild []resource.Name,
 	) {
 		t.Helper()
 		test.That(t, names, test.ShouldBeEmpty)
 		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
+		test.That(t, toRebuild, test.ShouldBeEmpty)
 	}
 
-	resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{})
-	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames)
+	resourcesToCloseBeforeComplete, markedResourceNames, toRebuild := manager.markRemoved(ctx, &config.Config{})
+	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames, toRebuild)
 
-	resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	resourcesToCloseBeforeComplete, markedResourceNames, toRebuild = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "what",
@@ -770,25 +777,26 @@ func TestManagerMarkRemoved(t *testing.T) {
 			},
 		},
 	})
-	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames)
+	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames, toRebuild)
 
-	resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	resourcesToCloseBeforeComplete, markedResourceNames, toRebuild = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
 				Name: "what1",
 			},
 		},
 	})
-	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames)
+	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames, toRebuild)
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	manager = managerForTest(t, logger)
+	modmanager = &injectmod.ModuleManager{}
+	manager = managerForTest(t, modmanager, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	_, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
 				Name: "arm2",
@@ -865,10 +873,11 @@ func TestManagerMarkRemoved(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	manager = managerForTest(t, logger)
+	modmanager = &injectmod.ModuleManager{}
+	manager = managerForTest(t, modmanager, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	_, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote2",
@@ -978,10 +987,11 @@ func TestManagerMarkRemoved(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	manager = managerForTest(t, logger)
+	modmanager = &injectmod.ModuleManager{}
+	manager = managerForTest(t, modmanager, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	_, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote1",
@@ -1262,7 +1272,7 @@ func TestConfigUntrustedEnv(t *testing.T) {
 		})
 		test.That(t, errors.Is(err, errShellServiceDisabled), test.ShouldBeTrue)
 
-		resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{
+		resourcesToCloseBeforeComplete, markedResourceNames, _ := manager.markRemoved(ctx, &config.Config{
 			Services: []resource.Config{{
 				Name: "shell-service",
 				API:  shell.API,
@@ -1780,7 +1790,7 @@ type dummyRobot struct {
 	mu         sync.Mutex
 	robot      robot.Robot
 	manager    *resourceManager
-	modmanager modmaninterface.ModuleManager
+	modmanager modif.ModuleManager
 
 	offline bool
 }
@@ -1903,7 +1913,7 @@ func (rr *dummyRobot) OperationManager() *operation.Manager {
 	panic("change to return nil")
 }
 
-func (rr *dummyRobot) ModuleManager() modmaninterface.ModuleManager {
+func (rr *dummyRobot) ModuleManager() modif.ModuleManager {
 	return rr.modmanager
 }
 

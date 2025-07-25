@@ -70,9 +70,18 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 func newHelper(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
+	var dependsOnGeneric resource.Resource
+	var err error
+	if len(conf.DependsOn) > 0 {
+		dependsOnGeneric, err = generic.FromDependencies(deps, conf.DependsOn[0])
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &helper{
-		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		Named:            conf.ResourceName().AsNamed(),
+		logger:           logger,
+		dependsOnGeneric: dependsOnGeneric,
 	}, nil
 }
 
@@ -80,7 +89,8 @@ type helper struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
-	logger logging.Logger
+	logger           logging.Logger
+	dependsOnGeneric resource.Resource
 }
 
 // DoCommand is the only method of this component. It looks up the "real" command from the map it's passed.
@@ -108,6 +118,8 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 	case "echo":
 		// For testing module liveliness
 		return req, nil
+	case "echo_dep":
+		return h.dependsOnGeneric.DoCommand(ctx, map[string]interface{}{"command": "echo"})
 	case "kill_module":
 		// For testing module reloading & unexpected exists
 		os.Exit(1)
