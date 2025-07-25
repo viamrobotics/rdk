@@ -152,8 +152,8 @@ func (n *netStatser) getTCPStats(ret *networkStats) {
 		ret.TCP.UsedSockets = uint64(stats.CurrEstab)
 		// Windows doesn't directly expose TX/RX queue lengths like Linux /proc
 		// These values would need additional API calls to GetTcpTable for per-connection data
-		ret.TCP.TxQueueLength = 0 // Not directly available
-		ret.TCP.RxQueueLength = 0 // Not directly available
+		ret.TCP.TxQueueLength = 0
+		ret.TCP.RxQueueLength = 0
 	}
 }
 
@@ -166,8 +166,7 @@ func (n *netStatser) getUDPStats(ret *networkStats) {
 	if r1 == 0 { // NO_ERROR
 		ret.UDP.UsedSockets = uint64(stats.NumAddrs)
 		ret.UDP.Drops = uint64(stats.InErrors)
-		// Windows doesn't directly expose TX/RX queue lengths like Linux /proc
-		ret.UDP.TxQueueLength = 0 // Not directly available
-		ret.UDP.RxQueueLength = 0 // Not directly available
+		ret.UDP.TxQueueLength = 0
+		ret.UDP.RxQueueLength = 0
 	}
 }

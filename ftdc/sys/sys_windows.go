@@ -51,29 +51,34 @@ func NewSelfSysUsageStatser(logger logging.Logger) (*UsageStatser, error) {
 
 // NewPidSysUsageStatser will return a `SysUsageStatser` for the given process id.
 func NewPidSysUsageStatser(pid int, logger logging.Logger) (*UsageStatser, error) {
+	usageLogger := logger.Sublogger("sys-metrics-windows-mod")
+	usageLogger.NeverDeduplicate()
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		return nil, err
 	}
-	return &UsageStatser{proc, logger.Sublogger("sys-metrics-windows")}, nil
+	return &UsageStatser{proc, usageLogger}, nil
 }
 
 // Stats returns Stats.
 func (sys *UsageStatser) Stats() any {
 	// Get CPU times
 	cpuTimes, err := sys.proc.Times()
+	sys.logger.Info("error 1", err)
 	if err != nil {
 		return stats{}
 	}
 
 	// Get memory info
 	memInfo, err := sys.proc.MemoryInfo()
+	sys.logger.Info("error 2", err)
 	if err != nil {
 		return stats{}
 	}
 
 	// Get process creation time, in ms
 	createTime, err := sys.proc.CreateTime()
+	sys.logger.Info("error 3", err)
 	if err != nil {
 		return stats{}
 	}
@@ -81,6 +86,8 @@ func (sys *UsageStatser) Stats() any {
 	// Calculate elapsed time
 	elapsedTimeSecs := float64(time.Now().UnixMilli()-createTime) / 1000.0
 	sys.logger.Info(elapsedTimeSecs)
+	sys.logger.Info(cpuTimes)
+	sys.logger.Info("test", cpuTimes.User)
 	sys.logger.Infow("The stats are ", "cpu", cpuTimes.CPU, "system", cpuTimes.System, "user", cpuTimes.User)
 
 	return stats{
