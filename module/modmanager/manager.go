@@ -256,7 +256,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		}
 		seen[conf.Name] = struct{}{}
 
-		// this is done in config validation but partial start rules require us to check again
+		// The config was already validated, but we must check again before attempting to add.
 		if err := conf.Validate(""); err != nil {
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
 			errs[i] = err

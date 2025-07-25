@@ -129,8 +129,9 @@ func TestDiscoveryServiceServer(t *testing.T) {
 			return nil, nil
 		}
 		resp, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: failDiscoveryName})
-		test.That(t, err, test.ShouldEqual, discovery.ErrNilResponse)
-		test.That(t, resp, test.ShouldEqual, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		test.That(t, resp.GetDiscoveries(), test.ShouldBeEmpty)
 	})
 
 	t.Run("Test DoCommand", func(t *testing.T) {

@@ -1370,10 +1370,9 @@ func TestConfigMethod(t *testing.T) {
 				Version: "v1",
 			},
 		},
-		Network:             config.NetworkConfig{},
-		Auth:                config.AuthConfig{},
-		Debug:               true,
-		DisablePartialStart: true,
+		Network: config.NetworkConfig{},
+		Auth:    config.AuthConfig{},
+		Debug:   true,
 	}
 
 	// Create copy of expectedCfg since Reconfigure modifies cfg.

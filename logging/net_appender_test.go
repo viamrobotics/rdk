@@ -214,7 +214,11 @@ func TestNetLoggerOverflowDuringWrite(t *testing.T) {
 	// This "10" log should "overflow" the netAppender queue and remove the "0"
 	// (oldest) log. syncOnce should sense that an overflow occurred and only
 	// remove "1"-"9" from the queue.
+	test.That(t, len(netAppender.toLog), test.ShouldEqual, 10)
+	test.That(t, netAppender.toLog[0].GetMessage(), test.ShouldEqual, "0")
 	logger.Info("10")
+	test.That(t, len(netAppender.toLog), test.ShouldEqual, 10)
+	test.That(t, netAppender.toLog[0].GetMessage(), test.ShouldEqual, "1")
 	server.service.logsMu.Unlock()
 
 	// Close net appender to cause final syncOnce that sends batch of logs after
@@ -225,11 +229,14 @@ func TestNetLoggerOverflowDuringWrite(t *testing.T) {
 	// "5", "6", "7", "8", "9", "10"].
 	server.service.logsMu.Lock()
 	defer server.service.logsMu.Unlock()
-	test.That(t, server.service.logs, test.ShouldHaveLength, 11)
+	test.That(t, server.service.logs, test.ShouldHaveLength, 12)
 	for i := 0; i < 11; i++ {
 		// First batch of "0"-"10".
 		test.That(t, server.service.logs[i].Message, test.ShouldEqual, fmt.Sprint(i))
 	}
+	// This is logged through NetAppender.Write and NetAppender.loggerWithoutNet. Only the Write should appear here.
+	test.That(t, server.service.logs[11].Message, test.ShouldEqual,
+		"Overflowed 1 logs while offline. Check local system logs for anything important.")
 }
 
 // TestProvidedClientConn tests non-nil `conn` param to NewNetAppender.

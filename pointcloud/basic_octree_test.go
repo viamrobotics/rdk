@@ -754,3 +754,113 @@ func TestBasicOctreeAlmostEqual(t *testing.T) {
 	equal = octree.AlmostEqual(movedOctree)
 	test.That(t, equal, test.ShouldBeFalse)
 }
+
+func TestBasicOctreePointsCollidingWith(t *testing.T) {
+	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	side := 20.0
+	octree := newBasicOctree(center, side, 50) // confidence threshold of 50
+
+	// Add points with different confidence values
+	pointsAndData := []PointAndData{
+		{P: r3.Vector{X: 1, Y: 1, Z: 1}, D: NewValueData(60)},    // above threshold
+		{P: r3.Vector{X: 2, Y: 2, Z: 2}, D: NewValueData(40)},    // below threshold
+		{P: r3.Vector{X: 3, Y: 3, Z: 3}, D: NewValueData(70)},    // above threshold
+		{P: r3.Vector{X: -1, Y: -1, Z: -1}, D: NewValueData(80)}, // above threshold, outside box
+		{P: r3.Vector{X: 10, Y: 10, Z: 10}, D: NewValueData(90)}, // above threshold, outside box
+	}
+	err := addPoints(octree, pointsAndData)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create a box that encompasses some points
+	box, err := spatialmath.NewBox(
+		spatialmath.NewPoseFromPoint(r3.Vector{X: 2, Y: 2, Z: 2}),
+		r3.Vector{X: 4, Y: 4, Z: 4}, // box centered at (2,2,2), so extends from (0,0,0) to (4,4,4)
+		"test_box",
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test with the box
+	geometries := []spatialmath.Geometry{box}
+	collidingPoints := octree.PointsCollidingWith(geometries, 0)
+
+	// Should find points (1,1,1) and (3,3,3) since they're above threshold and within the box
+	// Point (2,2,2) is below threshold so should be excluded
+	// Point (-1,-1,-1) is above threshold but outside the box
+	expectedPoints := []r3.Vector{
+		{X: 1, Y: 1, Z: 1},
+		{X: 3, Y: 3, Z: 3},
+	}
+
+	test.That(t, len(collidingPoints), test.ShouldEqual, len(expectedPoints))
+	for _, expected := range expectedPoints {
+		found := false
+		for _, actual := range collidingPoints {
+			if actual.Sub(expected).Norm() < 1e-6 {
+				found = true
+				break
+			}
+		}
+		test.That(t, found, test.ShouldBeTrue)
+	}
+}
+
+func TestBasicOctreePointsWithinRadius(t *testing.T) {
+	center := r3.Vector{X: 0, Y: 0, Z: 0}
+	side := 10.0
+	octree := newBasicOctree(center, side, 50) // confidence threshold of 50
+
+	// Add points with different confidence values
+	pointsAndData := []PointAndData{
+		{P: r3.Vector{X: 1, Y: 0, Z: 0}, D: NewValueData(60)}, // distance 1 from origin, above threshold
+		{P: r3.Vector{X: 2, Y: 0, Z: 0}, D: NewValueData(40)}, // distance 2 from origin, below threshold
+		{P: r3.Vector{X: 0, Y: 3, Z: 0}, D: NewValueData(70)}, // distance 3 from origin, above threshold
+		{P: r3.Vector{X: 0, Y: 0, Z: 5}, D: NewValueData(80)}, // distance 5 from origin, above threshold
+	}
+	err := addPoints(octree, pointsAndData)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test with radius of 2.5 from origin
+	queryCenter := r3.Vector{X: 0, Y: 0, Z: 0}
+	radius := 2.5
+	pointsWithinRadius, err := octree.PointsWithinRadius(queryCenter, radius)
+	test.That(t, err, test.ShouldBeNil)
+
+	expectedPoints := []r3.Vector{
+		{X: 1, Y: 0, Z: 0},
+	}
+
+	test.That(t, len(pointsWithinRadius), test.ShouldEqual, len(expectedPoints))
+	for _, expected := range expectedPoints {
+		found := false
+		for _, actual := range pointsWithinRadius {
+			if actual.Sub(expected).Norm() < 1e-6 {
+				found = true
+				break
+			}
+		}
+		test.That(t, found, test.ShouldBeTrue)
+	}
+
+	// Test with larger radius
+	radius = 4.0
+	pointsWithinRadius, err = octree.PointsWithinRadius(queryCenter, radius)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Should find points at distance 1 and distance 3 (both above threshold and within radius)
+	expectedPoints = []r3.Vector{
+		{X: 1, Y: 0, Z: 0}, // distance 1
+		{X: 0, Y: 3, Z: 0}, // distance 3
+	}
+
+	test.That(t, len(pointsWithinRadius), test.ShouldEqual, len(expectedPoints))
+	for _, expected := range expectedPoints {
+		found := false
+		for _, actual := range pointsWithinRadius {
+			if actual.Sub(expected).Norm() < 1e-6 {
+				found = true
+				break
+			}
+		}
+		test.That(t, found, test.ShouldBeTrue)
+	}
+}

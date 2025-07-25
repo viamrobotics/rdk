@@ -724,7 +724,8 @@ func (manager *resourceManager) completeConfig(
 					}
 					manager.logger.CInfow(ctx, fmt.Sprintf("Now %sconfiguring resource", prefix), "resource", resName, "model", conf.Model)
 
-					// this is done in config validation but partial start rules require us to check again
+					// The config was already validated, but we must check again before attempting
+					// to add.
 					if _, _, err := conf.Validate("", resName.API.Type.Name); err != nil {
 						gNode.LogAndSetLastError(
 							fmt.Errorf("resource config validation error: %w", err),
@@ -857,7 +858,8 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 						manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(),
 					)
 				}
-				// this is done in config validation but partial start rules require us to check again
+				// The config was already validated, but we must check again before attempting
+				// to add.
 				if _, _, err := remConf.Validate(""); err != nil {
 					gNode.LogAndSetLastError(
 						fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)
@@ -1154,7 +1156,8 @@ func (manager *resourceManager) updateResources(
 	}
 
 	for _, mod := range conf.Modified.Modules {
-		// this is done in config validation but partial start rules require us to check again
+		// The config was already validated, but we must check again before attempting
+		// to reconfigure.
 		if err := mod.Validate(""); err != nil {
 			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
 			continue
