@@ -1299,7 +1299,13 @@ func (manager *resourceManager) markRemoved(
 			markedResourceNames[name] = struct{}{}
 		}
 	}
+	// if the resource was directly removed, remove its dependents as well, since their parents will
+	// be removed.
 	resourcesToCloseBeforeComplete := manager.markResourcesRemoved(resourcesToMark, addNames, true)
+
+	// for modular resources that are being removed because the underlying module was removed,
+	// we only want to mark the resources for removal, but not its dependents. They will be marked
+	// for update later in the process.
 	resourcesToCloseBeforeComplete = append(
 		resourcesToCloseBeforeComplete,
 		manager.markResourcesRemoved(resourcesToRebuild, addNames, false)...)
