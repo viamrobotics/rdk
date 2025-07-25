@@ -61,9 +61,9 @@ type atomicWaypoint struct {
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
-func (pm *planManager) planMultiWaypoint(ctx context.Context, seedPlan motionplan.Plan, logger logging.Logger) (motionplan.Plan, error) {
+func (pm *planManager) planMultiWaypoint(ctx context.Context, seedPlan motionplan.Plan) (motionplan.Plan, error) {
 	if pm.motionChains.useTPspace {
-		return pm.planRelativeWaypoint(ctx, seedPlan, logger)
+		return pm.planRelativeWaypoint(ctx, seedPlan)
 	}
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
@@ -90,7 +90,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, seedPlan motionpla
 		default:
 		}
 		// Solving highly constrained motions by breaking apart into small pieces is much more performant
-		goalWaypoints, err := pm.generateWaypoints(seedPlan, i, logger)
+		goalWaypoints, err := pm.generateWaypoints(seedPlan, i)
 		if err != nil {
 			return nil, err
 		}
@@ -444,7 +444,7 @@ func (pm *planManager) planParallelRRTMotion(
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
-func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int, logger logging.Logger) ([]atomicWaypoint, error) {
+func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]atomicWaypoint, error) {
 	wpGoals := pm.request.Goals[wpi]
 	startState := pm.request.StartState
 	if wpi > 0 {
@@ -693,7 +693,7 @@ func (pm *planManager) planToRRTGoalMap(plan motionplan.Plan, goal atomicWaypoin
 
 // planRelativeWaypoint will solve the PTG frame to one individual pose. This is used for frames whose inputs are relative, that
 // is, the pose returned by `Transform` is a transformation rather than an absolute position.
-func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan motionplan.Plan, logger logging.Logger) (motionplan.Plan, error) {
+func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan motionplan.Plan) (motionplan.Plan, error) {
 	if pm.request.StartState.poses == nil {
 		return nil, errors.New("must provide a startPose if solving for PTGs")
 	}
@@ -744,7 +744,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan motion
 	}
 	pm.fs = relativeOnlyFS
 
-	wps, err := pm.generateWaypoints(seedPlan, 0, logger)
+	wps, err := pm.generateWaypoints(seedPlan, 0)
 	if err != nil {
 		return nil, err
 	}
