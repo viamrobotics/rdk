@@ -384,9 +384,6 @@ func newWithResources(
 		if statser, err := sys.NewNetUsage(); err == nil {
 			ftdcWorker.Add("net", statser)
 		}
-		if statser, err := sys.NewNetUsage(); err == nil {
-			ftdcWorker.Add("net", statser)
-		}
 	}
 
 	closeCtx, cancel := context.WithCancel(ctx)

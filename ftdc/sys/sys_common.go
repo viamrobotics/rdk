@@ -1,8 +1,6 @@
 // Package sys provides functionality for gathering system metrics in an FTDC compliant API.
 package sys
 
-// Common types and interfaces shared between Unix and Windows implementations
-
 type stats struct {
 	UserCPUSecs     float64
 	SystemCPUSecs   float64
