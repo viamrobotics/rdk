@@ -168,7 +168,7 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 
 var (
 	unknownModel = resource.DefaultModelFamily.WithModel("unknown")
-	builtinModel = resource.DefaultModelFamily.WithModel("builtin")
+	builtinModel = resource.DefaultModelFamily.WithModel(resource.DefaultServiceName)
 )
 
 // maybe in the future this can become an actual resource with its own type
@@ -224,9 +224,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	anythingChanged := false
 
 	for _, resName := range newResources {
-		// Do not store any remote resources named "builtin" (e.g. default motion service) in
-		// our resource graph.
-		if resName.Name == "builtin" {
+		// Do not store any remote, default services (e.g. default motion service) in _our_
+		// resource graph.
+		if resName.Name == resource.DefaultServiceName {
 			continue
 		}
 
@@ -243,7 +243,11 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			}
 			continue
 		}
+
+		// TODO(RSDK-11268): Do not unconditionally prepend the remote name and instead use
+		// the `prefix` of the remote's configuration if present and nothing otherwise.
 		resName = resName.PrependRemote(remoteName.Name)
+
 		gNode, nodeAlreadyExists := manager.resources.Node(resName)
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
@@ -272,6 +276,27 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 
 		if nodeAlreadyExists {
+			// If this is not just a ticker event, and we did encounter a resource name that is
+			// in fact already represented in our graph, log a collision error. If the existing
+			// resource is also a remote resource, mark that existing resource as unreachable.
+			// If the existing resource is a resource on this machine, do nothing to it (it
+			// should still be reachable).
+			if recreateAllClients {
+				logger.Errorw("Duplicate resource found after querying remote; rename the resource or use `prefix` to disambiguate",
+					"resource name", resName.String())
+
+				// Treat unknownModel as a sign that the existing resource is remote.
+				if gNode.ResourceModel() == unknownModel {
+					logger.Errorw("Neither resource with colliding name will be reachable through this machine until collision is fixed",
+						"resource name", resName.String())
+
+					gNode.MarkReachability(false)
+				} else {
+					logger.Errorw("Remote resource with colliding name will not be reachable through this machine until collision is fixed",
+						"resource name", resName.String())
+				}
+			}
+
 			gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
 		} else {
 			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
