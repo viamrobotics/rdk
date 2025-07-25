@@ -33,7 +33,7 @@ type networkStats struct {
 	UDP    ifaceStats
 }
 
-// Statser interface for process usage statistics
+// Statser interface for process usage statistics.
 type Statser interface {
 	Stats() any
 }
