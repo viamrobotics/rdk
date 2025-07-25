@@ -36,7 +36,6 @@ func setupLocalRobot(
 	var rOpts []Option
 	rOpts = append(rOpts, opts...)
 	rOpts = append(rOpts, WithViamHomeDir(t.TempDir()))
-	rOpts = append(rOpts, WithFTDC())
 	r, err := New(ctx, cfg, conn, logger, rOpts...)
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() {

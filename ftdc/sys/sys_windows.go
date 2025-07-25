@@ -64,21 +64,18 @@ func NewPidSysUsageStatser(pid int, logger logging.Logger) (*UsageStatser, error
 func (sys *UsageStatser) Stats() any {
 	// Get CPU times
 	cpuTimes, err := sys.proc.Times()
-	sys.logger.Info("error 1", err)
 	if err != nil {
 		return stats{}
 	}
 
 	// Get memory info
 	memInfo, err := sys.proc.MemoryInfo()
-	sys.logger.Info("error 2", err)
 	if err != nil {
 		return stats{}
 	}
 
 	// Get process creation time, in ms
 	createTime, err := sys.proc.CreateTime()
-	sys.logger.Info("error 3", err)
 	if err != nil {
 		return stats{}
 	}
