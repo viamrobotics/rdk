@@ -386,13 +386,18 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 	res := math.Sqrt(sum)
 
 	if debug {
-		nolintPrintf := fmt.Printf
-		nolintPrintf("%v -- %v\n", c, b)
-		nolintPrintf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
-		nolintPrintf("\t	   %5.3f	 %5.3f	   %5.3f\n", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
-		nolintPrintf("\t	   %5.3f	 %5.3f	   %5.3f\n", utils.Square(hd), utils.Square(s1-s2), utils.Square(v1-v2))
-		nolintPrintf("\t	   %5.3f	 %5.3f	   %5.3f\n", utils.Square(wh*hd), utils.Square(ws*(s1-s2)), utils.Square(wv*(v1-v2)))
-		nolintPrintf("\t res: %f ac: %f dd: %f section: %d\n", res, ac, dd, section)
+		//nolint
+		fmt.Printf("%v -- %v\n", c, b)
+		//nolint
+		fmt.Printf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
+		//nolint
+		fmt.Printf("\t	   %5.3f	 %5.3f	   %5.3f\n", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
+		//nolint
+		fmt.Printf("\t	   %5.3f	 %5.3f	   %5.3f\n", utils.Square(hd), utils.Square(s1-s2), utils.Square(v1-v2))
+		//nolint
+		fmt.Printf("\t	   %5.3f	 %5.3f	   %5.3f\n", utils.Square(wh*hd), utils.Square(ws*(s1-s2)), utils.Square(wv*(v1-v2)))
+		//nolint
+		fmt.Printf("\t res: %f ac: %f dd: %f section: %d\n", res, ac, dd, section)
 	}
 	return res
 }
