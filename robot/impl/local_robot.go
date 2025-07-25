@@ -316,7 +316,6 @@ func (r *localRobot) updateRemotesAndRetryResourceConfigure() bool {
 	}
 	if anyChanges {
 		r.updateWeakAndOptionalDependents(r.closeContext)
-
 	}
 	return anyChanges
 }

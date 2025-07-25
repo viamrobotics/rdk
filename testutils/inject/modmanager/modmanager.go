@@ -1,3 +1,4 @@
+// Package injectmod contains an injectable module manager.
 package injectmod
 
 import (
