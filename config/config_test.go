@@ -34,7 +34,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -1050,17 +1049,10 @@ func TestAuthConfigEnsure(t *testing.T) {
 }
 
 func TestValidateUniqueNames(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	component := resource.Config{
-		Name:  "custom",
-		Model: fakeModel,
-		API:   arm.API,
-	}
-	service := resource.Config{
-		Name:  "custom",
-		Model: fakeModel,
-		API:   shell.API,
-	}
+	// Test that config.Ensure outputs correct logs for non-unique packages, modules,
+	// processes, remotes, and jobs. Non-unique components and services are handled and
+	// validated by the resource manager.
+
 	package1 := config.PackageConfig{
 		Package: "package1",
 		Name:    "package1",
@@ -1071,36 +1063,35 @@ func TestValidateUniqueNames(t *testing.T) {
 		LogLevel: "info",
 		ExePath:  ".",
 	}
-
 	process1 := pexec.ProcessConfig{
 		ID: "process1", Name: "process1",
 	}
-
 	remote1 := config.Remote{
 		Name:    "remote1",
 		Address: "test",
 	}
-	config1 := config.Config{
-		Components: []resource.Config{component, component},
-	}
-	config2 := config.Config{
-		Services: []resource.Config{service, service},
+	job1 := config.JobConfig{
+		config.JobConfigData{
+			Name: "job1",
+		},
 	}
 
-	config3 := config.Config{
+	config1 := config.Config{
 		Packages: []config.PackageConfig{package1, package1},
 	}
-	config4 := config.Config{
+	config2 := config.Config{
 		Modules: []config.Module{module1, module1},
 	}
-	config5 := config.Config{
+	config3 := config.Config{
 		Processes: []pexec.ProcessConfig{process1, process1},
 	}
-
-	config6 := config.Config{
+	config4 := config.Config{
 		Remotes: []config.Remote{remote1, remote1},
 	}
-	allConfigs := []config.Config{config1, config2, config3, config4, config5, config6}
+	config5 := config.Config{
+		Jobs: []config.JobConfig{job1, job1},
+	}
+	allConfigs := []config.Config{config1, config2, config3, config4, config5}
 
 	for _, config := range allConfigs {
 		observedLogger, logs := logging.NewObservedTestLogger(t)
@@ -1109,21 +1100,6 @@ func TestValidateUniqueNames(t *testing.T) {
 
 		test.That(t, logs.FilterMessageSnippet("Duplicate").Len(), test.ShouldBeGreaterThan, 0)
 	}
-
-	// mix components and services with the same name -- no error as use triplets
-	config7 := config.Config{
-		Components: []resource.Config{component},
-		Services:   []resource.Config{service},
-		Modules:    []config.Module{module1},
-		Remotes: []config.Remote{
-			{
-				Name:    module1.Name,
-				Address: "test1",
-			},
-		},
-	}
-	err := config7.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
 }
 
 func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) rutils.AttributeMap {

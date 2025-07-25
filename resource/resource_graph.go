@@ -691,7 +691,7 @@ func (g *Graph) MarkReachability(node Name, reachable bool) error {
 		return err
 	}
 	for _, node := range subGraph.nodes {
-		node.markReachability(reachable)
+		node.MarkReachability(reachable)
 	}
 	return nil
 }
