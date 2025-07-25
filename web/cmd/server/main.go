@@ -6,15 +6,12 @@ import (
 	"go.viam.com/utils"
 
 	// registers all components.
-	_ "go.viam.com/rdk/components/register"
 	_ "go.viam.com/rdk/components/arm/wrapper" // this is special
-
+	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/logging"
-	
 	// registers all services.
+	_ "go.viam.com/rdk/services/motion/builtin" // this is pecial
 	_ "go.viam.com/rdk/services/register"
-	_ "go.viam.com/rdk/services/motion/builtin"
-	
 	"go.viam.com/rdk/web/server"
 )
 
