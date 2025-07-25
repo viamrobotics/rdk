@@ -198,7 +198,7 @@ func TestLocalBuild(t *testing.T) {
 		map[string]any{moduleFlagPath: manifestPath, generalFlagVersion: "1.2.3"}, "token")
 	manifest, err := loadManifest(manifestPath)
 	test.That(t, err, test.ShouldBeNil)
-	err = moduleBuildLocalAction(cCtx, &manifest)
+	err = moduleBuildLocalAction(cCtx, &manifest, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
 
