@@ -348,6 +348,7 @@ func newWithResources(
 		opt.apply(&rOpts)
 	}
 
+	logger.Info("inside new with resources")
 	var ftdcWorker *ftdc.FTDC
 	if rOpts.enableFTDC {
 		partID := "local-config"
@@ -378,17 +379,14 @@ func newWithResources(
 		//// note: this logs a panic on RDK start on windows.
 		//logger.Debug("System FTDC metrics are not implemented on windows")
 		//} else {
-		//logger.Info("Inside 1")
+		logger.Info("Inside 1")
 		if statser, err := sys.NewSelfSysUsageStatser(ftdcLogger); err == nil {
 			ftdcWorker.Add("proc.viam-server", statser)
 		}
-		if runtime.GOOS != "windows" {
 
-			if statser, err := sys.NewNetUsage(); err == nil {
-				ftdcWorker.Add("net", statser)
-			}
+		if statser, err := sys.NewNetUsage(); err == nil {
+			ftdcWorker.Add("net", statser)
 		}
-		//}
 	}
 
 	closeCtx, cancel := context.WithCancel(ctx)
