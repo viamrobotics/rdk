@@ -42,7 +42,6 @@ func newConstraintHandler(
 	seedMap referenceframe.FrameSystemInputs,
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
-	logger logging.Logger,
 ) (*ConstraintHandler, error) {
 	if constraints == nil {
 		// Constraints may be nil, but if a motion profile is set in planningOpts

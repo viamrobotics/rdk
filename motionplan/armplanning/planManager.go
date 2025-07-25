@@ -483,7 +483,6 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int, logg
 		pm.request.StartState.configuration,
 		pm.request.WorldState,
 		pm.boundingRegions,
-		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -519,7 +518,6 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int, logg
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
 			pm.boundingRegions,
-			logger,
 		)
 		if err != nil {
 			return nil, err
@@ -600,7 +598,6 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int, logg
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
 			pm.boundingRegions,
-			logger,
 		)
 		if err != nil {
 			return nil, err
@@ -696,7 +693,7 @@ func (pm *planManager) planToRRTGoalMap(plan motionplan.Plan, goal atomicWaypoin
 
 // planRelativeWaypoint will solve the PTG frame to one individual pose. This is used for frames whose inputs are relative, that
 // is, the pose returned by `Transform` is a transformation rather than an absolute position.
-func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan motionplan.Plan, logger logging.Logger) (Plan, error) {
+func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan motionplan.Plan, logger logging.Logger) (motionplan.Plan, error) {
 	if pm.request.StartState.poses == nil {
 		return nil, errors.New("must provide a startPose if solving for PTGs")
 	}

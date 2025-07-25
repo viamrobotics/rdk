@@ -930,7 +930,7 @@ func mapSliceWithErrors[T, U any](a []T, f func(T) (U, error)) ([]U, error) {
 
 func toRDKSlice[PT, RT any](
 	protoList []*PT,
-	toRDK func(*PT) (*RT, error),
+	toRDK func(*PT, logging.Logger) (*RT, error),
 	logger logging.Logger,
 ) []RT {
 	out := make([]RT, 0, len(protoList))

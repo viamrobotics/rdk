@@ -335,7 +335,6 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 		request.StartState.configuration,
 		request.WorldState,
 		boundingRegions,
-		logger,
 	)
 	if err != nil {
 		return nil, err

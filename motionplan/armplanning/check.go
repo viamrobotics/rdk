@@ -102,7 +102,6 @@ func checkPlanRelative(
 		plan.Trajectory()[0],
 		worldState,
 		nil,
-		logger,
 	)
 	if err != nil {
 		return err
@@ -202,7 +201,6 @@ func checkPlanAbsolute(
 	worldState *referenceframe.WorldState,
 	fs *referenceframe.FrameSystem,
 	lookAheadDistanceMM float64,
-	logger logging.Logger,
 ) error {
 	plan := executionState.Plan()
 	startingInputs := plan.Trajectory()[0]
@@ -252,7 +250,6 @@ func checkPlanAbsolute(
 		startingInputs,
 		worldState,
 		nil,
-		logger,
 	)
 	if err != nil {
 		return err
