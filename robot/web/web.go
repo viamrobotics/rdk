@@ -291,7 +291,12 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	utils.PanicCapturingGo(func() {
 		defer svc.modWorkers.Done()
 		svc.logger.Debugw("module server listening", "socket path", lis.Addr())
-		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(addr)) })
+		defer func() {
+			err := os.RemoveAll(filepath.Dir(addr))
+			if err != nil {
+				svc.logger.Debugf("RemoveAll failed: %v", err)
+			}
+		}()
 		if err := server.Serve(lis); err != nil {
 			svc.logger.Errorw("failed to serve module service", "error", err)
 		}

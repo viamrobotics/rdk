@@ -9,12 +9,10 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
