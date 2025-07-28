@@ -16,6 +16,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/jwks"
@@ -187,7 +188,7 @@ func TestConfigWithLogDeclarations(t *testing.T) {
 }
 
 func TestConfigEnsure(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	var emptyConfig config.Config
 	test.That(t, emptyConfig.Ensure(false, logger), test.ShouldBeNil)
 
@@ -215,34 +216,45 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "local_fqdn")
 	invalidCloud.Cloud.LocalFQDN = "yeeself"
 
+	logs.TakeAll() // clear logs
 	invalidRemotes := config.Config{
-		DisablePartialStart: true,
-		Remotes:             []config.Remote{{}},
+		Remotes: []config.Remote{{}},
 	}
 	err = invalidRemotes.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `remotes.0`)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing the snippet "Remote config error".
+	remoteConfigErrorLogs := logs.FilterMessageSnippet("Remote config error")
+	test.That(t, remoteConfigErrorLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, remoteConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+
+	logs.TakeAll() // clear logs
 	invalidRemotes.Remotes[0] = config.Remote{
 		Name: "foo",
 	}
 	err = invalidRemotes.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "address")
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing the snippet "Remote config error".
+	remoteConfigErrorLogs = logs.FilterMessageSnippet("Remote config error")
+	test.That(t, remoteConfigErrorLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, remoteConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+
 	invalidRemotes.Remotes[0] = config.Remote{
 		Name:    "foo",
 		Address: "bar",
 	}
 	test.That(t, invalidRemotes.Ensure(false, logger), test.ShouldBeNil)
 
+	logs.TakeAll() // clear logs
 	invalidComponents := config.Config{
-		DisablePartialStart: true,
-		Components:          []resource.Config{{}},
+		Components: []resource.Config{{}},
 	}
 	err = invalidComponents.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing the snippet "Component config error".
+	componentConfigErrorLogs := logs.FilterMessageSnippet("Component config error")
+	test.That(t, componentConfigErrorLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, componentConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+
 	invalidComponents.Components[0] = resource.Config{
 		Name:  "foo",
 		API:   base.API,
@@ -292,31 +304,37 @@ func TestConfigEnsure(t *testing.T) {
 		Model:     resource.DefaultModelFamily.WithModel("c7"),
 	}
 	components := config.Config{
-		DisablePartialStart: true,
-		Components:          []resource.Config{c7, c6, c5, c3, c4, c1, c2},
+		Components: []resource.Config{c7, c6, c5, c3, c4, c1, c2},
 	}
 	err = components.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	logs.TakeAll() // clear logs
 	invalidProcesses := config.Config{
-		DisablePartialStart: true,
-		Processes:           []pexec.ProcessConfig{{}},
+		Processes: []pexec.ProcessConfig{{}},
 	}
 	err = invalidProcesses.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `processes.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing the snippet "Process config error".
+	processConfigErrorLogs := logs.FilterMessageSnippet("Process config error")
+	test.That(t, processConfigErrorLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, processConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+
+	logs.TakeAll() // clear logs
 	invalidProcesses = config.Config{
-		DisablePartialStart: true,
-		Processes:           []pexec.ProcessConfig{{ID: "bar"}},
+		Processes: []pexec.ProcessConfig{{ID: "bar"}},
 	}
 	err = invalidProcesses.Ensure(false, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-	invalidProcesses = config.Config{
-		DisablePartialStart: true,
-		Processes:           []pexec.ProcessConfig{{ID: "bar", Name: "foo"}},
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing the snippet "Process config error".
+	processConfigErrorLogs = logs.FilterMessageSnippet("Process config error")
+	test.That(t, processConfigErrorLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, processConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+
+	validProcesses := config.Config{
+		Processes: []pexec.ProcessConfig{{ID: "bar", Name: "foo"}},
 	}
-	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
+	test.That(t, validProcesses.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork := config.Config{
 		Network: config.NetworkConfig{
@@ -444,7 +462,7 @@ func TestConfigEnsure(t *testing.T) {
 }
 
 func TestConfigEnsurePartialStart(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	var emptyConfig config.Config
 	test.That(t, emptyConfig.Ensure(false, logger), test.ShouldBeNil)
 
@@ -513,6 +531,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	invalidProcesses.Processes[0].Name = "foo"
 	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
 
+	logs.TakeAll() // clear logs
 	cloudErr := "bad cloud err doing validation"
 	invalidModules := config.Config{
 		Modules: []config.Module{{
@@ -527,16 +546,18 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 			},
 		}},
 	}
-	invalidModules.DisablePartialStart = true
 	err = invalidModules.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, cloudErr)
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing "Module config error".
+	cloudErrLogs := logs.FilterMessageSnippet("Module config error")
+	test.That(t, cloudErrLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, cloudErrLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
 
-	invalidModules.DisablePartialStart = false
 	err = invalidModules.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	invalidPackges := config.Config{
+	logs.TakeAll() // clear logs
+	invalidPackages := config.Config{
 		Packages: []config.PackageConfig{{
 			Name:    "testPackage",
 			Type:    config.PackageTypeMlModel,
@@ -547,13 +568,14 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 		}},
 	}
 
-	invalidModules.DisablePartialStart = true
-	err = invalidModules.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, cloudErr)
+	err = invalidPackages.Ensure(false, logger)
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing "Package config error".
+	cloudErrLogs = logs.FilterMessageSnippet("Package config error")
+	test.That(t, cloudErrLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, cloudErrLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
 
-	invalidModules.DisablePartialStart = false
-	err = invalidPackges.Ensure(false, logger)
+	err = invalidPackages.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	invalidNetwork := config.Config{
@@ -1081,20 +1103,11 @@ func TestValidateUniqueNames(t *testing.T) {
 	allConfigs := []config.Config{config1, config2, config3, config4, config5, config6}
 
 	for _, config := range allConfigs {
-		// returns an error instead of logging it
-		config.DisablePartialStart = true
-		// test that the logger returns an error after the ensure method is done
-		err := config.Ensure(false, logger)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "duplicate resource")
-
 		observedLogger, logs := logging.NewObservedTestLogger(t)
-		// now test it with logging enabled
-		config.DisablePartialStart = false
-		err = config.Ensure(false, observedLogger)
+		err := config.Ensure(false, observedLogger)
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, logs.FilterMessageSnippet("duplicate resource").Len(), test.ShouldBeGreaterThan, 0)
+		test.That(t, logs.FilterMessageSnippet("Duplicate").Len(), test.ShouldBeGreaterThan, 0)
 	}
 
 	// mix components and services with the same name -- no error as use triplets
@@ -1109,7 +1122,6 @@ func TestValidateUniqueNames(t *testing.T) {
 			},
 		},
 	}
-	config7.DisablePartialStart = true
 	err := config7.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 }

@@ -553,7 +553,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	// let modules access RobotFrameSystem (name $framesystem) without needing entire RobotClient
 	deps[framesystem.PublicServiceName] = NewFrameSystemClient(m.parent)
 
-	conf, err := config.ComponentConfigFromProto(req.Config)
+	conf, err := config.ComponentConfigFromProto(req.Config, m.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -638,7 +638,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	}
 
 	// it is assumed the caller robot has handled model differences
-	conf, err := config.ComponentConfigFromProto(req.Config)
+	conf, err := config.ComponentConfigFromProto(req.Config, m.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -713,7 +713,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 func (m *Module) ValidateConfig(ctx context.Context,
 	req *pb.ValidateConfigRequest,
 ) (*pb.ValidateConfigResponse, error) {
-	c, err := config.ComponentConfigFromProto(req.Config)
+	c, err := config.ComponentConfigFromProto(req.Config, m.logger)
 	if err != nil {
 		return nil, err
 	}

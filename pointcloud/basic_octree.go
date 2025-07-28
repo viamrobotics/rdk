@@ -452,7 +452,7 @@ func (octree *BasicOctree) PointsCollidingWith(geometries []spatialmath.Geometry
 
 		// Check collision with each geometry
 		for _, geom := range geometries {
-			collides, err := pointGeom.CollidesWith(geom, collisionBufferMM)
+			collides, err := geom.CollidesWith(pointGeom, collisionBufferMM)
 			if err == nil && collides {
 				collidingPoints = append(collidingPoints, octree.node.point.P)
 				break // Point collides with at least one geometry, no need to check others

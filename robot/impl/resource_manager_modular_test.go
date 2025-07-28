@@ -471,10 +471,6 @@ func TestTwoModulesSameName(t *testing.T) {
 				ExePath: complexPath,
 			},
 		},
-		// This field is false due to zero-value by default, but specify explicitly
-		// here. When partial start is allowed, we will log an error about the
-		// duplicate module name, but still start up the first of the two modules.
-		DisablePartialStart: false,
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
 

@@ -43,7 +43,7 @@ type planConfig struct {
 	MotionChains     *motionChains
 }
 
-type planConfigConstructor func() (*planConfig, error)
+type planConfigConstructor func(logger logging.Logger) (*planConfig, error)
 
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
@@ -93,7 +93,7 @@ func TestConstrainedMotion(t *testing.T) {
 }
 
 // TestConstrainedArmMotion tests a simple linear motion on a longer path, with a no-spill constraint.
-func constrainedXArmMotion() (*planConfig, error) {
+func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
 	if err != nil {
 		return nil, err
@@ -205,7 +205,7 @@ func TestPlanningWithGripper(t *testing.T) {
 // |                      |
 // |                      |
 // ------------------------.
-func simple2DMap() (*planConfig, error) {
+func simple2DMap(logger logging.Logger) (*planConfig, error) {
 	// build model
 	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}, {Min: -2 * math.Pi, Max: 2 * math.Pi}}
 	physicalGeometry, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 10, Y: 10, Z: 10}, "")
@@ -303,7 +303,7 @@ func simple2DMap() (*planConfig, error) {
 }
 
 // simpleArmMotion tests moving an xArm7.
-func simpleXArmMotion() (*planConfig, error) {
+func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
 	if err != nil {
 		return nil, err
@@ -379,7 +379,7 @@ func simpleXArmMotion() (*planConfig, error) {
 }
 
 // simpleUR5eMotion tests a simple motion for a UR5e.
-func simpleUR5eMotion() (*planConfig, error) {
+func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
 	if err != nil {
 		return nil, err
@@ -456,9 +456,10 @@ func simpleUR5eMotion() (*planConfig, error) {
 // returns a valid set of waypoints.
 func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfigConstructor, seed int) {
 	t.Helper()
+	logger := logging.NewTestLogger(t)
 
 	// plan
-	cfg, err := config()
+	cfg, err := config(logger)
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := plannerFunc(
 		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander, cfg.MotionChains)
