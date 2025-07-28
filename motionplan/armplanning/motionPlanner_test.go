@@ -1186,11 +1186,10 @@ func TestValidatePlanRequest(t *testing.T) {
 	t.Parallel()
 	type testCase struct {
 		name        string
-		request     PlanRequest
+		request     *PlanRequest
 		expectedErr error
 	}
 
-	logger := logging.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("test")
 	frame1 := frame.NewZeroStaticFrame("frame1")
 	frame2, err := frame.NewTranslationalFrame("frame2", r3.Vector{1, 0, 0}, frame.Limit{1, 1})
@@ -1210,7 +1209,7 @@ func TestValidatePlanRequest(t *testing.T) {
 	testCases := []testCase{
 		{
 			name: "absent start state - fail",
-			request: PlanRequest{
+			request: &PlanRequest{
 				FrameSystem: fs,
 				Goals:       validGoal,
 			},
@@ -1218,7 +1217,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		},
 		{
 			name: "nil goal - fail",
-			request: PlanRequest{
+			request: &PlanRequest{
 				FrameSystem: fs,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
 					"frame1": {}, "frame2": {{0}},
@@ -1228,7 +1227,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		},
 		{
 			name: "goal's parent not in frame system - fail",
-			request: PlanRequest{
+			request: &PlanRequest{
 				FrameSystem: fs,
 				Goals:       badGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
@@ -1240,7 +1239,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		},
 		{
 			name: "absent StartState Configuration - fail",
-			request: PlanRequest{
+			request: &PlanRequest{
 				FrameSystem: fs,
 				Goals:       validGoal,
 				StartState:  &PlanState{},
@@ -1249,7 +1248,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		},
 		{
 			name: "incorrect length StartConfiguration - fail",
-			request: PlanRequest{
+			request: &PlanRequest{
 				FrameSystem: fs,
 				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
@@ -1261,15 +1260,38 @@ func TestValidatePlanRequest(t *testing.T) {
 		},
 		{
 			name: "well formed PlanRequest",
-			request: PlanRequest{
+			request: &PlanRequest{
 				FrameSystem: fs,
 				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
-					"frame1": {}, "frame2": {{0}},
+					"frame1": {},
+					"frame2": {{0}},
 				}},
 				PlannerOptions: NewBasicPlannerOptions(),
 			},
 			expectedErr: nil,
+		},
+		{
+			name:        "nil framesystem errors correctly",
+			request:     &PlanRequest{},
+			expectedErr: errors.New("PlanRequest cannot have nil framesystem"),
+		},
+		{
+			name:        "nil PlanRequest errors correctly",
+			request:     nil,
+			expectedErr: errors.New("PlanRequest cannot be nil"),
+		},
+		{
+			name: "nil PlannerOptions does not fail",
+			request: &PlanRequest{
+				FrameSystem: fs,
+				Goals:       validGoal,
+				StartState: &PlanState{configuration: map[string][]frame.Input{
+					"frame1": {},
+					"frame2": {{0}},
+				}},
+				PlannerOptions: nil,
+			},
 		},
 	}
 
@@ -1290,15 +1312,6 @@ func TestValidatePlanRequest(t *testing.T) {
 			testFn(t, c)
 		})
 	}
-
-	// test nil frame system caught
-	_, err = PlanMotion(context.Background(), logger, &PlanRequest{})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldEqual, errors.New("PlanRequest cannot have nil framesystem").Error())
-
-	// ensure nil PlanRequests are caught
-	_, err = PlanMotion(context.Background(), logger, nil)
-	test.That(t, err.Error(), test.ShouldEqual, "PlanRequest cannot be nil")
 }
 
 func TestArmGantryCheckPlan(t *testing.T) {

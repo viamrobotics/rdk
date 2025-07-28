@@ -86,6 +86,10 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req.StartState.configuration == nil {
 		return errors.New("PlanRequest cannot have nil StartState configuration")
 	}
+	if req.PlannerOptions == nil {
+		req.PlannerOptions = NewBasicPlannerOptions()
+	}
+
 	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
 	if len(req.StartState.configuration) > 0 {
 		_, err := req.StartState.configuration.ComputePoses(req.FrameSystem)
