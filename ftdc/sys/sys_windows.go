@@ -3,7 +3,6 @@
 package sys
 
 import (
-	"os"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/host"
@@ -11,13 +10,10 @@ import (
 )
 
 var (
-	osPageSize                    int
 	machineBootTimeSecsSinceEpoch float64
 )
 
 func init() {
-	osPageSize = os.Getpagesize()
-
 	// Get boot time using gopsutil
 	bootTime, err := host.BootTime()
 	if err != nil {
@@ -33,18 +29,9 @@ type UsageStatser struct {
 	proc *process.Process
 }
 
-// NewSelfSysUsageStatser will return a `SysUsageStatser` for the current process.
-func NewSelfSysUsageStatser() (*UsageStatser, error) {
-	pid := int32(os.Getpid())
-	proc, err := process.NewProcess(pid)
-	if err != nil {
-		return nil, err
-	}
-	return &UsageStatser{proc}, nil
-}
-
 // NewPidSysUsageStatser will return a `SysUsageStatser` for the given process id.
-func NewPidSysUsageStatser(pid int) (*UsageStatser, error) {
+// just leave this one
+func newSysUsageStatser(pid int) (Statser, error) {
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		return nil, err

@@ -418,9 +418,9 @@ func (m *module) registerProcessWithFTDC() {
 		return
 	}
 
-	statser, err := sys.NewPidSysUsageStatser(pid)
+	statser, err := sys.NewSysUsageStatser(pid)
 	if err != nil {
-		m.logger.Warnw("Cannot find /proc files", "err", err)
+		m.logger.Warnw("Cannot start a system statser for module with pid", "pid", pid, "err", err)
 		return
 	}
 
