@@ -3,23 +3,19 @@
 package sys
 
 import (
-	"os"
+	//"os"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/host"
 	"github.com/shirou/gopsutil/v3/process"
-	"go.viam.com/rdk/logging"
+	//"go.viam.com/rdk/logging"
 )
 
 var (
-	osPageSize                    int
 	machineBootTimeSecsSinceEpoch float64
 )
 
 func init() {
-	// windows doesn't need pageSize because RSS is in bytes already
-	osPageSize = os.Getpagesize()
-
 	// Get boot time using gopsutil
 	bootTime, err := host.BootTime()
 	if err != nil {
@@ -32,32 +28,17 @@ func init() {
 
 // UsageStatser can be used to get system metrics for a process.
 type UsageStatser struct {
-	proc   *process.Process
-	logger logging.Logger
-}
-
-// NewSelfSysUsageStatser will return a `SysUsageStatser` for the current process.
-func NewSelfSysUsageStatser(logger logging.Logger) (*UsageStatser, error) {
-	usageLogger := logger.Sublogger("sys-metrics-windows")
-	usageLogger.NeverDeduplicate()
-	pid := int32(os.Getpid())
-	proc, err := process.NewProcess(pid)
-	if err != nil {
-		usageLogger.Warn(err)
-		return nil, err
-	}
-	return &UsageStatser{proc, usageLogger}, nil
+	proc *process.Process
 }
 
 // NewPidSysUsageStatser will return a `SysUsageStatser` for the given process id.
-func NewPidSysUsageStatser(pid int, logger logging.Logger) (*UsageStatser, error) {
-	usageLogger := logger.Sublogger("sys-metrics-windows-mod")
-	usageLogger.NeverDeduplicate()
+// just leave this one
+func NewSysUsageStatser(pid int) (Statser, error) {
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		return nil, err
 	}
-	return &UsageStatser{proc, usageLogger}, nil
+	return &UsageStatser{proc}, nil
 }
 
 // Stats returns Stats.
