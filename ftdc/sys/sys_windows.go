@@ -1,5 +1,3 @@
-//go:build windows
-
 package sys
 
 import (
@@ -33,7 +31,7 @@ type UsageStatser struct {
 
 // NewPidSysUsageStatser will return a `SysUsageStatser` for the given process id.
 // just leave this one
-func NewSysUsageStatser(pid int) (Statser, error) {
+func newUsageStatser(pid int) (Statser, error) {
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		return nil, err
