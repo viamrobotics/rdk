@@ -9,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	_ "go.viam.com/rdk/components/arm/fake"
+	_ "go.viam.com/rdk/components/gripper/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
