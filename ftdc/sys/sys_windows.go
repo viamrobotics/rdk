@@ -30,7 +30,7 @@ type UsageStatser struct {
 }
 
 // NewPidSysUsageStatser will return a `SysUsageStatser` for the given process id.
-func NewPidSysUsageStatser(pid int) (*UsageStatser, error) {
+func newUsageStatser(pid int) (*UsageStatser, error) {
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		return nil, err
