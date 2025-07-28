@@ -16,10 +16,12 @@ type netStatser struct {
 }
 
 // NewNetUsage returns an object that can interpreted as an `ftdc.Statser`.
-func newNetUsage() (*netStatser, error) {
+func newNetUsage(logger logging.Logger) (*netStatser, error) {
+	statLogger := logger.Sublogger("windows stats")
+	statLogger.Info("I got created")
 	return &netStatser{
 		iphlpapi: windows.NewLazySystemDLL("iphlpapi.dll"),
-		logger:   logging.NewBlankLogger("net stats"),
+		logger:   statLogger,
 	}, nil
 }
 
@@ -85,6 +87,8 @@ func (n *netStatser) Stats() any {
 	ret := networkStats{
 		Ifaces: make(map[string]netDevLine),
 	}
+
+	n.logger.Info("Doing stats")
 
 	// Get network interface statistics using GetIfTable
 	n.getInterfaceStats(&ret)

@@ -1,7 +1,8 @@
 package sys
 
 import (
-// "github.com/prometheus/procfs"
+	// "github.com/prometheus/procfs"
+	"go.viam.com/rdk/logging"
 )
 
 type netDevLine struct {
@@ -28,6 +29,6 @@ type networkStats struct {
 	UDP    ifaceStats
 }
 
-func NewNetUsage() (Statser, error) {
-	return newNetUsage()
+func NewNetUsage(logger logging.Logger) (Statser, error) {
+	return newNetUsage(logger)
 }
