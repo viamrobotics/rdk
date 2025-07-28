@@ -1,4 +1,5 @@
 //go:build !no_cgo
+
 package main
 
 import (
