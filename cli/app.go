@@ -88,16 +88,19 @@ const (
 	moduleFlagDryRun          = "dry-run"
 	moduleFlagUpload          = "upload"
 
-	moduleBuildFlagRef       = "ref"
-	moduleBuildFlagWait      = "wait"
-	moduleBuildFlagToken     = "token"
-	moduleBuildFlagWorkdir   = "workdir"
-	moduleBuildFlagPlatforms = "platforms"
-	moduleBuildFlagGroupLogs = "group-logs"
-	moduleBuildRestartOnly   = "restart-only"
-	moduleBuildFlagNoBuild   = "no-build"
-	moduleBuildFlagOAuthLink = "oauth-link"
-	moduleBuildFlagRepo      = "repo"
+	moduleBuildFlagRef         = "ref"
+	moduleBuildFlagWait        = "wait"
+	moduleBuildFlagToken       = "token"
+	moduleBuildFlagWorkdir     = "workdir"
+	moduleBuildFlagPlatforms   = "platforms"
+	moduleBuildFlagGroupLogs   = "group-logs"
+	moduleBuildRestartOnly     = "restart-only"
+	moduleBuildFlagNoBuild     = "no-build"
+	moduleBuildFlagCloudBuild  = "cloud-build"
+	moduleBuildFlagCloudConfig = "cloud-config"
+	moduleBuildFlagId          = "build-id"
+	moduleBuildFlagOAuthLink   = "oauth-link"
+	moduleBuildFlagRepo        = "repo"
 
 	mlTrainingFlagName        = "script-name"
 	mlTrainingFlagFramework   = "framework"
@@ -2935,6 +2938,16 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# Restart a module running on your local viam server, by name, without building or reconfiguring.
 	viam module reload --restart-only --id viam:python-example-module
 
+	# Use cloudbuild to build the tar.gz that will be copied to the part for hot reloading.
+	viam module reload --cloud-build
+
+	# Run viam module reload on a mac and use the downloaded viam.json file instead of --part-id
+	viam module reload --cloud-config ~/Downloads/viam-mac-main.json
+
+	# Specify which component/service to add to the config along with the module (the API is
+	# automatically looked up from meta.json)
+	viam module reload --model-name acme:module-name:mybase
+
 	# Build and configure a module on your local machine without shipping a tarball.
 	viam module reload --local`,
 					Flags: []cli.Flag{
@@ -2976,6 +2989,25 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  moduleFlagHomeDir,
 							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
 							Value: "~",
+						},
+						&cli.BoolFlag{
+							Name:  moduleBuildFlagCloudBuild,
+							Usage: "Run the build script of the module using cloud build instead of locally. The file will be downloaded to the build.path field in meta.json",
+						},
+						&cli.StringFlag{
+							Name:        moduleBuildFlagId,
+							Usage:       "Provide with --cloud-build to reload with a previous build instead of generating a new one",
+							DefaultText: "create a new build",
+						},
+						&cli.PathFlag{
+							Name:  moduleBuildFlagCloudConfig,
+							Usage: "Provide the location of the viam.json file to lookup the part-id. Use instead of --part-id option.",
+							Value: "/etc/viam.json",
+						},
+						&cli.StringFlag{
+							Name:        moduleFlagModelName,
+							Usage:       "The model triple to create as a component/service in the part config",
+							DefaultText: "The first model in meta.json",
 						},
 					},
 					Action: createCommandWithT[reloadModuleArgs](ReloadModuleAction),

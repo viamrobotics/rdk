@@ -121,7 +121,15 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	destination, name, version, packageURL string, auth authMethod,
 ) error {
 	// All packages are stored as .tar.gz
-	packagePath := filepath.Join(destination, version, name+".tar.gz")
+	var packagePath string
+	// CR erodkin: checking on version emptiness is a bit hacky, let's make this a new arg instead. or better yet, save to the expected location but just figure out how to send _that_ instead of the module.tar.gz at root
+	if version != "" {
+		print("version is", version)
+		packagePath = filepath.Join(destination, version, name+".tar.gz")
+	} else {
+		packagePath = filepath.Join(".", "module.tar.gz")
+	}
+	print("packagePath is", packagePath)
 	if err := os.MkdirAll(filepath.Dir(packagePath), 0o700); err != nil {
 		return err
 	}

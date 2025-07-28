@@ -68,6 +68,7 @@ func ModuleBuildStartAction(cCtx *cli.Context, args moduleBuildStartArgs) error 
 	return c.moduleBuildStartAction(cCtx, args)
 }
 
+// CR erodkin: this is a cloud build
 func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildStartArgs) error {
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
@@ -126,6 +127,7 @@ func ModuleBuildLocalAction(cCtx *cli.Context, args moduleBuildLocalArgs) error 
 	return moduleBuildLocalAction(cCtx, &manifest, nil)
 }
 
+// CR erodkin: update here
 func moduleBuildLocalAction(cCtx *cli.Context, manifest *moduleManifest, environment map[string]string) error {
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
@@ -490,6 +492,46 @@ type reloadModuleArgs struct {
 	NoBuild     bool
 	Local       bool
 	NoProgress  bool
+	CloudBuild  bool
+	BuildID     string
+	CloudConfig string
+	ModelName   string
+}
+
+func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string) error {
+	manifest, err := loadManifest(args.Module)
+	if err != nil {
+		return err
+	}
+
+	// download an existing build at the given ID
+	if args.BuildID != "" {
+		if manifest.Build == nil || manifest.Build.Path == "" {
+			return errors.New("Unable to download module from cloud without a specified build path in meta.json")
+		}
+		id := ctx.String(generalFlagID)
+		if id == "" {
+			id = manifest.ModuleID
+		}
+		downloadArgs := downloadModuleFlags{
+			ID:       id,
+			Version:  args.BuildID,
+			Platform: platform,
+		}
+		return downloadModuleActionInner(ctx, downloadArgs, false)
+	}
+
+	// create a new build
+	buildArgs := moduleBuildStartArgs{
+		Module:  args.Module,
+		Version: "reload",
+		// CR erodkin: HELP
+		Ref:       "HELPHELPHELP",
+		Token:     "HELPHELP",
+		Workdir:   "HELPPPPPP",
+		Platforms: []string{platform},
+	}
+	return c.moduleBuildStartAction(ctx, buildArgs)
 }
 
 // ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
@@ -515,7 +557,7 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, logger logging.Logger) error {
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
-	partID, err := resolvePartID(c.Context, args.PartID, "/etc/viam.json")
+	partID, err := resolvePartID(c.Context, args.PartID, args.CloudConfig)
 	if err != nil {
 		return err
 	}
@@ -546,6 +588,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	environment := map[string]string{
 		"VIAM_BUILD_OS":   partOs,
 		"VIAM_BUILD_ARCH": partArch,
+		"VIAM_RELOAD":     "1",
 	}
 
 	// Add all environment variables with VIAM_ prefix
@@ -566,7 +609,11 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 			if manifest == nil {
 				return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
 			}
-			err = moduleBuildLocalAction(c, manifest, environment)
+			if !args.CloudBuild {
+				err = moduleBuildLocalAction(c, manifest, environment)
+			} else {
+				err = vc.moduleCloudReload(c, args, platform)
+			}
 			if err != nil {
 				return err
 			}

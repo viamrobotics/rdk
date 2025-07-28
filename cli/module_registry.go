@@ -1065,8 +1065,7 @@ type downloadModuleFlags struct {
 	Platform    string
 }
 
-// DownloadModuleAction downloads a module.
-func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
+func downloadModuleActionInner(c *cli.Context, flags downloadModuleFlags, includeVersion bool) error {
 	moduleID := flags.ID
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)
@@ -1129,10 +1128,18 @@ func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
 	}
 	destName := strings.ReplaceAll(moduleID, ":", "-")
 	infof(c.App.ErrWriter, "saving to %s", path.Join(flags.Destination, fullVersion, destName+".tar.gz"))
+	if !includeVersion {
+		fullVersion = ""
+	}
 	return downloadPackageFromURL(c.Context, client.authFlow.httpClient,
 		flags.Destination, destName,
 		fullVersion, pkg.Package.Url, client.conf.Auth,
 	)
+}
+
+// DownloadModuleAction downloads a module.
+func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
+	return downloadModuleActionInner(c, flags, true)
 }
 
 // getMarkdownContent reads and returns the content from a markdown file path.
