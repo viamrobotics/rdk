@@ -113,35 +113,27 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 		return err
 	}
 
-	return downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, resp.GetPackage().GetUrl(),
+	err, _ = downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, resp.GetPackage().GetUrl(),
 		c.conf.Auth)
+	return err
 }
 
 func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	destination, name, version, packageURL string, auth authMethod,
-) error {
-	// All packages are stored as .tar.gz
-	var packagePath string
-	// CR erodkin: checking on version emptiness is a bit hacky, let's make this a new arg instead. or better yet, save to the expected location but just figure out how to send _that_ instead of the module.tar.gz at root
-	if version != "" {
-		print("version is", version)
-		packagePath = filepath.Join(destination, version, name+".tar.gz")
-	} else {
-		packagePath = filepath.Join(".", "module.tar.gz")
-	}
-	print("packagePath is", packagePath)
+) (error, string) {
+	packagePath := filepath.Join(destination, version, name+".tar.gz")
 	if err := os.MkdirAll(filepath.Dir(packagePath), 0o700); err != nil {
-		return err
+		return err, ""
 	}
 	//nolint:gosec
 	packageFile, err := os.Create(packagePath)
 	if err != nil {
-		return err
+		return err, ""
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, packageURL, nil)
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return errors.Wrapf(err, serverErrorMessage), ""
 	}
 
 	// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
@@ -157,10 +149,10 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	}
 	res, err := httpClient.Do(req)
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return errors.Wrapf(err, serverErrorMessage), ""
 	}
 	if res.StatusCode != http.StatusOK {
-		return errors.New(serverErrorMessage)
+		return errors.New(serverErrorMessage), ""
 	}
 	defer func() {
 		utils.UncheckedError(res.Body.Close())
@@ -172,11 +164,11 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return err
+			return err, ""
 		}
 	}
 
-	return nil
+	return nil, packagePath
 }
 
 type packageUploadArgs struct {

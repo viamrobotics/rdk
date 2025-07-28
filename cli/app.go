@@ -3009,6 +3009,20 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:       "The model triple to create as a component/service in the part config",
 							DefaultText: "The first model in meta.json",
 						},
+						&cli.StringFlag{
+							Name:  moduleBuildFlagRef,
+							Usage: "git ref to clone when building your module. This can be a branch name or a commit hash",
+							Value: "main",
+						},
+						&cli.StringFlag{
+							Name:  moduleBuildFlagToken,
+							Usage: "checkout token for private repos, not necessary for public repos",
+						},
+						&cli.StringFlag{
+							Name:  moduleBuildFlagWorkdir,
+							Usage: "use this to indicate that your meta.json is in a subdirectory of your repo. --module flag should be relative to this",
+							Value: ".",
+						},
 					},
 					Action: createCommandWithT[reloadModuleArgs](ReloadModuleAction),
 				},

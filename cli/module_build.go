@@ -496,19 +496,19 @@ type reloadModuleArgs struct {
 	BuildID     string
 	CloudConfig string
 	ModelName   string
+	Ref         string
+	Token       string
+	Workdir     string
 }
 
-func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string) error {
+func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string) (error, string) {
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
-		return err
+		return err, ""
 	}
 
 	// download an existing build at the given ID
 	if args.BuildID != "" {
-		if manifest.Build == nil || manifest.Build.Path == "" {
-			return errors.New("Unable to download module from cloud without a specified build path in meta.json")
-		}
 		id := ctx.String(generalFlagID)
 		if id == "" {
 			id = manifest.ModuleID
@@ -518,20 +518,20 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 			Version:  args.BuildID,
 			Platform: platform,
 		}
-		return downloadModuleActionInner(ctx, downloadArgs, false)
+		return downloadModuleActionInner(ctx, downloadArgs)
 	}
 
 	// create a new build
 	buildArgs := moduleBuildStartArgs{
-		Module:  args.Module,
-		Version: "reload",
-		// CR erodkin: HELP
-		Ref:       "HELPHELPHELP",
-		Token:     "HELPHELP",
-		Workdir:   "HELPPPPPP",
+		Module:    args.Module,
+		Version:   "reload",
+		Ref:       args.Ref,
+		Token:     args.Token,
+		Workdir:   args.Workdir,
 		Platforms: []string{platform},
 	}
-	return c.moduleBuildStartAction(ctx, buildArgs)
+	// CR erodkin: add some sort of nilptr check on Build.Path here
+	return c.moduleBuildStartAction(ctx, buildArgs), manifest.Build.Path
 }
 
 // ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
@@ -604,6 +604,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	// case on the second call. Because these are triggered by user actions, we're okay
 	// with this behavior, and the robot will eventually converge to what is in config.
 	needsRestart := true
+	var buildPath string
 	if !args.RestartOnly {
 		if !args.NoBuild {
 			if manifest == nil {
@@ -611,15 +612,16 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 			}
 			if !args.CloudBuild {
 				err = moduleBuildLocalAction(c, manifest, environment)
+				buildPath = manifest.Build.Path
 			} else {
-				err = vc.moduleCloudReload(c, args, platform)
+				err, buildPath = vc.moduleCloudReload(c, args, platform)
 			}
 			if err != nil {
 				return err
 			}
 		}
 		if !args.Local {
-			if manifest == nil || manifest.Build == nil || manifest.Build.Path == "" {
+			if manifest == nil || manifest.Build == nil || buildPath == "" {
 				return errors.New(
 					"remote reloading requires a meta.json with the 'build.path' field set. " +
 						"try --local if you are testing on the same machine.",
@@ -631,14 +633,14 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 			if err := addShellService(c, vc, part.Part, true); err != nil {
 				return err
 			}
-			infof(c.App.Writer, "Copying %s to part %s", manifest.Build.Path, part.Part.Id)
+			infof(c.App.Writer, "Copying %s to part %s", buildPath, part.Part.Id)
 			globalArgs, err := getGlobalArgs(c)
 			if err != nil {
 				return err
 			}
 			dest := reloadingDestination(c, manifest)
 			err = vc.copyFilesToFqdn(
-				part.Part.Fqdn, globalArgs.Debug, false, false, []string{manifest.Build.Path},
+				part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
 				dest, logging.NewLogger("reload"), args.NoProgress)
 			if err != nil {
 				if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
