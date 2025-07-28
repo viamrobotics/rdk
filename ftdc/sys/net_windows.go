@@ -3,7 +3,7 @@
 package sys
 
 import (
-	"unsafe"
+	"unsafe" // probably not needed? double check
 
 	"golang.org/x/sys/windows"
 )
@@ -13,7 +13,7 @@ type netStatser struct {
 }
 
 // NewNetUsage returns an object that can interpreted as an `ftdc.Statser`.
-func NewNetUsage() (*netStatser, error) {
+func newNetUsage() (*netStatser, error) {
 	return &netStatser{
 		iphlpapi: windows.NewLazySystemDLL("iphlpapi.dll"),
 	}, nil
@@ -21,12 +21,15 @@ func NewNetUsage() (*netStatser, error) {
 
 // MIB_IFROW structure for GetIfTable
 type mibIfRow struct {
-	Name            [256]uint16
-	Index           uint32
-	Type            uint32
-	Mtu             uint32
-	Speed           uint32
-	PhysAddrLen     uint32
+	Name        [256]uint16
+	Index       uint32
+	Type        uint32
+	Mtu         uint32
+	Speed       uint32
+	PhysAddrLen uint32
+	// replace name with physAddr
+	// 4 bytes ipv4, or 8 bytes => check toString of this
+	// only parse it one time
 	PhysAddr        [8]byte
 	AdminStatus     uint32
 	OperStatus      uint32

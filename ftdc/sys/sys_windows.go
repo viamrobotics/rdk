@@ -3,7 +3,7 @@
 package sys
 
 import (
-	"os"
+	//"os"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/host"
@@ -11,15 +11,10 @@ import (
 )
 
 var (
-	osPageSize                    int
 	machineBootTimeSecsSinceEpoch float64
 )
 
 func init() {
-	// Windows API provides RSS in bytes already, so there is no need
-	// to get the osPageSize
-	//osPageSize = os.Getpagesize()
-
 	bootTime, err := host.BootTime()
 	if err != nil {
 		// heuristic for failing
@@ -32,16 +27,6 @@ func init() {
 // UsageStatser can be used to get system metrics for a process.
 type UsageStatser struct {
 	proc *process.Process
-}
-
-// NewSelfSysUsageStatser will return a `SysUsageStatser` for the current process.
-func NewSelfSysUsageStatser() (*UsageStatser, error) {
-	pid := int32(os.Getpid())
-	proc, err := process.NewProcess(pid)
-	if err != nil {
-		return nil, err
-	}
-	return &UsageStatser{proc}, nil
 }
 
 // NewPidSysUsageStatser will return a `SysUsageStatser` for the given process id.
