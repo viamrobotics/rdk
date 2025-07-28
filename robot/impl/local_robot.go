@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	"runtime"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -378,11 +379,13 @@ func newWithResources(
 		ftdcDir := ftdc.DefaultDirectory(utils.ViamDotDir, partID)
 		ftdcLogger := logger.Sublogger("ftdc")
 		ftdcWorker = ftdc.NewWithUploader(ftdcDir, conn, partID, ftdcLogger)
-		if statser, err := sys.NewSelfUsageStatser(); err == nil {
-			ftdcWorker.Add("proc.viam-server", statser)
-		}
-		if statser, err := sys.NewNetUsage(); err == nil {
-			ftdcWorker.Add("net", statser)
+		if runtime.GOOS != "windows" {
+			if statser, err := sys.NewSelfUsageStatser(); err == nil {
+				ftdcWorker.Add("proc.viam-server", statser)
+			}
+			if statser, err := sys.NewNetUsage(); err == nil {
+				ftdcWorker.Add("net", statser)
+			}
 		}
 	}
 
