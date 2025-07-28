@@ -3,19 +3,23 @@
 package sys
 
 import (
+	"net"
 	"unsafe" // probably not needed? double check
 
+	"go.viam.com/rdk/logging"
 	"golang.org/x/sys/windows"
 )
 
 type netStatser struct {
 	iphlpapi *windows.LazyDLL
+	logger   logging.Logger
 }
 
 // NewNetUsage returns an object that can interpreted as an `ftdc.Statser`.
 func newNetUsage() (*netStatser, error) {
 	return &netStatser{
 		iphlpapi: windows.NewLazySystemDLL("iphlpapi.dll"),
+		logger:   logging.NewBlankLogger("net stats"),
 	}, nil
 }
 
@@ -125,10 +129,14 @@ func (n *netStatser) getInterfaceStats(ret *networkStats) {
 
 		// Convert interface name from UTF-16
 		name := windows.UTF16ToString(row.Name[:])
+		n.logger.Info(name)
 		if name == "" {
 			// Fallback to description if name is empty
 			name = string(row.Descr[:row.DescrLen])
+			n.logger.Info("name from descr: ", name)
 		}
+
+		n.logger.Info(net.IP(row.PhysAddr[:]))
 
 		ret.Ifaces[name] = netDevLine{
 			RxBytes:   uint64(row.InOctets),
