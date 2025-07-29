@@ -103,7 +103,7 @@ func (manager *resourceManager) ExportDot(index int) (resource.GetSnapshotInfo, 
 func (manager *resourceManager) startModuleManager(
 	ctx context.Context,
 	parentAddrs config.ParentSockAddrs,
-	removeOrphanedResources func(context.Context, []resource.Name),
+	handleOrphanedResources func(context.Context, []resource.Name),
 	untrustedEnv bool,
 	viamHomeDir string,
 	robotCloudID string,
@@ -113,7 +113,7 @@ func (manager *resourceManager) startModuleManager(
 ) error {
 	mmOpts := modmanageroptions.Options{
 		UntrustedEnv:            untrustedEnv,
-		RemoveOrphanedResources: removeOrphanedResources,
+		HandleOrphanedResources: handleOrphanedResources,
 		ViamHomeDir:             viamHomeDir,
 		RobotCloudID:            robotCloudID,
 		PackagesDir:             packagesDir,
@@ -525,7 +525,10 @@ func (manager *resourceManager) closeResource(ctx context.Context, res resource.
 	resName := res.Name()
 	if manager.moduleManager != nil && manager.moduleManager.IsModularResource(resName) {
 		if err := manager.moduleManager.RemoveResource(closeCtx, resName); err != nil {
-			allErrs = multierr.Combine(allErrs, fmt.Errorf("error removing modular resource for closure: %w", err))
+			allErrs = multierr.Combine(
+				allErrs,
+				fmt.Errorf("error removing modular resource for closure: %w, resource_name: %s", err, res.Name().String()),
+			)
 		}
 	}
 
@@ -1026,7 +1029,6 @@ func (manager *resourceManager) markChildrenForUpdate(rName resource.Name) error
 		if !ok {
 			continue
 		}
-
 		gNode.SetNeedsUpdate()
 	}
 	return nil
@@ -1162,16 +1164,13 @@ func (manager *resourceManager) updateResources(
 			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
 			continue
 		}
-		orphanedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
+		affectedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
 		if err != nil {
 			manager.logger.CErrorw(ctx, "error reconfiguring module", "module", mod.Name, "error", err)
 		}
-		for _, resToClose := range manager.markResourcesRemoved(orphanedResourceNames, nil) {
-			if err := resToClose.Close(ctx); err != nil {
-				manager.logger.CErrorw(ctx, "error closing now orphaned resource", "resource",
-					resToClose.Name().String(), "module", mod.Name, "error", err)
-			}
-		}
+		// resources passed into markRebuildResources have already been closed during module reconfiguration, so
+		// not necessary to Close again.
+		manager.markRebuildResources(affectedResourceNames)
 	}
 
 	if manager.moduleManager != nil {
@@ -1272,18 +1271,18 @@ type PartsMergeResult struct {
 
 // markRemoved marks all resources in the config (assumed to be a removed diff) for removal. This must be called
 // before updateResources. After updateResources is called, any resources still marked will be fully removed from
-// the graph and closed.
+// the graph and closed. markRemoved also returns a list of resources to be rebuilt.
 func (manager *resourceManager) markRemoved(
 	ctx context.Context,
 	conf *config.Config,
-) ([]resource.Resource, map[resource.Name]struct{}) {
-	var resourcesToMark []resource.Name
+) ([]resource.Resource, map[resource.Name]struct{}, []resource.Name) {
+	var resourcesToMark, resourcesToRebuild []resource.Name
 	for _, conf := range conf.Modules {
-		orphanedResourceNames, err := manager.moduleManager.Remove(conf.Name)
+		affectedResourceNames, err := manager.moduleManager.Remove(conf.Name)
 		if err != nil {
 			manager.logger.CErrorw(ctx, "error removing module", "module", conf.Name, "error", err)
 		}
-		resourcesToMark = append(resourcesToMark, orphanedResourceNames...)
+		resourcesToRebuild = append(resourcesToRebuild, affectedResourceNames...)
 	}
 
 	for _, conf := range conf.Remotes {
@@ -1301,8 +1300,17 @@ func (manager *resourceManager) markRemoved(
 			markedResourceNames[name] = struct{}{}
 		}
 	}
-	resourcesToCloseBeforeComplete := manager.markResourcesRemoved(resourcesToMark, addNames)
-	return resourcesToCloseBeforeComplete, markedResourceNames
+	// if the resource was directly removed, remove its dependents as well, since their parents will
+	// be removed.
+	resourcesToCloseBeforeComplete := manager.markResourcesRemoved(resourcesToMark, addNames, true)
+
+	// for modular resources that are being removed because the underlying module was removed,
+	// we only want to mark the resources for removal, but not its dependents. They will be marked
+	// for update later in the process.
+	resourcesToCloseBeforeComplete = append(
+		resourcesToCloseBeforeComplete,
+		manager.markResourcesRemoved(resourcesToRebuild, addNames, false)...)
+	return resourcesToCloseBeforeComplete, markedResourceNames, resourcesToRebuild
 }
 
 // markResourcesRemoved marks all passed in resources (assumed to be resource
@@ -1310,6 +1318,7 @@ func (manager *resourceManager) markRemoved(
 func (manager *resourceManager) markResourcesRemoved(
 	rNames []resource.Name,
 	addNames func(names ...resource.Name),
+	withDependents bool,
 ) []resource.Resource {
 	var resourcesToCloseBeforeComplete []resource.Resource
 	for _, rName := range rNames {
@@ -1324,17 +1333,42 @@ func (manager *resourceManager) markResourcesRemoved(
 		}
 		resourcesToCloseBeforeComplete = append(resourcesToCloseBeforeComplete,
 			resource.NewCloseOnlyResource(rName, resNode.Close))
-		subG, err := manager.resources.SubGraphFrom(rName)
-		if err != nil {
-			manager.logger.Errorw("error while getting a subgraph", "error", err)
-			continue
+		resNode.MarkForRemoval()
+
+		if withDependents {
+			subG, err := manager.resources.SubGraphFrom(rName)
+			if err != nil {
+				manager.logger.Errorw("error while getting a subgraph", "error", err)
+				continue
+			}
+			if addNames != nil {
+				addNames(subG.Names()...)
+			}
+			manager.resources.MarkForRemoval(subG)
 		}
-		if addNames != nil {
-			addNames(subG.Names()...)
-		}
-		manager.resources.MarkForRemoval(subG)
 	}
 	return resourcesToCloseBeforeComplete
+}
+
+// markRebuildResources marks resources passed in as needing a rebuild during
+// reconfiguration and/or completeConfig loop. This function expects the caller
+// to close any resources if necessary.
+func (manager *resourceManager) markRebuildResources(rNames []resource.Name) {
+	for _, rName := range rNames {
+		// Disable changes to shell in untrusted
+		if manager.opts.untrustedEnv && rName.API == shell.API {
+			continue
+		}
+
+		resNode, ok := manager.resources.Node(rName)
+		if !ok {
+			continue
+		}
+		resNode.SetNeedsRebuild()
+		if err := manager.markChildrenForUpdate(rName); err != nil {
+			manager.logger.Errorw("error marking children for update", "resource", rName, "error", err)
+		}
+	}
 }
 
 // createConfig will create a config.Config based on the current state of the

@@ -305,6 +305,21 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 	}
 }
 
+func (r *localRobot) updateRemotesAndRetryResourceConfigure() bool {
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
+
+	anyChanges := r.manager.updateRemotesResourceNames(r.closeContext)
+	if r.manager.anyResourcesNotConfigured() {
+		anyChanges = true
+		r.manager.completeConfig(r.closeContext, r, false)
+	}
+	if anyChanges {
+		r.updateWeakAndOptionalDependents(r.closeContext)
+	}
+	return anyChanges
+}
+
 // completeConfigWorker tries to complete the config and update weak/optional dependencies
 // if any resources are not configured. It will also update the resource graph if remotes
 // have changed. It executes every 5 seconds or when manually triggered. Manual triggers
@@ -325,17 +340,10 @@ func (r *localRobot) completeConfigWorker() {
 			trigger = "remote"
 			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by remote")
 		}
-		r.reconfigurationLock.Lock()
-		anyChanges := r.manager.updateRemotesResourceNames(r.closeContext)
-		if r.manager.anyResourcesNotConfigured() {
-			anyChanges = true
-			r.manager.completeConfig(r.closeContext, r, false)
-		}
+		anyChanges := r.updateRemotesAndRetryResourceConfigure()
 		if anyChanges {
-			r.updateWeakAndOptionalDependents(r.closeContext)
 			r.logger.CDebugw(r.closeContext, "configuration attempt completed with changes", "trigger", trigger)
 		}
-		r.reconfigurationLock.Unlock()
 	}
 }
 
@@ -513,7 +521,7 @@ func newWithResources(
 	if err := r.manager.startModuleManager(
 		closeCtx,
 		r.webSvc.ModuleAddresses(),
-		r.removeOrphanedResources,
+		r.handleOrphanedResources,
 		cfg.UntrustedEnv,
 		homeDir,
 		cloudID,
@@ -589,18 +597,17 @@ func New(
 	return newWithResources(ctx, cfg, nil, conn, logger, opts...)
 }
 
-// removeOrphanedResources is called by the module manager to remove resources
-// orphaned due to module crashes.
-func (r *localRobot) removeOrphanedResources(ctx context.Context,
+// handleOrphanedResources is called by the module manager to handle resources
+// orphaned due to module crashes. Resources passed into this function will be
+// marked for rebuilding and handled by the completeConfig worker.
+func (r *localRobot) handleOrphanedResources(ctx context.Context,
 	rNames []resource.Name,
 ) {
 	r.reconfigurationLock.Lock()
 	defer r.reconfigurationLock.Unlock()
-	r.manager.markResourcesRemoved(rNames, nil)
-	if err := r.manager.removeMarkedAndClose(ctx, nil); err != nil {
-		r.logger.CErrorw(ctx, "error removing and closing marked resources",
-			"error", err)
-	}
+	// resource names passed into markRebuildResources are already closed as the module
+	// crashed and thus do not need to be closed.
+	r.manager.markRebuildResources(rNames)
 	r.updateWeakAndOptionalDependents(ctx)
 }
 
@@ -1489,8 +1496,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
 	}
 
-	// First we mark diff.Removed resources and their children for removal.
-	resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed)
+	// First we mark diff.Removed resources and their children for removal. Modular resources removed this way
+	// will only have their children marked for update, since there is a chance that the resource is served by
+	// a different module.
+	resourcesToCloseBeforeComplete, _, resourcesToRebuild := r.manager.markRemoved(ctx, diff.Removed)
 
 	// Second we attempt to Close resources.
 	alreadyClosed := make(map[resource.Name]struct{}, len(resourcesToCloseBeforeComplete))
@@ -1500,10 +1509,15 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		alreadyClosed[res.Name()] = struct{}{}
 	}
 
-	// Third we update the resource graph and stop any removed processes.
+	// Third we mark resources from removed modules for rebuild. there is a chance that the removed module was actually renamed
+	// and so the resources can be rebuilt.
+	// Resource names passed into markRebuildResources are already closed as part of the second step above.
+	r.manager.markRebuildResources(resourcesToRebuild)
+
+	// Fourth we update the resource graph and stop any removed processes.
 	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
 
-	// Fourth we attempt to complete the config (see function for details) and
+	// Fifth we attempt to complete the config (see function for details) and
 	// update weak and optional dependents.
 	r.manager.completeConfig(ctx, r, forceSync)
 	r.updateWeakAndOptionalDependents(ctx)
@@ -1605,7 +1619,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 	} else {
 		diff.Added.Modules = append(diff.Added.Modules, *mod)
 	}
-
+	r.logger.CInfow(ctx, "restarting single module", "module_name", mod.Name, "module_id", mod.ModuleID)
 	return r.manager.updateResources(ctx, &diff)
 }
 

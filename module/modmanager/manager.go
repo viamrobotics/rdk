@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -62,7 +61,7 @@ func NewManager(
 		untrustedEnv:            options.UntrustedEnv,
 		viamHomeDir:             options.ViamHomeDir,
 		moduleDataParentDir:     getModuleDataParentDirectory(options),
-		removeOrphanedResources: options.RemoveOrphanedResources,
+		handleOrphanedResources: options.HandleOrphanedResources,
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
 		packagesDir:             options.PackagesDir,
@@ -146,7 +145,7 @@ type Manager struct {
 	// Ex: /home/walle/.viam/module-data/<cloud-robot-id>
 	// it is empty if the modmanageroptions.Options.viamHomeDir was empty
 	moduleDataParentDir     string
-	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
+	handleOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	restartCtx              context.Context
 	restartCtxCancel        context.CancelFunc
 	ftdc                    *ftdc.FTDC
@@ -395,8 +394,8 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	return nil
 }
 
-// Reconfigure reconfigures an existing resource module and returns the names of
-// now orphaned resources.
+// Reconfigure reconfigures an existing resource module and returns the names of resources previously
+// handled by the module.
 func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
@@ -696,78 +695,8 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 }
 
 // ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
-// and modified resources. It also puts modular resources whose module has been modified or added in conf.Added if
-// they are not already there since the resources themselves are not necessarily new.
+// and modified resources.
 func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
-	// NOTE(benji): We could simplify some of the following `continue`
-	// conditional clauses to a single clause, but we split them for readability.
-	for _, c := range conf.Right.Components {
-		mod, ok := mgr.getModule(c)
-		if !ok {
-			// continue if this component is not being provided by a module.
-			continue
-		}
-
-		lenModified, lenAdded := len(conf.Modified.Modules), len(conf.Added.Modules)
-		deltaModules := make([]config.Module, lenModified, lenModified+lenAdded)
-		copy(deltaModules, conf.Modified.Modules)
-		deltaModules = append(deltaModules, conf.Added.Modules...)
-
-		if !slices.ContainsFunc(deltaModules, func(elem config.Module) bool {
-			return elem.Name == mod.cfg.Name
-		}) {
-			// continue if this modular component is not being handled by a modified
-			// or added module.
-			continue
-		}
-		if slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool {
-			return elem.Name == c.Name
-		}) {
-			// continue if this modular component handled by a modified module is
-			// already in conf.Added.Components.
-			continue
-		}
-
-		// Add modular component to conf.Added.Components.
-		conf.Added.Components = append(conf.Added.Components, c)
-		// If component is in conf.Modified, the user modified a module and its
-		// component at the same time. Remove that resource from conf.Modified so
-		// the restarted module receives an AddResourceRequest and not a
-		// ReconfigureResourceRequest.
-		conf.Modified.Components = slices.DeleteFunc(
-			conf.Modified.Components, func(elem resource.Config) bool { return elem.Name == c.Name })
-	}
-	for _, s := range conf.Right.Services {
-		mod, ok := mgr.getModule(s)
-		if !ok {
-			// continue if this service is not being provided by a module.
-			continue
-		}
-		if !slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool {
-			return elem.Name == mod.cfg.Name
-		}) {
-			// continue if this modular service is not being handled by a modified
-			// module.
-			continue
-		}
-		if slices.ContainsFunc(conf.Added.Services, func(elem resource.Config) bool {
-			return elem.Name == s.Name
-		}) {
-			// continue if this modular service handled by a modified module is
-			// already in conf.Added.Services.
-			continue
-		}
-
-		// Add modular service to conf.Added.Services.
-		conf.Added.Services = append(conf.Added.Services, s)
-		//  If service is in conf.Modified, the user modified a module and its
-		//  service at the same time. Remove that resource from conf.Modified so
-		//  the restarted module receives an AddResourceRequest and not a
-		//  ReconfigureResourceRequest.
-		conf.Modified.Services = slices.DeleteFunc(
-			conf.Modified.Services, func(elem resource.Config) bool { return elem.Name == s.Name })
-	}
-
 	// If something was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
 	// and store implicit dependencies.
@@ -982,20 +911,25 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 					err,
 				)
 				orphanedResourceNames = append(orphanedResourceNames, name)
+
+				// At this point, the modmanager is no longer managing this resource and should remove it
+				// from its state.
+				mgr.rMap.Delete(name)
+				delete(mod.resources, name)
 				continue
 			}
 			restoredResourceNamesStr = append(restoredResourceNamesStr, name.String())
 		}
-		if len(orphanedResourceNames) > 0 && mgr.removeOrphanedResources != nil {
+		if len(orphanedResourceNames) > 0 && mgr.handleOrphanedResources != nil {
 			orphanedResourceNamesStr := make([]string, len(orphanedResourceNames))
 			for _, n := range orphanedResourceNames {
 				orphanedResourceNamesStr = append(orphanedResourceNamesStr, n.String())
 			}
-			mod.logger.Warnw("Some resources failed to re-add after crashed module restart and will be removed",
+			mod.logger.Warnw("Some resources failed to re-add after crashed module restart and will be rebuilt",
 				"module", mod.cfg.Name,
-				"orphanedResources", orphanedResourceNamesStr)
+				"resources_to_be_rebuilt", orphanedResourceNamesStr)
 			unlock()
-			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
+			mgr.handleOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
 		mod.logger.Infow("Module resources successfully re-added after module restart",
