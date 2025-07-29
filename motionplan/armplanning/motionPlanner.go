@@ -563,8 +563,8 @@ func (mp *planner) getSolutions(
 	failures := map[string]int{}
 	constraintFailCnt := 0
 
-	startTime := time.Now()
-	firstSolutionTime := time.Hour
+	// startTime := time.Now()
+	// firstSolutionTime := time.Hour
 
 	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
 IK:
@@ -625,15 +625,15 @@ IK:
 						break IK
 					}
 
-					if len(solutions) == 1 {
-						firstSolutionTime = time.Since(startTime)
-					} else {
-						elapsed := time.Since(startTime)
-						if elapsed > (time.Duration(mp.planOpts.TimeMultipleAfterFindingFirstSolution) * firstSolutionTime) {
-							mp.logger.Infof("ending early because of time elapsed: %v firstSolutionTime: %v", elapsed, firstSolutionTime)
-							break IK
-						}
-					}
+					// if len(solutions) == 1 {
+					// 	firstSolutionTime = time.Since(startTime)
+					// } else {
+					// 	elapsed := time.Since(startTime)
+					// 	if elapsed > (time.Duration(mp.planOpts.TimeMultipleAfterFindingFirstSolution) * firstSolutionTime) {
+					// 		mp.logger.Infof("ending early because of time elapsed: %v firstSolutionTime: %v", elapsed, firstSolutionTime)
+					// 		break IK
+					// 	}
+					// }
 				} else {
 					constraintFailCnt++
 					failures[err.Error()]++
