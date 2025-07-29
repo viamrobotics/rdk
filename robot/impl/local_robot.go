@@ -535,31 +535,34 @@ func newWithResources(
 		}, r.activeBackgroundWorkers.Done)
 	}
 
-	// getResource is passed in to the jobmanager to have access to the resource graph.
-	getResource := func(res string) (resource.Resource, error) {
-		var found bool
-		var match resource.Name
-		names := r.manager.resources.Names()
-		for _, name := range names {
-			if name.Name == res {
-				if found {
-					return nil, errors.Errorf("found duplicate entries for name %s: %s and %s", res, name.String(), match.String())
+	// TODO(RDSK-11485): JobManager might try to dial a unix socket on windows, which will crash the server.
+	if runtime.GOOS != "windows" {
+		// getResource is passed in to the jobmanager to have access to the resource graph.
+		getResource := func(res string) (resource.Resource, error) {
+			var found bool
+			var match resource.Name
+			names := r.manager.resources.Names()
+			for _, name := range names {
+				if name.Name == res {
+					if found {
+						return nil, errors.Errorf("found duplicate entries for name %s: %s and %s", res, name.String(), match.String())
+					}
+					match = name
+					found = true
 				}
-				match = name
-				found = true
 			}
+			if !found {
+				return nil, errors.Errorf("could not find the resource for name %s", res)
+			}
+			return r.manager.ResourceByName(match)
 		}
-		if !found {
-			return nil, errors.Errorf("could not find the resource for name %s", res)
-		}
-		return r.manager.ResourceByName(match)
-	}
 
-	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
-	if err != nil {
-		return nil, err
+		jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
+		if err != nil {
+			return nil, err
+		}
+		r.jobManager = jobManager
 	}
-	r.jobManager = jobManager
 
 	r.reconfigure(ctx, cfg, false)
 
@@ -1474,7 +1477,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// to allow modifications to jobs to trigger Updates even if the rest of the config is
 	// the same -- to cover these two cases, we always want to UpdateJobs at the end of reconfigure.
 	defer func() {
-		if !diff.JobsEqual {
+		if !diff.JobsEqual && r.jobManager != nil {
 			r.jobManager.UpdateJobs(diff)
 		}
 	}()
