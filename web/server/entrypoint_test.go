@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,10 +46,6 @@ import (
 const numResources = 20
 
 func TestEntrypoint(t *testing.T) {
-	if runtime.GOARCH == "arm" {
-		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
-	}
-
 	t.Run("number of resources", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
@@ -125,10 +120,6 @@ func TestEntrypoint(t *testing.T) {
 }
 
 func TestShutdown(t *testing.T) {
-	if runtime.GOARCH == "arm" {
-		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
-	}
-
 	t.Run("shutdown functionality", func(t *testing.T) {
 		testLogger := logging.NewTestLogger(t)
 		// Pass in a separate logger to the managed server process that only outputs WARN+
