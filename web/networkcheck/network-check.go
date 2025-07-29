@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -200,6 +201,16 @@ func testDNSResolution(ctx context.Context, hostname string) *DNSResult {
 	return dnsResult
 }
 
+// Gets the contents of `/etc/resolve.conf` is it exists. Returns an empty string if file
+// does not exist.
+func getResolveConfContents() string {
+	resolveConfContents, err := os.ReadFile("/etc/resolv.conf")
+	if err != nil {
+		return ""
+	}
+	return string(resolveConfContents)
+}
+
 // Tests connectivity to DNS servers and attempts to resolve hostnames with the system DNS
 // resolver.
 func testDNS(ctx context.Context, logger logging.Logger) {
@@ -223,7 +234,7 @@ func testDNS(ctx context.Context, logger logging.Logger) {
 		dnsResults = append(dnsResults, testDNSResolution(ctx, hostname))
 	}
 
-	logDNSResults(logger, dnsResults)
+	logDNSResults(logger, dnsResults, getResolveConfContents())
 }
 
 // Sends the provided bindRequest to the provided STUN server with the provided packet
