@@ -198,10 +198,15 @@ func newCamera(
 	}
 
 	v.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-		return []camera.NamedImage{
-				{Image: left, SourceName: "left"},
-				{Image: right, SourceName: "right"},
-			},
+		leftImg, err := camera.NamedImageFromImage(left, "left", utils.MimeTypeJPEG)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		rightImg, err := camera.NamedImageFromImage(right, "right", utils.MimeTypeJPEG)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		return []camera.NamedImage{leftImg, rightImg},
 			resource.ResponseMetadata{CapturedAt: time.Now()},
 			nil
 	}
