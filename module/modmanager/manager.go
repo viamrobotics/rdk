@@ -61,7 +61,7 @@ func NewManager(
 		untrustedEnv:            options.UntrustedEnv,
 		viamHomeDir:             options.ViamHomeDir,
 		moduleDataParentDir:     getModuleDataParentDirectory(options),
-		removeOrphanedResources: options.RemoveOrphanedResources,
+		handleOrphanedResources: options.HandleOrphanedResources,
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
 		packagesDir:             options.PackagesDir,
@@ -145,7 +145,7 @@ type Manager struct {
 	// Ex: /home/walle/.viam/module-data/<cloud-robot-id>
 	// it is empty if the modmanageroptions.Options.viamHomeDir was empty
 	moduleDataParentDir     string
-	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
+	handleOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	restartCtx              context.Context
 	restartCtxCancel        context.CancelFunc
 	ftdc                    *ftdc.FTDC
@@ -920,7 +920,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			}
 			restoredResourceNamesStr = append(restoredResourceNamesStr, name.String())
 		}
-		if len(orphanedResourceNames) > 0 && mgr.removeOrphanedResources != nil {
+		if len(orphanedResourceNames) > 0 && mgr.handleOrphanedResources != nil {
 			orphanedResourceNamesStr := make([]string, len(orphanedResourceNames))
 			for _, n := range orphanedResourceNames {
 				orphanedResourceNamesStr = append(orphanedResourceNamesStr, n.String())
@@ -929,7 +929,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 				"module", mod.cfg.Name,
 				"orphanedResources", orphanedResourceNamesStr)
 			unlock()
-			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
+			mgr.handleOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
 		mod.logger.Infow("Module resources successfully re-added after module restart",

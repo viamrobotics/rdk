@@ -103,7 +103,7 @@ func (manager *resourceManager) ExportDot(index int) (resource.GetSnapshotInfo, 
 func (manager *resourceManager) startModuleManager(
 	ctx context.Context,
 	parentAddrs config.ParentSockAddrs,
-	removeOrphanedResources func(context.Context, []resource.Name),
+	handleOrphanedResources func(context.Context, []resource.Name),
 	untrustedEnv bool,
 	viamHomeDir string,
 	robotCloudID string,
@@ -113,7 +113,7 @@ func (manager *resourceManager) startModuleManager(
 ) error {
 	mmOpts := modmanageroptions.Options{
 		UntrustedEnv:            untrustedEnv,
-		RemoveOrphanedResources: removeOrphanedResources,
+		HandleOrphanedResources: handleOrphanedResources,
 		ViamHomeDir:             viamHomeDir,
 		RobotCloudID:            robotCloudID,
 		PackagesDir:             packagesDir,

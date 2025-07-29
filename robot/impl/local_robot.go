@@ -521,7 +521,7 @@ func newWithResources(
 	if err := r.manager.startModuleManager(
 		closeCtx,
 		r.webSvc.ModuleAddresses(),
-		r.removeOrphanedResources,
+		r.handleOrphanedResources,
 		cfg.UntrustedEnv,
 		homeDir,
 		cloudID,
@@ -597,10 +597,10 @@ func New(
 	return newWithResources(ctx, cfg, nil, conn, logger, opts...)
 }
 
-// removeOrphanedResources is called by the module manager to remove resources
+// handleOrphanedResources is called by the module manager to handle resources
 // orphaned due to module crashes. Resources passed into this function will be
 // marked for rebuilding and handled by the completeConfig worker.
-func (r *localRobot) removeOrphanedResources(ctx context.Context,
+func (r *localRobot) handleOrphanedResources(ctx context.Context,
 	rNames []resource.Name,
 ) {
 	r.reconfigurationLock.Lock()
