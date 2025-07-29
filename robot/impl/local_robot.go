@@ -665,7 +665,7 @@ func (r *localRobot) getDependencies(
 	gNode *resource.GraphNode,
 ) (resource.Dependencies, error) {
 	if deps := gNode.UnresolvedDependencies(); len(deps) != 0 {
-		return nil, errors.Errorf("resource has unresolved dependencies: %v", deps)
+		return nil, errors.Errorf("resource has unresolved dependencies not found in machine config or connected remotes: %v", deps)
 	}
 	allDeps := make(resource.Dependencies)
 
@@ -932,7 +932,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(resName.String()))
+				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(resName.String(), r.logger))
 			}
 		case <-ctx.Done():
 			return
@@ -1041,7 +1041,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(conf.ResourceName().String()))
+				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(conf.ResourceName().String(), r.logger))
 			}
 		case <-ctx.Done():
 			return

@@ -49,7 +49,6 @@ cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
 
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install \
-		github.com/edaniels/golinters/cmd/combined \
 		github.com/golangci/golangci-lint/cmd/golangci-lint \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
@@ -65,7 +64,6 @@ generate-go: tool-install
 
 lint-go: tool-install
 	go mod tidy
-	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
 	GOGC=50 $(TOOL_BIN)/golangci-lint run --config=./etc/.golangci.yaml || true
 	GOGC=50 $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 	./etc/lint_register_apis.sh

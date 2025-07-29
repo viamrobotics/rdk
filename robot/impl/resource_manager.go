@@ -37,7 +37,8 @@ import (
 
 func init() {
 	if err := cleanAppImageEnv(); err != nil {
-		logging.Global().Errorw("error cleaning up app image environement", "error", err)
+		//nolint
+		fmt.Println("Error cleaning up app image environement:", err)
 	}
 }
 
@@ -77,9 +78,9 @@ func newResourceManager(
 	resLogger := logger.Sublogger("resource_manager")
 	var resourceGraph *resource.Graph
 	if opts.ftdc != nil {
-		resourceGraph = resource.NewGraphWithFTDC(opts.ftdc)
+		resourceGraph = resource.NewGraphWithFTDC(logger, opts.ftdc)
 	} else {
-		resourceGraph = resource.NewGraph()
+		resourceGraph = resource.NewGraph(logger)
 	}
 
 	return &resourceManager{
@@ -792,7 +793,7 @@ func (manager *resourceManager) completeConfig(
 					// resource to finish processing since it may be running outside code
 					// and have unexpected behavior.
 					if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-						lr.logger.CWarn(ctx, rutils.NewBuildTimeoutError(resName.String()))
+						lr.logger.CWarn(ctx, rutils.NewBuildTimeoutError(resName.String(), lr.logger))
 					}
 				case <-ctx.Done():
 					return ctx.Err()

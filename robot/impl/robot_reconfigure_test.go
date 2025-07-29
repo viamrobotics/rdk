@@ -21,10 +21,6 @@ import (
 	"go.viam.com/rdk/resource"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	_ "go.viam.com/rdk/services/datamanager/builtin"
-	// TODO(RSDK-7884): change everything that depends on this import to a mock.
-	"go.viam.com/rdk/services/motion"
-	// TODO(RSDK-7884): change everything that depends on this import to a mock.
-	_ "go.viam.com/rdk/services/motion/builtin"
 	rdktestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -76,7 +72,7 @@ func registerMockComponent[R resource.Resource, CV resource.ConfigValidator](
 }
 
 func TestRobotReconfigure(t *testing.T) {
-	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 1)
+	test.That(t, len(resource.DefaultServices()), test.ShouldEqual, 0)
 
 	model1 := registerMockComponent(
 		t,
@@ -219,7 +215,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot := setupLocalRobot(t, ctx, conf1, logger)
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 6)
+		test.That(t, len(resources), test.ShouldEqual, 5)
 
 		armNames := []resource.Name{mockNamed("arm1")}
 		baseNames := []resource.Name{mockNamed("base1")}
@@ -1609,7 +1605,7 @@ func TestRobotReconfigure(t *testing.T) {
 		robot := setupLocalRobot(t, ctx, cempty, logger)
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 1)
+		test.That(t, len(resources), test.ShouldEqual, 0)
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), resource.DefaultServices())
 
@@ -3022,46 +3018,6 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
 	})
-}
-
-func TestDefaultServiceReconfigure(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	motionName1 := "motion1"
-	motionName2 := "motion2"
-	cfg1 := &config.Config{
-		Services: []resource.Config{
-			{
-				Name:  motionName1,
-				API:   motion.API,
-				Model: resource.DefaultServiceModel,
-			},
-			{
-				Name:  motionName2,
-				API:   motion.API,
-				Model: resource.DefaultServiceModel,
-			},
-		},
-	}
-	robot := setupLocalRobot(t, context.Background(), cfg1, logger)
-
-	rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(),
-		[]resource.Name{
-			motion.Named(motionName1),
-			motion.Named(motionName2),
-			motion.Named(resource.DefaultServiceName),
-		},
-	)
-
-	cfg2 := &config.Config{}
-	robot.Reconfigure(context.Background(), cfg2)
-	rdktestutils.VerifySameResourceNames(
-		t,
-		robot.ResourceNames(),
-		[]resource.Name{
-			motion.Named(resource.DefaultServiceName),
-		},
-	)
 }
 
 func TestReconfigureModelRebuild(t *testing.T) {

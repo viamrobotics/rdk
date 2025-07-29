@@ -172,7 +172,6 @@ func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 }
 
 func TestCameraWithNoProjector(t *testing.T) {
-	logger := logging.NewTestLogger(t)
 	videoSrc := &simpleSource{"rimage/board1"}
 	noProj, err := camera.NewVideoSourceFromReader(context.Background(), videoSrc, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
@@ -182,7 +181,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 	// make a camera with a NextPointCloudFunction
 	cloudSrc2 := &cloudSource{Named: camera.Named("foo").AsNamed(), simpleSource: videoSrc}
 	videoSrc2, err := camera.NewVideoSourceFromReader(context.Background(), cloudSrc2, nil, camera.DepthStream)
-	noProj2 := camera.FromVideoSource(resource.NewName(camera.API, "bar"), videoSrc2, logger)
+	noProj2 := camera.FromVideoSource(resource.NewName(camera.API, "bar"), videoSrc2)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := noProj2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -199,7 +198,6 @@ func TestCameraWithNoProjector(t *testing.T) {
 }
 
 func TestCameraWithProjector(t *testing.T) {
-	logger := logging.NewTestLogger(t)
 	videoSrc := &simpleSource{"rimage/board1"}
 	params1 := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 		Width:  1280,
@@ -231,7 +229,7 @@ func TestCameraWithProjector(t *testing.T) {
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: props.IntrinsicParams},
 		camera.DepthStream,
 	)
-	cam2 := camera.FromVideoSource(resource.NewName(camera.API, "bar"), videoSrc2, logger)
+	cam2 := camera.FromVideoSource(resource.NewName(camera.API, "bar"), videoSrc2)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = videoSrc2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)

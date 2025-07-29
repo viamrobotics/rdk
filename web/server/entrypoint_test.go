@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	_ "go.viam.com/rdk/components/arm/wrapper" // this is special
 	"go.viam.com/rdk/components/generic"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -33,6 +34,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
+	_ "go.viam.com/rdk/services/motion/builtin" // this is special
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"

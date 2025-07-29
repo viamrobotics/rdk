@@ -43,7 +43,7 @@ type planConfig struct {
 	MotionChains     *motionChains
 }
 
-type planConfigConstructor func() (*planConfig, error)
+type planConfigConstructor func(logger logging.Logger) (*planConfig, error)
 
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
@@ -93,7 +93,7 @@ func TestConstrainedMotion(t *testing.T) {
 }
 
 // TestConstrainedArmMotion tests a simple linear motion on a longer path, with a no-spill constraint.
-func constrainedXArmMotion() (*planConfig, error) {
+func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
 	if err != nil {
 		return nil, err
@@ -205,7 +205,7 @@ func TestPlanningWithGripper(t *testing.T) {
 // |                      |
 // |                      |
 // ------------------------.
-func simple2DMap() (*planConfig, error) {
+func simple2DMap(logger logging.Logger) (*planConfig, error) {
 	// build model
 	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}, {Min: -2 * math.Pi, Max: 2 * math.Pi}}
 	physicalGeometry, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 10, Y: 10, Z: 10}, "")
@@ -303,7 +303,7 @@ func simple2DMap() (*planConfig, error) {
 }
 
 // simpleArmMotion tests moving an xArm7.
-func simpleXArmMotion() (*planConfig, error) {
+func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
 	if err != nil {
 		return nil, err
@@ -379,7 +379,7 @@ func simpleXArmMotion() (*planConfig, error) {
 }
 
 // simpleUR5eMotion tests a simple motion for a UR5e.
-func simpleUR5eMotion() (*planConfig, error) {
+func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
 	if err != nil {
 		return nil, err
@@ -456,9 +456,10 @@ func simpleUR5eMotion() (*planConfig, error) {
 // returns a valid set of waypoints.
 func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfigConstructor, seed int) {
 	t.Helper()
+	logger := logging.NewTestLogger(t)
 
 	// plan
-	cfg, err := config()
+	cfg, err := config(logger)
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := plannerFunc(
 		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander, cfg.MotionChains)
@@ -1185,11 +1186,10 @@ func TestValidatePlanRequest(t *testing.T) {
 	t.Parallel()
 	type testCase struct {
 		name        string
-		request     PlanRequest
+		request     *PlanRequest
 		expectedErr error
 	}
 
-	logger := logging.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("test")
 	frame1 := frame.NewZeroStaticFrame("frame1")
 	frame2, err := frame.NewTranslationalFrame("frame2", r3.Vector{1, 0, 0}, frame.Limit{1, 1})
@@ -1209,7 +1209,7 @@ func TestValidatePlanRequest(t *testing.T) {
 	testCases := []testCase{
 		{
 			name: "absent start state - fail",
-			request: PlanRequest{
+			request: &PlanRequest{
 				FrameSystem: fs,
 				Goals:       validGoal,
 			},
@@ -1217,7 +1217,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		},
 		{
 			name: "nil goal - fail",
-			request: PlanRequest{
+			request: &PlanRequest{
 				FrameSystem: fs,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
 					"frame1": {}, "frame2": {{0}},
@@ -1227,7 +1227,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		},
 		{
 			name: "goal's parent not in frame system - fail",
-			request: PlanRequest{
+			request: &PlanRequest{
 				FrameSystem: fs,
 				Goals:       badGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
@@ -1239,7 +1239,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		},
 		{
 			name: "absent StartState Configuration - fail",
-			request: PlanRequest{
+			request: &PlanRequest{
 				FrameSystem: fs,
 				Goals:       validGoal,
 				StartState:  &PlanState{},
@@ -1248,7 +1248,7 @@ func TestValidatePlanRequest(t *testing.T) {
 		},
 		{
 			name: "incorrect length StartConfiguration - fail",
-			request: PlanRequest{
+			request: &PlanRequest{
 				FrameSystem: fs,
 				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
@@ -1260,15 +1260,38 @@ func TestValidatePlanRequest(t *testing.T) {
 		},
 		{
 			name: "well formed PlanRequest",
-			request: PlanRequest{
+			request: &PlanRequest{
 				FrameSystem: fs,
 				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
-					"frame1": {}, "frame2": {{0}},
+					"frame1": {},
+					"frame2": {{0}},
 				}},
 				PlannerOptions: NewBasicPlannerOptions(),
 			},
 			expectedErr: nil,
+		},
+		{
+			name:        "nil framesystem errors correctly",
+			request:     &PlanRequest{},
+			expectedErr: errors.New("PlanRequest cannot have nil framesystem"),
+		},
+		{
+			name:        "nil PlanRequest errors correctly",
+			request:     nil,
+			expectedErr: errors.New("PlanRequest cannot be nil"),
+		},
+		{
+			name: "nil PlannerOptions does not fail",
+			request: &PlanRequest{
+				FrameSystem: fs,
+				Goals:       validGoal,
+				StartState: &PlanState{configuration: map[string][]frame.Input{
+					"frame1": {},
+					"frame2": {{0}},
+				}},
+				PlannerOptions: nil,
+			},
 		},
 	}
 
@@ -1289,15 +1312,6 @@ func TestValidatePlanRequest(t *testing.T) {
 			testFn(t, c)
 		})
 	}
-
-	// test nil frame system caught
-	_, err = PlanMotion(context.Background(), logger, &PlanRequest{})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldEqual, errors.New("PlanRequest cannot have nil framesystem").Error())
-
-	// ensure nil PlanRequests are caught
-	_, err = PlanMotion(context.Background(), logger, nil)
-	test.That(t, err.Error(), test.ShouldEqual, "PlanRequest cannot be nil")
 }
 
 func TestArmGantryCheckPlan(t *testing.T) {

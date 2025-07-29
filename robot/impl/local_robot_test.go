@@ -52,7 +52,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
-	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	putils "go.viam.com/rdk/robot/packages/testutils"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -60,7 +59,6 @@ import (
 	"go.viam.com/rdk/services/datamanager/builtin"
 	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/services/motion"
-	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/slam"
@@ -174,7 +172,6 @@ func TestConfigRemote(t *testing.T) {
 	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger.Sublogger("remote_robot"))
 
 	expected := []resource.Name{
-		motion.Named(resource.DefaultServiceName),
 		arm.Named("squee:pieceArm"),
 		arm.Named("foo:pieceArm"),
 		arm.Named("bar:pieceArm"),
@@ -195,9 +192,6 @@ func TestConfigRemote(t *testing.T) {
 		gripper.Named("squee:pieceGripper"),
 		gripper.Named("foo:pieceGripper"),
 		gripper.Named("bar:pieceGripper"),
-		motion.Named("squee:builtin"),
-		motion.Named("foo:builtin"),
-		motion.Named("bar:builtin"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -350,15 +344,11 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
 				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
-
-				_, err = r2.ResourceByName(motion.Named(resource.DefaultServiceName))
-				test.That(t, err, test.ShouldBeNil)
 			}
 
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				motion.Named(resource.DefaultServiceName),
 				arm.Named("bar:pieceArm"),
 				arm.Named("foo:pieceArm"),
 				audioinput.Named("bar:mic1"),
@@ -371,8 +361,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				movementsensor.Named("foo:movement_sensor2"),
 				gripper.Named("bar:pieceGripper"),
 				gripper.Named("foo:pieceGripper"),
-				motion.Named("foo:builtin"),
-				motion.Named("bar:builtin"),
 			}
 
 			resources2 := r2.ResourceNames()
@@ -499,14 +487,12 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger)
 
 	expected := []resource.Name{
-		motion.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		audioinput.Named("foo:mic1"),
 		camera.Named("foo:cameraOver"),
 		movementsensor.Named("foo:movement_sensor1"),
 		movementsensor.Named("foo:movement_sensor2"),
 		gripper.Named("foo:pieceGripper"),
-		motion.Named("foo:builtin"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -520,7 +506,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	statuses, err := r2.MachineStatus(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses.Resources), test.ShouldEqual, 13)
+	test.That(t, len(statuses.Resources), test.ShouldEqual, 11)
 	test.That(t, statuses, test.ShouldNotBeNil)
 }
 
@@ -724,7 +710,7 @@ func TestMetadataUpdate(t *testing.T) {
 	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 7)
+	test.That(t, len(resources), test.ShouldEqual, 6)
 	test.That(t, err, test.ShouldBeNil)
 
 	// 5 declared resources + default motion
@@ -735,7 +721,6 @@ func TestMetadataUpdate(t *testing.T) {
 		gripper.Named("pieceGripper"),
 		movementsensor.Named("movement_sensor1"),
 		movementsensor.Named("movement_sensor2"),
-		motion.Named(resource.DefaultServiceName),
 	}
 
 	resources = r.ResourceNames()
@@ -825,7 +810,6 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		t,
 		r.ResourceNames(),
 		[]resource.Name{
-			motion.Named(resource.DefaultServiceName),
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
 			arm.Named("remote:pieceArm"),
 			arm.Named("remote:foo:pieceArm"),
@@ -834,8 +818,6 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			movementsensor.Named("remote:movement_sensor1"),
 			movementsensor.Named("remote:movement_sensor2"),
 			gripper.Named("remote:pieceGripper"),
-			motion.Named("remote:builtin"),
-			motion.Named("remote:foo:builtin"),
 		},
 	)
 	arm1, err := r.ResourceByName(arm.Named("remote:foo:arm1"))
@@ -1290,7 +1272,7 @@ func TestConfigMethod(t *testing.T) {
 	// Assert that Config method returns the default motion service.
 	actualCfg := r.Config()
 	defaultSvcs := removeDefaultServices(actualCfg)
-	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 0)
 	for _, svc := range defaultSvcs {
 		test.That(t, svc.API.SubtypeName, test.ShouldEqual,
 			motion.API.SubtypeName)
@@ -1385,7 +1367,7 @@ func TestConfigMethod(t *testing.T) {
 	// Assert that default motion and sensor services are still present, but data
 	// manager default service has been replaced by the "fake1" data manager service.
 	defaultSvcs = removeDefaultServices(actualCfg)
-	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 0)
 	for _, svc := range defaultSvcs {
 		test.That(t, svc.API.SubtypeName, test.ShouldResemble, motion.API.SubtypeName)
 	}
@@ -1425,46 +1407,6 @@ func TestConfigMethod(t *testing.T) {
 	expectedCfg.Modules = nil
 
 	test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
-}
-
-func TestCheckMaxInstanceValid(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	cfg := &config.Config{
-		Services: []resource.Config{
-			{
-				Name:                "fake1",
-				Model:               resource.DefaultServiceModel,
-				API:                 motion.API,
-				DependsOn:           []string{framesystem.InternalServiceName.String()},
-				ConvertedAttributes: &motionBuiltin.Config{},
-			},
-			{
-				Name:                "fake2",
-				Model:               resource.DefaultServiceModel,
-				API:                 motion.API,
-				DependsOn:           []string{framesystem.InternalServiceName.String()},
-				ConvertedAttributes: &motionBuiltin.Config{},
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:                "fake2",
-				Model:               fake.Model,
-				API:                 arm.API,
-				ConvertedAttributes: &fake.Config{},
-			},
-		},
-	}
-	r := setupLocalRobot(t, context.Background(), cfg, logger)
-	res, err := r.ResourceByName(motion.Named("fake1"))
-	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeNil)
-	res, err = r.ResourceByName(motion.Named("fake2"))
-	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeNil)
-	res, err = r.ResourceByName(arm.Named("fake2"))
-	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeNil)
 }
 
 // The max allowed datamanager services is 1 so only one of the datamanager services
@@ -3091,7 +3033,7 @@ func (m *mockResource) Reconfigure(
 
 // getExpectedDefaultStatuses returns a slice of default [resource.Status] with a given
 // revision and cloud metadata.
-func getExpectedDefaultStatuses(revision string, md cloud.Metadata) []resource.Status {
+func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 	return []resource.Status{
 		{
 			NodeStatus: resource.NodeStatus{
@@ -3130,17 +3072,6 @@ func getExpectedDefaultStatuses(revision string, md cloud.Metadata) []resource.S
 					Name: "builtin",
 				},
 				State: resource.NodeStateReady,
-			},
-			CloudMetadata: md,
-		},
-		{
-			NodeStatus: resource.NodeStatus{
-				Name: resource.Name{
-					API:  resource.APINamespaceRDK.WithServiceType("motion"),
-					Name: "builtin",
-				},
-				State:    resource.NodeStateReady,
-				Revision: revision,
 			},
 			CloudMetadata: md,
 		},
@@ -3774,13 +3705,6 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 					{
 						NodeStatus: resource.NodeStatus{
 							Name:  resource.NewName(client.RemoteAPI, remoteName1),
-							State: resource.NodeStateReady,
-						},
-						CloudMetadata: expectedMd,
-					},
-					{
-						NodeStatus: resource.NodeStatus{
-							Name:  motion.Named("builtin").PrependRemote(remoteName1),
 							State: resource.NodeStateReady,
 						},
 						CloudMetadata: expectedMd,
