@@ -379,13 +379,11 @@ func newWithResources(
 		ftdcDir := ftdc.DefaultDirectory(utils.ViamDotDir, partID)
 		ftdcLogger := logger.Sublogger("ftdc")
 		ftdcWorker = ftdc.NewWithUploader(ftdcDir, conn, partID, ftdcLogger)
-		if runtime.GOOS != "windows" {
-			if statser, err := sys.NewSelfUsageStatser(); err == nil {
-				ftdcWorker.Add("proc.viam-server", statser)
-			}
-			if statser, err := sys.NewNetUsage(); err == nil {
-				ftdcWorker.Add("net", statser)
-			}
+		if statser, err := sys.NewSelfUsageStatser(); err == nil {
+			ftdcWorker.Add("proc.viam-server", statser)
+		}
+		if statser, err := sys.NewNetUsage(); err == nil {
+			ftdcWorker.Add("net", statser)
 		}
 	}
 
