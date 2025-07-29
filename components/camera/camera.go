@@ -81,7 +81,8 @@ type NamedImage struct {
 	mimeType   string
 }
 
-func NamedImageFromBytes(data []byte, sourceName string, mimeType string) (NamedImage, error) {
+// NamedImageFromBytes constructs a NamedImage from a byte slice, source name, and mime type.
+func NamedImageFromBytes(data []byte, sourceName, mimeType string) (NamedImage, error) {
 	if data == nil {
 		return NamedImage{}, fmt.Errorf("must provide image bytes to construct a named image from bytes")
 	}
@@ -91,7 +92,8 @@ func NamedImageFromBytes(data []byte, sourceName string, mimeType string) (Named
 	return NamedImage{data: data, SourceName: sourceName, mimeType: mimeType}, nil
 }
 
-func NamedImageFromImage(img image.Image, sourceName string, mimeType string) (NamedImage, error) {
+// NamedImageFromImage constructs a NamedImage from an image.Image, source name, and mime type.
+func NamedImageFromImage(img image.Image, sourceName, mimeType string) (NamedImage, error) {
 	if img == nil {
 		return NamedImage{}, fmt.Errorf("must provide image to construct a named image")
 	}
@@ -101,6 +103,7 @@ func NamedImageFromImage(img image.Image, sourceName string, mimeType string) (N
 	return NamedImage{img: img, SourceName: sourceName, mimeType: mimeType}, nil
 }
 
+// Image returns the image.Image of the NamedImage.
 func (ni *NamedImage) Image(ctx context.Context) (image.Image, error) {
 	if ni.img == nil {
 		if ni.data == nil {
@@ -115,6 +118,7 @@ func (ni *NamedImage) Image(ctx context.Context) (image.Image, error) {
 	return ni.img, nil
 }
 
+// Bytes returns the byte slice of the NamedImage.
 func (ni *NamedImage) Bytes(ctx context.Context) ([]byte, error) {
 	if ni.data == nil {
 		if ni.img == nil {
