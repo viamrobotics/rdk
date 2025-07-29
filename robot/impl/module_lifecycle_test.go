@@ -121,7 +121,7 @@ func TestRenamedModuleDependentRecovery(t *testing.T) {
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to exist and work.
 	ctx := context.Background()
-	logger, _ := logging.NewObservedTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
 
 	// rename 'mod' to 'mod1'.
@@ -151,7 +151,7 @@ func TestRenamedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	//
 	// 'h' is setup to always fail on the its first construction on the module.
 	ctx := context.Background()
-	logger, _ := logging.NewObservedTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, true, logger)
 
 	// rename 'mod' to 'mod1'.
@@ -193,7 +193,7 @@ func TestReconfiguredModuleDependentRecovery(t *testing.T) {
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to be and work.
 	ctx := context.Background()
-	logger, _ := logging.NewObservedTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
 
 	// reconfigure 'mod' by changing the ExePath.
@@ -224,7 +224,7 @@ func TestReconfiguredModuleDependentRecoveryAfterFailedFirstConstruction(t *test
 	//
 	// 'h' is setup to always fail on the its first construction on the module.
 	ctx := context.Background()
-	logger, _ := logging.NewObservedTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, true, logger)
 
 	// reconfigure 'mod' by changing the ExePath.
@@ -267,7 +267,7 @@ func TestRestartModuleDependentRecovery(t *testing.T) {
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to be and work.
 	ctx := context.Background()
-	logger, _ := logging.NewObservedTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	r, _ := setupModuleTest(t, ctx, false, logger)
 
 	r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: "mod"})
@@ -312,7 +312,7 @@ func TestRestartModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	//
 	// 'h' is setup to always fail on the its first construction on the module.
 	ctx := context.Background()
-	logger, _ := logging.NewObservedTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	r, _ := setupModuleTest(t, ctx, true, logger)
 
 	r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: "mod"})
