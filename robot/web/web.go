@@ -292,7 +292,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		defer svc.modWorkers.Done()
 		svc.logger.Debugw("module server listening", "socket path", lis.Addr())
 		defer func() {
-			// tcpMode starts listens on a port, not a socket file, so no need to remove.
+			// tcpMode starts listening on a port, not a socket file, so no need to remove.
 			if !tcpMode {
 				err := os.RemoveAll(filepath.Dir(addr))
 				if err != nil {
