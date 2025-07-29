@@ -925,9 +925,9 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			for _, n := range orphanedResourceNames {
 				orphanedResourceNamesStr = append(orphanedResourceNamesStr, n.String())
 			}
-			mod.logger.Warnw("Some resources failed to re-add after crashed module restart and will be removed",
+			mod.logger.Warnw("Some resources failed to re-add after crashed module restart and will be rebuilt",
 				"module", mod.cfg.Name,
-				"orphanedResources", orphanedResourceNamesStr)
+				"resources_to_be_rebuilt", orphanedResourceNamesStr)
 			unlock()
 			mgr.handleOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
