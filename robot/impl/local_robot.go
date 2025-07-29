@@ -658,7 +658,7 @@ func (r *localRobot) getDependencies(
 	gNode *resource.GraphNode,
 ) (resource.Dependencies, error) {
 	if deps := gNode.UnresolvedDependencies(); len(deps) != 0 {
-		return nil, errors.Errorf("resource has unresolved dependencies: %v", deps)
+		return nil, errors.Errorf("resource has unresolved dependencies not found in machine config or connected remotes: %v", deps)
 	}
 	allDeps := make(resource.Dependencies)
 
