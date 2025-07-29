@@ -109,12 +109,30 @@ func TestEntrypoint(t *testing.T) {
 		registrations := []registration{}
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(registrations), test.ShouldBeGreaterThan, 0) // to protect against misreading resource registrations
+		test.That(t, registrations, test.ShouldHaveLength, 52)
 		test.That(t, registrations, test.ShouldHaveLength, len(resource.RegisteredResources()))
+
+		observedReg := make(map[string]bool)
 		for _, reg := range registrations {
 			test.That(t, reg.API, test.ShouldNotBeEmpty)
 			test.That(t, reg.Model, test.ShouldNotBeEmpty)
 			test.That(t, reg.Schema, test.ShouldNotBeNil)
+
+			regStr := strings.Join([]string{reg.API, reg.Model}, "/")
+			observedReg[regStr] = true
+		}
+
+		// Check specifically for registrations we care about
+		expectedReg := []string{
+			"rdk:component:arm/rdk:builtin:wrapper_arm",
+			"rdk:component:camera/rdk:builtin:webcam",
+			"rdk:service:data_manager/rdk:builtin:builtin",
+			"rdk:service:motion/rdk:builtin:builtin",
+			"rdk:service:shell/rdk:builtin:builtin",
+			"rdk:service:vision/rdk:builtin:mlmodel",
+		}
+		for _, reg := range expectedReg {
+			test.That(t, observedReg[reg], test.ShouldBeTrue)
 		}
 	})
 }
