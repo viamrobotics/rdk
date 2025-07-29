@@ -6,4 +6,4 @@ module:
 	go build ./
 
 run-module: module
-	go run ../../../../web/cmd/server/main.go -config module.json
+	go run ../../../../web/cmd/server -config module.json
