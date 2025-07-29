@@ -535,7 +535,7 @@ func newWithResources(
 		}, r.activeBackgroundWorkers.Done)
 	}
 
-	// JobManager might try to dial a unix socket on windows, which will crash the server.
+	// TODO(RDSK-11485): JobManager might try to dial a unix socket on windows, which will crash the server.
 	if runtime.GOOS != "windows" {
 		// getResource is passed in to the jobmanager to have access to the resource graph.
 		getResource := func(res string) (resource.Resource, error) {
