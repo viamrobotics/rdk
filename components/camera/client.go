@@ -243,7 +243,12 @@ func (c *client) Images(ctx context.Context, extra map[string]interface{}) ([]Na
 				return nil, resource.ResponseMetadata{}, err
 			}
 		}
-		images = append(images, NamedImage{rdkImage, img.SourceName})
+		// TODO(hexbabe): After updating proto we should have two logical branches to handle mime_type vs format
+		namedImg, err := NamedImageFromImage(rdkImage, img.SourceName, img.Format.String())
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		images = append(images, namedImg)
 	}
 	return images, resource.ResponseMetadataFromProto(resp.ResponseMetadata), nil
 }

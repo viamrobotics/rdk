@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 )
 
 var fileModel = resource.DefaultModelFamily.WithModel("image_file")
@@ -163,7 +164,11 @@ func (fs *fileSource) Images(ctx context.Context, extra map[string]interface{}) 
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		imgs = append(imgs, camera.NamedImage{Image: img, SourceName: "preloaded"})
+		namedImg, err := camera.NamedImageFromImage(img, "preloaded", utils.MimeTypeJPEG)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, namedImg)
 	}
 
 	if fs.ColorFN != "" {
@@ -171,7 +176,11 @@ func (fs *fileSource) Images(ctx context.Context, extra map[string]interface{}) 
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		imgs = append(imgs, camera.NamedImage{Image: img, SourceName: "color"})
+		namedImg, err := camera.NamedImageFromImage(img, "color", utils.MimeTypeJPEG)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, namedImg)
 	}
 
 	if fs.DepthFN != "" {
@@ -179,7 +188,11 @@ func (fs *fileSource) Images(ctx context.Context, extra map[string]interface{}) 
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		imgs = append(imgs, camera.NamedImage{Image: dm, SourceName: "depth"})
+		namedImg, err := camera.NamedImageFromImage(dm, "depth", utils.MimeTypeRawDepth)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, namedImg)
 	}
 
 	ts := time.Now()
@@ -242,10 +255,18 @@ func (ss *StaticSource) Images(
 	}
 	imgs := []camera.NamedImage{}
 	if ss.ColorImg != nil {
-		imgs = append(imgs, camera.NamedImage{Image: ss.ColorImg, SourceName: "color"})
+		namedImg, err := camera.NamedImageFromImage(ss.ColorImg, "color", utils.MimeTypeJPEG)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, namedImg)
 	}
 	if ss.DepthImg != nil {
-		imgs = append(imgs, camera.NamedImage{Image: ss.DepthImg, SourceName: "depth"})
+		namedImg, err := camera.NamedImageFromImage(ss.DepthImg, "depth", utils.MimeTypeRawDepth)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, namedImg)
 	}
 	ts := time.Now()
 	return imgs, resource.ResponseMetadata{CapturedAt: ts}, nil

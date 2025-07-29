@@ -252,7 +252,11 @@ func (vs *videoSource) Images(ctx context.Context, extra map[string]interface{})
 		}
 	}()
 	ts := time.Now()
-	return []NamedImage{{img, ""}}, resource.ResponseMetadata{CapturedAt: ts}, nil
+	namedImg, err := NamedImageFromImage(img, "", utils.MimeTypeJPEG)
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
+	return []NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: ts}, nil
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.

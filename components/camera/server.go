@@ -114,13 +114,17 @@ func (s *serviceServer) GetImages(
 	}
 	imagesMessage := make([]*pb.Image, 0, len(imgs))
 	for _, img := range imgs {
-		format, outBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
+		namedImg, err := img.Image(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "camera server GetImages could not get the image")
+		}
+		format, outBytes, err := encodeImageFromUnderlyingType(ctx, namedImg)
 		if err != nil {
 			return nil, errors.Wrap(err, "camera server GetImages could not encode the images")
 		}
 		imgMes := &pb.Image{
 			SourceName: img.SourceName,
-			Format:     format,
+			Format:     format, // TODO(hexbabe): After updating proto we should have two logical branches to handle mime_type vs format
 			Image:      outBytes,
 		}
 		imagesMessage = append(imagesMessage, imgMes)

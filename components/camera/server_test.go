@@ -97,10 +97,18 @@ func TestServer(t *testing.T) {
 		images := []camera.NamedImage{}
 		// one color image
 		color := rimage.NewImage(40, 50)
-		images = append(images, camera.NamedImage{color, "color"})
+		colorImg, err := camera.NamedImageFromImage(color, "color", utils.MimeTypeJPEG)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		images = append(images, colorImg)
 		// one depth image
 		depth := rimage.NewEmptyDepthMap(10, 20)
-		images = append(images, camera.NamedImage{depth, "depth"})
+		depthImg, err := camera.NamedImageFromImage(depth, "depth", utils.MimeTypeRawDepth)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		images = append(images, depthImg)
 		// a timestamp of 12345
 		ts := time.UnixMilli(12345)
 		return images, resource.ResponseMetadata{ts}, nil
