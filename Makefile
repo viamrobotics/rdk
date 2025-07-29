@@ -81,7 +81,7 @@ test-go-no-race: tool-install
 
 server:
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	go build $(GCFLAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+	go build $(GCFLAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/*.go
 
 server-static:
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
