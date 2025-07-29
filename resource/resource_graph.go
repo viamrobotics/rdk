@@ -597,13 +597,6 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 				nodeNames := g.FindNodesByShortName(dep)
 				switch len(nodeNames) {
 				case 0:
-					// We only get here if the dependency does not exist at all, meaning the user should check their config.
-					// If a dep is just slow to start up, it will still have a node.
-					logger.Errorw(
-						"cannot resolve dependency for resource: dependency name does not exist",
-						"resourceName", nodeName,
-						"dependencyName", dep,
-					)
 				case 1:
 					if nodeNames[0].String() == nodeName.String() {
 						allErrs = multierr.Combine(errors.Errorf("node cannot depend on itself: %q", nodeName))
