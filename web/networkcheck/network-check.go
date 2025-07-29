@@ -47,6 +47,7 @@ var (
 		"1.1.1.1:53",        // Cloudflare DNS
 		"8.8.8.8:53",        // Google DNS
 		"208.67.222.222:53", // OpenDNS
+		"127.0.0.53:53",     // systemd-resolved resolver
 	}
 	hostnamesToResolveDNS = []string{
 		"cloudflare.com",
@@ -81,7 +82,8 @@ func testDNSServerConnectivity(ctx context.Context, dnsServer string) *DNSResult
 		DNSServer: &dnsServer,
 	}
 
-	// TODO(benji): Should I also dial with TCP? And, is that what local system resolver does?
+	// TODO(benji): Fall back to TCP in the event of a UDP timeout. That's what Golang's
+	// default resolver does.
 	start := time.Now()
 	conn, err := net.DialTimeout("udp", dnsServer, timeout)
 	if err != nil {
@@ -168,15 +170,15 @@ func testDNSServerConnectivity(ctx context.Context, dnsServer string) *DNSResult
 }
 
 // Tests DNS resolution using the system's default resolver.
-func testDNSResolution(hostname string) *DNSResult {
+func testDNSResolution(ctx context.Context, hostname string) *DNSResult {
 	dnsResult := &DNSResult{
 		TestType: ResolutionDNSTestType,
 		Hostname: &hostname,
 	}
 
 	start := time.Now()
-	// TODO(benji): This addr lookup fails every time.
-	addrs, err := net.LookupAddr(hostname)
+	// Use default resolver's method so we can pass in context.
+	addrs, err := net.DefaultResolver.LookupHost(ctx, hostname)
 	resolutionTime := time.Since(start).Milliseconds()
 	dnsResult.ResolutionTimeMS = &resolutionTime
 
@@ -218,7 +220,7 @@ func testDNS(ctx context.Context, logger logging.Logger) {
 			return
 		}
 
-		dnsResults = append(dnsResults, testDNSResolution(hostname))
+		dnsResults = append(dnsResults, testDNSResolution(ctx, hostname))
 	}
 
 	logDNSResults(logger, dnsResults)
