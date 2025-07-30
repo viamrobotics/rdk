@@ -3,11 +3,9 @@ package sys
 
 import (
 	"os"
-)
 
-type Statser interface {
-	Stats() any
-}
+	"go.viam.com/rdk/ftdc"
+)
 
 type stats struct {
 	UserCPUSecs     float64
@@ -17,10 +15,12 @@ type stats struct {
 	RssMB           float64
 }
 
-func NewSysUsageStatser(pid int) (Statser, error) {
+// NewSysUsageStatser returns a system ftdc statser based on the passed pid.
+func NewSysUsageStatser(pid int) (ftdc.Statser, error) {
 	return newSysUsageStatser(pid)
 }
 
-func NewSelfSysUsageStatser() (Statser, error) {
+// NewSelfSysUsageStatser returns a system ftdc statser based on the current pid.
+func NewSelfSysUsageStatser() (ftdc.Statser, error) {
 	return newSysUsageStatser(os.Getpid())
 }

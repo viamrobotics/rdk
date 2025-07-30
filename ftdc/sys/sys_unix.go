@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/prometheus/procfs"
-	//"go.viam.com/rdk/logging"
 )
 
 // On linux, getting the page size is a system call. Cache the page size for the entirety of the
@@ -40,7 +39,7 @@ type UsageStatser struct {
 }
 
 // newSysUsageStatser will return a `SysUsageStatser` for the given process id.
-func newSysUsageStatser(pid int) (Statser, error) {
+func newSysUsageStatser(pid int) (*UsageStatser, error) {
 	process, err := procfs.NewProc(pid)
 	if err != nil {
 		return nil, err

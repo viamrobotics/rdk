@@ -1,7 +1,7 @@
 package sys
 
 import (
-// "github.com/prometheus/procfs"
+	"go.viam.com/rdk/ftdc"
 )
 
 type netDevLine struct {
@@ -28,6 +28,7 @@ type networkStats struct {
 	UDP    ifaceStats
 }
 
-func NewNetUsageStatser() (Statser, error) {
+// NewNetUsageStatser returns a network ftdc statser.
+func NewNetUsageStatser() (ftdc.Statser, error) {
 	return newNetUsage()
 }

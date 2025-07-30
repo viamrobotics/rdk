@@ -11,8 +11,6 @@ type netStatser struct {
 }
 
 // NewNetUsage returns an object that can interpreted as an `ftdc.Statser`.
-//
-//nolint:revive
 func newNetUsage() (*netStatser, error) {
 	fs, err := procfs.NewDefaultFS()
 	if err != nil {
