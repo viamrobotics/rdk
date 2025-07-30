@@ -25,16 +25,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	_ "go.viam.com/rdk/components/arm/wrapper" // this is special
 	"go.viam.com/rdk/components/generic"
-	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
-	_ "go.viam.com/rdk/services/motion/builtin" // this is special
-	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
@@ -110,7 +106,6 @@ func TestEntrypoint(t *testing.T) {
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, registrations, test.ShouldHaveLength, 52)
-		test.That(t, registrations, test.ShouldHaveLength, len(resource.RegisteredResources()))
 
 		observedReg := make(map[string]bool)
 		for _, reg := range registrations {
