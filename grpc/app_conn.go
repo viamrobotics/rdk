@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/contextutils"
+	"go.viam.com/rdk/web/networkcheck"
 )
 
 // AppConn maintains an underlying client connection meant to be used globally to connect to App. The `AppConn` constructor repeatedly
@@ -68,6 +69,11 @@ func NewAppConn(ctx context.Context, appAddress, secret, id string, logger loggi
 		"error",
 		err,
 	)
+
+	// Upon failing to dial app.viam.com, run DNS network checks to reveal more DNS
+	// information in the event of failure.
+	networkcheck.TestDNS(ctx, logger, false /* non-verbose to only log failures */)
+
 	appConn.dialer = utils.NewStoppableWorkers(ctx)
 
 	appConn.dialer.Add(func(ctx context.Context) {

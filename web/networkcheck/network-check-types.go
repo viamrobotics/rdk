@@ -140,6 +140,7 @@ func logDNSResults(
 	dnsResults []*DNSResult,
 	resolvConfContents string,
 	systemdResolvedConfContents string,
+	verbose bool,
 ) {
 	var successfulConnectionTests, totalConnectionTests int
 	var successfulResolutionTests, totalResolutionTests int
@@ -188,7 +189,7 @@ func logDNSResults(
 		if systemdResolvedConfContents != "" {
 			logger.Infof("/etc/systemd/resolved.conf contents: %s", systemdResolvedConfContents)
 		}
-	} else {
+	} else if verbose {
 		logger.Infow(systemMsg, keysAndValues...)
 	}
 

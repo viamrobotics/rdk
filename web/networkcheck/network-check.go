@@ -18,9 +18,11 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// RunNetworkChecks characterizes the network through a series of UDP and TCP STUN
-// network checks. Can and should be run asynchronously with server startup to avoid blocking.
-func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger) {
+// RunNetworkChecks characterizes the network through a series of DNS, UDP STUN, and TCP
+// STUN network checks. Can and should be run asynchronously with server startup to avoid
+// blocking. Specifying continueRunningTestDNS as true will run DNS network checks every 5
+// minutes in a goroutine non-verbosely after this function completes until context error.
+func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger, continueRunningTestDNS bool) {
 	logger := rdkLogger.Sublogger("network-checks")
 	if testing.Testing() {
 		logger.Debug("Skipping network checks in a testing environment")
@@ -29,7 +31,20 @@ func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger) {
 
 	logger.Info("Starting network checks")
 
-	testDNS(ctx, logger.Sublogger("dns"))
+	dnsSublogger := logger.Sublogger("dns")
+	TestDNS(ctx, dnsSublogger, true /* verbose to log successes */)
+	if continueRunningTestDNS {
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(5 * time.Minute):
+					TestDNS(ctx, dnsSublogger, false /* non-verbose to only log failures */)
+				}
+			}
+		}()
+	}
 
 	if err := testUDP(ctx, logger.Sublogger("udp")); err != nil {
 		logger.Errorw("Error running udp network tests", "error", err)
@@ -221,9 +236,11 @@ func getSystemdResolveConfContents() string {
 	return string(systemdResolvedConfContents)
 }
 
-// Tests connectivity to DNS servers and attempts to resolve hostnames with the system DNS
-// resolver.
-func testDNS(ctx context.Context, logger logging.Logger) {
+// TestDNS tests connectivity to DNS servers and attempts to resolve hostnames with the
+// system DNS resolver. Should be run at startup, every 5s afterward, and whenever dialing
+// app.viam.com fails. If verbose is true, logs successful and unsuccessful results. Logs
+// only unsuccessful results otherwise.
+func TestDNS(ctx context.Context, logger logging.Logger, verbose bool) {
 	var dnsResults []*DNSResult
 
 	for _, dnsServer := range serverIPSToTestDNS {
@@ -244,7 +261,13 @@ func testDNS(ctx context.Context, logger logging.Logger) {
 		dnsResults = append(dnsResults, testDNSResolution(ctx, hostname))
 	}
 
-	logDNSResults(logger, dnsResults, getResolvConfContents(), getSystemdResolveConfContents())
+	logDNSResults(
+		logger,
+		dnsResults,
+		getResolvConfContents(),
+		getSystemdResolveConfContents(),
+		verbose,
+	)
 }
 
 // Sends the provided bindRequest to the provided STUN server with the provided packet

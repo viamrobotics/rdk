@@ -266,7 +266,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	}
 
 	if rOpts.withNetworkStats {
-		nc.RunNetworkChecks(ctx, logger)
+		nc.RunNetworkChecks(ctx, logger, false /* !continueRunningTestDNS */)
 	}
 
 	backgroundCtx, backgroundCtxCancel := context.WithCancel(context.Background())
