@@ -1166,7 +1166,7 @@ func (manager *resourceManager) addToBeConstructedResource(
 
 		manager.logger.Errorw("Neither resource with colliding name will be reachable through this machine until collision is fixed",
 			"colliding name", name.String())
-		manager.markResourcesRemoved([]resource.Name{name}, nil)
+		manager.markResourcesRemoved([]resource.Name{name}, nil, true /* withDependents */)
 		return nil
 	}
 
