@@ -1,10 +1,5 @@
 package sys
 
-import (
-	// "github.com/prometheus/procfs"
-	"go.viam.com/rdk/logging"
-)
-
 type netDevLine struct {
 	RxBytes   uint64
 	RxPackets uint64
@@ -29,6 +24,6 @@ type networkStats struct {
 	UDP    ifaceStats
 }
 
-func NewNetUsage(logger logging.Logger) (Statser, error) {
-	return newNetUsage(logger)
+func NewNetUsage() (Statser, error) {
+	return newNetUsage()
 }

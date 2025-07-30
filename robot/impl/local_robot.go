@@ -377,8 +377,7 @@ func newWithResources(
 		if statser, err := sys.NewSelfUsageStatser(); err == nil {
 			ftdcWorker.Add("proc.viam-server", statser)
 		}
-
-		if statser, err := sys.NewNetUsage(ftdcLogger); err == nil {
+		if statser, err := sys.NewNetUsage(); err == nil {
 			ftdcWorker.Add("net", statser)
 		}
 	}

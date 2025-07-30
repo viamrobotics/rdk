@@ -4,7 +4,6 @@ package sys
 
 import (
 	"github.com/prometheus/procfs"
-	"go.viam.com/rdk/logging"
 )
 
 type netStatser struct {
@@ -14,8 +13,7 @@ type netStatser struct {
 // NewNetUsage returns an object that can interpreted as an `ftdc.Statser`.
 //
 //nolint:revive
-func newNetUsage(logger logging.Logger) (*netStatser, error) {
-	_ = logger
+func newNetUsage() (*netStatser, error) {
 	fs, err := procfs.NewDefaultFS()
 	if err != nil {
 		return nil, err
