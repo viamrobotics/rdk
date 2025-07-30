@@ -17,7 +17,6 @@ func (netStatser *netStatser) Stats() any {
 		Ifaces: make(map[string]netDevLine),
 	}
 
-	// Interface stats
 	if netIOs, err := windows_net.IOCounters(true); err == nil {
 		for _, stat := range netIOs {
 			ret.Ifaces[stat.Name] = netDevLine{
@@ -33,13 +32,11 @@ func (netStatser *netStatser) Stats() any {
 		}
 	}
 
-	// TCP stats
 	if conns, err := windows_net.Connections("tcp"); err == nil {
 		ret.TCP.UsedSockets = uint64(len(conns))
 		// Note: TX/RX queue lengths not exposed here
 	}
 
-	// UDP stats
 	if conns, err := windows_net.Connections("udp"); err == nil {
 		ret.UDP.UsedSockets = uint64(len(conns))
 	}
