@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +19,53 @@ import (
 
 	"go.viam.com/rdk/utils"
 )
+
+// BuildViamServer will attempt to build the viam-server (full static if on linux). If successful, this function will
+// return the path to the executable.
+func BuildViamServer(tb testing.TB) string {
+	tb.Helper()
+
+	command := "full-static"
+	if runtime.GOOS == "darwin" {
+		command = "server"
+	}
+
+	builder := exec.Command("make", command) //nolint:gosec
+	builder.Dir = utils.ResolveFile(".")
+	out, err := builder.CombinedOutput()
+	// Don't fail build if platform has known compile warnings (due to C deps)
+	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == "darwin"
+	hasCompilerWarnings := len(out) != 0
+	if hasCompilerWarnings && !isPlatformWithKnownCompileWarnings {
+		tb.Errorf(`output from "make %s": %s`, command, out)
+	}
+	if err != nil {
+		tb.Error(err)
+	}
+	if tb.Failed() {
+		tb.Fatal("failed to build viam-server executable")
+	}
+	serverPath := ""
+	// look for the built executable
+	searchFunc := func(path string, dir fs.DirEntry, err error) error {
+		if err != nil {
+			return fs.SkipDir
+		}
+		if dir.IsDir() {
+			return nil
+		}
+		if strings.Contains(dir.Name(), "viam-server") {
+			serverPath = path
+			return fs.SkipAll
+		}
+		return nil
+	}
+	filepath.WalkDir(utils.ResolveFile("bin"), searchFunc)
+	if serverPath == "" {
+		tb.Fatal("failed to find built viam-server executable")
+	}
+	return serverPath
+}
 
 // BuildTempModule will attempt to build the module in the provided directory and put the
 // resulting executable binary into a temporary directory. If successful, this function will

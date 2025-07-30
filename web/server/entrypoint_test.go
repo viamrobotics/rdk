@@ -95,7 +95,7 @@ func TestEntrypoint(t *testing.T) {
 	t.Run("dump resource registrations", func(t *testing.T) {
 		tempDir := t.TempDir()
 		outputFile := filepath.Join(tempDir, "resources.json")
-		serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
+		serverPath := testutils.BuildViamServer(t)
 		command := exec.Command(serverPath, "--dump-resources", outputFile)
 		err := command.Run()
 		test.That(t, err, test.ShouldBeNil)
