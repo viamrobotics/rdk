@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,7 +64,6 @@ var (
 		"1.1.1.1:53",        // Cloudflare DNS
 		"8.8.8.8:53",        // Google DNS
 		"208.67.222.222:53", // OpenDNS
-		"127.0.0.53:53",     // systemd-resolved resolver
 	}
 	hostnamesToResolveDNS = []string{
 		"cloudflare.com",
@@ -90,6 +90,15 @@ var (
 		"turn.viam.com:3478",
 	}
 )
+
+func init() {
+	// Append 127.0.0.53:53, the systemd-resolved IP address, to the list of IPs to test DNS
+	// connectivity against when the operating system is Linux-based. MacOS and Windows do
+	// not have systemd nor systemd-resolved.
+	if runtime.GOOS == "linux" {
+		serverIPSToTestDNS = append(serverIPSToTestDNS, "127.0.0.53:53")
+	}
+}
 
 // Tests connectivity to a specific DNS server.
 func testDNSServerConnectivity(ctx context.Context, dnsServer string) *DNSResult {
