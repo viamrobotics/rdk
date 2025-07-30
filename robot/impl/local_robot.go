@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"runtime"
 	"slices"
 	"sync"
 	"sync/atomic"
