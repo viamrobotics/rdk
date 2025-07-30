@@ -201,14 +201,24 @@ func testDNSResolution(ctx context.Context, hostname string) *DNSResult {
 	return dnsResult
 }
 
-// Gets the contents of `/etc/resolve.conf` is it exists. Returns an empty string if file
+// Gets the contents of `/etc/resolv.conf` is it exists. Returns an empty string if file
 // does not exist.
-func getResolveConfContents() string {
-	resolveConfContents, err := os.ReadFile("/etc/resolv.conf")
+func getResolvConfContents() string {
+	resolvConfContents, err := os.ReadFile("/etc/resolv.conf")
 	if err != nil {
 		return ""
 	}
-	return string(resolveConfContents)
+	return string(resolvConfContents)
+}
+
+// Gets the contents of `/etc/systemd/resolved.conf` is it exists. Returns an empty string if file
+// does not exist.
+func getSystemdResolveConfContents() string {
+	systemdResolvedConfContents, err := os.ReadFile("/etc/systemd/resolved.conf")
+	if err != nil {
+		return ""
+	}
+	return string(systemdResolvedConfContents)
 }
 
 // Tests connectivity to DNS servers and attempts to resolve hostnames with the system DNS
@@ -234,7 +244,7 @@ func testDNS(ctx context.Context, logger logging.Logger) {
 		dnsResults = append(dnsResults, testDNSResolution(ctx, hostname))
 	}
 
-	logDNSResults(logger, dnsResults, getResolveConfContents())
+	logDNSResults(logger, dnsResults, getResolvConfContents(), getSystemdResolveConfContents())
 }
 
 // Sends the provided bindRequest to the provided STUN server with the provided packet

@@ -135,7 +135,12 @@ func stringifyDNSResults(dnsResults []*DNSResult) string {
 }
 
 // Logs DNS test results.
-func logDNSResults(logger logging.Logger, dnsResults []*DNSResult, resolveConfContents string) {
+func logDNSResults(
+	logger logging.Logger,
+	dnsResults []*DNSResult,
+	resolvConfContents string,
+	systemdResolvedConfContents string,
+) {
 	var successfulConnectionTests, totalConnectionTests int
 	var successfulResolutionTests, totalResolutionTests int
 	var slowResolutions []string
@@ -175,9 +180,13 @@ func logDNSResults(logger logging.Logger, dnsResults []*DNSResult, resolveConfCo
 	if successfulConnectionTests < totalConnectionTests ||
 		successfulResolutionTests < totalResolutionTests {
 		logger.Warnw(systemMsg, keysAndValues...)
-		// Only log `/etc/resolve.conf` contents in the event of a DNS test failure.
-		if resolveConfContents != "" {
-			logger.Infof("/etc/resolve.conf contents: %s", resolveConfContents)
+		// Only log `/etc/resolv.conf` and `/etc/systemd/resolved.conf` contents in the event
+		// of a DNS test failure.
+		if resolvConfContents != "" {
+			logger.Infof("/etc/resolv.conf contents: %s", resolvConfContents)
+		}
+		if systemdResolvedConfContents != "" {
+			logger.Infof("/etc/systemd/resolved.conf contents: %s", systemdResolvedConfContents)
 		}
 	} else {
 		logger.Infow(systemMsg, keysAndValues...)
