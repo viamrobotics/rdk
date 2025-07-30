@@ -65,12 +65,6 @@ const (
 	// per-resource gRPC request limit. If it is unset or invalid the limit
 	// defaults to 100.
 	ViamResourceRequestsLimitEnvVar = "VIAM_RESOURCE_REQUESTS_LIMIT"
-
-	// LogDNSConfigurationsEnvVar is the environment variable that controls whether the
-	// contents of `/etc/resolv.conf` and `etc/systemd/resolved.conf` are logged in the
-	// event of DNS network check failure. Set it to any value to allow logging of DNS
-	// configuration file contents.
-	LogDNSConfigurationsEnvVar = "VIAM_LOG_DNS_CONFIGURATIONS"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.

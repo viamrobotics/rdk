@@ -2,11 +2,9 @@ package networkcheck
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/utils"
 )
 
 type (
@@ -183,18 +181,13 @@ func logDNSResults(
 	if successfulConnectionTests < totalConnectionTests ||
 		successfulResolutionTests < totalResolutionTests {
 		logger.Warnw(systemMsg, keysAndValues...)
-
 		// Only log `/etc/resolv.conf` and `/etc/systemd/resolved.conf` contents in the event
-		// of a DNS test failure and when LogDNSConfigurationsEnvVar is set.
-		if os.Getenv(utils.LogDNSConfigurationsEnvVar) != "" {
-			if resolvConfContents != "" {
-				logger.Infof("/etc/resolv.conf contents: %s", resolvConfContents)
-			}
-			if systemdResolvedConfContents != "" {
-				logger.Infof("/etc/systemd/resolved.conf contents: %s", systemdResolvedConfContents)
-			}
-		} else {
-			logger.Infof("NOT logging DNS configuration file contents; set %v to override this", utils.LogDNSConfigurationsEnvVar)
+		// of a DNS test failure.
+		if resolvConfContents != "" {
+			logger.Infof("/etc/resolv.conf contents: %s", resolvConfContents)
+		}
+		if systemdResolvedConfContents != "" {
+			logger.Infof("/etc/systemd/resolved.conf contents: %s", systemdResolvedConfContents)
 		}
 	} else if verbose {
 		logger.Infow(systemMsg, keysAndValues...)
