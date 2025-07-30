@@ -170,7 +170,7 @@ type datasetDownloadArgs struct {
 	Timeout      uint
 }
 
-// DatasetDownloadAction is the corresponding action for 'dataset download'.
+// DatasetDownloadAction is the corresponding action for 'dataset export'.
 func DatasetDownloadAction(c *cli.Context, args datasetDownloadArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
