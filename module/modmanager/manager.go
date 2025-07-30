@@ -1029,7 +1029,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
-// CleanWindowsSocketPath works on windows only, this mutates socket paths so they
+// CleanWindowsSocketPath mutates socket paths on windows only so they
 // work well with the GRPC library.
 // It converts e.g. C:\x\y.sock to /x/y.sock
 // If you don't do this, it will confuse grpc-go's url.Parse call and surrounding logic.
