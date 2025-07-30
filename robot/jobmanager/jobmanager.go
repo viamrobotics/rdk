@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/metadata"
@@ -25,6 +24,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
