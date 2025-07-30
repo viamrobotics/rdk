@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/metadata"
@@ -64,6 +66,10 @@ func New(
 		return nil, err
 	}
 
+	parentAddr.UnixAddr, err = modmanager.CleanWindowsSocketPath(runtime.GOOS, parentAddr.UnixAddr)
+	if err != nil {
+		return nil, err
+	}
 	dialAddr := "unix://" + parentAddr.UnixAddr
 	if rutils.ViamTCPSockets() {
 		dialAddr = parentAddr.TCPAddr
