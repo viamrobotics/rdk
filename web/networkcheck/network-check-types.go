@@ -8,7 +8,7 @@ import (
 )
 
 type (
-	// DNSTestType is an enumeration of test types
+	// DNSTestType is an enumeration of test types.
 	DNSTestType int
 
 	// STUNResponse represents a response from a STUN server.
@@ -71,7 +71,9 @@ type (
 )
 
 const (
+	// ConnectionDNSTestType is a DNS connection test.
 	ConnectionDNSTestType DNSTestType = iota
+	// ResolutionDNSTestType is a DNS resolution test.
 	ResolutionDNSTestType
 )
 
