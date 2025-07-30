@@ -199,16 +199,23 @@ func jsonToFrame(data json.RawMessage) (Frame, error) {
 	if err := json.Unmarshal(sF["frame_type"], &frameType); err != nil {
 		return nil, err
 	}
+	if _, ok := sF["frame"]; !ok {
+		return nil, fmt.Errorf("no frame data found for frame, type was %s", frameType)
+	}
 
 	implementer, ok := registeredFrameImplementers[frameType]
 	if !ok {
 		return nil, fmt.Errorf("%s is not a registered Frame implementation", frameType)
 	}
 	frameZeroStruct := reflect.New(implementer).Elem()
-	if err := json.Unmarshal(sF["frame"], frameZeroStruct.Addr().Interface()); err != nil {
+	frame := frameZeroStruct.Addr().Interface()
+	frameI, err := utils.AssertType[Frame](frame)
+	if err != nil {
 		return nil, err
 	}
-	frame := frameZeroStruct.Addr().Interface()
+	if err := json.Unmarshal(sF["frame"], frame); err != nil {
+		return nil, err
+	}
 
-	return utils.AssertType[Frame](frame)
+	return frameI, nil
 }
