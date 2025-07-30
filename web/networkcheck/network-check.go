@@ -246,9 +246,9 @@ func getSystemdResolveConfContents() string {
 }
 
 // TestDNS tests connectivity to DNS servers and attempts to resolve hostnames with the
-// system DNS resolver. Should be run at startup, every 5s afterward, and whenever dialing
-// app.viam.com fails. If verbose is true, logs successful and unsuccessful results. Logs
-// only unsuccessful results otherwise.
+// system DNS resolver. Should be run at startup, every 5 minutes afterward, and whenever
+// dialing app.viam.com fails. If verbose is true, logs successful and unsuccessful
+// results. Logs only unsuccessful results otherwise.
 func TestDNS(ctx context.Context, logger logging.Logger, verbose bool) {
 	var dnsResults []*DNSResult
 

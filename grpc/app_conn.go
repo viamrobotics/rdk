@@ -71,7 +71,7 @@ func NewAppConn(ctx context.Context, appAddress, secret, id string, logger loggi
 	)
 
 	// Upon failing to dial app.viam.com, run DNS network checks to reveal more DNS
-	// information in the event of failure.
+	// information.
 	networkcheck.TestDNS(ctx, logger, false /* non-verbose to only log failures */)
 
 	appConn.dialer = utils.NewStoppableWorkers(ctx)
