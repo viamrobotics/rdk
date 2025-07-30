@@ -48,7 +48,7 @@ func NewManager(
 	ctx context.Context, parentAddrs config.ParentSockAddrs, logger logging.Logger, options modmanageroptions.Options,
 ) (modmaninterface.ModuleManager, error) {
 	var err error
-	parentAddrs.UnixAddr, err = cleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
+	parentAddrs.UnixAddr, err = CleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -1029,11 +1029,12 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
-// On windows only, this mutates socket paths so they work well with the GRPC library.
+// CleanWindowsSocketPath works on windows only, this mutates socket paths so they
+// work well with the GRPC library.
 // It converts e.g. C:\x\y.sock to /x/y.sock
 // If you don't do this, it will confuse grpc-go's url.Parse call and surrounding logic.
 // See https://github.com/grpc/grpc-go/blob/v1.71.0/clientconn.go#L1720-L1727
-func cleanWindowsSocketPath(goos, orig string) (string, error) {
+func CleanWindowsSocketPath(goos, orig string) (string, error) {
 	if goos == "windows" {
 		match := windowsPathRegex.FindStringSubmatch(orig)
 		if match == nil {
