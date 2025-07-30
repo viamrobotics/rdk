@@ -560,7 +560,7 @@ func newWithResources(
 
 	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
 	if err != nil {
-		r.logger.CErrorw(ctx, "Job manager could not start", "error", err)
+		r.logger.CErrorw(ctx, "Job manager failed to start", "error", err)
 	}
 	r.jobManager = jobManager
 
