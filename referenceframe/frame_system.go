@@ -458,9 +458,10 @@ func (sfs *FrameSystem) MarshalJSON() ([]byte, error) {
 		typedFrames[name] = frameJSON
 	}
 	serializedFS := serializableFrameSystem{
-		Name:   sfs.name,
-		World:  worldFrameJSON,
-		Frames: typedFrames,
+		Name:    sfs.name,
+		World:   worldFrameJSON,
+		Frames:  typedFrames,
+		Parents: sfs.parents,
 	}
 	return json.Marshal(serializedFS)
 }
