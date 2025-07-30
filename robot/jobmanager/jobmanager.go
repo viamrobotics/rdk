@@ -24,7 +24,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -66,7 +65,7 @@ func New(
 		return nil, err
 	}
 
-	parentAddr.UnixAddr, err = modmanager.CleanWindowsSocketPath(runtime.GOOS, parentAddr.UnixAddr)
+	parentAddr.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr.UnixAddr)
 	if err != nil {
 		return nil, err
 	}

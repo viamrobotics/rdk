@@ -179,7 +179,7 @@ func (m *module) startProcess(
 			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
 			return err
 		}
-		m.addr, err = CleanWindowsSocketPath(runtime.GOOS, m.addr)
+		m.addr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, m.addr)
 		if err != nil {
 			return err
 		}

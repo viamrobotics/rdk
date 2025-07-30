@@ -3,10 +3,8 @@ package modmanager
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -40,7 +38,6 @@ var (
 	// name of the folder under the viamHomeDir that holds all the folders for the module data
 	// ex: /home/walle/.viam/module-data/<cloud-robot-id>/<module-name>
 	parentModuleDataFolderName = "module-data"
-	windowsPathRegex           = regexp.MustCompile(`^(\w:)?(.+)$`)
 )
 
 // NewManager returns a Manager.
@@ -48,7 +45,7 @@ func NewManager(
 	ctx context.Context, parentAddrs config.ParentSockAddrs, logger logging.Logger, options modmanageroptions.Options,
 ) (modmaninterface.ModuleManager, error) {
 	var err error
-	parentAddrs.UnixAddr, err = CleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
+	parentAddrs.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -1027,25 +1024,6 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	env := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
 
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
-}
-
-// CleanWindowsSocketPath mutates socket paths on windows only so they
-// work well with the GRPC library.
-// It converts e.g. C:\x\y.sock to /x/y.sock
-// If you don't do this, it will confuse grpc-go's url.Parse call and surrounding logic.
-// See https://github.com/grpc/grpc-go/blob/v1.71.0/clientconn.go#L1720-L1727
-func CleanWindowsSocketPath(goos, orig string) (string, error) {
-	if goos == "windows" {
-		match := windowsPathRegex.FindStringSubmatch(orig)
-		if match == nil {
-			return "", fmt.Errorf("error cleaning socket path %s", orig)
-		}
-		if match[1] != "" && strings.ToLower(match[1]) != "c:" {
-			return "", fmt.Errorf("we expect unix sockets on C: drive, not %s", match[1])
-		}
-		return strings.ReplaceAll(match[2], "\\", "/"), nil
-	}
-	return orig, nil
 }
 
 func getFullEnvironment(
