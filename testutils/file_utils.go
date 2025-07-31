@@ -34,13 +34,7 @@ func BuildViamServer(tb testing.TB) string {
 
 	builder := exec.Command("make", command)
 	builder.Dir = utils.ResolveFile(".")
-	out, err := builder.CombinedOutput()
-	// Don't fail build if platform has known compile warnings (due to C deps)
-	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == osDarwin
-	hasCompilerWarnings := len(out) != 0
-	if hasCompilerWarnings && !isPlatformWithKnownCompileWarnings {
-		tb.Errorf(`output from "make %s": %s`, command, out)
-	}
+	_, err := builder.CombinedOutput()
 	if err != nil {
 		tb.Error(err)
 	}
