@@ -95,7 +95,7 @@ func NamedImageFromBytes(data []byte, sourceName, mimeType string) (NamedImage, 
 // NamedImageFromImage constructs a NamedImage from an image.Image, source name, and mime type.
 func NamedImageFromImage(img image.Image, sourceName, mimeType string) (NamedImage, error) {
 	if img == nil {
-		return NamedImage{}, fmt.Errorf("must provide image to construct a named image")
+		return NamedImage{}, fmt.Errorf("must provide image to construct a named image from image")
 	}
 	if mimeType == "" {
 		return NamedImage{}, fmt.Errorf("must provide a mime type to construct a named image")
