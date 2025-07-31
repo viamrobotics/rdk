@@ -245,17 +245,46 @@ func (m *SimpleModel) DoF() []Limit {
 
 // MarshalJSON serializes a Model.
 func (m *SimpleModel) MarshalJSON() ([]byte, error) {
-	return json.Marshal(m.modelConfig)
+	type serialized struct {
+		Name  string           `json:"name"`
+		Model *ModelConfigJSON `json:"model"`
+	}
+	ser := serialized{
+		Name:  m.name,
+		Model: m.modelConfig,
+	}
+	return json.Marshal(ser)
 }
 
 // UnmarshalJSON deserializes a Model.
 func (m *SimpleModel) UnmarshalJSON(data []byte) error {
-	var modelConfig ModelConfigJSON
-	if err := json.Unmarshal(data, &modelConfig); err != nil {
+	type serialized struct {
+		Name  string           `json:"name"`
+		Model *ModelConfigJSON `json:"model"`
+	}
+	var ser serialized
+	if err := json.Unmarshal(data, &ser); err != nil {
 		return err
 	}
-	m.baseFrame = &baseFrame{name: modelConfig.Name}
-	m.modelConfig = &modelConfig
+
+	frameName := ser.Name
+	if frameName == "" {
+		frameName = ser.Model.Name
+	}
+	m.baseFrame = &baseFrame{name: frameName}
+	m.modelConfig = ser.Model
+	if ser.Model == nil {
+		return fmt.Errorf("could not unmarshal simple model frame json, 'model' key missing")
+	}
+	parsed, err := ser.Model.ParseConfig(m.modelConfig.Name)
+	if err != nil {
+		return err
+	}
+	newModel, ok := parsed.(*SimpleModel)
+	if !ok {
+		return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
+	}
+	m.OrdTransforms = newModel.OrdTransforms
 	return nil
 }
 
