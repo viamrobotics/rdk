@@ -299,13 +299,13 @@ func TestModuleFunctions(t *testing.T) {
 
 		// Test that GetParentResource will refresh resources on the parent
 		cfg.Components = append(cfg.Components, resource.Config{
-			Name:                "motor2",
+			Name:                "motor3",
 			API:                 resource.NewAPI("rdk", "component", "motor"),
 			Model:               resource.DefaultModelFamily.WithModel("fake"),
 			ConvertedAttributes: &fake.Config{},
 		})
 		myRobot.Reconfigure(ctx, cfg)
-		_, err = m.GetParentResource(ctx, motor.Named("motor2"))
+		_, err = m.GetParentResource(ctx, motor.Named("motor3"))
 		test.That(t, err, test.ShouldBeNil)
 	})
 
