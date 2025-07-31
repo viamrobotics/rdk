@@ -93,7 +93,11 @@ func TestServer(t *testing.T) {
 			FrameRate:       float32(10.0),
 		}, nil
 	}
-	injectCamera.ImagesFunc = func(ctx context.Context, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	injectCamera.ImagesFunc = func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		images := []camera.NamedImage{}
 		// one color image
 		color := rimage.NewImage(40, 50)
@@ -490,6 +494,7 @@ func TestServer(t *testing.T) {
 	t.Run("GetImages with extra", func(t *testing.T) {
 		injectCamera.ImagesFunc = func(
 			ctx context.Context,
+			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, extra, test.ShouldBeEmpty)
@@ -505,6 +510,7 @@ func TestServer(t *testing.T) {
 
 		injectCamera.ImagesFunc = func(
 			ctx context.Context,
+			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
@@ -525,6 +531,7 @@ func TestServer(t *testing.T) {
 
 		injectCamera.ImagesFunc = func(
 			ctx context.Context,
+			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
@@ -547,6 +554,7 @@ func TestServer(t *testing.T) {
 
 		injectCamera.ImagesFunc = func(
 			ctx context.Context,
+			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 2)

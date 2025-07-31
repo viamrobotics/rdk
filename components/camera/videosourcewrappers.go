@@ -235,12 +235,15 @@ func (vs *videoSource) Image(ctx context.Context, mimeType string, extra map[str
 // Images is for getting simultaneous images from different sensors
 // If the underlying source did not specify an Images function, a default is applied.
 // The default returns a list of 1 image from ReadImage, and the current time.
-// The extra parameter is passed through to the underlying resource.
-func (vs *videoSource) Images(ctx context.Context, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error) {
+func (vs *videoSource) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]NamedImage, resource.ResponseMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::videoSource::Images")
 	defer span.End()
 	if c, ok := vs.actualSource.(ImagesSource); ok {
-		return c.Images(ctx, extra)
+		return c.Images(ctx, filterSourceNames, extra)
 	}
 	img, release, err := ReadImage(ctx, vs.videoSource)
 	if err != nil {

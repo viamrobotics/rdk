@@ -13,7 +13,17 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	rutils "go.viam.com/rdk/utils"
 )
+
+var supportedImageMIMETypes = map[string]interface{}{
+	rutils.MimeTypeRawRGBA:  nil,
+	rutils.MimeTypeRawDepth: nil,
+	rutils.MimeTypeJPEG:     nil,
+	rutils.MimeTypePNG:      nil,
+	rutils.MimeTypePCD:      nil,
+	rutils.MimeTypeQOI:      nil,
+}
 
 // Camera returns the camera from the robot (derived from the stream) or
 // an error if it has no camera.
@@ -27,18 +37,77 @@ func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
 	return cam, nil
 }
 
+// GetStreamableNamedImageFromCamera returns the first named image it finds from the camera that is supported for streaming.
+func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (camera.NamedImage, error) {
+	namedImages, _, err := cam.Images(ctx, nil, nil)
+	if err != nil {
+		return camera.NamedImage{}, err
+	}
+	if len(namedImages) == 0 {
+		return camera.NamedImage{}, fmt.Errorf("no images received for camera %q", cam.Name())
+	}
+
+	for _, namedImage := range namedImages {
+		if _, ok := supportedImageMIMETypes[namedImage.MimeType()]; ok {
+			return namedImage, nil
+		}
+	}
+	return camera.NamedImage{}, fmt.Errorf("no images were found with a streamable mime type for camera %q", cam.Name())
+}
+
+// getImageBySourceName retrieves a specific named image from the camera by source name.
+// If an error occurs, it returns nil for both the image and source name to trigger fallback behavior.
+func getImageBySourceName(ctx context.Context, cam camera.Camera, sourceName string) (*camera.NamedImage, *string, error) {
+	sourceNames := []string{sourceName}
+	namedImages, _, err := cam.Images(ctx, sourceNames, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(namedImages) == 0 {
+		return nil, nil, fmt.Errorf("no images found for source name: %s", sourceName)
+	}
+
+	for _, namedImage := range namedImages {
+		if namedImage.SourceName == sourceName {
+			return &namedImage, &sourceName, nil
+		}
+	}
+	return nil, nil, fmt.Errorf("no images found for source name: %s", sourceName)
+}
+
 // VideoSourceFromCamera converts a camera resource into a gostream VideoSource.
 // This is useful for streaming video from a camera resource.
 func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.VideoSource, error) {
+	var sourceName *string
 	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-		img, err := camera.DecodeImageFromCamera(ctx, "", nil, cam)
+		var respNamedImage *camera.NamedImage
+
+		if sourceName == nil {
+			fmt.Println("source name no!!!!!")
+			namedImage, err := GetStreamableNamedImageFromCamera(ctx, cam)
+			if err != nil {
+				return nil, func() {}, err
+			}
+			respNamedImage = &namedImage
+			sourceName = &namedImage.SourceName
+		} else {
+			fmt.Println("source name yes!!!!!", *sourceName)
+			var err error
+			respNamedImage, sourceName, err = getImageBySourceName(ctx, cam, *sourceName)
+			if err != nil {
+				sourceName = nil
+				return nil, func() {}, err
+			}
+		}
+
+		img, err := respNamedImage.Image(ctx)
 		if err != nil {
 			return nil, func() {}, err
 		}
 		return img, func() {}, nil
 	})
 
-	img, err := camera.DecodeImageFromCamera(ctx, "", nil, cam)
+	img, _, err := reader(ctx)
 	if err != nil {
 		// Okay to return empty prop because processInputFrames will tick and set them
 		return gostream.NewVideoSource(reader, prop.Video{}), nil //nolint:nilerr

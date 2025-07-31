@@ -208,7 +208,11 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
 }
 
-func (c *client) Images(ctx context.Context, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error) {
+func (c *client) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]NamedImage, resource.ResponseMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Images")
 	defer span.End()
 
@@ -217,8 +221,9 @@ func (c *client) Images(ctx context.Context, extra map[string]interface{}) ([]Na
 		return nil, resource.ResponseMetadata{}, err
 	}
 	resp, err := c.client.GetImages(ctx, &pb.GetImagesRequest{
-		Name:  c.name,
-		Extra: convertedExtra,
+		Name:              c.name,
+		FilterSourceNames: filterSourceNames,
+		Extra:             convertedExtra,
 	})
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not gets images from the camera %w", err)
