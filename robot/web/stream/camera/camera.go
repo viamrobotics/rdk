@@ -83,7 +83,7 @@ func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.Vid
 		var respNamedImage *camera.NamedImage
 
 		if sourceName == nil {
-			fmt.Println("source name no!!!!!")
+			// fmt.Println("source name no!!!!!")
 			namedImage, err := GetStreamableNamedImageFromCamera(ctx, cam)
 			if err != nil {
 				return nil, func() {}, err
@@ -91,7 +91,7 @@ func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.Vid
 			respNamedImage = &namedImage
 			sourceName = &namedImage.SourceName
 		} else {
-			fmt.Println("source name yes!!!!!", *sourceName)
+			// fmt.Println("source name yes!!!!!", *sourceName)
 			var err error
 			respNamedImage, sourceName, err = getImageBySourceName(ctx, cam, *sourceName)
 			if err != nil {
