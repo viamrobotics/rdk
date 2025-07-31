@@ -243,7 +243,7 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 1280)
 	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 720)
 	// cam2 should implement a default GetImages, that just returns the one image
-	images, _, err := videoSrc2.Images(context.Background())
+	images, _, err := videoSrc2.Images(context.Background(), nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(images), test.ShouldEqual, 1)
 	imgFromImages, err := images[0].Image(context.Background())
@@ -288,7 +288,11 @@ func TestGetImageFromGetImages(t *testing.T) {
 	testImg2 := image.NewRGBA(image.Rect(0, 0, 200, 200))
 
 	rgbaCam := inject.NewCamera("rgba_cam")
-	rgbaCam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	rgbaCam.ImagesFunc = func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		namedImg1, err := camera.NamedImageFromImage(testImg1, source1Name, rutils.MimeTypeRawRGBA)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
@@ -305,7 +309,11 @@ func TestGetImageFromGetImages(t *testing.T) {
 
 	dm := rimage.NewEmptyDepthMap(100, 100)
 	depthCam := inject.NewCamera("depth_cam")
-	depthCam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	depthCam.ImagesFunc = func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		namedImg, err := camera.NamedImageFromImage(dm, source1Name, rutils.MimeTypeRawDepth)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
@@ -357,7 +365,11 @@ func TestGetImageFromGetImages(t *testing.T) {
 
 	t.Run("error case", func(t *testing.T) {
 		errorCam := inject.NewCamera("error_cam")
-		errorCam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		errorCam.ImagesFunc = func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			return nil, resource.ResponseMetadata{}, errors.New("test error")
 		}
 		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypePNG, errorCam)
@@ -366,7 +378,11 @@ func TestGetImageFromGetImages(t *testing.T) {
 
 	t.Run("empty images case", func(t *testing.T) {
 		emptyCam := inject.NewCamera("empty_cam")
-		emptyCam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		emptyCam.ImagesFunc = func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			return []camera.NamedImage{}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 		}
 		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypePNG, emptyCam)
@@ -375,7 +391,11 @@ func TestGetImageFromGetImages(t *testing.T) {
 
 	t.Run("nil image case", func(t *testing.T) {
 		nilImageCam := inject.NewCamera("nil_image_cam")
-		nilImageCam.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		nilImageCam.ImagesFunc = func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			namedImg, err := camera.NamedImageFromImage(nil, source1Name, rutils.MimeTypeRawRGBA)
 			if err != nil {
 				return nil, resource.ResponseMetadata{}, err

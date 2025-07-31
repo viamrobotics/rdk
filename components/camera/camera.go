@@ -133,6 +133,11 @@ func (ni *NamedImage) Bytes(ctx context.Context) ([]byte, error) {
 	return ni.data, nil
 }
 
+// MimeType returns the mime type of the NamedImage.
+func (ni *NamedImage) MimeType() string {
+	return ni.mimeType
+}
+
 // ImageMetadata contains useful information about returned image bytes such as its mimetype.
 type ImageMetadata struct {
 	MimeType string
@@ -193,7 +198,7 @@ type Camera interface {
 
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
-	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
+	Images(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
@@ -230,7 +235,7 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 // It uses the mimeType arg to specify how to encode the bytes returned from GetImages.
 func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType string, cam Camera) ([]byte, ImageMetadata, error) {
 	// TODO(RSDK-10991): pass through extra field when implemented
-	images, _, err := cam.Images(ctx)
+	images, _, err := cam.Images(ctx, nil, nil)
 	if err != nil {
 		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
 	}
@@ -247,14 +252,14 @@ func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType str
 	if sourceName == nil {
 		img, err = images[0].Image(ctx)
 		if err != nil {
-			return nil, ImageMetadata{}, fmt.Errorf("could not get image from camera: %w", err)
+			return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
 		}
 	} else {
 		for _, i := range images {
 			if i.SourceName == *sourceName {
 				img, err = i.Image(ctx)
 				if err != nil {
-					return nil, ImageMetadata{}, fmt.Errorf("could not get image from camera: %w", err)
+					return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
 				}
 				break
 			}
@@ -328,7 +333,7 @@ type PointCloudSource interface {
 
 // A ImagesSource is a source that can return a list of images with timestamp.
 type ImagesSource interface {
-	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
+	Images(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error)
 }
 
 // NewPropertiesError returns an error specific to a failure in Properties.

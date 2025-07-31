@@ -20,12 +20,16 @@ type Camera struct {
 	RTPPassthroughSource rtppassthrough.Source
 	DoFunc               func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ImageFunc            func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error)
-	ImagesFunc           func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error)
-	NextPointCloudFunc   func(ctx context.Context) (pointcloud.PointCloud, error)
-	ProjectorFunc        func(ctx context.Context) (transform.Projector, error)
-	PropertiesFunc       func(ctx context.Context) (camera.Properties, error)
-	CloseFunc            func(ctx context.Context) error
-	GeometriesFunc       func(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error)
+	ImagesFunc           func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error)
+	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
+	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
+	PropertiesFunc     func(ctx context.Context) (camera.Properties, error)
+	CloseFunc          func(ctx context.Context) error
+	GeometriesFunc     func(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error)
 }
 
 // NewCamera returns a new injected camera.
@@ -69,13 +73,17 @@ func (c *Camera) Properties(ctx context.Context) (camera.Properties, error) {
 }
 
 // Images calls the injected Images or the real version.
-func (c *Camera) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (c *Camera) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if c.ImagesFunc != nil {
-		return c.ImagesFunc(ctx)
+		return c.ImagesFunc(ctx, filterSourceNames, extra)
 	}
 
 	if c.Camera != nil {
-		return c.Camera.Images(ctx)
+		return c.Camera.Images(ctx, filterSourceNames, extra)
 	}
 
 	return nil, resource.ResponseMetadata{}, errors.New("Images unimplemented")
