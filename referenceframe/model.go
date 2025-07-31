@@ -246,12 +246,14 @@ func (m *SimpleModel) DoF() []Limit {
 // MarshalJSON serializes a Model.
 func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 	type serialized struct {
-		Name  string           `json:"name"`
-		Model *ModelConfigJSON `json:"model"`
+		Name   string           `json:"name"`
+		Model  *ModelConfigJSON `json:"model"`
+		Limits []Limit          `json:"limits"`
 	}
 	ser := serialized{
-		Name:  m.name,
-		Model: m.modelConfig,
+		Name:   m.name,
+		Model:  m.modelConfig,
+		Limits: m.limits,
 	}
 	return json.Marshal(ser)
 }
@@ -259,8 +261,9 @@ func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON deserializes a Model.
 func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	type serialized struct {
-		Name  string           `json:"name"`
-		Model *ModelConfigJSON `json:"model"`
+		Name   string           `json:"name"`
+		Model  *ModelConfigJSON `json:"model"`
+		Limits []Limit          `json:"limits"`
 	}
 	var ser serialized
 	if err := json.Unmarshal(data, &ser); err != nil {
@@ -271,7 +274,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	if frameName == "" {
 		frameName = ser.Model.Name
 	}
-	m.baseFrame = &baseFrame{name: frameName}
+	m.baseFrame = &baseFrame{name: frameName, limits: ser.Limits}
 	m.modelConfig = ser.Model
 	if ser.Model == nil {
 		return fmt.Errorf("could not unmarshal simple model frame json, 'model' key missing")
