@@ -1749,27 +1749,27 @@ func TestFirstRun(t *testing.T) {
 
 func TestCleanWindowsSocketPath(t *testing.T) {
 	// uppercase and lowercase
-	clean, err := cleanWindowsSocketPath("windows", "C:\\x\\y.sock")
+	clean, err := rutils.CleanWindowsSocketPath("windows", "C:\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
-	clean, err = cleanWindowsSocketPath("windows", "c:\\x\\y.sock")
+	clean, err = rutils.CleanWindowsSocketPath("windows", "c:\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 
 	// wrong disk
-	_, err = cleanWindowsSocketPath("windows", "d:\\x\\y.sock")
+	_, err = rutils.CleanWindowsSocketPath("windows", "d:\\x\\y.sock")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// no disk
-	clean, err = cleanWindowsSocketPath("windows", "\\x\\y.sock")
+	clean, err = rutils.CleanWindowsSocketPath("windows", "\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
-	clean, err = cleanWindowsSocketPath("windows", "/x/y.sock")
+	clean, err = rutils.CleanWindowsSocketPath("windows", "/x/y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 
 	// linux
-	clean, err = cleanWindowsSocketPath("linux", "/x/y.sock")
+	clean, err = rutils.CleanWindowsSocketPath("linux", "/x/y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 }

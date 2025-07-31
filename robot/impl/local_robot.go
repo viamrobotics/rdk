@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"runtime"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -538,34 +537,31 @@ func newWithResources(
 		}, r.activeBackgroundWorkers.Done)
 	}
 
-	// TODO(RDSK-11485): JobManager might try to dial a unix socket on windows, which will crash the server.
-	if runtime.GOOS != "windows" {
-		// getResource is passed in to the jobmanager to have access to the resource graph.
-		getResource := func(res string) (resource.Resource, error) {
-			var found bool
-			var match resource.Name
-			names := r.manager.resources.Names()
-			for _, name := range names {
-				if name.Name == res {
-					if found {
-						return nil, errors.Errorf("found duplicate entries for name %s: %s and %s", res, name.String(), match.String())
-					}
-					match = name
-					found = true
+	// getResource is passed in to the jobmanager to have access to the resource graph.
+	getResource := func(res string) (resource.Resource, error) {
+		var found bool
+		var match resource.Name
+		names := r.manager.resources.Names()
+		for _, name := range names {
+			if name.Name == res {
+				if found {
+					return nil, errors.Errorf("found duplicate entries for name %s: %s and %s", res, name.String(), match.String())
 				}
+				match = name
+				found = true
 			}
-			if !found {
-				return nil, errors.Errorf("could not find the resource for name %s", res)
-			}
-			return r.manager.ResourceByName(match)
 		}
-
-		jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
-		if err != nil {
-			return nil, err
+		if !found {
+			return nil, errors.Errorf("could not find the resource for name %s", res)
 		}
-		r.jobManager = jobManager
+		return r.manager.ResourceByName(match)
 	}
+
+	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
+	if err != nil {
+		r.logger.CErrorw(ctx, "Job manager failed to start", "error", err)
+	}
+	r.jobManager = jobManager
 
 	r.reconfigure(ctx, cfg, false)
 
