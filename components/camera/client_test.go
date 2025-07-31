@@ -88,7 +88,11 @@ func TestClient(t *testing.T) {
 	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
-	injectCamera.ImagesFunc = func(ctx context.Context, _ map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	injectCamera.ImagesFunc = func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		images := []camera.NamedImage{}
 		// one color image
 		color := rimage.NewImage(40, 50)
@@ -212,7 +216,7 @@ func TestClient(t *testing.T) {
 		test.That(t, propsB.SupportsPCD, test.ShouldBeTrue)
 		test.That(t, propsB.IntrinsicParams, test.ShouldResemble, intrinsics)
 
-		images, meta, err := camera1Client.Images(context.Background(), nil)
+		images, meta, err := camera1Client.Images(context.Background(), nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, meta.CapturedAt, test.ShouldEqual, time.UnixMilli(12345))
 		test.That(t, len(images), test.ShouldEqual, 2)
@@ -339,6 +343,7 @@ func TestClient(t *testing.T) {
 
 		injectCamera.ImagesFunc = func(
 			ctx context.Context,
+			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, extra, test.ShouldBeEmpty)
@@ -346,12 +351,13 @@ func TestClient(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		_, _, err = camClient.Images(ctx, nil)
+		_, _, err = camClient.Images(ctx, nil, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
 		injectCamera.ImagesFunc = func(
 			ctx context.Context,
+			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
@@ -360,12 +366,13 @@ func TestClient(t *testing.T) {
 			return nil, resource.ResponseMetadata{}, errGetImageFailed
 		}
 
-		_, _, err = camClient.Images(context.Background(), map[string]interface{}{data.FromDMString: true})
+		_, _, err = camClient.Images(context.Background(), nil, map[string]interface{}{data.FromDMString: true})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
 		injectCamera.ImagesFunc = func(
 			ctx context.Context,
+			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 2)
@@ -378,7 +385,7 @@ func TestClient(t *testing.T) {
 		ext := data.FromDMExtraMap
 		ext["hello"] = "world"
 		ctx = context.Background()
-		_, _, err = camClient.Images(ctx, ext)
+		_, _, err = camClient.Images(ctx, nil, ext)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
@@ -790,7 +797,7 @@ func TestMultiplexOverRemoteConnection(t *testing.T) {
 	cameraClient, err := camera.FromRobot(mainRobot, "remote:rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
-	image, _, err := cameraClient.Images(mainCtx, nil)
+	image, _, err := cameraClient.Images(mainCtx, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, image, test.ShouldNotBeNil)
 	logger.Info("got images")
@@ -863,7 +870,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	cameraClient, err := camera.FromRobot(mainRobot, "remote-1:remote-2:rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
-	image, _, err := cameraClient.Images(mainCtx, nil)
+	image, _, err := cameraClient.Images(mainCtx, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, image, test.ShouldNotBeNil)
 	logger.Info("got images")
@@ -881,7 +888,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
-//nolint
+// nolint
 // NOTE: These tests fail when this condition occurs:
 //
 //	logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}
@@ -947,7 +954,7 @@ func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
 	cameraClient, err := camera.FromRobot(mainRobot, "remote-1:remote-2:rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
-	image, _, err := cameraClient.Images(mainCtx, nil)
+	image, _, err := cameraClient.Images(mainCtx, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, image, test.ShouldNotBeNil)
 	logger.Info("got images")
@@ -1083,7 +1090,7 @@ func TestGrandRemoteRebooting(t *testing.T) {
 	mainCameraClient, err := camera.FromRobot(mainRobot, "remote-1:remote-2:rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
-	image, _, err := mainCameraClient.Images(mainCtx, nil)
+	image, _, err := mainCameraClient.Images(mainCtx, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, image, test.ShouldNotBeNil)
 	logger.Info("got images")

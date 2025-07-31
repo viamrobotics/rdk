@@ -197,7 +197,11 @@ func newCamera(
 		return pcd, nil
 	}
 
-	v.ImagesFunc = func(ctx context.Context, _ map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	v.ImagesFunc = func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		leftImg, err := camera.NamedImageFromImage(left, "left", utils.MimeTypeJPEG)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
