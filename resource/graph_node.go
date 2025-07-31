@@ -364,7 +364,8 @@ func (w *GraphNode) UpdateRevision(revision string) {
 	}
 }
 
-func (w *GraphNode) markReachability(reachable bool) {
+// MarkReachability updates the reachability of the graph node.
+func (w *GraphNode) MarkReachability(reachable bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 

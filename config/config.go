@@ -143,14 +143,15 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 
 	// Validate jobs, modules, remotes, packages, and processes, and log errors for lack of
-	// uniqueness within each category.
+	// uniqueness within each category. Managers of each resource handle duplicates
+	// differently, and behavior is undefined.
 	seenJobs := make(map[string]struct{})
 	for idx := range len(c.Jobs) {
 		if err := c.Jobs[idx].Validate(fmt.Sprintf("%s.%d", "jobs", idx)); err != nil {
 			logger.Errorw("Jobs config error; starting robot without job", "name", c.Jobs[idx].Name, "error", err.Error())
 		}
 		if _, exists := seenJobs[c.Jobs[idx].Name]; exists {
-			logger.Errorf("Duplicate job %s in robot config", c.Jobs[idx].Name)
+			logger.Errorf("Duplicate job %s in robot config; behavior undefined", c.Jobs[idx].Name)
 		}
 		seenJobs[c.Jobs[idx].Name] = struct{}{}
 	}
@@ -160,7 +161,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			logger.Errorw("Module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err.Error())
 		}
 		if _, exists := seenModules[c.Modules[idx].Name]; exists {
-			logger.Errorf("Duplicate module %s in robot config", c.Modules[idx].Name)
+			logger.Errorf("Duplicate module %s in robot config; behavior undefined", c.Modules[idx].Name)
 		}
 		seenModules[c.Modules[idx].Name] = struct{}{}
 	}
@@ -170,7 +171,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			logger.Errorw("Remote config error; starting robot without remote", "name", c.Remotes[idx].Name, "error", err.Error())
 		}
 		if _, exists := seenRemotes[c.Remotes[idx].Name]; exists {
-			logger.Errorf("Duplicate remote %s in robot config", c.Remotes[idx].Name)
+			logger.Errorf("Duplicate remote %s in robot config; behavior undefined", c.Remotes[idx].Name)
 		}
 		seenRemotes[c.Remotes[idx].Name] = struct{}{}
 	}
@@ -180,7 +181,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			logger.Errorw("Package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err.Error())
 		}
 		if _, exists := seenPackages[c.Packages[idx].Name]; exists {
-			logger.Errorf("Duplicate package %s in robot config", c.Packages[idx].Name)
+			logger.Errorf("Duplicate package %s in robot config; behavior undefined", c.Packages[idx].Name)
 		}
 		seenPackages[c.Packages[idx].Name] = struct{}{}
 	}
@@ -190,14 +191,14 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			logger.Errorw("Process config error; starting robot without process", "name", c.Processes[idx].Name, "error", err.Error())
 		}
 		if _, exists := seenProcesses[c.Processes[idx].Name]; exists {
-			logger.Errorf("Duplicate process %s in robot config", c.Processes[idx].Name)
+			logger.Errorf("Duplicate process %s in robot config; behavior undefined", c.Processes[idx].Name)
 		}
 		seenProcesses[c.Processes[idx].Name] = struct{}{}
 	}
 
-	// Validate components and services as above but also populate implicit dependencies.
-	seenComponents := make(map[string]struct{})
-	//nolint:dupl
+	// Validate components and services as above but also populate implicit dependencies. Do
+	// not log any errors about duplicates. Duplicate components and services are caught by
+	// the resource manager.
 	for idx := range len(c.Components) {
 		// requiredDeps and optionalDeps will only be populated if attributes have been converted, which does not happen in this function.
 		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
@@ -212,14 +213,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			c.Components[idx].ImplicitDependsOn = requiredDeps
 			c.Components[idx].ImplicitOptionalDependsOn = optionalDeps
 		}
-		if _, exists := seenComponents[c.Components[idx].ResourceName().String()]; exists {
-			resLogger := logger.Sublogger(c.Components[idx].ResourceName().String())
-			resLogger.Errorf("Duplicate component %s in robot config", c.Components[idx].ResourceName().String())
-		}
-		seenComponents[c.Components[idx].ResourceName().String()] = struct{}{}
 	}
-	seenServices := make(map[string]struct{})
-	//nolint:dupl
 	for idx := range len(c.Services) {
 		requiredDeps, optionalDeps, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
@@ -229,11 +223,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 			c.Services[idx].ImplicitDependsOn = requiredDeps
 			c.Services[idx].ImplicitOptionalDependsOn = optionalDeps
 		}
-		if _, exists := seenServices[c.Services[idx].ResourceName().String()]; exists {
-			resLogger := logger.Sublogger(c.Services[idx].ResourceName().String())
-			resLogger.Errorf("Duplicate service %s in robot config", c.Services[idx].ResourceName().String())
-		}
-		seenServices[c.Services[idx].ResourceName().String()] = struct{}{}
 	}
 
 	return nil
