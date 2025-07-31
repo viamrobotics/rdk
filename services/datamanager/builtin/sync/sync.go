@@ -481,7 +481,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 }
 
 // UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.
-func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, data []byte, datasetIDs, tags []string, mimeType v1.MimeType) error {
+func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte, datasetIDs, tags []string, mimeType v1.MimeType) error {
 	errChan := make(chan error, 1)
 	go func() {
 		defer close(errChan)
@@ -497,7 +497,7 @@ func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, data []byte, data
 			filename += fileExtensionFromMimeType
 		}
 		filename = filepath.Join(s.config.CaptureDir, DatasetDir, filepath.Clean(filename))
-		err := os.WriteFile(filename, data, 0o600)
+		err := os.WriteFile(filename, binaryData, 0o600)
 		if err != nil {
 			s.logger.Errorw("error writing file", "err", err)
 			errChan <- err
