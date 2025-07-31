@@ -452,25 +452,5 @@ func TestSerialization(t *testing.T) {
 	sort.Strings(frames2)
 	test.That(t, frames1, test.ShouldResemble, frames2)
 
-	for _, frameName := range frames1 {
-		frame1 := fs.Frame(frameName)
-		frame2 := fs2.Frame(frameName)
-		frame1JsonBytes, err := json.Marshal(frame1)
-		test.That(t, err, test.ShouldBeNil)
-		frame2JsonBytes, err := json.Marshal(frame2)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, frame1JsonBytes, test.ShouldResemble, frame2JsonBytes)
-
-		parentFrame1, err := fs.Parent(frame1)
-		test.That(t, err, test.ShouldBeNil)
-		parentFrame2, err := fs2.Parent(frame2)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, parentFrame1, test.ShouldNotBeNil)
-		test.That(t, parentFrame2, test.ShouldNotBeNil)
-		parentFrame1JsonBytes, err := json.Marshal(parentFrame1)
-		test.That(t, err, test.ShouldBeNil)
-		parentFrame2JsonBytes, err := json.Marshal(parentFrame2)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, parentFrame1JsonBytes, test.ShouldResemble, parentFrame2JsonBytes)
-	}
+	test.That(t, fs, test.ShouldResemble, &fs2)
 }

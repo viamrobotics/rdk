@@ -199,6 +199,9 @@ func jsonToFrame(data json.RawMessage) (Frame, error) {
 	if err := json.Unmarshal(sF["frame_type"], &frameType); err != nil {
 		return nil, err
 	}
+	if _, ok := sF["frame"]; !ok {
+		return nil, fmt.Errorf("no frame data found for frame, type was %s", frameType)
+	}
 
 	implementer, ok := registeredFrameImplementers[frameType]
 	if !ok {

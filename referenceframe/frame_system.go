@@ -589,7 +589,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	var modelJSON map[string]interface{}
+	var modelJSON SimpleModel
 	if part.ModelFrame != nil {
 		bytes, err := part.ModelFrame.MarshalJSON()
 		if err != nil {
@@ -600,7 +600,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 			return nil, err
 		}
 	}
-	kinematics, err := protoutils.StructToStructPb(modelJSON)
+	kinematics, err := protoutils.StructToStructPb(modelJSON.modelConfig)
 	if err != nil {
 		return nil, err
 	}
