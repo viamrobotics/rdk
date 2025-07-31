@@ -20,21 +20,23 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const osDarwin = "darwin"
+
 // BuildViamServer will attempt to build the viam-server (full static if on linux). If successful, this function will
 // return the path to the executable.
 func BuildViamServer(tb testing.TB) string {
 	tb.Helper()
 
 	command := "full-static"
-	if runtime.GOOS == "darwin" {
+	if runtime.GOOS == osDarwin {
 		command = "server"
 	}
 
-	builder := exec.Command("make", command) //nolint:gosec
+	builder := exec.Command("make", command)
 	builder.Dir = utils.ResolveFile(".")
 	out, err := builder.CombinedOutput()
 	// Don't fail build if platform has known compile warnings (due to C deps)
-	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == "darwin"
+	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == osDarwin
 	hasCompilerWarnings := len(out) != 0
 	if hasCompilerWarnings && !isPlatformWithKnownCompileWarnings {
 		tb.Errorf(`output from "make %s": %s`, command, out)
@@ -60,7 +62,10 @@ func BuildViamServer(tb testing.TB) string {
 		}
 		return nil
 	}
-	filepath.WalkDir(utils.ResolveFile("bin"), searchFunc)
+	err = filepath.WalkDir(utils.ResolveFile("bin"), searchFunc)
+	if err != nil {
+		tb.Error(err)
+	}
 	if serverPath == "" {
 		tb.Fatal("failed to find built viam-server executable")
 	}
@@ -82,7 +87,7 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 	// https://viam.atlassian.net/browse/RSDK-7145
 	// https://viam.atlassian.net/browse/RSDK-7144
 	// Don't fail build if platform has known compile warnings (due to C deps)
-	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == "darwin"
+	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == osDarwin
 	hasCompilerWarnings := len(out) != 0
 	if hasCompilerWarnings && !isPlatformWithKnownCompileWarnings {
 		tb.Errorf(`output from "go build .": %s`, out)
