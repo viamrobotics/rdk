@@ -237,37 +237,38 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 func GetImageFromGetImages(
 	ctx context.Context,
 	sourceName *string,
-	mimeType string,
 	cam Camera,
 	extra map[string]interface{},
 	filterSourceNames []string,
 ) ([]byte, ImageMetadata, error) {
-	images, _, err := cam.Images(ctx, filterSourceNames, extra)
+	sourceNames := []string{}
+	if sourceName != nil {
+		sourceNames = append(sourceNames, *sourceName)
+	}
+	namedImages, _, err := cam.Images(ctx, sourceNames, extra)
 	if err != nil {
 		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
 	}
-	if len(images) == 0 {
+	if len(namedImages) == 0 {
 		return nil, ImageMetadata{}, errors.New("no images returned from camera")
 	}
 
-	// if mimeType is empty, use JPEG as default
-	if mimeType == "" {
-		mimeType = utils.MimeTypeJPEG
-	}
-
 	var img image.Image
+	var mimeType string
 	if sourceName == nil {
-		img, err = images[0].Image(ctx)
+		img, err = namedImages[0].Image(ctx)
 		if err != nil {
 			return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
 		}
+		mimeType = namedImages[0].MimeType()
 	} else {
-		for _, i := range images {
+		for _, i := range namedImages {
 			if i.SourceName == *sourceName {
 				img, err = i.Image(ctx)
 				if err != nil {
 					return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
 				}
+				mimeType = i.MimeType()
 				break
 			}
 		}

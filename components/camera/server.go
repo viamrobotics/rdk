@@ -124,7 +124,8 @@ func (s *serviceServer) GetImages(
 		}
 		imgMes := &pb.Image{
 			SourceName: img.SourceName,
-			Format:     format, // TODO(hexbabe): After updating proto we should have two logical branches to handle mime_type vs format
+			Format:     format,
+			MimeType:   img.MimeType(),
 			Image:      outBytes,
 		}
 		imagesMessage = append(imagesMessage, imgMes)
