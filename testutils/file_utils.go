@@ -34,7 +34,8 @@ func BuildViamServer(tb testing.TB) string {
 	builder.Dir = utils.ResolveFile(".")
 	buildOutputPath := tb.TempDir()
 	builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)
-	_, err := builder.Output()
+	out, err := builder.Output()
+	tb.Logf("%s", out)
 	if err != nil {
 		tb.Error(err)
 	}
