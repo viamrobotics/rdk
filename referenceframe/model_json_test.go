@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"testing"
 
 	"go.viam.com/test"
@@ -42,13 +43,18 @@ func TestParseJSONFile(t *testing.T) {
 			model, err := ParseModelJSONFile(utils.ResolveFile(f), "")
 			test.That(t, err, test.ShouldBeNil)
 
-			data, err := model.MarshalJSON()
+			smodel, ok := model.(*SimpleModel)
+			test.That(t, ok, test.ShouldBeTrue)
+			data, err := json.Marshal(smodel.modelConfig)
 			test.That(t, err, test.ShouldBeNil)
 
 			model2, err := UnmarshalModelJSON(data, "")
 			test.That(t, err, test.ShouldBeNil)
 
-			data2, err := model2.MarshalJSON()
+			smodel2, ok := model2.(*SimpleModel)
+			test.That(t, ok, test.ShouldBeTrue)
+
+			data2, err := json.Marshal(smodel2.modelConfig)
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, data, test.ShouldResemble, data2)

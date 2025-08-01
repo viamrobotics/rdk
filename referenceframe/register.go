@@ -20,6 +20,9 @@ func init() {
 	if err := RegisterFrameImplementer((*SimpleModel)(nil), "model"); err != nil {
 		panic(err)
 	}
+	if err := RegisterFrameImplementer((*tailGeometryStaticFrame)(nil), "tail_geometry_static"); err != nil {
+		panic(err)
+	}
 }
 
 // RegisterFrameImplementer allows outside packages to register their implementations of the Frame
