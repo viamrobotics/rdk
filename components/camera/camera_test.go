@@ -323,45 +323,26 @@ func TestGetImageFromGetImages(t *testing.T) {
 	}
 
 	t.Run("PNG mime type", func(t *testing.T) {
-		imgBytes, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypePNG, rgbaCam, nil, nil)
+		imgBytes, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rgbaCam, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypePNG)
+		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypeRawRGBA)
 		verifyDecodedImage(t, imgBytes, rutils.MimeTypePNG, testImg1)
 	})
 
 	t.Run("JPEG mime type", func(t *testing.T) {
-		imgBytes, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypeJPEG, rgbaCam, nil, nil)
+		imgBytes, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rgbaCam, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypeJPEG)
-		verifyDecodedImage(t, imgBytes, rutils.MimeTypeJPEG, testImg1)
-	})
-
-	t.Run("request mime type depth, but actual image is RGBA", func(t *testing.T) {
-		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypeRawDepth, rgbaCam, nil, nil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot convert image type")
-	})
-
-	t.Run("request JPEG, but actual image is depth map", func(t *testing.T) {
-		img, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypeJPEG, depthCam, nil, nil)
-		test.That(t, err, test.ShouldBeNil) // expect success because we can convert the depth map to JPEG
-		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypeJPEG)
-		verifyDecodedImage(t, img, rutils.MimeTypeJPEG, dm)
-	})
-
-	t.Run("request PNG, but actual image is depth map", func(t *testing.T) {
-		img, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypePNG, depthCam, nil, nil)
-		test.That(t, err, test.ShouldBeNil) // expect success because we can convert the depth map to PNG
-		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypePNG)
-		verifyDecodedImage(t, img, rutils.MimeTypePNG, dm)
+		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypeRawRGBA)
+		verifyDecodedImage(t, imgBytes, rutils.MimeTypeRawRGBA, testImg1)
 	})
 
 	t.Run("request empty mime type", func(t *testing.T) {
-		img, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, "", rgbaCam, nil, nil)
+		img, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rgbaCam, nil, nil)
 		// empty mime type defaults to JPEG
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, img, test.ShouldNotBeNil)
-		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypeJPEG)
-		verifyDecodedImage(t, img, rutils.MimeTypeJPEG, testImg1)
+		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypeRawRGBA)
+		verifyDecodedImage(t, img, rutils.MimeTypeRawRGBA, testImg1)
 	})
 
 	t.Run("error case", func(t *testing.T) {
@@ -373,7 +354,7 @@ func TestGetImageFromGetImages(t *testing.T) {
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			return nil, resource.ResponseMetadata{}, errors.New("test error")
 		}
-		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypePNG, errorCam, nil, nil)
+		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, errorCam, nil, nil)
 		test.That(t, err, test.ShouldBeError, errors.New("could not get images from camera: test error"))
 	})
 
@@ -386,7 +367,7 @@ func TestGetImageFromGetImages(t *testing.T) {
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			return []camera.NamedImage{}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 		}
-		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypePNG, emptyCam, nil, nil)
+		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, emptyCam, nil, nil)
 		test.That(t, err, test.ShouldBeError, errors.New("no images returned from camera"))
 	})
 
@@ -403,16 +384,16 @@ func TestGetImageFromGetImages(t *testing.T) {
 			}
 			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 		}
-		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, rutils.MimeTypePNG, nilImageCam, nil, nil)
-		test.That(t, err, test.ShouldBeError, errors.New("could not get images from camera: must provide image to construct a named image"))
+		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, nilImageCam, nil, nil)
+		test.That(t, err, test.ShouldBeError, errors.New("could not get images from camera: must provide image to construct a named image from image"))
 	})
 
 	t.Run("multiple images, specify source name", func(t *testing.T) {
 		sourceName := source2Name
-		img, metadata, err := camera.GetImageFromGetImages(context.Background(), &sourceName, rutils.MimeTypePNG, rgbaCam, nil, nil)
+		img, metadata, err := camera.GetImageFromGetImages(context.Background(), &sourceName, rgbaCam, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypePNG)
-		verifyDecodedImage(t, img, rutils.MimeTypePNG, testImg2)
+		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypeRawRGBA)
+		verifyDecodedImage(t, img, rutils.MimeTypeRawRGBA, testImg2)
 	})
 }
 
@@ -507,7 +488,7 @@ func TestGetImagesFromGetImage(t *testing.T) {
 func TestImagesExtraParam(t *testing.T) {
 	ctx := context.Background()
 
-	img := image.NewRGBA(image.Rect(0, 0, 10, 10))
+	respImg := image.NewRGBA(image.Rect(0, 0, 10, 10))
 
 	cam := inject.NewCamera("extra_param_cam")
 	cam.ImagesFunc = func(
@@ -518,7 +499,7 @@ func TestImagesExtraParam(t *testing.T) {
 		if len(extra) == 0 {
 			return nil, resource.ResponseMetadata{}, fmt.Errorf("extra parameters required")
 		}
-		namedImg, err := camera.NamedImageFromImage(img, source1Name, rutils.MimeTypeRawRGBA)
+		namedImg, err := camera.NamedImageFromImage(respImg, source1Name, rutils.MimeTypeRawRGBA)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
@@ -529,7 +510,9 @@ func TestImagesExtraParam(t *testing.T) {
 		images, _, err := cam.Images(ctx, nil, map[string]interface{}{"param": "value"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(images), test.ShouldEqual, 1)
-		test.That(t, images[0].Image, test.ShouldEqual, img)
+		img, err := images[0].Image(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		verifyImageEquality(t, img, respImg)
 		test.That(t, images[0].SourceName, test.ShouldEqual, source1Name)
 	})
 
