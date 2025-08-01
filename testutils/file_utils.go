@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -22,47 +20,28 @@ import (
 
 const osDarwin = "darwin"
 
-// BuildViamServer will attempt to build the viam-server (full static if on linux). If successful, this function will
+// BuildViamServer will attempt to build the viam-server (server-static if on linux). If successful, this function will
 // return the path to the executable.
 func BuildViamServer(tb testing.TB) string {
 	tb.Helper()
 
-	command := "full-static"
+	command := "server-static"
 	if runtime.GOOS == osDarwin {
 		command = "server"
 	}
 
 	builder := exec.Command("make", command)
 	builder.Dir = utils.ResolveFile(".")
-	_, err := builder.CombinedOutput()
+	buildOutputPath := tb.TempDir()
+	builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)
+	_, err := builder.Output()
 	if err != nil {
 		tb.Error(err)
 	}
 	if tb.Failed() {
 		tb.Fatal("failed to build viam-server executable")
 	}
-	serverPath := ""
-	// look for the built executable
-	searchFunc := func(path string, dir fs.DirEntry, err error) error {
-		if err != nil {
-			return fs.SkipDir
-		}
-		if dir.IsDir() {
-			return nil
-		}
-		if strings.Contains(dir.Name(), "viam-server") {
-			serverPath = path
-			return fs.SkipAll
-		}
-		return nil
-	}
-	err = filepath.WalkDir(utils.ResolveFile("bin"), searchFunc)
-	if err != nil {
-		tb.Error(err)
-	}
-	if serverPath == "" {
-		tb.Fatal("failed to find built viam-server executable")
-	}
+	serverPath := filepath.Join(buildOutputPath, "viam-server")
 	return serverPath
 }
 
