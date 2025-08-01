@@ -502,7 +502,8 @@ func (rf *rotationalFrame) UnmarshalJSON(data []byte) error {
 	}
 
 	rf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{
-		{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)}}}
+		{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)},
+	}}
 	rotAxis := cfg.Axis.ParseConfig()
 	rf.rotAxis = r3.Vector{X: rotAxis.RX, Y: rotAxis.RY, Z: rotAxis.RZ}
 	return nil
