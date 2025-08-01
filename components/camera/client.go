@@ -248,8 +248,10 @@ func (c *client) Images(
 				return nil, resource.ResponseMetadata{}, err
 			}
 		}
-		// TODO(hexbabe): After updating proto we should have two logical branches to handle mime_type vs format
-		namedImg, err := NamedImageFromImage(rdkImage, img.SourceName, img.Format.String())
+		if img.MimeType == "" {
+			img.MimeType = img.Format.String()
+		}
+		namedImg, err := NamedImageFromImage(rdkImage, img.SourceName, img.MimeType)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}

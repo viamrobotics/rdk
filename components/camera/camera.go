@@ -233,34 +233,40 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 // If no image is found with the matching source name, it returns an error.
 //
 // It uses the mimeType arg to specify how to encode the bytes returned from GetImages.
-func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType string, cam Camera) ([]byte, ImageMetadata, error) {
-	// TODO(RSDK-10991): pass through extra field when implemented
-	images, _, err := cam.Images(ctx, nil, nil)
+func GetImageFromGetImages(
+	ctx context.Context,
+	sourceName *string,
+	extra map[string]interface{},
+	cam Camera,
+) ([]byte, ImageMetadata, error) {
+	sourceNames := []string{}
+	if sourceName != nil {
+		sourceNames = append(sourceNames, *sourceName)
+	}
+	namedImages, _, err := cam.Images(ctx, sourceNames, extra)
 	if err != nil {
 		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
 	}
-	if len(images) == 0 {
+	if len(namedImages) == 0 {
 		return nil, ImageMetadata{}, errors.New("no images returned from camera")
 	}
 
-	// if mimeType is empty, use JPEG as default
-	if mimeType == "" {
-		mimeType = utils.MimeTypeJPEG
-	}
-
 	var img image.Image
+	var mimeType string
 	if sourceName == nil {
-		img, err = images[0].Image(ctx)
+		img, err = namedImages[0].Image(ctx)
 		if err != nil {
 			return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
 		}
+		mimeType = namedImages[0].MimeType()
 	} else {
-		for _, i := range images {
+		for _, i := range namedImages {
 			if i.SourceName == *sourceName {
 				img, err = i.Image(ctx)
 				if err != nil {
 					return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
 				}
+				mimeType = i.MimeType()
 				break
 			}
 		}
@@ -288,11 +294,11 @@ func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType str
 func GetImagesFromGetImage(
 	ctx context.Context,
 	mimeType string,
+	extra map[string]interface{},
 	cam Camera,
 	logger logging.Logger,
 ) ([]NamedImage, resource.ResponseMetadata, error) {
-	// TODO(RSDK-10991): pass through extra field when implemented
-	resBytes, resMetadata, err := cam.Image(ctx, mimeType, nil)
+	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not get image bytes from camera: %w", err)
 	}
