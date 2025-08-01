@@ -112,17 +112,13 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 	return nil
 }
 
-type datapipelineUpdateArgs struct {
-	ID             string
-	Name           string
-	Schedule       string
-	MQL            string
-	MqlPath        string
-	DataSourceType string
+type datapipelineRenameArgs struct {
+	ID   string
+	Name string
 }
 
-// DatapipelineUpdateAction updates an existing data pipeline.
-func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error {
+// DatapipelineRenameAction renames an existing data pipeline.
+func DatapipelineRenameAction(c *cli.Context, args datapipelineRenameArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -141,39 +137,15 @@ func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error
 		name = current.GetName()
 	}
 
-	schedule := args.Schedule
-	if schedule == "" {
-		schedule = current.GetSchedule()
-	}
-
-	mqlBinary := current.GetMqlBinary()
-	if args.MQL != "" || args.MqlPath != "" {
-		mqlBinary, err = parseMQL(args.MQL, args.MqlPath)
-		if err != nil {
-			return err
-		}
-	}
-
-	dataSourceType := current.GetDataSourceType()
-	if args.DataSourceType != "" {
-		dataSourceType, err = dataSourceTypeToProto(args.DataSourceType)
-		if err != nil {
-			return err
-		}
-	}
-
-	_, err = client.datapipelinesClient.UpdateDataPipeline(context.Background(), &datapipelinespb.UpdateDataPipelineRequest{
-		Id:             args.ID,
-		Name:           name,
-		Schedule:       schedule,
-		MqlBinary:      mqlBinary,
-		DataSourceType: &dataSourceType,
+	_, err = client.datapipelinesClient.RenameDataPipeline(context.Background(), &datapipelinespb.RenameDataPipelineRequest{
+		Id:   args.ID,
+		Name: name,
 	})
 	if err != nil {
 		return fmt.Errorf("error updating data pipeline: %w", err)
 	}
 
-	printf(c.App.Writer, "%s (id: %s) updated.", name, args.ID)
+	printf(c.App.Writer, "%s (id: %s) renamed.", name, args.ID)
 	return nil
 }
 

@@ -1677,46 +1677,22 @@ var app = &cli.App{
 					Action: createCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
 				},
 				{
-					Name:  "update",
-					Usage: "update a data pipeline",
-					UsageText: createUsageText("datapipelines update",
-						[]string{generalFlagID, generalFlagName, datapipelineFlagSchedule}, false, false,
-						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
-							datapipelineFlagMQL, datapipelineFlagMQL,
-							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
-					),
+					Name:      "rename",
+					Usage:     "rename a data pipeline",
+					UsageText: createUsageText("datapipelines rename", []string{generalFlagID, generalFlagName}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagID,
-							Usage:    "ID of the data pipeline to update",
+							Usage:    "ID of the data pipeline to rename",
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:  generalFlagName,
-							Usage: "name of the data pipeline to update",
-						},
-						&cli.StringFlag{
-							Name:  datapipelineFlagSchedule,
-							Usage: "schedule of the data pipeline to update (cron expression)",
-						},
-						&cli.StringFlag{
-							Name:  datapipelineFlagMQL,
-							Usage: "MQL query for the data pipeline to update",
-						},
-						&cli.StringFlag{
-							Name:  datapipelineFlagMQLFile,
-							Usage: "path to JSON file containing MQL query for the data pipeline to update",
-						},
-						&cli.StringFlag{
-							Name: datapipelineFlagDataSourceType,
-							Usage: formatAcceptedValues(
-								"data source type for the data pipeline to update",
-								StandardDataSourceType,
-								HotStorageDataSourceType,
-							),
+							Name:     generalFlagName,
+							Usage:    "new name for the data pipeline",
+							Required: true,
 						},
 					},
-					Action: createCommandWithT[datapipelineUpdateArgs](DatapipelineUpdateAction),
+					Action: createCommandWithT[datapipelineRenameArgs](DatapipelineRenameAction),
 				},
 				{
 					Name:      "delete",
