@@ -440,6 +440,20 @@ func TestSerialization(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(blockFrame, model)
 
+	// Revolute joint around X axis
+	joint, err := NewRotationalFrame("rot", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{Min: -math.Pi * 2, Max: math.Pi * 2})
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(joint, fs.World())
+
+	// Translational frame
+	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{X: 1, Y: 1, Z: 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// test creating a new translational frame with a geometry
+	prismatic, err := NewTranslationalFrameWithGeometry("pr", r3.Vector{X: 0, Y: 1, Z: 0}, Limit{Min: -30, Max: 30}, bc)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(prismatic, fs.World())
+
 	jsonData, err = json.Marshal(fs)
 	test.That(t, err, test.ShouldBeNil)
 
