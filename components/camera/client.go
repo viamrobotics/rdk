@@ -208,12 +208,22 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
 }
 
-func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
+func (c *client) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]NamedImage, resource.ResponseMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Images")
 	defer span.End()
 
+	convertedExtra, err := goprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
 	resp, err := c.client.GetImages(ctx, &pb.GetImagesRequest{
-		Name: c.name,
+		Name:              c.name,
+		FilterSourceNames: filterSourceNames,
+		Extra:             convertedExtra,
 	})
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not gets images from the camera %w", err)
@@ -238,7 +248,14 @@ func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMet
 				return nil, resource.ResponseMetadata{}, err
 			}
 		}
-		images = append(images, NamedImage{rdkImage, img.SourceName})
+		if img.MimeType == "" {
+			img.MimeType = img.Format.String()
+		}
+		namedImg, err := NamedImageFromImage(rdkImage, img.SourceName, img.MimeType)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		images = append(images, namedImg)
 	}
 	return images, resource.ResponseMetadataFromProto(resp.ResponseMetadata), nil
 }

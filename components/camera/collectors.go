@@ -148,7 +148,7 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 		defer span.End()
 		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 
-		resImgs, resMetadata, err := camera.Images(ctx)
+		resImgs, resMetadata, err := camera.Images(ctx, nil, nil)
 		if err != nil {
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
@@ -158,7 +158,11 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 
 		var binaries []data.Binary
 		for _, img := range resImgs {
-			format, imgBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
+			namedImg, err := img.Image(ctx)
+			if err != nil {
+				return res, err
+			}
+			format, imgBytes, err := encodeImageFromUnderlyingType(ctx, namedImg)
 			if err != nil {
 				return res, err
 			}
