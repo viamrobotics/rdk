@@ -1655,3 +1655,46 @@ func TestConfiguredDefaultExtras(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
+
+func TestCheckSameInputs(t *testing.T) {
+	cases := []struct {
+		description string
+		a           []referenceframe.Input
+		b           []referenceframe.Input
+		epsilon     float64
+		result      bool
+		badJoint    int
+	}{
+		{
+			description: "the same inputs",
+			a:           []referenceframe.Input{{0}, {1}, {2}},
+			b:           []referenceframe.Input{{0}, {1}, {2}},
+			epsilon:     defaultExecuteEpsilon,
+			result:      true,
+			badJoint:    -1,
+		},
+		{
+			description: "different inputs within the epsilon",
+			a:           []referenceframe.Input{{0.005}, {0.992}, {2}},
+			b:           []referenceframe.Input{{0}, {1}, {2}},
+			epsilon:     0.01,
+			result:      true,
+			badJoint:    -1,
+		},
+		{
+			description: "different inputs outside the epsilon",
+			a:           []referenceframe.Input{{0.1}, {0.5}, {2}},
+			b:           []referenceframe.Input{{0.0995}, {1}, {2}},
+			epsilon:     0.01,
+			result:      false,
+			badJoint:    1,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.description, func(t *testing.T) {
+			same, badJoint := checkSameInputs(tt.a, tt.b, tt.epsilon)
+			test.That(t, same, test.ShouldEqual, tt.result)
+			test.That(t, badJoint, test.ShouldEqual, tt.badJoint)
+		})
+	}
+}
