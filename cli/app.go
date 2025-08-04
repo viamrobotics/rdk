@@ -2995,7 +2995,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.BoolFlag{
 							Name:  moduleBuildFlagCloudBuild,
-							Usage: "Run the build script of the module using cloud build instead of locally. The file will be downloaded to the build.path field in meta.json",
+							Usage: "Run the module's build script using cloud build instead of locally, downloading to the build.path field in meta.json",
 						},
 						&cli.StringFlag{
 							Name:        moduleBuildFlagID,
@@ -3004,7 +3004,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.PathFlag{
 							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file to lookup the part-id. Use instead of --part-id option.",
+							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
 							Value: "/etc/viam.json",
 						},
 						&cli.StringFlag{
