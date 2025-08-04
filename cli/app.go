@@ -98,7 +98,7 @@ const (
 	moduleBuildFlagNoBuild     = "no-build"
 	moduleBuildFlagCloudBuild  = "cloud-build"
 	moduleBuildFlagCloudConfig = "cloud-config"
-	moduleBuildFlagId          = "build-id"
+	moduleBuildFlagID          = "build-id"
 	moduleBuildFlagOAuthLink   = "oauth-link"
 	moduleBuildFlagRepo        = "repo"
 
@@ -2875,7 +2875,7 @@ Example:
 							Flags: []cli.Flag{
 								&AliasStringFlag{
 									cli.StringFlag{
-										Name:     moduleBuildFlagId,
+										Name:     moduleBuildFlagID,
 										Usage:    "build that you want to get the logs for",
 										Aliases:  []string{generalFlagID},
 										Required: true,
@@ -2998,7 +2998,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "Run the build script of the module using cloud build instead of locally. The file will be downloaded to the build.path field in meta.json",
 						},
 						&cli.StringFlag{
-							Name:        moduleBuildFlagId,
+							Name:        moduleBuildFlagID,
 							Usage:       "Provide with --cloud-build to reload with a previous build instead of generating a new one",
 							DefaultText: "create a new build",
 						},
