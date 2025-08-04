@@ -262,13 +262,10 @@ func promptUser(module *modulegen.ModuleInputs) error {
 	} else {
 		registerWidget = huh.NewConfirm().
 			Title("Register module").
-			DescriptionFunc(func() string {
-				if unauthenticatedMode {
-					return "You are unauthenticated and cannot register this module with Viam.\n\nThis module will be a local-only module."
-				}
-				return "Register this module with Viam.\nIf selected, " +
-					"this will associate the module with your organization.\nOtherwise, this will be a local-only module."
-			}, unauthenticatedMode).
+			Description("Register this module with Viam.\nIf selected, " +
+				"this will associate the module with your organization.\n" +
+				"Otherwise, this will be a local-only module.",
+			).
 			Value(&module.RegisterOnApp)
 	}
 
