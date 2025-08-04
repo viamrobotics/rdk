@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"reflect"
 	"strings"
 
 	"github.com/golang/geo/r3"
@@ -27,6 +28,15 @@ const OOBErrString = "input out of bounds"
 type Limit struct {
 	Min float64
 	Max float64
+}
+
+func limitAlmostEqual(limit1 *Limit, limit2 *Limit) bool {
+	if math.Abs(limit1.Max-limit2.Max) > 1e-8 {
+		return false
+	} else if math.Abs(limit1.Min-limit2.Min) > 1e-8 {
+		return false
+	}
+	return true
 }
 
 // RestrictedRandomFrameInputs will produce a list of valid, in-bounds inputs for the frame.
@@ -91,6 +101,18 @@ type Limited interface {
 	// Each element describes the min and max movement limit of that degree of freedom.
 	// For robot parts that don't move, it returns an empty slice.
 	DoF() []Limit
+}
+
+func limitsAlmostEqual(limits1 []Limit, limits2 []Limit) bool {
+	if len(limits1) != len(limits2) {
+		return false
+	}
+	for i, limit := range limits1 {
+		if !limitAlmostEqual(&limit, &limits2[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // Frame represents a reference frame, e.g. an arm, a joint, a gripper, a board, etc.
@@ -642,4 +664,63 @@ func PoseToInputs(p spatial.Pose) []Input {
 		p.Orientation().OrientationVectorRadians().OZ,
 		p.Orientation().OrientationVectorRadians().Theta,
 	})
+}
+
+func framesAlmostEqual(frame1 Frame, frame2 Frame) bool {
+	if reflect.TypeOf(frame1) != reflect.TypeOf(frame2) {
+		return false
+	} else if frame1.Name() != frame2.Name() {
+		return false
+	} else if !limitsAlmostEqual(frame1.DoF(), frame2.DoF()) {
+		return false
+	}
+
+	switch f1 := frame1.(type) {
+	case *staticFrame:
+		f2 := frame2.(*staticFrame)
+		if !spatial.PoseAlmostEqual(f1.transform, f2.transform) {
+			return false
+		} else if f1.geometry == nil && f2.geometry == nil {
+			return true
+		} else if !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry) {
+			return false
+		}
+	case *rotationalFrame:
+		f2 := frame2.(*rotationalFrame)
+		if !spatial.R3VectorAlmostEqual(f1.rotAxis, f2.rotAxis, 1e-8) {
+			return false
+		}
+	case *translationalFrame:
+		f2 := frame2.(*translationalFrame)
+		if !spatial.R3VectorAlmostEqual(f1.transAxis, f2.transAxis, 1e-8) {
+			return false
+		} else if f1.geometry == nil && f2.geometry == nil {
+			return true
+		} else if !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry) {
+			return false
+		}
+	case *tailGeometryStaticFrame:
+		f2 := frame2.(*tailGeometryStaticFrame)
+		if f1.staticFrame == nil {
+			return f2.staticFrame == nil
+		} else if f2.staticFrame == nil {
+			return f1.staticFrame == nil
+		} else {
+			return framesAlmostEqual(f1.staticFrame, f2.staticFrame)
+		}
+	case *SimpleModel:
+		f2 := frame2.(*SimpleModel)
+		ordTransforms1 := f1.OrdTransforms
+		ordTransforms2 := f2.OrdTransforms
+		if len(ordTransforms1) != len(ordTransforms2) {
+			return false
+		} else {
+			for i, f := range ordTransforms1 {
+				if !framesAlmostEqual(f, ordTransforms2[i]) {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }

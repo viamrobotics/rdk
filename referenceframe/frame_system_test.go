@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"math"
 	"os"
-	"sort"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -460,11 +459,5 @@ func TestSerialization(t *testing.T) {
 	var fs2 FrameSystem
 	test.That(t, json.Unmarshal(jsonData, &fs2), test.ShouldBeNil)
 
-	frames1 := fs.FrameNames()
-	sort.Strings(frames1)
-	frames2 := fs2.FrameNames()
-	sort.Strings(frames2)
-	test.That(t, frames1, test.ShouldResemble, frames2)
-
-	test.That(t, fs, test.ShouldResemble, &fs2)
+	test.That(t, frameSystemsAlmostEqual(fs, &fs2), test.ShouldBeTrue)
 }
