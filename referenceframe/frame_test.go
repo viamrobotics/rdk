@@ -293,7 +293,15 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	static2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, static, test.ShouldResemble, static2)
+	test.That(t, static.Name(), test.ShouldResemble, static2.Name())
+
+	staticF, ok := static.(*staticFrame)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	staticF2, ok := static2.(*staticFrame)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	test.That(t, spatial.PoseAlmostCoincident(staticF.transform, staticF2.transform), test.ShouldBeTrue)
 
 	staticFrame, ok := static.(*staticFrame)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -302,10 +310,13 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	jsonData, err = frameToJSON(&tailGeoFrame)
 	test.That(t, err, test.ShouldBeNil)
 
-	tailGeoFrame2, err := jsonToFrame(json.RawMessage(jsonData))
+	tailGeoFrameParsed, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
+	tailGeoFrame2, ok := tailGeoFrameParsed.(*tailGeometryStaticFrame)
+	test.That(t, ok, test.ShouldBeTrue)
 
-	test.That(t, &tailGeoFrame, test.ShouldResemble, tailGeoFrame2)
+	test.That(t, tailGeoFrame.Name(), test.ShouldResemble, tailGeoFrame2.Name())
+	test.That(t, spatial.PoseAlmostEqual(tailGeoFrame.transform, tailGeoFrame2.transform), test.ShouldBeTrue)
 
 	// translational frame
 	tF, err := NewTranslationalFrame("foo", r3.Vector{X: 1, Y: 0, Z: 0}, Limit{1, 2})
@@ -317,7 +328,14 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	tF2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, tF, test.ShouldResemble, tF2)
+	tFrame1, ok := tF.(*translationalFrame)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	tFrame2, ok := tF2.(*translationalFrame)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	test.That(t, tFrame1.Name(), test.ShouldResemble, tFrame2.Name())
+	test.That(t, spatial.R3VectorAlmostEqual(tFrame1.transAxis, tFrame2.transAxis, 1e-8), test.ShouldBeTrue)
 
 	// rotational frame
 	rot, err := NewRotationalFrame("foo", spatial.R4AA{Theta: 3.7, RX: 2.1, RY: 3.1, RZ: 4.1}, Limit{5, 6})
@@ -329,13 +347,18 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	rot2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, rot, test.ShouldResemble, rot2)
+	rotF, ok := rot.(*rotationalFrame)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	rotF2, ok := rot2.(*rotationalFrame)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	test.That(t, rotF.Name(), test.ShouldResemble, rotF2.Name())
+	test.That(t, spatial.R3VectorAlmostEqual(rotF.rotAxis, rotF2.rotAxis, 1e-8), test.ShouldBeTrue)
 
 	// SimpleModel
 	simpleModel, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	// simpleModel, ok := m.(*SimpleModel)
-	// test.That(t, ok, test.ShouldBeTrue)
 
 	jsonData, err = frameToJSON(simpleModel)
 	test.That(t, err, test.ShouldBeNil)
