@@ -2873,10 +2873,13 @@ Example:
 							Usage:     "get the logs from one of your cloud builds",
 							UsageText: createUsageText("module build logs", []string{generalFlagID}, true, false),
 							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:     generalFlagID,
-									Usage:    "build that you want to get the logs for",
-									Required: true,
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     moduleBuildFlagId,
+										Usage:    "build that you want to get the logs for",
+										Aliases:  []string{generalFlagID},
+										Required: true,
+									},
 								},
 								&cli.StringFlag{
 									Name:        moduleFlagPlatform,

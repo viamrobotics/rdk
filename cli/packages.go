@@ -113,27 +113,27 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 		return err
 	}
 
-	err, _ = downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, resp.GetPackage().GetUrl(),
+	_, err = downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, resp.GetPackage().GetUrl(),
 		c.conf.Auth)
 	return err
 }
 
 func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	destination, name, version, packageURL string, auth authMethod,
-) (error, string) {
+) (string, error) {
 	packagePath := filepath.Join(destination, version, name+".tar.gz")
 	if err := os.MkdirAll(filepath.Dir(packagePath), 0o700); err != nil {
-		return err, ""
+		return "", err
 	}
 	//nolint:gosec
 	packageFile, err := os.Create(packagePath)
 	if err != nil {
-		return err, ""
+		return "", err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, packageURL, nil)
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage), ""
+		return "", errors.Wrapf(err, serverErrorMessage)
 	}
 
 	// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
@@ -149,10 +149,10 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	}
 	res, err := httpClient.Do(req)
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage), ""
+		return "", errors.Wrapf(err, serverErrorMessage)
 	}
 	if res.StatusCode != http.StatusOK {
-		return errors.New(serverErrorMessage), ""
+		return "", errors.New(serverErrorMessage)
 	}
 	defer func() {
 		utils.UncheckedError(res.Body.Close())
@@ -164,11 +164,11 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return err, ""
+			return "", err
 		}
 	}
 
-	return nil, packagePath
+	return packagePath, nil
 }
 
 type packageUploadArgs struct {

@@ -65,18 +65,18 @@ func ModuleBuildStartAction(cCtx *cli.Context, args moduleBuildStartArgs) error 
 	if err != nil {
 		return err
 	}
-	return c.moduleBuildStartAction(cCtx, args)
+	_, err = c.moduleBuildStartAction(cCtx, args)
+	return err
 }
 
-// CR erodkin: this is a cloud build
-func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildStartArgs) error {
+func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildStartArgs) (string, error) {
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
-		return err
+		return "", err
 	}
 	version := args.Version
 	if manifest.Build == nil || manifest.Build.Build == "" {
-		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
+		return "", errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
 
 	// Clean the version argument to ensure compatibility with github tag standards
@@ -105,12 +105,12 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 	}
 	res, err := c.buildClient.StartBuild(c.c.Context, &req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	// Print to stderr so that the buildID is the only thing in stdout
 	printf(cCtx.App.ErrWriter, "Started build:")
 	printf(cCtx.App.Writer, res.BuildId)
-	return nil
+	return res.BuildId, nil
 }
 
 type moduleBuildLocalArgs struct {
@@ -127,7 +127,6 @@ func ModuleBuildLocalAction(cCtx *cli.Context, args moduleBuildLocalArgs) error 
 	return moduleBuildLocalAction(cCtx, &manifest, nil)
 }
 
-// CR erodkin: update here
 func moduleBuildLocalAction(cCtx *cli.Context, manifest *moduleManifest, environment map[string]string) error {
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
@@ -501,27 +500,28 @@ type reloadModuleArgs struct {
 	Workdir     string
 }
 
-func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string) (error, string) {
+func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string) (string, error) {
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
-		return err, ""
+		return "", err
 	}
 
+	id := ctx.String(generalFlagID)
+	if id == "" {
+		id = manifest.ModuleID
+	}
 	// download an existing build at the given ID
 	if args.BuildID != "" {
-		id := ctx.String(generalFlagID)
-		if id == "" {
-			id = manifest.ModuleID
-		}
 		downloadArgs := downloadModuleFlags{
 			ID:       id,
 			Version:  args.BuildID,
 			Platform: platform,
 		}
-		return downloadModuleActionInner(ctx, downloadArgs)
+		return c.downloadModuleAction(ctx, downloadArgs)
 	}
 
 	// create a new build
+	infof(c.c.App.Writer, "Creating a new cloud build and swapping it onto the requested machine part. This may take a few minutes...")
 	buildArgs := moduleBuildStartArgs{
 		Module:    args.Module,
 		Version:   "reload",
@@ -530,8 +530,29 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 		Workdir:   args.Workdir,
 		Platforms: []string{platform},
 	}
-	// CR erodkin: add some sort of nilptr check on Build.Path here
-	return c.moduleBuildStartAction(ctx, buildArgs), manifest.Build.Path
+
+	buildID, err := c.moduleBuildStartAction(ctx, buildArgs)
+	if err != nil {
+		return "", err
+	}
+
+	// ensure the build completes before we try to dowload and use it
+	_, err = c.waitForBuildToFinish(buildID, platform)
+	if err != nil {
+		return "", err
+	}
+
+	// There seems to be some delay between a build finishing and being findable for download. In testing,
+	// a delay of 3 seconds wasn't reliably long enough but 5 seconds was.
+	time.Sleep(time.Second * 5)
+
+	downloadArgs := downloadModuleFlags{
+		ID:       id,
+		Version:  "reload",
+		Platform: platform,
+	}
+
+	return c.downloadModuleAction(ctx, downloadArgs)
 }
 
 // ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
@@ -614,7 +635,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				err = moduleBuildLocalAction(c, manifest, environment)
 				buildPath = manifest.Build.Path
 			} else {
-				err, buildPath = vc.moduleCloudReload(c, args, platform)
+				buildPath, err = vc.moduleCloudReload(c, args, platform)
 			}
 			if err != nil {
 				return err
@@ -628,7 +649,11 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				)
 			}
 			if err := validateReloadableArchive(c, manifest.Build); err != nil {
-				return err
+				// if it is a cloud build then it makes sense that we might not have a reloadable
+				// archive locally, so we can safely ignore the error
+				if !args.CloudBuild {
+					return err
+				}
 			}
 			if err := addShellService(c, vc, part.Part, true); err != nil {
 				return err
