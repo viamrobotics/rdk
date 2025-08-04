@@ -274,20 +274,21 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	if frameName == "" {
 		frameName = ser.Model.Name
 	}
+
+	if ser.Model != nil {
+		parsed, err := ser.Model.ParseConfig(ser.Model.Name)
+		if err != nil {
+			return err
+		}
+		newModel, ok := parsed.(*SimpleModel)
+		if !ok {
+			return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
+		}
+		m.OrdTransforms = newModel.OrdTransforms
+	}
 	m.baseFrame = &baseFrame{name: frameName, limits: ser.Limits}
 	m.modelConfig = ser.Model
-	if ser.Model == nil {
-		return fmt.Errorf("could not unmarshal simple model frame json, 'model' key missing")
-	}
-	parsed, err := ser.Model.ParseConfig(m.modelConfig.Name)
-	if err != nil {
-		return err
-	}
-	newModel, ok := parsed.(*SimpleModel)
-	if !ok {
-		return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
-	}
-	m.OrdTransforms = newModel.OrdTransforms
+
 	return nil
 }
 
