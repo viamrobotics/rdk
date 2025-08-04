@@ -59,7 +59,7 @@ var Resources = []string{
 	"power_sensor component",
 	"sensor component",
 	"servo component",
-	"service component",
+	"switch component",
 	"generic_service service",
 	"mlmodel service",
 	"motion service",
