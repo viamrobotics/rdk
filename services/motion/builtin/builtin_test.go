@@ -1354,7 +1354,7 @@ func TestDoCommand(t *testing.T) {
 		// do it again
 		respMap, err = doOverWire(ms, cmd)
 		test.That(t, err, test.ShouldBeError,
-			fmt.Errorf("component %v is not within %v of the current position", "pieceArm", defaultExecuteEpsilon))
+			fmt.Errorf("component %v, input 0 is not within %v of the current position", "pieceArm", defaultExecuteEpsilon))
 		test.That(t, respMap, test.ShouldBeEmpty)
 	})
 
