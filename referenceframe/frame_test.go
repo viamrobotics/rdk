@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/arm/v1"
+	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -279,4 +280,68 @@ func TestFrame(t *testing.T) {
 	expStaticFrame, err := NewStaticFrameWithGeometry("test", expPose, bc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sFrame, test.ShouldResemble, expStaticFrame)
+}
+
+func TestFrameToJSONAndBack(t *testing.T) {
+	// static frame
+	static, err := NewStaticFrame("foo", spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.R4AA{Theta: math.Pi / 2, RX: 4, RY: 5, RZ: 6}))
+	test.That(t, err, test.ShouldBeNil)
+
+	jsonData, err := frameToJSON(static)
+	test.That(t, err, test.ShouldBeNil)
+
+	static2, err := jsonToFrame(json.RawMessage(jsonData))
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, static, test.ShouldResemble, static2)
+
+	staticFrame, ok := static.(*staticFrame)
+	test.That(t, ok, test.ShouldBeTrue)
+	tailGeoFrame := tailGeometryStaticFrame{staticFrame: staticFrame}
+
+	jsonData, err = frameToJSON(&tailGeoFrame)
+	test.That(t, err, test.ShouldBeNil)
+
+	tailGeoFrame2, err := jsonToFrame(json.RawMessage(jsonData))
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, &tailGeoFrame, test.ShouldResemble, tailGeoFrame2)
+
+	// translational frame
+	tF, err := NewTranslationalFrame("foo", r3.Vector{X: 1, Y: 0, Z: 0}, Limit{1, 2})
+	test.That(t, err, test.ShouldBeNil)
+
+	jsonData, err = frameToJSON(tF)
+	test.That(t, err, test.ShouldBeNil)
+
+	tF2, err := jsonToFrame(json.RawMessage(jsonData))
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, tF, test.ShouldResemble, tF2)
+
+	// rotational frame
+	rot, err := NewRotationalFrame("foo", spatial.R4AA{Theta: 3.7, RX: 2.1, RY: 3.1, RZ: 4.1}, Limit{5, 6})
+	test.That(t, err, test.ShouldBeNil)
+
+	jsonData, err = frameToJSON(rot)
+	test.That(t, err, test.ShouldBeNil)
+
+	rot2, err := jsonToFrame(json.RawMessage(jsonData))
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, rot, test.ShouldResemble, rot2)
+
+	// SimpleModel
+	simpleModel, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	// simpleModel, ok := m.(*SimpleModel)
+	// test.That(t, ok, test.ShouldBeTrue)
+
+	jsonData, err = frameToJSON(simpleModel)
+	test.That(t, err, test.ShouldBeNil)
+
+	simpleModel2, err := jsonToFrame(json.RawMessage(jsonData))
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, simpleModel, test.ShouldResemble, simpleModel2)
 }
