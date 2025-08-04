@@ -343,7 +343,7 @@ func TestMachineStateNoResources(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	machineAddress := "localhost:23654"
+	machineAddress := "localhost:23655"
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -385,10 +385,10 @@ func TestMachineStateNoResources(t *testing.T) {
 func TestTunnelE2E(t *testing.T) {
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
-	// test-process <-> source-listener(localhost:23656) <-> machine(localhost:23655) <-> dest-listener(localhost:23654)
+	// test-process <-> source-listener(localhost:23656) <-> machine(localhost:23655) <-> dest-listener(localhost:23656)
 
 	tunnelMsg := "Hello, World!"
-	destPort := 23654
+	destPort := 23656
 	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
 	machineAddr := net.JoinHostPort("localhost", "23655")
 	sourceListenerAddr := net.JoinHostPort("localhost", "23656")
@@ -541,7 +541,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
 	test.That(t, err, test.ShouldBeNil)
 	helperModel := resource.NewModel("rdk", "test", "helper")
-	machineAddress := "localhost:23654"
+	machineAddress := "localhost:23657"
 
 	cfg := &config.Config{
 		Modules: []config.Module{
@@ -578,7 +578,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
 
-	// Create an SDK client to the server that was started on localhost:23654.
+	// Create an SDK client to the server that was started on localhost:23657.
 	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
 	helper, err := rc.ResourceByName(generic.Named("helper"))
 	test.That(t, err, test.ShouldBeNil)
