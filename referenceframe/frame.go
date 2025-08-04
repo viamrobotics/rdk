@@ -193,6 +193,17 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
 }
 
+func (sf *tailGeometryStaticFrame) UnmarshalJSON(data []byte) error {
+	var inner staticFrame
+
+	err := json.Unmarshal(data, &inner)
+	if err != nil {
+		return err
+	}
+	sf.staticFrame = &inner
+	return nil
+}
+
 // namedFrame is used to change the name of a frame.
 type namedFrame struct {
 	Frame

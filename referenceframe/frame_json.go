@@ -208,10 +208,10 @@ func jsonToFrame(data json.RawMessage) (Frame, error) {
 		return nil, fmt.Errorf("%s is not a registered Frame implementation", frameType)
 	}
 	frameZeroStruct := reflect.New(implementer).Elem()
-	if err := json.Unmarshal(sF["frame"], frameZeroStruct.Addr().Interface()); err != nil {
+	frame := frameZeroStruct.Addr().Interface()
+	if err := json.Unmarshal(sF["frame"], frame); err != nil {
 		return nil, err
 	}
-	frame := frameZeroStruct.Addr().Interface()
 
 	return utils.AssertType[Frame](frame)
 }
