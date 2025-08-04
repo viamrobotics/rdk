@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 
 	"github.com/golang/geo/r3"
@@ -753,4 +754,35 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 		}
 	}
 	return topoSortedParts, nil
+}
+
+func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem) bool {
+	if fs1.Name() != fs2.Name() {
+		return false
+	}
+
+	if !framesAlmostEqual(fs1.World(), fs2.World()) {
+		return false
+	}
+
+	if !reflect.DeepEqual(fs1.parents, fs2.parents) {
+		return false
+	}
+
+	seenFrames := map[string]struct{}{}
+	for frameName, frame := range fs1.frames {
+		frame2, ok := fs2.frames[frameName]
+		if !ok {
+			return false
+		} else if !framesAlmostEqual(frame, frame2) {
+			return false
+		}
+		seenFrames[frameName] = struct{}{}
+	}
+	for _, name := range fs2.FrameNames() {
+		if _, ok := seenFrames[name]; !ok {
+			return false
+		}
+	}
+	return true
 }
