@@ -49,7 +49,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	modif "go.viam.com/rdk/module/modmaninterface"
+	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -685,13 +685,10 @@ func TestManagerNewComponent(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "board3")
 }
 
-func managerForTest(t *testing.T, m modif.ModuleManager, l logging.Logger) *resourceManager {
+func managerForTest(t *testing.T, _ any, l logging.Logger) *resourceManager {
 	t.Helper()
 	injectRobot := setupInjectRobot(l)
 	manager := managerForDummyRobot(t, injectRobot)
-	// replace the module manager with an injected one
-	manager.moduleManager.Close(context.Background())
-	manager.moduleManager = m
 
 	manager.addRemote(
 		context.Background(),
@@ -1790,7 +1787,7 @@ type dummyRobot struct {
 	mu         sync.Mutex
 	robot      robot.Robot
 	manager    *resourceManager
-	modmanager modif.ModuleManager
+	modmanager *modmanager.Manager
 
 	offline bool
 }
@@ -1913,7 +1910,7 @@ func (rr *dummyRobot) OperationManager() *operation.Manager {
 	panic("change to return nil")
 }
 
-func (rr *dummyRobot) ModuleManager() modif.ModuleManager {
+func (rr *dummyRobot) ModuleManager() *modmanager.Manager {
 	return rr.modmanager
 }
 

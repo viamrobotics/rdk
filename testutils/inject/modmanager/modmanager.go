@@ -4,13 +4,13 @@ package injectmod
 import (
 	"context"
 
-	"go.viam.com/rdk/module/modmaninterface"
+	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/resource"
 )
 
 // ModuleManager is an injected ModuleManager.
 type ModuleManager struct {
-	modmaninterface.ModuleManager
+	*modmanager.Manager
 	RemoveFunc func(modName string) ([]resource.Name, error)
 
 	IsModularResourceFunc func(name resource.Name) bool

@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
-	modif "go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -47,13 +46,32 @@ var (
 	errShellServiceDisabled = errors.New("shell service disabled in an untrusted environment")
 )
 
+type ModuleManager interface {
+	Add(ctx context.Context, confs ...config.Module) error
+	AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error)
+	AllModels() []resource.ModuleModel
+	CleanModuleDataDirectory() error
+	Close(ctx context.Context) error
+	Configs() []config.Module
+	FirstRun(ctx context.Context, conf config.Module) error
+	IsModularResource(name resource.Name) bool
+	Kill()
+	Provides(conf resource.Config) bool
+	Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error)
+	ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error
+	Remove(modName string) ([]resource.Name, error)
+	RemoveResource(ctx context.Context, name resource.Name) error
+	ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error
+	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
+}
+
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
 	resources *resource.Graph
 	// modManagerLock controls access to the moduleManager and prevents a data race.
 	// This may happen if Kill() or Close() is called concurrently with startModuleManager.
 	modManagerLock sync.Mutex
-	moduleManager  modif.ModuleManager
+	moduleManager  ModuleManager
 	opts           resourceManagerOptions
 	logger         logging.Logger
 
