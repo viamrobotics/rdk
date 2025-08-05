@@ -609,8 +609,8 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 				if err != nil {
 					return err
 				}
-				if same, inputNum := checkSameInputs(curr, inputs, epsilon); !same {
-					return fmt.Errorf("component %v, input %v is not within %v of the current position", name, inputNum, epsilon)
+				if same, diffInputs := checkSameInputs(curr, inputs, epsilon); !same {
+					return fmt.Errorf("component %v, inputs %v are not within %v of the current position", name, diffInputs, epsilon)
 				}
 				currStep[name] = append(currStep[name], inputs)
 			}
@@ -782,11 +782,15 @@ func (ms *builtIn) writePlanRequest(req *armplanning.PlanRequest) error {
 
 // checkSameInputs will check if a set of inputs are the same.
 // If a set of joints are different, return which joint was wrong.
-func checkSameInputs(a, b []referenceframe.Input, epsilon float64) (bool, int) {
+func checkSameInputs(a, b []referenceframe.Input, epsilon float64) (bool, []int) {
+	diffJoints := []int{}
 	for index := range a {
 		if math.Abs(a[index].Value-b[index].Value) > epsilon {
-			return false, index
+			diffJoints = append(diffJoints, index)
 		}
 	}
-	return true, -1
+	if len(diffJoints) > 0 {
+		return false, diffJoints
+	}
+	return true, nil
 }
