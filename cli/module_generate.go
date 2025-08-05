@@ -380,6 +380,8 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.ModelSnake = snakeReplacer.Replace(newModule.ModelName)
 	if newModule.ResourceSubtype == "switch"{
 		newModule.ResourceSubtypeImportAlias = "sw"
+	} else {
+		newModule.ResourceSubtypeImportAlias = newModule.ResourceSubtype
 	}
 
 	modelTriple := fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
