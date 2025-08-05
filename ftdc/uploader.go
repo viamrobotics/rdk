@@ -81,19 +81,18 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 			},
 		},
 	})
-
 	if err != nil {
 		if !errors.Is(err, io.EOF) {
 			// When the error is not an EOF, it means the client code encountered an error. Return
 			// that directly.
 			return err
-		} else {
-			// `Send` returning an EOF means the an error originated outside of the client code. We
-			// must call `RecvMsg` to get the underlying error.
-			m := &v1.FileUploadResponse{}
-			err = binaryClient.RecvMsg(m)
-			return err
 		}
+
+		// `Send` returning an EOF means the an error originated outside of the client code. We
+		// must call `RecvMsg` to get the underlying error.
+		m := &v1.FileUploadResponse{}
+		err = binaryClient.RecvMsg(m)
+		return err
 	}
 
 	file, err := os.Open(filename) //nolint: gosec
@@ -117,19 +116,18 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 				},
 			},
 		})
-
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
 				// When the error is not an EOF, it means the client code encountered an error. Return
 				// that directly.
 				return err
-			} else {
-				// `Send` returning an EOF means the an error originated outside of the client code. We
-				// must call `RecvMsg` to get the underlying error.
-				m := &v1.FileUploadResponse{}
-				err = binaryClient.RecvMsg(m)
-				return err
 			}
+
+			// `Send` returning an EOF means the an error originated outside of the client code. We
+			// must call `RecvMsg` to get the underlying error.
+			m := &v1.FileUploadResponse{}
+			err = binaryClient.RecvMsg(m)
+			return err
 		}
 	}
 
