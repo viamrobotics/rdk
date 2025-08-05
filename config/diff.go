@@ -22,7 +22,7 @@ type Diff struct {
 	Removed        *Config
 	ResourcesEqual bool
 	NetworkEqual   bool
-	// LogFieldEqual is a hacky field to determine an appropriate warning about Log
+	// LogFieldEqual is a field to determine if an appropriate warning about Log
 	// changes needs to be displayed.
 	LogFieldEqual       bool
 	LogEqual            bool
