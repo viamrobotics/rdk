@@ -756,33 +756,42 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 	return topoSortedParts, nil
 }
 
-func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem) bool {
+func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem) (bool, error) {
 	if fs1.Name() != fs2.Name() {
-		return false
+		return false, nil
 	}
 
-	if !framesAlmostEqual(fs1.World(), fs2.World()) {
-		return false
+	worldFrameEquality, err := framesAlmostEqual(fs1.World(), fs2.World())
+	if err != nil {
+		return false, err
+	}
+	if !worldFrameEquality {
+		return false, nil
 	}
 
 	if !reflect.DeepEqual(fs1.parents, fs2.parents) {
-		return false
+		return false, nil
 	}
 
 	seenFrames := map[string]struct{}{}
 	for frameName, frame := range fs1.frames {
 		frame2, ok := fs2.frames[frameName]
 		if !ok {
-			return false
-		} else if !framesAlmostEqual(frame, frame2) {
-			return false
+			return false, nil
+		}
+		frameEquality, err := framesAlmostEqual(frame, frame2)
+		if err != nil {
+			return false, err
+		}
+		if !frameEquality {
+			return false, nil
 		}
 		seenFrames[frameName] = struct{}{}
 	}
 	for _, name := range fs2.FrameNames() {
 		if _, ok := seenFrames[name]; !ok {
-			return false
+			return false, nil
 		}
 	}
-	return true
+	return true, nil
 }
