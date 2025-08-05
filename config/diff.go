@@ -16,12 +16,15 @@ import (
 // where left is usually old and right is new. So the diff is the
 // changes from left to right.
 type Diff struct {
-	Left, Right         *Config
-	Added               *Config
-	Modified            *ModifiedConfigDiff
-	Removed             *Config
-	ResourcesEqual      bool
-	NetworkEqual        bool
+	Left, Right    *Config
+	Added          *Config
+	Modified       *ModifiedConfigDiff
+	Removed        *Config
+	ResourcesEqual bool
+	NetworkEqual   bool
+	// LogFieldEqual is a hacky field to determine an appropriate warning about Log
+	// changes needs to be displayed.
+	LogFieldEqual       bool
 	LogEqual            bool
 	JobsEqual           bool
 	PrettyDiff          string
@@ -95,7 +98,7 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
 
-	logDifferent := diffLogCfg(&left, &right, servicesDifferent, componentsDifferent)
+	logDifferent := diffLogCfg(&left, &right, servicesDifferent, componentsDifferent, &diff)
 	diff.LogEqual = !logDifferent
 
 	return &diff, nil
@@ -525,10 +528,12 @@ func diffModule(left, right Module, diff *Diff) bool {
 
 // diffLogCfg returns true if any part of the log config is different or if any
 // services or components have been updated.
-func diffLogCfg(left, right *Config, servicesDifferent, componentsDifferent bool) bool {
+func diffLogCfg(left, right *Config, servicesDifferent, componentsDifferent bool, diff *Diff) bool {
 	if !reflect.DeepEqual(left.LogConfig, right.LogConfig) {
 		return true
 	}
+	// the `log` fields are equal when their DeepEqual is true.
+	diff.LogFieldEqual = true
 	// If there was any change in services or components; attempt to update logger levels.
 	if servicesDifferent || componentsDifferent {
 		return true
