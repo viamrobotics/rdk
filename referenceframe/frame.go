@@ -30,10 +30,10 @@ type Limit struct {
 	Max float64
 }
 
-func limitAlmostEqual(limit1, limit2 *Limit) bool {
-	if math.Abs(limit1.Max-limit2.Max) > 1e-8 {
+func limitAlmostEqual(limit1, limit2 *Limit, epsilon float64) bool {
+	if math.Abs(limit1.Max-limit2.Max) > epsilon {
 		return false
-	} else if math.Abs(limit1.Min-limit2.Min) > 1e-8 {
+	} else if math.Abs(limit1.Min-limit2.Min) > epsilon {
 		return false
 	}
 	return true
@@ -103,12 +103,12 @@ type Limited interface {
 	DoF() []Limit
 }
 
-func limitsAlmostEqual(limits1, limits2 []Limit) bool {
+func limitsAlmostEqual(limits1, limits2 []Limit, epsilon float64) bool {
 	if len(limits1) != len(limits2) {
 		return false
 	}
 	for i, limit := range limits1 {
-		if !limitAlmostEqual(&limit, &limits2[i]) {
+		if !limitAlmostEqual(&limit, &limits2[i], epsilon) {
 			return false
 		}
 	}
@@ -666,13 +666,21 @@ func PoseToInputs(p spatial.Pose) []Input {
 	})
 }
 
-func framesAlmostEqual(frame1, frame2 Frame) (bool, error) {
+// Determine whether two frames are (nearly) identical. For now, we only support implementers of
+// the frame interface that are registered (see register.go). However, this is not automatic, so
+// if a new implementer is registered manually in register.go, its case should be added here.
+//
+// NOTE: for ease, this function only takes one epsilon parameter because we have yet
+// to see a case of quantity where we want accept different levels of floating point error.
+// If the time comes where we want a different allowance for limits, vectors, and geometries,
+// this function should be changed accordingly
+func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 	switch {
 	case reflect.TypeOf(frame1) != reflect.TypeOf(frame2):
 		return false, nil
 	case frame1.Name() != frame2.Name():
 		return false, nil
-	case !limitsAlmostEqual(frame1.DoF(), frame2.DoF()):
+	case !limitsAlmostEqual(frame1.DoF(), frame2.DoF(), epsilon):
 		return false, nil
 	default:
 	}
@@ -691,13 +699,13 @@ func framesAlmostEqual(frame1, frame2 Frame) (bool, error) {
 		}
 	case *rotationalFrame:
 		f2 := frame2.(*rotationalFrame)
-		if !spatial.R3VectorAlmostEqual(f1.rotAxis, f2.rotAxis, 1e-8) {
+		if !spatial.R3VectorAlmostEqual(f1.rotAxis, f2.rotAxis, epsilon) {
 			return false, nil
 		}
 	case *translationalFrame:
 		f2 := frame2.(*translationalFrame)
 		switch {
-		case !spatial.R3VectorAlmostEqual(f1.transAxis, f2.transAxis, 1e-8):
+		case !spatial.R3VectorAlmostEqual(f1.transAxis, f2.transAxis, epsilon):
 			return false, nil
 		case f1.geometry == nil && f2.geometry == nil:
 			return true, nil
@@ -713,7 +721,7 @@ func framesAlmostEqual(frame1, frame2 Frame) (bool, error) {
 		case f2.staticFrame == nil:
 			return f1.staticFrame == nil, nil
 		default:
-			return framesAlmostEqual(f1.staticFrame, f2.staticFrame)
+			return framesAlmostEqual(f1.staticFrame, f2.staticFrame, epsilon)
 		}
 	case *SimpleModel:
 		f2 := frame2.(*SimpleModel)
@@ -723,7 +731,7 @@ func framesAlmostEqual(frame1, frame2 Frame) (bool, error) {
 			return false, nil
 		} else {
 			for i, f := range ordTransforms1 {
-				frameEquality, err := framesAlmostEqual(f, ordTransforms2[i])
+				frameEquality, err := framesAlmostEqual(f, ordTransforms2[i], epsilon)
 				if err != nil {
 					return false, err
 				}

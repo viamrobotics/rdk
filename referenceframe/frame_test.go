@@ -18,6 +18,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+const frameDifferenceEpsilon = 1e-8
+
 func TestStaticFrame(t *testing.T) {
 	// define a static transform
 	expPose := spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.R4AA{math.Pi / 2, 0., 0., 1.})
@@ -293,7 +295,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	static2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	eq, err := framesAlmostEqual(static, static2)
+	eq, err := framesAlmostEqual(static, static2, frameDifferenceEpsilon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eq, test.ShouldBeTrue)
 
@@ -307,7 +309,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	tailGeoFrameParsed, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	eq, err = framesAlmostEqual(&tailGeoFrame, tailGeoFrameParsed)
+	eq, err = framesAlmostEqual(&tailGeoFrame, tailGeoFrameParsed, frameDifferenceEpsilon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eq, test.ShouldBeTrue)
 
@@ -321,7 +323,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	tF2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	eq, err = framesAlmostEqual(tF, tF2)
+	eq, err = framesAlmostEqual(tF, tF2, frameDifferenceEpsilon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eq, test.ShouldBeTrue)
 
@@ -335,7 +337,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	rot2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	eq, err = framesAlmostEqual(rot, rot2)
+	eq, err = framesAlmostEqual(rot, rot2, frameDifferenceEpsilon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eq, test.ShouldBeTrue)
 
@@ -349,7 +351,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	simpleModel2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	eq, err = framesAlmostEqual(simpleModel, simpleModel2)
+	eq, err = framesAlmostEqual(simpleModel, simpleModel2, frameDifferenceEpsilon)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eq, test.ShouldBeTrue)
 }

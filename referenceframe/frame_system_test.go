@@ -459,7 +459,7 @@ func TestSerialization(t *testing.T) {
 	var fs2 FrameSystem
 	test.That(t, json.Unmarshal(jsonData, &fs2), test.ShouldBeNil)
 
-	equality, err := frameSystemsAlmostEqual(fs, &fs2)
+	equality, err := frameSystemsAlmostEqual(fs, &fs2, 1e-8)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, equality, test.ShouldBeTrue)
 }
