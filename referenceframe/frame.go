@@ -667,23 +667,27 @@ func PoseToInputs(p spatial.Pose) []Input {
 }
 
 func framesAlmostEqual(frame1 Frame, frame2 Frame) bool {
-	if reflect.TypeOf(frame1) != reflect.TypeOf(frame2) {
+	switch {
+	case reflect.TypeOf(frame1) != reflect.TypeOf(frame2):
 		return false
-	} else if frame1.Name() != frame2.Name() {
+	case frame1.Name() != frame2.Name():
 		return false
-	} else if !limitsAlmostEqual(frame1.DoF(), frame2.DoF()) {
+	case !limitsAlmostEqual(frame1.DoF(), frame2.DoF()):
 		return false
+	default:
 	}
 
 	switch f1 := frame1.(type) {
 	case *staticFrame:
 		f2 := frame2.(*staticFrame)
-		if !spatial.PoseAlmostEqual(f1.transform, f2.transform) {
+		switch {
+		case !spatial.PoseAlmostEqual(f1.transform, f2.transform):
 			return false
-		} else if f1.geometry == nil && f2.geometry == nil {
+		case f1.geometry == nil && f2.geometry == nil:
 			return true
-		} else if !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry) {
+		case !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry):
 			return false
+		default:
 		}
 	case *rotationalFrame:
 		f2 := frame2.(*rotationalFrame)
@@ -692,20 +696,23 @@ func framesAlmostEqual(frame1 Frame, frame2 Frame) bool {
 		}
 	case *translationalFrame:
 		f2 := frame2.(*translationalFrame)
-		if !spatial.R3VectorAlmostEqual(f1.transAxis, f2.transAxis, 1e-8) {
+		switch {
+		case !spatial.R3VectorAlmostEqual(f1.transAxis, f2.transAxis, 1e-8):
 			return false
-		} else if f1.geometry == nil && f2.geometry == nil {
+		case f1.geometry == nil && f2.geometry == nil:
 			return true
-		} else if !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry) {
+		case !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry):
 			return false
+		default:
 		}
 	case *tailGeometryStaticFrame:
 		f2 := frame2.(*tailGeometryStaticFrame)
-		if f1.staticFrame == nil {
+		switch {
+		case f1.staticFrame == nil:
 			return f2.staticFrame == nil
-		} else if f2.staticFrame == nil {
+		case f2.staticFrame == nil:
 			return f1.staticFrame == nil
-		} else {
+		default:
 			return framesAlmostEqual(f1.staticFrame, f2.staticFrame)
 		}
 	case *SimpleModel:
