@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,16 +25,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	_ "go.viam.com/rdk/components/arm/wrapper" // this is special
 	"go.viam.com/rdk/components/generic"
-	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
-	_ "go.viam.com/rdk/services/motion/builtin" // this is special
-	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
@@ -47,10 +42,6 @@ import (
 const numResources = 20
 
 func TestEntrypoint(t *testing.T) {
-	if runtime.GOARCH == "arm" {
-		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
-	}
-
 	t.Run("number of resources", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
@@ -100,7 +91,7 @@ func TestEntrypoint(t *testing.T) {
 	t.Run("dump resource registrations", func(t *testing.T) {
 		tempDir := t.TempDir()
 		outputFile := filepath.Join(tempDir, "resources.json")
-		serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
+		serverPath := testutils.BuildViamServer(t)
 		command := exec.Command(serverPath, "--dump-resources", outputFile)
 		err := command.Run()
 		test.That(t, err, test.ShouldBeNil)
@@ -114,21 +105,34 @@ func TestEntrypoint(t *testing.T) {
 		registrations := []registration{}
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(registrations), test.ShouldBeGreaterThan, 0) // to protect against misreading resource registrations
-		test.That(t, registrations, test.ShouldHaveLength, len(resource.RegisteredResources()))
+		test.That(t, registrations, test.ShouldHaveLength, 52)
+
+		observedReg := make(map[string]bool)
 		for _, reg := range registrations {
 			test.That(t, reg.API, test.ShouldNotBeEmpty)
 			test.That(t, reg.Model, test.ShouldNotBeEmpty)
 			test.That(t, reg.Schema, test.ShouldNotBeNil)
+
+			regStr := strings.Join([]string{reg.API, reg.Model}, "/")
+			observedReg[regStr] = true
+		}
+
+		// Check specifically for registrations we care about
+		expectedReg := []string{
+			"rdk:component:arm/rdk:builtin:wrapper_arm",
+			"rdk:component:camera/rdk:builtin:webcam",
+			"rdk:service:data_manager/rdk:builtin:builtin",
+			"rdk:service:motion/rdk:builtin:builtin",
+			"rdk:service:shell/rdk:builtin:builtin",
+			"rdk:service:vision/rdk:builtin:mlmodel",
+		}
+		for _, reg := range expectedReg {
+			test.That(t, observedReg[reg], test.ShouldBeTrue)
 		}
 	})
 }
 
 func TestShutdown(t *testing.T) {
-	if runtime.GOARCH == "arm" {
-		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
-	}
-
 	t.Run("shutdown functionality", func(t *testing.T) {
 		testLogger := logging.NewTestLogger(t)
 		// Pass in a separate logger to the managed server process that only outputs WARN+
