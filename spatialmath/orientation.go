@@ -32,6 +32,12 @@ func OrientationAlmostEqual(o1, o2 Orientation) bool {
 
 // OrientationAlmostEqualEps will return a bool describing whether 2 poses have approximately the same orientation.
 func OrientationAlmostEqualEps(o1, o2 Orientation, epsilon float64) bool {
+	if o1 == nil {
+		return o2 == nil
+	} else if o2 == nil {
+		return false
+	}
+
 	return QuatToR3AA(OrientationBetween(o1, o2).Quaternion()).Norm2() < epsilon
 }
 
