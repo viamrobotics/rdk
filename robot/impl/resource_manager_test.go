@@ -64,7 +64,6 @@ import (
 	"go.viam.com/rdk/session"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	injectmod "go.viam.com/rdk/testutils/inject/modmanager"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
@@ -685,7 +684,7 @@ func TestManagerNewComponent(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "board3")
 }
 
-func managerForTest(t *testing.T, _ any, l logging.Logger) *resourceManager {
+func managerForTest(t *testing.T, l logging.Logger) *resourceManager {
 	t.Helper()
 	injectRobot := setupInjectRobot(l)
 	manager := managerForDummyRobot(t, injectRobot)
@@ -709,8 +708,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	modmanager := &injectmod.ModuleManager{}
-	manager := managerForTest(t, modmanager, logger)
+	manager := managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
 	checkEmpty := func(
@@ -789,8 +787,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	modmanager = &injectmod.ModuleManager{}
-	manager = managerForTest(t, modmanager, logger)
+	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
 	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
@@ -870,8 +867,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	modmanager = &injectmod.ModuleManager{}
-	manager = managerForTest(t, modmanager, logger)
+	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
 	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
@@ -984,8 +980,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	modmanager = &injectmod.ModuleManager{}
-	manager = managerForTest(t, modmanager, logger)
+	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
 	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
