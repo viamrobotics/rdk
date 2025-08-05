@@ -209,9 +209,13 @@ func jsonToFrame(data json.RawMessage) (Frame, error) {
 	}
 	frameZeroStruct := reflect.New(implementer).Elem()
 	frame := frameZeroStruct.Addr().Interface()
+	frameI, err := utils.AssertType[Frame](frame)
+	if err != nil {
+		return nil, err
+	}
 	if err := json.Unmarshal(sF["frame"], frame); err != nil {
 		return nil, err
 	}
 
-	return utils.AssertType[Frame](frame)
+	return frameI, nil
 }

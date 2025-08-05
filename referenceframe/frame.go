@@ -30,7 +30,7 @@ type Limit struct {
 	Max float64
 }
 
-func limitAlmostEqual(limit1 *Limit, limit2 *Limit) bool {
+func limitAlmostEqual(limit1, limit2 *Limit) bool {
 	if math.Abs(limit1.Max-limit2.Max) > 1e-8 {
 		return false
 	} else if math.Abs(limit1.Min-limit2.Min) > 1e-8 {
@@ -103,7 +103,7 @@ type Limited interface {
 	DoF() []Limit
 }
 
-func limitsAlmostEqual(limits1 []Limit, limits2 []Limit) bool {
+func limitsAlmostEqual(limits1, limits2 []Limit) bool {
 	if len(limits1) != len(limits2) {
 		return false
 	}
@@ -666,7 +666,7 @@ func PoseToInputs(p spatial.Pose) []Input {
 	})
 }
 
-func framesAlmostEqual(frame1 Frame, frame2 Frame) bool {
+func framesAlmostEqual(frame1, frame2 Frame) bool {
 	switch {
 	case reflect.TypeOf(frame1) != reflect.TypeOf(frame2):
 		return false
