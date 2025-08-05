@@ -30,7 +30,7 @@ type Limit struct {
 	Max float64
 }
 
-func limitAlmostEqual(limit1, limit2 *Limit, epsilon float64) bool {
+func limitAlmostEqual(limit1, limit2 Limit, epsilon float64) bool {
 	if math.Abs(limit1.Max-limit2.Max) > epsilon {
 		return false
 	} else if math.Abs(limit1.Min-limit2.Min) > epsilon {
@@ -108,7 +108,7 @@ func limitsAlmostEqual(limits1, limits2 []Limit, epsilon float64) bool {
 		return false
 	}
 	for i, limit := range limits1 {
-		if !limitAlmostEqual(&limit, &limits2[i], epsilon) {
+		if !limitAlmostEqual(limit, limits2[i], epsilon) {
 			return false
 		}
 	}
@@ -673,7 +673,7 @@ func PoseToInputs(p spatial.Pose) []Input {
 // NOTE: for ease, this function only takes one epsilon parameter because we have yet
 // to see a case of quantity where we want accept different levels of floating point error.
 // If the time comes where we want a different allowance for limits, vectors, and geometries,
-// this function should be changed accordingly
+// this function should be changed accordingly.
 func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 	switch {
 	case reflect.TypeOf(frame1) != reflect.TypeOf(frame2):
