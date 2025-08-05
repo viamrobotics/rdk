@@ -2949,7 +2949,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 
 	# Specify which component/service to add to the config along with the module (the API is
 	# automatically looked up from meta.json)
-	viam module reload --model-name acme:module-name:mybase
+	viam module reload --model-name acme:module-name:mybase --name my-resource
 
 	# Build and configure a module on your local machine without shipping a tarball.
 	viam module reload --local`,
@@ -2998,7 +2998,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "Run the module's build script using cloud build instead of locally, downloading to the build.path field in meta.json",
 						},
 						&cli.StringFlag{
-							Name:        moduleBuildFlagID,
+							Name:        generalFlagVersion,
 							Usage:       "Provide with --cloud-build to reload with a previous build instead of generating a new one",
 							DefaultText: "create a new build",
 						},
@@ -3025,6 +3025,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  moduleBuildFlagWorkdir,
 							Usage: "use this to indicate that your meta.json is in a subdirectory of your repo. --module flag should be relative to this",
 							Value: ".",
+						},
+						&cli.StringFlag{
+							Name:        dataFlagResourceName,
+							Usage:       "Use with model-name to name the newly added resource",
+							DefaultText: "resource type with a unique numerical suffix",
 						},
 					},
 					Action: createCommandWithT[reloadModuleArgs](ReloadModuleAction),

@@ -485,19 +485,20 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 }
 
 type reloadModuleArgs struct {
-	PartID      string
-	Module      string
-	RestartOnly bool
-	NoBuild     bool
-	Local       bool
-	NoProgress  bool
-	CloudBuild  bool
-	BuildID     string
-	CloudConfig string
-	ModelName   string
-	Ref         string
-	Token       string
-	Workdir     string
+	PartID       string
+	Module       string
+	RestartOnly  bool
+	NoBuild      bool
+	Local        bool
+	NoProgress   bool
+	CloudBuild   bool
+	Version      string
+	CloudConfig  string
+	ModelName    string
+	Ref          string
+	Token        string
+	Workdir      string
+	ResourceName string
 }
 
 func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string) (string, error) {
@@ -511,10 +512,10 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 		id = manifest.ModuleID
 	}
 	// download an existing build at the given ID
-	if args.BuildID != "" {
+	if args.Version != "" {
 		downloadArgs := downloadModuleFlags{
 			ID:       id,
-			Version:  args.BuildID,
+			Version:  args.Version,
 			Platform: platform,
 		}
 		return c.downloadModuleAction(ctx, downloadArgs)
@@ -524,7 +525,7 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	infof(c.c.App.Writer, "Creating a new cloud build and swapping it onto the requested machine part. This may take a few minutes...")
 	buildArgs := moduleBuildStartArgs{
 		Module:    args.Module,
-		Version:   "reload",
+		Version:   "reload2",
 		Ref:       args.Ref,
 		Token:     args.Token,
 		Workdir:   args.Workdir,
@@ -548,7 +549,7 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 
 	downloadArgs := downloadModuleFlags{
 		ID:       id,
-		Version:  "reload",
+		Version:  "reload2",
 		Platform: platform,
 	}
 
@@ -682,9 +683,21 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 		}
 	}
 	if needsRestart {
-		return restartModule(c, vc, part.Part, manifest, logger)
+		if err = restartModule(c, vc, part.Part, manifest, logger); err != nil {
+			return err
+		}
+	} else {
+		infof(c.App.Writer, "Reload complete")
 	}
-	infof(c.App.Writer, "Reload complete")
+
+	if args.ModelName != "" {
+		print("sleepy time!!")
+		time.Sleep(time.Second * 30)
+
+		if err = vc.addResourceFromModule(c, part.Part, manifest, args.ModelName, args.ResourceName); err != nil {
+			warningf(c.App.ErrWriter, "unable to add requested resource to robot config: %s", err)
+		}
+	}
 	return nil
 }
 

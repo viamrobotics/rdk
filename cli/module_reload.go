@@ -23,8 +23,83 @@ import (
 // Using maps directly also saves a lot of high-maintenance ser/des work.
 type ModuleMap map[string]any
 
-// ServiceMap is the same kind of thing as ModuleMap (see above), a map representing a single service.
-type ServiceMap map[string]any
+// ResourceMap is the same kind of thing as ModuleMap (see above), a map representing a single resource.
+type ResourceMap map[string]any
+
+// addResourceFromModule adds a resource to the components or services slice if missing. Mutates part.RobotConfig.
+func (vc *viamClient) addResourceFromModule(c *cli.Context, part *apppb.RobotPart, manifest *moduleManifest, modelName, resourceName string) error {
+	if manifest == nil {
+		return errors.New("unable to add resource from config without a meta.json")
+	}
+
+	var modelAPI string
+	for _, model := range manifest.Models {
+		if model.Model == modelName {
+			modelAPI = model.API
+			break
+		}
+	}
+
+	if len(modelAPI) == 0 {
+		return errors.New("provided model name was not found in the meta.json")
+	}
+
+	APISlice := strings.Split(modelAPI, ":")
+	if len(APISlice) != 3 {
+		return errors.New("the provided model's API is malformed; unable to determine resource type")
+	}
+
+	resourceType := APISlice[1] + "s" // `components`, not `component`
+
+	partMap := part.RobotConfig.AsMap()
+	if _, ok := partMap[resourceType]; !ok {
+		partMap[resourceType] = make([]any, 0, 1)
+	}
+	resources, _ := rutils.MapOver(partMap[resourceType].([]any), //nolint:errcheck
+		func(raw any) (ResourceMap, error) { return ResourceMap(raw.(map[string]any)), nil },
+	)
+
+	resourceNameAlreadyExists := func(name string) bool {
+		match := rutils.FindInSlice(partMap[resourceType].([]any),
+			func(raw any) bool { return raw.(map[string]any)["name"].(string) == name })
+
+		return match != nil
+	}
+
+	// if the user provides a resource name but it's already in the config, alert the user and return
+	if resourceName != "" {
+		if resourceNameAlreadyExists(resourceName) {
+			return errors.Errorf("resource name %s already exists in part config", resourceName)
+		}
+	} else { // if the user doesn't provide a resource name, find a valid one
+		resourceNum := 1
+		resourceSubtype := APISlice[2]
+		for {
+			name := fmt.Sprintf("%s-%d", resourceSubtype, resourceNum)
+			if resourceNameAlreadyExists(name) {
+				resourceNum += 1
+			} else {
+				resourceName = name
+				break
+			}
+		}
+	}
+
+	resources = append(resources, ResourceMap{"name": resourceName, "api": modelAPI, "model": modelName})
+	asAny, _ := rutils.MapOver(resources, func(resource ResourceMap) (any, error) { //nolint:errcheck
+		return map[string]any(resource), nil
+	})
+	partMap[resourceType] = asAny
+	if err := writeBackConfig(part, partMap); err != nil {
+		return err
+	}
+	infof(c.App.Writer, "installing %s model with name %s on target machine", modelName, resourceName)
+	if err := vc.updateRobotPart(part, partMap); err != nil {
+		return err
+	}
+
+	return nil
+}
 
 // addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
 func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait bool) error {
@@ -37,14 +112,14 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 		partMap["services"] = make([]any, 0, 1)
 	}
 	services, _ := rutils.MapOver(partMap["services"].([]any), //nolint:errcheck
-		func(raw any) (ServiceMap, error) { return ServiceMap(raw.(map[string]any)), nil },
+		func(raw any) (ResourceMap, error) { return ResourceMap(raw.(map[string]any)), nil },
 	)
-	if slices.ContainsFunc(services, func(service ServiceMap) bool { return service["type"] == "shell" }) {
+	if slices.ContainsFunc(services, func(service ResourceMap) bool { return service["type"] == "shell" }) {
 		debugf(c.App.Writer, args.Debug, "shell service found on target machine, not installing")
 		return nil
 	}
-	services = append(services, ServiceMap{"name": "shell", "type": "shell"})
-	asAny, _ := rutils.MapOver(services, func(service ServiceMap) (any, error) { //nolint:errcheck
+	services = append(services, ResourceMap{"name": "shell", "type": "shell"})
+	asAny, _ := rutils.MapOver(services, func(service ResourceMap) (any, error) { //nolint:errcheck
 		return map[string]any(service), nil
 	})
 	partMap["services"] = asAny
