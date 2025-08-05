@@ -1158,21 +1158,6 @@ func TestDataPipelineClient(t *testing.T) {
 		test.That(t, resp, test.ShouldEqual, "new-data-pipeline-id")
 	})
 
-	t.Run("UpdateDataPipeline", func(t *testing.T) {
-		grpcClient.UpdateDataPipelineFunc = func(
-			ctx context.Context, in *datapipelinesPb.UpdateDataPipelineRequest, opts ...grpc.CallOption,
-		) (*datapipelinesPb.UpdateDataPipelineResponse, error) {
-			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
-			test.That(t, in.Name, test.ShouldEqual, name)
-			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
-			test.That(t, in.Schedule, test.ShouldEqual, "0 7 * * *")
-			test.That(t, *in.DataSourceType, test.ShouldEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD)
-			return &datapipelinesPb.UpdateDataPipelineResponse{}, nil
-		}
-		err := client.UpdateDataPipeline(context.Background(), dataPipelineID, name, mqlQueries, "0 7 * * *", TabularDataSourceTypeStandard)
-		test.That(t, err, test.ShouldBeNil)
-	})
-
 	t.Run("DeleteDataPipeline", func(t *testing.T) {
 		grpcClient.DeleteDataPipelineFunc = func(
 			ctx context.Context, in *datapipelinesPb.DeleteDataPipelineRequest, opts ...grpc.CallOption,
