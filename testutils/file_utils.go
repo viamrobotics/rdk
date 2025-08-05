@@ -25,15 +25,29 @@ const osDarwin = "darwin"
 func BuildViamServer(tb testing.TB) string {
 	tb.Helper()
 
-	command := "server-static"
-	if runtime.GOOS == osDarwin {
-		command = "server"
-	}
-
-	builder := exec.Command("make", command)
-	builder.Dir = utils.ResolveFile(".")
 	buildOutputPath := tb.TempDir()
-	builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)
+	serverPath := filepath.Join(buildOutputPath, "viam-server")
+
+	var builder *exec.Cmd
+
+	if runtime.GOOS != "windows" {
+		command := "server-static"
+		if runtime.GOOS == osDarwin {
+			command = "server"
+		}
+		builder = exec.Command("make", command)
+		builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)
+	} else {
+		// we don't have access to make on Windows, so copy the build command from the Makefile.
+		builder = exec.Command(
+			"go", "build", "-tags", "no_cgo,osusergo,netgo",
+			`-ldflags="-extldflags=-static -s -w"`,
+			"-o", serverPath,
+			"./web/cmd/server",
+		)
+	}
+	// set Dir to root of repo
+	builder.Dir = utils.ResolveFile(".")
 	out, err := builder.Output()
 	tb.Logf("Build Output: %s", out)
 	if err != nil {
@@ -42,7 +56,7 @@ func BuildViamServer(tb testing.TB) string {
 	if tb.Failed() {
 		tb.Fatal("failed to build viam-server executable")
 	}
-	serverPath := filepath.Join(buildOutputPath, "viam-server")
+
 	return serverPath
 }
 
