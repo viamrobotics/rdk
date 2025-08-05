@@ -3,13 +3,16 @@
 package main
 
 import (
+	"log"
+	"net/http"
+	// registers all services.
+	_ "net/http/pprof"
+
 	"go.viam.com/utils"
 
 	// registers all components.
-	_ "go.viam.com/rdk/components/arm/wrapper" // this is special
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/logging"
-	// registers all services.
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/web/server"
 )
@@ -17,5 +20,8 @@ import (
 var logger = logging.NewDebugLogger("entrypoint")
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 	utils.ContextualMain(server.RunServer, logger)
 }
