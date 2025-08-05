@@ -773,7 +773,10 @@ func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, erro
 		return false, nil
 	}
 
-	seenFrames := map[string]struct{}{}
+	if len(fs1.FrameNames()) != len(fs2.FrameNames()) {
+		return false, nil
+	}
+
 	for frameName, frame := range fs1.frames {
 		frame2, ok := fs2.frames[frameName]
 		if !ok {
@@ -784,12 +787,6 @@ func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, erro
 			return false, err
 		}
 		if !frameEquality {
-			return false, nil
-		}
-		seenFrames[frameName] = struct{}{}
-	}
-	for _, name := range fs2.FrameNames() {
-		if _, ok := seenFrames[name]; !ok {
 			return false, nil
 		}
 	}

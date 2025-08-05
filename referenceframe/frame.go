@@ -685,14 +685,18 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 	default:
 	}
 
+	if frame1 == nil {
+		return frame2 == nil, nil
+	} else if frame2 == nil {
+		return false, nil
+	}
+
 	switch f1 := frame1.(type) {
 	case *staticFrame:
 		f2 := frame2.(*staticFrame)
 		switch {
 		case !spatial.PoseAlmostEqual(f1.transform, f2.transform):
 			return false, nil
-		case f1.geometry == nil && f2.geometry == nil:
-			return true, nil
 		case !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry):
 			return false, nil
 		default:
@@ -707,8 +711,6 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		switch {
 		case !spatial.R3VectorAlmostEqual(f1.transAxis, f2.transAxis, epsilon):
 			return false, nil
-		case f1.geometry == nil && f2.geometry == nil:
-			return true, nil
 		case !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry):
 			return false, nil
 		default:
