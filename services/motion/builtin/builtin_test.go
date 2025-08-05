@@ -1334,10 +1334,6 @@ func TestDoCommand(t *testing.T) {
 		trajectory, err := testDoPlan(moveReq)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(trajectory), test.ShouldEqual, 2)
-		start := trajectory[0]["pieceArm"]
-		end := trajectory[len(trajectory)-1]["pieceArm"]
-		same, diffInputs := checkSameInputs(start, end, defaultExecuteEpsilon)
-		test.That(t, same, test.ShouldEqual, false)
 
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
@@ -1355,10 +1351,13 @@ func TestDoCommand(t *testing.T) {
 		test.That(t, resp, test.ShouldBeTrue)
 		test.That(t, respMap[DoExecuteCheckStart], test.ShouldEqual, "resource at starting location")
 
+		start := trajectory[0]["pieceArm"]
+		end := trajectory[len(trajectory)-1]["pieceArm"]
 		// do it again
 		respMap, err = doOverWire(ms, cmd)
 		test.That(t, err, test.ShouldBeError,
-			fmt.Errorf("component %v, inputs %v are not within %v of the current position", "pieceArm", diffInputs, defaultExecuteEpsilon))
+			fmt.Errorf("component %v is not within %v of the current position. Expected inputs %v current inputs %v",
+				"pieceArm", defaultExecuteEpsilon, start, end))
 		test.That(t, respMap, test.ShouldBeEmpty)
 	})
 
@@ -1658,55 +1657,4 @@ func TestConfiguredDefaultExtras(t *testing.T) {
 		_, _, err := cfg.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
-}
-
-func TestCheckSameInputs(t *testing.T) {
-	cases := []struct {
-		description string
-		a           []referenceframe.Input
-		b           []referenceframe.Input
-		epsilon     float64
-		result      bool
-		badJoint    []int
-	}{
-		{
-			description: "the same inputs",
-			a:           []referenceframe.Input{{0}, {1}, {2}},
-			b:           []referenceframe.Input{{0}, {1}, {2}},
-			epsilon:     defaultExecuteEpsilon,
-			result:      true,
-			badJoint:    nil,
-		},
-		{
-			description: "different inputs within the epsilon",
-			a:           []referenceframe.Input{{0.005}, {0.992}, {2}},
-			b:           []referenceframe.Input{{0}, {1}, {2}},
-			epsilon:     0.01,
-			result:      true,
-			badJoint:    nil,
-		},
-		{
-			description: "different one input outside the epsilon",
-			a:           []referenceframe.Input{{0.1}, {0.5}, {2}},
-			b:           []referenceframe.Input{{0.0995}, {1}, {2}},
-			epsilon:     0.01,
-			result:      false,
-			badJoint:    []int{1},
-		},
-		{
-			description: "multiple different inputs outside the epsilon",
-			a:           []referenceframe.Input{{0.1}, {0.5}, {2}},
-			b:           []referenceframe.Input{{0.0595}, {0.495}, {2.2}},
-			epsilon:     0.01,
-			result:      false,
-			badJoint:    []int{0, 2},
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.description, func(t *testing.T) {
-			same, badJoint := checkSameInputs(tt.a, tt.b, tt.epsilon)
-			test.That(t, same, test.ShouldEqual, tt.result)
-			test.That(t, badJoint, test.ShouldResemble, tt.badJoint)
-		})
-	}
 }
