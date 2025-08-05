@@ -3009,8 +3009,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:        moduleFlagModelName,
-							Usage:       "The model triple to create as a component/service in the part config",
-							DefaultText: "The first model in meta.json",
+							Usage:       "If passed, creates a resource in the part config with the given model triple",
+							DefaultText: "Don't create a new resource",
 						},
 						&cli.StringFlag{
 							Name:  moduleBuildFlagRef,

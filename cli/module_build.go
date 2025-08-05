@@ -525,7 +525,7 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	infof(c.c.App.Writer, "Creating a new cloud build and swapping it onto the requested machine part. This may take a few minutes...")
 	buildArgs := moduleBuildStartArgs{
 		Module:    args.Module,
-		Version:   "reload2",
+		Version:   "reload",
 		Ref:       args.Ref,
 		Token:     args.Token,
 		Workdir:   args.Workdir,
@@ -549,7 +549,7 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 
 	downloadArgs := downloadModuleFlags{
 		ID:       id,
-		Version:  "reload2",
+		Version:  "reload",
 		Platform: platform,
 	}
 
