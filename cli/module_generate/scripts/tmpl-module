@@ -1,7 +1,7 @@
 package {{.Module.ModuleLowercase}}
 
 import (
-  {{.Module.ResourceSubtypeImportAlias}} "go.viam.com/rdk/{{ .Module.ResourceType }}s/{{ .Module.ResourceSubtype}}"
+  {{.Module.ResourceSubtypeAlias}} "go.viam.com/rdk/{{ .Module.ResourceType }}s/{{ .Module.ResourceSubtype}}"
   {{.Imports}}
 )
 
@@ -11,8 +11,8 @@ var (
 )
 
 func init() {
-	resource.Register{{ .Module.ResourceTypePascal}}({{.Module.ResourceSubtypeImportAlias}}.API, {{.Module.ModelPascal}},
-		resource.Registration[{{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeImportAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, *Config]{
+	resource.Register{{ .Module.ResourceTypePascal}}({{.Module.ResourceSubtypeAlias}}.API, {{.Module.ModelPascal}},
+		resource.Registration[{{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, *Config]{
 			Constructor: new{{.Module.ModulePascal}}{{.Module.ModelPascal}},
 		},
 	)
@@ -56,7 +56,7 @@ type {{.ModelType}} struct {
 	cancelFunc func()
 }
 
-func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeImportAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
+func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
 	conf, err := resource.NativeConfig[*Config](rawConf)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, dep
 
 }
 
-func New{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, name resource.Name, conf *Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeImportAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
+func New{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, name resource.Name, conf *Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 

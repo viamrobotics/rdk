@@ -26,19 +26,19 @@ type ModuleInputs struct {
 	GeneratedOn      time.Time `json:"generated_on"`
 	ModuleReadmeLink string    `json:"module_readme_link"`
 
-	ModulePascal               string `json:"-"`
-	ModuleCamel                string `json:"-"`
-	ModuleLowercase            string `json:"-"`
-	API                        string `json:"-"`
-	ResourceSubtypePascal      string `json:"-"`
-	ResourceSubtypeImportAlias string `json:"-"`
-	ResourceTypePascal         string `json:"-"`
-	ModelPascal                string `json:"-"`
-	ModelCamel                 string `json:"-"`
-	ModelSnake                 string `json:"-"`
-	ModelTriple                string `json:"-"`
-	ModelReadmeLink            string `json:"-"`
-	SDKVersion                 string `json:"-"`
+	ModulePascal          string `json:"-"`
+	ModuleCamel           string `json:"-"`
+	ModuleLowercase       string `json:"-"`
+	API                   string `json:"-"`
+	ResourceSubtypePascal string `json:"-"`
+	ResourceSubtypeAlias  string `json:"-"`
+	ResourceTypePascal    string `json:"-"`
+	ModelPascal           string `json:"-"`
+	ModelCamel            string `json:"-"`
+	ModelSnake            string `json:"-"`
+	ModelTriple           string `json:"-"`
+	ModelReadmeLink       string `json:"-"`
+	SDKVersion            string `json:"-"`
 }
 
 // Resources is a list of all the available resources in Viam.
