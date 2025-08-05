@@ -756,12 +756,12 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 	return topoSortedParts, nil
 }
 
-func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem) (bool, error) {
+func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, error) {
 	if fs1.Name() != fs2.Name() {
 		return false, nil
 	}
 
-	worldFrameEquality, err := framesAlmostEqual(fs1.World(), fs2.World())
+	worldFrameEquality, err := framesAlmostEqual(fs1.World(), fs2.World(), epsilon)
 	if err != nil {
 		return false, err
 	}
@@ -779,7 +779,7 @@ func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem) (bool, error) {
 		if !ok {
 			return false, nil
 		}
-		frameEquality, err := framesAlmostEqual(frame, frame2)
+		frameEquality, err := framesAlmostEqual(frame, frame2, epsilon)
 		if err != nil {
 			return false, err
 		}
