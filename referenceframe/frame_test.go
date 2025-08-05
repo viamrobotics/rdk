@@ -293,7 +293,9 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	static2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, framesAlmostEqual(static, static2), test.ShouldBeTrue)
+	eq, err := framesAlmostEqual(static, static2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, eq, test.ShouldBeTrue)
 
 	staticFrame, ok := static.(*staticFrame)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -305,7 +307,9 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	tailGeoFrameParsed, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, framesAlmostEqual(&tailGeoFrame, tailGeoFrameParsed), test.ShouldBeTrue)
+	eq, err = framesAlmostEqual(&tailGeoFrame, tailGeoFrameParsed)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, eq, test.ShouldBeTrue)
 
 	// translational frame
 	tF, err := NewTranslationalFrame("foo", r3.Vector{X: 1, Y: 0, Z: 0}, Limit{1, 2})
@@ -317,7 +321,9 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	tF2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, framesAlmostEqual(tF, tF2), test.ShouldBeTrue)
+	eq, err = framesAlmostEqual(tF, tF2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, eq, test.ShouldBeTrue)
 
 	// rotational frame
 	rot, err := NewRotationalFrame("foo", spatial.R4AA{Theta: 3.7, RX: 2.1, RY: 3.1, RZ: 4.1}, Limit{5, 6})
@@ -329,7 +335,9 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	rot2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, framesAlmostEqual(rot, rot2), test.ShouldBeTrue)
+	eq, err = framesAlmostEqual(rot, rot2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, eq, test.ShouldBeTrue)
 
 	// SimpleModel
 	simpleModel, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
@@ -341,5 +349,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	simpleModel2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, framesAlmostEqual(simpleModel, simpleModel2), test.ShouldBeTrue)
+	eq, err = framesAlmostEqual(simpleModel, simpleModel2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, eq, test.ShouldBeTrue)
 }

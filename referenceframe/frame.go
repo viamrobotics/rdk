@@ -666,14 +666,14 @@ func PoseToInputs(p spatial.Pose) []Input {
 	})
 }
 
-func framesAlmostEqual(frame1, frame2 Frame) bool {
+func framesAlmostEqual(frame1, frame2 Frame) (bool, error) {
 	switch {
 	case reflect.TypeOf(frame1) != reflect.TypeOf(frame2):
-		return false
+		return false, nil
 	case frame1.Name() != frame2.Name():
-		return false
+		return false, nil
 	case !limitsAlmostEqual(frame1.DoF(), frame2.DoF()):
-		return false
+		return false, nil
 	default:
 	}
 
@@ -682,36 +682,36 @@ func framesAlmostEqual(frame1, frame2 Frame) bool {
 		f2 := frame2.(*staticFrame)
 		switch {
 		case !spatial.PoseAlmostEqual(f1.transform, f2.transform):
-			return false
+			return false, nil
 		case f1.geometry == nil && f2.geometry == nil:
-			return true
+			return true, nil
 		case !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry):
-			return false
+			return false, nil
 		default:
 		}
 	case *rotationalFrame:
 		f2 := frame2.(*rotationalFrame)
 		if !spatial.R3VectorAlmostEqual(f1.rotAxis, f2.rotAxis, 1e-8) {
-			return false
+			return false, nil
 		}
 	case *translationalFrame:
 		f2 := frame2.(*translationalFrame)
 		switch {
 		case !spatial.R3VectorAlmostEqual(f1.transAxis, f2.transAxis, 1e-8):
-			return false
+			return false, nil
 		case f1.geometry == nil && f2.geometry == nil:
-			return true
+			return true, nil
 		case !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry):
-			return false
+			return false, nil
 		default:
 		}
 	case *tailGeometryStaticFrame:
 		f2 := frame2.(*tailGeometryStaticFrame)
 		switch {
 		case f1.staticFrame == nil:
-			return f2.staticFrame == nil
+			return f2.staticFrame == nil, nil
 		case f2.staticFrame == nil:
-			return f1.staticFrame == nil
+			return f1.staticFrame == nil, nil
 		default:
 			return framesAlmostEqual(f1.staticFrame, f2.staticFrame)
 		}
@@ -720,14 +720,20 @@ func framesAlmostEqual(frame1, frame2 Frame) bool {
 		ordTransforms1 := f1.OrdTransforms
 		ordTransforms2 := f2.OrdTransforms
 		if len(ordTransforms1) != len(ordTransforms2) {
-			return false
+			return false, nil
 		} else {
 			for i, f := range ordTransforms1 {
-				if !framesAlmostEqual(f, ordTransforms2[i]) {
-					return false
+				frameEquality, err := framesAlmostEqual(f, ordTransforms2[i])
+				if err != nil {
+					return false, err
+				}
+				if !frameEquality {
+					return false, nil
 				}
 			}
 		}
+	default:
+		return false, fmt.Errorf("equality conditions not defined for %t", frame1)
 	}
-	return true
+	return true, nil
 }
