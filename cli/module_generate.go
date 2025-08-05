@@ -378,6 +378,9 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.ModelPascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ModelName)))
 	newModule.ModelCamel = strings.ToLower(string(newModule.ModelPascal[0])) + newModule.ModelPascal[1:]
 	newModule.ModelSnake = snakeReplacer.Replace(newModule.ModelName)
+	if newModule.ResourceSubtype == "switch"{
+		newModule.ResourceSubtypeImportAlias = "sw"
+	}
 
 	modelTriple := fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
 	newModule.ModelTriple = modelTriple
