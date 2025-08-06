@@ -310,7 +310,8 @@ func (m *module) stopProcess() error {
 	// SIGTERM correctly.
 	// Also ignore if error is that the process no longer exists.
 	if err := m.process.Stop(); err != nil {
-		if strings.Contains(err.Error(), errMessageExitStatus143) || strings.Contains(err.Error(), "no such process") {
+		var processNotExistErr *pexec.ErrProcessNotExist
+		if strings.Contains(err.Error(), errMessageExitStatus143) || errors.As(err, &processNotExistErr) {
 			return nil
 		}
 		return err
@@ -417,9 +418,6 @@ func (m *module) registerProcessWithFTDC() {
 		m.logger.Warnw("Module process has no pid. Cannot start ftdc.", "err", err)
 		return
 	}
-
-	err = m.process.Status()
-	m.logger.Warn(err)
 
 	statser, err := sys.NewPidSysUsageStatser(pid)
 	if err != nil {
