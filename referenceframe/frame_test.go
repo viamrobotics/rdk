@@ -18,7 +18,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const frameDifferenceEpsilon = 1e-8
+const defaultFloatPrecision = 1e-8
 
 func TestStaticFrame(t *testing.T) {
 	// define a static transform
@@ -295,7 +295,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	static2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	eq, err := framesAlmostEqual(static, static2, frameDifferenceEpsilon)
+	eq, err := framesAlmostEqual(static, static2, defaultFloatPrecision)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eq, test.ShouldBeTrue)
 
@@ -309,7 +309,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	tailGeoFrameParsed, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	eq, err = framesAlmostEqual(&tailGeoFrame, tailGeoFrameParsed, frameDifferenceEpsilon)
+	eq, err = framesAlmostEqual(&tailGeoFrame, tailGeoFrameParsed, defaultFloatPrecision)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eq, test.ShouldBeTrue)
 
@@ -323,7 +323,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	tF2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	eq, err = framesAlmostEqual(tF, tF2, frameDifferenceEpsilon)
+	eq, err = framesAlmostEqual(tF, tF2, defaultFloatPrecision)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eq, test.ShouldBeTrue)
 
@@ -337,7 +337,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	rot2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	eq, err = framesAlmostEqual(rot, rot2, frameDifferenceEpsilon)
+	eq, err = framesAlmostEqual(rot, rot2, defaultFloatPrecision)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eq, test.ShouldBeTrue)
 
@@ -351,7 +351,7 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	simpleModel2, err := jsonToFrame(json.RawMessage(jsonData))
 	test.That(t, err, test.ShouldBeNil)
 
-	eq, err = framesAlmostEqual(simpleModel, simpleModel2, frameDifferenceEpsilon)
+	eq, err = framesAlmostEqual(simpleModel, simpleModel2, defaultFloatPrecision)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eq, test.ShouldBeTrue)
 }

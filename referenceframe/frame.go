@@ -30,11 +30,14 @@ type Limit struct {
 	Max float64
 }
 
-func limitAlmostEqual(limit1, limit2 Limit, epsilon float64) bool {
-	if math.Abs(limit1.Max-limit2.Max) > epsilon {
+func limitsAlmostEqual(limits1, limits2 []Limit, epsilon float64) bool {
+	if len(limits1) != len(limits2) {
 		return false
-	} else if math.Abs(limit1.Min-limit2.Min) > epsilon {
-		return false
+	}
+	for i := range limits1 {
+		if math.Abs(limits1[i].Max-limits2[i].Max) > epsilon || math.Abs(limits1[i].Min-limits2[i].Min) > epsilon {
+			return false
+		}
 	}
 	return true
 }
@@ -101,18 +104,6 @@ type Limited interface {
 	// Each element describes the min and max movement limit of that degree of freedom.
 	// For robot parts that don't move, it returns an empty slice.
 	DoF() []Limit
-}
-
-func limitsAlmostEqual(limits1, limits2 []Limit, epsilon float64) bool {
-	if len(limits1) != len(limits2) {
-		return false
-	}
-	for i, limit := range limits1 {
-		if !limitAlmostEqual(limit, limits2[i], epsilon) {
-			return false
-		}
-	}
-	return true
 }
 
 // Frame represents a reference frame, e.g. an arm, a joint, a gripper, a board, etc.
@@ -534,9 +525,7 @@ func (rf *rotationalFrame) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	rf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{
-		{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)},
-	}}
+	rf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)}}}
 	rotAxis := cfg.Axis.ParseConfig()
 	rf.rotAxis = r3.Vector{X: rotAxis.RX, Y: rotAxis.RY, Z: rotAxis.RZ}
 	return nil
@@ -666,15 +655,17 @@ func PoseToInputs(p spatial.Pose) []Input {
 	})
 }
 
-// Determine whether two frames are (nearly) identical. For now, we only support implementers of
-// the frame interface that are registered (see register.go). However, this is not automatic, so
+// framesAlmostEqual is a helper used in testing that determines whether two Frame instances are (nearly) identical.
+// For now, we only support implementers of the Frame interface that are registered (see register.go).
+// Future implementations should
 // if a new implementer is registered manually in register.go, its case should be added here.
-//
-// NOTE: for ease, this function only takes one epsilon parameter because we have yet
-// to see a case of quantity where we want accept different levels of floating point error.
-// If the time comes where we want a different allowance for limits, vectors, and geometries,
-// this function should be changed accordingly.
 func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
+	if frame1 == nil {
+		return frame2 == nil, nil
+	} else if frame2 == nil {
+		return false, nil
+	}
+
 	switch {
 	case reflect.TypeOf(frame1) != reflect.TypeOf(frame2):
 		return false, nil
@@ -683,12 +674,6 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 	case !limitsAlmostEqual(frame1.DoF(), frame2.DoF(), epsilon):
 		return false, nil
 	default:
-	}
-
-	if frame1 == nil {
-		return frame2 == nil, nil
-	} else if frame2 == nil {
-		return false, nil
 	}
 
 	switch f1 := frame1.(type) {

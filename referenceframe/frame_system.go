@@ -757,6 +757,12 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 }
 
 func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, error) {
+	if fs1 == nil {
+		return fs2 == nil, nil
+	} else if fs2 == nil {
+		return false, nil
+	}
+
 	if fs1.Name() != fs2.Name() {
 		return false, nil
 	}
@@ -776,7 +782,6 @@ func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, erro
 	if len(fs1.FrameNames()) != len(fs2.FrameNames()) {
 		return false, nil
 	}
-
 	for frameName, frame := range fs1.frames {
 		frame2, ok := fs2.frames[frameName]
 		if !ok {

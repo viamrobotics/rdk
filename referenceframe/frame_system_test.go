@@ -228,7 +228,7 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, part.FrameConfig.name, test.ShouldEqual, transform.Name())
 		test.That(t, part.FrameConfig.parent, test.ShouldEqual, transform.Parent())
-		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.pose.Point(), testPose.Point(), 1e-8), test.ShouldBeTrue)
+		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.pose.Point(), testPose.Point(), defaultFloatPrecision), test.ShouldBeTrue)
 		test.That(t, spatial.OrientationAlmostEqual(part.FrameConfig.pose.Orientation(), testPose.Orientation()), test.ShouldBeTrue)
 	})
 }
@@ -459,7 +459,7 @@ func TestSerialization(t *testing.T) {
 	var fs2 FrameSystem
 	test.That(t, json.Unmarshal(jsonData, &fs2), test.ShouldBeNil)
 
-	equality, err := frameSystemsAlmostEqual(fs, &fs2, 1e-8)
+	equality, err := frameSystemsAlmostEqual(fs, &fs2, defaultFloatPrecision)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, equality, test.ShouldBeTrue)
 }
