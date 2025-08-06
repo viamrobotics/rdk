@@ -14,22 +14,26 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-type ErrNodeNotFound struct {
+// NodeNotFoundError is returned when the name and API combination are not found after
+// by FindBySimpleNameAndAPI.
+type NodeNotFoundError struct {
 	Name string
 	API  API
 }
 
-func (e *ErrNodeNotFound) Error() string {
+func (e *NodeNotFoundError) Error() string {
 	return fmt.Sprintf("no node found with api %s and name %s", e.API, e.Name)
 }
 
-type ErrMultipleMatchingNodes struct {
+// MultipleMatchingRemoteNodesError is returned when more than one remote resource node matches the name
+// and API query passed to FindBySimpleNameAndAPI.
+type MultipleMatchingRemoteNodesError struct {
 	Name  string
 	API   API
 	Names []Name
 }
 
-func (e *ErrMultipleMatchingNodes) Error() string {
+func (e *MultipleMatchingRemoteNodesError) Error() string {
 	return fmt.Sprintf("found multiple nodes matching api %s and name %s (%v)", e.API, e.Name, e.Names)
 }
 
@@ -202,6 +206,9 @@ func (g *Graph) Node(name Name) (*GraphNode, bool) {
 	return rNode, ok
 }
 
+// FindBySimpleNameAndAPI returns a single graph node based on a simple name string and an
+// API. It returns an error in the case that no matching node is found or multiple remote
+// nodes are found.
 func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -220,7 +227,7 @@ func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error)
 	}
 	switch len(matches) {
 	case 0:
-		return nil, &ErrNodeNotFound{
+		return nil, &NodeNotFoundError{
 			Name: name,
 			API:  api,
 		}
@@ -233,7 +240,7 @@ func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error)
 		if len(localMatches) == 1 {
 			return localMatches[0].node, nil
 		}
-		return nil, &ErrMultipleMatchingNodes{
+		return nil, &MultipleMatchingRemoteNodesError{
 			Name: name,
 			API:  api,
 			Names: lo.Map(matches, func(l gTuple, _ int) Name {

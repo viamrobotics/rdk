@@ -85,9 +85,9 @@ type GraphNode struct {
 	// unreachable is an informational field that indicates if a resource on a remote
 	// machine is disconnected.
 	unreachable bool
-	
+
 	// prefix is an optional string that will be prepended to the resource name for
-	// the purpose simple name queries.
+	// the purpose of simple name queries against remote resources.
 	prefix string
 }
 
@@ -432,16 +432,18 @@ func (w *GraphNode) UnresolvedDependencies() []string {
 	return unresolvedDependencies
 }
 
-func (n *GraphNode) SetPrefix(prefix string) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.prefix = prefix
+// SetPrefix sets the prefix field.
+func (w *GraphNode) SetPrefix(prefix string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.prefix = prefix
 }
 
-func (n *GraphNode) GetPrefix() string {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-	return n.prefix
+// GetPrefix gets the prefix field.
+func (w *GraphNode) GetPrefix() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.prefix
 }
 
 // Close closes the underlying resource of this node.
