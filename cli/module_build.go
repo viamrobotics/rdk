@@ -677,7 +677,14 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				return fmt.Errorf("failed copying to part (%v): %w", dest, err)
 			}
 		}
-		needsRestart, err = configureModule(c, vc, manifest, part.Part, args.Local)
+		var newPart *apppb.RobotPart
+		newPart, needsRestart, err = configureModule(c, vc, manifest, part.Part, args.Local)
+		// if the module has been configured, the cached response we have may no longer accurately reflect
+		// the update, so we set the updated `part.Part`
+		if newPart != nil {
+			part.Part = newPart
+		}
+
 		if err != nil {
 			return err
 		}
@@ -691,9 +698,6 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	}
 
 	if args.ModelName != "" {
-		print("sleepy time!!")
-		time.Sleep(time.Second * 30)
-
 		if err = vc.addResourceFromModule(c, part.Part, manifest, args.ModelName, args.ResourceName); err != nil {
 			warningf(c.App.ErrWriter, "unable to add requested resource to robot config: %s", err)
 		}

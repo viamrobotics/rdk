@@ -27,7 +27,9 @@ type ModuleMap map[string]any
 type ResourceMap map[string]any
 
 // addResourceFromModule adds a resource to the components or services slice if missing. Mutates part.RobotConfig.
-func (vc *viamClient) addResourceFromModule(c *cli.Context, part *apppb.RobotPart, manifest *moduleManifest, modelName, resourceName string) error {
+func (c *viamClient) addResourceFromModule(
+	ctx *cli.Context, part *apppb.RobotPart, manifest *moduleManifest, modelName, resourceName string,
+) error {
 	if manifest == nil {
 		return errors.New("unable to add resource from config without a meta.json")
 	}
@@ -77,7 +79,7 @@ func (vc *viamClient) addResourceFromModule(c *cli.Context, part *apppb.RobotPar
 		for {
 			name := fmt.Sprintf("%s-%d", resourceSubtype, resourceNum)
 			if resourceNameAlreadyExists(name) {
-				resourceNum += 1
+				resourceNum++
 			} else {
 				resourceName = name
 				break
@@ -93,8 +95,8 @@ func (vc *viamClient) addResourceFromModule(c *cli.Context, part *apppb.RobotPar
 	if err := writeBackConfig(part, partMap); err != nil {
 		return err
 	}
-	infof(c.App.Writer, "installing %s model with name %s on target machine", modelName, resourceName)
-	if err := vc.updateRobotPart(part, partMap); err != nil {
+	infof(ctx.App.Writer, "installing %s model with name %s on target machine", modelName, resourceName)
+	if err := c.updateRobotPart(part, partMap); err != nil {
 		return err
 	}
 
@@ -160,10 +162,13 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 	return nil
 }
 
-// configureModule is the configuration step of module reloading. Returns (needsRestart, error). Mutates part.RobotConfig.
-func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart, local bool) (bool, error) {
+// configureModule is the configuration step of module reloading. Returns (needsRestart, error).
+// Mutates part.RobotConfig, returning the most up-to-date part.
+func configureModule(
+	c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart, local bool,
+) (*apppb.RobotPart, bool, error) {
 	if manifest == nil {
-		return false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
+		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
 	partMap := part.RobotConfig.AsMap()
 	if _, ok := partMap["modules"]; !ok {
@@ -174,37 +179,42 @@ func configureModule(c *cli.Context, vc *viamClient, manifest *moduleManifest, p
 		func(raw any) (ModuleMap, error) { return ModuleMap(raw.(map[string]any)), nil },
 	)
 	if err != nil {
-		return false, err
+		return part, false, err
 	}
 
 	modules, dirty, err := mutateModuleConfig(c, modules, *manifest, local)
 	if err != nil {
-		return false, err
+		return part, false, err
 	}
 	// note: converting to any or else proto serializer will fail downstream in NewStruct.
 	modulesAsInterfaces, err := rutils.MapOver(modules, func(mod ModuleMap) (any, error) {
 		return map[string]any(mod), nil
 	})
 	if err != nil {
-		return false, err
+		return part, false, err
 	}
 	partMap["modules"] = modulesAsInterfaces
 	if err := writeBackConfig(part, partMap); err != nil {
-		return false, err
+		return part, false, err
 	}
 	if dirty {
 		args, err := getGlobalArgs(c)
 		if err != nil {
-			return false, err
+			return part, false, err
 		}
 		debugf(c.App.Writer, args.Debug, "writing back config changes")
 		err = vc.updateRobotPart(part, partMap)
 		if err != nil {
-			return false, err
+			return part, false, err
 		}
 	}
+
 	// if we modified config, caller doesn't need to restart module.
-	return !dirty, nil
+	partResponse, err := vc.getRobotPart(part.Id)
+	if err != nil {
+		return part, !dirty, err
+	}
+	return partResponse.Part, !dirty, nil
 }
 
 // localizeModuleID converts a module ID to its 'local mode' name.
