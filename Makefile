@@ -1,4 +1,9 @@
-BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
+# TESTBUILD_OUTPUT_PATH should only be defined during testing
+ifdef TESTBUILD_OUTPUT_PATH
+	BIN_OUTPUT_PATH = $(TESTBUILD_OUTPUT_PATH)
+else
+	BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
+endif
 
 TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
