@@ -49,7 +49,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	modif "go.viam.com/rdk/module/modmaninterface"
+	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -64,7 +64,6 @@ import (
 	"go.viam.com/rdk/session"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	injectmod "go.viam.com/rdk/testutils/inject/modmanager"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
@@ -685,13 +684,10 @@ func TestManagerNewComponent(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "board3")
 }
 
-func managerForTest(t *testing.T, m modif.ModuleManager, l logging.Logger) *resourceManager {
+func managerForTest(t *testing.T, l logging.Logger) *resourceManager {
 	t.Helper()
 	injectRobot := setupInjectRobot(l)
 	manager := managerForDummyRobot(t, injectRobot)
-	// replace the module manager with an injected one
-	manager.moduleManager.Close(context.Background())
-	manager.moduleManager = m
 
 	manager.addRemote(
 		context.Background(),
@@ -712,8 +708,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	modmanager := &injectmod.ModuleManager{}
-	manager := managerForTest(t, modmanager, logger)
+	manager := managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
 	checkEmpty := func(
@@ -792,8 +787,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	modmanager = &injectmod.ModuleManager{}
-	manager = managerForTest(t, modmanager, logger)
+	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
 	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
@@ -873,8 +867,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	modmanager = &injectmod.ModuleManager{}
-	manager = managerForTest(t, modmanager, logger)
+	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
 	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
@@ -987,8 +980,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	modmanager = &injectmod.ModuleManager{}
-	manager = managerForTest(t, modmanager, logger)
+	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
 	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
@@ -1790,7 +1782,7 @@ type dummyRobot struct {
 	mu         sync.Mutex
 	robot      robot.Robot
 	manager    *resourceManager
-	modmanager modif.ModuleManager
+	modmanager *modmanager.Manager
 
 	offline bool
 }
@@ -1913,7 +1905,7 @@ func (rr *dummyRobot) OperationManager() *operation.Manager {
 	panic("change to return nil")
 }
 
-func (rr *dummyRobot) ModuleManager() modif.ModuleManager {
+func (rr *dummyRobot) ModuleManager() *modmanager.Manager {
 	return rr.modmanager
 }
 
