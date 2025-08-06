@@ -882,23 +882,33 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 }
 
 func (c *viamClient) dataAddTagsToBinaryByFilter(filter *datapb.Filter, tags []string) error {
-	_, err := c.dataClient.AddTagsToBinaryDataByFilter(context.Background(),
-		&datapb.AddTagsToBinaryDataByFilterRequest{Filter: filter, Tags: tags})
-	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
-	}
-	printf(c.c.App.Writer, "Successfully tagged data")
-	return nil
+	parallelActions := uint(100)
+	return c.performActionOnBinaryDataFromFilter(
+		func(id string) error {
+			_, err := c.dataClient.AddTagsToBinaryDataByIDs(context.Background(),
+				&datapb.AddTagsToBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: []string{id}})
+			return err
+		},
+		filter, parallelActions,
+		func(i int32) {
+			printf(c.c.App.Writer, "Added tags to %d files", i)
+		},
+	)
 }
 
 func (c *viamClient) dataRemoveTagsFromBinaryByFilter(filter *datapb.Filter, tags []string) error {
-	_, err := c.dataClient.RemoveTagsFromBinaryDataByFilter(context.Background(),
-		&datapb.RemoveTagsFromBinaryDataByFilterRequest{Filter: filter, Tags: tags})
-	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
-	}
-	printf(c.c.App.Writer, "Successfully removed tags from data")
-	return nil
+	parallelActions := uint(100)
+	return c.performActionOnBinaryDataFromFilter(
+		func(id string) error {
+			_, err := c.dataClient.RemoveTagsFromBinaryDataByIDs(context.Background(),
+				&datapb.RemoveTagsFromBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: []string{id}})
+			return err
+		},
+		filter, parallelActions,
+		func(i int32) {
+			printf(c.c.App.Writer, "Removed tags from %d files", i)
+		},
+	)
 }
 
 func (c *viamClient) dataAddTagsToBinaryByIDs(tags, binaryDataIDs []string) error {
