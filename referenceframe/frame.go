@@ -657,8 +657,7 @@ func PoseToInputs(p spatial.Pose) []Input {
 
 // framesAlmostEqual is a helper used in testing that determines whether two Frame instances are (nearly) identical.
 // For now, we only support implementers of the Frame interface that are registered (see register.go).
-// Future implementations should
-// if a new implementer is registered manually in register.go, its case should be added here.
+// Future implementations within this package should extend this function and add support. 
 func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 	if frame1 == nil {
 		return frame2 == nil, nil
