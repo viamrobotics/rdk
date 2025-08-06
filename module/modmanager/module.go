@@ -29,7 +29,6 @@ import (
 	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
-	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/packages"
@@ -327,7 +326,7 @@ func (m *module) killProcessGroup() {
 	m.process.KillGroup()
 }
 
-func (m *module) registerResourceModels(mgr modmaninterface.ModuleManager) {
+func (m *module) registerResourceModels(mgr *Manager) {
 	for api, models := range m.handles {
 		if _, ok := resource.LookupGenericAPIRegistration(api.API); !ok {
 			resource.RegisterAPI(

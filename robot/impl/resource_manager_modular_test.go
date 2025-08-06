@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
-	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
@@ -352,7 +351,7 @@ type dummyRes struct {
 }
 
 type dummyModMan struct {
-	modmaninterface.ModuleManager
+	*modmanager.Manager
 	mu         sync.Mutex
 	add        []resource.Config
 	reconf     []resource.Config
