@@ -41,6 +41,7 @@ func BuildViamServer(tb testing.TB) string {
 		// we don't have access to make on Windows, so copy the build command from the Makefile.
 		builder = exec.Command(
 			"go", "build", "-tags", "no_cgo,osusergo,netgo",
+			"-extldflags=-static", "-s", "-w",
 			"-o", serverPath,
 			"./web/cmd/server",
 		)
