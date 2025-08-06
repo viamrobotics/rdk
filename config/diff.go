@@ -523,8 +523,7 @@ func diffModule(left, right Module, diff *Diff) bool {
 	return true
 }
 
-// diffLogCfg returns true if any part of the log config is different or if any
-// services or components have been updated.
+// diffLogCfg returns true if any part of the log config is different.
 func diffLogCfg(left, right *Config) bool {
 	return !reflect.DeepEqual(left.LogConfig, right.LogConfig)
 }
