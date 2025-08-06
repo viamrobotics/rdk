@@ -185,8 +185,13 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 }
 
 var (
+	// unknownModel is the model we use internally to represent a remote resource. We
+	// neither know nor need to know the API or model of a remote resource in order to
+	// interact with it. We also use the unknown model for testing.
 	unknownModel = resource.DefaultModelFamily.WithModel("unknown")
-	builtinModel = resource.DefaultModelFamily.WithModel("builtin")
+	// builtinModel is the model we use internally to represent "builtin" resources (e.g.
+	// the default motion service).
+	builtinModel = resource.DefaultModelFamily.WithModel(resource.DefaultServiceName)
 )
 
 // maybe in the future this can become an actual resource with its own type
@@ -243,6 +248,11 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	anythingChanged := false
 
 	for _, resName := range newResources {
+		// Do not store any default remote resources in our resource graph.
+		if resName.Name == resource.DefaultServiceName {
+			continue
+		}
+
 		remoteResName := resName
 		resLogger := logger.WithFields("resource", remoteResName)
 		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
