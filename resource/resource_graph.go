@@ -1,16 +1,37 @@
 package resource
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 )
+
+type ErrNodeNotFound struct {
+	Name string
+	API  API
+}
+
+func (e *ErrNodeNotFound) Error() string {
+	return fmt.Sprintf("no node found with api %s and name %s", e.API, e.Name)
+}
+
+type ErrMultipleMatchingNodes struct {
+	Name  string
+	API   API
+	Names []Name
+}
+
+func (e *ErrMultipleMatchingNodes) Error() string {
+	return fmt.Sprintf("found multiple nodes matching api %s and name %s (%v)", e.API, e.Name, e.Names)
+}
 
 type graphNodes map[Name]*GraphNode
 
@@ -174,11 +195,52 @@ func (g *Graph) AddNode(node Name, nodeVal *GraphNode) error {
 }
 
 // Node returns the node named name.
-func (g *Graph) Node(node Name) (*GraphNode, bool) {
+func (g *Graph) Node(name Name) (*GraphNode, bool) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	rNode, ok := g.nodes[node]
+	rNode, ok := g.nodes[name]
 	return rNode, ok
+}
+
+func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	type gTuple struct {
+		name Name
+		node *GraphNode
+	}
+	matches := []gTuple{}
+	for gName, gNode := range g.nodes {
+		// TODO: search for names + nodes that would have matched w/o the prefix
+		// and include them in the error to help users.
+		strings.Compare(gNode.prefix, name[:len(gNode.prefix)])
+		if gName.API == api && gNode.prefix+gName.Name == name {
+			matches = append(matches, gTuple{gName, gNode})
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return nil, &ErrNodeNotFound{
+			Name: name,
+			API:  api,
+		}
+	case 1:
+		return matches[0].node, nil
+	default:
+		localMatches := lo.Filter(matches, func(l gTuple, _ int) bool {
+			return l.name.Remote == ""
+		})
+		if len(localMatches) == 1 {
+			return localMatches[0].node, nil
+		}
+		return nil, &ErrMultipleMatchingNodes{
+			Name: name,
+			API:  api,
+			Names: lo.Map(matches, func(l gTuple, _ int) Name {
+				return l.name
+			}),
+		}
+	}
 }
 
 // Names returns the all resource graph names.

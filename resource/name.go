@@ -77,6 +77,16 @@ func (n Name) PrependRemote(remoteName string) Name {
 		n.Name)
 }
 
+func (n Name) PrependPrefix(prefix string) Name {
+	if prefix == "" {
+		return n
+	}
+	return newRemoteName(
+		n.Remote,
+		n.API,
+		prefix+n.Name)
+}
+
 // PopRemote pop the first remote from a Name (if any) and returns the new Name.
 func (n Name) PopRemote() Name {
 	if n.Remote == "" {

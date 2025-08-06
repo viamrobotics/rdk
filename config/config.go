@@ -378,6 +378,8 @@ type Remote struct {
 	// Secret is a helper for a robot location secret.
 	Secret string
 
+	Prefix string
+
 	alreadyValidated bool
 	cachedErr        error
 }

@@ -556,6 +556,7 @@ func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
 		ServiceConfigs:          serviceConfigs,
 		Secret:                  remote.Secret,
 		Auth:                    remoteAuth,
+		Prefix:                  remote.Prefix,
 	}
 
 	if remote.Frame != nil {
@@ -585,6 +586,7 @@ func RemoteConfigFromProto(proto *pb.RemoteConfig, _ logging.Logger) (*Remote, e
 		ReconnectInterval:         proto.ReconnectInterval.AsDuration(),
 		AssociatedResourceConfigs: associatedResourceConfigs,
 		Secret:                    proto.GetSecret(),
+		Prefix:                    proto.GetPrefix(),
 	}
 
 	if proto.GetAuth() != nil {

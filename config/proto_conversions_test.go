@@ -85,6 +85,7 @@ var testRemote = Remote{
 		},
 	},
 	ManagedBy:               "managed-by",
+	Prefix:                  "some-prefix",
 	Insecure:                true,
 	ConnectionCheckInterval: 1000000000,
 	ReconnectInterval:       2000000000,
