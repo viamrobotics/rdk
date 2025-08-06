@@ -485,14 +485,16 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 }
 
 type reloadModuleArgs struct {
-	PartID       string
-	Module       string
-	RestartOnly  bool
-	NoBuild      bool
-	Local        bool
-	NoProgress   bool
-	CloudBuild   bool
-	Version      string
+	PartID      string
+	Module      string
+	RestartOnly bool
+	NoBuild     bool
+	Local       bool
+	NoProgress  bool
+	CloudBuild  bool
+	Version     string
+
+	// CloudConfig is a path to the `viam.json`, or the config containing the robot ID.
 	CloudConfig  string
 	ModelName    string
 	Ref          string
@@ -521,7 +523,7 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 		return c.downloadModuleAction(ctx, downloadArgs)
 	}
 
-	// create a new build
+	// (TODO RSDK-11531) It'd be nice to add some streaming logs for this so we can see how the progress is going. create a new build
 	infof(c.c.App.Writer, "Creating a new cloud build and swapping it onto the requested machine part. This may take a few minutes...")
 	buildArgs := moduleBuildStartArgs{
 		Module:    args.Module,

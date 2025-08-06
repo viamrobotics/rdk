@@ -2934,9 +2934,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 
 	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
 	# and configure or restart it.
-	# The GOARCH env in this case would get passed to an underlying go build (assuming you're targeting an arm device).
-	# Note that you'll still need to add the components for your models after your module is installed.
-	GOARCH=arm64 viam module reload --part-id UUID
+	viam module reload --part-id UUID
 
 	# Restart a module running on your local viam server, by name, without building or reconfiguring.
 	viam module reload --restart-only --id viam:python-example-module
@@ -2947,8 +2945,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# Run viam module reload on a mac and use the downloaded viam.json file instead of --part-id
 	viam module reload --cloud-config ~/Downloads/viam-mac-main.json
 
-	# Specify which component/service to add to the config along with the module (the API is
-	# automatically looked up from meta.json)
+	# Specify a component/service model (and optionally a name) to add to the config along with
+	# the module (the API is automatically looked up from meta.json)
+	# By default, no resources are added when a module is reloaded
 	viam module reload --model-name acme:module-name:mybase --name my-resource
 
 	# Build and configure a module on your local machine without shipping a tarball.
