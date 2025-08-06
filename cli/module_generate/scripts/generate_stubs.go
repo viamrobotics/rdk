@@ -136,7 +136,7 @@ func extractInterfaceMethodDocs(resourceCode string) (map[string]*ast.CommentGro
 				methodName := method.Names[0].Name
 				docMap[methodName] = method.Doc
 			}
-			break 
+			break
 		}
 	}
 
@@ -144,7 +144,11 @@ func extractInterfaceMethodDocs(resourceCode string) (map[string]*ast.CommentGro
 }
 
 // setGoModuleTemplate sets the imports and functions for the go method stubs.
-func setGoModuleTemplate(clientCode string, module modulegen.ModuleInputs) (*modulegen.GoModuleTmpl, error) {
+func setGoModuleTemplate(
+	clientCode string,
+	module modulegen.ModuleInputs,
+	docMap map[string]*ast.CommentGroup,
+) (*modulegen.GoModuleTmpl, error) {
 	var goTmplInputs modulegen.GoModuleTmpl
 
 	if module.ResourceSubtype == "input" {
@@ -185,7 +189,11 @@ func setGoModuleTemplate(clientCode string, module modulegen.ModuleInputs) (*mod
 				funcDecl,
 			)
 			if name != "" {
-				functions = append(functions, formatEmptyFunction(receiver, name, args, returns))
+				var doc string
+				if docGroup, ok := docMap[name]; ok && docGroup != nil {
+					doc = docGroup.Text()
+				}
+				functions = append(functions, formatEmptyFunctionWithDoc(doc, receiver, name, args, returns))
 			}
 		}
 		return true
@@ -328,6 +336,34 @@ func formatEmptyFunction(receiver, funcName, args string, returns []string) stri
 	return newFunc
 }
 
+// formatEmptyFunctionWithDoc returns a stub Go method with an optional doc comment.
+func formatEmptyFunctionWithDoc(doc, receiver, funcName, args string, returns []string) string {
+	var returnDef string
+	switch len(returns) {
+	case 0:
+		returnDef = ""
+	case 1:
+		returnDef = " " + returns[0]
+	default:
+		returnDef = " (" + strings.Join(returns, ", ") + ")"
+	}
+
+	var docComment string
+	if doc != "" {
+		doc = strings.TrimSpace(doc)
+		lines := strings.Split(doc, "\n")
+		for i := range lines {
+			lines[i] = "// " + strings.TrimSpace(lines[i])
+		}
+		docComment = strings.Join(lines, "\n") + "\n"
+	}
+
+	return fmt.Sprintf(`%sfunc (s *%s) %s(%s)%s {
+	panic("not implemented")
+}
+`, docComment, receiver, funcName, args, returnDef)
+}
+
 // RenderGoTemplates outputs the method stubs for created module.
 func RenderGoTemplates(module modulegen.ModuleInputs) ([]byte, error) {
 	clientCode, err := getClientCode(module)
@@ -335,7 +371,15 @@ func RenderGoTemplates(module modulegen.ModuleInputs) ([]byte, error) {
 	if err != nil {
 		return empty, err
 	}
-	goModule, err := setGoModuleTemplate(clientCode, module)
+	resourceCode, err := getResourceCode(module)
+	if err != nil {
+		return empty, err
+	}
+	docMap, err := extractInterfaceMethodDocs(resourceCode)
+	if err != nil {
+		return empty, err
+	}
+	goModule, err := setGoModuleTemplate(clientCode, module, docMap)
 	if err != nil {
 		return empty, err
 	}
