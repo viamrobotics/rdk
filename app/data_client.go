@@ -1396,26 +1396,6 @@ func (d *DataClient) CreateDataPipeline(
 	return resp.Id, nil
 }
 
-// UpdateDataPipeline updates a data pipeline configuration by its ID.
-func (d *DataClient) UpdateDataPipeline(
-	ctx context.Context, id, name string, query []map[string]interface{}, schedule string, dataSourceType TabularDataSourceType,
-) error {
-	mqlBinary, err := queryBSONToBinary(query)
-	if err != nil {
-		return err
-	}
-
-	dataSourceTypeProto := dataSourceTypeToProto(dataSourceType)
-	_, err = d.datapipelinesClient.UpdateDataPipeline(ctx, &datapipelinesPb.UpdateDataPipelineRequest{
-		Id:             id,
-		Name:           name,
-		MqlBinary:      mqlBinary,
-		Schedule:       schedule,
-		DataSourceType: &dataSourceTypeProto,
-	})
-	return err
-}
-
 // DeleteDataPipeline deletes a data pipeline by its ID.
 func (d *DataClient) DeleteDataPipeline(ctx context.Context, id string) error {
 	_, err := d.datapipelinesClient.DeleteDataPipeline(ctx, &datapipelinesPb.DeleteDataPipelineRequest{
