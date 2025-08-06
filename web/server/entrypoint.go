@@ -388,10 +388,10 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 			// Update logger registry if log patterns may have changed.
 			//
 			// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
-			if !diff.LogEqual {
+			if !diff.LogEqual || !diff.ResourcesEqual {
 				// Only display the warning when the user attempted to change the `log` field of
 				// the config.
-				if !diff.LogFieldEqual {
+				if !diff.LogEqual {
 					s.logger.Debug("Detected potential changes to log patterns; updating logger levels")
 					s.logger.Warn(
 						"Changes to 'log' field may not affect modular logs. " +
