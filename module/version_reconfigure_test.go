@@ -88,12 +88,12 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring,
 		`version 2 requires a parameter`)
 
-	// Assert that Validation failure message is present
+	// Assert that Validation failure message is present. As the component config did not change, the validation failure will happen
+	// at a later point in the resource lifecycle and the error message is different.
 	//
 	// Race condition safety: Resource removal should occur after modular resource validation (during completeConfig), so if
 	// ResourceByName is failing, these errors should already be present
-	test.That(t, logs.FilterMessageSnippet(
-		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("modular resource config validation error").Len(), test.ShouldBeGreaterThanOrEqualTo, 1)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 }
 
@@ -162,12 +162,12 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `resource "rdk:component:generic/generic1" not available`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `version 3 requires a motor`)
 
-	// Assert that Validation failure message is present
+	// Assert that Validation failure message is present. As the component config did not change, the validation failure will happen
+	// at a later point in the resource lifecycle and the error message is different.
 	//
 	// Race condition safety: Resource removal should occur after modular resource validation (during completeConfig), so if
 	// ResourceByName is failing, these errors should already be present
-	test.That(t, logs.FilterMessageSnippet(
-		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("modular resource config validation error").Len(), test.ShouldBeGreaterThanOrEqualTo, 1)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
 	// Update the generic1 configuration to have a `motor` attribute. The following reconfiguration

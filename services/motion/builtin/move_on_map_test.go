@@ -15,7 +15,7 @@ import (
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -155,7 +155,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	extra := map[string]interface{}{
-		"motion_profile": "position_only",
+		"motion_profile": armplanning.PositionOnlyMotionProfile,
 		"timeout":        5.,
 		"smooth_iter":    10.,
 	}
@@ -277,7 +277,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			},
 		}
 
-		baseExecutionState, err := motionplan.NewExecutionState(
+		baseExecutionState, err := armplanning.NewExecutionState(
 			plan, 1, currentInputs,
 			map[string]*referenceframe.PoseInFrame{
 				mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
@@ -294,7 +294,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)
 
 		test.That(t, err, test.ShouldBeNil)
-		err = motionplan.CheckPlan(
+		err = armplanning.CheckPlan(
 			wrapperFrame,
 			augmentedBaseExecutionState,
 			wrldSt,

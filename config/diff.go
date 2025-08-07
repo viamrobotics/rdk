@@ -23,6 +23,7 @@ type Diff struct {
 	ResourcesEqual      bool
 	NetworkEqual        bool
 	LogEqual            bool
+	JobsEqual           bool
 	PrettyDiff          string
 	UnmodifiedResources []resource.Config
 }
@@ -35,6 +36,7 @@ type ModifiedConfigDiff struct {
 	Services   []resource.Config
 	Packages   []PackageConfig
 	Modules    []Module
+	Jobs       []JobConfig
 }
 
 // NewRevision returns the revision from the new config if available.
@@ -86,6 +88,9 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	different = diffModules(left.Modules, right.Modules, &diff) || different
 
 	diff.ResourcesEqual = !different
+
+	jobsDifferent := diffJobCfg(left.Jobs, right.Jobs, &diff)
+	diff.JobsEqual = !jobsDifferent
 
 	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
@@ -529,4 +534,47 @@ func diffLogCfg(left, right *Config, servicesDifferent, componentsDifferent bool
 		return true
 	}
 	return false
+}
+
+//nolint:dupl
+func diffJobCfg(leftJobs, rightJobs []JobConfig, diff *Diff) bool {
+	leftIndex := make(map[string]int)
+	leftJ := make(map[string]JobConfig)
+	for idx, l := range leftJobs {
+		leftJ[l.Name] = l
+		leftIndex[l.Name] = idx
+	}
+
+	var removed []int
+
+	var different bool
+	for _, r := range rightJobs {
+		l, ok := leftJ[r.Name]
+		delete(leftJ, r.Name)
+		if ok {
+			different = diffJob(l, r, diff) || different
+			continue
+		}
+		diff.Added.Jobs = append(diff.Added.Jobs, r)
+		different = true
+	}
+
+	for k := range leftJ {
+		removed = append(removed, leftIndex[k])
+		different = true
+	}
+	sort.Ints(removed)
+	for _, idx := range removed {
+		diff.Removed.Jobs = append(diff.Removed.Jobs, leftJobs[idx])
+	}
+
+	return different
+}
+
+func diffJob(left, right JobConfig, diff *Diff) bool {
+	if left.Equals(right) {
+		return false
+	}
+	diff.Modified.Jobs = append(diff.Modified.Jobs, right)
+	return true
 }

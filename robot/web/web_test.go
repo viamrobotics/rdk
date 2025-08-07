@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -44,6 +45,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	rclient "go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -975,13 +977,44 @@ func TestWebStreamImmediateClose(t *testing.T) {
 	<-ctx.Done()
 }
 
-func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
+type (
+	setupRobotOption  func(*setupRobotOptions) *setupRobotOptions
+	setupRobotOptions struct {
+		armEndPosition armEndPositionFunc
+		machineStatus  machineStatusFunc
+	}
+	armEndPositionFunc func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
+	machineStatusFunc  func(ctx context.Context) (robot.MachineStatus, error)
+)
+
+func withArmEndPosition(f armEndPositionFunc) setupRobotOption {
+	return func(sro *setupRobotOptions) *setupRobotOptions {
+		sro.armEndPosition = f
+		return sro
+	}
+}
+
+func withMachineStatus(f machineStatusFunc) setupRobotOption {
+	return func(sro *setupRobotOptions) *setupRobotOptions {
+		sro.machineStatus = f
+		return sro
+	}
+}
+
+func setupRobotCtx(t *testing.T, opts ...setupRobotOption) (context.Context, robot.Robot) {
 	t.Helper()
 
-	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-		return pos, nil
+	options := &setupRobotOptions{
+		armEndPosition: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+			return pos, nil
+		},
 	}
+	for _, o := range opts {
+		options = o(options)
+	}
+
+	injectArm := &inject.Arm{}
+	injectArm.EndPositionFunc = options.armEndPosition
 	injectRobot := &inject.Robot{}
 	injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
@@ -992,6 +1025,10 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 	injectRobot.LoggerFunc = func() logging.Logger { return logging.NewTestLogger(t) }
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
 		return &framesystem.Config{}, nil
+	}
+
+	if options.machineStatus != nil {
+		injectRobot.MachineStatusFunc = options.machineStatus
 	}
 
 	return context.Background(), injectRobot
@@ -1287,6 +1324,7 @@ func TestStreamingRequestCounter(t *testing.T) {
 	s, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = s.Recv()
+
 	test.That(t, err, test.ShouldBeNil)
 	count := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
 	test.That(t, count, test.ShouldEqual, 1)
@@ -1307,8 +1345,10 @@ func TestStreamingRequestCounter(t *testing.T) {
 	ch, err := client.Recv()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ch.GetMessage(), test.ShouldEqual, "a")
-	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
-	test.That(t, count, test.ShouldEqual, 1)
+	stats := svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats["qwerty.TestEchoService/EchoBiDi"], test.ShouldEqual, 1)
+	test.That(t, stats, test.ShouldContainKey, "qwerty.TestEchoService/EchoBiDi.dataSentBytes")
+	test.That(t, stats["qwerty.TestEchoService/EchoBiDi.dataSentBytes"], test.ShouldBeGreaterThan, 0)
 
 	err = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "zxcvb"})
 	test.That(t, err, test.ShouldBeNil)
@@ -1559,12 +1599,17 @@ func TestPerRequestFTDC(t *testing.T) {
 	_, err = armClient.EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// We can assert that there are two counters in our stats. THe fact that `GetEndPosition` was
-	// called once and we hence spent (negligible) time in that RPC call.
+	// We can assert that there are 5 counters in our stats: 4 for the api and 1
+	// for the resource. The fact that `GetEndPosition` was called once and we
+	// hence spent (negligible) time in that RPC call.
 	stats := svc.RequestCounter().Stats().(map[string]int64)
-	test.That(t, len(stats), test.ShouldEqual, 2)
+	test.That(t, len(stats), test.ShouldEqual, 5)
 	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 1)
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.dataSentBytes")
+	test.That(t, stats["arm1.ArmService/GetEndPosition.dataSentBytes"], test.ShouldBeGreaterThan, 0)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.errorCnt")
+	test.That(t, stats, test.ShouldContainKey, "arm1.viam.component.arm.v1.ArmService.inFlightRequests")
 
 	// Get a handle on the inject arm resource.
 	injectArmRes, err := injectRobot.ResourceByName(arm.Named(arm1String))
@@ -1582,8 +1627,154 @@ func TestPerRequestFTDC(t *testing.T) {
 	// Now observe that we called `GetEndPosition` a second time. And one of the responses returned
 	// an error.
 	stats = svc.RequestCounter().Stats().(map[string]int64)
-	test.That(t, len(stats), test.ShouldEqual, 3)
+	test.That(t, len(stats), test.ShouldEqual, 5)
 	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 2)
 	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
 	test.That(t, stats["arm1.ArmService/GetEndPosition.errorCnt"], test.ShouldEqual, 1)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.dataSentBytes")
+}
+
+type clientCall = func(context.Context) error
+
+func testResourceLimitsAndFTDC(
+	t *testing.T,
+	keyPrefix string,
+	setupBlock func(onEnter, wait func()) setupRobotOption,
+	createCall func(string, logging.Logger) clientCall,
+) {
+	logger := logging.NewTestLogger(t)
+
+	blockCall := make(chan struct{})
+	callBlocking := make(chan struct{})
+	opt := setupBlock(
+		func() {
+			close(callBlocking)
+		},
+		func() {
+			<-blockCall
+		},
+	)
+	ctx, injectRobot := setupRobotCtx(t, opt)
+	defer injectRobot.Close(ctx)
+
+	originalRequestLimit := os.Getenv(rutils.ViamResourceRequestsLimitEnvVar)
+	os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, "1")
+	t.Cleanup(func() {
+		os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, originalRequestLimit)
+	})
+
+	svc := web.New(injectRobot, logger)
+	defer svc.Stop()
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create a caller to invoke the gRPC method used for testing
+	call := createCall(addr, logger)
+
+	// Check that the in flight request counter is zero
+	statsKey := keyPrefix + ".inFlightRequests"
+	stats := svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats[statsKey], test.ShouldEqual, 0)
+
+	// Make a gRPC `EndPosition` call that hangs until we close the channel
+	clientCallsWg := sync.WaitGroup{}
+	clientCallsWg.Add(1)
+	go func() {
+		defer clientCallsWg.Done()
+		err := call(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	// Wait for the gRPC call to reach our function so we know the request
+	// counters have been updated.
+	<-callBlocking
+
+	// Check that the in flight request counter has increased to 1
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats[statsKey], test.ShouldEqual, 1)
+
+	// Make a second request that should return an error due to the limit.
+	err = call(ctx)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
+	test.That(t, err.Error(), test.ShouldEndWith,
+		fmt.Sprintf("exceeded request limit 1 on resource %v", keyPrefix))
+
+	// In flight requests counter should still only be 1
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats[statsKey], test.ShouldEqual, 1)
+
+	// Release the original call and wait for it to complete
+	close(blockCall)
+	clientCallsWg.Wait()
+
+	// In flight requests counter should be back to 0
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats[statsKey], test.ShouldEqual, 0)
+}
+
+func TestPerResourceLimitsAndFTDC(t *testing.T) {
+	t.Run("arm resource", func(t *testing.T) {
+		testResourceLimitsAndFTDC(
+			t,
+			"arm1.viam.component.arm.v1.ArmService",
+			func(onEnter, wait func()) setupRobotOption {
+				return withArmEndPosition(func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+					onEnter()
+					wait()
+					return pos, nil
+				})
+			},
+			func(addr string, logger logging.Logger) clientCall {
+				conn, err := rgrpc.Dial(context.Background(), addr, logger)
+				test.That(t, err, test.ShouldBeNil)
+				t.Cleanup(func() {
+					utils.UncheckedErrorFunc(conn.Close)
+				})
+				armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+				test.That(t, err, test.ShouldBeNil)
+				t.Cleanup(func() {
+					armClient.Close(context.Background())
+				})
+				return func(ctx context.Context) error {
+					_, err := armClient.EndPosition(ctx, nil)
+					return err
+				}
+			},
+		)
+	})
+	t.Run("robot service", func(t *testing.T) {
+		testResourceLimitsAndFTDC(
+			t,
+			"viam.robot.v1.RobotService",
+			func(onEnter, wait func()) setupRobotOption {
+				return withMachineStatus(func(ctx context.Context) (robot.MachineStatus, error) {
+					onEnter()
+					wait()
+					return robot.MachineStatus{}, nil
+				})
+			},
+			func(addr string, logger logging.Logger) clientCall {
+				// The robot client implicitly calls MachineStatus by default when run
+				// in a test. Disable that behavior since we're going to block the
+				// first call to that method.
+				originalDoNotWaitForRunning := rclient.DoNotWaitForRunning.Load()
+				rclient.DoNotWaitForRunning.Store(true)
+				t.Cleanup(func() {
+					rclient.DoNotWaitForRunning.Store(originalDoNotWaitForRunning)
+				})
+				robotClient, err := rclient.New(context.Background(), addr, logger)
+				test.That(t, err, test.ShouldBeNil)
+				t.Cleanup(func() {
+					robotClient.Close(context.Background())
+				})
+				return func(ctx context.Context) error {
+					_, err := robotClient.MachineStatus(ctx)
+					return err
+				}
+			},
+		)
+	})
 }

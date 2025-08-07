@@ -16,7 +16,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/jhump/protoreflect/dynamic"
@@ -110,6 +109,27 @@ type webService struct {
 	modPeerConnTracker *grpc.ModPeerConnTracker
 }
 
+// New returns a new web service for the given robot.
+func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
+	var wOpts options
+	for _, opt := range opts {
+		opt.apply(&wOpts)
+	}
+	webSvc := &webService{
+		Named:              InternalServiceName.AsNamed(),
+		r:                  r,
+		logger:             logger,
+		rpcServer:          nil,
+		streamServer:       nil,
+		services:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
+		modPeerConnTracker: grpc.NewModPeerConnTracker(),
+		opts:               wOpts,
+		requestCounter:     RequestCounter{logger: logger},
+	}
+	webSvc.requestCounter.ensureLimit()
+	return webSvc
+}
+
 var internalWebServiceName = resource.NewName(
 	resource.APINamespaceRDKInternal.WithServiceType("web"),
 	"builtin",
@@ -157,6 +177,7 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 		return err
 	}
 	<-ctx.Done()
+	logger.Info("Viam RDK shutting down")
 	return ctx.Err()
 }
 
@@ -255,7 +276,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		return err
 	}
 
-	if err := svc.initStreamServerForModule(ctx, server); err != nil {
+	if err := svc.initStreamServer(ctx, server); err != nil {
 		return err
 	}
 
@@ -270,7 +291,15 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	utils.PanicCapturingGo(func() {
 		defer svc.modWorkers.Done()
 		svc.logger.Debugw("module server listening", "socket path", lis.Addr())
-		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(addr)) })
+		defer func() {
+			// tcpMode starts listening on a port, not a socket file, so no need to remove.
+			if !tcpMode {
+				err := os.RemoveAll(filepath.Dir(addr))
+				if err != nil {
+					svc.logger.Debugf("RemoveAll failed: %v", err)
+				}
+			}
+		}()
 		if err := server.Serve(lis); err != nil {
 			svc.logger.Errorw("failed to serve module service", "error", err)
 		}
@@ -460,7 +489,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	if err := svc.initStreamServer(ctx); err != nil {
+	if err := svc.initStreamServer(ctx, svc.rpcServer); err != nil {
 		return err
 	}
 
@@ -540,181 +569,6 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	})
 
 	return err
-}
-
-// Namer is used to get a resource name from incoming requests for countingfor request. Requests for
-// resources are expected to be a gRPC object that includes a `GetName` method.
-type Namer interface {
-	GetName() string
-}
-
-// RequestCounter maps string keys to atomic ints that get bumped on every incoming gRPC request for
-// components.
-type RequestCounter struct {
-	counts    sync.Map
-	timeSpent sync.Map
-	errorCnt  sync.Map
-}
-
-// incrementCounter atomically increments the counter for a given key, creating it first if needed.
-func (rc *RequestCounter) incrementCounter(key string) {
-	if apiCounts, ok := rc.counts.Load(key); ok {
-		apiCounts.(*atomic.Int64).Add(1)
-	} else {
-		newCounter := new(atomic.Int64)
-		newCounter.Add(1)
-		rc.counts.Store(key, newCounter)
-	}
-}
-
-// incrementTimeSpent atomically increments the latency tracker for a given key, creating it first
-// if needed.
-func (rc *RequestCounter) incrementTimeSpent(key string, timeSpentMillis int64) {
-	if timeSpent, ok := rc.timeSpent.Load(key); ok {
-		timeSpent.(*atomic.Int64).Add(timeSpentMillis)
-	} else {
-		newCounter := new(atomic.Int64)
-		newCounter.Add(timeSpentMillis)
-		rc.timeSpent.Store(key, newCounter)
-	}
-}
-
-func (rc *RequestCounter) incrementErrorCnt(key string) {
-	if errCnt, ok := rc.errorCnt.Load(key); ok {
-		errCnt.(*atomic.Int64).Add(1)
-	} else {
-		newCounter := new(atomic.Int64)
-		newCounter.Add(1)
-		rc.errorCnt.Store(key, newCounter)
-	}
-}
-
-// Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
-func (rc *RequestCounter) Stats() any {
-	ret := make(map[string]int64)
-	rc.counts.Range(func(key, value any) bool {
-		ret[key.(string)] = value.(*atomic.Int64).Load()
-		return true
-	})
-	rc.timeSpent.Range(func(key, value any) bool {
-		ret[fmt.Sprintf("%v.timeSpent", key.(string))] = value.(*atomic.Int64).Load()
-		return true
-	})
-	rc.errorCnt.Range(func(key, value any) bool {
-		ret[fmt.Sprintf("%v.errorCnt", key.(string))] = value.(*atomic.Int64).Load()
-		return true
-	})
-
-	return ret
-}
-
-func extractViamAPI(fullMethod string) string {
-	// Extract Service and Method name from `fullMethod` values such as:
-	// - `/viam.component.motor.v1.MotorService/IsMoving` -> MotorService/IsMoving
-	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat` -> RobotService/SendSessionHeartbeat
-	switch {
-	case strings.HasPrefix(fullMethod, "/viam.component."):
-		fallthrough
-	case strings.HasPrefix(fullMethod, "/viam.service."):
-		fallthrough
-	case strings.HasPrefix(fullMethod, "/viam.robot."):
-		return fullMethod[strings.LastIndexByte(fullMethod, byte('.'))+1:]
-	default:
-		return ""
-	}
-}
-
-// buildRCKey builds the key to be used in the RequestCounter's counts map.
-// If the msg satisfies web.Namer, the key will be in the format "name.method",
-// Otherwise, the key will be just "method".
-func buildRCKey(clientMsg *any, apiMethod string) string {
-	if clientMsg != nil {
-		if namer, ok := (*clientMsg).(Namer); ok {
-			return fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
-		}
-	}
-	return apiMethod
-}
-
-// UnaryInterceptor returns an incoming server interceptor that will pull method information and
-// optionally resource information to bump the request counters.
-func (rc *RequestCounter) UnaryInterceptor(
-	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
-) (resp any, err error) {
-	apiMethod := extractViamAPI(info.FullMethod)
-
-	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
-	if apiMethod != "" {
-		key := buildRCKey(&req, apiMethod)
-		rc.incrementCounter(key)
-
-		start := time.Now()
-		defer func() {
-			// Dan: Some metrics want to take the difference of "time spent" between two recordings
-			// (spaced by some "window size") and divide by the "number of calls". Doing the
-			// `incrementCounter` at the RPC call start and `incrementTimeSpent` at the end creates
-			// an odd skew. Where at some later point there will be an increase in time spent not
-			// immediately accompanied by an increase in calls.
-			//
-			// This can create difficult to parse data when requests start taking a "window size"
-			// amount of time to complete. We may want to consider calling `incrementCounter` in the
-			// defer. But that could lead to a scenario where an RPC call causes deadlock, getting
-			// itself blocked in the process. FTDC wouldn't be able to show that server was in that
-			// code path.
-			//
-			// Perhaps the "perfect" solution is to track both "request started" and "request
-			// finished". And have latency graphs use "request finished".
-			rc.incrementTimeSpent(key, time.Since(start).Milliseconds())
-			if err != nil {
-				rc.incrementErrorCnt(key)
-			}
-		}()
-	}
-
-	resp, err = handler(ctx, req)
-	return
-}
-
-type wrappedStreamWithRC struct {
-	googlegrpc.ServerStream
-	apiMethod string
-	rc        *RequestCounter
-	// marks once the first message has been received
-	seenFirst atomic.Bool
-}
-
-// RecvMsg increments the reference counter upon receiving the first message from the client.
-// It is called on every message the client streams to the server (potentially many times per stream).
-func (w *wrappedStreamWithRC) RecvMsg(m any) error {
-	// Unmarshalls into m (to populate fields).
-	err := w.ServerStream.RecvMsg(m)
-
-	if w.seenFirst.CompareAndSwap(false, true) && err == nil {
-		key := buildRCKey(&m, w.apiMethod)
-		w.rc.incrementCounter(key)
-	}
-
-	return err
-}
-
-// StreamInterceptor extracts the service and method names before invoking the handler to complete the RPC.
-// It is called once per stream and will run on:
-// Client streaming: rpc Method (stream a) returns (b)
-// Server streaming: rpc Method (a) returns (stream b)
-// Bidirectional streaming: rpc Method (stream a) returns (stream b).
-func (rc *RequestCounter) StreamInterceptor(
-	srv any,
-	ss googlegrpc.ServerStream,
-	info *googlegrpc.StreamServerInfo,
-	handler googlegrpc.StreamHandler,
-) error {
-	apiMethod := extractViamAPI(info.FullMethod)
-
-	// Only count Viam apiMethods
-	if apiMethod != "" {
-		return handler(srv, &wrappedStreamWithRC{ss, apiMethod, rc, atomic.Bool{}})
-	}
-	return handler(srv, ss)
 }
 
 // RequestCounter returns the request counter object.

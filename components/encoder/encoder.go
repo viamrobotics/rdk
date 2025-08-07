@@ -25,6 +25,10 @@ func init() {
 		API:        API,
 		MethodName: ticksCount.String(),
 	}, newTicksCountCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "encoder".

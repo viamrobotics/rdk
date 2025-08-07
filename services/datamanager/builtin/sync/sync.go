@@ -337,14 +337,14 @@ func (s *Sync) runWorker(config Config) {
 func (s *Sync) syncFile(config Config, filePath string) {
 	// don't sync in progress files
 	if filepath.Ext(filePath) == data.InProgressCaptureFileExt {
-		s.logger.Warnf("ignoreing request to sync in progress capture file: %s", filePath)
+		s.logger.Warnf("ignoring request to sync in progress capture file: %s", filePath)
 		return
 	}
 
 	// If the file is already being synced, do not kick off a new goroutine.
 	// The goroutine will again check and return early if sync is already in progress.
 	if !s.fileTracker.markInProgress(filePath) {
-		s.logger.Warnf("ignoreing request to sync file which sync is already working on %s", filePath)
+		s.logger.Warnf("ignoring request to sync file which sync is already working on %s", filePath)
 		return
 	}
 	defer s.fileTracker.unmarkInProgress(filePath)

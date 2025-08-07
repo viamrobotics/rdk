@@ -6,10 +6,10 @@ package discovery
 
 import (
 	"context"
-	"errors"
 
 	pb "go.viam.com/api/service/discovery/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -21,6 +21,10 @@ func init() {
 		RPCServiceDesc:              &pb.DiscoveryService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is the name of the type of service.
@@ -30,9 +34,6 @@ const (
 
 // API is a variable that identifies the discovery resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
-
-// ErrNilResponse is the error for when a nil response is returned from a discovery service.
-var ErrNilResponse = errors.New("discovery service returned a nil response")
 
 // Named is a helper for getting the named service's typed resource name.
 func Named(name string) resource.Name {

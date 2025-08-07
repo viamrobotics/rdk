@@ -188,7 +188,7 @@ func setGoModuleTemplate(
 				module.ModuleCamel+module.ModelPascal,
 				funcDecl,
 			)
-			if name != "" {
+			if name != "" && name != "NewClientFromConn" {
 				var doc string
 				if docGroup, ok := docMap[name]; ok && docGroup != nil {
 					doc = docGroup.Text()
@@ -224,6 +224,9 @@ func formatType(typeExpr ast.Expr, resourceSubtype string) string {
 		return fmt.Sprintf("Error formatting type: %v", err)
 	}
 	typeString := buf.String()
+	if resourceSubtype == "switch" {
+		resourceSubtype = "sw"
+	}
 
 	// checkUpper adds "<resourceSubtype>." to the type if type is capitalized after prefix.
 	checkUpper := func(str, prefix string) string {

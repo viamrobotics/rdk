@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
 )
@@ -84,13 +86,14 @@ type dataExportBinaryIDsArgs struct {
 }
 
 type dataExportTabularArgs struct {
-	Destination     string
-	PartID          string
-	ResourceName    string
-	ResourceSubtype string
-	Method          string
-	Start           string
-	End             string
+	Destination      string
+	PartID           string
+	ResourceName     string
+	ResourceSubtype  string
+	Method           string
+	Start            string
+	End              string
+	AdditionalParams string
 }
 
 // DataExportBinaryAction is the corresponding action for 'data export binary'.
@@ -160,8 +163,8 @@ type dataTagByIDsArgs struct {
 	BinaryDataIDs []string
 }
 
-// DataTagActionByIds is the corresponding action for 'data tag'.
-func DataTagActionByIds(c *cli.Context, args dataTagByIDsArgs) error { //nolint:var-naming,revive
+// DataTagActionByIDs is the corresponding action for 'data tag'.
+func DataTagActionByIDs(c *cli.Context, args dataTagByIDsArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -312,6 +315,13 @@ func createExportTabularRequest(c *cli.Context) (*datapb.ExportTabularDataReques
 	}
 	if args.Method != "" {
 		request.MethodName = args.Method
+	}
+	if args.AdditionalParams != "" {
+		var additionalParams *structpb.Struct
+		if err := json.Unmarshal([]byte(args.AdditionalParams), &additionalParams); err != nil {
+			return nil, err
+		}
+		request.AdditionalParameters = additionalParams
 	}
 
 	interval, err := createCaptureInterval(args.Start, args.End)
@@ -686,7 +696,7 @@ func filenameForDownload(meta *datapb.BinaryMetadata) string {
 
 	// If there is no file name, this is a data capture file.
 	if fileName == "" {
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		fileName = timeRequested + "_" + meta.GetId() + meta.GetFileExt()
 	} else if filepath.Dir(fileName) == "." {
 		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.

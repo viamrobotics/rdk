@@ -14,6 +14,7 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/motionplan"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -29,6 +30,10 @@ func init() {
 		RPCServiceDesc:              &pb.MotionService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // PlanHistoryReq describes the request to PlanHistory().
@@ -301,29 +306,6 @@ type PlanWithStatus struct {
 //
 // For more information, see the [MoveOnGlobe method docs].
 //
-// GetPose example:
-//
-//	// Insert code to connect to your machine.
-//	// (see CONNECT tab of your machine's page in the Viam app)
-//
-//	// Assumes a gripper configured with name "my_gripper" on the machine
-//	gripperName := gripper.Named("my_gripper")
-//
-//	// Access the motion service
-//	motionService, err := motion.FromRobot(machine, "builtin")
-//	if err != nil {
-//	  logger.Fatal(err)
-//	}
-//
-//	myGripperPose, err := motionService.GetPose(context.Background(), gripperName, referenceframe.World, nil, nil)
-//	if err != nil {
-//	  logger.Fatal(err)
-//	}
-//	logger.Info("Position of my_gripper from the motion service:", myGripperPose.Pose().Point())
-//	logger.Info("Orientation of my_gripper from the motion service:", myGripperPose.Pose().Orientation())
-//
-// For more information, see the [GetPose method docs].
-//
 // StopPlan example:
 //
 //	motionService, err := motion.FromRobot(machine, "builtin")
@@ -365,10 +347,11 @@ type PlanWithStatus struct {
 // [Move method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#move
 // [MoveOnMap method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#moveonmap
 // [MoveOnGlobe method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#moveonglobe
-// [GetPose method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getpose
 // [StopPlan method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#stopplan
 // [ListPlanStatuses method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#listplanstatuses
 // [PlanHistory method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getplan
+//
+// [GetPose method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getpose
 type Service interface {
 	resource.Resource
 
@@ -393,6 +376,7 @@ type Service interface {
 	// GetPose returns the location and orientation of a component within a frame system.
 	// It returns a `PoseInFrame` describing the pose of the specified component relative to the specified destination frame.
 	// The `supplemental_transforms` argument can be used to augment the machine's existing frame system with additional frames.
+	// deprecated, use framesystem.Servce.GetPose
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,

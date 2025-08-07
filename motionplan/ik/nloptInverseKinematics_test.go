@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -25,7 +26,7 @@ func TestCreateNloptSolver(t *testing.T) {
 	// matches xarm home end effector position
 	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
 	seed := []float64{1, 1, -1, 1, 1, 0}
-	solveFunc := NewMetricMinFunc(NewSquaredNormMetric(pos), m, logger)
+	solveFunc := NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
 	_, err = solveTest(context.Background(), ik, solveFunc, seed)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -36,7 +37,7 @@ func TestCreateNloptSolver(t *testing.T) {
 
 	// Check unpacking from proto
 	seed = referenceframe.InputsToFloats(m.InputFromProtobuf(&pb.JointPositions{Values: []float64{49, 28, -101, 0, -73, 0}}))
-	solveFunc = NewMetricMinFunc(NewSquaredNormMetric(pos), m, logger)
+	solveFunc = NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
 
 	_, err = solveTest(context.Background(), ik, solveFunc, seed)
 	test.That(t, err, test.ShouldBeNil)

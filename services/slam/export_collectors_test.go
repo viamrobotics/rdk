@@ -6,4 +6,5 @@ package slam
 var (
 	NewPointCloudMapCollector = newPointCloudMapCollector
 	NewPositionCollector      = newPositionCollector
+	NewDoCommandCollector     = newDoCommandCollector
 )

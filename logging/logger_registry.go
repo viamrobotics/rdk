@@ -59,10 +59,10 @@ func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) e
 
 	appliedConfigs := make(map[string]Level)
 	for _, lpc := range logConfig {
-		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
+		r, err := regexp.Compile(BuildRegexFromPattern(lpc.Pattern))
 		if err != nil {
 			warnLogger.Warnw("Log regex did not compile",
-				"input", lpc.Pattern, "built", buildRegexFromPattern(lpc.Pattern), "err", err)
+				"input", lpc.Pattern, "built", BuildRegexFromPattern(lpc.Pattern), "err", err)
 			continue
 		}
 
@@ -142,7 +142,7 @@ func (lr *Registry) getOrRegister(name string, logger Logger) Logger {
 
 	lr.loggers[name] = logger
 	for _, lpc := range lr.logConfig {
-		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
+		r, err := regexp.Compile(BuildRegexFromPattern(lpc.Pattern))
 		if err != nil {
 			// Can ignore error here; invalid pattern will already have been
 			// warn-logged as part of config reading.

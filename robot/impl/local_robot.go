@@ -37,6 +37,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/robot/jobmanager"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -55,6 +56,7 @@ type localRobot struct {
 	operations              *operation.Manager
 	sessionManager          session.Manager
 	packageManager          packages.ManagerSyncer
+	jobManager              *jobmanager.JobManager
 	localPackages           packages.ManagerSyncer
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
@@ -183,6 +185,9 @@ func (r *localRobot) Close(ctx context.Context) error {
 	if r.packageManager != nil {
 		err = multierr.Combine(err, r.packageManager.Close(ctx))
 	}
+	if r.jobManager != nil {
+		err = multierr.Combine(err, r.jobManager.Close())
+	}
 	if r.webSvc != nil {
 		err = multierr.Combine(err, r.webSvc.Close(ctx))
 	}
@@ -299,6 +304,21 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 	}
 }
 
+func (r *localRobot) updateRemotesAndRetryResourceConfigure() bool {
+	r.reconfigurationLock.Lock()
+	defer r.reconfigurationLock.Unlock()
+
+	anyChanges := r.manager.updateRemotesResourceNames(r.closeContext)
+	if r.manager.anyResourcesNotConfigured() {
+		anyChanges = true
+		r.manager.completeConfig(r.closeContext, r, false)
+	}
+	if anyChanges {
+		r.updateWeakAndOptionalDependents(r.closeContext)
+	}
+	return anyChanges
+}
+
 // completeConfigWorker tries to complete the config and update weak/optional dependencies
 // if any resources are not configured. It will also update the resource graph if remotes
 // have changed. It executes every 5 seconds or when manually triggered. Manual triggers
@@ -319,17 +339,10 @@ func (r *localRobot) completeConfigWorker() {
 			trigger = "remote"
 			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by remote")
 		}
-		r.reconfigurationLock.Lock()
-		anyChanges := r.manager.updateRemotesResourceNames(r.closeContext)
-		if r.manager.anyResourcesNotConfigured() {
-			anyChanges = true
-			r.manager.completeConfig(r.closeContext, r, false)
-		}
+		anyChanges := r.updateRemotesAndRetryResourceConfigure()
 		if anyChanges {
-			r.updateWeakAndOptionalDependents(r.closeContext)
 			r.logger.CDebugw(r.closeContext, "configuration attempt completed with changes", "trigger", trigger)
 		}
-		r.reconfigurationLock.Unlock()
 	}
 }
 
@@ -371,11 +384,12 @@ func newWithResources(
 		//   constructed to get a valid copy of its stats object (for the schema's sake). Even if
 		//   the web service has not been "started".
 		ftdcDir := ftdc.DefaultDirectory(utils.ViamDotDir, partID)
-		ftdcWorker = ftdc.NewWithUploader(ftdcDir, conn, partID, logger.Sublogger("ftdc"))
+		ftdcLogger := logger.Sublogger("ftdc")
+		ftdcWorker = ftdc.NewWithUploader(ftdcDir, conn, partID, ftdcLogger)
 		if statser, err := sys.NewSelfSysUsageStatser(); err == nil {
 			ftdcWorker.Add("proc.viam-server", statser)
 		}
-		if statser, err := sys.NewNetUsage(); err == nil {
+		if statser, err := sys.NewNetUsageStatser(); err == nil {
 			ftdcWorker.Add("net", statser)
 		}
 	}
@@ -501,7 +515,7 @@ func newWithResources(
 	if err := r.manager.startModuleManager(
 		closeCtx,
 		r.webSvc.ModuleAddresses(),
-		r.removeOrphanedResources,
+		r.handleOrphanedResources,
 		cfg.UntrustedEnv,
 		homeDir,
 		cloudID,
@@ -522,6 +536,32 @@ func newWithResources(
 			r.completeConfigWorker()
 		}, r.activeBackgroundWorkers.Done)
 	}
+
+	// getResource is passed in to the jobmanager to have access to the resource graph.
+	getResource := func(res string) (resource.Resource, error) {
+		var found bool
+		var match resource.Name
+		names := r.manager.resources.Names()
+		for _, name := range names {
+			if name.Name == res {
+				if found {
+					return nil, errors.Errorf("found duplicate entries for name %s: %s and %s", res, name.String(), match.String())
+				}
+				match = name
+				found = true
+			}
+		}
+		if !found {
+			return nil, errors.Errorf("could not find the resource for name %s", res)
+		}
+		return r.manager.ResourceByName(match)
+	}
+
+	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
+	if err != nil {
+		r.logger.CErrorw(ctx, "Job manager failed to start", "error", err)
+	}
+	r.jobManager = jobManager
 
 	r.reconfigure(ctx, cfg, false)
 
@@ -551,18 +591,17 @@ func New(
 	return newWithResources(ctx, cfg, nil, conn, logger, opts...)
 }
 
-// removeOrphanedResources is called by the module manager to remove resources
-// orphaned due to module crashes.
-func (r *localRobot) removeOrphanedResources(ctx context.Context,
+// handleOrphanedResources is called by the module manager to handle resources
+// orphaned due to module crashes. Resources passed into this function will be
+// marked for rebuilding and handled by the completeConfig worker.
+func (r *localRobot) handleOrphanedResources(ctx context.Context,
 	rNames []resource.Name,
 ) {
 	r.reconfigurationLock.Lock()
 	defer r.reconfigurationLock.Unlock()
-	r.manager.markResourcesRemoved(rNames, nil)
-	if err := r.manager.removeMarkedAndClose(ctx, nil); err != nil {
-		r.logger.CErrorw(ctx, "error removing and closing marked resources",
-			"error", err)
-	}
+	// resource names passed into markRebuildResources are already closed as the module
+	// crashed and thus do not need to be closed.
+	r.manager.markRebuildResources(rNames)
 	r.updateWeakAndOptionalDependents(ctx)
 }
 
@@ -620,7 +659,7 @@ func (r *localRobot) getDependencies(
 	gNode *resource.GraphNode,
 ) (resource.Dependencies, error) {
 	if deps := gNode.UnresolvedDependencies(); len(deps) != 0 {
-		return nil, errors.Errorf("resource has unresolved dependencies: %v", deps)
+		return nil, errors.Errorf("resource has unresolved dependencies not found in machine config or connected remotes: %v", deps)
 	}
 	allDeps := make(resource.Dependencies)
 
@@ -887,7 +926,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(resName.String()))
+				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(resName.String(), r.logger))
 			}
 		case <-ctx.Done():
 			return
@@ -996,7 +1035,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		case <-resChan:
 		case <-ctxWithTimeout.Done():
 			if errors.Is(ctxWithTimeout.Err(), context.DeadlineExceeded) {
-				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(conf.ResourceName().String()))
+				r.logger.CWarn(ctx, utils.NewWeakOrOptionalDependenciesUpdateTimeoutError(conf.ResourceName().String(), r.logger))
 			}
 		case <-ctx.Done():
 			return
@@ -1139,14 +1178,24 @@ func (r *localRobot) extractModelFrameJSON(ctx context.Context, name resource.Na
 	return nil, referenceframe.ErrNoModelInformation
 }
 
+// GetPose returns the pose of the specified component in the given destination frame.
+func (r *localRobot) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	return r.frameSvc.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+}
+
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 func (r *localRobot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
-	additionalTransforms []*referenceframe.LinkInFrame,
+	supplementalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
-	return r.frameSvc.TransformPose(ctx, pose, dst, additionalTransforms)
+	return r.frameSvc.TransformPose(ctx, pose, dst, supplementalTransforms)
 }
 
 // TransformPointCloud will transform the pointcloud to the desired frame in the robot's frame system.
@@ -1158,6 +1207,12 @@ func (r *localRobot) TransformPointCloud(
 	srcName, dstName string,
 ) (pointcloud.PointCloud, error) {
 	return r.frameSvc.TransformPointCloud(ctx, srcpc, srcName, dstName)
+}
+
+// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
+// and a map of statuses indicating which of the machine's components may be actuated through input values.
+func (r *localRobot) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
+	return r.frameSvc.CurrentInputs(ctx)
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
@@ -1414,6 +1469,17 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.manager.updateRevision(res.ResourceName(), revision)
 	}
 
+	// this check is deferred because it has to happen at the end of reconfigure.
+	// UpdatingJobs depends on the resource graph being populated, which
+	// happens after the "diff.ResourcesEqual" check during startup. However, we also want
+	// to allow modifications to jobs to trigger Updates even if the rest of the config is
+	// the same -- to cover these two cases, we always want to UpdateJobs at the end of reconfigure.
+	defer func() {
+		if !diff.JobsEqual && r.jobManager != nil {
+			r.jobManager.UpdateJobs(diff)
+		}
+	}()
+
 	if diff.ResourcesEqual {
 		return
 	}
@@ -1424,8 +1490,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
 	}
 
-	// First we mark diff.Removed resources and their children for removal.
-	resourcesToCloseBeforeComplete, _ := r.manager.markRemoved(ctx, diff.Removed)
+	// First we mark diff.Removed resources and their children for removal. Modular resources removed this way
+	// will only have their children marked for update, since there is a chance that the resource is served by
+	// a different module.
+	resourcesToCloseBeforeComplete, _, resourcesToRebuild := r.manager.markRemoved(ctx, diff.Removed)
 
 	// Second we attempt to Close resources.
 	alreadyClosed := make(map[resource.Name]struct{}, len(resourcesToCloseBeforeComplete))
@@ -1435,10 +1503,15 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		alreadyClosed[res.Name()] = struct{}{}
 	}
 
-	// Third we update the resource graph and stop any removed processes.
+	// Third we mark resources from removed modules for rebuild. there is a chance that the removed module was actually renamed
+	// and so the resources can be rebuilt.
+	// Resource names passed into markRebuildResources are already closed as part of the second step above.
+	r.manager.markRebuildResources(resourcesToRebuild)
+
+	// Fourth we update the resource graph and stop any removed processes.
 	allErrs = multierr.Combine(allErrs, r.manager.updateResources(ctx, diff))
 
-	// Fourth we attempt to complete the config (see function for details) and
+	// Fifth we attempt to complete the config (see function for details) and
 	// update weak and optional dependents.
 	r.manager.completeConfig(ctx, r, forceSync)
 	r.updateWeakAndOptionalDependents(ctx)
@@ -1540,7 +1613,7 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 	} else {
 		diff.Added.Modules = append(diff.Added.Modules, *mod)
 	}
-
+	r.logger.CInfow(ctx, "restarting single module", "module_name", mod.Name, "module_id", mod.ModuleID)
 	return r.manager.updateResources(ctx, &diff)
 }
 

@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -24,6 +25,8 @@ const (
 	componentName   = "board"
 	captureInterval = time.Millisecond
 )
+
+var doCommandMap = map[string]any{"readings": "random-test"}
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -97,6 +100,16 @@ func TestCollectors(t *testing.T) {
 	}
 }
 
+func TestDoCommandCollector(t *testing.T) {
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		DoCommandMap:    doCommandMap,
+		Collector:       board.NewDoCommandCollector,
+		ResourceFactory: func() interface{} { return newBoard() },
+	})
+}
+
 func newBoard() board.Board {
 	b := &inject.Board{}
 	analog := &inject.Analog{}
@@ -112,6 +125,9 @@ func newBoard() board.Board {
 	}
 	b.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 		return gpioPin, nil
+	}
+	b.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
 	}
 	return b
 }

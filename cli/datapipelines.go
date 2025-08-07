@@ -75,6 +75,7 @@ type datapipelineCreateArgs struct {
 	MQL            string
 	MqlPath        string
 	DataSourceType string
+	EnableBackfill bool
 }
 
 // DatapipelineCreateAction creates a new data pipeline.
@@ -100,6 +101,7 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 		Schedule:       args.Schedule,
 		MqlBinary:      mqlBinary,
 		DataSourceType: &dataSourceType,
+		EnableBackfill: &args.EnableBackfill,
 	})
 	if err != nil {
 		return fmt.Errorf("error creating data pipeline: %w", err)
@@ -107,71 +109,6 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 
 	printf(c.App.Writer, "%s (ID: %s) created.", args.Name, resp.GetId())
 
-	return nil
-}
-
-type datapipelineUpdateArgs struct {
-	ID             string
-	Name           string
-	Schedule       string
-	MQL            string
-	MqlPath        string
-	DataSourceType string
-}
-
-// DatapipelineUpdateAction updates an existing data pipeline.
-func DatapipelineUpdateAction(c *cli.Context, args datapipelineUpdateArgs) error {
-	client, err := newViamClient(c)
-	if err != nil {
-		return err
-	}
-
-	resp, err := client.datapipelinesClient.GetDataPipeline(context.Background(), &datapipelinespb.GetDataPipelineRequest{
-		Id: args.ID,
-	})
-	if err != nil {
-		return fmt.Errorf("error getting data pipeline: %w", err)
-	}
-	current := resp.GetDataPipeline()
-
-	name := args.Name
-	if name == "" {
-		name = current.GetName()
-	}
-
-	schedule := args.Schedule
-	if schedule == "" {
-		schedule = current.GetSchedule()
-	}
-
-	mqlBinary := current.GetMqlBinary()
-	if args.MQL != "" || args.MqlPath != "" {
-		mqlBinary, err = parseMQL(args.MQL, args.MqlPath)
-		if err != nil {
-			return err
-		}
-	}
-
-	dataSourceType := current.GetDataSourceType()
-	if args.DataSourceType != "" {
-		dataSourceType, err = dataSourceTypeToProto(args.DataSourceType)
-		if err != nil {
-			return err
-		}
-	}
-
-	_, err = client.datapipelinesClient.UpdateDataPipeline(context.Background(), &datapipelinespb.UpdateDataPipelineRequest{
-		Id:             args.ID,
-		Name:           name,
-		Schedule:       schedule,
-		MqlBinary:      mqlBinary,
-		DataSourceType: &dataSourceType,
-	})
-	if err != nil {
-		return fmt.Errorf("error updating data pipeline: %w", err)
-	}
-
-	printf(c.App.Writer, "%s (id: %s) updated.", name, args.ID)
 	return nil
 }
 

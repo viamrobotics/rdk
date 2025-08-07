@@ -112,7 +112,7 @@ func (inputs FrameSystemInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 }
 
 // ComputePoses computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
-func (inputs FrameSystemInputs) ComputePoses(fs FrameSystem) (FrameSystemPoses, error) {
+func (inputs FrameSystemInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) {
 	// Compute poses from configuration using the FrameSystem
 	computedPoses := make(FrameSystemPoses)
 	for _, frameName := range fs.FrameNames() {
@@ -136,4 +136,19 @@ func InputsL2Distance(from, to []Input) float64 {
 	}
 	// 2 is the L value returning a standard L2 Normalization
 	return floats.Norm(diff, 2)
+}
+
+// InputsLinfDistance returns the inf-norm between two Input sets.
+func InputsLinfDistance(from, to []Input) float64 {
+	if len(from) != len(to) {
+		return math.Inf(1)
+	}
+	max := 0.
+	for index := range from {
+		norm := math.Abs(from[index].Value - to[index].Value)
+		if norm > max {
+			max = norm
+		}
+	}
+	return max
 }

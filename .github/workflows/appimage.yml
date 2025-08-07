@@ -149,7 +149,7 @@ jobs:
       with:
         python-version: '3.11'
     - name: deps
-      run: pip install git+https://github.com/AppImageCrafters/appimage-builder.git@42d32f11496de43a9f6a9ada7882a11296e357ca
+      run: pip install git+https://github.com/viamrobotics/appimage-builder.git@viam-2025-07-22
     - name: build
       env:
         RELEASE_TYPE: ${{ inputs.release_type }}

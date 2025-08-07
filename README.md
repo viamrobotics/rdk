@@ -29,9 +29,9 @@ If you have a bug or an idea, please open an issue [here](https://viam.atlassian
 
 ### Build and Run
 * Build: `make server`. Then run `./bin/<your architecture>/server [parameters]`
-* Run without building: `go run web/cmd/server/main.go [parameters]`
+* Run without building: `go run ./web/cmd/server [parameters]`
 
-Example with a dummy configuration: `go run web/cmd/server/main.go -config etc/configs/fake.json`.
+Example with a dummy configuration: `go run ./web/cmd/server -config etc/configs/fake.json`.
 
 ### Examples
 * [CustomResources](https://pkg.go.dev/go.viam.com/rdk/examples/customresources) - example for creating custom resources.

@@ -30,6 +30,10 @@ func init() {
 		API:        API,
 		MethodName: lengths.String(),
 	}, newLengthsCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "gantry".

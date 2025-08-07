@@ -248,6 +248,17 @@ func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.modelConfig)
 }
 
+// UnmarshalJSON deserializes a Model.
+func (m *SimpleModel) UnmarshalJSON(data []byte) error {
+	var modelConfig ModelConfigJSON
+	if err := json.Unmarshal(data, &modelConfig); err != nil {
+		return err
+	}
+	m.baseFrame = &baseFrame{name: modelConfig.Name}
+	m.modelConfig = &modelConfig
+	return nil
+}
+
 // ModelPieceFrames takes a list of inputs and returns a map of frame names to their corresponding static frames,
 // effectively breaking the model into its kinematic pieces.
 func (m *SimpleModel) ModelPieceFrames(inputs []Input) (map[string]Frame, error) {

@@ -14,11 +14,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
-	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot/framesystem"
-	"go.viam.com/rdk/services/motion"
-	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
 )
@@ -204,19 +200,6 @@ func TestModularResources(t *testing.T) {
 		_, _, err = cfg2.Validate("test", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
-		// non-modular
-		cfg3 := resource.Config{
-			Name:                "builtin",
-			API:                 motion.API,
-			Model:               resource.DefaultServiceModel,
-			ConvertedAttributes: &motionBuiltin.Config{},
-			DependsOn:           []string{framesystem.InternalServiceName.String()},
-		}
-		_, _, err = cfg3.Validate("test", resource.APITypeServiceName)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, err, test.ShouldBeNil)
-
 		// Add a modular service
 		r.Reconfigure(context.Background(), &config.Config{
 			Services: []resource.Config{cfg},
@@ -235,17 +218,6 @@ func TestModularResources(t *testing.T) {
 		test.That(t, len(mod.add), test.ShouldEqual, 1)
 		test.That(t, len(mod.reconf), test.ShouldEqual, 1)
 		test.That(t, mod.reconf[0], test.ShouldResemble, cfg2)
-
-		// Add a non-modular service
-		r.Reconfigure(context.Background(), &config.Config{
-			Services: []resource.Config{cfg2, cfg3},
-		})
-		_, err = r.ResourceByName(cfg2.ResourceName())
-		test.That(t, err, test.ShouldBeNil)
-		_, err = r.ResourceByName(cfg3.ResourceName())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(mod.add), test.ShouldEqual, 1)
-		test.That(t, len(mod.reconf), test.ShouldEqual, 1)
 	})
 
 	t.Run("close", func(t *testing.T) {
@@ -379,7 +351,7 @@ type dummyRes struct {
 }
 
 type dummyModMan struct {
-	modmaninterface.ModuleManager
+	*modmanager.Manager
 	mu         sync.Mutex
 	add        []resource.Config
 	reconf     []resource.Config
@@ -498,10 +470,6 @@ func TestTwoModulesSameName(t *testing.T) {
 				ExePath: complexPath,
 			},
 		},
-		// This field is false due to zero-value by default, but specify explicitly
-		// here. When partial start is allowed, we will log an error about the
-		// duplicate module name, but still start up the first of the two modules.
-		DisablePartialStart: false,
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
 

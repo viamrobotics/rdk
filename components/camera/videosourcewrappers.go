@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -24,7 +25,7 @@ import (
 // Note: this strips away Reconfiguration and DoCommand abilities.
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
-func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) VideoSource {
+func FromVideoSource(name resource.Name, src VideoSource) VideoSource {
 	var rtpPassthroughSource rtppassthrough.Source
 	if ps, ok := src.(rtppassthrough.Source); ok {
 		rtpPassthroughSource = ps
@@ -33,7 +34,6 @@ func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger)
 		rtpPassthroughSource: rtpPassthroughSource,
 		VideoSource:          src,
 		Named:                name.AsNamed(),
-		Logger:               logger,
 	}
 }
 
@@ -316,4 +316,11 @@ func (vs *videoSource) Close(ctx context.Context) error {
 		return res.Close(ctx)
 	}
 	return vs.videoSource.Close(ctx)
+}
+
+func (vs *videoSource) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	if res, ok := vs.actualSource.(resource.Shaped); ok {
+		return res.Geometries(ctx, extra)
+	}
+	return nil, errors.New("videoSource: geometries unavailable")
 }

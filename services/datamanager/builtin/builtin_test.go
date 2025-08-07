@@ -36,6 +36,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
+	"go.viam.com/rdk/services/datamanager/builtin/shared"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -61,41 +62,66 @@ func (p *pathologicalAssociatedConfig) Link(conf *resource.Config)              
 
 func TestCollectorRegistry(t *testing.T) {
 	collectors := data.DumpRegisteredCollectors()
-	test.That(t, len(collectors), test.ShouldEqual, 28)
+	test.That(t, len(collectors), test.ShouldEqual, 53)
 	mds := slices.SortedFunc(maps.Keys(collectors), func(a, b data.MethodMetadata) int {
 		return cmp.Compare(a.String(), b.String())
 	})
 	rdkComponent := resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}
 	rdkService := resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "service"}
 	test.That(t, mds, test.ShouldResemble, []data.MethodMetadata{
+		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "EndPosition"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "JointPositions"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_input"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "base"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "Analogs"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "Gpios"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "button"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "GetImages"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "NextPointCloud"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "ReadImage"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "encoder"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "encoder"}, MethodName: "TicksCount"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "gantry"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gantry"}, MethodName: "Lengths"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gantry"}, MethodName: "Position"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "generic"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "gripper"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "input_controller"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "IsPowered"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "AngularVelocity"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "CompassHeading"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "LinearAcceleration"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "LinearVelocity"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "Orientation"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "Readings"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "pose_tracker"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Current"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Power"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Readings"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Voltage"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "sensor"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "sensor"}, MethodName: "Readings"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "servo"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "servo"}, MethodName: "Position"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "switch"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "base_remote_control"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "discovery"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "generic"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "navigation"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "shell"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "slam"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkService, SubtypeName: "slam"}, MethodName: "PointCloudMap"},
 		{API: resource.API{Type: rdkService, SubtypeName: "slam"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkService, SubtypeName: "vision"}, MethodName: "CaptureAllFromCamera"},
+		{API: resource.API{Type: rdkService, SubtypeName: "vision"}, MethodName: "DoCommand"},
 	})
 }
 
@@ -118,7 +144,7 @@ func TestNew(t *testing.T) {
 		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
 			mockDeps := mockDeps(nil, nil)
 			c := &Config{}
-			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, viamCaptureDotDir)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, shared.ViamCaptureDotDir)
 			b, err := New(
 				ctx,
 				mockDeps,
@@ -200,7 +226,7 @@ func TestReconfigure(t *testing.T) {
 		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
 			mockDeps := mockDeps(nil, nil)
 			c := &Config{}
-			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, viamCaptureDotDir)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, shared.ViamCaptureDotDir)
 			err := b.Reconfigure(ctx, mockDeps, resource.Config{ConvertedAttributes: c})
 			test.That(t, err, test.ShouldBeNil)
 		})
@@ -681,13 +707,13 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 				Name:               armName,
 				Method:             "JointPositions",
 				CaptureFrequencyHz: 1.0,
-				AdditionalParams:   map[string]string{"some": "params"},
+				AdditionalParams:   map[string]interface{}{"some": "params"},
 			},
 			{
 				Name:               armName,
 				Method:             "CurrentInputs",
 				CaptureFrequencyHz: 2.0,
-				AdditionalParams:   map[string]string{"some_other": "params"},
+				AdditionalParams:   map[string]interface{}{"some_other": "params"},
 			},
 		}
 		config := resource.Config{
@@ -702,7 +728,7 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 							Name:               cameraName,
 							Method:             "NextPointCloud",
 							CaptureFrequencyHz: 3.0,
-							AdditionalParams:   map[string]string{"some additional": "params"},
+							AdditionalParams:   map[string]interface{}{"some additional": "params"},
 						},
 					},
 				},
@@ -726,13 +752,13 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 				Name:               armName,
 				Method:             "JointPositions",
 				CaptureFrequencyHz: 1.0,
-				AdditionalParams:   map[string]string{"some": "params"},
+				AdditionalParams:   map[string]interface{}{"some": "params"},
 			},
 			{
 				Name:               armName,
 				Method:             "CurrentInputs",
 				CaptureFrequencyHz: 2.0,
-				AdditionalParams:   map[string]string{"some_other": "params"},
+				AdditionalParams:   map[string]interface{}{"some_other": "params"},
 			},
 		}
 		cameraCaptureMethods := []datamanager.DataCaptureConfig{
@@ -740,7 +766,7 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 				Name:               cameraName,
 				Method:             "NextPointCloud",
 				CaptureFrequencyHz: 3.0,
-				AdditionalParams:   map[string]string{"some additional": "params"},
+				AdditionalParams:   map[string]interface{}{"some additional": "params"},
 			},
 		}
 		config := resource.Config{

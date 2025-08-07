@@ -18,6 +18,12 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+var initLogger logging.Logger
+
+func init() {
+	initLogger = logging.NewLogger("rdk.registry_startup")
+}
+
 type (
 	// An APIModel is the tuple that identifies a model implementing an API.
 	APIModel struct {
@@ -260,7 +266,7 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	apiModel := APIModel{api, model}
 	_, old := registry[apiModel]
 	if old {
-		logging.Global().Errorw("An api, model pair is being double registered. Overwriting the old with the new.",
+		initLogger.Errorw("An api, model pair is being double registered. Overwriting the old with the new.",
 			"api", api, "model", model)
 	}
 	if reg.Constructor == nil && reg.DeprecatedRobotConstructor == nil {
@@ -349,7 +355,7 @@ func RegisterAPI[ResourceT Resource](api API, creator APIRegistration[ResourceT]
 	defer registryMu.Unlock()
 	_, old := apiRegistry[api]
 	if old {
-		logging.Global().Errorw("An api name is being double registered. Overwriting the old with the new.",
+		initLogger.Errorw("An api name is being double registered. Overwriting the old with the new.",
 			"api", api)
 	}
 	if creator.RPCServiceServerConstructor != nil &&

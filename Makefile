@@ -1,4 +1,9 @@
-BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
+# TESTBUILD_OUTPUT_PATH should only be defined during testing
+ifdef TESTBUILD_OUTPUT_PATH
+	BIN_OUTPUT_PATH = $(TESTBUILD_OUTPUT_PATH)
+else
+	BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
+endif
 
 TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
@@ -34,7 +39,8 @@ GOARCH ?= $(shell go env GOARCH)
 bin/$(GOOS)-$(GOARCH)/viam-cli: $(GO_FILES) Makefile go.mod go.sum
 	# no_cgo necessary here because of motionplan -> nlopt dependency.
 	# can be removed if you can run CGO_ENABLED=0 go build ./cli/viam on your local machine.
-	go build $(GCFLAGS) $(LDFLAGS) -tags osusergo,netgo,no_cgo -o $@ ./cli/viam
+	# CGO_ENABLED=0 is necessary after bedf954b to prevent go from sneakily doing a cgo build
+	CGO_ENABLED=0 go build $(GCFLAGS) $(LDFLAGS) -tags osusergo,netgo,no_cgo -o $@ ./cli/viam
 
 .PHONY: cli
 cli: bin/$(GOOS)-$(GOARCH)/viam-cli
@@ -48,7 +54,6 @@ cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
 
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install \
-		github.com/edaniels/golinters/cmd/combined \
 		github.com/golangci/golangci-lint/cmd/golangci-lint \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
@@ -64,9 +69,9 @@ generate-go: tool-install
 
 lint-go: tool-install
 	go mod tidy
-	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
 	GOGC=50 $(TOOL_BIN)/golangci-lint run --config=./etc/.golangci.yaml || true
 	GOGC=50 $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
+	./etc/lint_register_apis.sh
 
 cover-only: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
@@ -81,11 +86,11 @@ test-go-no-race: tool-install
 
 server:
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	go build $(GCFLAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+	go build $(GCFLAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server ./web/cmd/server
 
 server-static:
 	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(GCFLAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(GCFLAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server ./web/cmd/server
 
 full-static:
 	mkdir -p bin/static

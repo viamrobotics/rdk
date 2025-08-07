@@ -1485,6 +1485,13 @@ func (c *viamClient) machinesPartGetFTDCAction(
 	// \ as path separators, and we don't want a cli running on Windows to send
 	// a path using \ to a *NIX machine.
 	src := path.Join(ftdcPath, part.Id)
+	gArgs, err := getGlobalArgs(ctx)
+	quiet := err == nil && gArgs != nil && gArgs.Quiet
+	var startTime time.Time
+	if !quiet {
+		startTime = time.Now()
+		printf(ctx.App.Writer, "Saving to %s ...", path.Join(targetPath, part.GetId()))
+	}
 	if err := c.copyFilesFromMachine(
 		flagArgs.Organization,
 		flagArgs.Location,
@@ -1503,6 +1510,9 @@ func (c *viamClient) machinesPartGetFTDCAction(
 			return errDirectoryCopyRequestNoRecursion
 		}
 		return err
+	}
+	if !quiet {
+		printf(ctx.App.Writer, "Done in %s.", time.Since(startTime))
 	}
 	return nil
 }
@@ -1803,41 +1813,21 @@ func isProdBaseURL(baseURL *url.URL) bool {
 	return strings.HasSuffix(baseURL.Hostname(), "viam.com")
 }
 
-func newViamClientInner(c *cli.Context, disableBrowserOpen bool) (*viamClient, error) {
-	globalArgs, err := getGlobalArgs(c)
+// Creates a new viam client, defaulting to _not_ passing the `disableBrowerOpen` arg (which
+// users don't even have an option of setting for any CLI method currently except `Login`).
+func newViamClient(c *cli.Context) (*viamClient, error) {
+	client, err := newViamClientInner(c, false)
 	if err != nil {
 		return nil, err
 	}
-	conf, err := ConfigFromCache(c)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			debugf(c.App.Writer, globalArgs.Debug, "Cached config parse error: %v", err)
-			return nil, errors.New("failed to parse cached config. Please log in again")
-		}
-		conf = &Config{}
-		whichProfile, _ := whichProfile(globalArgs)
-		if !globalArgs.DisableProfiles && whichProfile != nil {
-			conf.profile = *whichProfile
-		}
+	if err := client.ensureLoggedIn(); err != nil {
+		return nil, err
 	}
+	return client, nil
+}
 
-	// If base URL was not specified, assume cached base URL. If no base URL is
-	// cached, assume default base URL.
-	baseURLArg := globalArgs.BaseURL
-	switch {
-	case conf.BaseURL == "" && baseURLArg == "":
-		conf.BaseURL = defaultBaseURL
-	case conf.BaseURL == "" && baseURLArg != "":
-		conf.BaseURL = baseURLArg
-	case baseURLArg != "" && conf.BaseURL != "" && conf.BaseURL != baseURLArg:
-		return nil, fmt.Errorf("cached base URL for this session is %q. "+
-			"Please logout and login again to use provided base URL %q", conf.BaseURL, baseURLArg)
-	}
-
-	if conf.BaseURL != defaultBaseURL {
-		infof(c.App.ErrWriter, "Using %q as base URL value", conf.BaseURL)
-	}
-	baseURL, _, err := parseBaseURL(conf.BaseURL, true)
+func newViamClientInner(c *cli.Context, disableBrowserOpen bool) (*viamClient, error) {
+	baseURL, conf, err := getBaseURL(c)
 	if err != nil {
 		return nil, err
 	}
@@ -1859,17 +1849,46 @@ func newViamClientInner(c *cli.Context, disableBrowserOpen bool) (*viamClient, e
 	}, nil
 }
 
-// Creates a new viam client, defaulting to _not_ passing the `disableBrowerOpen` arg (which
-// users don't even have an option of setting for any CLI method currently except `Login`).
-func newViamClient(c *cli.Context) (*viamClient, error) {
-	client, err := newViamClientInner(c, false)
+func getBaseURL(c *cli.Context) (*url.URL, *Config, error) {
+	globalArgs, err := getGlobalArgs(c)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if err := client.ensureLoggedIn(); err != nil {
-		return nil, err
+	conf, err := ConfigFromCache(c)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			debugf(c.App.Writer, globalArgs.Debug, "Cached config parse error: %v", err)
+			return nil, nil, errors.New("failed to parse cached config. Please log in again")
+		}
+		conf = &Config{}
+		whichProfile, _ := whichProfile(globalArgs)
+		if !globalArgs.DisableProfiles && whichProfile != nil {
+			conf.profile = *whichProfile
+		}
 	}
-	return client, nil
+
+	// If base URL was not specified, assume cached base URL. If no base URL is
+	// cached, assume default base URL.
+	baseURLArg := globalArgs.BaseURL
+	switch {
+	case conf.BaseURL == "" && baseURLArg == "":
+		conf.BaseURL = defaultBaseURL
+	case conf.BaseURL == "" && baseURLArg != "":
+		conf.BaseURL = baseURLArg
+	case baseURLArg != "" && conf.BaseURL != "" && conf.BaseURL != baseURLArg:
+		return nil, nil, fmt.Errorf("cached base URL for this session is %q. "+
+			"Please logout and login again to use provided base URL %q", conf.BaseURL, baseURLArg)
+	}
+
+	if conf.BaseURL != defaultBaseURL {
+		infof(c.App.ErrWriter, "Using %q as base URL value", conf.BaseURL)
+	}
+	baseURL, _, err := parseBaseURL(conf.BaseURL, true)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return baseURL, conf, nil
 }
 
 func (c *viamClient) loadOrganizations() error {

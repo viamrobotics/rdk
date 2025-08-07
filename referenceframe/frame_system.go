@@ -24,55 +24,6 @@ const defaultPointDensity = 0.
 // FrameSystemPoses is an alias for a mapping of frame names to PoseInFrame.
 type FrameSystemPoses map[string]*PoseInFrame
 
-// FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
-type FrameSystem interface {
-	// Name returns the name of this FrameSystem
-	Name() string
-
-	// World returns the frame corresponding to the root of the FrameSystem, from which other frames are defined with respect to
-	World() Frame
-
-	// FrameNames returns the names of all of the frames that exist in the FrameSystem
-	FrameNames() []string
-
-	// Frame returns the Frame in the FrameSystem corresponding to
-	Frame(name string) Frame
-
-	// AddFrame inserts a given Frame into the FrameSystem as a child of the parent Frame
-	AddFrame(frame, parent Frame) error
-
-	// RemoveFrame removes the given Frame from the FrameSystem
-	RemoveFrame(frame Frame)
-
-	// TracebackFrame traces the parentage of the given frame up to the world, and returns the full list of frames in between.
-	// The list will include both the query frame and the world referenceframe
-	TracebackFrame(frame Frame) ([]Frame, error)
-
-	// Parent returns the parent Frame for the given Frame in the FrameSystem
-	Parent(frame Frame) (Frame, error)
-
-	// Transform takes in a Transformable object and destination frame, and returns the pose from the first to the second. Positions
-	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
-	Transform(inputs FrameSystemInputs, object Transformable, dst string) (Transformable, error)
-
-	// FrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
-	// at the given frame and containing all descendents of it. The original frame system is unchanged.
-	FrameSystemSubset(newRoot Frame) (FrameSystem, error)
-
-	// DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
-	// at the given frame and containing all descendents of it, while the original has the frame and its
-	// descendents removed.
-	DivideFrameSystem(newRoot Frame) (FrameSystem, error)
-
-	// MergeFrameSystem combines two frame systems together, placing the world of systemToMerge at the attachTo frame in the frame system
-	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
-
-	// ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
-	// frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
-	// replacementFrame is not allowed to exist within the frame system at the time of the call.
-	ReplaceFrame(replacementFrame Frame) error
-}
-
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
 // FrameConfig gives the frame's location relative to parent,
 // and ModelFrame is an optional ModelJSON that describes the internal kinematics of the robot part.
@@ -81,22 +32,22 @@ type FrameSystemPart struct {
 	ModelFrame  Model
 }
 
-// simpleFrameSystem implements FrameSystem. It is a simple tree graph.
-type simpleFrameSystem struct {
+// FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
+type FrameSystem struct {
 	name    string
 	world   Frame // separate from the map of frames so it can be detached easily
 	frames  map[string]Frame
-	parents map[Frame]Frame
+	parents map[string]string
 }
 
 // NewEmptyFrameSystem creates a graph of Frames that have.
-func NewEmptyFrameSystem(name string) FrameSystem {
+func NewEmptyFrameSystem(name string) *FrameSystem {
 	worldFrame := NewZeroStaticFrame(World)
-	return &simpleFrameSystem{name, worldFrame, map[string]Frame{}, map[Frame]Frame{}}
+	return &FrameSystem{name, worldFrame, map[string]Frame{}, map[string]string{}}
 }
 
 // NewFrameSystem assembles a frame system from a set of parts and additional transforms.
-func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms []*LinkInFrame) (FrameSystem, error) {
+func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms []*LinkInFrame) (*FrameSystem, error) {
 	allParts := make([]*FrameSystemPart, 0, len(parts)+len(additionalTransforms))
 	allParts = append(allParts, parts...)
 	for _, tf := range additionalTransforms {
@@ -151,42 +102,42 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 }
 
 // World returns the root of the frame system, which is always named "world".
-func (sfs *simpleFrameSystem) World() Frame {
+func (sfs *FrameSystem) World() Frame {
 	return sfs.world
 }
 
 // Parent returns the parent Frame of the given Frame. It will return nil if the given frame is World.
-func (sfs *simpleFrameSystem) Parent(frame Frame) (Frame, error) {
+func (sfs *FrameSystem) Parent(frame Frame) (Frame, error) {
 	if !sfs.frameExists(frame.Name()) {
 		return nil, NewFrameMissingError(frame.Name())
 	}
-	if parent := sfs.parents[frame]; parent != nil {
-		return parent, nil
+	if parentName, exists := sfs.parents[frame.Name()]; exists {
+		return sfs.Frame(parentName), nil
 	}
 	return nil, NewParentFrameNilError(frame.Name())
 }
 
 // frameExists is a helper function to see if a frame with a given name already exists in the system.
-func (sfs *simpleFrameSystem) frameExists(name string) bool {
+func (sfs *FrameSystem) frameExists(name string) bool {
 	_, ok := sfs.frames[name]
 	return ok || name == World
 }
 
 // RemoveFrame will delete the given frame and all descendents from the frame system if it exists.
-func (sfs *simpleFrameSystem) RemoveFrame(frame Frame) {
+func (sfs *FrameSystem) RemoveFrame(frame Frame) {
 	delete(sfs.frames, frame.Name())
-	delete(sfs.parents, frame)
+	delete(sfs.parents, frame.Name())
 
 	// Remove all descendents
-	for f, parent := range sfs.parents {
-		if parent == frame {
-			sfs.RemoveFrame(f)
+	for childName, parentName := range sfs.parents {
+		if parentName == frame.Name() {
+			sfs.RemoveFrame(sfs.Frame(childName))
 		}
 	}
 }
 
 // Frame returns the Frame which has the provided name. It returns nil if the frame is not found in the FraneSystem.
-func (sfs *simpleFrameSystem) Frame(name string) Frame {
+func (sfs *FrameSystem) Frame(name string) Frame {
 	if !sfs.frameExists(name) {
 		return nil
 	}
@@ -198,14 +149,18 @@ func (sfs *simpleFrameSystem) Frame(name string) Frame {
 
 // TracebackFrame traces the parentage of the given frame up to the world, and returns the full list of frames in between.
 // The list will include both the query frame and the world referenceframe, and is ordered from query to world.
-func (sfs *simpleFrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
+func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 	if !sfs.frameExists(query.Name()) {
 		return nil, NewFrameMissingError(query.Name())
 	}
 	if query == sfs.world {
 		return []Frame{query}, nil
 	}
-	parents, err := sfs.TracebackFrame(sfs.parents[query])
+	parentName, exists := sfs.parents[query.Name()]
+	if !exists {
+		return nil, NewParentFrameNilError(query.Name())
+	}
+	parents, err := sfs.TracebackFrame(sfs.Frame(parentName))
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +168,7 @@ func (sfs *simpleFrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 }
 
 // FrameNames returns the list of frame names registered in the frame system.
-func (sfs *simpleFrameSystem) FrameNames() []string {
+func (sfs *FrameSystem) FrameNames() []string {
 	var frameNames []string
 	for k := range sfs.frames {
 		frameNames = append(frameNames, k)
@@ -222,7 +177,7 @@ func (sfs *simpleFrameSystem) FrameNames() []string {
 }
 
 // AddFrame sets an already defined Frame into the system.
-func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
+func (sfs *FrameSystem) AddFrame(frame, parent Frame) error {
 	// check to see if parent is in system
 	if parent == nil {
 		return NewParentFrameNilError(frame.Name())
@@ -238,13 +193,13 @@ func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 
 	// add to frame system
 	sfs.frames[frame.Name()] = frame
-	sfs.parents[frame] = parent
+	sfs.parents[frame.Name()] = parent.Name()
 	return nil
 }
 
 // Transform takes in a Transformable object and destination frame, and returns the pose from the first to the second. Positions
 // is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
-func (sfs *simpleFrameSystem) Transform(inputs FrameSystemInputs, object Transformable, dst string) (Transformable, error) {
+func (sfs *FrameSystem) Transform(inputs FrameSystemInputs, object Transformable, dst string) (Transformable, error) {
 	src := object.Parent()
 	if src == dst {
 		return object, nil
@@ -265,7 +220,11 @@ func (sfs *simpleFrameSystem) Transform(inputs FrameSystemInputs, object Transfo
 		// A frame is assigned a pose and a geometry and the two are not coupled together. This way you do can define everything relative
 		// to the parent frame. So geometries are tied to the frame they are assigned to but we do not want to actually transform them
 		// along the final transformation.
-		tfParent, err = sfs.transformFromParent(inputs, sfs.parents[srcFrame], sfs.Frame(dst))
+		parentName, exists := sfs.parents[srcFrame.Name()]
+		if !exists {
+			return nil, NewParentFrameNilError(srcFrame.Name())
+		}
+		tfParent, err = sfs.transformFromParent(inputs, sfs.Frame(parentName), sfs.Frame(dst))
 	} else {
 		tfParent, err = sfs.transformFromParent(inputs, srcFrame, sfs.Frame(dst))
 	}
@@ -276,7 +235,7 @@ func (sfs *simpleFrameSystem) Transform(inputs FrameSystemInputs, object Transfo
 }
 
 // Name returns the name of the simpleFrameSystem.
-func (sfs *simpleFrameSystem) Name() string {
+func (sfs *FrameSystem) Name() string {
 	return sfs.name
 }
 
@@ -285,14 +244,14 @@ func (sfs *simpleFrameSystem) Name() string {
 // Merging is necessary when including remote robots, dynamically building systems of robots, or mutating a robot after it
 // has already been initialized. For example, two independent rovers, each with their own frame system, need to now know where
 // they are in relation to each other and need to have their frame systems combined.
-func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error {
+func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Frame) error {
 	attachFrame := sfs.Frame(attachTo.Name())
 	if attachFrame == nil {
 		return NewFrameMissingError(attachTo.Name())
 	}
 
-	// make a map where the parent frame is the key and the slice of children frames is the value
-	childrenMap := map[Frame][]Frame{}
+	// make a map where the parent frame name is the key and the slice of children frames is the value
+	childrenMap := map[string][]Frame{}
 	for _, name := range systemToMerge.FrameNames() {
 		child := systemToMerge.Frame(name)
 		parent, err := systemToMerge.Parent(child)
@@ -302,7 +261,7 @@ func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attach
 			}
 			return err
 		}
-		childrenMap[parent] = append(childrenMap[parent], child)
+		childrenMap[parent.Name()] = append(childrenMap[parent.Name()], child)
 	}
 
 	// add every frame from systemToMerge to the base frame system.
@@ -310,7 +269,7 @@ func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attach
 	for len(queue) != 0 {
 		parent := queue[0]
 		queue = queue[1:]
-		children := childrenMap[parent]
+		children := childrenMap[parent.Name()]
 		for _, c := range children {
 			queue = append(queue, c)
 			if parent == systemToMerge.World() {
@@ -331,16 +290,16 @@ func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attach
 
 // FrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
 // at the given frame and containing all descendents of it. The original frame system is unchanged.
-func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, error) {
+func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 	newWorld := NewZeroStaticFrame(World)
-	newFS := &simpleFrameSystem{newRoot.Name() + "_FS", newWorld, map[string]Frame{}, map[Frame]Frame{}}
+	newFS := &FrameSystem{newRoot.Name() + "_FS", newWorld, map[string]Frame{}, map[string]string{}}
 
 	rootFrame := sfs.Frame(newRoot.Name())
 	if rootFrame == nil {
 		return nil, NewFrameMissingError(newRoot.Name())
 	}
 	newFS.frames[newRoot.Name()] = newRoot
-	newFS.parents[newRoot] = newWorld
+	newFS.parents[newRoot.Name()] = newWorld.Name()
 
 	var traceParent func(Frame) bool
 	traceParent = func(parent Frame) bool {
@@ -351,11 +310,17 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 		} else if parent == newRoot || newFS.frameExists(parent.Name()) {
 			return true
 		}
-		return traceParent(sfs.parents[parent])
+		parentName, exists := sfs.parents[parent.Name()]
+		if !exists {
+			return false
+		}
+		return traceParent(sfs.Frame(parentName))
 	}
 
 	// Deleting from a map as we iterate through it is OK and safe to do in Go
-	for frame, parent := range sfs.parents {
+	for frameName, parentName := range sfs.parents {
+		frame := sfs.Frame(frameName)
+		parent := sfs.Frame(parentName)
 		var addNew bool
 		if parent == newRoot {
 			addNew = true
@@ -364,7 +329,7 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 		}
 		if addNew {
 			newFS.frames[frame.Name()] = frame
-			newFS.parents[frame] = parent
+			newFS.parents[frame.Name()] = parent.Name()
 		}
 	}
 
@@ -375,7 +340,7 @@ func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, err
 // at the given frame and containing all descendents of it, while the original has the frame and its
 // descendents removed. For example, if there is a frame system with two independent rovers, and one rover goes offline,
 // A user could divide the frame system to remove the offline rover and have the rest of the frame system unaffected.
-func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, error) {
+func (sfs *FrameSystem) DivideFrameSystem(newRoot Frame) (*FrameSystem, error) {
 	newFS, err := sfs.FrameSystemSubset(newRoot)
 	if err != nil {
 		return nil, err
@@ -384,7 +349,7 @@ func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, err
 	return newFS, nil
 }
 
-func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap FrameSystemInputs, src Frame) (spatial.Pose, error) {
+func (sfs *FrameSystem) getFrameToWorldTransform(inputMap FrameSystemInputs, src Frame) (spatial.Pose, error) {
 	if !sfs.frameExists(src.Name()) {
 		return nil, NewFrameMissingError(src.Name())
 	}
@@ -404,7 +369,7 @@ func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap FrameSystemInput
 // ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
 // frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
 // replacementFrame is not allowed to exist within the frame system at the time of the call.
-func (sfs *simpleFrameSystem) ReplaceFrame(replacementFrame Frame) error {
+func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 	var replaceMe Frame
 	if replaceMe = sfs.Frame(replacementFrame.Name()); replaceMe == nil {
 		return fmt.Errorf("%s not found in frame system", replacementFrame.Name())
@@ -421,13 +386,13 @@ func (sfs *simpleFrameSystem) ReplaceFrame(replacementFrame Frame) error {
 
 	// remove replaceMe from the frame system
 	delete(sfs.frames, replaceMe.Name())
-	delete(sfs.parents, replaceMe)
+	delete(sfs.parents, replaceMe.Name())
 
-	for f, parent := range sfs.parents {
+	for frameName, parentName := range sfs.parents {
 		// replace frame with parent as replaceMe with replaceWith
-		if parent == replaceMe {
-			delete(sfs.parents, f)
-			sfs.parents[f] = replacementFrame
+		if parentName == replaceMe.Name() {
+			delete(sfs.parents, frameName)
+			sfs.parents[frameName] = replacementFrame.Name()
 		}
 	}
 	// add replacementFrame to frame system with parent of replaceMe
@@ -435,7 +400,7 @@ func (sfs *simpleFrameSystem) ReplaceFrame(replacementFrame Frame) error {
 }
 
 // Returns the relative pose between the parent and the destination frame.
-func (sfs *simpleFrameSystem) transformFromParent(inputMap FrameSystemInputs, src, dst Frame) (*PoseInFrame, error) {
+func (sfs *FrameSystem) transformFromParent(inputMap FrameSystemInputs, src, dst Frame) (*PoseInFrame, error) {
 	// catch all errors together to allow for hypothetical calculations that result in errors
 	var errAll error
 	dstToWorld, err := sfs.getFrameToWorldTransform(inputMap, dst)
@@ -451,10 +416,10 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap FrameSystemInputs, sr
 }
 
 // composeTransforms computes the transformation of the provide Frame to the World Frame, using the provided FrameSystemInputs.
-func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInputs) (spatial.Pose, error) {
+func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInputs) (spatial.Pose, error) {
 	q := spatial.NewZeroPose() // empty initial dualquat
 	var errAll error
-	for sfs.parents[frame] != nil { // stop once you reach world node
+	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
 		// Transform() gives FROM q TO parent. Add new transforms to the left.
 		inputs, err := inputMap.GetFrameInputs(frame)
 		if err != nil {
@@ -466,13 +431,76 @@ func (sfs *simpleFrameSystem) composeTransforms(frame Frame, inputMap FrameSyste
 		}
 		multierr.AppendInto(&errAll, err)
 		q = spatial.Compose(pose, q)
-		frame = sfs.parents[frame]
+		frame = sfs.Frame(sfs.parents[frame.Name()])
 	}
 	return q, errAll
 }
 
+// MarshalJSON serializes a FrameSystem into JSON format.
+func (sfs *FrameSystem) MarshalJSON() ([]byte, error) {
+	type serializableFrameSystem struct {
+		Name    string                     `json:"name"`
+		World   json.RawMessage            `json:"world"`
+		Frames  map[string]json.RawMessage `json:"frames"`
+		Parents map[string]string          `json:"parents"`
+	}
+	worldFrameJSON, err := frameToJSON(sfs.World())
+	if err != nil {
+		return nil, err
+	}
+
+	typedFrames := make(map[string]json.RawMessage, 0)
+	for name, frame := range sfs.frames {
+		frameJSON, err := frameToJSON(frame)
+		if err != nil {
+			return nil, err
+		}
+		typedFrames[name] = frameJSON
+	}
+	serializedFS := serializableFrameSystem{
+		Name:   sfs.name,
+		World:  worldFrameJSON,
+		Frames: typedFrames,
+	}
+	return json.Marshal(serializedFS)
+}
+
+// UnmarshalJSON parses a FrameSystem from JSON data.
+func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
+	type serializableFrameSystem struct {
+		Name    string                     `json:"name"`
+		World   json.RawMessage            `json:"world"`
+		Frames  map[string]json.RawMessage `json:"frames"`
+		Parents map[string]string          `json:"parents"`
+	}
+	var serFS serializableFrameSystem
+	if err := json.Unmarshal(data, &serFS); err != nil {
+		return err
+	}
+
+	worldFrame, err := jsonToFrame(serFS.World)
+	if err != nil {
+		return err
+	}
+
+	frameMap := make(map[string]Frame, 0)
+	for name, tF := range serFS.Frames {
+		frame, err := jsonToFrame(tF)
+		if err != nil {
+			return err
+		}
+		frameMap[name] = frame
+	}
+
+	sfs.frames = frameMap
+	sfs.parents = serFS.Parents
+	sfs.world = worldFrame
+	sfs.name = serFS.Name
+	return nil
+}
+
 // NewZeroInputs returns a zeroed input map ensuring all frames have inputs.
-func NewZeroInputs(fs FrameSystem) FrameSystemInputs {
+func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	positions := make(FrameSystemInputs)
 	for _, fn := range fs.FrameNames() {
 		frame := fs.Frame(fn)
@@ -484,7 +512,7 @@ func NewZeroInputs(fs FrameSystem) FrameSystemInputs {
 }
 
 // InterpolateFS interpolates.
-func InterpolateFS(fs FrameSystem, from, to FrameSystemInputs, by float64) (FrameSystemInputs, error) {
+func InterpolateFS(fs *FrameSystem, from, to FrameSystemInputs, by float64) (FrameSystemInputs, error) {
 	interp := make(FrameSystemInputs)
 	for fn, fromInputs := range from {
 		if len(fromInputs) == 0 {
@@ -509,7 +537,7 @@ func InterpolateFS(fs FrameSystem, from, to FrameSystemInputs, by float64) (Fram
 
 // FrameSystemToPCD takes in a framesystem and returns a map where all elements are
 // the point representation of their geometry type with respect to the world.
-func FrameSystemToPCD(system FrameSystem, inputs FrameSystemInputs, logger logging.Logger) (map[string][]r3.Vector, error) {
+func FrameSystemToPCD(system *FrameSystem, inputs FrameSystemInputs, logger logging.Logger) (map[string][]r3.Vector, error) {
 	vectorMap := make(map[string][]r3.Vector)
 	geometriesInWorldFrame, err := FrameSystemGeometries(system, inputs)
 	if err != nil {
@@ -524,7 +552,7 @@ func FrameSystemToPCD(system FrameSystem, inputs FrameSystemInputs, logger loggi
 }
 
 // FrameSystemGeometries takes in a framesystem and returns a map where all elements are GeometriesInFrames with a World reference frame.
-func FrameSystemGeometries(fs FrameSystem, inputMap FrameSystemInputs) (map[string]*GeometriesInFrame, error) {
+func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[string]*GeometriesInFrame, error) {
 	var errAll error
 	allGeometries := make(map[string]*GeometriesInFrame, 0)
 	for _, name := range fs.FrameNames() {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,7 +14,9 @@ import (
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	v1 "go.viam.com/api/app/v1"
+	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/module/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
@@ -21,6 +25,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
@@ -33,8 +38,13 @@ import (
 	"go.viam.com/rdk/examples/customresources/models/mysum"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/robot/framesystem"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/rdk/services/shell"
@@ -186,7 +196,8 @@ func TestModuleFunctions(t *testing.T) {
 
 	test.That(t, m.Start(ctx), test.ShouldBeNil)
 
-	conn, err := grpc.Dial( //nolint:staticcheck
+	//nolint:staticcheck
+	conn, err := grpc.Dial(
 		"unix://"+addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
@@ -477,7 +488,8 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, m.AddModelFromRegistry(ctx, shell.API, modelWithReconfigure), test.ShouldBeNil)
 
 		test.That(t, m.Start(ctx), test.ShouldBeNil)
-		conn, err := grpc.Dial( //nolint:staticcheck
+		//nolint:staticcheck
+		conn, err := grpc.Dial(
 			"unix://"+addr,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
@@ -898,4 +910,106 @@ func TestModuleSocketAddrTruncation(t *testing.T) {
 		"a",
 	)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "module socket base path")
+}
+
+func TestNewFrameSystemClient(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+
+	testAPI := resource.APINamespaceRDK.WithComponentType(arm.SubtypeName)
+
+	testName := resource.NewName(testAPI, "arm1")
+
+	expectedInputs := referenceframe.FrameSystemInputs{
+		testName.ShortName(): []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}},
+	}
+	injectArm := &inject.Arm{
+		JointPositionsFunc: func(ctx context.Context, extra map[string]any) ([]referenceframe.Input, error) {
+			return expectedInputs[testName.ShortName()], nil
+		},
+		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
+			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+		},
+	}
+
+	resourceNames := []resource.Name{testName}
+	resources := map[resource.Name]arm.Arm{testName: injectArm}
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:  func() []resource.Name { return resourceNames },
+		ResourceByNameFunc: func(n resource.Name) (resource.Resource, error) { return resources[n], nil },
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+	}
+
+	armSvc, err := resource.NewAPIResourceCollection(arm.API, resources)
+	test.That(t, err, test.ShouldBeNil)
+	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc))
+	robotpb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := client.New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	inputs, err := client.CurrentInputs(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(inputs), test.ShouldEqual, 1)
+	test.That(t, inputs, test.ShouldResemble, expectedInputs)
+
+	fsc := module.NewFrameSystemClient(client)
+	fsCurrentInputs, err := fsc.CurrentInputs(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fsCurrentInputs, test.ShouldResemble, inputs)
+}
+
+func TestFrameSystemFromDependencies(t *testing.T) {
+	type testHarness struct {
+		ctx context.Context
+
+		m              *module.Module
+		cfg            *v1.ComponentConfig
+		constructCount int
+	}
+
+	var th testHarness
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(func() { cancelFunc() })
+	th.ctx = ctx
+
+	modelName := utils.RandomAlphaString(5)
+	model := resource.DefaultModelFamily.WithModel(modelName)
+
+	resource.RegisterService(shell.API, model, resource.Registration[shell.Service, *MockConfig]{
+		Constructor: func(
+			ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
+		) (shell.Service, error) {
+			th.constructCount++
+			fsc, err := framesystem.FromDependencies(deps)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, fsc.Name(), test.ShouldResemble, framesystem.PublicServiceName)
+
+			return &inject.ShellService{}, nil
+		},
+	})
+	t.Cleanup(func() {
+		resource.Deregister(shell.API, model)
+	})
+
+	th.m = setupLocalModule(t, ctx, logging.NewTestLogger(t))
+	test.That(t, th.m.AddModelFromRegistry(ctx, shell.API, model), test.ShouldBeNil)
+
+	th.cfg = &v1.ComponentConfig{Name: "mymock", Api: shell.API.String(), Model: model.String()}
+
+	_, err := th.m.AddResource(th.ctx, &pb.AddResourceRequest{Config: th.cfg})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, th.constructCount, test.ShouldEqual, 1)
 }

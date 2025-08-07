@@ -49,7 +49,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/module/modmaninterface"
+	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -714,16 +714,18 @@ func TestManagerMarkRemoved(t *testing.T) {
 	checkEmpty := func(
 		resourcesToCloseBeforeComplete []resource.Resource,
 		names map[resource.Name]struct{},
+		toRebuild []resource.Name,
 	) {
 		t.Helper()
 		test.That(t, names, test.ShouldBeEmpty)
 		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
+		test.That(t, toRebuild, test.ShouldBeEmpty)
 	}
 
-	resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{})
-	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames)
+	resourcesToCloseBeforeComplete, markedResourceNames, toRebuild := manager.markRemoved(ctx, &config.Config{})
+	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames, toRebuild)
 
-	resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	resourcesToCloseBeforeComplete, markedResourceNames, toRebuild = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "what",
@@ -770,16 +772,16 @@ func TestManagerMarkRemoved(t *testing.T) {
 			},
 		},
 	})
-	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames)
+	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames, toRebuild)
 
-	resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	resourcesToCloseBeforeComplete, markedResourceNames, toRebuild = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
 				Name: "what1",
 			},
 		},
 	})
-	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames)
+	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames, toRebuild)
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
@@ -788,7 +790,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	_, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
 				Name: "arm2",
@@ -868,7 +870,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	_, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote2",
@@ -981,7 +983,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	_, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote1",
@@ -1262,7 +1264,7 @@ func TestConfigUntrustedEnv(t *testing.T) {
 		})
 		test.That(t, errors.Is(err, errShellServiceDisabled), test.ShouldBeTrue)
 
-		resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{
+		resourcesToCloseBeforeComplete, markedResourceNames, _ := manager.markRemoved(ctx, &config.Config{
 			Services: []resource.Config{{
 				Name: "shell-service",
 				API:  shell.API,
@@ -1780,7 +1782,7 @@ type dummyRobot struct {
 	mu         sync.Mutex
 	robot      robot.Robot
 	manager    *resourceManager
-	modmanager modmaninterface.ModuleManager
+	modmanager *modmanager.Manager
 
 	offline bool
 }
@@ -1868,6 +1870,15 @@ func (rr *dummyRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Confi
 	panic("change to return nil")
 }
 
+func (rr *dummyRobot) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	panic("change to return nil")
+}
+
 func (rr *dummyRobot) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
@@ -1882,6 +1893,10 @@ func (rr *dummyRobot) TransformPointCloud(ctx context.Context, srcpc pointcloud.
 	panic("change to return nil")
 }
 
+func (rr *dummyRobot) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
+	panic("change to return nil")
+}
+
 func (rr *dummyRobot) ProcessManager() pexec.ProcessManager {
 	panic("change to return nil")
 }
@@ -1890,7 +1905,7 @@ func (rr *dummyRobot) OperationManager() *operation.Manager {
 	panic("change to return nil")
 }
 
-func (rr *dummyRobot) ModuleManager() modmaninterface.ModuleManager {
+func (rr *dummyRobot) ModuleManager() *modmanager.Manager {
 	return rr.modmanager
 }
 

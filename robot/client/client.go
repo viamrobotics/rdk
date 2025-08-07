@@ -266,7 +266,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	}
 
 	if rOpts.withNetworkStats {
-		nc.RunNetworkChecks(ctx, logger)
+		nc.RunNetworkChecks(ctx, logger, false /* !continueRunningTestDNS */)
 	}
 
 	backgroundCtx, backgroundCtxCancel := context.WithCancel(context.Background())
@@ -281,6 +281,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		logger:              logger,
 		dialOptions:         rOpts.dialOptions,
 		notifyParent:        nil,
+		conn:                grpc.ReconfigurableClientConn{Logger: logger},
 		resourceClients:     make(map[resource.Name]resource.Resource),
 		remoteNameMap:       make(map[resource.Name]resource.Name),
 		sessionsDisabled:    rOpts.disableSessions,
@@ -791,7 +792,13 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 				// has a remote. This can be solved by either integrating reflection into
 				// robot.proto or by overriding the gRPC reflection service to return
 				// reflection results from its remotes.
-				rc.Logger().CDebugw(ctx, "failed to find symbol for resource API", "api", resAPI, "error", err)
+				rc.Logger().
+					CDebugw(
+						ctx,
+						"failed to find symbol for resource API",
+						"api", rprotoutils.ResourceNameFromProto(resAPI.Subtype).API.String(),
+						"error", err,
+					)
 				continue
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
@@ -967,6 +974,33 @@ func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Conf
 	return &framesystem.Config{Parts: result}, nil
 }
 
+// GetPose returns the pose of the specified component in the given destination frame.
+func (rc *RobotClient) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(supplementalTransforms)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := rc.client.GetPose(ctx, &pb.GetPoseRequest{
+		ComponentName:          componentName,
+		DestinationFrame:       destinationFrame,
+		SupplementalTransforms: transforms,
+		Extra:                  ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
+}
+
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 //
 //	  import (
@@ -980,9 +1014,9 @@ func (rc *RobotClient) TransformPose(
 	ctx context.Context,
 	query *referenceframe.PoseInFrame,
 	destination string,
-	additionalTransforms []*referenceframe.LinkInFrame,
+	supplementalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
-	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(additionalTransforms)
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(supplementalTransforms)
 	if err != nil {
 		return nil, err
 	}
@@ -1028,6 +1062,27 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 		return nil, err
 	}
 	return output, nil
+}
+
+// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
+// and a map of statuses indicating which of the machine's components may be actuated through input values.
+func (rc *RobotClient) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
+	input := make(referenceframe.FrameSystemInputs)
+	for _, name := range rc.ResourceNames() {
+		res, err := rc.ResourceByName(name)
+		if err != nil {
+			return nil, err
+		}
+		inputEnabled, ok := res.(framesystem.InputEnabled)
+		if ok {
+			pos, err := inputEnabled.CurrentInputs(ctx)
+			if err != nil {
+				return nil, err
+			}
+			input[name.ShortName()] = pos
+		}
+	}
+	return input, nil
 }
 
 // StopAll cancels all current and outstanding operations for the machine and stops all actuators and movement.

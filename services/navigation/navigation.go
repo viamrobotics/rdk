@@ -12,6 +12,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	servicepb "go.viam.com/api/service/navigation/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
@@ -24,6 +25,10 @@ func init() {
 		RPCServiceDesc:              &servicepb.NavigationService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // Mode describes what mode to operate the service in.
@@ -42,6 +47,8 @@ const (
 	GPSMap
 )
 
+const unknown = "Unknown"
+
 func (m Mode) String() string {
 	switch m {
 	case ModeManual:
@@ -51,7 +58,7 @@ func (m Mode) String() string {
 	case ModeExplore:
 		return "Explore"
 	default:
-		return "UNKNOWN"
+		return unknown
 	}
 }
 
@@ -62,7 +69,7 @@ func (m MapType) String() string {
 	case GPSMap:
 		return "GPS"
 	default:
-		return "UNKNOWN"
+		return unknown
 	}
 }
 

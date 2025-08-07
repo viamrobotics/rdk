@@ -276,13 +276,19 @@ func (gpw *gnuplotWriter) copyPreviousPoint(timeSeconds int64, metricName string
 		return
 	}
 
-	gi, newlyCreated := gpw.getGraphInfo(metricName)
-	if newlyCreated {
-		gi.writeStartingDatapoints(gpw.firstTimeSecs, timeSeconds)
+	// Do not use `getGraphInfo`. As we are returning in the case where this is newly created. And
+	// the actual code that writes a first data point would not know its the first write.
+	//
+	// Perhaps we should either:
+	// - Only call `copyPreviousPoint` when there is a previous point or
+	// - Determine if a graph is new by looking at how many points we've added. Not the existence of
+	//   the graph in our internal map.
+	gi, exists := gpw.metricFiles[metricName]
+	if !exists {
 		return
 	}
 
-	writelnf(gi.file, "%v %.5f", timeSeconds, gi.prevVal)
+	gpw.addPoint(timeSeconds, metricName, gi.prevVal)
 }
 
 func (gi *graphInfo) writeStartingDatapoints(firstTimeSecs, datapointTimeSecs int64) {
@@ -312,7 +318,12 @@ func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricV
 	// graphs. As we've found gnuplots auto scaling to be a bit clunky.
 	gi, newlyCreated := gpw.getGraphInfo(metricName)
 	if newlyCreated {
-		gi.writeStartingDatapoints(gpw.firstTimeSecs, timeSeconds)
+		startingTime := gpw.firstTimeSecs
+		if gpw.options.minTimeSeconds > startingTime {
+			startingTime = gpw.options.minTimeSeconds
+		}
+
+		gi.writeStartingDatapoints(startingTime, timeSeconds)
 	}
 
 	gi.prevVal = metricValue
@@ -349,6 +360,7 @@ var ratioMetricToFields = map[string]ratioMetric{
 	"RxPacketsPerSec":        {"RxPackets", ""},
 	"TxBytesPerSec":          {"TxBytes", ""},
 	"RxBytesPerSec":          {"RxBytes", ""},
+	"DataSentBytesPerSec":    {"dataSentBytes", ""},
 
 	// Dan: Just tacking these on -- omitted metrics from this list does not mean they shouldn't* be
 	// here. Also, personally, sometimes I think not* doing PerSec for these can also be
@@ -359,6 +371,7 @@ var ratioMetricToFields = map[string]ratioMetric{
 	"GetImagesPerSec":           {"GetImages", ""},
 	"DoCommandPerSec":           {"DoCommand", ""},
 	"MoveStraightLatencyMillis": {"MoveStraight.timeSpent", "MoveStraight"},
+	"GetClassificationsPerSec":  {"GetClassifications", ""},
 }
 
 // ratioReading is a reading of two metrics described by `ratioMetric`. This is what will be graphed.
@@ -395,6 +408,16 @@ func (rr *ratioReading) diff(other *ratioReading) ratioReading {
 		rr.Time,
 		rr.Numerator - other.Numerator,
 		rr.Denominator - other.Denominator,
+		rr.isRate,
+	}
+}
+
+func (rr *ratioReading) diffAgainstZero(denominator float64) ratioReading {
+	return ratioReading{
+		rr.GraphName,
+		rr.Time,
+		rr.Numerator,
+		rr.Denominator - denominator,
 		rr.isRate,
 	}
 }
@@ -545,9 +568,13 @@ func (gpw *gnuplotWriter) writeDeferredValues(deferredValues []map[string]*ratio
 				// We expect this to happen when there's only one reading in some window size. This
 				// can be very spammy, so it's at the debug level. A bug could easily introduce
 				// unexpected cases to enter this code path.
-				logger.Debugw("Deferred value missing a previous value to diff",
+				logger.Debugw("Deferred value missing a previous value to diff.",
 					"metricName", metricName, "time", currRatioReading.Time)
-				continue
+
+				// For cases where a metric comes into existence as non-zero, we can assume it's
+				// older readings would have been zero. We additionally make an assumption that this
+				// is a time metric.
+				diff = currRatioReading.diffAgainstZero(float64(currRatioReading.Time) - windowSize.Seconds())
 			}
 
 			value, err := diff.toValue()

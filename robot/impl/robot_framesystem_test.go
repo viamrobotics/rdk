@@ -17,8 +17,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
-	"go.viam.com/rdk/services/motion"
-	_ "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
@@ -108,8 +106,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fsCfg, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	fsCfg.AdditionalTransforms = transforms
-	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, fsCfg.AdditionalTransforms)
+	fs, err := referenceframe.NewFrameSystem("", fsCfg.Parts, transforms)
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 34)
@@ -126,7 +123,6 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 	rr.triggerConfig <- struct{}{}
 
 	finalSet := []resource.Name{
-		motion.Named(resource.DefaultServiceName),
 		base.Named("foo"),
 		gripper.Named("myParentIsRemote"),
 	}
