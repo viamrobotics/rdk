@@ -139,7 +139,7 @@ type Camera interface {
 
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
-	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
+	Images(ctx context.Context, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
@@ -174,9 +174,8 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 // If no image is found with the matching source name, it returns an error.
 //
 // It uses the mimeType arg to specify how to encode the bytes returned from GetImages.
-func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType string, cam Camera) ([]byte, ImageMetadata, error) {
-	// TODO(RSDK-10991): pass through extra field when implemented
-	images, _, err := cam.Images(ctx)
+func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType string, cam Camera, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
+	images, _, err := cam.Images(ctx, extra)
 	if err != nil {
 		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
 	}
@@ -268,7 +267,7 @@ type PointCloudSource interface {
 
 // A ImagesSource is a source that can return a list of images with timestamp.
 type ImagesSource interface {
-	Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error)
+	Images(ctx context.Context, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error)
 }
 
 // NewPropertiesError returns an error specific to a failure in Properties.
