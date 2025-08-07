@@ -888,7 +888,6 @@ func (c *viamClient) dataAddTagsToBinaryByFilter(filter *datapb.Filter, tags []s
 			_, err := c.dataClient.AddTagsToBinaryDataByIDs(context.Background(),
 				&datapb.AddTagsToBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: []string{id}})
 			return errors.Wrapf(err, serverErrorMessage)
-
 		},
 		filter, parallelActions,
 		func(i int32) {
