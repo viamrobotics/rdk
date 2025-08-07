@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,10 +37,6 @@ import (
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web/server"
 )
-
-// numResources is the # of resources in /etc/configs/fake.json + the 2
-// expected builtin resources.
-const numResources = 20
 
 func TestEntrypoint(t *testing.T) {
 	t.Run("number of resources", func(t *testing.T) {
@@ -86,6 +83,15 @@ func TestEntrypoint(t *testing.T) {
 		resourceNames, err := rc.ResourceNames(context.Background(), &robotpb.ResourceNamesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 
+		// numResources is the # of resources in /etc/configs/fake.json + the 1
+		// expected builtin resources.
+		numResources := 20
+		if runtime.GOOS == "windows" {
+			// windows build excludes builtin models that use cgo,
+			// including fake audioinput, builtin motion, fake arm, and builtin navigation.
+			numResources = 16
+		}
+
 		test.That(t, len(resourceNames.Resources), test.ShouldEqual, numResources)
 	})
 	t.Run("dump resource registrations", func(t *testing.T) {
@@ -105,7 +111,13 @@ func TestEntrypoint(t *testing.T) {
 		registrations := []registration{}
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, registrations, test.ShouldHaveLength, 52)
+
+		numReg := 52
+		if runtime.GOOS == "windows" {
+			// windows build excludes builtin models that use cgo
+			numReg = 43
+		}
+		test.That(t, registrations, test.ShouldHaveLength, numReg)
 
 		observedReg := make(map[string]bool)
 		for _, reg := range registrations {
@@ -120,11 +132,19 @@ func TestEntrypoint(t *testing.T) {
 		// Check specifically for registrations we care about
 		expectedReg := []string{
 			"rdk:component:arm/rdk:builtin:wrapper_arm",
-			"rdk:component:camera/rdk:builtin:webcam",
 			"rdk:service:data_manager/rdk:builtin:builtin",
-			"rdk:service:motion/rdk:builtin:builtin",
 			"rdk:service:shell/rdk:builtin:builtin",
 			"rdk:service:vision/rdk:builtin:mlmodel",
+		}
+
+		// windows build excludes builtin models that use cgo, so add more if not
+		// on windows
+		if runtime.GOOS != "windows" {
+			expectedReg = append(
+				expectedReg,
+				"rdk:component:camera/rdk:builtin:webcam",
+				"rdk:service:motion/rdk:builtin:builtin",
+			)
 		}
 		for _, reg := range expectedReg {
 			test.That(t, observedReg[reg], test.ShouldBeTrue)
