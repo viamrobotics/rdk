@@ -35,11 +35,13 @@ func BuildViamServer(tb testing.TB) string {
 		if runtime.GOOS == osDarwin {
 			command = "server"
 		}
+		//nolint:gosec
 		builder = exec.Command("make", command)
 		builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)
 	} else {
 		// we don't have access to make on Windows, so copy the build command from the Makefile.
 		serverPath += ".exe"
+		//nolint:gosec
 		builder = exec.Command(
 			"go", "build", "-tags", "no_cgo,osusergo,netgo",
 			"-ldflags=-extldflags=-static -s -w",
