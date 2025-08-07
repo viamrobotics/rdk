@@ -124,28 +124,15 @@ func DatapipelineRenameAction(c *cli.Context, args datapipelineRenameArgs) error
 		return err
 	}
 
-	resp, err := client.datapipelinesClient.GetDataPipeline(context.Background(), &datapipelinespb.GetDataPipelineRequest{
-		Id: args.ID,
-	})
-	if err != nil {
-		return fmt.Errorf("error getting data pipeline: %w", err)
-	}
-	current := resp.GetDataPipeline()
-
-	name := args.Name
-	if name == "" {
-		name = current.GetName()
-	}
-
 	_, err = client.datapipelinesClient.RenameDataPipeline(context.Background(), &datapipelinespb.RenameDataPipelineRequest{
 		Id:   args.ID,
-		Name: name,
+		Name: args.Name,
 	})
 	if err != nil {
 		return fmt.Errorf("error updating data pipeline: %w", err)
 	}
 
-	printf(c.App.Writer, "%s (id: %s) renamed.", name, args.ID)
+	printf(c.App.Writer, "%s (id: %s) renamed.", args.Name, args.ID)
 	return nil
 }
 
