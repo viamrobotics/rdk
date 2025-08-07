@@ -68,6 +68,9 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 	tb.Helper()
 
 	exePath := filepath.Join(tb.TempDir(), filepath.Base(modDir))
+	if runtime.GOOS == "windows" {
+		exePath += ".exe"
+	}
 	//nolint:gosec
 	builder := exec.Command("go", "build", "-o", exePath, ".")
 	builder.Dir = utils.ResolveFile(modDir)
