@@ -887,7 +887,8 @@ func (c *viamClient) dataAddTagsToBinaryByFilter(filter *datapb.Filter, tags []s
 		func(id string) error {
 			_, err := c.dataClient.AddTagsToBinaryDataByIDs(context.Background(),
 				&datapb.AddTagsToBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: []string{id}})
-			return err
+			return errors.Wrapf(err, serverErrorMessage)
+
 		},
 		filter, parallelActions,
 		func(i int32) {
@@ -902,7 +903,7 @@ func (c *viamClient) dataRemoveTagsFromBinaryByFilter(filter *datapb.Filter, tag
 		func(id string) error {
 			_, err := c.dataClient.RemoveTagsFromBinaryDataByIDs(context.Background(),
 				&datapb.RemoveTagsFromBinaryDataByIDsRequest{Tags: tags, BinaryDataIds: []string{id}})
-			return err
+			return errors.Wrapf(err, serverErrorMessage)
 		},
 		filter, parallelActions,
 		func(i int32) {
