@@ -252,6 +252,9 @@ func TestMachineState(t *testing.T) {
 	fakeModuleDataFile, err := os.Create(filepath.Join(fakeModuleDataPath, "foo"))
 	test.That(t, err, test.ShouldBeNil)
 
+	fakeDataFileName := fakeModuleDataFile.Name()
+	test.That(t, fakeModuleDataFile.Close(), test.ShouldBeNil)
+
 	// Register a slow-constructing generic resource and defer its deregistration.
 	type slow struct {
 		resource.Named
@@ -333,7 +336,7 @@ func TestMachineState(t *testing.T) {
 
 	// Assert that the `foo` package file exists during initialization, machine assumes
 	// package files may still be in use.)
-	_, err = os.Stat(fakeModuleDataFile.Name())
+	_, err = os.Stat(fakeDataFileName)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Allow `slowpoke` to complete construction.
@@ -348,7 +351,7 @@ func TestMachineState(t *testing.T) {
 
 	// Assert that the `foo` file was removed, as the non-initializing `Reconfigure`
 	// determined it was unnecessary (no associated package/module.)
-	_, err = os.Stat(fakeModuleDataFile.Name())
+	_, err = os.Stat(fakeDataFileName)
 	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 
 	// Cancel context and wait for server goroutine to stop running.
