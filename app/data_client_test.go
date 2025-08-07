@@ -1157,7 +1157,7 @@ func TestDataPipelineClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, "new-data-pipeline-id")
 	})
-  
+
 	t.Run("RenameDataPipeline", func(t *testing.T) {
 		grpcClient.RenameDataPipelineFunc = func(
 			ctx context.Context, in *datapipelinesPb.RenameDataPipelineRequest, opts ...grpc.CallOption,
