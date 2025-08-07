@@ -137,6 +137,9 @@ func formatType(typeExpr ast.Expr, resourceSubtype string) string {
 		return fmt.Sprintf("Error formatting type: %v", err)
 	}
 	typeString := buf.String()
+	if resourceSubtype == "switch" {
+		resourceSubtype = "sw"
+	}
 
 	// checkUpper adds "<resourceSubtype>." to the type if type is capitalized after prefix.
 	checkUpper := func(str, prefix string) string {
