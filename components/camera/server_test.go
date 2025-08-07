@@ -93,7 +93,7 @@ func TestServer(t *testing.T) {
 			FrameRate:       float32(10.0),
 		}, nil
 	}
-	injectCamera.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	injectCamera.ImagesFunc = func(ctx context.Context, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		images := []camera.NamedImage{}
 		// one color image
 		color := rimage.NewImage(40, 50)

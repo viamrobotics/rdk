@@ -329,7 +329,7 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 }
 
 // Images is a part of the camera interface but is not implemented for replay.
-func (replay *pcdCamera) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (replay *pcdCamera) Images(_ context.Context, _ map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	return nil, resource.ResponseMetadata{}, errors.New("Images is unimplemented")
 }
 
