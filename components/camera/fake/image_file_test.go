@@ -134,7 +134,7 @@ func TestPreloadedImages(t *testing.T) {
 			test.That(t, bounds.Dx() > 0, test.ShouldBeTrue)
 			test.That(t, bounds.Dy() > 0, test.ShouldBeTrue)
 
-			namedImages, metadata, err := cam.Images(ctx)
+			namedImages, metadata, err := cam.Images(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(namedImages), test.ShouldEqual, 1)
 			test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
@@ -159,7 +159,7 @@ func TestPreloadedImages(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Should return both images
-	namedImages, _, err := cam.Images(ctx)
+	namedImages, _, err := cam.Images(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(namedImages), test.ShouldEqual, 2)
 	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")

@@ -197,7 +197,7 @@ func newCamera(
 		return pcd, nil
 	}
 
-	v.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	v.ImagesFunc = func(ctx context.Context, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		return []camera.NamedImage{
 				{Image: left, SourceName: "left"},
 				{Image: right, SourceName: "right"},
