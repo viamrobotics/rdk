@@ -112,6 +112,30 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 	return nil
 }
 
+type datapipelineRenameArgs struct {
+	ID   string
+	Name string
+}
+
+// DatapipelineRenameAction renames an existing data pipeline.
+func DatapipelineRenameAction(c *cli.Context, args datapipelineRenameArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.datapipelinesClient.RenameDataPipeline(context.Background(), &datapipelinespb.RenameDataPipelineRequest{
+		Id:   args.ID,
+		Name: args.Name,
+	})
+	if err != nil {
+		return fmt.Errorf("error updating data pipeline: %w", err)
+	}
+
+	printf(c.App.Writer, "%s (id: %s) renamed.", args.Name, args.ID)
+	return nil
+}
+
 type datapipelineDeleteArgs struct {
 	ID string
 }

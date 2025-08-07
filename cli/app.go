@@ -1677,6 +1677,24 @@ var app = &cli.App{
 					Action: createCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
 				},
 				{
+					Name:      "rename",
+					Usage:     "rename a data pipeline",
+					UsageText: createUsageText("datapipelines rename", []string{generalFlagID, generalFlagName}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagID,
+							Usage:    "ID of the data pipeline to rename",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     generalFlagName,
+							Usage:    "new name for the data pipeline",
+							Required: true,
+						},
+					},
+					Action: createCommandWithT[datapipelineRenameArgs](DatapipelineRenameAction),
+				},
+				{
 					Name:      "delete",
 					Usage:     "delete a data pipeline",
 					UsageText: createUsageText("datapipelines delete", []string{generalFlagID}, true, false),
