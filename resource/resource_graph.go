@@ -220,7 +220,6 @@ func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error)
 	for gName, gNode := range g.nodes {
 		// TODO: search for names + nodes that would have matched w/o the prefix
 		// and include them in the error to help users.
-		strings.Compare(gNode.prefix, name[:len(gNode.prefix)])
 		if gName.API == api && gNode.prefix+gName.Name == name {
 			matches = append(matches, gTuple{gName, gNode})
 		}
