@@ -610,7 +610,8 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 					return err
 				}
 				if referenceframe.InputsLinfDistance(curr, inputs) > epsilon {
-					return fmt.Errorf("component %v is not within %v of the current position", name, epsilon)
+					return fmt.Errorf("component %v is not within %v of the current position. Expected inputs %v current inputs %v",
+						name, epsilon, inputs, curr)
 				}
 				currStep[name] = append(currStep[name], inputs)
 			}
