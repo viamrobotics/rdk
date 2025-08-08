@@ -612,7 +612,6 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	environment := map[string]string{
 		"VIAM_BUILD_OS":   partOs,
 		"VIAM_BUILD_ARCH": partArch,
-		"VIAM_RELOAD":     "1",
 	}
 
 	// Add all environment variables with VIAM_ prefix
