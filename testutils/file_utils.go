@@ -35,7 +35,6 @@ func BuildViamServer(tb testing.TB) string {
 		if runtime.GOOS == osDarwin {
 			command = "server"
 		}
-		//nolint:gosec
 		builder = exec.Command("make", command)
 		builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)
 	} else {
@@ -59,7 +58,6 @@ func BuildViamServer(tb testing.TB) string {
 	if tb.Failed() {
 		tb.Fatal("failed to build viam-server executable")
 	}
-
 	return serverPath
 }
 
