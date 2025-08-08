@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -124,6 +125,9 @@ func PlatformHomeDir() string {
 func PlatformMkdirTemp(dir, pattern string) (string, error) {
 	if runtime.GOOS == "android" && dir == "" {
 		dir = AndroidFilesDir
+	}
+	if testing.Testing() && runtime.GOOS == "windows" && dir == "" {
+		os.MkdirTemp(PlatformHomeDir(), pattern)
 	}
 	return os.MkdirTemp(dir, pattern)
 }
