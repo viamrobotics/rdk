@@ -563,6 +563,10 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
 	tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
 	test.That(t, err, test.ShouldBeNil)
+
+	cfgFileName := tempConfigFile.Name()
+	test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
+
 	helperModel := resource.NewModel("rdk", "test", "helper")
 	machineAddress := "localhost:23659"
 
@@ -588,7 +592,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	}
 	cfgBytes, err := json.Marshal(&cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Call `RunServer` in a goroutine as it is blocking. Point it to the temporary config
 	// file created above.
@@ -597,7 +601,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		args := []string{"viam-server", "-config", tempConfigFile.Name()}
+		args := []string{"viam-server", "-config", cfgFileName}
 		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
 
@@ -618,7 +622,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	cfg.Debug = true
 	cfgBytes, err = json.Marshal(&cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Debug."
 	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -632,7 +636,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	cfg.Debug = false
 	cfgBytes, err = json.Marshal(&cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Info."
 	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -643,10 +647,10 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	})
 
 	// Specify a "log" pattern of { "testModule": "debug" } in the temporary config file.
-	cfg.LogConfig = []logging.LoggerPatternConfig{{"testModule", "debug"}}
+	cfg.LogConfig = []logging.LoggerPatternConfig{{Pattern: "testModule", Level: "debug"}}
 	cfgBytes, err = json.Marshal(&cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Debug."
 	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -660,7 +664,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	cfg.LogConfig = nil
 	cfgBytes, err = json.Marshal(&cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Info."
 	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
