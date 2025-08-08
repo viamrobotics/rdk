@@ -56,6 +56,8 @@ func (ik *combinedIK) Solve(ctx context.Context,
 	m func([]float64) float64,
 	rseed int,
 ) error {
+	ik.logger.CDebugf(ctx, "combinedIK Solve start")
+	defer ik.logger.CDebugf(ctx, "combinedIK Solve end")
 	var err error
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()

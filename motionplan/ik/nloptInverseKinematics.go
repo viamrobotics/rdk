@@ -89,6 +89,8 @@ func (ik *nloptIK) Solve(ctx context.Context,
 	minFunc func([]float64) float64,
 	rseed int,
 ) error {
+	ik.logger.CDebugf(ctx, "nloptIK Solve start")
+	defer ik.logger.CDebugf(ctx, "nloptIK Solve end")
 	if len(seed) != len(ik.limits) {
 		return fmt.Errorf("nlopt initialized with %d dof but seed was length %d", len(ik.limits), len(seed))
 	}

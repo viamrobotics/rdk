@@ -97,8 +97,10 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, seedPlan motionpla
 		waypoints = append(waypoints, goalWaypoints...)
 	}
 
+	pm.logger.Debug("planAtomicWaypoints start")
 	plan, err := pm.planAtomicWaypoints(ctx, waypoints, seedPlan)
 	pm.activeBackgroundWorkers.Wait()
+	pm.logger.Debug("planAtomicWaypoints stop")
 	if err != nil {
 		if len(waypoints) > 1 {
 			err = fmt.Errorf("failed to plan path for valid goal: %w", err)
@@ -445,6 +447,8 @@ func (pm *planManager) planParallelRRTMotion(
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
 func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]atomicWaypoint, error) {
+	pm.logger.Debug("generateWaypoints start")
+	defer pm.logger.Debug("generateWaypoints end")
 	wpGoals := pm.request.Goals[wpi]
 	startState := pm.request.StartState
 	if wpi > 0 {

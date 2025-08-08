@@ -248,6 +248,8 @@ func Replan(
 	currentPlan motionplan.Plan,
 	replanCostFactor float64,
 ) (motionplan.Plan, error) {
+	logger.CDebugf(ctx, "replan start")
+	defer logger.CDebugf(ctx, "replan end")
 	// Make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
@@ -260,10 +262,12 @@ func Replan(
 		return nil, err
 	}
 
+	logger.CDebugf(ctx, "planMultiWaypoint start")
 	newPlan, err := sfPlanner.planMultiWaypoint(ctx, currentPlan)
 	if err != nil {
 		return nil, err
 	}
+	logger.CDebugf(ctx, "planMultiWaypoint end")
 
 	if replanCostFactor > 0 && currentPlan != nil {
 		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
@@ -512,6 +516,8 @@ func (mp *planner) getSolutions(
 	seed referenceframe.FrameSystemInputs,
 	metric motionplan.StateFSMetric,
 ) ([]node, error) {
+	mp.logger.CDebug(ctx, "getSolutions start")
+	defer mp.logger.CDebug(ctx, "getSolutions end")
 	// Linter doesn't properly handle loop labels
 	nSolutions := mp.planOpts.MaxSolutions
 	if nSolutions == 0 {
@@ -567,6 +573,7 @@ func (mp *planner) getSolutions(
 	// firstSolutionTime := time.Hour
 
 	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
+	i := -1
 IK:
 	for {
 		select {
@@ -577,6 +584,8 @@ IK:
 
 		select {
 		case stepSolution := <-solutionGen:
+			i++
+			mp.logger.CDebugf(ctx, "getSolutions i: %d", i)
 
 			step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
 			if err != nil {
@@ -605,6 +614,7 @@ IK:
 						solutions = map[float64]referenceframe.FrameSystemInputs{}
 						solutions[score] = step
 						// good solution, stopping early
+						mp.logger.CDebugf(ctx, "getSolutions i: %d, good solution, stopping early, score: %d", i, score)
 						break IK
 					}
 					for _, oldSol := range solutions {
@@ -615,6 +625,7 @@ IK:
 						}
 						simscore := mp.configurationDistanceFunc(similarity)
 						if simscore < defaultSimScore {
+							mp.logger.CDebugf(ctx, "getSolutions i: %d, continuing as simscore: %d < defaultSimScore: %d", i, simscore, defaultSimScore)
 							continue IK
 						}
 					}
@@ -622,6 +633,7 @@ IK:
 					solutions[score] = step
 					if len(solutions) >= nSolutions {
 						// sufficient solutions found, stopping early
+						mp.logger.CDebugf(ctx, "getSolutions i: %d, sufficient solutions found, stopping early: len(solutions): %d", i, len(solutions))
 						break IK
 					}
 
@@ -648,9 +660,14 @@ IK:
 		}
 
 		select {
-		case <-ikErr:
+		case err := <-ikErr:
 			// If we have a return from the IK solver, there are no more solutions, so we finish processing above
 			// until we've drained the channel, handled by the `continue` above
+			if err != nil {
+				mp.logger.CDebugf(ctx, "getSolutions i: %d, ikErr: %s", i, err.Error())
+			} else {
+				mp.logger.CDebugf(ctx, "getSolutions i: %d, ikErr is nil", i)
+			}
 			break IK
 		default:
 		}
