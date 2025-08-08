@@ -94,7 +94,7 @@ func TestConstrainedMotion(t *testing.T) {
 
 // TestConstrainedArmMotion tests a simple linear motion on a longer path, with a no-spill constraint.
 func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +167,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 
 func TestPlanningWithGripper(t *testing.T) {
 	fs := frame.NewEmptyFrameSystem("")
-	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "ur")
+	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "ur")
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(ur5e, fs.World())
 	test.That(t, err, test.ShouldBeNil)
@@ -304,7 +304,7 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 
 // simpleArmMotion tests moving an xArm7.
 func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
-	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
+	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +380,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 
 // simpleUR5eMotion tests a simple motion for a UR5e.
 func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
-	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 	if err != nil {
 		return nil, err
 	}
@@ -498,11 +498,11 @@ func makeTestFS(t *testing.T) *frame.FrameSystem {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryY, gantryX)
 
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantryY)
 
-	modelUR5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+	modelUR5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelUR5e, urOffset)
 
@@ -523,7 +523,7 @@ func makeTestFS(t *testing.T) *frame.FrameSystem {
 
 func TestSerializedPlanRequest(t *testing.T) {
 	fs := frame.NewEmptyFrameSystem("")
-	x, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	x, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.AddFrame(x, fs.World()), test.ShouldBeNil)
 	bc, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{Z: 100}), r3.Vector{200, 200, 200}, "")
@@ -744,7 +744,7 @@ func TestReachOverArm(t *testing.T) {
 	t.Skip("RSDK-10801 Skip until we diagnose why the last assertion in this test fails")
 
 	// setup frame system with an xarm
-	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	offset, err := frame.NewStaticFrame("offset", spatialmath.NewPoseFromPoint(r3.Vector{X: -500, Y: 200}))
 	test.That(t, err, test.ShouldBeNil)
@@ -771,7 +771,7 @@ func TestReachOverArm(t *testing.T) {
 	test.That(t, len(plan.Trajectory()), test.ShouldEqual, 2)
 
 	// now add a UR arm in its way
-	ur5, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+	ur5, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(ur5, fs.World())
 
@@ -858,7 +858,7 @@ func TestSliceUniq(t *testing.T) {
 
 func TestArmConstraintSpecificationSolve(t *testing.T) {
 	fs := frame.NewEmptyFrameSystem("")
-	x, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	x, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.AddFrame(x, fs.World()), test.ShouldBeNil)
 	bc, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{Z: 100}), r3.Vector{200, 200, 200}, "")
@@ -1329,7 +1329,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 	err = fs.AddFrame(gantryX, gantryOffset)
 	test.That(t, err, test.ShouldBeNil)
 
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(modelXarm, gantryX)
 	test.That(t, err, test.ShouldBeNil)

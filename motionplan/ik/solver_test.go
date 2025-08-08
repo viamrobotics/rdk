@@ -24,7 +24,7 @@ var (
 
 func TestCombinedIKinematics(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m.DoF(), logger, nCPU, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
@@ -51,7 +51,7 @@ func TestCombinedIKinematics(t *testing.T) {
 func TestUR5NloptIKinematics(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m.DoF(), logger, nCPU, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
@@ -66,7 +66,7 @@ func TestUR5NloptIKinematics(t *testing.T) {
 
 func TestCombinedCPUs(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m.DoF(), logger, runtime.NumCPU()/400000, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)

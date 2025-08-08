@@ -548,7 +548,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			return failToReachGoalError
 		}
 		injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-			return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+			return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 		}
 
 		// create arm link

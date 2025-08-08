@@ -63,7 +63,7 @@
             "type": "arm",
             "model": "fake",
             "attributes": {
-                "model-path": "../../components/arm/fake/fake_model.json"
+                "model-path": "../../components/arm/fake/kinematics/fake.json"
             },
             "depends_on": [
                 "mock5",

@@ -15,11 +15,11 @@ import (
 // So we'll just check that we read in the right number of joints.
 func TestParseJSONFile(t *testing.T) {
 	goodFiles := []string{
-		"components/arm/example_kinematics/xarm6_kinematics_test.json",
-		"components/arm/example_kinematics/xarm7_kinematics_test.json",
+		"components/arm/fake/kinematics/xarm6.json",
+		"components/arm/fake/kinematics/xarm7.json",
 		"referenceframe/testfiles/ur5eDH.json",
-		"components/arm/example_kinematics/ur5e.json",
-		"components/arm/example_kinematics/dofbot.json",
+		"components/arm/fake/kinematics/ur5e.json",
+		"components/arm/fake/kinematics/dofbot.json",
 	}
 
 	badFiles := []string{
