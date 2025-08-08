@@ -23,9 +23,6 @@ var errAttrCfgPopulation = errors.New("can only populate either ArmModel or Mode
 // Model is the name used to refer to the fake arm model.
 var Model = resource.DefaultModelFamily.WithModel("fake")
 
-//go:embed kinematics/fake.json
-var fakejson []byte
-
 // Config is used for converting config attributes.
 type Config struct {
 	ArmModel      string `json:"arm-model,omitempty"`
@@ -38,6 +35,9 @@ var (
 	xArm6Model = "xarm6"
 	xArm7Model = "xarm7"
 )
+
+//go:embed kinematics/fake.json
+var fakejson []byte
 
 //go:embed kinematics/ur5e.json
 var ur5eJSON []byte
