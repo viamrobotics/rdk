@@ -125,15 +125,7 @@ func PlatformMkdirTemp(dir, pattern string) (string, error) {
 	if runtime.GOOS == "android" && dir == "" {
 		dir = AndroidFilesDir
 	}
-	if runtime.GOOS == "windows" && dir == "" {
-		mkdir, err := os.MkdirTemp(PlatformHomeDir(), pattern)
-		fmt.Printf("\"windows test\": %v\n", "windows test")
-		fmt.Printf("mkdir: %v\n", mkdir)
-		return mkdir, err
-	}
 	mkdir, err := os.MkdirTemp(dir, pattern)
-	fmt.Printf("\"reg test\": %v\n", "reg test")
-	fmt.Printf("mkdir: %v\n", mkdir)
 	return mkdir, err
 }
 
