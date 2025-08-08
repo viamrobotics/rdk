@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+
 	// TODO(RSDK-7884): change all referenced resources to mocks.
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -46,7 +47,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 				Name:  "remoteArm",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API: arm.API,
 			},
@@ -71,7 +72,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 				Name:  "arm1",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API:       arm.API,
 				DependsOn: []string{"foo:remoteArm"},
@@ -80,7 +81,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 				Name:  "arm2",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API:       arm.API,
 				DependsOn: []string{"bar:remoteArm"},
@@ -160,7 +161,7 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 				Name:  "arm1",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API: arm.API,
 			},
@@ -226,7 +227,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 				Name:  "pieceArm",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API: arm.API,
 			},
@@ -245,7 +246,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 				Name:  "arm1",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API:       arm.API,
 				DependsOn: []string{"pieceArm"},
@@ -301,7 +302,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 				Name:  "pieceArm",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API: arm.API,
 			},
@@ -320,7 +321,7 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 				Name:  "arm1",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API:       arm.API,
 				DependsOn: []string{"pieceArm"},
@@ -369,7 +370,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 				Name:  "pieceArm",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API: arm.API,
 			},
@@ -395,7 +396,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 				Name:  "arm1",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API:       arm.API,
 				DependsOn: []string{"pieceArm"},
@@ -433,7 +434,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 				Name:  "arm1",
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API:       arm.API,
 				DependsOn: []string{"foo:pieceArm"},
