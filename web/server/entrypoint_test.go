@@ -39,6 +39,7 @@ import (
 )
 
 func TestEntrypoint(t *testing.T) {
+	t.Setenv("VIAM_TCP_MODE", "1")
 	t.Run("number of resources", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
@@ -153,6 +154,7 @@ func TestEntrypoint(t *testing.T) {
 }
 
 func TestShutdown(t *testing.T) {
+	t.Setenv("VIAM_TCP_MODE", "1")
 	t.Run("shutdown functionality", func(t *testing.T) {
 		testLogger := logging.NewTestLogger(t)
 		// Pass in a separate logger to the managed server process that only outputs WARN+
@@ -236,6 +238,7 @@ func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 
 // Tests that machine state properly reports initializing or running.
 func TestMachineState(t *testing.T) {
+	t.Setenv("VIAM_TCP_MODE", "1")
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -360,6 +363,7 @@ func TestMachineState(t *testing.T) {
 }
 
 func TestMachineStateNoResources(t *testing.T) {
+	t.Setenv("VIAM_TCP_MODE", "1")
 	// Regression test for RSDK-10166. Ensure that starting a robot with no resources will
 	// still allow moving from initializing -> running state.
 
@@ -406,6 +410,7 @@ func TestMachineStateNoResources(t *testing.T) {
 }
 
 func TestTunnelE2E(t *testing.T) {
+	t.Setenv("VIAM_TCP_MODE", "1")
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
 	// test-process <-> source-listener(localhost:23658) <-> machine(localhost:23657) <-> dest-listener(localhost:23656)
@@ -553,6 +558,7 @@ func TestTunnelE2E(t *testing.T) {
 }
 
 func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
+	t.Setenv("VIAM_TCP_MODE", "1")
 	// Primarily a regression test for RSDK-10723.
 
 	logger := logging.NewTestLogger(t)
