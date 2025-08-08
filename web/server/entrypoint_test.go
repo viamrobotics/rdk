@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,11 +38,8 @@ import (
 	"go.viam.com/rdk/web/server"
 )
 
-// numResources is the # of resources in /etc/configs/fake.json + the 2
-// expected builtin resources.
-const numResources = 20
-
 func TestEntrypoint(t *testing.T) {
+	t.Setenv("VIAM_TCP_MODE", "1")
 	t.Run("number of resources", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
@@ -86,6 +84,15 @@ func TestEntrypoint(t *testing.T) {
 		resourceNames, err := rc.ResourceNames(context.Background(), &robotpb.ResourceNamesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 
+		// numResources is the # of resources in /etc/configs/fake.json + the 1
+		// expected builtin resources.
+		numResources := 20
+		if runtime.GOOS == "windows" {
+			// windows build excludes builtin models that use cgo,
+			// including fake audioinput, builtin motion, fake arm, and builtin navigation.
+			numResources = 16
+		}
+
 		test.That(t, len(resourceNames.Resources), test.ShouldEqual, numResources)
 	})
 	t.Run("dump resource registrations", func(t *testing.T) {
@@ -105,7 +112,13 @@ func TestEntrypoint(t *testing.T) {
 		registrations := []registration{}
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, registrations, test.ShouldHaveLength, 52)
+
+		numReg := 52
+		if runtime.GOOS == "windows" {
+			// windows build excludes builtin models that use cgo
+			numReg = 43
+		}
+		test.That(t, registrations, test.ShouldHaveLength, numReg)
 
 		observedReg := make(map[string]bool)
 		for _, reg := range registrations {
@@ -120,11 +133,19 @@ func TestEntrypoint(t *testing.T) {
 		// Check specifically for registrations we care about
 		expectedReg := []string{
 			"rdk:component:arm/rdk:builtin:wrapper_arm",
-			"rdk:component:camera/rdk:builtin:webcam",
 			"rdk:service:data_manager/rdk:builtin:builtin",
-			"rdk:service:motion/rdk:builtin:builtin",
 			"rdk:service:shell/rdk:builtin:builtin",
 			"rdk:service:vision/rdk:builtin:mlmodel",
+		}
+
+		// windows build excludes builtin models that use cgo, so add more if not
+		// on windows
+		if runtime.GOOS != "windows" {
+			expectedReg = append(
+				expectedReg,
+				"rdk:component:camera/rdk:builtin:webcam",
+				"rdk:service:motion/rdk:builtin:builtin",
+			)
 		}
 		for _, reg := range expectedReg {
 			test.That(t, observedReg[reg], test.ShouldBeTrue)
@@ -133,6 +154,7 @@ func TestEntrypoint(t *testing.T) {
 }
 
 func TestShutdown(t *testing.T) {
+	t.Setenv("VIAM_TCP_MODE", "1")
 	t.Run("shutdown functionality", func(t *testing.T) {
 		testLogger := logging.NewTestLogger(t)
 		// Pass in a separate logger to the managed server process that only outputs WARN+
@@ -216,6 +238,7 @@ func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 
 // Tests that machine state properly reports initializing or running.
 func TestMachineState(t *testing.T) {
+	t.Setenv("VIAM_TCP_MODE", "1")
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -231,6 +254,9 @@ func TestMachineState(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fakeModuleDataFile, err := os.Create(filepath.Join(fakeModuleDataPath, "foo"))
 	test.That(t, err, test.ShouldBeNil)
+
+	fakeDataFileName := fakeModuleDataFile.Name()
+	test.That(t, fakeModuleDataFile.Close(), test.ShouldBeNil)
 
 	// Register a slow-constructing generic resource and defer its deregistration.
 	type slow struct {
@@ -313,7 +339,7 @@ func TestMachineState(t *testing.T) {
 
 	// Assert that the `foo` package file exists during initialization, machine assumes
 	// package files may still be in use.)
-	_, err = os.Stat(fakeModuleDataFile.Name())
+	_, err = os.Stat(fakeDataFileName)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Allow `slowpoke` to complete construction.
@@ -328,7 +354,7 @@ func TestMachineState(t *testing.T) {
 
 	// Assert that the `foo` file was removed, as the non-initializing `Reconfigure`
 	// determined it was unnecessary (no associated package/module.)
-	_, err = os.Stat(fakeModuleDataFile.Name())
+	_, err = os.Stat(fakeDataFileName)
 	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 
 	// Cancel context and wait for server goroutine to stop running.
@@ -337,13 +363,14 @@ func TestMachineState(t *testing.T) {
 }
 
 func TestMachineStateNoResources(t *testing.T) {
+	t.Setenv("VIAM_TCP_MODE", "1")
 	// Regression test for RSDK-10166. Ensure that starting a robot with no resources will
 	// still allow moving from initializing -> running state.
 
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	machineAddress := "localhost:23654"
+	machineAddress := "localhost:23655"
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -383,15 +410,16 @@ func TestMachineStateNoResources(t *testing.T) {
 }
 
 func TestTunnelE2E(t *testing.T) {
+	t.Setenv("VIAM_TCP_MODE", "1")
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
-	// test-process <-> source-listener(localhost:23656) <-> machine(localhost:23655) <-> dest-listener(localhost:23654)
+	// test-process <-> source-listener(localhost:23658) <-> machine(localhost:23657) <-> dest-listener(localhost:23656)
 
 	tunnelMsg := "Hello, World!"
-	destPort := 23654
+	destPort := 23656
 	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
-	machineAddr := net.JoinHostPort("localhost", "23655")
-	sourceListenerAddr := net.JoinHostPort("localhost", "23656")
+	machineAddr := net.JoinHostPort("localhost", "23657")
+	sourceListenerAddr := net.JoinHostPort("localhost", "23658")
 
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -530,6 +558,7 @@ func TestTunnelE2E(t *testing.T) {
 }
 
 func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
+	t.Setenv("VIAM_TCP_MODE", "1")
 	// Primarily a regression test for RSDK-10723.
 
 	logger := logging.NewTestLogger(t)
@@ -540,8 +569,12 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
 	tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
 	test.That(t, err, test.ShouldBeNil)
+
+	cfgFileName := tempConfigFile.Name()
+	test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
+
 	helperModel := resource.NewModel("rdk", "test", "helper")
-	machineAddress := "localhost:23654"
+	machineAddress := "localhost:23659"
 
 	cfg := &config.Config{
 		Modules: []config.Module{
@@ -565,7 +598,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	}
 	cfgBytes, err := json.Marshal(&cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Call `RunServer` in a goroutine as it is blocking. Point it to the temporary config
 	// file created above.
@@ -574,11 +607,11 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		args := []string{"viam-server", "-config", tempConfigFile.Name()}
+		args := []string{"viam-server", "-config", cfgFileName}
 		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
 
-	// Create an SDK client to the server that was started on localhost:23654.
+	// Create an SDK client to the server that was started on localhost:23659.
 	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
 	helper, err := rc.ResourceByName(generic.Named("helper"))
 	test.That(t, err, test.ShouldBeNil)
@@ -595,7 +628,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	cfg.Debug = true
 	cfgBytes, err = json.Marshal(&cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Debug."
 	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -609,7 +642,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	cfg.Debug = false
 	cfgBytes, err = json.Marshal(&cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Info."
 	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -620,10 +653,10 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	})
 
 	// Specify a "log" pattern of { "testModule": "debug" } in the temporary config file.
-	cfg.LogConfig = []logging.LoggerPatternConfig{{"testModule", "debug"}}
+	cfg.LogConfig = []logging.LoggerPatternConfig{{Pattern: "testModule", Level: "debug"}}
 	cfgBytes, err = json.Marshal(&cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Debug."
 	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -637,7 +670,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	cfg.LogConfig = nil
 	cfgBytes, err = json.Marshal(&cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Info."
 	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
