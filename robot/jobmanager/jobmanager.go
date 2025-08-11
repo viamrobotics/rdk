@@ -83,6 +83,7 @@ func New(
 	if rutils.ViamTCPSockets() {
 		dialAddr = parentAddr.TCPAddr
 	}
+	time.Sleep(3 * time.Second)
 	logger.Info(dialAddr)
 	conn, err := grpc.Dial(robotContext, dialAddr, jobLogger)
 	if err != nil {
