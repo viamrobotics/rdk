@@ -311,7 +311,7 @@ func (l *localAppTestingServer) addBaseTagToHTMLResponse() func(resp *http.Respo
 }
 
 // setupHTTPServerMultiMachineApp creates and configures an HTTP server for a multi-machine Viam app.
-func (l *localAppTestingServer) setupHTTPServerMultiMachineApp(port int, targetURL string, accessToken string) *http.Server {
+func (l *localAppTestingServer) setupHTTPServerMultiMachineApp(port int, targetURL, accessToken string) *http.Server {
 	// Endpoint to start the flow
 	http.HandleFunc("/start", l.multiMachineCookieSetup(accessToken))
 
