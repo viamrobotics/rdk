@@ -79,7 +79,8 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 
 		currentToken, found := viamClient.conf.Auth.(*token)
 		if !found || currentToken.AccessToken == "" {
-			printf(ctx.App.ErrWriter, "You need an access token configured in the CLI to proceed. Run the `viam login` command to re-authenticate, do NOT use an API key")
+			printf(ctx.App.ErrWriter, "You need an access token configured in the CLI to proceed. "+
+				"Run the `viam login` command to re-authenticate, do NOT use an API key")
 		}
 
 		httpServer = localAppTesting.setupHTTPServerMultiMachineApp(serverPort, args.AppURL, currentToken.AccessToken)

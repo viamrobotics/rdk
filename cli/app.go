@@ -2528,8 +2528,9 @@ Note: There is no progress meter while copying is in progress.
 			Subcommands: []*cli.Command{
 				{
 					Name: "local-app-testing",
-					Usage: "Test your viam application locally. This will stand up a local proxy at http://localhost:8012 to simulate the Viam app server. " +
-						"If testing a single-machhine app you MUST provide the machine-id parameter, omit it to test a multi-machine app.",
+					Usage: "Test your viam application locally. This will stand up a local proxy at http://localhost:8012 to simulate " +
+						"the Viam app server. If testing a single-machhine app you MUST provide the machine-id parameter, " +
+						"omit it to test a multi-machine app.",
 					UsageText: createUsageText("module local-app-testing",
 						[]string{"app-url", "machine-id"}, false, false),
 					Flags: []cli.Flag{
