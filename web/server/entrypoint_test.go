@@ -291,9 +291,12 @@ func TestMachineState(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		// Create a temporary config file with a single
+		// Create a temporary config file with a single resource
 		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
 		test.That(t, err, test.ShouldBeNil)
+
+		tempConfigFileName := tempConfigFile.Name()
+		test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
 
 		cfg := &config.Config{
 			// Set PackagePath to temp dir created at top of test with the "-local" piece trimmed. Local
@@ -315,9 +318,9 @@ func TestMachineState(t *testing.T) {
 
 		cfgBytes, err := json.Marshal(&cfg)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+		test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
-		args := []string{"viam-server", "-config", tempConfigFile.Name()}
+		args := []string{"viam-server", "-config", tempConfigFileName}
 		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
 
@@ -615,6 +618,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
 	helper, err := rc.ResourceByName(generic.Named("helper"))
 	test.That(t, err, test.ShouldBeNil)
+	t.Log(rc.ResourceNames())
 
 	// Log a DEBUG line through helper. While we cannot actually examine the log output, we
 	// can examine the response from the component to see its set log level. That level
