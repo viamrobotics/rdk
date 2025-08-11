@@ -746,7 +746,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				API:   arm.API,
 				Model: fakeModel,
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 			},
 			{
@@ -754,7 +754,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				API:   arm.API,
 				Model: fakeModel,
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 			},
 			{
@@ -762,7 +762,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				API:   arm.API,
 				Model: fakeModel,
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 			},
 		},
@@ -1006,7 +1006,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		API:   arm.API,
 		Model: fakeModel,
 		ConvertedAttributes: &fake.Config{
-			ModelFilePath: "../../components/arm/fake/fake_model.json",
+			ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 		},
 	}
 	cfg := config.Config{

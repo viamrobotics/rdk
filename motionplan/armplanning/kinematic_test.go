@@ -16,7 +16,7 @@ import (
 )
 
 func BenchmarkFK(b *testing.B) {
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
 	test.That(b, err, test.ShouldBeNil)
 	for n := 0; n < b.N; n++ {
 		_, err := m.Transform(frame.FloatsToInputs(make([]float64, 7)))
@@ -27,7 +27,7 @@ func BenchmarkFK(b *testing.B) {
 // This should test forward kinematics functions.
 func TestForwardKinematics(t *testing.T) {
 	// Test the 5DOF yahboom arm to confirm kinematics works with non-6dof arms
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/dofbot.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/dofbot.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 248.55, 0, 115
@@ -40,7 +40,7 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, spatial.PoseAlmostEqual(expect, pos), test.ShouldBeTrue)
 
 	// Test the 6dof xarm we actually have
-	m, err = frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	m, err = frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 207, 0, 112
@@ -158,7 +158,7 @@ func TestDeriv(t *testing.T) {
 func TestDynamicFrameSystemXArm(t *testing.T) {
 	fs := frame.NewEmptyFrameSystem("test")
 
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(model, fs.World())
 
@@ -211,12 +211,12 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	fs.AddFrame(gantryY, gantryX)
 
 	// xarm on gantry
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantryY)
 
 	// ur5
-	modelUR5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+	modelUR5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelUR5e, urOffset)
 
@@ -276,7 +276,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 }
 
 func TestSVAvsDH(t *testing.T) {
-	mSVA, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+	mSVA, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mDH, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/ur5eDH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -298,7 +298,7 @@ func TestSVAvsDH(t *testing.T) {
 func TestKinematicsJSONvsURDF(t *testing.T) {
 	numTests := 100
 
-	mJSON, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+	mJSON, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mURDF, err := frame.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -315,7 +315,7 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 }
 
 func TestComputeOOBPosition(t *testing.T) {
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "foo")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, model.Name(), test.ShouldEqual, "foo")
 
