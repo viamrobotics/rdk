@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -63,6 +64,15 @@ func New(
 	scheduler, err := gocron.NewScheduler()
 	if err != nil {
 		return nil, err
+	}
+
+	logger.Info("parentAddr.UnixAddr: %v\n", parentAddr.UnixAddr)
+	info, err := os.Stat(parentAddr.UnixAddr)
+	if err != nil {
+		logger.Infof("err: %v\n", err)
+	} else {
+		logger.Infof("info.Name(): %v\n", info.Name())
+		logger.Infof("info.ModTime(): %v\n", info.ModTime())
 	}
 
 	parentAddr.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr.UnixAddr)
