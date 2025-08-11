@@ -36,7 +36,7 @@ const (
 	FailedDir = "failed"
 	// DatasetDir is a subdirectory of the capture directory that holds any files that are simultaneously uploaded
 	// and added to a dataset outside of the regularly scheduled sync.
-	DatasetDir = "dataset"
+	DatasetDir = "datasetUpload"
 	// grpcConnectionTimeout defines the timeout for getting a connection with app.viam.com.
 	grpcConnectionTimeout = 10 * time.Second
 	// durationBetweenAcquireConnection defines how long to wait after a call to cloud.AcquireConnection fails
