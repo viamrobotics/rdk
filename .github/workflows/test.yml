@@ -92,7 +92,7 @@ jobs:
 
   test_win:
     name: windows
-    runs-on: windows-2025
+    runs-on: windows-2022
     steps:
     - uses: actions/checkout@v4
       with:
@@ -105,7 +105,7 @@ jobs:
         GOFLAGS: "-tags=no_cgo"
       run:
         # note: this is a subset of tests that are known to pass on windows
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./web/server -run TestModulesRespondToDebugAndLogChanges
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./web/server ./module ./logging/...
 
     - name: Upload test.json
       if: always()
