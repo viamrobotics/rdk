@@ -372,6 +372,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	if err := mod.dial(); err != nil {
 		return errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
 	}
+	mod.logger.Info("connection to module created")
 
 	// Sends a ReadyRequest and waits on a ReadyResponse. The PeerConnection will async connect
 	// after this, so long as the module supports it.
