@@ -49,17 +49,14 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 
 	printf(ctx.App.Writer, "Starting server to locally test viam apps on %s", localAppTesting.serverURL)
 	printf(ctx.App.Writer, "Proxying local app from: %s", args.AppURL)
-	if args.MachineID != "" {
-		printf(ctx.App.Writer, "Local testing for a single-machine Viam app, machine ID: %s", args.MachineID)
-	} else {
-		printf(ctx.App.Writer, "Local testing for a multi-machine Viam app")
-	}
 	printf(ctx.App.Writer, "Press Ctrl+C to stop the server")
 
 	var httpServer *http.Server
 
 	// Single-machine Viam app
 	if args.MachineID != "" {
+		printf(ctx.App.Writer, "Local testing for a single-machine Viam app, machine ID: %s", args.MachineID)
+
 		machineAPIKeyID, machineAPIKey, err := getMachineAPIKeys(ctx.Context, viamClient.client, args.MachineID)
 		if err != nil {
 			return err
@@ -78,6 +75,8 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 		httpServer = localAppTesting.setupHTTPServerSingleMachineApp(serverPort, args.AppURL)
 	} else {
 		// Multi machine Viam app
+		printf(ctx.App.Writer, "Local testing for a multi-machine Viam app")
+
 		currentToken, found := viamClient.conf.Auth.(*token)
 		if !found || currentToken.AccessToken == "" {
 			printf(ctx.App.ErrWriter, "You need an access token configured in the CLI to proceed. Run the `viam login` command to re-authenticate, do NOT use an API key")
