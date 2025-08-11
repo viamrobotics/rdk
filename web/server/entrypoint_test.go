@@ -39,7 +39,6 @@ import (
 )
 
 func TestEntrypoint(t *testing.T) {
-	t.Setenv("VIAM_TCP_SOCKETS", "1")
 	t.Run("number of resources", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
@@ -154,7 +153,6 @@ func TestEntrypoint(t *testing.T) {
 }
 
 func TestShutdown(t *testing.T) {
-	t.Setenv("VIAM_TCP_SOCKETS", "1")
 	t.Run("shutdown functionality", func(t *testing.T) {
 		testLogger := logging.NewTestLogger(t)
 		// Pass in a separate logger to the managed server process that only outputs WARN+
@@ -238,7 +236,6 @@ func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 
 // Tests that machine state properly reports initializing or running.
 func TestMachineState(t *testing.T) {
-	t.Setenv("VIAM_TCP_SOCKETS", "1")
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -366,7 +363,6 @@ func TestMachineState(t *testing.T) {
 }
 
 func TestMachineStateNoResources(t *testing.T) {
-	t.Setenv("VIAM_TCP_SOCKETS", "1")
 	// Regression test for RSDK-10166. Ensure that starting a robot with no resources will
 	// still allow moving from initializing -> running state.
 
@@ -382,6 +378,10 @@ func TestMachineStateNoResources(t *testing.T) {
 
 		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
 		test.That(t, err, test.ShouldBeNil)
+
+		tempConfigFileName := tempConfigFile.Name()
+		test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
+
 		cfg := &config.Config{
 			Network: config.NetworkConfig{
 				NetworkConfigData: config.NetworkConfigData{
@@ -391,9 +391,9 @@ func TestMachineStateNoResources(t *testing.T) {
 		}
 		cfgBytes, err := json.Marshal(&cfg)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+		test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
-		args := []string{"viam-server", "-config", tempConfigFile.Name()}
+		args := []string{"viam-server", "-config", tempConfigFileName}
 		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
 
@@ -413,7 +413,6 @@ func TestMachineStateNoResources(t *testing.T) {
 }
 
 func TestTunnelE2E(t *testing.T) {
-	t.Setenv("VIAM_TCP_SOCKETS", "1")
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
 	// test-process <-> source-listener(localhost:23658) <-> machine(localhost:23657) <-> dest-listener(localhost:23656)
@@ -468,6 +467,10 @@ func TestTunnelE2E(t *testing.T) {
 		// Create a temporary config file.
 		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
 		test.That(t, err, test.ShouldBeNil)
+
+		tempConfigFileName := tempConfigFile.Name()
+		test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
+
 		cfg := &config.Config{
 			Network: config.NetworkConfig{
 				NetworkConfigData: config.NetworkConfigData{
@@ -486,9 +489,9 @@ func TestTunnelE2E(t *testing.T) {
 		}
 		cfgBytes, err := json.Marshal(&cfg)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+		test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
-		args := []string{"viam-server", "-config", tempConfigFile.Name()}
+		args := []string{"viam-server", "-config", tempConfigFileName}
 		test.That(t, server.RunServer(runServerCtx, args, logger), test.ShouldBeNil)
 	}()
 
@@ -616,9 +619,9 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 
 	// Create an SDK client to the server that was started on localhost:23659.
 	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
+	t.Log(rc.ResourceNames())
 	helper, err := rc.ResourceByName(generic.Named("helper"))
 	test.That(t, err, test.ShouldBeNil)
-	t.Log(rc.ResourceNames())
 
 	// Log a DEBUG line through helper. While we cannot actually examine the log output, we
 	// can examine the response from the component to see its set log level. That level
@@ -635,7 +638,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Debug."
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	gtestutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 200, func(tb testing.TB) {
 		resp, err = helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)
@@ -649,7 +652,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Info."
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	gtestutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 200, func(tb testing.TB) {
 		resp, err = helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)
@@ -663,7 +666,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Debug."
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	gtestutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 200, func(tb testing.TB) {
 		resp, err = helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)
@@ -677,7 +680,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Info."
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	gtestutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 200, func(tb testing.TB) {
 		resp, err = helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)
