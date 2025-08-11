@@ -66,7 +66,7 @@ func New(
 		return nil, err
 	}
 
-	logger.Info("parentAddr.UnixAddr: %v\n", parentAddr.UnixAddr)
+	logger.Infof("parentAddr.UnixAddr: %v\n", parentAddr.UnixAddr)
 	info, err := os.Stat(parentAddr.UnixAddr)
 	if err != nil {
 		logger.Infof("err: %v\n", err)
