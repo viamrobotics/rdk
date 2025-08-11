@@ -564,7 +564,6 @@ func TestTunnelE2E(t *testing.T) {
 }
 
 func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
-	t.Setenv("VIAM_TCP_SOCKETS", "1")
 	// Primarily a regression test for RSDK-10723.
 
 	logger := logging.NewTestLogger(t)
