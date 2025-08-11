@@ -503,6 +503,7 @@ type reloadModuleArgs struct {
 	ResourceName string
 }
 
+// moduleCloudReload triggers a cloud build and then reloads the specified module with that build.
 func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string) (string, error) {
 	manifest, err := loadManifest(args.Module)
 	if err != nil {

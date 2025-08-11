@@ -27,6 +27,7 @@ type ModuleMap map[string]any
 type ResourceMap map[string]any
 
 // addResourceFromModule adds a resource to the components or services slice if missing. Mutates part.RobotConfig.
+// Returns an error if the modelName isn't in the manifest, or if the specified resourceName already exists.
 func (c *viamClient) addResourceFromModule(
 	ctx *cli.Context, part *apppb.RobotPart, manifest *moduleManifest, modelName, resourceName string,
 ) error {
@@ -162,8 +163,8 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 	return nil
 }
 
-// configureModule is the configuration step of module reloading. Returns (needsRestart, error).
-// Mutates part.RobotConfig, returning the most up-to-date part.
+// configureModule is the configuration step of module reloading. Returns (updated robotPartpart, needsRestart, error).
+// Mutates the passed part.RobotConfig.
 func configureModule(
 	c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart, local bool,
 ) (*apppb.RobotPart, bool, error) {
@@ -209,11 +210,14 @@ func configureModule(
 		}
 	}
 
-	// if we modified config, caller doesn't need to restart module.
+	// there is an issue whereby mutations are getting lost or not properly reflected in the
+	// robotPart config after the robot part is updated. To address this, we query the part again
+	// to get the most up-to-date version, and return it for further use.
 	partResponse, err := vc.getRobotPart(part.Id)
 	if err != nil {
 		return part, !dirty, err
 	}
+	// if we modified config, caller doesn't need to restart module.
 	return partResponse.Part, !dirty, nil
 }
 
