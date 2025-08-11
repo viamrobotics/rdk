@@ -141,7 +141,7 @@ func (r Registration[ResourceT, ConfigT]) ConfigReflectType() reflect.Type {
 
 // APIRegistration stores api-specific functions and clients.
 type APIRegistration[ResourceT Resource] struct {
-	RPCServiceServerConstructor func(apiColl APIResourceCollection[ResourceT]) interface{}
+	RPCServiceServerConstructor func(apiGetter APIResourceGetter[ResourceT]) interface{}
 	RPCServiceHandler           rpc.RegisterServiceHandlerFromEndpointFunc
 	RPCServiceDesc              *grpc.ServiceDesc
 	ReflectRPCServiceDesc       *desc.ServiceDescriptor
@@ -160,7 +160,7 @@ type APIRegistration[ResourceT Resource] struct {
 func (rs APIRegistration[ResourceT]) RegisterRPCService(
 	ctx context.Context,
 	rpcServer rpc.Server,
-	apiColl APIResourceCollection[ResourceT],
+	apiGetter APIResourceGetter[ResourceT],
 ) error {
 	if rs.RPCServiceServerConstructor == nil {
 		return nil
@@ -168,7 +168,7 @@ func (rs APIRegistration[ResourceT]) RegisterRPCService(
 	return rpcServer.RegisterServiceServer(
 		ctx,
 		rs.RPCServiceDesc,
-		rs.RPCServiceServerConstructor(apiColl),
+		rs.RPCServiceServerConstructor(apiGetter),
 		rs.RPCServiceHandler,
 	)
 }
@@ -485,7 +485,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 
 	if typed.RPCServiceServerConstructor != nil {
 		reg.RPCServiceServerConstructor = func(
-			coll APIResourceCollection[Resource],
+			coll APIResourceGetter[Resource],
 		) interface{} {
 			// it will always be this type since we are the only ones who can make
 			// a generic resource api registration.

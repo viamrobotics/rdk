@@ -24,7 +24,7 @@ import (
 // serviceServer implements the CameraService from camera.proto.
 type serviceServer struct {
 	pb.UnimplementedCameraServiceServer
-	coll resource.APIResourceCollection[Camera]
+	coll resource.APIResourceGetter[Camera]
 
 	imgTypesMu sync.RWMutex
 	imgTypes   map[string]ImageType
@@ -33,7 +33,7 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs an camera gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Camera]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Camera]) interface{} {
 	logger := logging.NewLogger("camserver")
 	imgTypes := make(map[string]ImageType)
 	return &serviceServer{

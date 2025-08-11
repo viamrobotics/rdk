@@ -14,11 +14,11 @@ import (
 
 type serviceServer struct {
 	pb.UnimplementedMovementSensorServiceServer
-	coll resource.APIResourceCollection[MovementSensor]
+	coll resource.APIResourceGetter[MovementSensor]
 }
 
 // NewRPCServiceServer constructs an MovementSensor gRPC service serviceServer.
-func NewRPCServiceServer(coll resource.APIResourceCollection[MovementSensor]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[MovementSensor]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

@@ -171,6 +171,9 @@ type LocalRobot interface {
 	// This operation is not clean and will not wait for completion.
 	// Only use this if comfortable with leaking resources (in cases where exiting the program as quickly as possible is desired).
 	Kill()
+
+	// ResourceByName returns a resource by name
+	ResourceBySimpleNameAndAPI(string, resource.API) (resource.Resource, error)
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

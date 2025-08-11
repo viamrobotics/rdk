@@ -24,12 +24,12 @@ var ErrGeometriesNil = func(gripperName string) error {
 // serviceServer implements the GripperService from gripper.proto.
 type serviceServer struct {
 	pb.UnimplementedGripperServiceServer
-	coll resource.APIResourceCollection[Gripper]
+	coll resource.APIResourceGetter[Gripper]
 }
 
 // NewRPCServiceServer constructs an gripper gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Gripper]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Gripper]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

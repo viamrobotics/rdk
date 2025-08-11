@@ -1001,7 +1001,7 @@ func withMachineStatus(f machineStatusFunc) setupRobotOption {
 	}
 }
 
-func setupRobotCtx(t *testing.T, opts ...setupRobotOption) (context.Context, robot.Robot) {
+func setupRobotCtx(t *testing.T, opts ...setupRobotOption) (context.Context, robot.LocalRobot) {
 	t.Helper()
 
 	options := &setupRobotOptions{
@@ -1155,7 +1155,7 @@ func TestRawClientOperation(t *testing.T) {
 	// Need an unfiltered streaming call to test interceptors
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} { return &echoServer{} },
 		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
 	})
@@ -1221,7 +1221,7 @@ func TestRawClientOperation(t *testing.T) {
 func TestUnaryRequestCounter(t *testing.T) {
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} { return &echoServer{} },
 		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
 	})
@@ -1299,7 +1299,7 @@ func TestUnaryRequestCounter(t *testing.T) {
 func TestStreamingRequestCounter(t *testing.T) {
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} { return &echoServer{} },
 		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
 	})

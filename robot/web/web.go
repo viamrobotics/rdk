@@ -83,34 +83,44 @@ type Service interface {
 	ModPeerConnTracker() *grpc.ModPeerConnTracker
 }
 
+type apiResourceRouter struct {
+	api   resource.API
+	robot robot.LocalRobot
+}
+
+func (r apiResourceRouter) Resource(name string) (resource.Resource, error) {
+	r.robot.ResourceNames()
+	return r.robot.ResourceBySimpleNameAndAPI(name, r.api)
+}
+
 type webService struct {
 	resource.Named
 
 	mu            sync.Mutex
-	r             robot.Robot
+	r             robot.LocalRobot
 	rpcServer     rpc.Server
 	unixModServer rpc.Server
 	tcpModServer  rpc.Server
 
 	// Will be nil on non-cgo builds.
 	streamServer *webstream.Server
-	services     map[resource.API]resource.APIResourceCollection[resource.Resource]
-	opts         options
-	addr         string
-	modAddrs     config.ParentSockAddrs
-	logger       logging.Logger
-	cancelCtx    context.Context
-	cancelFunc   func()
-	isRunning    bool
-	webWorkers   sync.WaitGroup
-	modWorkers   sync.WaitGroup
+	// services     map[resource.API]resource.APIResourceCollection[resource.Resource]
+	opts       options
+	addr       string
+	modAddrs   config.ParentSockAddrs
+	logger     logging.Logger
+	cancelCtx  context.Context
+	cancelFunc func()
+	isRunning  bool
+	webWorkers sync.WaitGroup
+	modWorkers sync.WaitGroup
 
 	requestCounter     RequestCounter
 	modPeerConnTracker *grpc.ModPeerConnTracker
 }
 
 // New returns a new web service for the given robot.
-func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
+func New(r robot.LocalRobot, logger logging.Logger, opts ...Option) Service {
 	var wOpts options
 	for _, opt := range opts {
 		opt.apply(&wOpts)
@@ -121,7 +131,6 @@ func New(r robot.Robot, logger logging.Logger, opts ...Option) Service {
 		logger:             logger,
 		rpcServer:          nil,
 		streamServer:       nil,
-		services:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
 		modPeerConnTracker: grpc.NewModPeerConnTracker(),
 		opts:               wOpts,
 		requestCounter:     RequestCounter{logger: logger},
@@ -335,58 +344,59 @@ func (svc *webService) refreshResources() error {
 // updateResources gets every existing resource on the robot's resource graph and updates ResourceAPICollection object
 // with the correct resources, include deleting ones which have been removed from the resource graph.
 func (svc *webService) updateResources(resources map[resource.Name]resource.Resource) error {
-	groupedResources := make(map[resource.API]map[resource.Name]resource.Resource)
-	for n, v := range resources {
-		r, ok := groupedResources[n.API]
-		if !ok {
-			r = make(map[resource.Name]resource.Resource)
-		}
-		r[n] = v
-		groupedResources[n.API] = r
-	}
-
-	// For a given API that the web service has resources for, we get the new set of resources we should be updated with.
-	// If we find a set of resources, `coll.ReplaceAll` will do the work of adding any new resources and deleting old ones.
-	//
-	// If there are no input resources of the given API, we call `coll.ReplaceAll` with an empty input such that it will
-	// remove any existing resources.
-	for api, coll := range svc.services {
-		group, ok := groupedResources[api]
-		if !ok {
-			// create an empty map of resources if one does not exist
-			group = make(map[resource.Name]resource.Resource)
-		}
-		if err := coll.ReplaceAll(group); err != nil {
-			return err
-		}
-		delete(groupedResources, api)
-	}
-
-	// If there are any groupedResources remaining, check if they are registered/internal/remote.
-	//  * Custom APIs are registered and do not have a dedicated gRPC service as requests for them are routed through the
-	//    foreignServiceHandler.
-	//  * Internal services do not have an associated gRPC API and so can be safely ignored.
-	//  * Remote resources with unregistered APIs are possibly handled by the remote robot and requests would be routed through the
-	//    foreignServiceHandler.
-	for api, group := range groupedResources {
-		apiRegs := resource.RegisteredAPIs()
-		_, ok := apiRegs[api]
-		if ok {
-			// If registered, the API is most likely a custom API registered through modular resources.
-			continue
-		}
-		// Log a warning here to remind users to register their APIs.
-		if api.Type.Namespace != resource.APINamespaceRDKInternal {
-			for n := range group {
-				if !n.ContainsRemoteNames() {
-					svc.logger.Warnw(
-						"missing registration for api, resources with this API will be unreachable through a client", "api", n.API)
-					break
-				}
-			}
-		}
-	}
 	return nil
+	// groupedResources := make(map[resource.API]map[resource.Name]resource.Resource)
+	// for n, v := range resources {
+	// 	r, ok := groupedResources[n.API]
+	// 	if !ok {
+	// 		r = make(map[resource.Name]resource.Resource)
+	// 	}
+	// 	r[n] = v
+	// 	groupedResources[n.API] = r
+	// }
+
+	// // For a given API that the web service has resources for, we get the new set of resources we should be updated with.
+	// // If we find a set of resources, `coll.ReplaceAll` will do the work of adding any new resources and deleting old ones.
+	// //
+	// // If there are no input resources of the given API, we call `coll.ReplaceAll` with an empty input such that it will
+	// // remove any existing resources.
+	// for api, coll := range svc.services {
+	// 	group, ok := groupedResources[api]
+	// 	if !ok {
+	// 		// create an empty map of resources if one does not exist
+	// 		group = make(map[resource.Name]resource.Resource)
+	// 	}
+	// 	if err := coll.ReplaceAll(group); err != nil {
+	// 		return err
+	// 	}
+	// 	delete(groupedResources, api)
+	// }
+
+	// // If there are any groupedResources remaining, check if they are registered/internal/remote.
+	// //  * Custom APIs are registered and do not have a dedicated gRPC service as requests for them are routed through the
+	// //    foreignServiceHandler.
+	// //  * Internal services do not have an associated gRPC API and so can be safely ignored.
+	// //  * Remote resources with unregistered APIs are possibly handled by the remote robot and requests would be routed through the
+	// //    foreignServiceHandler.
+	// for api, group := range groupedResources {
+	// 	apiRegs := resource.RegisteredAPIs()
+	// 	_, ok := apiRegs[api]
+	// 	if ok {
+	// 		// If registered, the API is most likely a custom API registered through modular resources.
+	// 		continue
+	// 	}
+	// 	// Log a warning here to remind users to register their APIs.
+	// 	if api.Type.Namespace != resource.APINamespaceRDKInternal {
+	// 		for n := range group {
+	// 			if !n.ContainsRemoteNames() {
+	// 				svc.logger.Warnw(
+	// 					"missing registration for api, resources with this API will be unreachable through a client", "api", n.API)
+	// 				break
+	// 			}
+	// 		}
+	// 	}
+	// }
+	// return nil
 }
 
 // Stop stops the main web service prior to actually closing (it leaves the module server running.)
@@ -758,13 +768,8 @@ func (svc *webService) initAPIResourceCollections(ctx context.Context, server rp
 	// TODO (RSDK-144): only register necessary services
 	apiRegs := resource.RegisteredAPIs()
 	for s, rs := range apiRegs {
-		apiResColl, ok := svc.services[s]
-		if !ok {
-			apiResColl = rs.MakeEmptyCollection()
-			svc.services[s] = apiResColl
-		}
-
-		if err := rs.RegisterRPCService(ctx, server, apiResColl); err != nil {
+		rr := apiResourceRouter{s, svc.r}
+		if err := rs.RegisterRPCService(ctx, server, rr); err != nil {
 			return err
 		}
 	}
@@ -1049,12 +1054,7 @@ type RestartStatusResponse struct {
 
 // Handles the `/restart_status` endpoint.
 func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Request) {
-	localRobot, isLocal := svc.r.(robot.LocalRobot)
-	if !isLocal {
-		return
-	}
-
-	response := RestartStatusResponse{RestartAllowed: localRobot.RestartAllowed()}
+	response := RestartStatusResponse{RestartAllowed: svc.r.RestartAllowed()}
 
 	w.Header().Set("Content-Type", "application/json")
 	// Only log errors from encoding here. A failure to encode should never
