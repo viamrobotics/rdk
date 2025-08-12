@@ -323,33 +323,69 @@ func parseFunctionSignature(
 	return funcName, receiver, strings.Join(params, ", "), returns
 }
 
+// formatReturnDef converts a slice of return types into a properly formatted Go return type string.
+func formatReturnDef(returns []string) string {
+	switch len(returns) {
+	case 0:
+		return ""
+	case 1:
+		return " " + returns[0]
+	default:
+		return " (" + strings.Join(returns, ", ") + ")"
+	}
+}
+
+// zeroValueForType returns the zero value literal as a string for the given Go type.
+func zeroValueForType(typ string) string {
+	switch typ {
+	case "string":
+		return `""`
+	case "int", "int32", "int64", "float32", "float64", "uint", "uint32":
+		return "0"
+	case "bool":
+		return "false"
+	default:
+		return "nil"
+	}
+}
+
+// formatNotImplementedBody generates the Go function body for an unimplemented stub.
+// It returns zero values and a "not implemented" error according to the function's return types.
+func formatNotImplementedBody(returns []string) string {
+	switch len(returns) {
+	case 0:
+		return "\t// not implemented"
+	case 1:
+		if returns[0] == "error" {
+			return "\treturn fmt.Errorf(\"not implemented\")"
+		}
+		return "\treturn " + zeroValueForType(returns[0])
+	default:
+		vals := make([]string, len(returns))
+		for i, r := range returns {
+			if r == "error" {
+				vals[i] = "fmt.Errorf(\"not implemented\")"
+			} else {
+				vals[i] = zeroValueForType(r)
+			}
+		}
+		return "\treturn " + strings.Join(vals, ", ")
+	}
+}
+
+
 // formatEmptyFunction outputs the new function that removes the function body, adds the panic unimplemented statement,
 // and replaces the receiver with the new model type.
 func formatEmptyFunction(receiver, funcName, args string, returns []string) string {
-	var returnDef string
-	switch {
-	case len(returns) == 0:
-		returnDef = ""
-	case len(returns) == 1:
-		returnDef = returns[0]
-	default:
-		returnDef = fmt.Sprintf("(%s)", strings.Join(returns, ","))
-	}
-	newFunc := fmt.Sprintf("func (s *%s) %s(%s) %s{\n\tpanic(\"not implemented\")\n}\n\n", receiver, funcName, args, returnDef)
-	return newFunc
+	returnDef := formatReturnDef(returns)
+	body := formatNotImplementedBody(returns)
+	return fmt.Sprintf("func (s *%s) %s(%s)%s {\n%s\n}\n\n", receiver, funcName, args, returnDef, body)
 }
 
 // formatEmptyFunctionWithDoc returns a stub Go method with an optional doc comment.
 func formatEmptyFunctionWithDoc(doc, receiver, funcName, args string, returns []string) string {
-	var returnDef string
-	switch len(returns) {
-	case 0:
-		returnDef = ""
-	case 1:
-		returnDef = " " + returns[0]
-	default:
-		returnDef = " (" + strings.Join(returns, ", ") + ")"
-	}
+	returnDef := formatReturnDef(returns)
+	body := formatNotImplementedBody(returns)
 
 	var docComment string
 	if doc != "" {
@@ -361,10 +397,7 @@ func formatEmptyFunctionWithDoc(doc, receiver, funcName, args string, returns []
 		docComment = strings.Join(lines, "\n") + "\n"
 	}
 
-	return fmt.Sprintf(`%sfunc (s *%s) %s(%s)%s {
-	panic("not implemented")
-}
-`, docComment, receiver, funcName, args, returnDef)
+	return fmt.Sprintf("%sfunc (s *%s) %s(%s)%s {\n%s\n}\n\n", docComment, receiver, funcName, args, returnDef, body)
 }
 
 // RenderGoTemplates outputs the method stubs for created module.
