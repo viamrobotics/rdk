@@ -1,5 +1,5 @@
-// main provides a CLI tool for viewing `.ftdc` files emitted by the `viam-server`.
-package main
+// Package parser provides a CLI tool for viewing `.ftdc` files emitted by the `viam-server`.
+package parser
 
 import (
 	"bufio"
@@ -132,7 +132,8 @@ func defaultGraphOptions() graphOptions {
 	}
 }
 
-func nolintPrintln(str ...any) {
+// NolintPrintln outputs to stdout.
+func NolintPrintln(str ...any) {
 	// This is a CLI. It's acceptable to output to stdout.
 	//nolint:forbidigo
 	fmt.Println(str...)
@@ -602,8 +603,8 @@ func (gpw *gnuplotWriter) Render() {
 	gnuplotCmd := exec.Command("gnuplot", filename)
 	outputBytes, err := gnuplotCmd.CombinedOutput()
 	if err != nil {
-		nolintPrintln("error running gnuplot:", err)
-		nolintPrintln("gnuplot output:", string(outputBytes))
+		NolintPrintln("error running gnuplot:", err)
+		NolintPrintln("gnuplot output:", string(outputBytes))
 	}
 }
 
@@ -624,8 +625,8 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 	// Log the tempdir in case one wants to go back and see/edit how the graph was generated. A user
 	// can rerun `gnuplot /<tmpdir>/main<unique value>` to recreate `plot.png` with the new
 	// settings/data.
-	nolintPrintln("Gnuplot dir:", gpw.tempdir)
-	nolintPrintln("Output file: `plot.png`")
+	NolintPrintln("Gnuplot dir:", gpw.tempdir)
+	NolintPrintln("Output file: `plot.png`")
 	// The output filename
 	writeln(gnuFile, "set output 'plot.png'")
 
@@ -707,9 +708,9 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 		utils.UncheckedErrorFunc(graphInfo.file.Close)
 	}
 	if allZeroesHidden > 0 {
-		nolintPrintln("Hid metrics that only had 0s for data. Cnt:", allZeroesHidden)
+		NolintPrintln("Hid metrics that only had 0s for data. Cnt:", allZeroesHidden)
 		// Dan: perhaps add a command to disable this. E.g:
-		//   nolintPrintln("Use `set show-all-zeroes 1` to show them.")
+		//   NolintPrintln("Use `set show-all-zeroes 1` to show them.")
 	}
 
 	// Actually write out the `vert-<number>.txt` plots.
@@ -742,16 +743,12 @@ func parseStringAsTime(inp string) (time.Time, error) {
 	return goTime, nil
 }
 
-func main() {
-	if len(os.Args) < 2 {
-		nolintPrintln("Expected an FTDC filename. E.g: go run parser.go <path-to>/viam-server.ftdc")
-		return
-	}
-
-	ftdcFile, err := os.Open(os.Args[1])
+// ParseFTDC opens an ftdc file, plots it, and runs a cli for it.
+func ParseFTDC(ftdcFilepath string) {
+	ftdcFile, err := os.Open(filepath.Clean(ftdcFilepath))
 	if err != nil {
-		nolintPrintln("Error opening file. File:", os.Args[1], "Err:", err)
-		nolintPrintln("Expected an FTDC filename. E.g: go run parser.go <path-to>/viam-server.ftdc")
+		NolintPrintln("Error opening file. File:", os.Args[1], "Err:", err)
+		NolintPrintln("Expected an FTDC filename. E.g: go run parser.go <path-to>/viam-server.ftdc")
 		return
 	}
 
@@ -792,31 +789,31 @@ func main() {
 		cmd = strings.TrimSpace(cmd)
 		switch {
 		case err != nil && errors.Is(err, io.EOF):
-			nolintPrintln("\nExiting...")
+			NolintPrintln("\nExiting...")
 			return
 		case cmd == "quit":
-			nolintPrintln("Exiting...")
+			NolintPrintln("Exiting...")
 			return
 		case cmd == "h" || cmd == "help":
 			render = false
-			nolintPrintln("range <start> <end>")
-			nolintPrintln("-  Only plot datapoints within the given range. \"zoom in\"")
-			nolintPrintln("-  E.g: range 2024-09-24T18:00:00 2024-09-24T18:30:00")
-			nolintPrintln("-       range start 2024-09-24T18:30:00")
-			nolintPrintln("-       range 2024-09-24T18:00:00 end")
-			nolintPrintln("-  All times in UTC")
-			nolintPrintln()
-			nolintPrintln("reset range")
-			nolintPrintln("-  Unset any prior range. \"zoom out to full\"")
-			nolintPrintln()
-			nolintPrintln("ev, event <timestamp>")
-			nolintPrintln("-  Add a vertical marker at a timestamp representing an event of interest.")
-			nolintPrintln("-  E.g: ev 2024-09-24T18:15:00")
-			nolintPrintln()
-			nolintPrintln("r, refresh")
-			nolintPrintln("-  Regenerate the plot.png image. Useful when a current viam-server is running.")
-			nolintPrintln()
-			nolintPrintln("`quit` or Ctrl-d to exit")
+			NolintPrintln("range <start> <end>")
+			NolintPrintln("-  Only plot datapoints within the given range. \"zoom in\"")
+			NolintPrintln("-  E.g: range 2024-09-24T18:00:00 2024-09-24T18:30:00")
+			NolintPrintln("-       range start 2024-09-24T18:30:00")
+			NolintPrintln("-       range 2024-09-24T18:00:00 end")
+			NolintPrintln("-  All times in UTC")
+			NolintPrintln()
+			NolintPrintln("reset range")
+			NolintPrintln("-  Unset any prior range. \"zoom out to full\"")
+			NolintPrintln()
+			NolintPrintln("ev, event <timestamp>")
+			NolintPrintln("-  Add a vertical marker at a timestamp representing an event of interest.")
+			NolintPrintln("-  E.g: ev 2024-09-24T18:15:00")
+			NolintPrintln()
+			NolintPrintln("r, refresh")
+			NolintPrintln("-  Regenerate the plot.png image. Useful when a current viam-server is running.")
+			NolintPrintln()
+			NolintPrintln("`quit` or Ctrl-d to exit")
 		case strings.HasPrefix(cmd, "range "):
 			pieces := strings.SplitN(cmd, " ", 3)
 			// TrimSpace to remove the newline.
@@ -849,11 +846,11 @@ func main() {
 				graphOptions.vertLinesAtSeconds = append(graphOptions.vertLinesAtSeconds, goTime.Unix())
 			}
 		case cmd == "refresh" || cmd == "r":
-			nolintPrintln("Refreshing graphs with new data")
+			NolintPrintln("Refreshing graphs with new data")
 		case len(cmd) == 0:
 			render = false
 		default:
-			nolintPrintln("Unknown command. Type `h` for help.")
+			NolintPrintln("Unknown command. Type `h` for help.")
 			render = false
 		}
 	}
