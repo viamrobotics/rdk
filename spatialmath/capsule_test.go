@@ -7,9 +7,8 @@ import (
 	"go.viam.com/test"
 )
 
-// makeTestCapsule creates a test capsule with the given orientation, position, radius, and length.
-func makeTestCapsule(o Orientation, pt r3.Vector, radius, length float64, label string) Geometry {
-	c, err := NewCapsule(NewPose(pt, o), radius, length, label)
+func makeTestCapsule(o Orientation, pt r3.Vector, radius, length float64) Geometry {
+	c, err := NewCapsule(NewPose(pt, o), radius, length, "")
 	if err != nil {
 		return nil
 	}
@@ -17,7 +16,7 @@ func makeTestCapsule(o Orientation, pt r3.Vector, radius, length float64, label 
 }
 
 func TestCapsuleConstruction(t *testing.T) {
-	c := makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0.1}, 1, 6.75, "test_capsule").(*capsule)
+	c := makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 0.1}, 1, 6.75).(*capsule)
 	test.That(t, c.segA.ApproxEqual(r3.Vector{0, 0, -2.275}), test.ShouldBeTrue)
 	test.That(t, c.segB.ApproxEqual(r3.Vector{0, 0, 2.475}), test.ShouldBeTrue)
 }
@@ -43,7 +42,7 @@ func TestBoxCapsuleCollision(t *testing.T) {
 }
 
 func TestCapsuleIntersectWithPlane(t *testing.T) {
-	c := makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0.1, 0.1}, 1, 16.75, "test_capsule").(*capsule)
+	c := makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0.1, 0.1}, 1, 16.75).(*capsule)
 	points, err := CapsuleIntersectionWithPlane(c, r3.Vector{0, 1, 0}, r3.Vector{1, 0, 0}, 32)
 	test.That(t, err, test.ShouldBeNil)
 

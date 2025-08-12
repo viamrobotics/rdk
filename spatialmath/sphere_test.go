@@ -8,12 +8,8 @@ import (
 	"go.viam.com/test"
 )
 
-// makeTestSphere creates a test sphere with the given position, radius, and label.
 func makeTestSphere(point r3.Vector, radius float64, label string) Geometry {
-	sphere, err := NewSphere(NewPoseFromPoint(point), radius, label)
-	if err != nil {
-		return nil
-	}
+	sphere, _ := NewSphere(NewPoseFromPoint(point), radius, label)
 	return sphere
 }
 
