@@ -11,6 +11,11 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
+// makeTestPoint creates a test point with the given position and label.
+func makeTestPoint(pt r3.Vector, label string) Geometry {
+	return NewPoint(pt, label)
+}
+
 func TestBasicPoseConstruction(t *testing.T) {
 	p := NewZeroPose()
 	// Should return an identity dual quat

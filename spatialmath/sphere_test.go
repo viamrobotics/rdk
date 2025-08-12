@@ -8,6 +8,15 @@ import (
 	"go.viam.com/test"
 )
 
+// makeTestSphere creates a test sphere with the given position, radius, and label.
+func makeTestSphere(point r3.Vector, radius float64, label string) Geometry {
+	sphere, err := NewSphere(NewPoseFromPoint(point), radius, label)
+	if err != nil {
+		return nil
+	}
+	return sphere
+}
+
 func TestNewSphere(t *testing.T) {
 	offset := NewPose(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
 
@@ -26,9 +35,9 @@ func TestNewSphere(t *testing.T) {
 }
 
 func TestSphereAlmostEqual(t *testing.T) {
-	original := MakeTestSphere(r3.Vector{}, 1, "")
-	good := MakeTestSphere(r3.Vector{1e-16, 1e-16, 1e-16}, 1+1e-16, "")
-	bad := MakeTestSphere(r3.Vector{1e-2, 1e-2, 1e-2}, 1+1e-2, "")
+	original := makeTestSphere(r3.Vector{}, 1, "")
+	good := makeTestSphere(r3.Vector{1e-16, 1e-16, 1e-16}, 1+1e-16, "")
+	bad := makeTestSphere(r3.Vector{1e-2, 1e-2, 1e-2}, 1+1e-2, "")
 	test.That(t, original.(*sphere).almostEqual(good), test.ShouldBeTrue)
 	test.That(t, original.(*sphere).almostEqual(bad), test.ShouldBeFalse)
 }

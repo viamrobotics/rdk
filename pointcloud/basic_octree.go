@@ -259,13 +259,7 @@ func (octree *BasicOctree) Transform(pose spatialmath.Pose) spatialmath.Geometry
 
 // ToProtobuf converts the octree to a Geometry proto message.
 func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
-	pc := NewBasicPointCloud(octree.Size())
-	octree.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		err := pc.Set(p, d)
-		return err == nil
-	})
-
-	bytes, err := ToBytes(pc)
+	bytes, err := ToBytes(octree)
 	if err != nil {
 		return nil
 	}

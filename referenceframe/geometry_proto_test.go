@@ -15,14 +15,18 @@ import (
 
 func TestGeometryProtobufRoundTrip(t *testing.T) {
 	deg45 := math.Pi / 4
+	box, _ := spatialmath.NewBox(spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.EulerAngles{0, 0, deg45}), r3.Vector{2, 2, 2}, "box")
+	sphere, _ := spatialmath.NewSphere(spatialmath.NewPose(r3.Vector{3, 4, 5}, spatialmath.NewZeroOrientation()), 10, "sphere")
+	point := spatialmath.NewPoint(r3.Vector{3, 4, 5}, "point")
+	capsule, _ := spatialmath.NewCapsule(spatialmath.NewPose(r3.Vector{1, 2, 3}, &spatialmath.EulerAngles{0, 0, deg45}), 5, 20, "capsule")
 	testCases := []struct {
 		name     string
 		geometry spatialmath.Geometry
 	}{
-		{"box", spatialmath.MakeTestBox(&spatialmath.EulerAngles{0, 0, deg45}, r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}, "box")},
-		{"sphere", spatialmath.MakeTestSphere(r3.Vector{3, 4, 5}, 10, "sphere")},
-		{"point", spatialmath.MakeTestPoint(r3.Vector{3, 4, 5}, "point")},
-		{"capsule", spatialmath.MakeTestCapsule(&spatialmath.EulerAngles{0, 0, deg45}, r3.Vector{1, 2, 3}, 5, 20, "capsule")},
+		{"box", box},
+		{"sphere", sphere},
+		{"point", point},
+		{"capsule", capsule},
 	}
 
 	for _, testCase := range testCases {
@@ -39,10 +43,35 @@ func TestGeometryProtobufRoundTrip(t *testing.T) {
 			test.That(t, spatialmath.GeometriesAlmostEqual(testCase.geometry, newGeometry), test.ShouldBeTrue)
 		})
 	}
+
+}
+
+func makeTestPointCloud(label string) *pointcloud.BasicOctree {
+	pc := pointcloud.NewBasicPointCloud(3)
+	err := pc.Set(r3.Vector{X: 0, Y: 0, Z: 0}, pointcloud.NewBasicData())
+	if err != nil {
+		return nil
+	}
+	err = pc.Set(r3.Vector{X: 1, Y: 0, Z: 0}, pointcloud.NewBasicData())
+	if err != nil {
+		return nil
+	}
+	err = pc.Set(r3.Vector{X: 0, Y: 1, Z: 0}, pointcloud.NewBasicData())
+	if err != nil {
+		return nil
+	}
+
+	octree, err := pointcloud.ToBasicOctree(pc, 50)
+	if err != nil {
+		return nil
+	}
+
+	octree.SetLabel(label)
+	return octree
 }
 
 func TestPointCloudProtobufRoundTrip(t *testing.T) {
-	pc := pointcloud.MakeTestPointCloud("pointcloud")
+	pc := makeTestPointCloud("pointcloud")
 
 	proto := pc.ToProtobuf()
 	test.That(t, proto, test.ShouldNotBeNil)
@@ -212,6 +241,12 @@ func TestNewGeometryFromProtoErrors(t *testing.T) {
 }
 
 func TestGeoGeometryProtobufRoundTrip(t *testing.T) {
+	singleSphere, _ := spatialmath.NewSphere(spatialmath.NewPose(r3.Vector{0, 0, 0}, spatialmath.NewZeroOrientation()), 5, "test_sphere")
+	multiSphere, _ := spatialmath.NewSphere(spatialmath.NewPose(r3.Vector{0, 0, 0}, spatialmath.NewZeroOrientation()), 5, "sphere1")
+	multiBox, _ := spatialmath.NewBox(spatialmath.NewPose(r3.Vector{10, 0, 0}, spatialmath.NewZeroOrientation()), r3.Vector{2, 2, 2}, "box1")
+	multiSphere.SetLabel("sphere1")
+	multiBox.SetLabel("box1")
+
 	testCases := []struct {
 		name        string
 		geometries  []spatialmath.Geometry
@@ -221,7 +256,7 @@ func TestGeoGeometryProtobufRoundTrip(t *testing.T) {
 	}{
 		{
 			name:        "single sphere",
-			geometries:  []spatialmath.Geometry{spatialmath.MakeTestSphere(r3.Vector{0, 0, 0}, 5, "test_sphere")},
+			geometries:  []spatialmath.Geometry{singleSphere},
 			latitude:    37.7749,
 			longitude:   -122.4194,
 			description: "San Francisco",
@@ -229,8 +264,8 @@ func TestGeoGeometryProtobufRoundTrip(t *testing.T) {
 		{
 			name: "multiple geometries",
 			geometries: []spatialmath.Geometry{
-				spatialmath.MakeTestSphere(r3.Vector{0, 0, 0}, 5, "sphere1"),
-				spatialmath.MakeTestBox(&spatialmath.EulerAngles{0, 0, 0}, r3.Vector{10, 0, 0}, r3.Vector{2, 2, 2}, "box1"),
+				multiSphere,
+				multiBox,
 			},
 			latitude:    40.7128,
 			longitude:   -74.0060,

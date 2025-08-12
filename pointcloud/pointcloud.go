@@ -240,7 +240,7 @@ func CloudMatrix(pc PointCloud) (*mat.Dense, []CloudMatrixCol) {
 	return mat.NewDense(pc.Size(), pointSize, matData), header
 }
 
-// NewPointCloudFromProto creates a new point cloud from a protobuf point cloud.
+// NewPointCloudFromProto creates a new point cloud geometry from a protobuf point cloud.
 func NewPointCloudFromProto(pointCloud *commonpb.PointCloud, label string) (*BasicOctree, error) {
 	reader := bytes.NewReader(pointCloud.PointCloud)
 	pc, err := ReadPCD(reader, BasicOctreeType)

@@ -8,6 +8,31 @@ import (
 	"go.viam.com/test"
 )
 
+// makeTestMesh creates a test mesh with the given orientation, position, and triangles.
+func makeTestMesh(o Orientation, pt r3.Vector, triangles []*Triangle, label string) Geometry {
+	return NewMesh(NewPose(pt, o), triangles, label)
+}
+
+// makeSimpleTriangleMesh creates a simple triangle mesh at origin for testing.
+func makeSimpleTriangleMesh(label string) Geometry {
+	tri1 := NewTriangle(
+		r3.Vector{X: 0, Y: 0, Z: 0},
+		r3.Vector{X: 1, Y: 0, Z: 0},
+		r3.Vector{X: 0, Y: 1, Z: 0},
+	)
+	tri2 := NewTriangle(
+		r3.Vector{X: 0.6, Y: 0.6, Z: 0},
+		r3.Vector{X: 1, Y: 0, Z: 0},
+		r3.Vector{X: 0, Y: 1, Z: 0},
+	)
+	tri3 := NewTriangle(
+		r3.Vector{X: 0, Y: 0, Z: 10},
+		r3.Vector{X: 1, Y: 0, Z: 10},
+		r3.Vector{X: 0, Y: 1, Z: 10},
+	)
+	return makeTestMesh(NewZeroOrientation(), r3.Vector{}, []*Triangle{tri1, tri2, tri3}, label)
+}
+
 func TestNewMesh(t *testing.T) {
 	tri := NewTriangle(
 		r3.Vector{X: 0, Y: 0, Z: 0},
@@ -24,7 +49,7 @@ func TestNewMesh(t *testing.T) {
 }
 
 func TestMeshTransform(t *testing.T) {
-	mesh := MakeSimpleTriangleMesh("test_mesh")
+	mesh := makeSimpleTriangleMesh("test_mesh")
 
 	// Transform mesh by translation
 	newPose := NewPose(r3.Vector{X: 1, Y: 0, Z: 0}, NewZeroOrientation())
@@ -38,7 +63,7 @@ func TestMeshTransform(t *testing.T) {
 }
 
 func TestMeshCollidesWithMesh(t *testing.T) {
-	mesh1 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+	mesh1 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
@@ -49,7 +74,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// vertex-vertex
 	t.Run("triangle vertex against triangle vertex", func(t *testing.T) {
-		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0, Y: 0, Z: 0},
 				r3.Vector{X: 0, Y: 0, Z: 1},
@@ -62,7 +87,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// vertex-edge
 	t.Run("triangle vertex against triangle edge", func(t *testing.T) {
-		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0, Y: 0, Z: 1},
 				r3.Vector{X: 0, Y: 0, Z: -1},
@@ -75,7 +100,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// vertex-face
 	t.Run("triangle vertex against triangle face", func(t *testing.T) {
-		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0.4, Y: 0.4, Z: 0},
 				r3.Vector{X: 0, Y: 0.4, Z: 1},
@@ -88,7 +113,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// edge-edge
 	t.Run("triangle edge against triangle edge", func(t *testing.T) {
-		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0.5, Y: 0, Z: 0.5},
 				r3.Vector{X: 0.5, Y: 0, Z: -0.5},
@@ -104,7 +129,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 	// nonetheless worth keeping: e-f is the basic collision type checked by collidesWithMesh,
 	// and the special case of e parallel to f is important
 	t.Run("triangle edge against triangle face", func(t *testing.T) {
-		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0.5, Y: -0.1, Z: 0},
 				r3.Vector{X: -0.1, Y: 0.5, Z: 0},
@@ -117,7 +142,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// face-face. This implies one of the above collision types
 	t.Run("triangle face against triangle face", func(t *testing.T) {
-		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0.5, Y: -0.1, Z: 0},
 				r3.Vector{X: -0.1, Y: 0.5, Z: 0},
@@ -130,7 +155,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// Test collision with no edge intersections
 	t.Run("clipped triangles", func(t *testing.T) {
-		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0.5, Y: 0.1, Z: 0.5},
 				r3.Vector{X: 0.5, Y: 0.1, Z: -0.5},
@@ -143,7 +168,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 
 	// Test collision with non-overlapping mesh
 	t.Run("non-overlapping triangles", func(t *testing.T) {
-		mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0, Y: 0, Z: 0.2},
 				r3.Vector{X: 1, Y: 0, Z: 0.5},
@@ -156,7 +181,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 }
 
 func TestMeshCollidesWithCapsule(t *testing.T) {
-	mesh := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+	mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
@@ -291,7 +316,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 }
 
 func TestMeshCollidesWithBox(t *testing.T) {
-	mesh := MakeSimpleTriangleMesh("test_mesh")
+	mesh := makeSimpleTriangleMesh("test_mesh")
 	// Types of triangle points: {vertex, edge, face}
 	// Types of box points: {vertex, edge, face}
 	// We exhaust the 9 collision options
@@ -381,7 +406,7 @@ func TestMeshCollidesWithBox(t *testing.T) {
 }
 
 func TestMeshCollidesWithPoint(t *testing.T) {
-	mesh := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+	mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
@@ -422,7 +447,7 @@ func TestMeshCollidesWithPoint(t *testing.T) {
 }
 
 func TestMeshCollidesWithSphere(t *testing.T) {
-	mesh := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+	mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
@@ -485,10 +510,10 @@ func TestMeshCollidesWithSphere(t *testing.T) {
 }
 
 func TestMeshDistanceFrom(t *testing.T) {
-	mesh1 := MakeSimpleTriangleMesh("test_mesh")
+	mesh1 := makeSimpleTriangleMesh("test_mesh")
 
 	// Test distance from overlapping mesh
-	mesh2 := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+	mesh2 := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
@@ -500,7 +525,7 @@ func TestMeshDistanceFrom(t *testing.T) {
 	test.That(t, dist, test.ShouldEqual, 0)
 
 	// Test distance from non-overlapping mesh
-	mesh3 := MakeTestMesh(NewZeroOrientation(), r3.Vector{X: 2, Y: 0, Z: 0},
+	mesh3 := makeTestMesh(NewZeroOrientation(), r3.Vector{X: 2, Y: 0, Z: 0},
 		[]*Triangle{NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
@@ -514,7 +539,7 @@ func TestMeshDistanceFrom(t *testing.T) {
 
 func TestMeshToPoints(t *testing.T) {
 	t.Run("Simple triangle with density enforced", func(t *testing.T) {
-		mesh := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 0, Y: 0, Z: 0},
 				r3.Vector{X: 3, Y: 0, Z: 0},
@@ -554,7 +579,7 @@ func TestMeshToPoints(t *testing.T) {
 	})
 
 	t.Run("Degenerate triangle", func(t *testing.T) {
-		mesh := MakeTestMesh(NewZeroOrientation(), r3.Vector{},
+		mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
 			[]*Triangle{NewTriangle(
 				r3.Vector{X: 1, Y: 1, Z: 1},
 				r3.Vector{X: 1, Y: 1, Z: 1},
@@ -571,7 +596,7 @@ func TestMeshToPoints(t *testing.T) {
 }
 
 func TestMeshEncompassedBy(t *testing.T) {
-	mesh := MakeSimpleTriangleMesh("")
+	mesh := makeSimpleTriangleMesh("")
 
 	// Test with encompassing box
 	box, err := NewBox(NewZeroPose(), r3.Vector{X: 20, Y: 20, Z: 20}, "")
