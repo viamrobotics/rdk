@@ -437,12 +437,12 @@ func TestTunnelE2E(t *testing.T) {
 
 	// Start mock "destination" listener, even if we don't intend on actually accepting any messages.
 	// This is because windows doesn't seem to allow for dialing to ports there aren't listeners on.
-	mockDestPort := 65534
-	mockDestListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(mockDestPort))
-	mockDestListener, err := net.Listen("tcp", mockDestListenerAddr)
+	timeoutDestPort := 65534
+	timeoutDestListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(timeoutDestPort))
+	timeoutDestListener, err := net.Listen("tcp", timeoutDestListenerAddr)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, mockDestListener.Close(), test.ShouldBeNil)
+		test.That(t, timeoutDestListener.Close(), test.ShouldBeNil)
 	}()
 
 	wg.Add(1)
@@ -489,7 +489,7 @@ func TestTunnelE2E(t *testing.T) {
 							Port: destPort, // allow tunneling to destination port
 						},
 						{
-							Port:              mockDestPort,    // allow tunneling to 65535
+							Port:              timeoutDestPort, // allow tunneling to 65534
 							ConnectionTimeout: time.Nanosecond, // specify an impossibly small timeout
 						},
 					},
@@ -526,7 +526,7 @@ func TestTunnelE2E(t *testing.T) {
 
 		// Assert that opening a tunnel to a port with a low `connection_timeout` results in a
 		// timeout.
-		err = rc.Tunnel(ctx, googleConn /* will be eventually closed by `Tunnel` */, 65535)
+		err = rc.Tunnel(ctx, googleConn /* will be eventually closed by `Tunnel` */, timeoutDestPort)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "DeadlineExceeded")
 	}
