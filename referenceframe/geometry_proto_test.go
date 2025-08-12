@@ -43,7 +43,6 @@ func TestGeometryProtobufRoundTrip(t *testing.T) {
 			test.That(t, spatialmath.GeometriesAlmostEqual(testCase.geometry, newGeometry), test.ShouldBeTrue)
 		})
 	}
-
 }
 
 func makeTestPointCloud(label string) *pointcloud.BasicOctree {

@@ -8,10 +8,7 @@ import (
 )
 
 func makeTestCapsule(o Orientation, pt r3.Vector, radius, length float64) Geometry {
-	c, err := NewCapsule(NewPose(pt, o), radius, length, "")
-	if err != nil {
-		return nil
-	}
+	c, _ := NewCapsule(NewPose(pt, o), radius, length, "")
 	return c
 }
 
