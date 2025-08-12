@@ -317,6 +317,61 @@ func TestClient(t *testing.T) {
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+
+	t.Run("camera client images extra", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		camClient, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, extra, test.ShouldBeEmpty)
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		ctx := context.Background()
+		_, _, err = camClient.Images(ctx, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, len(extra), test.ShouldEqual, 1)
+			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
+
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		_, _, err = camClient.Images(context.Background(), map[string]interface{}{data.FromDMString: true})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, len(extra), test.ShouldEqual, 2)
+			test.That(t, extra["hello"], test.ShouldEqual, "world")
+			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		// merge values from data and camera
+		ext := data.FromDMExtraMap
+		ext["hello"] = "world"
+		ctx = context.Background()
+		_, _, err = camClient.Images(ctx, ext)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
 }
 
 func TestClientProperties(t *testing.T) {
