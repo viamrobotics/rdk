@@ -206,6 +206,14 @@ func (g *Graph) Node(name Name) (*GraphNode, bool) {
 	return rNode, ok
 }
 
+// catStringsMatch checks if `left == rightA + rightB` while avoiding string
+// concatenation.
+func catStringsMatch(left, rightA, rightB string) bool {
+	return len(left) == len(rightA)+len(rightB) &&
+		strings.HasPrefix(left, rightA) &&
+		strings.HasSuffix(left, rightB)
+}
+
 // FindBySimpleNameAndAPI returns a single graph node based on a simple name string and an
 // API. It returns an error in the case that no matching node is found or multiple remote
 // nodes are found.
@@ -220,7 +228,7 @@ func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error)
 	for gName, gNode := range g.nodes {
 		// TODO: search for names + nodes that would have matched w/o the prefix
 		// and include them in the error to help users.
-		if gName.API == api && gNode.prefix+gName.Name == name {
+		if gName.API == api && catStringsMatch(name, gNode.prefix, gName.Name) {
 			matches = append(matches, gTuple{gName, gNode})
 		}
 	}
