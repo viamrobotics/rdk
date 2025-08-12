@@ -141,7 +141,7 @@ func (r Registration[ResourceT, ConfigT]) ConfigReflectType() reflect.Type {
 
 // APIRegistration stores api-specific functions and clients.
 type APIRegistration[ResourceT Resource] struct {
-	RPCServiceServerConstructor func(apiGetter APIResourceGetter[ResourceT]) interface{}
+	RPCServiceServerConstructor func(apiGetter APIResourceGetter[ResourceT]) any
 	RPCServiceHandler           rpc.RegisterServiceHandlerFromEndpointFunc
 	RPCServiceDesc              *grpc.ServiceDesc
 	ReflectRPCServiceDesc       *desc.ServiceDescriptor
@@ -153,7 +153,7 @@ type APIRegistration[ResourceT Resource] struct {
 
 	MakeEmptyCollection func() APIResourceCollection[Resource]
 
-	typedVersion interface{} // the registry guarantees the type safety here
+	typedVersion any // the registry guarantees the type safety here
 }
 
 // RegisterRPCService registers this api into the given RPC server.
@@ -423,6 +423,20 @@ func makeGenericAssociatedConfigRegistration[AssocT AssociatedConfig](
 	return reg
 }
 
+type specificSubtypeGetter[ResourceT Resource] struct {
+	untyped APIResourceGetter[Resource]
+}
+
+func (g specificSubtypeGetter[ResourceT]) Resource(name string) (ResourceT, error) {
+	res, err := g.untyped.Resource(name)
+	if err != nil {
+		var zero ResourceT
+		return zero, err
+	}
+	// TODO: return an error here or leave it panicking on the type error?
+	return res.(ResourceT), nil
+}
+
 // genericSubypeCollection wraps a typed collection so that it can be used generically. It ensures
 // types going in are typed to T.
 type genericSubypeCollection[ResourceT Resource] struct {
@@ -486,14 +500,20 @@ func makeGenericAPIRegistration[ResourceT Resource](
 	if typed.RPCServiceServerConstructor != nil {
 		reg.RPCServiceServerConstructor = func(
 			coll APIResourceGetter[Resource],
-		) interface{} {
-			// it will always be this type since we are the only ones who can make
-			// a generic resource api registration.
-			genericColl, err := utils.AssertType[genericSubypeCollection[ResourceT]](coll)
-			if err != nil {
-				return err
+		) any {
+			var typedResourceGetter APIResourceGetter[ResourceT]
+			switch t := coll.(type) {
+			case genericSubypeCollection[ResourceT]:
+				typedResourceGetter = t.typed
+			case APIResourceGetter[ResourceT]:
+				typedResourceGetter = t
+			case APIResourceGetter[Resource]:
+				typedResourceGetter = specificSubtypeGetter[ResourceT]{t}
+			default:
+				return utils.NewUnexpectedTypeError[ResourceT](t)
 			}
-			return typed.RPCServiceServerConstructor(genericColl.typed)
+
+			return typed.RPCServiceServerConstructor(typedResourceGetter)
 		}
 	}
 	if typed.RPCClient != nil {
