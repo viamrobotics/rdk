@@ -200,7 +200,7 @@ func TestShutdown(t *testing.T) {
 		}
 		test.That(t, success, test.ShouldBeTrue)
 
-		addr := "localhost:" + strconv.Itoa(port)
+		addr := "127.0.0.1:" + strconv.Itoa(port)
 		rc := robottestutils.NewRobotClient(t, testLogger, addr, time.Second)
 
 		testLogger.Info("Issuing shutdown.")
@@ -239,7 +239,7 @@ func TestMachineState(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	machineAddress := "localhost:23654"
+	machineAddress := "127.0.0.1:23654"
 
 	// Create a fake package directory using `t.TempDir`. Set it up to be identical to the
 	// expected file tree of the local package manager. Place a single file `foo` in a
@@ -369,7 +369,7 @@ func TestMachineStateNoResources(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	machineAddress := "localhost:23655"
+	machineAddress := "127.0.0.1:23655"
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -415,13 +415,13 @@ func TestMachineStateNoResources(t *testing.T) {
 func TestTunnelE2E(t *testing.T) {
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
-	// test-process <-> source-listener(localhost:23658) <-> machine(localhost:23657) <-> dest-listener(localhost:23656)
+	// test-process <-> source-listener(127.0.0.1:23658) <-> machine(127.0.0.1:23657) <-> dest-listener(127.0.0.1:23656)
 
 	tunnelMsg := "Hello, World!"
 	destPort := 23656
-	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
-	machineAddr := net.JoinHostPort("localhost", "23657")
-	sourceListenerAddr := net.JoinHostPort("localhost", "23658")
+	destListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(destPort))
+	machineAddr := net.JoinHostPort("127.0.0.1", "23657")
+	sourceListenerAddr := net.JoinHostPort("127.0.0.1", "23658")
 
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -433,6 +433,16 @@ func TestTunnelE2E(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, destListener.Close(), test.ShouldBeNil)
+	}()
+
+	// Start mock "destination" listener, even if we don't intend on actually accepting any messages.
+	// This is because windows doesn't seem to allow for dialing to ports there aren't listeners on.
+	mockDestPort := 65534
+	mockDestListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(mockDestPort))
+	mockDestListener, err := net.Listen("tcp", mockDestListenerAddr)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, mockDestListener.Close(), test.ShouldBeNil)
 	}()
 
 	wg.Add(1)
@@ -479,7 +489,7 @@ func TestTunnelE2E(t *testing.T) {
 							Port: destPort, // allow tunneling to destination port
 						},
 						{
-							Port:              65535,           // allow tunneling to 65535
+							Port:              mockDestPort,    // allow tunneling to 65535
 							ConnectionTimeout: time.Nanosecond, // specify an impossibly small timeout
 						},
 					},
@@ -579,7 +589,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
 
 	helperModel := resource.NewModel("rdk", "test", "helper")
-	machineAddress := "localhost:23659"
+	machineAddress := "127.0.0.1:23659"
 
 	cfg := &config.Config{
 		Modules: []config.Module{
@@ -616,7 +626,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
 
-	// Create an SDK client to the server that was started on localhost:23659.
+	// Create an SDK client to the server that was started on 127.0.0.1:23659.
 	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
 	t.Log(rc.ResourceNames())
 	helper, err := rc.ResourceByName(generic.Named("helper"))
