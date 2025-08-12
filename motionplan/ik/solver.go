@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -71,9 +72,9 @@ func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
 }
 
 // NewMetricMinFunc takes a metric and a frame, and converts to a function able to be minimized with Solve().
-func NewMetricMinFunc(metric StateMetric, frame referenceframe.Frame, logger logging.Logger) func([]float64) float64 {
+func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame, logger logging.Logger) func([]float64) float64 {
 	return func(x []float64) float64 {
-		mInput := &State{Frame: frame}
+		mInput := &motionplan.State{Frame: frame}
 		inputs := referenceframe.FloatsToInputs(x)
 		eePos, err := frame.Transform(inputs)
 		if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
@@ -93,7 +94,7 @@ func SolveMetric(
 	frame referenceframe.Frame,
 	solutionChan chan<- *Solution,
 	seed []referenceframe.Input,
-	solveMetric StateMetric,
+	solveMetric motionplan.StateMetric,
 	rseed int,
 	logger logging.Logger,
 ) error {

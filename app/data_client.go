@@ -1396,22 +1396,13 @@ func (d *DataClient) CreateDataPipeline(
 	return resp.Id, nil
 }
 
-// UpdateDataPipeline updates a data pipeline configuration by its ID.
-func (d *DataClient) UpdateDataPipeline(
-	ctx context.Context, id, name string, query []map[string]interface{}, schedule string, dataSourceType TabularDataSourceType,
+// RenameDataPipeline updates a data pipeline configuration by its ID.
+func (d *DataClient) RenameDataPipeline(
+	ctx context.Context, id, name string,
 ) error {
-	mqlBinary, err := queryBSONToBinary(query)
-	if err != nil {
-		return err
-	}
-
-	dataSourceTypeProto := dataSourceTypeToProto(dataSourceType)
-	_, err = d.datapipelinesClient.UpdateDataPipeline(ctx, &datapipelinesPb.UpdateDataPipelineRequest{
-		Id:             id,
-		Name:           name,
-		MqlBinary:      mqlBinary,
-		Schedule:       schedule,
-		DataSourceType: &dataSourceTypeProto,
+	_, err := d.datapipelinesClient.RenameDataPipeline(ctx, &datapipelinesPb.RenameDataPipelineRequest{
+		Id:   id,
+		Name: name,
 	})
 	return err
 }

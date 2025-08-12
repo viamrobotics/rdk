@@ -5,7 +5,7 @@ import (
 	"{{.ModuleLowercase}}"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/{{.ResourceType}}s/{{.ResourceSubtype}}"
+	{{.ResourceSubtypeAlias}} "go.viam.com/rdk/{{.ResourceType}}s/{{.ResourceSubtype}}"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func realMain() error {
 
 	cfg := {{.ModuleLowercase}}.Config{}
 
-	thing, err := {{.ModuleLowercase}}.New{{.ModelPascal}}(ctx, deps, {{.ResourceSubtype}}.Named("foo"), &cfg, logger)
+	thing, err := {{.ModuleLowercase}}.New{{.ModelPascal}}(ctx, deps, {{.ResourceSubtypeAlias}}.Named("foo"), &cfg, logger)
 	if err != nil {
 		return err
 	}

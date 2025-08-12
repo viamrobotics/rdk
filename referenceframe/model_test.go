@@ -13,7 +13,7 @@ import (
 )
 
 func TestModelLoading(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "xArm6")
 	simpleM, ok := m.(*SimpleModel)
@@ -33,13 +33,13 @@ func TestModelLoading(t *testing.T) {
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
 	test.That(t, simpleM.validInputs(FloatsToInputs(randpos)), test.ShouldBeNil)
 
-	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "foo")
+	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
 func TestIncorrectInputs(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	dof := len(m.DoF())
 
@@ -72,18 +72,18 @@ func TestModelGeometries(t *testing.T) {
 	geometries, err := m.Geometries(inputs)
 	test.That(t, err, test.ShouldBeNil)
 	link1 := geometries.GeometryByName("test:link1").Pose().Point()
-	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, 1e-8), test.ShouldBeTrue)
+	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, defaultFloatPrecision), test.ShouldBeTrue)
 	link2 := geometries.GeometryByName("test:link2").Pose().Point()
-	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{0, 0, 20}, 1e-8), test.ShouldBeTrue)
+	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{0, 0, 20}, defaultFloatPrecision), test.ShouldBeTrue)
 
 	// transform the model 90 degrees at the joint
 	inputs[0] = Input{math.Pi / 2}
 	geometries, _ = m.Geometries(inputs)
 	test.That(t, geometries, test.ShouldNotBeNil)
 	link1 = geometries.GeometryByName("test:link1").Pose().Point()
-	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, 1e-8), test.ShouldBeTrue)
+	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, defaultFloatPrecision), test.ShouldBeTrue)
 	link2 = geometries.GeometryByName("test:link2").Pose().Point()
-	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{10, 0, 10}, 1e-8), test.ShouldBeTrue)
+	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{10, 0, 10}, defaultFloatPrecision), test.ShouldBeTrue)
 }
 
 func Test2DMobileModelFrame(t *testing.T) {

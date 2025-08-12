@@ -266,7 +266,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	}
 
 	if rOpts.withNetworkStats {
-		nc.RunNetworkChecks(ctx, logger)
+		nc.RunNetworkChecks(ctx, logger, false /* !continueRunningTestDNS */)
 	}
 
 	backgroundCtx, backgroundCtxCancel := context.WithCancel(context.Background())
@@ -281,6 +281,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		logger:              logger,
 		dialOptions:         rOpts.dialOptions,
 		notifyParent:        nil,
+		conn:                grpc.ReconfigurableClientConn{Logger: logger},
 		resourceClients:     make(map[resource.Name]resource.Resource),
 		remoteNameMap:       make(map[resource.Name]resource.Name),
 		sessionsDisabled:    rOpts.disableSessions,

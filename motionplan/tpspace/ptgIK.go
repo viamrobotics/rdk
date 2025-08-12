@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -85,7 +86,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 func (ptg *ptgIK) Solve(
 	ctx context.Context,
 	seed []referenceframe.Input,
-	solveMetric ik.StateMetric,
+	solveMetric motionplan.StateMetric,
 ) (*ik.Solution, error) {
 	internalSolutionGen := make(chan *ik.Solution, 1)
 	defer close(internalSolutionGen)
@@ -237,12 +238,12 @@ func (ptg *ptgIK) arcDist(inputs []referenceframe.Input) float64 {
 	return dist
 }
 
-func (ptg *ptgIK) ptgMetricIkFunc(distMetric ik.StateMetric) func([]float64) float64 {
+func (ptg *ptgIK) ptgMetricIkFunc(distMetric motionplan.StateMetric) func([]float64) float64 {
 	return func(vals []float64) float64 {
 		queryPose, err := ptg.Transform(referenceframe.FloatsToInputs(vals))
 		if err != nil {
 			return math.Inf(1)
 		}
-		return distMetric(&ik.State{Position: queryPose})
+		return distMetric(&motionplan.State{Position: queryPose})
 	}
 }

@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"testing"
 
 	"go.viam.com/test"
@@ -14,11 +15,11 @@ import (
 // So we'll just check that we read in the right number of joints.
 func TestParseJSONFile(t *testing.T) {
 	goodFiles := []string{
-		"components/arm/example_kinematics/xarm6_kinematics_test.json",
-		"components/arm/example_kinematics/xarm7_kinematics_test.json",
+		"components/arm/fake/kinematics/xarm6.json",
+		"components/arm/fake/kinematics/xarm7.json",
 		"referenceframe/testfiles/ur5eDH.json",
-		"components/arm/example_kinematics/ur5e.json",
-		"components/arm/example_kinematics/dofbot.json",
+		"components/arm/fake/kinematics/ur5e.json",
+		"components/arm/fake/kinematics/dofbot.json",
 	}
 
 	badFiles := []string{
@@ -42,13 +43,18 @@ func TestParseJSONFile(t *testing.T) {
 			model, err := ParseModelJSONFile(utils.ResolveFile(f), "")
 			test.That(t, err, test.ShouldBeNil)
 
-			data, err := model.MarshalJSON()
+			smodel, ok := model.(*SimpleModel)
+			test.That(t, ok, test.ShouldBeTrue)
+			data, err := json.Marshal(smodel.modelConfig)
 			test.That(t, err, test.ShouldBeNil)
 
 			model2, err := UnmarshalModelJSON(data, "")
 			test.That(t, err, test.ShouldBeNil)
 
-			data2, err := model2.MarshalJSON()
+			smodel2, ok := model2.(*SimpleModel)
+			test.That(t, ok, test.ShouldBeTrue)
+
+			data2, err := json.Marshal(smodel2.modelConfig)
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, data, test.ShouldResemble, data2)

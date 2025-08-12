@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 
 	"github.com/golang/geo/r3"
@@ -436,6 +437,70 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInput
 	return q, errAll
 }
 
+// MarshalJSON serializes a FrameSystem into JSON format.
+func (sfs *FrameSystem) MarshalJSON() ([]byte, error) {
+	type serializableFrameSystem struct {
+		Name    string                     `json:"name"`
+		World   json.RawMessage            `json:"world"`
+		Frames  map[string]json.RawMessage `json:"frames"`
+		Parents map[string]string          `json:"parents"`
+	}
+	worldFrameJSON, err := frameToJSON(sfs.World())
+	if err != nil {
+		return nil, err
+	}
+
+	typedFrames := make(map[string]json.RawMessage, 0)
+	for name, frame := range sfs.frames {
+		frameJSON, err := frameToJSON(frame)
+		if err != nil {
+			return nil, err
+		}
+		typedFrames[name] = frameJSON
+	}
+	serializedFS := serializableFrameSystem{
+		Name:    sfs.name,
+		World:   worldFrameJSON,
+		Frames:  typedFrames,
+		Parents: sfs.parents,
+	}
+	return json.Marshal(serializedFS)
+}
+
+// UnmarshalJSON parses a FrameSystem from JSON data.
+func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
+	type serializableFrameSystem struct {
+		Name    string                     `json:"name"`
+		World   json.RawMessage            `json:"world"`
+		Frames  map[string]json.RawMessage `json:"frames"`
+		Parents map[string]string          `json:"parents"`
+	}
+	var serFS serializableFrameSystem
+	if err := json.Unmarshal(data, &serFS); err != nil {
+		return err
+	}
+
+	worldFrame, err := jsonToFrame(serFS.World)
+	if err != nil {
+		return err
+	}
+
+	frameMap := make(map[string]Frame, 0)
+	for name, tF := range serFS.Frames {
+		frame, err := jsonToFrame(tF)
+		if err != nil {
+			return err
+		}
+		frameMap[name] = frame
+	}
+
+	sfs.frames = frameMap
+	sfs.parents = serFS.Parents
+	sfs.world = worldFrame
+	sfs.name = serFS.Name
+	return nil
+}
+
 // NewZeroInputs returns a zeroed input map ensuring all frames have inputs.
 func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	positions := make(FrameSystemInputs)
@@ -525,7 +590,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	var modelJSON map[string]interface{}
+	var modelJSON SimpleModel
 	if part.ModelFrame != nil {
 		bytes, err := part.ModelFrame.MarshalJSON()
 		if err != nil {
@@ -536,7 +601,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 			return nil, err
 		}
 	}
-	kinematics, err := protoutils.StructToStructPb(modelJSON)
+	kinematics, err := protoutils.StructToStructPb(modelJSON.modelConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -689,4 +754,46 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 		}
 	}
 	return topoSortedParts, nil
+}
+
+func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, error) {
+	if fs1 == nil {
+		return fs2 == nil, nil
+	} else if fs2 == nil {
+		return false, nil
+	}
+
+	if fs1.Name() != fs2.Name() {
+		return false, nil
+	}
+
+	worldFrameEquality, err := framesAlmostEqual(fs1.World(), fs2.World(), epsilon)
+	if err != nil {
+		return false, err
+	}
+	if !worldFrameEquality {
+		return false, nil
+	}
+
+	if !reflect.DeepEqual(fs1.parents, fs2.parents) {
+		return false, nil
+	}
+
+	if len(fs1.FrameNames()) != len(fs2.FrameNames()) {
+		return false, nil
+	}
+	for frameName, frame := range fs1.frames {
+		frame2, ok := fs2.frames[frameName]
+		if !ok {
+			return false, nil
+		}
+		frameEquality, err := framesAlmostEqual(frame, frame2, epsilon)
+		if err != nil {
+			return false, err
+		}
+		if !frameEquality {
+			return false, nil
+		}
+	}
+	return true, nil
 }

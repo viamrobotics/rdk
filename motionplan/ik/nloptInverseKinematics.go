@@ -214,9 +214,6 @@ func (ik *nloptIK) Solve(ctx context.Context,
 			}
 			solutionsFound++
 		}
-		if err != nil {
-			return err
-		}
 		seed = generateRandomPositions(randSeed, lowerBound, upperBound)
 	}
 	if solutionsFound > 0 {
