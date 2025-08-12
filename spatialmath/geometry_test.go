@@ -627,6 +627,7 @@ func TestCapsuleVsCapsuleCollision(t *testing.T) {
 			"separated cylinder closest to end",
 			[2]Geometry{
 				makeTestCapsule(&OrientationVector{0, 1, 1, 0}, r3.Vector{0, 0, -1}, 1, 10),
+				makeTestCapsule(NewZeroOrientation(), r3.Vector{0, 0, 2 + 1e-3}, 1, 4),
 			},
 			1e-3,
 		},
