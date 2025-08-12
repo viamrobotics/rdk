@@ -489,8 +489,9 @@ func TestTunnelE2E(t *testing.T) {
 							Port: destPort, // allow tunneling to destination port
 						},
 						{
-							Port:              timeoutDestPort, // allow tunneling to 65534
-							ConnectionTimeout: time.Nanosecond, // specify an impossibly small timeout
+							Port: timeoutDestPort, // allow tunneling to 65534
+							// specify a negative timeout since somehow 1 ns succeeds on windows sometimes
+							ConnectionTimeout: -time.Nanosecond,
 						},
 					},
 					BindAddress: machineAddr,
