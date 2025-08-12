@@ -67,7 +67,7 @@ func getClientCode(module modulegen.ModuleInputs) (string, error) {
 // CreateGetResourceCodeRequest creates a request to get the component code of the specified resource type.
 var CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs) (*http.Request, error) {
 	url := fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
-		module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtype)
+		module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtypeSnake)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get resource code")
