@@ -2,6 +2,7 @@ package camera_test
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"testing"
 	"time"
@@ -478,8 +479,10 @@ func TestImagesExtraParam(t *testing.T) {
 		switch size {
 		case "large":
 			img = largeImg
-		default:
+		case "small":
 			img = smallImg
+		default:
+			return nil, resource.ResponseMetadata{}, fmt.Errorf("unexpected size: %s", size)
 		}
 
 		return []camera.NamedImage{{Image: img, SourceName: source1Name}}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
