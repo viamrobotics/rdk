@@ -1396,6 +1396,17 @@ func (d *DataClient) CreateDataPipeline(
 	return resp.Id, nil
 }
 
+// RenameDataPipeline updates a data pipeline configuration by its ID.
+func (d *DataClient) RenameDataPipeline(
+	ctx context.Context, id, name string,
+) error {
+	_, err := d.datapipelinesClient.RenameDataPipeline(ctx, &datapipelinesPb.RenameDataPipelineRequest{
+		Id:   id,
+		Name: name,
+	})
+	return err
+}
+
 // DeleteDataPipeline deletes a data pipeline by its ID.
 func (d *DataClient) DeleteDataPipeline(ctx context.Context, id string) error {
 	_, err := d.datapipelinesClient.DeleteDataPipeline(ctx, &datapipelinesPb.DeleteDataPipelineRequest{

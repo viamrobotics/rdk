@@ -548,7 +548,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			return failToReachGoalError
 		}
 		injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-			return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+			return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 		}
 
 		// create arm link
@@ -1351,10 +1351,13 @@ func TestDoCommand(t *testing.T) {
 		test.That(t, resp, test.ShouldBeTrue)
 		test.That(t, respMap[DoExecuteCheckStart], test.ShouldEqual, "resource at starting location")
 
+		start := trajectory[0]["pieceArm"]
+		end := trajectory[len(trajectory)-1]["pieceArm"]
 		// do it again
 		respMap, err = doOverWire(ms, cmd)
 		test.That(t, err, test.ShouldBeError,
-			fmt.Errorf("component %v is not within %v of the current position", "pieceArm", defaultExecuteEpsilon))
+			fmt.Errorf("component %v is not within %v of the current position. Expected inputs %v current inputs %v",
+				"pieceArm", defaultExecuteEpsilon, start, end))
 		test.That(t, respMap, test.ShouldBeEmpty)
 	})
 
