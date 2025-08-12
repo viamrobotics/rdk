@@ -373,7 +373,6 @@ func formatNotImplementedBody(returns []string) string {
 	}
 }
 
-
 // formatEmptyFunction outputs the new function that removes the function body, adds the panic unimplemented statement,
 // and replaces the receiver with the new model type.
 func formatEmptyFunction(receiver, funcName, args string, returns []string) string {
