@@ -458,3 +458,51 @@ func TestGetImagesFromGetImage(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New("received empty bytes from camera"))
 	})
 }
+
+func TestImagesExtraParam(t *testing.T) {
+	ctx := context.Background()
+
+	smallImg := image.NewRGBA(image.Rect(0, 0, 10, 10))
+	largeImg := image.NewRGBA(image.Rect(0, 0, 20, 20))
+
+	cam := inject.NewCamera("extra_param_cam")
+	cam.ImagesFunc = func(ctx context.Context, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		size := "small"
+		if extra != nil {
+			if s, ok := extra["size"].(string); ok {
+				size = s
+			}
+		}
+
+		var img image.Image
+		switch size {
+		case "large":
+			img = largeImg
+		default:
+			img = smallImg
+		}
+
+		return []camera.NamedImage{{Image: img, SourceName: source1Name}}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+	}
+
+	cases := []struct {
+		name           string
+		extra          map[string]interface{}
+		expectedWidth  int
+		expectedHeight int
+	}{
+		{name: "large via extra", extra: map[string]interface{}{"size": "large"}, expectedWidth: 20, expectedHeight: 20},
+		{name: "small via extra", extra: map[string]interface{}{"size": "small"}, expectedWidth: 10, expectedHeight: 10},
+		{name: "default size when extra nil", extra: nil, expectedWidth: 10, expectedHeight: 10},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			images, _, err := cam.Images(ctx, tc.extra)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(images), test.ShouldEqual, 1)
+			test.That(t, images[0].Image.Bounds().Dx(), test.ShouldEqual, tc.expectedWidth)
+			test.That(t, images[0].Image.Bounds().Dy(), test.ShouldEqual, tc.expectedHeight)
+		})
+	}
+}

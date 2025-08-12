@@ -174,7 +174,13 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 // If no image is found with the matching source name, it returns an error.
 //
 // It uses the mimeType arg to specify how to encode the bytes returned from GetImages.
-func GetImageFromGetImages(ctx context.Context, sourceName *string, mimeType string, cam Camera, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
+func GetImageFromGetImages(
+	ctx context.Context,
+	sourceName *string,
+	mimeType string,
+	cam Camera,
+	extra map[string]interface{},
+) ([]byte, ImageMetadata, error) {
 	images, _, err := cam.Images(ctx, extra)
 	if err != nil {
 		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
