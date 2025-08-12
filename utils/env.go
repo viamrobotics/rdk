@@ -125,8 +125,7 @@ func PlatformMkdirTemp(dir, pattern string) (string, error) {
 	if runtime.GOOS == "android" && dir == "" {
 		dir = AndroidFilesDir
 	}
-	mkdir, err := os.MkdirTemp(dir, pattern)
-	return mkdir, err
+	return os.MkdirTemp(dir, pattern)
 }
 
 // LogViamEnvVariables logs the list of viam environment variables in [os.Environ] along with the env passed in.

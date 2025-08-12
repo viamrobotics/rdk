@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -66,15 +65,6 @@ func New(
 		return nil, err
 	}
 
-	logger.Infof("parentAddr.UnixAddr: %v\n", parentAddr.UnixAddr)
-	info, err := os.Stat(parentAddr.UnixAddr)
-	if err != nil {
-		logger.Infof("err: %v\n", err)
-	} else {
-		logger.Infof("info.Name(): %v\n", info.Name())
-		logger.Infof("info.ModTime(): %v\n", info.ModTime())
-	}
-
 	parentAddr.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr.UnixAddr)
 	if err != nil {
 		return nil, err
@@ -83,8 +73,6 @@ func New(
 	if rutils.ViamTCPSockets() {
 		dialAddr = parentAddr.TCPAddr
 	}
-	time.Sleep(3 * time.Second)
-	logger.Info(dialAddr)
 	conn, err := grpc.Dial(robotContext, dialAddr, jobLogger)
 	if err != nil {
 		return nil, err
