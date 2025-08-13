@@ -4,6 +4,7 @@ package server_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -63,7 +64,12 @@ func TestEntrypoint(t *testing.T) {
 
 			if success = robottestutils.WaitForServing(logObserver, port); success {
 				defer func() {
-					test.That(t, goutils.FilterOutError(server.Stop(), &pexec.ProcessNotExistsError{}), test.ShouldBeNil)
+					err := server.Stop()
+					var processNotExistsErr *pexec.ProcessNotExistsError
+					if errors.As(err, &processNotExistsErr) {
+						err = nil
+					}
+					test.That(t, err, test.ShouldBeNil)
 				}()
 				break
 			}
@@ -190,7 +196,12 @@ func TestShutdown(t *testing.T) {
 
 			if success = robottestutils.WaitForServing(serverLogObserver, port); success {
 				defer func() {
-					test.That(t, goutils.FilterOutError(server.Stop(), &pexec.ProcessNotExistsError{}), test.ShouldBeNil)
+					err := server.Stop()
+					var processNotExistsErr *pexec.ProcessNotExistsError
+					if errors.As(err, &processNotExistsErr) {
+						err = nil
+					}
+					test.That(t, err, test.ShouldBeNil)
 				}()
 				break
 			}
