@@ -433,8 +433,7 @@ func (g specificSubtypeGetter[ResourceT]) Resource(name string) (ResourceT, erro
 		var zero ResourceT
 		return zero, err
 	}
-	// TODO: return an error here or leave it panicking on the type error?
-	return res.(ResourceT), nil
+	return utils.AssertType[ResourceT](res)
 }
 
 // genericSubypeCollection wraps a typed collection so that it can be used generically. It ensures
