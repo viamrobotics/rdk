@@ -20,6 +20,8 @@ type DatasetServiceClient struct {
 		opts ...grpc.CallOption) (*datasetpb.ListDatasetsByOrganizationIDResponse, error)
 	ListDatasetsByIDsFunc func(ctx context.Context, in *datasetpb.ListDatasetsByIDsRequest,
 		opts ...grpc.CallOption) (*datasetpb.ListDatasetsByIDsResponse, error)
+	MergeDatasetsFunc func(ctx context.Context, in *datasetpb.MergeDatasetsRequest,
+		opts ...grpc.CallOption) (*datasetpb.MergeDatasetsResponse, error)
 }
 
 // CreateDataset calls the injected CreateDataset or the real version.
@@ -70,4 +72,14 @@ func (client *DatasetServiceClient) ListDatasetsByIDs(ctx context.Context, in *d
 		return client.DatasetServiceClient.ListDatasetsByIDs(ctx, in, opts...)
 	}
 	return client.ListDatasetsByIDsFunc(ctx, in, opts...)
+}
+
+// MergeDatasets calls the injected MergeDatasets or the real version.
+func (client *DatasetServiceClient) MergeDatasets(ctx context.Context, in *datasetpb.MergeDatasetsRequest,
+	opts ...grpc.CallOption,
+) (*datasetpb.MergeDatasetsResponse, error) {
+	if client.MergeDatasetsFunc == nil {
+		return client.DatasetServiceClient.MergeDatasets(ctx, in, opts...)
+	}
+	return client.MergeDatasetsFunc(ctx, in, opts...)
 }

@@ -79,6 +79,41 @@ func (c *viamClient) renameDataset(datasetID, newDatasetName string) error {
 	return nil
 }
 
+type datasetMergeArgs struct {
+	OrgID      string
+	Name       string
+	DatasetIDs []string
+}
+
+// DatasetMergeAction is the corresponding action for 'dataset merge'.
+func DatasetMergeAction(c *cli.Context, args datasetMergeArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	if err := client.mergeDatasets(args.OrgID, args.Name, args.DatasetIDs); err != nil {
+		return err
+	}
+	return nil
+}
+
+// mergeDatasets merges multiple datasets into a new dataset with the specified name.
+func (c *viamClient) mergeDatasets(orgID, newDatasetName string, datasetIDs []string) error {
+	// Use the dataset service client to call MergeDatasets
+	// Note: This will fail until the MergeDatasetsRequest/Response types are implemented in the backend
+	resp, err := c.datasetClient.MergeDatasets(context.Background(), &datasetpb.MergeDatasetsRequest{
+		OrganizationId: orgID,
+		Name:           newDatasetName,
+		DatasetIds:     datasetIDs,
+	})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "Successfully merged %d datasets into new dataset '%s' with ID: %s",
+		len(datasetIDs), newDatasetName, resp.GetDatasetId())
+	return nil
+}
+
 type datasetListArgs struct {
 	DatasetIDs []string
 	OrgID      string
