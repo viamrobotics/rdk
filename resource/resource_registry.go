@@ -433,7 +433,7 @@ func (g specificSubtypeGetter[ResourceT]) Resource(name string) (ResourceT, erro
 		var zero ResourceT
 		return zero, err
 	}
-	return utils.AssertType[ResourceT](res)
+	return AsType[ResourceT](res)
 }
 
 // genericSubypeCollection wraps a typed collection so that it can be used generically. It ensures
