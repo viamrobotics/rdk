@@ -63,7 +63,7 @@ func TestEntrypoint(t *testing.T) {
 
 			if success = robottestutils.WaitForServing(logObserver, port); success {
 				defer func() {
-					test.That(t, server.Stop(), test.ShouldBeNil)
+					test.That(t, goutils.FilterOutError(server.Stop(), &pexec.ProcessNotExistsError{}), test.ShouldBeNil)
 				}()
 				break
 			}
@@ -190,7 +190,7 @@ func TestShutdown(t *testing.T) {
 
 			if success = robottestutils.WaitForServing(serverLogObserver, port); success {
 				defer func() {
-					test.That(t, server.Stop(), test.ShouldBeNil)
+					test.That(t, goutils.FilterOutError(server.Stop(), &pexec.ProcessNotExistsError{}), test.ShouldBeNil)
 				}()
 				break
 			}
