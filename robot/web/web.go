@@ -261,7 +261,9 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 
 	// TODO(PRODUCT-343): Add session manager interceptors
 
+	// MaxRecvMsgSize and MaxSendMsgSize by default are 4 MB & MaxInt32 (2.1 GB)
 	opts := []googlegrpc.ServerOption{
+		googlegrpc.MaxRecvMsgSize(rpc.MaxMessageSize),
 		googlegrpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)),
 		googlegrpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
 		googlegrpc.UnknownServiceHandler(svc.foreignServiceHandler),
@@ -292,9 +294,12 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		defer svc.modWorkers.Done()
 		svc.logger.Debugw("module server listening", "socket path", lis.Addr())
 		defer func() {
-			err := os.RemoveAll(filepath.Dir(addr))
-			if err != nil {
-				svc.logger.Debugf("RemoveAll failed: %v", err)
+			// tcpMode starts listening on a port, not a socket file, so no need to remove.
+			if !tcpMode {
+				err := os.RemoveAll(filepath.Dir(addr))
+				if err != nil {
+					svc.logger.Debugf("RemoveAll failed: %v", err)
+				}
 			}
 		}()
 		if err := server.Serve(lis); err != nil {

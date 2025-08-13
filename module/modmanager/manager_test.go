@@ -36,7 +36,6 @@ import (
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
-	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/web"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -68,7 +67,7 @@ func setupModManager(
 	parentAddr string,
 	logger logging.Logger,
 	options modmanageroptions.Options,
-) modmaninterface.ModuleManager {
+) *Manager {
 	t.Helper()
 	var parentAddrs config.ParentSockAddrs
 	if strings.HasPrefix(parentAddr, "127.0.0.1:") {
@@ -83,10 +82,8 @@ func setupModManager(
 		// Do so by grabbing a copy of the modules and then waiting after
 		// mgr.Close() completes, which cancels all contexts relating to module
 		// recovery.
-		mMgr, ok := mgr.(*Manager)
-		test.That(t, ok, test.ShouldBeTrue)
 		modules := []*module{}
-		for _, mod := range mMgr.modules.Range {
+		for _, mod := range mgr.modules.Range {
 			modules = append(modules, mod)
 		}
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
@@ -440,10 +437,7 @@ func TestModManagerKill(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// get the module from the module map
-	mMgr, ok := mgr.(*Manager)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	mod, ok := mMgr.modules.Load(modCfg.Name)
+	mod, ok := mgr.modules.Load(modCfg.Name)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	mgr.Kill()
@@ -712,7 +706,7 @@ func TestModuleReloading(t *testing.T) {
 		ok := mgr.IsModularResource(rNameMyHelper)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		mgr.(*Manager).restartCtxCancel()
+		mgr.restartCtxCancel()
 
 		// Run 'kill_module' command through helper resource to cause module to
 		// exit with error. Assert that we do not restart the module if context is cancelled.
@@ -743,7 +737,7 @@ func TestModuleReloading(t *testing.T) {
 		// Call Stop on the module's ManagedProcess here to absorb the error from
 		// the non-zero exit, otherwise it will end up in the return of mgr.Close
 		// and fail the test during cleanup.
-		mod, _ := mgr.(*Manager).modules.Load(modCfg.Name)
+		mod, _ := mgr.modules.Load(modCfg.Name)
 		err = mod.process.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -1749,27 +1743,27 @@ func TestFirstRun(t *testing.T) {
 
 func TestCleanWindowsSocketPath(t *testing.T) {
 	// uppercase and lowercase
-	clean, err := cleanWindowsSocketPath("windows", "C:\\x\\y.sock")
+	clean, err := rutils.CleanWindowsSocketPath("windows", "C:\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
-	clean, err = cleanWindowsSocketPath("windows", "c:\\x\\y.sock")
+	clean, err = rutils.CleanWindowsSocketPath("windows", "c:\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 
 	// wrong disk
-	_, err = cleanWindowsSocketPath("windows", "d:\\x\\y.sock")
+	_, err = rutils.CleanWindowsSocketPath("windows", "d:\\x\\y.sock")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// no disk
-	clean, err = cleanWindowsSocketPath("windows", "\\x\\y.sock")
+	clean, err = rutils.CleanWindowsSocketPath("windows", "\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
-	clean, err = cleanWindowsSocketPath("windows", "/x/y.sock")
+	clean, err = rutils.CleanWindowsSocketPath("windows", "/x/y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 
 	// linux
-	clean, err = cleanWindowsSocketPath("linux", "/x/y.sock")
+	clean, err = rutils.CleanWindowsSocketPath("linux", "/x/y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 }

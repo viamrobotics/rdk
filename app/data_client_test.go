@@ -1158,18 +1158,15 @@ func TestDataPipelineClient(t *testing.T) {
 		test.That(t, resp, test.ShouldEqual, "new-data-pipeline-id")
 	})
 
-	t.Run("UpdateDataPipeline", func(t *testing.T) {
-		grpcClient.UpdateDataPipelineFunc = func(
-			ctx context.Context, in *datapipelinesPb.UpdateDataPipelineRequest, opts ...grpc.CallOption,
-		) (*datapipelinesPb.UpdateDataPipelineResponse, error) {
+	t.Run("RenameDataPipeline", func(t *testing.T) {
+		grpcClient.RenameDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.RenameDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.RenameDataPipelineResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
 			test.That(t, in.Name, test.ShouldEqual, name)
-			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
-			test.That(t, in.Schedule, test.ShouldEqual, "0 7 * * *")
-			test.That(t, *in.DataSourceType, test.ShouldEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD)
-			return &datapipelinesPb.UpdateDataPipelineResponse{}, nil
+			return &datapipelinesPb.RenameDataPipelineResponse{}, nil
 		}
-		err := client.UpdateDataPipeline(context.Background(), dataPipelineID, name, mqlQueries, "0 7 * * *", TabularDataSourceTypeStandard)
+		err := client.RenameDataPipeline(context.Background(), dataPipelineID, name)
 		test.That(t, err, test.ShouldBeNil)
 	})
 

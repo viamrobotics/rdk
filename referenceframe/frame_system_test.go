@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"math"
 	"os"
-	"sort"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -229,7 +228,7 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, part.FrameConfig.name, test.ShouldEqual, transform.Name())
 		test.That(t, part.FrameConfig.parent, test.ShouldEqual, transform.Parent())
-		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.pose.Point(), testPose.Point(), 1e-8), test.ShouldBeTrue)
+		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.pose.Point(), testPose.Point(), defaultFloatPrecision), test.ShouldBeTrue)
 		test.That(t, spatial.OrientationAlmostEqual(part.FrameConfig.pose.Orientation(), testPose.Orientation()), test.ShouldBeTrue)
 	})
 }
@@ -440,15 +439,27 @@ func TestSerialization(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(blockFrame, model)
 
+	// Revolute joint around X axis
+	joint, err := NewRotationalFrame("rot", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{Min: -math.Pi * 2, Max: math.Pi * 2})
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(joint, fs.World())
+
+	// Translational frame
+	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{X: 1, Y: 1, Z: 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// test creating a new translational frame with a geometry
+	prismatic, err := NewTranslationalFrameWithGeometry("pr", r3.Vector{X: 0, Y: 1, Z: 0}, Limit{Min: -30, Max: 30}, bc)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(prismatic, fs.World())
+
 	jsonData, err = json.Marshal(fs)
 	test.That(t, err, test.ShouldBeNil)
 
 	var fs2 FrameSystem
 	test.That(t, json.Unmarshal(jsonData, &fs2), test.ShouldBeNil)
 
-	frames1 := fs.FrameNames()
-	sort.Strings(frames1)
-	frames2 := fs2.FrameNames()
-	sort.Strings(frames2)
-	test.That(t, frames1, test.ShouldResemble, frames2)
+	equality, err := frameSystemsAlmostEqual(fs, &fs2, defaultFloatPrecision)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, equality, test.ShouldBeTrue)
 }

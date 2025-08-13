@@ -170,6 +170,12 @@ func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
 
 // GeometriesAlmostEqual returns a bool describing if the two input Geometries are equal.
 func GeometriesAlmostEqual(a, b Geometry) bool {
+	if a == nil {
+		return b == nil
+	} else if b == nil {
+		return false
+	}
+
 	switch gType := a.(type) {
 	case *box:
 		return gType.almostEqual(b)

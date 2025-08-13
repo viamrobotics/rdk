@@ -29,7 +29,6 @@ import (
 	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
-	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/packages"
@@ -179,7 +178,7 @@ func (m *module) startProcess(
 			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
 			return err
 		}
-		m.addr, err = cleanWindowsSocketPath(runtime.GOOS, m.addr)
+		m.addr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, m.addr)
 		if err != nil {
 			return err
 		}
@@ -328,7 +327,7 @@ func (m *module) killProcessGroup() {
 	m.process.KillGroup()
 }
 
-func (m *module) registerResourceModels(mgr modmaninterface.ModuleManager) {
+func (m *module) registerResourceModels(mgr *Manager) {
 	for api, models := range m.handles {
 		if _, ok := resource.LookupGenericAPIRegistration(api.API); !ok {
 			resource.RegisterAPI(
@@ -419,9 +418,9 @@ func (m *module) registerProcessWithFTDC() {
 		return
 	}
 
-	statser, err := sys.NewPidSysUsageStatser(pid)
+	statser, err := sys.NewSysUsageStatser(pid)
 	if err != nil {
-		m.logger.Warnw("Cannot find /proc files", "err", err)
+		m.logger.Warnw("Cannot start a system statser for module with pid", "pid", pid, "err", err)
 		return
 	}
 

@@ -151,7 +151,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	} else if argsParsed.NetworkCheckOnly {
 		// Run network checks synchronously and immediately exit if `--network-check` flag was
 		// used. Otherwise run network checks asynchronously.
-		nc.RunNetworkChecks(ctx, logger)
+		nc.RunNetworkChecks(ctx, logger, false /* !continueRunningTestDNS */)
 		return
 	}
 
@@ -237,7 +237,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// Have goutils use the logger we've just configured.
 	golog.ReplaceGloabl(logger.AsZap())
 
-	go nc.RunNetworkChecks(ctx, logger)
+	go nc.RunNetworkChecks(ctx, logger, true /* continueRunningTestDNS */)
 
 	server := robotServer{
 		logger:   logger,
@@ -388,12 +388,16 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 			// Update logger registry if log patterns may have changed.
 			//
 			// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
-			if !diff.LogEqual {
-				s.logger.Debug("Detected potential changes to log patterns; updating logger levels")
-				s.logger.Warn(
-					"Changes to 'log' field may not affect modular logs. " +
-						"Use 'log_level' in module config or 'log_configuration' in resource config instead",
-				)
+			if !diff.LogEqual || !diff.ResourcesEqual {
+				// Only display the warning when the user attempted to change the `log` field of
+				// the config.
+				if !diff.LogEqual {
+					s.logger.Debug("Detected potential changes to log patterns; updating logger levels")
+					s.logger.Warn(
+						"Changes to 'log' field may not affect modular logs. " +
+							"Use 'log_level' in module config or 'log_configuration' in resource config instead",
+					)
+				}
 				config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
 			}
 

@@ -108,7 +108,7 @@ func WithoutRestart() ServerProcessOption {
 // ServerAsSeparateProcess builds the viam server and returns an unstarted ManagedProcess for
 // the built binary.
 func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Logger, opts ...ServerProcessOption) pexec.ManagedProcess {
-	serverPath := rtestutils.BuildTempModule(t, "web/cmd/server/")
+	serverPath := rtestutils.BuildViamServer(t)
 
 	// use a temporary home directory so that it doesn't collide with
 	// the user's/other tests' viam home directory
