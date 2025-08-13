@@ -233,7 +233,10 @@ func (ss *StaticSource) Read(ctx context.Context) (image.Image, func(), error) {
 }
 
 // Images returns the saved color and depth image if they are present.
-func (ss *StaticSource) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (ss *StaticSource) Images(
+	ctx context.Context,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if ss.ColorImg == nil && ss.DepthImg == nil {
 		return nil, resource.ResponseMetadata{}, errors.New("no image files stored, so not implemented")
 	}

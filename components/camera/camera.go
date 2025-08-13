@@ -103,7 +103,7 @@ type ImageMetadata struct {
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
-//	images, metadata, err := myCamera.Images(context.Background())
+//	images, metadata, err := myCamera.Images(context.Background(), nil)
 //
 // For more information, see the [Images method docs].
 //
@@ -139,6 +139,7 @@ type Camera interface {
 
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
+	// The extra parameter can be used to pass additional options to the camera resource.
 	Images(ctx context.Context, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
@@ -174,11 +175,12 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 // If no image is found with the matching source name, it returns an error.
 //
 // It uses the mimeType arg to specify how to encode the bytes returned from GetImages.
+// The extra parameter is passed through to the underlying Images method.
 func GetImageFromGetImages(
 	ctx context.Context,
+	cam Camera,
 	sourceName *string,
 	mimeType string,
-	cam Camera,
 	extra map[string]interface{},
 ) ([]byte, ImageMetadata, error) {
 	images, _, err := cam.Images(ctx, extra)
@@ -221,18 +223,19 @@ func GetImageFromGetImages(
 }
 
 // GetImagesFromGetImage is a utility function to quickly implement GetImages from an already-implemented GetImage method.
-// It takes a mimeType and a camera as args, and returns a slice of NamedImage and ResponseMetadata,
+// It takes a mimeType, extra parameters, and a camera as args, and returns a slice of NamedImage and ResponseMetadata,
 // which is the same response signature as the Images method. We use the mimeType arg to specify
-// how to decode the image bytes returned from GetImage. Source name is empty string always.
+// how to decode the image bytes returned from GetImage. The extra parameter is passed through to the underlying GetImage method.
+// Source name is empty string always.
 // It returns a slice of NamedImage of length 1 and ResponseMetadata, with empty string as the source name.
 func GetImagesFromGetImage(
 	ctx context.Context,
-	mimeType string,
 	cam Camera,
+	mimeType string,
+	extra map[string]interface{},
 	logger logging.Logger,
 ) ([]NamedImage, resource.ResponseMetadata, error) {
-	// TODO(RSDK-10991): pass through extra field when implemented
-	resBytes, resMetadata, err := cam.Image(ctx, mimeType, nil)
+	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not get image bytes from camera: %w", err)
 	}
