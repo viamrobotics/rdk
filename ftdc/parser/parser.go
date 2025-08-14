@@ -743,8 +743,8 @@ func parseStringAsTime(inp string) (time.Time, error) {
 	return goTime, nil
 }
 
-// ParseFTDC opens an ftdc file, plots it, and runs a cli for it.
-func ParseFTDC(ftdcFilepath string) {
+// LaunchREPL opens an ftdc file, plots it, and runs a cli for it.
+func LaunchREPL(ftdcFilepath string) {
 	ftdcFile, err := os.Open(filepath.Clean(ftdcFilepath))
 	if err != nil {
 		NolintPrintln("Error opening file. File:", os.Args[1], "Err:", err)

@@ -13,5 +13,5 @@ func main() {
 		return
 	}
 
-	parser.ParseFTDC(os.Args[1])
+	parser.LaunchREPL(os.Args[1])
 }
