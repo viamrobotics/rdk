@@ -1065,27 +1065,22 @@ type downloadModuleFlags struct {
 	Platform    string
 }
 
-// DownloadModuleAction downloads a module.
-func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
+func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModuleFlags) (string, error) {
 	moduleID := flags.ID
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
-			return errors.Wrap(err, "trying to get package ID from meta.json")
+			return "", errors.Wrap(err, "trying to get package ID from meta.json")
 		}
 		moduleID = manifest.ModuleID
 	}
-	client, err := newViamClient(c)
-	if err != nil {
-		return err
-	}
 	req := &apppb.GetModuleRequest{ModuleId: moduleID}
-	res, err := client.client.GetModule(c.Context, req)
+	res, err := c.client.GetModule(ctx.Context, req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if len(res.Module.Versions) == 0 {
-		return errors.New("module has 0 uploaded versions, nothing to download")
+		return "", errors.New("module has 0 uploaded versions, nothing to download")
 	}
 	requestedVersion := flags.Version
 	var ver *apppb.VersionHistory
@@ -1099,40 +1094,50 @@ func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
 			}
 		}
 		if ver == nil {
-			return fmt.Errorf("version %s not found in versions for module", requestedVersion)
+			return "", fmt.Errorf("version %s not found in versions for module", requestedVersion)
 		}
 	}
-	infof(c.App.ErrWriter, "found version %s", ver.Version)
+	infof(ctx.App.ErrWriter, "found version %s", ver.Version)
 	if len(ver.Files) == 0 {
-		return fmt.Errorf("version %s has 0 files uploaded", ver.Version)
+		return "", fmt.Errorf("version %s has 0 files uploaded", ver.Version)
 	}
 	platform := flags.Platform
 	if platform == "" {
 		platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
-		infof(c.App.ErrWriter, "using default platform %s", platform)
+		infof(ctx.App.ErrWriter, "using default platform %s", platform)
 	}
 	if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
-		return fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
+		return "", fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
 	}
 	include := true
 	packageType := packagespb.PackageType_PACKAGE_TYPE_MODULE
 	// note: this is working around a GetPackage quirk where platform messes with version
 	fullVersion := fmt.Sprintf("%s-%s", ver.Version, strings.ReplaceAll(platform, "/", "-"))
-	pkg, err := client.packageClient.GetPackage(c.Context, &packagespb.GetPackageRequest{
+	pkg, err := c.packageClient.GetPackage(ctx.Context, &packagespb.GetPackageRequest{
 		Id:         strings.ReplaceAll(moduleID, ":", "/"),
 		Version:    fullVersion,
 		IncludeUrl: &include,
 		Type:       &packageType,
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	destName := strings.ReplaceAll(moduleID, ":", "-")
-	infof(c.App.ErrWriter, "saving to %s", path.Join(flags.Destination, fullVersion, destName+".tar.gz"))
-	return downloadPackageFromURL(c.Context, client.authFlow.httpClient,
+	infof(ctx.App.ErrWriter, "saving to %s", path.Join(flags.Destination, fullVersion, destName+".tar.gz"))
+	return downloadPackageFromURL(ctx.Context, c.authFlow.httpClient,
 		flags.Destination, destName,
-		fullVersion, pkg.Package.Url, client.conf.Auth,
+		fullVersion, pkg.Package.Url, c.conf.Auth,
 	)
+}
+
+// DownloadModuleAction downloads a module.
+func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	_, err = client.downloadModuleAction(c, flags)
+	return err
 }
 
 // getMarkdownContent reads and returns the content from a markdown file path.

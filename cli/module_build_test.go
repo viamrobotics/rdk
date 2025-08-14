@@ -57,8 +57,9 @@ func TestStartBuild(t *testing.T) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
 	}, map[string]any{moduleFlagPath: manifest, generalFlagVersion: "1.2.3"}, "token")
-	err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
+	path, err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, path, test.ShouldEqual, "xyz123")
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
 	test.That(t, out.messages[0], test.ShouldEqual, "xyz123\n")
 	test.That(t, errOut.messages, test.ShouldHaveLength, 1)
