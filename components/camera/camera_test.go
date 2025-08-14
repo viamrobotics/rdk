@@ -385,7 +385,9 @@ func TestGetImageFromGetImages(t *testing.T) {
 			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 		}
 		_, _, err := camera.GetImageFromGetImages(context.Background(), nil, nilImageCam, nil, nil)
-		test.That(t, err, test.ShouldBeError, errors.New("could not get images from camera: must provide image to construct a named image from image"))
+		test.That(t, err, test.ShouldBeError,
+			errors.New("could not get images from camera: must provide image to construct a named image from image"),
+		)
 	})
 
 	t.Run("multiple images, specify source name", func(t *testing.T) {
