@@ -10,8 +10,8 @@ import (
 	pb "go.viam.com/api/service/navigation/v1"
 
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // serviceServer implements the contract from navigation.proto.
@@ -150,7 +150,7 @@ func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstac
 	}
 	protoObs := []*commonpb.GeoGeometry{}
 	for _, obstacle := range obstacles {
-		protoObs = append(protoObs, spatialmath.GeoGeometryToProtobuf(obstacle))
+		protoObs = append(protoObs, referenceframe.GeoGeometryToProtobuf(obstacle))
 	}
 	return &pb.GetObstaclesResponse{Obstacles: protoObs}, nil
 }
