@@ -178,10 +178,10 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 // The extra parameter is passed through to the underlying Images method.
 func GetImageFromGetImages(
 	ctx context.Context,
-	cam Camera,
 	sourceName *string,
 	mimeType string,
 	extra map[string]interface{},
+	cam Camera,
 ) ([]byte, ImageMetadata, error) {
 	images, _, err := cam.Images(ctx, extra)
 	if err != nil {
@@ -230,9 +230,9 @@ func GetImageFromGetImages(
 // It returns a slice of NamedImage of length 1 and ResponseMetadata, with empty string as the source name.
 func GetImagesFromGetImage(
 	ctx context.Context,
-	cam Camera,
 	mimeType string,
 	extra map[string]interface{},
+	cam Camera,
 	logger logging.Logger,
 ) ([]NamedImage, resource.ResponseMetadata, error) {
 	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
