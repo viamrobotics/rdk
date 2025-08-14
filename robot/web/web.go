@@ -89,7 +89,6 @@ type apiResourceRouter struct {
 }
 
 func (r apiResourceRouter) Resource(name string) (resource.Resource, error) {
-	r.robot.ResourceNames()
 	return r.robot.ResourceBySimpleNameAndAPI(name, r.api)
 }
 
