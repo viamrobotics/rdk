@@ -3218,6 +3218,21 @@ This won't work unless you have an existing installation of our GitHub app on yo
 			UsageText: createUsageText("version", nil, false, false),
 			Action:    createCommandWithT[emptyArgs](VersionAction),
 		},
+		{
+			Name:  "parse-ftdc",
+			Usage: "parse an ftdc file and open a REPL with extra options",
+			UsageText: createUsageText(
+				"ftdc-parse", []string{generalFlagPath}, false, false,
+			),
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:     generalFlagPath,
+					Required: true,
+					Usage:    "absolute file path to the ftdc file",
+				},
+			},
+			Action: createCommandWithT[ftdcArgs](FTDCParseAction),
+		},
 	},
 }
 

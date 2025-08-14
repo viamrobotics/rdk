@@ -146,9 +146,8 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 		var res data.CaptureResult
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::GetImages")
 		defer span.End()
-		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 
-		resImgs, resMetadata, err := camera.Images(ctx)
+		resImgs, resMetadata, err := camera.Images(ctx, data.FromDMExtraMap)
 		if err != nil {
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
