@@ -3,6 +3,7 @@ package webstream
 import (
 	"context"
 	"fmt"
+	"image"
 	"runtime"
 	"sync"
 	"time"
@@ -792,31 +793,26 @@ func sampleFrameSize(ctx context.Context, cam camera.Camera, logger logging.Logg
 	logger.Debug("sampling frame size")
 	// Attempt to get a frame from the stream with a maximum of 5 retries.
 	// This is useful if cameras have a warm-up period before they can start streaming.
-	var lastErr error
-
+	var frame image.Image
+	var err error
+retryLoop:
 	for i := 0; i < 5; i++ {
 		select {
 		case <-ctx.Done():
 			return 0, 0, ctx.Err()
 		default:
-			namedImage, err := camerautils.GetStreamableNamedImageFromCamera(ctx, cam)
-			if err != nil {
-				logger.Debugf("failed to get streamable named image from camera: %v", err)
-				lastErr = err
-				time.Sleep(retryDelay)
-				continue
+			frame, err = camera.DecodeImageFromCamera(ctx, "", nil, cam)
+			if err == nil {
+				break retryLoop // Break out of the for loop, not just the select.
 			}
-			frame, err := namedImage.Image(ctx)
-			if err != nil {
-				logger.Debugf("failed to get frame from named image: %v", err)
-				lastErr = err
-				time.Sleep(retryDelay)
-				continue
-			}
-			return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
+			logger.Debugf("failed to get frame, retrying... (%d/5)", i+1)
+			time.Sleep(retryDelay)
 		}
 	}
-	return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", lastErr)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", err)
+	}
+	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
 }
 
 func removeStreamsOnPCDisconnect(server *Server, pc *webrtc.PeerConnection, peerConnectionState webrtc.PeerConnectionState) {
