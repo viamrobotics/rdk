@@ -180,8 +180,8 @@ func GetImageFromGetImages(
 	ctx context.Context,
 	sourceName *string,
 	mimeType string,
-	extra map[string]interface{},
 	cam Camera,
+	extra map[string]interface{},
 ) ([]byte, ImageMetadata, error) {
 	images, _, err := cam.Images(ctx, extra)
 	if err != nil {
@@ -231,9 +231,9 @@ func GetImageFromGetImages(
 func GetImagesFromGetImage(
 	ctx context.Context,
 	mimeType string,
-	extra map[string]interface{},
 	cam Camera,
 	logger logging.Logger,
+	extra map[string]interface{},
 ) ([]NamedImage, resource.ResponseMetadata, error) {
 	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
 	if err != nil {
