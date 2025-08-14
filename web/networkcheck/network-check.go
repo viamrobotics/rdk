@@ -114,13 +114,6 @@ func testDNSServerConnectivity(ctx context.Context, dnsServer string) *DNSResult
 	start := time.Now()
 	conn, err := net.DialTimeout("udp", dnsServer, timeout)
 	if err != nil {
-		// If dialing the systemd-resolved DNS resolver (at 127.0.0.53 in only _some_ Linux
-		// distros) reported "connection refused," do not return any meaningful result from
-		// this test.
-		if dnsServer == systemdResolvedAddress && strings.Contains(err.Error(), "connection refused") {
-			return nil
-		}
-
 		errorString := fmt.Sprintf("failed to connect to DNS server: %v", err)
 		dnsResult.ErrorString = &errorString
 		return dnsResult
@@ -266,10 +259,19 @@ func TestDNS(ctx context.Context, logger logging.Logger, verbose bool) {
 			logger.Info("Shutdown detected; stopping DNS connectivity tests")
 			return
 		}
-		if result := testDNSServerConnectivity(ctx, dnsServer); result != nil {
-			// result can be nil when we failed to dial systemdResolvedAddress.
-			dnsResults = append(dnsResults, result)
+
+		result := testDNSServerConnectivity(ctx, dnsServer)
+
+		// If the error from the systemd-resolved DNS resolver (at 127.0.0.53:53 in only
+		// _some_ Linux distros) test reported "connection refused," do not include the result
+		// in the final list. systemd-resolved is likely not installed or not currently
+		// running in that case, and that is not indicative of a DNS issue.
+		if result.ErrorString != nil && strings.Contains(*result.ErrorString, "connection refused") &&
+			dnsServer == systemdResolvedAddress {
+			continue
 		}
+
+		dnsResults = append(dnsResults, result)
 	}
 
 	for _, hostname := range hostnamesToResolveDNS {
