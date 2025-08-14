@@ -153,7 +153,11 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 }
 
 // Images returns the saved color and depth image if they are present.
-func (fs *fileSource) Images(ctx context.Context, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (fs *fileSource) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if fs.ColorFN == "" && fs.DepthFN == "" && fs.PreloadedImage == "" {
 		return nil, resource.ResponseMetadata{}, errors.New("no image files to read, so not implemented")
 	}
@@ -248,6 +252,7 @@ func (ss *StaticSource) Read(ctx context.Context) (image.Image, func(), error) {
 // Images returns the saved color and depth image if they are present.
 func (ss *StaticSource) Images(
 	ctx context.Context,
+	filterSourceNames []string,
 	extra map[string]interface{},
 ) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if ss.ColorImg == nil && ss.DepthImg == nil {
