@@ -60,7 +60,8 @@ func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger, continueRun
 const timeout = 5 * time.Second
 
 var (
-	serverIPSToTestDNS = []string{
+	systemdResolvedAddress = "127.0.0.53:53"
+	serverIPSToTestDNS     = []string{
 		"1.1.1.1:53",        // Cloudflare DNS
 		"8.8.8.8:53",        // Google DNS
 		"208.67.222.222:53", // OpenDNS
@@ -92,11 +93,12 @@ var (
 )
 
 func init() {
-	// Append 127.0.0.53:53, the systemd-resolved IP address, to the list of IPs to test DNS
-	// connectivity against when the operating system is Linux-based. MacOS and Windows do
-	// not have systemd nor systemd-resolved.
+	// Append the systemd-resolved IP address to the list of IPs to test DNS connectivity
+	// against when the operating system is Linux-based. MacOS and Windows do not have
+	// systemd nor systemd-resolved. Some Linux distros will not be running it either, but
+	// we will find that out during testing.
 	if runtime.GOOS == "linux" {
-		serverIPSToTestDNS = append(serverIPSToTestDNS, "127.0.0.53:53")
+		serverIPSToTestDNS = append(serverIPSToTestDNS, systemdResolvedAddress)
 	}
 }
 
@@ -112,6 +114,13 @@ func testDNSServerConnectivity(ctx context.Context, dnsServer string) *DNSResult
 	start := time.Now()
 	conn, err := net.DialTimeout("udp", dnsServer, timeout)
 	if err != nil {
+		// If dialing the systemd-resolved DNS resolver (at 127.0.0.53 in only _some_ Linux
+		// distros) reported "connection refused," do not return any meaningful result from
+		// this test.
+		if dnsServer == systemdResolvedAddress && strings.Contains(err.Error(), "connection refused") {
+			return nil
+		}
+
 		errorString := fmt.Sprintf("failed to connect to DNS server: %v", err)
 		dnsResult.ErrorString = &errorString
 		return dnsResult
@@ -257,8 +266,10 @@ func TestDNS(ctx context.Context, logger logging.Logger, verbose bool) {
 			logger.Info("Shutdown detected; stopping DNS connectivity tests")
 			return
 		}
-
-		dnsResults = append(dnsResults, testDNSServerConnectivity(ctx, dnsServer))
+		if result := testDNSServerConnectivity(ctx, dnsServer); result != nil {
+			// result can be nil when we failed to dial systemdResolvedAddress.
+			dnsResults = append(dnsResults, result)
+		}
 	}
 
 	for _, hostname := range hostnamesToResolveDNS {
