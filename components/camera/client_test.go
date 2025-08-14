@@ -225,14 +225,14 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, img.Bounds().Dx(), test.ShouldEqual, 40)
 		test.That(t, img.Bounds().Dy(), test.ShouldEqual, 50)
-		test.That(t, img, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+		test.That(t, img, test.ShouldHaveSameTypeAs, &image.YCbCr{})
 		test.That(t, img.ColorModel(), test.ShouldHaveSameTypeAs, color.RGBAModel)
 		test.That(t, images[1].SourceName, test.ShouldEqual, "depth")
 		img, err = images[1].Image(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, img.Bounds().Dx(), test.ShouldEqual, 10)
 		test.That(t, img.Bounds().Dy(), test.ShouldEqual, 20)
-		test.That(t, img, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+		test.That(t, img, test.ShouldHaveSameTypeAs, &rimage.DepthMap{})
 		test.That(t, img.ColorModel(), test.ShouldHaveSameTypeAs, color.Gray16Model)
 
 		// Do
