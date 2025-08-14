@@ -20,7 +20,7 @@ type Camera struct {
 	RTPPassthroughSource rtppassthrough.Source
 	DoFunc               func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ImageFunc            func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error)
-	ImagesFunc           func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error)
+	ImagesFunc           func(ctx context.Context, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error)
 	NextPointCloudFunc   func(ctx context.Context) (pointcloud.PointCloud, error)
 	ProjectorFunc        func(ctx context.Context) (transform.Projector, error)
 	PropertiesFunc       func(ctx context.Context) (camera.Properties, error)
@@ -69,13 +69,13 @@ func (c *Camera) Properties(ctx context.Context) (camera.Properties, error) {
 }
 
 // Images calls the injected Images or the real version.
-func (c *Camera) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (c *Camera) Images(ctx context.Context, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if c.ImagesFunc != nil {
-		return c.ImagesFunc(ctx)
+		return c.ImagesFunc(ctx, extra)
 	}
 
 	if c.Camera != nil {
-		return c.Camera.Images(ctx)
+		return c.Camera.Images(ctx, extra)
 	}
 
 	return nil, resource.ResponseMetadata{}, errors.New("Images unimplemented")
