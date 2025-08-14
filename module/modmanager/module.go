@@ -309,7 +309,8 @@ func (m *module) stopProcess() error {
 	// SIGTERM correctly.
 	// Also ignore if error is that the process no longer exists.
 	if err := m.process.Stop(); err != nil {
-		if strings.Contains(err.Error(), errMessageExitStatus143) || strings.Contains(err.Error(), "no such process") {
+		var processNotExistsErr *pexec.ProcessNotExistsError
+		if strings.Contains(err.Error(), errMessageExitStatus143) || errors.As(err, &processNotExistsErr) {
 			return nil
 		}
 		return err
