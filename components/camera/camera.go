@@ -5,9 +5,11 @@
 package camera
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"image"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -109,9 +111,19 @@ func (ni *NamedImage) Image(ctx context.Context) (image.Image, error) {
 		if ni.data == nil {
 			return nil, fmt.Errorf("no image or image bytes available")
 		}
+
+		reader := bytes.NewReader(ni.data)
+		_, header, err := image.DecodeConfig(reader)
+		if err != nil {
+			return nil, fmt.Errorf("could not decode image config: %w", err)
+		}
+
 		img, err := rimage.DecodeImage(ctx, ni.data, ni.mimeType)
 		if err != nil {
-			return nil, fmt.Errorf("could not decode into image.Image: %w", err)
+			if !strings.Contains(ni.mimeType, header) {
+				return nil, fmt.Errorf("mime type does not match the image bytes: expected %s, got %s", ni.mimeType, header)
+			}
+			return nil, fmt.Errorf("could not decode bytes into image.Image: %w. mime type: %s, header mime type: %s", err, ni.mimeType, header)
 		}
 		ni.img = img
 	}
