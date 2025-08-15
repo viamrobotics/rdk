@@ -1487,6 +1487,29 @@ var app = &cli.App{
 					Action: createCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
 				},
 				{
+					Name:      "merge",
+					Usage:     "merge multiple datasets into a new dataset",
+					UsageText: createUsageText("dataset merge", []string{generalFlagOrgID, datasetFlagName, datasetFlagDatasetIDs}, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID where the merged dataset will be created",
+						},
+						&cli.StringFlag{
+							Name:     datasetFlagName,
+							Required: true,
+							Usage:    "name of the new merged dataset",
+						},
+						&cli.StringSliceFlag{
+							Name:     datasetFlagDatasetIDs,
+							Required: true,
+							Usage:    "dataset IDs to merge (comma-separated list)",
+						},
+					},
+					Action: createCommandWithT[datasetMergeArgs](DatasetMergeAction),
+				},
+				{
 					Name:            "data",
 					Usage:           "add or remove data from datasets",
 					UsageText:       createUsageText("dataset data", nil, false, true),
