@@ -115,10 +115,17 @@ func NewUnconfiguredGraphNode(config Config, dependencies []string) *GraphNode {
 // NewConfiguredGraphNode returns a node that is already configured with
 // the supplied config and resource.
 func NewConfiguredGraphNode(config Config, res Resource, resModel Model) *GraphNode {
+	return NewConfiguredGraphNodeWithPrefix(config, res, resModel, "")
+}
+
+// NewConfiguredGraphNodeWithPrefix returns a node that is already configured with
+// the supplied config, resource, and prefix.
+func NewConfiguredGraphNodeWithPrefix(config Config, res Resource, resModel Model, prefix string) *GraphNode {
 	node := NewUninitializedNode()
 	node.SetNewConfig(config, nil)
 	node.setDependenciesResolved()
 	node.SwapResource(res, resModel, nil)
+	node.setPrefix(prefix)
 	return node
 }
 
@@ -433,7 +440,7 @@ func (w *GraphNode) UnresolvedDependencies() []string {
 }
 
 // SetPrefix sets the prefix field.
-func (w *GraphNode) SetPrefix(prefix string) {
+func (w *GraphNode) setPrefix(prefix string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.prefix = prefix

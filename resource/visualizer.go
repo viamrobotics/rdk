@@ -141,10 +141,10 @@ type nameNode struct {
 	Node *GraphNode
 }
 
-func getRemoteNames(nodes graphNodes) []string {
+func getRemoteNames(nodes graphStorage) []string {
 	uniqueRemotes := make(map[string]bool)
-	//nolint
-	for name, _ := range nodes {
+
+	for name := range nodes.Keys() {
 		if name.Remote != "" {
 			uniqueRemotes[name.Remote] = true
 		}
@@ -160,9 +160,9 @@ func getRemoteNames(nodes graphNodes) []string {
 	return ret
 }
 
-func nodesSortedByName(nodes graphNodes) []nameNode {
+func nodesSortedByName(nodes graphStorage) []nameNode {
 	var ret []nameNode
-	for name, node := range nodes {
+	for name, node := range nodes.All() {
 		ret = append(ret, nameNode{name, node})
 	}
 	slices.SortFunc(ret, func(left, right nameNode) int {

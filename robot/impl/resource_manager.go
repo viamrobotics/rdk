@@ -273,7 +273,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 
 		gNode, nodeAlreadyExists := manager.resources.Node(resName)
 		if nodeAlreadyExists && gNode.GetPrefix() != prefix {
-			gNode.SetPrefix(prefix)
+			manager.resources.UpdateNodePrefix(resName, prefix)
 		}
 
 		// TODO(Benji/Josh): Log a collision error if there is already a remote resource
@@ -308,8 +308,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		if nodeAlreadyExists {
 			gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
 		} else {
-			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
-			gNode.SetPrefix(prefix)
+			gNode = resource.NewConfiguredGraphNodeWithPrefix(resource.Config{}, res, unknownModel, prefix)
 			if err := manager.resources.AddNode(resName, gNode); err != nil {
 				resLogger.CErrorw(ctx, "failed to add remote resource node", "error", err)
 			}
@@ -1324,7 +1323,7 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Res
 	// This is kind of weird and arguably you could have a ResourcesByPartialName that would match against
 	// a string and not a resource name (e.g. expressions).
 	if !name.ContainsRemoteNames() {
-		keys := manager.resources.FindNodesByShortNameAndAPI(name)
+		keys := manager.resources.FindNodesBySimpleNameAndAPI(name)
 		if len(keys) > 1 {
 			return nil, rutils.NewRemoteResourceClashError(name.Name)
 		}
