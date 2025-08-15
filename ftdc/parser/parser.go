@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"os/exec"
@@ -743,19 +744,78 @@ func parseStringAsTime(inp string) (time.Time, error) {
 	return goTime, nil
 }
 
-// LaunchREPL opens an ftdc file, plots it, and runs a cli for it.
-func LaunchREPL(ftdcFilepath string) {
-	ftdcFile, err := os.Open(filepath.Clean(ftdcFilepath))
+// getFTDCData returns a slice of FlatDatums from the path it was passed in. If path leads
+// to an .ftdc file, only that file is parsed. If it leads to a directory, all .ftdc files
+// in that directory will get parsed and the combined slice of FlatDatums will get
+// returned. The subdirectories of that directory will NOT get explored.
+func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, error) {
+	info, err := os.Stat(ftdcPath)
 	if err != nil {
-		NolintPrintln("Error opening file. File:", os.Args[1], "Err:", err)
-		NolintPrintln("Expected an FTDC filename. E.g: go run parser.go <path-to>/viam-server.ftdc")
-		return
+		return nil, err
 	}
 
-	logger := logging.NewLogger("parser")
-	data, err := ftdc.ParseWithLogger(ftdcFile, logger)
+	// if path is not a directory, we can just open the file and get its datums.
+	if !info.IsDir() {
+		ftdcFile, err := os.Open(ftdcPath)
+		if err != nil {
+			return nil, err
+		}
+		return ftdc.ParseWithLogger(ftdcFile, logger)
+	}
+	// if path is a directory, we will walk it and get all of the ftdc datums
+	flatDatums := make([]ftdc.FlatDatum, 0)
+	err = filepath.WalkDir(ftdcPath, fs.WalkDirFunc(func(path string, d fs.DirEntry, walkErr error) error {
+		// for now, no recursive parsing.
+		if d.IsDir() && path != ftdcPath {
+			return filepath.SkipDir
+		}
+		if !strings.HasSuffix(path, ".ftdc") {
+			return nil
+		}
+
+		if walkErr != nil {
+			return walkErr
+		}
+
+		// need file.Close?
+		ftdcReader, err := os.Open(path)
+
+		if err != nil {
+			return err
+		}
+
+		ftdcData, err := ftdc.ParseWithLogger(ftdcReader, logger)
+
+		if err != nil {
+			logger.Warnw("Error getting ftdc data from file", "path", path, "err", err)
+			return nil
+		}
+
+		flatDatums = append(flatDatums, ftdcData...)
+
+		return nil
+	}))
+
 	if err != nil {
-		panic(err)
+		return nil, err
+	}
+
+	if len(flatDatums) < 1 {
+		return nil, errors.New("provided a directory with no FTDC files")
+	}
+
+	return flatDatums, nil
+}
+
+// LaunchREPL opens an ftdc file, plots it, and runs a cli for it.
+func LaunchREPL(ftdcFilepath string) {
+	logger := logging.NewLogger("parser")
+	data, err := getFTDCData(filepath.Clean(ftdcFilepath), logger)
+	if err != nil {
+		NolintPrintln("Error getting ftdc data from path:", ftdcFilepath, "Err:", err)
+		NolintPrintln(`Expected an FTDC filename or a directory. E.g: go run main.go
+		<path-to>/viam-server.ftdc or a directory with .ftdc files`)
+		return
 	}
 
 	stdinReader := bufio.NewReader(os.Stdin)
