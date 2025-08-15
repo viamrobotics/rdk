@@ -91,10 +91,7 @@ func DatasetMergeAction(c *cli.Context, args datasetMergeArgs) error {
 	if err != nil {
 		return err
 	}
-	if err := client.mergeDatasets(args.OrgID, args.Name, args.DatasetIDs); err != nil {
-		return err
-	}
-	return nil
+	return client.mergeDatasets(args.OrgID, args.Name, args.DatasetIDs)
 }
 
 // mergeDatasets merges multiple datasets into a new dataset with the specified name.
