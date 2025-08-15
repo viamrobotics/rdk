@@ -417,6 +417,7 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	// due to cases where a user didn't pass a `ResourceSubtype`, and so it was set in the `promptUser`
 	// call. We should look into simplifying though, such that all these values are only ever set once.
 	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
+	newModule.ResourceSubtypeSnake = strings.Split(newModule.Resource, " ")[0]
 	newModule.ResourceType = strings.Split(newModule.Resource, " ")[1]
 
 	titleCaser := cases.Title(language.Und)

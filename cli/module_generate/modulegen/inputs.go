@@ -32,6 +32,7 @@ type ModuleInputs struct {
 	API                   string `json:"-"`
 	ResourceSubtypePascal string `json:"-"`
 	ResourceSubtypeAlias  string `json:"-"`
+	ResourceSubtypeSnake  string `json:"-"`
 	ResourceTypePascal    string `json:"-"`
 	ModelPascal           string `json:"-"`
 	ModelCamel            string `json:"-"`
