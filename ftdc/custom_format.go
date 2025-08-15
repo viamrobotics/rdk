@@ -377,6 +377,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 	// prevValues are the previous values used for producing the diff bits. This is overwritten when
 	// a new metrics reading is made. and nilled out when the schema changes.
 	var prevValues []float32
+	var prevTime int64
 
 	// bufio's Reader allows for peeking and potentially better control over how much data to read
 	// from disk at a time.
@@ -390,7 +391,9 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 				break
 			}
 
-			return ret, err
+			if schema == nil {
+				return nil, errors.New("Could not read first byte")
+			}
 		}
 
 		// If the first bit of the first byte is `1`, the next block of data is a schema
@@ -423,7 +426,11 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 		// have changed since the prior metric document. Note, the reader is positioned on the
 		// "packed byte" where the first bit is not a diff bit. `readDiffBits` must account for
 		// that.
-		diffedFieldsIndexes := readDiffBits(reader, schema)
+		diffedFieldsIndexes, err := readDiffBits(reader, schema)
+		if err != nil {
+			logger.Debugw("Eearly EOF. Returning.")
+			return ret, nil
+		}
 		logger.Debugw("Diff bits",
 			"changedFieldIndexes", diffedFieldsIndexes,
 			"changedFieldNames", schema.FieldNamesForIndexes(diffedFieldsIndexes))
@@ -435,13 +442,25 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 			return ret, err
 		}
 		logger.Debugw("Read time", "time", dataTime, "seconds", dataTime/1e9)
+		// if the time is 0 or lower than previously recorded time, we are at a bad state and
+		// need to return.
+		if dataTime == 0 || dataTime < prevTime {
+			return ret, nil
+			// additionally, if the current dataTime is vastly bigger than the previous recorded
+			// timestamp (in this case, it's more than a day ahead, where 86_400_000_000_000 is
+			// the amount of nanoseconds in a day), we are also in a bad state and want to
+			// return.
+		} else if prevTime != 0 && dataTime > (prevTime+86_400_000_000_000) {
+			return ret, nil
+		}
+		prevTime = dataTime
 
 		// Read the payload. There will be one float32 value for each diff bit set to `1`, i.e:
 		// `len(diffedFields)`.
 		data, err := readData(reader, schema, diffedFieldsIndexes, prevValues)
 		if err != nil {
 			logger.Debugw("Error reading data", "error", err)
-			return ret, err
+			return ret, nil
 		}
 		logger.Debugw("Read data", "data", data)
 
@@ -527,7 +546,7 @@ func readSchema(reader *bufio.Reader) (*schema, *bufio.Reader) {
 // metrics that have changed. Note that the first byte of the input reader is "packed" with the
 // schema bit. Thus the first byte can represent 7 metrics and the remaining bytes can each
 // represent 8 metrics.
-func readDiffBits(reader *bufio.Reader, schema *schema) []int {
+func readDiffBits(reader *bufio.Reader, schema *schema) ([]int, error) {
 	// 1 diff bit per metric + 1 bit for the packed "schema bit".
 	numBits := len(schema.fieldOrder) + 1
 
@@ -539,7 +558,7 @@ func readDiffBits(reader *bufio.Reader, schema *schema) []int {
 	diffBytes := make([]byte, numBytes)
 	_, err := io.ReadFull(reader, diffBytes)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	var ret []int
@@ -561,7 +580,7 @@ func readDiffBits(reader *bufio.Reader, schema *schema) []int {
 		}
 	}
 
-	return ret
+	return ret, nil
 }
 
 // readData returns the "hydrated" metrics for a data reading. For example, if there are ten metrics
