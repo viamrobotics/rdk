@@ -108,19 +108,24 @@ func (s *serviceServer) GetImages(
 	}
 	// request the images, and then check to see what the underlying type is to determine
 	// what to encode as. If it's color, just encode as JPEG.
-	imgs, metadata, err := cam.Images(ctx, req.Extra.AsMap())
+	imgs, metadata, err := cam.Images(ctx, req.FilterSourceNames, req.Extra.AsMap())
 	if err != nil {
 		return nil, errors.Wrap(err, "camera server GetImages could not call Images on the camera")
 	}
 	imagesMessage := make([]*pb.Image, 0, len(imgs))
 	for _, img := range imgs {
-		format, outBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
+		namedImg, err := img.Image(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "camera server GetImages could not get the image")
+		}
+		format, outBytes, err := encodeImageFromUnderlyingType(ctx, namedImg)
 		if err != nil {
 			return nil, errors.Wrap(err, "camera server GetImages could not encode the images")
 		}
 		imgMes := &pb.Image{
 			SourceName: img.SourceName,
 			Format:     format,
+			MimeType:   img.MimeType(),
 			Image:      outBytes,
 		}
 		imagesMessage = append(imagesMessage, imgMes)

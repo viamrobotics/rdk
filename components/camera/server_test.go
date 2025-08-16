@@ -93,14 +93,26 @@ func TestServer(t *testing.T) {
 			FrameRate:       float32(10.0),
 		}, nil
 	}
-	injectCamera.ImagesFunc = func(ctx context.Context, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	injectCamera.ImagesFunc = func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		images := []camera.NamedImage{}
 		// one color image
 		color := rimage.NewImage(40, 50)
-		images = append(images, camera.NamedImage{color, "color"})
+		colorImg, err := camera.NamedImageFromImage(color, "color", utils.MimeTypeJPEG)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		images = append(images, colorImg)
 		// one depth image
 		depth := rimage.NewEmptyDepthMap(10, 20)
-		images = append(images, camera.NamedImage{depth, "depth"})
+		depthImg, err := camera.NamedImageFromImage(depth, "depth", utils.MimeTypeRawDepth)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		images = append(images, depthImg)
 		// a timestamp of 12345
 		ts := time.UnixMilli(12345)
 		return images, resource.ResponseMetadata{ts}, nil
@@ -482,6 +494,7 @@ func TestServer(t *testing.T) {
 	t.Run("GetImages with extra", func(t *testing.T) {
 		injectCamera.ImagesFunc = func(
 			ctx context.Context,
+			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, extra, test.ShouldBeEmpty)
@@ -497,6 +510,7 @@ func TestServer(t *testing.T) {
 
 		injectCamera.ImagesFunc = func(
 			ctx context.Context,
+			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
@@ -517,6 +531,7 @@ func TestServer(t *testing.T) {
 
 		injectCamera.ImagesFunc = func(
 			ctx context.Context,
+			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 1)
@@ -539,6 +554,7 @@ func TestServer(t *testing.T) {
 
 		injectCamera.ImagesFunc = func(
 			ctx context.Context,
+			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			test.That(t, len(extra), test.ShouldEqual, 2)
