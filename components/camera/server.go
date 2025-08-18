@@ -106,6 +106,17 @@ func (s *serviceServer) GetImages(
 	if err != nil {
 		return nil, errors.Wrap(err, "camera server GetImages had an error getting the camera component")
 	}
+
+	if len(req.FilterSourceNames) > 1 {
+		seen := make(map[string]bool)
+		for _, sourceName := range req.FilterSourceNames {
+			if seen[sourceName] {
+				return nil, fmt.Errorf("duplicate source name in filter: %s", sourceName)
+			}
+			seen[sourceName] = true
+		}
+	}
+
 	// request the images, and then check to see what the underlying type is to determine
 	// what to encode as. If it's color, just encode as JPEG.
 	imgs, metadata, err := cam.Images(ctx, req.FilterSourceNames, req.Extra.AsMap())

@@ -215,6 +215,16 @@ func (c *client) Images(
 	ctx, span := trace.StartSpan(ctx, "camera::client::Images")
 	defer span.End()
 
+	if len(filterSourceNames) > 1 {
+		seen := make(map[string]bool)
+		for _, sourceName := range filterSourceNames {
+			if seen[sourceName] {
+				return nil, resource.ResponseMetadata{}, fmt.Errorf("duplicate source name in filter: %s", sourceName)
+			}
+			seen[sourceName] = true
+		}
+	}
+
 	convertedExtra, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, err
