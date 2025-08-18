@@ -165,6 +165,30 @@ func TestPreloadedImages(t *testing.T) {
 	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
 	test.That(t, namedImages[1].SourceName, test.ShouldEqual, "color")
 
+	// Should return only preloaded
+	namedImages, _, err = cam.Images(ctx, []string{"preloaded"}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(namedImages), test.ShouldEqual, 1)
+	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
+
+	// Should return only color
+	namedImages, _, err = cam.Images(ctx, []string{"color"}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(namedImages), test.ShouldEqual, 1)
+	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "color")
+
+	// Should return both
+	namedImages, _, err = cam.Images(ctx, []string{"preloaded", "color"}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(namedImages), test.ShouldEqual, 2)
+	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
+	test.That(t, namedImages[1].SourceName, test.ShouldEqual, "color")
+
+	// Should return none
+	namedImages, _, err = cam.Images(ctx, []string{"not a source"}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(namedImages), test.ShouldEqual, 0)
+
 	cameraImg, err := camera.DecodeImageFromCamera(ctx, utils.MimeTypeRawRGBA, nil, cam)
 	test.That(t, err, test.ShouldBeNil)
 	preloadedImg, err := getPreloadedImage("pizza")

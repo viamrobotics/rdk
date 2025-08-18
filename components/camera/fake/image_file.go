@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	"slices"
 	"time"
 
 	"go.viam.com/rdk/components/camera"
@@ -163,7 +164,7 @@ func (fs *fileSource) Images(
 	}
 	imgs := []camera.NamedImage{}
 
-	if fs.PreloadedImage != "" {
+	if fs.PreloadedImage != "" && (len(filterSourceNames) == 0 || slices.Contains(filterSourceNames, "preloaded")) {
 		img, err := getPreloadedImage(fs.PreloadedImage)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
@@ -175,7 +176,7 @@ func (fs *fileSource) Images(
 		imgs = append(imgs, namedImg)
 	}
 
-	if fs.ColorFN != "" {
+	if fs.ColorFN != "" && (len(filterSourceNames) == 0 || slices.Contains(filterSourceNames, "color")) {
 		img, err := rimage.ReadImageFromFile(fs.ColorFN)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
@@ -187,7 +188,7 @@ func (fs *fileSource) Images(
 		imgs = append(imgs, namedImg)
 	}
 
-	if fs.DepthFN != "" {
+	if fs.DepthFN != "" && (len(filterSourceNames) == 0 || slices.Contains(filterSourceNames, "depth")) {
 		dm, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
