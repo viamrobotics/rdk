@@ -164,6 +164,13 @@ func (fs *fileSource) Images(
 	}
 	imgs := []camera.NamedImage{}
 
+	validSourceNames := []string{"preloaded", "color", "depth"}
+	for _, name := range filterSourceNames {
+		if !slices.Contains(validSourceNames, name) {
+			return nil, resource.ResponseMetadata{}, fmt.Errorf("invalid source name: %s", name)
+		}
+	}
+
 	if fs.PreloadedImage != "" && (len(filterSourceNames) == 0 || slices.Contains(filterSourceNames, "preloaded")) {
 		img, err := getPreloadedImage(fs.PreloadedImage)
 		if err != nil {

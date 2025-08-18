@@ -184,10 +184,10 @@ func TestPreloadedImages(t *testing.T) {
 	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
 	test.That(t, namedImages[1].SourceName, test.ShouldEqual, "color")
 
-	// Should return none
-	namedImages, _, err = cam.Images(ctx, []string{"not a source"}, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(namedImages), test.ShouldEqual, 0)
+	// Should error on invalid source name
+	_, _, err = cam.Images(ctx, []string{"not a source"}, nil)
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, err.Error(), test.ShouldEqual, "invalid source name: not a source")
 
 	cameraImg, err := camera.DecodeImageFromCamera(ctx, utils.MimeTypeRawRGBA, nil, cam)
 	test.That(t, err, test.ShouldBeNil)
