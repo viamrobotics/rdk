@@ -261,6 +261,7 @@ func lookupCollectorConfigsByResource(
 	return collectorConfigsByResource, nil
 }
 
+// TODO (DATA-4528): Don't ignore the extra field in the UploadBinaryDataToDatasets request.
 func (b *builtIn) UploadBinaryDataToDatasets(ctx context.Context,
 	binaryData []byte,
 	datasetIDs, tags []string,
@@ -274,6 +275,7 @@ func (b *builtIn) UploadBinaryDataToDatasets(ctx context.Context,
 	return b.sync.UploadBinaryDataToDatasets(ctx, binaryData, datasetIDs, tags, mimeType)
 }
 
+// TODO (DATA-4528): Don't ignore the extra field in the UploadImageToDatasets request.
 func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 	image image.Image,
 	datasetIDs []string,
