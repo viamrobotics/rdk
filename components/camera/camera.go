@@ -118,12 +118,13 @@ func (ni *NamedImage) Image(ctx context.Context) (image.Image, error) {
 			return nil, fmt.Errorf("could not decode image config: %w", err)
 		}
 
+		if header != "" && !strings.Contains(ni.mimeType, header) {
+			return nil, fmt.Errorf("mime type does not match the image bytes: expected %s, got %s", ni.mimeType, header)
+		}
+
 		img, err := rimage.DecodeImage(ctx, ni.data, ni.mimeType)
 		if err != nil {
-			if !strings.Contains(ni.mimeType, header) {
-				return nil, fmt.Errorf("mime type does not match the image bytes: expected %s, got %s", ni.mimeType, header)
-			}
-			return nil, fmt.Errorf("could not decode bytes into image.Image: %w. mime type: %s, header mime type: %s", err, ni.mimeType, header)
+			return nil, fmt.Errorf("could not decode bytes into image.Image: %w", err)
 		}
 		ni.img = img
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"reflect"
 	"testing"
 	"time"
 
@@ -522,5 +523,165 @@ func TestImagesExtraParam(t *testing.T) {
 		_, _, err := cam.Images(ctx, nil, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldEqual, "extra parameters required")
+	})
+}
+
+func TestNamedImage(t *testing.T) {
+	ctx := context.Background()
+	testImg := image.NewRGBA(image.Rect(0, 0, 10, 10))
+	testImgPNGBytes, err := rimage.EncodeImage(ctx, testImg, rutils.MimeTypePNG)
+	test.That(t, err, test.ShouldBeNil)
+	testImgJPEGBytes, err := rimage.EncodeImage(ctx, testImg, rutils.MimeTypeJPEG)
+	test.That(t, err, test.ShouldBeNil)
+	badBytes := []byte("trust bro i'm an image ong")
+	sourceName := "test_source"
+
+	t.Run("NamedImageFromBytes", func(t *testing.T) {
+		t.Run("success", func(t *testing.T) {
+			ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ni.SourceName, test.ShouldEqual, sourceName)
+			test.That(t, ni.MimeType(), test.ShouldEqual, rutils.MimeTypePNG)
+		})
+		t.Run("error on nil data", func(t *testing.T) {
+			_, err := camera.NamedImageFromBytes(nil, sourceName, rutils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeError, errors.New("must provide image bytes to construct a named image from bytes"))
+		})
+		t.Run("error on empty mime type", func(t *testing.T) {
+			_, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, "")
+			test.That(t, err, test.ShouldBeError, errors.New("must provide a mime type to construct a named image"))
+		})
+	})
+
+	t.Run("NamedImageFromImage", func(t *testing.T) {
+		t.Run("success", func(t *testing.T) {
+			ni, err := camera.NamedImageFromImage(testImg, sourceName, rutils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ni.SourceName, test.ShouldEqual, sourceName)
+			test.That(t, ni.MimeType(), test.ShouldEqual, rutils.MimeTypePNG)
+		})
+		t.Run("error on nil image", func(t *testing.T) {
+			_, err := camera.NamedImageFromImage(nil, sourceName, rutils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeError, errors.New("must provide image to construct a named image from image"))
+		})
+		t.Run("error on empty mime type", func(t *testing.T) {
+			_, err := camera.NamedImageFromImage(testImg, sourceName, "")
+			test.That(t, err, test.ShouldBeError, errors.New("must provide a mime type to construct a named image"))
+		})
+	})
+
+	t.Run("Image method", func(t *testing.T) {
+		t.Run("when image is already populated, it should return the image and cache it", func(t *testing.T) {
+			ni, err := camera.NamedImageFromImage(testImg, sourceName, rutils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeNil)
+			img, err := ni.Image(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			verifyImageEquality(t, img, testImg)
+
+			// should return the same image instance
+			img2, err := ni.Image(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, reflect.ValueOf(img).Pointer(), test.ShouldEqual, reflect.ValueOf(img2).Pointer())
+		})
+
+		t.Run("when only data is populated, it should decode the data and cache it", func(t *testing.T) {
+			ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeNil)
+
+			// first call should decode
+			img, err := ni.Image(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			verifyImageEquality(t, img, testImg)
+
+			// second call should return cached image
+			img2, err := ni.Image(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			verifyImageEquality(t, img2, testImg)
+			test.That(t, reflect.ValueOf(img).Pointer(), test.ShouldEqual, reflect.ValueOf(img2).Pointer())
+		})
+
+		t.Run("error when neither image nor data is populated", func(t *testing.T) {
+			var ni camera.NamedImage
+			_, err := ni.Image(ctx)
+			test.That(t, err, test.ShouldBeError, errors.New("no image or image bytes available"))
+		})
+
+		t.Run("error when data is invalid", func(t *testing.T) {
+			ni, err := camera.NamedImageFromBytes(badBytes, sourceName, rutils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeNil)
+			_, err = ni.Image(ctx)
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldEqual, "could not decode image config: image: unknown format")
+		})
+
+		t.Run("error when mime type mismatches and decode fails", func(t *testing.T) {
+			ni, err := camera.NamedImageFromBytes(testImgJPEGBytes, sourceName, rutils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeNil)
+			_, err = ni.Image(ctx)
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldEqual, "mime type does not match the image bytes: expected image/png, got jpeg")
+		})
+
+		t.Run("error when decode fails for other reasons", func(t *testing.T) {
+			corruptedPNGBytes := append([]byte(nil), testImgPNGBytes...)
+			corruptedPNGBytes[len(corruptedPNGBytes)-5] = 0 // corrupt it
+
+			ni, err := camera.NamedImageFromBytes(corruptedPNGBytes, sourceName, rutils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeNil)
+			_, err = ni.Image(ctx)
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldEqual, "could not decode bytes into image.Image: png: invalid format: invalid checksum")
+		})
+	})
+
+	t.Run("Bytes method", func(t *testing.T) {
+		t.Run("when data is already populated, it should return the data and cache it", func(t *testing.T) {
+			ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeNil)
+			data, err := ni.Bytes(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, data, test.ShouldResemble, testImgPNGBytes)
+
+			// should return the same data instance
+			data2, err := ni.Bytes(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, &data[0], test.ShouldEqual, &data2[0])
+		})
+
+		t.Run("when only image is populated, it should encode the image and cache it", func(t *testing.T) {
+			ni, err := camera.NamedImageFromImage(testImg, sourceName, rutils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeNil)
+
+			// first call should encode
+			data, err := ni.Bytes(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, data, test.ShouldResemble, testImgPNGBytes)
+
+			// second call should return cached data
+			data2, err := ni.Bytes(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, data2, test.ShouldResemble, testImgPNGBytes)
+			test.That(t, &data[0], test.ShouldEqual, &data2[0])
+		})
+
+		t.Run("error when neither image nor data is populated", func(t *testing.T) {
+			var ni camera.NamedImage
+			_, err := ni.Bytes(ctx)
+			test.That(t, err, test.ShouldBeError, errors.New("no image or image bytes available"))
+		})
+
+		t.Run("error when encoding fails", func(t *testing.T) {
+			ni, err := camera.NamedImageFromImage(testImg, sourceName, "bad-mime-type")
+			test.That(t, err, test.ShouldBeNil)
+			_, err = ni.Bytes(ctx)
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldEqual, `could not encode image: do not know how to encode "bad-mime-type"`)
+		})
+	})
+
+	t.Run("MimeType method", func(t *testing.T) {
+		ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ni.MimeType(), test.ShouldEqual, rutils.MimeTypePNG)
 	})
 }
