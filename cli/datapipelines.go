@@ -211,6 +211,9 @@ func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) e
 		if r.GetEndTime() != nil {
 			printf(c.App.Writer, "  Ended: %s", r.GetEndTime().AsTime().Format(time.RFC3339))
 		}
+		if r.GetErrorMessage() != "" {
+			printf(c.App.Writer, "  Error: %s", r.GetErrorMessage())
+		}
 	} else {
 		printf(c.App.Writer, "Has not run yet.")
 	}

@@ -428,6 +428,8 @@ type DataPipelineRun struct {
 	DataEndTime time.Time
 	// Status is the run's current status.
 	Status DataPipelineRunStatus
+	// ErrorMessage is the error message of the data pipeline run. It is only set if the run failed.
+	ErrorMessage string
 }
 
 // ListDataPipelineRunsPage is a results page of data pipeline runs, used for pagination.
@@ -1869,6 +1871,7 @@ func dataPipelineRunFromProto(proto *datapipelinesPb.DataPipelineRun) *DataPipel
 		DataStartTime: proto.DataStartTime.AsTime(),
 		DataEndTime:   proto.DataEndTime.AsTime(),
 		Status:        dataPipelineRunStatusFromProto(proto.Status),
+		ErrorMessage:  proto.ErrorMessage,
 	}
 }
 
