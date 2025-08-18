@@ -211,6 +211,7 @@ type Camera interface {
 
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
+	// The extra parameter can be used to pass additional options to the camera resource.
 	Images(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
