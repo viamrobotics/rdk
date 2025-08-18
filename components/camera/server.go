@@ -114,19 +114,16 @@ func (s *serviceServer) GetImages(
 	}
 	imagesMessage := make([]*pb.Image, 0, len(imgs))
 	for _, img := range imgs {
-		namedImg, err := img.Image(ctx)
+		imgBytes, err := img.Bytes(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "camera server GetImages could not get the image")
+			return nil, errors.Wrap(err, "camera server GetImages could not get the image bytes")
 		}
-		format, outBytes, err := encodeImageFromUnderlyingType(ctx, namedImg)
-		if err != nil {
-			return nil, errors.Wrap(err, "camera server GetImages could not encode the images")
-		}
+		format := utils.MimeTypeToFormat[img.MimeType()]
 		imgMes := &pb.Image{
 			SourceName: img.SourceName,
 			Format:     format,
 			MimeType:   img.MimeType(),
-			Image:      outBytes,
+			Image:      imgBytes,
 		}
 		imagesMessage = append(imagesMessage, imgMes)
 	}
