@@ -112,7 +112,7 @@ func TestServer(t *testing.T) {
 
 		if len(filterSourceNames) == 0 {
 			ts := time.UnixMilli(12345)
-			return []camera.NamedImage{colorImg, depthImg}, resource.ResponseMetadata{ts}, nil
+			return []camera.NamedImage{colorImg, depthImg}, resource.ResponseMetadata{CapturedAt: ts}, nil
 		}
 
 		images := make([]camera.NamedImage, 0, len(filterSourceNames))
@@ -127,7 +127,7 @@ func TestServer(t *testing.T) {
 			}
 		}
 		ts := time.UnixMilli(12345)
-		return images, resource.ResponseMetadata{ts}, nil
+		return images, resource.ResponseMetadata{CapturedAt: ts}, nil
 	}
 	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil

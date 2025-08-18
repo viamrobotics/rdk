@@ -55,7 +55,7 @@ func TestClient(t *testing.T) {
 
 	injectCamera := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
-	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
+	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{X: 1, Y: 2, Z: 3}, "")}
 
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
