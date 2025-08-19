@@ -423,6 +423,10 @@ func makeGenericAssociatedConfigRegistration[AssocT AssociatedConfig](
 	return reg
 }
 
+// specificSubtypeGetter is used wrap an [APIResourceGetter] with a more
+// specific subtype of [Resource]. It performs the necessary type check + cast
+// in [specificSubtypeGetter.Resource] and errors if the returned resource is
+// not of the expected type.
 type specificSubtypeGetter[ResourceT Resource] struct {
 	untyped APIResourceGetter[Resource]
 }
@@ -509,7 +513,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 			case APIResourceGetter[Resource]:
 				typedResourceGetter = specificSubtypeGetter[ResourceT]{t}
 			default:
-				return utils.NewUnexpectedTypeError[ResourceT](t)
+				return utils.NewUnexpectedTypeError[APIResourceGetter[ResourceT]](t)
 			}
 
 			return typed.RPCServiceServerConstructor(typedResourceGetter)
