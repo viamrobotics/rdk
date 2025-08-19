@@ -172,7 +172,9 @@ type LocalRobot interface {
 	// Only use this if comfortable with leaking resources (in cases where exiting the program as quickly as possible is desired).
 	Kill()
 
-	// ResourceByName returns a resource by name
+	// ResourceBySimpleNameAndAPI returns a resource from the resource graph. See
+	// [resource.Graph.FindBySimpleNameAndAPI] for specifics about what is
+	// returned in the case of name collisions.
 	ResourceBySimpleNameAndAPI(string, resource.API) (resource.Resource, error)
 }
 
