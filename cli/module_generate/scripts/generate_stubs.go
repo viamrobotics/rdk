@@ -336,17 +336,43 @@ func formatReturnDef(returns []string) string {
 }
 
 // zeroValueForType returns the zero value literal as a string for the given Go type.
-func zeroValueForType(typ string) string {
+func zeroValueForType(typ string, suffix int) (string, bool) {
 	switch typ {
 	case "string":
-		return `""`
-	case "int", "int32", "int64", "float32", "float64", "uint", "uint32":
-		return "0"
+		return `""`, false
+	case "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64",
+     "float32", "float64", "complex64", "complex128", "byte", "rune":
+		return "0", false
 	case "bool":
-		return "false"
+		return "false", false
 	default:
-		return "nil"
+		// pointers, slices, maps, and function types
+		if strings.HasPrefix(typ, "*") ||
+			strings.HasPrefix(typ, "[]") ||
+			strings.HasPrefix(typ, "map[") ||
+			strings.HasPrefix(typ, "func(") {
+			return "nil", false
+		}
+
+		varName := varNameFromType(typ + "RetVal")
+		if suffix > 1 { 
+			varName += fmt.Sprintf("%d", suffix)
+		}
+		return varName, true
 	}
+}
+
+func varNameFromType(typ string) string {
+	if typ == "" {
+		return "ret"
+	}
+	if idx := strings.LastIndex(typ, "."); idx != -1 {
+		typ = typ[idx+1:]
+	}
+	runes := []rune(typ)
+	runes[0] = unicode.ToLower(runes[0])
+	return string(runes)
+
 }
 
 // formatNotImplementedBody generates the Go function body for an unimplemented stub.
@@ -359,17 +385,34 @@ func formatNotImplementedBody(returns []string) string {
 		if returns[0] == "error" {
 			return "\treturn fmt.Errorf(\"not implemented\")"
 		}
-		return "\treturn " + zeroValueForType(returns[0])
+		returnVar, needsVar := zeroValueForType(returns[0], 1)
+		if needsVar {
+			return fmt.Sprintf("\tvar %s %s\n\treturn %s", returnVar, returns[0], returnVar)
+		} else {
+			return "\treturn " + returnVar
+		}
 	default:
+		typeCount := make(map[string]int)
 		vals := make([]string, len(returns))
+		var vars []string
 		for i, r := range returns {
+			typeCount[r]++
+			returnVar, needsVar := zeroValueForType(r, typeCount[r])
 			if r == "error" {
 				vals[i] = "fmt.Errorf(\"not implemented\")"
 			} else {
-				vals[i] = zeroValueForType(r)
+				if needsVar {
+					vars = append(vars, fmt.Sprintf("\tvar %s %s\n", returnVar, r))
+				}
+				vals[i] = returnVar
 			}
 		}
-		return "\treturn " + strings.Join(vals, ", ")
+		body := ""
+		if len(vars) > 0 {
+			body += strings.Join(vars, "\n") + "\n"
+		}
+		body += "\treturn " + strings.Join(vals, ", ")
+		return body
 	}
 }
 
