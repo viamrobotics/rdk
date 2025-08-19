@@ -41,6 +41,13 @@ func (e *MultipleMatchingRemoteNodesError) Error() string {
 
 type graphNodes map[Name]*GraphNode
 
+// graphStorage is used by [Graph] to store the collection if nodes. It
+// consists of
+// - a map of [Name] to *[GraphNode]s, used to serve most queries
+// - a map of ([API], string]) tuples to *[GraphNode]s, used to quickly serve [Graph.FindBySimpleNameAndAPI] queries
+// The various methods on graphStorage handle keeping these two maps in sync.
+// graphStorage itself is _not_ thread safe. and depends on [Graph] to handle
+// synchronization between goroutines.
 type graphStorage struct {
 	nodes           graphNodes
 	simpleNameCache simpleNameCache
@@ -180,7 +187,7 @@ type transitiveClosureMatrix map[Name]map[Name]int
 // Graph The Graph maintains a collection of resources and their dependencies between each other.
 type Graph struct {
 	mu                      sync.RWMutex
-	nodes                   graphStorage // list of nodes
+	nodes                   graphStorage
 	children                resourceDependencies
 	parents                 resourceDependencies
 	transitiveClosureMatrix transitiveClosureMatrix
