@@ -348,6 +348,10 @@ func TestMachineState(t *testing.T) {
 	// Cancel context and wait for server goroutine to stop running.
 	cancel()
 	wg.Wait()
+	if runtime.GOOS == "windows" {
+		// temporary until we ignore goroutine leaks from go-cron
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func TestMachineStateNoResources(t *testing.T) {
@@ -390,6 +394,10 @@ func TestMachineStateNoResources(t *testing.T) {
 	// Cancel context and wait for server goroutine to stop running.
 	cancel()
 	wg.Wait()
+	if runtime.GOOS == "windows" {
+		// temporary until we ignore goroutine leaks from go-cron
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func TestTunnelE2E(t *testing.T) {
@@ -552,12 +560,14 @@ func TestTunnelE2E(t *testing.T) {
 	runServerCtxCancel()
 
 	wg.Wait()
+	if runtime.GOOS == "windows" {
+		// temporary until we ignore goroutine leaks from go-cron
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		// temporary until we ignore goroutine leaks from previous tests from go-cron
-		time.Sleep(5 * time.Second)
 		t.Skip("RSDK-11682: get this to stop flaking on win")
 	}
 	// Primarily a regression test for RSDK-10723.
