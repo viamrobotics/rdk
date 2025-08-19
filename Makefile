@@ -96,6 +96,7 @@ full-static:
 	mkdir -p bin/static
 	go build -tags no_cgo,osusergo,netgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-$(shell go env GOARCH) ./web/cmd/server
 
+# should be kept in sync with the windows build in the BuildViamServer helper in testutils/file_utils.go
 windows:
 	mkdir -p bin/windows
 	GOOS=windows go build -tags no_cgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/windows/viam-server-$(shell go env GOARCH).exe ./web/cmd/server
