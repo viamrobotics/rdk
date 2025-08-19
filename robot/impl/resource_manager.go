@@ -267,9 +267,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			continue
 		}
 
-		// TODO(Benji/Josh): Only set the Remote field of the name. Do not automatically
-		// prepend a "remote:" string.
-		resName = resName.PrependRemote(remoteName.Name)
+		resName.Remote = remoteName.Remote
 
 		gNode, nodeAlreadyExists := manager.resources.Node(resName)
 		if nodeAlreadyExists && gNode.GetPrefix() != prefix {
