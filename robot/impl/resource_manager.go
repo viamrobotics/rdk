@@ -276,8 +276,13 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			manager.resources.UpdateNodePrefix(resName, prefix)
 		}
 
-		// TODO(Benji/Josh): Log a collision error if there is already a remote resource
-		// with the same simple (prefixed) name and API.
+		if _, err := manager.resources.FindBySimpleNameAndAPI(resName.Name, resName.API); err != nil {
+			if !resource.IsNotFoundError(err) {
+				manager.logger.Warnw("unexpected error while checking for resource name collision", "err", err)
+			}
+		} else {
+			manager.logger.Warnw("found resource name collision, please check your configuration", "name", resName.Name, "api", resName.API)
+		}
 
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
