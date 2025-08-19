@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -23,7 +24,7 @@ var (
 
 func TestCombinedIKinematics(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m.DoF(), logger, nCPU, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
@@ -33,7 +34,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		r3.Vector{X: -46, Y: -133, Z: 372},
 		&spatial.OrientationVectorDegrees{OX: 1.79, OY: -1.32, OZ: -1.11},
 	)
-	solveFunc := NewMetricMinFunc(NewSquaredNormMetric(pos), m, logger)
+	solveFunc := NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
 	solution, err := solveTest(context.Background(), ik, solveFunc, home)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -42,7 +43,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		r3.Vector{X: -66, Y: -133, Z: 372},
 		&spatial.OrientationVectorDegrees{OX: 1.78, OY: -3.3, OZ: -1.11},
 	)
-	solveFunc = NewMetricMinFunc(NewSquaredNormMetric(pos), m, logger)
+	solveFunc = NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
 	_, err = solveTest(context.Background(), ik, solveFunc, solution[0])
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -50,7 +51,7 @@ func TestCombinedIKinematics(t *testing.T) {
 func TestUR5NloptIKinematics(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m.DoF(), logger, nCPU, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
@@ -58,14 +59,14 @@ func TestUR5NloptIKinematics(t *testing.T) {
 	goalJP := frame.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
 	goal, err := m.Transform(m.InputFromProtobuf(goalJP))
 	test.That(t, err, test.ShouldBeNil)
-	solveFunc := NewMetricMinFunc(NewSquaredNormMetric(goal), m, logger)
+	solveFunc := NewMetricMinFunc(motionplan.NewSquaredNormMetric(goal), m, logger)
 	_, err = solveTest(context.Background(), ik, solveFunc, home)
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestCombinedCPUs(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m.DoF(), logger, runtime.NumCPU()/400000, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)

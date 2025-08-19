@@ -43,6 +43,7 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 		PointCloudFN:   newConf.PointCloud,
 		Intrinsics:     newConf.CameraParameters,
 		PreloadedImage: newConf.PreloadedImage,
+		logger:         logger,
 	}
 
 	imgType := camera.ColorStream
@@ -59,7 +60,7 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 	if err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(name, src, logger), nil
+	return camera.FromVideoSource(name, src), nil
 }
 
 // fileSource stores the paths to a color and depth image and a pointcloud.
@@ -69,6 +70,7 @@ type fileSource struct {
 	PointCloudFN   string
 	Intrinsics     *transform.PinholeCameraIntrinsics
 	PreloadedImage string
+	logger         logging.Logger
 }
 
 // fileSourceConfig is the attribute struct for fileSource.
@@ -150,7 +152,7 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 }
 
 // Images returns the saved color and depth image if they are present.
-func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (fs *fileSource) Images(ctx context.Context, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if fs.ColorFN == "" && fs.DepthFN == "" && fs.PreloadedImage == "" {
 		return nil, resource.ResponseMetadata{}, errors.New("no image files to read, so not implemented")
 	}
@@ -161,7 +163,7 @@ func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		imgs = append(imgs, camera.NamedImage{img, "preloaded"})
+		imgs = append(imgs, camera.NamedImage{Image: img, SourceName: "preloaded"})
 	}
 
 	if fs.ColorFN != "" {
@@ -169,7 +171,7 @@ func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		imgs = append(imgs, camera.NamedImage{img, "color"})
+		imgs = append(imgs, camera.NamedImage{Image: img, SourceName: "color"})
 	}
 
 	if fs.DepthFN != "" {
@@ -177,7 +179,7 @@ func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		imgs = append(imgs, camera.NamedImage{dm, "depth"})
+		imgs = append(imgs, camera.NamedImage{Image: dm, SourceName: "depth"})
 	}
 
 	ts := time.Now()
@@ -231,16 +233,19 @@ func (ss *StaticSource) Read(ctx context.Context) (image.Image, func(), error) {
 }
 
 // Images returns the saved color and depth image if they are present.
-func (ss *StaticSource) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (ss *StaticSource) Images(
+	ctx context.Context,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if ss.ColorImg == nil && ss.DepthImg == nil {
 		return nil, resource.ResponseMetadata{}, errors.New("no image files stored, so not implemented")
 	}
 	imgs := []camera.NamedImage{}
 	if ss.ColorImg != nil {
-		imgs = append(imgs, camera.NamedImage{ss.ColorImg, "color"})
+		imgs = append(imgs, camera.NamedImage{Image: ss.ColorImg, SourceName: "color"})
 	}
 	if ss.DepthImg != nil {
-		imgs = append(imgs, camera.NamedImage{ss.DepthImg, "depth"})
+		imgs = append(imgs, camera.NamedImage{Image: ss.DepthImg, SourceName: "depth"})
 	}
 	ts := time.Now()
 	return imgs, resource.ResponseMetadata{CapturedAt: ts}, nil

@@ -103,9 +103,16 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	return nil
 }
 
+var attemptedConstruction bool
+
 func newHelper(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
+	// VIAM_TESTMODULE_FAIL_ON_FIRST will always fail the first attempt at construction
+	if os.Getenv("VIAM_TESTMODULE_FAIL_ON_FIRST") != "" && !attemptedConstruction {
+		attemptedConstruction = true
+		return nil, errors.New("gotta fail fast")
+	}
 	var dependsOnSensor sensor.Sensor
 	var err error
 	if len(conf.DependsOn) > 0 {
@@ -115,7 +122,8 @@ func newHelper(
 		}
 	}
 
-	if len(deps) > 0 && dependsOnSensor == nil {
+	// deps contains at least $framesystem
+	if len(deps) > 1 && dependsOnSensor == nil {
 		return nil, fmt.Errorf("sensor not found in deps: %v", deps)
 	}
 

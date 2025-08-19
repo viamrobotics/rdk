@@ -553,35 +553,61 @@ func TestMeshDistanceFrom(t *testing.T) {
 }
 
 func TestMeshToPoints(t *testing.T) {
-	mesh := makeSimpleTriangleMesh()
-	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 3)
+	t.Run("Simple triangle with density enforced", func(t *testing.T) {
+		mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+			[]*Triangle{NewTriangle(
+				r3.Vector{X: 0, Y: 0, Z: 0},
+				r3.Vector{X: 3, Y: 0, Z: 0},
+				r3.Vector{X: -3, Y: 3, Z: 0},
+			)})
 
-	// Verify points match triangle vertices
-	expectedPoints := []r3.Vector{
-		{X: 0, Y: 0, Z: 0},
-		{X: 1, Y: 0, Z: 0},
-		{X: 0, Y: 1, Z: 0},
-		{X: 0.6, Y: 0.6, Z: 0},
-		{X: 0, Y: 0, Z: 10},
-		{X: 1, Y: 0, Z: 10},
-		{X: 0, Y: 1, Z: 10},
-		mesh.Triangles()[0].Centroid(),
-		mesh.Triangles()[1].Centroid(),
-		mesh.Triangles()[2].Centroid(),
-	}
+		points := mesh.ToPoints(0.3)
 
-	points := mesh.ToPoints(1)
-	test.That(t, len(points), test.ShouldEqual, len(expectedPoints))
-	for _, expected := range expectedPoints {
-		found := false
-		for _, actual := range points {
-			if R3VectorAlmostEqual(actual, expected, 1e-10) {
-				found = true
-				break
-			}
+		// Verify points match those expected for similar tiling method
+		expectedPoints := []r3.Vector{
+			{X: 0, Y: 0, Z: 0},
+			{X: 1, Y: 0, Z: 0},
+			{X: 2, Y: 0, Z: 0},
+			{X: 3, Y: 0, Z: 0},
+
+			{X: -1, Y: 1, Z: 0},
+			{X: 0, Y: 1, Z: 0},
+			{X: 1, Y: 1, Z: 0},
+
+			{X: -2, Y: 2, Z: 0},
+			{X: -1, Y: 2, Z: 0},
+
+			{X: -3, Y: 3, Z: 0},
 		}
-		test.That(t, found, test.ShouldBeTrue)
-	}
+
+		test.That(t, len(points), test.ShouldEqual, len(expectedPoints))
+		for _, expected := range expectedPoints {
+			found := false
+			for _, actual := range points {
+				if R3VectorAlmostEqual(actual, expected, 1e-10) {
+					found = true
+					break
+				}
+			}
+			test.That(t, found, test.ShouldBeTrue)
+		}
+	})
+
+	t.Run("Degenerate triangle", func(t *testing.T) {
+		mesh := makeTestMesh(NewZeroOrientation(), r3.Vector{},
+			[]*Triangle{NewTriangle(
+				r3.Vector{X: 1, Y: 1, Z: 1},
+				r3.Vector{X: 1, Y: 1, Z: 1},
+				r3.Vector{X: 1, Y: 1, Z: 1},
+			)})
+
+		points := mesh.ToPoints(5)
+
+		expectedPoint := r3.Vector{X: 1, Y: 1, Z: 1}
+
+		test.That(t, len(points), test.ShouldEqual, 1)
+		test.That(t, points[0], test.ShouldResemble, expectedPoint)
+	})
 }
 
 func TestMeshEncompassedBy(t *testing.T) {
@@ -602,4 +628,185 @@ func TestMeshEncompassedBy(t *testing.T) {
 	encompassed, err = mesh.EncompassedBy(smallBox)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, encompassed, test.ShouldBeFalse)
+}
+
+func TestMeshProtoConversionFromTriangles(t *testing.T) {
+	// Manually create a mesh with a variety of shapes and shared vertices
+	triangles := []*Triangle{
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 1000, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1000, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: -500, Y: -500, Z: 0},
+			r3.Vector{X: 500, Y: -500, Z: 0},
+			r3.Vector{X: 0, Y: 500, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 1000},
+			r3.Vector{X: 1000, Y: 0, Z: 1000},
+			r3.Vector{X: 500, Y: 1000, Z: 1000},
+		),
+		NewTriangle(
+			r3.Vector{X: 123.456, Y: 789.012, Z: 345.678},
+			r3.Vector{X: 456.789, Y: 123.456, Z: 678.901},
+			r3.Vector{X: 789.012, Y: 456.789, Z: 123.456},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 10000, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 10000, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 1, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: -1000, Y: -1000, Z: -1000},
+			r3.Vector{X: -500, Y: -1000, Z: -1000},
+			r3.Vector{X: -1000, Y: -500, Z: -1000},
+		),
+		NewTriangle(
+			r3.Vector{X: 100, Y: 100, Z: -500},
+			r3.Vector{X: 200, Y: 100, Z: 500},
+			r3.Vector{X: 150, Y: 200, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 1000, Y: 0, Z: 0},
+			r3.Vector{X: 1000, Y: 1000, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 1000, Y: 1000, Z: 0},
+			r3.Vector{X: 0, Y: 1000, Z: 0},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1000, Z: 0},
+			r3.Vector{X: 0, Y: 1000, Z: 1000},
+		),
+		NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1000, Z: 1000},
+			r3.Vector{X: 0, Y: 0, Z: 1000},
+		),
+	}
+
+	// Create mesh with a pose and label
+	originalPose := NewPose(r3.Vector{X: 100, Y: 200, Z: 300}, NewZeroOrientation())
+	originalMesh := NewMesh(originalPose, triangles, "test_mesh_from_triangles")
+
+	// Convert to protobuf
+	proto := originalMesh.ToProtobuf()
+	test.That(t, proto, test.ShouldNotBeNil)
+	test.That(t, proto.Label, test.ShouldEqual, "test_mesh_from_triangles")
+
+	// Restore from protobuf
+	restoredGeometry, err := NewGeometryFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+	restoredMesh, ok := restoredGeometry.(*Mesh)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	test.That(t, restoredMesh.Label(), test.ShouldEqual, originalMesh.Label())
+	test.That(t, PoseAlmostEqual(restoredMesh.Pose(), originalMesh.Pose()), test.ShouldBeTrue)
+	test.That(t, len(restoredMesh.Triangles()), test.ShouldEqual, len(originalMesh.Triangles()))
+
+	// Verify all triangles match
+	originalTriangles := originalMesh.Triangles()
+	restoredTriangles := restoredMesh.Triangles()
+	for i, originalTri := range originalTriangles {
+		restoredTri := restoredTriangles[i]
+		origPoints := originalTri.Points()
+		restoredPoints := restoredTri.Points()
+
+		test.That(t, len(restoredPoints), test.ShouldEqual, len(origPoints))
+
+		for j, origPoint := range origPoints {
+			restoredPoint := restoredPoints[j]
+			// The conversion from mm to meters and back can create micrometer-level float changes
+			epsilon := 1e-4
+			test.That(t, math.Abs(origPoint.X-restoredPoint.X), test.ShouldBeLessThan, epsilon)
+			test.That(t, math.Abs(origPoint.Y-restoredPoint.Y), test.ShouldBeLessThan, epsilon)
+			test.That(t, math.Abs(origPoint.Z-restoredPoint.Z), test.ShouldBeLessThan, epsilon)
+		}
+	}
+
+	// Verify that the mesh can be converted to protobuf again
+	secondProto := restoredMesh.ToProtobuf()
+	test.That(t, secondProto, test.ShouldNotBeNil)
+	test.That(t, secondProto.Label, test.ShouldEqual, originalMesh.Label())
+
+	// Verify the protobuf content is the same
+	test.That(t, secondProto.GetMesh().ContentType, test.ShouldEqual, proto.GetMesh().ContentType)
+	test.That(t, len(secondProto.GetMesh().Mesh), test.ShouldEqual, len(proto.GetMesh().Mesh))
+}
+
+func TestBoxTriangleIntersectionArea(t *testing.T) {
+	b, err := NewBox(NewZeroPose(), r3.Vector{X: 2, Y: 2, Z: 2}, "")
+	bbox, ok := b.(*box)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, err, test.ShouldBeNil)
+	t.Run("Fully encompassed triangle", func(t *testing.T) {
+		triangle := NewTriangle(
+			r3.Vector{X: -0.5, Y: 0, Z: 0},
+			r3.Vector{X: 0.5, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 0, Z: 0.5},
+		)
+		area, err := boxTriangleIntersectionArea(bbox, triangle)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, area, test.ShouldAlmostEqual, 0.25)
+	})
+	t.Run("Partially encompassed triangle with vertex in box", func(t *testing.T) {
+		triangle := NewTriangle(
+			r3.Vector{X: -1, Y: 0, Z: -2},
+			r3.Vector{X: 1, Y: 0, Z: -2},
+			r3.Vector{X: 0, Y: 0, Z: 0},
+		)
+		area, err := boxTriangleIntersectionArea(bbox, triangle)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, area, test.ShouldAlmostEqual, 0.5)
+	})
+	t.Run("Partially encompassed triangle with no vertices in box", func(t *testing.T) {
+		triangle := NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: -2},
+			r3.Vector{X: 2, Y: 0, Z: -2},
+			r3.Vector{X: 2, Y: 0, Z: 1},
+		)
+		area, err := boxTriangleIntersectionArea(bbox, triangle)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, area, test.ShouldAlmostEqual, 0.25/3)
+	})
+	t.Run("Triangle against box face", func(t *testing.T) {
+		triangle := NewTriangle(
+			r3.Vector{X: -1, Y: 1, Z: -2},
+			r3.Vector{X: 1, Y: 1, Z: -2},
+			r3.Vector{X: 0, Y: 1, Z: 2},
+		)
+		area, err := boxTriangleIntersectionArea(bbox, triangle)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, area, test.ShouldAlmostEqual, 2)
+	})
+	t.Run("Triangle edge against box", func(t *testing.T) {
+		triangle := NewTriangle(
+			r3.Vector{X: 1, Y: 1, Z: 0},
+			r3.Vector{X: 1, Y: -1, Z: 0},
+			r3.Vector{X: 2, Y: 0, Z: 0},
+		)
+		area, err := boxTriangleIntersectionArea(bbox, triangle)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, area, test.ShouldAlmostEqual, 0)
+	})
+	t.Run("Triangle not intersecting box", func(t *testing.T) {
+		triangle := NewTriangle(
+			r3.Vector{X: -1, Y: 1.1, Z: -2},
+			r3.Vector{X: 1, Y: 1.1, Z: -2},
+			r3.Vector{X: 0, Y: 1.1, Z: 2},
+		)
+		area, err := boxTriangleIntersectionArea(bbox, triangle)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, area, test.ShouldAlmostEqual, 0)
+	})
 }

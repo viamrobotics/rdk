@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -547,7 +548,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			return failToReachGoalError
 		}
 		injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-			return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), "")
+			return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 		}
 
 		// create arm link
@@ -1097,7 +1098,7 @@ func TestCheckPlan(t *testing.T) {
 		},
 	}
 
-	baseExecutionState, err := motionplan.NewExecutionState(
+	baseExecutionState, err := armplanning.NewExecutionState(
 		plan, 0, currentInputs,
 		map[string]*referenceframe.PoseInFrame{
 			mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
@@ -1112,7 +1113,7 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		err = motionplan.CheckPlan(wrapperFrame, augmentedBaseExecutionState, nil, mr.localizingFS, math.Inf(1), logger)
+		err = armplanning.CheckPlan(wrapperFrame, augmentedBaseExecutionState, nil, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1126,7 +1127,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(wrapperFrame, augmentedBaseExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = armplanning.CheckPlan(wrapperFrame, augmentedBaseExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
@@ -1150,7 +1151,7 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	inputs := augmentedBaseExecutionState.CurrentInputs()
 	inputs[cameraFrame.Name()] = referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF())))
-	executionStateWithCamera, err := motionplan.NewExecutionState(
+	executionStateWithCamera, err := armplanning.NewExecutionState(
 		augmentedBaseExecutionState.Plan(), augmentedBaseExecutionState.Index(),
 		inputs, augmentedBaseExecutionState.CurrentPoses(),
 	)
@@ -1168,7 +1169,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = armplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1184,7 +1185,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = armplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
@@ -1214,7 +1215,7 @@ func TestCheckPlan(t *testing.T) {
 		)),
 	}
 
-	newExecutionState, err := motionplan.NewExecutionState(plan, 2, currentInputs, currentPoses)
+	newExecutionState, err := armplanning.NewExecutionState(plan, 2, currentInputs, currentPoses)
 	test.That(t, err, test.ShouldBeNil)
 	updatedExecutionState, err := mr.augmentBaseExecutionState(ctx, newExecutionState)
 	test.That(t, err, test.ShouldBeNil)
@@ -1232,7 +1233,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = armplanning.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1245,7 +1246,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = motionplan.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = armplanning.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -1328,29 +1329,60 @@ func TestDoCommand(t *testing.T) {
 		// the client will need to decode the response still
 		test.That(t, resp, test.ShouldBeTrue)
 	})
+	t.Run("DoExecuteCheckStart", func(t *testing.T) {
+		// generate a separate trajectory plan first. that way this state will not be affected by future executions
+		trajectory, err := testDoPlan(moveReq)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(trajectory), test.ShouldEqual, 2)
+
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
+
+		// format the command to sent DoCommand
+		cmd := map[string]interface{}{DoExecute: trajectory, DoExecuteCheckStart: "not a float"}
+
+		// simulate going over the wire
+		respMap, err := doOverWire(ms, cmd)
+		test.That(t, err, test.ShouldBeNil)
+		resp, ok := respMap[DoExecute]
+		test.That(t, ok, test.ShouldBeTrue)
+
+		// the client will need to decode the response still
+		test.That(t, resp, test.ShouldBeTrue)
+		test.That(t, respMap[DoExecuteCheckStart], test.ShouldEqual, "resource at starting location")
+
+		start := trajectory[0]["pieceArm"]
+		end := trajectory[len(trajectory)-1]["pieceArm"]
+		// do it again
+		respMap, err = doOverWire(ms, cmd)
+		test.That(t, err, test.ShouldBeError,
+			fmt.Errorf("component %v is not within %v of the current position. Expected inputs %v current inputs %v",
+				"pieceArm", defaultExecuteEpsilon, start, end))
+		test.That(t, respMap, test.ShouldBeEmpty)
+	})
 
 	t.Run("Extras transmitted correctly", func(t *testing.T) {
 		// test that DoPlan correctly breaks if bad inputs are provided, meaning it is being parsed correctly
 		moveReq.Extra = map[string]interface{}{
-			"motion_profile": motionplan.LinearMotionProfile,
+			"motion_profile": armplanning.LinearMotionProfile,
 			"planning_algorithm_settings": map[string]interface{}{
 				"algorithm": "rrtstar",
 			},
 		}
 		_, err = testDoPlan(moveReq)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldResemble, motionplan.NewAlgAndConstraintMismatchErr("rrtstar"))
+		test.That(t, err, test.ShouldResemble, armplanning.NewAlgAndConstraintMismatchErr("rrtstar"))
 	})
 
 	t.Run("Extras transmitted correctly (with deprecated key)", func(t *testing.T) {
 		// test that DoPlan correctly breaks if bad inputs are provided, meaning it is being parsed correctly
 		moveReq.Extra = map[string]interface{}{
-			"motion_profile": motionplan.LinearMotionProfile,
+			"motion_profile": armplanning.LinearMotionProfile,
 			"planning_alg":   "rrtstar",
 		}
 		_, err = testDoPlan(moveReq)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldResemble, motionplan.NewAlgAndConstraintMismatchErr("rrtstar"))
+		test.That(t, err, test.ShouldResemble, armplanning.NewAlgAndConstraintMismatchErr("rrtstar"))
 	})
 }
 
@@ -1384,8 +1416,8 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		waypoint2 := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30}))
 		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -200, Z: 30}))
 
-		wp1State := motionplan.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint1}, nil)
-		wp2State := motionplan.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint2}, nil)
+		wp1State := armplanning.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint1}, nil)
+		wp2State := armplanning.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint2}, nil)
 
 		moveReq := motion.MoveReq{
 			ComponentName: gripper.Named("pieceGripper"),
@@ -1423,8 +1455,8 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		waypoint := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30}))
 		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -200, Z: 30}))
 
-		startState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": start}, nil)
-		wpState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint}, nil)
+		startState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": start}, nil)
+		wpState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint}, nil)
 
 		moveReq := motion.MoveReq{
 			ComponentName: gripper.Named("pieceGripper"),
@@ -1464,13 +1496,13 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	t.Run("plan through mixed pose and configuration waypoints", func(t *testing.T) {
 		// Define specific arm configuration for first waypoint
 		armConfig := []float64{0.2, 0.3, 0.4, 0.5, 0.6, 0.7}
-		wp1State := motionplan.NewPlanState(nil, referenceframe.FrameSystemInputs{
+		wp1State := armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{
 			"pieceArm": referenceframe.FloatsToInputs(armConfig),
 		})
 
 		// Define pose for second waypoint
 		intermediatePose := spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30})
-		wp2State := motionplan.NewPlanState(
+		wp2State := armplanning.NewPlanState(
 			referenceframe.FrameSystemPoses{"pieceGripper": referenceframe.NewPoseInFrame("world", intermediatePose)},
 			nil,
 		)
@@ -1524,7 +1556,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 
 	t.Run("plan with custom start state", func(t *testing.T) {
 		startConfig := []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6}
-		startState := motionplan.NewPlanState(nil, referenceframe.FrameSystemInputs{
+		startState := armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{
 			"pieceArm": referenceframe.FloatsToInputs(startConfig),
 		})
 
@@ -1562,7 +1594,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	t.Run("plan with explicit goal state configuration", func(t *testing.T) {
 		goalConfig := []float64{0.7, 0.6, 0.5, 0.4, 0.3, 0.2}
 
-		goalState := motionplan.NewPlanState(nil, referenceframe.FrameSystemInputs{"pieceArm": referenceframe.FloatsToInputs(goalConfig)})
+		goalState := armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{"pieceArm": referenceframe.FloatsToInputs(goalConfig)})
 
 		moveReq := motion.MoveReq{
 			ComponentName: gripper.Named("pieceGripper"),

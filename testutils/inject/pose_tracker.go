@@ -14,6 +14,7 @@ type PoseTracker struct {
 	name      resource.Name
 	PosesFunc func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (referenceframe.FrameSystemPoses, error)
 	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc func() error
 }
 
 // NewPoseTracker returns a new injected pose tracker.
@@ -42,4 +43,15 @@ func (pT *PoseTracker) DoCommand(ctx context.Context, cmd map[string]interface{}
 		return pT.PoseTracker.DoCommand(ctx, cmd)
 	}
 	return pT.DoFunc(ctx, cmd)
+}
+
+// Close calls the injected Close or the real version.
+func (pT *PoseTracker) Close(ctx context.Context) error {
+	if pT.CloseFunc == nil {
+		if pT.PoseTracker == nil {
+			return nil
+		}
+		return pT.PoseTracker.Close(ctx)
+	}
+	return pT.CloseFunc()
 }

@@ -3,12 +3,9 @@ package modmanager
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +24,6 @@ import (
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
-	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
@@ -41,15 +37,14 @@ var (
 	// name of the folder under the viamHomeDir that holds all the folders for the module data
 	// ex: /home/walle/.viam/module-data/<cloud-robot-id>/<module-name>
 	parentModuleDataFolderName = "module-data"
-	windowsPathRegex           = regexp.MustCompile(`^(\w:)?(.+)$`)
 )
 
 // NewManager returns a Manager.
 func NewManager(
 	ctx context.Context, parentAddrs config.ParentSockAddrs, logger logging.Logger, options modmanageroptions.Options,
-) (modmaninterface.ModuleManager, error) {
+) (*Manager, error) {
 	var err error
-	parentAddrs.UnixAddr, err = cleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
+	parentAddrs.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +57,7 @@ func NewManager(
 		untrustedEnv:            options.UntrustedEnv,
 		viamHomeDir:             options.ViamHomeDir,
 		moduleDataParentDir:     getModuleDataParentDirectory(options),
-		removeOrphanedResources: options.RemoveOrphanedResources,
+		handleOrphanedResources: options.HandleOrphanedResources,
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
 		packagesDir:             options.PackagesDir,
@@ -146,7 +141,7 @@ type Manager struct {
 	// Ex: /home/walle/.viam/module-data/<cloud-robot-id>
 	// it is empty if the modmanageroptions.Options.viamHomeDir was empty
 	moduleDataParentDir     string
-	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
+	handleOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	restartCtx              context.Context
 	restartCtxCancel        context.CancelFunc
 	ftdc                    *ftdc.FTDC
@@ -200,10 +195,10 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
-// An allowed list of specific viam namespace modules. We want to allow running some of our official
-// modules even in an untrusted environment.
-var allowedModules = map[string]bool{
-	"viam:raspberry-pi": true,
+// An allowed list of specific namespaces that are allowed to run in an untrusted environment.
+// We want to allow running all of our official modules even in an untrusted environment.
+var allowedModulesNamespaces = map[string]bool{
+	"viam": true,
 }
 
 // Checks if the modules added in an untrusted environment are Viam modules
@@ -212,7 +207,12 @@ func checkIfAllowed(confs ...config.Module) (
 	allowed bool /*false*/, newConfs []config.Module,
 ) {
 	for _, conf := range confs {
-		if ok := allowedModules[conf.ModuleID]; ok {
+		parts := strings.Split(conf.ModuleID, ":")
+		if len(parts) == 0 {
+			continue
+		}
+		namespace := parts[0]
+		if ok := allowedModulesNamespaces[namespace]; ok {
 			allowed = true
 			newConfs = append(newConfs, conf)
 		}
@@ -251,7 +251,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		}
 		seen[conf.Name] = struct{}{}
 
-		// this is done in config validation but partial start rules require us to check again
+		// The config was already validated, but we must check again before attempting to add.
 		if err := conf.Validate(""); err != nil {
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
 			errs[i] = err
@@ -390,8 +390,8 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	return nil
 }
 
-// Reconfigure reconfigures an existing resource module and returns the names of
-// now orphaned resources.
+// Reconfigure reconfigures an existing resource module and returns the names of resources previously
+// handled by the module.
 func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
@@ -691,78 +691,8 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 }
 
 // ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
-// and modified resources. It also puts modular resources whose module has been modified or added in conf.Added if
-// they are not already there since the resources themselves are not necessarily new.
+// and modified resources.
 func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
-	// NOTE(benji): We could simplify some of the following `continue`
-	// conditional clauses to a single clause, but we split them for readability.
-	for _, c := range conf.Right.Components {
-		mod, ok := mgr.getModule(c)
-		if !ok {
-			// continue if this component is not being provided by a module.
-			continue
-		}
-
-		lenModified, lenAdded := len(conf.Modified.Modules), len(conf.Added.Modules)
-		deltaModules := make([]config.Module, lenModified, lenModified+lenAdded)
-		copy(deltaModules, conf.Modified.Modules)
-		deltaModules = append(deltaModules, conf.Added.Modules...)
-
-		if !slices.ContainsFunc(deltaModules, func(elem config.Module) bool {
-			return elem.Name == mod.cfg.Name
-		}) {
-			// continue if this modular component is not being handled by a modified
-			// or added module.
-			continue
-		}
-		if slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool {
-			return elem.Name == c.Name
-		}) {
-			// continue if this modular component handled by a modified module is
-			// already in conf.Added.Components.
-			continue
-		}
-
-		// Add modular component to conf.Added.Components.
-		conf.Added.Components = append(conf.Added.Components, c)
-		// If component is in conf.Modified, the user modified a module and its
-		// component at the same time. Remove that resource from conf.Modified so
-		// the restarted module receives an AddResourceRequest and not a
-		// ReconfigureResourceRequest.
-		conf.Modified.Components = slices.DeleteFunc(
-			conf.Modified.Components, func(elem resource.Config) bool { return elem.Name == c.Name })
-	}
-	for _, s := range conf.Right.Services {
-		mod, ok := mgr.getModule(s)
-		if !ok {
-			// continue if this service is not being provided by a module.
-			continue
-		}
-		if !slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool {
-			return elem.Name == mod.cfg.Name
-		}) {
-			// continue if this modular service is not being handled by a modified
-			// module.
-			continue
-		}
-		if slices.ContainsFunc(conf.Added.Services, func(elem resource.Config) bool {
-			return elem.Name == s.Name
-		}) {
-			// continue if this modular service handled by a modified module is
-			// already in conf.Added.Services.
-			continue
-		}
-
-		// Add modular service to conf.Added.Services.
-		conf.Added.Services = append(conf.Added.Services, s)
-		//  If service is in conf.Modified, the user modified a module and its
-		//  service at the same time. Remove that resource from conf.Modified so
-		//  the restarted module receives an AddResourceRequest and not a
-		//  ReconfigureResourceRequest.
-		conf.Modified.Services = slices.DeleteFunc(
-			conf.Modified.Services, func(elem resource.Config) bool { return elem.Name == s.Name })
-	}
-
 	// If something was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
 	// and store implicit dependencies.
@@ -977,20 +907,25 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 					err,
 				)
 				orphanedResourceNames = append(orphanedResourceNames, name)
+
+				// At this point, the modmanager is no longer managing this resource and should remove it
+				// from its state.
+				mgr.rMap.Delete(name)
+				delete(mod.resources, name)
 				continue
 			}
 			restoredResourceNamesStr = append(restoredResourceNamesStr, name.String())
 		}
-		if len(orphanedResourceNames) > 0 && mgr.removeOrphanedResources != nil {
+		if len(orphanedResourceNames) > 0 && mgr.handleOrphanedResources != nil {
 			orphanedResourceNamesStr := make([]string, len(orphanedResourceNames))
 			for _, n := range orphanedResourceNames {
 				orphanedResourceNamesStr = append(orphanedResourceNamesStr, n.String())
 			}
-			mod.logger.Warnw("Some resources failed to re-add after crashed module restart and will be removed",
+			mod.logger.Warnw("Some resources failed to re-add after crashed module restart and will be rebuilt",
 				"module", mod.cfg.Name,
-				"orphanedResources", orphanedResourceNamesStr)
+				"resources_to_be_rebuilt", orphanedResourceNamesStr)
 			unlock()
-			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
+			mgr.handleOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
 		mod.logger.Infow("Module resources successfully re-added after module restart",
@@ -1088,24 +1023,6 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	env := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
 
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
-}
-
-// On windows only, this mutates socket paths so they work well with the GRPC library.
-// It converts e.g. C:\x\y.sock to /x/y.sock
-// If you don't do this, it will confuse grpc-go's url.Parse call and surrounding logic.
-// See https://github.com/grpc/grpc-go/blob/v1.71.0/clientconn.go#L1720-L1727
-func cleanWindowsSocketPath(goos, orig string) (string, error) {
-	if goos == "windows" {
-		match := windowsPathRegex.FindStringSubmatch(orig)
-		if match == nil {
-			return "", fmt.Errorf("error cleaning socket path %s", orig)
-		}
-		if match[1] != "" && strings.ToLower(match[1]) != "c:" {
-			return "", fmt.Errorf("we expect unix sockets on C: drive, not %s", match[1])
-		}
-		return strings.ReplaceAll(match[2], "\\", "/"), nil
-	}
-	return orig, nil
 }
 
 func getFullEnvironment(

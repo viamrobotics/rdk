@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 // errAttrCfgPopulation is the returned error if the Config's fields are fully populated.
@@ -23,9 +22,6 @@ var errAttrCfgPopulation = errors.New("can only populate either ArmModel or Mode
 
 // Model is the name used to refer to the fake arm model.
 var Model = resource.DefaultModelFamily.WithModel("fake")
-
-//go:embed fake_model.json
-var fakejson []byte
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -39,6 +35,18 @@ var (
 	xArm6Model = "xarm6"
 	xArm7Model = "xarm7"
 )
+
+//go:embed kinematics/fake.json
+var fakejson []byte
+
+//go:embed kinematics/ur5e.json
+var ur5eJSON []byte
+
+//go:embed kinematics/xarm6.json
+var xarm6JSON []byte
+
+//go:embed kinematics/xarm7.json
+var xarm7JSON []byte
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
@@ -157,7 +165,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra m
 		return err
 	}
 
-	plan, err := motionplan.PlanFrameMotion(ctx, a.logger, pose, model, a.joints, nil, nil)
+	plan, err := motionplan.GetGlobal().PlanFrameMotion(ctx, a.logger, pose, model, a.joints, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -256,11 +264,11 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
 	case ur5eModel:
-		return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/ur5e.json"), name)
+		return referenceframe.UnmarshalModelJSON(ur5eJSON, name)
 	case xArm6Model:
-		return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), name)
+		return referenceframe.UnmarshalModelJSON(xarm6JSON, name)
 	case xArm7Model:
-		return referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm7_kinematics_test.json"), name)
+		return referenceframe.UnmarshalModelJSON(xarm7JSON, name)
 	case Model.Name:
 		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:

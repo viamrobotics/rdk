@@ -25,7 +25,7 @@ import (
 // Note: this strips away Reconfiguration and DoCommand abilities.
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
-func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) VideoSource {
+func FromVideoSource(name resource.Name, src VideoSource) VideoSource {
 	var rtpPassthroughSource rtppassthrough.Source
 	if ps, ok := src.(rtppassthrough.Source); ok {
 		rtpPassthroughSource = ps
@@ -34,7 +34,6 @@ func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger)
 		rtpPassthroughSource: rtpPassthroughSource,
 		VideoSource:          src,
 		Named:                name.AsNamed(),
-		Logger:               logger,
 	}
 }
 
@@ -236,11 +235,12 @@ func (vs *videoSource) Image(ctx context.Context, mimeType string, extra map[str
 // Images is for getting simultaneous images from different sensors
 // If the underlying source did not specify an Images function, a default is applied.
 // The default returns a list of 1 image from ReadImage, and the current time.
-func (vs *videoSource) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
+// The extra parameter is passed through to the underlying resource.
+func (vs *videoSource) Images(ctx context.Context, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::videoSource::Images")
 	defer span.End()
 	if c, ok := vs.actualSource.(ImagesSource); ok {
-		return c.Images(ctx)
+		return c.Images(ctx, extra)
 	}
 	img, release, err := ReadImage(ctx, vs.videoSource)
 	if err != nil {

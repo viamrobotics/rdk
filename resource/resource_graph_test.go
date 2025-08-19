@@ -121,7 +121,8 @@ func TestResourceGraphConstruct(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
-			g := NewGraph()
+			logger := logging.NewTestLogger(t)
+			g := NewGraph(logger)
 			test.That(t, g, test.ShouldNotBeNil)
 			for i, component := range c.conf {
 				test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -139,7 +140,8 @@ func TestResourceGraphConstruct(t *testing.T) {
 }
 
 func TestResourceGraphGetParentsAndChildren(t *testing.T) {
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range commonCfg {
 		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -240,7 +242,8 @@ func TestResourceGraphSubGraph(t *testing.T) {
 			},
 		},
 	}
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range cfg {
 		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -293,7 +296,8 @@ func TestResourceGraphDepTree(t *testing.T) {
 			DependsOn: []Name{NewName(apiA, "E")},
 		},
 	}
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range cfg {
 		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -339,7 +343,8 @@ func TestResourceGraphTopologicalSort(t *testing.T) {
 			},
 		},
 	}
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range cfg {
 		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -424,7 +429,8 @@ func TestResourceGraphReverseTopologicalSortInLevels(t *testing.T) {
 			},
 		},
 	}
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range cfg {
 		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -473,7 +479,8 @@ func TestResourceGraphMergeAdd(t *testing.T) {
 			DependsOn: []Name{NewName(apiA, "E")},
 		},
 	}
-	gA := NewGraph()
+	logger := logging.NewTestLogger(t)
+	gA := NewGraph(logger)
 	test.That(t, gA, test.ShouldNotBeNil)
 	for _, component := range cfgA {
 		test.That(t, gA.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -487,7 +494,7 @@ func TestResourceGraphMergeAdd(t *testing.T) {
 		NewName(apiA, "B"),
 		NewName(apiA, "A"),
 	})
-	gB := NewGraph()
+	gB := NewGraph(logger)
 	test.That(t, gB, test.ShouldNotBeNil)
 	for _, component := range cfgB {
 		test.That(t, gB.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -583,7 +590,8 @@ func TestResourceGraphMergeRemove(t *testing.T) {
 			DependsOn: []Name{NewName(apiA, "11")},
 		},
 	}
-	gA := NewGraph()
+	logger := logging.NewTestLogger(t)
+	gA := NewGraph(logger)
 	test.That(t, gA, test.ShouldNotBeNil)
 	for _, component := range cfgA {
 		test.That(t, gA.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -625,7 +633,7 @@ func TestResourceGraphMergeRemove(t *testing.T) {
 		NewName(apiA, "2"),
 		NewName(apiA, "13"),
 	}
-	gB := NewGraph()
+	gB := NewGraph(logger)
 	for _, comp := range removalList {
 		gC, err := gA.SubGraphFrom(comp)
 		test.That(t, err, test.ShouldBeNil)
@@ -670,7 +678,8 @@ func TestResourceGraphFindNodeByName(t *testing.T) {
 			DependsOn: []Name{NewName(APINamespaceRDK.WithComponentType("aapi"), "B")},
 		},
 	}
-	gA := NewGraph()
+	logger := logging.NewTestLogger(t)
+	gA := NewGraph(logger)
 	test.That(t, gA, test.ShouldNotBeNil)
 	for _, component := range cfgA {
 		test.That(t, gA.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -727,7 +736,8 @@ var cfgA = []fakeComponent{
 }
 
 func TestResourceGraphReplaceNodesParents(t *testing.T) {
-	gA := NewGraph()
+	logger := logging.NewTestLogger(t)
+	gA := NewGraph(logger)
 	test.That(t, gA, test.ShouldNotBeNil)
 	for _, component := range cfgA {
 		test.That(t, gA.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -783,7 +793,7 @@ func TestResourceGraphReplaceNodesParents(t *testing.T) {
 			DependsOn: []Name{NewName(apiA, "D")},
 		},
 	}
-	gB := NewGraph()
+	gB := NewGraph(logger)
 	test.That(t, gB, test.ShouldNotBeNil)
 	for _, component := range cfgB {
 		test.That(t, gB.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -819,7 +829,7 @@ func TestResourceGraphReplaceNodesParents(t *testing.T) {
 			DependsOn: []Name{},
 		},
 	}
-	gC := NewGraph()
+	gC := NewGraph(logger)
 	test.That(t, gC, test.ShouldNotBeNil)
 	for _, component := range cfgC {
 		test.That(t, gC.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -831,7 +841,8 @@ func TestResourceGraphReplaceNodesParents(t *testing.T) {
 }
 
 func TestResourceGraphCopyNodeAndChildren(t *testing.T) {
-	gA := NewGraph()
+	logger := logging.NewTestLogger(t)
+	gA := NewGraph(logger)
 	test.That(t, gA, test.ShouldNotBeNil)
 	for _, component := range cfgA {
 		test.That(t, gA.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -839,7 +850,7 @@ func TestResourceGraphCopyNodeAndChildren(t *testing.T) {
 			test.That(t, gA.AddChild(component.Name, dep), test.ShouldBeNil)
 		}
 	}
-	gB := NewGraph()
+	gB := NewGraph(logger)
 	test.That(t, gB, test.ShouldNotBeNil)
 	test.That(t, gB.CopyNodeAndChildren(NewName(apiA, "F"), gA), test.ShouldBeNil)
 	out := gB.TopologicalSort()
@@ -889,7 +900,8 @@ func TestResourceGraphCopyNodeAndChildren(t *testing.T) {
 }
 
 func TestResourceGraphRandomRemoval(t *testing.T) {
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range commonCfg {
 		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -919,7 +931,8 @@ func TestResourceGraphRandomRemoval(t *testing.T) {
 }
 
 func TestResourceGraphMarkForRemoval(t *testing.T) {
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range commonCfg {
@@ -972,7 +985,8 @@ func TestResourceGraphMarkForRemoval(t *testing.T) {
 }
 
 func TestResourceGraphClock(t *testing.T) {
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 0)
 
@@ -1008,7 +1022,8 @@ func TestResourceGraphClock(t *testing.T) {
 }
 
 func TestResourceGraphLastReconfigured(t *testing.T) {
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 
 	name1 := NewName(apiA, "a")
 	node1 := &GraphNode{}
@@ -1039,7 +1054,7 @@ func TestResourceGraphLastReconfigured(t *testing.T) {
 
 func TestResourceGraphResolveDependencies(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	g := NewGraph()
+	g := NewGraph(logger)
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
 
 	name1 := NewName(APINamespaceRDK.WithComponentType("aapi"), "a")

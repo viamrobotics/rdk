@@ -228,7 +228,7 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, part.FrameConfig.name, test.ShouldEqual, transform.Name())
 		test.That(t, part.FrameConfig.parent, test.ShouldEqual, transform.Parent())
-		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.pose.Point(), testPose.Point(), 1e-8), test.ShouldBeTrue)
+		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.pose.Point(), testPose.Point(), defaultFloatPrecision), test.ShouldBeTrue)
 		test.That(t, spatial.OrientationAlmostEqual(part.FrameConfig.pose.Orientation(), testPose.Orientation()), test.ShouldBeTrue)
 	})
 }
@@ -399,4 +399,67 @@ func TestReplaceFrame(t *testing.T) {
 	f, err = fs.Parent(newLeafNode)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, f, test.ShouldResemble, fs.World())
+}
+
+func TestSerialization(t *testing.T) {
+	fs := NewEmptyFrameSystem("test")
+	dims := r3.Vector{1, 1, 1}
+
+	// add a static frame with a box
+	name0 := "frame0"
+	pose0 := spatial.NewPoseFromPoint(r3.Vector{-4, -4, -4})
+	box0, err := spatial.NewBox(pose0, dims, name0)
+	test.That(t, err, test.ShouldBeNil)
+	frame0, err := NewStaticFrameWithGeometry(name0, pose0, box0)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(frame0, fs.World())
+
+	// add a static frame with a box as a child of the first
+	name1 := "frame1"
+	pose1 := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
+	box1, err := spatial.NewBox(pose1, dims, name1)
+	test.That(t, err, test.ShouldBeNil)
+	frame1, err := NewStaticFrameWithGeometry(name1, pose1, box1)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(frame1, frame0)
+
+	// add an arm model to the fs
+	jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
+	test.That(t, err, test.ShouldBeNil)
+	model, err := UnmarshalModelJSON(jsonData, "")
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(model, fs.World())
+
+	// add a static frame as a child of the model
+	name2 := "block"
+	pose2 := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
+	box2, err := spatial.NewBox(pose2, dims, name2)
+	test.That(t, err, test.ShouldBeNil)
+	blockFrame, err := NewStaticFrameWithGeometry(name2, pose2, box2)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(blockFrame, model)
+
+	// Revolute joint around X axis
+	joint, err := NewRotationalFrame("rot", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{Min: -math.Pi * 2, Max: math.Pi * 2})
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(joint, fs.World())
+
+	// Translational frame
+	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{X: 1, Y: 1, Z: 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// test creating a new translational frame with a geometry
+	prismatic, err := NewTranslationalFrameWithGeometry("pr", r3.Vector{X: 0, Y: 1, Z: 0}, Limit{Min: -30, Max: 30}, bc)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(prismatic, fs.World())
+
+	jsonData, err = json.Marshal(fs)
+	test.That(t, err, test.ShouldBeNil)
+
+	var fs2 FrameSystem
+	test.That(t, json.Unmarshal(jsonData, &fs2), test.ShouldBeNil)
+
+	equality, err := frameSystemsAlmostEqual(fs, &fs2, defaultFloatPrecision)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, equality, test.ShouldBeTrue)
 }

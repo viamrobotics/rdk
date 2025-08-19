@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/contextutils"
+	"go.viam.com/rdk/web/networkcheck"
 )
 
 // AppConn maintains an underlying client connection meant to be used globally to connect to App. The `AppConn` constructor repeatedly
@@ -26,7 +27,7 @@ type AppConn struct {
 // connection is made. If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not
 // start.
 func NewAppConn(ctx context.Context, appAddress, secret, id string, logger logging.Logger) (rpc.ClientConn, error) {
-	appConn := &AppConn{ReconfigurableClientConn: &ReconfigurableClientConn{}}
+	appConn := &AppConn{ReconfigurableClientConn: &ReconfigurableClientConn{Logger: logger.Sublogger("app_conn")}}
 
 	grpcURL, err := url.Parse(appAddress)
 	if err != nil {
@@ -68,6 +69,11 @@ func NewAppConn(ctx context.Context, appAddress, secret, id string, logger loggi
 		"error",
 		err,
 	)
+
+	// Upon failing to dial app.viam.com, run DNS network checks to reveal more DNS
+	// information.
+	networkcheck.TestDNS(ctx, logger, false /* non-verbose to only log failures */)
+
 	appConn.dialer = utils.NewStoppableWorkers(ctx)
 
 	appConn.dialer.Add(func(ctx context.Context) {

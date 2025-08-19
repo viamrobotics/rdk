@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -60,6 +61,11 @@ const (
 
 	// PrimaryOrgIDEnvVar is the environment variable that contains the primary org ID of the machine.
 	PrimaryOrgIDEnvVar = "VIAM_PRIMARY_ORG_ID"
+
+	// ViamResourceRequestsLimitEnvVar is the environment that controls the
+	// per-resource gRPC request limit. If it is unset or invalid the limit
+	// defaults to 100.
+	ViamResourceRequestsLimitEnvVar = "VIAM_RESOURCE_REQUESTS_LIMIT"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
@@ -70,6 +76,8 @@ var TCPRegex = regexp.MustCompile(`:\d+$`)
 
 // ViamDotDir is the directory for Viam's cached files.
 var ViamDotDir = filepath.Join(PlatformHomeDir(), ".viam")
+
+var windowsPathRegex = regexp.MustCompile(`^(\w:)?(.+)$`)
 
 // GetResourceConfigurationTimeout calculates the resource configuration
 // timeout (env variable value if set, DefaultResourceConfigurationTimeout
@@ -154,4 +162,23 @@ func GetenvInt(v string, def int) int {
 	}
 
 	return num
+}
+
+// CleanWindowsSocketPath mutates socket paths on windows only so they
+// work well with the GRPC library.
+// It converts e.g. C:\x\y.sock to /x/y.sock
+// If you don't do this, it will confuse grpc-go's url.Parse call and surrounding logic.
+// See https://github.com/grpc/grpc-go/blob/v1.71.0/clientconn.go#L1720-L1727
+func CleanWindowsSocketPath(goos, orig string) (string, error) {
+	if goos == "windows" {
+		match := windowsPathRegex.FindStringSubmatch(orig)
+		if match == nil {
+			return "", fmt.Errorf("error cleaning socket path %s", orig)
+		}
+		if match[1] != "" && strings.ToLower(match[1]) != "c:" {
+			return "", fmt.Errorf("we expect unix sockets on C: drive, not %s", match[1])
+		}
+		return strings.ReplaceAll(match[2], "\\", "/"), nil
+	}
+	return orig, nil
 }

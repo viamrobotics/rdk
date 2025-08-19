@@ -36,6 +36,7 @@ func TestGenerateModuleAction(t *testing.T) {
 
 		ModulePascal:          "MyModule",
 		ModuleLowercase:       "mymodule",
+		ResourceSubtypeAlias:  "arm",
 		API:                   "rdk:component:arm",
 		ResourceSubtypePascal: "Arm",
 		ModelPascal:           "MyModel",

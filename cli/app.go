@@ -1487,6 +1487,29 @@ var app = &cli.App{
 					Action: createCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
 				},
 				{
+					Name:      "merge",
+					Usage:     "merge multiple datasets into a new dataset",
+					UsageText: createUsageText("dataset merge", []string{generalFlagOrgID, datasetFlagName, datasetFlagDatasetIDs}, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID where the merged dataset will be created",
+						},
+						&cli.StringFlag{
+							Name:     datasetFlagName,
+							Required: true,
+							Usage:    "name of the new merged dataset",
+						},
+						&cli.StringSliceFlag{
+							Name:     datasetFlagDatasetIDs,
+							Required: true,
+							Usage:    "dataset IDs to merge (comma-separated list)",
+						},
+					},
+					Action: createCommandWithT[datasetMergeArgs](DatasetMergeAction),
+				},
+				{
 					Name:            "data",
 					Usage:           "add or remove data from datasets",
 					UsageText:       createUsageText("dataset data", nil, false, true),
@@ -1677,46 +1700,22 @@ var app = &cli.App{
 					Action: createCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
 				},
 				{
-					Name:  "update",
-					Usage: "update a data pipeline",
-					UsageText: createUsageText("datapipelines update",
-						[]string{generalFlagID, generalFlagName, datapipelineFlagSchedule}, false, false,
-						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
-							datapipelineFlagMQL, datapipelineFlagMQL,
-							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
-					),
+					Name:      "rename",
+					Usage:     "rename a data pipeline",
+					UsageText: createUsageText("datapipelines rename", []string{generalFlagID, generalFlagName}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagID,
-							Usage:    "ID of the data pipeline to update",
+							Usage:    "ID of the data pipeline to rename",
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:  generalFlagName,
-							Usage: "name of the data pipeline to update",
-						},
-						&cli.StringFlag{
-							Name:  datapipelineFlagSchedule,
-							Usage: "schedule of the data pipeline to update (cron expression)",
-						},
-						&cli.StringFlag{
-							Name:  datapipelineFlagMQL,
-							Usage: "MQL query for the data pipeline to update",
-						},
-						&cli.StringFlag{
-							Name:  datapipelineFlagMQLFile,
-							Usage: "path to JSON file containing MQL query for the data pipeline to update",
-						},
-						&cli.StringFlag{
-							Name: datapipelineFlagDataSourceType,
-							Usage: formatAcceptedValues(
-								"data source type for the data pipeline to update",
-								StandardDataSourceType,
-								HotStorageDataSourceType,
-							),
+							Name:     generalFlagName,
+							Usage:    "new name for the data pipeline",
+							Required: true,
 						},
 					},
-					Action: createCommandWithT[datapipelineUpdateArgs](DatapipelineUpdateAction),
+					Action: createCommandWithT[datapipelineRenameArgs](DatapipelineRenameAction),
 				},
 				{
 					Name:      "delete",
@@ -2501,16 +2500,62 @@ Note: There is no progress meter while copying is in progress.
 			},
 		},
 		{
+			Name:            "metadata",
+			Usage:           "manage the metadata attached to your orgs, locations, machines, and/or machine parts",
+			UsageText:       createUsageText("metadata", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:      "read",
+					Usage:     "read metadata attached to your orgs, locations, machines, and/or machine parts",
+					UsageText: "Provide at least one of the identifiers using CLI arguments to fetch the corresponding metadata.",
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagOrgID,
+								Aliases: []string{generalFlagAliasOrg, generalFlagOrganization},
+								Usage:   "ID of the organization you want to read the metadata from",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagLocationID,
+								Aliases: []string{generalFlagLocation},
+								Usage:   "ID of the location you want to read the metadata from",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagMachineID,
+								Aliases: []string{generalFlagMachine, generalFlagAliasRobotID, generalFlagAliasRobot},
+								Usage:   "ID of the machine you want to read the metadata from",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagPartID,
+								Aliases: []string{generalFlagPart},
+								Usage:   "ID of the machine part you want to read the metadata from",
+							},
+						},
+					},
+					Action: createCommandWithT[metadataReadArgs](MetadataReadAction),
+				},
+			},
+		},
+		{
 			Name:            "module",
 			Usage:           "manage your modules in Viam's registry",
 			UsageText:       createUsageText("module", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
-					Name:  "local-app-testing",
-					Usage: "test your viam application locally",
+					Name: "local-app-testing",
+					Usage: "Test your viam application locally. This will stand up a local proxy at http://localhost:8012 to simulate " +
+						"the Viam app server. If testing a single-machine app you MUST provide the machine-id parameter, " +
+						"omit it to test a multi-machine app.",
 					UsageText: createUsageText("module local-app-testing",
-						[]string{"app-url", "machine-id", "machine-api-key", "machine-api-key-id"}, false, false),
+						[]string{"app-url", "machine-id"}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     "app-url",
@@ -2519,21 +2564,9 @@ Note: There is no progress meter while copying is in progress.
 						},
 						&cli.StringFlag{
 							Name: "machine-id",
-							Usage: "machine ID of the machine you want to test with, you can get it at " +
+							Usage: "For single-machine Viam apps: machine ID of the machine you want to test with, you can get it at " +
 								"https://app.viam.com/fleet/machines",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name: "machine-api-key-id",
-							Usage: "machine API key ID for the machine you provided the ID of, you can get it at " +
-								"https://app.viam.comm/machine/<machineID>/connect/api-keys",
-							Required: true,
-						},
-						&cli.StringFlag{
-							Name: "machine-api-key",
-							Usage: "machine API key for the machine you provided the ID of, you can get it at " +
-								"https://app.viam.comm/machine/<machineID>/connect/api-keys",
-							Required: true,
+							Required: false,
 						},
 					},
 					Action: createCommandWithT[localAppTestingArgs](LocalAppTestingAction),
@@ -3184,6 +3217,21 @@ This won't work unless you have an existing installation of our GitHub app on yo
 			Usage:     "print version info for this program",
 			UsageText: createUsageText("version", nil, false, false),
 			Action:    createCommandWithT[emptyArgs](VersionAction),
+		},
+		{
+			Name:  "parse-ftdc",
+			Usage: "parse an ftdc file and open a REPL with extra options",
+			UsageText: createUsageText(
+				"ftdc-parse", []string{generalFlagPath}, false, false,
+			),
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:     generalFlagPath,
+					Required: true,
+					Usage:    "absolute file path to the ftdc file",
+				},
+			},
+			Action: createCommandWithT[ftdcArgs](FTDCParseAction),
 		},
 	},
 }

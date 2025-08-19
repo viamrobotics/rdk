@@ -97,6 +97,7 @@ func newServer() (pb.DiscoveryServiceServer, *inject.DiscoveryService, *inject.D
 }
 
 func TestDiscoveryServiceServer(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	discoveryServer, workingDiscovery, failingDiscovery, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 	testComponents := []resource.Config{createTestComponent("component-1"), createTestComponent("component-2")}
@@ -114,7 +115,7 @@ func TestDiscoveryServiceServer(t *testing.T) {
 		for index, proto := range resp.GetDiscoveries() {
 			expected := testComponents[index]
 			test.That(t, proto.Name, test.ShouldEqual, expected.Name)
-			actual, err := config.ComponentConfigFromProto(proto)
+			actual, err := config.ComponentConfigFromProto(proto, logger)
 			test.That(t, err, test.ShouldBeNil)
 			validateComponent(t, *actual, expected)
 		}
@@ -128,8 +129,9 @@ func TestDiscoveryServiceServer(t *testing.T) {
 			return nil, nil
 		}
 		resp, err := discoveryServer.DiscoverResources(context.Background(), &pb.DiscoverResourcesRequest{Name: failDiscoveryName})
-		test.That(t, err, test.ShouldEqual, discovery.ErrNilResponse)
-		test.That(t, resp, test.ShouldEqual, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		test.That(t, resp.GetDiscoveries(), test.ShouldBeEmpty)
 	})
 
 	t.Run("Test DoCommand", func(t *testing.T) {

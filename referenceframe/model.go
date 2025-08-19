@@ -245,7 +245,51 @@ func (m *SimpleModel) DoF() []Limit {
 
 // MarshalJSON serializes a Model.
 func (m *SimpleModel) MarshalJSON() ([]byte, error) {
-	return json.Marshal(m.modelConfig)
+	type serialized struct {
+		Name   string           `json:"name"`
+		Model  *ModelConfigJSON `json:"model"`
+		Limits []Limit          `json:"limits"`
+	}
+	ser := serialized{
+		Name:   m.name,
+		Model:  m.modelConfig,
+		Limits: m.limits,
+	}
+	return json.Marshal(ser)
+}
+
+// UnmarshalJSON deserializes a Model.
+func (m *SimpleModel) UnmarshalJSON(data []byte) error {
+	type serialized struct {
+		Name   string           `json:"name"`
+		Model  *ModelConfigJSON `json:"model"`
+		Limits []Limit          `json:"limits"`
+	}
+	var ser serialized
+	if err := json.Unmarshal(data, &ser); err != nil {
+		return err
+	}
+
+	frameName := ser.Name
+	if frameName == "" {
+		frameName = ser.Model.Name
+	}
+
+	if ser.Model != nil {
+		parsed, err := ser.Model.ParseConfig(ser.Model.Name)
+		if err != nil {
+			return err
+		}
+		newModel, ok := parsed.(*SimpleModel)
+		if !ok {
+			return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
+		}
+		m.OrdTransforms = newModel.OrdTransforms
+	}
+	m.baseFrame = &baseFrame{name: frameName, limits: ser.Limits}
+	m.modelConfig = ser.Model
+
+	return nil
 }
 
 // ModelPieceFrames takes a list of inputs and returns a map of frame names to their corresponding static frames,

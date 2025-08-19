@@ -16,8 +16,8 @@ type DataPipelinesServiceClient struct {
 		opts ...grpc.CallOption) (*datapipelinesPb.GetDataPipelineResponse, error)
 	CreateDataPipelineFunc func(ctx context.Context, in *datapipelinesPb.CreateDataPipelineRequest,
 		opts ...grpc.CallOption) (*datapipelinesPb.CreateDataPipelineResponse, error)
-	UpdateDataPipelineFunc func(ctx context.Context, in *datapipelinesPb.UpdateDataPipelineRequest,
-		opts ...grpc.CallOption) (*datapipelinesPb.UpdateDataPipelineResponse, error)
+	RenameDataPipelineFunc func(ctx context.Context, in *datapipelinesPb.RenameDataPipelineRequest,
+		opts ...grpc.CallOption) (*datapipelinesPb.RenameDataPipelineResponse, error)
 	DeleteDataPipelineFunc func(ctx context.Context, in *datapipelinesPb.DeleteDataPipelineRequest,
 		opts ...grpc.CallOption) (*datapipelinesPb.DeleteDataPipelineResponse, error)
 	EnableDataPipelineFunc func(ctx context.Context, in *datapipelinesPb.EnableDataPipelineRequest,
@@ -58,14 +58,14 @@ func (client *DataPipelinesServiceClient) CreateDataPipeline(ctx context.Context
 	return client.CreateDataPipelineFunc(ctx, in, opts...)
 }
 
-// UpdateDataPipeline calls the injected UpdateDataPipeline or the real version.
-func (client *DataPipelinesServiceClient) UpdateDataPipeline(ctx context.Context, in *datapipelinesPb.UpdateDataPipelineRequest,
+// RenameDataPipeline calls the injected RenameDataPipeline or the real version.
+func (client *DataPipelinesServiceClient) RenameDataPipeline(ctx context.Context, in *datapipelinesPb.RenameDataPipelineRequest,
 	opts ...grpc.CallOption,
-) (*datapipelinesPb.UpdateDataPipelineResponse, error) {
-	if client.UpdateDataPipelineFunc == nil {
-		return client.DataPipelinesServiceClient.UpdateDataPipeline(ctx, in, opts...)
+) (*datapipelinesPb.RenameDataPipelineResponse, error) {
+	if client.RenameDataPipelineFunc == nil {
+		return client.DataPipelinesServiceClient.RenameDataPipeline(ctx, in, opts...)
 	}
-	return client.UpdateDataPipelineFunc(ctx, in, opts...)
+	return client.RenameDataPipelineFunc(ctx, in, opts...)
 }
 
 // DeleteDataPipeline calls the injected DeleteDataPipeline or the real version.

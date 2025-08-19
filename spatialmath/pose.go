@@ -176,6 +176,12 @@ func PoseAlmostCoincident(a, b Pose) bool {
 // PoseAlmostCoincidentEps will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
 // This uses a passed in epsilon value.
 func PoseAlmostCoincidentEps(a, b Pose, epsilon float64) bool {
+	if a == nil {
+		return b == nil
+	} else if b == nil {
+		return false
+	}
+
 	return R3VectorAlmostEqual(a.Point(), b.Point(), epsilon)
 }
 
