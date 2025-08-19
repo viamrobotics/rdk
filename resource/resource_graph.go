@@ -41,7 +41,7 @@ func (e *MultipleMatchingRemoteNodesError) Error() string {
 
 type graphNodes map[Name]*GraphNode
 
-// graphStorage is used by [Graph] to store the collection if nodes. It
+// graphStorage is used by [Graph] to store the collection of nodes. It
 // consists of
 // - a map of [Name] to *[GraphNode]s, used to serve most queries
 // - a map of ([API], string]) tuples to *[GraphNode]s, used to quickly serve [Graph.FindBySimpleNameAndAPI] queries
