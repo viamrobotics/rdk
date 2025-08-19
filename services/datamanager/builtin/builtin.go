@@ -12,6 +12,7 @@ package builtin
 import (
 	"context"
 	"errors"
+	"image"
 	"os"
 	"sync"
 	"time"
@@ -258,4 +259,37 @@ func lookupCollectorConfigsByResource(
 		collectorConfigsByResource[res] = collectorConfigs
 	}
 	return collectorConfigsByResource, nil
+}
+
+// TODO (DATA-4528): Don't ignore the extra field in the UploadBinaryDataToDatasets request.
+func (b *builtIn) UploadBinaryDataToDatasets(ctx context.Context,
+	binaryData []byte,
+	datasetIDs, tags []string,
+	mimeType v1.MimeType,
+	_ map[string]interface{},
+) error {
+	b.logger.Debug("UploadBinaryDataToDatasets START")
+	defer b.logger.Debug("UploadBinaryDataToDatasets END")
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.sync.UploadBinaryDataToDatasets(ctx, binaryData, datasetIDs, tags, mimeType)
+}
+
+// TODO (DATA-4528): Don't ignore the extra field in the UploadImageToDatasets request.
+func (b *builtIn) UploadImageToDatasets(ctx context.Context,
+	image image.Image,
+	datasetIDs []string,
+	tags []string,
+	mimeType v1.MimeType,
+	_ map[string]interface{},
+) error {
+	b.logger.Debug("UploadImageToDataset START")
+	defer b.logger.Debug("UploadImageToDataset END")
+	imgBytes, err := datamanager.ConvertImageToBytes(image, mimeType)
+	if err != nil {
+		return err
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType)
 }
