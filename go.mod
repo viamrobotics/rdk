@@ -444,5 +444,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e
 )
-
-replace go.viam.com/api => github.com/viamrobotics/api v0.1.458-0.20250721173921-d9e48998fcc8 // upload-to-dataset
