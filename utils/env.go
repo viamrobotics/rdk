@@ -24,7 +24,7 @@ const (
 	ResourceConfigurationTimeoutEnvVar = "VIAM_RESOURCE_CONFIGURATION_TIMEOUT"
 
 	// DefaultModuleStartupTimeout is the default module startup timeout.
-	DefaultModuleStartupTimeout = 45 * time.Second
+	DefaultModuleStartupTimeout = 20 * time.Second
 
 	// ModuleStartupTimeoutEnvVar is the environment variable that can
 	// be set to override DefaultModuleStartupTimeout as the duration
