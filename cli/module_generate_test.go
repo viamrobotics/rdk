@@ -160,15 +160,13 @@ func TestGenerateModuleAction(t *testing.T) {
 		}))
 		defer serverClient.Close()
 
-		resourceCode, err :=  os.ReadFile(filepath.Join(dir,"mock_resource_arm.txt"))
+		resourceCode, err := os.ReadFile(filepath.Join(dir, "mock_resource_arm.txt"))
 		test.That(t, err, test.ShouldBeNil)
 
 		serverResource := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(resourceCode))
 		}))
 		defer serverResource.Close()
-
-
 		modgen.CreateGetClientCodeRequest = func(module modulegen.ModuleInputs) (*http.Request, error) {
 			return http.NewRequestWithContext(context.Background(), http.MethodGet, serverClient.URL, nil)
 		}

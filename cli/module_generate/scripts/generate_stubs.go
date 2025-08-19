@@ -341,7 +341,7 @@ func zeroValueForType(typ string, suffix int) (string, bool) {
 	case "string":
 		return `""`, false
 	case "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64",
-     "float32", "float64", "complex64", "complex128", "byte", "rune":
+		"float32", "float64", "complex64", "complex128", "byte", "rune":
 		return "0", false
 	case "bool":
 		return "false", false
@@ -355,7 +355,7 @@ func zeroValueForType(typ string, suffix int) (string, bool) {
 		}
 
 		varName := varNameFromType(typ + "RetVal")
-		if suffix > 1 { 
+		if suffix > 1 {
 			varName += fmt.Sprintf("%d", suffix)
 		}
 		return varName, true
@@ -372,7 +372,6 @@ func varNameFromType(typ string) string {
 	runes := []rune(typ)
 	runes[0] = unicode.ToLower(runes[0])
 	return string(runes)
-
 }
 
 // formatNotImplementedBody generates the Go function body for an unimplemented stub.
