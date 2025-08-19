@@ -16,13 +16,10 @@ import (
 	webstream "go.viam.com/rdk/robot/web/stream"
 )
 
-// Reconfigure pulls resources and updates the stream server audio and video streams with the new resources.
+// Reconfigure updates the stream server audio and video streams with the new resources.
 func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	if err := svc.updateResources(deps); err != nil {
-		return err
-	}
 	if !svc.isRunning {
 		return nil
 	}
