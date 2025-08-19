@@ -186,6 +186,7 @@ var (
 			EndTime:       timestamppb.New(time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC)),
 			DataStartTime: timestamppb.New(time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC)),
 			DataEndTime:   timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
+			ErrorMessage:  "error message",
 		},
 	}
 	dataPipelineRuns = []*DataPipelineRun{
@@ -196,6 +197,7 @@ var (
 			EndTime:       time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC),
 			DataStartTime: time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
 			DataEndTime:   time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+			ErrorMessage:  "error message",
 		},
 	}
 )
