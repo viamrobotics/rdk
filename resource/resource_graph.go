@@ -404,8 +404,8 @@ func (g *Graph) ReachableNames() []Name {
 	return names
 }
 
-// FindNodesBySimpleNameAndAPI will look for resources matching both the API and the name.
-func (g *Graph) FindNodesBySimpleNameAndAPI(name Name) []Name {
+// FindNodesByShortNameAndAPI will look for resources matching both the API and the name.
+func (g *Graph) FindNodesByShortNameAndAPI(name Name) []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	var ret []Name

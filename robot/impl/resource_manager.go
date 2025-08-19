@@ -1323,7 +1323,7 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Res
 	// This is kind of weird and arguably you could have a ResourcesByPartialName that would match against
 	// a string and not a resource name (e.g. expressions).
 	if !name.ContainsRemoteNames() {
-		keys := manager.resources.FindNodesBySimpleNameAndAPI(name)
+		keys := manager.resources.FindNodesByShortNameAndAPI(name)
 		if len(keys) > 1 {
 			return nil, rutils.NewRemoteResourceClashError(name.Name)
 		}
