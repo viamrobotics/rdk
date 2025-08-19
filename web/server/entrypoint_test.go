@@ -556,8 +556,8 @@ func TestTunnelE2E(t *testing.T) {
 
 func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		// temporary until we ignore goroutine leaks from go-cron
-		time.Sleep(time.Second)
+		// temporary until we ignore goroutine leaks from previous tests from go-cron
+		time.Sleep(5 * time.Second)
 		t.Skip("RSDK-11682: get this to stop flaking on win")
 	}
 	// Primarily a regression test for RSDK-10723.
