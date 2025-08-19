@@ -375,7 +375,7 @@ func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error)
 	return g.nodes.GetBySimpleNameAndAPI(name, api)
 }
 
-// Names returns the all resource graph names.
+// Names returns all the resource graph names.
 func (g *Graph) Names() []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
