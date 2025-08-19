@@ -445,6 +445,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		defer close(forceShutdown)
 
 		<-ctx.Done()
+		shutdownStarted := time.Now()
 
 		slowTicker := time.NewTicker(10 * time.Second)
 		defer slowTicker.Stop()
@@ -488,7 +489,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				if checkDone() {
 					return
 				}
-				s.logger.Warn("waiting for clean shutdown")
+				s.logger.Warnw("Waiting for clean shutdown", "time_elapsed",
+					time.Since(shutdownStarted).String())
 			}
 		}
 	})

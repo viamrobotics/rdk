@@ -222,7 +222,10 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	streams := []grpc.StreamServerInterceptor{
 		opMgr.StreamServerInterceptor,
 	}
+
+	// MaxRecvMsgSize and MaxSendMsgSize by default are 4 MB & MaxInt32 (2.1 GB)
 	opts := []grpc.ServerOption{
+		grpc.MaxRecvMsgSize(rpc.MaxMessageSize),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaries...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streams...)),
 	}

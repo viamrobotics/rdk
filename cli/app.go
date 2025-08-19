@@ -1487,6 +1487,29 @@ var app = &cli.App{
 					Action: createCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
 				},
 				{
+					Name:      "merge",
+					Usage:     "merge multiple datasets into a new dataset",
+					UsageText: createUsageText("dataset merge", []string{generalFlagOrgID, datasetFlagName, datasetFlagDatasetIDs}, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID where the merged dataset will be created",
+						},
+						&cli.StringFlag{
+							Name:     datasetFlagName,
+							Required: true,
+							Usage:    "name of the new merged dataset",
+						},
+						&cli.StringSliceFlag{
+							Name:     datasetFlagDatasetIDs,
+							Required: true,
+							Usage:    "dataset IDs to merge (comma-separated list)",
+						},
+					},
+					Action: createCommandWithT[datasetMergeArgs](DatasetMergeAction),
+				},
+				{
 					Name:            "data",
 					Usage:           "add or remove data from datasets",
 					UsageText:       createUsageText("dataset data", nil, false, true),
@@ -3194,6 +3217,21 @@ This won't work unless you have an existing installation of our GitHub app on yo
 			Usage:     "print version info for this program",
 			UsageText: createUsageText("version", nil, false, false),
 			Action:    createCommandWithT[emptyArgs](VersionAction),
+		},
+		{
+			Name:  "parse-ftdc",
+			Usage: "parse an ftdc file and open a REPL with extra options",
+			UsageText: createUsageText(
+				"ftdc-parse", []string{generalFlagPath}, false, false,
+			),
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:     generalFlagPath,
+					Required: true,
+					Usage:    "absolute file path to the ftdc file",
+				},
+			},
+			Action: createCommandWithT[ftdcArgs](FTDCParseAction),
 		},
 	},
 }
