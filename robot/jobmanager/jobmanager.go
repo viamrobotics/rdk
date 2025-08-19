@@ -79,7 +79,15 @@ func New(
 	if rutils.ViamTCPSockets() {
 		dialAddr = parentAddr.TCPAddr
 	}
-	conn, err := grpc.Dial(robotContext, dialAddr, jobLogger)
+	var conn rpc.ClientConn
+	for range 4 {
+		dialCtx, cancel := context.WithTimeout(robotContext, 5*time.Second)
+		conn, err = grpc.Dial(dialCtx, dialAddr, jobLogger)
+		cancel()
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

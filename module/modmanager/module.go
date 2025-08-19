@@ -121,7 +121,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 
 	for {
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
-		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
+		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000), grpc_retry.WithPerRetryTimeout(5*time.Second))
 		if err != nil {
 			return err
 		}
