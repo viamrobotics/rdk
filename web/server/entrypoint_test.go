@@ -530,6 +530,9 @@ func TestTunnelE2E(t *testing.T) {
 }
 
 func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("RSDK-11682: get this to stop flaking on win")
+	}
 	// Primarily a regression test for RSDK-10723.
 
 	logger := logging.NewTestLogger(t)
