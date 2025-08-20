@@ -57,16 +57,16 @@ var (
 //
 // // This method allows you to dynamically update your resource when it receives a new
 // // `config` object.
-//     def reconfigure(
-//        self, config: ComponentConfig, dependencies: Mapping[
-//          ResourceName, ResourceBase]
-//    ):
-//        attrs = struct_to_dict(config.attributes)
+// def reconfigure(
+//	    self, config: ComponentConfig, dependencies: Mapping[
+//      ResourceName, ResourceBase]
+// ):
+//     attrs = struct_to_dict(config.attributes)
 //
-//        self.latitude = float(attrs.get("latitude", 45))
-//        self.longitude = float(attrs.get("longitude", -121))
+//     self.latitude = float(attrs.get("latitude", 45))
+//     self.longitude = float(attrs.get("longitude", -121))
 //
-//        return super().reconfigure(config, dependencies)
+//     return super().reconfigure(config, dependencies)
 //
 // DoCommand example:
 //
