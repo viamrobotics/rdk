@@ -3,8 +3,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"sync/atomic"
 
 	"github.com/pkg/errors"
@@ -18,6 +23,38 @@ import (
 var myModel = resource.NewModel("acme", "demo", "mycounter")
 
 func main() {
+	// Start the hello printer subprocess
+	scriptPath, err := filepath.Abs("hello_printer.sh")
+	if err != nil {
+		fmt.Printf("Error getting script path: %v\n", err)
+	} else {
+		cmd := exec.Command("/bin/bash", scriptPath)
+		stdout, err := cmd.StdoutPipe()
+		// Get the stdout pipe
+		if err != nil {
+			panic(err)
+		}
+		// Start the subprocess in the background
+		go func() {
+			// Start the command
+			if err := cmd.Start(); err != nil {
+				panic(err)
+			}
+
+			// Use TeeReader to read from stdout and write to both buffer and os.Stdout
+			var buf bytes.Buffer
+			teeReader := io.TeeReader(stdout, &buf)
+
+			// Copy everything to stdout (this will also populate the buffer)
+			io.Copy(os.Stdout, teeReader)
+
+			fmt.Printf("Started hello printer subprocess with PID: %d\n", cmd.Process.Pid)
+
+			// Wait for the process to finish (it won't since it's an infinite loop)
+			cmd.Wait()
+		}()
+	}
+
 	// We first put our component's constructor in the registry, then tell the module to load it
 	// Note that all resources must be added before the module is started.
 	resource.RegisterComponent(generic.API, myModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{

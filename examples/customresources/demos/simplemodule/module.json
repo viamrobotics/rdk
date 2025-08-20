@@ -2,7 +2,7 @@
 	"modules": [
 		{
 			"name": "SimpleModule",
-			"executable_path": "./simplemodule"
+			"executable_path": "/host/examples/customresources/demos/simplemodule/simplemodule"
 		}
 	],
 	"components": [
