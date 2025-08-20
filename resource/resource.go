@@ -53,6 +53,21 @@ var (
 //	// Get the Name of an arm component.
 //	myArmName := myArm.Name()
 //
+// Reconfigure example:
+//
+// // This method allows you to dynamically update your resource when it receives a new
+// // `config` object.
+//     def reconfigure(
+//        self, config: ComponentConfig, dependencies: Mapping[
+//          ResourceName, ResourceBase]
+//    ):
+//        attrs = struct_to_dict(config.attributes)
+//
+//        self.latitude = float(attrs.get("latitude", 45))
+//        self.longitude = float(attrs.get("longitude", -121))
+//
+//        return super().reconfigure(config, dependencies)
+//
 // DoCommand example:
 //
 //	// This example shows using DoCommand with an arm component.
