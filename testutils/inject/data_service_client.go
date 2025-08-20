@@ -44,13 +44,17 @@ type DataServiceClient struct {
 	RemoveTagsFromBinaryDataByFilterFunc func(ctx context.Context, in *datapb.RemoveTagsFromBinaryDataByFilterRequest,
 		//nolint:staticcheck
 		opts ...grpc.CallOption) (*datapb.RemoveTagsFromBinaryDataByFilterResponse, error)
+	//nolint:staticcheck
 	TagsByFilterFunc func(ctx context.Context, in *datapb.TagsByFilterRequest,
+		//nolint:staticcheck
 		opts ...grpc.CallOption) (*datapb.TagsByFilterResponse, error)
 	AddBoundingBoxToImageByIDFunc func(ctx context.Context, in *datapb.AddBoundingBoxToImageByIDRequest,
 		opts ...grpc.CallOption) (*datapb.AddBoundingBoxToImageByIDResponse, error)
 	RemoveBoundingBoxFromImageByIDFunc func(ctx context.Context, in *datapb.RemoveBoundingBoxFromImageByIDRequest,
 		opts ...grpc.CallOption) (*datapb.RemoveBoundingBoxFromImageByIDResponse, error)
+	//nolint:staticcheck
 	BoundingBoxLabelsByFilterFunc func(ctx context.Context, in *datapb.BoundingBoxLabelsByFilterRequest,
+		//nolint:staticcheck
 		opts ...grpc.CallOption) (*datapb.BoundingBoxLabelsByFilterResponse, error)
 	UpdateBoundingBoxFunc func(ctx context.Context, in *datapb.UpdateBoundingBoxRequest,
 		opts ...grpc.CallOption) (*datapb.UpdateBoundingBoxResponse, error)
@@ -254,8 +258,11 @@ func (client *DataServiceClient) RemoveBoundingBoxFromImageByID(ctx context.Cont
 }
 
 // BoundingBoxLabelsByFilter calls the injected BoundingBoxLabelsByFilter or the real version.
+//
+//nolint:staticcheck
 func (client *DataServiceClient) BoundingBoxLabelsByFilter(ctx context.Context, in *datapb.BoundingBoxLabelsByFilterRequest,
 	opts ...grpc.CallOption,
+	//nolint:staticcheck
 ) (*datapb.BoundingBoxLabelsByFilterResponse, error) {
 	if client.BoundingBoxLabelsByFilterFunc == nil {
 		return client.DataServiceClient.BoundingBoxLabelsByFilter(ctx, in, opts...)

@@ -681,10 +681,13 @@ func TestDataClient(t *testing.T) {
 			annotationsToProto(&annotations).Bboxes[0].Label,
 			annotationsToProto(&annotations).Bboxes[1].Label,
 		}
+		//nolint:staticcheck
 		grpcClient.BoundingBoxLabelsByFilterFunc = func(ctx context.Context, in *pb.BoundingBoxLabelsByFilterRequest,
 			opts ...grpc.CallOption,
+			//nolint:staticcheck
 		) (*pb.BoundingBoxLabelsByFilterResponse, error) {
 			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
+			//nolint:staticcheck
 			return &pb.BoundingBoxLabelsByFilterResponse{
 				Labels: expectedBBoxLabelsPb,
 			}, nil
