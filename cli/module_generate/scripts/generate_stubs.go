@@ -94,7 +94,7 @@ func getResourceCode(module modulegen.ModuleInputs) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		
+
 		//nolint:bodyclose
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
