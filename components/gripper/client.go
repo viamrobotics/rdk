@@ -128,7 +128,7 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 	if err != nil {
 		return nil, err
 	}
-	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
+	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
 }
 
 func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {

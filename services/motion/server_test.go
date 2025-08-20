@@ -208,11 +208,11 @@ func TestServerMoveOnGlobe(t *testing.T) {
 		geoGeometry3 := spatialmath.NewGeoGeometry(geo.NewPoint(1, 2), []spatialmath.Geometry{geometries3})
 
 		obs := []*commonpb.GeoGeometry{
-			spatialmath.GeoGeometryToProtobuf(geoGeometry1),
-			spatialmath.GeoGeometryToProtobuf(geoGeometry2),
+			referenceframe.GeoGeometryToProtobuf(geoGeometry1),
+			referenceframe.GeoGeometryToProtobuf(geoGeometry2),
 		}
 		boundingRegionGeoms := []*commonpb.GeoGeometry{
-			spatialmath.GeoGeometryToProtobuf(geoGeometry3),
+			referenceframe.GeoGeometryToProtobuf(geoGeometry3),
 		}
 		angularDegsPerSec := 1.
 		linearMPerSec := 2.
@@ -411,7 +411,7 @@ func TestServerMoveOnMap(t *testing.T) {
 			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
 			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
-			Obstacles:       spatialmath.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
+			Obstacles:       referenceframe.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
 		}
 
 		firstExecutionID := uuid.New()

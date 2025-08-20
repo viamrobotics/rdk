@@ -167,12 +167,14 @@ func LinkInFrameToTransformProtobuf(framedLink *LinkInFrame) (*commonpb.Transfor
 	if framedLink.name == "" {
 		return nil, ErrEmptyStringFrameName
 	}
+	poseInFrame := PoseInFrameToProtobuf(framedLink.PoseInFrame)
 	tform := &commonpb.Transform{
-		ReferenceFrame:      framedLink.name,
-		PoseInObserverFrame: PoseInFrameToProtobuf(framedLink.PoseInFrame),
+		Name:   framedLink.name,
+		Parent: poseInFrame.ReferenceFrame,
+		Pose:   poseInFrame.Pose,
 	}
 	if framedLink.geometry != nil {
-		tform.PhysicalObject = framedLink.geometry.ToProtobuf()
+		tform.Geometries = []*commonpb.Geometry{framedLink.geometry.ToProtobuf()}
 	}
 	return tform, nil
 }
@@ -180,20 +182,19 @@ func LinkInFrameToTransformProtobuf(framedLink *LinkInFrame) (*commonpb.Transfor
 // LinkInFrameFromTransformProtobuf converts a Transform protobuf message to a LinkInFrame struct.
 func LinkInFrameFromTransformProtobuf(proto *commonpb.Transform) (*LinkInFrame, error) {
 	var err error
-	frameName := proto.GetReferenceFrame()
+	frameName := proto.GetName()
 	if frameName == "" {
 		return nil, ErrEmptyStringFrameName
 	}
-	poseInObserverFrame := proto.GetPoseInObserverFrame()
-	parentFrame := poseInObserverFrame.GetReferenceFrame()
+	poseInObserverFrame := proto.GetPose()
+	parentFrame := proto.GetParent()
 	if parentFrame == "" {
 		return nil, ErrEmptyStringFrameName
 	}
-	poseMsg := poseInObserverFrame.GetPose()
-	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
+	pose := spatialmath.NewPoseFromProtobuf(poseInObserverFrame)
 	var geometry spatialmath.Geometry
-	if proto.PhysicalObject != nil {
-		geometry, err = spatialmath.NewGeometryFromProto(proto.PhysicalObject)
+	if proto.Geometries != nil {
+		geometry, err = NewGeometryFromProto(proto.Geometries[0])
 		if err != nil {
 			return nil, err
 		}
@@ -291,13 +292,13 @@ func (gF *GeometriesInFrame) Transform(tf *PoseInFrame) Transformable {
 func GeometriesInFrameToProtobuf(framedGeometries *GeometriesInFrame) *commonpb.GeometriesInFrame {
 	return &commonpb.GeometriesInFrame{
 		ReferenceFrame: framedGeometries.frame,
-		Geometries:     spatialmath.NewGeometriesToProto(framedGeometries.Geometries()),
+		Geometries:     NewGeometriesToProto(framedGeometries.Geometries()),
 	}
 }
 
 // ProtobufToGeometriesInFrame converts a GeometriesInFrame message as specified in common.proto to a GeometriesInFrame struct.
 func ProtobufToGeometriesInFrame(proto *commonpb.GeometriesInFrame) (*GeometriesInFrame, error) {
-	geometries, err := spatialmath.NewGeometriesFromProto(proto.GetGeometries())
+	geometries, err := NewGeometriesFromProto(proto.GetGeometries())
 	if err != nil {
 		return nil, err
 	}

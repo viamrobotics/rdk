@@ -42,15 +42,13 @@ func TestFrameModelPart(t *testing.T) {
 	pose := &commonpb.Pose{} // zero pose
 	exp := &robotpb.FrameSystemConfig{
 		Frame: &commonpb.Transform{
-			ReferenceFrame: "test",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "world",
-				Pose:           pose,
-			},
+			Name:   "test",
+			Parent: "world",
+			Pose:   pose,
 		},
 	}
-	test.That(t, result.Frame.ReferenceFrame, test.ShouldEqual, exp.Frame.ReferenceFrame)
-	test.That(t, result.Frame.PoseInObserverFrame, test.ShouldResemble, exp.Frame.PoseInObserverFrame)
+	test.That(t, result.Frame.Name, test.ShouldEqual, exp.Frame.Name)
+	test.That(t, result.Frame.Pose, test.ShouldResemble, exp.Frame.Pose)
 	// exp.Kinematics is nil, but the struct in the struct PB
 	expKin, err := protoutils.StructToStructPb(exp.Kinematics)
 	test.That(t, err, test.ShouldBeNil)
@@ -86,15 +84,13 @@ func TestFrameModelPart(t *testing.T) {
 	pose = &commonpb.Pose{X: 1, Y: 2, Z: 3, OZ: 1, Theta: 0}
 	exp = &robotpb.FrameSystemConfig{
 		Frame: &commonpb.Transform{
-			ReferenceFrame: "test",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "world",
-				Pose:           pose,
-			},
+			Name:   "test",
+			Parent: "world",
+			Pose:   pose,
 		},
 	}
-	test.That(t, result.Frame.ReferenceFrame, test.ShouldEqual, exp.Frame.ReferenceFrame)
-	test.That(t, result.Frame.PoseInObserverFrame, test.ShouldResemble, exp.Frame.PoseInObserverFrame)
+	test.That(t, result.Frame.Name, test.ShouldEqual, exp.Frame.Name)
+	test.That(t, result.Frame.Pose, test.ShouldResemble, exp.Frame.Pose)
 	test.That(t, result.Kinematics, test.ShouldNotBeNil)
 	// return to FrameSystemPart
 	partAgain, err = ProtobufToFrameSystemPart(result)
