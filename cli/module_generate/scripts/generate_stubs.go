@@ -356,7 +356,7 @@ func zeroValueForType(typ string, suffix int) (string, bool) {
 			strings.HasPrefix(typ, "func(") {
 			return "nil", false
 		}
-		// otherwise, generate a variable name like "myTypeRetVal" 
+		// otherwise, generate a variable name like "myTypeRetVal"
 		// that will later be declared and returned as the empty value for that type.
 		varName := varNameFromType(typ + "RetVal")
 		// add suffix if multiple values of the same type are being returned
@@ -426,7 +426,7 @@ func formatNotImplementedBody(returns []string) string {
 	}
 }
 
-// formatEmptyFunction generates a stub method for the given receiver, 
+// formatEmptyFunction generates a stub method for the given receiver,
 // inserting a "not implemented" body with appropriate zero-value returns.
 func formatEmptyFunction(receiver, funcName, args string, returns []string) string {
 	returnDef := formatReturnDef(returns)
