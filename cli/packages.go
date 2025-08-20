@@ -83,14 +83,14 @@ func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, err
 	return &packageTypeProto, nil
 }
 
-func (c *viamClient) packageExportAction(orgID, name, version, packageType, destination string) error {
+func (c *viamClient) getPackageDownloadURL(orgID, name, version, packageType string) (string, error) {
 	if orgID == "" || name == "" {
 		if orgID != "" || name != "" {
-			return fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, generalFlagName)
+			return "", fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, generalFlagName)
 		}
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
-			return errors.Wrap(err, "trying to get package ID from meta.json")
+			return "", errors.Wrap(err, "trying to get package ID from meta.json")
 		}
 		orgID, name, _ = strings.Cut(manifest.ModuleID, ":")
 	}
@@ -98,7 +98,7 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 	packageID := path.Join(orgID, name)
 	packageTypeProto, err := convertPackageTypeToProto(packageType)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	resp, err := c.packageClient.GetPackage(c.c.Context,
@@ -110,11 +110,18 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 		},
 	)
 	if err != nil {
+		return "", err
+	}
+	return resp.GetPackage().GetUrl(), nil
+}
+
+func (c *viamClient) packageExportAction(orgID, name, version, packageType, destination string) error {
+	packageURL, err := c.getPackageDownloadURL(orgID, name, version, packageType)
+	if err != nil {
 		return err
 	}
 
-	_, err = downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, resp.GetPackage().GetUrl(),
-		c.conf.Auth)
+	_, err = downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, packageURL, c.conf.Auth)
 	return err
 }
 

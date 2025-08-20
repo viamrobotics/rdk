@@ -2996,11 +2996,6 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  moduleBuildFlagCloudBuild,
 							Usage: "Run the module's build script using cloud build instead of locally, downloading to the build.path field in meta.json",
 						},
-						&cli.StringFlag{
-							Name:        generalFlagVersion,
-							Usage:       "Provide with --cloud-build to reload with a previous build instead of generating a new one",
-							DefaultText: "create a new build",
-						},
 						&cli.PathFlag{
 							Name:  moduleBuildFlagCloudConfig,
 							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
@@ -3012,15 +3007,6 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							DefaultText: "Don't create a new resource",
 						},
 						&cli.StringFlag{
-							Name:  moduleBuildFlagRef,
-							Usage: "git ref to clone when building your module. This can be a branch name or a commit hash",
-							Value: "main",
-						},
-						&cli.StringFlag{
-							Name:  moduleBuildFlagToken,
-							Usage: "checkout token for private repos, not necessary for public repos",
-						},
-						&cli.StringFlag{
 							Name:  moduleBuildFlagWorkdir,
 							Usage: "use this to indicate that your meta.json is in a subdirectory of your repo. --module flag should be relative to this",
 							Value: ".",
@@ -3029,6 +3015,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:        dataFlagResourceName,
 							Usage:       "Use with model-name to name the newly added resource",
 							DefaultText: "resource type with a unique numerical suffix",
+						},
+						&cli.StringFlag{
+							Name:        generalFlagPath,
+							Usage:       "Use this with --cloud-build to indicate the path to the root of the git repo to build",
+							DefaultText: ".",
 						},
 					},
 					Action: createCommandWithT[reloadModuleArgs](ReloadModuleAction),

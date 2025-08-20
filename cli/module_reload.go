@@ -18,6 +18,8 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+const reloadVersion = "reload"
+
 // ModuleMap is a type alias to indicate where a map represents a module config.
 // We don't convert to rdkConfig.Module because it can get out of date with what's in the db.
 // Using maps directly also saves a lot of high-maintenance ser/des work.
