@@ -551,6 +551,11 @@ func (mp *planner) getSolutions(
 
 	minFunc := mp.linearizeFSmetric(metric)
 	// Spawn the IK solver to generate solutions until done
+	maxTravel := defaultMaxJointRestrictionDist
+	approxCartesianDist := math.Sqrt(minFunc(linearSeed))
+	if approxCartesianDist > defaultMaxJointRestrictionDist {
+		maxTravel = 0 // disable max travel restriction
+	}
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
 		defer activeSolvers.Done()
