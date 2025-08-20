@@ -34,11 +34,15 @@ type DataServiceClient struct {
 		opts ...grpc.CallOption) (*datapb.DeleteBinaryDataByIDsResponse, error)
 	AddTagsToBinaryDataByIDsFunc func(ctx context.Context, in *datapb.AddTagsToBinaryDataByIDsRequest,
 		opts ...grpc.CallOption) (*datapb.AddTagsToBinaryDataByIDsResponse, error)
+	//nolint:staticcheck
 	AddTagsToBinaryDataByFilterFunc func(ctx context.Context, in *datapb.AddTagsToBinaryDataByFilterRequest,
+		//nolint:staticcheck
 		opts ...grpc.CallOption) (*datapb.AddTagsToBinaryDataByFilterResponse, error)
 	RemoveTagsFromBinaryDataByIDsFunc func(ctx context.Context, in *datapb.RemoveTagsFromBinaryDataByIDsRequest,
 		opts ...grpc.CallOption) (*datapb.RemoveTagsFromBinaryDataByIDsResponse, error)
+	//nolint:staticcheck
 	RemoveTagsFromBinaryDataByFilterFunc func(ctx context.Context, in *datapb.RemoveTagsFromBinaryDataByFilterRequest,
+		//nolint:staticcheck
 		opts ...grpc.CallOption) (*datapb.RemoveTagsFromBinaryDataByFilterResponse, error)
 	TagsByFilterFunc func(ctx context.Context, in *datapb.TagsByFilterRequest,
 		opts ...grpc.CallOption) (*datapb.TagsByFilterResponse, error)
@@ -189,10 +193,14 @@ func (client *DataServiceClient) AddTagsToBinaryDataByIDs(ctx context.Context, i
 }
 
 // AddTagsToBinaryDataByFilter calls the injected AddTagsToBinaryDataByFilter or the real version.
+//
+//nolint:staticcheck
 func (client *DataServiceClient) AddTagsToBinaryDataByFilter(ctx context.Context, in *datapb.AddTagsToBinaryDataByFilterRequest,
 	opts ...grpc.CallOption,
+	//nolint:staticcheck
 ) (*datapb.AddTagsToBinaryDataByFilterResponse, error) {
 	if client.AddTagsToBinaryDataByFilterFunc == nil {
+		//nolint:staticcheck
 		return client.DataServiceClient.AddTagsToBinaryDataByFilter(ctx, in, opts...)
 	}
 	return client.AddTagsToBinaryDataByFilterFunc(ctx, in, opts...)
@@ -210,11 +218,16 @@ func (client *DataServiceClient) RemoveTagsFromBinaryDataByIDs(ctx context.Conte
 }
 
 // RemoveTagsFromBinaryDataByFilter calls the injected RemoveTagsFromBinaryDataByFilter or the real version.
+//
+//nolint:staticcheck
 func (client *DataServiceClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
+	//nolint:staticcheck
 	in *datapb.RemoveTagsFromBinaryDataByFilterRequest,
 	opts ...grpc.CallOption,
+	//nolint:staticcheck
 ) (*datapb.RemoveTagsFromBinaryDataByFilterResponse, error) {
 	if client.RemoveTagsFromBinaryDataByFilterFunc == nil {
+		//nolint:staticcheck
 		return client.DataServiceClient.RemoveTagsFromBinaryDataByFilter(ctx, in, opts...)
 	}
 	return client.RemoveTagsFromBinaryDataByFilterFunc(ctx, in, opts...)

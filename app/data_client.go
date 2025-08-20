@@ -2,9 +2,13 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -256,6 +260,7 @@ type UploadMetadata struct {
 	MethodParameters map[string]interface{}
 	FileExtension    string
 	Tags             []string
+	DatasetIDs       []string
 }
 
 // FileData contains the contents of binary (image + file) data.
@@ -324,6 +329,7 @@ type BinaryDataCaptureUploadOptions struct {
 	FileName         *string
 	MethodParameters map[string]interface{}
 	Tags             []string
+	DatasetIDs       []string
 	DataRequestTimes *[2]time.Time
 }
 
@@ -345,6 +351,7 @@ type StreamingDataCaptureUploadOptions struct {
 	FileName         *string
 	MethodParameters map[string]interface{}
 	Tags             []string
+	DatasetIDs       []string
 	DataRequestTimes *[2]time.Time
 }
 
@@ -357,6 +364,7 @@ type FileUploadOptions struct {
 	MethodParameters map[string]interface{}
 	FileExtension    *string
 	Tags             []string
+	DatasetIDs       []string
 }
 
 // UpdateBoundingBoxOptions contains optional parameters for UpdateBoundingBox.
@@ -757,6 +765,7 @@ func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags, binaryD
 // AddTagsToBinaryDataByFilter adds string tags, unless the tags are already present, to binary data based on the given filter.
 // If no filter is given, all data will be tagged.
 func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []string, filter *Filter) error {
+	//nolint:staticcheck
 	_, err := d.dataClient.AddTagsToBinaryDataByFilter(ctx, &pb.AddTagsToBinaryDataByFilterRequest{
 		Filter: filterToProto(filter),
 		Tags:   tags,
@@ -785,6 +794,7 @@ func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context,
 func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 	tags []string, filter *Filter,
 ) (int, error) {
+	//nolint:staticcheck
 	resp, err := d.dataClient.RemoveTagsFromBinaryDataByFilter(ctx, &pb.RemoveTagsFromBinaryDataByFilterRequest{
 		Filter: filterToProto(filter),
 		Tags:   tags,
@@ -956,6 +966,9 @@ func (d *DataClient) BinaryDataCaptureUpload(
 		if options.Tags != nil {
 			metadata.Tags = options.Tags
 		}
+		if options.DatasetIDs != nil {
+			metadata.DatasetIDs = options.DatasetIDs
+		}
 		if options.DataRequestTimes != nil && len(options.DataRequestTimes) == 2 {
 			sensorMetadata = SensorMetadata{
 				TimeRequested: options.DataRequestTimes[0],
@@ -1092,6 +1105,9 @@ func (d *DataClient) StreamingDataCaptureUpload(
 		if options.Tags != nil {
 			uploadMetadata.Tags = options.Tags
 		}
+		if options.DatasetIDs != nil {
+			uploadMetadata.DatasetIDs = options.DatasetIDs
+		}
 		if options.DataRequestTimes != nil && len(options.DataRequestTimes) == 2 {
 			sensorMetadata = SensorMetadata{
 				TimeRequested: options.DataRequestTimes[0],
@@ -1181,6 +1197,9 @@ func (d *DataClient) FileUploadFromBytes(
 		if opts.Tags != nil {
 			metadata.Tags = opts.Tags
 		}
+		if opts.DatasetIDs != nil {
+			metadata.DatasetIds = opts.DatasetIDs
+		}
 	}
 	return d.fileUploadStreamResp(metadata, data)
 }
@@ -1220,6 +1239,9 @@ func (d *DataClient) FileUploadFromPath(
 		if opts.Tags != nil {
 			metadata.Tags = opts.Tags
 		}
+		if opts.DatasetIDs != nil {
+			metadata.DatasetIds = opts.DatasetIDs
+		}
 		if opts.FileName != nil {
 			metadata.FileName = *opts.FileName
 		} else if filePath != "" {
@@ -1239,6 +1261,29 @@ func (d *DataClient) FileUploadFromPath(
 		data = fileData
 	}
 	return d.fileUploadStreamResp(metadata, data)
+}
+
+// UploadImageToDatasets uploads the contents and metadata for an image, adds it to a dataset,
+// and returns the file id of the uploaded data.
+func (d *DataClient) UploadImageToDatasets(
+	ctx context.Context,
+	partID string,
+	image image.Image,
+	datasetIDs, tags []string,
+	mimeType MimeType,
+	opts *FileUploadOptions,
+) (string, error) {
+	imgBytes, err := ConvertImageToBytes(image, mimeType)
+	if err != nil {
+		return "", err
+	}
+	if datasetIDs != nil {
+		opts.DatasetIDs = append(opts.DatasetIDs, datasetIDs...)
+	}
+	if tags != nil {
+		opts.Tags = append(opts.Tags, tags...)
+	}
+	return d.FileUploadFromBytes(ctx, partID, imgBytes, opts)
 }
 
 func (d *DataClient) fileUploadStreamResp(metadata *syncPb.UploadMetadata, data []byte) (string, error) {
@@ -1732,6 +1777,7 @@ func uploadMetadataToProto(metadata UploadMetadata) *syncPb.UploadMetadata {
 		MethodParameters: methodParams,
 		FileExtension:    metadata.FileExtension,
 		Tags:             metadata.Tags,
+		DatasetIds:       metadata.DatasetIDs,
 	}
 }
 
@@ -1912,4 +1958,29 @@ func additionalParametersToProto(opts *TabularDataOptions) (*structpb.Struct, er
 	return &structpb.Struct{
 		Fields: fields,
 	}, nil
+}
+
+// ConvertImageToBytes converts an image.Image to a byte slice based on the specified MIME type.
+func ConvertImageToBytes(image image.Image, mimeType MimeType) ([]byte, error) {
+	var buf bytes.Buffer
+	var imgBytes []byte
+	switch mimeType {
+	case MimeTypeJPEG:
+		err := jpeg.Encode(&buf, image, nil)
+		if err != nil {
+			return nil, err
+		}
+		imgBytes = buf.Bytes()
+	case MimeTypePNG:
+		err := png.Encode(&buf, image)
+		if err != nil {
+			return nil, err
+		}
+		imgBytes = buf.Bytes()
+	case MimeTypeUnspecified, MimeTypePCD:
+		fallthrough
+	default:
+		return nil, errors.New("mime type must be either png or jpeg for images")
+	}
+	return imgBytes, nil
 }

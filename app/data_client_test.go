@@ -605,13 +605,17 @@ func TestDataClient(t *testing.T) {
 	})
 
 	t.Run("AddTagsToBinaryDataByFilter", func(t *testing.T) {
+		//nolint:staticcheck
 		grpcClient.AddTagsToBinaryDataByFilterFunc = func(ctx context.Context, in *pb.AddTagsToBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
+			//nolint:staticcheck
 		) (*pb.AddTagsToBinaryDataByFilterResponse, error) {
 			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.Tags, test.ShouldResemble, tags)
+			//nolint:staticcheck
 			return &pb.AddTagsToBinaryDataByFilterResponse{}, nil
 		}
+
 		err := client.AddTagsToBinaryDataByFilter(context.Background(), tags, &filter)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -632,15 +636,19 @@ func TestDataClient(t *testing.T) {
 	})
 
 	t.Run("RemoveTagsFromBinaryDataByFilter", func(t *testing.T) {
+		//nolint:staticcheck
 		grpcClient.RemoveTagsFromBinaryDataByFilterFunc = func(ctx context.Context, in *pb.RemoveTagsFromBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
+			//nolint:staticcheck
 		) (*pb.RemoveTagsFromBinaryDataByFilterResponse, error) {
 			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.Tags, test.ShouldResemble, tags)
+			//nolint:staticcheck
 			return &pb.RemoveTagsFromBinaryDataByFilterResponse{
 				DeletedCount: pbCount,
 			}, nil
 		}
+
 		resp, err := client.RemoveTagsFromBinaryDataByFilter(context.Background(), tags, &filter)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, count)
