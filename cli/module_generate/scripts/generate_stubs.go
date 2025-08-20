@@ -69,10 +69,10 @@ var CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, tryagain 
 	url := ""
 	if tryagain {
 		url = fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
-		module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtype)
+			module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtype)
 	} else {
 		url = fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
-		module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtypeSnake)
+			module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtypeSnake)
 	}
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
@@ -94,6 +94,8 @@ func getResourceCode(module modulegen.ModuleInputs) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		
+		//nolint:bodyclose
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
 			return "", errors.Wrapf(err, "cannot get resource code")
