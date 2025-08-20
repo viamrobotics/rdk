@@ -3,10 +3,10 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,38 +23,6 @@ import (
 var myModel = resource.NewModel("acme", "demo", "mycounter")
 
 func main() {
-	// Start the hello printer subprocess
-	scriptPath, err := filepath.Abs("hello_printer.sh")
-	if err != nil {
-		fmt.Printf("Error getting script path: %v\n", err)
-	} else {
-		cmd := exec.Command("/bin/bash", scriptPath)
-		stdout, err := cmd.StdoutPipe()
-		// Get the stdout pipe
-		if err != nil {
-			panic(err)
-		}
-		// Start the subprocess in the background
-		go func() {
-			// Start the command
-			if err := cmd.Start(); err != nil {
-				panic(err)
-			}
-
-			// Use TeeReader to read from stdout and write to both buffer and os.Stdout
-			var buf bytes.Buffer
-			teeReader := io.TeeReader(stdout, &buf)
-
-			// Copy everything to stdout (this will also populate the buffer)
-			io.Copy(os.Stdout, teeReader)
-
-			fmt.Printf("Started hello printer subprocess with PID: %d\n", cmd.Process.Pid)
-
-			// Wait for the process to finish (it won't since it's an infinite loop)
-			cmd.Wait()
-		}()
-	}
-
 	// We first put our component's constructor in the registry, then tell the module to load it
 	// Note that all resources must be added before the module is started.
 	resource.RegisterComponent(generic.API, myModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
@@ -71,6 +39,48 @@ func newCounter(ctx context.Context,
 	conf resource.Config,
 	logger logging.Logger,
 ) (resource.Resource, error) {
+	scriptPath, err := filepath.Abs("hello_printer.sh")
+	if err != nil {
+		return nil, fmt.Errorf("error getting script path: %v\n", err)
+	}
+	subCmd := exec.Command("/bin/bash", scriptPath)
+	subStdout, err := subCmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("error creating STDOUT pipe for process: %v", err.Error())
+	}
+
+	go func() {
+		// Start seemingly needs to happen in a goroutine for the process to be leaked.
+		if err := subCmd.Start(); err != nil {
+			log.Printf("Error starting command for process: %v", err.Error())
+			return
+		}
+		log.Printf("Started hello_printer.sh subprocess with PID %d\n", subCmd.Process.Pid)
+
+		go func() {
+			// Async `Wait` as it is blocking.
+			if err := subCmd.Wait(); err != nil {
+				log.Printf("Error waiting on command for process: %v", err.Error())
+				return
+			}
+			log.Printf("hello_printer.sh subprocess with PID %d has been successfully waited upon\n", subCmd.Process.Pid)
+		}()
+
+		go func() {
+			// Async `Copy` between the subcommand's STDOUT and "our" STDOUT. The hope is that
+			// this leaked writing will force `viam-server`'s `cmd.Wait` for this module to hang
+			// even after `simplemodule` is dead, as it will still be trying to copy from the
+			// STDOUT pipe it set out for `simplemodule`, since `hello_printer.sh` is still
+			// writing to it.
+			log.Printf("Starting to copy between hello_printer.sh's STDOUT and 'our' STDOUT\n")
+			if _, err := io.Copy(os.Stdout, subStdout); err != nil {
+				log.Printf("Error copying between STDOUTs: %v", err.Error())
+				return
+			}
+			log.Printf("Stopped copying between hello_printer.sh's STDOUT and 'our' STDOUT\n")
+		}()
+	}()
+
 	return &counter{
 		Named: conf.ResourceName().AsNamed(),
 	}, nil

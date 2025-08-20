@@ -11,15 +11,10 @@
 			"type": "generic",
 			"name": "counter1",
 			"model": "acme:demo:mycounter"
-		},
-		{
-			"namespace": "rdk",
-			"type": "generic",
-			"name": "counter2",
-			"model": "acme:demo:mycounter"
 		}
 	],
 	"network": {
 		"bind_address": ":8080"
-	}
+	},
+	"disable_log_deduplication": true
 }
