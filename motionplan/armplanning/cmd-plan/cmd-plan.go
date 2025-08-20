@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
 )
@@ -26,10 +27,16 @@ func realMain() error {
 	ctx := context.Background()
 	logger := logging.NewLogger("cmd-plan")
 
+	pseudolinearLine := flag.Float64("pseudolinear-line", 0, "")
+	pseudolinearOrientation := flag.Float64("pseudolinear-orientation", 0, "")
+	seed := flag.Int("seed", 0, "")
+
 	flag.Parse()
 	if len(flag.Args()) == 0 {
 		return fmt.Errorf("need a json file")
 	}
+
+	logger.Infof("reading plan from %s", flag.Arg(0))
 
 	content, err := os.ReadFile(flag.Arg(0))
 	if err != nil {
@@ -42,6 +49,12 @@ func realMain() error {
 	if err != nil {
 		return err
 	}
+
+	if *pseudolinearLine > 0 || *pseudolinearOrientation > 0 {
+		req.Constraints.AddPseudolinearConstraint(motionplan.PseudolinearConstraint{*pseudolinearLine, *pseudolinearOrientation})
+	}
+
+	req.PlannerOptions.RandomSeed = *seed
 
 	start := time.Now()
 
@@ -76,9 +89,10 @@ func realMain() error {
 			mylog.Printf("\t\t\t %v", t[c])
 			if idx > 0 {
 				p := plan.Trajectory()[idx-1][c]
-				mylog.Printf("\t\t\t\t distances l2: %0.4f Linf %0.4f",
+				mylog.Printf("\t\t\t\t distances l2: %0.4f Linf %0.4f cartesion: %0.2f",
 					referenceframe.InputsL2Distance(p, t[c]),
 					referenceframe.InputsLinfDistance(p, t[c]),
+					pp.Pose().Point().Distance(plan.Path()[idx-1][c].Pose().Point()),
 				)
 			}
 		}

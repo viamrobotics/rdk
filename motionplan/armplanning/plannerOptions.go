@@ -39,7 +39,7 @@ const (
 	defaultPTGCollisionResolution = 60
 
 	// If an IK solution scores below this much, return it immediately.
-	defaultMinIkScore = 0.
+	defaultMinIkScore = 0.01
 
 	// Default distance below which two distances are considered equal.
 	defaultEpsilon = 0.001

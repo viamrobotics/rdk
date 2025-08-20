@@ -30,7 +30,8 @@ type Solver interface {
 	referenceframe.Limited
 	// Solve receives a context, a channel to which solutions will be provided, a function whose output should be minimized, and a
 	// number of iterations to run.
-	Solve(context.Context, chan<- *Solution, []float64, func([]float64) float64, int) error
+	Solve(ctx context.Context, solutions chan<- *Solution, seed []float64,
+		maxTravel, cartestianDistance float64, minFunc func([]float64) float64, rseed int) error
 }
 
 // Solution is the struct returned from an IK solver. It contains the solution configuration, the score of the solution, and a flag
@@ -99,5 +100,5 @@ func SolveMetric(
 	logger logging.Logger,
 ) error {
 	minFunc := NewMetricMinFunc(solveMetric, frame, logger)
-	return ik.Solve(ctx, solutionChan, referenceframe.InputsToFloats(seed), minFunc, rseed)
+	return ik.Solve(ctx, solutionChan, referenceframe.InputsToFloats(seed), 0, 0, minFunc, rseed)
 }

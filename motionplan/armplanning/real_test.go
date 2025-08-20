@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"go.viam.com/test"
@@ -29,19 +30,26 @@ func readRequestFromFile(f string) (*PlanRequest, error) {
 }
 
 func TestOrb1(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	req, err := readRequestFromFile("data/orb-plan1.json")
+	matches, err := filepath.Glob("data/orb-plan*.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	for i := 0; i < 100; i++ {
-		req.PlannerOptions.RandomSeed = i
-		plan, err := PlanMotion(context.Background(), logger, req)
-		test.That(t, err, test.ShouldBeNil)
+	for _, fp := range matches {
+		t.Run(fp, func(t *testing.T) {
+			logger := logging.NewTestLogger(t)
 
-		a := plan.Trajectory()[0]["sanding-ur5"]
-		b := plan.Trajectory()[1]["sanding-ur5"]
+			req, err := readRequestFromFile(fp)
+			test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .005)
+			for i := 0; i < 100; i++ {
+				req.PlannerOptions.RandomSeed = i
+				plan, err := PlanMotion(context.Background(), logger, req)
+				test.That(t, err, test.ShouldBeNil)
+
+				a := plan.Trajectory()[0]["sanding-ur5"]
+				b := plan.Trajectory()[1]["sanding-ur5"]
+
+				test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .005)
+			}
+		})
 	}
 }
