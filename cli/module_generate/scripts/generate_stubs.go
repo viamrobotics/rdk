@@ -336,7 +336,10 @@ func formatReturnDef(returns []string) string {
 }
 
 // zeroValueForType returns the zero value literal as a string for the given Go type.
+// If no literal zero value exists, it returns a generated variable name
+// that will later be declared and returned as the empty value for that type.
 func zeroValueForType(typ string, suffix int) (string, bool) {
+	// for basic built-in types use their literal zero values
 	switch typ {
 	case "string":
 		return `""`, false
@@ -346,15 +349,17 @@ func zeroValueForType(typ string, suffix int) (string, bool) {
 	case "bool":
 		return "false", false
 	default:
-		// pointers, slices, maps, and function types
+		// return nil for pointer, slice, map, and function types
 		if strings.HasPrefix(typ, "*") ||
 			strings.HasPrefix(typ, "[]") ||
 			strings.HasPrefix(typ, "map[") ||
 			strings.HasPrefix(typ, "func(") {
 			return "nil", false
 		}
-
+		// otherwise, generate a variable name like "myTypeRetVal" 
+		// that will later be declared and returned as the empty value for that type.
 		varName := varNameFromType(typ + "RetVal")
+		// add suffix if multiple values of the same type are being returned
 		if suffix > 1 {
 			varName += fmt.Sprintf("%d", suffix)
 		}
@@ -362,16 +367,22 @@ func zeroValueForType(typ string, suffix int) (string, bool) {
 	}
 }
 
+// varNameFromType returns a variable-style name from a type name,
+// lowercasing the first letter and stripping any package prefix.
 func varNameFromType(typ string) string {
 	if typ == "" {
 		return "ret"
 	}
+	// strip package prefix if present ("pkg.Type" will become "Type")
 	if idx := strings.LastIndex(typ, "."); idx != -1 {
 		typ = typ[idx+1:]
 	}
-	runes := []rune(typ)
-	runes[0] = unicode.ToLower(runes[0])
-	return string(runes)
+	// lowercase the first character of the type name
+	chars := []rune(typ)
+	chars[0] = unicode.ToLower(chars[0])
+	// This return is a valid Go variable name to be used as an empty return value
+	// when a literal zero value isn't available.
+	return string(chars)
 }
 
 // formatNotImplementedBody generates the Go function body for an unimplemented stub.
@@ -415,15 +426,15 @@ func formatNotImplementedBody(returns []string) string {
 	}
 }
 
-// formatEmptyFunction outputs the new function that removes the function body, adds the panic unimplemented statement,
-// and replaces the receiver with the new model type.
+// formatEmptyFunction generates a stub method for the given receiver, 
+// inserting a "not implemented" body with appropriate zero-value returns.
 func formatEmptyFunction(receiver, funcName, args string, returns []string) string {
 	returnDef := formatReturnDef(returns)
 	body := formatNotImplementedBody(returns)
 	return fmt.Sprintf("func (s *%s) %s(%s)%s {\n%s\n}\n\n", receiver, funcName, args, returnDef, body)
 }
 
-// formatEmptyFunctionWithDoc returns a stub Go method with an optional doc comment.
+// formatEmptyFunctionWithDoc does the same as formatEmptyFunction but adds doc comment if the component interface has one.
 func formatEmptyFunctionWithDoc(doc, receiver, funcName, args string, returns []string) string {
 	returnDef := formatReturnDef(returns)
 	body := formatNotImplementedBody(returns)
