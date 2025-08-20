@@ -122,6 +122,9 @@ require (
 	cloud.google.com/go/monitoring v1.21.0 // indirect
 	cloud.google.com/go/storage v1.43.0 // indirect
 	cloud.google.com/go/trace v1.11.0 // indirect
+	codeberg.org/go-fonts/liberation v0.5.0 // indirect
+	codeberg.org/go-latex/latex v0.1.0 // indirect
+	codeberg.org/go-pdf/fpdf v0.10.0 // indirect
 	connectrpc.com/connect v1.15.0 // indirect
 	connectrpc.com/otelconnect v0.7.0 // indirect
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
@@ -216,13 +219,10 @@ require (
 	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.2 // indirect
 	github.com/go-critic/go-critic v0.11.4 // indirect
-	github.com/go-fonts/liberation v0.3.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
-	github.com/go-latex/latex v0.0.0-20230307184459-12ec69307ad9 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/go-pdf/fpdf v0.6.0 // indirect
 	github.com/go-toolsmith/astcast v1.1.0 // indirect
 	github.com/go-toolsmith/astcopy v1.1.0 // indirect
 	github.com/go-toolsmith/astequal v1.2.0 // indirect
@@ -433,6 +433,8 @@ require (
 	golang.org/x/mod v0.26.0 // indirect
 	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
+	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect
+	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.196.0 // indirect
 	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1 // indirect
