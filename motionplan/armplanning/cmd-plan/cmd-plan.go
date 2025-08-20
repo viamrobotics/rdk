@@ -1,3 +1,4 @@
+// package main for testing armplanning
 package main
 
 import (
@@ -5,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -25,7 +27,7 @@ func realMain() error {
 	logger := logging.NewLogger("cmd-plan")
 
 	flag.Parse()
-	if len(flag.Args()) <= 0 {
+	if len(flag.Args()) == 0 {
 		return fmt.Errorf("need a json file")
 	}
 
@@ -48,15 +50,16 @@ func realMain() error {
 		return err
 	}
 
-	fmt.Printf("planning took %v\n", time.Since(start))
-
 	if len(plan.Path()) != len(plan.Trajectory()) {
-		return fmt.Errorf("path and trajectory not the same %d vs %s", len(plan.Path()), len(plan.Trajectory()))
+		return fmt.Errorf("path and trajectory not the same %d vs %d", len(plan.Path()), len(plan.Trajectory()))
 	}
 
-	fmt.Printf("steps\n")
+	mylog := log.New(os.Stdout, "", 0)
+
+	mylog.Printf("planning took %v", time.Since(start))
+
 	for idx, p := range plan.Path() {
-		fmt.Printf("step %d\n", idx)
+		mylog.Printf("step %d", idx)
 
 		t := plan.Trajectory()[idx]
 
@@ -68,12 +71,12 @@ func realMain() error {
 			if len(t[c]) == 0 {
 				continue
 			}
-			fmt.Printf("\t\t %s\n", c)
-			fmt.Printf("\t\t\t %v\n", pp)
-			fmt.Printf("\t\t\t %v\n", t[c])
+			mylog.Printf("\t\t %s", c)
+			mylog.Printf("\t\t\t %v", pp)
+			mylog.Printf("\t\t\t %v", t[c])
 			if idx > 0 {
 				p := plan.Trajectory()[idx-1][c]
-				fmt.Printf("\t\t\t\t distances l2: %0.4f Linf %0.4f\n",
+				mylog.Printf("\t\t\t\t distances l2: %0.4f Linf %0.4f",
 					referenceframe.InputsL2Distance(p, t[c]),
 					referenceframe.InputsLinfDistance(p, t[c]),
 				)
