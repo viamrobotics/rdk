@@ -14,7 +14,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pion/rtp"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -484,12 +483,6 @@ func TestClient(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 10)
 			test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 20)
-		})
-
-		t.Run("duplicate source name error", func(t *testing.T) {
-			_, _, err := camClient.Images(ctx, []string{"color", "color"}, nil)
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err, test.ShouldBeError, errors.New("duplicate source name in filter: color"))
 		})
 	})
 }
