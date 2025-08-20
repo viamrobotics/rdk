@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -33,6 +34,9 @@ var CheckDeleteExcessFilesInterval = 30 * time.Second
 const (
 	// FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 	FailedDir = "failed"
+	// DatasetDir is a subdirectory of the capture directory that holds any files that are simultaneously uploaded
+	// and added to a dataset outside of the regularly scheduled sync.
+	DatasetDir = "datasetUpload"
 	// grpcConnectionTimeout defines the timeout for getting a connection with app.viam.com.
 	grpcConnectionTimeout = 10 * time.Second
 	// durationBetweenAcquireConnection defines how long to wait after a call to cloud.AcquireConnection fails
@@ -362,7 +366,7 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	if data.IsDataCaptureFile(f) {
 		s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
 	} else {
-		s.syncArbitraryFile(f, config.Tags, config.FileLastModifiedMillis, s.logger)
+		s.syncArbitraryFile(f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger)
 	}
 }
 
@@ -434,10 +438,10 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	}
 }
 
-func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMillis int, logger logging.Logger) {
+func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int, logger logging.Logger) {
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
-		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock, logger)
+		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
@@ -474,6 +478,43 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 	}
 	s.atomicUploadStats.arbitrary.uploadedFileCount.Add(1)
 	s.atomicUploadStats.arbitrary.uploadedBytes.Add(bytesUploaded)
+}
+
+// UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.
+func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte, datasetIDs, tags []string, mimeType v1.MimeType) error {
+	errChan := make(chan error, 1)
+	go func() {
+		defer close(errChan)
+		// Create a new directory CaptureDir/DatasetDir
+		newDir := filepath.Join(s.config.CaptureDir, DatasetDir)
+		if err := os.MkdirAll(newDir, 0o700); err != nil {
+			errChan <- errors.Wrapf(err, "failed to create file in dataset directory: error making new dataset directory: %s", newDir)
+			return
+		}
+		filename := uuid.NewString()
+		fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
+		if fileExtensionFromMimeType != "" {
+			filename += fileExtensionFromMimeType
+		}
+		filename = filepath.Join(s.config.CaptureDir, DatasetDir, filepath.Clean(filename))
+		err := os.WriteFile(filename, binaryData, 0o600)
+		if err != nil {
+			s.logger.Errorw("error writing file", "err", err)
+			errChan <- err
+			return
+		}
+		f, err := os.Open(filename)
+		if err != nil {
+			s.logger.Errorw("error reading file", "err", err)
+			errChan <- err
+			return
+		}
+		// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
+		// before deciding this file is ready for upload and is not still being written to.
+		s.syncArbitraryFile(f, tags, datasetIDs, 0, s.logger)
+	}()
+
+	return <-errChan
 }
 
 // moveFailedData takes any data that could not be synced in the parentDir and
@@ -570,8 +611,9 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 				return nil
 			}
 
-			// Do not sync the files in the corrupted data directory.
-			if info.IsDir() && info.Name() == FailedDir {
+			// Do not sync the files in the corrupted data directory or in the directory that holds files
+			// that are simultaneously uploaded and added to a dataset.
+			if info.IsDir() && (info.Name() == FailedDir || info.Name() == DatasetDir) {
 				return filepath.SkipDir
 			}
 

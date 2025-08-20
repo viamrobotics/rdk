@@ -556,6 +556,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 		name                 string
 		manualSync           bool
 		scheduleSyncDisabled bool
+		uploadToDataset      bool
 		serviceFail          bool
 		connStateConstructor func(rpc.ClientConn) datasync.ConnectivityState
 		cloudConnectionErr   error
@@ -590,6 +591,20 @@ func TestArbitraryFileUpload(t *testing.T) {
 			manualSync:           false,
 			scheduleSyncDisabled: false,
 			serviceFail:          true,
+			connStateConstructor: ConnToConnectivityStateReady,
+		},
+		{
+			name:                 "uploading an image to a dataset with scheduled sync of arbitrary files should work",
+			manualSync:           false,
+			scheduleSyncDisabled: false,
+			uploadToDataset:      true,
+			connStateConstructor: ConnToConnectivityStateReady,
+		},
+		{
+			name:                 "uploading an image to a dataset with manual sync of arbitrary files should work",
+			manualSync:           true,
+			scheduleSyncDisabled: true,
+			uploadToDataset:      true,
 			connStateConstructor: ConnToConnectivityStateReady,
 		},
 	}
@@ -695,10 +710,39 @@ func TestArbitraryFileUpload(t *testing.T) {
 			case <-closeCtx.Done():
 			}
 
+			// Call upload to dataset.
+			datasetBytes := []byte("hi")
+			datasetsMetadata := []string{"dataset1"}
+			tagsMetadata := []string{"tag1"}
+			mimeType := v1.MimeType_MIME_TYPE_IMAGE_PNG
+			if tc.uploadToDataset {
+				t.Log("calling upload to a dataset")
+				// Add the bytes to the file contents.
+				fileContents = append(fileContents, datasetBytes...)
+				timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*5)
+				defer timeoutFn()
+				for {
+					if err = b.UploadBinaryDataToDatasets(context.Background(), datasetBytes, datasetsMetadata, tagsMetadata, mimeType, nil); err == nil {
+						break
+					}
+
+					if timeoutCtx.Err() != nil {
+						t.Log("timed out waiting for mocked cloud connection")
+						t.FailNow()
+					}
+					time.Sleep(time.Millisecond * 50)
+				}
+			}
+
 			waitUntilNoFiles(additionalPathsDir)
+			waitUntilNoFiles(filepath.Join(captureDir, datasync.DatasetDir))
 			if !tc.serviceFail {
 				// Validate first metadata message.
-				test.That(t, uploadCount.Load(), test.ShouldEqual, 1)
+				expectedUploadedCount := 1
+				if tc.uploadToDataset {
+					expectedUploadedCount++
+				}
+				test.That(t, uploadCount.Load(), test.ShouldEqual, expectedUploadedCount)
 				test.That(t, len(rs), test.ShouldBeGreaterThan, 0)
 				actMD := rs[0].GetMetadata()
 				test.That(t, actMD, test.ShouldNotBeNil)
@@ -707,6 +751,16 @@ func TestArbitraryFileUpload(t *testing.T) {
 				test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
 				test.That(t, actMD.PartId, test.ShouldNotBeBlank)
 
+				// Validate metadata for dataset upload.
+				if tc.uploadToDataset {
+					datasetMD := rs[2].GetMetadata()
+					test.That(t, datasetMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
+					test.That(t, filepath.Base(datasetMD.FileName), test.ShouldNotBeBlank)
+					test.That(t, datasetMD.FileExtension, test.ShouldEqual, ".png")
+					test.That(t, datasetMD.PartId, test.ShouldNotBeBlank)
+					test.That(t, datasetMD.Tags, test.ShouldResemble, tagsMetadata)
+					test.That(t, datasetMD.DatasetIds, test.ShouldResemble, datasetsMetadata)
+				}
 				// Validate ensuing data messages.
 				dataRequests := rs[1:]
 				var actData []byte
@@ -717,6 +771,10 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 				// Validate file no longer exists.
 				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 0)
+				test.That(t, b.Close(context.Background()), test.ShouldBeNil)
+
+				// Validate file in dataset directory no longer exists.
+				test.That(t, len(getAllFileInfos(filepath.Join(captureDir, datasync.DatasetDir))), test.ShouldEqual, 0)
 				test.That(t, b.Close(context.Background()), test.ShouldBeNil)
 			} else {
 				// Validate no files were successfully uploaded.

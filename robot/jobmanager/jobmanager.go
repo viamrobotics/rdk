@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/metadata"
@@ -64,6 +65,11 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			err = multierr.Combine(err, scheduler.Shutdown())
+		}
+	}()
 
 	parentAddr.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr.UnixAddr)
 	if err != nil {
