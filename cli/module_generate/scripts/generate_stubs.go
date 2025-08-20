@@ -65,9 +65,15 @@ func getClientCode(module modulegen.ModuleInputs) (string, error) {
 }
 
 // CreateGetResourceCodeRequest creates a request to get the component code of the specified resource type.
-var CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs) (*http.Request, error) {
-	url := fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
+var CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, tryagain bool) (*http.Request, error) {
+	url := ""
+	if tryagain {
+		url = fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
+		module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtype)
+	} else {
+		url = fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
 		module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtypeSnake)
+	}
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get resource code")
@@ -77,27 +83,36 @@ var CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs) (*http.Re
 
 // getResourceCode grabs client.go code of component type.
 func getResourceCode(module modulegen.ModuleInputs) (string, error) {
-	req, err := CreateGetResourceCodeRequest(module)
-	if err != nil {
-		return "", err
-	}
+	attempts := []bool{false, true}
 
-	//nolint:bodyclose
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", errors.Wrapf(err, "cannot get resource code")
-	}
-	defer utils.UncheckedErrorFunc(resp.Body.Close)
-	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, req.URL.String())
-	}
+	var resp *http.Response
+	var req *http.Request
+	var err error
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return req.URL.String(), errors.Wrapf(err, "error reading response body")
+	for _, tryagain := range attempts {
+		req, err = CreateGetResourceCodeRequest(module, tryagain)
+		if err != nil {
+			return "", err
+		}
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			return "", errors.Wrapf(err, "cannot get resource code")
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			defer utils.UncheckedErrorFunc(resp.Body.Close)
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return req.URL.String(), errors.Wrapf(err, "error reading response body")
+			}
+			resourceCode := string(body)
+			return resourceCode, nil
+		}
+
+		// Close body if not OK to prevent leaks before retrying
+		utils.UncheckedErrorFunc(resp.Body.Close)
 	}
-	resourceCode := string(body)
-	return resourceCode, nil
+	return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, req.URL.String())
 }
 
 func extractInterfaceMethodDocs(resourceCode string) (map[string]*ast.CommentGroup, error) {

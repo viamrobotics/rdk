@@ -171,7 +171,7 @@ func TestGenerateModuleAction(t *testing.T) {
 			return http.NewRequestWithContext(context.Background(), http.MethodGet, serverClient.URL, nil)
 		}
 
-		modgen.CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs) (*http.Request, error) {
+		modgen.CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, tryagain bool) (*http.Request, error) {
 			return http.NewRequestWithContext(context.Background(), http.MethodGet, serverResource.URL, nil)
 		}
 
