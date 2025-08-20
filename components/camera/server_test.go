@@ -93,7 +93,7 @@ func TestServer(t *testing.T) {
 			FrameRate:       float32(10.0),
 		}, nil
 	}
-	injectCamera.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	injectCamera.ImagesFunc = func(ctx context.Context, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		images := []camera.NamedImage{}
 		// one color image
 		color := rimage.NewImage(40, 50)
@@ -471,6 +471,92 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
+			Name:  testCameraName,
+			Extra: ext,
+		})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+	})
+
+	t.Run("GetImages with extra", func(t *testing.T) {
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, extra, test.ShouldBeEmpty)
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		_, err := cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{
+			Name: testCameraName,
+		})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, len(extra), test.ShouldEqual, 1)
+			test.That(t, extra["hello"], test.ShouldEqual, "world")
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		ext, err := goprotoutils.StructToStructPb(map[string]interface{}{"hello": "world"})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{
+			Name:  testCameraName,
+			Extra: ext,
+		})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, len(extra), test.ShouldEqual, 1)
+			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
+
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		// one kvp created with data.FromDMContextKey
+		ext, err = goprotoutils.StructToStructPb(map[string]interface{}{data.FromDMString: true})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{
+			Name:  testCameraName,
+			Extra: ext,
+		})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, len(extra), test.ShouldEqual, 2)
+			test.That(t, extra["hello"], test.ShouldEqual, "world")
+			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		// use values from data and camera
+		ext, err = goprotoutils.StructToStructPb(
+			map[string]interface{}{
+				data.FromDMString: true,
+				"hello":           "world",
+			},
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{
 			Name:  testCameraName,
 			Extra: ext,
 		})

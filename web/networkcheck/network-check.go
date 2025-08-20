@@ -60,7 +60,8 @@ func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger, continueRun
 const timeout = 5 * time.Second
 
 var (
-	serverIPSToTestDNS = []string{
+	systemdResolvedAddress = "127.0.0.53:53"
+	serverIPSToTestDNS     = []string{
 		"1.1.1.1:53",        // Cloudflare DNS
 		"8.8.8.8:53",        // Google DNS
 		"208.67.222.222:53", // OpenDNS
@@ -92,11 +93,12 @@ var (
 )
 
 func init() {
-	// Append 127.0.0.53:53, the systemd-resolved IP address, to the list of IPs to test DNS
-	// connectivity against when the operating system is Linux-based. MacOS and Windows do
-	// not have systemd nor systemd-resolved.
+	// Append the systemd-resolved IP address to the list of IPs to test DNS connectivity
+	// against when the operating system is Linux-based. MacOS and Windows do not have
+	// systemd nor systemd-resolved. Some Linux distros will not be running it either, but
+	// we will find that out during testing.
 	if runtime.GOOS == "linux" {
-		serverIPSToTestDNS = append(serverIPSToTestDNS, "127.0.0.53:53")
+		serverIPSToTestDNS = append(serverIPSToTestDNS, systemdResolvedAddress)
 	}
 }
 
@@ -258,7 +260,18 @@ func TestDNS(ctx context.Context, logger logging.Logger, verbose bool) {
 			return
 		}
 
-		dnsResults = append(dnsResults, testDNSServerConnectivity(ctx, dnsServer))
+		result := testDNSServerConnectivity(ctx, dnsServer)
+
+		// If the error from the systemd-resolved DNS resolver (at 127.0.0.53:53 in only
+		// _some_ Linux distros) test reported "connection refused," do not include the result
+		// in the final list. systemd-resolved is likely not installed or not currently
+		// running in that case, and that is not indicative of a DNS issue.
+		if result.ErrorString != nil && strings.Contains(*result.ErrorString, "connection refused") &&
+			dnsServer == systemdResolvedAddress {
+			continue
+		}
+
+		dnsResults = append(dnsResults, result)
 	}
 
 	for _, hostname := range hostnamesToResolveDNS {

@@ -209,12 +209,17 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
 }
 
-func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
+func (c *client) Images(ctx context.Context, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Images")
 	defer span.End()
 
+	convertedExtra, err := goprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
 	resp, err := c.client.GetImages(ctx, &pb.GetImagesRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: convertedExtra,
 	})
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not gets images from the camera %w", err)

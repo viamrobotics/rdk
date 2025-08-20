@@ -388,7 +388,7 @@ func (c *webcam) Monitor() {
 	})
 }
 
-func (c *webcam) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (c *webcam) Images(ctx context.Context, _ map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if err := c.ensureActive(); err != nil {
