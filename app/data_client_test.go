@@ -187,6 +187,15 @@ var (
 			DataStartTime: timestamppb.New(time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC)),
 			DataEndTime:   timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
 		},
+		{
+			Id:            "run2",
+			Status:        datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_FAILED,
+			StartTime:     timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
+			EndTime:       timestamppb.New(time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC)),
+			DataStartTime: timestamppb.New(time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC)),
+			DataEndTime:   timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
+			ErrorMessage:  "error message",
+		},
 	}
 	dataPipelineRuns = []*DataPipelineRun{
 		{
@@ -196,6 +205,15 @@ var (
 			EndTime:       time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC),
 			DataStartTime: time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
 			DataEndTime:   time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+		},
+		{
+			ID:            "run2",
+			Status:        DataPipelineRunStatusFailed,
+			StartTime:     time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			EndTime:       time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC),
+			DataStartTime: time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
+			DataEndTime:   time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+			ErrorMessage:  "error message",
 		},
 	}
 )
