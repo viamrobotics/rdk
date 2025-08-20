@@ -64,15 +64,15 @@ func getClientCode(module modulegen.ModuleInputs) (string, error) {
 	return clientCode, nil
 }
 
-// CreateGetResourceCodeRequest creates a request to get the component code of the specified resource type.
-var CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, tryagain bool) (*http.Request, error) {
+// CreateGetResourceCodeRequest creates a request to get the resource code of the specified resource type.
+var CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, usesnake bool) (*http.Request, error) {
 	url := ""
-	if tryagain {
-		url = fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
-			module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtype)
-	} else {
+	if usesnake {
 		url = fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
 			module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtypeSnake)
+	} else {
+		url = fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
+			module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtype)
 	}
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
@@ -81,20 +81,24 @@ var CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, tryagain 
 	return req, nil
 }
 
-// getResourceCode grabs client.go code of component type.
+// getResourceCode fetches the resource.go source code.
 func getResourceCode(module modulegen.ModuleInputs) (string, error) {
-	attempts := []bool{false, true}
+	// It tries twice: first with the snake cased resource sub type, then without.
+	// Different components are named with and without snake case, this tries both before returning an error
+	attempts := []bool{true, false}
 
 	var resp *http.Response
 	var req *http.Request
 	var err error
 
-	for _, tryagain := range attempts {
-		req, err = CreateGetResourceCodeRequest(module, tryagain)
+	for _, usesnake := range attempts {
+		// Create the HTTP request for fetching resource code
+		req, err = CreateGetResourceCodeRequest(module, usesnake)
 		if err != nil {
 			return "", err
 		}
 
+		// Send the HTTP request
 		//nolint:bodyclose
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
@@ -102,6 +106,7 @@ func getResourceCode(module modulegen.ModuleInputs) (string, error) {
 		}
 
 		if resp.StatusCode == http.StatusOK {
+			// Read and return the response body if the request succeeded
 			defer utils.UncheckedErrorFunc(resp.Body.Close)
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -111,12 +116,15 @@ func getResourceCode(module modulegen.ModuleInputs) (string, error) {
 			return resourceCode, nil
 		}
 
-		// Close body if not OK to prevent leaks before retrying
+		// Close response body if not OK to prevent leaks before retrying
 		utils.UncheckedErrorFunc(resp.Body.Close)
 	}
 	return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, req.URL.String())
 }
 
+// extractInterfaceMethodDocs parses Go source code and returns a map of
+// method names to their associated documentation comments for the first
+// interface type found in the code.
 func extractInterfaceMethodDocs(resourceCode string) (map[string]*ast.CommentGroup, error) {
 	fset := token.NewFileSet()
 	node, err := parser.ParseFile(fset, "", resourceCode, parser.ParseComments)
