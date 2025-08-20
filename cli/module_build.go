@@ -70,7 +70,9 @@ func ModuleBuildStartAction(cCtx *cli.Context, args moduleBuildStartArgs) error 
 	return err
 }
 
-func (c *viamClient) moduleBuildStartForRepo(cCtx *cli.Context, args moduleBuildStartArgs, manifest *moduleManifest, repo string) (string, error) {
+func (c *viamClient) moduleBuildStartForRepo(
+	cCtx *cli.Context, args moduleBuildStartArgs, manifest *moduleManifest, repo string,
+) (string, error) {
 	version := args.Version
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return "", errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
@@ -519,6 +521,7 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 		return "", err
 	}
 	cmd := fmt.Sprintf("git ls-files -z | xargs -0 tar -czvf %s", viamReloadArchive)
+	//nolint:gosec
 	createArchiveCmd := exec.Command("bash", "-c", cmd)
 	createArchiveCmd.Dir = repoPath
 	if _, err = createArchiveCmd.Output(); err != nil {
@@ -555,7 +558,7 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 
 	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
 	if err != nil {
@@ -585,6 +588,8 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	resp.Version = versionParts[1]
 
 	// (TODO RSDK-11531) It'd be nice to add some streaming logs for this so we can see how the progress is going. create a new build
+	// TODO (RSDK-11692) - passing org ID in the ref field and `resp.Version` (which is actually an object ID)
+	// in the token field is pretty hacky, let's fix it up
 	infof(c.c.App.Writer, "Creating a new cloud build and swapping it onto the requested machine part. This may take a few minutes...")
 	buildArgs := moduleBuildStartArgs{
 		Module:    args.Module,
@@ -617,7 +622,13 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	}
 
 	// delete the package now that the build is complete
-	c.packageClient.DeletePackage(ctx.Context, &v1.DeletePackageRequest{Id: resp.GetId(), Version: reloadVersion, Type: v1.PackageType_PACKAGE_TYPE_MODULE})
+	_, err = c.packageClient.DeletePackage(
+		ctx.Context,
+		&v1.DeletePackageRequest{Id: resp.GetId(), Version: reloadVersion, Type: v1.PackageType_PACKAGE_TYPE_MODULE},
+	)
+	if err != nil {
+		warningf(ctx.App.Writer, "failed to delete package: %s", err.Error())
+	}
 
 	// delete the archive we created
 	if err := os.Remove(archivePath); err != nil {
