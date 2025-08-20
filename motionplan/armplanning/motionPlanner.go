@@ -601,7 +601,7 @@ IK:
 				err := mp.CheckSegmentFSConstraints(stepArc)
 				if err == nil {
 					score := mp.configurationDistanceFunc(stepArc)
-					if (score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0) || (approxCartesianDist > 0 && score < (approxCartesianDist/200)) {
+					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 						solutions = map[float64]referenceframe.FrameSystemInputs{}
 						solutions[score] = step
 						// good solution, stopping early
