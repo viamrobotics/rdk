@@ -554,7 +554,7 @@ func (mp *planner) getSolutions(
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
 		defer activeSolvers.Done()
-		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, minFunc, mp.randseed.Int())
+		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, 0, minFunc, mp.randseed.Int())
 	})
 
 	solutions := map[float64]referenceframe.FrameSystemInputs{}
@@ -577,7 +577,6 @@ IK:
 
 		select {
 		case stepSolution := <-solutionGen:
-
 			step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
 			if err != nil {
 				return nil, err

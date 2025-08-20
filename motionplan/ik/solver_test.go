@@ -70,7 +70,7 @@ func TestCombinedCPUs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m.DoF(), logger, runtime.NumCPU()/400000, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(ik.(*combinedIK).solvers), test.ShouldEqual, 1)
+	test.That(t, len(ik.(*combinedIK).solvers), test.ShouldEqual, 2)
 }
 
 func solveTest(ctx context.Context, solver Solver, solveFunc func([]float64) float64, seed []float64) ([][]float64, error) {
@@ -82,7 +82,7 @@ func solveTest(ctx context.Context, solver Solver, solveFunc func([]float64) flo
 	// Spawn the IK solver to generate solutions until done
 	go func() {
 		defer close(ikErr)
-		ikErr <- solver.Solve(ctxWithCancel, solutionGen, seed, solveFunc, 1)
+		ikErr <- solver.Solve(ctxWithCancel, solutionGen, seed, 0, solveFunc, 1)
 	}()
 
 	var solutions [][]float64

@@ -86,6 +86,7 @@ func (ik *nloptIK) DoF() []referenceframe.Limit {
 func (ik *nloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
 	seed []float64,
+	maxTravel float64,
 	minFunc func([]float64) float64,
 	rseed int,
 ) error {
@@ -105,6 +106,13 @@ func (ik *nloptIK) Solve(ctx context.Context,
 	lowerBound, upperBound := limitsToArrays(ik.limits)
 	if len(lowerBound) == 0 || len(upperBound) == 0 {
 		return errBadBounds
+	}
+
+	if maxTravel > 0 {
+		for i := 0; i < len(lowerBound); i++ {
+			lowerBound[i] = max(lowerBound[i], seed[i]-maxTravel)
+			upperBound[i] = min(upperBound[i], seed[i]+maxTravel)
+		}
 	}
 
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(lowerBound)))
