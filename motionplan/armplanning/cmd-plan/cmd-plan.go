@@ -31,6 +31,8 @@ func realMain() error {
 		return fmt.Errorf("need a json file")
 	}
 
+	logger.Infof("reading plan from %s", flag.Arg(0))
+
 	content, err := os.ReadFile(flag.Arg(0))
 	if err != nil {
 		return err
@@ -76,9 +78,10 @@ func realMain() error {
 			mylog.Printf("\t\t\t %v", t[c])
 			if idx > 0 {
 				p := plan.Trajectory()[idx-1][c]
-				mylog.Printf("\t\t\t\t distances l2: %0.4f Linf %0.4f",
+				mylog.Printf("\t\t\t\t distances l2: %0.4f Linf %0.4f cartesion: %0.2f",
 					referenceframe.InputsL2Distance(p, t[c]),
 					referenceframe.InputsLinfDistance(p, t[c]),
+					pp.Pose().Point().Distance(plan.Path()[idx-1][c].Pose().Point()),
 				)
 			}
 		}
