@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
 )
@@ -25,6 +26,10 @@ func main() {
 func realMain() error {
 	ctx := context.Background()
 	logger := logging.NewLogger("cmd-plan")
+
+	pseudolinearLine := flag.Float64("pseudolinear-line", 0, "")
+	pseudolinearOrientation := flag.Float64("pseudolinear-orientation", 0, "")
+	seed := flag.Int("seed", 0, "")
 
 	flag.Parse()
 	if len(flag.Args()) == 0 {
@@ -44,6 +49,12 @@ func realMain() error {
 	if err != nil {
 		return err
 	}
+
+	if *pseudolinearLine > 0 || *pseudolinearOrientation > 0 {
+		req.Constraints.AddPseudolinearConstraint(motionplan.PseudolinearConstraint{*pseudolinearLine, *pseudolinearOrientation})
+	}
+
+	req.PlannerOptions.RandomSeed = *seed
 
 	start := time.Now()
 
