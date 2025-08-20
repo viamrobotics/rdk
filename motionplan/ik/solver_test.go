@@ -82,7 +82,7 @@ func solveTest(ctx context.Context, solver Solver, solveFunc func([]float64) flo
 	// Spawn the IK solver to generate solutions until done
 	go func() {
 		defer close(ikErr)
-		ikErr <- solver.Solve(ctxWithCancel, solutionGen, seed, 0, solveFunc, 1)
+		ikErr <- solver.Solve(ctxWithCancel, solutionGen, seed, 0, 0, solveFunc, 1)
 	}()
 
 	var solutions [][]float64

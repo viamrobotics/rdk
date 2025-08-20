@@ -551,15 +551,11 @@ func (mp *planner) getSolutions(
 
 	minFunc := mp.linearizeFSmetric(metric)
 	// Spawn the IK solver to generate solutions until done
-	maxTravel := defaultMaxJointRestrictionDist
 	approxCartesianDist := math.Sqrt(minFunc(linearSeed))
-	if approxCartesianDist > defaultMaxJointRestrictionDist {
-		maxTravel = 0 // disable max travel restriction
-	}
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
 		defer activeSolvers.Done()
-		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, 0, minFunc, mp.randseed.Int())
+		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, 0, approxCartesianDist, minFunc, mp.randseed.Int())
 	})
 
 	solutions := map[float64]referenceframe.FrameSystemInputs{}
@@ -605,7 +601,7 @@ IK:
 				err := mp.CheckSegmentFSConstraints(stepArc)
 				if err == nil {
 					score := mp.configurationDistanceFunc(stepArc)
-					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
+					if (score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0) || (approxCartesianDist > 0 && score < (approxCartesianDist/200)) {
 						solutions = map[float64]referenceframe.FrameSystemInputs{}
 						solutions[score] = step
 						// good solution, stopping early

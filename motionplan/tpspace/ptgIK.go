@@ -100,7 +100,7 @@ func (ptg *ptgIK) Solve(
 		ctx,
 		internalSolutionGen,
 		referenceframe.InputsToFloats(seed),
-		0,
+		0, 0,
 		ptg.ptgMetricIkFunc(solveMetric),
 		defaultNloptSeed,
 	)

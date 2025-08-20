@@ -35,7 +35,6 @@ func CreateCombinedIKSolver(
 	if nCPU <= 0 {
 		nCPU = 2
 	}
-	logger.Infof("yo nCPU: %v", nCPU)
 	for i := 1; i <= nCPU; i++ {
 		solver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
 		nlopt := solver.(*nloptIK)
@@ -54,7 +53,7 @@ func CreateCombinedIKSolver(
 func (ik *combinedIK) Solve(ctx context.Context,
 	c chan<- *Solution,
 	seed []float64,
-	overallMaxTravel float64,
+	overallMaxTravel, cartestianDistance float64,
 	m func([]float64) float64,
 	rseed int,
 ) error {
@@ -82,14 +81,14 @@ func (ik *combinedIK) Solve(ctx context.Context,
 		}
 
 		maxTravel := overallMaxTravel
-		if maxTravel <= 0 && i == 0 {
-			maxTravel = .1
+		if maxTravel <= 0 && cartestianDistance > 0 && i == 0 {
+			maxTravel = cartestianDistance / 100
 		}
 
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			errChan <- thisSolver.Solve(ctxWithCancel, c, seedFloats, maxTravel, m, parseed)
+			errChan <- thisSolver.Solve(ctxWithCancel, c, seedFloats, maxTravel, cartestianDistance, m, parseed)
 		})
 	}
 

@@ -86,7 +86,7 @@ func (ik *nloptIK) DoF() []referenceframe.Limit {
 func (ik *nloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
 	seed []float64,
-	maxTravel float64,
+	maxTravel, cartestianDistance float64,
 	minFunc func([]float64) float64,
 	rseed int,
 ) error {
