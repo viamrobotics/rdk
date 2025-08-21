@@ -31,7 +31,7 @@ const (
 	TimeReceivedMetadataKey = "viam-time-received"
 
 	// timeout values to use when reading a config either from App, from App behind a proxy, or from a local (cached) file.
-	readConfigFromCloudTimeout            = 5 * time.Second
+	readConfigFromCloudTimeout            = 15 * time.Second
 	readConfigFromCloudBehindProxyTimeout = time.Minute
 	readCachedConfigTimeout               = 1 * time.Second
 )
