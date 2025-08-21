@@ -157,18 +157,14 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 
 		var binaries []data.Binary
 		for _, img := range resImgs {
-			namedImg, err := img.Image(ctx)
-			if err != nil {
-				return res, err
-			}
-			format, imgBytes, err := encodeImageFromUnderlyingType(ctx, namedImg)
+			imgBytes, err := img.Bytes(ctx)
 			if err != nil {
 				return res, err
 			}
 			binaries = append(binaries, data.Binary{
 				Annotations: data.Annotations{Classifications: []data.Classification{{Label: img.SourceName}}},
 				Payload:     imgBytes,
-				MimeType:    data.CameraFormatToMimeType(format),
+				MimeType:    data.MimeTypeStringToMimeType(img.MimeType()),
 			})
 		}
 		ts := data.Timestamps{
