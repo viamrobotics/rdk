@@ -26,15 +26,15 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// ErrMIMETypeBytesMismatch indicates that the NamedImage's mime type does not match the image bytes header.
+// ErrMIMETypeBytesMismatch indicates that the NamedImage's mimeType does not match the image bytes header.
 //
-// For example, if the image bytes are JPEG, but the mime type is PNG, this error will be returned.
+// For example, if the image bytes are JPEG, but the mimeType is PNG, this error will be returned.
 // This likely means there is a bug in the code that created the GetImages response.
 //
 // However, there may still be valid, decodeable underlying JPEG image bytes.
-// If you want to decode the image bytes as a JPEG regardless of the mismatch, you can catch and recover
-// from this error, call the .Bytes() method, then decode the image bytes as JPEG manually with image.Decode().
-var ErrMIMETypeBytesMismatch = errors.New("mime type does not match the image bytes")
+// If you want to decode the image bytes as a JPEG regardless of the mismatch, you can recover from this error,
+// call the .Bytes() method, then decode the image bytes as JPEG manually with image.Decode().
+var ErrMIMETypeBytesMismatch = errors.New("mime_type does not match the image bytes")
 
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Camera]{

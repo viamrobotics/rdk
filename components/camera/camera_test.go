@@ -737,7 +737,7 @@ func TestNamedImage(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			_, err = ni.Image(ctx)
 			test.That(t, err, test.ShouldBeError)
-			test.That(t, err.Error(), test.ShouldEqual, "mime type does not match the image bytes: expected image/png, got jpeg")
+			test.That(t, err, test.ShouldWrap, camera.ErrMIMETypeBytesMismatch)
 		})
 
 		t.Run("error when decode fails for other reasons", func(t *testing.T) {
