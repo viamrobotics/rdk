@@ -66,14 +66,12 @@ func getClientCode(module modulegen.ModuleInputs) (string, error) {
 
 // CreateGetResourceCodeRequest creates a request to get the resource code of the specified resource type.
 var CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, usesnake bool) (*http.Request, error) {
-	url := ""
+	subtype := module.ResourceSubtype
 	if usesnake {
-		url = fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
-			module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtypeSnake)
-	} else {
-		url = fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
-			module.SDKVersion, module.ResourceType, module.ResourceSubtype, module.ResourceSubtype)
+		subtype = module.ResourceSubtypeSnake
 	}
+	url := fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
+		module.SDKVersion, module.ResourceType, module.ResourceSubtype, subtype)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get resource code")
