@@ -107,42 +107,45 @@ func NamedImageFromImage(img image.Image, sourceName, mimeType string) (NamedIma
 
 // Image returns the image.Image of the NamedImage.
 func (ni *NamedImage) Image(ctx context.Context) (image.Image, error) {
-	if ni.img == nil {
-		if ni.data == nil {
-			return nil, fmt.Errorf("no image or image bytes available")
-		}
-
-		reader := bytes.NewReader(ni.data)
-		_, header, err := image.DecodeConfig(reader)
-		if err != nil {
-			return nil, fmt.Errorf("could not decode image config: %w", err)
-		}
-
-		if header != "" && !strings.Contains(ni.mimeType, header) {
-			return nil, fmt.Errorf("mime type does not match the image bytes: expected %s, got %s", ni.mimeType, header)
-		}
-
-		img, err := rimage.DecodeImage(ctx, ni.data, ni.mimeType)
-		if err != nil {
-			return nil, fmt.Errorf("could not decode bytes into image.Image: %w", err)
-		}
-		ni.img = img
+	if ni.img != nil {
+		return ni.img, nil
 	}
+	if ni.data == nil {
+		return nil, fmt.Errorf("no image or image bytes available")
+	}
+
+	reader := bytes.NewReader(ni.data)
+	_, header, err := image.DecodeConfig(reader)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode image config: %w", err)
+	}
+
+	if header != "" && !strings.Contains(ni.mimeType, header) {
+		return nil, fmt.Errorf("mime type does not match the image bytes: expected %s, got %s", ni.mimeType, header)
+	}
+
+	img, err := rimage.DecodeImage(ctx, ni.data, ni.mimeType)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode bytes into image.Image: %w", err)
+	}
+	ni.img = img
 	return ni.img, nil
 }
 
 // Bytes returns the byte slice of the NamedImage.
 func (ni *NamedImage) Bytes(ctx context.Context) ([]byte, error) {
-	if ni.data == nil {
-		if ni.img == nil {
-			return nil, fmt.Errorf("no image or image bytes available")
-		}
-		data, err := rimage.EncodeImage(ctx, ni.img, ni.mimeType)
-		if err != nil {
-			return nil, fmt.Errorf("could not encode image: %w", err)
-		}
-		ni.data = data
+	if ni.data != nil {
+		return ni.data, nil
 	}
+	if ni.img == nil {
+		return nil, fmt.Errorf("no image or image bytes available")
+	}
+
+	data, err := rimage.EncodeImage(ctx, ni.img, ni.mimeType)
+	if err != nil {
+		return nil, fmt.Errorf("could not encode image: %w", err)
+	}
+	ni.data = data
 	return ni.data, nil
 }
 
