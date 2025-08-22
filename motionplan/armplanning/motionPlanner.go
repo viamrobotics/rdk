@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -504,6 +505,89 @@ func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
 	return path
 }
 
+type solutionSolvingState struct {
+	solutions         map[float64]referenceframe.FrameSystemInputs
+	failures          map[string]int // A map keeping track of which constraints fail
+	constraintFailCnt int
+	startTime         time.Time
+	firstSolutionTime time.Duration
+}
+
+// return bool is if we should stop because we're done.
+func (mp *planner) process(sss *solutionSolvingState, seed referenceframe.FrameSystemInputs, stepSolution *ik.Solution) bool {
+	step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
+	if err != nil {
+		mp.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
+		return false
+	}
+
+	alteredStep := mp.nonchainMinimize(seed, step)
+	if alteredStep != nil {
+		// if nil, step is guaranteed to fail the below check, but we want to do it anyway to capture the failure reason
+		step = alteredStep
+	}
+	// Ensure the end state is a valid one
+	err = mp.CheckStateFSConstraints(&motionplan.StateFS{
+		Configuration: step,
+		FS:            mp.fs,
+	})
+	if err != nil {
+		sss.constraintFailCnt++
+		sss.failures[err.Error()]++
+		return false
+	}
+
+	stepArc := &motionplan.SegmentFS{
+		StartConfiguration: seed,
+		EndConfiguration:   step,
+		FS:                 mp.fs,
+	}
+	err = mp.CheckSegmentFSConstraints(stepArc)
+	if err != nil {
+		sss.constraintFailCnt++
+		sss.failures[err.Error()]++
+		return false
+	}
+
+	score := mp.configurationDistanceFunc(stepArc)
+
+	if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
+		sss.solutions = map[float64]referenceframe.FrameSystemInputs{}
+		sss.solutions[score] = step
+		// good solution, stopping early
+		return true
+	}
+
+	for _, oldSol := range sss.solutions {
+		similarity := &motionplan.SegmentFS{
+			StartConfiguration: oldSol,
+			EndConfiguration:   step,
+			FS:                 mp.fs,
+		}
+		simscore := mp.configurationDistanceFunc(similarity)
+		if simscore < defaultSimScore {
+			return false
+		}
+	}
+
+	sss.solutions[score] = step
+	if len(sss.solutions) >= mp.planOpts.MaxSolutions {
+		// sufficient solutions found, stopping early
+		return true
+	}
+
+	if len(sss.solutions) == 1 {
+		sss.firstSolutionTime = time.Since(sss.startTime)
+	} else {
+		elapsed := time.Since(sss.startTime)
+		if elapsed > (time.Duration(mp.planOpts.TimeMultipleAfterFindingFirstSolution) * sss.firstSolutionTime) {
+			mp.logger.Infof("ending early because of time elapsed: %v firstSolutionTime: %v", elapsed, sss.firstSolutionTime)
+			return true
+		}
+	}
+	return false
+}
+
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
@@ -512,10 +596,8 @@ func (mp *planner) getSolutions(
 	seed referenceframe.FrameSystemInputs,
 	metric motionplan.StateFSMetric,
 ) ([]node, error) {
-	// Linter doesn't properly handle loop labels
-	nSolutions := mp.planOpts.MaxSolutions
-	if nSolutions == 0 {
-		nSolutions = defaultSolutionsToSeed
+	if mp.planOpts.MaxSolutions == 0 {
+		mp.planOpts.MaxSolutions = defaultSolutionsToSeed
 	}
 	if len(seed) == 0 {
 		seed = referenceframe.FrameSystemInputs{}
@@ -533,10 +615,7 @@ func (mp *planner) getSolutions(
 	defer cancel()
 
 	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*20)
-	ikErr := make(chan error, 1)
-	var activeSolvers sync.WaitGroup
-	defer activeSolvers.Wait()
-	activeSolvers.Add(1)
+
 	defer func() {
 		// In the case that we have an error, we need to explicitly drain the channel before we return
 		for len(solutionGen) > 0 {
@@ -552,139 +631,68 @@ func (mp *planner) getSolutions(
 	minFunc := mp.linearizeFSmetric(metric)
 	// Spawn the IK solver to generate solutions until done
 	approxCartesianDist := math.Sqrt(minFunc(linearSeed))
+
+	var activeSolvers sync.WaitGroup
+	defer activeSolvers.Wait()
+	activeSolvers.Add(1)
+	var solverFinished atomic.Bool
 	utils.PanicCapturingGo(func() {
-		defer close(ikErr)
 		defer activeSolvers.Done()
-		ikErr <- mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, 0, approxCartesianDist, minFunc, mp.randseed.Int())
+		defer solverFinished.Store(true)
+		err := mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, 0, approxCartesianDist, minFunc, mp.randseed.Int())
+		if err != nil {
+			if ctxWithCancel.Err() == nil {
+				mp.logger.Warnf("solver had an error: %v", err)
+			}
+		}
 	})
 
-	solutions := map[float64]referenceframe.FrameSystemInputs{}
+	solvingState := solutionSolvingState{
+		solutions:         map[float64]referenceframe.FrameSystemInputs{},
+		failures:          map[string]int{},
+		startTime:         time.Now(),
+		firstSolutionTime: time.Hour,
+	}
 
-	// A map keeping track of which constraints fail
-	failures := map[string]int{}
-	constraintFailCnt := 0
-
-	startTime := time.Now()
-	firstSolutionTime := time.Hour
-
-	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
-IK:
-	for {
+	for !solverFinished.Load() {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		default:
-		}
 
-		select {
 		case stepSolution := <-solutionGen:
-			step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
-			if err != nil {
-				return nil, err
+			if mp.process(&solvingState, seed, stepSolution) {
+				cancel()
 			}
-			alteredStep := mp.nonchainMinimize(seed, step)
-			if alteredStep != nil {
-				// if nil, step is guaranteed to fail the below check, but we want to do it anyway to capture the failure reason
-				step = alteredStep
-			}
-			// Ensure the end state is a valid one
-			err = mp.CheckStateFSConstraints(&motionplan.StateFS{
-				Configuration: step,
-				FS:            mp.fs,
-			})
-			if err == nil {
-				stepArc := &motionplan.SegmentFS{
-					StartConfiguration: seed,
-					EndConfiguration:   step,
-					FS:                 mp.fs,
-				}
-				err := mp.CheckSegmentFSConstraints(stepArc)
-				if err == nil {
-					score := mp.configurationDistanceFunc(stepArc)
-					if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
-						solutions = map[float64]referenceframe.FrameSystemInputs{}
-						solutions[score] = step
-						// good solution, stopping early
-						break IK
-					}
-					for _, oldSol := range solutions {
-						similarity := &motionplan.SegmentFS{
-							StartConfiguration: oldSol,
-							EndConfiguration:   step,
-							FS:                 mp.fs,
-						}
-						simscore := mp.configurationDistanceFunc(similarity)
-						if simscore < defaultSimScore {
-							continue IK
-						}
-					}
 
-					solutions[score] = step
-					if len(solutions) >= nSolutions {
-						// sufficient solutions found, stopping early
-						break IK
-					}
-
-					if len(solutions) == 1 {
-						firstSolutionTime = time.Since(startTime)
-					} else {
-						elapsed := time.Since(startTime)
-						if elapsed > (time.Duration(mp.planOpts.TimeMultipleAfterFindingFirstSolution) * firstSolutionTime) {
-							mp.logger.Infof("ending early because of time elapsed: %v firstSolutionTime: %v", elapsed, firstSolutionTime)
-							break IK
-						}
-					}
-				} else {
-					constraintFailCnt++
-					failures[err.Error()]++
-				}
-			} else {
-				constraintFailCnt++
-				failures[err.Error()]++
-			}
-			// Skip the return check below until we have nothing left to read from solutionGen
-			continue IK
 		default:
-		}
-
-		select {
-		case <-ikErr:
-			// If we have a return from the IK solver, there are no more solutions, so we finish processing above
-			// until we've drained the channel, handled by the `continue` above
-			break IK
-		default:
+			continue
 		}
 	}
 
 	// Cancel any ongoing processing within the IK solvers if we're done receiving solutions
 	cancel()
-	for done := false; !done; {
-		select {
-		case <-solutionGen:
-		default:
-			done = true
-		}
-	}
 
-	if len(solutions) == 0 {
+	activeSolvers.Wait()
+
+	if len(solvingState.solutions) == 0 {
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions were produced, or if non-zero solutions
 		// were produced, which constraints were failed
-		if constraintFailCnt == 0 {
+		if solvingState.constraintFailCnt == 0 {
 			return nil, errIKSolve
 		}
 
-		return nil, newIKConstraintErr(failures, constraintFailCnt)
+		return nil, newIKConstraintErr(solvingState.failures, solvingState.constraintFailCnt)
 	}
 
-	keys := make([]float64, 0, len(solutions))
-	for k := range solutions {
+	keys := make([]float64, 0, len(solvingState.solutions))
+	for k := range solvingState.solutions {
 		keys = append(keys, k)
 	}
 	slices.Sort(keys)
 
 	orderedSolutions := make([]node, 0)
 	for _, key := range keys {
-		orderedSolutions = append(orderedSolutions, &basicNode{q: solutions[key], cost: key})
+		orderedSolutions = append(orderedSolutions, &basicNode{q: solvingState.solutions[key], cost: key})
 	}
 	return orderedSolutions, nil
 }

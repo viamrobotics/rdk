@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -71,6 +72,15 @@ func realMain() error {
 
 	mylog.Printf("planning took %v", time.Since(start))
 
+	relevantParts := []string{}
+	for c := range plan.Path()[0] {
+		if len(c) == 0 {
+			continue
+		}
+		relevantParts = append(relevantParts, c)
+	}
+	sort.Strings(relevantParts)
+
 	for idx, p := range plan.Path() {
 		mylog.Printf("step %d", idx)
 
@@ -80,7 +90,8 @@ func realMain() error {
 			return fmt.Errorf("p and t are different sizes %d vs %d", len(p), len(t))
 		}
 
-		for c, pp := range p {
+		for _, c := range relevantParts {
+			pp := p[c]
 			if len(t[c]) == 0 {
 				continue
 			}
