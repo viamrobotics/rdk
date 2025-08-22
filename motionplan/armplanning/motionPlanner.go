@@ -513,7 +513,7 @@ type solutionSolvingState struct {
 	firstSolutionTime time.Duration
 }
 
-// return bool is if we should stop because we're done. error will also stop the process.
+// return bool is if we should stop because we're done.
 func (mp *planner) process(sss *solutionSolvingState, seed referenceframe.FrameSystemInputs, stepSolution *ik.Solution) bool {
 	step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
 	if err != nil {

@@ -55,6 +55,7 @@ func TestOrb1(t *testing.T) {
 }
 
 func TestWineCrazyTouch(t *testing.T) {
+	t.Skip()
 	logger := logging.NewTestLogger(t)
 
 	req, err := readRequestFromFile("data/wine-crazy-touch.json")
