@@ -267,7 +267,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			continue
 		}
 
-		resName.Remote = remoteName.Remote
+		resName.Remote = remoteName.Name
 
 		gNode, nodeAlreadyExists := manager.resources.Node(resName)
 		if nodeAlreadyExists && gNode.GetPrefix() != prefix {
