@@ -31,6 +31,15 @@ const (
 	// that modules are allowed to startup.
 	ModuleStartupTimeoutEnvVar = "VIAM_MODULE_STARTUP_TIMEOUT"
 
+	// DefaultConfigReadTimeout is the default config read timeout. If there
+	// is a cached config on the machine, a shorter default timeout will be used.
+	DefaultConfigReadTimeout = 15 * time.Second
+
+	// ConfigReadTimeoutEnvVar is the environment variable that can
+	// be set to override DefaultConfigReadTimeout as the duration
+	// for config read.
+	ConfigReadTimeoutEnvVar = "VIAM_CONFIG_READ_TIMEOUT"
+
 	// AndroidFilesDir is hardcoded because golang inits before our android code can override HOME var.
 	AndroidFilesDir = "/data/user/0/com.viam.rdk.fgservice/cache"
 
@@ -83,26 +92,34 @@ var windowsPathRegex = regexp.MustCompile(`^(\w:)?(.+)$`)
 // timeout (env variable value if set, DefaultResourceConfigurationTimeout
 // otherwise).
 func GetResourceConfigurationTimeout(logger logging.Logger) time.Duration {
-	return timeoutHelper(DefaultResourceConfigurationTimeout, ResourceConfigurationTimeoutEnvVar, logger)
+	timeout, _ := timeoutHelper(DefaultResourceConfigurationTimeout, ResourceConfigurationTimeoutEnvVar, logger)
+	return timeout
 }
 
 // GetModuleStartupTimeout calculates the module startup timeout
 // (env variable value if set, DefaultModuleStartupTimeout otherwise).
 func GetModuleStartupTimeout(logger logging.Logger) time.Duration {
-	return timeoutHelper(DefaultModuleStartupTimeout, ModuleStartupTimeoutEnvVar, logger)
+	timeout, _ := timeoutHelper(DefaultModuleStartupTimeout, ModuleStartupTimeoutEnvVar, logger)
+	return timeout
 }
 
-func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger logging.Logger) time.Duration {
+// GetConfigReadTimeout returns the config read timeout set by the env variable value,
+// DefaultConfigReadTimeout otherwise.
+func GetConfigReadTimeout(logger logging.Logger) (time.Duration, bool) {
+	return timeoutHelper(DefaultConfigReadTimeout, ConfigReadTimeoutEnvVar, logger)
+}
+
+func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger logging.Logger) (time.Duration, bool) {
 	if timeoutVal := os.Getenv(timeoutEnvVar); timeoutVal != "" {
 		timeout, err := time.ParseDuration(timeoutVal)
 		if err != nil {
 			logger.Warnf("Failed to parse %s env var, falling back to default %v timeout",
 				timeoutEnvVar, defaultTimeout)
-			return defaultTimeout
+			return defaultTimeout, true
 		}
-		return timeout
+		return timeout, false
 	}
-	return defaultTimeout
+	return defaultTimeout, true
 }
 
 // PlatformHomeDir wraps Getenv("HOME"), except on android, where it returns the app cache directory.
