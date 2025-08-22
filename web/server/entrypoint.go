@@ -77,6 +77,9 @@ func logViamEnvVariables(logger logging.Logger) {
 	if value, exists := os.LookupEnv("VIAM_MODULE_STARTUP_TIMEOUT"); exists {
 		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_STARTUP_TIMEOUT", value)
 	}
+	if value, exists := os.LookupEnv("VIAM_CONFIG_READ_TIMEOUT"); exists {
+		viamEnvVariables = append(viamEnvVariables, "VIAM_CONFIG_READ_TIMEOUT", value)
+	}
 	if value, exists := os.LookupEnv("CWD"); exists {
 		viamEnvVariables = append(viamEnvVariables, "CWD", value)
 	}
