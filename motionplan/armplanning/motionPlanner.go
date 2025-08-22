@@ -551,7 +551,7 @@ func (mp *planner) process(sss *solutionSolvingState, seed referenceframe.FrameS
 
 	score := mp.configurationDistanceFunc(stepArc)
 
-	if (score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0) {
+	if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 		sss.solutions = map[float64]referenceframe.FrameSystemInputs{}
 		sss.solutions[score] = step
 		// good solution, stopping early

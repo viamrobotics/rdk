@@ -53,3 +53,20 @@ func TestOrb1(t *testing.T) {
 		})
 	}
 }
+
+func TestWineCrazyTouch(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	req, err := readRequestFromFile("data/wine-crazy-touch.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	plan, err := PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
+
+	orig := plan.Trajectory()[0]["arm-right"]
+	for _, tt := range plan.Trajectory() {
+		now := tt["arm-right"]
+		logger.Info(now)
+		test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
+	}
+}
