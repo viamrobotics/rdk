@@ -61,28 +61,47 @@ type Robot struct {
 
 // MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
 func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
-	func() {
-		r.Mu.Lock()
-		defer r.Mu.Unlock()
-		r.ResourceNamesFunc = func() []resource.Name {
-			result := []resource.Name{}
-			for name := range rs {
-				result = append(result, name)
-			}
-			return result
+	r.Mu.Lock()
+	defer r.Mu.Unlock()
+	r.ResourceNamesFunc = func() []resource.Name {
+		result := []resource.Name{}
+		for name := range rs {
+			result = append(result, name)
 		}
-	}()
-	func() {
-		r.Mu.Lock()
-		defer r.Mu.Unlock()
-		r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
-			result, ok := rs[name]
-			if ok {
-				return result, nil
-			}
-			return nil, errors.New("not found")
+		return result
+	}
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		result, ok := rs[name]
+		if ok {
+			return result, nil
 		}
-	}()
+		return nil, errors.New("not found")
+	}
+	r.ResourceBySimpleNameAndAPIFunc = func(name string, api resource.API) (resource.Resource, error) {
+		var remoteNames []resource.Name
+		var remoteResults []resource.Resource
+		for resName, res := range rs {
+			if resName.Name == name && resName.API == api {
+				if resName.Remote == "" {
+					return res, nil
+				} else {
+					remoteResults = append(remoteResults, res)
+					remoteNames = append(remoteNames, resName)
+				}
+			}
+		}
+		switch len(remoteResults) {
+		case 1:
+			return remoteResults[0], nil
+		case 0:
+			return nil, &resource.MultipleMatchingRemoteNodesError{
+				Name:  name,
+				API:   api,
+				Names: remoteNames,
+			}
+		}
+		return nil, resource.NewNotFoundError(resource.NewName(api, name))
+	}
 }
 
 // RemoteByName calls the injected RemoteByName or the real version.
