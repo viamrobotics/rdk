@@ -84,10 +84,9 @@ func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
 			if resName.Name == name && resName.API == api {
 				if resName.Remote == "" {
 					return res, nil
-				} else {
-					remoteResults = append(remoteResults, res)
-					remoteNames = append(remoteNames, resName)
 				}
+				remoteResults = append(remoteResults, res)
+				remoteNames = append(remoteNames, resName)
 			}
 		}
 		switch len(remoteResults) {
