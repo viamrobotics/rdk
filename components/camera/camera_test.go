@@ -258,14 +258,6 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, cam2.Close(context.Background()), test.ShouldBeNil)
 }
 
-// verifyImageEquality compares two images and verifies they are identical.
-func verifyImageEquality(t *testing.T, img1, img2 image.Image) {
-	t.Helper()
-	diff, _, err := rimage.CompareImages(img1, img2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, diff, test.ShouldEqual, 0)
-}
-
 // verifyDecodedImage verifies that decoded image bytes match the original image.
 func verifyDecodedImage(t *testing.T, imgBytes []byte, mimeType string, originalImg image.Image) {
 	t.Helper()
@@ -283,7 +275,7 @@ func verifyDecodedImage(t *testing.T, imgBytes []byte, mimeType string, original
 	// For other formats, compare the decoded images
 	decodedImg, err := rimage.DecodeImage(context.Background(), imgBytes, mimeType)
 	test.That(t, err, test.ShouldBeNil)
-	verifyImageEquality(t, decodedImg, originalImg)
+	test.That(t, rimage.ImagesExactlyEqual(decodedImg, originalImg), test.ShouldBeTrue)
 }
 
 func TestGetImageFromGetImages(t *testing.T) {
@@ -409,7 +401,7 @@ func TestGetImagesFromGetImage(t *testing.T) {
 		test.That(t, images[0].SourceName, test.ShouldEqual, "")
 		img, err := images[0].Image(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		verifyImageEquality(t, img, testImg)
+		test.That(t, rimage.ImagesExactlyEqual(img, testImg), test.ShouldBeTrue)
 		test.That(t, metadata.CapturedAt.IsZero(), test.ShouldBeFalse)
 		test.That(t, metadata.CapturedAt.After(startTime), test.ShouldBeTrue)
 		test.That(t, metadata.CapturedAt.Before(endTime), test.ShouldBeTrue)
@@ -453,7 +445,7 @@ func TestGetImagesFromGetImage(t *testing.T) {
 		test.That(t, metadata.CapturedAt.Before(endTime), test.ShouldBeTrue)
 		img, err := images[0].Image(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		verifyImageEquality(t, img, rgbaImg) // we should ignore the requested mime type and get back an RGBA image
+		test.That(t, rimage.ImagesExactlyEqual(img, rgbaImg), test.ShouldBeTrue)
 	})
 
 	t.Run("error case", func(t *testing.T) {
@@ -503,7 +495,7 @@ func TestImages(t *testing.T) {
 			test.That(t, len(images), test.ShouldEqual, 1)
 			img, err := images[0].Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			verifyImageEquality(t, img, respImg)
+			test.That(t, rimage.ImagesExactlyEqual(img, respImg), test.ShouldBeTrue)
 			test.That(t, images[0].SourceName, test.ShouldEqual, source1Name)
 		})
 
@@ -592,7 +584,7 @@ func TestImages(t *testing.T) {
 			test.That(t, imgs[0].MimeType(), test.ShouldEqual, rutils.MimeTypeRawDepth)
 			img, err := imgs[0].Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			verifyImageEquality(t, img, img2)
+			test.That(t, rimage.ImagesExactlyEqual(img, img2), test.ShouldBeTrue)
 		})
 
 		t.Run("multiple valid sources", func(t *testing.T) {
@@ -609,12 +601,12 @@ func TestImages(t *testing.T) {
 			test.That(t, imgs[0].MimeType(), test.ShouldEqual, rutils.MimeTypeJPEG)
 			img, err := imgs[0].Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			verifyImageEquality(t, img, img3)
+			test.That(t, rimage.ImagesExactlyEqual(img, img3), test.ShouldBeTrue)
 
 			test.That(t, imgs[1].MimeType(), test.ShouldEqual, rutils.MimeTypePNG)
 			img, err = imgs[1].Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			verifyImageEquality(t, img, img1)
+			test.That(t, rimage.ImagesExactlyEqual(img, img1), test.ShouldBeTrue)
 		})
 
 		t.Run("single invalid source", func(t *testing.T) {
@@ -641,7 +633,7 @@ func TestNamedImage(t *testing.T) {
 	badBytes := []byte("trust bro i'm an image ong")
 	sourceName := "test_source"
 
-	t.Run("NamedImageFromBytes", func(t *testing.T) { 
+	t.Run("NamedImageFromBytes", func(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
 			ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG)
 			test.That(t, err, test.ShouldBeNil)
@@ -658,7 +650,7 @@ func TestNamedImage(t *testing.T) {
 		})
 	})
 
-	t.Run("NamedImageFromImage", func(t *testing.T) { 
+	t.Run("NamedImageFromImage", func(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
 			ni, err := camera.NamedImageFromImage(testImg, sourceName, rutils.MimeTypePNG)
 			test.That(t, err, test.ShouldBeNil)
@@ -666,7 +658,7 @@ func TestNamedImage(t *testing.T) {
 			test.That(t, ni.MimeType(), test.ShouldEqual, rutils.MimeTypePNG)
 			img, err := ni.Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			verifyImageEquality(t, img, testImg)
+			test.That(t, rimage.ImagesExactlyEqual(img, testImg), test.ShouldBeTrue)
 		})
 		t.Run("error on nil image", func(t *testing.T) {
 			_, err := camera.NamedImageFromImage(nil, sourceName, rutils.MimeTypePNG)
@@ -684,7 +676,7 @@ func TestNamedImage(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			img, err := ni.Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			verifyImageEquality(t, img, testImg)
+			test.That(t, rimage.ImagesExactlyEqual(img, testImg), test.ShouldBeTrue)
 
 			// should return the same image instance
 			img2, err := ni.Image(ctx)
@@ -699,12 +691,12 @@ func TestNamedImage(t *testing.T) {
 			// first call should decode
 			img, err := ni.Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			verifyImageEquality(t, img, testImg)
+			test.That(t, rimage.ImagesExactlyEqual(img, testImg), test.ShouldBeTrue)
 
 			// second call should return cached image
 			img2, err := ni.Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			verifyImageEquality(t, img2, testImg)
+			test.That(t, rimage.ImagesExactlyEqual(img2, testImg), test.ShouldBeTrue)
 			test.That(t, reflect.ValueOf(img).Pointer(), test.ShouldEqual, reflect.ValueOf(img2).Pointer())
 		})
 

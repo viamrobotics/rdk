@@ -76,6 +76,10 @@ func TestClient(t *testing.T) {
 	}
 	projA = intrinsics
 
+	// expected source images for reuse across subtests
+	expectedColor := rimage.NewImage(40, 50)
+	expectedDepth := rimage.NewEmptyDepthMap(10, 20)
+
 	// color camera
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
@@ -96,15 +100,13 @@ func TestClient(t *testing.T) {
 	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		images := []camera.NamedImage{}
 		// one color image
-		color := rimage.NewImage(40, 50)
-		namedImgColor, err := camera.NamedImageFromImage(color, "color", rutils.MimeTypeRawRGBA)
+		namedImgColor, err := camera.NamedImageFromImage(expectedColor, "color", rutils.MimeTypeRawRGBA)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
 		images = append(images, namedImgColor)
 		// one depth image
-		depth := rimage.NewEmptyDepthMap(10, 20)
-		namedImgDepth, err := camera.NamedImageFromImage(depth, "depth", rutils.MimeTypeRawDepth)
+		namedImgDepth, err := camera.NamedImageFromImage(expectedDepth, "depth", rutils.MimeTypeRawDepth)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
@@ -409,13 +411,11 @@ func TestClient(t *testing.T) {
 			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-			color := rimage.NewImage(40, 50)
-			namedImgColor, err := camera.NamedImageFromImage(color, "color", rutils.MimeTypeRawRGBA)
+			namedImgColor, err := camera.NamedImageFromImage(expectedColor, "color", rutils.MimeTypeRawRGBA)
 			if err != nil {
 				return nil, resource.ResponseMetadata{}, err
 			}
-			depth := rimage.NewEmptyDepthMap(10, 20)
-			namedImgDepth, err := camera.NamedImageFromImage(depth, "depth", rutils.MimeTypeRawDepth)
+			namedImgDepth, err := camera.NamedImageFromImage(expectedDepth, "depth", rutils.MimeTypeRawDepth)
 			if err != nil {
 				return nil, resource.ResponseMetadata{}, err
 			}
@@ -450,11 +450,13 @@ func TestClient(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, colorImg.Bounds().Dx(), test.ShouldEqual, 40)
 			test.That(t, colorImg.Bounds().Dy(), test.ShouldEqual, 50)
+			test.That(t, rimage.ImagesExactlyEqual(colorImg, expectedColor), test.ShouldBeTrue)
 
 			depthImg, err := images[1].Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 10)
 			test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 20)
+			test.That(t, rimage.ImagesExactlyEqual(depthImg, expectedDepth), test.ShouldBeTrue)
 		})
 
 		t.Run("empty and nil filters", func(t *testing.T) {
@@ -466,10 +468,12 @@ func TestClient(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, colorImg.Bounds().Dx(), test.ShouldEqual, 40)
 			test.That(t, colorImg.Bounds().Dy(), test.ShouldEqual, 50)
+			test.That(t, rimage.ImagesExactlyEqual(colorImg, expectedColor), test.ShouldBeTrue)
 			depthImg, err := images[1].Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 10)
 			test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 20)
+			test.That(t, rimage.ImagesExactlyEqual(depthImg, expectedDepth), test.ShouldBeTrue)
 
 			// Test nil filter
 			images, _, err = camClient.Images(ctx, nil, nil)
@@ -479,10 +483,12 @@ func TestClient(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, colorImg.Bounds().Dx(), test.ShouldEqual, 40)
 			test.That(t, colorImg.Bounds().Dy(), test.ShouldEqual, 50)
+			test.That(t, rimage.ImagesExactlyEqual(colorImg, expectedColor), test.ShouldBeTrue)
 			depthImg, err = images[1].Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 10)
 			test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 20)
+			test.That(t, rimage.ImagesExactlyEqual(depthImg, expectedDepth), test.ShouldBeTrue)
 		})
 	})
 }
@@ -661,9 +667,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
 
 	test.That(t, frameLazy.MIMEType(), test.ShouldEqual, rutils.MimeTypePNG)
-	compVal, _, err := rimage.CompareImages(img, frame)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+	test.That(t, rimage.ImagesExactlyEqual(frame, img), test.ShouldBeTrue)
 
 	// when DecodeImageFromCamera is called without a mime type, defaults to JPEG
 	var called bool
@@ -679,9 +683,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
 	frameLazy = frame.(*rimage.LazyEncodedImage)
 	test.That(t, frameLazy.MIMEType(), test.ShouldEqual, rutils.MimeTypeJPEG)
-	compVal, _, err = rimage.CompareImages(imgJpeg, frame)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+	test.That(t, rimage.ImagesExactlyEqual(frame, imgJpeg), test.ShouldBeTrue)
 	test.That(t, called, test.ShouldBeTrue)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
