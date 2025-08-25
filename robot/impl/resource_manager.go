@@ -167,7 +167,7 @@ func (manager *resourceManager) addRemote(
 	} else {
 		gNode.SwapResource(rr, builtinModel, manager.opts.ftdc)
 	}
-	manager.updateRemoteResourceNames(ctx, rName, rr, true)
+	manager.updateRemoteResourceNames(ctx, rName, rr, c.Prefix, true)
 }
 
 func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []resource.Name {
@@ -185,8 +185,13 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 }
 
 var (
+	// unknownModel is the model we use internally to represent a remote resource. We
+	// neither know nor need to know the API or model of a remote resource in order to
+	// interact with it. We also use the unknown model for testing.
 	unknownModel = resource.DefaultModelFamily.WithModel("unknown")
-	builtinModel = resource.DefaultModelFamily.WithModel("builtin")
+	// builtinModel is the model we use internally to represent "builtin" resources (e.g.
+	// the default motion service).
+	builtinModel = resource.DefaultModelFamily.WithModel(resource.DefaultServiceName)
 )
 
 // maybe in the future this can become an actual resource with its own type
@@ -207,6 +212,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	ctx context.Context,
 	remoteName resource.Name,
 	rr internalRemoteRobot,
+	prefix string,
 	recreateAllClients bool,
 ) bool {
 	logger := manager.logger.WithFields("remote", remoteName)
@@ -242,6 +248,11 @@ func (manager *resourceManager) updateRemoteResourceNames(
 	anythingChanged := false
 
 	for _, resName := range newResources {
+		// Do not store any default remote resources in our resource graph.
+		if resName.Name == resource.DefaultServiceName {
+			continue
+		}
+
 		remoteResName := resName
 		resLogger := logger.WithFields("resource", remoteResName)
 		res, err := rr.ResourceByName(remoteResName) // this returns a remote known OR foreign resource client
@@ -255,8 +266,22 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			}
 			continue
 		}
-		resName = resName.PrependRemote(remoteName.Name)
+
+		resName.Remote = remoteName.Name
+
 		gNode, nodeAlreadyExists := manager.resources.Node(resName)
+		if nodeAlreadyExists && gNode.GetPrefix() != prefix {
+			manager.resources.UpdateNodePrefix(resName, prefix)
+		}
+
+		if _, err := manager.resources.FindBySimpleNameAndAPI(resName.Name, resName.API); err != nil {
+			if !resource.IsNotFoundError(err) {
+				manager.logger.Warnw("unexpected error while checking for resource name collision", "err", err)
+			}
+		} else {
+			manager.logger.Warnw("found resource name collision, please check your configuration", "name", resName.Name, "api", resName.API)
+		}
+
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
 			if nodeAlreadyExists && !gNode.IsUninitialized() {
@@ -286,7 +311,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		if nodeAlreadyExists {
 			gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
 		} else {
-			gNode = resource.NewConfiguredGraphNode(resource.Config{}, res, unknownModel)
+			gNode = resource.NewConfiguredGraphNodeWithPrefix(resource.Config{}, res, unknownModel, prefix)
 			if err := manager.resources.AddNode(resName, gNode); err != nil {
 				resLogger.CErrorw(ctx, "failed to add remote resource node", "error", err)
 			}
@@ -343,7 +368,14 @@ func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context) 
 			if err == nil {
 				if rr, ok := res.(internalRemoteRobot); ok {
 					// updateRemoteResourceNames must be first, otherwise there's a chance it will not be evaluated
-					anythingChanged = manager.updateRemoteResourceNames(ctx, name, rr, false) || anythingChanged
+					remoteConfig := gNode.Config().ConvertedAttributes.(*config.Remote)
+					anythingChanged = manager.updateRemoteResourceNames(
+						ctx,
+						name,
+						rr,
+						remoteConfig.Prefix,
+						false,
+					) || anythingChanged
 				}
 			}
 		}
@@ -1128,10 +1160,45 @@ func (manager *resourceManager) processResource(
 	return newRes, true, nil
 }
 
-// markResourceForUpdate marks the given resource in the graph to be updated. If it does not exist, a new node
-// is inserted. If it does exist, it's properly marked. Once this is done, all information needed to build/reconfigure
-// will be available when we call completeConfig.
-func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf resource.Config, deps []string, revision string) error {
+// addToBeConstructedResource adds a new, unconfigured graph node for a resource to the
+// resource graph. If a resource with the given name already exists in the resource graph,
+// the pre-existing resource is marked for removal, no new graph node is created, and an
+// error is returned.
+func (manager *resourceManager) addToBeConstructedResource(
+	name resource.Name,
+	conf resource.Config,
+	deps []string,
+	revision string,
+) error {
+	// TODO(Benji/Josh): Log a collision error if there is already a remote resource with
+	// the same simple (prefixed) name and API. We should still add the passed-in local
+	// resource in that case, as we want to prefer local to remote resources. The logic
+	// below will only return an error if there's a _local_ resource with the same simple
+	// name and API.
+
+	if _, hasNode := manager.resources.Node(name); hasNode {
+		manager.markResourcesRemoved([]resource.Name{name}, nil, true /* remove dependents */)
+		return fmt.Errorf("cannot add duplicate resource %s. Rename the resource. Neither resource will be reachable through"+
+			"this machine until collision is fixed", name)
+	}
+
+	gNode := resource.NewUnconfiguredGraphNode(conf, deps)
+	gNode.UpdatePendingRevision(revision)
+	if err := manager.resources.AddNode(name, gNode); err != nil {
+		return fmt.Errorf("failed to add new node for unconfigured resource %q: %w", name, err)
+	}
+	return nil
+}
+
+// markResourceForUpdate marks the given resource in the graph to be updated. If it does
+// not exist, an error is returned. Once this is done, all information needed to
+// reconfigure will be available when we call completeConfig.
+func (manager *resourceManager) markResourceForUpdate(
+	name resource.Name,
+	conf resource.Config,
+	deps []string,
+	revision string,
+) error {
 	gNode, hasNode := manager.resources.Node(name)
 	if hasNode {
 		gNode.SetNewConfig(conf, deps)
@@ -1142,12 +1209,7 @@ func (manager *resourceManager) markResourceForUpdate(name resource.Name, conf r
 		}
 		return nil
 	}
-	gNode = resource.NewUnconfiguredGraphNode(conf, deps)
-	gNode.UpdatePendingRevision(revision)
-	if err := manager.resources.AddNode(name, gNode); err != nil {
-		return fmt.Errorf("failed to add new node for unconfigured resource %q: %w", name, err)
-	}
-	return nil
+	return fmt.Errorf("cannot mark resource for update as it is not yet in resource graph %q", name)
 }
 
 // updateRevision updates the current revision of a node.
@@ -1204,18 +1266,18 @@ func (manager *resourceManager) updateResources(
 			allErrs = multierr.Combine(allErrs, errShellServiceDisabled)
 			continue
 		}
-		markErr := manager.markResourceForUpdate(rName, s, s.Dependencies(), revision)
+		markErr := manager.addToBeConstructedResource(rName, s, s.Dependencies(), revision)
 		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, c := range conf.Added.Components {
 		rName := c.ResourceName()
-		markErr := manager.markResourceForUpdate(rName, c, c.Dependencies(), revision)
+		markErr := manager.addToBeConstructedResource(rName, c, c.Dependencies(), revision)
 		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, r := range conf.Added.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
 		rCopy := r
-		markErr := manager.markResourceForUpdate(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}, revision)
+		markErr := manager.addToBeConstructedResource(rName, resource.Config{ConvertedAttributes: &rCopy}, []string{}, revision)
 		allErrs = multierr.Combine(allErrs, markErr)
 	}
 	for _, c := range conf.Modified.Components {

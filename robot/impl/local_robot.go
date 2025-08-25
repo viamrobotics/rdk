@@ -117,6 +117,14 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.manager.RemoteByName(name)
 }
 
+func (r *localRobot) ResourceBySimpleNameAndAPI(name string, api resource.API) (resource.Resource, error) {
+	n, err := r.manager.resources.FindBySimpleNameAndAPI(name, api)
+	if err != nil {
+		return nil, err
+	}
+	return n.Resource()
+}
+
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {

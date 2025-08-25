@@ -10,15 +10,9 @@ import (
 	"time"
 
 	"github.com/goccy/go-graphviz"
-
-	"go.viam.com/rdk/robot"
 )
 
 func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *http.Request) {
-	localRobot, isLocal := svc.r.(robot.LocalRobot)
-	if !isLocal {
-		return
-	}
 	const lookupParam = "history"
 	redirectToLatestSnapshot := func() {
 		url := *r.URL
@@ -48,7 +42,7 @@ func (svc *webService) handleVisualizeResourceGraph(w http.ResponseWriter, r *ht
 		}
 	}
 
-	snapshot, err := localRobot.ExportResourcesAsDot(lookup)
+	snapshot, err := svc.r.ExportResourcesAsDot(lookup)
 	if snapshot.Count == 0 {
 		return
 	}

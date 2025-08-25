@@ -41,7 +41,7 @@ var echoAPI = resource.APINamespaceRDK.WithComponentType("echo")
 
 func init() {
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} {
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} {
 			return &echoServer{coll: apiResColl}
 		},
 		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
@@ -997,7 +997,7 @@ func (e *dummyEcho) IsMoving(context.Context) (bool, error) {
 
 type echoServer struct {
 	echopb.UnimplementedTestEchoServiceServer
-	coll resource.APIResourceCollection[resource.Resource]
+	coll resource.APIResourceGetter[resource.Resource]
 }
 
 func (srv *echoServer) EchoMultiple(

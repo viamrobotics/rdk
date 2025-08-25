@@ -59,11 +59,11 @@ type Gizmo interface {
 // serviceServer implements the Gizmo RPC service from gripper.proto.
 type serviceServer struct {
 	pb.UnimplementedGizmoServiceServer
-	coll resource.APIResourceCollection[Gizmo]
+	coll resource.APIResourceGetter[Gizmo]
 }
 
 // NewRPCServiceServer returns a new RPC server for the gizmo API.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Gizmo]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Gizmo]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

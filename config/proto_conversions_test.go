@@ -85,6 +85,7 @@ var testRemote = Remote{
 		},
 	},
 	ManagedBy:               "managed-by",
+	Prefix:                  "some-prefix",
 	Insecure:                true,
 	ConnectionCheckInterval: 1000000000,
 	ReconnectInterval:       2000000000,
@@ -563,6 +564,7 @@ func validateRemote(t *testing.T, actual, expected Remote) {
 	test.That(t, actual.ReconnectInterval, test.ShouldEqual, expected.ReconnectInterval)
 	test.That(t, actual.ConnectionCheckInterval, test.ShouldEqual, expected.ConnectionCheckInterval)
 	test.That(t, actual.Auth, test.ShouldResemble, expected.Auth)
+	test.That(t, actual.Prefix, test.ShouldEqual, expected.Prefix)
 	f1, err := actual.Frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	f2, err := testComponent.Frame.ParseConfig()
