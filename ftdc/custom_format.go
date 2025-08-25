@@ -392,7 +392,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 			}
 
 			if schema == nil {
-				return nil, errors.New("Could not read first byte")
+				return nil, errors.New("could not read first byte")
 			}
 		}
 
@@ -428,7 +428,8 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 		// that.
 		diffedFieldsIndexes, err := readDiffBits(reader, schema)
 		if err != nil {
-			logger.Debugw("Eearly EOF. Returning.")
+			logger.Debugw("Early EOF. Returning.")
+			//nolint:nilerr
 			return ret, nil
 		}
 		logger.Debugw("Diff bits",

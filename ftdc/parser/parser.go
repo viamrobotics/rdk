@@ -756,10 +756,13 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, erro
 
 	// if path is not a directory, we can just open the file and get its datums.
 	if !info.IsDir() {
+		//nolint:gosec
 		ftdcFile, err := os.Open(ftdcPath)
 		if err != nil {
 			return nil, err
 		}
+		//nolint:errcheck
+		defer ftdcFile.Close()
 		return ftdc.ParseWithLogger(ftdcFile, logger)
 	}
 	// if path is a directory, we will walk it and get all of the ftdc datums
@@ -777,15 +780,15 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, erro
 			return walkErr
 		}
 
-		// need file.Close?
+		//nolint:gosec
 		ftdcReader, err := os.Open(path)
-
 		if err != nil {
 			return err
 		}
+		//nolint:errcheck
+		defer ftdcReader.Close()
 
 		ftdcData, err := ftdc.ParseWithLogger(ftdcReader, logger)
-
 		if err != nil {
 			logger.Warnw("Error getting ftdc data from file", "path", path, "err", err)
 			return nil
@@ -795,7 +798,6 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, erro
 
 		return nil
 	}))
-
 	if err != nil {
 		return nil, err
 	}
