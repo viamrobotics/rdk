@@ -186,9 +186,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	var appConn rpc.ClientConn
 
-	// Read the config from disk and use it to initialize the remote logger. config.ReadLocalConfig does
-	// not use the context in a meaningful way, so additional timeouts are not needed.
-	cfgFromDisk, err := config.ReadLocalConfig(ctx, argsParsed.ConfigFile, logger.Sublogger("config"))
+	// Read the config from disk and use it to initialize the remote logger.
+	cfgFromDisk, err := config.ReadLocalConfig(argsParsed.ConfigFile, logger.Sublogger("config"))
 	if err != nil {
 		return err
 	}
@@ -259,7 +258,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 // runServer is an entry point to starting the web server after the local config is read. Once the local config
 // is read the logger may be initialized to remote log. This ensure we capture errors starting up the server and report to the cloud.
 func (s *robotServer) runServer(ctx context.Context) error {
-	s.logger.CInfo(ctx, "Getting updated cloud config...")
+	if s.conn != nil {
+		s.logger.CInfo(ctx, "Getting up-to-date config from cloud...")
+	}
 	// config.Read will add a timeout using contextutils.GetTimeoutCtx, so no need to add a separate timeout.
 	cfg, err := config.Read(ctx, s.args.ConfigFile, s.logger, s.conn)
 	if err != nil {
