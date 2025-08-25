@@ -63,6 +63,14 @@ func CompareImages(img1, img2 image.Image) (int, image.Image, error) {
 	return int(math.Sqrt(float64(accumError))), resultImg, nil
 }
 
+// ImagesExactlyEqual returns true if the two images are exactly equal pixel-for-pixel.
+// It uses CompareImages under the hood and treats any non-zero difference or error
+// (including different bounds) as not equal.
+func ImagesExactlyEqual(img1, img2 image.Image) bool {
+	diff, _, err := CompareImages(img1, img2)
+	return err == nil && diff == 0
+}
+
 func sqDiffUInt32(x, y uint32) uint64 {
 	d := uint64(x) - uint64(y)
 	return d * d

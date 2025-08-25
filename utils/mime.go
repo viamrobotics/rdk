@@ -7,6 +7,10 @@ import (
 	camerapb "go.viam.com/api/component/camera/v1"
 )
 
+// Make sure that all mime types are registered in rimage/image_file.go with the appropriate
+// format registration name i.e. "vnd.viam.rgba" are trailing substrings of its corresponding
+// MIME type e.g. "image/vnd.viam.rgba" in mime.go. This is crucial to make sure
+// that our mime type handling is 1:1 with the registered formats.
 const (
 	// MimeTypeSuffixLazy is used to indicate a lazy loading of data.
 	MimeTypeSuffixLazy = "lazy"

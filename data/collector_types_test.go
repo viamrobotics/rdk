@@ -352,6 +352,14 @@ func TestCameraFormatToMimeType(t *testing.T) {
 	test.That(t, CameraFormatToMimeType(cameraPB.Format_FORMAT_UNSPECIFIED), test.ShouldEqual, MimeTypeUnspecified)
 }
 
+func TestMimeTypeStringToMimeType(t *testing.T) {
+	test.That(t, MimeTypeStringToMimeType(rutils.MimeTypeJPEG), test.ShouldEqual, MimeTypeImageJpeg)
+	test.That(t, MimeTypeStringToMimeType(rutils.MimeTypePNG), test.ShouldEqual, MimeTypeImagePng)
+	test.That(t, MimeTypeStringToMimeType(rutils.MimeTypeRawRGBA), test.ShouldEqual, MimeTypeUnspecified)
+	test.That(t, MimeTypeStringToMimeType(rutils.MimeTypeRawDepth), test.ShouldEqual, MimeTypeUnspecified)
+	test.That(t, MimeTypeStringToMimeType(""), test.ShouldEqual, MimeTypeUnspecified)
+}
+
 func TestAnnotationsToProto(t *testing.T) {
 	conf := 0.2
 
