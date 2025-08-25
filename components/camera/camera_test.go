@@ -324,20 +324,6 @@ func TestGetImageFromGetImages(t *testing.T) {
 		return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 	}
 
-	t.Run("PNG mime type", func(t *testing.T) {
-		imgBytes, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rgbaCam, nil, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypeRawRGBA)
-		verifyDecodedImage(t, imgBytes, rutils.MimeTypePNG, testImg1)
-	})
-
-	t.Run("JPEG mime type", func(t *testing.T) {
-		imgBytes, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rgbaCam, nil, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, metadata.MimeType, test.ShouldEqual, rutils.MimeTypeRawRGBA)
-		verifyDecodedImage(t, imgBytes, rutils.MimeTypeRawRGBA, testImg1)
-	})
-
 	t.Run("request empty mime type", func(t *testing.T) {
 		img, metadata, err := camera.GetImageFromGetImages(context.Background(), nil, rgbaCam, nil, nil)
 		// empty mime type defaults to JPEG
@@ -489,6 +475,7 @@ func TestGetImagesFromGetImage(t *testing.T) {
 	})
 }
 
+// TestImages asserts the core expected behavior of the Images API.
 func TestImages(t *testing.T) {
 	ctx := context.Background()
 	t.Run("extra param", func(t *testing.T) {
@@ -567,7 +554,7 @@ func TestImages(t *testing.T) {
 			return result, resource.ResponseMetadata{}, nil
 		}
 
-		t.Run("no filter returns all sources", func(t *testing.T) {
+		t.Run("nil filter returns all sources", func(t *testing.T) {
 			imgs, _, err := cam.Images(ctx, nil, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(imgs), test.ShouldEqual, 3)
@@ -576,10 +563,10 @@ func TestImages(t *testing.T) {
 			for _, img := range imgs {
 				returnedSources[img.SourceName] = true
 			}
+			test.That(t, len(returnedSources), test.ShouldEqual, 3)
 			test.That(t, returnedSources[source1Name], test.ShouldBeTrue)
 			test.That(t, returnedSources[source2Name], test.ShouldBeTrue)
 			test.That(t, returnedSources[source3Name], test.ShouldBeTrue)
-			test.That(t, len(returnedSources), test.ShouldEqual, 3)
 		})
 
 		t.Run("empty filter returns all sources", func(t *testing.T) {
@@ -591,10 +578,10 @@ func TestImages(t *testing.T) {
 			for _, img := range imgs {
 				returnedSources[img.SourceName] = true
 			}
+			test.That(t, len(returnedSources), test.ShouldEqual, 3)
 			test.That(t, returnedSources[source1Name], test.ShouldBeTrue)
 			test.That(t, returnedSources[source2Name], test.ShouldBeTrue)
 			test.That(t, returnedSources[source3Name], test.ShouldBeTrue)
-			test.That(t, len(returnedSources), test.ShouldEqual, 3)
 		})
 
 		t.Run("single valid source", func(t *testing.T) {
@@ -654,7 +641,7 @@ func TestNamedImage(t *testing.T) {
 	badBytes := []byte("trust bro i'm an image ong")
 	sourceName := "test_source"
 
-	t.Run("NamedImageFromBytes", func(t *testing.T) { //nolint:dupl
+	t.Run("NamedImageFromBytes", func(t *testing.T) { 
 		t.Run("success", func(t *testing.T) {
 			ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG)
 			test.That(t, err, test.ShouldBeNil)
@@ -671,12 +658,15 @@ func TestNamedImage(t *testing.T) {
 		})
 	})
 
-	t.Run("NamedImageFromImage", func(t *testing.T) { //nolint:dupl
+	t.Run("NamedImageFromImage", func(t *testing.T) { 
 		t.Run("success", func(t *testing.T) {
 			ni, err := camera.NamedImageFromImage(testImg, sourceName, rutils.MimeTypePNG)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ni.SourceName, test.ShouldEqual, sourceName)
 			test.That(t, ni.MimeType(), test.ShouldEqual, rutils.MimeTypePNG)
+			img, err := ni.Image(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			verifyImageEquality(t, img, testImg)
 		})
 		t.Run("error on nil image", func(t *testing.T) {
 			_, err := camera.NamedImageFromImage(nil, sourceName, rutils.MimeTypePNG)
