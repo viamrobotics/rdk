@@ -464,30 +464,30 @@ func (g *Graph) GetAllParentsOf(node Name) []Name {
 	return g.getAllParentOf(node)
 }
 
-func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
-	if nodeVal == nil {
-		g.logger.Errorw("addNode called with a nil value; setting to uninitialized", "name", node)
-		nodeVal = NewUninitializedNode()
+func (g *Graph) addNode(name Name, node *GraphNode) error {
+	if node == nil {
+		g.logger.Errorw("addNode called with a nil value; setting to uninitialized", "name", name)
+		node = NewUninitializedNode()
 	}
-	if val, ok := g.nodes.Get(node); ok {
+	if val, ok := g.nodes.Get(name); ok {
 		if !val.IsUninitialized() {
-			return errors.Errorf("initialized node already exists with name %q; must swap instead", node)
+			return errors.Errorf("initialized node already exists with name %q; must swap instead", name)
 		}
 		prevPrefix := val.prefix
-		if err := val.replace(nodeVal); err != nil {
+		if err := val.replace(node); err != nil {
 			return err
 		}
-		g.nodes.UpdateSimpleName(node, prevPrefix, val)
+		g.nodes.UpdateSimpleName(name, prevPrefix, val)
 		return nil
 	}
-	nodeVal.setGraphLogicalClock(g.logicalClock)
+	node.setGraphLogicalClock(g.logicalClock)
 	if g.ftdc != nil {
-		g.ftdc.Add(node.String(), nodeVal)
+		g.ftdc.Add(name.String(), node)
 	}
-	g.nodes.Set(node, nodeVal)
+	g.nodes.Set(name, node)
 
-	if _, ok := g.transitiveClosureMatrix[node]; !ok {
-		g.transitiveClosureMatrix[node] = map[Name]int{}
+	if _, ok := g.transitiveClosureMatrix[name]; !ok {
+		g.transitiveClosureMatrix[name] = map[Name]int{}
 	}
 	for n := range g.nodes.Keys() {
 		for v := range g.transitiveClosureMatrix {
@@ -496,7 +496,7 @@ func (g *Graph) addNode(node Name, nodeVal *GraphNode) error {
 			}
 		}
 	}
-	g.transitiveClosureMatrix[node][node] = 1
+	g.transitiveClosureMatrix[name][name] = 1
 	return nil
 }
 
