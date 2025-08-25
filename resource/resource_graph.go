@@ -379,27 +379,22 @@ func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error)
 func (g *Graph) Names() []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	names := make([]Name, g.nodes.Len())
-	i := 0
-	for k := range g.nodes.Keys() {
-		names[i] = k
-		i++
-	}
-	return names
+	return slices.AppendSeq(
+		make([]Name, 0, g.nodes.Len()),
+		g.nodes.Keys(),
+	)
 }
 
 // ReachableNames returns the all resource graph names, excluding remote resources that are unreached.
 func (g *Graph) ReachableNames() []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	names := make([]Name, g.nodes.Len())
-	i := 0
-	for k, node := range g.nodes.All() {
+	names := make([]Name, 0, g.nodes.Len())
+	for nodeName, node := range g.nodes.All() {
 		if node.unreachable {
 			continue
 		}
-		names[i] = k
-		i++
+		names = append(names, nodeName)
 	}
 	return names
 }
@@ -422,7 +417,7 @@ func (g *Graph) FindNodesByAPI(api API) []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	var ret []Name
-	for k := range g.nodes.All() {
+	for k := range g.nodes.Keys() {
 		if k.API == api {
 			ret = append(ret, k)
 		}
