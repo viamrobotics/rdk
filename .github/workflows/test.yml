@@ -179,11 +179,6 @@ jobs:
           [ "${{ needs.test_win.result }}" == "success" ] && \
           [ "${{ needs.motion_tests.result }}" == "success" ]
 
-      # Now that RDK is public, can't directly comment without token having full read/write access
-      # code-coverage-comment.yml will trigger seperately and post the actual comments
-      - name: Prepare code comment
-        run: echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
-
       - name: Mark appimage label
         if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
         run: echo "APPIMAGE=true" >> pr.env
