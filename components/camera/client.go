@@ -232,6 +232,8 @@ func (c *client) Images(
 	// keep everything lazy encoded by default, if type is unknown, attempt to decode it
 	for _, img := range resp.Images {
 		if img.MimeType == "" {
+			// TODO(RSDK-11733): This is a temporary fix to allow the client to pass both the format and mime type
+			// format. We will remove this once we remove the format field from the proto.
 			img.MimeType = utils.FormatToMimeType[img.Format]
 		}
 		namedImg, err := NamedImageFromBytes(img.Image, img.SourceName, img.MimeType)
