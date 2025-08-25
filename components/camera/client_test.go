@@ -848,7 +848,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
-	cameraClient, err := camera.FromRobot(mainRobot, "remote-1:remote-2:rtpPassthroughCamera")
+	cameraClient, err := camera.FromRobot(mainRobot, "rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
 	image, _, err := cameraClient.Images(mainCtx, nil)
@@ -932,7 +932,7 @@ func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
-	cameraClient, err := camera.FromRobot(mainRobot, "remote-1:remote-2:rtpPassthroughCamera")
+	cameraClient, err := camera.FromRobot(mainRobot, "rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
 	image, _, err := cameraClient.Images(mainCtx, nil)
@@ -1068,7 +1068,7 @@ func TestGrandRemoteRebooting(t *testing.T) {
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
-	mainCameraClient, err := camera.FromRobot(mainRobot, "remote-1:remote-2:rtpPassthroughCamera")
+	mainCameraClient, err := camera.FromRobot(mainRobot, "rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
 	image, _, err := mainCameraClient.Images(mainCtx, nil)
