@@ -3,7 +3,6 @@ package cli
 import (
 	"archive/tar"
 	"compress/gzip"
-	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -515,7 +514,7 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, logger logging.Logger) error {
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
-	partID, err := resolvePartID(c.Context, args.PartID, "/etc/viam.json")
+	partID, err := resolvePartID(args.PartID, "/etc/viam.json")
 	if err != nil {
 		return err
 	}
@@ -658,7 +657,7 @@ func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
 }
 
 // resolvePartID takes an optional provided part ID (from partFlag), and an optional default viam.json, and returns a part ID to use.
-func resolvePartID(ctx context.Context, partIDFromFlag, cloudJSON string) (string, error) {
+func resolvePartID(partIDFromFlag, cloudJSON string) (string, error) {
 	if len(partIDFromFlag) > 0 {
 		return partIDFromFlag, nil
 	}
