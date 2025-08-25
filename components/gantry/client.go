@@ -36,7 +36,7 @@ func NewClientFromConn(
 	c := pb.NewGantryServiceClient(conn)
 	return &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		client: c,
 		logger: logger,
 	}, nil

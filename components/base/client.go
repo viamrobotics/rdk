@@ -38,7 +38,7 @@ func NewClientFromConn(
 	c := pb.NewBaseServiceClient(conn)
 	return &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		client: c,
 		logger: logger,
 	}, nil

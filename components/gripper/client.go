@@ -41,7 +41,7 @@ func NewClientFromConn(
 ) (Gripper, error) {
 	return &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		client: pb.NewGripperServiceClient(conn),
 		logger: logger,
 	}, nil
