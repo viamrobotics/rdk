@@ -252,7 +252,8 @@ func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[strin
 	return img, nil
 }
 
-// GetImageFromGetImages is a utility function to quickly implement GetImage from an already-implemented GetImages method.
+// GetImageFromGetImages will be deprecated after RSDK-11726.
+// It is a utility function to quickly implement GetImage from an already-implemented GetImages method.
 // It returns a byte slice and ImageMetadata, which is the same response signature as the Image method.
 //
 // If sourceName is nil, it returns the first image in the response slice.
@@ -315,7 +316,8 @@ func GetImageFromGetImages(
 	return imgBytes, ImageMetadata{MimeType: mimeType}, nil
 }
 
-// GetImagesFromGetImage is a utility function to quickly implement GetImages from an already-implemented GetImage method.
+// GetImagesFromGetImage will be deprecated after RSDK-11726.
+// It is a utility function to quickly implement GetImages from an already-implemented GetImage method.
 // It takes a mimeType, extra parameters, and a camera as args, and returns a slice of NamedImage and ResponseMetadata,
 // which is the same response signature as the Images method. We use the mimeType arg to specify
 // how to decode the image bytes returned from GetImage. The extra parameter is passed through to the underlying GetImage method.
