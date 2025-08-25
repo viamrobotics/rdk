@@ -88,16 +88,19 @@ const (
 	moduleFlagDryRun          = "dry-run"
 	moduleFlagUpload          = "upload"
 
-	moduleBuildFlagRef       = "ref"
-	moduleBuildFlagWait      = "wait"
-	moduleBuildFlagToken     = "token"
-	moduleBuildFlagWorkdir   = "workdir"
-	moduleBuildFlagPlatforms = "platforms"
-	moduleBuildFlagGroupLogs = "group-logs"
-	moduleBuildRestartOnly   = "restart-only"
-	moduleBuildFlagNoBuild   = "no-build"
-	moduleBuildFlagOAuthLink = "oauth-link"
-	moduleBuildFlagRepo      = "repo"
+	moduleBuildFlagRef         = "ref"
+	moduleBuildFlagWait        = "wait"
+	moduleBuildFlagToken       = "token"
+	moduleBuildFlagWorkdir     = "workdir"
+	moduleBuildFlagPlatforms   = "platforms"
+	moduleBuildFlagGroupLogs   = "group-logs"
+	moduleBuildRestartOnly     = "restart-only"
+	moduleBuildFlagNoBuild     = "no-build"
+	moduleBuildFlagCloudBuild  = "cloud-build"
+	moduleBuildFlagCloudConfig = "cloud-config"
+	moduleBuildFlagID          = "build-id"
+	moduleBuildFlagOAuthLink   = "oauth-link"
+	moduleBuildFlagRepo        = "repo"
 
 	mlTrainingFlagName        = "script-name"
 	mlTrainingFlagFramework   = "framework"
@@ -2871,10 +2874,13 @@ Example:
 							Usage:     "get the logs from one of your cloud builds",
 							UsageText: createUsageText("module build logs", []string{generalFlagID}, true, false),
 							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:     generalFlagID,
-									Usage:    "build that you want to get the logs for",
-									Required: true,
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     moduleBuildFlagID,
+										Usage:    "build that you want to get the logs for",
+										Aliases:  []string{generalFlagID},
+										Required: true,
+									},
 								},
 								&cli.StringFlag{
 									Name:        moduleFlagPlatform,
@@ -2929,12 +2935,21 @@ This won't work unless you have an existing installation of our GitHub app on yo
 
 	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
 	# and configure or restart it.
-	# The GOARCH env in this case would get passed to an underlying go build (assuming you're targeting an arm device).
-	# Note that you'll still need to add the components for your models after your module is installed.
-	GOARCH=arm64 viam module reload --part-id UUID
+	viam module reload --part-id UUID
 
 	# Restart a module running on your local viam server, by name, without building or reconfiguring.
 	viam module reload --restart-only --id viam:python-example-module
+
+	# Use cloudbuild to build the tar.gz that will be copied to the part for hot reloading.
+	viam module reload --cloud-build
+
+	# Run viam module reload on a mac and use the downloaded viam.json file instead of --part-id
+	viam module reload --cloud-config ~/Downloads/viam-mac-main.json
+
+	# Specify a component/service model (and optionally a name) to add to the config along with
+	# the module (the API is automatically looked up from meta.json)
+	# By default, no resources are added when a module is reloaded
+	viam module reload --model-name acme:module-name:mybase --name my-resource
 
 	# Build and configure a module on your local machine without shipping a tarball.
 	viam module reload --local`,
@@ -2977,6 +2992,35 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  moduleFlagHomeDir,
 							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
 							Value: "~",
+						},
+						&cli.BoolFlag{
+							Name:  moduleBuildFlagCloudBuild,
+							Usage: "Run the module's build script using cloud build instead of locally, downloading to the build.path field in meta.json",
+						},
+						&cli.PathFlag{
+							Name:  moduleBuildFlagCloudConfig,
+							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Value: "/etc/viam.json",
+						},
+						&cli.StringFlag{
+							Name:        moduleFlagModelName,
+							Usage:       "If passed, creates a resource in the part config with the given model triple",
+							DefaultText: "Don't create a new resource",
+						},
+						&cli.StringFlag{
+							Name:  moduleBuildFlagWorkdir,
+							Usage: "use this to indicate that your meta.json is in a subdirectory of your repo. --module flag should be relative to this",
+							Value: ".",
+						},
+						&cli.StringFlag{
+							Name:        dataFlagResourceName,
+							Usage:       "Use with model-name to name the newly added resource",
+							DefaultText: "resource type with a unique numerical suffix",
+						},
+						&cli.StringFlag{
+							Name:        generalFlagPath,
+							Usage:       "Use this with --cloud-build to indicate the path to the root of the git repo to build",
+							DefaultText: ".",
 						},
 					},
 					Action: createCommandWithT[reloadModuleArgs](ReloadModuleAction),

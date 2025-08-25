@@ -83,14 +83,14 @@ func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, err
 	return &packageTypeProto, nil
 }
 
-func (c *viamClient) packageExportAction(orgID, name, version, packageType, destination string) error {
+func (c *viamClient) getPackageDownloadURL(orgID, name, version, packageType string) (string, error) {
 	if orgID == "" || name == "" {
 		if orgID != "" || name != "" {
-			return fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, generalFlagName)
+			return "", fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, generalFlagName)
 		}
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
-			return errors.Wrap(err, "trying to get package ID from meta.json")
+			return "", errors.Wrap(err, "trying to get package ID from meta.json")
 		}
 		orgID, name, _ = strings.Cut(manifest.ModuleID, ":")
 	}
@@ -98,7 +98,7 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 	packageID := path.Join(orgID, name)
 	packageTypeProto, err := convertPackageTypeToProto(packageType)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	resp, err := c.packageClient.GetPackage(c.c.Context,
@@ -110,30 +110,37 @@ func (c *viamClient) packageExportAction(orgID, name, version, packageType, dest
 		},
 	)
 	if err != nil {
+		return "", err
+	}
+	return resp.GetPackage().GetUrl(), nil
+}
+
+func (c *viamClient) packageExportAction(orgID, name, version, packageType, destination string) error {
+	packageURL, err := c.getPackageDownloadURL(orgID, name, version, packageType)
+	if err != nil {
 		return err
 	}
 
-	return downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, resp.GetPackage().GetUrl(),
-		c.conf.Auth)
+	_, err = downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, packageURL, c.conf.Auth)
+	return err
 }
 
 func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	destination, name, version, packageURL string, auth authMethod,
-) error {
-	// All packages are stored as .tar.gz
+) (string, error) {
 	packagePath := filepath.Join(destination, version, name+".tar.gz")
 	if err := os.MkdirAll(filepath.Dir(packagePath), 0o700); err != nil {
-		return err
+		return "", err
 	}
 	//nolint:gosec
 	packageFile, err := os.Create(packagePath)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, packageURL, nil)
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return "", errors.Wrapf(err, serverErrorMessage)
 	}
 
 	// Set the headers so HTTP requests that are not gRPC calls can still be authenticated in app
@@ -149,10 +156,10 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 	}
 	res, err := httpClient.Do(req)
 	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
+		return "", errors.Wrapf(err, serverErrorMessage)
 	}
 	if res.StatusCode != http.StatusOK {
-		return errors.New(serverErrorMessage)
+		return "", errors.New(serverErrorMessage)
 	}
 	defer func() {
 		utils.UncheckedError(res.Body.Close())
@@ -164,11 +171,11 @@ func downloadPackageFromURL(ctx context.Context, httpClient *http.Client,
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			return err
+			return "", err
 		}
 	}
 
-	return nil
+	return packagePath, nil
 }
 
 type packageUploadArgs struct {
