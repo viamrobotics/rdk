@@ -775,7 +775,8 @@ func TestNamedImage(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			_, err = ni.Bytes(ctx)
 			test.That(t, err, test.ShouldBeError)
-			test.That(t, err.Error(), test.ShouldEqual, `could not encode image: do not know how to encode "bad-mime-type"`)
+			test.That(t, err.Error(), test.ShouldEqual,
+				`could not encode image with encoding bad-mime-type: do not know how to encode "bad-mime-type"`)
 		})
 	})
 
