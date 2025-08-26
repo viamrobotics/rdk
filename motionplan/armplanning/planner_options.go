@@ -76,18 +76,6 @@ func init() {
 	defaultNumThreads = utils.GetenvInt("MP_NUM_THREADS", defaultNumThreads)
 }
 
-// MotionProfile is an enum which indicates the motion profile to use when planning.
-type MotionProfile string
-
-// These are the currently supported motion profiles.
-const (
-	FreeMotionProfile         MotionProfile = "free"
-	LinearMotionProfile       MotionProfile = "linear"
-	PseudolinearMotionProfile MotionProfile = "pseudolinear"
-	OrientationMotionProfile  MotionProfile = "orientation"
-	PositionOnlyMotionProfile MotionProfile = "position_only"
-)
-
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
 func NewBasicPlannerOptions() *PlannerOptions {
 	opt := &PlannerOptions{}
@@ -117,10 +105,6 @@ func NewBasicPlannerOptions() *PlannerOptions {
 
 	opt.TimeMultipleAfterFindingFirstSolution = defaultTimeMultipleAfterFindingFirstSolution
 	opt.NumThreads = defaultNumThreads
-
-	opt.LineTolerance = defaultLinearDeviation
-	opt.OrientationTolerance = defaultOrientationDeviation
-	opt.ToleranceFactor = defaultPseudolinearTolerance
 
 	opt.PathStepSize = defaultStepSizeMM
 	opt.CollisionBufferMM = defaultCollisionBufferMM
@@ -194,21 +178,6 @@ type PlannerOptions struct {
 	// See metrics.go for options
 	ConfigurationDistanceMetric motionplan.SegmentFSMetricType `json:"configuration_distance_metric"`
 
-	// A profile indicating which of the tolerance parameters listed below should be considered
-	// for further constraining the motion.
-	MotionProfile MotionProfile `json:"motion_profile"`
-
-	// Linear tolerance for translational deviation for a path. Only used when the
-	// `MotionProfile` is `LinearMotionProfile`.
-	LineTolerance float64 `json:"line_tolerance"`
-
-	// Orientation tolerance for angular deviation for a path. Used for either the `LinearMotionProfile`
-	// or the `OrientationMotionProfile`.
-	OrientationTolerance float64 `json:"orient_tolerance"`
-
-	// A factor by which the entire pose is allowed to deviate for a path. Used only for a PseudolinearMotionProfile.
-	ToleranceFactor float64 `json:"tolerance"`
-
 	// No two geometries that did not start the motion in collision may come within this distance of
 	// one another at any time during a motion.
 	CollisionBufferMM float64 `json:"collision_buffer_mm"`
@@ -259,11 +228,6 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 		return nil, errors.New("collision_buffer_mm can't be negative")
 	}
 
-	// we want to deprecate, rather than break, usage of the "tolerance" key for
-	// OrientationMotionProfile
-	if opt.MotionProfile == OrientationMotionProfile {
-		opt.OrientationTolerance = opt.ToleranceFactor
-	}
 	return opt, nil
 }
 
@@ -291,18 +255,6 @@ func updateOptionsForPlanning(opt *PlannerOptions, useTPSpace bool) (*PlannerOpt
 		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
 		// Otherwise we just use squared norm on inputs.
 		optCopy.ScoringMetric = motionplan.PTGDistance
-	}
-
-	if optCopy.MotionProfile == FreeMotionProfile || optCopy.MotionProfile == PositionOnlyMotionProfile {
-		if optCopy.PlanningAlgorithm() == UnspecifiedAlgorithm {
-			fallbackOpts := &optCopy
-
-			optCopy.Timeout = defaultFallbackTimeout
-			optCopy.PlanningAlgorithmSettings = AlgorithmSettings{
-				Algorithm: RRTStar,
-			}
-			optCopy.Fallback = fallbackOpts
-		}
 	}
 
 	return &optCopy, nil

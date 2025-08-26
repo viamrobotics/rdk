@@ -151,8 +151,14 @@ func TestLineFollow(t *testing.T) {
 	from := frame.FrameSystemPoses{markerFrame.Name(): frame.NewPoseInFrame(markerFrame.Name(), p1)}
 	to := frame.FrameSystemPoses{markerFrame.Name(): frame.NewPoseInFrame(goalFrame.Name(), p2)}
 
-	validFunc, gradFunc, err := CreateLineConstraintFS(fs, startCfg, from, to, 0.001)
+	constructor := func(fromPose, toPose spatial.Pose, tolerance float64) (StateConstraint, motionplan.StateMetric) {
+		return NewLineConstraint(fromPose.Point(), toPose.Point(), .001)
+	}
+	constraintInternal, err := newFsPathConstraintTol(fs, startCfg, from, to, constructor, .001)
 	test.That(t, err, test.ShouldBeNil)
+
+	validFunc := constraintInternal.constraint
+	gradFunc := constraintInternal.metric
 
 	_, innerGradFunc := NewLineConstraint(p1.Point(), p2.Point(), 0.001)
 	pointGrad := innerGradFunc(&motionplan.State{Position: query})
