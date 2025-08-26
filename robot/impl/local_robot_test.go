@@ -810,9 +810,9 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		t,
 		r.ResourceNames(),
 		[]resource.Name{
-			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
+			arm.Named("remote:arm1"),
+			arm.Named("remote:arm2"),
 			arm.Named("remote:pieceArm"),
-			arm.Named("remote:foo:pieceArm"),
 			audioinput.Named("remote:mic1"),
 			camera.Named("remote:cameraOver"),
 			movementsensor.Named("remote:movement_sensor1"),
@@ -820,7 +820,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			gripper.Named("remote:pieceGripper"),
 		},
 	)
-	arm1, err := r.ResourceByName(arm.Named("remote:foo:arm1"))
+	arm1, err := r.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 	rrArm1, ok := arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -836,12 +836,8 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldResemble, p0Arm1)
 
-	_, err = r.ResourceByName(arm.Named("remote:foo:pieceArm"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = r.ResourceByName(arm.Named("remote:pieceArm"))
-	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(arm.Named("pieceArm"))
-	test.That(t, err, test.ShouldBeError, "more than one remote resources with name \"pieceArm\" exists")
+	test.That(t, err, test.ShouldBeNil)
 }
 
 type someConfig struct {
@@ -2588,9 +2584,8 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 
 	// Setup a robot1 -> robot2 -> robot3 -> robot4 remote chain. Ensure that if
 	// robot4 has an encoder "e", all robots in the chain can retrieve it by
-	// simple name "e" or short name "[remote-prefix]:e". Also ensure that a
-	// motor "m1" on robot1 can depend on "robot2:robot3:robot4:e" and a motor
-	// "m2" on robot2 can depend on "e".
+	// simple name "e". Also ensure that a motor "m1" on robot1 and a motor "m2"
+	// on robot2 can depend on "e".
 
 	startWeb := func(r robot.LocalRobot) string {
 		var boundAddress string
@@ -2676,7 +2671,7 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 				API:                 motor.API,
 				ConvertedAttributes: &fakemotor.Config{},
 				// ensure DependsOn works with short name (explicit remotes)
-				DependsOn: []string{"robot2:robot3:robot4:e"},
+				DependsOn: []string{"e"},
 			},
 		},
 	}
@@ -2691,19 +2686,13 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 
 	_, err = robot3.ResourceByName(encoder.Named("e"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = robot3.ResourceByName(encoder.Named("robot4:e"))
-	test.That(t, err, test.ShouldBeNil)
 
 	_, err = robot2.ResourceByName(encoder.Named("e"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = robot2.ResourceByName(encoder.Named("robot3:robot4:e"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robot2.ResourceByName(motor.Named("m2"))
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = robot1.ResourceByName(encoder.Named("e"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = robot1.ResourceByName(encoder.Named("robot2:robot3:robot4:e"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robot1.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeNil)
@@ -3711,7 +3700,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 					},
 					{
 						NodeStatus: resource.NodeStatus{
-							Name:  resName1.PrependRemote(remoteName2).PrependRemote(remoteName1),
+							Name:  resName1.PrependRemote(remoteName2),
 							State: resource.NodeStateReady,
 						},
 						CloudMetadata: expectedRemote2Md,
