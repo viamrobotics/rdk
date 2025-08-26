@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -30,8 +31,8 @@ const (
 	// to the time right after the point cloud was captured.
 	TimeReceivedMetadataKey = "viam-time-received"
 
-	// timeout values to use when reading a config either from App, from App behind a proxy, or from a local (cached) file.
-	readConfigFromCloudTimeout            = 5 * time.Second
+	// Timeout values to use when reading a config either from App behind a proxy, or from App with a local (cached) file.
+	// The timeout is far shorter when a cached config exists because the machine can always fall back to the cached config.
 	readConfigFromCloudBehindProxyTimeout = time.Minute
 	readCachedConfigTimeout               = 1 * time.Second
 )
@@ -86,10 +87,13 @@ func ContextWithTimeoutIfNoDeadline(ctx context.Context, timeout time.Duration) 
 	return context.WithCancel(ctx)
 }
 
-// GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether we are behind a proxy and whether a
-// cached config exists.
-func GetTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string) (context.Context, func()) {
-	timeout := readConfigFromCloudTimeout
+// GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether an environment variable is set,
+// we are behind a proxy and whether a cached config exists. The timeout will always use the environment variable if set.
+func GetTimeoutCtx(ctx context.Context, shouldReadFromCache bool, id string, logger logging.Logger) (context.Context, func()) {
+	timeout, isDefault := utils.GetConfigReadTimeout(logger)
+	if !isDefault {
+		return context.WithTimeout(ctx, timeout)
+	}
 	// When environment indicates we are behind a proxy, bump timeout. Network
 	// operations tend to take longer when behind a proxy.
 	if proxyAddr := os.Getenv(rpc.SocksProxyEnvVar); proxyAddr != "" {

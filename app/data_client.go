@@ -436,6 +436,8 @@ type DataPipelineRun struct {
 	DataEndTime time.Time
 	// Status is the run's current status.
 	Status DataPipelineRunStatus
+	// ErrorMessage is the error message of the data pipeline run. It is only set if the run failed.
+	ErrorMessage string
 }
 
 // ListDataPipelineRunsPage is a results page of data pipeline runs, used for pagination.
@@ -845,6 +847,7 @@ func (d *DataClient) RemoveBoundingBoxFromImageByID(
 // BoundingBoxLabelsByFilter retrieves all unique string labels for bounding boxes that match the specified filter.
 // It returns a list of these labels. If no filter is given, all labels are returned.
 func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter *Filter) ([]string, error) {
+	//nolint:staticcheck
 	resp, err := d.dataClient.BoundingBoxLabelsByFilter(ctx, &pb.BoundingBoxLabelsByFilterRequest{
 		Filter: filterToProto(filter),
 	})
@@ -1915,6 +1918,7 @@ func dataPipelineRunFromProto(proto *datapipelinesPb.DataPipelineRun) *DataPipel
 		DataStartTime: proto.DataStartTime.AsTime(),
 		DataEndTime:   proto.DataEndTime.AsTime(),
 		Status:        dataPipelineRunStatusFromProto(proto.Status),
+		ErrorMessage:  proto.ErrorMessage,
 	}
 }
 

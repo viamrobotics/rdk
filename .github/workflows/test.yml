@@ -105,7 +105,7 @@ jobs:
         GOFLAGS: "-tags=no_cgo"
       run:
         # note: this is a subset of tests that are known to pass on windows
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./module ./logging/...
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./web/server ./module ./logging/...
 
     - name: Upload test.json
       if: always()
@@ -178,11 +178,6 @@ jobs:
           [ "${{ needs.test32.result }}" == "success" ] && \
           [ "${{ needs.test_win.result }}" == "success" ] && \
           [ "${{ needs.motion_tests.result }}" == "success" ]
-
-      # Now that RDK is public, can't directly comment without token having full read/write access
-      # code-coverage-comment.yml will trigger seperately and post the actual comments
-      - name: Prepare code comment
-        run: echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
 
       - name: Mark appimage label
         if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')

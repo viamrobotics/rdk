@@ -24,8 +24,9 @@ func TestConfigureModule(t *testing.T) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
 	}, map[string]any{moduleFlagPath: manifestPath, generalFlagVersion: "1.2.3"}, "token")
-	err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
+	path, err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, path, test.ShouldEqual, "xyz123")
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
 	test.That(t, out.messages[0], test.ShouldEqual, "xyz123\n")
 	test.That(t, errOut.messages, test.ShouldHaveLength, 1)
@@ -92,13 +93,13 @@ func TestRestartModule(t *testing.T) {
 func TestResolvePartId(t *testing.T) {
 	c := newTestContext(t, map[string]any{})
 	// empty flag, no path
-	partID, err := resolvePartID(c.Context, c.String(generalFlagPartID), "")
+	partID, err := resolvePartID(c.String(generalFlagPartID), "")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, partID, test.ShouldBeEmpty)
 
 	// empty flag, fake path
 	missingPath := filepath.Join(t.TempDir(), "MISSING.json")
-	_, err = resolvePartID(c.Context, c.String(generalFlagPartID), missingPath)
+	_, err = resolvePartID(c.String(generalFlagPartID), missingPath)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// empty flag, valid path
@@ -107,13 +108,13 @@ func TestResolvePartId(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = fi.WriteString(`{"cloud":{"app_address":"https://app.viam.com:443","id":"JSON-PART","secret":"SECRET"}}`)
 	test.That(t, err, test.ShouldBeNil)
-	partID, err = resolvePartID(c.Context, c.String(generalFlagPartID), path)
+	partID, err = resolvePartID(c.String(generalFlagPartID), path)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, partID, test.ShouldEqual, "JSON-PART")
 
 	// given flag, valid path
 	c = newTestContext(t, map[string]any{generalFlagPartID: "FLAG-PART"})
-	partID, err = resolvePartID(c.Context, c.String(generalFlagPartID), path)
+	partID, err = resolvePartID(c.String(generalFlagPartID), path)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, partID, test.ShouldEqual, "FLAG-PART")
 }

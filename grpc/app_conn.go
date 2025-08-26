@@ -40,7 +40,7 @@ func NewAppConn(ctx context.Context, appAddress, secret, id string, logger loggi
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	ctxWithTimeout, ctxWithTimeoutCancel := contextutils.GetTimeoutCtx(ctx, true, id)
+	ctxWithTimeout, ctxWithTimeoutCancel := contextutils.GetTimeoutCtx(ctx, true, id, logger)
 	defer ctxWithTimeoutCancel()
 	// there will always be a deadline
 	if deadline, ok := ctxWithTimeout.Deadline(); ok {
