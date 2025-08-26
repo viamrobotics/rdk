@@ -449,10 +449,10 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 		}
 		logger.Debugw("Read time", "time", dataTime, "seconds", dataTime/1e9)
 
-		// If the time is 0, lower than the previously recorded time, or signifcantly further
-		// ahead than the previous recorded timestamp (> a day ahead), we are in a bad state
-		// and need to return.
-		if dataTime == 0 || prevTime != 0 && (dataTime < prevTime || dataTime > (prevTime+nsInADay)) {
+		// If the time is lower than the previously recorded timestamp, or significantly
+		// further ahead than the previous recorded timestamp (> a day ahead), we are in a bad
+		// state and need to return.
+		if prevTime != 0 && (dataTime < prevTime || dataTime > (prevTime+nsInADay)) {
 			return ret, nil
 		}
 		prevTime = dataTime
