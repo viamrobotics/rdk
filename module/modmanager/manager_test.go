@@ -742,6 +742,13 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("do not restart module if pexec context is cancelled", func(t *testing.T) {
+		// Lower restart interval so the test runs faster
+		originalInterval := oueRestartInterval
+		t.Cleanup(func() {
+			oueRestartInterval = originalInterval
+		})
+		oueRestartInterval = 50 * time.Millisecond
+
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
@@ -768,6 +775,17 @@ func TestModuleReloading(t *testing.T) {
 		ok := mgr.IsModularResource(rNameMyHelper)
 		test.That(t, ok, test.ShouldBeTrue)
 
+		// Remove testmodule binary, so process cannot be successfully restarted
+		// after crash.
+		err = os.Remove(modCfg.ExePath)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Grab a copy of the original managed process before the modmanager
+		// overwrites it during restart attempts.
+		mod, ok := mgr.modules.Load(modCfg.Name)
+		test.That(t, ok, test.ShouldBeTrue)
+		modProc := mod.process
+
 		// Run 'kill_module' command through helper resource to cause module to
 		// exit with error. Assert that we do not restart the module if context is cancelled.
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
@@ -784,18 +802,15 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "connection refused")
 
 		// Stop the module managed process manually and make sure the OUE handler
 		// stops trying to restart it.
-		mod, ok := mgr.modules.Load(modCfg.Name)
-		test.That(t, ok, test.ShouldBeTrue)
-		err = mod.stopProcess()
+		err = modProc.Stop()
 		test.That(t, err, test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("pexec context canceled, abandoning restart attempt").Len(),
-				test.ShouldEqual, 1)
+			matching := logs.FilterMessageSnippet("pexec context canceled, abandoning restart attempt").Len()
+			test.That(tb, matching, test.ShouldEqual, 1)
 		})
 	})
 	t.Run("timed out module process is stopped", func(t *testing.T) {
