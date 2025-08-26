@@ -744,17 +744,17 @@ func parseStringAsTime(inp string) (time.Time, error) {
 	return goTime, nil
 }
 
-// getFTDCData returns a slice of FlatDatums from the path it was passed in. If path leads
-// to an .ftdc file, only that file is parsed. If it leads to a directory, all .ftdc files
-// in that directory will get parsed and the combined slice of FlatDatums will get
-// returned. The subdirectories of that directory will NOT get explored.
+// getFTDCData returns a slice of FlatDatums from the path it was passed. If path leads to
+// an .ftdc file, only that file is parsed. If it leads to a directory, all .ftdc files in
+// that directory will get parsed and the combined slice of FlatDatums will get returned.
+// The subdirectories of that directory will NOT get explored.
 func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, error) {
 	info, err := os.Stat(ftdcPath)
 	if err != nil {
 		return nil, err
 	}
 
-	// if path is not a directory, we can just open the file and get its datums.
+	// If path is not a directory, we can just open the file and get its datums.
 	if !info.IsDir() {
 		//nolint:gosec
 		ftdcFile, err := os.Open(ftdcPath)
@@ -765,10 +765,11 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, erro
 		defer ftdcFile.Close()
 		return ftdc.ParseWithLogger(ftdcFile, logger)
 	}
-	// if path is a directory, we will walk it and get all of the ftdc datums
+
+	// If path is a directory, we will walk it and get all of the FTDC datums.
 	flatDatums := make([]ftdc.FlatDatum, 0)
 	err = filepath.WalkDir(ftdcPath, fs.WalkDirFunc(func(path string, d fs.DirEntry, walkErr error) error {
-		// for now, no recursive parsing.
+		// For now, no recursive parsing.
 		if d.IsDir() && path != ftdcPath {
 			return filepath.SkipDir
 		}
@@ -809,7 +810,7 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, erro
 	return flatDatums, nil
 }
 
-// LaunchREPL opens an ftdc file, plots it, and runs a cli for it.
+// LaunchREPL opens an ftdc file or directory, plots it, and runs a cli for it.
 func LaunchREPL(ftdcFilepath string) {
 	logger := logging.NewLogger("parser")
 	data, err := getFTDCData(filepath.Clean(ftdcFilepath), logger)

@@ -16,8 +16,12 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// epsilon is a small value for determining whether a float is 0.0.
-const epsilon = 1e-9
+const (
+	// epsilon is a small value for determining whether a float is 0.0.
+	epsilon = 1e-9
+	// nsInADay is the number of nanoseconds in a day.
+	nsInADay = 8.64e13
+)
 
 type schema struct {
 	// A `Datum`s data is a map[string]any. Even if two datum's have maps with the same keys, we do
@@ -377,6 +381,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 	// prevValues are the previous values used for producing the diff bits. This is overwritten when
 	// a new metrics reading is made. and nilled out when the schema changes.
 	var prevValues []float32
+	// prevTime is the last timestamp (ns since 1970 epoch) that was read.
 	var prevTime int64
 
 	// bufio's Reader allows for peeking and potentially better control over how much data to read
@@ -428,7 +433,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 		// that.
 		diffedFieldsIndexes, err := readDiffBits(reader, schema)
 		if err != nil {
-			logger.Debugw("Early EOF. Returning.")
+			logger.Debugw("Error reading diff bits. Returning.", "error", err.Error())
 			//nolint:nilerr
 			return ret, nil
 		}
@@ -443,15 +448,11 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 			return ret, err
 		}
 		logger.Debugw("Read time", "time", dataTime, "seconds", dataTime/1e9)
-		// if the time is 0 or lower than previously recorded time, we are at a bad state and
-		// need to return.
-		if dataTime == 0 || dataTime < prevTime {
-			return ret, nil
-			// additionally, if the current dataTime is vastly bigger than the previous recorded
-			// timestamp (in this case, it's more than a day ahead, where 86_400_000_000_000 is
-			// the amount of nanoseconds in a day), we are also in a bad state and want to
-			// return.
-		} else if prevTime != 0 && dataTime > (prevTime+86_400_000_000_000) {
+
+		// If the time is 0, lower than the previously recorded time, or signifcantly further
+		// ahead than the previous recorded timestamp (> a day ahead), we are in a bad state
+		// and need to return.
+		if dataTime == 0 || prevTime != 0 && (dataTime < prevTime || dataTime > (prevTime+nsInADay)) {
 			return ret, nil
 		}
 		prevTime = dataTime
@@ -461,7 +462,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 		data, err := readData(reader, schema, diffedFieldsIndexes, prevValues)
 		if err != nil {
 			logger.Debugw("Error reading data", "error", err)
-			return ret, nil
+			return ret, err
 		}
 		logger.Debugw("Read data", "data", data)
 
