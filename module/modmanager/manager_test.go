@@ -160,7 +160,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 			test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
-			modEnv := mod.getFullEnvironment(viamHomeTemp)
+			modEnv := mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
 			test.That(t, modEnv["VIAM_HOME"], test.ShouldEqual, viamHomeTemp)
 			test.That(t, modEnv["VIAM_MODULE_DATA"], test.ShouldEqual, "module-data-dir")
 			test.That(t, modEnv["VIAM_MODULE_ID"], test.ShouldEqual, "new:york")
@@ -168,7 +168,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 			// Test that VIAM_MODULE_ID is unset for local modules
 			mod.cfg.Type = config.ModuleTypeLocal
-			modEnv = mod.getFullEnvironment(viamHomeTemp)
+			modEnv = mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
 			_, ok = modEnv["VIAM_MODULE_ID"]
 			test.That(t, ok, test.ShouldBeFalse)
 
