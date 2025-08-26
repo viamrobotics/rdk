@@ -817,7 +817,7 @@ var oueRestartInterval = 5 * time.Second
 // newOnUnexpectedExitHandler returns the appropriate OnUnexpectedExit function
 // for the passed-in module to include in the pexec.ProcessConfig.
 func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module) pexec.UnexpectedExitHandler {
-	return func(exitCode int) (continueAttemptingRestart bool) {
+	return func(oueCtx context.Context, exitCode int) (continueAttemptingRestart bool) {
 		// Log error immediately, as this is unexpected behavior.
 		mod.logger.Errorw(
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
@@ -861,6 +861,10 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			// starting and/or leaking a module process.
 			if err := ctx.Err(); err != nil {
 				mod.logger.Infow("Restart context canceled, abandoning restart attempt", "err", err)
+				return
+			}
+			if err := oueCtx.Err(); err != nil {
+				mod.logger.Infow("pexec context canceled, abandoning restart attempt", "err", err)
 				return
 			}
 
@@ -971,12 +975,12 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	// continues with the normal OUE execution on success.
 	blockRestart := make(chan struct{})
 	defer close(blockRestart)
-	oue := func(exitCode int) bool {
+	oue := func(oueCtx context.Context, exitCode int) bool {
 		<-blockRestart
 		if !success {
 			return false
 		}
-		return mgr.newOnUnexpectedExitHandler(ctx, mod)(exitCode)
+		return mgr.newOnUnexpectedExitHandler(ctx, mod)(oueCtx, exitCode)
 	}
 
 	if err := mgr.startModuleProcess(mod, oue); err != nil {

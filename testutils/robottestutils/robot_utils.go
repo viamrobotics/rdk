@@ -101,7 +101,7 @@ type ServerProcessOption func(*pexec.ProcessConfig)
 // WithoutRestart disables the automatic restart of the pexec library for the server process.
 func WithoutRestart() ServerProcessOption {
 	return func(cfg *pexec.ProcessConfig) {
-		cfg.OnUnexpectedExit = func(int) bool { return false }
+		cfg.OnUnexpectedExit = func(context.Context, int) bool { return false }
 	}
 }
 
