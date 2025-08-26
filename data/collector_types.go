@@ -296,6 +296,24 @@ func CameraFormatToMimeType(f camerapb.Format) MimeType {
 	}
 }
 
+// MimeTypeStringToMimeType converts a string mime type to a MimeType.
+func MimeTypeStringToMimeType(mimeType string) MimeType {
+	switch mimeType {
+	case rutils.MimeTypeJPEG:
+		return MimeTypeImageJpeg
+	case rutils.MimeTypePNG:
+		return MimeTypeImagePng
+	case rutils.MimeTypeRawRGBA:
+		// TODO: https://viam.atlassian.net/browse/DATA-3497
+		fallthrough
+	case rutils.MimeTypeRawDepth:
+		// TODO: https://viam.atlassian.net/browse/DATA-3497
+		fallthrough
+	default:
+		return MimeTypeUnspecified
+	}
+}
+
 // MimeTypeToCameraFormat converts a data.MimeType into a camerapb.Format.
 func MimeTypeToCameraFormat(mt MimeType) camerapb.Format {
 	if mt == MimeTypeImageJpeg {

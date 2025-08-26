@@ -32,7 +32,6 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -209,7 +208,11 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
 }
 
-func (c *client) Images(ctx context.Context, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error) {
+func (c *client) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]NamedImage, resource.ResponseMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Images")
 	defer span.End()
 
@@ -218,8 +221,9 @@ func (c *client) Images(ctx context.Context, extra map[string]interface{}) ([]Na
 		return nil, resource.ResponseMetadata{}, err
 	}
 	resp, err := c.client.GetImages(ctx, &pb.GetImagesRequest{
-		Name:  c.name,
-		Extra: convertedExtra,
+		Name:              c.name,
+		FilterSourceNames: filterSourceNames,
+		Extra:             convertedExtra,
 	})
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not gets images from the camera %w", err)
@@ -228,23 +232,16 @@ func (c *client) Images(ctx context.Context, extra map[string]interface{}) ([]Na
 	images := make([]NamedImage, 0, len(resp.Images))
 	// keep everything lazy encoded by default, if type is unknown, attempt to decode it
 	for _, img := range resp.Images {
-		var rdkImage image.Image
-		switch img.Format {
-		case pb.Format_FORMAT_RAW_RGBA:
-			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeRawRGBA)
-		case pb.Format_FORMAT_RAW_DEPTH:
-			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeRawDepth)
-		case pb.Format_FORMAT_JPEG:
-			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeJPEG)
-		case pb.Format_FORMAT_PNG:
-			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypePNG)
-		case pb.Format_FORMAT_UNSPECIFIED:
-			rdkImage, _, err = image.Decode(bytes.NewReader(img.Image))
-			if err != nil {
-				return nil, resource.ResponseMetadata{}, err
-			}
+		if img.MimeType == "" {
+			// TODO(RSDK-11733): This is a temporary fix to allow the client to pass both the format and mime type
+			// format. We will remove this once we remove the format field from the proto.
+			img.MimeType = utils.FormatToMimeType[img.Format]
 		}
-		images = append(images, NamedImage{rdkImage, img.SourceName})
+		namedImg, err := NamedImageFromBytes(img.Image, img.SourceName, img.MimeType)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		images = append(images, namedImg)
 	}
 	return images, resource.ResponseMetadataFromProto(resp.ResponseMetadata), nil
 }

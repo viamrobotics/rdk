@@ -741,6 +741,78 @@ func TestModuleReloading(t *testing.T) {
 		err = mod.process.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	})
+	t.Run("do not restart module if pexec context is cancelled", func(t *testing.T) {
+		// Lower restart interval so the test runs faster
+		originalInterval := oueRestartInterval
+		t.Cleanup(func() {
+			oueRestartInterval = originalInterval
+		})
+		oueRestartInterval = 50 * time.Millisecond
+
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		// Precompile module to avoid timeout issues when building takes too long.
+		modCfg.ExePath = rtestutils.BuildTempModule(t, "module/testmodule")
+
+		// This test neither uses a resource manager nor asserts anything about
+		// the existence of resources in the graph. Use a dummy
+		// HandleOrphanedResources function so orphaned resource logic does not
+		// panic.
+		var dummyHandleOrphanedResourcesCallCount atomic.Uint64
+		dummyHandleOrphanedResources := func(context.Context, []resource.Name) {
+			dummyHandleOrphanedResourcesCallCount.Add(1)
+		}
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv:            false,
+			HandleOrphanedResources: dummyHandleOrphanedResources,
+		})
+		err = mgr.Add(ctx, modCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Add helper resource and ensure "echo" works correctly.
+		h, err := mgr.AddResource(ctx, cfgMyHelper, nil)
+		test.That(t, err, test.ShouldBeNil)
+		ok := mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		// Remove testmodule binary, so process cannot be successfully restarted
+		// after crash.
+		err = os.Remove(modCfg.ExePath)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Grab a copy of the original managed process before the modmanager
+		// overwrites it during restart attempts.
+		mod, ok := mgr.modules.Load(modCfg.Name)
+		test.That(t, ok, test.ShouldBeTrue)
+		modProc := mod.process
+
+		// Run 'kill_module' command through helper resource to cause module to
+		// exit with error. Assert that we do not restart the module if context is cancelled.
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Module has unexpectedly exited.").Len(),
+				test.ShouldEqual, 1)
+		})
+
+		ok = mgr.IsModularResource(rNameMyHelper)
+		test.That(t, ok, test.ShouldBeTrue)
+		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		test.That(t, err, test.ShouldNotBeNil)
+
+		// Stop the module managed process manually and make sure the OUE handler
+		// stops trying to restart it.
+		err = modProc.Stop()
+		test.That(t, err, test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			matching := logs.FilterMessageSnippet("pexec context canceled, abandoning restart attempt").Len()
+			test.That(tb, matching, test.ShouldEqual, 1)
+		})
+	})
 	t.Run("timed out module process is stopped", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
 
