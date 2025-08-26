@@ -39,18 +39,6 @@ func newTPSpaceMotionPlanner(
 	return nil, errNotSupported
 }
 
-// NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
-func newRRTStarConnectMotionPlanner(
-	fs *referenceframe.FrameSystem,
-	seed *rand.Rand,
-	logger logging.Logger,
-	opt *PlannerOptions,
-	constraintHandler *ConstraintHandler,
-	motionChains *motionChains,
-) (motionPlanner, error) {
-	return nil, errNotSupported
-}
-
 func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spatialmath.Pose) ([]node, error) {
 	return nil, errNotSupported
 }

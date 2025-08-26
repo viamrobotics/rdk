@@ -105,21 +105,6 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 	return rrt
 }
 
-func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtSolution {
-	if len(nodePairs) == 0 {
-		return &rrtSolution{err: errPlannerFailed, maps: maps}
-	}
-	minIdx := 0
-	minDist := nodePairs[0].sumCosts()
-	for i := 1; i < len(nodePairs); i++ {
-		if dist := nodePairs[i].sumCosts(); dist < minDist {
-			minDist = dist
-			minIdx = i
-		}
-	}
-	return &rrtSolution{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx], true), maps: maps}
-}
-
 type rrtPlan struct {
 	motionplan.SimplePlan
 
