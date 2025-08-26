@@ -434,7 +434,6 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 		diffedFieldsIndexes, err := readDiffBits(reader, schema)
 		if err != nil {
 			logger.Debugw("Error reading diff bits. Returning.", "error", err.Error())
-			//nolint:nilerr
 			return ret, nil
 		}
 		logger.Debugw("Diff bits",
