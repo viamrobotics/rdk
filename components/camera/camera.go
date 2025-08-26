@@ -153,7 +153,7 @@ func (ni *NamedImage) Bytes(ctx context.Context) ([]byte, error) {
 
 	data, err := rimage.EncodeImage(ctx, ni.img, ni.mimeType)
 	if err != nil {
-		return nil, fmt.Errorf("could not encode image: %w", err)
+		return nil, fmt.Errorf("could not encode image with encoding %s: %w", ni.mimeType, err)
 	}
 	ni.data = data
 	return ni.data, nil
@@ -224,7 +224,8 @@ type Camera interface {
 
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
-	// The extra parameter can be used to pass additional options to the camera resource.
+	// The extra parameter can be used to pass additional options to the camera resource. The filterSourceNames parameter can be used to filter
+	// only the images from the specified source names. When unspecified, all images are returned.
 	Images(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
@@ -311,7 +312,7 @@ func GetImageFromGetImages(
 
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {
-		return nil, ImageMetadata{}, fmt.Errorf("could not encode image: %w", err)
+		return nil, ImageMetadata{}, fmt.Errorf("could not encode image with encoding %s: %w", mimeType, err)
 	}
 	return imgBytes, ImageMetadata{MimeType: mimeType}, nil
 }
