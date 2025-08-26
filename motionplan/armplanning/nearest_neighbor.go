@@ -5,7 +5,6 @@ package armplanning
 import (
 	"context"
 	"math"
-	"sort"
 
 	"go.viam.com/utils"
 )
@@ -23,40 +22,6 @@ type neighborManager struct {
 type neighbor struct {
 	dist float64
 	node node
-}
-
-func kNearestNeighbors(tree rrtMap, target node, neighborhoodSize int, nodeDistanceFunc NodeDistanceMetric) []*neighbor {
-	kNeighbors := neighborhoodSize
-	if neighborhoodSize > len(tree) {
-		kNeighbors = len(tree)
-	}
-
-	allCosts := make([]*neighbor, 0)
-	for rrtnode := range tree {
-		dist := nodeDistanceFunc(target, rrtnode)
-		allCosts = append(allCosts, &neighbor{dist: dist, node: rrtnode})
-	}
-	// sort neighbors by their distance to target first so that first nearest neighbor isn't always the start node of tree
-	sort.Slice(allCosts, func(i, j int) bool {
-		if !math.IsNaN(allCosts[i].node.Cost()) {
-			if !math.IsNaN(allCosts[j].node.Cost()) {
-				return allCosts[i].dist < allCosts[j].dist
-			}
-		}
-		return allCosts[i].dist < allCosts[j].dist
-	})
-	allCosts = allCosts[:kNeighbors]
-	// sort k nearest distance neighbors by "total cost to target" metric so that target's nearest neighbor
-	// provides the smallest cost path from start node to target
-	sort.Slice(allCosts, func(i, j int) bool {
-		if !math.IsNaN(allCosts[i].node.Cost()) {
-			if !math.IsNaN(allCosts[j].node.Cost()) {
-				return (allCosts[i].dist + allCosts[i].node.Cost()) < (allCosts[j].dist + allCosts[j].node.Cost())
-			}
-		}
-		return allCosts[i].dist < allCosts[j].dist
-	})
-	return allCosts
 }
 
 // Can return `nil` when the context is canceled during processing.

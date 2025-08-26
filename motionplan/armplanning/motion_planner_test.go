@@ -48,7 +48,6 @@ type planConfigConstructor func(logger logging.Logger) (*planConfig, error)
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
 	planners := []plannerConstructor{
-		newRRTStarConnectMotionPlanner,
 		newCBiRRTMotionPlanner,
 	}
 	testCases := []struct {

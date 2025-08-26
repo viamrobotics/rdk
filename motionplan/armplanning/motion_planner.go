@@ -214,56 +214,6 @@ func (mp *planner) getScoringFunction() motionplan.SegmentFSMetric {
 	return mp.scoringFunction
 }
 
-// smoothPath will try to naively smooth the path by picking points partway between waypoints and seeing if it can interpolate
-// directly between them. This will significantly improve paths from RRT*, as it will shortcut the randomly-selected configurations.
-// This will only ever improve paths (or leave them untouched), and runs very quickly.
-func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
-	mp.logger.CDebugf(ctx, "running simple smoother on path of len %d", len(path))
-	if mp.planOpts == nil {
-		mp.logger.CDebug(ctx, "nil opts, cannot shortcut")
-		return path
-	}
-	if len(path) <= 2 {
-		mp.logger.CDebug(ctx, "path too short, cannot shortcut")
-		return path
-	}
-
-	// Randomly pick which quarter of motion to check from; this increases flexibility of smoothing.
-	waypoints := []float64{0.25, 0.5, 0.75}
-
-	for i := 0; i < mp.planOpts.SmoothIter; i++ {
-		select {
-		case <-ctx.Done():
-			return path
-		default:
-		}
-		// get start node of first edge. Cannot be either the last or second-to-last node.
-		// Intn will return an int in the half-open interval half-open interval [0,n)
-		firstEdge := mp.randseed.Intn(len(path) - 2)
-		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
-
-		// Use the frame system to interpolate between configurations
-		wayPoint1, err := referenceframe.InterpolateFS(mp.fs, path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
-		if err != nil {
-			return path
-		}
-		wayPoint2, err := referenceframe.InterpolateFS(mp.fs, path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
-		if err != nil {
-			return path
-		}
-
-		if mp.checkPath(wayPoint1, wayPoint2) {
-			newpath := []node{}
-			newpath = append(newpath, path[:firstEdge+1]...)
-			newpath = append(newpath, newConfigurationNode(wayPoint1), newConfigurationNode(wayPoint2))
-			// have to split this up due to go compiler quirk where elipses operator can't be mixed with other vars in append
-			newpath = append(newpath, path[secondEdge+1:]...)
-			path = newpath
-		}
-	}
-	return path
-}
-
 type solutionSolvingState struct {
 	solutions         map[float64]referenceframe.FrameSystemInputs
 	failures          map[string]int // A map keeping track of which constraints fail
