@@ -490,6 +490,24 @@ func TestClient(t *testing.T) {
 			test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 20)
 			test.That(t, rimage.ImagesExactlyEqual(depthImg, expectedDepth), test.ShouldBeTrue)
 		})
+
+		t.Run("invalid mime type", func(t *testing.T) {
+			_, _, err := camClient.Images(ctx, []string{"this_is_an_invalid_source_name"}, nil)
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "unknown source name: this_is_an_invalid_source_name")
+		})
+
+		t.Run("mixture of valid and invalid source names", func(t *testing.T) {
+			_, _, err := camClient.Images(ctx, []string{"color", "invalid_source"}, nil)
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "unknown source name: invalid_source")
+		})
+
+		t.Run("duplicate source names", func(t *testing.T) {
+			_, _, err := camClient.Images(ctx, []string{"color", "color"}, nil)
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "duplicate source name in filter: color")
+		})
 	})
 }
 
@@ -984,7 +1002,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
-//nolint
+// nolint
 // NOTE: These tests fail when this condition occurs:
 //
 //	logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}
