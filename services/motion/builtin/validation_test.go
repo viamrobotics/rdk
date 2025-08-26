@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
-	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
@@ -500,9 +499,8 @@ func TestMoveCallInputs(t *testing.T) {
 				Heading:            90,
 				Destination:        dst,
 				Extra: map[string]interface{}{
-					"motion_profile": armplanning.PositionOnlyMotionProfile,
-					"timeout":        5.,
-					"smooth_iter":    5.,
+					"timeout":     5.,
+					"smooth_iter": 5.,
 				},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
@@ -520,9 +518,8 @@ func TestMoveCallInputs(t *testing.T) {
 				Heading:            90,
 				Destination:        dst,
 				Extra: map[string]interface{}{
-					"motion_profile": armplanning.PositionOnlyMotionProfile,
-					"timeout":        5.,
-					"smooth_iter":    5.,
+					"timeout":     5.,
+					"smooth_iter": 5.,
 				},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)

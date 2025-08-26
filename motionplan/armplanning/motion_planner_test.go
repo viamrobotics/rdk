@@ -947,10 +947,7 @@ func TestMovementWithGripper(t *testing.T) {
 	goal := spatialmath.NewPose(r3.Vector{500, 0, -300}, &spatialmath.OrientationVector{OZ: -1})
 	startConfig := frame.NewZeroInputs(fs)
 
-	// linearly plan with the gripper
-	motionConfig := map[string]interface{}{
-		"motion_profile": LinearMotionProfile,
-	}
+	motionConfig := map[string]interface{}{}
 	planOpts, err := NewPlannerOptionsFromExtra(motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	request := &PlanRequest{
@@ -1150,7 +1147,7 @@ func TestPtgPosOnlyBidirectional(t *testing.T) {
 
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, -8000, 0})
 
-	extra := map[string]interface{}{"motion_profile": PositionOnlyMotionProfile, "position_seeds": 2, "smooth_iter": 5}
+	extra := map[string]interface{}{} //
 
 	baseFS := frame.NewEmptyFrameSystem("baseFS")
 	err = baseFS.AddFrame(kinematicFrame, baseFS.World())

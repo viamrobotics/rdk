@@ -48,32 +48,6 @@ type rrtMaps struct {
 	optNode  node // The highest quality IK solution
 }
 
-func (maps *rrtMaps) fillPosOnlyGoal(goal referenceframe.FrameSystemPoses, posSeeds int) error {
-	thetaStep := 360. / float64(posSeeds)
-	if maps == nil {
-		return errors.New("cannot call method fillPosOnlyGoal on nil maps")
-	}
-	if maps.goalMap == nil {
-		maps.goalMap = map[node]node{}
-	}
-	for i := 0; i < posSeeds; i++ {
-		newMap := referenceframe.FrameSystemPoses{}
-		for frame, goal := range goal {
-			newMap[frame] = referenceframe.NewPoseInFrame(
-				frame,
-				spatialmath.NewPose(goal.Pose().Point(), &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: float64(i) * thetaStep}),
-			)
-		}
-
-		goalNode := &basicNode{
-			q:     make(referenceframe.FrameSystemInputs),
-			poses: newMap,
-		}
-		maps.goalMap[goalNode] = nil
-	}
-	return nil
-}
-
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
 // map, and will check if any of those goals are able to be directly interpolated to.
 // If the waypoint specifies poses for start or goal, IK will be run to create configurations.

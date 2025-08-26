@@ -1360,30 +1360,6 @@ func TestDoCommand(t *testing.T) {
 				"pieceArm", defaultExecuteEpsilon, start, end))
 		test.That(t, respMap, test.ShouldBeEmpty)
 	})
-
-	t.Run("Extras transmitted correctly", func(t *testing.T) {
-		// test that DoPlan correctly breaks if bad inputs are provided, meaning it is being parsed correctly
-		moveReq.Extra = map[string]interface{}{
-			"motion_profile": armplanning.LinearMotionProfile,
-			"planning_algorithm_settings": map[string]interface{}{
-				"algorithm": "rrtstar",
-			},
-		}
-		_, err = testDoPlan(moveReq)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldResemble, armplanning.NewAlgAndConstraintMismatchErr("rrtstar"))
-	})
-
-	t.Run("Extras transmitted correctly (with deprecated key)", func(t *testing.T) {
-		// test that DoPlan correctly breaks if bad inputs are provided, meaning it is being parsed correctly
-		moveReq.Extra = map[string]interface{}{
-			"motion_profile": armplanning.LinearMotionProfile,
-			"planning_alg":   "rrtstar",
-		}
-		_, err = testDoPlan(moveReq)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldResemble, armplanning.NewAlgAndConstraintMismatchErr("rrtstar"))
-	})
 }
 
 func TestMultiWaypointPlanning(t *testing.T) {

@@ -134,17 +134,6 @@ func newConstraintHandler(
 		handler.AddStateFSConstraint(name, constraint)
 	}
 
-	switch opt.MotionProfile {
-	case LinearMotionProfile:
-		constraints.AddLinearConstraint(motionplan.LinearConstraint{opt.LineTolerance, opt.OrientationTolerance})
-	case PseudolinearMotionProfile:
-		constraints.AddPseudolinearConstraint(motionplan.PseudolinearConstraint{opt.ToleranceFactor, opt.ToleranceFactor})
-	case OrientationMotionProfile:
-		constraints.AddOrientationConstraint(motionplan.OrientationConstraint{opt.OrientationTolerance})
-	// FreeMotionProfile or PositionOnlyMotionProfile produce no additional constraints.
-	case FreeMotionProfile, PositionOnlyMotionProfile:
-	}
-
 	hasTopoConstraint, err := handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
 	if err != nil {
 		return nil, err
