@@ -167,14 +167,12 @@ func LinkInFrameToTransformProtobuf(framedLink *LinkInFrame) (*commonpb.Transfor
 	if framedLink.name == "" {
 		return nil, ErrEmptyStringFrameName
 	}
-	poseInFrame := PoseInFrameToProtobuf(framedLink.PoseInFrame)
 	tform := &commonpb.Transform{
-		Name:   framedLink.name,
-		Parent: poseInFrame.ReferenceFrame,
-		Pose:   poseInFrame.Pose,
+		ReferenceFrame:      framedLink.name,
+		PoseInObserverFrame: PoseInFrameToProtobuf(framedLink.PoseInFrame),
 	}
 	if framedLink.geometry != nil {
-		tform.Geometries = []*commonpb.Geometry{framedLink.geometry.ToProtobuf()}
+		tform.PhysicalObject = framedLink.geometry.ToProtobuf()
 	}
 	return tform, nil
 }
@@ -182,19 +180,20 @@ func LinkInFrameToTransformProtobuf(framedLink *LinkInFrame) (*commonpb.Transfor
 // LinkInFrameFromTransformProtobuf converts a Transform protobuf message to a LinkInFrame struct.
 func LinkInFrameFromTransformProtobuf(proto *commonpb.Transform) (*LinkInFrame, error) {
 	var err error
-	frameName := proto.GetName()
+	frameName := proto.GetReferenceFrame()
 	if frameName == "" {
 		return nil, ErrEmptyStringFrameName
 	}
-	poseInObserverFrame := proto.GetPose()
-	parentFrame := proto.GetParent()
+	poseInObserverFrame := proto.GetPoseInObserverFrame()
+	parentFrame := poseInObserverFrame.GetReferenceFrame()
 	if parentFrame == "" {
 		return nil, ErrEmptyStringFrameName
 	}
-	pose := spatialmath.NewPoseFromProtobuf(poseInObserverFrame)
+	poseMsg := poseInObserverFrame.GetPose()
+	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
 	var geometry spatialmath.Geometry
-	if proto.Geometries != nil {
-		geometry, err = NewGeometryFromProto(proto.Geometries[0])
+	if proto.PhysicalObject != nil {
+		geometry, err = NewGeometryFromProto(proto.PhysicalObject)
 		if err != nil {
 			return nil, err
 		}

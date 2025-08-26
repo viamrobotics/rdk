@@ -683,46 +683,46 @@ func TestServerFrameSystemConfig(t *testing.T) {
 		resp, err := server.FrameSystemConfig(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.FrameSystemConfigs), test.ShouldEqual, len(fsConfigs))
-		test.That(t, resp.FrameSystemConfigs[0].Frame.Name, test.ShouldEqual, fsConfigs[0].FrameConfig.Name())
+		test.That(t, resp.FrameSystemConfigs[0].Frame.ReferenceFrame, test.ShouldEqual, fsConfigs[0].FrameConfig.Name())
 		test.That(
 			t,
-			resp.FrameSystemConfigs[0].Frame.Parent,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.ReferenceFrame,
 			test.ShouldEqual,
 			fsConfigs[0].FrameConfig.Parent(),
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Pose.X,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.X,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Pose().Point().X,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Pose.Y,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Y,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Pose().Point().Y,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Pose.Z,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Z,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Pose().Point().Z,
 		)
 		pose := fsConfigs[0].FrameConfig.Pose()
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Pose.OX,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OX,
 			test.ShouldAlmostEqual,
 			pose.Orientation().OrientationVectorDegrees().OX,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Pose.OY,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OY,
 			test.ShouldAlmostEqual,
 			pose.Orientation().OrientationVectorDegrees().OY,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Pose.OZ,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.OZ,
 			test.ShouldAlmostEqual,
 			pose.Orientation().OrientationVectorDegrees().OZ,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].Frame.Pose.Theta,
+			resp.FrameSystemConfigs[0].Frame.PoseInObserverFrame.Pose.Theta,
 			test.ShouldAlmostEqual,
 			pose.Orientation().OrientationVectorDegrees().Theta,
 		)
