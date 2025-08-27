@@ -274,25 +274,6 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			manager.resources.UpdateNodePrefix(resName, prefix)
 		}
 
-		// TODO(Benji): Simply checking the error-return of FindBySimpleNameAndAPI won't cover
-		// _all_ collision cases, as we may be starting up the machine and have an
-		// _unconfigured_ local graph node with a colliding name. This is because
-		// completeConfigForRemotes is called before local component/service node
-		// configuration paths that would fill in the simpleNameCache.
-		prefixedSimpleName := prefix + resName.Name
-		_, err = manager.resources.FindBySimpleNameAndAPI(prefixedSimpleName, resName.API)
-		switch {
-		case err == nil, resource.IsMultipleMatchingRemoteNodesError(err):
-			// A collision could be indicated by a non-nil graph node (a single pre-existing
-			// resource with the same name), or a MultipleMatchingRemoteNodesError (multiple
-			// pre-existing remote resources with the same name).
-			manager.logger.Errorw("Found resource name collision, please check your configuration", "name", resName.Name, "api", resName.API)
-		case resource.IsNodeNotFoundError(err):
-			// No resources with the given simple name + API exists yet.
-		default:
-			manager.logger.Warnw("Unexpected error while checking for resource name collision", "err", err)
-		}
-
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
 			activeResourceNames[resName] = true
 			if nodeAlreadyExists && !gNode.IsUninitialized() {
@@ -322,6 +303,29 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		if nodeAlreadyExists {
 			gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
 		} else {
+			// Configure a new graph node with the gRPC client to this remote resource.
+
+			// TODO(Benji): Simply checking the error-return of FindBySimpleNameAndAPI won't cover
+			// _all_ collision cases, as we may be starting up the machine and have an
+			// _unconfigured_ local graph node with a colliding name. This is because
+			// completeConfigForRemotes is called before local component/service node
+			// configuration paths that would fill in the simpleNameCache.
+			//
+			// Check for a full resource name collision and log an error if there is one.
+			prefixedSimpleName := prefix + resName.Name
+			_, err = manager.resources.FindBySimpleNameAndAPI(prefixedSimpleName, resName.API)
+			switch {
+			case err == nil, resource.IsMultipleMatchingRemoteNodesError(err):
+				// A collision could be indicated by a non-nil graph node (a single pre-existing
+				// resource with the same name), or a MultipleMatchingRemoteNodesError (multiple
+				// pre-existing remote resources with the same name).
+				manager.logger.Errorw("Found resource name collision, please check your configuration", "name", prefixedSimpleName, "api", resName.API)
+			case resource.IsNodeNotFoundError(err):
+				// No resources with the given simple name + API exists yet.
+			default:
+				manager.logger.Warnw("Unexpected error while checking for resource name collision", "err", err)
+			}
+
 			gNode = resource.NewConfiguredGraphNodeWithPrefix(resource.Config{}, res, unknownModel, prefix)
 			if err := manager.resources.AddNode(resName, gNode); err != nil {
 				resLogger.CErrorw(ctx, "failed to add remote resource node", "error", err)
