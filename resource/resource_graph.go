@@ -45,7 +45,7 @@ func (e *MultipleMatchingRemoteNodesError) Error() string {
 	return fmt.Sprintf("found multiple nodes matching api %s and name %s (%v)", e.API, e.Name, e.Names)
 }
 
-// IsMultipleMatchingRemoteNodes returns if the given error is any kind of multiple
+// IsMultipleMatchingRemoteNodesError returns if the given error is any kind of multiple
 // matching remote nodes error.
 func IsMultipleMatchingRemoteNodesError(err error) bool {
 	var mmrnErr *MultipleMatchingRemoteNodesError
