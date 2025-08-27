@@ -172,10 +172,10 @@ type LocalRobot interface {
 	// Only use this if comfortable with leaking resources (in cases where exiting the program as quickly as possible is desired).
 	Kill()
 
-	// ResourceBySimpleNameAndAPI returns a resource from the resource graph. See
+	// FindBySimpleNameAndAPI returns a resource from the resource graph. See
 	// [resource.Graph.FindBySimpleNameAndAPI] for specifics about what is
 	// returned in the case of name collisions.
-	ResourceBySimpleNameAndAPI(string, resource.API) (resource.Resource, error)
+	FindBySimpleNameAndAPI(string, resource.API) (resource.Resource, error)
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

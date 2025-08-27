@@ -91,7 +91,7 @@ type resourceGetterForAPI struct {
 }
 
 func (r resourceGetterForAPI) Resource(name string) (resource.Resource, error) {
-	return r.robot.ResourceBySimpleNameAndAPI(name, r.api)
+	return r.robot.FindBySimpleNameAndAPI(name, r.api)
 }
 
 type webService struct {

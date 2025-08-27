@@ -26,21 +26,21 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
-	Mu                             sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
-	GetModelsFromModulesFunc       func(ctx context.Context) ([]resource.ModuleModel, error)
-	RemoteByNameFunc               func(name string) (robot.Robot, bool)
-	ResourceByNameFunc             func(name resource.Name) (resource.Resource, error)
-	RemoteNamesFunc                func() []string
-	ResourceNamesFunc              func() []resource.Name
-	ResourceRPCAPIsFunc            func() []resource.RPCAPI
-	ResourceBySimpleNameAndAPIFunc func(string, resource.API) (resource.Resource, error)
-	ProcessManagerFunc             func() pexec.ProcessManager
-	ConfigFunc                     func() *config.Config
-	LoggerFunc                     func() logging.Logger
-	CloseFunc                      func(ctx context.Context) error
-	StopAllFunc                    func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
-	FrameSystemConfigFunc          func(ctx context.Context) (*framesystem.Config, error)
-	TransformPoseFunc              func(
+	Mu                         sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
+	GetModelsFromModulesFunc   func(ctx context.Context) ([]resource.ModuleModel, error)
+	RemoteByNameFunc           func(name string) (robot.Robot, bool)
+	ResourceByNameFunc         func(name resource.Name) (resource.Resource, error)
+	RemoteNamesFunc            func() []string
+	ResourceNamesFunc          func() []resource.Name
+	ResourceRPCAPIsFunc        func() []resource.RPCAPI
+	FindBySimpleNameAndAPIFunc func(string, resource.API) (resource.Resource, error)
+	ProcessManagerFunc         func() pexec.ProcessManager
+	ConfigFunc                 func() *config.Config
+	LoggerFunc                 func() logging.Logger
+	CloseFunc                  func(ctx context.Context) error
+	StopAllFunc                func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
+	FrameSystemConfigFunc      func(ctx context.Context) (*framesystem.Config, error)
+	TransformPoseFunc          func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
@@ -77,7 +77,7 @@ func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
 		}
 		return nil, errors.New("not found")
 	}
-	r.ResourceBySimpleNameAndAPIFunc = func(name string, api resource.API) (resource.Resource, error) {
+	r.FindBySimpleNameAndAPIFunc = func(name string, api resource.API) (resource.Resource, error) {
 		var remoteNames []resource.Name
 		var remoteResults []resource.Resource
 		for resName, res := range rs {
@@ -153,14 +153,14 @@ func (r *Robot) ResourceRPCAPIs() []resource.RPCAPI {
 	return r.ResourceRPCAPIsFunc()
 }
 
-// ResourceBySimpleNameAndAPI returns a list of all known resource RPC APIs.
-func (r *Robot) ResourceBySimpleNameAndAPI(name string, api resource.API) (resource.Resource, error) {
+// FindBySimpleNameAndAPI returns a list of all known resource RPC APIs.
+func (r *Robot) FindBySimpleNameAndAPI(name string, api resource.API) (resource.Resource, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
-	if r.ResourceBySimpleNameAndAPIFunc == nil {
-		return r.LocalRobot.ResourceBySimpleNameAndAPI(name, api)
+	if r.FindBySimpleNameAndAPIFunc == nil {
+		return r.LocalRobot.FindBySimpleNameAndAPI(name, api)
 	}
-	return r.ResourceBySimpleNameAndAPIFunc(name, api)
+	return r.FindBySimpleNameAndAPIFunc(name, api)
 }
 
 // OperationManager calls the injected OperationManager or the real version.

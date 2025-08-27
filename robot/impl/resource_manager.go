@@ -1352,7 +1352,8 @@ func (manager *resourceManager) updateResources(
 }
 
 // ResourceByName returns the given resource by fully qualified name, if it exists;
-// returns an error otherwise.
+// returns an error otherwise. Used only internally for testing. Lookups for resources
+// associated with gRPC requests now go through FindBySimpleNameAndAPI.
 func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Resource, error) {
 	if gNode, ok := manager.resources.Node(name); ok {
 		res, err := gNode.Resource()

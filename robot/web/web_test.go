@@ -942,7 +942,7 @@ func setupRobotCtx(t *testing.T, opts ...setupRobotOption) (context.Context, rob
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return injectArm, nil
 	}
-	injectRobot.ResourceBySimpleNameAndAPIFunc = func(string, resource.API) (resource.Resource, error) {
+	injectRobot.FindBySimpleNameAndAPIFunc = func(string, resource.API) (resource.Resource, error) {
 		return injectArm, nil
 	}
 	injectRobot.LoggerFunc = func() logging.Logger { return logging.NewTestLogger(t) }
@@ -1162,7 +1162,7 @@ func TestUnaryRequestCounter(t *testing.T) {
 	iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		return robot.MachineStatus{}, nil
 	}
-	iRobot.(*inject.Robot).ResourceBySimpleNameAndAPIFunc = func(s string, a resource.API) (resource.Resource, error) {
+	iRobot.(*inject.Robot).FindBySimpleNameAndAPIFunc = func(s string, a resource.API) (resource.Resource, error) {
 		return nil, resource.NewNotFoundError(resource.NewName(a, s))
 	}
 

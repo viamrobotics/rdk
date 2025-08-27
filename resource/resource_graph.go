@@ -142,7 +142,7 @@ func (s graphStorage) Copy() graphStorage {
 	return out
 }
 
-func (s graphStorage) GetBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
+func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	val := s.simpleNameCache[simpleNameKey{name, api}]
 	if val == nil {
 		return nil, &NodeNotFoundError{name, api}
@@ -385,7 +385,7 @@ func (g *Graph) UpdateNodePrefix(name Name, prefix string) {
 func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.nodes.GetBySimpleNameAndAPI(name, api)
+	return g.nodes.FindBySimpleNameAndAPI(name, api)
 }
 
 // Names returns all the resource graph names.
