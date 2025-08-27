@@ -274,12 +274,23 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			manager.resources.UpdateNodePrefix(resName, prefix)
 		}
 
-		if _, err := manager.resources.FindBySimpleNameAndAPI(resName.Name, resName.API); err != nil {
-			if !resource.IsNotFoundError(err) {
-				manager.logger.Warnw("unexpected error while checking for resource name collision", "err", err)
-			}
-		} else {
-			manager.logger.Warnw("found resource name collision, please check your configuration", "name", resName.Name, "api", resName.API)
+		// TODO(Benji): Simply checking the error-return of FindBySimpleNameAndAPI won't cover
+		// _all_ collision cases, as we may be starting up the machine and have an
+		// _unconfigured_ local graph node with a colliding name. This is because
+		// completeConfigForRemotes is called before local component/service node
+		// configuration paths that would fill in the simpleNameCache.
+		prefixedSimpleName := prefix + resName.Name
+		_, err = manager.resources.FindBySimpleNameAndAPI(prefixedSimpleName, resName.API)
+		switch {
+		case err == nil, resource.IsMultipleMatchingRemoteNodesError(err):
+			// A collision could be indicated by a non-nil graph node (a single pre-existing
+			// resource with the same name), or a MultipleMatchingRemoteNodesError (multiple
+			// pre-existing remote resources with the same name).
+			manager.logger.Errorw("Found resource name collision, please check your configuration", "name", resName.Name, "api", resName.API)
+		case resource.IsNodeNotFoundError(err):
+			// No resources with the given simple name + API exists yet.
+		default:
+			manager.logger.Warnw("Unexpected error while checking for resource name collision", "err", err)
 		}
 
 		if _, alreadyCurrent := activeResourceNames[resName]; alreadyCurrent {
@@ -423,13 +434,24 @@ func (manager *resourceManager) internalResourceNames() []resource.Name {
 	return names
 }
 
+// simpleNameAndAPI is a tuple used to avoid returning full resource name collisions from
+// ResourceNames and reachableResourceNames.
+type simpleNameAndAPI struct {
+	simpleName string
+	API        resource.API
+}
+
 // ResourceNames returns the names of all resources in the manager, excluding the following types of resources:
 // - Resources that represent entire remote machines.
 // - Resources that are considered internal to viam-server that cannot be removed via configuration.
+// - Resources that are remote and have the same full name as another resource (name collision).
+// Remotes resources' Name field will be automatically prefixed.
 func (manager *resourceManager) ResourceNames() []resource.Name {
 	names := []resource.Name{}
+	nameSet := make(map[simpleNameAndAPI]struct{})
 	for _, k := range manager.resources.Names() {
-		if manager.resourceName(k) {
+		if prefix, shouldBeIncluded := manager.resourceName(k, nameSet); shouldBeIncluded {
+			k.Name = prefix + k.Name
 			names = append(names, k)
 		}
 	}
@@ -440,10 +462,14 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 // - Resources that represent entire remote machines.
 // - Resources that are considered internal to viam-server that cannot be removed via configuration.
 // - Remote resources that are currently unreachable.
+// - Remote resources that have the same full name as another resource (name collision).
+// Remotes resources' Name field will be automatically prefixed.
 func (manager *resourceManager) reachableResourceNames() []resource.Name {
 	names := []resource.Name{}
+	nameSet := make(map[simpleNameAndAPI]struct{})
 	for _, k := range manager.resources.ReachableNames() {
-		if manager.resourceName(k) {
+		if prefix, shouldBeIncluded := manager.resourceName(k, nameSet); shouldBeIncluded {
+			k.Name = prefix + k.Name
 			names = append(names, k)
 		}
 	}
@@ -455,16 +481,31 @@ func (manager *resourceManager) reachableResourceNames() []resource.Name {
 // - The resource is not stored in the resource manager.
 // - The resource represents an entire remote machine.
 // - The resource is considered internal to viam-server, meaning it cannot be removed via configuration.
-func (manager *resourceManager) resourceName(k resource.Name) bool {
+// - The resource is remote and has the same full name as another resource (name collision according to nameSet).
+// The method will return any set prefix of the resource, and whether or not the resource should be returned
+// by [ResourceNames].
+func (manager *resourceManager) resourceName(
+	k resource.Name,
+	nameSet map[simpleNameAndAPI]struct{},
+) (string, bool) {
 	if k.API == client.RemoteAPI ||
 		k.API.Type.Namespace == resource.APINamespaceRDKInternal {
-		return false
+		return "", false
 	}
+
 	gNode, ok := manager.resources.Node(k)
 	if !ok || !gNode.HasResource() {
-		return false
+		return "", false
 	}
-	return true
+
+	prefix := gNode.GetPrefix()
+	snaapi := simpleNameAndAPI{prefix + k.Name, k.API}
+	if _, alreadySeen := nameSet[snaapi]; alreadySeen && k.Remote != "" {
+		return "", false
+	}
+	nameSet[snaapi] = struct{}{}
+
+	return prefix, true
 }
 
 // ResourceRPCAPIs returns the types of all resource RPC APIs in use by the manager.
@@ -1170,12 +1211,6 @@ func (manager *resourceManager) addToBeConstructedResource(
 	deps []string,
 	revision string,
 ) error {
-	// TODO(Benji/Josh): Log a collision error if there is already a remote resource with
-	// the same simple (prefixed) name and API. We should still add the passed-in local
-	// resource in that case, as we want to prefer local to remote resources. The logic
-	// below will only return an error if there's a _local_ resource with the same simple
-	// name and API.
-
 	if _, hasNode := manager.resources.Node(name); hasNode {
 		manager.markResourcesRemoved([]resource.Name{name}, nil, true /* remove dependents */)
 		return fmt.Errorf("cannot add duplicate resource %s. Rename the resource. Neither resource will be reachable through"+

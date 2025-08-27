@@ -27,6 +27,12 @@ func (e *NodeNotFoundError) Error() string {
 	return fmt.Sprintf("no node found with api %s and name %s", e.API, e.Name)
 }
 
+// IsNodeNotFoundError returns if the given error is any kind of node not found error.
+func IsNodeNotFoundError(err error) bool {
+	var nnfErr *NodeNotFoundError
+	return errors.As(err, &nnfErr)
+}
+
 // MultipleMatchingRemoteNodesError is returned when more than one remote resource node matches the name
 // and API query passed to FindBySimpleNameAndAPI.
 type MultipleMatchingRemoteNodesError struct {
@@ -37,6 +43,13 @@ type MultipleMatchingRemoteNodesError struct {
 
 func (e *MultipleMatchingRemoteNodesError) Error() string {
 	return fmt.Sprintf("found multiple nodes matching api %s and name %s (%v)", e.API, e.Name, e.Names)
+}
+
+// IsMultipleMatchingRemoteNodes returns if the given error is any kind of multiple
+// matching remote nodes error.
+func IsMultipleMatchingRemoteNodesError(err error) bool {
+	var mmrnErr *MultipleMatchingRemoteNodesError
+	return errors.As(err, &mmrnErr)
 }
 
 type graphNodes map[Name]*GraphNode
