@@ -48,4 +48,10 @@ func TestConstraintConstructors(t *testing.T) {
 	pbConstraint := c.ToProtobuf()
 	pbToRDKConstraint := ConstraintsFromProtobuf(pbConstraint)
 	test.That(t, c, test.ShouldResemble, pbToRDKConstraint)
+
+	c.AddPseudolinearConstraint(PseudolinearConstraint{5, 2})
+
+	pbConstraint = c.ToProtobuf()
+	pbToRDKConstraint = ConstraintsFromProtobuf(pbConstraint)
+	test.That(t, c, test.ShouldResemble, pbToRDKConstraint)
 }

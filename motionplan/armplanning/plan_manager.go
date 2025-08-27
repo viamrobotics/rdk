@@ -764,19 +764,13 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan motion
 			return nil, err
 		}
 	}
-	if pm.planOpts.PositionSeeds > 0 && pm.planOpts.MotionProfile == PositionOnlyMotionProfile {
-		err = maps.fillPosOnlyGoal(wp.goalState.poses, pm.planOpts.PositionSeeds)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		goalPose := wp.goalState.poses[pm.motionChains.ptgFrameName].Pose()
-		goalMapFlip := map[string]*referenceframe.PoseInFrame{
-			pm.motionChains.ptgFrameName: referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(goalPose, flipPose)),
-		}
-		goalNode := &basicNode{q: zeroInputs, poses: goalMapFlip}
-		maps.goalMap = map[node]node{goalNode: nil}
+	goalPose := wp.goalState.poses[pm.motionChains.ptgFrameName].Pose()
+	goalMapFlip := map[string]*referenceframe.PoseInFrame{
+		pm.motionChains.ptgFrameName: referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(goalPose, flipPose)),
 	}
+	goalNode := &basicNode{q: zeroInputs, poses: goalMapFlip}
+	maps.goalMap = map[node]node{goalNode: nil}
+
 	startNode := &basicNode{q: zeroInputs, poses: pm.request.StartState.poses}
 	maps.startMap = map[node]node{startNode: nil}
 
@@ -819,11 +813,6 @@ func (pm *planManager) useSubWaypoints(seedPlan motionplan.Plan, wpi int) bool {
 		if startState.configuration == nil {
 			return false
 		}
-	}
-
-	// linear motion profile has known intermediate points, so solving can be broken up and sped up
-	if pm.planOpts.MotionProfile == LinearMotionProfile {
-		return true
 	}
 
 	if len(pm.request.Constraints.GetLinearConstraint()) > 0 {

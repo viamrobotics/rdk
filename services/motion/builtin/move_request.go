@@ -466,7 +466,7 @@ func (mr *moveRequest) augmentBaseExecutionState(
 	)
 }
 
-func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
+func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration) kinematicbase.Options {
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 
 	if motionCfg.linearMPerSec > 0 {
@@ -479,10 +479,6 @@ func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra va
 
 	if motionCfg.planDeviationMM > 0 {
 		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.planDeviationMM
-	}
-
-	if validatedExtra.motionProfile != "" {
-		kinematicsOptions.PositionOnlyMode = validatedExtra.motionProfile == armplanning.PositionOnlyMotionProfile
 	}
 
 	kinematicsOptions.GoalRadiusMM = motionCfg.planDeviationMM
@@ -616,7 +612,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	// build kinematic options
-	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
+	kinematicsOptions := kbOptionsFromCfg(motionCfg)
 
 	// build the localizer from the movement sensor
 	movementSensor, ok := ms.movementSensors[req.MovementSensorName]
@@ -771,7 +767,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	}
 
 	// build kinematic options
-	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
+	kinematicsOptions := kbOptionsFromCfg(motionCfg)
 
 	fs, err := framesystem.NewFromService(ctx, ms.fsService, nil)
 	if err != nil {
@@ -941,9 +937,6 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	// TODO(RSDK-8683): move this check into the motionplan package
 	atGoalCheck := func(basePose spatialmath.Pose) bool {
-		if valExtra.motionProfile == armplanning.PositionOnlyMotionProfile {
-			return spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM)
-		}
 		return spatialmath.OrientationAlmostEqualEps(goal.Pose().Orientation(), basePose.Orientation(), 5) &&
 			spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM)
 	}

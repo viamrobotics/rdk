@@ -64,6 +64,25 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 		return toRet
 	}
 
+	plinConstraintFromProto := func(plinConstraints []*motionpb.PseudolinearConstraint) []PseudolinearConstraint {
+		toRet := make([]PseudolinearConstraint, 0, len(plinConstraints))
+		for _, plc := range plinConstraints {
+			linTol := 0.
+			if plc.LineToleranceFactor != nil {
+				linTol = float64(*plc.LineToleranceFactor)
+			}
+			orientTol := 0.
+			if plc.OrientationToleranceFactor != nil {
+				orientTol = float64(*plc.OrientationToleranceFactor)
+			}
+			toRet = append(toRet, PseudolinearConstraint{
+				LineToleranceFactor:        linTol,
+				OrientationToleranceFactor: orientTol,
+			})
+		}
+		return toRet
+	}
+
 	// iterate through all motionpb.OrientationConstraint and convert to RDK form
 	orientConstraintFromProto := func(orientConstraints []*motionpb.OrientationConstraint) []OrientationConstraint {
 		toRet := make([]OrientationConstraint, 0, len(orientConstraints))
@@ -99,7 +118,7 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 
 	return NewConstraints(
 		linConstraintFromProto(pbConstraint.LinearConstraint),
-		[]PseudolinearConstraint{},
+		plinConstraintFromProto(pbConstraint.PseudolinearConstraint),
 		orientConstraintFromProto(pbConstraint.OrientationConstraint),
 		collSpecFromProto(pbConstraint.CollisionSpecification),
 	)
@@ -155,6 +174,19 @@ func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 		return toRet
 	}
 
+	convertPseudoLinConstraintToProto := func(plinConstraints []PseudolinearConstraint) []*motionpb.PseudolinearConstraint {
+		toRet := make([]*motionpb.PseudolinearConstraint, 0)
+		for _, plc := range plinConstraints {
+			lineTolerance := float32(plc.LineToleranceFactor)
+			orientationTolerance := float32(plc.OrientationToleranceFactor)
+			toRet = append(toRet, &motionpb.PseudolinearConstraint{
+				LineToleranceFactor:        &lineTolerance,
+				OrientationToleranceFactor: &orientationTolerance,
+			})
+		}
+		return toRet
+	}
+
 	// convert OrientationConstraint to motionpb.OrientationConstraint
 	convertOrientConstraintToProto := func(orientConstraints []OrientationConstraint) []*motionpb.OrientationConstraint {
 		toRet := make([]*motionpb.OrientationConstraint, 0)
@@ -187,6 +219,7 @@ func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 
 	return &motionpb.Constraints{
 		LinearConstraint:       convertLinConstraintToProto(c.LinearConstraint),
+		PseudolinearConstraint: convertPseudoLinConstraintToProto(c.PseudolinearConstraint),
 		OrientationConstraint:  convertOrientConstraintToProto(c.OrientationConstraint),
 		CollisionSpecification: convertCollSpecToProto(c.CollisionSpecification),
 	}
