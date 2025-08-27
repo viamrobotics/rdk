@@ -2,6 +2,7 @@ package worldstatestore
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"go.opencensus.io/trace"
@@ -115,7 +116,7 @@ func (c *client) StreamTransformChanges(ctx context.Context, extra map[string]in
 		for {
 			resp, err := stream.Recv()
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					// Stream ended normally
 					return
 				}

@@ -1,3 +1,4 @@
+// Package fake provides a fake implementation of the worldstatestore.Service interface.
 package fake
 
 import (
@@ -10,12 +11,13 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
-	"go.viam.com/rdk/services/worldstatestore"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/services/worldstatestore"
 )
 
-// FakeWorldStateStore implements the worldstatestore.Service interface
-type FakeWorldStateStore struct {
+// WorldStateStore implements the worldstatestore.Service interface.
+type WorldStateStore struct {
 	mu sync.RWMutex
 
 	transforms map[string]*commonpb.Transform
@@ -29,10 +31,10 @@ type FakeWorldStateStore struct {
 }
 
 // NewFakeWorldStateStore creates a new fake world state store service.
-func NewFakeWorldStateStore() *FakeWorldStateStore {
+func NewFakeWorldStateStore() *WorldStateStore {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	fake := &FakeWorldStateStore{
+	fake := &WorldStateStore{
 		transforms: make(map[string]*commonpb.Transform),
 		startTime:  time.Now(),
 		changeChan: make(chan worldstatestore.TransformChange, 100),
@@ -48,7 +50,7 @@ func NewFakeWorldStateStore() *FakeWorldStateStore {
 }
 
 // initializeStaticTransforms creates the initial three transforms in the world.
-func (f *FakeWorldStateStore) initializeStaticTransforms() {
+func (f *WorldStateStore) initializeStaticTransforms() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -57,7 +59,7 @@ func (f *FakeWorldStateStore) initializeStaticTransforms() {
 	sphereUUID := "sphere-001"
 	capsuleUUID := "capsule-001"
 
-	boxMetadata, _ := structpb.NewStruct(map[string]interface{}{
+	boxMetadata, err := structpb.NewStruct(map[string]interface{}{
 		"color": map[string]interface{}{
 			"r": 255,
 			"g": 0,
@@ -65,8 +67,11 @@ func (f *FakeWorldStateStore) initializeStaticTransforms() {
 		},
 		"opacity": 0.3,
 	})
+	if err != nil {
+		panic(err)
+	}
 
-	sphereMetadata, _ := structpb.NewStruct(map[string]interface{}{
+	sphereMetadata, err := structpb.NewStruct(map[string]interface{}{
 		"color": map[string]interface{}{
 			"r": 0,
 			"g": 0,
@@ -74,8 +79,11 @@ func (f *FakeWorldStateStore) initializeStaticTransforms() {
 		},
 		"opacity": 0.7,
 	})
+	if err != nil {
+		panic(err)
+	}
 
-	capsuleMetadata, _ := structpb.NewStruct(map[string]interface{}{
+	capsuleMetadata, err := structpb.NewStruct(map[string]interface{}{
 		"color": map[string]interface{}{
 			"r": 0,
 			"g": 255,
@@ -83,6 +91,9 @@ func (f *FakeWorldStateStore) initializeStaticTransforms() {
 		},
 		"opacity": 1.0,
 	})
+	if err != nil {
+		panic(err)
+	}
 
 	f.transforms[boxUUID] = &commonpb.Transform{
 		ReferenceFrame: "world",
@@ -148,7 +159,7 @@ func (f *FakeWorldStateStore) initializeStaticTransforms() {
 }
 
 // Close stops the fake service and cleans up resources.
-func (f *FakeWorldStateStore) Close(ctx context.Context) error {
+func (f *WorldStateStore) Close(ctx context.Context) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -159,7 +170,7 @@ func (f *FakeWorldStateStore) Close(ctx context.Context) error {
 }
 
 // ListUUIDs returns all transform UUIDs currently in the store.
-func (f *FakeWorldStateStore) ListUUIDs(ctx context.Context, extra map[string]any) ([][]byte, error) {
+func (f *WorldStateStore) ListUUIDs(ctx context.Context, extra map[string]any) ([][]byte, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
@@ -172,7 +183,7 @@ func (f *FakeWorldStateStore) ListUUIDs(ctx context.Context, extra map[string]an
 }
 
 // GetTransform returns the transform for the given UUID.
-func (f *FakeWorldStateStore) GetTransform(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
+func (f *WorldStateStore) GetTransform(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
@@ -185,18 +196,21 @@ func (f *FakeWorldStateStore) GetTransform(ctx context.Context, uuid []byte, ext
 }
 
 // StreamTransformChanges returns a channel of transform changes.
-func (f *FakeWorldStateStore) StreamTransformChanges(ctx context.Context, extra map[string]any) (<-chan worldstatestore.TransformChange, error) {
+func (f *WorldStateStore) StreamTransformChanges(
+	ctx context.Context,
+	extra map[string]any,
+) (<-chan worldstatestore.TransformChange, error) {
 	return f.changeChan, nil
 }
 
 // DoCommand handles arbitrary commands (not implemented in fake).
-func (f *FakeWorldStateStore) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (f *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"status": "do command not implemented",
 	}, nil
 }
 
-func (f *FakeWorldStateStore) updateBoxTransform(elapsed time.Duration) {
+func (f *WorldStateStore) updateBoxTransform(elapsed time.Duration) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -210,7 +224,7 @@ func (f *FakeWorldStateStore) updateBoxTransform(elapsed time.Duration) {
 	}
 }
 
-func (f *FakeWorldStateStore) updateSphereTransform(elapsed time.Duration) {
+func (f *WorldStateStore) updateSphereTransform(elapsed time.Duration) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -224,7 +238,7 @@ func (f *FakeWorldStateStore) updateSphereTransform(elapsed time.Duration) {
 	}
 }
 
-func (f *FakeWorldStateStore) updateCapsuleTransform(elapsed time.Duration) {
+func (f *WorldStateStore) updateCapsuleTransform(elapsed time.Duration) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -239,7 +253,7 @@ func (f *FakeWorldStateStore) updateCapsuleTransform(elapsed time.Duration) {
 	}
 }
 
-func (f *FakeWorldStateStore) emitTransformChange(uuid string, changeType pb.TransformChangeType, updatedFields []string) {
+func (f *WorldStateStore) emitTransformChange(uuid string, changeType pb.TransformChangeType, updatedFields []string) {
 	if transform, exists := f.transforms[uuid]; exists {
 		transformCopy := &commonpb.Transform{
 			ReferenceFrame:      transform.ReferenceFrame,
@@ -262,7 +276,7 @@ func (f *FakeWorldStateStore) emitTransformChange(uuid string, changeType pb.Tra
 	}
 }
 
-func (f *FakeWorldStateStore) animationLoop() {
+func (f *WorldStateStore) animationLoop() {
 	ticker := time.NewTicker(100 * time.Millisecond) // 10 FPS
 	defer ticker.Stop()
 
@@ -279,7 +293,7 @@ func (f *FakeWorldStateStore) animationLoop() {
 	}
 }
 
-func (f *FakeWorldStateStore) dynamicBoxSequence() {
+func (f *WorldStateStore) dynamicBoxSequence() {
 	sequence := []struct {
 		action string
 		name   string
@@ -322,7 +336,7 @@ func (f *FakeWorldStateStore) dynamicBoxSequence() {
 	}
 }
 
-func (f *FakeWorldStateStore) addDynamicBox(name string) {
+func (f *WorldStateStore) addDynamicBox(name string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -353,7 +367,7 @@ func (f *FakeWorldStateStore) addDynamicBox(name string) {
 	f.emitTransformChange(uuid, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED, nil)
 }
 
-func (f *FakeWorldStateStore) removeDynamicBox(name string) {
+func (f *WorldStateStore) removeDynamicBox(name string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -382,7 +396,7 @@ func (f *FakeWorldStateStore) removeDynamicBox(name string) {
 	}
 }
 
-func (f *FakeWorldStateStore) updateTransforms() {
+func (f *WorldStateStore) updateTransforms() {
 	elapsed := time.Since(f.startTime)
 
 	f.updateBoxTransform(elapsed)

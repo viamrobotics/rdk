@@ -76,7 +76,13 @@ func TestClient(t *testing.T) {
 	t.Run("ListUUIDs", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := worldstatestore.NewClientFromConn(context.Background(), conn, "", worldstatestore.Named(testWorldStateStoreServiceName), logger)
+		client, err := worldstatestore.NewClientFromConn(
+			context.Background(),
+			conn,
+			"",
+			worldstatestore.Named(testWorldStateStoreServiceName),
+			logger,
+		)
 		test.That(t, err, test.ShouldBeNil)
 
 		uuids, err := client.ListUUIDs(context.Background(), nil)
@@ -92,7 +98,13 @@ func TestClient(t *testing.T) {
 	t.Run("GetTransform", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := worldstatestore.NewClientFromConn(context.Background(), conn, "", worldstatestore.Named(testWorldStateStoreServiceName), logger)
+		client, err := worldstatestore.NewClientFromConn(
+			context.Background(),
+			conn,
+			"",
+			worldstatestore.Named(testWorldStateStoreServiceName),
+			logger,
+		)
 		test.That(t, err, test.ShouldBeNil)
 
 		transform, err := client.GetTransform(context.Background(), []byte("test-uuid"), nil)
@@ -107,7 +119,13 @@ func TestClient(t *testing.T) {
 	t.Run("StreamTransformChanges", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := worldstatestore.NewClientFromConn(context.Background(), conn, "", worldstatestore.Named(testWorldStateStoreServiceName), logger)
+		client, err := worldstatestore.NewClientFromConn(
+			context.Background(),
+			conn,
+			"",
+			worldstatestore.Named(testWorldStateStoreServiceName),
+			logger,
+		)
 		test.That(t, err, test.ShouldBeNil)
 
 		changesChan, err := client.StreamTransformChanges(context.Background(), nil)
@@ -125,7 +143,13 @@ func TestClient(t *testing.T) {
 	t.Run("DoCommand", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := worldstatestore.NewClientFromConn(context.Background(), conn, "", worldstatestore.Named(testWorldStateStoreServiceName), logger)
+		client, err := worldstatestore.NewClientFromConn(
+			context.Background(),
+			conn,
+			"",
+			worldstatestore.Named(testWorldStateStoreServiceName),
+			logger,
+		)
 		test.That(t, err, test.ShouldBeNil)
 
 		cmd := map[string]interface{}{"test": "command"}
@@ -173,7 +197,13 @@ func TestClientFailures(t *testing.T) {
 	t.Run("ListUUIDs with error", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := worldstatestore.NewClientFromConn(context.Background(), conn, "", worldstatestore.Named(testWorldStateStoreServiceName), logger)
+		client, err := worldstatestore.NewClientFromConn(
+			context.Background(),
+			conn,
+			"",
+			worldstatestore.Named(testWorldStateStoreServiceName),
+			logger,
+		)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = client.ListUUIDs(context.Background(), nil)
@@ -187,7 +217,13 @@ func TestClientFailures(t *testing.T) {
 	t.Run("GetTransform with error", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := worldstatestore.NewClientFromConn(context.Background(), conn, "", worldstatestore.Named(testWorldStateStoreServiceName), logger)
+		client, err := worldstatestore.NewClientFromConn(
+			context.Background(),
+			conn,
+			"",
+			worldstatestore.Named(testWorldStateStoreServiceName),
+			logger,
+		)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = client.GetTransform(context.Background(), []byte("test-uuid"), nil)
@@ -201,7 +237,13 @@ func TestClientFailures(t *testing.T) {
 	t.Run("StreamTransformChanges with error", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client, err := worldstatestore.NewClientFromConn(context.Background(), conn, "", worldstatestore.Named(testWorldStateStoreServiceName), logger)
+		client, err := worldstatestore.NewClientFromConn(
+			context.Background(),
+			conn,
+			"",
+			worldstatestore.Named(testWorldStateStoreServiceName),
+			logger,
+		)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = client.StreamTransformChanges(context.Background(), nil)

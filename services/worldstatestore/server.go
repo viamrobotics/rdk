@@ -6,10 +6,10 @@ import (
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 type serviceServer struct {

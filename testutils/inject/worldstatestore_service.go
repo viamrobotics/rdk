@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	commonpb "go.viam.com/api/common/v1"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/worldstatestore"
 )
@@ -56,7 +57,10 @@ func (wosSvc *WorldStateStoreService) DoCommand(ctx context.Context, cmd map[str
 }
 
 // StreamTransformChanges calls the injected StreamTransformChangesFunc or the real version.
-func (wosSvc *WorldStateStoreService) StreamTransformChanges(ctx context.Context, extra map[string]any) (<-chan worldstatestore.TransformChange, error) {
+func (wosSvc *WorldStateStoreService) StreamTransformChanges(
+	ctx context.Context,
+	extra map[string]any,
+) (<-chan worldstatestore.TransformChange, error) {
 	if wosSvc.StreamTransformChangesFunc == nil {
 		return nil, errors.New("StreamTransformChangesFunc not set")
 	}

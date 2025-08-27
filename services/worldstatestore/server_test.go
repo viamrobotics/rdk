@@ -38,7 +38,10 @@ func TestWorldStateStoreServerFailures(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	// Test GetTransform with no service
-	_, err = server.GetTransform(context.Background(), &pb.GetTransformRequest{Name: testWorldStateStoreServiceName, Uuid: []byte("test-uuid")})
+	_, err = server.GetTransform(
+		context.Background(),
+		&pb.GetTransformRequest{Name: testWorldStateStoreServiceName, Uuid: []byte("test-uuid")},
+	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
@@ -122,7 +125,11 @@ func TestServerGetTransform(t *testing.T) {
 		ext, err := structpb.NewStruct(extra)
 		test.That(t, err, test.ShouldBeNil)
 
-		injectWSS.GetTransformFunc = func(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
+		injectWSS.GetTransformFunc = func(
+			ctx context.Context,
+			uuid []byte,
+			extra map[string]any,
+		) (*commonpb.Transform, error) {
 			return expectedTransform, nil
 		}
 
@@ -139,7 +146,11 @@ func TestServerGetTransform(t *testing.T) {
 
 	t.Run("GetTransform with error", func(t *testing.T) {
 		expectedErr := errors.New("fake error")
-		injectWSS.GetTransformFunc = func(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
+		injectWSS.GetTransformFunc = func(
+			ctx context.Context,
+			uuid []byte,
+			extra map[string]any,
+		) (*commonpb.Transform, error) {
 			return nil, expectedErr
 		}
 
@@ -152,7 +163,11 @@ func TestServerGetTransform(t *testing.T) {
 	})
 
 	t.Run("GetTransform with nil response", func(t *testing.T) {
-		injectWSS.GetTransformFunc = func(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
+		injectWSS.GetTransformFunc = func(
+			ctx context.Context,
+			uuid []byte,
+			extra map[string]any,
+		) (*commonpb.Transform, error) {
 			return nil, nil
 		}
 
@@ -197,7 +212,10 @@ func TestServerStreamTransformChanges(t *testing.T) {
 		}
 		close(changesChan)
 
-		injectWSS.StreamTransformChangesFunc = func(ctx context.Context, extra map[string]any) (<-chan worldstatestore.TransformChange, error) {
+		injectWSS.StreamTransformChangesFunc = func(
+			ctx context.Context,
+			extra map[string]any,
+		) (<-chan worldstatestore.TransformChange, error) {
 			return changesChan, nil
 		}
 
@@ -219,7 +237,10 @@ func TestServerStreamTransformChanges(t *testing.T) {
 
 	t.Run("StreamTransformChanges with error", func(t *testing.T) {
 		expectedErr := errors.New("fake error")
-		injectWSS.StreamTransformChangesFunc = func(ctx context.Context, extra map[string]any) (<-chan worldstatestore.TransformChange, error) {
+		injectWSS.StreamTransformChangesFunc = func(
+			ctx context.Context,
+			extra map[string]any,
+		) (<-chan worldstatestore.TransformChange, error) {
 			return nil, expectedErr
 		}
 
@@ -254,7 +275,7 @@ func TestServerDoCommand(t *testing.T) {
 	})
 }
 
-// mockStreamTransformChangesServer implements pb.WorldStateStoreService_StreamTransformChangesServer for testing
+// mockStreamTransformChangesServer implements pb.WorldStateStoreService_StreamTransformChangesServer for testing.
 type mockStreamTransformChangesServer struct {
 	grpc.ServerStream
 	ctx     context.Context
