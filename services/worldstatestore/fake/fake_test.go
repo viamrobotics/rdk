@@ -23,11 +23,37 @@ func TestFakeWorldStateStore(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, boxTransform, test.ShouldNotBeNil)
 	test.That(t, boxTransform.Uuid, test.ShouldResemble, []byte("box-001"))
+	test.That(t, boxTransform.Metadata, test.ShouldNotBeNil)
+	test.That(t, boxTransform.Metadata.Fields["color"], test.ShouldResemble, map[string]interface{}{
+		"r": 255,
+		"g": 0,
+		"b": 0,
+	})
+	test.That(t, boxTransform.Metadata.Fields["opacity"], test.ShouldResemble, 0.3)
 
 	sphereTransform, err := fake.GetTransform(context.Background(), []byte("sphere-001"), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sphereTransform, test.ShouldNotBeNil)
 	test.That(t, sphereTransform.Uuid, test.ShouldResemble, []byte("sphere-001"))
+	test.That(t, sphereTransform.Metadata, test.ShouldNotBeNil)
+	test.That(t, sphereTransform.Metadata.Fields["color"], test.ShouldResemble, map[string]interface{}{
+		"r": 0,
+		"g": 0,
+		"b": 255,
+	})
+	test.That(t, sphereTransform.Metadata.Fields["opacity"], test.ShouldResemble, 0.7)
+
+	capsuleTransform, err := fake.GetTransform(context.Background(), []byte("capsule-001"), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capsuleTransform, test.ShouldNotBeNil)
+	test.That(t, capsuleTransform.Uuid, test.ShouldResemble, []byte("capsule-001"))
+	test.That(t, capsuleTransform.Metadata, test.ShouldNotBeNil)
+	test.That(t, capsuleTransform.Metadata.Fields["color"], test.ShouldResemble, map[string]interface{}{
+		"r": 0,
+		"g": 255,
+		"b": 0,
+	})
+	test.That(t, capsuleTransform.Metadata.Fields["opacity"], test.ShouldResemble, 1.0)
 
 	// Test StreamTransformChanges
 	changesChan, err := fake.StreamTransformChanges(context.Background(), nil)

@@ -11,6 +11,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
 	"go.viam.com/rdk/services/worldstatestore"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // FakeWorldStateStore implements the worldstatestore.Service interface
@@ -56,6 +57,33 @@ func (f *FakeWorldStateStore) initializeStaticTransforms() {
 	sphereUUID := "sphere-001"
 	capsuleUUID := "capsule-001"
 
+	boxMetadata, _ := structpb.NewStruct(map[string]interface{}{
+		"color": map[string]interface{}{
+			"r": 255,
+			"g": 0,
+			"b": 0,
+		},
+		"opacity": 0.3,
+	})
+
+	sphereMetadata, _ := structpb.NewStruct(map[string]interface{}{
+		"color": map[string]interface{}{
+			"r": 0,
+			"g": 0,
+			"b": 255,
+		},
+		"opacity": 0.7,
+	})
+
+	capsuleMetadata, _ := structpb.NewStruct(map[string]interface{}{
+		"color": map[string]interface{}{
+			"r": 0,
+			"g": 255,
+			"b": 0,
+		},
+		"opacity": 1.0,
+	})
+
 	f.transforms[boxUUID] = &commonpb.Transform{
 		ReferenceFrame: "world",
 		PoseInObserverFrame: &commonpb.PoseInFrame{
@@ -75,7 +103,8 @@ func (f *FakeWorldStateStore) initializeStaticTransforms() {
 				},
 			},
 		},
-		Uuid: []byte(boxUUID),
+		Uuid:     []byte(boxUUID),
+		Metadata: boxMetadata,
 	}
 
 	f.transforms[sphereUUID] = &commonpb.Transform{
@@ -93,7 +122,8 @@ func (f *FakeWorldStateStore) initializeStaticTransforms() {
 				},
 			},
 		},
-		Uuid: []byte(sphereUUID),
+		Uuid:     []byte(sphereUUID),
+		Metadata: sphereMetadata,
 	}
 
 	f.transforms[capsuleUUID] = &commonpb.Transform{
@@ -112,7 +142,8 @@ func (f *FakeWorldStateStore) initializeStaticTransforms() {
 				},
 			},
 		},
-		Uuid: []byte(capsuleUUID),
+		Uuid:     []byte(capsuleUUID),
+		Metadata: capsuleMetadata,
 	}
 }
 
