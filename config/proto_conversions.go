@@ -556,6 +556,7 @@ func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
 		ServiceConfigs:          serviceConfigs,
 		Secret:                  remote.Secret,
 		Auth:                    remoteAuth,
+		Prefix:                  remote.Prefix,
 	}
 
 	if remote.Frame != nil {
