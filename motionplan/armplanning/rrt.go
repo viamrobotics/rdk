@@ -48,32 +48,6 @@ type rrtMaps struct {
 	optNode  node // The highest quality IK solution
 }
 
-func (maps *rrtMaps) fillPosOnlyGoal(goal referenceframe.FrameSystemPoses, posSeeds int) error {
-	thetaStep := 360. / float64(posSeeds)
-	if maps == nil {
-		return errors.New("cannot call method fillPosOnlyGoal on nil maps")
-	}
-	if maps.goalMap == nil {
-		maps.goalMap = map[node]node{}
-	}
-	for i := 0; i < posSeeds; i++ {
-		newMap := referenceframe.FrameSystemPoses{}
-		for frame, goal := range goal {
-			newMap[frame] = referenceframe.NewPoseInFrame(
-				frame,
-				spatialmath.NewPose(goal.Pose().Point(), &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: float64(i) * thetaStep}),
-			)
-		}
-
-		goalNode := &basicNode{
-			q:     make(referenceframe.FrameSystemInputs),
-			poses: newMap,
-		}
-		maps.goalMap[goalNode] = nil
-	}
-	return nil
-}
-
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
 // map, and will check if any of those goals are able to be directly interpolated to.
 // If the waypoint specifies poses for start or goal, IK will be run to create configurations.
@@ -129,21 +103,6 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 		rrt.maps.startMap[&basicNode{q: seed.Q(), cost: 0}] = nil
 	}
 	return rrt
-}
-
-func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtSolution {
-	if len(nodePairs) == 0 {
-		return &rrtSolution{err: errPlannerFailed, maps: maps}
-	}
-	minIdx := 0
-	minDist := nodePairs[0].sumCosts()
-	for i := 1; i < len(nodePairs); i++ {
-		if dist := nodePairs[i].sumCosts(); dist < minDist {
-			minDist = dist
-			minIdx = i
-		}
-	}
-	return &rrtSolution{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx], true), maps: maps}
 }
 
 type rrtPlan struct {

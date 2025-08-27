@@ -16,8 +16,6 @@ const (
 	// CBiRRT indicates that a CBiRRTMotionPlanner should be used. This is currently the
 	// default motion planner.
 	CBiRRT PlanningAlgorithm = "cbirrt"
-	// RRTStar indicates that an RRTStarConnectMotionPlanner should be used.
-	RRTStar PlanningAlgorithm = "rrtstar"
 	// TPSpace indicates that TPSpaceMotionPlanner should be used.
 	TPSpace PlanningAlgorithm = "tpspace"
 	// UnspecifiedAlgorithm indicates that the use of our motion planning will accept whatever defaults the package
@@ -28,9 +26,8 @@ const (
 // AlgorithmSettings is a polymorphic representation of motion planning algorithms and their parameters. The `Algorithm`
 // should correlate with the available options (e.g. if `Algorithm` us CBiRRT, RRTStarOpts should be nil and CBirrtOpts should not).
 type AlgorithmSettings struct {
-	Algorithm   PlanningAlgorithm      `json:"algorithm"`
-	CBirrtOpts  *cbirrtOptions         `json:"cbirrt_settings"`
-	RRTStarOpts *rrtStarConnectOptions `json:"rrtstar_settings"`
+	Algorithm  PlanningAlgorithm `json:"algorithm"`
+	CBirrtOpts *cbirrtOptions    `json:"cbirrt_settings"`
 }
 
 // move back to cBiRRT.go when motionplan is taken out of RDK.
@@ -39,15 +36,6 @@ type cbirrtOptions struct {
 	SolutionsToSeed int `json:"solutions_to_seed"`
 
 	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
-	qstep map[string][]float64
-}
-
-// move back to rrtStarConnect.go when motionplan is taken out of RDK.
-type rrtStarConnectOptions struct {
-	// The number of nearest neighbors to consider when adding a new sample to the tree
-	NeighborhoodSize int `json:"neighborhood_size"`
-
-	// This is how far rrtStarConnect will try to extend the map towards a goal per-step
 	qstep map[string][]float64
 }
 
@@ -71,8 +59,6 @@ func newMotionPlanner(
 	switch opt.PlanningAlgorithm() {
 	case CBiRRT:
 		return newCBiRRTMotionPlanner(fs, seed, logger, opt, constraintHandler, chains)
-	case RRTStar:
-		return newRRTStarConnectMotionPlanner(fs, seed, logger, opt, constraintHandler, chains)
 	case TPSpace:
 		return newTPSpaceMotionPlanner(fs, seed, logger, opt, constraintHandler, chains)
 	case UnspecifiedAlgorithm:

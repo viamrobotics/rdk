@@ -394,47 +394,6 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 	return validFunc, gradFunc
 }
 
-// NewPlaneConstraint is used to define a constraint space for a plane, and will return 1) a constraint
-// function which will determine whether a point is on the plane and in a valid orientation, and 2) a distance function
-// which will bring a pose into the valid constraint space. The plane normal is assumed to point towards the valid area.
-// angle refers to the maximum unit sphere segment length deviation from the ov
-// epsilon refers to the closeness to the plane necessary to be a valid pose.
-func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (StateConstraint, motionplan.StateMetric) {
-	// get the constant value for the plane
-	pConst := -pt.Dot(pNorm)
-
-	// invert the normal to get the valid AOA OV
-	ov := &spatial.OrientationVector{OX: -pNorm.X, OY: -pNorm.Y, OZ: -pNorm.Z}
-	ov.Normalize()
-
-	dFunc := motionplan.OrientDistToRegion(ov, writingAngle)
-
-	// distance from plane to point
-	planeDist := func(pt r3.Vector) float64 {
-		return math.Abs(pNorm.Dot(pt) + pConst)
-	}
-
-	// TODO: do we need to care about trajectory here? Probably, but not yet implemented
-	gradFunc := func(state *motionplan.State) float64 {
-		pDist := planeDist(state.Position.Point())
-		oDist := dFunc(state.Position.Orientation())
-		return pDist*pDist + oDist*oDist
-	}
-
-	validFunc := func(state *motionplan.State) error {
-		err := resolveStatesToPositions(state)
-		if err != nil {
-			return err
-		}
-		if gradFunc(state) < epsilon*epsilon {
-			return nil
-		}
-		return errors.New(planarConstraintDescription + " violated")
-	}
-
-	return validFunc, gradFunc
-}
-
 // NewLineConstraint is used to define a constraint space for a line, and will return 1) a constraint
 // function which will determine whether a point is on the line, and 2) a distance function
 // which will bring a pose into the valid constraint space.
@@ -615,26 +574,6 @@ func CreateSlerpOrientationConstraintFS(
 	tolerance float64,
 ) (StateFSConstraint, motionplan.StateFSMetric, error) {
 	constraintInternal, err := newFsPathConstraintTol(fs, startCfg, from, to, NewSlerpOrientationConstraint, tolerance)
-	if err != nil {
-		return nil, nil, err
-	}
-	return constraintInternal.constraint, constraintInternal.metric, nil
-}
-
-// CreateLineConstraintFS will measure the linear distance between the positions of two poses across a frame system,
-// and return a constraint that checks whether given positions are within a specified tolerance distance of the shortest
-// line segment between their respective positions, as well as a metric which returns the distance to that valid region.
-func CreateLineConstraintFS(
-	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
-	from, to referenceframe.FrameSystemPoses,
-	tolerance float64,
-) (StateFSConstraint, motionplan.StateFSMetric, error) {
-	// Need to define a constructor here since NewLineConstraint takes r3.Vectors, not poses
-	constructor := func(fromPose, toPose spatial.Pose, tolerance float64) (StateConstraint, motionplan.StateMetric) {
-		return NewLineConstraint(fromPose.Point(), toPose.Point(), tolerance)
-	}
-	constraintInternal, err := newFsPathConstraintTol(fs, startCfg, from, to, constructor, tolerance)
 	if err != nil {
 		return nil, nil, err
 	}

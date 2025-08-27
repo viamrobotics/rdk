@@ -91,18 +91,6 @@ func (n *basicNode) SetCorner(corner bool) {
 // TODO(rb): in the future we might think about making this into a list of nodes.
 type nodePair struct{ a, b node }
 
-func (np *nodePair) sumCosts() float64 {
-	aCost := np.a.Cost()
-	if math.IsNaN(aCost) {
-		return 0
-	}
-	bCost := np.b.Cost()
-	if math.IsNaN(bCost) {
-		return 0
-	}
-	return aCost + bCost
-}
-
 func extractPath(startMap, goalMap map[node]node, pair *nodePair, matched bool) []node {
 	// need to figure out which of the two nodes is in the start map
 	var startReached, goalReached node
