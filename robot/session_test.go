@@ -381,11 +381,14 @@ func TestSessionsWithRemote(t *testing.T) {
 	err = remoteRobot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
+	// Use a `prefix` in the main config to distinguish the identically-named remote
+	// resources.
 	roboConfig := fmt.Sprintf(`{
 		"remotes": [
 			{
 				"name": "rem1",
-				"address": %q
+				"address": %q,
+				"prefix": "rem1"
 			}
 		],
 		"components": [
@@ -416,7 +419,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	roboClient, err := client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor1, err := motor.FromRobot(roboClient, "rem1:motor1")
+	motor1, err := motor.FromRobot(roboClient, "rem1motor1")
 	if err != nil {
 		bufSize := 1 << 20
 		traces := make([]byte, bufSize)
@@ -442,7 +445,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor1, err = motor.FromRobot(roboClient, "rem1:motor1")
+	motor1, err = motor.FromRobot(roboClient, "rem1motor1")
 	test.That(t, err, test.ShouldBeNil)
 
 	// this should cause safety monitoring
@@ -463,7 +466,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor1, err = motor.FromRobot(roboClient, "rem1:motor1")
+	motor1, err = motor.FromRobot(roboClient, "rem1motor1")
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("set power of rem1:motor1 which will be safety monitored")
@@ -490,7 +493,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor2, err := motor.FromRobot(roboClient, "rem1:motor2")
+	motor2, err := motor.FromRobot(roboClient, "rem1motor2")
 	if err != nil {
 		bufSize := 1 << 20
 		traces := make([]byte, bufSize)
@@ -506,13 +509,13 @@ func TestSessionsWithRemote(t *testing.T) {
 	t.Log("set power of rem1:motor2 which will be safety monitored")
 	test.That(t, motor2.SetPower(ctx, 50, nil), test.ShouldBeNil)
 
-	dummyName := resource.NewName(echoAPI, "echo1")
+	dummyName := resource.NewName(echoAPI, "rem1echo1")
 	echo1Client, err := roboClient.ResourceByName(dummyName)
 	test.That(t, err, test.ShouldBeNil)
 	echo1Conn := echo1Client.(*dummyClient)
 
 	t.Log("echo multiple of remEcho1 which will be safety monitored")
-	echoMultiClient, err := echo1Conn.client.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "echo1"})
+	echoMultiClient, err := echo1Conn.client.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "rem1echo1"})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = echoMultiClient.Recv() // EOF; okay
 	test.That(t, err, test.ShouldBeError, io.EOF)
@@ -521,6 +524,8 @@ func TestSessionsWithRemote(t *testing.T) {
 
 	checkAgainst := []string{"remMotor1", "motor1", "base1"}
 	ensureStop(t, "remMotor2", checkAgainst)
+	// TODO(Benji): This ensureStop still fails below, and I'm too lazy to read through the
+	// horrid stop channel code to figure out why right now.
 	ensureStop(t, "remBase1", checkAgainst)
 	ensureStop(t, "remEcho1", checkAgainst)
 
