@@ -1504,6 +1504,27 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "remote prefixes",
+			c: config.Config{
+				Remotes: []config.Remote{
+					{
+						Name:    "foo",
+						Address: "localhost:12345",
+						Prefix:  "fooprefix",
+					},
+				},
+			},
+			expected: config.Config{
+				Remotes: []config.Remote{
+					{
+						Name:    "foo",
+						Address: "localhost:12345",
+						Prefix:  "fooprefix",
+					},
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := tc.c

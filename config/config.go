@@ -377,6 +377,7 @@ type Remote struct {
 type remoteData struct {
 	Name                      string                              `json:"name"`
 	Address                   string                              `json:"address"`
+	Prefix                    string                              `json:"prefix"`
 	Frame                     *referenceframe.LinkConfig          `json:"frame,omitempty"`
 	Auth                      RemoteAuth                          `json:"auth"`
 	ManagedBy                 string                              `json:"managed_by"`
@@ -408,6 +409,7 @@ func (conf *Remote) UnmarshalJSON(data []byte) error {
 	*conf = Remote{
 		Name:                      temp.Name,
 		Address:                   temp.Address,
+		Prefix:                    temp.Prefix,
 		Frame:                     temp.Frame,
 		Auth:                      temp.Auth,
 		ManagedBy:                 temp.ManagedBy,
@@ -437,6 +439,7 @@ func (conf Remote) MarshalJSON() ([]byte, error) {
 	temp := remoteData{
 		Name:                      conf.Name,
 		Address:                   conf.Address,
+		Prefix:                    conf.Prefix,
 		Frame:                     conf.Frame,
 		Auth:                      conf.Auth,
 		ManagedBy:                 conf.ManagedBy,
