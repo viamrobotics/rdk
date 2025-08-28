@@ -36,7 +36,7 @@ func Named(name string) resource.Name {
 }
 
 // A Button represents a physical button.
-// For more information, see the [Push component docs].
+// For more information, see the [Button component docs].
 //
 // Push example:
 //
