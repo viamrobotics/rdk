@@ -1552,7 +1552,7 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 	mgr.Close(ctx)
 	opts.FTDC.StopAndJoin(ctx)
 
-	datums, err := ftdc.Parse(ftdcData)
+	datums, _ /*variable lastTimestampRead*/, err := ftdc.Parse(ftdcData)
 	test.That(t, err, test.ShouldBeNil)
 	logger.Info("Num ftdc datums:", len(datums))
 
