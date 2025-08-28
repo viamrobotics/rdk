@@ -102,6 +102,7 @@ var testRemote = Remote{
 			},
 		},
 	},
+	Prefix: "some-prefix",
 }
 
 var testService = resource.Config{
@@ -562,6 +563,7 @@ func validateRemote(t *testing.T, actual, expected Remote) {
 	test.That(t, actual.Insecure, test.ShouldEqual, expected.Insecure)
 	test.That(t, actual.ReconnectInterval, test.ShouldEqual, expected.ReconnectInterval)
 	test.That(t, actual.ConnectionCheckInterval, test.ShouldEqual, expected.ConnectionCheckInterval)
+	test.That(t, actual.Prefix, test.ShouldEqual, expected.Prefix)
 	test.That(t, actual.Auth, test.ShouldResemble, expected.Auth)
 	f1, err := actual.Frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
@@ -604,13 +606,14 @@ func TestRemoteConfigToProto(t *testing.T) {
 		proto := pb.RemoteConfig{
 			Name:    "some-name",
 			Address: "localohst:8080",
+			Prefix:  "test-prefix",
 		}
 
 		out, err := RemoteConfigFromProto(&proto, logger)
 		test.That(t, err, test.ShouldBeNil)
-
 		test.That(t, out.Name, test.ShouldEqual, proto.Name)
 		test.That(t, out.Address, test.ShouldEqual, proto.Address)
+		test.That(t, out.Prefix, test.ShouldEqual, proto.Prefix)
 		test.That(t, out.Auth, test.ShouldResemble, RemoteAuth{})
 	})
 }
