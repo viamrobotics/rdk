@@ -111,10 +111,16 @@ type graphOptions struct {
 	// interesting.
 	hideAllZeroes bool
 
-	// vertLinesAtSeconds will draw a vertical line for each element. The items are expected to be
+	// vertLinesAtSeconds will draw a blue vertical line for each element. The items are expected to be
 	// in units of seconds since the epoch. These are to represent "events" that are of interest to a
 	// user (where the user would like to find correlations in other metrics.)
 	vertLinesAtSeconds []int64
+
+	// fileBoundariesAtSeconds will draw a yellow vertical line for each element. The items
+	// are expected to be in units of seconds since the epoch. These are to represent the
+	// ending timestamps of files in the case that the parser was run on a directory with
+	// multiple files.
+	fileBoundariesAtSeconds []int64
 
 	// maxPoints is how many data points will actually be graphed for each plot. Too many data
 	// points can be distracting. The algorithm is to divide the min/max time in `maxPoints`
@@ -132,11 +138,12 @@ func defaultGraphOptions(fileBoundaryTimestamps []int64) graphOptions {
 	}
 
 	return graphOptions{
-		minTimeSeconds:     0,
-		maxTimeSeconds:     math.MaxInt64,
-		hideAllZeroes:      true,
-		vertLinesAtSeconds: fileBoundaryTimestamps[:len(fileBoundaryTimestamps)-1],
-		maxPoints:          1000,
+		minTimeSeconds:          0,
+		maxTimeSeconds:          math.MaxInt64,
+		hideAllZeroes:           true,
+		vertLinesAtSeconds:      make([]int64, 0),
+		fileBoundariesAtSeconds: fileBoundaryTimestamps[:len(fileBoundaryTimestamps)-1],
+		maxPoints:               1000,
 	}
 }
 
@@ -712,6 +719,16 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 				time.Unix(vertLineX, 0).UTC())
 		}
 
+		// File boundaries are the same as vertical lines above, but should be represented
+		// with yellow lines (5) instead of blue, and should not have titles, as many file
+		// boundaries can crowd out the actual metric's title.
+		for idx := range gpw.options.fileBoundariesAtSeconds {
+			writeln(gnuFile, ",\\")
+			writef(gnuFile,
+				"\t'%v' using 1:2 with lines linestyle 5 lw 4 notitle",
+				filepath.Join(gpw.tempdir, fmt.Sprintf("fb-%d.txt", idx)))
+		}
+
 		// The trailing newline for the above calls to write out a single plot.
 		writeln(gnuFile, "")
 
@@ -736,6 +753,19 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 		writelnf(vertFile, "%v %d", vertLineX, minY)
 		writelnf(vertFile, "%v 0", vertLineX)
 		writelnf(vertFile, "%v %d", vertLineX, maxY)
+	}
+
+	// Actually write out the `fb-<number>.txt` plots.
+	for idx, fileBoundaryX := range gpw.options.fileBoundariesAtSeconds {
+		fileBoundaryFile, err := os.Create(filepath.Join(gpw.tempdir, fmt.Sprintf("fb-%v.txt", idx)))
+		defer utils.UncheckedErrorFunc(fileBoundaryFile.Close)
+		if err != nil {
+			panic(err)
+		}
+
+		writelnf(fileBoundaryFile, "%v %d", fileBoundaryX, minY)
+		writelnf(fileBoundaryFile, "%v 0", fileBoundaryX)
+		writelnf(fileBoundaryFile, "%v %d", fileBoundaryX, maxY)
 	}
 
 	return gnuFile.Name()
