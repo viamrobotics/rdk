@@ -123,12 +123,19 @@ type graphOptions struct {
 	maxPoints int
 }
 
-func defaultGraphOptions() graphOptions {
+// defaultGraphOptions returns a default set of graph options. It adds all but the last
+// passed-in file boundary timestamps to `vertLinesAtSeconds`, so that vertical lines will
+// be automatically rendered at file boundaries.
+func defaultGraphOptions(fileBoundaryTimestamps []int64) graphOptions {
+	for i := range fileBoundaryTimestamps {
+		fileBoundaryTimestamps[i] /= 1e9
+	}
+
 	return graphOptions{
 		minTimeSeconds:     0,
 		maxTimeSeconds:     math.MaxInt64,
 		hideAllZeroes:      true,
-		vertLinesAtSeconds: make([]int64, 0),
+		vertLinesAtSeconds: fileBoundaryTimestamps[:len(fileBoundaryTimestamps)-1],
 		maxPoints:          1000,
 	}
 }
@@ -746,14 +753,15 @@ func parseStringAsTime(inp string) (time.Time, error) {
 	return goTime, nil
 }
 
-// getFTDCData returns a slice of FlatDatums from the path it was passed. If path leads to
-// an .ftdc file, only that file is parsed. If it leads to a directory, all .ftdc files in
-// that directory will get parsed and the combined slice of FlatDatums will get returned.
-// The subdirectories of that directory will NOT get explored.
-func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, error) {
+// getFTDCData returns a slice of FlatDatums from the path it was passed and a slice of
+// "last timestamps" representing file boundaries. If path leads to an .ftdc file, only
+// that file is parsed. If it leads to a directory, all .ftdc files in that directory will
+// get parsed and the combined slice of FlatDatums will get returned. The subdirectories
+// of that directory will NOT get explored.
+func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, []int64, error) {
 	info, err := os.Stat(ftdcPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// If path is not a directory, we can just open the file and get its datums.
@@ -761,15 +769,19 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, erro
 		//nolint:gosec
 		ftdcFile, err := os.Open(ftdcPath)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		//nolint:errcheck
 		defer ftdcFile.Close()
-		return ftdc.ParseWithLogger(ftdcFile, logger)
+
+		flatDatums, lastTimestamp, err := ftdc.ParseWithLogger(ftdcFile, logger)
+		logger.Debugw("File boundary found", "timestamp_ns", lastTimestamp)
+		return flatDatums, []int64{lastTimestamp}, err
 	}
 
 	// If path is a directory, we will walk it and get all of the FTDC datums.
 	flatDatums := make([]ftdc.FlatDatum, 0)
+	fileBoundaryTimestamps := make([]int64, 0)
 	err = filepath.WalkDir(ftdcPath, fs.WalkDirFunc(func(path string, d fs.DirEntry, walkErr error) error {
 		// For now, no recursive parsing.
 		if d.IsDir() && path != ftdcPath {
@@ -791,7 +803,7 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, erro
 		//nolint:errcheck
 		defer ftdcReader.Close()
 
-		ftdcData, err := ftdc.ParseWithLogger(ftdcReader, logger)
+		ftdcData, lastTimestamp, err := ftdc.ParseWithLogger(ftdcReader, logger)
 		if err != nil {
 			logger.Warnw("Error getting ftdc data from file", "path", path, "err", err)
 			return nil
@@ -799,23 +811,27 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, erro
 
 		flatDatums = append(flatDatums, ftdcData...)
 
+		// The last timestamp parsed is equivalent to a file boundary timestamp.
+		logger.Debugw("File boundary found", "timestamp_ns", lastTimestamp)
+		fileBoundaryTimestamps = append(fileBoundaryTimestamps, lastTimestamp)
+
 		return nil
 	}))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if len(flatDatums) < 1 {
-		return nil, errors.New("provided a directory with no FTDC files")
+		return nil, nil, errors.New("provided a directory with no FTDC files")
 	}
 
-	return flatDatums, nil
+	return flatDatums, fileBoundaryTimestamps, nil
 }
 
 // LaunchREPL opens an ftdc file or directory, plots it, and runs a cli for it.
 func LaunchREPL(ftdcFilepath string) {
-	logger := logging.NewLogger("parser")
-	data, err := getFTDCData(filepath.Clean(ftdcFilepath), logger)
+	logger := logging.NewDebugLogger("parser")
+	data, fileBoundaryTimestamps, err := getFTDCData(filepath.Clean(ftdcFilepath), logger)
 	if err != nil {
 		NolintPrintln("Error getting ftdc data from path:", ftdcFilepath, "Err:", err)
 		NolintPrintln(`Expected an FTDC filename or a directory. E.g: go run main.go
@@ -825,7 +841,7 @@ func LaunchREPL(ftdcFilepath string) {
 
 	stdinReader := bufio.NewReader(os.Stdin)
 	render := true
-	graphOptions := defaultGraphOptions()
+	graphOptions := defaultGraphOptions(fileBoundaryTimestamps)
 	for {
 		if render {
 			deferredValues := make([]map[string]*ratioReading, 0)
