@@ -193,7 +193,7 @@ func LinkInFrameFromTransformProtobuf(proto *commonpb.Transform) (*LinkInFrame, 
 	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
 	var geometry spatialmath.Geometry
 	if proto.PhysicalObject != nil {
-		geometry, err = spatialmath.NewGeometryFromProto(proto.PhysicalObject)
+		geometry, err = NewGeometryFromProto(proto.PhysicalObject)
 		if err != nil {
 			return nil, err
 		}
@@ -291,13 +291,13 @@ func (gF *GeometriesInFrame) Transform(tf *PoseInFrame) Transformable {
 func GeometriesInFrameToProtobuf(framedGeometries *GeometriesInFrame) *commonpb.GeometriesInFrame {
 	return &commonpb.GeometriesInFrame{
 		ReferenceFrame: framedGeometries.frame,
-		Geometries:     spatialmath.NewGeometriesToProto(framedGeometries.Geometries()),
+		Geometries:     NewGeometriesToProto(framedGeometries.Geometries()),
 	}
 }
 
 // ProtobufToGeometriesInFrame converts a GeometriesInFrame message as specified in common.proto to a GeometriesInFrame struct.
 func ProtobufToGeometriesInFrame(proto *commonpb.GeometriesInFrame) (*GeometriesInFrame, error) {
-	geometries, err := spatialmath.NewGeometriesFromProto(proto.GetGeometries())
+	geometries, err := NewGeometriesFromProto(proto.GetGeometries())
 	if err != nil {
 		return nil, err
 	}

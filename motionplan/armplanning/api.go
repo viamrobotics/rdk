@@ -112,7 +112,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 		req.WorldState = newWS
 	}
 
-	boundingRegions, err := spatialmath.NewGeometriesFromProto(req.BoundingRegions)
+	boundingRegions, err := referenceframe.NewGeometriesFromProto(req.BoundingRegions)
 	if err != nil {
 		return err
 	}

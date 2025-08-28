@@ -685,7 +685,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 
 	// TODO (GV) - Remove this unnecessary converion/re-conversion when an
 	// opinionated proto message is created for PlanRequest
-	boundingRegionsProto := spatialmath.NewGeometriesToProto(boundingRegions)
+	boundingRegionsProto := referenceframe.NewGeometriesToProto(boundingRegions)
 
 	mr, err := ms.createBaseMoveRequest(
 		ctx,

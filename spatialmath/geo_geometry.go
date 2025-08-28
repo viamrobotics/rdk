@@ -34,32 +34,6 @@ func (gob *GeoGeometry) Geometries() []Geometry {
 	return gob.geometries
 }
 
-// GeoGeometryToProtobuf converts the GeoGeometry struct into an equivalent Protobuf message.
-func GeoGeometryToProtobuf(geoObst *GeoGeometry) *commonpb.GeoGeometry {
-	var convGeoms []*commonpb.Geometry
-	for _, geometry := range geoObst.geometries {
-		convGeoms = append(convGeoms, geometry.ToProtobuf())
-	}
-	return &commonpb.GeoGeometry{
-		Location:   &commonpb.GeoPoint{Latitude: geoObst.location.Lat(), Longitude: geoObst.location.Lng()},
-		Geometries: convGeoms,
-	}
-}
-
-// GeoGeometryFromProtobuf takes a Protobuf representation of a GeoGeometry and converts back into a Go struct.
-func GeoGeometryFromProtobuf(protoGeoObst *commonpb.GeoGeometry) (*GeoGeometry, error) {
-	convPoint := geo.NewPoint(protoGeoObst.GetLocation().GetLatitude(), protoGeoObst.GetLocation().GetLongitude())
-	convGeoms := []Geometry{}
-	for _, protoGeom := range protoGeoObst.GetGeometries() {
-		newGeom, err := NewGeometryFromProto(protoGeom)
-		if err != nil {
-			return nil, err
-		}
-		convGeoms = append(convGeoms, newGeom)
-	}
-	return NewGeoGeometry(convPoint, convGeoms), nil
-}
-
 // GeoGeometryConfig specifies the format of GeoGeometries specified through the configuration file.
 type GeoGeometryConfig struct {
 	Location   *commonpb.GeoPoint `json:"location"`

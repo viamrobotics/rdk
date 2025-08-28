@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // When we generate solutions, if a new solution is within this level of similarity to an existing one, discard it as a duplicate.
@@ -83,7 +82,7 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 		return nil, err
 	}
 
-	boundingRegions, err := spatialmath.NewGeometriesFromProto(request.BoundingRegions)
+	boundingRegions, err := referenceframe.NewGeometriesFromProto(request.BoundingRegions)
 	if err != nil {
 		return nil, err
 	}
