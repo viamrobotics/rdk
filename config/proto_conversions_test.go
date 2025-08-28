@@ -606,7 +606,7 @@ func TestRemoteConfigToProto(t *testing.T) {
 		proto := pb.RemoteConfig{
 			Name:    "some-name",
 			Address: "localohst:8080",
-			Prefix:  "test-prefix",
+			Prefix:  "some-prefix",
 		}
 
 		out, err := RemoteConfigFromProto(&proto, logger)
