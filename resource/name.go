@@ -133,7 +133,13 @@ func (n Name) Validate() error {
 // String returns the fully qualified name for the resource. The Remote field is ignored,
 // as it's only used internally.
 func (n Name) String() string {
-	return fmt.Sprintf("%s/%s", n.API, n.Name)
+	name := n.API.String()
+	if n.Remote != "" {
+		name = fmt.Sprintf("%s/%s:%s", name, n.Remote, n.Name)
+	} else {
+		name = fmt.Sprintf("%s/%s", name, n.Name)
+	}
+	return name
 }
 
 // SDPTrackName returns a valid SDP video/audio track name as defined in RFC 4566 (https://www.rfc-editor.org/rfc/rfc4566)
