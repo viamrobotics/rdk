@@ -377,6 +377,7 @@ type Remote struct {
 
 	// Secret is a helper for a robot location secret.
 	Secret string
+	Prefix string
 
 	alreadyValidated bool
 	cachedErr        error
@@ -396,6 +397,7 @@ type remoteData struct {
 
 	// Secret is a helper for a robot location secret.
 	Secret string `json:"secret"`
+	Prefix string `json:"prefix,omitempty"`
 }
 
 // Equals checks if the two configs are deeply equal to each other.
@@ -423,6 +425,7 @@ func (conf *Remote) UnmarshalJSON(data []byte) error {
 		Insecure:                  temp.Insecure,
 		AssociatedResourceConfigs: temp.AssociatedResourceConfigs,
 		Secret:                    temp.Secret,
+		Prefix:                    temp.Prefix,
 	}
 	if temp.ConnectionCheckInterval != "" {
 		dur, err := time.ParseDuration(temp.ConnectionCheckInterval)
@@ -452,6 +455,9 @@ func (conf Remote) MarshalJSON() ([]byte, error) {
 		Insecure:                  conf.Insecure,
 		AssociatedResourceConfigs: conf.AssociatedResourceConfigs,
 		Secret:                    conf.Secret,
+	}
+	if conf.Prefix != "" {
+		temp.Prefix = conf.Prefix
 	}
 	if conf.ConnectionCheckInterval != 0 {
 		temp.ConnectionCheckInterval = conf.ConnectionCheckInterval.String()
