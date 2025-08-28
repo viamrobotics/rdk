@@ -382,6 +382,13 @@ func (w *GraphNode) markReachability(reachable bool) {
 	w.unreachable = !reachable
 }
 
+// IsReachable indicates if a resource on a remote machine is connected.
+func (w *GraphNode) IsReachable() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return !w.unreachable
+}
+
 // SetNewConfig is used to inform the node that it has been modified
 // and requires a reconfiguration. If the node was previously marked for removal,
 // this unmarks it.

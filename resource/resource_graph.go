@@ -398,6 +398,49 @@ func (g *Graph) Names() []Name {
 	)
 }
 
+func seq2First[K, V any](seq iter.Seq2[K, V]) (K, V, bool) {
+	var resK K
+	var resV V
+	var ok bool
+	seq(func(k K, v V) bool {
+		resK = k
+		resV = v
+		ok = true
+		return false
+	})
+	return resK, resV, ok
+}
+
+// SimpleNamesWhere returns a list of resource names with any configured remote
+// prefix applied. Names are only included in the return if filter returns true.
+func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	var result []Name
+	for k, v := range g.nodes.simpleNameCache {
+		if v.local == nil && len(v.remote) != 1 {
+			continue
+		}
+		name := Name{
+			API:  k.api,
+			Name: k.name,
+		}
+		if v.local != nil {
+			if !filter(name, v.local) {
+				continue
+			}
+		} else {
+			remName, remNode, _ := seq2First(maps.All(v.remote))
+			name.Remote = remName.Remote
+			if !filter(name, remNode) {
+				continue
+			}
+		}
+		result = append(result, name)
+	}
+	return result
+}
+
 // ReachableNames returns the all resource graph names, excluding remote resources that are unreached.
 func (g *Graph) ReachableNames() []Name {
 	g.mu.Lock()

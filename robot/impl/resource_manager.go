@@ -438,28 +438,17 @@ func (manager *resourceManager) internalResourceNames() []resource.Name {
 	return names
 }
 
-// simpleNameAndAPI is a tuple used to avoid returning full resource name collisions from
-// ResourceNames and reachableResourceNames.
-type simpleNameAndAPI struct {
-	simpleName string
-	API        resource.API
-}
-
 // ResourceNames returns the names of all resources in the manager, excluding the following types of resources:
 // - Resources that represent entire remote machines.
 // - Resources that are considered internal to viam-server that cannot be removed via configuration.
 // - Resources that are remote and have the same full name as another resource (name collision).
 // Remotes resources' Name field will be automatically prefixed.
 func (manager *resourceManager) ResourceNames() []resource.Name {
-	names := []resource.Name{}
-	nameSet := make(map[simpleNameAndAPI]struct{})
-	for _, k := range manager.resources.Names() {
-		if prefix, shouldBeIncluded := manager.resourceName(k, nameSet); shouldBeIncluded {
-			k.Name = prefix + k.Name
-			names = append(names, k)
-		}
-	}
-	return names
+	return manager.resources.SimpleNamesWhere(func(k resource.Name, gNode *resource.GraphNode) bool {
+		return k.API != client.RemoteAPI &&
+			k.API.Type.Namespace != resource.APINamespaceRDKInternal &&
+			gNode.HasResource()
+	})
 }
 
 // reachableResourceNames returns the names of all resources in the manager, excluding the following types of resources:
@@ -469,47 +458,12 @@ func (manager *resourceManager) ResourceNames() []resource.Name {
 // - Remote resources that have the same full name as another resource (name collision).
 // Remotes resources' Name field will be automatically prefixed.
 func (manager *resourceManager) reachableResourceNames() []resource.Name {
-	names := []resource.Name{}
-	nameSet := make(map[simpleNameAndAPI]struct{})
-	for _, k := range manager.resources.ReachableNames() {
-		if prefix, shouldBeIncluded := manager.resourceName(k, nameSet); shouldBeIncluded {
-			k.Name = prefix + k.Name
-			names = append(names, k)
-		}
-	}
-	return names
-}
-
-// resourceName is a validation function that dictates if a given [resource.Name] should be returned by [ResourceNames].
-// A resource should NOT be returned by [ResourceNames] if any of the following conditions are true:
-// - The resource is not stored in the resource manager.
-// - The resource represents an entire remote machine.
-// - The resource is considered internal to viam-server, meaning it cannot be removed via configuration.
-// - The resource is remote and has the same full name as another resource (name collision according to nameSet).
-// The method will return any set prefix of the resource, and whether or not the resource should be returned
-// by [ResourceNames].
-func (manager *resourceManager) resourceName(
-	k resource.Name,
-	nameSet map[simpleNameAndAPI]struct{},
-) (string, bool) {
-	if k.API == client.RemoteAPI ||
-		k.API.Type.Namespace == resource.APINamespaceRDKInternal {
-		return "", false
-	}
-
-	gNode, ok := manager.resources.Node(k)
-	if !ok || !gNode.HasResource() {
-		return "", false
-	}
-
-	prefix := gNode.GetPrefix()
-	snaapi := simpleNameAndAPI{prefix + k.Name, k.API}
-	if _, alreadySeen := nameSet[snaapi]; alreadySeen && k.Remote != "" {
-		return "", false
-	}
-	nameSet[snaapi] = struct{}{}
-
-	return prefix, true
+	return manager.resources.SimpleNamesWhere(func(k resource.Name, gNode *resource.GraphNode) bool {
+		return k.API != client.RemoteAPI &&
+			k.API.Type.Namespace != resource.APINamespaceRDKInternal &&
+			gNode.HasResource() &&
+			gNode.IsReachable()
+	})
 }
 
 // ResourceRPCAPIs returns the types of all resource RPC APIs in use by the manager.
