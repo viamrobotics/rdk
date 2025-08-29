@@ -71,6 +71,13 @@ import (
 
 var fakeModel = resource.DefaultModelFamily.WithModel("fake")
 
+func nodeNotFoundError(name string, api resource.API) error {
+	return &resource.NodeNotFoundError{
+		API:  api,
+		Name: name,
+	}
+}
+
 func TestConfig1(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/cfgtest1.json", logger, nil)
@@ -1329,7 +1336,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	test.That(t, noBase, test.ShouldBeNil)
 
 	noSvc, err := r.ResourceByName(datamanager.Named("fake1"))
-	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(datamanager.Named("fake1")))
+	test.That(t, err, test.ShouldBeError, nodeNotFoundError("fake1", datamanager.API))
 	test.That(t, noSvc, test.ShouldBeNil)
 
 	r.Reconfigure(ctx, goodConfig)
@@ -1759,13 +1766,6 @@ func TestDependentResources(t *testing.T) {
 		},
 	}
 	r.Reconfigure(ctx, cfg2)
-
-	nodeNotFoundError := func(name string, api resource.API) error {
-		return &resource.NodeNotFoundError{
-			API:  api,
-			Name: name,
-		}
-	}
 
 	res, err := r.ResourceByName(base.Named("b"))
 	test.That(t, err, test.ShouldBeError,
@@ -4471,7 +4471,7 @@ func TestMaintenanceConfig(t *testing.T) {
 		r.Reconfigure(ctx, cfgBlocked)
 		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
 
 		// removing maintenance config unblocks reconfig and allows sensor to be added
 		r.Reconfigure(ctx, cfgUnblock)
@@ -4513,14 +4513,14 @@ func TestMaintenanceConfig(t *testing.T) {
 		r.Reconfigure(ctx, cfgBlocked)
 		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
 
 		// Attempt to reconfig again using remote:sensor name
 		// Reconfig should still be blocked
 		r.Reconfigure(ctx, cfgBlockedWithRemoteSpecified)
 		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
 	})
 
 	t.Run("conflicting remote and main sensor names default to main", func(t *testing.T) {
@@ -4556,7 +4556,7 @@ func TestMaintenanceConfig(t *testing.T) {
 		r.Reconfigure(ctx, cfgBlocked)
 		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
 
 		// robot should reconfigure since remote will return an error
 		r.Reconfigure(ctx, cfgRemoteUnblocked)
