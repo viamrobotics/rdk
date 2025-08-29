@@ -1024,13 +1024,14 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 			return err
 		}
 	}
-	env := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
+	env := getFullEnvironment(conf, pkgsDir, dataDir, mgr.viamHomeDir)
 
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
 func getFullEnvironment(
 	cfg config.Module,
+	packagesDir string,
 	dataDir string,
 	viamHomeDir string,
 ) map[string]string {
@@ -1042,8 +1043,23 @@ func getFullEnvironment(
 	if cfg.Type == config.ModuleTypeRegistry {
 		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
-	// Overwrite the base environment variables with the module's environment variables (if specified)
+
+	// For local non-tarball modules, we set VIAM_MODULE_ROOT to the directory containing the executable.
+	// For local tarball modules, we set VIAM_MODULE_ROOT to the directory containing the synthetic package.
 	// VIAM_MODULE_ROOT is filled out by app.viam.com in cloud robots.
+	if _, exists := environment["VIAM_MODULE_ROOT"]; !exists && cfg.Type == config.ModuleTypeLocal {
+		var moduleRoot string
+
+		if cfg.NeedsSyntheticPackage() {
+			moduleRoot = packagesDir
+		} else {
+			moduleRoot = filepath.Dir(cfg.ExePath)
+		}
+
+		environment["VIAM_MODULE_ROOT"] = moduleRoot
+	}
+
+	// Overwrite the base environment variables with the module's environment variables (if specified)
 	for key, value := range cfg.Environment {
 		environment[key] = value
 	}
