@@ -1046,23 +1046,20 @@ func getFullEnvironment(
 
 	// For local non-tarball modules, we set VIAM_MODULE_ROOT to the directory containing the executable.
 	// For local tarball modules, we set VIAM_MODULE_ROOT to the directory containing the synthetic package.
+	// VIAM_MODULE_ROOT is filled out by app.viam.com in cloud robots.
 	if _, exists := environment["VIAM_MODULE_ROOT"]; !exists && cfg.Type == config.ModuleTypeLocal {
 		var moduleRoot string
 
 		if cfg.NeedsSyntheticPackage() {
-			pkg, _ := cfg.SyntheticPackage() // Is it safe to call this more than once? Should be ok
-			moduleRoot = pkg.LocalDataDirectory(packagesDir)
+			moduleRoot = packagesDir
 		} else {
 			moduleRoot = filepath.Dir(cfg.ExePath)
 		}
 
 		environment["VIAM_MODULE_ROOT"] = moduleRoot
 	}
-	// Besides explicitly setting VIAM_MODULE_ROOT, can it be set anywhere else for local modules?
-	// Note: Does not actually modify the config to have VIAM_MODULE_ROOT set, but will propagate to modules pexec. Does this matter?
 
 	// Overwrite the base environment variables with the module's environment variables (if specified)
-	// VIAM_MODULE_ROOT is filled out by app.viam.com in cloud robots.
 	for key, value := range cfg.Environment {
 		environment[key] = value
 	}
