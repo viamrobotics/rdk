@@ -60,8 +60,12 @@ func TestCustomFormatRoundtripBasic(t *testing.T) {
 	datumV2.Data["s2"].(*Basic).Foo = 3
 	ftdc.writeDatum(datumV2)
 
-	parsed, err := Parse(serializedData)
+	parsed, lastTimestampRead, err := Parse(serializedData)
 	test.That(t, err, test.ShouldBeNil)
+
+	// Last datum parsed had a `Time` of 3.
+	test.That(t, lastTimestampRead, test.ShouldEqual, 3)
+
 	logger.Info("Parsed data:", parsed)
 
 	// There are four datapoints in total.
@@ -120,8 +124,12 @@ func TestCustomFormatRoundtripRich(t *testing.T) {
 		ftdc.writeDatum(datumV2)
 	}
 
-	flatDatums, err := Parse(serializedData)
+	flatDatums, lastTimestampRead, err := Parse(serializedData)
 	test.That(t, err, test.ShouldBeNil)
+
+	// Last datum parsed had a `Time` of 19 (2*numDatumsPerSchema-1).
+	test.That(t, lastTimestampRead, test.ShouldEqual, 2*numDatumsPerSchema-1)
+
 	datums := flatDatumsToDatums(flatDatums)
 	logger.Info("Parsed data:", datums)
 

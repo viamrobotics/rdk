@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"os/exec"
@@ -110,10 +111,16 @@ type graphOptions struct {
 	// interesting.
 	hideAllZeroes bool
 
-	// vertLinesAtSeconds will draw a vertical line for each element. The items are expected to be
+	// vertLinesAtSeconds will draw a blue vertical line for each element. The items are expected to be
 	// in units of seconds since the epoch. These are to represent "events" that are of interest to a
 	// user (where the user would like to find correlations in other metrics.)
 	vertLinesAtSeconds []int64
+
+	// fileBoundariesAtSeconds will draw a yellow vertical line for each element. The items
+	// are expected to be in units of seconds since the epoch. These are to represent the
+	// ending timestamps of files in the case that the parser was run on a directory with
+	// multiple files.
+	fileBoundariesAtSeconds []int64
 
 	// maxPoints is how many data points will actually be graphed for each plot. Too many data
 	// points can be distracting. The algorithm is to divide the min/max time in `maxPoints`
@@ -122,13 +129,21 @@ type graphOptions struct {
 	maxPoints int
 }
 
-func defaultGraphOptions() graphOptions {
+// defaultGraphOptions returns a default set of graph options. It adds all but the last
+// passed-in file boundary timestamps to `vertLinesAtSeconds`, so that vertical lines will
+// be automatically rendered at file boundaries.
+func defaultGraphOptions(fileBoundaryTimestamps []int64) graphOptions {
+	for i := range fileBoundaryTimestamps {
+		fileBoundaryTimestamps[i] /= 1e9
+	}
+
 	return graphOptions{
-		minTimeSeconds:     0,
-		maxTimeSeconds:     math.MaxInt64,
-		hideAllZeroes:      true,
-		vertLinesAtSeconds: make([]int64, 0),
-		maxPoints:          1000,
+		minTimeSeconds:          0,
+		maxTimeSeconds:          math.MaxInt64,
+		hideAllZeroes:           true,
+		vertLinesAtSeconds:      make([]int64, 0),
+		fileBoundariesAtSeconds: fileBoundaryTimestamps[:len(fileBoundaryTimestamps)-1],
+		maxPoints:               1000,
 	}
 }
 
@@ -224,8 +239,10 @@ func (gpw *gnuplotWriter) shouldIncludePoint(this, next *ftdc.FlatDatum) *ftdc.F
 	if this.Time > nextTimeToInclude {
 		// There may be a bubble in FTDC data such that we didn't capture any data for a few
 		// seconds. Return the current value and also bump the `nextTimeIdx` to restore the
-		// invariant that the `nextTimeToInclude` > `this.Time`.
-		for gpw.timesToInclude[gpw.shouldIncludePointStorage.nextTimeIdx] < this.Time {
+		// invariant that the `nextTimeToInclude` > `this.Time` as long as we do not exceed
+		// `len(gpw.timesToInclude)-1`.
+		for gpw.shouldIncludePointStorage.nextTimeIdx < len(gpw.timesToInclude) &&
+			gpw.timesToInclude[gpw.shouldIncludePointStorage.nextTimeIdx] < this.Time {
 			gpw.shouldIncludePointStorage.nextTimeIdx++
 		}
 
@@ -702,6 +719,16 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 				time.Unix(vertLineX, 0).UTC())
 		}
 
+		// File boundaries are the same as vertical lines above, but should be represented
+		// with yellow lines (5) instead of blue, and should not have titles, as many file
+		// boundaries can crowd out the actual metric's title.
+		for idx := range gpw.options.fileBoundariesAtSeconds {
+			writeln(gnuFile, ",\\")
+			writef(gnuFile,
+				"\t'%v' using 1:2 with lines linestyle 5 lw 4 notitle",
+				filepath.Join(gpw.tempdir, fmt.Sprintf("fb-%d.txt", idx)))
+		}
+
 		// The trailing newline for the above calls to write out a single plot.
 		writeln(gnuFile, "")
 
@@ -728,6 +755,19 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 		writelnf(vertFile, "%v %d", vertLineX, maxY)
 	}
 
+	// Actually write out the `fb-<number>.txt` plots.
+	for idx, fileBoundaryX := range gpw.options.fileBoundariesAtSeconds {
+		fileBoundaryFile, err := os.Create(filepath.Join(gpw.tempdir, fmt.Sprintf("fb-%v.txt", idx)))
+		defer utils.UncheckedErrorFunc(fileBoundaryFile.Close)
+		if err != nil {
+			panic(err)
+		}
+
+		writelnf(fileBoundaryFile, "%v %d", fileBoundaryX, minY)
+		writelnf(fileBoundaryFile, "%v 0", fileBoundaryX)
+		writelnf(fileBoundaryFile, "%v %d", fileBoundaryX, maxY)
+	}
+
 	return gnuFile.Name()
 }
 
@@ -743,24 +783,95 @@ func parseStringAsTime(inp string) (time.Time, error) {
 	return goTime, nil
 }
 
-// LaunchREPL opens an ftdc file, plots it, and runs a cli for it.
-func LaunchREPL(ftdcFilepath string) {
-	ftdcFile, err := os.Open(filepath.Clean(ftdcFilepath))
+// getFTDCData returns a slice of FlatDatums from the path it was passed and a slice of
+// "last timestamps" representing file boundaries. If path leads to an .ftdc file, only
+// that file is parsed. If it leads to a directory, all .ftdc files in that directory will
+// get parsed and the combined slice of FlatDatums will get returned. The subdirectories
+// of that directory will NOT get explored.
+func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, []int64, error) {
+	info, err := os.Stat(ftdcPath)
 	if err != nil {
-		NolintPrintln("Error opening file. File:", os.Args[1], "Err:", err)
-		NolintPrintln("Expected an FTDC filename. E.g: go run parser.go <path-to>/viam-server.ftdc")
-		return
+		return nil, nil, err
 	}
 
-	logger := logging.NewLogger("parser")
-	data, err := ftdc.ParseWithLogger(ftdcFile, logger)
+	// If path is not a directory, we can just open the file and get its datums.
+	if !info.IsDir() {
+		//nolint:gosec
+		ftdcFile, err := os.Open(ftdcPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		//nolint:errcheck
+		defer ftdcFile.Close()
+
+		flatDatums, lastTimestamp, err := ftdc.ParseWithLogger(ftdcFile, logger)
+		logger.Debugw("File boundary found", "timestamp_ns", lastTimestamp)
+		return flatDatums, []int64{lastTimestamp}, err
+	}
+
+	// If path is a directory, we will walk it and get all of the FTDC datums.
+	flatDatums := make([]ftdc.FlatDatum, 0)
+	fileBoundaryTimestamps := make([]int64, 0)
+	err = filepath.WalkDir(ftdcPath, fs.WalkDirFunc(func(path string, d fs.DirEntry, walkErr error) error {
+		// For now, no recursive parsing.
+		if d.IsDir() && path != ftdcPath {
+			return filepath.SkipDir
+		}
+		if !strings.HasSuffix(path, ".ftdc") {
+			return nil
+		}
+
+		if walkErr != nil {
+			return walkErr
+		}
+
+		//nolint:gosec
+		ftdcReader, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		//nolint:errcheck
+		defer ftdcReader.Close()
+
+		ftdcData, lastTimestamp, err := ftdc.ParseWithLogger(ftdcReader, logger)
+		if err != nil {
+			logger.Warnw("Error getting ftdc data from file", "path", path, "err", err)
+			return nil
+		}
+
+		flatDatums = append(flatDatums, ftdcData...)
+
+		// The last timestamp parsed is equivalent to a file boundary timestamp.
+		logger.Debugw("File boundary found", "timestamp_ns", lastTimestamp)
+		fileBoundaryTimestamps = append(fileBoundaryTimestamps, lastTimestamp)
+
+		return nil
+	}))
 	if err != nil {
-		panic(err)
+		return nil, nil, err
+	}
+
+	if len(flatDatums) < 1 {
+		return nil, nil, errors.New("provided a directory with no FTDC files")
+	}
+
+	return flatDatums, fileBoundaryTimestamps, nil
+}
+
+// LaunchREPL opens an ftdc file or directory, plots it, and runs a cli for it.
+func LaunchREPL(ftdcFilepath string) {
+	logger := logging.NewDebugLogger("parser")
+	data, fileBoundaryTimestamps, err := getFTDCData(filepath.Clean(ftdcFilepath), logger)
+	if err != nil {
+		NolintPrintln("Error getting ftdc data from path:", ftdcFilepath, "Err:", err)
+		NolintPrintln(`Expected an FTDC filename or a directory. E.g: go run main.go
+		<path-to>/viam-server.ftdc or a directory with .ftdc files`)
+		return
 	}
 
 	stdinReader := bufio.NewReader(os.Stdin)
 	render := true
-	graphOptions := defaultGraphOptions()
+	graphOptions := defaultGraphOptions(fileBoundaryTimestamps)
 	for {
 		if render {
 			deferredValues := make([]map[string]*ratioReading, 0)

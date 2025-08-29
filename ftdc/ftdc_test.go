@@ -71,7 +71,7 @@ func TestCopeWithChangingSchema(t *testing.T) {
 	err = ftdc.writeDatum(datum)
 	test.That(t, err, test.ShouldBeNil)
 
-	datums, err := Parse(ftdcData)
+	datums, _ /*variable lastTimestampRead*/, err := Parse(ftdcData)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(datums), test.ShouldEqual, 2)
 
@@ -109,7 +109,7 @@ func TestCopeWithSubtleSchemaChange(t *testing.T) {
 	err = ftdc.writeDatum(datum)
 	test.That(t, err, test.ShouldBeNil)
 
-	datums, err := Parse(ftdcData)
+	datums, _ /*variable lastTimestampRead*/, err := Parse(ftdcData)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(datums), test.ShouldEqual, 2)
 
@@ -160,7 +160,7 @@ func TestMapStatser(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Verify the contents of the ftdc data.
-	datums, err := ParseWithLogger(ftdcData, logger)
+	datums, _ /*variable lastTimestampRead*/, err := ParseWithLogger(ftdcData, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(datums), test.ShouldEqual, 2)
@@ -223,7 +223,7 @@ func TestNestedStructs(t *testing.T) {
 	err = ftdc.writeDatum(datum)
 	test.That(t, err, test.ShouldBeNil)
 
-	flatDatums, err := ParseWithLogger(ftdcData, logger)
+	flatDatums, _ /*variable lastTimestampRead*/, err := ParseWithLogger(ftdcData, logger)
 	test.That(t, err, test.ShouldBeNil)
 	datums := flatDatumsToDatums(flatDatums)
 	test.That(t, len(datums), test.ShouldEqual, 2)
@@ -315,9 +315,13 @@ func TestCountingBytes(t *testing.T) {
 		// Temporarily set the log level to INFO to avoid spammy logs. Debug logs during parsing are
 		// only interesting when parsing fails.
 		logger.SetLevel(logging.INFO)
-		datums, err := ParseWithLogger(ftdcFile, logger)
+		datums, lastTimestampRead, err := ParseWithLogger(ftdcFile, logger)
 		logger.SetLevel(logging.DEBUG)
 		test.That(t, err, test.ShouldBeNil)
+
+		// lastReadTimestamp must be between [0, 1000).
+		test.That(t, lastTimestampRead, test.ShouldBeGreaterThanOrEqualTo, 0)
+		test.That(t, lastTimestampRead, test.ShouldBeLessThan, 1000)
 
 		for _, flatDatum := range datums {
 			// Each datum contains two metrics: `foo.X` and `foo.Y`. The "time" must be between [0,
