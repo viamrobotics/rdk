@@ -438,6 +438,14 @@ func (manager *resourceManager) internalResourceNames() []resource.Name {
 	return names
 }
 
+// AllNonCollidingResourceNames returns the names of all non-colliding resources in the
+// manager. To be used by weak and optional dependency updates.
+func (manager *resourceManager) AllNonCollidingResourceNames() []resource.Name {
+	return manager.resources.SimpleNamesWhere(func(k resource.Name, gNode *resource.GraphNode) bool {
+		return gNode.HasResource()
+	})
+}
+
 // ResourceNames returns the names of all resources in the manager, excluding the following types of resources:
 // - Resources that represent entire remote machines.
 // - Resources that are considered internal to viam-server that cannot be removed via configuration.

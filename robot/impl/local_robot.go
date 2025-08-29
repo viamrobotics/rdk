@@ -765,7 +765,7 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
 	weakDepMatchers := r.getWeakDependencyMatchers(api, model)
 
-	allNames := r.manager.resources.Names()
+	allNames := r.manager.AllNonCollidingResourceNames()
 	deps := make(resource.Dependencies, len(allNames))
 	for _, n := range allNames {
 		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
@@ -848,7 +848,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
 	components := map[resource.Name]resource.Resource{}
-	for _, n := range r.manager.resources.Names() {
+	for _, n := range r.manager.AllNonCollidingResourceNames() {
 		if !(n.API.IsComponent() || n.API.IsService()) {
 			continue
 		}
