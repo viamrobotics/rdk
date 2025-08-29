@@ -126,7 +126,11 @@ func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (reso
 	if err != nil {
 		return nil, err
 	}
-	return n.Resource()
+	res, err := n.Resource()
+	if err != nil {
+		return nil, resource.NewNotAvailableError(resource.NewName(api, name), err)
+	}
+	return res, nil
 }
 
 // ResourceByName returns a resource by name. It now re-routes all calls to
