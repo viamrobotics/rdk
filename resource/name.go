@@ -130,7 +130,8 @@ func (n Name) Validate() error {
 	return nil
 }
 
-// String returns the fully qualified name for the resource.
+// String returns the fully qualified name for the resource. The Remote field is ignored,
+// as it's only used internally.
 func (n Name) String() string {
 	name := n.API.String()
 	if n.Remote != "" {

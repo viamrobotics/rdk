@@ -9,13 +9,9 @@ import (
 	"go.viam.com/utils/rpc"
 )
 
-// Update updates the web service when the robot has changed.
-func (svc *webService) Reconfigure(ctx context.Context, deps resource.Dependencies, _ resource.Config) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	if err := svc.updateResources(deps); err != nil {
-		return err
-	}
+// Update updates the web service when the robot has changed. Without cgo (and
+// therefore without video streams) it is a noop.
+func (svc *webService) Reconfigure(ctx context.Context, _ resource.Dependencies, _ resource.Config) error {
 	return nil
 }
 

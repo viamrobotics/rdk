@@ -117,10 +117,28 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.manager.RemoteByName(name)
 }
 
-// ResourceByName returns a resource by name. If it does not exist
-// nil is returned.
+// FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
+// through the resourceGetterForAPI for _all_ incoming gRPC requests related to a
+// resource. A nil resource and an error is returned in the case of no resource found, or
+// multiple matching remote resources found.
+func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (resource.Resource, error) {
+	n, err := r.manager.resources.FindBySimpleNameAndAPI(name, api)
+	if err != nil {
+		return nil, err
+	}
+	res, err := n.Resource()
+	if err != nil {
+		return nil, resource.NewNotAvailableError(resource.NewName(api, name), err)
+	}
+	return res, nil
+}
+
+// ResourceByName returns a resource by name. It now re-routes all calls to
+// FindBySimpleNameAndAPI. All incoming gRPC requests related to a resource go through
+// FindBySimpleNameAndAPI. ResourceByName is only called internally for some dependency
+// calculation and session code.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
-	return r.manager.ResourceByName(name)
+	return r.FindBySimpleNameAndAPI(name.Name, name.API)
 }
 
 // RemoteNames returns the names of all known remote robots.
@@ -747,7 +765,7 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
 	weakDepMatchers := r.getWeakDependencyMatchers(api, model)
 
-	allNames := r.manager.resources.Names()
+	allNames := r.manager.AllNonCollidingResourceNames()
 	deps := make(resource.Dependencies, len(allNames))
 	for _, n := range allNames {
 		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
@@ -830,7 +848,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
 	components := map[resource.Name]resource.Resource{}
-	for _, n := range r.manager.resources.Names() {
+	for _, n := range r.manager.AllNonCollidingResourceNames() {
 		if !(n.API.IsComponent() || n.API.IsService()) {
 			continue
 		}

@@ -801,7 +801,7 @@ func TestResourceGraphReplaceNodesParents(t *testing.T) {
 			test.That(t, gB.AddChild(component.Name, dep), test.ShouldBeNil)
 		}
 	}
-	for n := range gB.nodes {
+	for n := range gB.nodes.Keys() {
 		test.That(t, gA.ReplaceNodesParents(n, gB), test.ShouldBeNil)
 	}
 	out = gA.TopologicalSort()
@@ -876,7 +876,7 @@ func TestResourceGraphCopyNodeAndChildren(t *testing.T) {
 		NewName(apiA, "D"),
 	}...))
 
-	for n := range gA.nodes {
+	for n := range gA.nodes.Keys() {
 		test.That(t, gB.CopyNodeAndChildren(n, gA), test.ShouldBeNil)
 	}
 	out = gB.TopologicalSort()
@@ -1145,4 +1145,120 @@ type someResource struct {
 	Named
 	TriviallyReconfigurable
 	TriviallyCloseable
+}
+
+func TestFindBySimpleNameAndAPI(t *testing.T) {
+	// Tests the success and failure paths of FindBySimpleNameAndAPI, which is invoked by
+	// all gRPC server-wrappers to route gRPC requests to the correct resource and handles
+	// duplicately-named resources.
+
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
+
+	localName := Name{API: apiA, Remote: "", Name: "foo"}
+	remote1Name := Name{API: apiA, Remote: "remote1", Name: "foo"}
+	remote2Name := Name{API: apiA, Remote: "remote2", Name: "foo"}
+	localNode := NewUnconfiguredGraphNode(Config{}, nil)
+	remote1Node := NewUnconfiguredGraphNode(Config{}, nil)
+	remote2Node := NewUnconfiguredGraphNode(Config{}, nil)
+
+	fooNotFoundError := &NodeNotFoundError{Name: "foo", API: apiA}
+	fooPrefixedNotFoundError := &NodeNotFoundError{Name: "prefix.foo", API: apiA}
+	remote1AndRemote2MatchingError := &MultipleMatchingRemoteNodesError{
+		Name:  "foo",
+		API:   apiA,
+		Names: []Name{remote1Name, remote2Name},
+	}
+	remote1AndRemote2PrefixedMatchingError := &MultipleMatchingRemoteNodesError{
+		Name:  "prefix.foo",
+		API:   apiA,
+		Names: []Name{remote1Name, remote2Name},
+	}
+
+	// Assert that find on an empty graph returns the correct NodeNotFoundError.
+	foundNode, err := g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, foundNode, test.ShouldBeNil)
+	test.That(t, err, test.ShouldResemble, fooNotFoundError)
+
+	// Assert that find with just a local "foo" finds localNode.
+	g.AddNode(localName, localNode)
+	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, foundNode, test.ShouldEqual, localNode)
+
+	// Assert that find with a local "foo" _and_ a remote "foo" still finds localNode.
+	g.AddNode(remote1Name, remote1Node)
+	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, foundNode, test.ShouldEqual, localNode)
+
+	// Assert that find with a local "foo" and _two_ remote "foo"s still finds localNode.
+	g.AddNode(remote2Name, remote2Node)
+	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, foundNode, test.ShouldEqual, localNode)
+
+	// Assert that find with _two_ remote "foo"s returns the correct MultipleMatchingRemoteNodesError.
+	localNode.MarkForRemoval()
+	test.That(t, len(g.RemoveMarked()), test.ShouldEqual, 1)
+	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, foundNode, test.ShouldBeNil)
+	test.That(t, err, shouldMatchMultipleNodesErr, remote1AndRemote2MatchingError)
+
+	// Assert that setting a prefix on remote1Node allows find to get remote2Node.
+	g.UpdateNodePrefix(remote1Name, "prefix.")
+	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, foundNode, test.ShouldEqual, remote2Node)
+
+	// Assert that setting the same prefix on remote2Node makes find return the expected
+	// MultipleMatchingRemoteNodesError when looking for "prefix.foo".
+	g.UpdateNodePrefix(remote2Name, "prefix.")
+	foundNode, err = g.FindBySimpleNameAndAPI("prefix.foo", apiA)
+	test.That(t, foundNode, test.ShouldBeNil)
+	test.That(t, err, shouldMatchMultipleNodesErr, remote1AndRemote2PrefixedMatchingError)
+
+	// Assert that removing remote1Node allows find to get remote2Node with "prefix.foo".
+	remote1Node.MarkForRemoval()
+	test.That(t, len(g.RemoveMarked()), test.ShouldEqual, 1)
+	foundNode, err = g.FindBySimpleNameAndAPI("prefix.foo", apiA)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, foundNode, test.ShouldEqual, remote2Node)
+
+	// Assert that after all nodes are removed, find returns the correct NodeNotFoundError
+	// for both "prefix.foo" and "foo".
+	remote2Node.MarkForRemoval()
+	test.That(t, len(g.RemoveMarked()), test.ShouldEqual, 1)
+	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, foundNode, test.ShouldBeNil)
+	test.That(t, err, test.ShouldResemble, fooNotFoundError)
+	foundNode, err = g.FindBySimpleNameAndAPI("prefix.foo", apiA)
+	test.That(t, foundNode, test.ShouldBeNil)
+	test.That(t, err, test.ShouldResemble, fooPrefixedNotFoundError)
+}
+
+func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) string {
+	if len(expected) != 1 {
+		panic("takes exactly one argument")
+	}
+	expectedErr := expected[0].(*MultipleMatchingRemoteNodesError)
+	if actual == nil {
+		return "expected non-nil error"
+	}
+	actualErr := actual.(*MultipleMatchingRemoteNodesError)
+	if msg := test.ShouldResemble(actualErr.API, expectedErr.API); msg != "" {
+		return msg
+	}
+	if msg := test.ShouldResemble(actualErr.Name, expectedErr.Name); msg != "" {
+		return msg
+	}
+	if msg := test.ShouldHaveLength(actualErr.Names, len(expectedErr.Names)); msg != "" {
+		return msg
+	}
+	for _, n := range expectedErr.Names {
+		if msg := test.ShouldContain(actualErr.Names, n); msg != "" {
+			return msg
+		}
+	}
+	return ""
 }

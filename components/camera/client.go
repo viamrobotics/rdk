@@ -89,7 +89,7 @@ func NewClientFromConn(
 	return &client{
 		remoteName:     remoteName,
 		Named:          name.PrependRemote(remoteName).AsNamed(),
-		name:           name.ShortName(),
+		name:           name.Name,
 		conn:           conn,
 		streamClient:   streamClient,
 		client:         c,

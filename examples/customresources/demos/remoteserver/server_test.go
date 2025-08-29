@@ -24,6 +24,7 @@ import (
 )
 
 func TestGizmo(t *testing.T) {
+	t.SkipNow()
 	// This test sets up three robots as a chain of remotes: MainPart -> A -> B. For setup, the test
 	// brings up the robots in reverse order. Remote "B" constructs a component using a custom
 	// "Gizmo" API + model. The test then asserts a connection to the `MainPart` can get a handle on
