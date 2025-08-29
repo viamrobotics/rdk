@@ -1760,21 +1760,28 @@ func TestDependentResources(t *testing.T) {
 	}
 	r.Reconfigure(ctx, cfg2)
 
+	nodeNotFoundError := func(name string, api resource.API) error {
+		return &resource.NodeNotFoundError{
+			API:  api,
+			Name: name,
+		}
+	}
+
 	res, err := r.ResourceByName(base.Named("b"))
 	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(base.Named("b")))
+		nodeNotFoundError("b", base.API))
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(motor.Named("m")))
+		nodeNotFoundError("m", motor.API))
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(motor.Named("m1")))
+		nodeNotFoundError("m1", motor.API))
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(slam.Named("s"))
 	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(slam.Named("s")))
+		nodeNotFoundError("s", slam.API))
 	test.That(t, res, test.ShouldBeNil)
 
 	// Assert that adding base 'b' back re-adds 'm' and 'm1' and slam service 's'.
