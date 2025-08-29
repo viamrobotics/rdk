@@ -19,13 +19,10 @@ import (
 
 const (
 	defaultOptimalityMultiple      = 2.0
-	defaultFallbackTimeout         = 1.5
 	defaultTPspaceOrientationScale = 500.
 )
 
-// planManager is intended to be the single entry point to motion planners, wrapping all others, dealing with fallbacks, etc.
-// Intended information flow should be:
-// motionplan.PlanMotion() -> SolvableFrameSystem.SolveWaypointsWithOptions() -> planManager.planSingleWaypoint().
+// planManager is intended to be the single entry point to motion planners.
 type planManager struct {
 	*planner // TODO: This should probably be removed
 	// We store the request because we want to be able to inspect the original state of the plan
@@ -280,8 +277,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 			return seed, &resultPromise{steps: planReturn.steps}, nil
 		}
 	} else {
-		// This ctx is used exclusively for the running of the new planner and timing it out. It may be different from the main `ctx`
-		// timeout due to planner fallbacks.
+		// This ctx is used exclusively for the running of the new planner and timing it out.
 		plannerctx, cancel := context.WithTimeout(ctx, time.Duration(wp.mp.opt().Timeout*float64(time.Second)))
 		defer cancel()
 		plan, err := wp.mp.plan(plannerctx, wp.startState, wp.goalState)
@@ -297,8 +293,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	}
 }
 
-// planParallelRRTMotion will handle planning a single atomic waypoint using a parallel-enabled RRT solver. It will handle fallbacks
-// as necessary.
+// planParallelRRTMotion will handle planning a single atomic waypoint using a parallel-enabled RRT solver.
 func (pm *planManager) planParallelRRTMotion(
 	ctx context.Context,
 	wp atomicWaypoint,
@@ -308,7 +303,6 @@ func (pm *planManager) planParallelRRTMotion(
 ) {
 	pathPlanner := wp.mp.(rrtParallelPlanner)
 	var rrtBackground sync.WaitGroup
-	var err error
 	if maps == nil {
 		solutionChan <- &rrtSolution{err: errors.New("nil maps")}
 		return
@@ -326,8 +320,7 @@ func (pm *planManager) planParallelRRTMotion(
 		}
 	}
 
-	// This ctx is used exclusively for the running of the new planner and timing it out. It may be different from the main `ctx` timeout
-	// due to planner fallbacks.
+	// This ctx is used exclusively for the running of the new planner and timing it out.
 	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(wp.mp.opt().Timeout*float64(time.Second)))
 	defer cancel()
 
@@ -340,7 +333,7 @@ func (pm *planManager) planParallelRRTMotion(
 		pathPlanner.rrtBackgroundRunner(plannerctx, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
 	})
 
-	// Wait for results from the planner. This will also handle calling the fallback if needed, and will ultimately return the best path
+	// Wait for results from the planner.
 	select {
 	case <-ctx.Done():
 		// Error will be caught by monitoring loop
@@ -353,85 +346,15 @@ func (pm *planManager) planParallelRRTMotion(
 	select {
 	case finalSteps := <-plannerChan:
 		// We didn't get a solution preview (possible error), so we get and process the full step set and error.
-
-		mapSeed := finalSteps.maps
-
-		// Create fallback planner
-		var fallbackPlanner motionPlanner
-		if pathPlanner.opt().Fallback != nil {
-			//nolint: gosec
-			fallbackPlanner, err = newMotionPlanner(
-				pm.fs,
-				rand.New(rand.NewSource(int64(pm.randseed.Int()))),
-				pm.logger,
-				pathPlanner.opt().Fallback,
-				pm.ConstraintHandler,
-				pm.motionChains,
-			)
-			if err != nil {
-				fallbackPlanner = nil
-			}
-		}
-
-		// If there was no error, check path quality. If sufficiently good, move on.
-		// If there *was* an error, then either the fallback will not error and will replace it, or the error will be returned
-		if finalSteps.err == nil {
-			if fallbackPlanner != nil {
-				if ok, score := pm.goodPlan(finalSteps); ok {
-					pm.logger.CDebugf(ctx, "got path with score %f, close enough to optimal %f", score, maps.optNode.Cost())
-					fallbackPlanner = nil
-				} else {
-					pm.logger.CDebugf(ctx, "path with score %f not close enough to optimal %f, falling back", score, maps.optNode.Cost())
-
-					// If we have a connected but bad path, we recreate new IK solutions and start from scratch
-					// rather than seeding with a completed, known-bad tree
-					mapSeed = nil
-				}
-			}
-		}
-
-		// Start smoothing before initializing the fallback plan. This allows both to run simultaneously.
 		smoothChan := make(chan []node, 1)
 		rrtBackground.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer rrtBackground.Done()
 			smoothChan <- pathPlanner.smoothPath(ctx, finalSteps.steps)
 		})
-		var alternateFuture *resultPromise
-
-		// Run fallback only if we don't have a very good path
-		if fallbackPlanner != nil {
-			fallbackWP := wp
-			fallbackWP.mp = fallbackPlanner
-			_, alternateFuture, err = pm.planSingleAtomicWaypoint(ctx, fallbackWP, mapSeed)
-			if err != nil {
-				alternateFuture = nil
-			}
-		}
 
 		// Receive the newly smoothed path from our original solve, and score it
 		finalSteps.steps = <-smoothChan
-		score := math.Inf(1)
-
-		if finalSteps.steps != nil {
-			score = nodesToTrajectory(finalSteps.steps).EvaluateCost(wp.mp.getScoringFunction())
-		}
-
-		// If we ran a fallback, retrieve the result and compare to the smoothed path
-		if alternateFuture != nil {
-			alternate, err := alternateFuture.result()
-			if err == nil {
-				// If the fallback successfully found a path, check if it is better than our smoothed previous path.
-				// The fallback should emerge pre-smoothed, so that should be a non-issue
-				altCost := nodesToTrajectory(alternate).EvaluateCost(wp.mp.getScoringFunction())
-				if altCost < score {
-					pm.logger.CDebugf(ctx, "replacing path with score %f with better score %f", score, altCost)
-					finalSteps = &rrtSolution{steps: alternate}
-				} else {
-					pm.logger.CDebugf(ctx, "fallback path with score %f worse than original score %f; using original", altCost, score)
-				}
-			}
-		}
 
 		solutionChan <- finalSteps
 		return
@@ -622,22 +545,6 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 	waypoints[len(waypoints)-1].origWP = wpi
 
 	return waypoints, nil
-}
-
-// check whether the solution is within some amount of the optimal.
-func (pm *planManager) goodPlan(pr *rrtSolution) (bool, float64) {
-	solutionCost := math.Inf(1)
-	if pr.steps != nil {
-		if pr.maps.optNode.Cost() <= 0 {
-			return true, solutionCost
-		}
-		solutionCost = nodesToTrajectory(pr.steps).EvaluateCost(pm.scoringFunction)
-		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
-			return true, solutionCost
-		}
-	}
-
-	return false, solutionCost
 }
 
 func (pm *planManager) planToRRTGoalMap(plan motionplan.Plan, goal atomicWaypoint) (*rrtMaps, error) {

@@ -183,8 +183,7 @@ type PlannerOptions struct {
 	CollisionBufferMM float64 `json:"collision_buffer_mm"`
 
 	// The algorithm used for pathfinding along with any configurable settings for that algorithm. If this
-	// object is not provided, motion planning will attempt to use RRT* and, in the event of failure
-	// to find an acceptable path, it will fallback to cBiRRT.
+	// object is not provided, motion planning will use cBiRRT. If you have a 2d base, set this to TPSpace.
 	PlanningAlgorithmSettings AlgorithmSettings `json:"planning_algorithm_settings"`
 
 	// The random seed used by motion algorithms during planning. This parameter guarantees deterministic
@@ -197,11 +196,6 @@ type PlannerOptions struct {
 
 	// Setting indicating that all mesh geometries should be converted into octrees.
 	MeshesAsOctrees bool `json:"meshes_as_octrees"`
-
-	// A set of fallback options to use on initial planning failure. This is used to facilitate the default
-	// behavior described above in the comment for `PlanningAlgorithmSettings`. This will be populated
-	// automatically if needed and is not meant to be set by users of the library.
-	Fallback *PlannerOptions `json:"fallback_options"`
 
 	// For inverse kinematics, the time within which each pending solution must finish its computation is
 	// a multiple of the time taken to compute the first solution. This parameter is a way to
@@ -233,7 +227,7 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 
 // Returns an updated PlannerOptions taking into account whether TP-Space is being used and whether
 // a Free or Position-Only motion profile was requested with an unspecified algorithm (indicating the desire
-// to let motionplan handle what algorithm to use and allow for a fallback).
+// to let motionplan handle what algorithm to use).
 func updateOptionsForPlanning(opt *PlannerOptions, useTPSpace bool) (*PlannerOptions, error) {
 	optCopy := *opt
 	planningAlgorithm := optCopy.PlanningAlgorithm()
