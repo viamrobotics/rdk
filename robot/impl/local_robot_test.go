@@ -457,6 +457,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				Remotes: []config.Remote{
 					{
 						Name:    "foo",
+						Prefix:  "foo",
 						Address: addr,
 						Auth: config.RemoteAuth{
 							Managed: tc.Managed,
@@ -464,6 +465,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 					},
 					{
 						Name:    "bar",
+						Prefix:  "bar",
 						Address: addr,
 						Auth: config.RemoteAuth{
 							Managed: tc.Managed,
@@ -522,18 +524,18 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				arm.Named("bar:pieceArm"),
-				arm.Named("foo:pieceArm"),
-				audioinput.Named("bar:mic1"),
-				audioinput.Named("foo:mic1"),
-				camera.Named("bar:cameraOver"),
-				camera.Named("foo:cameraOver"),
-				movementsensor.Named("bar:movement_sensor1"),
-				movementsensor.Named("foo:movement_sensor1"),
-				movementsensor.Named("bar:movement_sensor2"),
-				movementsensor.Named("foo:movement_sensor2"),
-				gripper.Named("bar:pieceGripper"),
-				gripper.Named("foo:pieceGripper"),
+				arm.Named("bar:barpieceArm"),
+				arm.Named("foo:foopieceArm"),
+				audioinput.Named("bar:barmic1"),
+				audioinput.Named("foo:foomic1"),
+				camera.Named("bar:barcameraOver"),
+				camera.Named("foo:foocameraOver"),
+				movementsensor.Named("bar:barmovement_sensor1"),
+				movementsensor.Named("foo:foomovement_sensor1"),
+				movementsensor.Named("bar:barmovement_sensor2"),
+				movementsensor.Named("foo:foomovement_sensor2"),
+				gripper.Named("bar:barpieceGripper"),
+				gripper.Named("foo:foopieceGripper"),
 			}
 
 			resources2 := r2.ResourceNames()
