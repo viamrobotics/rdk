@@ -547,22 +547,6 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 	return waypoints, nil
 }
 
-// check whether the solution is within some amount of the optimal.
-func (pm *planManager) goodPlan(pr *rrtSolution) (bool, float64) {
-	solutionCost := math.Inf(1)
-	if pr.steps != nil {
-		if pr.maps.optNode.Cost() <= 0 {
-			return true, solutionCost
-		}
-		solutionCost = nodesToTrajectory(pr.steps).EvaluateCost(pm.scoringFunction)
-		if solutionCost < pr.maps.optNode.Cost()*defaultOptimalityMultiple {
-			return true, solutionCost
-		}
-	}
-
-	return false, solutionCost
-}
-
 func (pm *planManager) planToRRTGoalMap(plan motionplan.Plan, goal atomicWaypoint) (*rrtMaps, error) {
 	traj := plan.Trajectory()
 	path := plan.Path()
