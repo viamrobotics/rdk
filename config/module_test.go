@@ -40,7 +40,7 @@ func TestInternalMeta(t *testing.T) {
 		})
 
 		t.Run("meta.json present", func(t *testing.T) {
-			exeDir, err := mod.exeDir(packagesDir)
+			exeDir, err := mod.ExeDir(packagesDir)
 			test.That(t, err, test.ShouldBeNil)
 			manifest := JSONManifest{Entrypoint: "entry"}
 			testWriteJSON(t, filepath.Join(exeDir, "meta.json"), manifest)
@@ -91,7 +91,7 @@ func TestSyntheticModule(t *testing.T) {
 	})
 
 	t.Run("syntheticPackageExeDir", func(t *testing.T) {
-		dir, err := modNeedsSynthetic.exeDir(tmp)
+		dir, err := modNeedsSynthetic.ExeDir(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dir, test.ShouldEqual, filepath.Join(tmp, "data/module/synthetic--"))
 	})
