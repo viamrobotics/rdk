@@ -384,9 +384,12 @@ func TestConfigRemoteWithPrefixes(t *testing.T) {
 	arm1Name := arm.Named("barpieceArm")
 	arm1, err := r2.ResourceByName(arm1Name)
 	test.That(t, err, test.ShouldBeNil)
-	// TODO: the return from Name doesn't have the prefix applied so this
-	// assertion fails. Is that a problem?
-	// test.That(t, arm1.Name(), test.ShouldResemble, arm1Name)
+
+	// The Name returned by calling Name on the arm gRPC client connected to the remote will
+	// _not_ have a prefixed simple name. Only the resource name returned to an SDK will
+	// have the "bar" prefix.
+	test.That(t, arm1.Name().Name, test.ShouldEqual, "pieceArm")
+
 	pos1, err := arm1.(arm.Arm).EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	arm2, err := r2.ResourceByName(arm.Named("foopieceArm"))
@@ -402,6 +405,41 @@ func TestConfigRemoteWithPrefixes(t *testing.T) {
 	fsConfig, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsConfig.Parts, test.ShouldHaveLength, 7)
+
+	// Assert that a client connected to r2 gets the appropriate resource names from
+	// ResourceNames. No `Remote` fields are set, and all prefixes are correctly applied.
+	options, _, r2Addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = r2.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	r2Client, err := client.New(ctx, r2Addr, logger.Sublogger("client"))
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r2Client.Close(ctx), test.ShouldBeNil)
+	}()
+
+	expectedResourceNamesFromClient := []resource.Name{
+		arm.Named("foopieceArm"),
+		arm.Named("barpieceArm"),
+		base.Named("foo"),
+		base.Named("myParentIsRemote"),
+		camera.Named("foocameraOver"),
+		camera.Named("barcameraOver"),
+		audioinput.Named("foomic1"),
+		audioinput.Named("barmic1"),
+		movementsensor.Named("foomovement_sensor1"),
+		movementsensor.Named("barmovement_sensor1"),
+		movementsensor.Named("foomovement_sensor2"),
+		movementsensor.Named("barmovement_sensor2"),
+		gripper.Named("foopieceGripper"),
+		gripper.Named("barpieceGripper"),
+	}
+
+	rtestutils.VerifySameResourceNames(
+		t,
+		r2Client.ResourceNames(),
+		expectedResourceNamesFromClient,
+	)
 }
 
 func TestConfigRemoteWithAuth(t *testing.T) {
