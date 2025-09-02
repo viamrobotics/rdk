@@ -1,7 +1,6 @@
 package pointcloud
 
 import (
-	"fmt"
 	"image/color"
 	"testing"
 
@@ -121,7 +120,6 @@ func TestPointCloudPoints(t *testing.T) {
 	test.That(t, pc.Set(r3.Vector{4, 5, 6}, data), test.ShouldBeNil)
 	test.That(t, pc.Set(r3.Vector{7, 8, 9}, data), test.ShouldBeNil)
 	points := CloudToPoints(pc)
-	fmt.Println(points)
 	test.That(t, len(points), test.ShouldEqual, 3)
 	// The points can come in an unexpected order. So, just check that the 3 points we expect are
 	// in there somewhere.
