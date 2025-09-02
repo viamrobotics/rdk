@@ -1044,19 +1044,13 @@ func getFullEnvironment(
 		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
 
-	// For local non-tarball modules, we set VIAM_MODULE_ROOT to the directory containing the executable.
-	// For local tarball modules, we set VIAM_MODULE_ROOT to the directory containing the synthetic package.
+	// For local modules, we set VIAM_MODULE_ROOT to the parent directory of the unpacked module.
 	// VIAM_MODULE_ROOT is filled out by app.viam.com in cloud robots.
 	if _, exists := environment["VIAM_MODULE_ROOT"]; !exists && cfg.Type == config.ModuleTypeLocal {
-		var moduleRoot string
-
-		if cfg.NeedsSyntheticPackage() {
-			moduleRoot = packagesDir
-		} else {
-			moduleRoot = filepath.Dir(cfg.ExePath)
+		moduleRoot, err := cfg.ExeDir(packagesDir)
+		if err == nil {
+			environment["VIAM_MODULE_ROOT"] = moduleRoot
 		}
-
-		environment["VIAM_MODULE_ROOT"] = moduleRoot
 	}
 
 	// Overwrite the base environment variables with the module's environment variables (if specified)
