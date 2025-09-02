@@ -145,7 +145,7 @@ func (n Name) String() string {
 // SDPTrackName returns a valid SDP video/audio track name as defined in RFC 4566 (https://www.rfc-editor.org/rfc/rfc4566)
 // where track names should not include colons.
 func (n Name) SDPTrackName() string {
-	return strings.ReplaceAll(n.ShortName(), ":", "+")
+	return n.Name
 }
 
 // SDPTrackNameToShortName takes the output of SDPTrackName() and returns the resource ShortName.
