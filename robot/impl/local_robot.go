@@ -559,7 +559,7 @@ func newWithResources(
 	getResource := func(res string) (resource.Resource, error) {
 		var found bool
 		var match resource.Name
-		names := r.manager.resources.Names()
+		names := r.manager.AllNonCollidingResourceNames()
 		for _, name := range names {
 			if name.Name == res {
 				if found {
