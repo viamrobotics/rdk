@@ -19,6 +19,9 @@ jobs:
         brew config
         brew tap viamrobotics/brews
         brew install pkg-config
+        # Github's action runners pre-install a different version of cmake, and (as of September
+        # 2025), installing nlopt-static will fail if the wrong version of cmake is preinstalled.
+        brew uninstall cmake
         brew install nlopt-static
         brew install x264
     - name: build
