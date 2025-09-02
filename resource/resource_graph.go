@@ -62,33 +62,38 @@ type graphNodes map[Name]*GraphNode
 // graphStorage itself is _not_ thread safe. and depends on [Graph] to handle
 // synchronization between goroutines.
 type graphStorage struct {
-	nodes           graphNodes
-	simpleNameCache simpleNameCache
+	nodes  simpleNameMap
 }
 
 func (s graphStorage) Get(name Name) (*GraphNode, bool) {
-	node, ok := s.nodes[name]
-	return node, ok
+	bucket := s.nodes[simpleNameKey{name.Name, name.API}]
+	if bucket == nil {
+		return nil, false
+	}
+	if name.Remote == "" {
+		return bucket.local, bucket.local != nil
+	}
+	result, ok := bucket.remote[name.Remote]
+	return result, ok
 }
 
 func (s graphStorage) Set(name Name, node *GraphNode) {
-	s.nodes[name] = node
 	s.setSimpleNameCache(name, node)
 }
 
 func (s graphStorage) setSimpleNameCache(name Name, node *GraphNode) {
 	simpleName := simpleNameKey{node.prefix + name.Name, name.API}
-	val := s.simpleNameCache[simpleName]
+	val := s.nodes[simpleName]
 	if val == nil {
 		val = &simpleNameVal{
-			remote: map[Name]*GraphNode{},
+			remote: map[string]*GraphNode{},
 		}
-		s.simpleNameCache[simpleName] = val
+		s.nodes[simpleName] = val
 	}
 	if name.Remote == "" {
 		val.local = node
 	} else {
-		val.remote[name] = node
+		val.remote[name.Remote] = node
 	}
 }
 
@@ -98,12 +103,12 @@ func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *Graph
 	}
 	prevSimpleName := simpleNameKey{prevPrefix + name.Name, name.API}
 
-	prevVal := s.simpleNameCache[prevSimpleName]
+	prevVal := s.nodes[prevSimpleName]
 	if prevVal != nil {
 		if name.Remote == "" {
 			prevVal.local = nil
 		} else {
-			delete(prevVal.remote, name)
+			delete(prevVal.remote, name.Remote)
 		}
 	}
 
@@ -111,13 +116,8 @@ func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *Graph
 }
 
 func (s graphStorage) Delete(name Name) {
-	node := s.nodes[name]
-	delete(s.nodes, name)
-	if node == nil {
-		return
-	}
-	simpleName := simpleNameKey{node.prefix + name.Name, name.API}
-	existing := s.simpleNameCache[simpleName]
+	simpleName := simpleNameKey{name.Name, name.API}
+	existing := s.nodes[simpleName]
 	if existing == nil {
 		return
 	}
@@ -125,16 +125,15 @@ func (s graphStorage) Delete(name Name) {
 		existing.local = nil
 		return
 	}
-	delete(existing.remote, name)
+	delete(existing.remote, name.Remote)
 }
 
 func (s graphStorage) Copy() graphStorage {
 	out := graphStorage{
-		nodes:           maps.Clone(s.nodes),
-		simpleNameCache: simpleNameCache{},
+		nodes:  simpleNameMap{},
 	}
-	for k, v := range s.simpleNameCache {
-		out.simpleNameCache[k] = &simpleNameVal{
+	for k, v := range s.nodes {
+		out.nodes[k] = &simpleNameVal{
 			local:  v.local,
 			remote: maps.Clone(v.remote),
 		}
@@ -143,7 +142,7 @@ func (s graphStorage) Copy() graphStorage {
 }
 
 func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
-	val := s.simpleNameCache[simpleNameKey{name, api}]
+	val := s.nodes[simpleNameKey{name, api}]
 	if val == nil {
 		return nil, &NodeNotFoundError{name, api}
 	}
@@ -158,27 +157,74 @@ func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, 
 	case 0:
 		return nil, &NodeNotFoundError{name, api}
 	}
+	toNames := func(remotes iter.Seq[string]) iter.Seq[Name] {
+		return func(yield func(Name) bool) {
+			remotes(func(remote string) bool {
+				return yield(Name{
+					API:    api,
+					Name:   name,
+					Remote: remote,
+				})
+			})
+		}
+	}
+	conflictingNames := slices.Collect(toNames(maps.Keys(val.remote)))
 	return nil, &MultipleMatchingRemoteNodesError{
 		Name:  name,
 		API:   api,
-		Names: slices.Collect(maps.Keys(val.remote)),
+		Names: conflictingNames,
 	}
 }
 
 func (s graphStorage) All() iter.Seq2[Name, *GraphNode] {
-	return maps.All(s.nodes)
+	return func(yield func(key Name, val *GraphNode) bool) {
+		for k, v := range s.nodes {
+			if v.local != nil {
+				if !yield(Name{
+					API:  k.api,
+					Name: k.name,
+				}, v.local) {
+					return
+				}
+			}
+			for rk, rv := range v.remote {
+				if !yield(Name{
+					API:    k.api,
+					Name:   k.name,
+					Remote: rk,
+				}, rv) {
+					return
+				}
+			}
+		}
+	}
 }
 
 func (s graphStorage) Keys() iter.Seq[Name] {
-	return maps.Keys(s.nodes)
+	return func(yield func(Name) bool) {
+		s.All()(func(k Name, _ *GraphNode) bool {
+			return yield(k)
+		})
+	}
 }
 
 func (s graphStorage) Values() iter.Seq[*GraphNode] {
-	return maps.Values(s.nodes)
+	return func(yield func(*GraphNode) bool) {
+		s.All()(func(_ Name, v *GraphNode) bool {
+			return yield(v)
+		})
+	}
 }
 
 func (s graphStorage) Len() int {
-	return len(s.nodes)
+	var length int
+	for _, v := range s.simpleNameCache {
+		if v.local != nil {
+			length++
+		}
+		length += len(v.remote)
+	}
+	return length
 }
 
 type simpleNameKey struct {
@@ -188,10 +234,10 @@ type simpleNameKey struct {
 
 type simpleNameVal struct {
 	local  *GraphNode
-	remote map[Name]*GraphNode
+	remote map[string]*GraphNode
 }
 
-type simpleNameCache map[simpleNameKey]*simpleNameVal
+type simpleNameMap map[simpleNameKey]*simpleNameVal
 
 type resourceDependencies map[Name]graphNodes
 
@@ -218,8 +264,7 @@ func NewGraph(logger logging.Logger) *Graph {
 		children: resourceDependencies{},
 		parents:  resourceDependencies{},
 		nodes: graphStorage{
-			nodes:           graphNodes{},
-			simpleNameCache: simpleNameCache{},
+			nodes: simpleNameMap{},
 		},
 		transitiveClosureMatrix: transitiveClosureMatrix{},
 		logicalClock:            &atomic.Int64{},
@@ -417,7 +462,7 @@ func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	var result []Name
-	for k, v := range g.nodes.simpleNameCache {
+	for k, v := range g.nodes.nodes {
 		if v.local == nil && len(v.remote) != 1 {
 			continue
 		}
@@ -431,7 +476,7 @@ func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 			}
 		} else {
 			remName, remNode, _ := seq2First(maps.All(v.remote))
-			name.Remote = remName.Remote
+			name.Remote = remName
 			if !filter(name, remNode) {
 				continue
 			}
