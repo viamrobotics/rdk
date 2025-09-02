@@ -63,6 +63,7 @@ type graphNodes map[Name]*GraphNode
 // synchronization between goroutines.
 type graphStorage struct {
 	nodes  simpleNameMap
+	length int
 }
 
 func (s graphStorage) Get(name Name) (*GraphNode, bool) {
@@ -77,11 +78,7 @@ func (s graphStorage) Get(name Name) (*GraphNode, bool) {
 	return result, ok
 }
 
-func (s graphStorage) Set(name Name, node *GraphNode) {
-	s.setSimpleNameCache(name, node)
-}
-
-func (s graphStorage) setSimpleNameCache(name Name, node *GraphNode) {
+func (s *graphStorage) Set(name Name, node *GraphNode) {
 	simpleName := simpleNameKey{node.prefix + name.Name, name.API}
 	val := s.nodes[simpleName]
 	if val == nil {
@@ -91,8 +88,15 @@ func (s graphStorage) setSimpleNameCache(name Name, node *GraphNode) {
 		s.nodes[simpleName] = val
 	}
 	if name.Remote == "" {
+		if val.local == nil {
+			s.length++
+		}
 		val.local = node
 	} else {
+		_, ok := val.remote[name.Remote]
+		if !ok {
+			s.length++
+		}
 		val.remote[name.Remote] = node
 	}
 }
@@ -112,18 +116,25 @@ func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *Graph
 		}
 	}
 
-	s.setSimpleNameCache(name, node)
+	s.Set(name, node)
 }
 
-func (s graphStorage) Delete(name Name) {
+func (s *graphStorage) Delete(name Name) {
 	simpleName := simpleNameKey{name.Name, name.API}
 	existing := s.nodes[simpleName]
 	if existing == nil {
 		return
 	}
 	if name.Remote == "" {
+		if existing.local != nil {
+			s.length--
+		}
 		existing.local = nil
 		return
+	}
+	_, ok := existing.remote[name.Remote]
+	if ok {
+		s.length--
 	}
 	delete(existing.remote, name.Remote)
 }
@@ -131,6 +142,7 @@ func (s graphStorage) Delete(name Name) {
 func (s graphStorage) Copy() graphStorage {
 	out := graphStorage{
 		nodes:  simpleNameMap{},
+		length: s.length,
 	}
 	for k, v := range s.nodes {
 		out.nodes[k] = &simpleNameVal{
@@ -217,14 +229,7 @@ func (s graphStorage) Values() iter.Seq[*GraphNode] {
 }
 
 func (s graphStorage) Len() int {
-	var length int
-	for _, v := range s.simpleNameCache {
-		if v.local != nil {
-			length++
-		}
-		length += len(v.remote)
-	}
-	return length
+	return s.length
 }
 
 type simpleNameKey struct {
