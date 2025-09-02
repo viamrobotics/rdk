@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/contextutils"
@@ -21,12 +22,17 @@ type AppConn struct {
 	dialer *utils.StoppableWorkers
 }
 
+// connectivityChecker is an interface that allows us to check the state of a gRPC connection.
+type connectivityChecker interface {
+	GetState() connectivity.State
+}
+
 // NewAppConn creates an `AppConn` instance with a gRPC client connection to App. An initial dial attempt blocks. If it errors, the error
 // is returned. If it times out, an `AppConn` object with a nil underlying client connection will return. Serialized attempts at
 // establishing a connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a
 // connection is made. If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not
 // start.
-func NewAppConn(ctx context.Context, appAddress, secret, id string, logger logging.Logger) (rpc.ClientConn, error) {
+func NewAppConn(ctx context.Context, appAddress, secret, id string, logger logging.Logger) (*AppConn, error) {
 	appConn := &AppConn{ReconfigurableClientConn: &ReconfigurableClientConn{Logger: logger.Sublogger("app_conn")}}
 
 	grpcURL, err := url.Parse(appAddress)
@@ -109,6 +115,20 @@ func (ac *AppConn) Close() error {
 	}
 
 	return ac.ReconfigurableClientConn.Close()
+}
+
+// IsConnected checks if the underlying connection is established.
+func (ac *AppConn) IsConnected() bool {
+	if ac.conn == nil {
+		return false
+	}
+
+	if grpcConn, ok := ac.conn.(connectivityChecker); ok {
+		state := grpcConn.GetState()
+		return state == connectivity.Ready
+	}
+
+	return false
 }
 
 func dialOpts(secret, id string) []rpc.DialOption {
