@@ -166,12 +166,18 @@ func TestModManagerFunctions(t *testing.T) {
 			test.That(t, modEnv["VIAM_MODULE_ID"], test.ShouldEqual, "new:york")
 			test.That(t, modEnv["SMART"], test.ShouldEqual, "MACHINES")
 
-			// Test that VIAM_MODULE_ID is unset and VIAM_MODULE_ROOT is set correctly the exePath for local non-tarball modules
+			// Test that VIAM_MODULE_ID is unset and VIAM_MODULE_ROOT is set correctly for local modules
 			mod.cfg.Type = config.ModuleTypeLocal
 			modEnv = mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
 			_, ok = modEnv["VIAM_MODULE_ID"]
 			test.That(t, ok, test.ShouldBeFalse)
 			test.That(t, modEnv["VIAM_MODULE_ROOT"], test.ShouldEqual, filepath.Dir(modPath))
+
+			originalModPath := modPath
+			mod.cfg.ExePath = filepath.Join(modPath, "fake-module.tar.gz")
+			modEnv = mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+			mod.cfg.ExePath = originalModPath
+			test.That(t, modEnv["VIAM_MODULE_ROOT"], test.ShouldEqual, filepath.Join(viamHomeTemp, "packages"))
 
 			// Make a copy of addr and client to test that connections are properly remade
 			oldAddr := mod.addr
