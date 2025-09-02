@@ -32,7 +32,7 @@ type connectivityChecker interface {
 // establishing a connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a
 // connection is made. If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not
 // start.
-func NewAppConn(ctx context.Context, appAddress, secret, id string, logger logging.Logger) (*AppConn, error) {
+func NewAppConn(ctx context.Context, appAddress, secret, id string, logger logging.Logger) (rpc.ClientConn, error) {
 	appConn := &AppConn{ReconfigurableClientConn: &ReconfigurableClientConn{Logger: logger.Sublogger("app_conn")}}
 
 	grpcURL, err := url.Parse(appAddress)
