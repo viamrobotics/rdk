@@ -399,7 +399,7 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 	}
 }
 
-func (m *module) getFullEnvironment(viamHomeDir string, packagesDir string) map[string]string {
+func (m *module) getFullEnvironment(viamHomeDir, packagesDir string) map[string]string {
 	return getFullEnvironment(m.cfg, packagesDir, m.dataDir, viamHomeDir)
 }
 
