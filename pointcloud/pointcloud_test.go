@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"fmt"
 	"image/color"
 	"testing"
 
@@ -114,15 +115,33 @@ func TestPointCloudCentroid(t *testing.T) {
 }
 
 func TestPointCloudPoints(t *testing.T) {
+	var data Data
 	pc := NewBasicPointCloud(3)
-	test.That(t, pc.Set(r3.Vector{1, 2, 3}), test.ShouldBeNil)
-	test.That(t, pc.Set(r3.Vector{4, 5, 6}), test.ShouldBeNil)
-	test.That(t, pc.Set(r3.Vector{7, 8, 9}), test.ShouldBeNil)
+	test.That(t, pc.Set(r3.Vector{1, 2, 3}, data), test.ShouldBeNil)
+	test.That(t, pc.Set(r3.Vector{4, 5, 6}, data), test.ShouldBeNil)
+	test.That(t, pc.Set(r3.Vector{7, 8, 9}, data), test.ShouldBeNil)
 	points := CloudToPoints(pc)
+	fmt.Println(points)
 	test.That(t, len(points), test.ShouldEqual, 3)
-	test.That(t, points[0], test.ShouldResemble, r3.Vector{1, 2, 3})
-	test.That(t, points[1], test.ShouldResemble, r3.Vector{4, 5, 6})
-	test.That(t, points[1], test.ShouldResemble, r3.Vector{7, 8, 9})
+	// The points can come in an unexpected order. So, just check that the 3 points we expect are
+	// in there somewhere.
+	has1 := false
+	has2 := false
+	has3 := false
+	for _, point := range points {
+		if point.ApproxEqual(r3.Vector{1, 2, 3}) {
+			has1 = true
+		}
+		if point.ApproxEqual(r3.Vector{4, 5, 6}) {
+			has2 = true
+		}
+		if point.ApproxEqual(r3.Vector{7, 8, 9}) {
+			has3 = true
+		}
+	}
+	test.That(t, has1, test.ShouldBeTrue)
+	test.That(t, has2, test.ShouldBeTrue)
+	test.That(t, has3, test.ShouldBeTrue)
 }
 
 func TestPointCloudMatrix(t *testing.T) {

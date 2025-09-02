@@ -172,7 +172,7 @@ func CloudCentroid(pc PointCloud) r3.Vector {
 
 // CloudToPoints converts a point cloud to a list of points (a list of vectors).
 func CloudToPoints(pc PointCloud) []r3.Vector {
-	points := make([]r3.Vector, pc.Size())
+	points := make([]r3.Vector, 0, pc.Size())
 	pc.Iterate(0, 0, func(point r3.Vector, _ Data) bool {
 		points = append(points, point)
 		return true // Keep going through all points
