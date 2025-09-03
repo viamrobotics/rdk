@@ -19,6 +19,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+func nodeNotFoundErr(name resource.Name) error {
+	return &resource.NodeNotFoundError{Name: name.Name, API: name.API}
+}
+
 func TestModularResources(t *testing.T) {
 	ctx := context.Background()
 
@@ -166,7 +170,7 @@ func TestModularResources(t *testing.T) {
 			Components: []resource.Config{cfg4, cfg3},
 		})
 		_, err = r.ResourceByName(cfg2.ResourceName())
-		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(cfg2.ResourceName()))
+		test.That(t, err, test.ShouldBeError, nodeNotFoundErr(cfg2.ResourceName()))
 		_, err = r.ResourceByName(cfg4.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
 		_, err = r.ResourceByName(cfg3.ResourceName())
@@ -304,7 +308,7 @@ func TestModularResources(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "pending")
 		_, err = r.ResourceByName(cfg3.ResourceName())
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(cfg3.ResourceName()))
+		test.That(t, err, test.ShouldBeError, nodeNotFoundErr(cfg3.ResourceName()))
 
 		// we remove what we do not want and add what we do back in, fixing things
 		r.Reconfigure(context.Background(), &config.Config{
@@ -315,7 +319,7 @@ func TestModularResources(t *testing.T) {
 		_, err = r.ResourceByName(cfg2.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
 		_, err = r.ResourceByName(cfg.ResourceName())
-		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(cfg.ResourceName()))
+		test.That(t, err, test.ShouldBeError, nodeNotFoundErr(cfg.ResourceName()))
 	})
 
 	t.Run("change model", func(t *testing.T) {
