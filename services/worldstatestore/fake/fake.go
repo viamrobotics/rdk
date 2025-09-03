@@ -13,40 +13,72 @@ import (
 	pb "go.viam.com/api/service/worldstatestore/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/worldstatestore"
 )
 
+func init() {
+	resource.RegisterService(
+		worldstatestore.API,
+		resource.DefaultModelFamily.WithModel("fake"),
+		resource.Registration[worldstatestore.Service, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (worldstatestore.Service, error) {
+			return newFakeWorldStateStore(conf.ResourceName(), logger), nil
+		}})
+}
+
+func newFakeWorldStateStore(name resource.Name, logger logging.Logger) worldstatestore.Service {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	fake := &WorldStateStore{
+		Named:                   name.AsNamed(),
+		TriviallyReconfigurable: resource.TriviallyReconfigurable{},
+		TriviallyCloseable:      resource.TriviallyCloseable{},
+		transforms:              make(map[string]*commonpb.Transform),
+		startTime:               time.Now(),
+		changeChan:              make(chan worldstatestore.TransformChange, 100),
+		streamCtx:               ctx,
+		cancel:                  cancel,
+		logger:                  logger,
+	}
+
+	fake.initializeStaticTransforms()
+	fake.activeBackgroundWorkers.Add(1)
+	go func() {
+		defer fake.activeBackgroundWorkers.Done()
+		fake.animationLoop()
+	}()
+	fake.activeBackgroundWorkers.Add(1)
+	go func() {
+		defer fake.activeBackgroundWorkers.Done()
+		fake.dynamicBoxSequence()
+	}()
+
+	return fake
+}
+
 // WorldStateStore implements the worldstatestore.Service interface.
 type WorldStateStore struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
 	mu sync.RWMutex
 
 	transforms map[string]*commonpb.Transform
 
-	startTime time.Time
-	closed    bool
+	startTime               time.Time
+	activeBackgroundWorkers sync.WaitGroup
 
 	changeChan chan worldstatestore.TransformChange
 	streamCtx  context.Context
 	cancel     context.CancelFunc
-}
 
-// NewFakeWorldStateStore creates a new fake world state store service.
-func NewFakeWorldStateStore() *WorldStateStore {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	fake := &WorldStateStore{
-		transforms: make(map[string]*commonpb.Transform),
-		startTime:  time.Now(),
-		changeChan: make(chan worldstatestore.TransformChange, 100),
-		streamCtx:  ctx,
-		cancel:     cancel,
-	}
-
-	fake.initializeStaticTransforms()
-	go fake.animationLoop()
-	go fake.dynamicBoxSequence()
-
-	return fake
+	logger logging.Logger
 }
 
 // initializeStaticTransforms creates the initial three transforms in the world.
@@ -59,8 +91,8 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 	sphereUUID := "sphere-001"
 	capsuleUUID := "capsule-001"
 
-	boxMetadata, err := structpb.NewStruct(map[string]interface{}{
-		"color": map[string]interface{}{
+	boxMetadata, err := structpb.NewStruct(map[string]any{
+		"color": map[string]any{
 			"r": 255,
 			"g": 0,
 			"b": 0,
@@ -71,8 +103,8 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 		panic(err)
 	}
 
-	sphereMetadata, err := structpb.NewStruct(map[string]interface{}{
-		"color": map[string]interface{}{
+	sphereMetadata, err := structpb.NewStruct(map[string]any{
+		"color": map[string]any{
 			"r": 0,
 			"g": 0,
 			"b": 255,
@@ -83,8 +115,8 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 		panic(err)
 	}
 
-	capsuleMetadata, err := structpb.NewStruct(map[string]interface{}{
-		"color": map[string]interface{}{
+	capsuleMetadata, err := structpb.NewStruct(map[string]any{
+		"color": map[string]any{
 			"r": 0,
 			"g": 255,
 			"b": 0,
@@ -160,11 +192,20 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 
 // Close stops the fake service and cleans up resources.
 func (f *WorldStateStore) Close(ctx context.Context) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	f.closed = true
 	f.cancel()
+
+	done := make(chan struct{})
+	go func() {
+		f.activeBackgroundWorkers.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		// proceed even if workers did not exit in time
+	}
+
 	close(f.changeChan)
 	return nil
 }
@@ -205,52 +246,77 @@ func (f *WorldStateStore) StreamTransformChanges(
 
 // DoCommand handles arbitrary commands (not implemented in fake).
 func (f *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return map[string]interface{}{
+	return map[string]any{
 		"status": "do command not implemented",
 	}, nil
 }
 
 func (f *WorldStateStore) updateBoxTransform(elapsed time.Duration) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	// Rotate about Y axis, 1 rotation every 5 seconds
 	rotationSpeed := 2 * math.Pi / 5.0 // radians per second
 	angle := rotationSpeed * elapsed.Seconds()
 
+	f.mu.Lock()
 	if transform, exists := f.transforms["box-001"]; exists {
 		transform.PoseInObserverFrame.Pose.Theta = angle * 180 / math.Pi
-		f.emitTransformChange("box-001", pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_UPDATED, []string{"pose"})
+		uuid := transform.Uuid
+		f.mu.Unlock()
+		partial := &commonpb.Transform{
+			Uuid: uuid,
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				Pose: &commonpb.Pose{Theta: angle * 180 / math.Pi},
+			},
+		}
+		f.emitTransformUpdate(partial, []string{"poseInObserverFrame.pose.theta"})
+		return
 	}
+	f.mu.Unlock()
 }
 
 func (f *WorldStateStore) updateSphereTransform(elapsed time.Duration) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	// Float up and down, 1 cycle every 5 seconds
 	frequency := 2 * math.Pi / 5.0                        // radians per second
 	height := math.Sin(frequency*elapsed.Seconds()) * 2.0 // ±2 units
 
+	f.mu.Lock()
 	if transform, exists := f.transforms["sphere-001"]; exists {
 		transform.PoseInObserverFrame.Pose.Y = height
-		f.emitTransformChange("sphere-001", pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_UPDATED, []string{"pose"})
+		uuid := transform.Uuid
+		f.mu.Unlock()
+		partial := &commonpb.Transform{
+			Uuid: uuid,
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				Pose: &commonpb.Pose{Y: height},
+			},
+		}
+		f.emitTransformUpdate(partial, []string{"poseInObserverFrame.pose.y"})
+		return
 	}
+	f.mu.Unlock()
 }
 
 func (f *WorldStateStore) updateCapsuleTransform(elapsed time.Duration) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	// Scale cycle: 1 cycle every 5 seconds
 	frequency := 2 * math.Pi / 5.0                           // radians per second
 	scale := 1.0 + 0.5*math.Sin(frequency*elapsed.Seconds()) // 0.5x to 1.5x
+	r := 100 * scale
+	l := 100 * scale
 
+	f.mu.Lock()
 	if transform, exists := f.transforms["capsule-001"]; exists {
-		transform.PhysicalObject.GetCapsule().RadiusMm = 100 * scale
-		transform.PhysicalObject.GetCapsule().LengthMm = 100 * scale
-		f.emitTransformChange("capsule-001", pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_UPDATED, []string{"pose"})
+		transform.PhysicalObject.GetCapsule().RadiusMm = r
+		transform.PhysicalObject.GetCapsule().LengthMm = l
+		uuid := transform.Uuid
+		f.mu.Unlock()
+		partial := &commonpb.Transform{
+			Uuid: uuid,
+			PhysicalObject: &commonpb.Geometry{
+				GeometryType: &commonpb.Geometry_Capsule{
+					Capsule: &commonpb.Capsule{RadiusMm: r, LengthMm: l},
+				},
+			},
+		}
+		f.emitTransformUpdate(partial, []string{"physicalObject.geometryType.value.radiusMm", "physicalObject.geometryType.value.lengthMm"})
+		return
 	}
+	f.mu.Unlock()
 }
 
 func (f *WorldStateStore) emitTransformChange(uuid string, changeType pb.TransformChangeType, updatedFields []string) {
@@ -276,8 +342,26 @@ func (f *WorldStateStore) emitTransformChange(uuid string, changeType pb.Transfo
 	}
 }
 
+// emitTransformUpdate emits a change with a partial transform payload for UPDATE events.
+func (f *WorldStateStore) emitTransformUpdate(partial *commonpb.Transform, updatedFields []string) {
+	if partial == nil || len(partial.GetUuid()) == 0 {
+		return
+	}
+	change := worldstatestore.TransformChange{
+		ChangeType:    pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_UPDATED,
+		Transform:     partial,
+		UpdatedFields: updatedFields,
+	}
+	select {
+	case f.changeChan <- change:
+	case <-f.streamCtx.Done():
+	default:
+		// Channel is full, skip this update
+	}
+}
+
 func (f *WorldStateStore) animationLoop() {
-	ticker := time.NewTicker(100 * time.Millisecond) // 10 FPS
+	ticker := time.NewTicker(300 * time.Millisecond) // 10 FPS
 	defer ticker.Stop()
 
 	for {
@@ -285,9 +369,6 @@ func (f *WorldStateStore) animationLoop() {
 		case <-f.streamCtx.Done():
 			return
 		case <-ticker.C:
-			if f.closed {
-				return
-			}
 			f.updateTransforms()
 		}
 	}
@@ -313,9 +394,6 @@ func (f *WorldStateStore) dynamicBoxSequence() {
 			case <-f.streamCtx.Done():
 				return
 			default:
-				if f.closed {
-					return
-				}
 			}
 
 			switch step.action {
@@ -337,11 +415,6 @@ func (f *WorldStateStore) dynamicBoxSequence() {
 }
 
 func (f *WorldStateStore) addDynamicBox(name string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	uuid := name + "-" + time.Now().Format("20060102150405")
-
 	var xOffset float64
 	switch name {
 	case "box-front-box":
@@ -352,6 +425,7 @@ func (f *WorldStateStore) addDynamicBox(name string) {
 		xOffset = 5 - 2 // In front of the capsule
 	}
 
+	uuid := name + "-" + time.Now().Format("20060102150405")
 	transform := &commonpb.Transform{
 		ReferenceFrame: "world",
 		PoseInObserverFrame: &commonpb.PoseInFrame{
@@ -363,13 +437,15 @@ func (f *WorldStateStore) addDynamicBox(name string) {
 		Uuid: []byte(uuid),
 	}
 
+	f.mu.Lock()
 	f.transforms[uuid] = transform
+	f.mu.Unlock()
+
 	f.emitTransformChange(uuid, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED, nil)
 }
 
 func (f *WorldStateStore) removeDynamicBox(name string) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 
 	var uuidToRemove string
 	for uuid := range f.transforms {
@@ -380,19 +456,26 @@ func (f *WorldStateStore) removeDynamicBox(name string) {
 	}
 
 	if uuidToRemove == "" {
+		f.mu.Unlock()
 		return
 	}
 
 	transform := f.transforms[uuidToRemove]
 	delete(f.transforms, uuidToRemove)
+	f.mu.Unlock()
+
 	change := worldstatestore.TransformChange{
 		ChangeType: pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_REMOVED,
-		Transform:  transform,
+		Transform: &commonpb.Transform{
+			Uuid: transform.Uuid,
+		},
 	}
 
 	select {
 	case f.changeChan <- change:
 	case <-f.streamCtx.Done():
+	default:
+		// Channel is full, skip this update
 	}
 }
 
