@@ -118,17 +118,16 @@ func (ac *AppConn) Close() error {
 }
 
 // IsConnected checks if the underlying connection is established.
-func (ac *AppConn) IsConnected() bool {
+func (ac *AppConn) GetConnectionState() connectivity.State {
 	if ac.conn == nil {
-		return false
+		return connectivity.Connecting
 	}
 
 	if grpcConn, ok := ac.conn.(connectivityChecker); ok {
-		state := grpcConn.GetState()
-		return state == connectivity.Ready
+		return grpcConn.GetState()
 	}
 
-	return false
+	return connectivity.Shutdown
 }
 
 func dialOpts(secret, id string) []rpc.DialOption {
