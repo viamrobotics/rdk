@@ -1024,13 +1024,14 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 			return err
 		}
 	}
-	env := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
+	env := getFullEnvironment(conf, pkgsDir, dataDir, mgr.viamHomeDir)
 
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
 func getFullEnvironment(
 	cfg config.Module,
+	packagesDir string,
 	dataDir string,
 	viamHomeDir string,
 ) map[string]string {
@@ -1042,8 +1043,18 @@ func getFullEnvironment(
 	if cfg.Type == config.ModuleTypeRegistry {
 		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
-	// Overwrite the base environment variables with the module's environment variables (if specified)
+
+	// For local modules, we set VIAM_MODULE_ROOT to the parent directory of the unpacked module.
 	// VIAM_MODULE_ROOT is filled out by app.viam.com in cloud robots.
+	if cfg.Type == config.ModuleTypeLocal {
+		moduleRoot, err := cfg.ExeDir(packagesDir)
+		// err should never not be nil since we are working with local modules
+		if err == nil {
+			environment["VIAM_MODULE_ROOT"] = moduleRoot
+		}
+	}
+
+	// Overwrite the base environment variables with the module's environment variables (if specified)
 	for key, value := range cfg.Environment {
 		environment[key] = value
 	}
