@@ -117,7 +117,7 @@ func (ac *AppConn) Close() error {
 	return ac.ReconfigurableClientConn.Close()
 }
 
-// IsConnected checks if the underlying connection is established.
+// GetConnectionState returns the current state of the connection.
 func (ac *AppConn) GetConnectionState() connectivity.State {
 	if ac.conn == nil {
 		return connectivity.Connecting
