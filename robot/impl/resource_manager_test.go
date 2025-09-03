@@ -2126,11 +2126,8 @@ func TestOfflineRemoteResources(t *testing.T) {
 	defer mainClient.Close(ctx)
 	resourceNames := mainClient.ResourceNames()
 
-	// When the `mainClient` requests `ResourceNames`, the motor will be annotated to include its
-	// remote.
-	motorResourceNameFromMain := motorResourceName.PrependRemote("remote")
 	// Search the list of "main" resources for the remote motor. Sanity check that we find it.
-	test.That(t, resourceNames, test.ShouldContain, motorResourceNameFromMain)
+	test.That(t, resourceNames, test.ShouldContain, motorResourceName)
 
 	// Grab the RobotClient resource graph node from the main robot that is connected to the
 	// remote. We'll use this to know when the main robot observes the remote has gone offline.
@@ -2157,7 +2154,7 @@ func TestOfflineRemoteResources(t *testing.T) {
 	resourceNames = mainClient.ResourceNames()
 
 	// Scan again for the remote motor. Assert it still exists.
-	test.That(t, resourceNames, test.ShouldContain, motorResourceNameFromMain)
+	test.That(t, resourceNames, test.ShouldContain, motorResourceName)
 
 	// Restart the remote web server. We closed the old listener, so just pass in the web address as
 	// part of the web options.
@@ -2181,7 +2178,7 @@ func TestOfflineRemoteResources(t *testing.T) {
 	// Again, manually refresh the list of resources to clear the cache. Assert the remote motor
 	// still exists.
 	mainToRemoteClient.Refresh(logging.EnableDebugModeWithKey(ctx, "refresh"))
-	test.That(t, resourceNames, test.ShouldContain, motorResourceNameFromMain)
+	test.That(t, resourceNames, test.ShouldContain, motorResourceName)
 
 	// Reconfigure away the motor on the remote robot.
 	remoteCfg.Components = []resource.Config{}
@@ -2193,7 +2190,7 @@ func TestOfflineRemoteResources(t *testing.T) {
 		tb.Helper()
 		mainToRemoteClient.Refresh(ctx)
 		resourceNames := mainToRemoteClient.ResourceNames()
-		test.That(t, resourceNames, test.ShouldNotContain, motorResourceNameFromMain)
+		test.That(t, resourceNames, test.ShouldNotContain, motorResourceName)
 	})
 
 	// Manually update remote resource names. Knowing the robot client servicing the information has
