@@ -317,6 +317,10 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 	for _, tag := range datum.GetMetadata().GetCaptureMetadata().GetTags() {
 		annotations = append(annotations, Annotation{AnnotationLabel: tag})
 	}
+	classificationsAnnotations := datum.GetMetadata().GetAnnotations().GetClassifications()
+	for _, classification := range classificationsAnnotations {
+		annotations = append(annotations, Annotation{AnnotationLabel: classification.GetLabel()})
+	}
 	bboxAnnotations := convertBoundingBoxes(datum.GetMetadata().GetAnnotations().GetBboxes())
 
 	fileName := filepath.Join(dst, dataDir, filenameForDownload(datum.GetMetadata()))
