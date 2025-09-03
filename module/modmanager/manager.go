@@ -1046,7 +1046,7 @@ func getFullEnvironment(
 
 	// For local modules, we set VIAM_MODULE_ROOT to the parent directory of the unpacked module.
 	// VIAM_MODULE_ROOT is filled out by app.viam.com in cloud robots.
-	if _, exists := environment["VIAM_MODULE_ROOT"]; !exists && cfg.Type == config.ModuleTypeLocal {
+	if cfg.Type == config.ModuleTypeLocal {
 		moduleRoot, err := cfg.ExeDir(packagesDir)
 		// err should never not be nil since we are working with local modules
 		if err == nil {
