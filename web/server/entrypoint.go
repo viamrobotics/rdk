@@ -60,10 +60,11 @@ type Arguments struct {
 }
 
 type robotServer struct {
-	args     Arguments
-	logger   logging.Logger
-	registry *logging.Registry
-	conn     rpc.ClientConn
+	args          Arguments
+	logger        logging.Logger
+	registry      *logging.Registry
+	conn          rpc.ClientConn
+	signalingConn rpc.ClientConn
 }
 
 func logViamEnvVariables(logger logging.Logger) {
@@ -185,6 +186,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	var appConn rpc.ClientConn
+	var signalingConn rpc.ClientConn
 
 	// Read the config from disk and use it to initialize the remote logger.
 	cfgFromDisk, err := config.ReadLocalConfig(argsParsed.ConfigFile, logger.Sublogger("config"))
@@ -210,6 +212,15 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 			return err
 		}
 		defer utils.UncheckedErrorFunc(appConn.Close)
+
+		if cloud.SignalingAddress != "" && cloud.SignalingAddress != cloud.AppAddress {
+			signalingConnLogger := logger.Sublogger("networking").Sublogger("signaling_connection")
+			signalingConn, err = grpc.NewAppConn(ctx, cloud.SignalingAddress, cloud.Secret, cloud.ID, signalingConnLogger)
+			if err != nil {
+				return err
+			}
+			defer utils.UncheckedErrorFunc(signalingConn.Close)
+		}
 	}
 
 	// Start remote logging with config from disk.
@@ -240,10 +251,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	go nc.RunNetworkChecks(ctx, logger, true /* continueRunningTestDNS */)
 
 	server := robotServer{
-		logger:   logger,
-		args:     argsParsed,
-		registry: registry,
-		conn:     appConn,
+		logger:        logger,
+		args:          argsParsed,
+		registry:      registry,
+		conn:          appConn,
+		signalingConn: signalingConn,
 	}
 
 	// Run the server with remote logging enabled.
@@ -290,7 +302,13 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}
-	options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithSignalingConn(s.conn))
+
+	if s.signalingConn != nil {
+		//options.SignalingAddress is set in config processing
+		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithSignalingConn(s.signalingConn))
+	} else {
+		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithSignalingConn(s.conn))
+	}
 
 	if len(options.Auth.Handlers) == 0 {
 		host, _, err := net.SplitHostPort(cfg.Network.BindAddress)
