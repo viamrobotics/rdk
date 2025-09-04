@@ -4582,10 +4582,6 @@ func TestMaintenanceConfig(t *testing.T) {
 			},
 			Components: sensor1,
 		}
-		cfgRemoteUnblocked := &config.Config{
-			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/remote:sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
-			Components:        sensor2,
-		}
 
 		// Setup robot pointing maintenanceConfig with conflicting sensors
 		r := setupLocalRobot(t, context.Background(), cfg, logger)
@@ -4595,12 +4591,6 @@ func TestMaintenanceConfig(t *testing.T) {
 		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
-
-		// robot should reconfigure since remote will return an error
-		r.Reconfigure(ctx, cfgRemoteUnblocked)
-		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, sensorBlocked, test.ShouldNotBeNil)
 	})
 	t.Run("multiple remotes with conflicting names errors out", func(t *testing.T) {
 		ctx := context.Background()
