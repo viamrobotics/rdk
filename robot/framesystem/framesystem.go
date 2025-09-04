@@ -355,7 +355,7 @@ func NewFromService(
 }
 
 // PrefixRemoteParts applies prefixes to a list of FrameSystemParts appropriate to the remote they originate from.
-func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remoteName, remotePrefix, remoteParent string) {
+func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remotePrefix, remoteParent string) {
 	for _, part := range parts {
 		if part.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
 			part.FrameConfig.SetParent(remoteParent)

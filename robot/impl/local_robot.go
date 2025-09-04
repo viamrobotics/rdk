@@ -1177,7 +1177,7 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 		if err != nil {
 			return nil, errors.Wrapf(err, "error from remote %q", remoteCfg.Name)
 		}
-		framesystem.PrefixRemoteParts(remoteFsCfg.Parts, remoteCfg.Name, remoteCfg.Prefix, parentName)
+		framesystem.PrefixRemoteParts(remoteFsCfg.Parts, remoteCfg.Prefix, parentName)
 		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
 	}
 	return remoteParts, nil
