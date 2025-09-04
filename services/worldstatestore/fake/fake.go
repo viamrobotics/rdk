@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,26 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/worldstatestore"
 )
+
+// WorldStateStore implements the worldstatestore.Service interface.
+type WorldStateStore struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
+	mu sync.RWMutex
+
+	transforms map[string]*commonpb.Transform
+	fps        uint16
+
+	startTime               time.Time
+	activeBackgroundWorkers sync.WaitGroup
+
+	changeChan chan worldstatestore.TransformChange
+	streamCtx  context.Context
+	cancel     context.CancelFunc
+
+	logger logging.Logger
+}
 
 func init() {
 	resource.RegisterService(
@@ -32,6 +53,78 @@ func init() {
 		}})
 }
 
+// ListUUIDs returns all transform UUIDs currently in the store.
+func (f *WorldStateStore) ListUUIDs(ctx context.Context, extra map[string]any) ([][]byte, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	uuids := make([][]byte, 0, len(f.transforms))
+	for _, transform := range f.transforms {
+		uuids = append(uuids, transform.Uuid)
+	}
+
+	return uuids, nil
+}
+
+// GetTransform returns the transform for the given UUID.
+func (f *WorldStateStore) GetTransform(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	transform, exists := f.transforms[string(uuid)]
+	if !exists {
+		return nil, errors.New("transform not found")
+	}
+
+	return transform, nil
+}
+
+// StreamTransformChanges returns a channel of transform changes.
+func (f *WorldStateStore) StreamTransformChanges(
+	ctx context.Context,
+	extra map[string]any,
+) (<-chan worldstatestore.TransformChange, error) {
+	return f.changeChan, nil
+}
+
+// DoCommand handles arbitrary commands (not implemented in fake).
+func (f *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if cmd["fps"] != nil {
+		fps := uint16(cmd["fps"].(int))
+		if fps < 1 {
+			return nil, errors.New("fps must be greater than 0")
+		}
+		f.fps = fps
+		return map[string]any{
+			"status": "fps set to " + strconv.Itoa(int(fps)),
+		}, nil
+	}
+
+	return map[string]any{
+		"status": "command not implemented",
+	}, nil
+}
+
+// Close stops the fake service and cleans up resources.
+func (f *WorldStateStore) Close(ctx context.Context) error {
+	f.cancel()
+
+	done := make(chan struct{})
+	go func() {
+		f.activeBackgroundWorkers.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		// proceed even if workers did not exit in time
+	}
+
+	close(f.changeChan)
+	return nil
+}
+
 func newFakeWorldStateStore(name resource.Name, logger logging.Logger) worldstatestore.Service {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -40,6 +133,7 @@ func newFakeWorldStateStore(name resource.Name, logger logging.Logger) worldstat
 		TriviallyReconfigurable: resource.TriviallyReconfigurable{},
 		TriviallyCloseable:      resource.TriviallyCloseable{},
 		transforms:              make(map[string]*commonpb.Transform),
+		fps:                     10,
 		startTime:               time.Now(),
 		changeChan:              make(chan worldstatestore.TransformChange, 100),
 		streamCtx:               ctx,
@@ -60,25 +154,6 @@ func newFakeWorldStateStore(name resource.Name, logger logging.Logger) worldstat
 	}()
 
 	return fake
-}
-
-// WorldStateStore implements the worldstatestore.Service interface.
-type WorldStateStore struct {
-	resource.Named
-	resource.TriviallyReconfigurable
-	resource.TriviallyCloseable
-	mu sync.RWMutex
-
-	transforms map[string]*commonpb.Transform
-
-	startTime               time.Time
-	activeBackgroundWorkers sync.WaitGroup
-
-	changeChan chan worldstatestore.TransformChange
-	streamCtx  context.Context
-	cancel     context.CancelFunc
-
-	logger logging.Logger
 }
 
 // initializeStaticTransforms creates the initial three transforms in the world.
@@ -190,67 +265,6 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 	}
 }
 
-// Close stops the fake service and cleans up resources.
-func (f *WorldStateStore) Close(ctx context.Context) error {
-	f.cancel()
-
-	done := make(chan struct{})
-	go func() {
-		f.activeBackgroundWorkers.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-	case <-ctx.Done():
-		// proceed even if workers did not exit in time
-	}
-
-	close(f.changeChan)
-	return nil
-}
-
-// ListUUIDs returns all transform UUIDs currently in the store.
-func (f *WorldStateStore) ListUUIDs(ctx context.Context, extra map[string]any) ([][]byte, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-
-	uuids := make([][]byte, 0, len(f.transforms))
-	for _, transform := range f.transforms {
-		uuids = append(uuids, transform.Uuid)
-	}
-
-	return uuids, nil
-}
-
-// GetTransform returns the transform for the given UUID.
-func (f *WorldStateStore) GetTransform(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-
-	transform, exists := f.transforms[string(uuid)]
-	if !exists {
-		return nil, errors.New("transform not found")
-	}
-
-	return transform, nil
-}
-
-// StreamTransformChanges returns a channel of transform changes.
-func (f *WorldStateStore) StreamTransformChanges(
-	ctx context.Context,
-	extra map[string]any,
-) (<-chan worldstatestore.TransformChange, error) {
-	return f.changeChan, nil
-}
-
-// DoCommand handles arbitrary commands (not implemented in fake).
-func (f *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return map[string]any{
-		"status": "do command not implemented",
-	}, nil
-}
-
 func (f *WorldStateStore) updateBoxTransform(elapsed time.Duration) {
 	rotationSpeed := 2 * math.Pi / 5.0 // radians per second
 	angle := rotationSpeed * elapsed.Seconds()
@@ -320,25 +334,33 @@ func (f *WorldStateStore) updateCapsuleTransform(elapsed time.Duration) {
 }
 
 func (f *WorldStateStore) emitTransformChange(uuid string, changeType pb.TransformChangeType, updatedFields []string) {
+	var transformCopy *commonpb.Transform
+
+	f.mu.RLock()
 	if transform, exists := f.transforms[uuid]; exists {
-		transformCopy := &commonpb.Transform{
+		transformCopy = &commonpb.Transform{
 			ReferenceFrame:      transform.ReferenceFrame,
 			PoseInObserverFrame: transform.PoseInObserverFrame,
 			Uuid:                transform.Uuid,
 		}
+	}
+	f.mu.RUnlock()
 
-		change := worldstatestore.TransformChange{
-			ChangeType:    changeType,
-			Transform:     transformCopy,
-			UpdatedFields: updatedFields,
-		}
+	if transformCopy == nil {
+		return
+	}
 
-		select {
-		case f.changeChan <- change:
-		case <-f.streamCtx.Done():
-		default:
-			// Channel is full, skip this update
-		}
+	change := worldstatestore.TransformChange{
+		ChangeType:    changeType,
+		Transform:     transformCopy,
+		UpdatedFields: updatedFields,
+	}
+
+	select {
+	case f.changeChan <- change:
+	case <-f.streamCtx.Done():
+	default:
+		// Channel is full, skip this update
 	}
 }
 
@@ -361,7 +383,7 @@ func (f *WorldStateStore) emitTransformUpdate(partial *commonpb.Transform, updat
 }
 
 func (f *WorldStateStore) animationLoop() {
-	ticker := time.NewTicker(300 * time.Millisecond) // 10 FPS
+	ticker := time.NewTicker(time.Second / time.Duration(f.fps))
 	defer ticker.Stop()
 
 	for {
