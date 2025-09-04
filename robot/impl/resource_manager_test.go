@@ -252,31 +252,31 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 		context.Background(),
 		newDummyRobot(t, setupInjectRobot(logger)),
 		nil,
-		config.Remote{Name: "remote1"},
+		config.Remote{Name: "remote1", Prefix: "rem1"},
 	)
 	manager.addRemote(
 		context.Background(),
 		newDummyRobot(t, setupInjectRobot(logger)),
 		nil,
-		config.Remote{Name: "remote2"},
+		config.Remote{Name: "remote2", Prefix: "rem2"},
 	)
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
-	armNames = append(armNames, rdktestutils.AddRemotes(armNames, "remote1", "remote2")...)
+	armNames = append(armNames, rdktestutils.AddRemotesWithPrefixes(armNames, "remote1", "rem1", "remote2", "rem2")...)
 	baseNames := []resource.Name{base.Named("base1"), base.Named("base2")}
-	baseNames = append(baseNames, rdktestutils.AddRemotes(baseNames, "remote1", "remote2")...)
+	baseNames = append(baseNames, rdktestutils.AddRemotesWithPrefixes(baseNames, "remote1", "rem1", "remote2", "rem2")...)
 	boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
-	boardNames = append(boardNames, rdktestutils.AddRemotes(boardNames, "remote1", "remote2")...)
+	boardNames = append(boardNames, rdktestutils.AddRemotesWithPrefixes(boardNames, "remote1", "rem1", "remote2", "rem2")...)
 	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
-	cameraNames = append(cameraNames, rdktestutils.AddRemotes(cameraNames, "remote1", "remote2")...)
+	cameraNames = append(cameraNames, rdktestutils.AddRemotesWithPrefixes(cameraNames, "remote1", "rem1", "remote2", "rem2")...)
 	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
-	gripperNames = append(gripperNames, rdktestutils.AddRemotes(gripperNames, "remote1", "remote2")...)
+	gripperNames = append(gripperNames, rdktestutils.AddRemotesWithPrefixes(gripperNames, "remote1", "rem1", "remote2", "rem2")...)
 	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
-	inputNames = append(inputNames, rdktestutils.AddRemotes(inputNames, "remote1", "remote2")...)
+	inputNames = append(inputNames, rdktestutils.AddRemotesWithPrefixes(inputNames, "remote1", "rem1", "remote2", "rem2")...)
 	motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
-	motorNames = append(motorNames, rdktestutils.AddRemotes(motorNames, "remote1", "remote2")...)
+	motorNames = append(motorNames, rdktestutils.AddRemotesWithPrefixes(motorNames, "remote1", "rem1", "remote2", "rem2")...)
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
-	servoNames = append(servoNames, rdktestutils.AddRemotes(servoNames, "remote1", "remote2")...)
+	servoNames = append(servoNames, rdktestutils.AddRemotesWithPrefixes(servoNames, "remote1", "rem1", "remote2", "rem2")...)
 
 	rdktestutils.VerifySameElements(t, manager.RemoteNames(), []string{"remote1", "remote2"})
 	rdktestutils.VerifySameResourceNames(

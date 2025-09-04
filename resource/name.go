@@ -63,6 +63,11 @@ func NewFromString(resourceName string) (Name, error) {
 	return newRemoteName(remoteName, api, matches[3]), nil
 }
 
+// WithPrefix returns a copy of this name with the prefix prepended.
+func (n Name) WithPrefix(prefix string) Name {
+	return newRemoteName(n.Remote, n.API, prefix+n.Name)
+}
+
 // PrependRemote returns a Name with a remote prepended.
 func (n Name) PrependRemote(remoteName string) Name {
 	if remoteName == "" {
