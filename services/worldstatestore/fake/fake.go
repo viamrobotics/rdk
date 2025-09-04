@@ -4,8 +4,8 @@ package fake
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,7 +27,7 @@ type WorldStateStore struct {
 	mu sync.RWMutex
 
 	transforms map[string]*commonpb.Transform
-	fps        uint16
+	fps        float64
 
 	startTime               time.Time
 	activeBackgroundWorkers sync.WaitGroup
@@ -87,18 +87,17 @@ func (f *WorldStateStore) StreamTransformChanges(
 	return f.changeChan, nil
 }
 
-// DoCommand handles arbitrary commands. Currently accepts "fps": uint16 to set the animation rate.
+// DoCommand handles arbitrary commands. Currently accepts "fps": float64 to set the animation rate.
 func (f *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	if cmd["fps"] != nil {
-		fps := uint16(cmd["fps"].(int))
-		if fps < 1 {
+	if fps, ok := cmd["fps"].(float64); ok {
+		if fps <= 0 {
 			return nil, errors.New("fps must be greater than 0")
 		}
 		f.mu.Lock()
-		f.fps = fps
+		f.fps = float64(fps)
 		f.mu.Unlock()
 		return map[string]any{
-			"status": "fps set to " + strconv.Itoa(int(fps)),
+			"status": "fps set to " + fmt.Sprintf("%.2f", fps),
 		}, nil
 	}
 
@@ -386,9 +385,13 @@ func (f *WorldStateStore) emitTransformUpdate(partial *commonpb.Transform, updat
 
 func (f *WorldStateStore) animationLoop() {
 	f.mu.RLock()
-	fps := f.fps
+	curFPS := f.fps
 	f.mu.RUnlock()
-	ticker := time.NewTicker(time.Second / time.Duration(fps))
+	if curFPS <= 0 {
+		curFPS = 1
+	}
+	interval := time.Duration(float64(time.Second) / curFPS)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
@@ -397,6 +400,16 @@ func (f *WorldStateStore) animationLoop() {
 			return
 		case <-ticker.C:
 			f.updateTransforms()
+			// Reconfigure ticker if FPS changed
+			f.mu.RLock()
+			newFPS := f.fps
+			f.mu.RUnlock()
+			if newFPS != curFPS && newFPS > 0 {
+				ticker.Stop()
+				curFPS = newFPS
+				interval = time.Duration(float64(time.Second) / curFPS)
+				ticker = time.NewTicker(interval)
+			}
 		}
 	}
 }

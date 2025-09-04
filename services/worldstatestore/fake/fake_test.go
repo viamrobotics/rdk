@@ -115,15 +115,17 @@ func TestDoCommandSetFPS(t *testing.T) {
 
 	test.That(t, wss.fps, test.ShouldEqual, 10)
 
-	resp, err := wss.DoCommand(context.Background(), map[string]any{"fps": 20})
+	// set fps via DoCommand
+	resp, err := wss.DoCommand(context.Background(), map[string]any{"fps": float64(20)})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, wss.fps, test.ShouldEqual, uint16(20))
-	test.That(t, resp["status"], test.ShouldEqual, "fps set to 20")
+	test.That(t, wss.fps, test.ShouldEqual, 20)
+	test.That(t, resp["status"], test.ShouldEqual, "fps set to 20.00")
 
-	_, err = wss.DoCommand(context.Background(), map[string]any{"fps": 0})
+	// attempt to set invalid fps
+	_, err = wss.DoCommand(context.Background(), map[string]any{"fps": float64(0)})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "fps must be greater than 0")
-	test.That(t, wss.fps, test.ShouldEqual, uint16(20))
+	test.That(t, wss.fps, test.ShouldEqual, 20)
 }
 
 func TestDoCommandUnknownCommand(t *testing.T) {
