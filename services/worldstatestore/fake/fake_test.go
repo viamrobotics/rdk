@@ -102,7 +102,9 @@ func TestFakeWorldStateStoreClose(t *testing.T) {
 	// Test that ListUUIDs still works after close (should return empty)
 	uuids, err := fake.ListUUIDs(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(uuids), test.ShouldEqual, 3) // Static transforms are still available
+	test.That(t, len(uuids), test.ShouldBeGreaterThanOrEqualTo, 3) // Static transforms are still available
+	test.That(t, len(uuids), test.ShouldBeLessThanOrEqualTo, 4)    // Dynamic transform may be available
+
 }
 
 func TestDoCommandSetFPS(t *testing.T) {

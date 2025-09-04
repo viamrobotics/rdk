@@ -94,7 +94,9 @@ func (f *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interfac
 		if fps < 1 {
 			return nil, errors.New("fps must be greater than 0")
 		}
+		f.mu.Lock()
 		f.fps = fps
+		f.mu.Unlock()
 		return map[string]any{
 			"status": "fps set to " + strconv.Itoa(int(fps)),
 		}, nil
@@ -383,7 +385,10 @@ func (f *WorldStateStore) emitTransformUpdate(partial *commonpb.Transform, updat
 }
 
 func (f *WorldStateStore) animationLoop() {
-	ticker := time.NewTicker(time.Second / time.Duration(f.fps))
+	f.mu.RLock()
+	fps := f.fps
+	f.mu.RUnlock()
+	ticker := time.NewTicker(time.Second / time.Duration(fps))
 	defer ticker.Stop()
 
 	for {
