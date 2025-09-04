@@ -87,7 +87,7 @@ func (f *WorldStateStore) StreamTransformChanges(
 	return f.changeChan, nil
 }
 
-// DoCommand handles arbitrary commands (not implemented in fake).
+// DoCommand handles arbitrary commands. Currently accepts "fps": uint16 to set the animation rate.
 func (f *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if cmd["fps"] != nil {
 		fps := uint16(cmd["fps"].(int))
