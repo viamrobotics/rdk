@@ -325,6 +325,7 @@ type syncStatus string
 const (
 	syncStatusDownloading syncStatus = "downloading"
 	syncStatusDone        syncStatus = "done"
+	syncStatusFailed      syncStatus = "failed"
 
 	statusFileExt = ".status.json"
 )
@@ -351,6 +352,9 @@ func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger loggin
 		return false
 	case syncFile.PackageID == pkg.Package && syncFile.Version == pkg.Version && syncFile.Status == syncStatusDone:
 		logger.Debugf("Package already downloaded at %s, skipping.", pkg.LocalDataDirectory(packagesDir))
+		return true
+	case syncFile.PackageID == pkg.Package && syncFile.Version == pkg.Version && syncFile.Status == syncStatusFailed:
+		logger.Debugf("Package failed to download at %s, skipping.", pkg.LocalDataDirectory(packagesDir))
 		return true
 	default:
 		logger.Infof("Package is not in sync for %s: status of '%s' (file) != '%s' (expected) and version of '%s' (file) != '%s' (expected)",

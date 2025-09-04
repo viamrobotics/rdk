@@ -193,6 +193,16 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err)
 			outErr = multierr.Append(outErr, fmt.Errorf("failed downloading package %s:%s from %s %w",
 				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err))
+
+			statusFile := packageSyncFile{
+				PackageID:       p.Package,
+				Version:         p.Version,
+				ModifiedTime:    time.Now(),
+				Status:          syncStatusFailed,
+				TarballChecksum: "",
+			}
+			err = writeStatusFile(p, statusFile, m.packagesDir)
+			outErr = multierr.Append(outErr, err)
 			continue
 		}
 
