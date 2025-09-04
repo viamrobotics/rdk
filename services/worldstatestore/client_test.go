@@ -116,6 +116,30 @@ func TestClient(t *testing.T) {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
+	t.Run("GetTransform returns ErrNilResponse when not found", func(t *testing.T) {
+		srv.GetTransformFunc = func(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
+			return nil, nil
+		}
+
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		client, err := worldstatestore.NewClientFromConn(
+			context.Background(),
+			conn,
+			"",
+			worldstatestore.Named(testWorldStateStoreServiceName),
+			logger,
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		obj, err := client.GetTransform(context.Background(), []byte("missing-uuid"), nil)
+		test.That(t, err, test.ShouldEqual, worldstatestore.ErrNilResponse)
+		test.That(t, obj, test.ShouldBeNil)
+
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
 	t.Run("StreamTransformChanges", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)

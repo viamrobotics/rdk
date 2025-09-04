@@ -1,6 +1,6 @@
-// Package worldstatestore implements the world obejct store service, which lets users
+// Package worldstatestore implements the world state store service, which lets users
 // create custom visualizers to be rendered in the client.
-// For more information, see the [WorldObjectStore service docs].
+// For more information, see the [WorldStateStore service docs].
 //
 // [WorldStateStore service docs]: https://docs.viam.com/dev/reference/apis/services/world-state-store/
 package worldstatestore

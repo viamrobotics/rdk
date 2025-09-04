@@ -233,6 +233,11 @@ func TestServerStreamTransformChanges(t *testing.T) {
 		err = server.StreamTransformChanges(req, mockStream)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(mockStream.changes), test.ShouldEqual, 3) // 1 empty + 2 changes
+		if len(mockStream.changes) == 3 {
+			updated := mockStream.changes[2]
+			test.That(t, updated.UpdatedFields, test.ShouldNotBeNil)
+			test.That(t, updated.UpdatedFields.Paths, test.ShouldResemble, []string{"pose_in_observer_frame"})
+		}
 	})
 
 	t.Run("StreamTransformChanges with error", func(t *testing.T) {

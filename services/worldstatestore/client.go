@@ -117,7 +117,10 @@ func (c *client) StreamTransformChanges(ctx context.Context, extra map[string]in
 			resp, err := stream.Recv()
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					// Stream ended normally
+					return
+				}
+				if ctx.Err() != nil || errors.Is(err, context.Canceled) {
+					c.logger.Debug(err)
 					return
 				}
 				c.logger.Errorw("failed to receive from stream", "error", err)
