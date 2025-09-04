@@ -7,7 +7,9 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/worldstatestore"
 )
 
 func TestFakeWorldStateStore(t *testing.T) {
@@ -88,11 +90,6 @@ func TestFakeWorldStateStore(t *testing.T) {
 
 	// We should have at least some changes after 200ms
 	test.That(t, changeCount, test.ShouldBeGreaterThanOrEqualTo, 0)
-
-	// Test DoCommand
-	result, err := fake.DoCommand(context.Background(), map[string]interface{}{"test": "command"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result["status"], test.ShouldEqual, "do command not implemented")
 }
 
 func TestFakeWorldStateStoreClose(t *testing.T) {
@@ -106,4 +103,36 @@ func TestFakeWorldStateStoreClose(t *testing.T) {
 	uuids, err := fake.ListUUIDs(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(uuids), test.ShouldEqual, 3) // Static transforms are still available
+}
+
+func TestDoCommandSetFPS(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	name := resource.NewName(worldstatestore.API, "fake1")
+	svc := newFakeWorldStateStore(name, logger)
+	wss := svc.(*WorldStateStore)
+	defer func() { _ = wss.Close(context.Background()) }()
+
+	test.That(t, wss.fps, test.ShouldEqual, 10)
+
+	resp, err := wss.DoCommand(context.Background(), map[string]any{"fps": 20})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, wss.fps, test.ShouldEqual, uint16(20))
+	test.That(t, resp["status"], test.ShouldEqual, "fps set to 20")
+
+	_, err = wss.DoCommand(context.Background(), map[string]any{"fps": 0})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "fps must be greater than 0")
+	test.That(t, wss.fps, test.ShouldEqual, uint16(20))
+}
+
+func TestDoCommandUnknownCommand(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	name := resource.NewName(worldstatestore.API, "fake3")
+	svc := newFakeWorldStateStore(name, logger)
+	wss := svc.(*WorldStateStore)
+	defer func() { _ = wss.Close(context.Background()) }()
+
+	resp, err := wss.DoCommand(context.Background(), map[string]any{"noop": true})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp["status"], test.ShouldEqual, "command not implemented")
 }
