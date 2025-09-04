@@ -104,7 +104,6 @@ func TestFakeWorldStateStoreClose(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(uuids), test.ShouldBeGreaterThanOrEqualTo, 3) // Static transforms are still available
 	test.That(t, len(uuids), test.ShouldBeLessThanOrEqualTo, 4)    // Dynamic transform may be available
-
 }
 
 func TestDoCommandSetFPS(t *testing.T) {
