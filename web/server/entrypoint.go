@@ -304,7 +304,7 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	}
 
 	if s.signalingConn != nil {
-		//options.SignalingAddress is set in config processing
+		// options.SignalingAddress is set in config processing
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithSignalingConn(s.signalingConn))
 	} else {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithSignalingConn(s.conn))
