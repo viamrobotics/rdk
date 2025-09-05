@@ -1152,7 +1152,7 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	inputs := augmentedBaseExecutionState.CurrentInputs()
 	inputs[cameraFrame.Name()] = referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF())))
-	executionStateWithCamera, err := armplanning.NewExecutionState(
+	executionStateWithCamera, err := baseplanning.NewExecutionState(
 		augmentedBaseExecutionState.Plan(), augmentedBaseExecutionState.Index(),
 		inputs, augmentedBaseExecutionState.CurrentPoses(),
 	)
@@ -1170,7 +1170,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = armplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1186,7 +1186,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = armplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})

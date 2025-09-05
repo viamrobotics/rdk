@@ -1120,7 +1120,6 @@ func TestArmGantryCheckPlan(t *testing.T) {
 
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
 
-	f := fs.Frame("xArm6")
 	planReq := PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArm6": frame.NewPoseInFrame(frame.World, goal)}}},
@@ -1128,42 +1127,6 @@ func TestArmGantryCheckPlan(t *testing.T) {
 		PlannerOptions: NewBasicPlannerOptions(),
 	}
 
-	plan, err := PlanMotion(context.Background(), logger, &planReq)
+	_, err = PlanMotion(context.Background(), logger, &planReq)
 	test.That(t, err, test.ShouldBeNil)
-
-	startPose := plan.Path()[0][f.Name()].Pose()
-
-	t.Run("check plan with no obstacles", func(t *testing.T) {
-		executionState := ExecutionState{
-			plan:          plan,
-			index:         0,
-			currentInputs: plan.Trajectory()[0],
-			currentPose: map[string]*frame.PoseInFrame{
-				f.Name(): frame.NewPoseInFrame(frame.World, startPose),
-			},
-		}
-		err = CheckPlan(f, executionState, nil, fs, math.Inf(1), logger)
-		test.That(t, err, test.ShouldBeNil)
-	})
-	t.Run("check plan with obstacle", func(t *testing.T) {
-		obstacle, err := spatialmath.NewBox(goal, r3.Vector{10, 10, 1}, "obstacle")
-		test.That(t, err, test.ShouldBeNil)
-
-		geoms := []spatialmath.Geometry{obstacle}
-		gifs := []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, geoms)}
-
-		worldState, err := frame.NewWorldState(gifs, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		executionState := ExecutionState{
-			plan:          plan,
-			index:         0,
-			currentInputs: plan.Trajectory()[0],
-			currentPose: map[string]*frame.PoseInFrame{
-				f.Name(): frame.NewPoseInFrame(frame.World, startPose),
-			},
-		}
-		err = CheckPlan(f, executionState, worldState, fs, math.Inf(1), logger)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
 }
