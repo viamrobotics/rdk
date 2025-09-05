@@ -180,8 +180,8 @@ func (m Module) SyntheticPackage() (PackageConfig, error) {
 	return PackageConfig{Name: name, Package: name, Type: PackageTypeModule, Version: m.LocalVersion}, nil
 }
 
-// ExeDir returns the parent directory for the unpacked module.
-func (m Module) ExeDir(packagesDir string) (string, error) {
+// exeDir returns the parent directory for the unpacked module.
+func (m Module) exeDir(packagesDir string) (string, error) {
 	if !m.NeedsSyntheticPackage() {
 		return filepath.Dir(m.ExePath), nil
 	}
@@ -218,7 +218,7 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 	if !filepath.IsAbs(path) {
 		return "", fmt.Errorf("expected ExePath to be absolute path, got %s", path)
 	}
-	exeDir, err := m.ExeDir(packagesDir)
+	exeDir, err := m.exeDir(packagesDir)
 	if err != nil {
 		return "", err
 	}
@@ -270,7 +270,7 @@ func (m *Module) FirstRun(
 ) error {
 	logger = logger.Sublogger("first_run").WithFields("module", m.Name)
 
-	unpackedModDir, err := m.ExeDir(localPackagesDir)
+	unpackedModDir, err := m.exeDir(localPackagesDir)
 	if err != nil {
 		return err
 	}
