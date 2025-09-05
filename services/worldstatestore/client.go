@@ -88,7 +88,7 @@ func (c *client) GetTransform(ctx context.Context, uuid []byte, extra map[string
 }
 
 // StreamTransformChanges streams transform changes.
-func (c *client) StreamTransformChanges(ctx context.Context, extra map[string]interface{}) (<-chan TransformChange, error) {
+func (c *client) StreamTransformChanges(ctx context.Context, extra map[string]interface{}) (*TransformChangeStream, error) {
 	ctx, span := trace.StartSpan(ctx, "worldstatestore::client::StreamTransformChanges")
 	defer span.End()
 
@@ -108,43 +108,30 @@ func (c *client) StreamTransformChanges(ctx context.Context, extra map[string]in
 		return nil, err
 	}
 
-	changesChan := make(chan TransformChange, 1024)
-
-	go func() {
-		defer close(changesChan)
-
-		for {
+	iter := &TransformChangeStream{
+		next: func() (TransformChange, error) {
 			resp, err := stream.Recv()
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					return
+					return TransformChange{}, io.EOF
 				}
 				if ctx.Err() != nil || errors.Is(err, context.Canceled) {
-					c.logger.Debug(err)
-					return
+					return TransformChange{}, ctx.Err()
 				}
-				c.logger.Errorw("failed to receive from stream", "error", err)
-				return
+				return TransformChange{}, err
 			}
-
 			change := TransformChange{
 				ChangeType: resp.ChangeType,
 				Transform:  resp.Transform,
 			}
-
 			if resp.UpdatedFields != nil {
 				change.UpdatedFields = resp.UpdatedFields.Paths
 			}
+			return change, nil
+		},
+	}
 
-			select {
-			case changesChan <- change:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	return changesChan, nil
+	return iter, nil
 }
 
 // DoCommand handles arbitrary commands.

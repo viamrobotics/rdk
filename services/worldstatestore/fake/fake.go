@@ -83,8 +83,8 @@ func (f *WorldStateStore) GetTransform(ctx context.Context, uuid []byte, extra m
 func (f *WorldStateStore) StreamTransformChanges(
 	ctx context.Context,
 	extra map[string]any,
-) (<-chan worldstatestore.TransformChange, error) {
-	return f.changeChan, nil
+) (*worldstatestore.TransformChangeStream, error) {
+	return worldstatestore.NewTransformChangeStreamFromChannel(ctx, f.changeChan), nil
 }
 
 // DoCommand handles arbitrary commands. Currently accepts "fps": float64 to set the animation rate.
@@ -204,7 +204,7 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 	}
 
 	f.transforms[boxUUID] = &commonpb.Transform{
-		ReferenceFrame: "world",
+		ReferenceFrame: "static-box",
 		PoseInObserverFrame: &commonpb.PoseInFrame{
 			ReferenceFrame: "world",
 			Pose: &commonpb.Pose{
@@ -227,7 +227,7 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 	}
 
 	f.transforms[sphereUUID] = &commonpb.Transform{
-		ReferenceFrame: "world",
+		ReferenceFrame: "static-sphere",
 		PoseInObserverFrame: &commonpb.PoseInFrame{
 			ReferenceFrame: "world",
 			Pose: &commonpb.Pose{
@@ -246,7 +246,7 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 	}
 
 	f.transforms[capsuleUUID] = &commonpb.Transform{
-		ReferenceFrame: "world",
+		ReferenceFrame: "static-capsule",
 		PoseInObserverFrame: &commonpb.PoseInFrame{
 			ReferenceFrame: "world",
 			Pose: &commonpb.Pose{
@@ -467,7 +467,7 @@ func (f *WorldStateStore) addDynamicBox(name string) {
 
 	uuid := name + "-" + time.Now().Format("20060102150405")
 	transform := &commonpb.Transform{
-		ReferenceFrame: "world",
+		ReferenceFrame: "dynamic-box",
 		PoseInObserverFrame: &commonpb.PoseInFrame{
 			ReferenceFrame: "world",
 			Pose: &commonpb.Pose{

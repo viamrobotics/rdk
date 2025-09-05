@@ -2,6 +2,7 @@ package worldstatestore
 
 import (
 	"context"
+	"io"
 
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
@@ -95,7 +96,7 @@ func (server *serviceServer) StreamTransformChanges(
 		return err
 	}
 
-	changesChan, err := svc.StreamTransformChanges(ctx, req.Extra.AsMap())
+	changesStream, err := svc.StreamTransformChanges(ctx, req.Extra.AsMap())
 	if err != nil {
 		return err
 	}
@@ -107,32 +108,30 @@ func (server *serviceServer) StreamTransformChanges(
 	}
 
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case change, ok := <-changesChan:
-			if !ok {
-				// Channel closed, stream is finished
+		change, err := changesStream.Next()
+		if err != nil {
+			if err == io.EOF {
 				return nil
 			}
+			return err
+		}
 
-			// Convert the internal TransformChange to protobuf response
-			resp := &pb.StreamTransformChangesResponse{
-				ChangeType: change.ChangeType,
-				Transform:  change.Transform,
-			}
+		// Convert the internal TransformChange to protobuf response
+		resp := &pb.StreamTransformChangesResponse{
+			ChangeType: change.ChangeType,
+			Transform:  change.Transform,
+		}
 
-			// Convert UpdatedFields to FieldMask if present
-			if len(change.UpdatedFields) > 0 {
-				fieldMask := &fieldmaskpb.FieldMask{
-					Paths: change.UpdatedFields,
-				}
-				resp.UpdatedFields = fieldMask
+		// Convert UpdatedFields to FieldMask if present
+		if len(change.UpdatedFields) > 0 {
+			fieldMask := &fieldmaskpb.FieldMask{
+				Paths: change.UpdatedFields,
 			}
+			resp.UpdatedFields = fieldMask
+		}
 
-			if err := stream.Send(resp); err != nil {
-				return err
-			}
+		if err := stream.Send(resp); err != nil {
+			return err
 		}
 	}
 }

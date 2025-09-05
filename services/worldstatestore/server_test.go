@@ -215,8 +215,8 @@ func TestServerStreamTransformChanges(t *testing.T) {
 		injectWSS.StreamTransformChangesFunc = func(
 			ctx context.Context,
 			extra map[string]any,
-		) (<-chan worldstatestore.TransformChange, error) {
-			return changesChan, nil
+		) (*worldstatestore.TransformChangeStream, error) {
+			return worldstatestore.NewTransformChangeStreamFromChannel(ctx, changesChan), nil
 		}
 
 		req := &pb.StreamTransformChangesRequest{
@@ -245,7 +245,7 @@ func TestServerStreamTransformChanges(t *testing.T) {
 		injectWSS.StreamTransformChangesFunc = func(
 			ctx context.Context,
 			extra map[string]any,
-		) (<-chan worldstatestore.TransformChange, error) {
+		) (*worldstatestore.TransformChangeStream, error) {
 			return nil, expectedErr
 		}
 

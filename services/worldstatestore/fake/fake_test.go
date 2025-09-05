@@ -72,20 +72,19 @@ func TestFakeWorldStateStore(t *testing.T) {
 	test.That(t, capsuleTransform.Metadata.Fields["opacity"].GetNumberValue(), test.ShouldEqual, 1.0)
 
 	// Test StreamTransformChanges
-	changesChan, err := fake.StreamTransformChanges(context.Background(), nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	stream, err := fake.StreamTransformChanges(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, changesChan, test.ShouldNotBeNil)
+	test.That(t, stream, test.ShouldNotBeNil)
 
 	// Wait a bit for some changes to occur
 	time.Sleep(200 * time.Millisecond)
 
 	// Check that we've received some changes
 	changeCount := 0
-	select {
-	case <-changesChan:
+	if _, err := stream.Next(); err == nil {
 		changeCount++
-	default:
-		// No changes ready yet
 	}
 
 	// We should have at least some changes after 200ms

@@ -18,7 +18,7 @@ type WorldStateStoreService struct {
 	name                       resource.Name
 	ListUUIDsFunc              func(ctx context.Context, extra map[string]any) ([][]byte, error)
 	GetTransformFunc           func(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error)
-	StreamTransformChangesFunc func(ctx context.Context, extra map[string]any) (<-chan worldstatestore.TransformChange, error)
+	StreamTransformChangesFunc func(ctx context.Context, extra map[string]any) (*worldstatestore.TransformChangeStream, error)
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
@@ -60,7 +60,7 @@ func (wosSvc *WorldStateStoreService) DoCommand(ctx context.Context, cmd map[str
 func (wosSvc *WorldStateStoreService) StreamTransformChanges(
 	ctx context.Context,
 	extra map[string]any,
-) (<-chan worldstatestore.TransformChange, error) {
+) (*worldstatestore.TransformChangeStream, error) {
 	if wosSvc.StreamTransformChangesFunc == nil {
 		return nil, errors.New("StreamTransformChangesFunc not set")
 	}

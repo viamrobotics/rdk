@@ -8,6 +8,7 @@ package worldstatestore
 import (
 	"context"
 	"errors"
+	"io"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
@@ -103,7 +104,7 @@ type Service interface {
 	resource.Resource
 	ListUUIDs(ctx context.Context, extra map[string]any) ([][]byte, error)
 	GetTransform(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error)
-	StreamTransformChanges(ctx context.Context, extra map[string]any) (<-chan TransformChange, error)
+	StreamTransformChanges(ctx context.Context, extra map[string]any) (*TransformChangeStream, error)
 }
 
 // TransformChange represents a change to a world state transform.
@@ -111,4 +112,36 @@ type TransformChange struct {
 	ChangeType    pb.TransformChangeType
 	Transform     *commonpb.Transform
 	UpdatedFields []string
+}
+
+// TransformChangeStream provides an iterator interface for receiving transform changes.
+// Call Next repeatedly until it returns io.EOF.
+type TransformChangeStream struct {
+	next func() (TransformChange, error)
+}
+
+// Next returns the next TransformChange, or io.EOF when the stream ends.
+func (s *TransformChangeStream) Next() (TransformChange, error) {
+	if s == nil || s.next == nil {
+		return TransformChange{}, io.EOF
+	}
+	return s.next()
+}
+
+// NewTransformChangeStreamFromChannel wraps a channel of TransformChange as a TransformChangeStream.
+// The provided context is used to cancel iteration; when ctx is done, Next returns ctx.Err().
+func NewTransformChangeStreamFromChannel(ctx context.Context, ch <-chan TransformChange) *TransformChangeStream {
+	return &TransformChangeStream{
+		next: func() (TransformChange, error) {
+			select {
+			case <-ctx.Done():
+				return TransformChange{}, ctx.Err()
+			case change, ok := <-ch:
+				if !ok {
+					return TransformChange{}, io.EOF
+				}
+				return change, nil
+			}
+		},
+	}
 }

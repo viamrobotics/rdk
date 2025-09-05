@@ -36,7 +36,7 @@ func TestClient(t *testing.T) {
 			Uuid:           uuid,
 		}, nil
 	}
-	srv.StreamTransformChangesFunc = func(ctx context.Context, extra map[string]any) (<-chan worldstatestore.TransformChange, error) {
+	srv.StreamTransformChangesFunc = func(ctx context.Context, extra map[string]any) (*worldstatestore.TransformChangeStream, error) {
 		changesChan := make(chan worldstatestore.TransformChange, 1)
 		changesChan <- worldstatestore.TransformChange{
 			ChangeType: pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED,
@@ -46,7 +46,7 @@ func TestClient(t *testing.T) {
 			},
 		}
 		close(changesChan)
-		return changesChan, nil
+		return worldstatestore.NewTransformChangeStreamFromChannel(ctx, changesChan), nil
 	}
 	srv.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return cmd, nil
@@ -152,10 +152,11 @@ func TestClient(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		changesChan, err := client.StreamTransformChanges(context.Background(), nil)
+		stream, err := client.StreamTransformChanges(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		change := <-changesChan
+		change, err := stream.Next()
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, change.ChangeType, test.ShouldEqual, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED)
 		test.That(t, change.Transform.ReferenceFrame, test.ShouldEqual, "test-frame")
 		test.That(t, change.Transform.Uuid, test.ShouldResemble, []byte("test-uuid"))
@@ -201,7 +202,7 @@ func TestClientFailures(t *testing.T) {
 	srv.GetTransformFunc = func(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
 		return nil, expectedErr
 	}
-	srv.StreamTransformChangesFunc = func(ctx context.Context, extra map[string]any) (<-chan worldstatestore.TransformChange, error) {
+	srv.StreamTransformChangesFunc = func(ctx context.Context, extra map[string]any) (*worldstatestore.TransformChangeStream, error) {
 		return nil, expectedErr
 	}
 
