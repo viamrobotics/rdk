@@ -510,8 +510,7 @@ func TestVideoSourceFromCamera_FilterMultipleImages_NoMatchingSource(t *testing.
 	// will then request "source1" and receive two "source2" images, causing an error.
 	_, _, err = stream.Next(context.Background())
 	test.That(t, err, test.ShouldBeError,
-		errors.New(`no matching source name found for multiple returned images: requested "source1", 
-		got ["source2" "source2"]`))
+		errors.New(`no matching source name found for multiple returned images: requested "source1", got ["source2" "source2"]`))
 
 	// On the next call, the stream should recover by performing an unfiltered images call.
 	// The mock will return only the second image, and the stream should succeed.

@@ -90,6 +90,11 @@ func getImageBySourceName(ctx context.Context, cam camera.Camera, sourceName str
 // VideoSourceFromCamera converts a camera resource into a gostream VideoSource.
 // This is useful for streaming video from a camera resource.
 func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.VideoSource, error) {
+	// The reader callback uses a small state machine to determine which image to request from the camera.
+	// A `sourceName` is used to track the selected image source. On the first call, `sourceName` is nil,
+	// so the first available streamable image is chosen. On subsequent successful calls, the same `sourceName`
+	// is used. If any errors occur while getting an image, `sourceName` is reset to nil, and the selection
+	// process starts over on the next call. This allows the stream to recover if a source becomes unavailable.
 	var sourceName *string
 	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 		var respNamedImage camera.NamedImage
