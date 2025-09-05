@@ -82,6 +82,14 @@ func installPackage(
 	// unzip archive.
 	err = unpackFile(ctx, dstPath, tmpDataPath)
 	if err != nil {
+		statusFile := packageSyncFile{
+			PackageID:       p.Package,
+			Version:         p.Version,
+			ModifiedTime:    time.Now(),
+			Status:          syncStatusFailed,
+			TarballChecksum: "",
+		}
+		utils.UncheckedError(writeStatusFile(p, statusFile, packagesDir))
 		utils.UncheckedError(cleanup(packagesDir, p))
 		return err
 	}
