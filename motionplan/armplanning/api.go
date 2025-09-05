@@ -172,12 +172,6 @@ func (req *PlanRequest) validatePlanRequest() error {
 	return nil
 }
 
-// PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, error) {
-	// Calls Replan but without a seed plan
-	return Replan(ctx, logger, request, nil, 0)
-}
-
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
 // WorldState is not supported in the absence of a real frame system.
 func PlanFrameMotion(ctx context.Context,
@@ -212,15 +206,8 @@ func PlanFrameMotion(ctx context.Context,
 	return plan.Trajectory().GetFrameInputs(f.Name())
 }
 
-// Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
-// passed-in plan multiplied by `replanCostFactor`.
-func Replan(
-	ctx context.Context,
-	logger logging.Logger,
-	request *PlanRequest,
-	currentPlan motionplan.Plan,
-	replanCostFactor float64,
-) (motionplan.Plan, error) {
+// PlanMotion plans a motion from a provided plan request.
+func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, error) {
 	// Make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
@@ -233,22 +220,9 @@ func Replan(
 		return nil, err
 	}
 
-	newPlan, err := sfPlanner.planMultiWaypoint(ctx, currentPlan)
+	newPlan, err := sfPlanner.planMultiWaypoint(ctx)
 	if err != nil {
 		return nil, err
-	}
-
-	if replanCostFactor > 0 && currentPlan != nil {
-		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
-		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
-		logger.CDebugf(ctx,
-			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
-			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
-		)
-
-		if finalPlanCost > initialPlanCost*replanCostFactor {
-			return nil, errHighReplanCost
-		}
 	}
 
 	return newPlan, nil

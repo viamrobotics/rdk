@@ -57,7 +57,7 @@ type atomicWaypoint struct {
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
-func (pm *planManager) planMultiWaypoint(ctx context.Context, seedPlan motionplan.Plan) (motionplan.Plan, error) {
+func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Plan, error) {
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
@@ -83,14 +83,14 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, seedPlan motionpla
 		default:
 		}
 		// Solving highly constrained motions by breaking apart into small pieces is much more performant
-		goalWaypoints, err := pm.generateWaypoints(seedPlan, i)
+		goalWaypoints, err := pm.generateWaypoints(i)
 		if err != nil {
 			return nil, err
 		}
 		waypoints = append(waypoints, goalWaypoints...)
 	}
 
-	plan, err := pm.planAtomicWaypoints(ctx, waypoints, seedPlan)
+	plan, err := pm.planAtomicWaypoints(ctx, waypoints)
 	pm.activeBackgroundWorkers.Wait()
 	if err != nil {
 		if len(waypoints) > 1 {
@@ -104,12 +104,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context, seedPlan motionpla
 // planAtomicWaypoints will plan a single motion, which may be composed of one or more waypoints. Waypoints are here used to begin planning
 // the next motion as soon as its starting point is known. This is responsible for repeatedly calling planSingleAtomicWaypoint for each
 // intermediate waypoint. Waypoints here refer to points that the software has generated to.
-func (pm *planManager) planAtomicWaypoints(
-	ctx context.Context,
-	waypoints []atomicWaypoint,
-	seedPlan motionplan.Plan,
-) (motionplan.Plan, error) {
-	var err error
+func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atomicWaypoint) (motionplan.Plan, error) {
 	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
 	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
 	resultPromises := []*resultPromise{}
@@ -140,43 +135,27 @@ func (pm *planManager) planAtomicWaypoints(
 			pm.logger.Info(k, v)
 		}
 
-		var maps *rrtMaps
-		if seedPlan != nil {
-			maps, err = pm.planToRRTGoalMap(seedPlan)
-			if err != nil {
-				if wp.mp.opt().ReturnPartialPlan {
-					returnPartial = true
-					break
-				}
-				return nil, err
-			}
+		// Initialize and seed with IK solutions here
+		if seed != nil {
+			// If we have a seed, we are linking multiple waypoints, so the next one MUST start at the ending configuration of the last
+			wp.startState = &PlanState{configuration: seed}
 		}
-		// If we don't pass in pre-made maps, initialize and seed with IK solutions here
-		// TPspace should fill in its maps in planRelativeWaypoint and then call planSingleAtomicWaypoint directly so no need to
-		// deal with that here.
-		// TODO: Once TPspace also supports multiple waypoints, this needs to be updated.
-		if maps == nil {
-			if seed != nil {
-				// If we have a seed, we are linking multiple waypoints, so the next one MUST start at the ending configuration of the last
-				wp.startState = &PlanState{configuration: seed}
+		planSeed := initRRTSolutions(ctx, wp)
+		if planSeed.err != nil {
+			if wp.mp.opt().ReturnPartialPlan {
+				returnPartial = true
+				break
 			}
-			planSeed := initRRTSolutions(ctx, wp)
-			if planSeed.err != nil {
-				if wp.mp.opt().ReturnPartialPlan {
-					returnPartial = true
-					break
-				}
-				return nil, planSeed.err
-			}
-			if planSeed.steps != nil {
-				resultPromises = append(resultPromises, &resultPromise{steps: planSeed.steps})
-				seed = planSeed.steps[len(planSeed.steps)-1].Q()
-				continue
-			}
-			maps = planSeed.maps
+			return nil, planSeed.err
 		}
+		if planSeed.steps != nil {
+			resultPromises = append(resultPromises, &resultPromise{steps: planSeed.steps})
+			seed = planSeed.steps[len(planSeed.steps)-1].Q()
+			continue
+		}
+
 		// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
-		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, wp, maps)
+		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, wp, planSeed.maps)
 		if err != nil {
 			// Error getting the next seed. If we can, return the partial path if requested.
 			if wp.mp.opt().ReturnPartialPlan {
@@ -362,7 +341,7 @@ func (pm *planManager) planParallelRRTMotion(
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
-func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]atomicWaypoint, error) {
+func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 	wpGoals := pm.request.Goals[wpi]
 	startState := pm.request.StartState
 	if wpi > 0 {
@@ -378,7 +357,7 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 		return nil, err
 	}
 
-	subWaypoints := pm.useSubWaypoints(seedPlan, wpi)
+	subWaypoints := pm.useSubWaypoints(wpi)
 
 	motionChains, err := motionChainsFromPlanState(pm.fs, wpGoals)
 	if err != nil {
@@ -526,41 +505,6 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 	return waypoints, nil
 }
 
-func (pm *planManager) planToRRTGoalMap(plan motionplan.Plan) (*rrtMaps, error) {
-	traj := plan.Trajectory()
-	path := plan.Path()
-	if len(traj) != len(path) {
-		return nil, errors.New("plan trajectory and path should be the same length")
-	}
-	planNodes := make([]node, 0, len(traj))
-	for i, tConf := range traj {
-		planNodes = append(planNodes, &basicNode{q: tConf, poses: path[i]})
-	}
-
-	var lastNode node
-	goalMap := map[node]node{}
-	for i := len(planNodes) - 1; i >= 0; i-- {
-		if i != 0 {
-			// Fill in costs
-			cost := pm.configurationDistanceFunc(&motionplan.SegmentFS{
-				StartConfiguration: planNodes[i-1].Q(),
-				EndConfiguration:   planNodes[i].Q(),
-				FS:                 pm.fs,
-			})
-			planNodes[i].SetCost(cost)
-		}
-		goalMap[planNodes[i]] = lastNode
-		lastNode = planNodes[i]
-	}
-
-	maps := &rrtMaps{
-		startMap: map[node]node{},
-		goalMap:  goalMap,
-	}
-
-	return maps, nil
-}
-
 func nodesToTrajectory(nodes []node) motionplan.Trajectory {
 	traj := make(motionplan.Trajectory, 0, len(nodes))
 	for _, n := range nodes {
@@ -570,11 +514,7 @@ func nodesToTrajectory(nodes []node) motionplan.Trajectory {
 }
 
 // Determines whether to break a motion down into sub-waypoints if all intermediate points are known.
-func (pm *planManager) useSubWaypoints(seedPlan motionplan.Plan, wpi int) bool {
-	// If we are seeding off of a pre-existing plan, we don't need the speedup of subwaypoints
-	if seedPlan != nil {
-		return false
-	}
+func (pm *planManager) useSubWaypoints(wpi int) bool {
 	// If goal has a configuration, do not use subwaypoints *unless* the start state is also a configuration.
 	// We can interpolate from a pose or configuration to a pose, or a configuration to a configuration, but not from a pose to a
 	// configuration.

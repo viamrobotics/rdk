@@ -18,8 +18,6 @@ var (
 	errIKConstraint = "all IK solutions failed constraints. Failures: "
 
 	errInvalidConstraint = errors.New("invalid constraint input")
-
-	errHighReplanCost = errors.New("unable to create a new plan within replanCostFactor from the original")
 )
 
 // NewAlgAndConstraintMismatchErr is returned when an incompatible planning_alg is specified and there are contraints.
