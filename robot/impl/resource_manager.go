@@ -441,8 +441,8 @@ func (manager *resourceManager) internalResourceNames() []resource.Name {
 // AllNonCollidingResourceNames returns the names of all non-colliding resources in the
 // manager. To be used by weak and optional dependency updates.
 func (manager *resourceManager) AllNonCollidingResourceNames() []resource.Name {
-	return manager.resources.SimpleNamesWhere(func(k resource.Name, gNode *resource.GraphNode) bool {
-		return gNode.HasResource()
+	return manager.resources.SimpleNamesWhere(func(resource.Name, *resource.GraphNode) bool {
+		return true
 	})
 }
 

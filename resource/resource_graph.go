@@ -481,6 +481,30 @@ func (g *Graph) FindNodesByAPI(api API) []Name {
 	return ret
 }
 
+// FindBySimpleName returns all unmodified resource names that match the
+// provided string after applying any remote prefixes. This means that while
+// the "name" argument to this function should include remote prefix(es), the
+// Name.Name field of the return value: will not include remote prefix(es).
+func (g *Graph) FindBySimpleName(name string) []Name {
+	var result []Name
+	for key, val := range g.nodes.simpleNameCache {
+		if name != key.name || !(key.api.IsComponent() || key.api.IsService()) {
+			continue
+		}
+		if val.local != nil {
+			result = append(result, Name{API: key.api, Name: name})
+		} else if len(val.remote) == 1 {
+			remote, node, _ := seq2First(maps.All(val.remote))
+			result = append(result, Name{
+				API:    key.api,
+				Name:   strings.Replace(name, node.prefix, "", 1),
+				Remote: remote,
+			})
+		}
+	}
+	return result
+}
+
 // FindNodesByShortName returns all resources matching the given short name.
 func (g *Graph) FindNodesByShortName(name string) []Name {
 	hasRemote := strings.Contains(name, ":")
@@ -845,7 +869,7 @@ func (g *Graph) ResolveDependencies(logger logging.Logger) error {
 
 				// if a name is later added that conflicts, it will not
 				// necessarily be caught unless the resource config changes.
-				nodeNames := g.FindNodesByShortName(dep)
+				nodeNames := g.FindBySimpleName(dep)
 				switch len(nodeNames) {
 				case 0:
 				case 1:

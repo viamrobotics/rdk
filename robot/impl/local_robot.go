@@ -685,7 +685,7 @@ func (r *localRobot) getDependencies(
 		// Specifically call ResourceByName and not directly to the manager since this
 		// will only return fully configured and available resources (not marked for removal
 		// and no last error).
-		r, err := r.ResourceByName(dep)
+		r, err := r.manager.ResourceByName(dep)
 		if err != nil {
 			return nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}

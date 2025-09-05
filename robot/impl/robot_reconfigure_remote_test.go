@@ -64,6 +64,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	// set up but do not start remote2's web service
 	remote2 := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote2"))
 	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+	_ = addr2
 
 	localConfig := &config.Config{
 		Components: []resource.Config{
@@ -74,7 +75,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API:       arm.API,
-				DependsOn: []string{"foo:remoteArm"},
+				DependsOn: []string{"fooremoteArm"},
 			},
 			{
 				Name:  "arm2",
@@ -83,17 +84,19 @@ func TestRemoteRobotsGold(t *testing.T) {
 					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API:       arm.API,
-				DependsOn: []string{"bar:remoteArm"},
+				DependsOn: []string{"barremoteArm"},
 			},
 		},
 		Services: []resource.Config{},
 		Remotes: []config.Remote{
 			{
 				Name:    "foo",
+				Prefix:  "foo",
 				Address: addr1,
 			},
 			{
 				Name:    "bar",
+				Prefix:  "bar",
 				Address: addr2,
 			},
 		},
@@ -101,12 +104,13 @@ func TestRemoteRobotsGold(t *testing.T) {
 	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("main"))
 
 	// assert all of remote1's resources exist on main but none of remote2's
+	resourceNames := r.ResourceNames()
 	rdktestutils.VerifySameResourceNames(
 		t,
-		r.ResourceNames(),
+		resourceNames,
 		[]resource.Name{
 			arm.Named("arm1"),
-			arm.Named("foo:remoteArm"),
+			arm.Named("foo:fooremoteArm"),
 		},
 	)
 
@@ -117,11 +121,16 @@ func TestRemoteRobotsGold(t *testing.T) {
 	mainPartAndFooAndBarResources := []resource.Name{
 		arm.Named("arm1"),
 		arm.Named("arm2"),
-		arm.Named("foo:remoteArm"),
-		arm.Named("bar:remoteArm"),
+		arm.Named("foo:fooremoteArm"),
+		arm.Named("bar:barremoteArm"),
 	}
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), mainPartAndFooAndBarResources)
+		resourceNames := r.ResourceNames()
+		rdktestutils.VerifySameResourceNames(
+			tb,
+			resourceNames,
+			mainPartAndFooAndBarResources,
+		)
 	})
 	test.That(t, remote2.Close(context.Background()), test.ShouldBeNil)
 
@@ -130,7 +139,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		verifyReachableResourceNames(tb, r,
 			[]resource.Name{
 				arm.Named("arm1"),
-				arm.Named("foo:remoteArm"),
+				arm.Named("foo:fooremoteArm"),
 			},
 		)
 	})
@@ -146,7 +155,8 @@ func TestRemoteRobotsGold(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), mainPartAndFooAndBarResources)
+		resourceNames := r.ResourceNames()
+		rdktestutils.VerifySameResourceNames(tb, resourceNames, mainPartAndFooAndBarResources)
 	})
 }
 
@@ -177,18 +187,22 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 		Remotes: []config.Remote{
 			{
 				Name:    "foo",
+				Prefix:  "foo",
 				Address: addr1,
 			},
 			{
 				Name:    "bar",
+				Prefix:  "bar",
 				Address: addr1,
 			},
 			{
 				Name:    "hello",
+				Prefix:  "hello",
 				Address: addr1,
 			},
 			{
 				Name:    "world",
+				Prefix:  "world",
 				Address: addr1,
 			},
 		},
@@ -196,10 +210,10 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
 
 	expectedSet := []resource.Name{
-		arm.Named("foo:arm1"),
-		arm.Named("bar:arm1"),
-		arm.Named("hello:arm1"),
-		arm.Named("world:arm1"),
+		arm.Named("foo:fooarm1"),
+		arm.Named("bar:bararm1"),
+		arm.Named("hello:helloarm1"),
+		arm.Named("world:worldarm1"),
 	}
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), expectedSet)
@@ -426,7 +440,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), expectedSet)
 	})
 
-	// now reconfig with a fully qualified name
+	// now reconfig to remove the ambiguity
 	reConfig := &config.Config{
 		Components: []resource.Config{
 			{
@@ -436,7 +450,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API:       arm.API,
-				DependsOn: []string{"foo:pieceArm"},
+				DependsOn: []string{"pieceArm"},
 			},
 		},
 		Remotes: []config.Remote{
@@ -446,6 +460,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 			},
 			{
 				Name:    "bar",
+				Prefix:  "bar",
 				Address: addr2,
 			},
 		},
@@ -454,7 +469,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 
 	finalSet := []resource.Name{
 		arm.Named("foo:pieceArm"),
-		arm.Named("bar:pieceArm"),
+		arm.Named("bar:barpieceArm"),
 		arm.Named("arm1"),
 	}
 
