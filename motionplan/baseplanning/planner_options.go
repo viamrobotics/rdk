@@ -1,8 +1,9 @@
-package armplanning
+package baseplanning
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"runtime"
 
@@ -33,6 +34,10 @@ const (
 	// Check constraints are still met every this many mm/degrees of movement.
 	defaultResolution = 2.0
 
+	// default motion planning collision resolution is every 2mm.
+	// For bases we increase this to 60mm, a bit more than 2 inches.
+	defaultPTGCollisionResolution = 60
+
 	// If an IK solution scores below this much, return it immediately.
 	defaultMinIkScore = 0.01
 
@@ -44,6 +49,9 @@ const (
 
 	// default number of times to try to smooth the path.
 	defaultSmoothIter = 100
+
+	// default number of position only seeds to use for tp-space planning.
+	defaultTPspacePositionOnlySeeds = 16
 
 	// random seed.
 	defaultRandomSeed = 0
@@ -82,13 +90,16 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
+	opt.PositionSeeds = defaultTPspacePositionOnlySeeds
 
 	opt.PlanIter = defaultPlanIter
 	opt.FrameStep = defaultFrameStep
 	opt.InputIdentDist = defaultInputIdentDist
 	opt.IterBeforeRand = defaultIterBeforeRand
 
-	opt.PlanningAlgorithmSettings = AlgorithmSettings{}
+	opt.PlanningAlgorithmSettings = AlgorithmSettings{
+		Algorithm: UnspecifiedAlgorithm,
+	}
 
 	opt.SmoothIter = defaultSmoothIter
 
@@ -159,6 +170,10 @@ type PlannerOptions struct {
 	// ScoringMetricStr is an enum indicating the function that the planner will use to evaluate a plan for final cost comparisons.
 	ScoringMetric motionplan.ScoringMetric `json:"scoring_metric"`
 
+	// TPSpaceOrientationScale is the scale factor on orientation for the squared norm segment metric used
+	// to calculate the distance between poses when planning for a TP-space frame
+	TPSpaceOrientationScale float64 `json:"tp_space_orientation_scale"`
+
 	// Determines the algorithm that the planner will use to measure the degree of "closeness" between two states of the robot
 	// See metrics.go for options
 	ConfigurationDistanceMetric motionplan.SegmentFSMetricType `json:"configuration_distance_metric"`
@@ -210,6 +225,40 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 	return opt, nil
 }
 
+// Returns an updated PlannerOptions taking into account whether TP-Space is being used and whether
+// a Free or Position-Only motion profile was requested with an unspecified algorithm (indicating the desire
+// to let motionplan handle what algorithm to use).
+func updateOptionsForPlanning(opt *PlannerOptions, useTPSpace bool) (*PlannerOptions, error) {
+	optCopy := *opt
+	planningAlgorithm := optCopy.PlanningAlgorithm()
+	if useTPSpace && (planningAlgorithm != UnspecifiedAlgorithm) && (planningAlgorithm != TPSpace) {
+		return nil, fmt.Errorf("cannot specify a planning algorithm when planning for a TP-space frame. alg specified was %s",
+			planningAlgorithm)
+	}
+
+	if useTPSpace {
+		// overwrite default with TP space
+		optCopy.PlanningAlgorithmSettings = AlgorithmSettings{
+			Algorithm: TPSpace,
+		}
+
+		optCopy.TPSpaceOrientationScale = defaultTPspaceOrientationScale
+
+		optCopy.Resolution = defaultPTGCollisionResolution
+
+		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
+		// Otherwise we just use squared norm on inputs.
+		optCopy.ScoringMetric = motionplan.PTGDistance
+	}
+
+	return &optCopy, nil
+}
+
+// PlanningAlgorithm returns the label of the planning algorithm in plannerOptions.
+func (p *PlannerOptions) PlanningAlgorithm() PlanningAlgorithm {
+	return p.PlanningAlgorithmSettings.Algorithm
+}
+
 // getGoalMetric creates the distance metric for the solver using the configured options.
 func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) motionplan.StateFSMetric {
 	metrics := map[string]motionplan.StateMetric{}
@@ -241,6 +290,13 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 		}
 		return score
 	}
+}
+
+// In the scenario where we use TP-space, we call this to retrieve a function that computes distances
+// in cartesian space rather than configuration space. The planner will use this to measure the degree of "closeness"
+// between two poses.
+func (p *PlannerOptions) getPoseDistanceFunc() motionplan.SegmentMetric {
+	return motionplan.NewSquaredNormSegmentMetric(p.TPSpaceOrientationScale)
 }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.

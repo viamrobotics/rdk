@@ -1,9 +1,10 @@
-package armplanning
+package baseplanning
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -58,6 +59,9 @@ type atomicWaypoint struct {
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
 func (pm *planManager) planMultiWaypoint(ctx context.Context, seedPlan motionplan.Plan) (motionplan.Plan, error) {
+	if pm.motionChains.useTPspace {
+		return pm.planRelativeWaypoint(ctx, seedPlan)
+	}
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
@@ -142,7 +146,7 @@ func (pm *planManager) planAtomicWaypoints(
 
 		var maps *rrtMaps
 		if seedPlan != nil {
-			maps, err = pm.planToRRTGoalMap(seedPlan)
+			maps, err = pm.planToRRTGoalMap(seedPlan, wp)
 			if err != nil {
 				if wp.mp.opt().ReturnPartialPlan {
 					returnPartial = true
@@ -386,8 +390,13 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 		return nil, err
 	}
 
+	opt, err := updateOptionsForPlanning(pm.request.PlannerOptions, motionChains.useTPspace)
+	if err != nil {
+		return nil, err
+	}
+
 	constraintHandler, err := newConstraintHandler(
-		pm.request.PlannerOptions,
+		opt,
 		pm.logger,
 		pm.request.Constraints,
 		startState,
@@ -415,8 +424,14 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 			return nil, err
 		}
 
+		// Regenerate opts since our metrics will have changed
+		opt, err = updateOptionsForPlanning(opt, motionChains.useTPspace)
+		if err != nil {
+			return nil, err
+		}
+
 		constraintHandler, err = newConstraintHandler(
-			pm.request.PlannerOptions,
+			opt,
 			pm.logger,
 			pm.request.Constraints,
 			startState,
@@ -436,13 +451,13 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 	pm.ConstraintHandler = constraintHandler
 
 	// TPspace should never use subwaypoints
-	if !subWaypoints {
+	if !subWaypoints || motionChains.useTPspace {
 		//nolint: gosec
-		pathPlanner, err := newCBiRRTMotionPlanner(
+		pathPlanner, err := newMotionPlanner(
 			pm.fs,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
-			pm.request.PlannerOptions,
+			opt,
 			constraintHandler,
 			pm.motionChains,
 		)
@@ -490,8 +505,13 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 			return nil, err
 		}
 
+		wpOpt, err := updateOptionsForPlanning(pm.request.PlannerOptions, wpChains.useTPspace)
+		if err != nil {
+			return nil, err
+		}
+
 		wpConstraintHandler, err := newConstraintHandler(
-			pm.request.PlannerOptions,
+			wpOpt,
 			pm.logger,
 			pm.request.Constraints,
 			from,
@@ -507,11 +527,11 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 		}
 
 		//nolint: gosec
-		pathPlanner, err := newCBiRRTMotionPlanner(
+		pathPlanner, err := newMotionPlanner(
 			pm.fs,
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
-			pm.request.PlannerOptions,
+			wpOpt,
 			wpConstraintHandler,
 			pm.motionChains,
 		)
@@ -527,7 +547,7 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 	return waypoints, nil
 }
 
-func (pm *planManager) planToRRTGoalMap(plan motionplan.Plan) (*rrtMaps, error) {
+func (pm *planManager) planToRRTGoalMap(plan motionplan.Plan, goal atomicWaypoint) (*rrtMaps, error) {
 	traj := plan.Trajectory()
 	path := plan.Path()
 	if len(traj) != len(path) {
@@ -536,6 +556,22 @@ func (pm *planManager) planToRRTGoalMap(plan motionplan.Plan) (*rrtMaps, error) 
 	planNodes := make([]node, 0, len(traj))
 	for i, tConf := range traj {
 		planNodes = append(planNodes, &basicNode{q: tConf, poses: path[i]})
+	}
+
+	if pm.motionChains.useTPspace {
+		// Fill in positions from the old origin to where the goal was during the last run
+		planNodesOld, err := rectifyTPspacePath(planNodes, pm.fs.Frame(pm.motionChains.ptgFrameName), spatialmath.NewZeroPose())
+		if err != nil {
+			return nil, err
+		}
+
+		// Figure out where our new starting point is relative to our last one, and re-rectify using the new adjusted location
+		oldGoal := planNodesOld[len(planNodesOld)-1].Poses()[pm.motionChains.ptgFrameName].Pose()
+		pathDiff := spatialmath.PoseBetween(oldGoal, goal.goalState.poses[pm.motionChains.ptgFrameName].Pose())
+		planNodes, err = rectifyTPspacePath(planNodes, pm.fs.Frame(pm.motionChains.ptgFrameName), pathDiff)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var lastNode node
@@ -560,6 +596,102 @@ func (pm *planManager) planToRRTGoalMap(plan motionplan.Plan) (*rrtMaps, error) 
 	}
 
 	return maps, nil
+}
+
+// planRelativeWaypoint will solve the PTG frame to one individual pose. This is used for frames whose inputs are relative, that
+// is, the pose returned by `Transform` is a transformation rather than an absolute position.
+func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan motionplan.Plan) (motionplan.Plan, error) {
+	if pm.request.StartState.poses == nil {
+		return nil, errors.New("must provide a startPose if solving for PTGs")
+	}
+	if len(pm.request.Goals) != 1 {
+		return nil, errors.New("can only provide one goal if solving for PTGs")
+	}
+	startPose := pm.request.StartState.poses[pm.motionChains.ptgFrameName].Pose()
+	goalPif := pm.request.Goals[0].poses[pm.motionChains.ptgFrameName]
+
+	pm.logger.CInfof(ctx,
+		"planning relative motion for frame %s\nGoal: %v\nstartPose %v\n, worldstate: %v\n",
+		pm.motionChains.ptgFrameName,
+		referenceframe.PoseInFrameToProtobuf(goalPif),
+		startPose,
+		pm.request.WorldState.String(),
+	)
+
+	if pathdebug {
+		pm.logger.Debug("$type,X,Y")
+		pm.logger.Debugf("$SG,%f,%f", startPose.Point().X, startPose.Point().Y)
+		pm.logger.Debugf("$SG,%f,%f", goalPif.Pose().Point().X, goalPif.Pose().Point().Y)
+		gifs, err := pm.request.WorldState.ObstaclesInWorldFrame(pm.fs, pm.request.StartState.configuration)
+		if err == nil {
+			for _, geom := range gifs.Geometries() {
+				pts := geom.ToPoints(1.)
+				for _, pt := range pts {
+					if math.Abs(pt.Z) < 0.1 {
+						pm.logger.Debugf("$OBS,%f,%f", pt.X, pt.Y)
+					}
+				}
+			}
+		}
+	}
+
+	var cancel func()
+	// set timeout for entire planning process if specified
+	if pm.planOpts.Timeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(pm.planOpts.Timeout*float64(time.Second)))
+	}
+	if cancel != nil {
+		defer cancel()
+	}
+
+	// Create frame system subset using frame name
+	relativeOnlyFS, err := pm.fs.FrameSystemSubset(pm.fs.Frame(pm.motionChains.ptgFrameName))
+	if err != nil {
+		return nil, err
+	}
+	pm.fs = relativeOnlyFS
+
+	wps, err := pm.generateWaypoints(seedPlan, 0)
+	if err != nil {
+		return nil, err
+	}
+	// Should never happen, but checking to guard against future changes breaking this
+	if len(wps) != 1 {
+		return nil, fmt.Errorf("tpspace should only generate exactly one atomic waypoint, but got %d", len(wps))
+	}
+	wp := wps[0]
+
+	zeroInputs := referenceframe.FrameSystemInputs{}
+	zeroInputs[pm.motionChains.ptgFrameName] = make([]referenceframe.Input, len(pm.fs.Frame(pm.motionChains.ptgFrameName).DoF()))
+	maps := &rrtMaps{}
+	if seedPlan != nil {
+		// TODO: This probably needs to be flipped? Check if these paths are ever used.
+		maps, err = pm.planToRRTGoalMap(seedPlan, wp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	goalPose := wp.goalState.poses[pm.motionChains.ptgFrameName].Pose()
+	goalMapFlip := map[string]*referenceframe.PoseInFrame{
+		pm.motionChains.ptgFrameName: referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(goalPose, flipPose)),
+	}
+	goalNode := &basicNode{q: zeroInputs, poses: goalMapFlip}
+	maps.goalMap = map[node]node{goalNode: nil}
+
+	startNode := &basicNode{q: zeroInputs, poses: pm.request.StartState.poses}
+	maps.startMap = map[node]node{startNode: nil}
+
+	// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
+	_, future, err := pm.planSingleAtomicWaypoint(ctx, wp, maps)
+	if err != nil {
+		return nil, err
+	}
+	steps, err := future.result()
+	if err != nil {
+		return nil, err
+	}
+
+	return newRRTPlan(steps, pm.fs, pm.motionChains.useTPspace, startPose)
 }
 
 func nodesToTrajectory(nodes []node) motionplan.Trajectory {

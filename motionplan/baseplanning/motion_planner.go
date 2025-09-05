@@ -1,5 +1,5 @@
-// Package armplanning is a motion planning library.
-package armplanning
+// Package baseplanning is a motion planning library.
+package baseplanning
 
 import (
 	"context"
@@ -49,6 +49,7 @@ type planner struct {
 	randseed                  *rand.Rand
 	start                     time.Time
 	scoringFunction           motionplan.SegmentFSMetric
+	poseDistanceFunc          motionplan.SegmentMetric
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
 	motionChains              *motionChains
@@ -76,13 +77,18 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 		}
 	}
 
+	opt, err := updateOptionsForPlanning(request.PlannerOptions, mChains.useTPspace)
+	if err != nil {
+		return nil, err
+	}
+
 	boundingRegions, err := referenceframe.NewGeometriesFromProto(request.BoundingRegions)
 	if err != nil {
 		return nil, err
 	}
 
 	constraintHandler, err := newConstraintHandler(
-		request.PlannerOptions,
+		opt,
 		logger,
 		request.Constraints,
 		request.StartState,
@@ -96,14 +102,14 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 	if err != nil {
 		return nil, err
 	}
-	seed := request.PlannerOptions.RandomSeed
+	seed := opt.RandomSeed
 
 	//nolint:gosec
 	return newPlanner(
 		request.FrameSystem,
 		rand.New(rand.NewSource(int64(seed))),
 		logger,
-		request.PlannerOptions,
+		opt,
 		constraintHandler,
 		mChains,
 	)
@@ -144,6 +150,7 @@ func newPlanner(
 		randseed:                  seed,
 		planOpts:                  opt,
 		scoringFunction:           opt.getScoringFunction(chains),
+		poseDistanceFunc:          opt.getPoseDistanceFunc(),
 		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
 		motionChains:              chains,
 	}

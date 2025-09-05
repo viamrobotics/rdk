@@ -1,4 +1,4 @@
-package armplanning
+package baseplanning
 
 import (
 	"errors"
@@ -16,6 +16,12 @@ var (
 	errNoPlannerOptions = errors.New("PlannerOptions are required but have not been specified")
 
 	errIKConstraint = "all IK solutions failed constraints. Failures: "
+
+	errNoNeighbors = errors.New("no neighbors found")
+
+	errInvalidCandidate = errors.New("candidate did not meet constraints")
+
+	errNoCandidates = errors.New("no candidates passed in, skipping")
 
 	errInvalidConstraint = errors.New("invalid constraint input")
 

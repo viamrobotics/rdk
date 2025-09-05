@@ -1,4 +1,4 @@
-package armplanning
+package baseplanning
 
 import (
 	"context"
@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -46,6 +47,9 @@ type planConfigConstructor func(logger logging.Logger) (*planConfig, error)
 
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
+	planners := []plannerConstructor{
+		newCBiRRTMotionPlanner,
+	}
 	testCases := []struct {
 		name   string
 		config planConfigConstructor
@@ -58,13 +62,18 @@ func TestUnconstrainedMotion(t *testing.T) {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
-			testPlanner(t, tcCopy.config, 1)
+			for _, p := range planners {
+				testPlanner(t, p, tcCopy.config, 1)
+			}
 		})
 	}
 }
 
 func TestConstrainedMotion(t *testing.T) {
 	t.Parallel()
+	planners := []plannerConstructor{
+		newCBiRRTMotionPlanner,
+	}
 	testCases := []struct {
 		name   string
 		config planConfigConstructor
@@ -75,7 +84,9 @@ func TestConstrainedMotion(t *testing.T) {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
-			testPlanner(t, tcCopy.config, 1)
+			for _, p := range planners {
+				testPlanner(t, p, tcCopy.config, 1)
+			}
 		})
 	}
 }
@@ -442,14 +453,14 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
-func testPlanner(t *testing.T, config planConfigConstructor, seed int) {
+func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfigConstructor, seed int) {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
 
 	// plan
 	cfg, err := config(logger)
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := newCBiRRTMotionPlanner(
+	mp, err := plannerFunc(
 		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander, cfg.MotionChains)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -522,6 +533,7 @@ func TestSerializedPlanRequest(t *testing.T) {
 
 	planOpts := NewBasicPlannerOptions()
 	planOpts.PlanningAlgorithmSettings = AlgorithmSettings{
+		Algorithm: CBiRRT,
 		CBirrtOpts: &cbirrtOptions{
 			SolutionsToSeed: 150,
 		},
@@ -570,6 +582,7 @@ func TestSerializedPlanRequest(t *testing.T) {
 
 	alg1 := pr.PlannerOptions.PlanningAlgorithmSettings
 	alg2 := parsedPr.PlannerOptions.PlanningAlgorithmSettings
+	test.That(t, alg1.Algorithm, test.ShouldEqual, alg2.Algorithm)
 	alg1Cbirrt := alg1.CBirrtOpts
 	alg2Cbiirt := alg2.CBirrtOpts
 	test.That(t, alg2Cbiirt, test.ShouldNotBeNil)
@@ -979,6 +992,190 @@ func TestMovementWithGripper(t *testing.T) {
 	solution, err = PlanMotion(context.Background(), logger, request)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
+}
+
+func TestReplanValidations(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		"itsabase",
+		logger,
+		200./60.,
+		2,
+		nil,
+		false,
+		true,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1000, Y: 8000, Z: 0})
+
+	baseFS := frame.NewEmptyFrameSystem("baseFS")
+	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
+	test.That(t, err, test.ShouldBeNil)
+	type testCase struct {
+		extra map[string]interface{}
+		msg   string
+		err   error
+	}
+
+	testCases := []testCase{
+		{
+			msg:   "fails validations when collision_buffer_mm is not a float",
+			extra: map[string]interface{}{"collision_buffer_mm": "not a float"},
+			err:   errors.New("json: cannot unmarshal string into Go struct field PlannerOptions.collision_buffer_mm of type float64"),
+		},
+		{
+			msg:   "fails validations when collision_buffer_mm is negative",
+			extra: map[string]interface{}{"collision_buffer_mm": -1.},
+			err:   errors.New("collision_buffer_mm can't be negative"),
+		},
+		{
+			msg:   "passes validations when collision_buffer_mm is a small positive float",
+			extra: map[string]interface{}{"collision_buffer_mm": 1e-5},
+		},
+		{
+			msg:   "passes validations when collision_buffer_mm is a positive float",
+			extra: map[string]interface{}{"collision_buffer_mm": 200.},
+		},
+		{
+			msg:   "passes validations when extra is empty",
+			extra: map[string]interface{}{},
+		},
+		{
+			msg:   "passes validations when extra is nil",
+			extra: map[string]interface{}{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.msg, func(t *testing.T) {
+			planOpts, err := NewPlannerOptionsFromExtra(tc.extra)
+			if tc.err != nil {
+				test.That(t, err, test.ShouldBeError, tc.err)
+				return
+			}
+			test.That(t, err, test.ShouldBeNil)
+			_, err = Replan(ctx, logger, &PlanRequest{
+				FrameSystem: baseFS,
+				Goals:       []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
+				StartState: &PlanState{
+					configuration: frame.NewZeroInputs(baseFS),
+					poses:         frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
+				},
+				PlannerOptions: planOpts,
+			}, nil, 0)
+			if tc.err != nil {
+				test.That(t, err, test.ShouldBeError, tc.err)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+			}
+		})
+	}
+}
+
+func TestReplan(t *testing.T) {
+	// TODO(RSDK-5634): this should be unskipped when this bug is fixed
+	t.Skip()
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
+	test.That(t, err, test.ShouldBeNil)
+
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		"itsabase",
+		logger,
+		200./60.,
+		2,
+		[]spatialmath.Geometry{sphere},
+		false,
+		true,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, 8000, 0})
+
+	baseFS := frame.NewEmptyFrameSystem("baseFS")
+	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	planRequest := &PlanRequest{
+		FrameSystem:    baseFS,
+		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
+		StartState:     &PlanState{configuration: frame.NewZeroInputs(baseFS)},
+		PlannerOptions: NewBasicPlannerOptions(),
+	}
+
+	firstplan, err := PlanMotion(ctx, logger, planRequest)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Let's pretend we've moved towards the goal, so the goal is now closer
+	goal = spatialmath.NewPoseFromPoint(r3.Vector{1000, 5000, 0})
+	planRequest.Goals = []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}}
+
+	// This should easily pass
+	newPlan1, err := Replan(ctx, logger, planRequest, firstplan, 1.0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(newPlan1.Trajectory()), test.ShouldBeGreaterThan, 2)
+
+	// But if we drop the replan factor to a very low number, it should now fail
+	newPlan2, err := Replan(ctx, logger, planRequest, firstplan, 0.1)
+	test.That(t, newPlan2, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeError, errHighReplanCost) // Replan factor too low!
+}
+
+func TestPtgPosOnlyBidirectional(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
+	test.That(t, err, test.ShouldBeNil)
+
+	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
+		"itsabase",
+		logger,
+		200./60.,
+		2,
+		[]spatialmath.Geometry{sphere},
+		false,
+		true,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, -8000, 0})
+
+	extra := map[string]interface{}{} //
+
+	baseFS := frame.NewEmptyFrameSystem("baseFS")
+	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	planOpts, err := NewPlannerOptionsFromExtra(extra)
+	test.That(t, err, test.ShouldBeNil)
+	planRequest := &PlanRequest{
+		FrameSystem: baseFS,
+		Goals:       []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
+		StartState: &PlanState{
+			configuration: frame.NewZeroInputs(baseFS),
+			poses:         frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
+		},
+		WorldState:     nil,
+		PlannerOptions: planOpts,
+	}
+
+	bidirectionalPlanRaw, err := PlanMotion(ctx, logger, planRequest)
+	test.That(t, err, test.ShouldBeNil)
+
+	// If bidirectional planning worked properly, this plan should wind up at the goal with an orientation of Theta = 180 degrees
+	bidirectionalPlan, err := planToTpspaceRec(bidirectionalPlanRaw, kinematicFrame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatialmath.PoseAlmostCoincidentEps(
+		goal,
+		bidirectionalPlan[len(bidirectionalPlan)-1].Poses()[kinematicFrame.Name()].Pose(),
+		5,
+	), test.ShouldBeTrue)
 }
 
 func TestValidatePlanRequest(t *testing.T) {

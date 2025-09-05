@@ -1,6 +1,6 @@
 //go:build !windows
 
-package armplanning
+package baseplanning
 
 import (
 	"context"

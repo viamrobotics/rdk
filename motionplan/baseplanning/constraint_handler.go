@@ -1,4 +1,4 @@
-package armplanning
+package baseplanning
 
 import (
 	"fmt"
@@ -134,9 +134,12 @@ func newConstraintHandler(
 		handler.AddStateFSConstraint(name, constraint)
 	}
 
-	_, err = handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
+	hasTopoConstraint, err := handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
 	if err != nil {
 		return nil, err
+	}
+	if hasTopoConstraint && (opt.PlanningAlgorithm() != CBiRRT) && (opt.PlanningAlgorithm() != UnspecifiedAlgorithm) {
+		return nil, NewAlgAndConstraintMismatchErr(string(opt.PlanningAlgorithm()))
 	}
 
 	return handler, nil

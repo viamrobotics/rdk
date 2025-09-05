@@ -1,6 +1,6 @@
 //go:build !no_cgo
 
-package armplanning
+package baseplanning
 
 import (
 	"fmt"
@@ -83,7 +83,10 @@ func checkPlanRelative(
 	}
 
 	// setup the planOpts. Poses should be in world frame. This allows us to know e.g. which obstacles may ephemerally collide.
-	planOpts := NewBasicPlannerOptions()
+	planOpts, err := updateOptionsForPlanning(NewBasicPlannerOptions(), motionChains.useTPspace)
+	if err != nil {
+		return err
+	}
 
 	// change from 60mm to 30mm so we have finer interpolation along segments
 	planOpts.Resolution = relativePlanOptsResolution
@@ -231,7 +234,10 @@ func checkPlanAbsolute(
 		return err
 	}
 
-	planOpts := NewBasicPlannerOptions()
+	planOpts, err := updateOptionsForPlanning(NewBasicPlannerOptions(), motionChains.useTPspace)
+	if err != nil {
+		return err
+	}
 
 	constraintHandler, err := newConstraintHandler(
 		planOpts,

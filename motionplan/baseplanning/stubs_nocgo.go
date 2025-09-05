@@ -1,6 +1,6 @@
 //go:build no_cgo
 
-package armplanning
+package baseplanning
 
 import (
 	"math/rand"
@@ -10,6 +10,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
+
+const pathdebug = false
 
 var errNotSupported = errors.New("not supported on this build")
 var flipPose = spatialmath.NewPoseFromOrientation(&spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 180})
