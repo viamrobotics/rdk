@@ -66,7 +66,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 	for _, solution := range solutions[:nSolutions] {
 		goalMap[solution] = nil
 	}
-	nn := &neighborManager{nCPU: nCPU}
 
 	m1chan := make(chan node, 1)
 	defer close(m1chan)
@@ -77,7 +76,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	})
 	seedReached := <-m1chan
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
-	near2 := nn.nearestNeighbor(ctx, seedReached, goalMap, nodeConfigurationDistanceFunc)
+	near2 := nearestNeighbor(seedReached, goalMap, nodeConfigurationDistanceFunc)
 	// extend goalMap towards the point in seedMap
 	utils.PanicCapturingGo(func() {
 		cbirrt.constrainedExtend(ctx, cbirrt.randseed, goalMap, near2, seedReached, m1chan)

@@ -98,10 +98,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		return
 	}
 	// initialize maps
-	// TODO(rb) package neighborManager better
-	nm1 := &neighborManager{nCPU: mp.planOpts.NumThreads}
-	nm2 := &neighborManager{nCPU: mp.planOpts.NumThreads}
-	nmContext, cancel := context.WithCancel(ctx)
+	_, cancel := context.WithCancel(ctx)
 	defer cancel()
 	mp.start = time.Now()
 
@@ -148,10 +145,10 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		tryExtend := func(target node) (node, node, error) {
 			// attempt to extend maps 1 and 2 towards the target
 			utils.PanicCapturingGo(func() {
-				m1chan <- nm1.nearestNeighbor(nmContext, target, map1, nodeConfigurationDistanceFunc)
+				m1chan <- nearestNeighbor(target, map1, nodeConfigurationDistanceFunc)
 			})
 			utils.PanicCapturingGo(func() {
-				m2chan <- nm2.nearestNeighbor(nmContext, target, map2, nodeConfigurationDistanceFunc)
+				m2chan <- nearestNeighbor(target, map2, nodeConfigurationDistanceFunc)
 			})
 			nearest1 := <-m1chan
 			nearest2 := <-m2chan

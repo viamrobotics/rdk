@@ -1,9 +1,6 @@
 package armplanning
 
 import (
-	"context"
-	"math"
-	"runtime"
 	"testing"
 
 	"go.viam.com/test"
@@ -11,10 +8,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-var nCPU = int(math.Max(1.0, float64(runtime.NumCPU()/4)))
-
 func TestNearestNeighbor(t *testing.T) {
-	nm := &neighborManager{nCPU: 2, parallelNeighbors: 1000}
 	rrtMap := map[node]node{}
 
 	j := &basicNode{q: referenceframe.FrameSystemInputs{"": {{0.0}}}}
@@ -25,10 +19,9 @@ func TestNearestNeighbor(t *testing.T) {
 		rrtMap[iSol] = j
 		j = iSol
 	}
-	ctx := context.Background()
 
 	seed := referenceframe.FrameSystemInputs{"": {{23.1}}}
-	nn := nm.nearestNeighbor(ctx, &basicNode{q: seed}, rrtMap, nodeConfigurationDistanceFunc)
+	nn := nearestNeighbor(&basicNode{q: seed}, rrtMap, nodeConfigurationDistanceFunc)
 	test.That(t, nn.Q()[""][0].Value, test.ShouldAlmostEqual, 23.0)
 
 	// We add more nodes to trip the 1000 threshold. The `nearestNeighbor` call will use `nCPU` (2)
@@ -39,6 +32,25 @@ func TestNearestNeighbor(t *testing.T) {
 		j = iSol
 	}
 	seed = referenceframe.FrameSystemInputs{"": {{723.6}}}
-	nn = nm.nearestNeighbor(ctx, &basicNode{q: seed}, rrtMap, nodeConfigurationDistanceFunc)
+	nn = nearestNeighbor(&basicNode{q: seed}, rrtMap, nodeConfigurationDistanceFunc)
 	test.That(t, nn.Q()[""][0].Value, test.ShouldAlmostEqual, 724.0)
+}
+
+func BenchmarkNearestNeighbor(t *testing.B) {
+	rrtMap := map[node]node{}
+
+	j := &basicNode{q: referenceframe.FrameSystemInputs{"": {{0.0}}}}
+	for i := 120.0; i < 11000.0; i++ {
+		iSol := &basicNode{q: referenceframe.FrameSystemInputs{"": {{i}}}}
+		rrtMap[iSol] = j
+		j = iSol
+	}
+	seed := referenceframe.FrameSystemInputs{"": {{723.6}}}
+
+	t.ResetTimer()
+
+	for i := 0; i < t.N; i++ {
+		nn := nearestNeighbor(&basicNode{q: seed}, rrtMap, nodeConfigurationDistanceFunc)
+		test.That(t, nn.Q()[""][0].Value, test.ShouldAlmostEqual, 724.0)
+	}
 }
