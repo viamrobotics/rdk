@@ -64,9 +64,9 @@ func getImageBySourceName(ctx context.Context, cam camera.Camera, sourceName str
 	if len(namedImages) == 0 {
 		return camera.NamedImage{}, fmt.Errorf("no images found for requested source name: %s", sourceName)
 	}
-	if len(namedImages) > 1 {
-		return camera.NamedImage{}, fmt.Errorf("multiple images returned when requesting a single source name: %s", sourceName)
-	}
+
+	// We could have multiple images returned if the camera is on an older version of the API and does not support
+	// filtering by source name. In this case, we'll use the first image and tank the performance costs.
 	if namedImages[0].SourceName != sourceName {
 		return camera.NamedImage{}, fmt.Errorf("mismatched source name: requested %q, got %q", sourceName, namedImages[0].SourceName)
 	}

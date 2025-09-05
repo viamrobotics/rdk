@@ -453,6 +453,7 @@ func TestVideoSourceFromCamera_FilterMultipleImages(t *testing.T) {
 			}
 			if len(sourceNames) == 1 && sourceNames[0] == "good" {
 				// Return multiple images even though a single source was requested
+				// This simulates older camera APIs that don't support filtering
 				return []camera.NamedImage{good, good}, resource.ResponseMetadata{}, nil
 			}
 			return nil, resource.ResponseMetadata{}, fmt.Errorf("unexpected source filter: %v", sourceNames)
@@ -463,10 +464,12 @@ func TestVideoSourceFromCamera_FilterMultipleImages(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	stream, err := vs.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	// First Next() already uses filtered call; expect multiple images error immediately
-	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "multiple images returned when requesting a single source name: good")
+	// First Next() should succeed, using the first image from the multiple returned images
+	img, _, err := stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	diffVal, _, err := rimage.CompareImages(img, src)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, diffVal, test.ShouldEqual, 0)
 }
 
 func TestVideoSourceFromCamera_InvalidImageFirst_ThenValidAlsoAvailable(t *testing.T) {
