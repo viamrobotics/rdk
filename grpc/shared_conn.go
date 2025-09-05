@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
@@ -25,7 +26,7 @@ import (
 // a resource may register with a SharedConn which supports WebRTC.
 type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 
-//nolint
+// nolint
 // The following describes the SharedConn lifetime for viam-server's modmanager communicating with
 // modules it has spawned.
 //
@@ -357,6 +358,10 @@ func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 
 	guard.Success()
 	return nil
+}
+
+func (sc *SharedConn) GetState() connectivity.State {
+	return sc.grpcConn.GetState()
 }
 
 // Close closes a shared connection.

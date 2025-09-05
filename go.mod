@@ -83,7 +83,7 @@ require (
 	go.uber.org/zap v1.27.0
 	go.viam.com/api v0.1.473
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.1.164
+	go.viam.com/utils v0.1.166
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.25.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
@@ -459,3 +459,5 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
 )
+
+replace go.viam.com/utils => ../goutils

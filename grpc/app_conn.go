@@ -22,11 +22,6 @@ type AppConn struct {
 	dialer *utils.StoppableWorkers
 }
 
-// connectivityChecker is an interface that allows us to check the state of a gRPC connection.
-type connectivityChecker interface {
-	GetState() connectivity.State
-}
-
 // NewAppConn creates an `AppConn` instance with a gRPC client connection to App. An initial dial attempt blocks. If it errors, the error
 // is returned. If it times out, an `AppConn` object with a nil underlying client connection will return. Serialized attempts at
 // establishing a connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a
@@ -108,6 +103,11 @@ func NewAppConn(ctx context.Context, appAddress, secret, id string, logger loggi
 	return appConn, nil
 }
 
+// GetState returns the current state of the connection.
+func (ac *AppConn) GetState() connectivity.State {
+	return ac.conn.GetState()
+}
+
 // Close attempts to close the underlying connection and stops background dialing attempts.
 func (ac *AppConn) Close() error {
 	if ac.dialer != nil {
@@ -115,19 +115,6 @@ func (ac *AppConn) Close() error {
 	}
 
 	return ac.ReconfigurableClientConn.Close()
-}
-
-// GetConnectionState returns the current state of the connection.
-func (ac *AppConn) GetConnectionState() connectivity.State {
-	if ac.conn == nil {
-		return connectivity.Connecting
-	}
-
-	if grpcConn, ok := ac.conn.(connectivityChecker); ok {
-		return grpcConn.GetState()
-	}
-
-	return connectivity.Shutdown
 }
 
 func dialOpts(secret, id string) []rpc.DialOption {
