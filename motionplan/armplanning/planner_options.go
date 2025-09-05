@@ -7,7 +7,6 @@ import (
 	"runtime"
 
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
 )
@@ -73,7 +72,6 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt := &PlannerOptions{}
 	opt.GoalMetricType = motionplan.SquaredNorm
 	opt.ConfigurationDistanceMetric = motionplan.FSConfigurationL2DistanceMetric
-	opt.ScoringMetric = motionplan.FSConfigL2ScoringMetric
 
 	// TODO: RSDK-6079 this should be properly used, and deduplicated with defaultEpsilon, InputIdentDist, etc.
 	opt.GoalThreshold = 0.1
@@ -153,9 +151,6 @@ type PlannerOptions struct {
 	// If at least one intermediate waypoint is solved for, but the plan fails before reaching the ultimate goal,
 	// this will if true return the valid plan up to the last solved waypoint.
 	ReturnPartialPlan bool `json:"return_partial_plan"`
-
-	// ScoringMetricStr is an enum indicating the function that the planner will use to evaluate a plan for final cost comparisons.
-	ScoringMetric motionplan.ScoringMetric `json:"scoring_metric"`
 
 	// Determines the algorithm that the planner will use to measure the degree of "closeness" between two states of the robot
 	// See metrics.go for options
@@ -245,17 +240,4 @@ func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
 // SetMinScore specifies the IK stopping score for the planner.
 func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
-}
-
-func (p *PlannerOptions) getScoringFunction(mcs *motionChains) motionplan.SegmentFSMetric {
-	switch p.ScoringMetric {
-	case motionplan.FSConfigScoringMetric:
-		return motionplan.FSConfigurationDistance
-	case motionplan.FSConfigL2ScoringMetric:
-		return motionplan.FSConfigurationL2Distance
-	case motionplan.PTGDistance:
-		return tpspace.NewPTGDistanceMetric([]string{mcs.ptgFrameName})
-	default:
-		return motionplan.FSConfigurationL2Distance
-	}
 }

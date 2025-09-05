@@ -20,9 +20,6 @@ var (
 	errInvalidConstraint = errors.New("invalid constraint input")
 
 	errHighReplanCost = errors.New("unable to create a new plan within replanCostFactor from the original")
-
-	// TODO: This should eventually be possible.
-	errMixedFrameTypes = errors.New("unable to plan for PTG and non-PTG frames simultaneously")
 )
 
 // NewAlgAndConstraintMismatchErr is returned when an incompatible planning_alg is specified and there are contraints.

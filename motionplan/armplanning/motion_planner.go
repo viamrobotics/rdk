@@ -63,17 +63,8 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
-	if !mChains.useTPspace && (request.StartState.configuration == nil) {
-		return nil, errors.New("must populate start state configuration if not planning for 2d base/tpspace")
-	}
-
-	if mChains.useTPspace {
-		if request.StartState.poses == nil {
-			return nil, errors.New("must provide a startPose if solving for PTGs")
-		}
-		if len(request.Goals) != 1 {
-			return nil, errors.New("can only provide one goal if solving for PTGs")
-		}
+	if request.StartState.configuration == nil {
+		return nil, errors.New("must populate start state configuration")
 	}
 
 	boundingRegions, err := referenceframe.NewGeometriesFromProto(request.BoundingRegions)
@@ -143,7 +134,6 @@ func newPlanner(
 		logger:                    logger,
 		randseed:                  seed,
 		planOpts:                  opt,
-		scoringFunction:           opt.getScoringFunction(chains),
 		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
 		motionChains:              chains,
 	}

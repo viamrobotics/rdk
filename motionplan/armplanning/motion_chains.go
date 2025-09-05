@@ -3,21 +3,16 @@ package armplanning
 import (
 	"errors"
 
-	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
 type motionChains struct {
-	inner        []*motionChain
-	useTPspace   bool
-	ptgFrameName string
+	inner []*motionChain
 }
 
 func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to *PlanState) (*motionChains, error) {
-	// create motion chains for each goal, and error check for PTG frames
-	// TODO: currently, if any motion chain has a PTG frame, that must be the only motion chain and that frame must be the only
-	// frame in the chain with nonzero DoF. Eventually this need not be the case.
+	// create motion chains for each goal
 	inner := make([]*motionChain, 0, len(to.poses)+len(to.configuration))
 
 	for frame, pif := range to.poses {
@@ -39,31 +34,8 @@ func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to *PlanState) (*
 		return nil, errors.New("must have at least one motion chain")
 	}
 
-	useTPspace := false
-	ptgFrameName := ""
-	for _, chain := range inner {
-		for _, movingFrame := range chain.frames {
-			if _, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
-				if useTPspace {
-					return nil, errors.New("only one PTG frame can be planned for at a time")
-				}
-				if len(inner) > 1 {
-					return nil, errMixedFrameTypes
-				}
-				useTPspace = true
-				ptgFrameName = movingFrame.Name()
-				chain.worldRooted = true
-			} else if len(movingFrame.DoF()) > 0 {
-				if useTPspace {
-					return nil, errMixedFrameTypes
-				}
-			}
-		}
-	}
 	return &motionChains{
-		inner:        inner,
-		useTPspace:   useTPspace,
-		ptgFrameName: ptgFrameName,
+		inner: inner,
 	}, nil
 }
 

@@ -155,7 +155,7 @@ func (pm *planManager) planAtomicWaypoints(
 		// TPspace should fill in its maps in planRelativeWaypoint and then call planSingleAtomicWaypoint directly so no need to
 		// deal with that here.
 		// TODO: Once TPspace also supports multiple waypoints, this needs to be updated.
-		if !pm.motionChains.useTPspace && maps == nil {
+		if maps == nil {
 			if seed != nil {
 				// If we have a seed, we are linking multiple waypoints, so the next one MUST start at the ending configuration of the last
 				wp.startState = &PlanState{configuration: seed}
