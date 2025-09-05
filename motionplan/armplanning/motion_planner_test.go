@@ -520,13 +520,6 @@ func TestSerializedPlanRequest(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.AddFrame(xArmVgripper, x), test.ShouldBeNil)
 
-	planOpts := NewBasicPlannerOptions()
-	planOpts.PlanningAlgorithmSettings = AlgorithmSettings{
-		CBirrtOpts: &cbirrtOptions{
-			SolutionsToSeed: 150,
-		},
-	}
-
 	constraints := &motionplan.Constraints{
 		CollisionSpecification: []motionplan.CollisionSpecification{
 			{
@@ -549,12 +542,11 @@ func TestSerializedPlanRequest(t *testing.T) {
 	goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 
 	pr := &PlanRequest{
-		FrameSystem:    fs,
-		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
-		StartState:     &PlanState{configuration: frame.NewZeroInputs(fs)},
-		WorldState:     worldState1,
-		Constraints:    constraints,
-		PlannerOptions: planOpts,
+		FrameSystem: fs,
+		Goals:       []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
+		StartState:  &PlanState{configuration: frame.NewZeroInputs(fs)},
+		WorldState:  worldState1,
+		Constraints: constraints,
 	}
 
 	jsonData, err := os.ReadFile("data/plan_request_sample.json")
@@ -567,13 +559,6 @@ func TestSerializedPlanRequest(t *testing.T) {
 	goalPoseInFrame2, ok := parsedPr.Goals[0].Poses()["xArmVgripper"]
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, spatialmath.PoseAlmostEqual(goalPose1, goalPoseInFrame2.Pose()), test.ShouldBeTrue)
-
-	alg1 := pr.PlannerOptions.PlanningAlgorithmSettings
-	alg2 := parsedPr.PlannerOptions.PlanningAlgorithmSettings
-	alg1Cbirrt := alg1.CBirrtOpts
-	alg2Cbiirt := alg2.CBirrtOpts
-	test.That(t, alg2Cbiirt, test.ShouldNotBeNil)
-	test.That(t, alg1Cbirrt.SolutionsToSeed, test.ShouldEqual, alg2Cbiirt.SolutionsToSeed)
 
 	collisionSpecification1 := pr.Constraints.CollisionSpecification[0]
 	test.That(t, parsedPr.Constraints, test.ShouldNotBeNil)

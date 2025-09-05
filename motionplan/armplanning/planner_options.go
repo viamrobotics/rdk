@@ -88,8 +88,6 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.InputIdentDist = defaultInputIdentDist
 	opt.IterBeforeRand = defaultIterBeforeRand
 
-	opt.PlanningAlgorithmSettings = AlgorithmSettings{}
-
 	opt.SmoothIter = defaultSmoothIter
 
 	opt.TimeMultipleAfterFindingFirstSolution = defaultTimeMultipleAfterFindingFirstSolution
@@ -166,10 +164,6 @@ type PlannerOptions struct {
 	// No two geometries that did not start the motion in collision may come within this distance of
 	// one another at any time during a motion.
 	CollisionBufferMM float64 `json:"collision_buffer_mm"`
-
-	// The algorithm used for pathfinding along with any configurable settings for that algorithm. If this
-	// object is not provided, motion planning will use cBiRRT. If you have a 2d base, set this to TPSpace.
-	PlanningAlgorithmSettings AlgorithmSettings `json:"planning_algorithm_settings"`
 
 	// The random seed used by motion algorithms during planning. This parameter guarantees deterministic
 	// outputs for a given set of identical inputs
