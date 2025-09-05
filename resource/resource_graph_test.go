@@ -1165,14 +1165,14 @@ func TestFindBySimpleNameAndAPI(t *testing.T) {
 	fooNotFoundError := &NodeNotFoundError{Name: "foo", API: apiA}
 	fooPrefixedNotFoundError := &NodeNotFoundError{Name: "prefix.foo", API: apiA}
 	remote1AndRemote2MatchingError := &MultipleMatchingRemoteNodesError{
-		Name:  "foo",
-		API:   apiA,
-		Names: []Name{remote1Name, remote2Name},
+		Name:    "foo",
+		API:     apiA,
+		Remotes: []string{remote1Name.Remote, remote2Name.Remote},
 	}
 	remote1AndRemote2PrefixedMatchingError := &MultipleMatchingRemoteNodesError{
-		Name:  "prefix.foo",
-		API:   apiA,
-		Names: []Name{remote1Name, remote2Name},
+		Name:    "prefix.foo",
+		API:     apiA,
+		Remotes: []string{remote1Name.Remote, remote2Name.Remote},
 	}
 
 	// Assert that find on an empty graph returns the correct NodeNotFoundError.
@@ -1252,11 +1252,11 @@ func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) st
 	if msg := test.ShouldResemble(actualErr.Name, expectedErr.Name); msg != "" {
 		return msg
 	}
-	if msg := test.ShouldHaveLength(actualErr.Names, len(expectedErr.Names)); msg != "" {
+	if msg := test.ShouldHaveLength(actualErr.Remotes, len(expectedErr.Remotes)); msg != "" {
 		return msg
 	}
-	for _, n := range expectedErr.Names {
-		if msg := test.ShouldContain(actualErr.Names, n); msg != "" {
+	for _, n := range expectedErr.Remotes {
+		if msg := test.ShouldContain(actualErr.Remotes, n); msg != "" {
 			return msg
 		}
 	}

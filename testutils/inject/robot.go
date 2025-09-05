@@ -78,7 +78,7 @@ func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
 		return nil, errors.New("not found")
 	}
 	r.FindBySimpleNameAndAPIFunc = func(name string, api resource.API) (resource.Resource, error) {
-		var remoteNames []resource.Name
+		var remoteNames []string
 		var remoteResults []resource.Resource
 		for resName, res := range rs {
 			if resName.Name == name && resName.API == api {
@@ -86,7 +86,7 @@ func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
 					return res, nil
 				}
 				remoteResults = append(remoteResults, res)
-				remoteNames = append(remoteNames, resName)
+				remoteNames = append(remoteNames, resName.Remote)
 			}
 		}
 		switch len(remoteResults) {
@@ -94,9 +94,9 @@ func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
 			return remoteResults[0], nil
 		case 0:
 			return nil, &resource.MultipleMatchingRemoteNodesError{
-				Name:  name,
-				API:   api,
-				Names: remoteNames,
+				Name:    name,
+				API:     api,
+				Remotes: remoteNames,
 			}
 		}
 		return nil, resource.NewNotFoundError(resource.NewName(api, name))

@@ -36,13 +36,13 @@ func IsNodeNotFoundError(err error) bool {
 // MultipleMatchingRemoteNodesError is returned when more than one remote resource node matches the name
 // and API query passed to FindBySimpleNameAndAPI.
 type MultipleMatchingRemoteNodesError struct {
-	Name  string
-	API   API
-	Names []Name
+	Name    string
+	API     API
+	Remotes []string
 }
 
 func (e *MultipleMatchingRemoteNodesError) Error() string {
-	return fmt.Sprintf("found multiple nodes matching api %s and name %s (%v)", e.API, e.Name, e.Names)
+	return fmt.Sprintf("found multiple nodes matching api %s and name %s from remotes %v", e.API, e.Name, e.Remotes)
 }
 
 // IsMultipleMatchingRemoteNodesError returns if the given error is any kind of multiple
@@ -81,14 +81,14 @@ func (s graphStorage) setSimpleNameCache(name Name, node *GraphNode) {
 	val := s.simpleNameCache[simpleName]
 	if val == nil {
 		val = &simpleNameVal{
-			remote: map[Name]*GraphNode{},
+			remote: map[string]*GraphNode{},
 		}
 		s.simpleNameCache[simpleName] = val
 	}
 	if name.Remote == "" {
 		val.local = node
 	} else {
-		val.remote[name] = node
+		val.remote[name.Remote] = node
 	}
 }
 
@@ -103,7 +103,7 @@ func (s graphStorage) UpdateSimpleName(name Name, prevPrefix string, node *Graph
 		if name.Remote == "" {
 			prevVal.local = nil
 		} else {
-			delete(prevVal.remote, name)
+			delete(prevVal.remote, name.Remote)
 		}
 	}
 
@@ -125,7 +125,7 @@ func (s graphStorage) Delete(name Name) {
 		existing.local = nil
 		return
 	}
-	delete(existing.remote, name)
+	delete(existing.remote, name.Remote)
 }
 
 func (s graphStorage) Copy() graphStorage {
@@ -159,9 +159,9 @@ func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, 
 		return nil, &NodeNotFoundError{name, api}
 	}
 	return nil, &MultipleMatchingRemoteNodesError{
-		Name:  name,
-		API:   api,
-		Names: slices.Collect(maps.Keys(val.remote)),
+		Name:    name,
+		API:     api,
+		Remotes: slices.Collect(maps.Keys(val.remote)),
 	}
 }
 
@@ -188,7 +188,7 @@ type simpleNameKey struct {
 
 type simpleNameVal struct {
 	local  *GraphNode
-	remote map[Name]*GraphNode
+	remote map[string]*GraphNode
 }
 
 type simpleNameCache map[simpleNameKey]*simpleNameVal
@@ -431,7 +431,7 @@ func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 			}
 		} else {
 			remName, remNode, _ := seq2First(maps.All(v.remote))
-			name.Remote = remName.Remote
+			name.Remote = remName
 			if !filter(name, remNode) {
 				continue
 			}
