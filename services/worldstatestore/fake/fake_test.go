@@ -20,7 +20,8 @@ func TestFakeWorldStateStore(t *testing.T) {
 	// Test ListUUIDs
 	uuids, err := fake.ListUUIDs(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(uuids), test.ShouldEqual, 3) // box, sphere, capsule
+	test.That(t, len(uuids), test.ShouldBeGreaterThanOrEqualTo, 3) // Static transforms are available
+	test.That(t, len(uuids), test.ShouldBeLessThanOrEqualTo, 4)    // Dynamic transform may be available
 
 	// Test GetTransform for each static transform
 	boxTransform, err := fake.GetTransform(context.Background(), []byte("box-001"), nil)
