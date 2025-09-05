@@ -56,22 +56,35 @@ func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (
 
 // getImageBySourceName retrieves a specific named image from the camera by source name.
 func getImageBySourceName(ctx context.Context, cam camera.Camera, sourceName string) (camera.NamedImage, error) {
-	sourceNames := []string{sourceName}
-	namedImages, _, err := cam.Images(ctx, sourceNames, nil)
+	filterSourceNames := []string{sourceName}
+	namedImages, _, err := cam.Images(ctx, filterSourceNames, nil)
 	if err != nil {
 		return camera.NamedImage{}, err
 	}
-	if len(namedImages) == 0 {
+
+	switch len(namedImages) {
+	case 0:
 		return camera.NamedImage{}, fmt.Errorf("no images found for requested source name: %s", sourceName)
+	case 1:
+		namedImage := namedImages[0]
+		if namedImage.SourceName != sourceName {
+			return camera.NamedImage{}, fmt.Errorf("mismatched source name: requested %q, got %q", sourceName, namedImage.SourceName)
+		}
+		return namedImage, nil
+	default:
+		// At this point, multiple images were returned. This can happen if the camera is on an older version of the API and does not support
+		// filtering by source name, or if there is a bug in the camera resource's filtering logic. In this unfortunate case, we'll match the
+		// requested source name and tank the performance costs.
+		responseSourceNames := []string{}
+		for _, namedImage := range namedImages {
+			if namedImage.SourceName == sourceName {
+				return namedImage, nil
+			}
+			responseSourceNames = append(responseSourceNames, namedImage.SourceName)
+		}
+		return camera.NamedImage{},
+			fmt.Errorf("no matching source name found for multiple returned images: requested %q, got %q", sourceName, responseSourceNames)
 	}
-
-	// We could have multiple images returned if the camera is on an older version of the API and does not support
-	// filtering by source name. In this case, we'll use the first image and tank the performance costs.
-	if namedImages[0].SourceName != sourceName {
-		return camera.NamedImage{}, fmt.Errorf("mismatched source name: requested %q, got %q", sourceName, namedImages[0].SourceName)
-	}
-
-	return namedImages[0], nil
 }
 
 // VideoSourceFromCamera converts a camera resource into a gostream VideoSource.

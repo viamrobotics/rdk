@@ -35,8 +35,7 @@ func TestGetStreamableNamedImageFromCamera(t *testing.T) {
 			},
 		}
 		_, err := camerautils.GetStreamableNamedImageFromCamera(context.Background(), cam)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no images received for camera")
+		test.That(t, err, test.ShouldBeError, errors.New(`no images received for camera "::/"`))
 	})
 
 	t.Run("no streamable images", func(t *testing.T) {
@@ -50,8 +49,7 @@ func TestGetStreamableNamedImageFromCamera(t *testing.T) {
 			},
 		}
 		_, err := camerautils.GetStreamableNamedImageFromCamera(context.Background(), cam)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no images were found with a streamable mime type")
+		test.That(t, err, test.ShouldBeError, errors.New(`no images were found with a streamable mime type for camera "::/"`))
 	})
 
 	t.Run("one streamable image", func(t *testing.T) {
@@ -128,7 +126,7 @@ func TestVideoSourceFromCamera(t *testing.T) {
 }
 
 func TestVideoSourceFromCameraFailure(t *testing.T) {
-	malformedNamedImage, err := camera.NamedImageFromBytes([]byte("not a valid image"), "image/undefined", utils.MimeTypePNG)
+	malformedNamedImage, err := camera.NamedImageFromBytes([]byte("not a valid image"), "source", utils.MimeTypePNG)
 	test.That(t, err, test.ShouldBeNil)
 	malformedCam := &inject.Camera{
 		ImagesFunc: func(
@@ -148,8 +146,7 @@ func TestVideoSourceFromCameraFailure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "could not decode image config")
+	test.That(t, err, test.ShouldBeError, errors.New("could not decode image config: image: unknown format"))
 }
 
 func TestVideoSourceFromCameraWithNonsenseMimeType(t *testing.T) {
@@ -175,8 +172,7 @@ func TestVideoSourceFromCameraWithNonsenseMimeType(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no images were found with a streamable mime type")
+	test.That(t, err, test.ShouldBeError, errors.New(`no images were found with a streamable mime type for camera "::/"`))
 }
 
 func TestVideoSourceFromCamera_SourceSelection(t *testing.T) {
@@ -269,8 +265,7 @@ func TestVideoSourceFromCamera_Recovery(t *testing.T) {
 
 	// Second call should fail, as the source is now gone.
 	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "source 'good' is gone")
+	test.That(t, err, test.ShouldBeError, errors.New("source 'good' is gone"))
 
 	// Third image should be the fallback one, because the state machine reset.
 	img, _, err = stream.Next(context.Background())
@@ -299,8 +294,7 @@ func TestVideoSourceFromCamera_NoImages(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no images received")
+	test.That(t, err, test.ShouldBeError, errors.New(`no images received for camera "::/"`))
 }
 
 func TestVideoSourceFromCamera_ImagesError(t *testing.T) {
@@ -386,8 +380,7 @@ func TestVideoSourceFromCamera_NoStreamableSources(t *testing.T) {
 	stream, err := vs.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no images were found with a streamable mime type")
+	test.That(t, err, test.ShouldBeError, errors.New(`no images were found with a streamable mime type for camera "::/"`))
 }
 
 func TestVideoSourceFromCamera_FilterNoImages(t *testing.T) {
@@ -427,8 +420,7 @@ func TestVideoSourceFromCamera_FilterNoImages(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// First Next() corresponds to the first filtered read; expect failure
 	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no images found for requested source name: good")
+	test.That(t, err, test.ShouldBeError, errors.New("no images found for requested source name: good"))
 	// Next Next() should recover and serve fallback
 	img, _, err := stream.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -472,6 +464,94 @@ func TestVideoSourceFromCamera_FilterMultipleImages(t *testing.T) {
 	test.That(t, diffVal, test.ShouldEqual, 0)
 }
 
+func TestVideoSourceFromCamera_FilterMultipleImages_NoMatchingSource(t *testing.T) {
+	src := image.NewRGBA(image.Rect(0, 0, 3, 3))
+	img1, err := camera.NamedImageFromImage(src, "source1", utils.MimeTypeRawRGBA)
+	test.That(t, err, test.ShouldBeNil)
+	img2, err := camera.NamedImageFromImage(src, "source2", utils.MimeTypeRawRGBA)
+	test.That(t, err, test.ShouldBeNil)
+
+	var erroredOnce bool
+	cam := &inject.Camera{
+		ImagesFunc: func(
+			ctx context.Context,
+			sourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			// Initial unfiltered call returns two options. The stream will select "source1".
+			if len(sourceNames) == 0 {
+				if !erroredOnce {
+					return []camera.NamedImage{img1, img2}, resource.ResponseMetadata{}, nil
+				}
+				// For recovery, only return the second option.
+				return []camera.NamedImage{img2}, resource.ResponseMetadata{}, nil
+			}
+
+			// A filtered call for "source1" will return two images that don't match, triggering an error.
+			if len(sourceNames) == 1 && sourceNames[0] == "source1" {
+				erroredOnce = true
+				return []camera.NamedImage{img2, img2}, resource.ResponseMetadata{}, nil
+			}
+
+			// The filtered call for "source2" is used for a successful recovery.
+			if len(sourceNames) == 1 && sourceNames[0] == "source2" {
+				return []camera.NamedImage{img2}, resource.ResponseMetadata{}, nil
+			}
+			return nil, resource.ResponseMetadata{}, fmt.Errorf("unexpected source filter: %v", sourceNames)
+		},
+	}
+
+	vs, err := camerautils.VideoSourceFromCamera(context.Background(), cam)
+	test.That(t, err, test.ShouldBeNil)
+	stream, err := vs.Stream(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	// The first call to `VideoSourceFromCamera` will select "source1". The first call to `stream.Next()`
+	// will then request "source1" and receive two "source2" images, causing an error.
+	_, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeError,
+		errors.New(`no matching source name found for multiple returned images: requested "source1", 
+		got ["source2" "source2"]`))
+
+	// On the next call, the stream should recover by performing an unfiltered images call.
+	// The mock will return only the second image, and the stream should succeed.
+	img, _, err := stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	diffVal, _, err := rimage.CompareImages(img, src)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, diffVal, test.ShouldEqual, 0)
+
+	// Subsequent calls should also succeed.
+	img, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	diffVal, _, err = rimage.CompareImages(img, src)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, diffVal, test.ShouldEqual, 0)
+}
+
+func TestVideoSourceFromCamera_LazyDecodeConfigError(t *testing.T) {
+	malformedImage := rimage.NewLazyEncodedImage(
+		[]byte("not a valid image"),
+		utils.MimeTypePNG,
+	)
+
+	namedImg, err := camera.NamedImageFromImage(malformedImage, "lazy-image", utils.MimeTypePNG)
+	test.That(t, err, test.ShouldBeNil)
+
+	cam := &inject.Camera{
+		ImagesFunc: func(
+			ctx context.Context,
+			sourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{}, nil
+		},
+	}
+
+	_, err = camerautils.VideoSourceFromCamera(context.Background(), cam)
+	test.That(t, err, test.ShouldBeError, errors.New("failed to decode lazy encoded image: image: unknown format"))
+}
+
 func TestVideoSourceFromCamera_InvalidImageFirst_ThenValidAlsoAvailable(t *testing.T) {
 	validImg := image.NewRGBA(image.Rect(0, 0, 3, 3))
 	invalidBytes := []byte("not a valid image")
@@ -508,10 +588,10 @@ func TestVideoSourceFromCamera_InvalidImageFirst_ThenValidAlsoAvailable(t *testi
 	test.That(t, err, test.ShouldBeNil)
 	// First Next(): already failed, and unfiltered selection again chooses invalid first -> fail
 	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, errors.New("could not decode image config: image: unknown format"))
 	// Second Next(): still fails because selection continues to prioritize invalid-first combination
 	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, errors.New("could not decode image config: image: unknown format"))
 }
 
 func TestVideoSourceFromCamera_FilterMismatchedSourceName(t *testing.T) {
@@ -550,8 +630,7 @@ func TestVideoSourceFromCamera_FilterMismatchedSourceName(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// First Next(): filtered mismatch should fail
 	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "mismatched source name: requested \"good\", got \"bad\"")
+	test.That(t, err, test.ShouldBeError, errors.New(`mismatched source name: requested "good", got "bad"`))
 	// Second Next(): should recover and deliver the correct image
 	img, _, err := stream.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
