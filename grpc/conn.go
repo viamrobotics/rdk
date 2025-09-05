@@ -107,7 +107,7 @@ func (c *ReconfigurableClientConn) GetState() connectivity.State {
 	defer c.connMu.RUnlock()
 
 	if c.conn == nil {
-		return rpc.Unknown
+		return connectivity.Connecting
 	}
 
 	return c.conn.GetState()
