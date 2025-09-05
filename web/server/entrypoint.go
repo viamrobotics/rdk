@@ -185,8 +185,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer pprof.StopCPUProfile()
 	}
 
-	var appConn rpc.ClientConn
-	var signalingConn rpc.ClientConn
+	var appConn, signalingConn rpc.ClientConn
 
 	// Read the config from disk and use it to initialize the remote logger.
 	cfgFromDisk, err := config.ReadLocalConfig(argsParsed.ConfigFile, logger.Sublogger("config"))
