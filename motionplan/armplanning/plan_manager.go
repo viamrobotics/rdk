@@ -225,8 +225,7 @@ func (pm *planManager) planAtomicWaypoints(
 		pm.logger.Infof("returning partial plan up to waypoint %d", lastOrig)
 	}
 
-	// TODO: Once TPspace also supports multiple waypoints, this needs to be updated. For now it can be false.
-	return newRRTPlan(resultSlices, pm.fs, false, nil)
+	return newRRTPlan(resultSlices, pm.fs)
 }
 
 // planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the

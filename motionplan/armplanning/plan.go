@@ -11,28 +11,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// OffsetPlan returns a new Plan that is equivalent to the given Plan if its Path was offset by the given Pose.
-// Does not modify Trajectory.
-func OffsetPlan(plan motionplan.Plan, offset spatialmath.Pose) motionplan.Plan {
-	path := plan.Path()
-	if path == nil {
-		return motionplan.NewSimplePlan(nil, plan.Trajectory())
-	}
-	newPath := make([]referenceframe.FrameSystemPoses, 0, len(path))
-	for _, step := range path {
-		newStep := make(referenceframe.FrameSystemPoses, len(step))
-		for frame, pose := range step {
-			newStep[frame] = referenceframe.NewPoseInFrame(pose.Parent(), spatialmath.Compose(offset, pose.Pose()))
-		}
-		newPath = append(newPath, newStep)
-	}
-	simplePlan := motionplan.NewSimplePlan(newPath, plan.Trajectory())
-	if rrt, ok := plan.(*rrtPlan); ok {
-		return &rrtPlan{SimplePlan: *simplePlan, nodes: rrt.nodes}
-	}
-	return simplePlan
-}
-
 func newPath(solution []node, fs *referenceframe.FrameSystem) (motionplan.Path, error) {
 	path := make(motionplan.Path, 0, len(solution))
 	for _, inputNode := range solution {
@@ -51,23 +29,6 @@ func newPath(solution []node, fs *referenceframe.FrameSystem) (motionplan.Path, 
 		path = append(path, poseMap)
 	}
 	return path, nil
-}
-
-func newPathFromRelativePath(path motionplan.Path) (motionplan.Path, error) {
-	if len(path) < 2 {
-		return nil, errors.New("need to have at least 2 elements in path")
-	}
-	newPath := make([]referenceframe.FrameSystemPoses, 0, len(path))
-	newPath = append(newPath, path[0])
-	for i, step := range path[1:] {
-		newStep := make(referenceframe.FrameSystemPoses, len(step))
-		for frame, pose := range step {
-			lastPose := newPath[i][frame].Pose()
-			newStep[frame] = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.Compose(lastPose, pose.Pose()))
-		}
-		newPath = append(newPath, newStep)
-	}
-	return newPath, nil
 }
 
 // PlanState is a struct which holds both a referenceframe.FrameSystemPoses and a configuration.
