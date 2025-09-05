@@ -3,12 +3,10 @@ package baseplanning
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 
-	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/pointcloud"
@@ -178,40 +176,6 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 	return Replan(ctx, logger, request, nil, 0)
 }
 
-// PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
-// WorldState is not supported in the absence of a real frame system.
-func PlanFrameMotion(ctx context.Context,
-	logger logging.Logger,
-	dst spatialmath.Pose,
-	f referenceframe.Frame,
-	seed []referenceframe.Input,
-	constraints *motionplan.Constraints,
-	planningOpts map[string]interface{},
-) ([][]referenceframe.Input, error) {
-	// ephemerally create a framesystem containing just the frame for the solve
-	fs := referenceframe.NewEmptyFrameSystem("")
-	if err := fs.AddFrame(f, fs.World()); err != nil {
-		return nil, err
-	}
-	planOpts, err := NewPlannerOptionsFromExtra(planningOpts)
-	if err != nil {
-		return nil, err
-	}
-	plan, err := PlanMotion(ctx, logger, &PlanRequest{
-		FrameSystem: fs,
-		Goals: []*PlanState{
-			{poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
-		},
-		StartState:     &PlanState{configuration: referenceframe.FrameSystemInputs{f.Name(): seed}},
-		Constraints:    constraints,
-		PlannerOptions: planOpts,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return plan.Trajectory().GetFrameInputs(f.Name())
-}
-
 // Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
 // passed-in plan multiplied by `replanCostFactor`.
 func Replan(
@@ -252,33 +216,4 @@ func Replan(
 	}
 
 	return newPlan, nil
-}
-
-var defaultArmPlannerOptions = &motionplan.Constraints{
-	LinearConstraint: []motionplan.LinearConstraint{},
-}
-
-// MoveArm is a helper function to abstract away movement for general arms.
-func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialmath.Pose) error {
-	inputs, err := a.CurrentInputs(ctx)
-	if err != nil {
-		return err
-	}
-
-	model, err := a.Kinematics(ctx)
-	if err != nil {
-		return err
-	}
-	_, err = model.Transform(inputs)
-	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
-		return errors.New("cannot move arm: " + err.Error())
-	} else if err != nil {
-		return err
-	}
-
-	plan, err := PlanFrameMotion(ctx, logger, dst, model, inputs, defaultArmPlannerOptions, nil)
-	if err != nil {
-		return err
-	}
-	return a.MoveThroughJointPositions(ctx, plan, nil, nil)
 }
