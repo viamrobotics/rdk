@@ -213,6 +213,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		}
 		defer utils.UncheckedErrorFunc(appConn.Close)
 
+		// if SignalingAddress is specified and different from AppAddress, create a new connection to it. Otherwise reuse appConn.
 		if cloud.SignalingAddress != "" && cloud.SignalingAddress != cloud.AppAddress {
 			signalingConnLogger := logger.Sublogger("networking").Sublogger("signaling_connection")
 			signalingConn, err = grpc.NewAppConn(ctx, cloud.SignalingAddress, cloud.Secret, cloud.ID, signalingConnLogger)
@@ -220,6 +221,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				return err
 			}
 			defer utils.UncheckedErrorFunc(signalingConn.Close)
+		} else {
+			signalingConn = appConn
 		}
 	}
 
@@ -302,13 +305,9 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}
-
-	if s.signalingConn != nil {
-		// options.SignalingAddress is set in config processing
-		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithSignalingConn(s.signalingConn))
-	} else {
-		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithSignalingConn(s.conn))
-	}
+	// options.SignalingAddress is set in config processing
+	// signalingConn is a separate connection if SignalingAddress and AppAddress differ, otherwise it points to s.conn
+	options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithSignalingConn(s.signalingConn))
 
 	if len(options.Auth.Handlers) == 0 {
 		host, _, err := net.SplitHostPort(cfg.Network.BindAddress)
