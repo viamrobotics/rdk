@@ -35,8 +35,6 @@ import (
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
-var someBaseName1 = base.Named("base1")
-
 var echoAPI = resource.APINamespaceRDK.WithComponentType("echo")
 
 func init() {
@@ -97,6 +95,7 @@ func TestSessions(t *testing.T) {
 			dummyEcho1 := dummyEcho{
 				Named:  echo1Name.AsNamed(),
 				stopCh: stopChs["echo1"].Chan,
+				res:    base.Named("base1"),
 			}
 			dummyBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["base1"].Chan}
 			resource.RegisterComponent(
@@ -277,7 +276,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	echo1Name := resource.NewName(echoAPI, "echo1")
 	dummyRemMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChs["remMotor1"].Chan}
 	dummyRemMotor2 := dummyMotor{Named: motor2Name.AsNamed(), stopCh: stopChs["remMotor2"].Chan}
-	dummyRemEcho1 := dummyEcho{Named: echo1Name.AsNamed(), stopCh: stopChs["remEcho1"].Chan}
+	dummyRemEcho1 := dummyEcho{Named: echo1Name.AsNamed(), stopCh: stopChs["remEcho1"].Chan, res: base.Named("rem1base1")}
 	dummyRemBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["remBase1"].Chan}
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChs["motor1"].Chan}
 	dummyBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["base1"].Chan}
@@ -524,8 +523,6 @@ func TestSessionsWithRemote(t *testing.T) {
 
 	checkAgainst := []string{"remMotor1", "motor1", "base1"}
 	ensureStop(t, "remMotor2", checkAgainst)
-	// TODO(Benji): This ensureStop still fails below, and I'm too lazy to read through the
-	// horrid stop channel code to figure out why right now.
 	ensureStop(t, "remBase1", checkAgainst)
 	ensureStop(t, "remEcho1", checkAgainst)
 
@@ -980,12 +977,13 @@ type dummyEcho struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
+	res    resource.Name
 	mu     sync.Mutex
 	stopCh chan struct{}
 }
 
 func (e *dummyEcho) EchoMultiple(ctx context.Context) error {
-	session.SafetyMonitorResourceName(ctx, someBaseName1)
+	session.SafetyMonitorResourceName(ctx, e.res)
 	return nil
 }
 
@@ -1059,6 +1057,7 @@ func makeEnsureStop(stopChs map[string]*StopChan) func(t *testing.T, name string
 		stopCases := make([]reflect.SelectCase, 0, len(checkAgainst))
 		for _, checkName := range checkAgainst {
 			test.That(t, stopChs, test.ShouldContainKey, checkName)
+			// Make sure the case we're testing for is the last element of the slice.
 			if stopChs[checkName].Name == name {
 				continue
 			}
@@ -1068,6 +1067,11 @@ func makeEnsureStop(stopChs map[string]*StopChan) func(t *testing.T, name string
 			})
 		}
 
+		// The last element of stopCases, which contains branches of a select
+		// statement, is the one we want to be selected for the test to pass. If
+		// name is the empty string it will be a default case to check that none of
+		// the channels are selected, and if name is non-empty it will be the
+		// channel with that name from stopChs.
 		if name == "" {
 			t.Log("checking nothing stops")
 			stopCases = append(stopCases, reflect.SelectCase{
