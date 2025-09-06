@@ -1083,6 +1083,7 @@ func TestResourceGraphResolveDependencies(t *testing.T) {
 	test.That(t, g.AddNode(name4, node4), test.ShouldBeNil)
 
 	err = g.ResolveDependencies(logger)
+	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "conflicting names")
 	test.That(t, err.Error(), test.ShouldContainSubstring, name1.String())
 	test.That(t, err.Error(), test.ShouldContainSubstring, name3.String())

@@ -493,8 +493,9 @@ func (g *Graph) FindBySimpleName(name string) []Name {
 		}
 		if val.local != nil {
 			result = append(result, Name{API: key.api, Name: name})
-		} else if len(val.remote) == 1 {
-			remote, node, _ := seq2First(maps.All(val.remote))
+			continue
+		}
+		for remote, node := range val.remote {
 			result = append(result, Name{
 				API:    key.api,
 				Name:   strings.Replace(name, node.prefix, "", 1),
