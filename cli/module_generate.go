@@ -284,7 +284,7 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					if s == "" {
 						return errors.New("module name must not be empty")
 					}
-					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_-a-zA-Z0-9]+)*$", s)
+					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_\\-a-zA-Z0-9]+)*$", s)
 					if !match || err != nil {
 						return errors.New("module names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter")
 					}
@@ -329,7 +329,7 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					if s == "" {
 						return errors.New("model name must not be empty")
 					}
-					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_-a-zA-Z0-9]+)*$", s)
+					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_\\-a-zA-Z0-9]+)*$", s)
 					if !match || err != nil {
 						return errors.New("model names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter")
 					}
