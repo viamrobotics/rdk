@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+
 	// TODO(RSDK-7884): change all referenced resources to mocks.
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -428,17 +429,10 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	}
 	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
 
-	expectedSet := []resource.Name{
-		arm.Named("foo:pieceArm"),
-		arm.Named("bar:pieceArm"),
-	}
-
-	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedSet)
-
-	// we expect the robot to correctly detect the ambiguous dependency and not build the resource
-	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 150, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), expectedSet)
-	})
+	// We expect the robot to correctly detect the ambiguous dependency and not
+	// build the resource. The remote pieceArms will also not be included because
+	// their names collide.
+	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), []resource.Name{})
 
 	// now reconfig to remove the ambiguity
 	reConfig := &config.Config{
