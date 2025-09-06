@@ -89,7 +89,7 @@ func NewClientFromConn(
 	return &client{
 		remoteName:     remoteName,
 		Named:          name.PrependRemote(remoteName).AsNamed(),
-		name:           name.ShortName(),
+		name:           name.Name,
 		conn:           conn,
 		streamClient:   streamClient,
 		client:         c,
@@ -698,11 +698,11 @@ func (c *client) trackName() string {
 	if c.remoteName != "" {
 		// if c.remoteName != "" it indicates that we are talking to a remote part & we need to pop the remote name
 		// as the remote doesn't know it's own name from the perspective of the main part
-		return c.Name().PopRemote().SDPTrackName()
+		return c.Name().PopRemote().Name
 	}
 
 	// in this case we are talking to a main part & the remote name (if it exists) needs to be preserved
-	return c.Name().SDPTrackName()
+	return c.Name().Name
 }
 
 func (c *client) unsubscribeAll() {

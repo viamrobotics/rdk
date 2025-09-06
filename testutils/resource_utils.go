@@ -274,3 +274,18 @@ func AddRemotes(values []resource.Name, remotes ...string) []resource.Name {
 	}
 	return rNames
 }
+
+// AddRemotesWithPrefixes takes a slice of [resource.Name] objects and for each
+// pair of (remote, prefix), adds both the remote name and the prefix to the
+// name, then returns a new slice of the modified names.
+// prepends the prefix and then returns the entire list.
+func AddRemotesWithPrefixes(values []resource.Name, remotesWithPrefixes ...string) []resource.Name {
+	var result []resource.Name
+	for _, name := range values {
+		for i := 0; i < len(remotesWithPrefixes); i += 2 {
+			remote, prefix := remotesWithPrefixes[i], remotesWithPrefixes[i+1]
+			result = append(result, name.WithPrefix(prefix).PrependRemote(remote))
+		}
+	}
+	return result
+}

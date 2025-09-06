@@ -14,12 +14,12 @@ import (
 
 type serviceServer struct {
 	pb.UnimplementedServoServiceServer
-	coll resource.APIResourceCollection[Servo]
+	coll resource.APIResourceGetter[Servo]
 }
 
 // NewRPCServiceServer constructs a servo gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Servo]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Servo]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

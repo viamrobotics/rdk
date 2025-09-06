@@ -111,59 +111,6 @@ func TestNewFromString(t *testing.T) {
 	}
 }
 
-func TestSDPTrackName(t *testing.T) {
-	type testCase struct {
-		name   Name
-		output string
-	}
-
-	camAPI := API{Type: APIType{Namespace: APINamespace("rdk"), Name: "component"}, SubtypeName: "camera"}
-	test.That(t, camAPI, test.ShouldResemble, APINamespaceRDK.WithComponentType("camera"))
-
-	tcs := []testCase{
-		{
-			name:   Name{API: camAPI, Remote: "", Name: "cam-1"},
-			output: "cam-1",
-		},
-		{
-			name:   Name{API: camAPI, Remote: "remote", Name: "cam-1"},
-			output: "remote+cam-1",
-		},
-		{
-			name:   Name{API: camAPI, Remote: "remoteA:remoteB", Name: "cam-1"},
-			output: "remoteA+remoteB+cam-1",
-		},
-	}
-	for _, tc := range tcs {
-		test.That(t, tc.name.SDPTrackName(), test.ShouldResemble, tc.output)
-	}
-}
-
-func TestSDPTrackNameToShortName(t *testing.T) {
-	type testCase struct {
-		input  string
-		output string
-	}
-
-	tcs := []testCase{
-		{
-			input:  "cam-1",
-			output: "cam-1",
-		},
-		{
-			input:  "remote+cam-1",
-			output: "remote:cam-1",
-		},
-		{
-			input:  "remoteA+remoteB+cam-1",
-			output: "remoteA:remoteB:cam-1",
-		},
-	}
-	for _, tc := range tcs {
-		test.That(t, SDPTrackNameToShortName(tc.input), test.ShouldResemble, tc.output)
-	}
-}
-
 func TestNamesToStrings(t *testing.T) {
 	type testCase struct {
 		input  []Name

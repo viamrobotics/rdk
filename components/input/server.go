@@ -28,12 +28,12 @@ var (
 // serviceServer implements the InputControllerService from proto.
 type serviceServer struct {
 	pb.UnimplementedInputControllerServiceServer
-	coll resource.APIResourceCollection[Controller]
+	coll resource.APIResourceGetter[Controller]
 }
 
 // NewRPCServiceServer constructs an input controller gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Controller]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Controller]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

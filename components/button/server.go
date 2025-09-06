@@ -14,12 +14,12 @@ import (
 // serviceServer implements the ButtonService from button.proto.
 type serviceServer struct {
 	pb.UnimplementedButtonServiceServer
-	coll resource.APIResourceCollection[Button]
+	coll resource.APIResourceGetter[Button]
 }
 
 // NewRPCServiceServer constructs an gripper gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Button]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Button]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

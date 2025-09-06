@@ -34,7 +34,7 @@ func NewClientFromConn(
 	c := pb.NewEncoderServiceClient(conn)
 	return &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		conn:   conn,
 		client: c,
 		logger: logger,
