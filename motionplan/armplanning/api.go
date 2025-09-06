@@ -153,7 +153,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 						for _, geom := range robotGifs.Geometries() {
 							robotGeoms = append(robotGeoms, geom.Transform(startPose.Pose()))
 						}
-						robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, boundingRegions, buffer)
+						robotGeomBoundingRegionCheck := motionplan.NewBoundingRegionConstraint(robotGeoms, boundingRegions, buffer)
 						if robotGeomBoundingRegionCheck(&motionplan.State{}) != nil {
 							return fmt.Errorf("frame named %s is not within the provided bounding regions", fName)
 						}
@@ -161,7 +161,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 
 					// check that the destination is within or in collision with the bounding regions
 					destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(pif.Pose().Point(), "")}
-					destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, boundingRegions, buffer)
+					destinationBoundingRegionCheck := motionplan.NewBoundingRegionConstraint(destinationAsGeom, boundingRegions, buffer)
 					if destinationBoundingRegionCheck(&motionplan.State{}) != nil {
 						return errors.New("destination was not within the provided bounding regions")
 					}

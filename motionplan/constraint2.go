@@ -1,4 +1,4 @@
-package armplanning
+package motionplan
 
 import (
 	"errors"
@@ -8,7 +8,6 @@ import (
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -24,10 +23,22 @@ const (
 	obstacleConstraintDescription       = "obstacle constraint"
 	selfCollisionConstraintDescription  = "self-collision constraint"
 	robotCollisionConstraintDescription = "robot constraint" // collision between a moving robot component and one that is stationary
+
+	defaultEpsilon = 0.001
+	defaultOrientationDeviation = 2.0
+	defaultConstraintName = "unnamed constraint"
+	defaultLinearDeviation = 0.1
+	defaultPseudolinearTolerance = 0.8
+	defaultCollisionBufferMM = 1e-8
+)
+
+var (
+	errInvalidConstraint = errors.New("invalid constraint input")
+
 )
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func resolveSegmentsToPositions(segment *motionplan.Segment) error {
+func resolveSegmentsToPositions(segment *Segment) error {
 	if segment.StartPosition == nil {
 		if segment.Frame != nil {
 			if segment.StartConfiguration != nil {
@@ -64,7 +75,7 @@ func resolveSegmentsToPositions(segment *motionplan.Segment) error {
 }
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func resolveStatesToPositions(state *motionplan.State) error {
+func resolveStatesToPositions(state *State) error {
 	if state.Position == nil {
 		if state.Frame != nil {
 			if state.Configuration != nil {
@@ -86,19 +97,19 @@ func resolveStatesToPositions(state *motionplan.State) error {
 
 // SegmentFSConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
 // If the returned error is nil, the constraint is satisfied and the segment is valid.
-type SegmentFSConstraint func(*motionplan.SegmentFS) error
+type SegmentFSConstraint func(*SegmentFS) error
 
 // SegmentConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
 // If the returned error is nil, the constraint is satisfied and the segment is valid.
-type SegmentConstraint func(*motionplan.Segment) error
+type SegmentConstraint func(*Segment) error
 
 // StateFSConstraint tests whether a given robot configuration is valid
 // If the returned error is nil, the constraint is satisfied and the state is valid.
-type StateFSConstraint func(*motionplan.StateFS) error
+type StateFSConstraint func(*StateFS) error
 
 // StateConstraint tests whether a given robot configuration is valid
 // If the returned error is nil, the constraint is satisfied and the state is valid.
-type StateConstraint func(*motionplan.State) error
+type StateConstraint func(*State) error
 
 func createAllCollisionConstraints(
 	movingRobotGeometries, staticRobotGeometries, worldGeometries, boundingRegions []spatial.Geometry,
@@ -229,7 +240,7 @@ func NewCollisionConstraint(
 	}
 
 	// create constraint from reference collision graph
-	constraint := func(state *motionplan.State) error {
+	constraint := func(state *State) error {
 		var internalGeoms []spatial.Geometry
 		switch {
 		case state.Configuration != nil:
@@ -251,7 +262,7 @@ func NewCollisionConstraint(
 				internalGeoms = append(internalGeoms, geom.Transform(state.Position))
 			}
 		default:
-			return errors.New("need either a Position or Configuration to be set for a motionplan.State")
+			return errors.New("need either a Position or Configuration to be set for a State")
 		}
 
 		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
@@ -297,7 +308,7 @@ func NewCollisionConstraintFS(
 	}
 
 	// create constraint from reference collision graph
-	constraint := func(state *motionplan.StateFS) error {
+	constraint := func(state *StateFS) error {
 		// Use FrameSystemGeometries to get all geometries in the frame system
 		internalGeometries, err := referenceframe.FrameSystemGeometries(state.FS, state.Configuration)
 		if err != nil {
@@ -331,7 +342,7 @@ func NewCollisionConstraintFS(
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the
 // shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
 // orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
-func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (StateConstraint, motionplan.StateMetric) {
+func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (StateConstraint, StateMetric) {
 	// Account for float error
 	if linTol < defaultEpsilon {
 		linTol = defaultEpsilon
@@ -342,9 +353,9 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 
 	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, orientTol)
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
-	interpMetric := motionplan.CombineMetrics(orientMetric, lineMetric)
+	interpMetric := CombineMetrics(orientMetric, lineMetric)
 
-	f := func(state *motionplan.State) error {
+	f := func(state *State) error {
 		return errors.Join(orientConstraint(state), lineConstraint(state))
 	}
 	return f, interpMetric
@@ -355,8 +366,8 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 func NewProportionalLinearInterpolatingConstraint(
 	from, to spatial.Pose,
 	linEpsilon, orientEpsilon float64,
-) (StateConstraint, motionplan.StateMetric) {
-	orientTol := orientEpsilon * motionplan.OrientDist(from.Orientation(), to.Orientation())
+) (StateConstraint, StateMetric) {
+	orientTol := orientEpsilon * OrientDist(from.Orientation(), to.Orientation())
 	linTol := linEpsilon * from.Point().Distance(to.Point())
 
 	return NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
@@ -365,22 +376,22 @@ func NewProportionalLinearInterpolatingConstraint(
 // NewSlerpOrientationConstraint will measure the orientation difference between the orientation of two poses, and return a constraint that
 // returns whether a given orientation is within a given tolerance distance of the shortest segment between the two orientations, as
 // well as a metric which returns the distance to that valid region.
-func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (StateConstraint, motionplan.StateMetric) {
-	origDist := math.Max(motionplan.OrientDist(start.Orientation(), goal.Orientation()), defaultEpsilon)
+func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (StateConstraint, StateMetric) {
+	origDist := math.Max(OrientDist(start.Orientation(), goal.Orientation()), defaultEpsilon)
 
-	gradFunc := func(state *motionplan.State) float64 {
-		sDist := motionplan.OrientDist(start.Orientation(), state.Position.Orientation())
+	gradFunc := func(state *State) float64 {
+		sDist := OrientDist(start.Orientation(), state.Position.Orientation())
 		gDist := 0.
 
 		// If origDist is less than or equal to defaultEpsilon, then the starting and ending orientations are the same and we do not need
 		// to compute the distance to the ending orientation
 		if origDist > defaultEpsilon {
-			gDist = motionplan.OrientDist(goal.Orientation(), state.Position.Orientation())
+			gDist = OrientDist(goal.Orientation(), state.Position.Orientation())
 		}
 		return (sDist + gDist) - origDist
 	}
 
-	validFunc := func(state *motionplan.State) error {
+	validFunc := func(state *State) error {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return err
@@ -398,12 +409,12 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 // function which will determine whether a point is on the line, and 2) a distance function
 // which will bring a pose into the valid constraint space.
 // tolerance refers to the closeness to the line necessary to be a valid pose in mm.
-func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, motionplan.StateMetric) {
-	gradFunc := func(state *motionplan.State) float64 {
+func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, StateMetric) {
+	gradFunc := func(state *State) float64 {
 		return math.Max(spatial.DistToLineSegment(pt1, pt2, state.Position.Point())-tolerance, 0)
 	}
 
-	validFunc := func(state *motionplan.State) error {
+	validFunc := func(state *State) error {
 		err := resolveStatesToPositions(state)
 		if err != nil {
 			return err
@@ -420,7 +431,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 // NewBoundingRegionConstraint will determine if the given list of robot geometries are in collision with the
 // given list of bounding regions.
 func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry, collisionBufferMM float64) StateConstraint {
-	return func(state *motionplan.State) error {
+	return func(state *State) error {
 		var internalGeoms []spatial.Geometry
 		switch {
 		case state.Configuration != nil:
@@ -456,20 +467,20 @@ func NewBoundingRegionConstraint(robotGeoms, boundingRegions []spatial.Geometry,
 }
 
 type fsPathConstraint struct {
-	metricMap     map[string]motionplan.StateMetric
+	metricMap     map[string]StateMetric
 	constraintMap map[string]StateConstraint
 	goalMap       referenceframe.FrameSystemPoses
 	fs            *referenceframe.FrameSystem
 }
 
-func (fpc *fsPathConstraint) constraint(state *motionplan.StateFS) error {
+func (fpc *fsPathConstraint) constraint(state *StateFS) error {
 	for frame, goal := range fpc.goalMap {
 		if constraint, ok := fpc.constraintMap[frame]; ok {
 			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
 			if err != nil {
 				return err
 			}
-			if err := constraint(&motionplan.State{
+			if err := constraint(&State{
 				Configuration: state.Configuration[frame],
 				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
 				Frame:         fpc.fs.Frame(frame),
@@ -481,7 +492,7 @@ func (fpc *fsPathConstraint) constraint(state *motionplan.StateFS) error {
 	return nil
 }
 
-func (fpc *fsPathConstraint) metric(state *motionplan.StateFS) float64 {
+func (fpc *fsPathConstraint) metric(state *StateFS) float64 {
 	score := 0.
 	for frame, goal := range fpc.goalMap {
 		if metric, ok := fpc.metricMap[frame]; ok {
@@ -490,7 +501,7 @@ func (fpc *fsPathConstraint) metric(state *motionplan.StateFS) float64 {
 				score = math.Inf(1)
 				break
 			}
-			score += metric(&motionplan.State{
+			score += metric(&State{
 				Configuration: state.Configuration[frame],
 				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
 				Frame:         fpc.fs.Frame(frame),
@@ -504,10 +515,10 @@ func newFsPathConstraintSeparatedLinOrientTol(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
-	constructor func(spatial.Pose, spatial.Pose, float64, float64) (StateConstraint, motionplan.StateMetric),
+	constructor func(spatial.Pose, spatial.Pose, float64, float64) (StateConstraint, StateMetric),
 	linTol, orientTol float64,
 ) (*fsPathConstraint, error) {
-	metricMap := map[string]motionplan.StateMetric{}
+	metricMap := map[string]StateMetric{}
 	constraintMap := map[string]StateConstraint{}
 
 	for frame, goal := range to {
@@ -536,10 +547,10 @@ func newFsPathConstraintTol(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
-	constructor func(spatial.Pose, spatial.Pose, float64) (StateConstraint, motionplan.StateMetric),
+	constructor func(spatial.Pose, spatial.Pose, float64) (StateConstraint, StateMetric),
 	tolerance float64,
 ) (*fsPathConstraint, error) {
-	metricMap := map[string]motionplan.StateMetric{}
+	metricMap := map[string]StateMetric{}
 	constraintMap := map[string]StateConstraint{}
 
 	for frame, goal := range to {
@@ -572,7 +583,7 @@ func CreateSlerpOrientationConstraintFS(
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	tolerance float64,
-) (StateFSConstraint, motionplan.StateFSMetric, error) {
+) (StateFSConstraint, StateFSMetric, error) {
 	constraintInternal, err := newFsPathConstraintTol(fs, startCfg, from, to, NewSlerpOrientationConstraint, tolerance)
 	if err != nil {
 		return nil, nil, err
@@ -588,7 +599,7 @@ func CreateAbsoluteLinearInterpolatingConstraintFS(
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	linTol, orientTol float64,
-) (StateFSConstraint, motionplan.StateFSMetric, error) {
+) (StateFSConstraint, StateFSMetric, error) {
 	constraintInternal, err := newFsPathConstraintSeparatedLinOrientTol(
 		fs,
 		startCfg,
@@ -612,7 +623,7 @@ func CreateProportionalLinearInterpolatingConstraintFS(
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	linTol, orientTol float64,
-) (StateFSConstraint, motionplan.StateFSMetric, error) {
+) (StateFSConstraint, StateFSMetric, error) {
 	constraintInternal, err := newFsPathConstraintSeparatedLinOrientTol(
 		fs,
 		startCfg,

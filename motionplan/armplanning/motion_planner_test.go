@@ -38,7 +38,7 @@ type planConfig struct {
 	Goal             *PlanState
 	FS               *frame.FrameSystem
 	Options          *PlannerOptions
-	ConstraintHander *ConstraintHandler
+	ConstraintHander *motionplan.ConstraintHandler
 	MotionChains     *motionChains
 }
 
@@ -132,7 +132,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	}
 
 	opt.GoalMetricType = motionplan.ArcLengthConvergence
-	constraintHandler := newEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintHandler()
 	constraintHandler.pathMetric = oFuncMet
 	constraintHandler.AddStateConstraint("orientation", orientConstraint)
 
@@ -227,7 +227,7 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 
 	// setup planner options
 	opt := NewBasicPlannerOptions()
-	constraintHandler := newEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintHandler()
 	startInput := frame.NewZeroInputs(fs)
 	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90., 0})
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
@@ -343,7 +343,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		return nil, err
 	}
 
-	constraintHandler := newEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintHandler()
 	for name, constraint := range collisionConstraints {
 		constraintHandler.AddStateConstraint(name, constraint)
 	}
@@ -417,7 +417,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	constraintHandler := newEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintHandler()
 	for name, constraint := range collisionConstraints {
 		constraintHandler.AddStateConstraint(name, constraint)
 	}

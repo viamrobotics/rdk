@@ -434,8 +434,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 
 	numSteps := 0
 	for frame, pif := range goalPoses {
-		// Calculate steps needed for this frame
-		steps := CalculateStepCount(startPoses[frame].Pose(), pif.Pose(), stepSize)
+		steps := motionplan.CalculateStepCount(startPoses[frame].Pose(), pif.Pose(), stepSize)
 		if steps > numSteps {
 			numSteps = steps
 		}
