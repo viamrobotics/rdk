@@ -11,7 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/armplanning"
+	"go.viam.com/rdk/motionplan/baseplanning"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
@@ -27,7 +27,7 @@ type KinematicBase interface {
 
 	// ExecutionState returns the state of execution of the base, returning the plan (with any edits) that it is executing, the point
 	// along that plan where it currently is, the inputs representing its current state, and its current position.
-	ExecutionState(context.Context) (armplanning.ExecutionState, error)
+	ExecutionState(context.Context) (baseplanning.ExecutionState, error)
 }
 
 const (

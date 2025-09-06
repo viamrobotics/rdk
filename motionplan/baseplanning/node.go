@@ -1,4 +1,4 @@
-package armplanning
+package baseplanning
 
 import (
 	"context"
@@ -125,6 +125,14 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair, matched bool) 
 		}
 	}
 	return path
+}
+
+func sumCosts(path []node) float64 {
+	cost := 0.
+	for _, wp := range path {
+		cost += wp.Cost()
+	}
+	return cost
 }
 
 // This function is the entrypoint to IK for all cases. Everything prior to here is poses or configurations as the user passed in, which

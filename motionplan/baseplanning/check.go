@@ -1,6 +1,6 @@
 //go:build !no_cgo
 
-package armplanning
+package baseplanning
 
 import (
 	"fmt"

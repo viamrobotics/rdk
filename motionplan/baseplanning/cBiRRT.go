@@ -1,6 +1,6 @@
 //go:build !windows && !no_cgo
 
-package armplanning
+package baseplanning
 
 import (
 	"context"
@@ -32,7 +32,7 @@ const (
 type cBiRRTMotionPlanner struct {
 	*planner
 	fastGradDescent ik.Solver
-	qstep           map[string][]float64
+	algOpts         *cbirrtOptions
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
@@ -56,11 +56,17 @@ func newCBiRRTMotionPlanner(
 	if err != nil {
 		return nil, err
 	}
-
+	algOpts := opt.PlanningAlgorithmSettings.CBirrtOpts
+	if algOpts == nil {
+		algOpts = &cbirrtOptions{
+			SolutionsToSeed: defaultSolutionsToSeed,
+		}
+	}
+	algOpts.qstep = getFrameSteps(mp.lfs, defaultFrameStep)
 	return &cBiRRTMotionPlanner{
 		planner:         mp,
 		fastGradDescent: nlopt,
-		qstep:           getFrameSteps(mp.lfs, defaultFrameStep),
+		algOpts:         algOpts,
 	}, nil
 }
 
@@ -243,7 +249,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
 	deepCopyQstep := func() map[string][]float64 {
 		qstep := map[string][]float64{}
-		for fName, fStep := range mp.qstep {
+		for fName, fStep := range mp.algOpts.qstep {
 			newStep := make([]float64, len(fStep))
 			copy(newStep, fStep)
 			qstep[fName] = newStep
@@ -284,7 +290,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		oldNear = near
 
-		newNear := fixedStepInterpolation(near, target, mp.qstep)
+		newNear := fixedStepInterpolation(near, target, mp.algOpts.qstep)
 		// Check whether newNear meets constraints, and if not, update it to a configuration that does meet constraints (or nil)
 		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
 

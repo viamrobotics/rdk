@@ -1,6 +1,6 @@
 //go:build !windows && !no_cgo
 
-package armplanning
+package baseplanning
 
 import (
 	"context"
@@ -494,7 +494,6 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 
 // getExtensionCandidate will return either nil, or the best node on a valid PTG to reach the desired random node and its RRT tree parent.
 func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
-	ctx context.Context,
 	randPosNode node,
 	ptgNum int,
 	curPtg tpspace.PTGSolver,
@@ -505,16 +504,13 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	distMap := sync.Map{}
 	nodeDistanceFunc := getNodeDistanceFunc(&distMap, curPtg, mp.tpFrame.Name())
 
-	nm := &neighborManager{nCPU: mp.planOpts.NumThreads / len(mp.solvers)}
-	nm.parallelNeighbors = 10
-
 	var successNode node
 	var solution *ik.Solution
 	var err error
 
 	if nearest == nil {
 		// Get nearest neighbor to rand config in tree using this PTG
-		nearest = nm.nearestNeighbor(ctx, randPosNode, rrt, nodeDistanceFunc)
+		nearest = nearestNeighbor(randPosNode, rrt, nodeDistanceFunc)
 		if nearest == nil {
 			return nil, errNoNeighbors
 		}
@@ -602,7 +598,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	// check if this  successNode is too close to nodes already in the tree, and if so, do not add.
 	// Get nearest neighbor to new node that's already in the tree. Note that this uses cartesian distance
 	// rather than the TP-space distance functions in algOpts.
-	nearest = nm.nearestNeighbor(ctx, successNode, rrt, nodeConfigurationDistanceFunc)
+	nearest = nearestNeighbor(successNode, rrt, nodeConfigurationDistanceFunc)
 	if nearest != nil {
 		dist := mp.poseDistanceFunc(&motionplan.Segment{
 			StartPosition: mp.tpFramePose(successNode.Poses()),
@@ -697,7 +693,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 			activeSolvers.Add(1)
 			utils.PanicCapturingGo(func() {
 				defer activeSolvers.Done()
-				cand, err := mp.getExtensionCandidate(ctx, goalNode, ptgNumPar, curPtgPar, rrt, seedNode)
+				cand, err := mp.getExtensionCandidate(goalNode, ptgNumPar, curPtgPar, rrt, seedNode)
 				if err != nil && !errors.Is(err, errNoNeighbors) && !errors.Is(err, errInvalidCandidate) {
 					candChan <- nil
 					return

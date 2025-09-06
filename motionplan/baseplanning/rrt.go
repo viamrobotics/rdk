@@ -1,4 +1,4 @@
-package armplanning
+package baseplanning
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -112,7 +113,7 @@ type rrtPlan struct {
 	nodes []node
 }
 
-func newRRTPlan(solution []node, fs *referenceframe.FrameSystem) (motionplan.Plan, error) {
+func newRRTPlan(solution []node, fs *referenceframe.FrameSystem, relative bool, offsetPose spatialmath.Pose) (motionplan.Plan, error) {
 	if len(solution) == 0 {
 		return nil, errors.New("cannot create plan, no solution was found")
 	} else if len(solution) == 1 {
@@ -124,6 +125,16 @@ func newRRTPlan(solution []node, fs *referenceframe.FrameSystem) (motionplan.Pla
 	if err != nil {
 		return nil, err
 	}
-
-	return &rrtPlan{SimplePlan: *motionplan.NewSimplePlan(path, traj), nodes: solution}, nil
+	if relative {
+		path, err = newPathFromRelativePath(path)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var plan motionplan.Plan
+	plan = &rrtPlan{SimplePlan: *motionplan.NewSimplePlan(path, traj), nodes: solution}
+	if relative {
+		plan = OffsetPlan(plan, offsetPose)
+	}
+	return plan, nil
 }

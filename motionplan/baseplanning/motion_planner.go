@@ -1,5 +1,5 @@
-// Package armplanning is a motion planning library.
-package armplanning
+// Package baseplanning is a motion planning library.
+package baseplanning
 
 import (
 	"context"
@@ -49,6 +49,7 @@ type planner struct {
 	randseed                  *rand.Rand
 	start                     time.Time
 	scoringFunction           motionplan.SegmentFSMetric
+	poseDistanceFunc          motionplan.SegmentMetric
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
 	motionChains              *motionChains
@@ -63,8 +64,22 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
-	if request.StartState.configuration == nil {
-		return nil, errors.New("must populate start state configuration")
+	if !mChains.useTPspace && (request.StartState.configuration == nil) {
+		return nil, errors.New("must populate start state configuration if not planning for 2d base/tpspace")
+	}
+
+	if mChains.useTPspace {
+		if request.StartState.poses == nil {
+			return nil, errors.New("must provide a startPose if solving for PTGs")
+		}
+		if len(request.Goals) != 1 {
+			return nil, errors.New("can only provide one goal if solving for PTGs")
+		}
+	}
+
+	opt, err := updateOptionsForPlanning(request.PlannerOptions, mChains.useTPspace)
+	if err != nil {
+		return nil, err
 	}
 
 	boundingRegions, err := referenceframe.NewGeometriesFromProto(request.BoundingRegions)
@@ -73,7 +88,7 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 	}
 
 	constraintHandler, err := newConstraintHandler(
-		request.PlannerOptions,
+		opt,
 		logger,
 		request.Constraints,
 		request.StartState,
@@ -87,14 +102,14 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 	if err != nil {
 		return nil, err
 	}
-	seed := request.PlannerOptions.RandomSeed
+	seed := opt.RandomSeed
 
 	//nolint:gosec
 	return newPlanner(
 		request.FrameSystem,
 		rand.New(rand.NewSource(int64(seed))),
 		logger,
-		request.PlannerOptions,
+		opt,
 		constraintHandler,
 		mChains,
 	)
@@ -134,6 +149,8 @@ func newPlanner(
 		logger:                    logger,
 		randseed:                  seed,
 		planOpts:                  opt,
+		scoringFunction:           opt.getScoringFunction(chains),
+		poseDistanceFunc:          opt.getPoseDistanceFunc(),
 		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
 		motionChains:              chains,
 	}

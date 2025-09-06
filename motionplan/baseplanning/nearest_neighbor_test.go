@@ -1,4 +1,4 @@
-package armplanning
+package baseplanning
 
 import (
 	"testing"
@@ -34,23 +34,4 @@ func TestNearestNeighbor(t *testing.T) {
 	seed = referenceframe.FrameSystemInputs{"": {{723.6}}}
 	nn = nearestNeighbor(&basicNode{q: seed}, rrtMap, nodeConfigurationDistanceFunc)
 	test.That(t, nn.Q()[""][0].Value, test.ShouldAlmostEqual, 724.0)
-}
-
-func BenchmarkNearestNeighbor(t *testing.B) {
-	rrtMap := map[node]node{}
-
-	j := &basicNode{q: referenceframe.FrameSystemInputs{"": {{0.0}}}}
-	for i := 120.0; i < 11000.0; i++ {
-		iSol := &basicNode{q: referenceframe.FrameSystemInputs{"": {{i}}}}
-		rrtMap[iSol] = j
-		j = iSol
-	}
-	seed := referenceframe.FrameSystemInputs{"": {{723.6}}}
-
-	t.ResetTimer()
-
-	for i := 0; i < t.N; i++ {
-		nn := nearestNeighbor(&basicNode{q: seed}, rrtMap, nodeConfigurationDistanceFunc)
-		test.That(t, nn.Q()[""][0].Value, test.ShouldAlmostEqual, 724.0)
-	}
 }

@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
+	"go.viam.com/rdk/motionplan/baseplanning"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -1098,7 +1099,7 @@ func TestCheckPlan(t *testing.T) {
 		},
 	}
 
-	baseExecutionState, err := armplanning.NewExecutionState(
+	baseExecutionState, err := baseplanning.NewExecutionState(
 		plan, 0, currentInputs,
 		map[string]*referenceframe.PoseInFrame{
 			mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
@@ -1113,7 +1114,7 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		err = armplanning.CheckPlan(wrapperFrame, augmentedBaseExecutionState, nil, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, augmentedBaseExecutionState, nil, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1127,7 +1128,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = armplanning.CheckPlan(wrapperFrame, augmentedBaseExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, augmentedBaseExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
@@ -1151,7 +1152,7 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	inputs := augmentedBaseExecutionState.CurrentInputs()
 	inputs[cameraFrame.Name()] = referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF())))
-	executionStateWithCamera, err := armplanning.NewExecutionState(
+	executionStateWithCamera, err := baseplanning.NewExecutionState(
 		augmentedBaseExecutionState.Plan(), augmentedBaseExecutionState.Index(),
 		inputs, augmentedBaseExecutionState.CurrentPoses(),
 	)
@@ -1169,7 +1170,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = armplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1185,7 +1186,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = armplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
@@ -1215,7 +1216,7 @@ func TestCheckPlan(t *testing.T) {
 		)),
 	}
 
-	newExecutionState, err := armplanning.NewExecutionState(plan, 2, currentInputs, currentPoses)
+	newExecutionState, err := baseplanning.NewExecutionState(plan, 2, currentInputs, currentPoses)
 	test.That(t, err, test.ShouldBeNil)
 	updatedExecutionState, err := mr.augmentBaseExecutionState(ctx, newExecutionState)
 	test.That(t, err, test.ShouldBeNil)
@@ -1233,7 +1234,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = armplanning.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1246,7 +1247,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = armplanning.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

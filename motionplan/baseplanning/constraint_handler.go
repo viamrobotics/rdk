@@ -1,4 +1,4 @@
-package armplanning
+package baseplanning
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -87,6 +88,31 @@ func newConstraintHandler(
 		return nil, err
 	}
 
+	// If we are planning on a SLAM map we want to not allow a collision with the pointcloud to start our move call
+	// Typically starting collisions are whitelisted,
+	// TODO: This is not the most robust way to deal with this but is better than driving through walls.
+	if motionChains.useTPspace {
+		var zeroCG *collisionGraph
+		for _, geom := range worldGeometries {
+			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
+				if zeroCG == nil {
+					zeroCG, err = setupZeroCG(movingRobotGeometries, worldGeometries, allowedCollisions, false, opt.CollisionBufferMM)
+					if err != nil {
+						return nil, err
+					}
+				}
+				// Check if a moving geometry is in collision with a pointcloud. If so, error.
+				for _, collision := range zeroCG.collisions(opt.CollisionBufferMM) {
+					if collision.name1 == octree.Label() {
+						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name2)
+					} else if collision.name2 == octree.Label() {
+						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name1)
+					}
+				}
+			}
+		}
+	}
+
 	// add collision constraints
 	fsCollisionConstraints, stateCollisionConstraints, err := createAllCollisionConstraints(
 		movingRobotGeometries,
@@ -108,9 +134,12 @@ func newConstraintHandler(
 		handler.AddStateFSConstraint(name, constraint)
 	}
 
-	_, err = handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
+	hasTopoConstraint, err := handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
 	if err != nil {
 		return nil, err
+	}
+	if hasTopoConstraint && (opt.PlanningAlgorithm() != CBiRRT) && (opt.PlanningAlgorithm() != UnspecifiedAlgorithm) {
+		return nil, NewAlgAndConstraintMismatchErr(string(opt.PlanningAlgorithm()))
 	}
 
 	return handler, nil
