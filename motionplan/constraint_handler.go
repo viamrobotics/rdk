@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -49,6 +50,7 @@ func NewConstraintHandler(
 	seedMap referenceframe.FrameSystemInputs,
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
+	useTPspace bool,
 ) (*ConstraintHandler, error) {
 	if constraints == nil {
 		// Constraints may be nil, but if a motion profile is set in planningOpts
@@ -82,6 +84,28 @@ func NewConstraintHandler(
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if useTPspace {
+		var zeroCG *collisionGraph
+		for _, geom := range worldGeometries {
+			if octree, ok := geom.(*pointcloud.BasicOctree); ok {
+				if zeroCG == nil {
+					zeroCG, err = setupZeroCG(movingRobotGeometries, worldGeometries, allowedCollisions, false, collisionBufferMM)
+					if err != nil {
+						return nil, err
+					}
+				}
+				// Check if a moving geometry is in collision with a pointcloud. If so, error.
+				for _, collision := range zeroCG.collisions(collisionBufferMM) {
+					if collision.name1 == octree.Label() {
+						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name2)
+					} else if collision.name2 == octree.Label() {
+						return nil, fmt.Errorf("starting collision between SLAM map and %s, cannot move", collision.name1)
+					}
+				}
+			}
+		}
 	}
 
 	// add collision constraints

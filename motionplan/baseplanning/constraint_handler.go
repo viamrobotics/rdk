@@ -45,5 +45,6 @@ func newConstraintHandler(
 		seedMap,
 		worldState,
 		boundingRegions,
+		motionChains.useTPspace,
 	)
 }
