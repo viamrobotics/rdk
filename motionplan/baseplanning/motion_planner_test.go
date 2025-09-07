@@ -277,7 +277,6 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 		worldGeometries.Geometries(),
 		nil, nil,
 		defaultCollisionBufferMM,
-		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -347,7 +346,6 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		nil,
 		nil,
 		defaultCollisionBufferMM,
-		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -422,7 +420,6 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 		nil,
 		nil,
 		defaultCollisionBufferMM,
-		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -1353,7 +1350,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 				f.Name(): frame.NewPoseInFrame(frame.World, startPose),
 			},
 		}
-		err = CheckPlan(f, executionState, nil, fs, math.Inf(1), logger)
+		err = CheckPlan(f, executionState, nil, fs, math.Inf(1))
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("check plan with obstacle", func(t *testing.T) {
@@ -1374,7 +1371,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 				f.Name(): frame.NewPoseInFrame(frame.World, startPose),
 			},
 		}
-		err = CheckPlan(f, executionState, worldState, fs, math.Inf(1), logger)
+		err = CheckPlan(f, executionState, worldState, fs, math.Inf(1))
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }

@@ -266,7 +266,6 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 		worldGeometries.Geometries(),
 		nil, nil,
 		defaultCollisionBufferMM,
-		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -336,7 +335,6 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		nil,
 		nil,
 		defaultCollisionBufferMM,
-		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -411,7 +409,6 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 		nil,
 		nil,
 		defaultCollisionBufferMM,
-		logger,
 	)
 	if err != nil {
 		return nil, err

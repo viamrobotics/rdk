@@ -10,7 +10,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/logging"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -162,8 +161,6 @@ func TestLineFollow(t *testing.T) {
 }
 
 func TestCollisionConstraints(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
 	zeroPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	cases := []struct {
 		input    []frame.Input
@@ -221,7 +218,6 @@ func TestCollisionConstraints(t *testing.T) {
 		worldGeometries.Geometries(),
 		nil, nil,
 		defaultCollisionBufferMM,
-		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
@@ -241,8 +237,6 @@ func TestCollisionConstraints(t *testing.T) {
 }
 
 func BenchmarkCollisionConstraints(b *testing.B) {
-	logger := logging.NewTestLogger(b)
-
 	// define external obstacles
 	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(b, err, test.ShouldBeNil)
@@ -288,7 +282,6 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 		worldGeometries.Geometries(),
 		nil, nil,
 		defaultCollisionBufferMM,
-		logger,
 	)
 	test.That(b, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {

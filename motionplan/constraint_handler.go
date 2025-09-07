@@ -6,7 +6,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -42,7 +41,6 @@ func NewConstraintHandlerWithPathMetric(m StateFSMetric) *ConstraintHandler {
 // NewConstraintHandler - creates a ConstraintHandler with all the params.
 func NewConstraintHandler(
 	collisionBufferMM float64,
-	logger logging.Logger,
 	constraints *Constraints,
 	startPoses, goalPoses referenceframe.FrameSystemPoses,
 	fs *referenceframe.FrameSystem,
@@ -116,7 +114,6 @@ func NewConstraintHandler(
 		boundingRegions,
 		allowedCollisions,
 		collisionBufferMM,
-		logger,
 	)
 	if err != nil {
 		return nil, err

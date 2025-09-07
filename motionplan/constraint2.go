@@ -7,7 +7,6 @@ import (
 
 	"github.com/golang/geo/r3"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -124,7 +123,6 @@ func CreateAllCollisionConstraints(
 	movingRobotGeometries, staticRobotGeometries, worldGeometries, boundingRegions []spatial.Geometry,
 	allowedCollisions []*Collision,
 	collisionBufferMM float64,
-	logger logging.Logger,
 ) (map[string]StateFSConstraint, map[string]StateConstraint, error) {
 	constraintFSMap := map[string]StateFSConstraint{}
 	constraintMap := map[string]StateConstraint{}
@@ -137,7 +135,6 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			false,
 			collisionBufferMM,
-			logger,
 		)
 		if err != nil {
 			return nil, nil, err
@@ -149,7 +146,6 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			false,
 			collisionBufferMM,
-			logger,
 		)
 		if err != nil {
 			return nil, nil, err
@@ -172,8 +168,7 @@ func CreateAllCollisionConstraints(
 			staticRobotGeometries,
 			allowedCollisions,
 			false,
-			collisionBufferMM,
-			logger)
+			collisionBufferMM)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -182,8 +177,7 @@ func CreateAllCollisionConstraints(
 			staticRobotGeometries,
 			allowedCollisions,
 			false,
-			collisionBufferMM,
-			logger)
+			collisionBufferMM)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -193,13 +187,13 @@ func CreateAllCollisionConstraints(
 
 	// create constraint to keep moving geometries from hitting themselves
 	if len(movingRobotGeometries) > 1 {
-		selfCollisionConstraint, err := NewCollisionConstraint(movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM, logger)
+		selfCollisionConstraint, err := NewCollisionConstraint(movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM)
 		if err != nil {
 			return nil, nil, err
 		}
 		constraintMap[selfCollisionConstraintDescription] = selfCollisionConstraint
 		selfCollisionConstraintFS, err := NewCollisionConstraintFS(
-			movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM, logger)
+			movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -234,18 +228,10 @@ func NewCollisionConstraint(
 	collisionSpecifications []*Collision,
 	reportDistances bool,
 	collisionBufferMM float64,
-	logger logging.Logger,
 ) (StateConstraint, error) {
 	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, true, collisionBufferMM)
 	if err != nil {
 		return nil, err
-	}
-	if whitelist := zeroCG.collisions(collisionBufferMM); len(whitelist) > 0 {
-		logStr := "whitelisting collision pairs: "
-		for _, pair := range whitelist {
-			logStr += fmt.Sprintf("{%s, %s}, ", pair.name1, pair.name2)
-		}
-		logger.Debug(logStr)
 	}
 
 	// create constraint from reference collision graph
@@ -297,18 +283,10 @@ func NewCollisionConstraintFS(
 	collisionSpecifications []*Collision,
 	reportDistances bool,
 	collisionBufferMM float64,
-	logger logging.Logger,
 ) (StateFSConstraint, error) {
 	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, true, collisionBufferMM)
 	if err != nil {
 		return nil, err
-	}
-	if whitelist := zeroCG.collisions(collisionBufferMM); len(whitelist) > 0 {
-		logStr := "whitelisting collision pairs: "
-		for _, pair := range whitelist {
-			logStr += fmt.Sprintf("{%s, %s}, ", pair.name1, pair.name2)
-		}
-		logger.Debug(logStr)
 	}
 
 	movingMap := map[string]spatial.Geometry{}

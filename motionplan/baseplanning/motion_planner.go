@@ -89,7 +89,6 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 
 	constraintHandler, err := newConstraintHandler(
 		opt,
-		logger,
 		request.Constraints,
 		request.StartState,
 		request.Goals[0],

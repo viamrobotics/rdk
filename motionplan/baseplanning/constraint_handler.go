@@ -1,7 +1,6 @@
 package baseplanning
 
 import (
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -9,7 +8,6 @@ import (
 
 func newConstraintHandler(
 	opt *PlannerOptions,
-	logger logging.Logger,
 	constraints *motionplan.Constraints,
 	from, to *PlanState,
 	fs *referenceframe.FrameSystem,
@@ -37,7 +35,6 @@ func newConstraintHandler(
 
 	return motionplan.NewConstraintHandler(
 		opt.CollisionBufferMM,
-		logger,
 		constraints,
 		startPoses, goalPoses,
 		fs,

@@ -366,7 +366,6 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 
 	constraintHandler, err := newConstraintHandler(
 		pm.request.PlannerOptions,
-		pm.logger,
 		pm.request.Constraints,
 		startState,
 		wpGoals,
@@ -395,7 +394,6 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 
 		constraintHandler, err = newConstraintHandler(
 			pm.request.PlannerOptions,
-			pm.logger,
 			pm.request.Constraints,
 			startState,
 			wpGoals,
@@ -469,7 +467,6 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 
 		wpConstraintHandler, err := newConstraintHandler(
 			pm.request.PlannerOptions,
-			pm.logger,
 			pm.request.Constraints,
 			from,
 			to,

@@ -361,7 +361,6 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				worldState, // detected obstacles by this instance of camera + service
 				mr.localizingFS,
 				lookAheadDistanceMM,
-				mr.logger,
 			); err != nil {
 				mr.logger.CInfo(ctx, err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
