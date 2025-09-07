@@ -1568,6 +1568,11 @@ func (manager *resourceManager) getRemoteResourceMetadata(ctx context.Context) m
 			manager.logger.Debugw("error getting remote machine node", "remote", resName.Name, "err", err)
 			continue
 		}
+		remoteCfg, ok := gNode.Config().ConvertedAttributes.(*config.Remote)
+		if !ok {
+			manager.logger.Errorw("remote machine resource did not contain a configuration of the expected type", "remote", resName.Name)
+			continue
+		}
 		ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultRemoteMachineStatusTimeout)
 		defer cancel()
 		remote := res.(internalRemoteRobot)
@@ -1581,13 +1586,13 @@ func (manager *resourceManager) getRemoteResourceMetadata(ctx context.Context) m
 			manager.logger.Debugw("error getting remote machine status", "remote", resName.Name, "err", err)
 			continue
 		}
-		// Resources come back without their remote name since they are grabbed
-		// from the remote themselves. We need to add that information back.
-		//
-		// Resources on remote may have different cloud metadata from each other, so keep a map of every
-		// resource to cloud metadata pair we come across.
+		// TODO: update this doc comment
 		for _, remoteResource := range machineStatus.Resources {
-			nameWithRemote := remoteResource.Name.PrependRemote(resName.Name)
+			nameWithRemote := resource.Name{
+				Name:   remoteResource.Name.Name,
+				API:    remoteResource.Name.API,
+				Remote: resName.Name,
+			}.WithPrefix(remoteCfg.Prefix)
 			resourceStatusMap[nameWithRemote] = remoteResource.CloudMetadata
 		}
 	}

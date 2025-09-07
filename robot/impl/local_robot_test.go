@@ -3782,11 +3782,18 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 		name          string
 		remoteOffline bool
 		remoteCloudMd bool
+		remotePrefix  string
 	}{
 		{
 			name:          "remote1 is online and has cloud metadata",
 			remoteOffline: false,
 			remoteCloudMd: true,
+		},
+		{
+			name:          "remote1 has a prefix is online and has cloud metadata",
+			remoteOffline: false,
+			remoteCloudMd: true,
+			remotePrefix:  "rem1_",
 		},
 		{
 			name:          "remote1 is offline and has cloud metadata",
@@ -3886,7 +3893,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 				context.Background(),
 				remote1Dummy,
 				nil,
-				config.Remote{Name: remoteName1},
+				config.Remote{Name: remoteName1, Prefix: tc.remotePrefix},
 			)
 
 			remote1Dummy.SetOffline(tc.remoteOffline)
@@ -3920,7 +3927,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 					},
 					{
 						NodeStatus: resource.NodeStatus{
-							Name:  resName1.PrependRemote(remoteName2),
+							Name:  resName1.PrependRemote(remoteName2).WithPrefix(tc.remotePrefix),
 							State: resource.NodeStateReady,
 						},
 						CloudMetadata: expectedRemote2Md,

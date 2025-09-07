@@ -978,13 +978,24 @@ func (g *Graph) Status() []NodeStatus {
 	defer g.mu.Unlock()
 
 	var result []NodeStatus
-	for name, node := range g.nodes.All() {
-		// TODO (RSDK-9550): Node should have the correct notion of its name
-		// but they don't, so fill it in here
-		status := node.Status()
-		status.Name = name
-		result = append(result, status)
+	for k, v := range g.nodes.simpleNameCache {
+		if v.local != nil {
+			status := v.local.Status()
+			status.Name = Name{
+				API:  k.api,
+				Name: k.name,
+			}
+			result = append(result, status)
+		}
+		for remote, v := range v.remote {
+			status := v.Status()
+			status.Name = Name{
+				API:    k.api,
+				Name:   k.name,
+				Remote: remote,
+			}
+			result = append(result, status)
+		}
 	}
-
 	return result
 }

@@ -65,6 +65,9 @@ func NewFromString(resourceName string) (Name, error) {
 
 // WithPrefix returns a copy of this name with the prefix prepended.
 func (n Name) WithPrefix(prefix string) Name {
+	if prefix == "" {
+		return n
+	}
 	return newRemoteName(n.Remote, n.API, prefix+n.Name)
 }
 
