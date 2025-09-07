@@ -82,7 +82,7 @@ func resolveSegmentsToPositions(segment *Segment) error {
 	return nil
 }
 
-// Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
+// ResolveStatesToPositions  -Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
 func ResolveStatesToPositions(state *State) error {
 	if state.Position == nil {
 		if state.Frame != nil {
@@ -119,6 +119,7 @@ type StateFSConstraint func(*StateFS) error
 // If the returned error is nil, the constraint is satisfied and the state is valid.
 type StateConstraint func(*State) error
 
+// CreateAllCollisionConstraints -.
 func CreateAllCollisionConstraints(
 	movingRobotGeometries, staticRobotGeometries, worldGeometries, boundingRegions []spatial.Geometry,
 	allowedCollisions []*Collision,

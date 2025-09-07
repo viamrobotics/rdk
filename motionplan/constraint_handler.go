@@ -24,18 +24,21 @@ type ConstraintHandler struct {
 	boundingRegions      []spatialmath.Geometry
 }
 
+// NewEmptyConstraintHandler - creates a ConstraintHandler with nothing.
 func NewEmptyConstraintHandler() *ConstraintHandler {
 	handler := ConstraintHandler{}
 	handler.pathMetric = NewZeroFSMetric()
 	return &handler
 }
 
+// NewConstraintHandlerWithPathMetric - creates a ConstraintHandler with a specific metric.
 func NewConstraintHandlerWithPathMetric(m StateFSMetric) *ConstraintHandler {
 	handler := ConstraintHandler{}
 	handler.pathMetric = m
 	return &handler
 }
 
+// NewConstraintHandler - creates a ConstraintHandler with all the params.
 func NewConstraintHandler(
 	collisionBufferMM float64,
 	logger logging.Logger,
@@ -290,7 +293,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *Segment, reso
 	return true, nil
 }
 
-// interpolateSegment is a helper function which produces a list of intermediate inputs, between the start and end
+// InterpolateSegment is a helper function which produces a list of intermediate inputs, between the start and end
 // configuration of a segment at a given resolution value.
 func InterpolateSegment(ci *Segment, resolution float64) ([][]referenceframe.Input, error) {
 	// ensure we have cartesian positions
@@ -540,10 +543,12 @@ func (c *ConstraintHandler) CheckSegmentAndStateValidityFS(
 	return c.CheckSegmentFSConstraints(segment) == nil, nil
 }
 
+// BoundingRegions returns the bounding regions - TODO what does this mean??
 func (c *ConstraintHandler) BoundingRegions() []spatialmath.Geometry {
 	return c.boundingRegions
 }
 
+// PathMetric returns the path metric being used for this ConstraintHandler.
 func (c *ConstraintHandler) PathMetric() StateFSMetric {
 	return c.pathMetric
 }
