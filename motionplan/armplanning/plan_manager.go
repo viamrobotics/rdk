@@ -374,7 +374,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		motionChains,
 		pm.request.StartState.configuration,
 		pm.request.WorldState,
-		pm.boundingRegions,
+		pm.BoundingRegions(),
 	)
 	if err != nil {
 		return nil, err
@@ -403,7 +403,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			motionChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.boundingRegions,
+			pm.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err
@@ -477,7 +477,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			wpChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.boundingRegions,
+			pm.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err

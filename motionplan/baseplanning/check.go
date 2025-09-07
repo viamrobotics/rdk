@@ -276,7 +276,7 @@ func checkSegmentsFS(
 	lookAheadDistanceMM float64,
 	resolution float64,
 	motionChains *motionChains,
-	constraintHandler *ConstraintHandler,
+	constraintHandler *motionplan.ConstraintHandler,
 	fs *referenceframe.FrameSystem,
 ) error {
 	// go through segments and check that we satisfy constraints
@@ -343,12 +343,12 @@ func checkSegments(
 	checkFrame referenceframe.Frame,
 	resolution float64,
 	fs *referenceframe.FrameSystem,
-	cHandler *ConstraintHandler,
+	cHandler *motionplan.ConstraintHandler,
 ) error {
 	// go through segments and check that we satisfy constraints
 	var totalTravelDistanceMM float64
 	for _, segment := range segments {
-		interpolatedConfigurations, err := interpolateSegment(segment, resolution)
+		interpolatedConfigurations, err := motionplan.InterpolateSegment(segment, resolution)
 		if err != nil {
 			return err
 		}

@@ -4,6 +4,7 @@ import (
 	"math/rand"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -44,7 +45,7 @@ type plannerConstructor func(
 	*rand.Rand,
 	logging.Logger,
 	*PlannerOptions,
-	*ConstraintHandler,
+	*motionplan.ConstraintHandler,
 	*motionChains,
 ) (motionPlanner, error)
 
@@ -53,7 +54,7 @@ func newMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
-	constraintHandler *ConstraintHandler,
+	constraintHandler *motionplan.ConstraintHandler,
 	chains *motionChains,
 ) (motionPlanner, error) {
 	switch opt.PlanningAlgorithm() {

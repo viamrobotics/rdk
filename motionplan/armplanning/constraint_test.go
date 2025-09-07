@@ -2,12 +2,9 @@ package armplanning
 
 import (
 	"context"
-	"fmt"
-	"math"
 	"math/rand"
 	"testing"
 
-	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 

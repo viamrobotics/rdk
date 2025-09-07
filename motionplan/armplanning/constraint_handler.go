@@ -1,11 +1,6 @@
 package armplanning
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -34,9 +29,15 @@ func newConstraintHandler(
 		return nil, err
 	}
 
+	// TODO: this is duplicated work as it's also done in motionplan.NewConstraintHandler
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, seedMap)
+	if err != nil {
+		return nil, err
+	}
+
 	movingRobotGeometries, staticRobotGeometries := motionChains.geometries(fs, frameSystemGeometries)
 
-	return motionChains.NewConstraintHandler(
+	return motionplan.NewConstraintHandler(
 		opt.CollisionBufferMM,
 		logger,
 		constraints,

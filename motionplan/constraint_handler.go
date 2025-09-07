@@ -30,6 +30,12 @@ func NewEmptyConstraintHandler() *ConstraintHandler {
 	return &handler
 }
 
+func NewConstraintHandlerWithPathMetric(m StateFSMetric) *ConstraintHandler {
+	handler := ConstraintHandler{}
+	handler.pathMetric = m
+	return &handler
+}
+
 func NewConstraintHandler(
 	collisionBufferMM float64,
 	logger logging.Logger,
@@ -76,7 +82,7 @@ func NewConstraintHandler(
 	}
 
 	// add collision constraints
-	fsCollisionConstraints, stateCollisionConstraints, err := createAllCollisionConstraints(
+	fsCollisionConstraints, stateCollisionConstraints, err := CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries,
@@ -261,14 +267,14 @@ func (c *ConstraintHandler) CheckSegmentFSConstraints(segment *SegmentFS) error 
 // If any constraints fail, this will return false, and an Segment representing the valid portion of the segment, if any. If no
 // part of the segment is valid, then `false, nil` is returned.
 func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *Segment, resolution float64) (bool, *Segment) {
-	interpolatedConfigurations, err := interpolateSegment(ci, resolution)
+	interpolatedConfigurations, err := InterpolateSegment(ci, resolution)
 	if err != nil {
 		return false, nil
 	}
 	var lastGood []referenceframe.Input
 	for i, interpConfig := range interpolatedConfigurations {
 		interpC := &State{Frame: ci.Frame, Configuration: interpConfig}
-		if resolveStatesToPositions(interpC) != nil {
+		if ResolveStatesToPositions(interpC) != nil {
 			return false, nil
 		}
 		if c.CheckStateConstraints(interpC) != nil {
@@ -286,7 +292,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *Segment, reso
 
 // interpolateSegment is a helper function which produces a list of intermediate inputs, between the start and end
 // configuration of a segment at a given resolution value.
-func interpolateSegment(ci *Segment, resolution float64) ([][]referenceframe.Input, error) {
+func InterpolateSegment(ci *Segment, resolution float64) ([][]referenceframe.Input, error) {
 	// ensure we have cartesian positions
 	if err := resolveSegmentsToPositions(ci); err != nil {
 		return nil, err
@@ -532,4 +538,12 @@ func (c *ConstraintHandler) CheckSegmentAndStateValidityFS(
 	}
 	// all states are valid
 	return c.CheckSegmentFSConstraints(segment) == nil, nil
+}
+
+func (c *ConstraintHandler) BoundingRegions() []spatialmath.Geometry {
+	return c.boundingRegions
+}
+
+func (c *ConstraintHandler) PathMetric() StateFSMetric {
+	return c.pathMetric
 }

@@ -75,7 +75,7 @@ func resolveSegmentsToPositions(segment *Segment) error {
 }
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func resolveStatesToPositions(state *State) error {
+func ResolveStatesToPositions(state *State) error {
 	if state.Position == nil {
 		if state.Frame != nil {
 			if state.Configuration != nil {
@@ -111,7 +111,7 @@ type StateFSConstraint func(*StateFS) error
 // If the returned error is nil, the constraint is satisfied and the state is valid.
 type StateConstraint func(*State) error
 
-func createAllCollisionConstraints(
+func CreateAllCollisionConstraints(
 	movingRobotGeometries, staticRobotGeometries, worldGeometries, boundingRegions []spatial.Geometry,
 	allowedCollisions []*Collision,
 	collisionBufferMM float64,
@@ -392,7 +392,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 	}
 
 	validFunc := func(state *State) error {
-		err := resolveStatesToPositions(state)
+		err := ResolveStatesToPositions(state)
 		if err != nil {
 			return err
 		}
@@ -415,7 +415,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 	}
 
 	validFunc := func(state *State) error {
-		err := resolveStatesToPositions(state)
+		err := ResolveStatesToPositions(state)
 		if err != nil {
 			return err
 		}

@@ -215,7 +215,7 @@ func TestCollisionConstraints(t *testing.T) {
 	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, collisionConstraints, err := createAllCollisionConstraints(
+	_, collisionConstraints, err := CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
@@ -282,7 +282,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
 	test.That(b, err, test.ShouldBeNil)
 
-	_, collisionConstraints, err := createAllCollisionConstraints(
+	_, collisionConstraints, err := CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),

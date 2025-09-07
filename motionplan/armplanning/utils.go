@@ -3,12 +3,9 @@ package armplanning
 import (
 	"errors"
 	"fmt"
-	"math"
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 type resultPromise struct {

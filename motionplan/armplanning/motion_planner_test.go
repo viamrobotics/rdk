@@ -120,7 +120,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 		return oFunc(currPose.(*frame.PoseInFrame).Pose().Orientation())
 	}
 	orientConstraint := func(cInput *motionplan.State) error {
-		err := resolveStatesToPositions(cInput)
+		err := motionplan.ResolveStatesToPositions(cInput)
 		if err != nil {
 			return err
 		}
@@ -132,8 +132,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	}
 
 	opt.GoalMetricType = motionplan.ArcLengthConvergence
-	constraintHandler := motionplan.NewEmptyConstraintHandler()
-	constraintHandler.pathMetric = oFuncMet
+	constraintHandler := motionplan.NewConstraintHandlerWithPathMetric(oFuncMet)
 	constraintHandler.AddStateConstraint("orientation", orientConstraint)
 
 	start := &PlanState{configuration: map[string][]frame.Input{model.Name(): home7}}
@@ -261,7 +260,7 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 		return nil, err
 	}
 
-	_, collisionConstraints, err := createAllCollisionConstraints(
+	_, collisionConstraints, err := motionplan.CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
@@ -330,7 +329,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		}
 	}
 
-	fsCollisionConstraints, collisionConstraints, err := createAllCollisionConstraints(
+	fsCollisionConstraints, collisionConstraints, err := motionplan.CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		nil,
@@ -405,7 +404,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 		}
 	}
 
-	fsCollisionConstraints, collisionConstraints, err := createAllCollisionConstraints(
+	fsCollisionConstraints, collisionConstraints, err := motionplan.CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		nil,
