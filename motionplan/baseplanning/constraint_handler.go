@@ -7,8 +7,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var defaultMinStepCount = 2
-
 func newConstraintHandler(
 	opt *PlannerOptions,
 	logger logging.Logger,

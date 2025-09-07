@@ -16,8 +16,6 @@ var (
 	errNoPlannerOptions = errors.New("PlannerOptions are required but have not been specified")
 
 	errIKConstraint = "all IK solutions failed constraints. Failures: "
-
-	errInvalidConstraint = errors.New("invalid constraint input")
 )
 
 // NewAlgAndConstraintMismatchErr is returned when an incompatible planning_alg is specified and there are contraints.

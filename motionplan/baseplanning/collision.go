@@ -1,11 +1,9 @@
 package baseplanning
 
 import (
-	"fmt"
 	"math"
 	"strconv"
 
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -50,93 +48,6 @@ func collisionListsAlmostEqual(cs1, cs2 []Collision) bool {
 		}
 	}
 	return true
-}
-
-func collisionSpecifications(
-	pbConstraint []motionplan.CollisionSpecification,
-	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
-	frameNames, validGeoms map[string]bool,
-) (allowedCollisions []*Collision, err error) {
-	// Get names of all geometries in frame system
-	for frameName, geomsInFrame := range frameSystemGeometries {
-		if _, ok := validGeoms[frameName]; ok {
-			return nil, referenceframe.NewDuplicateGeometryNameError(frameName)
-		}
-		validGeoms[frameName] = true
-		for _, geom := range geomsInFrame.Geometries() {
-			geomName := geom.Label()
-
-			// Ensure we're not double-adding components which only have one geometry, named identically to the component.
-			if (frameName != "" && geomName == frameName) || geomName == "" {
-				continue
-			}
-			if _, ok := validGeoms[geomName]; ok {
-				return nil, referenceframe.NewDuplicateGeometryNameError(geomName)
-			}
-			validGeoms[geomName] = true
-		}
-	}
-
-	// This allows the user to specify an entire component with sub-geometries, e.g. "myUR5arm", and the specification will apply to all
-	// sub-pieces, e.g. myUR5arm:upper_arm_link, myUR5arm:base_link, etc. Individual sub-pieces may also be so addressed.
-	var allowNameToSubGeoms func(cName string) ([]string, error) // Pre-define to allow recursive call
-	allowNameToSubGeoms = func(cName string) ([]string, error) {
-		subNames := []string{}
-
-		// Check if an entire component is specified
-		if _, ok := frameNames[cName]; ok {
-			// If this is an entire component, it likely has an origin frame. Collect any origin geometries as well if so.
-			// These will be the geometries that a user specified for this component in their RDK config, or via `Transforms()`
-			originGeoms, err := allowNameToSubGeoms(cName + "_origin")
-			if err == nil && len(originGeoms) > 0 {
-				subNames = append(subNames, originGeoms...)
-			}
-		}
-
-		// Check if key specified has more than one geometry associated with it. If so, gather the names of all sub-geometries.
-		if geomsInFrame, ok := frameSystemGeometries[cName]; ok {
-			for _, subGeom := range geomsInFrame.Geometries() {
-				subNames = append(subNames, subGeom.Label())
-			}
-		}
-		// Check if it's a single sub-component
-		if validGeoms[cName] {
-			subNames = append(subNames, cName)
-		}
-		if len(subNames) > 0 {
-			return subNames, nil
-		}
-
-		// generate the list of available names to return in error message
-		availNames := make([]string, 0, len(validGeoms))
-		for name := range validGeoms {
-			availNames = append(availNames, name)
-		}
-
-		return nil, fmt.Errorf("geometry specification allow name %s does not match any known geometries. Available: %v", cName, availNames)
-	}
-
-	// Create the structures that specify the allowed collisions
-	for _, collisionSpec := range pbConstraint {
-		for _, allowPair := range collisionSpec.Allows {
-			allow1 := allowPair.Frame1
-			allow2 := allowPair.Frame2
-			allowNames1, err := allowNameToSubGeoms(allow1)
-			if err != nil {
-				return nil, err
-			}
-			allowNames2, err := allowNameToSubGeoms(allow2)
-			if err != nil {
-				return nil, err
-			}
-			for _, allowName1 := range allowNames1 {
-				for _, allowName2 := range allowNames2 {
-					allowedCollisions = append(allowedCollisions, &Collision{name1: allowName1, name2: allowName2})
-				}
-			}
-		}
-	}
-	return allowedCollisions, nil
 }
 
 // geometryGraph is a struct that stores distance relationships between sets of geometries.

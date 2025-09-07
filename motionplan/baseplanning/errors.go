@@ -23,8 +23,6 @@ var (
 
 	errNoCandidates = errors.New("no candidates passed in, skipping")
 
-	errInvalidConstraint = errors.New("invalid constraint input")
-
 	errHighReplanCost = errors.New("unable to create a new plan within replanCostFactor from the original")
 
 	// TODO: This should eventually be possible.
