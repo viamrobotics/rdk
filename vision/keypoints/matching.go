@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/utils"
 )
 
 var logger = logging.NewLogger("matching")
@@ -51,7 +50,7 @@ func MatchDescriptors(desc1, desc2 []Descriptor, cfg *MatchingConfig, logger log
 		return nil
 	}
 	indices1 := rangeInt(len(desc1), 0, 1)
-	matchedIn2 := utils.GetArgMinDistancesPerRowInt(distances)
+	matchedIn2 := getArgMinDistancesPerRowInt(distances)
 	// mask for valid indices
 	maskIdx := make([]int, len(indices1))
 	for i := range maskIdx {
@@ -59,9 +58,9 @@ func MatchDescriptors(desc1, desc2 []Descriptor, cfg *MatchingConfig, logger log
 	}
 	if cfg.DoCrossCheck {
 		// transpose distances
-		distT := utils.Transpose(distances)
+		distT := transpose(distances)
 		// compute argmin per rows on transposed mat
-		matchedIn1 := utils.GetArgMinDistancesPerRowInt(distT)
+		matchedIn1 := getArgMinDistancesPerRowInt(distT)
 		// create mask for indices in cross check
 		for _, idx := range indices1 {
 			if indices1[idx] == matchedIn1[matchedIn2[idx]] {
@@ -126,4 +125,37 @@ func GetMatchingKeyPoints(matches []DescriptorMatch, kps1, kps2 KeyPoints) (KeyP
 		matchedKps2[i] = kps2[match.Idx2]
 	}
 	return matchedKps1, matchedKps2, nil
+}
+
+func getArgMinDistancesPerRowInt(distances [][]int) []int {
+	nRows := len(distances)
+	indices := make([]int, nRows)
+	for j := 0; j < nRows; j++ {
+		m := 0
+		mIndex := 0
+		for i, e := range distances[j] {
+			if i == 0 || e < m {
+				m = e
+				mIndex = i
+			}
+		}
+		indices[j] = mIndex
+	}
+	return indices
+}
+
+// Transpose transposes the slice of slice of ints.
+func transpose(slice [][]int) [][]int {
+	xl := len(slice[0])
+	yl := len(slice)
+	result := make([][]int, xl)
+	for i := range result {
+		result[i] = make([]int, yl)
+	}
+	for i := 0; i < xl; i++ {
+		for j := 0; j < yl; j++ {
+			result[i][j] = slice[j][i]
+		}
+	}
+	return result
 }
