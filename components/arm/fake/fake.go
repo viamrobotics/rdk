@@ -109,6 +109,8 @@ type Arm struct {
 	CloseCount int
 	logger     logging.Logger
 
+	// Writes to `joints` or `model` must hold the write-lock. And reads to `joints` or `model` must
+	// hold the read lock.
 	mu     sync.RWMutex
 	joints []referenceframe.Input
 	model  referenceframe.Model
@@ -154,8 +156,8 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 
 // MoveToPosition sets the position.
 func (a *Arm) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
+	a.mu.Lock()
+	defer a.mu.Unlock()
 
 	model := a.model
 	_, err := model.Transform(a.joints)
@@ -178,8 +180,8 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints []referenceframe.
 	if err := arm.CheckDesiredJointPositions(ctx, a, joints); err != nil {
 		return err
 	}
-	a.mu.RLock()
-	defer a.mu.RUnlock()
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	_, err := a.model.Transform(joints)
 	if err != nil {
 		return err
@@ -207,7 +209,10 @@ func (a *Arm) MoveThroughJointPositions(
 func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return a.joints, nil
+
+	ret := make([]referenceframe.Input, len(a.joints))
+	copy(ret, a.joints)
+	return ret, nil
 }
 
 // Stop doesn't do anything for a fake arm.
@@ -231,7 +236,11 @@ func (a *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return a.joints, nil
+
+	ret := make([]referenceframe.Input, len(a.joints))
+	copy(ret, a.joints)
+
+	return ret, nil
 }
 
 // GoToInputs moves the fake arm to the given inputs.
@@ -250,6 +259,8 @@ func (a *Arm) Close(ctx context.Context) error {
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 // current location relative to the frame of the resource.
 func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	inputs, err := a.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
