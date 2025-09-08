@@ -103,7 +103,6 @@ jobs:
     - name: build
       run:
         make windows
-
     - name: test
       env:
         GOFLAGS: "-tags=no_cgo"
