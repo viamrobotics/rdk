@@ -173,6 +173,12 @@ func TestModManagerFunctions(t *testing.T) {
 			test.That(t, ok, test.ShouldBeFalse)
 			test.That(t, modEnv["VIAM_MODULE_ROOT"], test.ShouldNotBeEmpty)
 
+			originalPath := mod.cfg.ExePath
+			mod.cfg.ExePath = filepath.Join(originalPath, "fake.tar.gz")
+			modEnv = mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+			test.That(t, strings.Contains(modEnv["VIAM_MODULE_ROOT"], filepath.Join(viamHomeTemp, "packages-local")), test.ShouldBeTrue)
+			mod.cfg.ExePath = originalPath
+
 			// Make a copy of addr and client to test that connections are properly remade
 			oldAddr := mod.addr
 			oldClient := mod.client
