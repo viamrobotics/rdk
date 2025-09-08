@@ -3,6 +3,7 @@ package armplanning
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"slices"
@@ -112,7 +113,7 @@ func newPlanner(
 		return nil, err
 	}
 	if opt == nil {
-		opt = NewBasicPlannerOptions()
+		return nil, fmt.Errorf("opt is nil, should never be")
 	}
 	if constraintHandler == nil {
 		constraintHandler = motionplan.NewEmptyConstraintChecker()

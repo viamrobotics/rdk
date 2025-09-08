@@ -215,6 +215,10 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 	logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	logger.CDebugf(ctx, "motion config for this step: %v", request.PlannerOptions)
 
+	if request.PlannerOptions == nil {
+		request.PlannerOptions = NewBasicPlannerOptions()
+	}
+
 	sfPlanner, err := newPlanManager(logger, request)
 	if err != nil {
 		return nil, err
