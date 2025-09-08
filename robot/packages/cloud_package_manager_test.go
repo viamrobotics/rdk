@@ -353,6 +353,7 @@ func TestCloud(t *testing.T) {
 
 		// Validate sync file exists and has failed status and mod time has not changed
 		_, err = os.Stat(syncFileName)
+		test.That(t, err, test.ShouldBeNil)
 		statusFile, err := readStatusFile(input, pm.(*cloudManager).packagesDir)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, statusFile.ModifiedTime, test.ShouldEqual, failedStatusFile.ModifiedTime)
