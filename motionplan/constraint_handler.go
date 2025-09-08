@@ -187,7 +187,7 @@ func (c *ConstraintHandler) addLinearConstraints(
 	if orientTol == 0 {
 		orientTol = defaultOrientationDeviation
 	}
-	constraint, pathDist, err := CreateAbsoluteLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
+	constraint, pathDist, err := createAbsoluteLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
 	if err != nil {
 		return err
 	}
@@ -213,7 +213,7 @@ func (c *ConstraintHandler) addPseudolinearConstraints(
 	if orientTol == 0 {
 		orientTol = defaultPseudolinearTolerance
 	}
-	constraint, pathDist, err := CreateProportionalLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
+	constraint, pathDist, err := createProportionalLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
 	if err != nil {
 		return err
 	}
@@ -233,7 +233,7 @@ func (c *ConstraintHandler) addOrientationConstraints(
 	if orientTol == 0 {
 		orientTol = defaultOrientationDeviation
 	}
-	constraint, pathDist, err := CreateSlerpOrientationConstraintFS(fs, startCfg, from, to, orientTol)
+	constraint, pathDist, err := createSlerpOrientationConstraintFS(fs, startCfg, from, to, orientTol)
 	if err != nil {
 		return err
 	}

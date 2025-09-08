@@ -73,7 +73,6 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 	return &pb.MoveOnGlobeResponse{ExecutionId: id.String()}, nil
 }
 
-//nolint:staticcheck
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
@@ -90,7 +89,7 @@ func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 	if err != nil {
 		return nil, err
 	}
-	//nolint:staticcheck
+	
 	return &pb.GetPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(pose)}, nil
 }
 

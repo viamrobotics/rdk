@@ -305,10 +305,10 @@ func NewCollisionConstraintFS(
 	return constraint, nil
 }
 
-// NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the
+// newAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the
 // shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
 // orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
-func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (StateConstraint, StateMetric) {
+func newAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (StateConstraint, StateMetric) {
 	// Account for float error
 	if linTol < defaultEpsilon {
 		linTol = defaultEpsilon
@@ -317,7 +317,7 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 		orientTol = defaultEpsilon
 	}
 
-	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, orientTol)
+	orientConstraint, orientMetric := newSlerpOrientationConstraint(from, to, orientTol)
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
 	interpMetric := CombineMetrics(orientMetric, lineMetric)
 
@@ -327,22 +327,22 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 	return f, interpMetric
 }
 
-// NewProportionalLinearInterpolatingConstraint will provide the same metric and constraint as NewAbsoluteLinearInterpolatingConstraint,
+// newProportionalLinearInterpolatingConstraint will provide the same metric and constraint as newAbsoluteLinearInterpolatingConstraint,
 // except that allowable linear and orientation deviation is scaled based on the distance from start to goal.
-func NewProportionalLinearInterpolatingConstraint(
+func newProportionalLinearInterpolatingConstraint(
 	from, to spatial.Pose,
 	linEpsilon, orientEpsilon float64,
 ) (StateConstraint, StateMetric) {
 	orientTol := orientEpsilon * OrientDist(from.Orientation(), to.Orientation())
 	linTol := linEpsilon * from.Point().Distance(to.Point())
 
-	return NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
+	return newAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
 }
 
-// NewSlerpOrientationConstraint will measure the orientation difference between the orientation of two poses, and return a constraint that
+// newSlerpOrientationConstraint will measure the orientation difference between the orientation of two poses, and return a constraint that
 // returns whether a given orientation is within a given tolerance distance of the shortest segment between the two orientations, as
 // well as a metric which returns the distance to that valid region.
-func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (StateConstraint, StateMetric) {
+func newSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (StateConstraint, StateMetric) {
 	origDist := math.Max(OrientDist(start.Orientation(), goal.Orientation()), defaultEpsilon)
 
 	gradFunc := func(state *State) float64 {
@@ -544,13 +544,13 @@ func newFsPathConstraintTol(
 // CreateSlerpOrientationConstraintFS will measure the orientation difference between the orientation of two poses across a frame system,
 // and return a constraint that returns whether given orientations are within a given tolerance distance of the shortest segment between
 // their respective orientations, as well as a metric which returns the distance to that valid region.
-func CreateSlerpOrientationConstraintFS(
+func createSlerpOrientationConstraintFS(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
 	tolerance float64,
 ) (StateFSConstraint, StateFSMetric, error) {
-	constraintInternal, err := newFsPathConstraintTol(fs, startCfg, from, to, NewSlerpOrientationConstraint, tolerance)
+	constraintInternal, err := newFsPathConstraintTol(fs, startCfg, from, to, newSlerpOrientationConstraint, tolerance)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -560,7 +560,7 @@ func CreateSlerpOrientationConstraintFS(
 // CreateAbsoluteLinearInterpolatingConstraintFS provides a Constraint whose valid manifold allows a specified amount of deviation from the
 // shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
 // orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
-func CreateAbsoluteLinearInterpolatingConstraintFS(
+func createAbsoluteLinearInterpolatingConstraintFS(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
@@ -571,7 +571,7 @@ func CreateAbsoluteLinearInterpolatingConstraintFS(
 		startCfg,
 		from,
 		to,
-		NewAbsoluteLinearInterpolatingConstraint,
+		newAbsoluteLinearInterpolatingConstraint,
 		linTol,
 		orientTol,
 	)
@@ -584,7 +584,7 @@ func CreateAbsoluteLinearInterpolatingConstraintFS(
 // CreateProportionalLinearInterpolatingConstraintFS will provide the same metric and constraint as
 // CreateAbsoluteLinearInterpolatingConstraintFS, except that allowable linear and orientation deviation is scaled based on the distance
 // from start to goal.
-func CreateProportionalLinearInterpolatingConstraintFS(
+func createProportionalLinearInterpolatingConstraintFS(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
@@ -595,7 +595,7 @@ func CreateProportionalLinearInterpolatingConstraintFS(
 		startCfg,
 		from,
 		to,
-		NewProportionalLinearInterpolatingConstraint,
+		newProportionalLinearInterpolatingConstraint,
 		linTol,
 		orientTol,
 	)

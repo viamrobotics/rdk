@@ -34,7 +34,7 @@ func TestConstraintPath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Test interpolating with a proportional constraint, should pass
-	constraint, _ := NewProportionalLinearInterpolatingConstraint(ci.StartPosition, ci.EndPosition, 0.01, 0.01)
+	constraint, _ := newProportionalLinearInterpolatingConstraint(ci.StartPosition, ci.EndPosition, 0.01, 0.01)
 	handler.AddStateConstraint("interp", constraint)
 	ok, failCI = handler.CheckSegmentAndStateValidity(ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
