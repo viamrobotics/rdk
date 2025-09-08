@@ -18,7 +18,7 @@ func newCBiRRTMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
-	constraintHandler *motionplan.ConstraintHandler,
+	constraintHandler *motionplan.ConstraintChecker,
 	motionChains *motionChains,
 ) (motionPlanner, error) {
 	return nil, errNotSupported

@@ -45,7 +45,7 @@ type plannerConstructor func(
 	*rand.Rand,
 	logging.Logger,
 	*PlannerOptions,
-	*motionplan.ConstraintHandler,
+	*motionplan.ConstraintChecker,
 	*motionChains,
 ) (motionPlanner, error)
 
@@ -54,7 +54,7 @@ func newMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
-	constraintHandler *motionplan.ConstraintHandler,
+	constraintHandler *motionplan.ConstraintChecker,
 	chains *motionChains,
 ) (motionPlanner, error) {
 	switch opt.PlanningAlgorithm() {

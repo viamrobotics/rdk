@@ -26,7 +26,7 @@ func TestConstraintPath(t *testing.T) {
 	err = resolveSegmentsToPositions(ci)
 	test.That(t, err, test.ShouldBeNil)
 
-	handler := &ConstraintHandler{}
+	handler := &ConstraintChecker{}
 
 	// No constraints, should pass
 	ok, failCI := handler.CheckSegmentAndStateValidity(ci, 0.5)
@@ -113,7 +113,7 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	goalFrame := fs.World()
 
-	opt := NewEmptyConstraintHandler()
+	opt := NewEmptyConstraintChecker()
 	startCfg := map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mp1)}
 	from := frame.FrameSystemPoses{markerFrame.Name(): frame.NewPoseInFrame(markerFrame.Name(), p1)}
 	to := frame.FrameSystemPoses{markerFrame.Name(): frame.NewPoseInFrame(goalFrame.Name(), p2)}
@@ -189,7 +189,7 @@ func TestCollisionConstraints(t *testing.T) {
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
 	seedMap := frame.NewZeroInputs(fs)
-	handler := &ConstraintHandler{}
+	handler := &ConstraintChecker{}
 
 	// create robot collision entities
 	movingGeometriesInFrame, err := model.Geometries(seedMap[model.Name()])
@@ -253,7 +253,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	err = fs.AddFrame(model, fs.Frame(frame.World))
 	test.That(b, err, test.ShouldBeNil)
 	seedMap := frame.NewZeroInputs(fs)
-	handler := &ConstraintHandler{}
+	handler := &ConstraintChecker{}
 
 	// create robot collision entities
 	movingGeometriesInFrame, err := model.Geometries(seedMap[model.Name()])

@@ -6,7 +6,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-func newConstraintHandler(
+func newConstraintChecker(
 	opt *PlannerOptions,
 	constraints *motionplan.Constraints,
 	from, to *PlanState,
@@ -15,7 +15,7 @@ func newConstraintHandler(
 	seedMap referenceframe.FrameSystemInputs,
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
-) (*motionplan.ConstraintHandler, error) {
+) (*motionplan.ConstraintChecker, error) {
 	startPoses, err := from.ComputePoses(fs)
 	if err != nil {
 		return nil, err
@@ -25,7 +25,7 @@ func newConstraintHandler(
 		return nil, err
 	}
 
-	// TODO: this is duplicated work as it's also done in motionplan.NewConstraintHandler
+	// TODO: this is duplicated work as it's also done in motionplan.NewConstraintChecker
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, seedMap)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func newConstraintHandler(
 
 	movingRobotGeometries, staticRobotGeometries := motionChains.geometries(fs, frameSystemGeometries)
 
-	return motionplan.NewConstraintHandler(
+	return motionplan.NewConstraintChecker(
 		opt.CollisionBufferMM,
 		constraints,
 		startPoses, goalPoses,

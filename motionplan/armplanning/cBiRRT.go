@@ -41,7 +41,7 @@ func newCBiRRTMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
-	constraintHandler *motionplan.ConstraintHandler,
+	constraintHandler *motionplan.ConstraintChecker,
 	chains *motionChains,
 ) (motionPlanner, error) {
 	if opt == nil {
@@ -359,7 +359,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 
 		// Spawn the IK solver to generate solutions until done
 		err = mp.fastGradDescent.Solve(ctx, solutionGen, linearSeed, 0, 0,
-			mp.linearizeFSmetric(mp.ConstraintHandler.PathMetric()), randseed.Int())
+			mp.linearizeFSmetric(mp.ConstraintChecker.PathMetric()), randseed.Int())
 		// We should have zero or one solutions
 		var solved *ik.Solution
 		select {

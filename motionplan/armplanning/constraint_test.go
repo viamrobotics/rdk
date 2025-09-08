@@ -23,7 +23,7 @@ func TestIKTolerances(t *testing.T) {
 	fs := frame.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())
 	mp, err := newCBiRRTMotionPlanner(
-		fs, rand.New(rand.NewSource(1)), logger, NewBasicPlannerOptions(), motionplan.NewEmptyConstraintHandler(), nil)
+		fs, rand.New(rand.NewSource(1)), logger, NewBasicPlannerOptions(), motionplan.NewEmptyConstraintChecker(), nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
@@ -39,7 +39,7 @@ func TestIKTolerances(t *testing.T) {
 	opt := NewBasicPlannerOptions()
 	opt.GoalMetricType = motionplan.PositionOnly
 	opt.SetMaxSolutions(50)
-	mp, err = newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(1)), logger, opt, motionplan.NewEmptyConstraintHandler(), nil)
+	mp, err = newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(1)), logger, opt, motionplan.NewEmptyConstraintChecker(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = mp.plan(context.Background(), seed, goal)
 	test.That(t, err, test.ShouldBeNil)
