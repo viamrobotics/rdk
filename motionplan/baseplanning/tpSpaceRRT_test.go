@@ -1,6 +1,6 @@
 //go:build !windows
 
-package armplanning
+package baseplanning
 
 import (
 	"context"
@@ -58,7 +58,7 @@ func TestPtgRrtBidirectional(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	mp, err := newTPSpaceMotionPlanner(
-		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler(), motionChains)
+		fs, rand.New(rand.NewSource(42)), logger, opt, motionplan.NewEmptyConstraintHandler(), motionChains)
 	test.That(t, err, test.ShouldBeNil)
 	tp, ok := mp.(*tpSpaceRRTMotionPlanner)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -145,17 +145,16 @@ func TestPtgWithObstacle(t *testing.T) {
 	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, collisionConstraints, err := createAllCollisionConstraints(
+	_, collisionConstraints, err := motionplan.CreateAllCollisionConstraints(
 		geometries, // moving geometries
 		nil,        // static robot geometries
 		worldGeometries.Geometries(),
 		nil, nil,
 		defaultCollisionBufferMM,
-		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	constraintHandler := newEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintHandler()
 	for name, constraint := range collisionConstraints {
 		constraintHandler.AddStateConstraint(name, constraint)
 	}
@@ -242,7 +241,7 @@ func TestTPsmoothing(t *testing.T) {
 
 	// Create and initialize planner
 	mp, err := newTPSpaceMotionPlanner(
-		fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler(), motionChains)
+		fs, rand.New(rand.NewSource(42)), logger, opt, motionplan.NewEmptyConstraintHandler(), motionChains)
 	test.That(t, err, test.ShouldBeNil)
 	tp, _ := mp.(*tpSpaceRRTMotionPlanner)
 

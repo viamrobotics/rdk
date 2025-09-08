@@ -1,13 +1,12 @@
 //go:build !no_cgo
 
-package armplanning
+package baseplanning
 
 import (
 	"fmt"
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -26,7 +25,6 @@ func CheckPlan(
 	worldState *referenceframe.WorldState,
 	fs *referenceframe.FrameSystem,
 	lookAheadDistanceMM float64,
-	logger logging.Logger,
 ) error {
 	plan := executionState.Plan()
 	wayPointIdx := executionState.Index()
@@ -47,13 +45,12 @@ func CheckPlan(
 	// This should be done for any plan whose configurations are specified in relative terms rather than absolute ones.
 	// Currently this is only TP-space, so we check if the PTG length is >0.
 	if motionChains.useTPspace {
-		return checkPlanRelative(logger, checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
+		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
 	}
-	return checkPlanAbsolute(logger, checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
+	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
 }
 
 func checkPlanRelative(
-	logger logging.Logger,
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
@@ -93,7 +90,6 @@ func checkPlanRelative(
 
 	constraintHandler, err := newConstraintHandler(
 		planOpts,
-		logger,
 		nil,
 		&PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
 		&PlanState{poses: plan.Path()[len(plan.Path())-1]},
@@ -195,7 +191,6 @@ func checkPlanRelative(
 }
 
 func checkPlanAbsolute(
-	logger logging.Logger,
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
@@ -241,7 +236,6 @@ func checkPlanAbsolute(
 
 	constraintHandler, err := newConstraintHandler(
 		planOpts,
-		logger,
 		nil,
 		&PlanState{poses: executionState.CurrentPoses(), configuration: startingInputs},
 		&PlanState{poses: poses[len(poses)-1]},
@@ -276,7 +270,7 @@ func checkSegmentsFS(
 	lookAheadDistanceMM float64,
 	resolution float64,
 	motionChains *motionChains,
-	constraintHandler *ConstraintHandler,
+	constraintHandler *motionplan.ConstraintHandler,
 	fs *referenceframe.FrameSystem,
 ) error {
 	// go through segments and check that we satisfy constraints
@@ -343,12 +337,12 @@ func checkSegments(
 	checkFrame referenceframe.Frame,
 	resolution float64,
 	fs *referenceframe.FrameSystem,
-	cHandler *ConstraintHandler,
+	cHandler *motionplan.ConstraintHandler,
 ) error {
 	// go through segments and check that we satisfy constraints
 	var totalTravelDistanceMM float64
 	for _, segment := range segments {
-		interpolatedConfigurations, err := interpolateSegment(segment, resolution)
+		interpolatedConfigurations, err := motionplan.InterpolateSegment(segment, resolution)
 		if err != nil {
 			return err
 		}

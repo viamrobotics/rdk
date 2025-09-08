@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // When we generate solutions, if a new solution is within this level of similarity to an existing one, discard it as a duplicate.
@@ -42,7 +41,7 @@ type motionPlanner interface {
 }
 
 type planner struct {
-	*ConstraintHandler
+	*motionplan.ConstraintHandler
 	fs                        *referenceframe.FrameSystem
 	lfs                       *linearizedFrameSystem
 	solver                    ik.Solver
@@ -50,7 +49,6 @@ type planner struct {
 	randseed                  *rand.Rand
 	start                     time.Time
 	scoringFunction           motionplan.SegmentFSMetric
-	poseDistanceFunc          motionplan.SegmentMetric
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
 	motionChains              *motionChains
@@ -65,32 +63,17 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
-	if !mChains.useTPspace && (request.StartState.configuration == nil) {
-		return nil, errors.New("must populate start state configuration if not planning for 2d base/tpspace")
+	if request.StartState.configuration == nil {
+		return nil, errors.New("must populate start state configuration")
 	}
 
-	if mChains.useTPspace {
-		if request.StartState.poses == nil {
-			return nil, errors.New("must provide a startPose if solving for PTGs")
-		}
-		if len(request.Goals) != 1 {
-			return nil, errors.New("can only provide one goal if solving for PTGs")
-		}
-	}
-
-	opt, err := updateOptionsForPlanning(request.PlannerOptions, mChains.useTPspace)
-	if err != nil {
-		return nil, err
-	}
-
-	boundingRegions, err := spatialmath.NewGeometriesFromProto(request.BoundingRegions)
+	boundingRegions, err := referenceframe.NewGeometriesFromProto(request.BoundingRegions)
 	if err != nil {
 		return nil, err
 	}
 
 	constraintHandler, err := newConstraintHandler(
-		opt,
-		logger,
+		request.PlannerOptions,
 		request.Constraints,
 		request.StartState,
 		request.Goals[0],
@@ -103,14 +86,14 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 	if err != nil {
 		return nil, err
 	}
-	seed := opt.RandomSeed
+	seed := request.PlannerOptions.RandomSeed
 
 	//nolint:gosec
 	return newPlanner(
 		request.FrameSystem,
 		rand.New(rand.NewSource(int64(seed))),
 		logger,
-		opt,
+		request.PlannerOptions,
 		constraintHandler,
 		mChains,
 	)
@@ -121,7 +104,7 @@ func newPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
-	constraintHandler *ConstraintHandler,
+	constraintHandler *motionplan.ConstraintHandler,
 	chains *motionChains,
 ) (*planner, error) {
 	lfs, err := newLinearizedFrameSystem(fs)
@@ -132,7 +115,7 @@ func newPlanner(
 		opt = NewBasicPlannerOptions()
 	}
 	if constraintHandler == nil {
-		constraintHandler = newEmptyConstraintHandler()
+		constraintHandler = motionplan.NewEmptyConstraintHandler()
 	}
 	if chains == nil {
 		chains = &motionChains{}
@@ -150,8 +133,6 @@ func newPlanner(
 		logger:                    logger,
 		randseed:                  seed,
 		planOpts:                  opt,
-		scoringFunction:           opt.getScoringFunction(chains),
-		poseDistanceFunc:          opt.getPoseDistanceFunc(),
 		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
 		motionChains:              chains,
 	}
@@ -212,56 +193,6 @@ func (mp *planner) opt() *PlannerOptions {
 
 func (mp *planner) getScoringFunction() motionplan.SegmentFSMetric {
 	return mp.scoringFunction
-}
-
-// smoothPath will try to naively smooth the path by picking points partway between waypoints and seeing if it can interpolate
-// directly between them. This will significantly improve paths from RRT*, as it will shortcut the randomly-selected configurations.
-// This will only ever improve paths (or leave them untouched), and runs very quickly.
-func (mp *planner) smoothPath(ctx context.Context, path []node) []node {
-	mp.logger.CDebugf(ctx, "running simple smoother on path of len %d", len(path))
-	if mp.planOpts == nil {
-		mp.logger.CDebug(ctx, "nil opts, cannot shortcut")
-		return path
-	}
-	if len(path) <= 2 {
-		mp.logger.CDebug(ctx, "path too short, cannot shortcut")
-		return path
-	}
-
-	// Randomly pick which quarter of motion to check from; this increases flexibility of smoothing.
-	waypoints := []float64{0.25, 0.5, 0.75}
-
-	for i := 0; i < mp.planOpts.SmoothIter; i++ {
-		select {
-		case <-ctx.Done():
-			return path
-		default:
-		}
-		// get start node of first edge. Cannot be either the last or second-to-last node.
-		// Intn will return an int in the half-open interval half-open interval [0,n)
-		firstEdge := mp.randseed.Intn(len(path) - 2)
-		secondEdge := firstEdge + 1 + mp.randseed.Intn((len(path)-2)-firstEdge)
-
-		// Use the frame system to interpolate between configurations
-		wayPoint1, err := referenceframe.InterpolateFS(mp.fs, path[firstEdge].Q(), path[firstEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
-		if err != nil {
-			return path
-		}
-		wayPoint2, err := referenceframe.InterpolateFS(mp.fs, path[secondEdge].Q(), path[secondEdge+1].Q(), waypoints[mp.randseed.Intn(3)])
-		if err != nil {
-			return path
-		}
-
-		if mp.checkPath(wayPoint1, wayPoint2) {
-			newpath := []node{}
-			newpath = append(newpath, path[:firstEdge+1]...)
-			newpath = append(newpath, newConfigurationNode(wayPoint1), newConfigurationNode(wayPoint2))
-			// have to split this up due to go compiler quirk where elipses operator can't be mixed with other vars in append
-			newpath = append(newpath, path[secondEdge+1:]...)
-			path = newpath
-		}
-	}
-	return path
 }
 
 type solutionSolvingState struct {

@@ -17,7 +17,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/tpspace"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -39,7 +38,7 @@ type planConfig struct {
 	Goal             *PlanState
 	FS               *frame.FrameSystem
 	Options          *PlannerOptions
-	ConstraintHander *ConstraintHandler
+	ConstraintHander *motionplan.ConstraintHandler
 	MotionChains     *motionChains
 }
 
@@ -47,10 +46,6 @@ type planConfigConstructor func(logger logging.Logger) (*planConfig, error)
 
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
-	planners := []plannerConstructor{
-		newRRTStarConnectMotionPlanner,
-		newCBiRRTMotionPlanner,
-	}
 	testCases := []struct {
 		name   string
 		config planConfigConstructor
@@ -63,18 +58,13 @@ func TestUnconstrainedMotion(t *testing.T) {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
-			for _, p := range planners {
-				testPlanner(t, p, tcCopy.config, 1)
-			}
+			testPlanner(t, tcCopy.config, 1)
 		})
 	}
 }
 
 func TestConstrainedMotion(t *testing.T) {
 	t.Parallel()
-	planners := []plannerConstructor{
-		newCBiRRTMotionPlanner,
-	}
 	testCases := []struct {
 		name   string
 		config planConfigConstructor
@@ -85,9 +75,7 @@ func TestConstrainedMotion(t *testing.T) {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
-			for _, p := range planners {
-				testPlanner(t, p, tcCopy.config, 1)
-			}
+			testPlanner(t, tcCopy.config, 1)
 		})
 	}
 }
@@ -132,7 +120,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 		return oFunc(currPose.(*frame.PoseInFrame).Pose().Orientation())
 	}
 	orientConstraint := func(cInput *motionplan.State) error {
-		err := resolveStatesToPositions(cInput)
+		err := motionplan.ResolveStatesToPositions(cInput)
 		if err != nil {
 			return err
 		}
@@ -144,8 +132,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	}
 
 	opt.GoalMetricType = motionplan.ArcLengthConvergence
-	constraintHandler := newEmptyConstraintHandler()
-	constraintHandler.pathMetric = oFuncMet
+	constraintHandler := motionplan.NewConstraintHandlerWithPathMetric(oFuncMet)
 	constraintHandler.AddStateConstraint("orientation", orientConstraint)
 
 	start := &PlanState{configuration: map[string][]frame.Input{model.Name(): home7}}
@@ -239,7 +226,7 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 
 	// setup planner options
 	opt := NewBasicPlannerOptions()
-	constraintHandler := newEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintHandler()
 	startInput := frame.NewZeroInputs(fs)
 	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90., 0})
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
@@ -273,13 +260,12 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 		return nil, err
 	}
 
-	_, collisionConstraints, err := createAllCollisionConstraints(
+	_, collisionConstraints, err := motionplan.CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
 		nil, nil,
 		defaultCollisionBufferMM,
-		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -342,20 +328,19 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		}
 	}
 
-	fsCollisionConstraints, collisionConstraints, err := createAllCollisionConstraints(
+	fsCollisionConstraints, collisionConstraints, err := motionplan.CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		nil,
 		nil,
 		nil,
 		defaultCollisionBufferMM,
-		logger,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	constraintHandler := newEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintHandler()
 	for name, constraint := range collisionConstraints {
 		constraintHandler.AddStateConstraint(name, constraint)
 	}
@@ -417,19 +402,18 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 		}
 	}
 
-	fsCollisionConstraints, collisionConstraints, err := createAllCollisionConstraints(
+	fsCollisionConstraints, collisionConstraints, err := motionplan.CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		nil,
 		nil,
 		nil,
 		defaultCollisionBufferMM,
-		logger,
 	)
 	if err != nil {
 		return nil, err
 	}
-	constraintHandler := newEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintHandler()
 	for name, constraint := range collisionConstraints {
 		constraintHandler.AddStateConstraint(name, constraint)
 	}
@@ -454,14 +438,14 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
-func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfigConstructor, seed int) {
+func testPlanner(t *testing.T, config planConfigConstructor, seed int) {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
 
 	// plan
 	cfg, err := config(logger)
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := plannerFunc(
+	mp, err := newCBiRRTMotionPlanner(
 		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander, cfg.MotionChains)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -532,14 +516,6 @@ func TestSerializedPlanRequest(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.AddFrame(xArmVgripper, x), test.ShouldBeNil)
 
-	planOpts := NewBasicPlannerOptions()
-	planOpts.PlanningAlgorithmSettings = AlgorithmSettings{
-		Algorithm: CBiRRT,
-		CBirrtOpts: &cbirrtOptions{
-			SolutionsToSeed: 150,
-		},
-	}
-
 	constraints := &motionplan.Constraints{
 		CollisionSpecification: []motionplan.CollisionSpecification{
 			{
@@ -562,12 +538,11 @@ func TestSerializedPlanRequest(t *testing.T) {
 	goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
 
 	pr := &PlanRequest{
-		FrameSystem:    fs,
-		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
-		StartState:     &PlanState{configuration: frame.NewZeroInputs(fs)},
-		WorldState:     worldState1,
-		Constraints:    constraints,
-		PlannerOptions: planOpts,
+		FrameSystem: fs,
+		Goals:       []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
+		StartState:  &PlanState{configuration: frame.NewZeroInputs(fs)},
+		WorldState:  worldState1,
+		Constraints: constraints,
 	}
 
 	jsonData, err := os.ReadFile("data/plan_request_sample.json")
@@ -580,14 +555,6 @@ func TestSerializedPlanRequest(t *testing.T) {
 	goalPoseInFrame2, ok := parsedPr.Goals[0].Poses()["xArmVgripper"]
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, spatialmath.PoseAlmostEqual(goalPose1, goalPoseInFrame2.Pose()), test.ShouldBeTrue)
-
-	alg1 := pr.PlannerOptions.PlanningAlgorithmSettings
-	alg2 := parsedPr.PlannerOptions.PlanningAlgorithmSettings
-	test.That(t, alg1.Algorithm, test.ShouldEqual, alg2.Algorithm)
-	alg1Cbirrt := alg1.CBirrtOpts
-	alg2Cbiirt := alg2.CBirrtOpts
-	test.That(t, alg2Cbiirt, test.ShouldNotBeNil)
-	test.That(t, alg1Cbirrt.SolutionsToSeed, test.ShouldEqual, alg2Cbiirt.SolutionsToSeed)
 
 	collisionSpecification1 := pr.Constraints.CollisionSpecification[0]
 	test.That(t, parsedPr.Constraints, test.ShouldNotBeNil)
@@ -947,10 +914,7 @@ func TestMovementWithGripper(t *testing.T) {
 	goal := spatialmath.NewPose(r3.Vector{500, 0, -300}, &spatialmath.OrientationVector{OZ: -1})
 	startConfig := frame.NewZeroInputs(fs)
 
-	// linearly plan with the gripper
-	motionConfig := map[string]interface{}{
-		"motion_profile": LinearMotionProfile,
-	}
+	motionConfig := map[string]interface{}{}
 	planOpts, err := NewPlannerOptionsFromExtra(motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	request := &PlanRequest{
@@ -996,190 +960,6 @@ func TestMovementWithGripper(t *testing.T) {
 	solution, err = PlanMotion(context.Background(), logger, request)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
-}
-
-func TestReplanValidations(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-
-	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
-		"itsabase",
-		logger,
-		200./60.,
-		2,
-		nil,
-		false,
-		true,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 1000, Y: 8000, Z: 0})
-
-	baseFS := frame.NewEmptyFrameSystem("baseFS")
-	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
-	test.That(t, err, test.ShouldBeNil)
-	type testCase struct {
-		extra map[string]interface{}
-		msg   string
-		err   error
-	}
-
-	testCases := []testCase{
-		{
-			msg:   "fails validations when collision_buffer_mm is not a float",
-			extra: map[string]interface{}{"collision_buffer_mm": "not a float"},
-			err:   errors.New("json: cannot unmarshal string into Go struct field PlannerOptions.collision_buffer_mm of type float64"),
-		},
-		{
-			msg:   "fails validations when collision_buffer_mm is negative",
-			extra: map[string]interface{}{"collision_buffer_mm": -1.},
-			err:   errors.New("collision_buffer_mm can't be negative"),
-		},
-		{
-			msg:   "passes validations when collision_buffer_mm is a small positive float",
-			extra: map[string]interface{}{"collision_buffer_mm": 1e-5},
-		},
-		{
-			msg:   "passes validations when collision_buffer_mm is a positive float",
-			extra: map[string]interface{}{"collision_buffer_mm": 200.},
-		},
-		{
-			msg:   "passes validations when extra is empty",
-			extra: map[string]interface{}{},
-		},
-		{
-			msg:   "passes validations when extra is nil",
-			extra: map[string]interface{}{},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.msg, func(t *testing.T) {
-			planOpts, err := NewPlannerOptionsFromExtra(tc.extra)
-			if tc.err != nil {
-				test.That(t, err, test.ShouldBeError, tc.err)
-				return
-			}
-			test.That(t, err, test.ShouldBeNil)
-			_, err = Replan(ctx, logger, &PlanRequest{
-				FrameSystem: baseFS,
-				Goals:       []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
-				StartState: &PlanState{
-					configuration: frame.NewZeroInputs(baseFS),
-					poses:         frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
-				},
-				PlannerOptions: planOpts,
-			}, nil, 0)
-			if tc.err != nil {
-				test.That(t, err, test.ShouldBeError, tc.err)
-			} else {
-				test.That(t, err, test.ShouldBeNil)
-			}
-		})
-	}
-}
-
-func TestReplan(t *testing.T) {
-	// TODO(RSDK-5634): this should be unskipped when this bug is fixed
-	t.Skip()
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-
-	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
-	test.That(t, err, test.ShouldBeNil)
-
-	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
-		"itsabase",
-		logger,
-		200./60.,
-		2,
-		[]spatialmath.Geometry{sphere},
-		false,
-		true,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, 8000, 0})
-
-	baseFS := frame.NewEmptyFrameSystem("baseFS")
-	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
-	test.That(t, err, test.ShouldBeNil)
-
-	planRequest := &PlanRequest{
-		FrameSystem:    baseFS,
-		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
-		StartState:     &PlanState{configuration: frame.NewZeroInputs(baseFS)},
-		PlannerOptions: NewBasicPlannerOptions(),
-	}
-
-	firstplan, err := PlanMotion(ctx, logger, planRequest)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Let's pretend we've moved towards the goal, so the goal is now closer
-	goal = spatialmath.NewPoseFromPoint(r3.Vector{1000, 5000, 0})
-	planRequest.Goals = []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}}
-
-	// This should easily pass
-	newPlan1, err := Replan(ctx, logger, planRequest, firstplan, 1.0)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(newPlan1.Trajectory()), test.ShouldBeGreaterThan, 2)
-
-	// But if we drop the replan factor to a very low number, it should now fail
-	newPlan2, err := Replan(ctx, logger, planRequest, firstplan, 0.1)
-	test.That(t, newPlan2, test.ShouldBeNil)
-	test.That(t, err, test.ShouldBeError, errHighReplanCost) // Replan factor too low!
-}
-
-func TestPtgPosOnlyBidirectional(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-
-	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "base")
-	test.That(t, err, test.ShouldBeNil)
-
-	kinematicFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
-		"itsabase",
-		logger,
-		200./60.,
-		2,
-		[]spatialmath.Geometry{sphere},
-		false,
-		true,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	goal := spatialmath.NewPoseFromPoint(r3.Vector{1000, -8000, 0})
-
-	extra := map[string]interface{}{"motion_profile": PositionOnlyMotionProfile, "position_seeds": 2, "smooth_iter": 5}
-
-	baseFS := frame.NewEmptyFrameSystem("baseFS")
-	err = baseFS.AddFrame(kinematicFrame, baseFS.World())
-	test.That(t, err, test.ShouldBeNil)
-
-	planOpts, err := NewPlannerOptionsFromExtra(extra)
-	test.That(t, err, test.ShouldBeNil)
-	planRequest := &PlanRequest{
-		FrameSystem: baseFS,
-		Goals:       []*PlanState{{poses: frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewPoseInFrame(frame.World, goal)}}},
-		StartState: &PlanState{
-			configuration: frame.NewZeroInputs(baseFS),
-			poses:         frame.FrameSystemPoses{kinematicFrame.Name(): frame.NewZeroPoseInFrame(frame.World)},
-		},
-		WorldState:     nil,
-		PlannerOptions: planOpts,
-	}
-
-	bidirectionalPlanRaw, err := PlanMotion(ctx, logger, planRequest)
-	test.That(t, err, test.ShouldBeNil)
-
-	// If bidirectional planning worked properly, this plan should wind up at the goal with an orientation of Theta = 180 degrees
-	bidirectionalPlan, err := planToTpspaceRec(bidirectionalPlanRaw, kinematicFrame)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(
-		goal,
-		bidirectionalPlan[len(bidirectionalPlan)-1].Poses()[kinematicFrame.Name()].Pose(),
-		5,
-	), test.ShouldBeTrue)
 }
 
 func TestValidatePlanRequest(t *testing.T) {
@@ -1336,7 +1116,6 @@ func TestArmGantryCheckPlan(t *testing.T) {
 
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 407, Y: 0, Z: 112})
 
-	f := fs.Frame("xArm6")
 	planReq := PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArm6": frame.NewPoseInFrame(frame.World, goal)}}},
@@ -1344,42 +1123,6 @@ func TestArmGantryCheckPlan(t *testing.T) {
 		PlannerOptions: NewBasicPlannerOptions(),
 	}
 
-	plan, err := PlanMotion(context.Background(), logger, &planReq)
+	_, err = PlanMotion(context.Background(), logger, &planReq)
 	test.That(t, err, test.ShouldBeNil)
-
-	startPose := plan.Path()[0][f.Name()].Pose()
-
-	t.Run("check plan with no obstacles", func(t *testing.T) {
-		executionState := ExecutionState{
-			plan:          plan,
-			index:         0,
-			currentInputs: plan.Trajectory()[0],
-			currentPose: map[string]*frame.PoseInFrame{
-				f.Name(): frame.NewPoseInFrame(frame.World, startPose),
-			},
-		}
-		err = CheckPlan(f, executionState, nil, fs, math.Inf(1), logger)
-		test.That(t, err, test.ShouldBeNil)
-	})
-	t.Run("check plan with obstacle", func(t *testing.T) {
-		obstacle, err := spatialmath.NewBox(goal, r3.Vector{10, 10, 1}, "obstacle")
-		test.That(t, err, test.ShouldBeNil)
-
-		geoms := []spatialmath.Geometry{obstacle}
-		gifs := []*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, geoms)}
-
-		worldState, err := frame.NewWorldState(gifs, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		executionState := ExecutionState{
-			plan:          plan,
-			index:         0,
-			currentInputs: plan.Trajectory()[0],
-			currentPose: map[string]*frame.PoseInFrame{
-				f.Name(): frame.NewPoseInFrame(frame.World, startPose),
-			},
-		}
-		err = CheckPlan(f, executionState, worldState, fs, math.Inf(1), logger)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
 }

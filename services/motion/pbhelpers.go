@@ -231,14 +231,14 @@ func (r MoveOnGlobeReq) toProto(name string) (*pb.MoveOnGlobeRequest, error) {
 	if len(r.Obstacles) > 0 {
 		obstaclesProto := make([]*commonpb.GeoGeometry, 0, len(r.Obstacles))
 		for _, obstacle := range r.Obstacles {
-			obstaclesProto = append(obstaclesProto, spatialmath.GeoGeometryToProtobuf(obstacle))
+			obstaclesProto = append(obstaclesProto, referenceframe.GeoGeometryToProtobuf(obstacle))
 		}
 		req.Obstacles = obstaclesProto
 	}
 	if len(r.BoundingRegions) > 0 {
 		obstaclesProto := make([]*commonpb.GeoGeometry, 0, len(r.BoundingRegions))
 		for _, obstacle := range r.BoundingRegions {
-			obstaclesProto = append(obstaclesProto, spatialmath.GeoGeometryToProtobuf(obstacle))
+			obstaclesProto = append(obstaclesProto, referenceframe.GeoGeometryToProtobuf(obstacle))
 		}
 		req.BoundingRegions = obstaclesProto
 	}
@@ -262,7 +262,7 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 	obstaclesProto := req.GetObstacles()
 	obstacles := make([]*spatialmath.GeoGeometry, 0, len(obstaclesProto))
 	for _, eachProtoObst := range obstaclesProto {
-		convObst, err := spatialmath.GeoGeometryFromProtobuf(eachProtoObst)
+		convObst, err := referenceframe.GeoGeometryFromProtobuf(eachProtoObst)
 		if err != nil {
 			return MoveOnGlobeReq{}, err
 		}
@@ -272,7 +272,7 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 	boundingRegionGeometriesProto := req.GetBoundingRegions()
 	boundingRegionGeometries := make([]*spatialmath.GeoGeometry, 0, len(boundingRegionGeometriesProto))
 	for _, eachProtoObst := range boundingRegionGeometriesProto {
-		convObst, err := spatialmath.GeoGeometryFromProtobuf(eachProtoObst)
+		convObst, err := referenceframe.GeoGeometryFromProtobuf(eachProtoObst)
 		if err != nil {
 			return MoveOnGlobeReq{}, err
 		}
@@ -363,7 +363,7 @@ func moveOnMapRequestFromProto(req *pb.MoveOnMapRequest) (MoveOnMapReq, error) {
 	}
 	geoms := []spatialmath.Geometry{}
 	if obs := req.GetObstacles(); len(obs) > 0 {
-		convertedGeom, err := spatialmath.NewGeometriesFromProto(obs)
+		convertedGeom, err := referenceframe.NewGeometriesFromProto(obs)
 		if err != nil {
 			return MoveOnMapReq{}, errors.Wrap(err, "cannot convert obstacles into geometries")
 		}
@@ -392,7 +392,7 @@ func (r MoveOnMapReq) toProto(name string) (*pb.MoveOnMapRequest, error) {
 		ComponentName:   rprotoutils.ResourceNameToProto(r.ComponentName),
 		Destination:     spatialmath.PoseToProtobuf(r.Destination),
 		SlamServiceName: rprotoutils.ResourceNameToProto(r.SlamName),
-		Obstacles:       spatialmath.NewGeometriesToProto(r.Obstacles),
+		Obstacles:       referenceframe.NewGeometriesToProto(r.Obstacles),
 		Extra:           ext,
 	}
 

@@ -6,7 +6,6 @@ import (
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -46,32 +45,6 @@ type rrtMaps struct {
 	startMap rrtMap
 	goalMap  rrtMap
 	optNode  node // The highest quality IK solution
-}
-
-func (maps *rrtMaps) fillPosOnlyGoal(goal referenceframe.FrameSystemPoses, posSeeds int) error {
-	thetaStep := 360. / float64(posSeeds)
-	if maps == nil {
-		return errors.New("cannot call method fillPosOnlyGoal on nil maps")
-	}
-	if maps.goalMap == nil {
-		maps.goalMap = map[node]node{}
-	}
-	for i := 0; i < posSeeds; i++ {
-		newMap := referenceframe.FrameSystemPoses{}
-		for frame, goal := range goal {
-			newMap[frame] = referenceframe.NewPoseInFrame(
-				frame,
-				spatialmath.NewPose(goal.Pose().Point(), &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: float64(i) * thetaStep}),
-			)
-		}
-
-		goalNode := &basicNode{
-			q:     make(referenceframe.FrameSystemInputs),
-			poses: newMap,
-		}
-		maps.goalMap[goalNode] = nil
-	}
-	return nil
 }
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
@@ -131,21 +104,6 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 	return rrt
 }
 
-func shortestPath(maps *rrtMaps, nodePairs []*nodePair) *rrtSolution {
-	if len(nodePairs) == 0 {
-		return &rrtSolution{err: errPlannerFailed, maps: maps}
-	}
-	minIdx := 0
-	minDist := nodePairs[0].sumCosts()
-	for i := 1; i < len(nodePairs); i++ {
-		if dist := nodePairs[i].sumCosts(); dist < minDist {
-			minDist = dist
-			minIdx = i
-		}
-	}
-	return &rrtSolution{steps: extractPath(maps.startMap, maps.goalMap, nodePairs[minIdx], true), maps: maps}
-}
-
 type rrtPlan struct {
 	motionplan.SimplePlan
 
@@ -154,7 +112,7 @@ type rrtPlan struct {
 	nodes []node
 }
 
-func newRRTPlan(solution []node, fs *referenceframe.FrameSystem, relative bool, offsetPose spatialmath.Pose) (motionplan.Plan, error) {
+func newRRTPlan(solution []node, fs *referenceframe.FrameSystem) (motionplan.Plan, error) {
 	if len(solution) == 0 {
 		return nil, errors.New("cannot create plan, no solution was found")
 	} else if len(solution) == 1 {
@@ -166,16 +124,6 @@ func newRRTPlan(solution []node, fs *referenceframe.FrameSystem, relative bool, 
 	if err != nil {
 		return nil, err
 	}
-	if relative {
-		path, err = newPathFromRelativePath(path)
-		if err != nil {
-			return nil, err
-		}
-	}
-	var plan motionplan.Plan
-	plan = &rrtPlan{SimplePlan: *motionplan.NewSimplePlan(path, traj), nodes: solution}
-	if relative {
-		plan = OffsetPlan(plan, offsetPose)
-	}
-	return plan, nil
+
+	return &rrtPlan{SimplePlan: *motionplan.NewSimplePlan(path, traj), nodes: solution}, nil
 }

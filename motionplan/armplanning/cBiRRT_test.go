@@ -1,3 +1,5 @@
+//go:build !windows && !no_cgo
+
 package armplanning
 
 import (
@@ -46,7 +48,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	chains, err := motionChainsFromPlanState(fs, &PlanState{poses: goal})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, chains, test.ShouldNotBeNil)
-	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler(), chains)
+	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, motionplan.NewEmptyConstraintHandler(), chains)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goalMetric)
@@ -66,7 +68,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 	for _, solution := range solutions[:nSolutions] {
 		goalMap[solution] = nil
 	}
-	nn := &neighborManager{nCPU: nCPU}
 
 	m1chan := make(chan node, 1)
 	defer close(m1chan)
@@ -77,7 +78,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	})
 	seedReached := <-m1chan
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
-	near2 := nn.nearestNeighbor(ctx, seedReached, goalMap, nodeConfigurationDistanceFunc)
+	near2 := nearestNeighbor(seedReached, goalMap, nodeConfigurationDistanceFunc)
 	// extend goalMap towards the point in seedMap
 	utils.PanicCapturingGo(func() {
 		cbirrt.constrainedExtend(ctx, cbirrt.randseed, goalMap, near2, seedReached, m1chan)

@@ -258,9 +258,21 @@ func (octree *BasicOctree) Transform(pose spatialmath.Pose) spatialmath.Geometry
 }
 
 // ToProtobuf converts the octree to a Geometry proto message.
-// TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
-	return nil
+	bytes, err := ToBytes(octree)
+	if err != nil {
+		return nil
+	}
+
+	return &commonpb.Geometry{
+		Center: spatialmath.PoseToProtobuf(octree.Pose()),
+		GeometryType: &commonpb.Geometry_Pointcloud{
+			Pointcloud: &commonpb.PointCloud{
+				PointCloud: bytes,
+			},
+		},
+		Label: octree.Label(),
+	}
 }
 
 // CollidesWith checks if the given octree collides with the given geometry and returns true if it does.

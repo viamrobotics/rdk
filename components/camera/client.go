@@ -30,6 +30,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
@@ -340,7 +341,7 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 	if err != nil {
 		return nil, err
 	}
-	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
+	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
 }
 
 // TODO(RSDK-6433): This method can be called more than once during a client's lifecycle.

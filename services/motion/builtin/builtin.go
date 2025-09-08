@@ -265,14 +265,12 @@ func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 type validatedExtra struct {
 	maxReplans       int
 	replanCostFactor float64
-	motionProfile    armplanning.MotionProfile
 	extra            map[string]interface{}
 }
 
 func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 	maxReplans := -1
 	replanCostFactor := defaultReplanCostFactor
-	motionProfile := armplanning.FreeMotionProfile
 	v := validatedExtra{}
 	if extra == nil {
 		v.extra = map[string]interface{}{"smooth_iter": defaultSmoothIter}
@@ -283,12 +281,7 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 			maxReplans = replans
 		}
 	}
-	if profile, ok := extra["motion_profile"]; ok {
-		motionProfile, ok = profile.(armplanning.MotionProfile)
-		if !ok {
-			return v, errors.New("could not interpret motion_profile field as string")
-		}
-	}
+
 	if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
 		costFactor, ok := costFactorRaw.(float64)
 		if !ok {
@@ -306,7 +299,6 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 
 	return validatedExtra{
 		maxReplans:       maxReplans,
-		motionProfile:    motionProfile,
 		replanCostFactor: replanCostFactor,
 		extra:            extra,
 	}, nil
@@ -505,34 +497,6 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	// keep it in `extra`.
 	if req.Extra != nil {
 		req.Extra["waypoints"] = nil
-	}
-
-	// TODO: RSDK-11198 REMOVE THIS IN THE RELEASE AFTER THE RELEASE THAT INTRODUCED THIS CODE. It is only here
-	// to deprecate rather than break the "planning_alg" key and give us time to inform users/engineers
-	// how to use the "planning_algorithm_settings" option
-	if deprecatedKeyAlg, ok := req.Extra["planning_alg"]; ok {
-		logger.Warn("the 'planning_alg' key is deprecated and will soon no longer be accepted, please use 'planning_algorithm_settings' instead")
-		if deprecatedKeyAlgParsed, ok := deprecatedKeyAlg.(string); ok {
-			req.Extra["planning_algorithm_settings"] = map[string]interface{}{
-				"algorithm": deprecatedKeyAlgParsed,
-			}
-		}
-	}
-
-	// TODO: RSDK-11198 Similar to above
-	if deprecatedKeySeed, ok := req.Extra["solutions_to_seed"]; ok {
-		logger.Warn(
-			"the top level 'solutions_to_seed' key is deprecated and will soon no longer be accepted," +
-				"please include it in 'planning_algorithm_settings' instead",
-		)
-		if deprecatedSeedParsed, ok := deprecatedKeySeed.(int); ok {
-			req.Extra["planning_algorithm_settings"] = map[string]interface{}{
-				"algorithm": armplanning.CBiRRT,
-				"cbirrt_settings": map[string]interface{}{
-					"solutions_to_seed": deprecatedSeedParsed,
-				},
-			}
-		}
 	}
 
 	// re-evaluate goal poses to be in the frame of World

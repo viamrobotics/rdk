@@ -112,7 +112,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 		req.WorldState = newWS
 	}
 
-	boundingRegions, err := spatialmath.NewGeometriesFromProto(req.BoundingRegions)
+	boundingRegions, err := referenceframe.NewGeometriesFromProto(req.BoundingRegions)
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 						for _, geom := range robotGifs.Geometries() {
 							robotGeoms = append(robotGeoms, geom.Transform(startPose.Pose()))
 						}
-						robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, boundingRegions, buffer)
+						robotGeomBoundingRegionCheck := motionplan.NewBoundingRegionConstraint(robotGeoms, boundingRegions, buffer)
 						if robotGeomBoundingRegionCheck(&motionplan.State{}) != nil {
 							return fmt.Errorf("frame named %s is not within the provided bounding regions", fName)
 						}
@@ -161,7 +161,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 
 					// check that the destination is within or in collision with the bounding regions
 					destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(pif.Pose().Point(), "")}
-					destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, boundingRegions, buffer)
+					destinationBoundingRegionCheck := motionplan.NewBoundingRegionConstraint(destinationAsGeom, boundingRegions, buffer)
 					if destinationBoundingRegionCheck(&motionplan.State{}) != nil {
 						return errors.New("destination was not within the provided bounding regions")
 					}
@@ -170,12 +170,6 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 	}
 	return nil
-}
-
-// PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, error) {
-	// Calls Replan but without a seed plan
-	return Replan(ctx, logger, request, nil, 0)
 }
 
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
@@ -212,15 +206,8 @@ func PlanFrameMotion(ctx context.Context,
 	return plan.Trajectory().GetFrameInputs(f.Name())
 }
 
-// Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
-// passed-in plan multiplied by `replanCostFactor`.
-func Replan(
-	ctx context.Context,
-	logger logging.Logger,
-	request *PlanRequest,
-	currentPlan motionplan.Plan,
-	replanCostFactor float64,
-) (motionplan.Plan, error) {
+// PlanMotion plans a motion from a provided plan request.
+func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, error) {
 	// Make sure request is well formed and not missing vital information
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, err
@@ -233,22 +220,9 @@ func Replan(
 		return nil, err
 	}
 
-	newPlan, err := sfPlanner.planMultiWaypoint(ctx, currentPlan)
+	newPlan, err := sfPlanner.planMultiWaypoint(ctx)
 	if err != nil {
 		return nil, err
-	}
-
-	if replanCostFactor > 0 && currentPlan != nil {
-		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
-		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
-		logger.CDebugf(ctx,
-			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
-			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
-		)
-
-		if finalPlanCost > initialPlanCost*replanCostFactor {
-			return nil, errHighReplanCost
-		}
 	}
 
 	return newPlan, nil
