@@ -373,7 +373,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		motionChains,
 		pm.request.StartState.configuration,
 		pm.request.WorldState,
-		pm.BoundingRegions(),
+		pm.checker.BoundingRegions(),
 	)
 	if err != nil {
 		return nil, err
@@ -401,7 +401,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			motionChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.BoundingRegions(),
+			pm.checker.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err
@@ -409,7 +409,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 
 		pm.motionChains = motionChains
 	}
-	pm.ConstraintChecker = constraintHandler
+	pm.checker = constraintHandler
 
 	// TPspace should never use subwaypoints
 	if !subWaypoints {
@@ -474,7 +474,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			wpChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.BoundingRegions(),
+			pm.checker.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err
