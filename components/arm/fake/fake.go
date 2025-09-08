@@ -110,7 +110,7 @@ type Arm struct {
 	logger     logging.Logger
 
 	// Writes to `joints` or `model` must hold the write-lock. And reads to `joints` or `model` must
-	// hold the read lock.
+	// hold the read-lock.
 	mu     sync.RWMutex
 	joints []referenceframe.Input
 	model  referenceframe.Model
@@ -259,12 +259,12 @@ func (a *Arm) Close(ctx context.Context) error {
 // Geometries returns the list of geometries associated with the resource, in any order. The poses of the geometries reflect their
 // current location relative to the frame of the resource.
 func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
 	inputs, err := a.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	gif, err := a.model.Geometries(inputs)
 	if err != nil {
 		return nil, err
