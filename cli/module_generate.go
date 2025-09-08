@@ -284,7 +284,7 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					if s == "" {
 						return errors.New("module name must not be empty")
 					}
-					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_-][a-zA-Z0-9]+)*$", s)
+					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_\\-a-zA-Z0-9]+)*$", s)
 					if !match || err != nil {
 						return errors.New("module names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter")
 					}
@@ -329,7 +329,7 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					if s == "" {
 						return errors.New("model name must not be empty")
 					}
-					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_-][a-zA-Z0-9]+)*$", s)
+					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_\\-a-zA-Z0-9]+)*$", s)
 					if !match || err != nil {
 						return errors.New("model names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter")
 					}
@@ -417,6 +417,7 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	// due to cases where a user didn't pass a `ResourceSubtype`, and so it was set in the `promptUser`
 	// call. We should look into simplifying though, such that all these values are only ever set once.
 	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
+	newModule.ResourceSubtypeSnake = strings.Split(newModule.Resource, " ")[0]
 	newModule.ResourceType = strings.Split(newModule.Resource, " ")[1]
 
 	titleCaser := cases.Title(language.Und)

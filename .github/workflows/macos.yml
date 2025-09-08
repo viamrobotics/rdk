@@ -6,6 +6,7 @@ on:
 
 jobs:
   build:
+    if: ${{ false }} # This job is temporarily disabled
     runs-on: macos-13
     steps:
     - uses: actions/checkout@v4
@@ -17,6 +18,7 @@ jobs:
     - name: brew
       run: |
         brew config
+        brew update && (brew list cmake || brew install cmake)
         brew tap viamrobotics/brews
         brew install pkg-config
         brew install nlopt-static

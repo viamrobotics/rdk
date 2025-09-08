@@ -366,7 +366,6 @@ type Remote struct {
 
 	// Secret is a helper for a robot location secret.
 	Secret string
-
 	Prefix string
 
 	alreadyValidated bool
@@ -377,7 +376,6 @@ type Remote struct {
 type remoteData struct {
 	Name                      string                              `json:"name"`
 	Address                   string                              `json:"address"`
-	Prefix                    string                              `json:"prefix"`
 	Frame                     *referenceframe.LinkConfig          `json:"frame,omitempty"`
 	Auth                      RemoteAuth                          `json:"auth"`
 	ManagedBy                 string                              `json:"managed_by"`
@@ -388,6 +386,7 @@ type remoteData struct {
 
 	// Secret is a helper for a robot location secret.
 	Secret string `json:"secret"`
+	Prefix string `json:"prefix,omitempty"`
 }
 
 // Equals checks if the two configs are deeply equal to each other.
@@ -409,13 +408,13 @@ func (conf *Remote) UnmarshalJSON(data []byte) error {
 	*conf = Remote{
 		Name:                      temp.Name,
 		Address:                   temp.Address,
-		Prefix:                    temp.Prefix,
 		Frame:                     temp.Frame,
 		Auth:                      temp.Auth,
 		ManagedBy:                 temp.ManagedBy,
 		Insecure:                  temp.Insecure,
 		AssociatedResourceConfigs: temp.AssociatedResourceConfigs,
 		Secret:                    temp.Secret,
+		Prefix:                    temp.Prefix,
 	}
 	if temp.ConnectionCheckInterval != "" {
 		dur, err := time.ParseDuration(temp.ConnectionCheckInterval)
@@ -446,6 +445,9 @@ func (conf Remote) MarshalJSON() ([]byte, error) {
 		Insecure:                  conf.Insecure,
 		AssociatedResourceConfigs: conf.AssociatedResourceConfigs,
 		Secret:                    conf.Secret,
+	}
+	if conf.Prefix != "" {
+		temp.Prefix = conf.Prefix
 	}
 	if conf.ConnectionCheckInterval != 0 {
 		temp.ConnectionCheckInterval = conf.ConnectionCheckInterval.String()

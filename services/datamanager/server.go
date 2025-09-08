@@ -34,6 +34,21 @@ func (server *serviceServer) Sync(ctx context.Context, req *pb.SyncRequest) (*pb
 	return &pb.SyncResponse{}, nil
 }
 
+func (server *serviceServer) UploadBinaryDataToDatasets(
+	ctx context.Context,
+	req *pb.UploadBinaryDataToDatasetsRequest,
+) (*pb.UploadBinaryDataToDatasetsResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if err := svc.UploadBinaryDataToDatasets(ctx, req.GetBinaryData(), req.GetDatasetIds(), req.GetTags(),
+		req.GetMimeType(), req.Extra.AsMap()); err != nil {
+		return nil, err
+	}
+	return &pb.UploadBinaryDataToDatasetsResponse{}, nil
+}
+
 // DoCommand receives arbitrary commands.
 func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,

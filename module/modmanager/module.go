@@ -158,7 +158,7 @@ func (m *module) tcpMode() bool {
 func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
-	oue func(int) bool,
+	oue pexec.UnexpectedExitHandler,
 	viamHomeDir string,
 	packagesDir string,
 ) error {

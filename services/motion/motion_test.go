@@ -1175,7 +1175,7 @@ func TestMoveOnMapReq(t *testing.T) {
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
 					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
-					Obstacles:       spatialmath.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
+					Obstacles:       referenceframe.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
 					Extra:           &structpb.Struct{},
 				},
 				err: nil,
@@ -1267,7 +1267,7 @@ func TestMoveOnMapReq(t *testing.T) {
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
 					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
 					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
-					Obstacles: spatialmath.NewGeometriesToProto(
+					Obstacles: referenceframe.NewGeometriesToProto(
 						[]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{X: 2, Y: 2, Z: 2}, "pt")},
 					),
 				},

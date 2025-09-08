@@ -60,10 +60,11 @@ type Arguments struct {
 }
 
 type robotServer struct {
-	args     Arguments
-	logger   logging.Logger
-	registry *logging.Registry
-	conn     rpc.ClientConn
+	args          Arguments
+	logger        logging.Logger
+	registry      *logging.Registry
+	conn          rpc.ClientConn
+	signalingConn rpc.ClientConn
 }
 
 func logViamEnvVariables(logger logging.Logger) {
@@ -76,6 +77,9 @@ func logViamEnvVariables(logger logging.Logger) {
 	}
 	if value, exists := os.LookupEnv("VIAM_MODULE_STARTUP_TIMEOUT"); exists {
 		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_STARTUP_TIMEOUT", value)
+	}
+	if value, exists := os.LookupEnv("VIAM_CONFIG_READ_TIMEOUT"); exists {
+		viamEnvVariables = append(viamEnvVariables, "VIAM_CONFIG_READ_TIMEOUT", value)
 	}
 	if value, exists := os.LookupEnv("CWD"); exists {
 		viamEnvVariables = append(viamEnvVariables, "CWD", value)
@@ -181,16 +185,13 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer pprof.StopCPUProfile()
 	}
 
-	var appConn rpc.ClientConn
+	var appConn, signalingConn rpc.ClientConn
 
 	// Read the config from disk and use it to initialize the remote logger.
-	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
-	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger.Sublogger("config"))
+	cfgFromDisk, err := config.ReadLocalConfig(argsParsed.ConfigFile, logger.Sublogger("config"))
 	if err != nil {
-		cancel()
 		return err
 	}
-	cancel()
 
 	if argsParsed.OutputTelemetry {
 		exporter := perf.NewDevelopmentExporter()
@@ -210,6 +211,18 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 			return err
 		}
 		defer utils.UncheckedErrorFunc(appConn.Close)
+
+		// if SignalingAddress is specified and different from AppAddress, create a new connection to it. Otherwise reuse appConn.
+		if cloud.SignalingAddress != "" && cloud.SignalingAddress != cloud.AppAddress {
+			signalingConnLogger := logger.Sublogger("networking").Sublogger("signaling_connection")
+			signalingConn, err = grpc.NewAppConn(ctx, cloud.SignalingAddress, cloud.Secret, cloud.ID, signalingConnLogger)
+			if err != nil {
+				return err
+			}
+			defer utils.UncheckedErrorFunc(signalingConn.Close)
+		} else {
+			signalingConn = appConn
+		}
 	}
 
 	// Start remote logging with config from disk.
@@ -240,10 +253,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	go nc.RunNetworkChecks(ctx, logger, true /* continueRunningTestDNS */)
 
 	server := robotServer{
-		logger:   logger,
-		args:     argsParsed,
-		registry: registry,
-		conn:     appConn,
+		logger:        logger,
+		args:          argsParsed,
+		registry:      registry,
+		conn:          appConn,
+		signalingConn: signalingConn,
 	}
 
 	// Run the server with remote logging enabled.
@@ -258,13 +272,14 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 // runServer is an entry point to starting the web server after the local config is read. Once the local config
 // is read the logger may be initialized to remote log. This ensure we capture errors starting up the server and report to the cloud.
 func (s *robotServer) runServer(ctx context.Context) error {
-	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
-	cfg, err := config.Read(initialReadCtx, s.args.ConfigFile, s.logger, s.conn)
+	if s.conn != nil {
+		s.logger.CInfo(ctx, "Getting up-to-date config from cloud...")
+	}
+	// config.Read will add a timeout using contextutils.GetTimeoutCtx, so no need to add a separate timeout.
+	cfg, err := config.Read(ctx, s.args.ConfigFile, s.logger, s.conn)
 	if err != nil {
-		cancel()
 		return err
 	}
-	cancel()
 	config.UpdateFileConfigDebug(cfg.Debug)
 
 	err = s.serveWeb(ctx, cfg)
@@ -289,7 +304,9 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}
-	options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithSignalingConn(s.conn))
+	// options.SignalingAddress is set in config processing
+	// signalingConn is a separate connection if SignalingAddress and AppAddress differ, otherwise it points to s.conn
+	options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithSignalingConn(s.signalingConn))
 
 	if len(options.Auth.Handlers) == 0 {
 		host, _, err := net.SplitHostPort(cfg.Network.BindAddress)
@@ -445,6 +462,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		defer close(forceShutdown)
 
 		<-ctx.Done()
+		shutdownStarted := time.Now()
 
 		slowTicker := time.NewTicker(10 * time.Second)
 		defer slowTicker.Stop()
@@ -488,7 +506,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				if checkDone() {
 					return
 				}
-				s.logger.Warn("waiting for clean shutdown")
+				s.logger.Warnw("Waiting for clean shutdown", "time_elapsed",
+					time.Since(shutdownStarted).String())
 			}
 		}
 	})
@@ -498,7 +517,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		slowWatcherCancel()
 		<-slowWatcher
 	}()
-
+	s.logger.CInfo(ctx, "Processing initial robot config...")
 	fullProcessedConfig, err := s.processConfig(cfg)
 	if err != nil {
 		return err

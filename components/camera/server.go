@@ -3,7 +3,6 @@ package camera
 import (
 	"context"
 	"fmt"
-	"image"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -15,9 +14,8 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -106,22 +104,35 @@ func (s *serviceServer) GetImages(
 	if err != nil {
 		return nil, errors.Wrap(err, "camera server GetImages had an error getting the camera component")
 	}
+
+	if len(req.FilterSourceNames) > 1 {
+		seen := make(map[string]bool)
+		for _, sourceName := range req.FilterSourceNames {
+			if seen[sourceName] {
+				return nil, fmt.Errorf("duplicate source name in filter: %s", sourceName)
+			}
+			seen[sourceName] = true
+		}
+	}
+
 	// request the images, and then check to see what the underlying type is to determine
 	// what to encode as. If it's color, just encode as JPEG.
-	imgs, metadata, err := cam.Images(ctx, req.Extra.AsMap())
+	imgs, metadata, err := cam.Images(ctx, req.FilterSourceNames, req.Extra.AsMap())
 	if err != nil {
 		return nil, errors.Wrap(err, "camera server GetImages could not call Images on the camera")
 	}
 	imagesMessage := make([]*pb.Image, 0, len(imgs))
 	for _, img := range imgs {
-		format, outBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
+		imgBytes, err := img.Bytes(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "camera server GetImages could not encode the images")
+			return nil, errors.Wrap(err, "camera server GetImages could not get the image bytes")
 		}
+		format := utils.MimeTypeToFormat[img.MimeType()]
 		imgMes := &pb.Image{
 			SourceName: img.SourceName,
 			Format:     format,
-			Image:      outBytes,
+			MimeType:   img.MimeType(),
+			Image:      imgBytes,
 		}
 		imagesMessage = append(imagesMessage, imgMes)
 	}
@@ -132,46 +143,6 @@ func (s *serviceServer) GetImages(
 	}
 
 	return resp, nil
-}
-
-func encodeImageFromUnderlyingType(ctx context.Context, img image.Image) (pb.Format, []byte, error) {
-	switch v := img.(type) {
-	case *rimage.LazyEncodedImage:
-		format := pb.Format_FORMAT_UNSPECIFIED
-		switch v.MIMEType() {
-		case utils.MimeTypeRawDepth:
-			format = pb.Format_FORMAT_RAW_DEPTH
-		case utils.MimeTypeRawRGBA:
-			format = pb.Format_FORMAT_RAW_RGBA
-		case utils.MimeTypeJPEG:
-			format = pb.Format_FORMAT_JPEG
-		case utils.MimeTypePNG:
-			format = pb.Format_FORMAT_PNG
-		default:
-		}
-		return format, v.RawData(), nil
-	case *rimage.DepthMap:
-		format := pb.Format_FORMAT_RAW_DEPTH
-		outBytes, err := rimage.EncodeImage(ctx, v, utils.MimeTypeRawDepth)
-		if err != nil {
-			return pb.Format_FORMAT_UNSPECIFIED, nil, err
-		}
-		return format, outBytes, nil
-	case *image.Gray16:
-		format := pb.Format_FORMAT_PNG
-		outBytes, err := rimage.EncodeImage(ctx, v, utils.MimeTypePNG)
-		if err != nil {
-			return pb.Format_FORMAT_UNSPECIFIED, nil, err
-		}
-		return format, outBytes, nil
-	default:
-		format := pb.Format_FORMAT_JPEG
-		outBytes, err := rimage.EncodeImage(ctx, v, utils.MimeTypeJPEG)
-		if err != nil {
-			return pb.Format_FORMAT_UNSPECIFIED, nil, err
-		}
-		return format, outBytes, nil
-	}
 }
 
 // RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
@@ -285,5 +256,5 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	if err != nil {
 		return nil, err
 	}
-	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
+	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }

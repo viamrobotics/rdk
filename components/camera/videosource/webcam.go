@@ -388,7 +388,11 @@ func (c *webcam) Monitor() {
 	})
 }
 
-func (c *webcam) Images(ctx context.Context, _ map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (c *webcam) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if err := c.ensureActive(); err != nil {
@@ -400,7 +404,11 @@ func (c *webcam) Images(ctx context.Context, _ map[string]interface{}) ([]camera
 		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "monitoredWebcam: call to get Images failed")
 	}
 
-	return []camera.NamedImage{{img, c.Name().Name}}, resource.ResponseMetadata{time.Now()}, nil
+	namedImg, err := camera.NamedImageFromImage(img, c.Name().Name, utils.MimeTypeJPEG)
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
+	return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 }
 
 // ensureActive is a helper that guards logic that requires the camera to be actively connected.

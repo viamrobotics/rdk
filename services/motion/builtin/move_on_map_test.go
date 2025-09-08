@@ -15,7 +15,7 @@ import (
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/armplanning"
+	"go.viam.com/rdk/motionplan/baseplanning"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -76,7 +76,7 @@ func TestMoveOnMap(t *testing.T) {
 			Extra:         map[string]interface{}{"timeout": 0.01},
 		}
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Millisecond)
 		defer timeoutFn()
 		executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -155,9 +155,8 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	extra := map[string]interface{}{
-		"motion_profile": armplanning.PositionOnlyMotionProfile,
-		"timeout":        5.,
-		"smooth_iter":    10.,
+		"timeout":     5.,
+		"smooth_iter": 10.,
 	}
 
 	baseName := "test-base"
@@ -277,7 +276,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			},
 		}
 
-		baseExecutionState, err := armplanning.NewExecutionState(
+		baseExecutionState, err := baseplanning.NewExecutionState(
 			plan, 1, currentInputs,
 			map[string]*referenceframe.PoseInFrame{
 				mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
@@ -294,13 +293,12 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)
 
 		test.That(t, err, test.ShouldBeNil)
-		err = armplanning.CheckPlan(
+		err = baseplanning.CheckPlan(
 			wrapperFrame,
 			augmentedBaseExecutionState,
 			wrldSt,
 			mr.localizingFS,
 			lookAheadDistanceMM,
-			logger,
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)

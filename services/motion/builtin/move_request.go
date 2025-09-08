@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/components/base/kinematicbase"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/armplanning"
+	"go.viam.com/rdk/motionplan/baseplanning"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -63,7 +63,7 @@ type moveRequest struct {
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
 	frameSystem       *referenceframe.FrameSystem
-	planRequest       *armplanning.PlanRequest
+	planRequest       *baseplanning.PlanRequest
 	seedPlan          motionplan.Plan
 	kinematicBase     kinematicbase.KinematicBase
 	obstacleDetectors map[vision.Service][]resource.Name
@@ -102,7 +102,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 		inputs = inputs[:2]
 	}
 	startConf := referenceframe.FrameSystemInputs{k.Name(): inputs}
-	mr.planRequest.StartState = armplanning.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
+	mr.planRequest.StartState = baseplanning.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
 
 	// get existing elements of the worldstate
 
@@ -133,7 +133,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	planRequestCopy.WorldState = worldState
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
-	return armplanning.Replan(ctx, mr.logger, &planRequestCopy, nil, 0)
+	return baseplanning.Replan(ctx, mr.logger, &planRequestCopy, nil, 0)
 }
 
 func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
@@ -202,7 +202,7 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Pla
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
-	errorState, err := armplanning.CalculateFrameErrorState(executionState, k, mr.kinematicBase.LocalizationFrame())
+	errorState, err := baseplanning.CalculateFrameErrorState(executionState, k, mr.kinematicBase.LocalizationFrame())
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
@@ -355,13 +355,12 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				updatedBaseExecutionState.CurrentInputs(),
 				worldState.String(),
 			)
-			if err := armplanning.CheckPlan(
+			if err := baseplanning.CheckPlan(
 				mr.localizingFS.Frame(k.Name()), // frame we wish to check for collisions
 				updatedBaseExecutionState,
 				worldState, // detected obstacles by this instance of camera + service
 				mr.localizingFS,
 				lookAheadDistanceMM,
-				mr.logger,
 			); err != nil {
 				mr.logger.CInfo(ctx, err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
@@ -382,11 +381,11 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 // mr.kinematicBase.Kinematics().
 func (mr *moveRequest) augmentBaseExecutionState(
 	ctx context.Context,
-	baseExecutionState armplanning.ExecutionState,
-) (armplanning.ExecutionState, error) {
+	baseExecutionState baseplanning.ExecutionState,
+) (baseplanning.ExecutionState, error) {
 	k, err := mr.kinematicBase.Kinematics(ctx)
 	if err != nil {
-		return armplanning.ExecutionState{}, err
+		return baseplanning.ExecutionState{}, err
 	}
 	// update plan
 	existingPlan := baseExecutionState.Plan()
@@ -461,12 +460,12 @@ func (mr *moveRequest) augmentBaseExecutionState(
 	existingCurrentPoses[mr.kinematicBase.Name().Name] = localizationFramePose
 	delete(existingCurrentPoses, mr.kinematicBase.LocalizationFrame().Name())
 
-	return armplanning.NewExecutionState(
+	return baseplanning.NewExecutionState(
 		augmentedPlan, baseExecutionState.Index(), allCurrentInputsFromBaseExecutionState, existingCurrentPoses,
 	)
 }
 
-func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
+func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration) kinematicbase.Options {
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 
 	if motionCfg.linearMPerSec > 0 {
@@ -479,10 +478,6 @@ func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra va
 
 	if motionCfg.planDeviationMM > 0 {
 		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.planDeviationMM
-	}
-
-	if validatedExtra.motionProfile != "" {
-		kinematicsOptions.PositionOnlyMode = validatedExtra.motionProfile == armplanning.PositionOnlyMotionProfile
 	}
 
 	kinematicsOptions.GoalRadiusMM = motionCfg.planDeviationMM
@@ -616,7 +611,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	// build kinematic options
-	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
+	kinematicsOptions := kbOptionsFromCfg(motionCfg)
 
 	// build the localizer from the movement sensor
 	movementSensor, ok := ms.movementSensors[req.MovementSensorName]
@@ -689,7 +684,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 
 	// TODO (GV) - Remove this unnecessary converion/re-conversion when an
 	// opinionated proto message is created for PlanRequest
-	boundingRegionsProto := spatialmath.NewGeometriesToProto(boundingRegions)
+	boundingRegionsProto := referenceframe.NewGeometriesToProto(boundingRegions)
 
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
@@ -771,7 +766,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	}
 
 	// build kinematic options
-	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
+	kinematicsOptions := kbOptionsFromCfg(motionCfg)
 
 	fs, err := framesystem.NewFromService(ctx, ms.fsService, nil)
 	if err != nil {
@@ -941,21 +936,18 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	// TODO(RSDK-8683): move this check into the motionplan package
 	atGoalCheck := func(basePose spatialmath.Pose) bool {
-		if valExtra.motionProfile == armplanning.PositionOnlyMotionProfile {
-			return spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM)
-		}
 		return spatialmath.OrientationAlmostEqualEps(goal.Pose().Orientation(), basePose.Orientation(), 5) &&
 			spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM)
 	}
 
 	var backgroundWorkers sync.WaitGroup
-	startState := armplanning.NewPlanState(
+	startState := baseplanning.NewPlanState(
 		referenceframe.FrameSystemPoses{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose)},
 		currentInputs,
 	)
-	goals := []*armplanning.PlanState{armplanning.NewPlanState(referenceframe.FrameSystemPoses{kinematicFrame.Name(): goal}, nil)}
+	goals := []*baseplanning.PlanState{baseplanning.NewPlanState(referenceframe.FrameSystemPoses{kinematicFrame.Name(): goal}, nil)}
 
-	planOpts, err := armplanning.NewPlannerOptionsFromExtra(valExtra.extra)
+	planOpts, err := baseplanning.NewPlannerOptionsFromExtra(valExtra.extra)
 	if err != nil {
 		return nil, err
 	}
@@ -963,7 +955,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		config:      motionCfg,
 		logger:      ms.logger,
 		frameSystem: planningFS,
-		planRequest: &armplanning.PlanRequest{
+		planRequest: &baseplanning.PlanRequest{
 			FrameSystem:    planningFS,
 			Goals:          goals,
 			StartState:     startState,

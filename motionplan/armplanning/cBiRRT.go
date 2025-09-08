@@ -32,7 +32,7 @@ const (
 type cBiRRTMotionPlanner struct {
 	*planner
 	fastGradDescent ik.Solver
-	algOpts         *cbirrtOptions
+	qstep           map[string][]float64
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
@@ -41,7 +41,7 @@ func newCBiRRTMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
-	constraintHandler *ConstraintHandler,
+	constraintHandler *motionplan.ConstraintHandler,
 	chains *motionChains,
 ) (motionPlanner, error) {
 	if opt == nil {
@@ -56,17 +56,11 @@ func newCBiRRTMotionPlanner(
 	if err != nil {
 		return nil, err
 	}
-	algOpts := opt.PlanningAlgorithmSettings.CBirrtOpts
-	if algOpts == nil {
-		algOpts = &cbirrtOptions{
-			SolutionsToSeed: defaultSolutionsToSeed,
-		}
-	}
-	algOpts.qstep = getFrameSteps(mp.lfs, defaultFrameStep)
+
 	return &cBiRRTMotionPlanner{
 		planner:         mp,
 		fastGradDescent: nlopt,
-		algOpts:         algOpts,
+		qstep:           getFrameSteps(mp.lfs, defaultFrameStep),
 	}, nil
 }
 
@@ -104,10 +98,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		return
 	}
 	// initialize maps
-	// TODO(rb) package neighborManager better
-	nm1 := &neighborManager{nCPU: mp.planOpts.NumThreads}
-	nm2 := &neighborManager{nCPU: mp.planOpts.NumThreads}
-	nmContext, cancel := context.WithCancel(ctx)
+	_, cancel := context.WithCancel(ctx)
 	defer cancel()
 	mp.start = time.Now()
 
@@ -154,10 +145,10 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		tryExtend := func(target node) (node, node, error) {
 			// attempt to extend maps 1 and 2 towards the target
 			utils.PanicCapturingGo(func() {
-				m1chan <- nm1.nearestNeighbor(nmContext, target, map1, nodeConfigurationDistanceFunc)
+				m1chan <- nearestNeighbor(target, map1, nodeConfigurationDistanceFunc)
 			})
 			utils.PanicCapturingGo(func() {
-				m2chan <- nm2.nearestNeighbor(nmContext, target, map2, nodeConfigurationDistanceFunc)
+				m2chan <- nearestNeighbor(target, map2, nodeConfigurationDistanceFunc)
 			})
 			nearest1 := <-m1chan
 			nearest2 := <-m2chan
@@ -252,7 +243,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
 	deepCopyQstep := func() map[string][]float64 {
 		qstep := map[string][]float64{}
-		for fName, fStep := range mp.algOpts.qstep {
+		for fName, fStep := range mp.qstep {
 			newStep := make([]float64, len(fStep))
 			copy(newStep, fStep)
 			qstep[fName] = newStep
@@ -293,7 +284,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		oldNear = near
 
-		newNear := fixedStepInterpolation(near, target, mp.algOpts.qstep)
+		newNear := fixedStepInterpolation(near, target, mp.qstep)
 		// Check whether newNear meets constraints, and if not, update it to a configuration that does meet constraints (or nil)
 		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
 
@@ -367,7 +358,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		// Spawn the IK solver to generate solutions until done
-		err = mp.fastGradDescent.Solve(ctx, solutionGen, linearSeed, mp.linearizeFSmetric(mp.ConstraintHandler.pathMetric), randseed.Int())
+		err = mp.fastGradDescent.Solve(ctx, solutionGen, linearSeed, 0, 0,
+			mp.linearizeFSmetric(mp.ConstraintHandler.PathMetric()), randseed.Int())
 		// We should have zero or one solutions
 		var solved *ik.Solution
 		select {
