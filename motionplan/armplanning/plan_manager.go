@@ -364,7 +364,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		return nil, err
 	}
 
-	constraintHandler, err := newConstraintHandler(
+	constraintHandler, err := newConstraintChecker(
 		pm.request.PlannerOptions,
 		pm.request.Constraints,
 		startState,
@@ -373,7 +373,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		motionChains,
 		pm.request.StartState.configuration,
 		pm.request.WorldState,
-		pm.BoundingRegions(),
+		pm.checker.BoundingRegions(),
 	)
 	if err != nil {
 		return nil, err
@@ -392,7 +392,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			return nil, err
 		}
 
-		constraintHandler, err = newConstraintHandler(
+		constraintHandler, err = newConstraintChecker(
 			pm.request.PlannerOptions,
 			pm.request.Constraints,
 			startState,
@@ -401,7 +401,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			motionChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.BoundingRegions(),
+			pm.checker.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err
@@ -409,7 +409,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 
 		pm.motionChains = motionChains
 	}
-	pm.ConstraintHandler = constraintHandler
+	pm.checker = constraintHandler
 
 	// TPspace should never use subwaypoints
 	if !subWaypoints {
@@ -465,7 +465,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			return nil, err
 		}
 
-		wpConstraintHandler, err := newConstraintHandler(
+		wpConstraintChecker, err := newConstraintChecker(
 			pm.request.PlannerOptions,
 			pm.request.Constraints,
 			from,
@@ -474,7 +474,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			wpChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.BoundingRegions(),
+			pm.checker.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err
@@ -486,7 +486,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
 			pm.request.PlannerOptions,
-			wpConstraintHandler,
+			wpConstraintChecker,
 			pm.motionChains,
 		)
 		if err != nil {

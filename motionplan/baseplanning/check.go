@@ -88,7 +88,7 @@ func checkPlanRelative(
 	// change from 60mm to 30mm so we have finer interpolation along segments
 	planOpts.Resolution = relativePlanOptsResolution
 
-	constraintHandler, err := newConstraintHandler(
+	constraintHandler, err := newConstraintChecker(
 		planOpts,
 		nil,
 		&PlanState{poses: plan.Path()[0], configuration: plan.Trajectory()[0]},
@@ -234,7 +234,7 @@ func checkPlanAbsolute(
 		return err
 	}
 
-	constraintHandler, err := newConstraintHandler(
+	constraintHandler, err := newConstraintChecker(
 		planOpts,
 		nil,
 		&PlanState{poses: executionState.CurrentPoses(), configuration: startingInputs},
@@ -270,7 +270,7 @@ func checkSegmentsFS(
 	lookAheadDistanceMM float64,
 	resolution float64,
 	motionChains *motionChains,
-	constraintHandler *motionplan.ConstraintHandler,
+	constraintHandler *motionplan.ConstraintChecker,
 	fs *referenceframe.FrameSystem,
 ) error {
 	// go through segments and check that we satisfy constraints
@@ -337,7 +337,7 @@ func checkSegments(
 	checkFrame referenceframe.Frame,
 	resolution float64,
 	fs *referenceframe.FrameSystem,
-	cHandler *motionplan.ConstraintHandler,
+	cHandler *motionplan.ConstraintChecker,
 ) error {
 	// go through segments and check that we satisfy constraints
 	var totalTravelDistanceMM float64

@@ -35,9 +35,6 @@ const (
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultStepSizeMM = 10
-
-	// This is commented out due to Go compiler bug. See comment in newBasicPlannerOptions for explanation.
-	// var defaultPlanner = newCBiRRTMotionPlanner.
 )
 
 var (

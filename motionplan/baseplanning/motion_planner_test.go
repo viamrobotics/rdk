@@ -39,7 +39,7 @@ type planConfig struct {
 	Goal             *PlanState
 	FS               *frame.FrameSystem
 	Options          *PlannerOptions
-	ConstraintHander *motionplan.ConstraintHandler
+	ConstraintHander *motionplan.ConstraintChecker
 	MotionChains     *motionChains
 }
 
@@ -131,7 +131,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 		return oFunc(currPose.(*frame.PoseInFrame).Pose().Orientation())
 	}
 	orientConstraint := func(cInput *motionplan.State) error {
-		err := motionplan.ResolveStatesToPositions(cInput)
+		err := cInput.ResolveStateAndUpdatePositions()
 		if err != nil {
 			return err
 		}
@@ -143,7 +143,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	}
 
 	opt.GoalMetricType = motionplan.ArcLengthConvergence
-	constraintHandler := motionplan.NewConstraintHandlerWithPathMetric(oFuncMet)
+	constraintHandler := motionplan.NewConstraintCheckerWithPathMetric(oFuncMet)
 	constraintHandler.AddStateConstraint("orientation", orientConstraint)
 
 	start := &PlanState{configuration: map[string][]frame.Input{model.Name(): home7}}
@@ -237,7 +237,7 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 
 	// setup planner options
 	opt := NewBasicPlannerOptions()
-	constraintHandler := motionplan.NewEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintChecker()
 	startInput := frame.NewZeroInputs(fs)
 	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90., 0})
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
@@ -351,7 +351,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		return nil, err
 	}
 
-	constraintHandler := motionplan.NewEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintChecker()
 	for name, constraint := range collisionConstraints {
 		constraintHandler.AddStateConstraint(name, constraint)
 	}
@@ -424,7 +424,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	constraintHandler := motionplan.NewEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintChecker()
 	for name, constraint := range collisionConstraints {
 		constraintHandler.AddStateConstraint(name, constraint)
 	}

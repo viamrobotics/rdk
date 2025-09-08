@@ -41,7 +41,7 @@ type motionPlanner interface {
 }
 
 type planner struct {
-	*motionplan.ConstraintHandler
+	checker                   *motionplan.ConstraintChecker
 	fs                        *referenceframe.FrameSystem
 	lfs                       *linearizedFrameSystem
 	solver                    ik.Solver
@@ -72,7 +72,7 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 		return nil, err
 	}
 
-	constraintHandler, err := newConstraintHandler(
+	constraintHandler, err := newConstraintChecker(
 		request.PlannerOptions,
 		request.Constraints,
 		request.StartState,
@@ -104,7 +104,7 @@ func newPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
-	constraintHandler *motionplan.ConstraintHandler,
+	constraintHandler *motionplan.ConstraintChecker,
 	chains *motionChains,
 ) (*planner, error) {
 	lfs, err := newLinearizedFrameSystem(fs)
@@ -115,7 +115,7 @@ func newPlanner(
 		opt = NewBasicPlannerOptions()
 	}
 	if constraintHandler == nil {
-		constraintHandler = motionplan.NewEmptyConstraintHandler()
+		constraintHandler = motionplan.NewEmptyConstraintChecker()
 	}
 	if chains == nil {
 		chains = &motionChains{}
@@ -126,7 +126,7 @@ func newPlanner(
 		return nil, err
 	}
 	mp := &planner{
-		ConstraintHandler:         constraintHandler,
+		checker:                   constraintHandler,
 		solver:                    solver,
 		fs:                        fs,
 		lfs:                       lfs,
@@ -140,14 +140,14 @@ func newPlanner(
 }
 
 func (mp *planner) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
-	return mp.CheckStateFSConstraints(&motionplan.StateFS{
+	return mp.checker.CheckStateFSConstraints(&motionplan.StateFS{
 		Configuration: inputs,
 		FS:            mp.fs,
 	}) == nil
 }
 
 func (mp *planner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) bool {
-	ok, _ := mp.CheckSegmentAndStateValidityFS(
+	ok, _ := mp.checker.CheckSegmentAndStateValidityFS(
 		&motionplan.SegmentFS{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
@@ -217,7 +217,7 @@ func (mp *planner) process(sss *solutionSolvingState, seed referenceframe.FrameS
 		step = alteredStep
 	}
 	// Ensure the end state is a valid one
-	err = mp.CheckStateFSConstraints(&motionplan.StateFS{
+	err = mp.checker.CheckStateFSConstraints(&motionplan.StateFS{
 		Configuration: step,
 		FS:            mp.fs,
 	})
@@ -232,7 +232,7 @@ func (mp *planner) process(sss *solutionSolvingState, seed referenceframe.FrameS
 		EndConfiguration:   step,
 		FS:                 mp.fs,
 	}
-	err = mp.CheckSegmentFSConstraints(stepArc)
+	err = mp.checker.CheckSegmentFSConstraints(stepArc)
 	if err != nil {
 		sss.constraintFailCnt++
 		sss.failures[err.Error()]++
@@ -421,7 +421,7 @@ func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs)
 	}
 	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
 
-	_, lastGood := mp.CheckStateConstraintsAcrossSegmentFS(
+	_, lastGood := mp.checker.CheckStateConstraintsAcrossSegmentFS(
 		&motionplan.SegmentFS{
 			StartConfiguration: step,
 			EndConfiguration:   alteredStep,
