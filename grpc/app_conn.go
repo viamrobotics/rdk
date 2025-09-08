@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/contextutils"
@@ -100,6 +101,15 @@ func NewAppConn(ctx context.Context, appAddress, secret, id string, logger loggi
 	})
 
 	return appConn, nil
+}
+
+// GetState returns the current state of the connection.
+func (ac *AppConn) GetState() connectivity.State {
+	if ac.conn == nil {
+		return connectivity.Connecting
+	}
+
+	return ac.conn.GetState()
 }
 
 // Close attempts to close the underlying connection and stops background dialing attempts.

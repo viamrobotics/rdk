@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
@@ -357,6 +358,12 @@ func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 
 	guard.Success()
 	return nil
+}
+
+// GetState returns the current state of the connection.
+func (sc *SharedConn) GetState() connectivity.State {
+	// TODO: RSDK-11849 - Handle surfacing dual connectivity states (grpc + webrtc).
+	return rpc.Unknown
 }
 
 // Close closes a shared connection.

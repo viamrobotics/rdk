@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/logging"
 )
@@ -99,6 +100,18 @@ func (c *ReconfigurableClientConn) PeerConn() *webrtc.PeerConnection {
 	}
 
 	return c.conn.PeerConn()
+}
+
+// GetState returns the current state of the connection.
+func (c *ReconfigurableClientConn) GetState() connectivity.State {
+	c.connMu.RLock()
+	defer c.connMu.RUnlock()
+
+	if c.conn == nil {
+		return rpc.Unknown
+	}
+
+	return c.conn.GetState()
 }
 
 // Close attempts to close the underlying client connection if there is one.
