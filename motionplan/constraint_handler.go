@@ -298,7 +298,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *Segment, reso
 	var lastGood []referenceframe.Input
 	for i, interpConfig := range interpolatedConfigurations {
 		interpC := &State{Frame: ci.Frame, Configuration: interpConfig}
-		if ResolveStatesToPositions(interpC) != nil {
+		if interpC.ResolveStateAndUpdatePositions() != nil {
 			return false, nil
 		}
 		if c.CheckStateConstraints(interpC) != nil {
@@ -429,11 +429,6 @@ func (c *ConstraintHandler) AddStateConstraint(name string, cons StateConstraint
 	c.stateConstraints[name] = cons
 }
 
-// RemoveStateConstraint will remove the given constraint.
-func (c *ConstraintHandler) RemoveStateConstraint(name string) {
-	delete(c.stateConstraints, name)
-}
-
 // StateConstraints will list all state constraints by name.
 func (c *ConstraintHandler) StateConstraints() []string {
 	names := make([]string, 0, len(c.stateConstraints))
@@ -452,11 +447,6 @@ func (c *ConstraintHandler) AddSegmentConstraint(name string, cons SegmentConstr
 	// Add function address to name to prevent collisions
 	name = name + "_" + fmt.Sprintf("%p", cons)
 	c.segmentConstraints[name] = cons
-}
-
-// RemoveSegmentConstraint will remove the given constraint.
-func (c *ConstraintHandler) RemoveSegmentConstraint(name string) {
-	delete(c.segmentConstraints, name)
 }
 
 // SegmentConstraints will list all segment constraints by name.
@@ -478,11 +468,6 @@ func (c *ConstraintHandler) AddStateFSConstraint(name string, cons StateFSConstr
 	c.stateFSConstraints[name] = cons
 }
 
-// RemoveStateFSConstraint will remove the given constraint.
-func (c *ConstraintHandler) RemoveStateFSConstraint(name string) {
-	delete(c.stateFSConstraints, name)
-}
-
 // StateFSConstraints will list all FS state constraints by name.
 func (c *ConstraintHandler) StateFSConstraints() []string {
 	names := make([]string, 0, len(c.stateFSConstraints))
@@ -500,11 +485,6 @@ func (c *ConstraintHandler) AddSegmentFSConstraint(name string, cons SegmentFSCo
 	}
 	name = name + "_" + fmt.Sprintf("%p", cons)
 	c.segmentFSConstraints[name] = cons
-}
-
-// RemoveSegmentFSConstraint will remove the given constraint.
-func (c *ConstraintHandler) RemoveSegmentFSConstraint(name string) {
-	delete(c.segmentFSConstraints, name)
 }
 
 // SegmentFSConstraints will list all FS segment constraints by name.

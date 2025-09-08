@@ -94,6 +94,25 @@ type State struct {
 	Frame         referenceframe.Frame
 }
 
+// ResolveStateAndUpdatePositions converts Position Configuration to Position.
+func (state *State) ResolveStateAndUpdatePositions() error {
+	if state.Position != nil {
+		return nil
+	}
+
+	if state.Frame == nil || state.Configuration == nil {
+		return errInvalidConstraint
+	}
+
+	pos, err := state.Frame.Transform(state.Configuration)
+	if err != nil {
+		return err
+	}
+
+	state.Position = pos
+	return nil
+}
+
 // StateFS contains all the information a constraint needs to determine validity for a particular state or configuration of an entire
 // framesystem. It contains inputs, the corresponding poses, and the frame it refers to.
 // Pose field may be empty, and may be filled in by a constraint that needs it.

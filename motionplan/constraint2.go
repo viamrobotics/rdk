@@ -81,27 +81,6 @@ func resolveSegmentsToPositions(segment *Segment) error {
 	return nil
 }
 
-// ResolveStatesToPositions  -Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func ResolveStatesToPositions(state *State) error {
-	if state.Position == nil {
-		if state.Frame != nil {
-			if state.Configuration != nil {
-				pos, err := state.Frame.Transform(state.Configuration)
-				if err == nil {
-					state.Position = pos
-				} else {
-					return err
-				}
-			} else {
-				return errInvalidConstraint
-			}
-		} else {
-			return errInvalidConstraint
-		}
-	}
-	return nil
-}
-
 // SegmentFSConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
 // If the returned error is nil, the constraint is satisfied and the segment is valid.
 type SegmentFSConstraint func(*SegmentFS) error
@@ -379,7 +358,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 	}
 
 	validFunc := func(state *State) error {
-		err := ResolveStatesToPositions(state)
+		err := state.ResolveStateAndUpdatePositions()
 		if err != nil {
 			return err
 		}
@@ -402,7 +381,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (StateConstraint, 
 	}
 
 	validFunc := func(state *State) error {
-		err := ResolveStatesToPositions(state)
+		err := state.ResolveStateAndUpdatePositions()
 		if err != nil {
 			return err
 		}
