@@ -102,6 +102,7 @@ func (c *ReconfigurableClientConn) PeerConn() *webrtc.PeerConnection {
 	return c.conn.PeerConn()
 }
 
+// GetState returns the current state of the connection.
 func (c *ReconfigurableClientConn) GetState() connectivity.State {
 	c.connMu.RLock()
 	defer c.connMu.RUnlock()

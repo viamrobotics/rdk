@@ -360,6 +360,7 @@ func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 	return nil
 }
 
+// GetState returns the current state of the connection.
 func (sc *SharedConn) GetState() connectivity.State {
 	// TODO: RSDK-11849 - Handle surfacing dual connectivity states (grpc + webrtc).
 	return rpc.Unknown
