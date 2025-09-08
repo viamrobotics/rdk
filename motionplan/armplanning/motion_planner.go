@@ -61,13 +61,6 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 		return nil, err
 	}
 
-	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
-	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
-	// are allowed to collide with one another.
-	if request.StartState.configuration == nil {
-		return nil, errors.New("must populate start state configuration")
-	}
-
 	boundingRegions, err := referenceframe.NewGeometriesFromProto(request.BoundingRegions)
 	if err != nil {
 		return nil, err

@@ -219,6 +219,13 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 		request.PlannerOptions = NewBasicPlannerOptions()
 	}
 
+	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
+	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
+	// are allowed to collide with one another.
+	if request.StartState.configuration == nil {
+		return nil, errors.New("must populate start state configuration")
+	}
+
 	sfPlanner, err := newPlanManager(logger, request)
 	if err != nil {
 		return nil, err
