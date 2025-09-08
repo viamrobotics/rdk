@@ -26,7 +26,7 @@ import (
 // a resource may register with a SharedConn which supports WebRTC.
 type OnTrackCB func(tr *webrtc.TrackRemote, r *webrtc.RTPReceiver)
 
-//nolint
+// nolint
 // The following describes the SharedConn lifetime for viam-server's modmanager communicating with
 // modules it has spawned.
 //
@@ -361,7 +361,8 @@ func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 }
 
 func (sc *SharedConn) GetState() connectivity.State {
-	return sc.grpcConn.GetState()
+	// TODO: RSDK-11849 - Handle surfacing dual connectivity states (grpc + webrtc).
+	return rpc.Unknown
 }
 
 // Close closes a shared connection.

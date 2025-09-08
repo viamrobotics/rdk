@@ -105,6 +105,10 @@ func NewAppConn(ctx context.Context, appAddress, secret, id string, logger loggi
 
 // GetState returns the current state of the connection.
 func (ac *AppConn) GetState() connectivity.State {
+	if ac.conn == nil {
+		return connectivity.Connecting
+	}
+
 	return ac.conn.GetState()
 }
 
