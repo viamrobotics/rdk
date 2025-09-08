@@ -41,7 +41,7 @@ type motionPlanner interface {
 }
 
 type planner struct {
-	*ConstraintHandler
+	*motionplan.ConstraintHandler
 	fs                        *referenceframe.FrameSystem
 	lfs                       *linearizedFrameSystem
 	solver                    ik.Solver
@@ -89,7 +89,6 @@ func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*pl
 
 	constraintHandler, err := newConstraintHandler(
 		opt,
-		logger,
 		request.Constraints,
 		request.StartState,
 		request.Goals[0],
@@ -120,7 +119,7 @@ func newPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
-	constraintHandler *ConstraintHandler,
+	constraintHandler *motionplan.ConstraintHandler,
 	chains *motionChains,
 ) (*planner, error) {
 	lfs, err := newLinearizedFrameSystem(fs)
@@ -131,7 +130,7 @@ func newPlanner(
 		opt = NewBasicPlannerOptions()
 	}
 	if constraintHandler == nil {
-		constraintHandler = newEmptyConstraintHandler()
+		constraintHandler = motionplan.NewEmptyConstraintHandler()
 	}
 	if chains == nil {
 		chains = &motionChains{}

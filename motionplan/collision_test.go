@@ -1,4 +1,4 @@
-package armplanning
+package motionplan
 
 import (
 	"testing"

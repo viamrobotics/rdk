@@ -397,7 +397,6 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 
 	constraintHandler, err := newConstraintHandler(
 		opt,
-		pm.logger,
 		pm.request.Constraints,
 		startState,
 		wpGoals,
@@ -405,7 +404,7 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 		motionChains,
 		pm.request.StartState.configuration,
 		pm.request.WorldState,
-		pm.boundingRegions,
+		pm.BoundingRegions(),
 	)
 	if err != nil {
 		return nil, err
@@ -432,7 +431,6 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 
 		constraintHandler, err = newConstraintHandler(
 			opt,
-			pm.logger,
 			pm.request.Constraints,
 			startState,
 			wpGoals,
@@ -440,7 +438,7 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 			motionChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.boundingRegions,
+			pm.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err
@@ -512,7 +510,6 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 
 		wpConstraintHandler, err := newConstraintHandler(
 			wpOpt,
-			pm.logger,
 			pm.request.Constraints,
 			from,
 			to,
@@ -520,7 +517,7 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 			wpChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.boundingRegions,
+			pm.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err

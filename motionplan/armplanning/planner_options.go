@@ -15,17 +15,6 @@ import (
 const (
 	defaultCollisionBufferMM = 1e-8
 
-	// max linear deviation from straight-line between start and goal, in mm.
-	defaultLinearDeviation = 0.1
-
-	// allowable deviation from slerp between start/goal orientations, unit is the number of degrees of rotation away from the most direct
-	// arc from start orientation to goal orientation.
-	defaultOrientationDeviation = 2.0
-
-	// allowable linear and orientation deviation from direct interpolation path, as a proportion of the linear and orientation distances
-	// between the start and goal.
-	defaultPseudolinearTolerance = 0.8
-
 	// Number of IK solutions that should be generated before stopping.
 	defaultSolutionsToSeed = 100
 
@@ -35,9 +24,6 @@ const (
 	// If an IK solution scores below this much, return it immediately.
 	defaultMinIkScore = 0.01
 
-	// Default distance below which two distances are considered equal.
-	defaultEpsilon = 0.001
-
 	// default number of seconds to try to solve in total before returning.
 	defaultTimeout = 300.
 
@@ -46,9 +32,6 @@ const (
 
 	// random seed.
 	defaultRandomSeed = 0
-
-	// constraints passed over the wire do not get names and we want to call them something.
-	defaultConstraintName = "unnamed constraint"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultStepSizeMM = 10
@@ -117,9 +100,6 @@ type PlannerOptions struct {
 
 	// Check constraints are still met every this many mm/degrees of movement.
 	Resolution float64 `json:"resolution"`
-
-	// Percentage interval of max iterations after which to print debug logs
-	LoggingInterval float64 `json:"logging_interval"`
 
 	// Number of seconds before terminating planner
 	Timeout float64 `json:"timeout"`

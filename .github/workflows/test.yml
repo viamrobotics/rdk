@@ -100,6 +100,9 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
+    - name: build
+      run:
+        make windows
     - name: test
       env:
         GOFLAGS: "-tags=no_cgo"

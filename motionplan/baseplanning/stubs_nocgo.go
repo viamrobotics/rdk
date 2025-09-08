@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -21,7 +22,7 @@ func newCBiRRTMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
-	constraintHandler *ConstraintHandler,
+	constraintHandler *motionplan.ConstraintHandler,
 	motionChains *motionChains,
 ) (motionPlanner, error) {
 	return nil, errNotSupported
@@ -33,7 +34,7 @@ func newTPSpaceMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
-	constraintHandler *ConstraintHandler,
+	constraintHandler *motionplan.ConstraintHandler,
 	motionChains *motionChains,
 ) (motionPlanner, error) {
 	return nil, errNotSupported

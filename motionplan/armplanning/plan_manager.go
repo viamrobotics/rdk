@@ -366,7 +366,6 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 
 	constraintHandler, err := newConstraintHandler(
 		pm.request.PlannerOptions,
-		pm.logger,
 		pm.request.Constraints,
 		startState,
 		wpGoals,
@@ -374,7 +373,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		motionChains,
 		pm.request.StartState.configuration,
 		pm.request.WorldState,
-		pm.boundingRegions,
+		pm.BoundingRegions(),
 	)
 	if err != nil {
 		return nil, err
@@ -395,7 +394,6 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 
 		constraintHandler, err = newConstraintHandler(
 			pm.request.PlannerOptions,
-			pm.logger,
 			pm.request.Constraints,
 			startState,
 			wpGoals,
@@ -403,7 +401,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			motionChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.boundingRegions,
+			pm.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err
@@ -434,8 +432,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 
 	numSteps := 0
 	for frame, pif := range goalPoses {
-		// Calculate steps needed for this frame
-		steps := CalculateStepCount(startPoses[frame].Pose(), pif.Pose(), stepSize)
+		steps := motionplan.CalculateStepCount(startPoses[frame].Pose(), pif.Pose(), stepSize)
 		if steps > numSteps {
 			numSteps = steps
 		}
@@ -470,7 +467,6 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 
 		wpConstraintHandler, err := newConstraintHandler(
 			pm.request.PlannerOptions,
-			pm.logger,
 			pm.request.Constraints,
 			from,
 			to,
@@ -478,7 +474,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			wpChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.boundingRegions,
+			pm.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err

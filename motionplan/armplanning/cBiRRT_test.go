@@ -1,3 +1,5 @@
+//go:build !windows && !no_cgo
+
 package armplanning
 
 import (
@@ -46,7 +48,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	chains, err := motionChainsFromPlanState(fs, &PlanState{poses: goal})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, chains, test.ShouldNotBeNil)
-	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, newEmptyConstraintHandler(), chains)
+	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, motionplan.NewEmptyConstraintHandler(), chains)
 	test.That(t, err, test.ShouldBeNil)
 	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goalMetric)
