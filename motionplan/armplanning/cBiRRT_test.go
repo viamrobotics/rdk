@@ -1,3 +1,5 @@
+//go:build !windows && !no_cgo
+
 package armplanning
 
 import (

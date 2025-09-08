@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -130,11 +129,4 @@ func uniqInPlaceSlice(s []referenceframe.Frame) []referenceframe.Frame {
 		j++
 	}
 	return s[:j]
-}
-
-// NodeDistanceMetric is a function type used to compute nearest neighbors.
-type NodeDistanceMetric func(node, node) float64
-
-func nodeConfigurationDistanceFunc(node1, node2 node) float64 {
-	return motionplan.FSConfigurationL2Distance(&motionplan.SegmentFS{StartConfiguration: node1.Q(), EndConfiguration: node2.Q()})
 }

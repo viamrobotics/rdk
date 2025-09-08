@@ -101,9 +101,6 @@ type PlannerOptions struct {
 	// Check constraints are still met every this many mm/degrees of movement.
 	Resolution float64 `json:"resolution"`
 
-	// Percentage interval of max iterations after which to print debug logs
-	LoggingInterval float64 `json:"logging_interval"`
-
 	// Number of seconds before terminating planner
 	Timeout float64 `json:"timeout"`
 
