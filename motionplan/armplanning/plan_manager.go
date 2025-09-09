@@ -23,7 +23,9 @@ const (
 
 // planManager is intended to be the single entry point to motion planners.
 type planManager struct {
-	defaultPlanner *planner // TODO: This should probably be removed ???
+	checker      *motionplan.ConstraintChecker
+	motionChains *motionChains
+	randseed     *rand.Rand
 
 	logger logging.Logger
 
@@ -35,16 +37,37 @@ type planManager struct {
 }
 
 func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, error) {
-	p, err := newPlannerFromPlanRequest(logger, request)
+	mChains, err := motionChainsFromPlanState(request.FrameSystem, request.Goals[0])
 	if err != nil {
 		return nil, err
 	}
-	request.PlannerOptions = p.planOpts
+
+	boundingRegions, err := referenceframe.NewGeometriesFromProto(request.BoundingRegions)
+	if err != nil {
+		return nil, err
+	}
+
+	checker, err := newConstraintChecker(
+		request.PlannerOptions,
+		request.Constraints,
+		request.StartState,
+		request.Goals[0],
+		request.FrameSystem,
+		mChains,
+		request.StartState.configuration,
+		request.WorldState,
+		boundingRegions,
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	return &planManager{
-		defaultPlanner: p,
-		logger:         logger,
-		request:        request,
+		checker:      checker,
+		motionChains: mChains,
+		randseed:     rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
+		logger:       logger,
+		request:      request,
 	}, nil
 }
 
@@ -92,6 +115,11 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Plan, 
 			return nil, err
 		}
 		waypoints = append(waypoints, goalWaypoints...)
+	}
+
+	pm.logger.Debugf("planMultiWaypoint goals:%v waypoints:%v\n", len(pm.request.Goals), len(waypoints))
+	if len(waypoints) > 1 {
+		panic(1)
 	}
 
 	plan, err := pm.planAtomicWaypoints(ctx, waypoints)
@@ -377,7 +405,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		motionChains,
 		pm.request.StartState.configuration,
 		pm.request.WorldState,
-		pm.defaultPlanner.checker.BoundingRegions(),
+		pm.checker.BoundingRegions(),
 	)
 	if err != nil {
 		return nil, err
@@ -406,25 +434,25 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			motionChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.defaultPlanner.checker.BoundingRegions(),
+			pm.checker.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		pm.defaultPlanner.motionChains = motionChains
+		pm.motionChains = motionChains
 	}
-	pm.defaultPlanner.checker = constraintHandler
+	pm.checker = constraintHandler
 
 	if !subWaypoints {
 		//nolint: gosec
 		pathPlanner, err := newCBiRRTMotionPlanner(
 			pm.request.FrameSystem,
-			rand.New(rand.NewSource(int64(pm.defaultPlanner.randseed.Int()))),
+			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
 			pm.request.PlannerOptions,
 			constraintHandler,
-			pm.defaultPlanner.motionChains,
+			pm.motionChains,
 		)
 		if err != nil {
 			return nil, err
@@ -441,6 +469,8 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			numSteps = steps
 		}
 	}
+
+	pm.logger.Debugf("numSteps: %d", numSteps)
 
 	from := startState
 	waypoints := []atomicWaypoint{}
@@ -478,7 +508,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			wpChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.defaultPlanner.checker.BoundingRegions(),
+			pm.checker.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err
@@ -487,11 +517,11 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		//nolint: gosec
 		pathPlanner, err := newCBiRRTMotionPlanner(
 			pm.request.FrameSystem,
-			rand.New(rand.NewSource(int64(pm.defaultPlanner.randseed.Int()))),
+			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
 			pm.request.PlannerOptions,
 			wpConstraintChecker,
-			pm.defaultPlanner.motionChains,
+			pm.motionChains,
 		)
 		if err != nil {
 			return nil, err

@@ -55,44 +55,6 @@ type planner struct {
 	motionChains              *motionChains
 }
 
-func newPlannerFromPlanRequest(logger logging.Logger, request *PlanRequest) (*planner, error) {
-	mChains, err := motionChainsFromPlanState(request.FrameSystem, request.Goals[0])
-	if err != nil {
-		return nil, err
-	}
-
-	boundingRegions, err := referenceframe.NewGeometriesFromProto(request.BoundingRegions)
-	if err != nil {
-		return nil, err
-	}
-
-	constraintHandler, err := newConstraintChecker(
-		request.PlannerOptions,
-		request.Constraints,
-		request.StartState,
-		request.Goals[0],
-		request.FrameSystem,
-		mChains,
-		request.StartState.configuration,
-		request.WorldState,
-		boundingRegions,
-	)
-	if err != nil {
-		return nil, err
-	}
-	seed := request.PlannerOptions.RandomSeed
-
-	//nolint:gosec
-	return newPlanner(
-		request.FrameSystem,
-		rand.New(rand.NewSource(int64(seed))),
-		logger,
-		request.PlannerOptions,
-		constraintHandler,
-		mChains,
-	)
-}
-
 func newPlanner(
 	fs *referenceframe.FrameSystem,
 	seed *rand.Rand,
