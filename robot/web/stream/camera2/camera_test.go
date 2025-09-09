@@ -548,7 +548,7 @@ func TestVideoSourceFromCamera_LazyDecodeConfigError(t *testing.T) {
 	}
 
 	_, err = camerautils.VideoSourceFromCamera(context.Background(), cam)
-	test.That(t, err, test.ShouldBeError, errors.New("failed to decode lazy encoded image: image: unknown format"))
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestVideoSourceFromCamera_InvalidImageFirst_ThenValidAlsoAvailable(t *testing.T) {
