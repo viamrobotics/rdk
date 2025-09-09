@@ -376,7 +376,7 @@ func (mp *planner) getSolutions(
 
 	orderedSolutions := make([]node, 0)
 	for _, key := range keys {
-		orderedSolutions = append(orderedSolutions, &basicNode{q: solvingState.solutions[key], cost: key})
+		orderedSolutions = append(orderedSolutions, &basicNode{q: solvingState.solutions[key]})
 	}
 	return orderedSolutions, nil
 }

@@ -3,6 +3,7 @@ package armplanning
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -58,11 +59,12 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 		},
 	}
 
-	startNodes, err := generateNodeListForPlanState(ctx, wp.mp, wp.startState, wp.goalState.configuration)
-	if err != nil {
-		rrt.err = err
+	if len(wp.startState.configuration) == 0 {
+		rrt.err = fmt.Errorf("no configurations")
 		return rrt
 	}
+	seed := newConfigurationNode(wp.startState.configuration)
+
 	goalNodes, err := generateNodeListForPlanState(ctx, wp.mp, wp.goalState, wp.startState.configuration)
 	if err != nil {
 		rrt.err = err
@@ -73,34 +75,34 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
 	optimalCost := configDistMetric(&motionplan.SegmentFS{
-		StartConfiguration: startNodes[0].Q(),
+		StartConfiguration: seed.Q(),
 		EndConfiguration:   goalNodes[0].Q(),
 	})
-	rrt.maps.optNode = &basicNode{q: goalNodes[0].Q(), cost: optimalCost}
+	rrt.maps.optNode = &basicNode{q: goalNodes[0].Q()}
 
 	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
 	// Since solutions are returned ordered, we check until one is out of bounds, then skip remaining checks
 	canInterp := true
+
 	// initialize maps and check whether direct interpolation is an option
-	for _, seed := range startNodes {
-		for _, solution := range goalNodes {
-			if canInterp {
-				cost := configDistMetric(
-					&motionplan.SegmentFS{StartConfiguration: seed.Q(), EndConfiguration: solution.Q()},
-				)
-				if cost < optimalCost*defaultOptimalityMultiple {
-					if wp.mp.checkPath(seed.Q(), solution.Q()) {
-						rrt.steps = []node{seed, solution}
-						return rrt
-					}
-				} else {
-					canInterp = false
+	for _, solution := range goalNodes {
+		if canInterp {
+			cost := configDistMetric(
+				&motionplan.SegmentFS{StartConfiguration: seed.Q(), EndConfiguration: solution.Q()},
+			)
+			if cost < optimalCost*defaultOptimalityMultiple {
+				if wp.mp.checkPath(seed.Q(), solution.Q()) {
+					rrt.steps = []node{seed, solution}
+					return rrt
 				}
+			} else {
+				canInterp = false
 			}
-			rrt.maps.goalMap[&basicNode{q: solution.Q(), cost: 0}] = nil
 		}
-		rrt.maps.startMap[&basicNode{q: seed.Q(), cost: 0}] = nil
+		rrt.maps.goalMap[&basicNode{q: solution.Q()}] = nil
 	}
+	rrt.maps.startMap[&basicNode{q: seed.Q()}] = nil
+
 	return rrt
 }
 
