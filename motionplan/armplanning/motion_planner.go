@@ -24,23 +24,6 @@ import (
 // This prevents seeding the solution tree with 50 copies of essentially the same configuration.
 const defaultSimScore = 0.05
 
-// motionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
-// management of the constraints used to plan paths.
-type motionPlanner interface {
-	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
-	// should be visited in order to arrive at the goal while satisfying all constraints
-	plan(ctx context.Context, seed, goal *PlanState) ([]node, error)
-
-	// Everything below this point should be covered by anything that wraps the generic `planner`
-	smoothPath(context.Context, []node) []node
-	checkPath(referenceframe.FrameSystemInputs, referenceframe.FrameSystemInputs) bool
-	checkInputs(referenceframe.FrameSystemInputs) bool
-	getSolutions(context.Context, referenceframe.FrameSystemInputs, motionplan.StateFSMetric) ([]node, error)
-	opt() *PlannerOptions
-	sample(node, int) (node, error)
-	getScoringFunction() motionplan.SegmentFSMetric
-}
-
 type planner struct {
 	checker                   *motionplan.ConstraintChecker
 	fs                        *referenceframe.FrameSystem
@@ -49,7 +32,6 @@ type planner struct {
 	logger                    logging.Logger
 	randseed                  *rand.Rand
 	start                     time.Time
-	scoringFunction           motionplan.SegmentFSMetric
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
 	motionChains              *motionChains
@@ -145,10 +127,6 @@ func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 
 func (mp *planner) opt() *PlannerOptions {
 	return mp.planOpts
-}
-
-func (mp *planner) getScoringFunction() motionplan.SegmentFSMetric {
-	return mp.scoringFunction
 }
 
 type solutionSolvingState struct {

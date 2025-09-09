@@ -23,11 +23,6 @@ const (
 	defaultIterBeforeRand = 50
 )
 
-type rrtParallelPlanner interface {
-	motionPlanner
-	rrtBackgroundRunner(context.Context, *rrtParallelPlannerShared)
-}
-
 type rrtParallelPlannerShared struct {
 	maps            *rrtMaps
 	endpointPreview chan node

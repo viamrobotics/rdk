@@ -72,9 +72,9 @@ func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, 
 }
 
 type atomicWaypoint struct {
-	mp         motionPlanner // ELIOT ?? why does a waypoint have a planner??
-	startState *PlanState    // A list of starting states, any of which would be valid to start from
-	goalState  *PlanState    // A list of goal states, any of which would be valid to arrive at
+	mp         *cBiRRTMotionPlanner // ELIOT ?? why does a waypoint have a planner??
+	startState *PlanState           // A list of starting states, any of which would be valid to start from
+	goalState  *PlanState           // A list of goal states, any of which would be valid to arrive at
 
 	// If partial plans are requested, we return up to the last explicit waypoint solved.
 	// We want to distinguish between actual user-requested waypoints and automatically-generated intermediate waypoints, and only
@@ -257,45 +257,30 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	pm.logger.Debug("start configuration", wp.startState.Configuration())
 	pm.logger.Debug("start planning from\n", fromPoses, "\nto\n", toPoses)
 
-	if _, ok := wp.mp.(rrtParallelPlanner); ok {
-		// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
-		// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
-		// for this solve will be rectified at the end.
+	// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
+	// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
+	// for this solve will be rectified at the end.
 
-		endpointPreview := make(chan node, 1)
-		solutionChan := make(chan *rrtSolution, 1)
-		pm.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer pm.activeBackgroundWorkers.Done()
-			pm.planParallelRRTMotion(ctx, wp, endpointPreview, solutionChan, maps)
-		})
-		// We don't want to check context here; context cancellation will be handled by planParallelRRTMotion.
-		// Instead, if a timeout occurs while we are smoothing, we want to return the best plan we have so far, rather than nothing at all.
-		// This matches the behavior of a non-rrtParallelPlanner
-		select {
-		case nextSeed := <-endpointPreview:
-			return nextSeed.Q(), &resultPromise{future: solutionChan}, nil
-		case planReturn := <-solutionChan:
-			if planReturn.err != nil {
-				return nil, nil, planReturn.err
-			}
-			seed := planReturn.steps[len(planReturn.steps)-1].Q()
-			return seed, &resultPromise{steps: planReturn.steps}, nil
+	endpointPreview := make(chan node, 1)
+	solutionChan := make(chan *rrtSolution, 1)
+	pm.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer pm.activeBackgroundWorkers.Done()
+		pm.planParallelRRTMotion(ctx, wp, endpointPreview, solutionChan, maps)
+	})
+
+	// We don't want to check context here; context cancellation will be handled by planParallelRRTMotion.
+	// Instead, if a timeout occurs while we are smoothing, we want to return the best plan we have so far, rather than nothing at all.
+	// This matches the behavior of a non-rrtParallelPlanner
+	select {
+	case nextSeed := <-endpointPreview:
+		return nextSeed.Q(), &resultPromise{future: solutionChan}, nil
+	case planReturn := <-solutionChan:
+		if planReturn.err != nil {
+			return nil, nil, planReturn.err
 		}
-	} else {
-		// This ctx is used exclusively for the running of the new planner and timing it out.
-		plannerctx, cancel := context.WithTimeout(ctx, time.Duration(wp.mp.opt().Timeout*float64(time.Second)))
-		defer cancel()
-		plan, err := wp.mp.plan(plannerctx, wp.startState, wp.goalState)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		smoothedPath := wp.mp.smoothPath(ctx, plan)
-
-		// Update seed for the next waypoint to be the final configuration of this waypoint
-		seed := smoothedPath[len(smoothedPath)-1].Q()
-		return seed, &resultPromise{steps: smoothedPath}, nil
+		seed := planReturn.steps[len(planReturn.steps)-1].Q()
+		return seed, &resultPromise{steps: planReturn.steps}, nil
 	}
 }
 
@@ -307,7 +292,6 @@ func (pm *planManager) planParallelRRTMotion(
 	solutionChan chan *rrtSolution,
 	maps *rrtMaps,
 ) {
-	pathPlanner := wp.mp.(rrtParallelPlanner)
 	var rrtBackground sync.WaitGroup
 	if maps == nil {
 		solutionChan <- &rrtSolution{err: errors.New("nil maps")}
@@ -336,7 +320,7 @@ func (pm *planManager) planParallelRRTMotion(
 	rrtBackground.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer rrtBackground.Done()
-		pathPlanner.rrtBackgroundRunner(plannerctx, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
+		wp.mp.rrtBackgroundRunner(plannerctx, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
 	})
 
 	// Wait for results from the planner.
@@ -356,7 +340,7 @@ func (pm *planManager) planParallelRRTMotion(
 		rrtBackground.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer rrtBackground.Done()
-			smoothChan <- pathPlanner.smoothPath(ctx, finalSteps.steps)
+			smoothChan <- wp.mp.smoothPath(ctx, finalSteps.steps)
 		})
 
 		// Receive the newly smoothed path from our original solve, and score it

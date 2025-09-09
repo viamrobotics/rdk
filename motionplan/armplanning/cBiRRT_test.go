@@ -50,7 +50,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 	test.That(t, chains, test.ShouldNotBeNil)
 	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, motionplan.NewEmptyConstraintChecker(), chains)
 	test.That(t, err, test.ShouldBeNil)
-	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goalMetric)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -74,20 +73,20 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
 	utils.PanicCapturingGo(func() {
-		cbirrt.constrainedExtend(ctx, cbirrt.randseed, seedMap, near1, &basicNode{q: target}, m1chan)
+		mp.constrainedExtend(ctx, mp.randseed, seedMap, near1, &basicNode{q: target}, m1chan)
 	})
 	seedReached := <-m1chan
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
 	near2 := nearestNeighbor(seedReached, goalMap, nodeConfigurationDistanceFunc)
 	// extend goalMap towards the point in seedMap
 	utils.PanicCapturingGo(func() {
-		cbirrt.constrainedExtend(ctx, cbirrt.randseed, goalMap, near2, seedReached, m1chan)
+		mp.constrainedExtend(ctx, mp.randseed, goalMap, near2, seedReached, m1chan)
 	})
 	goalReached := <-m1chan
-	dist := cbirrt.configurationDistanceFunc(
+	dist := mp.configurationDistanceFunc(
 		&motionplan.SegmentFS{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()},
 	)
-	test.That(t, dist < cbirrt.planOpts.InputIdentDist, test.ShouldBeTrue)
+	test.That(t, dist < mp.planOpts.InputIdentDist, test.ShouldBeTrue)
 
 	seedReached.SetCorner(true)
 	goalReached.SetCorner(true)
@@ -109,7 +108,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Test that smoothing succeeds and does not lengthen the path (it may be the same length)
 	unsmoothLen := len(inputSteps)
-	finalSteps := cbirrt.smoothPath(ctx, inputSteps)
+	finalSteps := mp.smoothPath(ctx, inputSteps)
 	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
 	// Test that path has changed after smoothing was applied
 	test.That(t, finalSteps, test.ShouldNotResemble, inputSteps)

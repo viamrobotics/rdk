@@ -110,7 +110,7 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair, matched bool) 
 // here are converted to a list of nodes which are to be used as the from or to states for a motionPlanner.
 func generateNodeListForPlanState(
 	ctx context.Context,
-	mp motionPlanner,
+	mp *cBiRRTMotionPlanner,
 	state *PlanState,
 	ikSeed referenceframe.FrameSystemInputs,
 ) ([]node, error) {
