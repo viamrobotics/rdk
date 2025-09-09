@@ -107,28 +107,6 @@ func (c fileSourceConfig) Validate(path string) ([]string, []string, error) {
 	return []string{}, nil, nil
 }
 
-// x264 only supports even resolutions. Not every call to this function will
-// be in the context of an x264 stream, but we crop every image to even
-// dimensions anyways.
-func cropToEvenDimensions(img image.Image) image.Image {
-	oddWidth := img.Bounds().Dx()%2 != 0
-	oddHeight := img.Bounds().Dy()%2 != 0
-	if !oddWidth && !oddHeight {
-		return img
-	}
-
-	rImg := rimage.ConvertImage(img)
-	newWidth := rImg.Width()
-	newHeight := rImg.Height()
-	if oddWidth {
-		newWidth--
-	}
-	if oddHeight {
-		newHeight--
-	}
-	return rImg.SubImage(image.Rect(0, 0, newWidth, newHeight))
-}
-
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
 func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	if fs.ColorFN == "" && fs.DepthFN == "" && fs.PreloadedImage == "" {
@@ -155,7 +133,7 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 
-	return cropToEvenDimensions(img), func() {}, err
+	return img, func() {}, err
 }
 
 // Images returns the saved color and depth image if they are present.
@@ -181,8 +159,7 @@ func (fs *fileSource) Images(
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		croppedImg := cropToEvenDimensions(img)
-		namedImg, err := camera.NamedImageFromImage(croppedImg, "preloaded", utils.MimeTypeJPEG)
+		namedImg, err := camera.NamedImageFromImage(img, "preloaded", utils.MimeTypeJPEG)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
@@ -195,7 +172,6 @@ func (fs *fileSource) Images(
 			return nil, resource.ResponseMetadata{}, err
 		}
 
-		img = cropToEvenDimensions(img)
 		namedImg, err := camera.NamedImageFromImage(img, "color", utils.MimeTypeJPEG)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err

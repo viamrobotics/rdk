@@ -24,6 +24,27 @@ var streamableImageMIMETypes = map[string]interface{}{
 	rutils.MimeTypeQOI:      nil,
 }
 
+// cropToEvenDimensions crops an image to even dimensions for x264 compatibility.
+// x264 only supports even resolutions. This ensures all streamed images work with x264.
+func cropToEvenDimensions(img image.Image) image.Image {
+	hasOddWidth := img.Bounds().Dx()%2 != 0
+	hasOddHeight := img.Bounds().Dy()%2 != 0
+	if !hasOddWidth && !hasOddHeight {
+		return img
+	}
+
+	rImg := rimage.ConvertImage(img)
+	newWidth := rImg.Width()
+	newHeight := rImg.Height()
+	if hasOddWidth {
+		newWidth--
+	}
+	if hasOddHeight {
+		newHeight--
+	}
+	return rImg.SubImage(image.Rect(0, 0, newWidth, newHeight))
+}
+
 // Camera returns the camera from the robot (derived from the stream) or
 // an error if it has no camera.
 func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
@@ -120,6 +141,9 @@ func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.Vid
 			sourceName = nil
 			return nil, func() {}, err
 		}
+
+		img = cropToEvenDimensions(img)
+
 		return img, func() {}, nil
 	})
 
