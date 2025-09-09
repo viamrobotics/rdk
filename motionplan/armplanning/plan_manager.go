@@ -23,7 +23,10 @@ const (
 
 // planManager is intended to be the single entry point to motion planners.
 type planManager struct {
-	*planner // TODO: This should probably be removed
+	defaultPlanner *planner // TODO: This should probably be removed ???
+
+	logger logging.Logger
+
 	// We store the request because we want to be able to inspect the original state of the plan
 	// that was requested at any point during the process of creating multiple planners
 	// for waypoints and such.
@@ -39,15 +42,16 @@ func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, 
 	request.PlannerOptions = p.planOpts
 
 	return &planManager{
-		planner: p,
-		request: request,
+		defaultPlanner: p,
+		logger:         logger,
+		request:        request,
 	}, nil
 }
 
 type atomicWaypoint struct {
-	mp         motionPlanner
-	startState *PlanState // A list of starting states, any of which would be valid to start from
-	goalState  *PlanState // A list of goal states, any of which would be valid to arrive at
+	mp         motionPlanner // ELIOT ?? why does a waypoint have a planner??
+	startState *PlanState    // A list of starting states, any of which would be valid to start from
+	goalState  *PlanState    // A list of goal states, any of which would be valid to arrive at
 
 	// If partial plans are requested, we return up to the last explicit waypoint solved.
 	// We want to distinguish between actual user-requested waypoints and automatically-generated intermediate waypoints, and only
@@ -67,8 +71,8 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Plan, 
 
 	// set timeout for entire planning process if specified
 	var cancel func()
-	if pm.planOpts.Timeout != 0 {
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(pm.planOpts.Timeout*float64(time.Second)))
+	if pm.request.PlannerOptions.Timeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(pm.request.PlannerOptions.Timeout*float64(time.Second)))
 	}
 	if cancel != nil {
 		defer cancel()
@@ -178,7 +182,7 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 	for i, future := range resultPromises {
 		steps, err := future.result()
 		if err != nil {
-			if pm.opt().ReturnPartialPlan && lastOrig > 0 {
+			if pm.request.PlannerOptions.ReturnPartialPlan && lastOrig > 0 {
 				returnPartial = true
 				break
 			}
@@ -204,7 +208,7 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 		pm.logger.Infof("returning partial plan up to waypoint %d", lastOrig)
 	}
 
-	return newRRTPlan(resultSlices, pm.fs)
+	return newRRTPlan(resultSlices, pm.request.FrameSystem)
 }
 
 // planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
@@ -214,11 +218,11 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	wp atomicWaypoint,
 	maps *rrtMaps,
 ) (referenceframe.FrameSystemInputs, *resultPromise, error) {
-	fromPoses, err := wp.startState.ComputePoses(pm.fs)
+	fromPoses, err := wp.startState.ComputePoses(pm.request.FrameSystem)
 	if err != nil {
 		return nil, nil, err
 	}
-	toPoses, err := wp.goalState.ComputePoses(pm.fs)
+	toPoses, err := wp.goalState.ComputePoses(pm.request.FrameSystem)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -348,18 +352,18 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		startState = pm.request.Goals[wpi-1]
 	}
 
-	startPoses, err := startState.ComputePoses(pm.fs)
+	startPoses, err := startState.ComputePoses(pm.request.FrameSystem)
 	if err != nil {
 		return nil, err
 	}
-	goalPoses, err := wpGoals.ComputePoses(pm.fs)
+	goalPoses, err := wpGoals.ComputePoses(pm.request.FrameSystem)
 	if err != nil {
 		return nil, err
 	}
 
 	subWaypoints := pm.useSubWaypoints(wpi)
 
-	motionChains, err := motionChainsFromPlanState(pm.fs, wpGoals)
+	motionChains, err := motionChainsFromPlanState(pm.request.FrameSystem, wpGoals)
 	if err != nil {
 		return nil, err
 	}
@@ -369,25 +373,26 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		pm.request.Constraints,
 		startState,
 		wpGoals,
-		pm.fs,
+		pm.request.FrameSystem,
 		motionChains,
 		pm.request.StartState.configuration,
 		pm.request.WorldState,
-		pm.checker.BoundingRegions(),
+		pm.defaultPlanner.checker.BoundingRegions(),
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	if wpGoals.poses != nil {
+		// TODO - should this be done earlier?
 		// Transform goal poses into world frame if needed. This is used for e.g. when a component's goal is given in terms of itself.
-		alteredGoals, err := motionChains.translateGoalsToWorldPosition(pm.fs, pm.request.StartState.configuration, wpGoals)
+		alteredGoals, err := motionChains.translateGoalsToWorldPosition(pm.request.FrameSystem, pm.request.StartState.configuration, wpGoals)
 		if err != nil {
 			return nil, err
 		}
 		wpGoals = alteredGoals
 
-		motionChains, err = motionChainsFromPlanState(pm.fs, wpGoals)
+		motionChains, err = motionChainsFromPlanState(pm.request.FrameSystem, wpGoals)
 		if err != nil {
 			return nil, err
 		}
@@ -397,30 +402,29 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			pm.request.Constraints,
 			startState,
 			wpGoals,
-			pm.fs,
+			pm.request.FrameSystem,
 			motionChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.checker.BoundingRegions(),
+			pm.defaultPlanner.checker.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		pm.motionChains = motionChains
+		pm.defaultPlanner.motionChains = motionChains
 	}
-	pm.checker = constraintHandler
+	pm.defaultPlanner.checker = constraintHandler
 
-	// TPspace should never use subwaypoints
 	if !subWaypoints {
 		//nolint: gosec
 		pathPlanner, err := newCBiRRTMotionPlanner(
-			pm.fs,
-			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
+			pm.request.FrameSystem,
+			rand.New(rand.NewSource(int64(pm.defaultPlanner.randseed.Int()))),
 			pm.logger,
 			pm.request.PlannerOptions,
 			constraintHandler,
-			pm.motionChains,
+			pm.defaultPlanner.motionChains,
 		)
 		if err != nil {
 			return nil, err
@@ -428,7 +432,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		return []atomicWaypoint{{mp: pathPlanner, startState: pm.request.StartState, goalState: wpGoals, origWP: wpi}}, nil
 	}
 
-	stepSize := pm.planOpts.PathStepSize
+	stepSize := pm.request.PlannerOptions.PathStepSize
 
 	numSteps := 0
 	for frame, pif := range goalPoses {
@@ -451,7 +455,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		}
 		if wpGoals.configuration != nil {
 			for frameName, inputs := range wpGoals.configuration {
-				frame := pm.fs.Frame(frameName)
+				frame := pm.request.FrameSystem.Frame(frameName)
 				// If subWaypoints was true, then StartState had a configuration, and if our goal does, so will `from`
 				toInputs, err := frame.Interpolate(from.configuration[frameName], inputs, by)
 				if err != nil {
@@ -460,7 +464,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 				to.configuration[frameName] = toInputs
 			}
 		}
-		wpChains, err := motionChainsFromPlanState(pm.fs, to)
+		wpChains, err := motionChainsFromPlanState(pm.request.FrameSystem, to)
 		if err != nil {
 			return nil, err
 		}
@@ -470,11 +474,11 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			pm.request.Constraints,
 			from,
 			to,
-			pm.fs,
+			pm.request.FrameSystem,
 			wpChains,
 			pm.request.StartState.configuration,
 			pm.request.WorldState,
-			pm.checker.BoundingRegions(),
+			pm.defaultPlanner.checker.BoundingRegions(),
 		)
 		if err != nil {
 			return nil, err
@@ -482,12 +486,12 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 
 		//nolint: gosec
 		pathPlanner, err := newCBiRRTMotionPlanner(
-			pm.fs,
-			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
+			pm.request.FrameSystem,
+			rand.New(rand.NewSource(int64(pm.defaultPlanner.randseed.Int()))),
 			pm.logger,
 			pm.request.PlannerOptions,
 			wpConstraintChecker,
-			pm.motionChains,
+			pm.defaultPlanner.motionChains,
 		)
 		if err != nil {
 			return nil, err
