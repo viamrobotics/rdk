@@ -1585,7 +1585,8 @@ func annotationsFromProto(proto *pb.Annotations) *Annotations {
 		classifications[i] = classificationFromProto(classificationProto)
 	}
 	return &Annotations{
-		Bboxes: bboxes,
+		Bboxes:          bboxes,
+		Classifications: classifications,
 	}
 }
 
