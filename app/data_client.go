@@ -153,9 +153,16 @@ type BoundingBox struct {
 	YMaxNormalized float64
 }
 
+// Classification represents a labeled classification on an image.
+type Classification struct {
+	ID    string
+	Label string
+}
+
 // Annotations are data annotations used for machine learning.
 type Annotations struct {
-	Bboxes []*BoundingBox
+	Bboxes          []*BoundingBox
+	Classifications []*Classification
 }
 
 // TabularDataByFilterResponse represents the result of a TabularDataByFilter query.
@@ -1537,6 +1544,16 @@ func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
 	}
 }
 
+func classificationFromProto(proto *pb.Classification) *Classification {
+	if proto == nil {
+		return nil
+	}
+	return &Classification{
+		ID:    proto.Id,
+		Label: proto.Label,
+	}
+}
+
 func exportTabularDataResponseFromProto(proto *pb.ExportTabularDataResponse) *ExportTabularDataResponse {
 	return &ExportTabularDataResponse{
 		OrganizationID:   proto.OrganizationId,
@@ -1562,6 +1579,10 @@ func annotationsFromProto(proto *pb.Annotations) *Annotations {
 	bboxes := make([]*BoundingBox, len(proto.Bboxes))
 	for i, bboxProto := range proto.Bboxes {
 		bboxes[i] = boundingBoxFromProto(bboxProto)
+	}
+	classifications := make([]*Classification, len(proto.Classifications))
+	for i, classificationProto := range proto.Classifications {
+		classifications[i] = classificationFromProto(classificationProto)
 	}
 	return &Annotations{
 		Bboxes: bboxes,
