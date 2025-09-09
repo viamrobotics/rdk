@@ -8,26 +8,25 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// fixedStepInterpolation returns inputs at qstep distance along the path from start to target
-// if start and target have the same Input value, then no step increment is made.
+// fixedStepInterpolation returns inputs at qstep distance along the path from start to target.
 func fixedStepInterpolation(start, target node, qstep map[string][]float64) referenceframe.FrameSystemInputs {
 	newNear := make(referenceframe.FrameSystemInputs)
 
-	// Iterate through each frame's inputs
 	for frameName, startInputs := range start.Q() {
 		// As this is constructed in-algorithm from already-near nodes, this is guaranteed to always exist
 		targetInputs := target.Q()[frameName]
 		frameSteps := make([]referenceframe.Input, len(startInputs))
 
 		for j, nearInput := range startInputs {
-			if nearInput.Value == targetInputs[j].Value {
-				frameSteps[j] = nearInput
+			v1, v2 := nearInput.Value, targetInputs[j].Value
+
+			step := qstep[frameName][j]
+			if step > math.Abs(v2-v1) {
+				frameSteps[j] = referenceframe.Input{Value: v2}
+			} else if v1 < v2 {
+				frameSteps[j] = referenceframe.Input{Value: nearInput.Value + step}
 			} else {
-				v1, v2 := nearInput.Value, targetInputs[j].Value
-				newVal := math.Min(qstep[frameName][j], math.Abs(v2-v1))
-				// get correct sign
-				newVal *= (v2 - v1) / math.Abs(v2-v1)
-				frameSteps[j] = referenceframe.Input{Value: nearInput.Value + newVal}
+				frameSteps[j] = referenceframe.Input{Value: nearInput.Value - step}
 			}
 		}
 		newNear[frameName] = frameSteps
@@ -42,7 +41,6 @@ type node interface {
 	Q() referenceframe.FrameSystemInputs
 	Cost() float64
 	SetCost(float64)
-	Poses() referenceframe.FrameSystemPoses
 	Corner() bool
 	SetCorner(bool)
 }
@@ -50,7 +48,6 @@ type node interface {
 type basicNode struct {
 	q      referenceframe.FrameSystemInputs
 	cost   float64
-	poses  referenceframe.FrameSystemPoses
 	corner bool
 }
 
@@ -73,10 +70,6 @@ func (n *basicNode) Cost() float64 {
 
 func (n *basicNode) SetCost(cost float64) {
 	n.cost = cost
-}
-
-func (n *basicNode) Poses() referenceframe.FrameSystemPoses {
-	return n.poses
 }
 
 func (n *basicNode) Corner() bool {
