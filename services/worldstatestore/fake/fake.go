@@ -39,6 +39,93 @@ type WorldStateStore struct {
 	logger logging.Logger
 }
 
+var (
+	boxUUID     = "box-001"
+	sphereUUID  = "sphere-001"
+	capsuleUUID = "capsule-001"
+
+	boxMetadata = &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"color": {
+				Kind: &structpb.Value_StructValue{
+					StructValue: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"r": {Kind: &structpb.Value_NumberValue{NumberValue: 255}},
+							"g": {Kind: &structpb.Value_NumberValue{NumberValue: 0}},
+							"b": {Kind: &structpb.Value_NumberValue{NumberValue: 0}},
+						},
+					},
+				},
+			},
+			"opacity": {
+				Kind: &structpb.Value_NumberValue{
+					NumberValue: 0.5,
+				},
+			},
+		},
+	}
+	sphereMetadata = &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"color": {
+				Kind: &structpb.Value_StructValue{
+					StructValue: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"r": {Kind: &structpb.Value_NumberValue{NumberValue: 0}},
+							"g": {Kind: &structpb.Value_NumberValue{NumberValue: 0}},
+							"b": {Kind: &structpb.Value_NumberValue{NumberValue: 255}},
+						},
+					},
+				},
+			},
+			"opacity": {
+				Kind: &structpb.Value_NumberValue{
+					NumberValue: 0.7,
+				},
+			},
+		},
+	}
+	capsuleMetadata = &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"color": {
+				Kind: &structpb.Value_StructValue{
+					StructValue: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"r": {Kind: &structpb.Value_NumberValue{NumberValue: 0}},
+							"g": {Kind: &structpb.Value_NumberValue{NumberValue: 255}},
+							"b": {Kind: &structpb.Value_NumberValue{NumberValue: 0}},
+						},
+					},
+				},
+			},
+			"opacity": {
+				Kind: &structpb.Value_NumberValue{
+					NumberValue: 1.0,
+				},
+			},
+		},
+	}
+	dynamicBoxMetadata = &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"color": {
+				Kind: &structpb.Value_StructValue{
+					StructValue: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"r": {Kind: &structpb.Value_NumberValue{NumberValue: 255}},
+							"g": {Kind: &structpb.Value_NumberValue{NumberValue: 0}},
+							"b": {Kind: &structpb.Value_NumberValue{NumberValue: 255}},
+						},
+					},
+				},
+			},
+			"opacity": {
+				Kind: &structpb.Value_NumberValue{
+					NumberValue: 0.3,
+				},
+			},
+		},
+	}
+)
+
 func init() {
 	resource.RegisterService(
 		worldstatestore.API,
@@ -163,61 +250,21 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 	defer f.mu.Unlock()
 
 	// Create initial transforms
-	boxUUID := "box-001"
-	sphereUUID := "sphere-001"
-	capsuleUUID := "capsule-001"
-
-	boxMetadata, err := structpb.NewStruct(map[string]any{
-		"color": map[string]any{
-			"r": 255,
-			"g": 0,
-			"b": 0,
-		},
-		"opacity": 0.3,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	sphereMetadata, err := structpb.NewStruct(map[string]any{
-		"color": map[string]any{
-			"r": 0,
-			"g": 0,
-			"b": 255,
-		},
-		"opacity": 0.7,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	capsuleMetadata, err := structpb.NewStruct(map[string]any{
-		"color": map[string]any{
-			"r": 0,
-			"g": 255,
-			"b": 0,
-		},
-		"opacity": 1.0,
-	})
-	if err != nil {
-		panic(err)
-	}
-
 	f.transforms[boxUUID] = &commonpb.Transform{
 		ReferenceFrame: "static-box",
 		PoseInObserverFrame: &commonpb.PoseInFrame{
 			ReferenceFrame: "world",
 			Pose: &commonpb.Pose{
-				X: -5, Y: 0, Z: 0, Theta: 0, OX: 0, OY: 0, OZ: 1,
+				X: -5000, Y: 0, Z: 0, Theta: 0, OX: 0, OY: 0, OZ: 1,
 			},
 		},
 		PhysicalObject: &commonpb.Geometry{
 			GeometryType: &commonpb.Geometry_Box{
 				Box: &commonpb.RectangularPrism{
 					DimsMm: &commonpb.Vector3{
-						X: 100,
-						Y: 100,
-						Z: 100,
+						X: 1000,
+						Y: 1000,
+						Z: 1000,
 					},
 				},
 			},
@@ -237,7 +284,7 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 		PhysicalObject: &commonpb.Geometry{
 			GeometryType: &commonpb.Geometry_Sphere{
 				Sphere: &commonpb.Sphere{
-					RadiusMm: 100,
+					RadiusMm: 500,
 				},
 			},
 		},
@@ -250,14 +297,14 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 		PoseInObserverFrame: &commonpb.PoseInFrame{
 			ReferenceFrame: "world",
 			Pose: &commonpb.Pose{
-				X: 5, Y: 0, Z: 0, Theta: 0, OX: 0, OY: 0, OZ: 1,
+				X: 5000, Y: 0, Z: 0, Theta: 0, OX: 0, OY: 0, OZ: 1,
 			},
 		},
 		PhysicalObject: &commonpb.Geometry{
 			GeometryType: &commonpb.Geometry_Capsule{
 				Capsule: &commonpb.Capsule{
-					RadiusMm: 100,
-					LengthMm: 100,
+					RadiusMm: 125,
+					LengthMm: 1000,
 				},
 			},
 		},
@@ -272,37 +319,38 @@ func (f *WorldStateStore) updateBoxTransform(elapsed time.Duration) {
 
 	f.mu.Lock()
 	if transform, exists := f.transforms["box-001"]; exists {
-		transform.PoseInObserverFrame.Pose.Theta = angle * 180 / math.Pi
-		uuid := transform.Uuid
+		theta := angle * 180 / math.Pi
+		transform.PoseInObserverFrame.Pose.Theta = theta
 		f.mu.Unlock()
-		partial := &commonpb.Transform{
-			Uuid: uuid,
+		f.emitTransformUpdate(&commonpb.Transform{
+			Uuid: transform.Uuid,
 			PoseInObserverFrame: &commonpb.PoseInFrame{
-				Pose: &commonpb.Pose{Theta: angle * 180 / math.Pi},
+				Pose: &commonpb.Pose{
+					Theta: theta,
+				},
 			},
-		}
-		f.emitTransformUpdate(partial, []string{"poseInObserverFrame.pose.theta"})
+		}, []string{"poseInObserverFrame.pose.theta"})
 		return
 	}
 	f.mu.Unlock()
 }
 
 func (f *WorldStateStore) updateSphereTransform(elapsed time.Duration) {
-	frequency := 2 * math.Pi / 5.0                        // radians per second
-	height := math.Sin(frequency*elapsed.Seconds()) * 2.0 // ±2 units
+	frequency := 2 * math.Pi / 5.0                           // radians per second
+	height := math.Sin(frequency*elapsed.Seconds()) * 2000.0 // ±2 units
 
 	f.mu.Lock()
 	if transform, exists := f.transforms["sphere-001"]; exists {
 		transform.PoseInObserverFrame.Pose.Y = height
-		uuid := transform.Uuid
 		f.mu.Unlock()
-		partial := &commonpb.Transform{
-			Uuid: uuid,
+		f.emitTransformUpdate(&commonpb.Transform{
+			Uuid: transform.Uuid,
 			PoseInObserverFrame: &commonpb.PoseInFrame{
-				Pose: &commonpb.Pose{Y: height},
+				Pose: &commonpb.Pose{
+					Y: height,
+				},
 			},
-		}
-		f.emitTransformUpdate(partial, []string{"poseInObserverFrame.pose.y"})
+		}, []string{"poseInObserverFrame.pose.y"})
 		return
 	}
 	f.mu.Unlock()
@@ -311,49 +359,34 @@ func (f *WorldStateStore) updateSphereTransform(elapsed time.Duration) {
 func (f *WorldStateStore) updateCapsuleTransform(elapsed time.Duration) {
 	frequency := 2 * math.Pi / 5.0                           // radians per second
 	scale := 1.0 + 0.5*math.Sin(frequency*elapsed.Seconds()) // 0.5x to 1.5x
-	r := 100 * scale
-	l := 100 * scale
+	r := 125 * scale
+	l := 1000 * scale
 
 	f.mu.Lock()
 	if transform, exists := f.transforms["capsule-001"]; exists {
 		transform.PhysicalObject.GetCapsule().RadiusMm = r
 		transform.PhysicalObject.GetCapsule().LengthMm = l
-		uuid := transform.Uuid
 		f.mu.Unlock()
-		partial := &commonpb.Transform{
-			Uuid: uuid,
+		f.emitTransformUpdate(&commonpb.Transform{
+			Uuid: transform.Uuid,
 			PhysicalObject: &commonpb.Geometry{
 				GeometryType: &commonpb.Geometry_Capsule{
-					Capsule: &commonpb.Capsule{RadiusMm: r, LengthMm: l},
+					Capsule: &commonpb.Capsule{
+						RadiusMm: r,
+						LengthMm: l,
+					},
 				},
 			},
-		}
-		f.emitTransformUpdate(partial, []string{"physicalObject.geometryType.value.radiusMm", "physicalObject.geometryType.value.lengthMm"})
+		}, []string{"physicalObject.geometryType.value.radiusMm", "physicalObject.geometryType.value.lengthMm"})
 		return
 	}
 	f.mu.Unlock()
 }
 
-func (f *WorldStateStore) emitTransformChange(uuid string, changeType pb.TransformChangeType, updatedFields []string) {
-	var transformCopy *commonpb.Transform
-
-	f.mu.RLock()
-	if transform, exists := f.transforms[uuid]; exists {
-		transformCopy = &commonpb.Transform{
-			ReferenceFrame:      transform.ReferenceFrame,
-			PoseInObserverFrame: transform.PoseInObserverFrame,
-			Uuid:                transform.Uuid,
-		}
-	}
-	f.mu.RUnlock()
-
-	if transformCopy == nil {
-		return
-	}
-
+func (f *WorldStateStore) emitTransformChange(transform *commonpb.Transform, changeType pb.TransformChangeType, updatedFields []string) {
 	change := worldstatestore.TransformChange{
 		ChangeType:    changeType,
-		Transform:     transformCopy,
+		Transform:     transform,
 		UpdatedFields: updatedFields,
 	}
 
@@ -365,7 +398,6 @@ func (f *WorldStateStore) emitTransformChange(uuid string, changeType pb.Transfo
 	}
 }
 
-// emitTransformUpdate emits a change with a partial transform payload for UPDATE events.
 func (f *WorldStateStore) emitTransformUpdate(partial *commonpb.Transform, updatedFields []string) {
 	if partial == nil || len(partial.GetUuid()) == 0 {
 		return
@@ -415,17 +447,17 @@ func (f *WorldStateStore) animationLoop() {
 }
 
 func (f *WorldStateStore) dynamicBoxSequence() {
+	delay := 3 * time.Second
 	sequence := []struct {
 		action string
 		name   string
-		delay  time.Duration
 	}{
-		{"add", "box-front-box", 3 * time.Second},
-		{"remove", "box-front-box", 0},
-		{"add", "box-front-sphere", 3 * time.Second},
-		{"remove", "box-front-sphere", 0},
-		{"add", "box-front-capsule", 3 * time.Second},
-		{"remove", "box-front-capsule", 0},
+		{"add", "box-front-box"},
+		{"remove", "box-front-box"},
+		{"add", "box-front-sphere"},
+		{"remove", "box-front-sphere"},
+		{"add", "box-front-capsule"},
+		{"remove", "box-front-capsule"},
 	}
 
 	for {
@@ -443,12 +475,10 @@ func (f *WorldStateStore) dynamicBoxSequence() {
 				f.removeDynamicBox(step.name)
 			}
 
-			if step.delay > 0 {
-				select {
-				case <-f.streamCtx.Done():
-					return
-				case <-time.After(step.delay):
-				}
+			select {
+			case <-f.streamCtx.Done():
+				return
+			case <-time.After(delay):
 			}
 		}
 	}
@@ -456,13 +486,14 @@ func (f *WorldStateStore) dynamicBoxSequence() {
 
 func (f *WorldStateStore) addDynamicBox(name string) {
 	var xOffset float64
+
 	switch name {
 	case "box-front-box":
-		xOffset = -5 - 2 // In front of the main box
+		xOffset = -5000 // In front of the main box
 	case "box-front-sphere":
-		xOffset = 0 - 2 // In front of the sphere
+		xOffset = 0 // In front of the sphere
 	case "box-front-capsule":
-		xOffset = 5 - 2 // In front of the capsule
+		xOffset = 5000 // In front of the capsule
 	}
 
 	uuid := name + "-" + time.Now().Format("20060102150405")
@@ -471,17 +502,29 @@ func (f *WorldStateStore) addDynamicBox(name string) {
 		PoseInObserverFrame: &commonpb.PoseInFrame{
 			ReferenceFrame: "world",
 			Pose: &commonpb.Pose{
-				X: xOffset, Y: 0, Z: 2, Theta: 0, OX: 0, OY: 0, OZ: 1,
+				X: xOffset, Y: -2000, Z: 0, Theta: 0, OX: 0, OY: 0, OZ: 1,
 			},
 		},
-		Uuid: []byte(uuid),
+		PhysicalObject: &commonpb.Geometry{
+			GeometryType: &commonpb.Geometry_Box{
+				Box: &commonpb.RectangularPrism{
+					DimsMm: &commonpb.Vector3{
+						X: 500,
+						Y: 500,
+						Z: 500,
+					},
+				},
+			},
+		},
+		Uuid:     []byte(uuid),
+		Metadata: dynamicBoxMetadata,
 	}
 
 	f.mu.Lock()
 	f.transforms[uuid] = transform
 	f.mu.Unlock()
 
-	f.emitTransformChange(uuid, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED, nil)
+	f.emitTransformChange(transform, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED, nil)
 }
 
 func (f *WorldStateStore) removeDynamicBox(name string) {
