@@ -150,7 +150,7 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 		// Check if ctx is done between each waypoint
 		select {
 		case <-ctx.Done():
-			if wp.mp.opt().ReturnPartialPlan {
+			if wp.mp.planOpts.ReturnPartialPlan {
 				returnPartial = true
 				done = true
 				break // breaks out of select, then the `done` conditional below breaks the loop
@@ -174,7 +174,7 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 		}
 		planSeed := initRRTSolutions(ctx, wp)
 		if planSeed.err != nil {
-			if wp.mp.opt().ReturnPartialPlan {
+			if wp.mp.planOpts.ReturnPartialPlan {
 				returnPartial = true
 				break
 			}
@@ -190,7 +190,7 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, wp, planSeed.maps)
 		if err != nil {
 			// Error getting the next seed. If we can, return the partial path if requested.
-			if wp.mp.opt().ReturnPartialPlan {
+			if wp.mp.planOpts.ReturnPartialPlan {
 				returnPartial = true
 				break
 			}
@@ -229,7 +229,7 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 			partialSlices = []node{}
 		}
 	}
-	if !waypoints[len(waypoints)-1].mp.opt().ReturnPartialPlan && len(partialSlices) > 0 {
+	if !waypoints[len(waypoints)-1].mp.planOpts.ReturnPartialPlan && len(partialSlices) > 0 {
 		resultSlices = append(resultSlices, partialSlices...)
 	}
 	if returnPartial {
@@ -311,7 +311,7 @@ func (pm *planManager) planParallelRRTMotion(
 	}
 
 	// This ctx is used exclusively for the running of the new planner and timing it out.
-	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(wp.mp.opt().Timeout*float64(time.Second)))
+	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(wp.mp.planOpts.Timeout*float64(time.Second)))
 	defer cancel()
 
 	plannerChan := make(chan *rrtSolution, 1)

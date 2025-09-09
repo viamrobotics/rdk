@@ -123,7 +123,7 @@ func generateNodeListForPlanState(
 
 	if len(state.poses) != 0 {
 		// If we have goal state poses, add them to the goal state configurations
-		goalMetric := mp.opt().getGoalMetric(state.poses)
+		goalMetric := mp.planOpts.getGoalMetric(state.poses)
 		// get many potential end goals from IK solver
 		solutions, err := mp.getSolutions(ctx, ikSeed, goalMetric)
 		if err != nil {

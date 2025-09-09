@@ -1,3 +1,4 @@
+// Package armplanning is a motion planning library.
 package armplanning
 
 import (

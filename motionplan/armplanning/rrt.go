@@ -66,7 +66,7 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 		return rrt
 	}
 
-	configDistMetric := motionplan.GetConfigurationDistanceFunc(wp.mp.opt().ConfigurationDistanceMetric)
+	configDistMetric := motionplan.GetConfigurationDistanceFunc(wp.mp.planOpts.ConfigurationDistanceMetric)
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
 	optimalCost := configDistMetric(&motionplan.SegmentFS{
