@@ -1407,10 +1407,6 @@ func (manager *resourceManager) createConfig() *config.Config {
 		}
 		resConf := gNode.Config()
 
-		// gocritic will complain that this if-else chain should be a switch, but
-		// it's really a mix of == and bool method checks.
-		//
-		//nolint: gocritic
 		if resName.API == client.RemoteAPI {
 			remoteConf, err := rutils.AssertType[*config.Remote](resConf.ConvertedAttributes)
 			if err != nil {
