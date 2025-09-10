@@ -362,7 +362,7 @@ func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger loggin
 		logger.Debugf("Package already downloaded at %s, skipping.", pkg.LocalDataDirectory(packagesDir))
 		return true
 	case syncFile.PackageID == pkg.Package && syncFile.Version == pkg.Version && syncFile.Status == syncStatusFailed:
-		logger.Debugf("Package failed to unzip at %s, skipping.", pkg.LocalDataDirectory(packagesDir))
+		logger.Errorf("Package failed to unzip at %s.", pkg.LocalDataDirectory(packagesDir))
 		return true
 	default:
 		logger.Infof("Package is not in sync for %s: status of '%s' (file) != '%s' (expected) and version of '%s' (file) != '%s' (expected)",

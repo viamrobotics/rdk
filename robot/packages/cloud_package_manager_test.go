@@ -347,9 +347,10 @@ func TestCloud(t *testing.T) {
 		// Sleep to make super sure modification time increments if it were to be modified
 		time.Sleep(10 * time.Millisecond)
 
-		// Second sync should be no-op and not re-download since package is present but marked as failed
+		// Second sync should error and not re-download since package is present but marked as failed
 		err = pm.Sync(ctx, []config.PackageConfig{input}, []config.Module{})
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not in done state")
 
 		// Validate sync file exists and has failed status and mod time has not changed
 		_, err = os.Stat(syncFileName)
