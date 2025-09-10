@@ -72,7 +72,7 @@ func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, 
 }
 
 type atomicWaypoint struct {
-	mp         *cBiRRTMotionPlanner // ELIOT ?? why does a waypoint have a planner??
+	mp         *cBiRRTMotionPlanner // this is unique to each right now because it embeds the checker, which has the start/goal
 	startState *PlanState           // A list of starting states, any of which would be valid to start from
 	goalState  *PlanState           // A list of goal states, any of which would be valid to arrive at
 
@@ -104,11 +104,10 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Plan, 
 	waypoints := []atomicWaypoint{}
 
 	for i := range pm.request.Goals {
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil { // this is probably silly, generateWaypoints is very fast
 			return nil, ctx.Err()
-		default:
 		}
+
 		// Solving highly constrained motions by breaking apart into small pieces is much more performant
 		goalWaypoints, err := pm.generateWaypoints(i)
 		if err != nil {
@@ -140,25 +139,17 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 
 	var seed referenceframe.FrameSystemInputs
 	var returnPartial bool
-	var done bool
 
 	// try to solve each goal, one at a time
 	for i, wp := range waypoints {
-		// Check if ctx is done between each waypoint
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			if wp.mp.planOpts.ReturnPartialPlan {
 				returnPartial = true
-				done = true
-				break // breaks out of select, then the `done` conditional below breaks the loop
+				break
 			}
 			return nil, ctx.Err()
-		default:
 		}
-		if done {
-			// breaks in the `select` above wil not break out of the loop, so we need to exit the select then break the loop if appropriate
-			break
-		}
+
 		pm.logger.Info("planning step", i, "of", len(waypoints), ":", wp.goalState)
 		for k, v := range wp.goalState.Poses() {
 			pm.logger.Info(k, v)
@@ -370,8 +361,6 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		return nil, err
 	}
 
-	subWaypoints := pm.useSubWaypoints(wpi)
-
 	motionChains, err := motionChainsFromPlanState(pm.request.FrameSystem, wpGoals)
 	if err != nil {
 		return nil, err
@@ -425,11 +414,10 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 	}
 	pm.checker = constraintHandler
 
-	if !subWaypoints {
-		//nolint: gosec
+	if !pm.useSubWaypoints(wpi) {
 		pathPlanner, err := newCBiRRTMotionPlanner(
 			pm.request.FrameSystem,
-			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
+			rand.New(rand.NewSource(int64(pm.randseed.Int()))), //nolint: gosec
 			pm.logger,
 			pm.request.PlannerOptions,
 			constraintHandler,
@@ -495,10 +483,9 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 			return nil, err
 		}
 
-		//nolint: gosec
 		pathPlanner, err := newCBiRRTMotionPlanner(
 			pm.request.FrameSystem,
-			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
+			rand.New(rand.NewSource(int64(pm.randseed.Int()))), //nolint: gosec
 			pm.logger,
 			pm.request.PlannerOptions,
 			wpConstraintChecker,
