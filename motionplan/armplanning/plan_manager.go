@@ -242,8 +242,8 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	if err != nil {
 		return nil, nil, err
 	}
-	pm.logger.Info("start configuration", wp.startState.Configuration())
-	pm.logger.Info("start planning from\n", fromPoses, "\nto\n", toPoses)
+	pm.logger.Debug("start configuration", wp.startState.Configuration())
+	pm.logger.Debug("start planning from\n", fromPoses, "\nto\n", toPoses)
 
 	// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
 	// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
