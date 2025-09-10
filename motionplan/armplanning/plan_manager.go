@@ -118,9 +118,6 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Plan, 
 	}
 
 	pm.logger.Debugf("planMultiWaypoint goals:%v waypoints:%v\n", len(pm.request.Goals), len(waypoints))
-	if len(waypoints) > 1 {
-		panic(1)
-	}
 
 	plan, err := pm.planAtomicWaypoints(ctx, waypoints)
 	pm.activeBackgroundWorkers.Wait()
