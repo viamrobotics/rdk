@@ -20,6 +20,6 @@ func newCBiRRTMotionPlanner(
 	opt *PlannerOptions,
 	constraintHandler *motionplan.ConstraintChecker,
 	motionChains *motionChains,
-) (motionPlanner, error) {
+) (*cBiRRTMotionPlanner, error) {
 	return nil, errNotSupported
 }
