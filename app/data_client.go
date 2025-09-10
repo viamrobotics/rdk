@@ -1577,18 +1577,14 @@ func annotationsFromProto(proto *pb.Annotations) *Annotations {
 		return nil
 	}
 	var bboxes []*BoundingBox
-	if len(proto.Bboxes) > 0 {
-		bboxes = make([]*BoundingBox, len(proto.Bboxes))
-		for i, bboxProto := range proto.Bboxes {
-			bboxes[i] = boundingBoxFromProto(bboxProto)
-		}
+	bboxes = make([]*BoundingBox, 0, len(proto.Bboxes))
+	for i, bboxProto := range proto.Bboxes {
+		bboxes[i] = boundingBoxFromProto(bboxProto)
 	}
 	var classifications []*Classification
-	if len(proto.Classifications) > 0 {
-		classifications = make([]*Classification, len(proto.Classifications))
-		for i, classificationProto := range proto.Classifications {
-			classifications[i] = classificationFromProto(classificationProto)
-		}
+	classifications = make([]*Classification, 0, len(proto.Classifications))
+	for i, classificationProto := range proto.Classifications {
+		classifications[i] = classificationFromProto(classificationProto)
 	}
 	return &Annotations{
 		Bboxes:          bboxes,
