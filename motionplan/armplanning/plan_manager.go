@@ -242,8 +242,8 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	if err != nil {
 		return nil, nil, err
 	}
-	pm.logger.Debug("start configuration", wp.startState.Configuration())
-	pm.logger.Debug("start planning from\n", fromPoses, "\nto\n", toPoses)
+	pm.logger.Info("start configuration", wp.startState.Configuration())
+	pm.logger.Info("start planning from\n", fromPoses, "\nto\n", toPoses)
 
 	// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
 	// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
@@ -501,14 +501,6 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 	waypoints[len(waypoints)-1].origWP = wpi
 
 	return waypoints, nil
-}
-
-func nodesToTrajectory(nodes []node) motionplan.Trajectory {
-	traj := make(motionplan.Trajectory, 0, len(nodes))
-	for _, n := range nodes {
-		traj = append(traj, n.Q())
-	}
-	return traj
 }
 
 // Determines whether to break a motion down into sub-waypoints if all intermediate points are known.

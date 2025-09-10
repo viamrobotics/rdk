@@ -6,30 +6,8 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
-
-func newPath(solution []node, fs *referenceframe.FrameSystem) (motionplan.Path, error) {
-	path := make(motionplan.Path, 0, len(solution))
-	for _, inputNode := range solution {
-		poseMap := make(map[string]*referenceframe.PoseInFrame)
-		for frame := range inputNode.Q() {
-			tf, err := fs.Transform(inputNode.Q(), referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World)
-			if err != nil {
-				return nil, err
-			}
-			pose, ok := tf.(*referenceframe.PoseInFrame)
-			if !ok {
-				return nil, errors.New("pose not transformable")
-			}
-			poseMap[frame] = pose
-		}
-		path = append(path, poseMap)
-	}
-	return path, nil
-}
 
 // PlanState is a struct which holds both a referenceframe.FrameSystemPoses and a configuration.
 // This is intended to be used as start or goal states for plans. Either field may be nil.
