@@ -101,26 +101,21 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 	return rrt
 }
 
-type rrtPlan struct {
-	motionplan.SimplePlan
-
-	// nodes corresponding to inputs can be cached with the Plan for easy conversion back into a form usable by RRT
-	// depending on how the trajectory is constructed these may be nil and should be computed before usage
-	nodes []node
-}
-
 func newRRTPlan(solution []node, fs *referenceframe.FrameSystem) (motionplan.Plan, error) {
 	if len(solution) == 0 {
 		return nil, errors.New("cannot create plan, no solution was found")
-	} else if len(solution) == 1 {
-		// started at the goal, nothing to do except make a trivial plan
-		solution = append(solution, solution[0])
-	}
-	traj := nodesToTrajectory(solution)
-	path, err := newPath(solution, fs)
-	if err != nil {
-		return nil, err
 	}
 
-	return &rrtPlan{SimplePlan: *motionplan.NewSimplePlan(path, traj), nodes: solution}, nil
+	if len(solution) == 1 {
+		// started at the goal, nothing to do except make a trivial plan
+		// do plans have to have 2 things ??
+		solution = append(solution, solution[0])
+	}
+
+	traj := motionplan.Trajectory{}
+	for _, n := range solution {
+		traj = append(traj, n.Q())
+	}
+
+	return motionplan.NewSimplePlanFromTrajectory(traj, fs)
 }

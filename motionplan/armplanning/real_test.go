@@ -29,7 +29,29 @@ func readRequestFromFile(f string) (*PlanRequest, error) {
 	return req, nil
 }
 
-func TestOrb1(t *testing.T) {
+func TestOrbOneSeed(t *testing.T) {
+	matches, err := filepath.Glob("data/orb-plan*.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	for _, fp := range matches {
+		t.Run(fp, func(t *testing.T) {
+			logger := logging.NewTestLogger(t)
+
+			req, err := readRequestFromFile(fp)
+			test.That(t, err, test.ShouldBeNil)
+
+			plan, err := PlanMotion(context.Background(), logger, req)
+			test.That(t, err, test.ShouldBeNil)
+
+			a := plan.Trajectory()[0]["sanding-ur5"]
+			b := plan.Trajectory()[1]["sanding-ur5"]
+
+			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .005)
+		})
+	}
+}
+
+func TestOrbManySeeds(t *testing.T) {
 	matches, err := filepath.Glob("data/orb-plan*.json")
 	test.That(t, err, test.ShouldBeNil)
 

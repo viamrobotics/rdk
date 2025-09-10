@@ -443,7 +443,7 @@ func testPlanner(t *testing.T, config planConfigConstructor, seed int) {
 		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander, cfg.MotionChains)
 	test.That(t, err, test.ShouldBeNil)
 
-	nodes, err := mp.plan(context.Background(), cfg.Start, cfg.Goal)
+	nodes, err := mp.planForTest(context.Background(), cfg.Start, cfg.Goal)
 	test.That(t, err, test.ShouldBeNil)
 
 	// test that path doesn't violate constraints

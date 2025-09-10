@@ -32,7 +32,7 @@ func TestIKTolerances(t *testing.T) {
 		spatial.NewPoseFromProtobuf(&commonpb.Pose{X: -46, Y: 0, Z: 372, OX: -1.78, OY: -3.3, OZ: -1.11}),
 	)}}
 	seed := &PlanState{configuration: map[string][]frame.Input{m.Name(): frame.FloatsToInputs(make([]float64, 6))}}
-	_, err = mp.plan(context.Background(), seed, goal)
+	_, err = mp.planForTest(context.Background(), seed, goal)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
@@ -41,6 +41,6 @@ func TestIKTolerances(t *testing.T) {
 	opt.SetMaxSolutions(50)
 	mp, err = newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(1)), logger, opt, motionplan.NewEmptyConstraintChecker(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = mp.plan(context.Background(), seed, goal)
+	_, err = mp.planForTest(context.Background(), seed, goal)
 	test.That(t, err, test.ShouldBeNil)
 }

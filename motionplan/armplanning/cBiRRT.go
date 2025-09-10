@@ -102,7 +102,8 @@ func newCBiRRTMotionPlanner(
 	}, nil
 }
 
-func (mp *cBiRRTMotionPlanner) plan(ctx context.Context, seed, goal *PlanState) ([]node, error) {
+// only used for testin.
+func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context, seed, goal *PlanState) ([]node, error) {
 	solutionChan := make(chan *rrtSolution, 1)
 	initMaps := initRRTSolutions(ctx, atomicWaypoint{mp: mp, startState: seed, goalState: goal})
 	if initMaps.err != nil {
@@ -135,12 +136,14 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		rrt.solutionChan <- &rrtSolution{err: errNoPlannerOptions}
 		return
 	}
-	// initialize maps
+
 	_, cancel := context.WithCancel(ctx)
 	defer cancel()
 	mp.start = time.Now()
 
 	var seed referenceframe.FrameSystemInputs
+
+	// initialize maps
 	// Pick a random (first in map) seed node to create the first interp node
 	for sNode, parent := range rrt.maps.startMap {
 		if parent == nil {
