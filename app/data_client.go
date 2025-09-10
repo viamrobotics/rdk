@@ -1577,12 +1577,12 @@ func annotationsFromProto(proto *pb.Annotations) *Annotations {
 		return nil
 	}
 	bboxes := make([]*BoundingBox, 0, len(proto.Bboxes))
-	for i, bboxProto := range proto.Bboxes {
-		bboxes[i] = boundingBoxFromProto(bboxProto)
+	for _, bboxProto := range proto.Bboxes {
+		bboxes = append(bboxes, boundingBoxFromProto(bboxProto))
 	}
 	classifications := make([]*Classification, 0, len(proto.Classifications))
-	for i, classificationProto := range proto.Classifications {
-		classifications[i] = classificationFromProto(classificationProto)
+	for _, classificationProto := range proto.Classifications {
+		classifications = append(classifications, classificationFromProto(classificationProto))
 	}
 	return &Annotations{
 		Bboxes:          bboxes,
@@ -1808,7 +1808,7 @@ func annotationsToProto(annotations *Annotations) *pb.Annotations {
 	if annotations == nil {
 		return nil
 	}
-	var protoBboxes []*pb.BoundingBox
+	protoBboxes := make([]*pb.BoundingBox, 0, len(annotations.Bboxes))
 	for _, bbox := range annotations.Bboxes {
 		protoBboxes = append(protoBboxes, &pb.BoundingBox{
 			Id:             bbox.ID,
@@ -1819,7 +1819,7 @@ func annotationsToProto(annotations *Annotations) *pb.Annotations {
 			YMaxNormalized: bbox.YMaxNormalized,
 		})
 	}
-	var protoClassifications []*pb.Classification
+	protoClassifications := make([]*pb.Classification, 0, len(annotations.Classifications))
 	for _, classification := range annotations.Classifications {
 		protoClassifications = append(protoClassifications, &pb.Classification{
 			Id:    classification.ID,
