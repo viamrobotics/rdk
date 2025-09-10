@@ -11,7 +11,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
@@ -26,12 +25,6 @@ var (
 	home7 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
 	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 )
-
-var logger = logging.FromZapCompatible(zap.Must(zap.Config{
-	Level:             zap.NewAtomicLevelAt(zap.FatalLevel),
-	Encoding:          "console",
-	DisableStacktrace: true,
-}.Build()).Sugar())
 
 type planConfig struct {
 	Start            *PlanState
@@ -153,6 +146,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 }
 
 func TestPlanningWithGripper(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("")
 	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "ur")
 	test.That(t, err, test.ShouldBeNil)
@@ -599,6 +593,7 @@ func TestSerializedPlanRequest(t *testing.T) {
 }
 
 func TestArmOOBSolve(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	fs := makeTestFS(t)
 	positions := frame.NewZeroInputs(fs)
 
@@ -615,6 +610,8 @@ func TestArmOOBSolve(t *testing.T) {
 }
 
 func TestArmObstacleSolve(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
 	fs := makeTestFS(t)
 	positions := frame.NewZeroInputs(fs)
 
@@ -641,6 +638,7 @@ func TestArmObstacleSolve(t *testing.T) {
 }
 
 func TestArmAndGantrySolve(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	t.Parallel()
 	fs := makeTestFS(t)
 	positions := frame.NewZeroInputs(fs)
@@ -674,6 +672,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 }
 
 func TestMultiArmSolve(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	fs := makeTestFS(t)
 	positions := frame.NewZeroInputs(fs)
 	// Solve such that the ur5 and xArm are pointing at each other, 40mm from gripper to camera
@@ -727,6 +726,8 @@ func TestReachOverArm(t *testing.T) {
 	opts := map[string]interface{}{"timeout": 150.0}
 	planOpts, err := NewPlannerOptionsFromExtra(opts)
 	test.That(t, err, test.ShouldBeNil)
+
+	logger := logging.NewTestLogger(t)
 	plan, err := PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{xarm.Name(): goal}}},
@@ -824,6 +825,7 @@ func TestSliceUniq(t *testing.T) {
 }
 
 func TestArmConstraintSpecificationSolve(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("")
 	x, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -923,6 +925,7 @@ func TestMovementWithGripper(t *testing.T) {
 		StartState:     &PlanState{configuration: startConfig},
 		PlannerOptions: planOpts,
 	}
+	logger := logging.NewTestLogger(t)
 	solution, err := PlanMotion(context.Background(), logger, request)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
