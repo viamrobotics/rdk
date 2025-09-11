@@ -1313,9 +1313,10 @@ func (manager *resourceManager) updateResources(
 	return allErrs
 }
 
-// ResourceByName returns the given resource by fully qualified name, if it exists;
-// returns an error otherwise. Used only internally for testing. Lookups for resources
-// associated with gRPC requests now go through FindBySimpleNameAndAPI.
+// ResourceByName returns the given resource by fully qualified name, if it
+// exists; returns an error otherwise. Only for internal use. Lookups for
+// resources associated with gRPC requests should go through
+// [robot.LocalRobot.FindBySimpleNameAndAPI] instead.
 func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Resource, error) {
 	if gNode, ok := manager.resources.Node(name); ok {
 		res, err := gNode.Resource()
