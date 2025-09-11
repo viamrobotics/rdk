@@ -169,6 +169,7 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 			return nil, planSeed.err
 		}
 		if planSeed.steps != nil {
+			// this means we found an ideal solution (weird API)
 			resultPromises = append(resultPromises, &resultPromise{steps: planSeed.steps})
 			seed = planSeed.steps[len(planSeed.steps)-1].Q()
 			continue
