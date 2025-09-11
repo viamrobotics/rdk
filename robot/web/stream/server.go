@@ -19,12 +19,15 @@ import (
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/gostream/codec"
+	genericcodec "go.viam.com/rdk/gostream/codec/generic"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	camerautils1 "go.viam.com/rdk/robot/web/stream/camera"
 	camerautils2 "go.viam.com/rdk/robot/web/stream/camera2"
 	"go.viam.com/rdk/robot/web/stream/state"
+	"go.viam.com/rdk/services/generic"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -59,9 +62,10 @@ type Server struct {
 	activeBackgroundWorkers sync.WaitGroup
 	isAlive                 bool
 
-	streamConfig gostream.StreamConfig
-	videoSources map[string]gostream.HotSwappableVideoSource
-	audioSources map[string]gostream.HotSwappableAudioSource
+	streamConfig     gostream.StreamConfig
+	videoSources     map[string]gostream.HotSwappableVideoSource
+	audioSources     map[string]gostream.HotSwappableAudioSource
+	encoderFactories map[string]codec.VideoEncoderFactory
 }
 
 // Resolution holds the width and height of a video stream.
@@ -89,6 +93,7 @@ func NewServer(
 		streamConfig:      streamConfig,
 		videoSources:      map[string]gostream.HotSwappableVideoSource{},
 		audioSources:      map[string]gostream.HotSwappableAudioSource{},
+		encoderFactories:  map[string]codec.VideoEncoderFactory{},
 	}
 	server.startMonitorCameraAvailable()
 	return server
@@ -465,8 +470,9 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
 	server.refreshVideoSources(ctx)
 	server.refreshAudioSources()
+	server.refreshEncoderFactories(ctx)
 
-	if server.streamConfig == (gostream.StreamConfig{}) {
+	if server.streamConfig == (gostream.StreamConfig{}) && len(server.encoderFactories) == 0 {
 		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
 		// much if none are present.
 		if len(server.videoSources) != 0 || len(server.audioSources) != 0 {
@@ -487,11 +493,23 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 		if err != nil {
 			server.logger.Debugf("error getting framerate from camera %q: %v", name, err)
 		}
+
+		var videoEncoderFactory codec.VideoEncoderFactory
+		if factory, ok := server.encoderFactories["x264-encoder"]; ok {
+			videoEncoderFactory = factory
+		} else {
+			videoEncoderFactory = server.streamConfig.VideoEncoderFactory
+		}
+
+		if videoEncoderFactory == nil {
+			server.logger.Warnf("no video encoder factory found for %q, skipping", name)
+			continue
+		}
 		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
 		// "started".
 		config := gostream.StreamConfig{
 			Name:                name,
-			VideoEncoderFactory: server.streamConfig.VideoEncoderFactory,
+			VideoEncoderFactory: videoEncoderFactory,
 			TargetFrameRate:     framerate,
 		}
 		// Call `createStream`. `createStream` is responsible for first checking if the stream
@@ -698,6 +716,24 @@ func (server *Server) refreshAudioSources() {
 		newSwapper := gostream.NewHotSwappableAudioSource(input)
 		server.audioSources[input.Name().Name] = newSwapper
 	}
+}
+
+func (server *Server) refreshEncoderFactories(ctx context.Context) {
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	encoder, err := generic.FromRobot(server.robot, "x264-encoder")
+	if err != nil {
+		server.logger.Debugw("no x264-encoder found", "error", err)
+		return
+	}
+	genericEncoder, ok := encoder.(generic.Service)
+	if !ok {
+		server.logger.Errorw("resource is not a generic service", "name", "x264-encoder")
+		return
+	}
+	factory := genericcodec.NewEncoderFactory(genericEncoder, server.logger)
+	server.encoderFactories["x264-encoder"] = factory
+	server.logger.Debugf("found and registered generic encoder factory: x264-encoder")
 }
 
 func (server *Server) createStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
