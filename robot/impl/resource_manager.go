@@ -303,14 +303,6 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		if nodeAlreadyExists {
 			gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
 		} else {
-			// Configure a new graph node with the gRPC client to this remote resource.
-
-			// TODO(Benji): Simply checking the error-return of FindBySimpleNameAndAPI won't cover
-			// _all_ collision cases, as we may be starting up the machine and have an
-			// _unconfigured_ local graph node with a colliding name. This is because
-			// completeConfigForRemotes is called before local component/service node
-			// configuration paths that would fill in the simpleNameCache.
-			//
 			// Check for a full resource name collision and log an error if there is one.
 			prefixedSimpleName := prefix + resName.Name
 			_, err = manager.resources.FindBySimpleNameAndAPI(prefixedSimpleName, resName.API)
@@ -319,13 +311,15 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				// A collision could be indicated by a non-nil graph node (a single pre-existing
 				// resource with the same name), or a MultipleMatchingRemoteNodesError (multiple
 				// pre-existing remote resources with the same name).
-				manager.logger.Errorw("Found resource name collision, please check your configuration", "name", prefixedSimpleName, "api", resName.API)
+				manager.logger.Errorw("Found resource name collision when querying remote, please rename this resource or use a remote prefix",
+					"name", prefixedSimpleName, "api", resName.API, "remote", remoteName.Name)
 			case resource.IsNodeNotFoundError(err):
 				// No resources with the given simple name + API exists yet.
 			default:
 				manager.logger.Warnw("Unexpected error while checking for resource name collision", "err", err)
 			}
 
+			// Configure a new graph node with the gRPC client to this remote resource.
 			gNode = resource.NewConfiguredGraphNodeWithPrefix(resource.Config{}, res, unknownModel, prefix)
 			if err := manager.resources.AddNode(resName, gNode); err != nil {
 				resLogger.CErrorw(ctx, "failed to add remote resource node", "error", err)
@@ -1179,8 +1173,23 @@ func (manager *resourceManager) addToBeConstructedResource(
 ) error {
 	if _, hasNode := manager.resources.Node(name); hasNode {
 		manager.markResourcesRemoved([]resource.Name{name}, nil, true /* remove dependents */)
-		return fmt.Errorf("cannot add duplicate resource %s. Rename the resource. Neither resource will be reachable through"+
-			"this machine until collision is fixed", name)
+		manager.logger.Errorw("Cannot add duplicate local resource. Rename the resource. Neither resource will be reachable through "+
+			"this machine until collision is fixed", "colliding name", name)
+		return fmt.Errorf("cannot add duplicate local resource %s", name)
+	}
+
+	// Check for a full resource name collision and log an error if there is one.
+	_, err := manager.resources.FindBySimpleNameAndAPI(name.Name, name.API)
+	switch {
+	case err == nil, resource.IsMultipleMatchingRemoteNodesError(err):
+		// A collision could be indicated by a non-nil graph node (a single pre-existing
+		// resource with the same name), or a MultipleMatchingRemoteNodesError (multiple
+		// pre-existing remote resources with the same name).
+		manager.logger.Errorw("Found resource name collision, please check your configuration", "name", name.Name, "api", name.API)
+	case resource.IsNodeNotFoundError(err):
+		// No resources with the given simple name + API exists yet. All good.
+	default:
+		manager.logger.Warnw("Unexpected error while checking for resource name collision", "err", err)
 	}
 
 	gNode := resource.NewUnconfiguredGraphNode(conf, deps)
