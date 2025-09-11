@@ -819,7 +819,7 @@ func TestFullResourceNameCollision(t *testing.T) {
 		_, err = rClient.ResourceByName(arm.Named("fooArm"))
 		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 
-		// Assert that prefixing one of the remotes allows access to both of the "fooArm"s
+		// Assert that prefixing one of the remotes allows access to both arm2 and arm3
 		// through the main machine.
 		cfg.Remotes[0].Prefix = "r2"
 		r.Reconfigure(ctx, cfg)
