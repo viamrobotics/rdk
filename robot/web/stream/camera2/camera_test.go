@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"os"
 	"testing"
 
 	"go.viam.com/test"
@@ -666,4 +667,24 @@ func TestVideoSourceFromCamera_OddDimensionsCropped(t *testing.T) {
 
 	// Verify dimensions were cropped from 3x3 to 2x2 for x264 compatibility
 	test.That(t, streamedImg.Bounds(), test.ShouldResemble, image.Rect(0, 0, 2, 2))
+}
+
+// TODO(https://viam.atlassian.net/browse/RSDK-11726): Remove this test.
+func TestGetImagesInStreamServerEnvVar(t *testing.T) {
+	ogVal, ok := os.LookupEnv(utils.GetImagesInStreamServerEnvVar)
+	if ok {
+		defer os.Setenv(utils.GetImagesInStreamServerEnvVar, ogVal)
+	} else {
+		defer os.Unsetenv(utils.GetImagesInStreamServerEnvVar)
+	}
+
+	t.Run("when env var is set to true, returns true", func(t *testing.T) {
+		os.Setenv(utils.GetImagesInStreamServerEnvVar, "true")
+		test.That(t, utils.GetImagesInStreamServer(), test.ShouldBeTrue)
+	})
+
+	t.Run("when env var is not set, returns false", func(t *testing.T) {
+		os.Unsetenv(utils.GetImagesInStreamServerEnvVar)
+		test.That(t, utils.GetImagesInStreamServer(), test.ShouldBeFalse)
+	})
 }
