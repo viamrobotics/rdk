@@ -450,8 +450,8 @@ func testPlanner(t *testing.T, config planConfigConstructor, seed int) {
 	test.That(t, len(nodes), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(nodes)-1; j++ {
 		_, err := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(&motionplan.SegmentFS{
-			StartConfiguration: nodes[j].Q(),
-			EndConfiguration:   nodes[j+1].Q(),
+			StartConfiguration: nodes[j].inputs,
+			EndConfiguration:   nodes[j+1].inputs,
 			FS:                 cfg.FS,
 		}, cfg.Options.Resolution)
 		test.That(t, err, test.ShouldBeNil)

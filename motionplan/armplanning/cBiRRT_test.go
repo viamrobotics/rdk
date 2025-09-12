@@ -30,7 +30,7 @@ var interp = referenceframe.FloatsToInputs([]float64{
 // This test will step through the different stages of cbirrt and test each one in turn.
 func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
-	inputSteps := []node{}
+	inputSteps := []*node{}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
@@ -51,12 +51,12 @@ func TestSimpleLinearMotion(t *testing.T) {
 	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goalMetric)
 	test.That(t, err, test.ShouldBeNil)
 
-	near1 := &basicNode{q: referenceframe.FrameSystemInputs{m.Name(): home7}}
-	seedMap := make(map[node]node)
+	near1 := &node{inputs: referenceframe.FrameSystemInputs{m.Name(): home7}}
+	seedMap := rrtMap{}
 	seedMap[near1] = nil
 	target := referenceframe.FrameSystemInputs{m.Name(): interp}
 
-	goalMap := make(map[node]node)
+	goalMap := rrtMap{}
 
 	if len(solutions) < nSolutions {
 		nSolutions = len(solutions)
@@ -66,12 +66,12 @@ func TestSimpleLinearMotion(t *testing.T) {
 		goalMap[solution] = nil
 	}
 
-	m1chan := make(chan node, 1)
+	m1chan := make(chan *node, 1)
 	defer close(m1chan)
 
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
 	utils.PanicCapturingGo(func() {
-		mp.constrainedExtend(ctx, mp.randseed, seedMap, near1, &basicNode{q: target}, m1chan)
+		mp.constrainedExtend(ctx, mp.randseed, seedMap, near1, &node{inputs: target}, m1chan)
 	})
 	seedReached := <-m1chan
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
@@ -82,12 +82,12 @@ func TestSimpleLinearMotion(t *testing.T) {
 	})
 	goalReached := <-m1chan
 	dist := mp.configurationDistanceFunc(
-		&motionplan.SegmentFS{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()},
+		&motionplan.SegmentFS{StartConfiguration: seedReached.inputs, EndConfiguration: goalReached.inputs},
 	)
 	test.That(t, dist < mp.planOpts.InputIdentDist, test.ShouldBeTrue)
 
-	seedReached.SetCorner(true)
-	goalReached.SetCorner(true)
+	seedReached.corner = true
+	goalReached.corner = true
 
 	// extract the path to the seed
 	for seedReached != nil {

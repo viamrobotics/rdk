@@ -9,12 +9,12 @@ import (
 )
 
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target.
-func fixedStepInterpolation(start, target node, qstep map[string][]float64) referenceframe.FrameSystemInputs {
+func fixedStepInterpolation(start, target *node, qstep map[string][]float64) referenceframe.FrameSystemInputs {
 	newNear := make(referenceframe.FrameSystemInputs)
 
-	for frameName, startInputs := range start.Q() {
+	for frameName, startInputs := range start.inputs {
 		// As this is constructed in-algorithm from already-near nodes, this is guaranteed to always exist
-		targetInputs := target.Q()[frameName]
+		targetInputs := target.inputs[frameName]
 		frameSteps := make([]referenceframe.Input, len(startInputs))
 
 		for j, nearInput := range startInputs {
@@ -34,45 +34,26 @@ func fixedStepInterpolation(start, target node, qstep map[string][]float64) refe
 	return newNear
 }
 
-// node interface is used to wrap a configuration for planning purposes.
-// TODO: This is somewhat redundant with a State.
-type node interface {
-	Q() referenceframe.FrameSystemInputs
-	Corner() bool
-	SetCorner(bool)
-}
-
-type basicNode struct {
-	q      referenceframe.FrameSystemInputs
+type node struct {
+	inputs referenceframe.FrameSystemInputs
 	corner bool
+	cost   float64
 }
 
-func newConfigurationNode(q referenceframe.FrameSystemInputs) node {
-	return &basicNode{
-		q:      q,
+func newConfigurationNode(q referenceframe.FrameSystemInputs) *node {
+	return &node{
+		inputs: q,
 		corner: false,
 	}
 }
 
-func (n *basicNode) Q() referenceframe.FrameSystemInputs {
-	return n.q
-}
-
-func (n *basicNode) Corner() bool {
-	return n.corner
-}
-
-func (n *basicNode) SetCorner(corner bool) {
-	n.corner = corner
-}
-
 // nodePair groups together nodes in a tuple
 // TODO(rb): in the future we might think about making this into a list of nodes.
-type nodePair struct{ a, b node }
+type nodePair struct{ a, b *node }
 
-func extractPath(startMap, goalMap map[node]node, pair *nodePair, matched bool) []node {
+func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []*node {
 	// need to figure out which of the two nodes is in the start map
-	var startReached, goalReached node
+	var startReached, goalReached *node
 	if _, ok := startMap[pair.a]; ok {
 		startReached, goalReached = pair.a, pair.b
 	} else {
@@ -80,7 +61,7 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair, matched bool) 
 	}
 
 	// extract the path to the seed
-	path := make([]node, 0)
+	path := make([]*node, 0)
 	for startReached != nil {
 		path = append(path, startReached)
 		startReached = startMap[startReached]
@@ -113,8 +94,8 @@ func generateNodeListForPlanState(
 	mp *cBiRRTMotionPlanner,
 	state *PlanState,
 	ikSeed referenceframe.FrameSystemInputs,
-) ([]node, error) {
-	nodes := []node{}
+) ([]*node, error) {
+	nodes := []*node{}
 
 	if len(state.configuration) > 0 {
 		nodes = append(nodes, newConfigurationNode(state.configuration))

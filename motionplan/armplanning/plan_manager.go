@@ -171,7 +171,7 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 		if planSeed.steps != nil {
 			// this means we found an ideal solution (weird API)
 			resultPromises = append(resultPromises, &resultPromise{steps: planSeed.steps})
-			seed = planSeed.steps[len(planSeed.steps)-1].Q()
+			seed = planSeed.steps[len(planSeed.steps)-1].inputs
 			continue
 		}
 
@@ -190,8 +190,8 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 	}
 
 	// All goals have been submitted for solving. Reconstruct in order
-	resultSlices := []node{}
-	partialSlices := []node{}
+	resultSlices := []*node{}
+	partialSlices := []*node{}
 
 	// Keep track of which user-requested waypoints were solved for
 	lastOrig := 0
@@ -215,7 +215,7 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 		if waypoints[i].origWP >= 0 {
 			lastOrig = waypoints[i].origWP
 			resultSlices = append(resultSlices, partialSlices...)
-			partialSlices = []node{}
+			partialSlices = []*node{}
 		}
 	}
 	if !waypoints[len(waypoints)-1].mp.planOpts.ReturnPartialPlan && len(partialSlices) > 0 {
@@ -250,7 +250,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
 	// for this solve will be rectified at the end.
 
-	endpointPreview := make(chan node, 1)
+	endpointPreview := make(chan *node, 1)
 	solutionChan := make(chan *rrtSolution, 1)
 	pm.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -263,12 +263,12 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	// This matches the behavior of a non-rrtParallelPlanner
 	select {
 	case nextSeed := <-endpointPreview:
-		return nextSeed.Q(), &resultPromise{future: solutionChan}, nil
+		return nextSeed.inputs, &resultPromise{future: solutionChan}, nil
 	case planReturn := <-solutionChan:
 		if planReturn.err != nil {
 			return nil, nil, planReturn.err
 		}
-		seed := planReturn.steps[len(planReturn.steps)-1].Q()
+		seed := planReturn.steps[len(planReturn.steps)-1].inputs
 		return seed, &resultPromise{steps: planReturn.steps}, nil
 	}
 }
@@ -277,7 +277,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 func (pm *planManager) planParallelRRTMotion(
 	ctx context.Context,
 	wp atomicWaypoint,
-	endpointPreview chan node,
+	endpointPreview chan *node,
 	solutionChan chan *rrtSolution,
 	maps *rrtMaps,
 ) {
@@ -288,7 +288,7 @@ func (pm *planManager) planParallelRRTMotion(
 	}
 
 	// publish endpoint of plan if it is known
-	var nextSeed node
+	var nextSeed *node
 	if len(maps.goalMap) == 1 {
 		for key := range maps.goalMap {
 			nextSeed = key
@@ -325,7 +325,7 @@ func (pm *planManager) planParallelRRTMotion(
 	select {
 	case finalSteps := <-plannerChan:
 		// We didn't get a solution preview (possible error), so we get and process the full step set and error.
-		smoothChan := make(chan []node, 1)
+		smoothChan := make(chan []*node, 1)
 		rrtBackground.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer rrtBackground.Done()

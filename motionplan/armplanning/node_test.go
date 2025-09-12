@@ -18,13 +18,13 @@ func TestFixedStepInterpolation(t *testing.T) {
 	}
 	for _, x := range xx {
 		res := fixedStepInterpolation(
-			&basicNode{
-				q: referenceframe.FrameSystemInputs{
+			&node{
+				inputs: referenceframe.FrameSystemInputs{
 					"a": {{x[0]}},
 				},
 			},
-			&basicNode{
-				q: referenceframe.FrameSystemInputs{
+			&node{
+				inputs: referenceframe.FrameSystemInputs{
 					"a": {{x[1]}},
 				},
 			},
