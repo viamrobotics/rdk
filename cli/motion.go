@@ -109,7 +109,7 @@ func motionPrintStatusAction(c *cli.Context, args motionPrintArgs) error {
 			continue
 		}
 
-		pif, err := myMotion.GetPose(ctx, theComponent.Name(), "world", nil, nil)
+		pif, err := myMotion.GetPose(ctx, theComponent.Name().String(), "world", nil, nil)
 		if err != nil {
 			return err
 		}
@@ -165,7 +165,7 @@ func motionGetPoseAction(c *cli.Context, args motionGetPoseArgs) error {
 		return fmt.Errorf("no motion: %w", err)
 	}
 
-	pif, err := myMotion.GetPose(ctx, theComponent.Name(), "world", nil, nil)
+	pif, err := myMotion.GetPose(ctx, theComponent.Name().String(), "world", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func motionSetPoseAction(c *cli.Context, args motionSetPoseArgs) error {
 		return fmt.Errorf("no motion: %w", err)
 	}
 
-	pose, err := myMotion.GetPose(ctx, theComponent.Name(), "world", nil, nil)
+	pose, err := myMotion.GetPose(ctx, theComponent.Name().String(), "world", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -260,7 +260,7 @@ func motionSetPoseAction(c *cli.Context, args motionSetPoseArgs) error {
 	printf(c.App.Writer, "going to pose %v", pose)
 
 	req := motion.MoveReq{
-		ComponentName: theComponent.Name(),
+		ComponentName: theComponent.Name().String(),
 		Destination:   pose,
 	}
 	_, err = myMotion.Move(ctx, req)

@@ -30,7 +30,7 @@ type MotionService struct {
 	) (motion.ExecutionID, error)
 	GetPoseFunc func(
 		ctx context.Context,
-		componentName resource.Name,
+		componentName string,
 		destinationFrame string,
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
@@ -94,7 +94,7 @@ func (mgs *MotionService) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlob
 // GetPose calls the injected GetPose or the real variant.
 func (mgs *MotionService) GetPose(
 	ctx context.Context,
-	componentName resource.Name,
+	componentName string,
 	destinationFrame string,
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},

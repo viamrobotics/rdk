@@ -16,7 +16,6 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/motionplan"
-	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -39,7 +38,7 @@ func init() {
 // PlanHistoryReq describes the request to PlanHistory().
 type PlanHistoryReq struct {
 	// ComponentName the returned plans should be associated with.
-	ComponentName resource.Name
+	ComponentName string
 	// When true, only the most recent plan will be returned which matches the ComponentName & ExecutionID if one was provided.
 	LastPlanOnly bool
 	// Optional, when not uuid.Nil it specifies the ExecutionID of the plans that should be returned.
@@ -51,7 +50,7 @@ type PlanHistoryReq struct {
 // MoveReq describes the request to the Move interface method.
 type MoveReq struct {
 	// ComponentName of the component to move
-	ComponentName resource.Name
+	ComponentName string
 	// Goal destination the component should be moved to
 	Destination *referenceframe.PoseInFrame
 	// The external environment to be considered for the duration of the move
@@ -64,14 +63,14 @@ type MoveReq struct {
 // MoveOnGlobeReq describes the request to the MoveOnGlobe interface method.
 type MoveOnGlobeReq struct {
 	// ComponentName of the component to move
-	ComponentName resource.Name
+	ComponentName string
 	// Goal destination the component should be moved to
 	Destination *geo.Point
 	// Heading the component should have a when it reaches the goal.
 	// Range [0-360] Left Hand Rule (N: 0, E: 90, S: 180, W: 270)
 	Heading float64
 	// Name of the momement sensor which can be used to derive Position & Heading
-	MovementSensorName resource.Name
+	MovementSensorName string
 	// Static obstacles that should be navigated around
 	Obstacles []*spatialmath.GeoGeometry
 	// Set of bounds which the robot must remain within while navigating
@@ -98,9 +97,9 @@ func (r MoveOnGlobeReq) String() string {
 
 // MoveOnMapReq describes a request to MoveOnMap.
 type MoveOnMapReq struct {
-	ComponentName resource.Name
+	ComponentName string
 	Destination   spatialmath.Pose
-	SlamName      resource.Name
+	SlamName      string
 	MotionCfg     *MotionConfiguration
 	Obstacles     []spatialmath.Geometry
 	Extra         map[string]interface{}
@@ -121,7 +120,7 @@ func (r MoveOnMapReq) String() string {
 // StopPlanReq describes the request to StopPlan().
 type StopPlanReq struct {
 	// ComponentName of the plan which should be stopped
-	ComponentName resource.Name
+	ComponentName string
 	Extra         map[string]interface{}
 }
 
@@ -137,7 +136,7 @@ type PlanWithMetadata struct {
 	// Unique ID of the plan
 	ID PlanID
 	// Name of the component the plan is planning for
-	ComponentName resource.Name
+	ComponentName string
 	// Unique ID of the execution
 	ExecutionID ExecutionID
 	// The motionplan itself
@@ -185,7 +184,7 @@ type ExecutionID = uuid.UUID
 // the status is associated with.
 type PlanStatusWithID struct {
 	PlanID        PlanID
-	ComponentName resource.Name
+	ComponentName string
 	ExecutionID   ExecutionID
 	Status        PlanStatus
 }
@@ -379,7 +378,7 @@ type Service interface {
 	// deprecated, use framesystem.Servce.GetPose
 	GetPose(
 		ctx context.Context,
-		componentName resource.Name,
+		componentName string,
 		destinationFrame string,
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
@@ -402,8 +401,8 @@ type Service interface {
 
 // ObstacleDetectorName pairs a vision service name with a camera name.
 type ObstacleDetectorName struct {
-	VisionServiceName resource.Name
-	CameraName        resource.Name
+	VisionServiceName string
+	CameraName        string
 }
 
 // MotionConfiguration specifies how to configure a call.
@@ -463,7 +462,7 @@ func (pws PlanWithStatus) ToProto() *pb.PlanWithStatus {
 func (ps PlanStatusWithID) ToProto() *pb.PlanStatusWithID {
 	return &pb.PlanStatusWithID{
 		PlanId:        ps.PlanID.String(),
-		ComponentName: rprotoutils.ResourceNameToProto(ps.ComponentName),
+		ComponentName: ps.ComponentName,
 		ExecutionId:   ps.ExecutionID.String(),
 		Status:        ps.Status.ToProto(),
 	}
@@ -489,7 +488,7 @@ func (p PlanWithMetadata) ToProto() *pb.Plan {
 
 	return &pb.Plan{
 		Id:            p.ID.String(),
-		ComponentName: rprotoutils.ResourceNameToProto(p.ComponentName),
+		ComponentName: p.ComponentName,
 		ExecutionId:   p.ExecutionID.String(),
 		Steps:         steps,
 	}
