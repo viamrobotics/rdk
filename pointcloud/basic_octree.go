@@ -406,8 +406,9 @@ func (octree *BasicOctree) FinalizeAfterReading() (PointCloud, error) {
 // A point is considered colliding if it meets the confidence threshold and is within the collision buffer distance.
 func (octree *BasicOctree) PointsCollidingWith(geometries []spatialmath.Geometry, collisionBufferMM float64) []r3.Vector {
 	// Finding these points in an octree involves recursing into each child node of the tree.
-	// Rather than copying points from each recursive call, we pass an accumulator in, which
-	// greatly reduces the number of copies of data created.
+	// Rather than returning a list of points from each recursive call and concatenating copies of
+	// them together, we pass an accumulator in, which greatly reduces the number of copies of data
+	// created.
 	results := []r3.Vector{}
 	octree.accumulatePointsCollidingWith(geometries, collisionBufferMM, &results)
 	return results
