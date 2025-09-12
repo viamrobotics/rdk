@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -485,27 +486,29 @@ func TestFullResourceNameCollision(t *testing.T) {
 	// - Reconfiguring a remote to have a prefix can "solve" a full resource name collision
 
 	// Set up three injected arms and track their IsMoving counts separately.
-	var arm1IsMovingCount, arm2IsMovingCount, arm3IsMovingCount int
+	var arm1IsMovingCount, arm2IsMovingCount, arm3IsMovingCount atomic.Int32
 	arm1 := &inject.Arm{
 		IsMovingFunc: func(context.Context) (bool, error) {
-			arm1IsMovingCount++
+			arm1IsMovingCount.Add(1)
 			return false, nil
 		},
 	}
 	arm2 := &inject.Arm{
 		IsMovingFunc: func(context.Context) (bool, error) {
-			arm2IsMovingCount++
+			arm2IsMovingCount.Add(1)
 			return false, nil
 		},
 	}
 	arm3 := &inject.Arm{
 		IsMovingFunc: func(context.Context) (bool, error) {
-			arm3IsMovingCount++
+			arm3IsMovingCount.Add(1)
 			return false, nil
 		},
 	}
 	resetAllIsMovingCounts := func() {
-		arm1IsMovingCount, arm2IsMovingCount, arm3IsMovingCount = 0, 0, 0
+		arm1IsMovingCount.Store(0)
+		arm2IsMovingCount.Store(0)
+		arm3IsMovingCount.Store(0)
 	}
 
 	// Use a consistent model and constructor for all three arms, but vary the actual arm
@@ -589,7 +592,7 @@ func TestFullResourceNameCollision(t *testing.T) {
 		isMoving, err := fooArmClient.IsMoving(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isMoving, test.ShouldBeFalse)
-		test.That(t, arm1IsMovingCount, test.ShouldEqual, 1)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 1)
 	}
 
 	logs.TakeAll() // Reset logs.
@@ -680,8 +683,8 @@ func TestFullResourceNameCollision(t *testing.T) {
 		isMoving, err := fooArmClient.IsMoving(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isMoving, test.ShouldBeFalse)
-		test.That(t, arm1IsMovingCount, test.ShouldEqual, 1 /* increase */)
-		test.That(t, arm2IsMovingCount, test.ShouldEqual, 0 /* no increase */)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 1 /* increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 0 /* no increase */)
 
 		// Verify (refreshed) resource names returned to _r2Client_ also contains only one
 		// "fooArm" instance (local to r2, but remote to main machine).
@@ -699,8 +702,8 @@ func TestFullResourceNameCollision(t *testing.T) {
 		isMoving, err = fooArm2Client.IsMoving(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isMoving, test.ShouldBeFalse)
-		test.That(t, arm1IsMovingCount, test.ShouldEqual, 1 /* no increase */)
-		test.That(t, arm2IsMovingCount, test.ShouldEqual, 1 /* increase */)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 1 /* no increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 1 /* increase */)
 
 		// Assert that prefixing the remote produces no new collision errors, and both arm1
 		// and arm2 are now reachable through rClient.
@@ -718,8 +721,8 @@ func TestFullResourceNameCollision(t *testing.T) {
 		isMoving, err = fooArmClient.IsMoving(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isMoving, test.ShouldBeFalse)
-		test.That(t, arm1IsMovingCount, test.ShouldEqual, 2 /* increase */)
-		test.That(t, arm2IsMovingCount, test.ShouldEqual, 1 /* no increase */)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 2 /* increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 1 /* no increase */)
 
 		r2fooArmResClient, err := rClient.ResourceByName(arm.Named("r2fooArm"))
 		test.That(t, err, test.ShouldBeNil)
@@ -728,8 +731,8 @@ func TestFullResourceNameCollision(t *testing.T) {
 		isMoving, err = r2fooArmClient.IsMoving(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isMoving, test.ShouldBeFalse)
-		test.That(t, arm1IsMovingCount, test.ShouldEqual, 2 /* no increase */)
-		test.That(t, arm2IsMovingCount, test.ShouldEqual, 2 /* increase */)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 2 /* no increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 2 /* increase */)
 	}
 
 	logs.TakeAll() // Reset logs.
@@ -799,9 +802,9 @@ func TestFullResourceNameCollision(t *testing.T) {
 		isMoving, err := fooArmClient.IsMoving(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isMoving, test.ShouldBeFalse)
-		test.That(t, arm1IsMovingCount, test.ShouldEqual, 1 /* increase */)
-		test.That(t, arm2IsMovingCount, test.ShouldEqual, 0 /* no increase */)
-		test.That(t, arm3IsMovingCount, test.ShouldEqual, 0 /* no increase */)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 1 /* increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 0 /* no increase */)
+		test.That(t, arm3IsMovingCount.Load(), test.ShouldEqual, 0 /* no increase */)
 
 		// Assert that removing "fooArm" from the main machine leaves neither of the remote
 		// "fooArm"s accessible through the main machine due to name collision.
@@ -837,9 +840,9 @@ func TestFullResourceNameCollision(t *testing.T) {
 		isMoving, err = fooArmClient.IsMoving(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isMoving, test.ShouldBeFalse)
-		test.That(t, arm1IsMovingCount, test.ShouldEqual, 1 /* no increase */)
-		test.That(t, arm2IsMovingCount, test.ShouldEqual, 0 /* no increase */)
-		test.That(t, arm3IsMovingCount, test.ShouldEqual, 1 /* increase */)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 1 /* no increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 0 /* no increase */)
+		test.That(t, arm3IsMovingCount.Load(), test.ShouldEqual, 1 /* increase */)
 
 		r2fooArmResClient, err := rClient.ResourceByName(arm.Named("r2fooArm"))
 		test.That(t, err, test.ShouldBeNil)
@@ -848,8 +851,8 @@ func TestFullResourceNameCollision(t *testing.T) {
 		isMoving, err = r2fooArmClient.IsMoving(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isMoving, test.ShouldBeFalse)
-		test.That(t, arm1IsMovingCount, test.ShouldEqual, 1 /* no increase */)
-		test.That(t, arm2IsMovingCount, test.ShouldEqual, 1 /* increase */)
-		test.That(t, arm3IsMovingCount, test.ShouldEqual, 1 /* no increase */)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 1 /* no increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 1 /* increase */)
+		test.That(t, arm3IsMovingCount.Load(), test.ShouldEqual, 1 /* no increase */)
 	}
 }
