@@ -66,7 +66,7 @@ type moveRequest struct {
 	planRequest       *baseplanning.PlanRequest
 	seedPlan          motionplan.Plan
 	kinematicBase     kinematicbase.KinematicBase
-	obstacleDetectors map[vision.Service][]resource.Name
+	obstacleDetectors map[vision.Service][]string
 	replanCostFactor  float64
 	// TODO(RSDK-8683): remove atGoalCheck and put it in the motionplan package
 	// atGoalCheck func(basePose spatialmath.Pose) *state.ExecuteResponse
@@ -222,12 +222,12 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Pla
 func (mr *moveRequest) getTransientDetections(
 	ctx context.Context,
 	visSrvc vision.Service,
-	camName resource.Name,
+	camName string,
 ) (*referenceframe.GeometriesInFrame, error) {
 	mr.logger.CDebugf(ctx,
 		"proceeding to get detections from vision service: %s with camera: %s",
 		visSrvc.Name().ShortName(),
-		camName.ShortName(),
+		camName,
 	)
 
 	baseExecutionState, err := mr.kinematicBase.ExecutionState(ctx)
@@ -253,7 +253,7 @@ func (mr *moveRequest) getTransientDetections(
 	)...)
 	inputMap[mr.kinematicBase.Name().ShortName()] = kbInputs
 
-	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
+	detections, err := visSrvc.GetObjectPointClouds(ctx, camName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +263,7 @@ func (mr *moveRequest) getTransientDetections(
 	for i, detection := range detections {
 		geometry := detection.Geometry
 		// update the label of the geometry so we know it is transient
-		label := camName.ShortName() + "_transientObstacle_" + strconv.Itoa(i)
+		label := camName + "_transientObstacle_" + strconv.Itoa(i)
 		if geometry.Label() != "" {
 			label += "_" + geometry.Label()
 		}
@@ -274,7 +274,7 @@ func (mr *moveRequest) getTransientDetections(
 		// in the world frame
 		tf, err := mr.localizingFS.Transform(
 			inputMap,
-			referenceframe.NewGeometriesInFrame(camName.ShortName(), []spatialmath.Geometry{geometry}),
+			referenceframe.NewGeometriesInFrame(camName, []spatialmath.Geometry{geometry}),
 			referenceframe.World,
 		)
 		if err != nil {
@@ -616,7 +616,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	// build the localizer from the movement sensor
 	movementSensor, ok := ms.movementSensors[req.MovementSensorName]
 	if !ok {
-		return nil, resource.DependencyNotFoundError(req.MovementSensorName)
+		return nil, resource.DependencyNotFoundError(resource.Name{Name: req.MovementSensorName})
 	}
 
 	origin, _, err := movementSensor.Position(ctx, nil)
@@ -630,7 +630,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	// add an offset between the movement sensor and the base if it is applicable
-	baseOrigin := referenceframe.NewPoseInFrame(req.ComponentName.ShortName(), spatialmath.NewZeroPose())
+	baseOrigin := referenceframe.NewPoseInFrame(req.ComponentName, spatialmath.NewZeroPose())
 	movementSensorToBase, err := ms.fsService.TransformPose(ctx, baseOrigin, movementSensor.Name().ShortName(), nil)
 	if err != nil {
 		// here we make the assumption the movement sensor is coincident with the base
@@ -640,9 +640,9 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose()))
 
 	// create a KinematicBase from the componentName
-	baseComponent, ok := ms.components[req.ComponentName.ShortName()]
+	baseComponent, ok := ms.components[req.ComponentName]
 	if !ok {
-		return nil, resource.NewNotFoundError(req.ComponentName)
+		return nil, resource.NewNotFoundError(resource.Name{Name: req.ComponentName})
 	}
 	b, ok := baseComponent.(base.Base)
 	if !ok {
@@ -736,7 +736,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	// get the SLAM Service from the slamName
 	slamSvc, ok := ms.slamServices[req.SlamName]
 	if !ok {
-		return nil, resource.DependencyNotFoundError(req.SlamName)
+		return nil, resource.DependencyNotFoundError(resource.Name{Name: req.SlamName})
 	}
 
 	// verify slam is in localization mode
@@ -756,9 +756,9 @@ func (ms *builtIn) newMoveOnMapRequest(
 	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
 	// create a KinematicBase from the componentName
-	component, ok := ms.components[req.ComponentName.ShortName()]
+	component, ok := ms.components[req.ComponentName]
 	if !ok {
-		return nil, resource.DependencyNotFoundError(req.ComponentName)
+		return nil, resource.DependencyNotFoundError(resource.Name{Name: req.ComponentName})
 	}
 	b, ok := component.(base.Base)
 	if !ok {
@@ -898,19 +898,19 @@ func (ms *builtIn) createBaseMoveRequest(
 		return nil, err
 	}
 
-	obstacleDetectors := make(map[vision.Service][]resource.Name)
+	obstacleDetectors := make(map[vision.Service][]string)
 	for _, obstacleDetectorNamePair := range motionCfg.obstacleDetectors {
 		// get vision service
 		visionServiceName := obstacleDetectorNamePair.VisionServiceName
 		visionSvc, ok := ms.visionServices[visionServiceName]
 		if !ok {
-			return nil, resource.DependencyNotFoundError(visionServiceName)
+			return nil, resource.DependencyNotFoundError(resource.Name{Name: visionServiceName})
 		}
 
 		// add camera to vision service map
 		camList, ok := obstacleDetectors[visionSvc]
 		if !ok {
-			obstacleDetectors[visionSvc] = []resource.Name{obstacleDetectorNamePair.CameraName}
+			obstacleDetectors[visionSvc] = []string{obstacleDetectorNamePair.CameraName}
 		} else {
 			camList = append(camList, obstacleDetectorNamePair.CameraName)
 			obstacleDetectors[visionSvc] = camList

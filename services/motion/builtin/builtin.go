@@ -137,9 +137,9 @@ type builtIn struct {
 	conf                    *Config
 	mu                      sync.RWMutex
 	fsService               framesystem.Service
-	movementSensors         map[resource.Name]movementsensor.MovementSensor
-	slamServices            map[resource.Name]slam.Service
-	visionServices          map[resource.Name]vision.Service
+	movementSensors         map[string]movementsensor.MovementSensor
+	slamServices            map[string]slam.Service
+	visionServices          map[string]vision.Service
 	components              map[string]resource.Resource
 	logger                  logging.Logger
 	state                   *state.State
@@ -185,22 +185,22 @@ func (ms *builtIn) Reconfigure(
 		ms.configuredDefaultExtras["num_threads"] = config.NumThreads
 	}
 
-	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
-	slamServices := make(map[resource.Name]slam.Service)
-	visionServices := make(map[resource.Name]vision.Service)
+	movementSensors := make(map[string]movementsensor.MovementSensor)
+	slamServices := make(map[string]slam.Service)
+	visionServices := make(map[string]vision.Service)
 	componentMap := make(map[string]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
 			ms.fsService = dep
 		case movementsensor.MovementSensor:
-			movementSensors[name] = dep
+			movementSensors[name.String()] = dep
 		case slam.Service:
-			slamServices[name] = dep
+			slamServices[name.String()] = dep
 		case vision.Service:
-			visionServices[name] = dep
+			visionServices[name.String()] = dep
 		default:
-			componentMap[name.ShortName()] = dep
+			componentMap[name.String()] = dep
 		}
 	}
 	ms.movementSensors = movementSensors
@@ -326,7 +326,7 @@ func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (
 // GetPose is deprecated.
 func (ms *builtIn) GetPose(
 	ctx context.Context,
-	componentName resource.Name,
+	componentName string,
 	destinationFrame string,
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
@@ -334,7 +334,7 @@ func (ms *builtIn) GetPose(
 	ms.logger.Warn("GetPose is deprecated. Please switch to using the GetPose method defined on the FrameSystem service")
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return ms.fsService.GetPose(ctx, componentName.ShortName(), destinationFrame, supplementalTransforms, extra)
+	return ms.fsService.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 }
 
 func (ms *builtIn) StopPlan(
@@ -480,9 +480,9 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	}
 	logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
 
-	movingFrame := frameSys.Frame(req.ComponentName.ShortName())
+	movingFrame := frameSys.Frame(req.ComponentName)
 	if movingFrame == nil {
-		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName.ShortName())
+		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
 	}
 
 	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
@@ -720,7 +720,7 @@ func waypointsFromRequest(
 			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
 		}
 	} else if req.Destination != nil {
-		goalState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName.ShortName(): req.Destination}, nil)
+		goalState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName: req.Destination}, nil)
 		waypoints = append(waypoints, goalState)
 	}
 	return startState, waypoints, nil

@@ -4,8 +4,6 @@ import (
 	"math"
 
 	pb "go.viam.com/api/service/motion/v1"
-
-	"go.viam.com/rdk/protoutils"
 )
 
 func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfiguration {
@@ -19,8 +17,8 @@ func configurationFromProto(motionCfg *pb.MotionConfiguration) *MotionConfigurat
 		if motionCfg.ObstacleDetectors != nil {
 			for _, obstacleDetectorPair := range motionCfg.GetObstacleDetectors() {
 				obstacleDetectors = append(obstacleDetectors, ObstacleDetectorName{
-					VisionServiceName: protoutils.ResourceNameFromProto(obstacleDetectorPair.VisionService),
-					CameraName:        protoutils.ResourceNameFromProto(obstacleDetectorPair.Camera),
+					VisionServiceName: obstacleDetectorPair.VisionService,
+					CameraName:        obstacleDetectorPair.Camera,
 				})
 			}
 		}
@@ -71,8 +69,8 @@ func (motionCfg MotionConfiguration) toProto() *pb.MotionConfiguration {
 		pbObstacleDetector := []*pb.ObstacleDetector{}
 		for _, obstacleDetectorPair := range motionCfg.ObstacleDetectors {
 			pbObstacleDetector = append(pbObstacleDetector, &pb.ObstacleDetector{
-				VisionService: protoutils.ResourceNameToProto(obstacleDetectorPair.VisionServiceName),
-				Camera:        protoutils.ResourceNameToProto(obstacleDetectorPair.CameraName),
+				VisionService: obstacleDetectorPair.VisionServiceName,
+				Camera:        obstacleDetectorPair.CameraName,
 			})
 		}
 		proto.ObstacleDetectors = pbObstacleDetector
