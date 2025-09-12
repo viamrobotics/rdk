@@ -12,6 +12,7 @@ import (
 	"time"
 
 	viz "github.com/viam-labs/motion-tools/client/client"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
@@ -115,7 +116,6 @@ func realMain() error {
 		if err := viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx]); err != nil {
 			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
 			break
-
 		}
 
 		if idx == 0 {
