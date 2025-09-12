@@ -111,7 +111,7 @@ func realMain() error {
 	}
 
 	renderFramePeriod := 50 * time.Millisecond
-	for idx, _ := range plan.Path() {
+	for idx := range plan.Path() {
 		if err := viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx]); err != nil {
 			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
 			break
