@@ -294,8 +294,8 @@ func TestNew(t *testing.T) {
 		svcStruct := svc.(*builtIn)
 
 		test.That(t, len(svcStruct.motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName, test.ShouldEqual, "camera")
 
 		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, cfg.DegPerSec)
 		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, cfg.MetersPerSec)
@@ -327,8 +327,8 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName, test.ShouldEqual, "camera")
 		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, cfg.ReplanCostFactor)
 	})
 
@@ -435,8 +435,8 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName, test.ShouldEqual, "camera")
 	})
 
 	closeNavSvc()
@@ -956,8 +956,8 @@ func TestStartWaypoint(t *testing.T) {
 			AngularDegsPerSec:     1,
 			ObstacleDetectors: []motion.ObstacleDetectorName{
 				{
-					VisionServiceName: vision.Named("vision"),
-					CameraName:        camera.Named("camera"),
+					VisionServiceName: "vision",
+					CameraName:        "camera",
 				},
 			},
 		}
@@ -1009,7 +1009,7 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.sprs[1].ComponentName, test.ShouldResemble, s.base.Name())
 
 					// Motion reports that the last execution succeeded
-					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().String()})
 					test.That(t, err, test.ShouldBeNil)
 					test.That(t, len(ph), test.ShouldEqual, 1)
 					test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[1])
@@ -1256,7 +1256,7 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.mogrs[4].Destination, test.ShouldResemble, pt1)
 
 					// Motion reports that the last execution succeeded
-					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().String()})
 					test.That(t, err, test.ShouldBeNil)
 					test.That(t, len(ph), test.ShouldEqual, 1)
 					test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[2])
@@ -1389,7 +1389,7 @@ func TestStartWaypoint(t *testing.T) {
 			test.That(t, wpAfter, test.ShouldResemble, wpBefore)
 
 			// check the last state of the execution
-			ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+			ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().String()})
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(ph), test.ShouldEqual, 1)
 			test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 2)
@@ -1521,7 +1521,7 @@ func TestStartWaypoint(t *testing.T) {
 				// Motion reports that the last execution succeeded
 				s.RUnlock()
 
-				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().String()})
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, len(ph), test.ShouldEqual, 1)
 				test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[1])
@@ -1650,7 +1650,7 @@ func TestStartWaypoint(t *testing.T) {
 				// Motion reports that the last execution succeeded
 				s.RUnlock()
 
-				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().String()})
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, len(ph), test.ShouldEqual, 1)
 				test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[0])

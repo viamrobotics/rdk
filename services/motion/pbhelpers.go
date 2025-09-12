@@ -11,7 +11,6 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/motionplan"
-	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -29,7 +28,7 @@ func (r MoveReq) ToProto(name string) (*pb.MoveRequest, error) {
 	}
 	reqPB := &pb.MoveRequest{
 		Name:          name,
-		ComponentName: rprotoutils.ResourceNameToProto(r.ComponentName),
+		ComponentName: r.ComponentName,
 		WorldState:    worldStateMsg,
 		Constraints:   r.Constraints.ToProtobuf(),
 		Extra:         ext,
@@ -56,7 +55,7 @@ func MoveReqFromProto(req *pb.MoveRequest) (MoveReq, error) {
 	}
 
 	return MoveReq{
-		rprotoutils.ResourceNameFromProto(req.GetComponentName()),
+		req.GetComponentName(),
 		destination,
 		worldState,
 		motionplan.ConstraintsFromProtobuf(req.GetConstraints()),
@@ -129,13 +128,13 @@ func planStatusWithIDFromProto(ps *pb.PlanStatusWithID) (PlanStatusWithID, error
 		return PlanStatusWithID{}, err
 	}
 
-	if ps.ComponentName == nil {
+	if ps.ComponentName == "" {
 		return PlanStatusWithID{}, errors.New("received nil *commonpb.ResourceName")
 	}
 
 	return PlanStatusWithID{
 		PlanID:        planID,
-		ComponentName: rprotoutils.ResourceNameFromProto(ps.ComponentName),
+		ComponentName: ps.ComponentName,
 		ExecutionID:   executionID,
 		Status:        status,
 	}, nil
@@ -157,13 +156,13 @@ func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 		return PlanWithMetadata{}, err
 	}
 
-	if p.ComponentName == nil {
+	if p.ComponentName == "" {
 		return PlanWithMetadata{}, errors.New("received nil *pb.ResourceName")
 	}
 
 	plan := PlanWithMetadata{
 		ID:            id,
-		ComponentName: rprotoutils.ResourceNameFromProto(p.ComponentName),
+		ComponentName: p.ComponentName,
 		ExecutionID:   executionID,
 	}
 
@@ -214,9 +213,9 @@ func (r MoveOnGlobeReq) toProto(name string) (*pb.MoveOnGlobeRequest, error) {
 
 	req := &pb.MoveOnGlobeRequest{
 		Name:               name,
-		ComponentName:      rprotoutils.ResourceNameToProto(r.ComponentName),
+		ComponentName:      r.ComponentName,
 		Destination:        &commonpb.GeoPoint{Latitude: r.Destination.Lat(), Longitude: r.Destination.Lng()},
-		MovementSensorName: rprotoutils.ResourceNameToProto(r.MovementSensorName),
+		MovementSensorName: r.MovementSensorName,
 		Extra:              ext,
 	}
 
@@ -280,16 +279,16 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 	}
 
 	protoComponentName := req.GetComponentName()
-	if protoComponentName == nil {
+	if protoComponentName == "" {
 		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName")
 	}
-	componentName := rprotoutils.ResourceNameFromProto(protoComponentName)
+	componentName := protoComponentName
 	destination := geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude())
 	protoMovementSensorName := req.GetMovementSensorName()
-	if protoMovementSensorName == nil {
+	if protoMovementSensorName == "" {
 		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName")
 	}
-	movementSensorName := rprotoutils.ResourceNameFromProto(protoMovementSensorName)
+	movementSensorName := protoMovementSensorName
 	motionCfg := configurationFromProto(req.MotionConfiguration)
 
 	return MoveOnGlobeReq{
@@ -317,7 +316,7 @@ func (req PlanHistoryReq) toProto(name string) (*pb.GetPlanRequest, error) {
 	}
 	return &pb.GetPlanRequest{
 		Name:          name,
-		ComponentName: rprotoutils.ResourceNameToProto(req.ComponentName),
+		ComponentName: req.ComponentName,
 		LastPlanOnly:  req.LastPlanOnly,
 		Extra:         ext,
 		ExecutionId:   executionIDPtr,
@@ -325,7 +324,7 @@ func (req PlanHistoryReq) toProto(name string) (*pb.GetPlanRequest, error) {
 }
 
 func getPlanRequestFromProto(req *pb.GetPlanRequest) (PlanHistoryReq, error) {
-	if req.GetComponentName() == nil {
+	if req.GetComponentName() == "" {
 		return PlanHistoryReq{}, errors.New("received nil *commonpb.ResourceName")
 	}
 
@@ -339,7 +338,7 @@ func getPlanRequestFromProto(req *pb.GetPlanRequest) (PlanHistoryReq, error) {
 	}
 
 	return PlanHistoryReq{
-		ComponentName: rprotoutils.ResourceNameFromProto(req.GetComponentName()),
+		ComponentName: req.GetComponentName(),
 		LastPlanOnly:  req.GetLastPlanOnly(),
 		ExecutionID:   executionID,
 		Extra:         req.Extra.AsMap(),
@@ -354,11 +353,11 @@ func moveOnMapRequestFromProto(req *pb.MoveOnMapRequest) (MoveOnMapReq, error) {
 		return MoveOnMapReq{}, errors.New("received nil *commonpb.Pose for destination")
 	}
 	protoComponentName := req.GetComponentName()
-	if protoComponentName == nil {
+	if protoComponentName == "" {
 		return MoveOnMapReq{}, errors.New("received nil *commonpb.ResourceName for component name")
 	}
 	protoSlamServiceName := req.GetSlamServiceName()
-	if protoSlamServiceName == nil {
+	if protoSlamServiceName == "" {
 		return MoveOnMapReq{}, errors.New("received nil *commonpb.ResourceName for SlamService name")
 	}
 	geoms := []spatialmath.Geometry{}
@@ -370,9 +369,9 @@ func moveOnMapRequestFromProto(req *pb.MoveOnMapRequest) (MoveOnMapReq, error) {
 		geoms = convertedGeom
 	}
 	return MoveOnMapReq{
-		ComponentName: rprotoutils.ResourceNameFromProto(protoComponentName),
+		ComponentName: protoComponentName,
 		Destination:   spatialmath.NewPoseFromProtobuf(req.GetDestination()),
-		SlamName:      rprotoutils.ResourceNameFromProto(protoSlamServiceName),
+		SlamName:      protoSlamServiceName,
 		MotionCfg:     configurationFromProto(req.MotionConfiguration),
 		Obstacles:     geoms,
 		Extra:         req.Extra.AsMap(),
@@ -389,9 +388,9 @@ func (r MoveOnMapReq) toProto(name string) (*pb.MoveOnMapRequest, error) {
 	}
 	req := &pb.MoveOnMapRequest{
 		Name:            name,
-		ComponentName:   rprotoutils.ResourceNameToProto(r.ComponentName),
+		ComponentName:   r.ComponentName,
 		Destination:     spatialmath.PoseToProtobuf(r.Destination),
-		SlamServiceName: rprotoutils.ResourceNameToProto(r.SlamName),
+		SlamServiceName: r.SlamName,
 		Obstacles:       referenceframe.NewGeometriesToProto(r.Obstacles),
 		Extra:           ext,
 	}
