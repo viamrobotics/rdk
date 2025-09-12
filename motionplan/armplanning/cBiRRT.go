@@ -644,7 +644,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 		whyNot := mp.checkPath(seed, step)
 		if whyNot == nil {
 			mp.logger.Debugf("got score %v and approxCartesianDist: %v - stopping early", score, approxCartesianDist)
-			sss.solutions = []*node{{inputs: step, cost: score}}
+			sss.solutions = []*node{{inputs: step, cost: score, checkPath: true}}
 			// good solution, stopping early
 			return true
 		}

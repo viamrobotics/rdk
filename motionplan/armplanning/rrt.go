@@ -68,6 +68,12 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 
 	rrt.maps.optNode = &node{inputs: goalNodes[0].inputs}
 
+	if len(goalNodes) == 1 && goalNodes[0].checkPath {
+		wp.mp.logger.Debugf("found an ideal ik solution")
+		rrt.steps = []*node{seed, goalNodes[0]}
+		return rrt
+	}
+
 	for _, solution := range goalNodes {
 		rrt.maps.goalMap[&node{inputs: solution.inputs}] = nil
 	}

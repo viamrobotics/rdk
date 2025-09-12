@@ -35,9 +35,10 @@ func fixedStepInterpolation(start, target *node, qstep map[string][]float64) ref
 }
 
 type node struct {
-	inputs referenceframe.FrameSystemInputs
-	corner bool
-	cost   float64
+	inputs    referenceframe.FrameSystemInputs
+	corner    bool
+	cost      float64
+	checkPath bool
 }
 
 func newConfigurationNode(q referenceframe.FrameSystemInputs) *node {
