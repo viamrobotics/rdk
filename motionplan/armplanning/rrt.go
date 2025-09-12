@@ -87,6 +87,7 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 			)
 			if cost < optimalCost*defaultOptimalityMultiple {
 				if wp.mp.checkPath(seed.Q(), solution.Q()) {
+					wp.mp.logger.Debugf("found an ideal ik solution with cost %v < %v", cost, optimalCost*defaultOptimalityMultiple)
 					rrt.steps = []node{seed, solution}
 					return rrt
 				}

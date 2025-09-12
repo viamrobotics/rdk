@@ -596,7 +596,9 @@ type solutionSolvingState struct {
 }
 
 // return bool is if we should stop because we're done.
-func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed referenceframe.FrameSystemInputs, stepSolution *ik.Solution) bool {
+func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed referenceframe.FrameSystemInputs,
+	stepSolution *ik.Solution, approxCartesianDist float64,
+) bool {
 	step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
 	if err != nil {
 		mp.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
@@ -632,6 +634,15 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 	}
 
 	score := mp.configurationDistanceFunc(stepArc)
+
+	mp.logger.Infof("got score %v", score)
+
+	if approxCartesianDist > 0 && score < (approxCartesianDist/200) && mp.checkPath(seed, step) {
+		sss.solutions = map[float64]referenceframe.FrameSystemInputs{}
+		sss.solutions[score] = step
+		// good solution, stopping early
+		return true
+	}
 
 	if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
 		sss.solutions = map[float64]referenceframe.FrameSystemInputs{}
@@ -742,7 +753,7 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 			return nil, ctx.Err()
 
 		case stepSolution := <-solutionGen:
-			if mp.process(&solvingState, seed, stepSolution) {
+			if mp.process(&solvingState, seed, stepSolution, approxCartesianDist) {
 				cancel()
 			}
 
