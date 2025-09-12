@@ -110,12 +110,20 @@ func realMain() error {
 		}
 	}
 
+	renderFramePeriod := 50 * time.Millisecond
 	for idx, _ := range plan.Path() {
 		if err := viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx]); err != nil {
-			fmt.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
+			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
 			break
+
 		}
-		time.Sleep(50 * time.Millisecond)
+
+		if idx == 0 {
+			mylog.Println("Rendering motion plan. Num steps:", len(plan.Path()),
+				"Approx time:", time.Duration(len(plan.Path()))*renderFramePeriod)
+		}
+
+		time.Sleep(renderFramePeriod)
 	}
 
 	return nil
