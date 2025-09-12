@@ -51,11 +51,11 @@ type Summation interface {
 // serviceServer implements the Summation RPC service from summation.proto.
 type serviceServer struct {
 	pb.UnimplementedSummationServiceServer
-	coll resource.APIResourceCollection[Summation]
+	coll resource.APIResourceGetter[Summation]
 }
 
 // NewRPCServiceServer returns a new RPC server for the summation API.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Summation]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Summation]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

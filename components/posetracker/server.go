@@ -13,12 +13,12 @@ import (
 
 type serviceServer struct {
 	pb.UnimplementedPoseTrackerServiceServer
-	coll resource.APIResourceCollection[PoseTracker]
+	coll resource.APIResourceGetter[PoseTracker]
 }
 
 // NewRPCServiceServer constructs a pose tracker gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[PoseTracker]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[PoseTracker]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

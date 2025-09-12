@@ -45,12 +45,12 @@ func init() {
 // serviceServer implements the AudioInputService from audioinput.proto.
 type serviceServer struct {
 	pb.UnimplementedAudioInputServiceServer
-	coll resource.APIResourceCollection[AudioInput]
+	coll resource.APIResourceGetter[AudioInput]
 }
 
 // NewRPCServiceServer constructs an audio input gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[AudioInput]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[AudioInput]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

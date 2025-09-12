@@ -30,12 +30,12 @@ var (
 // serviceServer implements the BoardService from board.proto.
 type serviceServer struct {
 	pb.UnimplementedBoardServiceServer
-	coll resource.APIResourceCollection[Board]
+	coll resource.APIResourceGetter[Board]
 }
 
 // NewRPCServiceServer constructs an board gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Board]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Board]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

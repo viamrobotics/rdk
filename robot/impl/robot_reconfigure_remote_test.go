@@ -2,11 +2,14 @@ package robotimpl
 
 import (
 	"context"
+	"errors"
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
@@ -18,7 +21,9 @@ import (
 	"go.viam.com/rdk/resource"
 	// TODO(RSDK-7884): change all referenced resources to mocks.
 	rdktestutils "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
+	"go.viam.com/rdk/utils"
 )
 
 func TestRemoteRobotsGold(t *testing.T) {
@@ -64,6 +69,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	// set up but do not start remote2's web service
 	remote2 := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote2"))
 	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+	_ = addr2
 
 	localConfig := &config.Config{
 		Components: []resource.Config{
@@ -74,7 +80,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API:       arm.API,
-				DependsOn: []string{"foo:remoteArm"},
+				DependsOn: []string{"fooremoteArm"},
 			},
 			{
 				Name:  "arm2",
@@ -83,17 +89,19 @@ func TestRemoteRobotsGold(t *testing.T) {
 					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API:       arm.API,
-				DependsOn: []string{"bar:remoteArm"},
+				DependsOn: []string{"barremoteArm"},
 			},
 		},
 		Services: []resource.Config{},
 		Remotes: []config.Remote{
 			{
 				Name:    "foo",
+				Prefix:  "foo",
 				Address: addr1,
 			},
 			{
 				Name:    "bar",
+				Prefix:  "bar",
 				Address: addr2,
 			},
 		},
@@ -101,12 +109,13 @@ func TestRemoteRobotsGold(t *testing.T) {
 	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("main"))
 
 	// assert all of remote1's resources exist on main but none of remote2's
+	resourceNames := r.ResourceNames()
 	rdktestutils.VerifySameResourceNames(
 		t,
-		r.ResourceNames(),
+		resourceNames,
 		[]resource.Name{
 			arm.Named("arm1"),
-			arm.Named("foo:remoteArm"),
+			arm.Named("foo:fooremoteArm"),
 		},
 	)
 
@@ -117,11 +126,16 @@ func TestRemoteRobotsGold(t *testing.T) {
 	mainPartAndFooAndBarResources := []resource.Name{
 		arm.Named("arm1"),
 		arm.Named("arm2"),
-		arm.Named("foo:remoteArm"),
-		arm.Named("bar:remoteArm"),
+		arm.Named("foo:fooremoteArm"),
+		arm.Named("bar:barremoteArm"),
 	}
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), mainPartAndFooAndBarResources)
+		resourceNames := r.ResourceNames()
+		rdktestutils.VerifySameResourceNames(
+			tb,
+			resourceNames,
+			mainPartAndFooAndBarResources,
+		)
 	})
 	test.That(t, remote2.Close(context.Background()), test.ShouldBeNil)
 
@@ -130,7 +144,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		verifyReachableResourceNames(tb, r,
 			[]resource.Name{
 				arm.Named("arm1"),
-				arm.Named("foo:remoteArm"),
+				arm.Named("foo:fooremoteArm"),
 			},
 		)
 	})
@@ -146,7 +160,8 @@ func TestRemoteRobotsGold(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), mainPartAndFooAndBarResources)
+		resourceNames := r.ResourceNames()
+		rdktestutils.VerifySameResourceNames(tb, resourceNames, mainPartAndFooAndBarResources)
 	})
 }
 
@@ -177,18 +192,22 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 		Remotes: []config.Remote{
 			{
 				Name:    "foo",
+				Prefix:  "foo",
 				Address: addr1,
 			},
 			{
 				Name:    "bar",
+				Prefix:  "bar",
 				Address: addr1,
 			},
 			{
 				Name:    "hello",
+				Prefix:  "hello",
 				Address: addr1,
 			},
 			{
 				Name:    "world",
+				Prefix:  "world",
 				Address: addr1,
 			},
 		},
@@ -196,10 +215,10 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
 
 	expectedSet := []resource.Name{
-		arm.Named("foo:arm1"),
-		arm.Named("bar:arm1"),
-		arm.Named("hello:arm1"),
-		arm.Named("world:arm1"),
+		arm.Named("foo:fooarm1"),
+		arm.Named("bar:bararm1"),
+		arm.Named("hello:helloarm1"),
+		arm.Named("world:worldarm1"),
 	}
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), expectedSet)
@@ -414,19 +433,12 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 	}
 	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
 
-	expectedSet := []resource.Name{
-		arm.Named("foo:pieceArm"),
-		arm.Named("bar:pieceArm"),
-	}
+	// We expect the robot to correctly detect the ambiguous dependency and not
+	// build the resource. The remote pieceArms will also not be included because
+	// their names collide.
+	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), []resource.Name{})
 
-	rdktestutils.VerifySameResourceNames(t, r.ResourceNames(), expectedSet)
-
-	// we expect the robot to correctly detect the ambiguous dependency and not build the resource
-	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 150, func(tb testing.TB) {
-		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), expectedSet)
-	})
-
-	// now reconfig with a fully qualified name
+	// now reconfig to remove the ambiguity
 	reConfig := &config.Config{
 		Components: []resource.Config{
 			{
@@ -436,7 +448,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 				API:       arm.API,
-				DependsOn: []string{"foo:pieceArm"},
+				DependsOn: []string{"pieceArm"},
 			},
 		},
 		Remotes: []config.Remote{
@@ -446,6 +458,7 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 			},
 			{
 				Name:    "bar",
+				Prefix:  "bar",
 				Address: addr2,
 			},
 		},
@@ -454,11 +467,392 @@ func TestInferRemoteRobotDependencyAmbiguous(t *testing.T) {
 
 	finalSet := []resource.Name{
 		arm.Named("foo:pieceArm"),
-		arm.Named("bar:pieceArm"),
+		arm.Named("bar:barpieceArm"),
 		arm.Named("arm1"),
 	}
 
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		rdktestutils.VerifySameResourceNames(tb, r.ResourceNames(), finalSet)
 	})
+}
+
+func TestFullResourceNameCollision(t *testing.T) {
+	// Asserts the following as features of RSDK-11267/RSDK-11268:
+	// - Duplicately-named local resources are not reachable through an SDK
+	// - Duplicately-named remote resources are not reachable through an SDK
+	// - Local resources with the same full name as a remote resource are "preferred"
+	// - Logs for full resource name collisions are correctly generated by the resource
+	//   manager
+	// - Reconfiguring a remote to have a prefix can "solve" a full resource name collision
+
+	// Set up three injected arms and track their IsMoving counts separately.
+	var arm1IsMovingCount, arm2IsMovingCount, arm3IsMovingCount atomic.Int32
+	arm1 := &inject.Arm{
+		IsMovingFunc: func(context.Context) (bool, error) {
+			arm1IsMovingCount.Add(1)
+			return false, nil
+		},
+	}
+	arm2 := &inject.Arm{
+		IsMovingFunc: func(context.Context) (bool, error) {
+			arm2IsMovingCount.Add(1)
+			return false, nil
+		},
+	}
+	arm3 := &inject.Arm{
+		IsMovingFunc: func(context.Context) (bool, error) {
+			arm3IsMovingCount.Add(1)
+			return false, nil
+		},
+	}
+	resetAllIsMovingCounts := func() {
+		arm1IsMovingCount.Store(0)
+		arm2IsMovingCount.Store(0)
+		arm3IsMovingCount.Store(0)
+	}
+
+	// Use a consistent model and constructor for all three arms, but vary the actual arm
+	// created based on a config value. This will help us make assertions on _where_
+	// IsMoving requests are routing to. This is likely redundant with some of the tests
+	// above, but we want a full integration test here.
+	model := resource.DefaultModelFamily.WithModel(goutils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		arm.API,
+		model,
+		resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (arm.Arm, error) {
+			switch conf.Attributes.String("armToRouteTo") {
+			case "arm1":
+				return arm1, nil
+			case "arm2":
+				return arm2, nil
+			case "arm3":
+				return arm3, nil
+			default:
+				return nil, errors.New("unknown armToRouteTo provided")
+			}
+		}},
+	)
+	defer resource.Deregister(arm.API, model)
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	blankLogger := logging.NewBlankLogger("") // To be used where we don't care about logging.
+	ctx := context.Background()
+
+	// Setup three machines.
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger)
+	options, _, raddr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := r.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+	r2 := setupLocalRobot(t, ctx, &config.Config{}, blankLogger)
+	options, _, r2addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = r2.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+	r3 := setupLocalRobot(t, ctx, &config.Config{}, blankLogger)
+	options, _, r3addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = r3.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create clients to two of the machines (to be used throughout tests).
+	rClient := robottestutils.NewRobotClient(t, blankLogger, raddr, time.Second)
+	r2Client := robottestutils.NewRobotClient(t, blankLogger, r2addr, time.Second)
+
+	{ // Single local "fooArm" instance.
+		cfg := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:       "fooArm",
+					Model:      model,
+					API:        arm.API,
+					Attributes: utils.AttributeMap{"armToRouteTo": "arm1"},
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg)
+
+		// Verify no logs were generated complaining about collisions.
+		test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldEqual, 0)
+
+		// Verify (refreshed) resource names returned to rClient contain only one "fooArm" instance.
+		expectedNames := []resource.Name{arm.Named("fooArm")}
+		test.That(t, rClient.Refresh(ctx), test.ShouldBeNil)
+		actualNames := rClient.ResourceNames()
+		rdktestutils.VerifySameResourceNames(t, actualNames, expectedNames)
+
+		// Call IsMoving() through "fooArm" from rClient, and assert that request routed to
+		// arm1.
+		fooArmResClient, err := rClient.ResourceByName(arm.Named("fooArm"))
+		test.That(t, err, test.ShouldBeNil)
+		fooArmClient, ok := fooArmResClient.(arm.Arm)
+		test.That(t, ok, test.ShouldBeTrue)
+		isMoving, err := fooArmClient.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, isMoving, test.ShouldBeFalse)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 1)
+	}
+
+	logs.TakeAll() // Reset logs.
+	resetAllIsMovingCounts()
+
+	{ // Duplicate local "fooArm" instances.
+		cfg := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:       "fooArm",
+					Model:      model,
+					API:        arm.API,
+					Attributes: utils.AttributeMap{"armToRouteTo": "arm1"},
+				},
+				{
+					Name:       "fooArm",
+					Model:      model,
+					API:        arm.API,
+					Attributes: utils.AttributeMap{"armToRouteTo": "arm1"},
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg)
+
+		// Verify that a log was generated complaining about a collision.
+		test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldEqual, 1)
+
+		// Verify (refreshed) resource names returned to rClient contain _no_ "fooArm" instances.
+		expectedNames := []resource.Name{}
+		test.That(t, rClient.Refresh(ctx), test.ShouldBeNil)
+		actualNames := rClient.ResourceNames()
+		rdktestutils.VerifySameResourceNames(t, actualNames, expectedNames)
+
+		// Verify that "fooArm" can no longer be reached through ResourceByName from the rClient.
+		_, err := rClient.ResourceByName(arm.Named("fooArm"))
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+	}
+
+	logs.TakeAll() // Reset logs.
+	resetAllIsMovingCounts()
+
+	{ // One local "fooArm" instance and one remote "fooArm" instance.
+		cfg2 := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:       "fooArm",
+					Model:      model,
+					API:        arm.API,
+					Attributes: utils.AttributeMap{"armToRouteTo": "arm2"},
+				},
+			},
+		}
+		r2.Reconfigure(ctx, cfg2)
+		cfg := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:       "fooArm",
+					Model:      model,
+					API:        arm.API,
+					Attributes: utils.AttributeMap{"armToRouteTo": "arm1"},
+				},
+			},
+			Remotes: []config.Remote{
+				{
+					Name:    "r2",
+					Address: r2addr,
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg)
+
+		// Verify that a log was generated complaining about a collision.
+		test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldEqual, 1)
+
+		// Verify (refreshed) resource names returned to rClient contain only one "fooArm"
+		// instance (local).
+		expectedNames := []resource.Name{arm.Named("fooArm")}
+		test.That(t, rClient.Refresh(ctx), test.ShouldBeNil)
+		actualNames := rClient.ResourceNames()
+		rdktestutils.VerifySameResourceNames(t, actualNames, expectedNames)
+
+		// Call IsMoving() through "fooArm" from rClient, and assert that request routed to
+		// arm1.
+		fooArmResClient, err := rClient.ResourceByName(arm.Named("fooArm"))
+		test.That(t, err, test.ShouldBeNil)
+		fooArmClient, ok := fooArmResClient.(arm.Arm)
+		test.That(t, ok, test.ShouldBeTrue)
+		isMoving, err := fooArmClient.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, isMoving, test.ShouldBeFalse)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 1 /* increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 0 /* no increase */)
+
+		// Verify (refreshed) resource names returned to _r2Client_ also contains only one
+		// "fooArm" instance (local to r2, but remote to main machine).
+		expectedNames = []resource.Name{arm.Named("fooArm")}
+		test.That(t, r2Client.Refresh(ctx), test.ShouldBeNil)
+		actualNames = r2Client.ResourceNames()
+		rdktestutils.VerifySameResourceNames(t, actualNames, expectedNames)
+
+		// Call IsMoving() through "fooArm" from _r2Client_, and assert that request routed to
+		// arm2.
+		fooArmRes2Client, err := r2Client.ResourceByName(arm.Named("fooArm"))
+		test.That(t, err, test.ShouldBeNil)
+		fooArm2Client, ok := fooArmRes2Client.(arm.Arm)
+		test.That(t, ok, test.ShouldBeTrue)
+		isMoving, err = fooArm2Client.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, isMoving, test.ShouldBeFalse)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 1 /* no increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 1 /* increase */)
+
+		// Assert that prefixing the remote produces no new collision errors, and both arm1
+		// and arm2 are now reachable through rClient.
+		cfg.Remotes[0].Prefix = "r2"
+		r.Reconfigure(ctx, cfg)
+
+		test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldEqual, 1 /* no increase */)
+
+		expectedNames = []resource.Name{arm.Named("fooArm"), arm.Named("r2fooArm")}
+		test.That(t, rClient.Refresh(ctx), test.ShouldBeNil)
+		actualNames = rClient.ResourceNames()
+		rdktestutils.VerifySameResourceNames(t, actualNames, expectedNames)
+
+		// Assert that IsMoving calls route correctly.
+		isMoving, err = fooArmClient.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, isMoving, test.ShouldBeFalse)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 2 /* increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 1 /* no increase */)
+
+		r2fooArmResClient, err := rClient.ResourceByName(arm.Named("r2fooArm"))
+		test.That(t, err, test.ShouldBeNil)
+		r2fooArmClient, ok := r2fooArmResClient.(arm.Arm)
+		test.That(t, ok, test.ShouldBeTrue)
+		isMoving, err = r2fooArmClient.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, isMoving, test.ShouldBeFalse)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 2 /* no increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 2 /* increase */)
+	}
+
+	logs.TakeAll() // Reset logs.
+	resetAllIsMovingCounts()
+
+	{ // One local "fooArm" instance and two remote "fooArm" instances.
+		cfg3 := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:       "fooArm",
+					Model:      model,
+					API:        arm.API,
+					Attributes: utils.AttributeMap{"armToRouteTo": "arm3"},
+				},
+			},
+		}
+		r3.Reconfigure(ctx, cfg3)
+		cfg2 := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:       "fooArm",
+					Model:      model,
+					API:        arm.API,
+					Attributes: utils.AttributeMap{"armToRouteTo": "arm2"},
+				},
+			},
+		}
+		r2.Reconfigure(ctx, cfg2)
+		cfg := &config.Config{
+			Components: []resource.Config{
+				{
+					Name:       "fooArm",
+					Model:      model,
+					API:        arm.API,
+					Attributes: utils.AttributeMap{"armToRouteTo": "arm1"},
+				},
+			},
+			Remotes: []config.Remote{
+				{
+					Name:    "r2",
+					Address: r2addr,
+				},
+				{
+					Name:    "r3",
+					Address: r3addr,
+				},
+			},
+		}
+		r.Reconfigure(ctx, cfg)
+
+		// Verify that one new log was generated complaining about collision as we added r3.
+		test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldEqual, 1)
+
+		// Verify (refreshed) resource names returned to rClient contain only one "fooArm"
+		// instance (local).
+		expectedNames := []resource.Name{arm.Named("fooArm")}
+		test.That(t, rClient.Refresh(ctx), test.ShouldBeNil)
+		actualNames := rClient.ResourceNames()
+		rdktestutils.VerifySameResourceNames(t, actualNames, expectedNames)
+
+		// Call IsMoving() through "fooArm" from rClient, and assert that request routed to
+		// arm1 (local).
+		fooArmResClient, err := rClient.ResourceByName(arm.Named("fooArm"))
+		test.That(t, err, test.ShouldBeNil)
+		fooArmClient, ok := fooArmResClient.(arm.Arm)
+		test.That(t, ok, test.ShouldBeTrue)
+		isMoving, err := fooArmClient.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, isMoving, test.ShouldBeFalse)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 1 /* increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 0 /* no increase */)
+		test.That(t, arm3IsMovingCount.Load(), test.ShouldEqual, 0 /* no increase */)
+
+		// Assert that removing "fooArm" from the main machine leaves neither of the remote
+		// "fooArm"s accessible through the main machine due to name collision.
+		cfg.Components = nil
+		r.Reconfigure(ctx, cfg)
+
+		test.That(t, logs.FilterMessageSnippet("collision").Len(), test.ShouldEqual, 1 /* no increase */)
+
+		expectedNames = []resource.Name{}
+		test.That(t, rClient.Refresh(ctx), test.ShouldBeNil)
+		actualNames = rClient.ResourceNames()
+		rdktestutils.VerifySameResourceNames(t, actualNames, expectedNames)
+
+		// Verify that "fooArm" can no longer be reached through ResourceByName from the rClient.
+		_, err = rClient.ResourceByName(arm.Named("fooArm"))
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+
+		// Assert that prefixing one of the remotes allows access to both arm2 and arm3
+		// through the main machine.
+		cfg.Remotes[0].Prefix = "r2"
+		r.Reconfigure(ctx, cfg)
+
+		expectedNames = []resource.Name{arm.Named("fooArm"), arm.Named("r2fooArm")}
+		test.That(t, rClient.Refresh(ctx), test.ShouldBeNil)
+		actualNames = rClient.ResourceNames()
+		rdktestutils.VerifySameResourceNames(t, actualNames, expectedNames)
+
+		// Assert that IsMoving calls route correctly ("fooArm" to r3, and "r2fooArm" to r2).
+		fooArmResClient, err = rClient.ResourceByName(arm.Named("fooArm"))
+		test.That(t, err, test.ShouldBeNil)
+		fooArmClient, ok = fooArmResClient.(arm.Arm)
+		test.That(t, ok, test.ShouldBeTrue)
+		isMoving, err = fooArmClient.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, isMoving, test.ShouldBeFalse)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 1 /* no increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 0 /* no increase */)
+		test.That(t, arm3IsMovingCount.Load(), test.ShouldEqual, 1 /* increase */)
+
+		r2fooArmResClient, err := rClient.ResourceByName(arm.Named("r2fooArm"))
+		test.That(t, err, test.ShouldBeNil)
+		r2fooArmClient, ok := r2fooArmResClient.(arm.Arm)
+		test.That(t, ok, test.ShouldBeTrue)
+		isMoving, err = r2fooArmClient.IsMoving(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, isMoving, test.ShouldBeFalse)
+		test.That(t, arm1IsMovingCount.Load(), test.ShouldEqual, 1 /* no increase */)
+		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 1 /* increase */)
+		test.That(t, arm3IsMovingCount.Load(), test.ShouldEqual, 1 /* no increase */)
+	}
 }

@@ -59,7 +59,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 				API:   gripper.API,
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 				Frame: &referenceframe.LinkConfig{
-					Parent: "bar:pieceArm",
+					Parent: "barpieceArm",
 				},
 			},
 		},
@@ -67,6 +67,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 			{
 				Name:    "bar",
 				Address: addr,
+				Prefix:  "bar",
 				Frame: &referenceframe.LinkConfig{
 					Parent:      "foo",
 					Translation: r3.Vector{100, 200, 300},
@@ -76,6 +77,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 			{
 				Name:    "squee",
 				Address: addr,
+				Prefix:  "squee",
 				Frame: &referenceframe.LinkConfig{
 					Parent:      referenceframe.World,
 					Translation: r3.Vector{500, 600, 700},
@@ -95,8 +97,8 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 	)
 
 	transforms := []*referenceframe.LinkInFrame{
-		referenceframe.NewLinkInFrame("bar:pieceArm", testPose, "frame1", nil),
-		referenceframe.NewLinkInFrame("bar:pieceGripper", testPose, "frame2", nil),
+		referenceframe.NewLinkInFrame("barpieceArm", testPose, "frame1", nil),
+		referenceframe.NewLinkInFrame("barpieceGripper", testPose, "frame2", nil),
 		referenceframe.NewLinkInFrame("frame2", testPose, "frame2a", nil),
 		referenceframe.NewLinkInFrame("frame2", testPose, "frame2c", nil),
 		referenceframe.NewLinkInFrame(referenceframe.World, testPose, "frame3", nil),
@@ -160,6 +162,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 		Remotes: []config.Remote{
 			{
 				Name:    "bar",
+				Prefix:  "bar",
 				Address: addr,
 				Frame: &referenceframe.LinkConfig{
 					Parent:      "foo",
@@ -169,6 +172,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 			},
 			{
 				Name:    "squee",
+				Prefix:  "squee",
 				Address: addr,
 				Frame: &referenceframe.LinkConfig{
 					Parent:      referenceframe.World,
