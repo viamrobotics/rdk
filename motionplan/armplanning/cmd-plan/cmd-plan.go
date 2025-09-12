@@ -11,6 +11,7 @@ import (
 	"sort"
 	"time"
 
+	viz "github.com/viam-labs/motion-tools/client/client"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
@@ -107,6 +108,11 @@ func realMain() error {
 				)
 			}
 		}
+	}
+
+	for idx, _ := range plan.Path() {
+		viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx])
+		time.Sleep(50 * time.Millisecond)
 	}
 
 	return nil
