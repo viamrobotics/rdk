@@ -1048,6 +1048,8 @@ type StopChan struct {
 	Name string
 }
 
+// TODO(RSDK-11894): Remove usages of this horribly obfuscated function and its associated
+// function, ensureStop.
 func makeEnsureStop(stopChs map[string]*StopChan) func(t *testing.T, name string, checkAgainst []string) {
 	return func(t *testing.T, name string, checkAgainst []string) {
 		t.Helper()

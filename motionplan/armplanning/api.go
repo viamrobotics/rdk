@@ -1,3 +1,4 @@
+// Package armplanning is a motion planning library.
 package armplanning
 
 import (
@@ -214,6 +215,7 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 	}
 	logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	logger.CDebugf(ctx, "motion config for this step: %v", request.PlannerOptions)
+	logger.CDebugf(ctx, "start position: %v", request.StartState.configuration)
 
 	if request.PlannerOptions == nil {
 		request.PlannerOptions = NewBasicPlannerOptions()

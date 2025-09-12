@@ -37,39 +37,25 @@ func fixedStepInterpolation(start, target node, qstep map[string][]float64) refe
 // node interface is used to wrap a configuration for planning purposes.
 // TODO: This is somewhat redundant with a State.
 type node interface {
-	// return the configuration associated with the node
 	Q() referenceframe.FrameSystemInputs
-	Cost() float64
-	SetCost(float64)
 	Corner() bool
 	SetCorner(bool)
 }
 
 type basicNode struct {
 	q      referenceframe.FrameSystemInputs
-	cost   float64
 	corner bool
 }
 
-// Special case constructors for nodes without costs to return NaN.
 func newConfigurationNode(q referenceframe.FrameSystemInputs) node {
 	return &basicNode{
 		q:      q,
-		cost:   math.NaN(),
 		corner: false,
 	}
 }
 
 func (n *basicNode) Q() referenceframe.FrameSystemInputs {
 	return n.q
-}
-
-func (n *basicNode) Cost() float64 {
-	return n.cost
-}
-
-func (n *basicNode) SetCost(cost float64) {
-	n.cost = cost
 }
 
 func (n *basicNode) Corner() bool {
@@ -124,23 +110,26 @@ func extractPath(startMap, goalMap map[node]node, pair *nodePair, matched bool) 
 // here are converted to a list of nodes which are to be used as the from or to states for a motionPlanner.
 func generateNodeListForPlanState(
 	ctx context.Context,
-	mp motionPlanner,
+	mp *cBiRRTMotionPlanner,
 	state *PlanState,
 	ikSeed referenceframe.FrameSystemInputs,
 ) ([]node, error) {
 	nodes := []node{}
+
+	if len(state.configuration) > 0 {
+		nodes = append(nodes, newConfigurationNode(state.configuration))
+		return nodes, nil
+	}
+
 	if len(state.poses) != 0 {
 		// If we have goal state poses, add them to the goal state configurations
-		goalMetric := mp.opt().getGoalMetric(state.poses)
+		goalMetric := mp.planOpts.getGoalMetric(state.poses)
 		// get many potential end goals from IK solver
 		solutions, err := mp.getSolutions(ctx, ikSeed, goalMetric)
 		if err != nil {
 			return nil, err
 		}
 		nodes = append(nodes, solutions...)
-	}
-	if len(state.configuration) > 0 {
-		nodes = append(nodes, newConfigurationNode(state.configuration))
 	}
 	if len(nodes) == 0 {
 		return nil, fmt.Errorf("could not create any nodes for state %v", state)
