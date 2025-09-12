@@ -416,7 +416,11 @@ func (octree *BasicOctree) PointsCollidingWith(geometries []spatialmath.Geometry
 // accumulatePointsCollidingWith is a helper function internal to PointsCollidingWith. It takes an
 // extra argument, a pointer to where results should be stored, and stores additional points to it
 // as relevant.
-func (octree *BasicOctree) accumulatePointsCollidingWith(geometries []spatialmath.Geometry, collisionBufferMM float64, accumulator *[]r3.Vector) {
+func (octree *BasicOctree) accumulatePointsCollidingWith(
+	geometries []spatialmath.Geometry,
+	collisionBufferMM float64,
+	accumulator *[]r3.Vector,
+) {
 	// Early exit if this octree region has no points above confidence threshold
 	if octree.MaxVal() < octree.confidenceThreshold {
 		return
