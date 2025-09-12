@@ -388,8 +388,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		// Check if the arc of "seedInputs" to "target" is valid
-		ok, _ := mp.checker.CheckSegmentAndStateValidityFS(newArc, mp.planOpts.Resolution)
-		if ok {
+		_, err := mp.checker.CheckSegmentAndStateValidityFS(newArc, mp.planOpts.Resolution)
+		if err == nil {
 			return target
 		}
 		solutionGen := make(chan *ik.Solution, 1)
@@ -416,7 +416,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return nil
 		}
 
-		ok, failpos := mp.checker.CheckSegmentAndStateValidityFS(
+		failpos, err := mp.checker.CheckSegmentAndStateValidityFS(
 			&motionplan.SegmentFS{
 				StartConfiguration: seedInputs,
 				EndConfiguration:   solutionMap,
@@ -424,7 +424,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			},
 			mp.planOpts.Resolution,
 		)
-		if ok {
+		if err == nil {
 			return solutionMap
 		}
 		if failpos != nil {
@@ -546,8 +546,8 @@ func (mp *cBiRRTMotionPlanner) checkInputs(inputs referenceframe.FrameSystemInpu
 	}) == nil
 }
 
-func (mp *cBiRRTMotionPlanner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) bool {
-	ok, _ := mp.checker.CheckSegmentAndStateValidityFS(
+func (mp *cBiRRTMotionPlanner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) error {
+	_, err := mp.checker.CheckSegmentAndStateValidityFS(
 		&motionplan.SegmentFS{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
@@ -555,7 +555,7 @@ func (mp *cBiRRTMotionPlanner) checkPath(seedInputs, target referenceframe.Frame
 		},
 		mp.planOpts.Resolution,
 	)
-	return ok
+	return err
 }
 
 func (mp *cBiRRTMotionPlanner) sample(rSeed node, sampleNum int) (node, error) {
@@ -635,13 +635,16 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 
 	score := mp.configurationDistanceFunc(stepArc)
 
-	mp.logger.Infof("got score %v", score)
-
-	if approxCartesianDist > 0 && score < (approxCartesianDist/200) && mp.checkPath(seed, step) {
-		sss.solutions = map[float64]referenceframe.FrameSystemInputs{}
-		sss.solutions[score] = step
-		// good solution, stopping early
-		return true
+	if approxCartesianDist > 0 && score < (approxCartesianDist/50) {
+		whyNot := mp.checkPath(seed, step)
+		if whyNot == nil {
+			mp.logger.Debugf("got score %v and approxCartesianDist: %v - stopping early", score, approxCartesianDist)
+			sss.solutions = map[float64]referenceframe.FrameSystemInputs{}
+			sss.solutions[score] = step
+			// good solution, stopping early
+			return true
+		}
+		mp.logger.Debugf("got score %v and approxCartesianDist: %v - failed %v", score, approxCartesianDist, whyNot)
 	}
 
 	if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
@@ -822,9 +825,11 @@ func (mp *cBiRRTMotionPlanner) nonchainMinimize(seed, step referenceframe.FrameS
 	if mp.checkInputs(alteredStep) {
 		return alteredStep
 	}
+
 	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
 
-	_, lastGood := mp.checker.CheckStateConstraintsAcrossSegmentFS(
+	//nolint:errcheck
+	lastGood, _ := mp.checker.CheckStateConstraintsAcrossSegmentFS(
 		&motionplan.SegmentFS{
 			StartConfiguration: step,
 			EndConfiguration:   alteredStep,

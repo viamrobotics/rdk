@@ -75,24 +75,16 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 	})
 	rrt.maps.optNode = &basicNode{q: goalNodes[0].Q()}
 
-	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
-	// Since solutions are returned ordered, we check until one is out of bounds, then skip remaining checks
-	canInterp := true
-
-	// initialize maps and check whether direct interpolation is an option
 	for _, solution := range goalNodes {
-		if canInterp {
-			cost := configDistMetric(
-				&motionplan.SegmentFS{StartConfiguration: seed.Q(), EndConfiguration: solution.Q()},
-			)
-			if cost < optimalCost*defaultOptimalityMultiple {
-				if wp.mp.checkPath(seed.Q(), solution.Q()) {
-					wp.mp.logger.Debugf("found an ideal ik solution with cost %v < %v", cost, optimalCost*defaultOptimalityMultiple)
-					rrt.steps = []node{seed, solution}
-					return rrt
-				}
-			} else {
-				canInterp = false
+		cost := configDistMetric(
+			&motionplan.SegmentFS{StartConfiguration: seed.Q(), EndConfiguration: solution.Q()},
+		)
+		if cost < optimalCost*defaultOptimalityMultiple {
+			err := wp.mp.checkPath(seed.Q(), solution.Q())
+			if err == nil {
+				wp.mp.logger.Debugf("found an ideal ik solution with cost %v < %v", cost, optimalCost*defaultOptimalityMultiple)
+				rrt.steps = []node{seed, solution}
+				return rrt
 			}
 		}
 		rrt.maps.goalMap[&basicNode{q: solution.Q()}] = nil
