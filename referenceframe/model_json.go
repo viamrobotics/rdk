@@ -117,10 +117,12 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 	}
 
 	// Create an ordered list of transforms
-	model.OrdTransforms, err = sortTransforms(transforms, parentMap)
+	ot, err := sortTransforms(transforms, parentMap)
 	if err != nil {
 		return nil, err
 	}
+
+	model.SetOrdTransforms(ot)
 
 	return model, nil
 }
