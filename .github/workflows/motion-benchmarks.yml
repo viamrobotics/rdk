@@ -41,7 +41,7 @@ jobs:
       run: |
         cd motion-testing
         go mod edit -replace go.viam.com/rdk=${URL#"https://"}@$SHA
-        sudo -Hu testbot bash -lc "go mod tidy && go test ./... -v -run TestDefault --name=$BASELINE"
+        sudo -Hu testbot bash -lc "go mod tidy && go test ./... -run TestDefault --name=$BASELINE"
 
     - name: Run motion quality tests on PR branch
       shell: bash
@@ -51,7 +51,7 @@ jobs:
       run: |
         cd motion-testing
         go mod edit -replace go.viam.com/rdk=${URL#"https://"}@$SHA
-        sudo -Hu testbot bash -lc "go mod tidy && go test ./... -v -run TestDefault --name=$MODIFIED"
+        sudo -Hu testbot bash -lc "go mod tidy && go test ./... -run TestDefault --name=$MODIFIED"
 
     - name: Print results
       run: |
