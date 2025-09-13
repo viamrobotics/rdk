@@ -7,7 +7,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -66,21 +65,14 @@ func TestSimpleLinearMotion(t *testing.T) {
 		goalMap[solution] = nil
 	}
 
-	m1chan := make(chan *node, 1)
-	defer close(m1chan)
-
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
-	utils.PanicCapturingGo(func() {
-		mp.constrainedExtend(ctx, mp.randseed, seedMap, near1, &node{inputs: target}, m1chan)
-	})
-	seedReached := <-m1chan
+	seedReached := mp.constrainedExtend(ctx, mp.randseed, seedMap, near1, &node{inputs: target})
+
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
 	near2 := nearestNeighbor(seedReached, goalMap, nodeConfigurationDistanceFunc)
 	// extend goalMap towards the point in seedMap
-	utils.PanicCapturingGo(func() {
-		mp.constrainedExtend(ctx, mp.randseed, goalMap, near2, seedReached, m1chan)
-	})
-	goalReached := <-m1chan
+	goalReached := mp.constrainedExtend(ctx, mp.randseed, goalMap, near2, seedReached)
+
 	dist := mp.configurationDistanceFunc(
 		&motionplan.SegmentFS{StartConfiguration: seedReached.inputs, EndConfiguration: goalReached.inputs},
 	)

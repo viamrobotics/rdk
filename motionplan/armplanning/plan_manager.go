@@ -168,6 +168,9 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 			}
 			return nil, planSeed.err
 		}
+
+		pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
+
 		if planSeed.steps != nil {
 			// this means we found an ideal solution (weird API)
 			resultPromises = append(resultPromises, &resultPromise{steps: planSeed.steps})

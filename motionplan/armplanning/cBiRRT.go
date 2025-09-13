@@ -42,7 +42,6 @@ type cBiRRTMotionPlanner struct {
 	solver                    ik.Solver
 	logger                    logging.Logger
 	randseed                  *rand.Rand
-	start                     time.Time
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
 	motionChains              *motionChains
@@ -139,7 +138,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 	_, cancel := context.WithCancel(ctx)
 	defer cancel()
-	mp.start = time.Now()
+	startTime := time.Now()
 
 	var seed referenceframe.FrameSystemInputs
 
@@ -152,79 +151,46 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		}
 	}
 	mp.logger.CDebugf(ctx, "goal node: %v\n", rrt.maps.optNode.inputs)
-	for n := range rrt.maps.startMap {
-		mp.logger.CDebugf(ctx, "start node: %v\n", n.inputs)
-		break
-	}
+	mp.logger.CDebugf(ctx, "start node: %v\n", seed)
 	mp.logger.Debug("DOF", mp.lfs.dof)
+
 	interpConfig, err := referenceframe.InterpolateFS(mp.fs, seed, rrt.maps.optNode.inputs, 0.5)
 	if err != nil {
 		rrt.solutionChan <- &rrtSolution{err: err}
 		return
 	}
+
 	target := newConfigurationNode(interpConfig)
 
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
 
-	m1chan := make(chan *node, 1)
-	m2chan := make(chan *node, 1)
-	defer close(m1chan)
-	defer close(m2chan)
-
 	for i := 0; i < mp.planOpts.PlanIter; i++ {
-		select {
-		case <-ctx.Done():
+		mp.logger.CDebugf(ctx, "iteration: %d target: %v\n", i, target.inputs)
+		if ctx.Err() != nil {
 			mp.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
 			rrt.solutionChan <- &rrtSolution{err: fmt.Errorf("cbirrt timeout %w", ctx.Err()), maps: rrt.maps}
 			return
-		default:
-		}
-		if i > 0 && i%100 == 0 {
-			mp.logger.CDebugf(ctx, "CBiRRT planner iteration %d", i)
 		}
 
-		tryExtend := func(target *node) (*node, *node, error) {
+		tryExtend := func(target *node) (*node, *node) {
 			// attempt to extend maps 1 and 2 towards the target
-			utils.PanicCapturingGo(func() {
-				m1chan <- nearestNeighbor(target, map1, nodeConfigurationDistanceFunc)
-			})
-			utils.PanicCapturingGo(func() {
-				m2chan <- nearestNeighbor(target, map2, nodeConfigurationDistanceFunc)
-			})
-			nearest1 := <-m1chan
-			nearest2 := <-m2chan
-			// If ctx is done, nearest neighbors will be invalid and we want to return immediately
-			select {
-			case <-ctx.Done():
-				return nil, nil, ctx.Err()
-			default:
-			}
 
-			//nolint: gosec
-			rseed1 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
-			//nolint: gosec
-			rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
+			nearest1 := nearestNeighbor(target, map1, nodeConfigurationDistanceFunc)
+			nearest2 := nearestNeighbor(target, map2, nodeConfigurationDistanceFunc)
 
-			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, rseed1, map1, nearest1, target, m1chan)
-			})
-			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, rseed2, map2, nearest2, target, m2chan)
-			})
-			map1reached := <-m1chan
-			map2reached := <-m2chan
+			rseed1 := rand.New(rand.NewSource(int64(mp.randseed.Int()))) //nolint: gosec
+			rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int()))) //nolint: gosec
+
+			map1reached := mp.constrainedExtend(ctx, rseed1, map1, nearest1, target)
+			map2reached := mp.constrainedExtend(ctx, rseed2, map2, nearest2, target)
 
 			map1reached.corner = true
 			map2reached.corner = true
 
-			return map1reached, map2reached, nil
+			return map1reached, map2reached
 		}
 
-		map1reached, map2reached, err := tryExtend(target)
-		if err != nil {
-			rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
-			return
-		}
+		map1reached, map2reached := tryExtend(target)
 
 		reachedDelta := mp.configurationDistanceFunc(
 			&motionplan.SegmentFS{
@@ -241,11 +207,8 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 				return
 			}
 			target = newConfigurationNode(targetConf)
-			map1reached, map2reached, err = tryExtend(target)
-			if err != nil {
-				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
-				return
-			}
+			map1reached, map2reached = tryExtend(target)
+
 			reachedDelta = mp.configurationDistanceFunc(&motionplan.SegmentFS{
 				StartConfiguration: map1reached.inputs,
 				EndConfiguration:   map2reached.inputs,
@@ -254,7 +217,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 		// Solved!
 		if reachedDelta <= mp.planOpts.InputIdentDist {
-			mp.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations", i)
+			mp.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations in %v", i, time.Since(startTime))
 			cancel()
 			path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached}, true)
 			rrt.solutionChan <- &rrtSolution{steps: path, maps: rrt.maps}
@@ -279,8 +242,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	randseed *rand.Rand,
 	rrtMap map[*node]*node,
 	near, target *node,
-	mchan chan *node,
-) {
+) *node {
 	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
 	deepCopyQstep := func() map[string][]float64 {
 		qstep := map[string][]float64{}
@@ -302,12 +264,6 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	// 4) further iterations change our best node by close-to-zero amounts
 	// 5) we have iterated more than maxExtendIter times
 	for i := 0; i < maxExtendIter; i++ {
-		select {
-		case <-ctx.Done():
-			mchan <- oldNear
-			return
-		default:
-		}
 		configDistMetric := mp.configurationDistanceFunc
 		dist := configDistMetric(
 			&motionplan.SegmentFS{StartConfiguration: near.inputs, EndConfiguration: target.inputs})
@@ -316,11 +272,9 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		switch {
 		case dist < mp.planOpts.InputIdentDist:
-			mchan <- near
-			return
+			return near
 		case dist > oldDist:
-			mchan <- oldNear
-			return
+			return oldNear
 		}
 
 		oldNear = near
@@ -348,8 +302,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 				}
 				// We've arrived back at very nearly the same configuration again; stop solving and send back oldNear.
 				// Do not add the near-identical configuration to the RRT map
-				mchan <- oldNear
-				return
+				return oldNear
 			}
 			if doubled {
 				qstep = deepCopyQstep()
@@ -362,7 +315,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			break
 		}
 	}
-	mchan <- oldNear
+	return oldNear
 }
 
 // constrainNear will do a IK gradient descent from seedInputs to target. If a gradient descent distance
@@ -449,9 +402,6 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []*node) []*node {
 	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), float64(mp.planOpts.SmoothIter)))
 
-	schan := make(chan *node, 1)
-	defer close(schan)
-
 	for numCornersToPass := 2; numCornersToPass > 0; numCornersToPass-- {
 		for iter := 0; iter < toIter/2 && len(inputSteps) > 3; iter++ {
 			select {
@@ -483,8 +433,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []*nod
 			jSol := inputSteps[j]
 			shortcutGoal[jSol] = nil
 
-			mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, jSol, iSol, schan)
-			reached := <-schan
+			reached := mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, jSol, iSol)
 
 			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
