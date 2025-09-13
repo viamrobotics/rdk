@@ -21,6 +21,8 @@ const (
 
 	// Number of iterations to run before beginning to accept randomly seeded locations.
 	defaultIterBeforeRand = 50
+
+	defaultOptimalityMultiple = 3.0
 )
 
 type rrtParallelPlannerShared struct {

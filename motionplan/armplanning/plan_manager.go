@@ -16,11 +16,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-const (
-	defaultOptimalityMultiple      = 2.0
-	defaultTPspaceOrientationScale = 500.
-)
-
 // planManager is intended to be the single entry point to motion planners.
 type planManager struct {
 	checker      *motionplan.ConstraintChecker
