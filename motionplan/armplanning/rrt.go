@@ -21,18 +21,20 @@ const (
 
 	// Number of iterations to run before beginning to accept randomly seeded locations.
 	defaultIterBeforeRand = 50
+
+	defaultOptimalityMultiple = 3.0
 )
 
 type rrtParallelPlannerShared struct {
 	maps            *rrtMaps
-	endpointPreview chan node
+	endpointPreview chan *node
 	solutionChan    chan *rrtSolution
 }
 
-type rrtMap map[node]node
+type rrtMap map[*node]*node
 
 type rrtSolution struct {
-	steps []node
+	steps []*node
 	err   error
 	maps  *rrtMaps
 }
@@ -40,7 +42,7 @@ type rrtSolution struct {
 type rrtMaps struct {
 	startMap rrtMap
 	goalMap  rrtMap
-	optNode  node // The highest quality IK solution
+	optNode  *node // The highest quality IK solution
 }
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
@@ -49,8 +51,8 @@ type rrtMaps struct {
 func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 	rrt := &rrtSolution{
 		maps: &rrtMaps{
-			startMap: map[node]node{},
-			goalMap:  map[node]node{},
+			startMap: rrtMap{},
+			goalMap:  rrtMap{},
 		},
 	}
 
@@ -66,43 +68,23 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 		return rrt
 	}
 
-	configDistMetric := motionplan.GetConfigurationDistanceFunc(wp.mp.planOpts.ConfigurationDistanceMetric)
+	rrt.maps.optNode = goalNodes[0]
 
-	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	optimalCost := configDistMetric(&motionplan.SegmentFS{
-		StartConfiguration: seed.Q(),
-		EndConfiguration:   goalNodes[0].Q(),
-	})
-	rrt.maps.optNode = &basicNode{q: goalNodes[0].Q()}
-
-	// Check for direct interpolation for the subset of IK solutions within some multiple of optimal
-	// Since solutions are returned ordered, we check until one is out of bounds, then skip remaining checks
-	canInterp := true
-
-	// initialize maps and check whether direct interpolation is an option
 	for _, solution := range goalNodes {
-		if canInterp {
-			cost := configDistMetric(
-				&motionplan.SegmentFS{StartConfiguration: seed.Q(), EndConfiguration: solution.Q()},
-			)
-			if cost < optimalCost*defaultOptimalityMultiple {
-				if wp.mp.checkPath(seed.Q(), solution.Q()) {
-					wp.mp.logger.Debugf("found an ideal ik solution with cost %v < %v", cost, optimalCost*defaultOptimalityMultiple)
-					rrt.steps = []node{seed, solution}
-					return rrt
-				}
-			} else {
-				canInterp = false
-			}
+		if solution.checkPath && solution.cost < goalNodes[0].cost*defaultOptimalityMultiple {
+			wp.mp.logger.Debugf("found an ideal ik solution")
+			rrt.steps = []*node{seed, solution}
+			return rrt
 		}
-		rrt.maps.goalMap[&basicNode{q: solution.Q()}] = nil
+
+		rrt.maps.goalMap[&node{inputs: solution.inputs}] = nil
 	}
-	rrt.maps.startMap[&basicNode{q: seed.Q()}] = nil
+	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil
 
 	return rrt
 }
 
-func newRRTPlan(solution []node, fs *referenceframe.FrameSystem) (motionplan.Plan, error) {
+func newRRTPlan(solution []*node, fs *referenceframe.FrameSystem) (motionplan.Plan, error) {
 	if len(solution) == 0 {
 		return nil, errors.New("cannot create plan, no solution was found")
 	}
@@ -115,7 +97,7 @@ func newRRTPlan(solution []node, fs *referenceframe.FrameSystem) (motionplan.Pla
 
 	traj := motionplan.Trajectory{}
 	for _, n := range solution {
-		traj = append(traj, n.Q())
+		traj = append(traj, n.inputs)
 	}
 
 	return motionplan.NewSimplePlanFromTrajectory(traj, fs)

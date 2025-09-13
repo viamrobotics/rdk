@@ -503,25 +503,26 @@ func (c *ConstraintChecker) SegmentFSConstraints() []string {
 func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	ci *SegmentFS,
 	resolution float64,
-) (bool, *SegmentFS) {
+) (*SegmentFS, error) {
 	interpolatedConfigurations, err := interpolateSegmentFS(ci, resolution)
 	if err != nil {
-		return false, nil
+		return nil, err
 	}
 	var lastGood referenceframe.FrameSystemInputs
 	for i, interpConfig := range interpolatedConfigurations {
 		interpC := &StateFS{FS: ci.FS, Configuration: interpConfig}
-		if c.CheckStateFSConstraints(interpC) != nil {
+		err = c.CheckStateFSConstraints(interpC)
+		if err != nil {
 			if i == 0 {
 				// fail on start pos
-				return false, nil
+				return nil, err
 			}
-			return false, &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}
+			return &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}, err
 		}
 		lastGood = interpC.Configuration
 	}
 
-	return true, nil
+	return nil, nil
 }
 
 // CheckSegmentAndStateValidityFS will check a segment input and confirm that it 1) meets all segment constraints, and 2) meets all
@@ -530,18 +531,18 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 func (c *ConstraintChecker) CheckSegmentAndStateValidityFS(
 	segment *SegmentFS,
 	resolution float64,
-) (bool, *SegmentFS) {
-	valid, subSegment := c.CheckStateConstraintsAcrossSegmentFS(segment, resolution)
-	if !valid {
+) (*SegmentFS, error) {
+	subSegment, err := c.CheckStateConstraintsAcrossSegmentFS(segment, resolution)
+	if err != nil {
 		if subSegment != nil {
 			if c.CheckSegmentFSConstraints(subSegment) == nil {
-				return false, subSegment
+				return subSegment, err
 			}
 		}
-		return false, nil
+		return nil, err
 	}
-	// all states are valid
-	return c.CheckSegmentFSConstraints(segment) == nil, nil
+
+	return nil, c.CheckSegmentFSConstraints(segment)
 }
 
 // BoundingRegions returns the bounding regions - TODO what does this mean??

@@ -164,7 +164,7 @@ func (mp *planner) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
 }
 
 func (mp *planner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) bool {
-	ok, _ := mp.CheckSegmentAndStateValidityFS(
+	_, err := mp.CheckSegmentAndStateValidityFS(
 		&motionplan.SegmentFS{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
@@ -172,7 +172,7 @@ func (mp *planner) checkPath(seedInputs, target referenceframe.FrameSystemInputs
 		},
 		mp.planOpts.Resolution,
 	)
-	return ok
+	return err == nil
 }
 
 func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
@@ -438,7 +438,8 @@ func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs)
 	}
 	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
 
-	_, lastGood := mp.CheckStateConstraintsAcrossSegmentFS(
+	//nolint:errcheck
+	lastGood, _ := mp.CheckStateConstraintsAcrossSegmentFS(
 		&motionplan.SegmentFS{
 			StartConfiguration: step,
 			EndConfiguration:   alteredStep,

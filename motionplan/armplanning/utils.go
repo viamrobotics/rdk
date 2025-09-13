@@ -8,11 +8,11 @@ import (
 )
 
 type resultPromise struct {
-	steps  []node
+	steps  []*node
 	future chan *rrtSolution
 }
 
-func (r *resultPromise) result() ([]node, error) {
+func (r *resultPromise) result() ([]*node, error) {
 	if r.steps != nil && len(r.steps) > 0 { //nolint:gosimple
 		return r.steps, nil
 	}

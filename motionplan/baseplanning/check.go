@@ -277,8 +277,8 @@ func checkSegmentsFS(
 	moving, _ := motionChains.framesFilteredByMovingAndNonmoving(fs)
 	dists := map[string]float64{}
 	for _, segment := range segments {
-		ok, lastValid := constraintHandler.CheckSegmentAndStateValidityFS(segment, resolution)
-		if !ok {
+		lastValid, err := constraintHandler.CheckSegmentAndStateValidityFS(segment, resolution)
+		if err != nil {
 			checkConf := segment.StartConfiguration
 			if lastValid != nil {
 				checkConf = lastValid.EndConfiguration

@@ -608,14 +608,14 @@ func (g *singleAxis) Kinematics(ctx context.Context) (referenceframe.Model, erro
 		if err != nil {
 			return nil, err
 		}
-		m.OrdTransforms = append(m.OrdTransforms, f)
+		m.SetOrdTransforms(append(m.OrdTransforms(), f))
 
 		f, err = referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{Min: 0, Max: g.lengthMm})
 		if err != nil {
 			return nil, err
 		}
 
-		m.OrdTransforms = append(m.OrdTransforms, f)
+		m.SetOrdTransforms(append(m.OrdTransforms(), f))
 		g.model = m
 	}
 	return g.model, nil

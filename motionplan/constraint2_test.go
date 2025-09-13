@@ -136,7 +136,7 @@ func TestLineFollow(t *testing.T) {
 
 	// This tests that we are able to advance partway, but not entirely, to the goal while keeping constraints, and return the last good
 	// partway position
-	ok, lastGood := opt.CheckSegmentAndStateValidityFS(
+	lastGood, err := opt.CheckSegmentAndStateValidityFS(
 		&SegmentFS{
 			StartConfiguration: map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mp1)},
 			EndConfiguration:   map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mp2)},
@@ -144,7 +144,7 @@ func TestLineFollow(t *testing.T) {
 		},
 		0.001,
 	)
-	test.That(t, ok, test.ShouldBeFalse)
+	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, lastGood, test.ShouldNotBeNil)
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints
 	stateCheck := &StateFS{Configuration: lastGood.StartConfiguration, FS: fs}

@@ -7,15 +7,15 @@ import (
 )
 
 // NodeDistanceMetric is a function type used to compute nearest neighbors.
-type NodeDistanceMetric func(node, node) float64
+type NodeDistanceMetric func(a, b *node) float64
 
-func nodeConfigurationDistanceFunc(node1, node2 node) float64 {
-	return motionplan.FSConfigurationL2Distance(&motionplan.SegmentFS{StartConfiguration: node1.Q(), EndConfiguration: node2.Q()})
+func nodeConfigurationDistanceFunc(node1, node2 *node) float64 {
+	return motionplan.FSConfigurationL2Distance(&motionplan.SegmentFS{StartConfiguration: node1.inputs, EndConfiguration: node2.inputs})
 }
 
-func nearestNeighbor(seed node, tree rrtMap, nodeDistanceFunc NodeDistanceMetric) node {
+func nearestNeighbor(seed *node, tree rrtMap, nodeDistanceFunc NodeDistanceMetric) *node {
 	bestDist := math.Inf(1)
-	var best node
+	var best *node
 	for k := range tree {
 		dist := nodeDistanceFunc(seed, k)
 		if dist < bestDist {

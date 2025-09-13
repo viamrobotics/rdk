@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"slices"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,7 +42,6 @@ type cBiRRTMotionPlanner struct {
 	solver                    ik.Solver
 	logger                    logging.Logger
 	randseed                  *rand.Rand
-	start                     time.Time
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
 	motionChains              *motionChains
@@ -103,7 +102,7 @@ func newCBiRRTMotionPlanner(
 }
 
 // only used for testin.
-func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context, seed, goal *PlanState) ([]node, error) {
+func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context, seed, goal *PlanState) ([]*node, error) {
 	solutionChan := make(chan *rrtSolution, 1)
 	initMaps := initRRTSolutions(ctx, atomicWaypoint{mp: mp, startState: seed, goalState: goal})
 	if initMaps.err != nil {
@@ -139,7 +138,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 	_, cancel := context.WithCancel(ctx)
 	defer cancel()
-	mp.start = time.Now()
+	startTime := time.Now()
 
 	var seed referenceframe.FrameSystemInputs
 
@@ -147,114 +146,78 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	// Pick a random (first in map) seed node to create the first interp node
 	for sNode, parent := range rrt.maps.startMap {
 		if parent == nil {
-			seed = sNode.Q()
+			seed = sNode.inputs
 			break
 		}
 	}
-	mp.logger.CDebugf(ctx, "goal node: %v\n", rrt.maps.optNode.Q())
-	for n := range rrt.maps.startMap {
-		mp.logger.CDebugf(ctx, "start node: %v\n", n.Q())
-		break
-	}
+	mp.logger.CDebugf(ctx, "goal node: %v\n", rrt.maps.optNode.inputs)
+	mp.logger.CDebugf(ctx, "start node: %v\n", seed)
 	mp.logger.Debug("DOF", mp.lfs.dof)
-	interpConfig, err := referenceframe.InterpolateFS(mp.fs, seed, rrt.maps.optNode.Q(), 0.5)
+
+	interpConfig, err := referenceframe.InterpolateFS(mp.fs, seed, rrt.maps.optNode.inputs, 0.5)
 	if err != nil {
 		rrt.solutionChan <- &rrtSolution{err: err}
 		return
 	}
+
 	target := newConfigurationNode(interpConfig)
 
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
 
-	m1chan := make(chan node, 1)
-	m2chan := make(chan node, 1)
-	defer close(m1chan)
-	defer close(m2chan)
-
 	for i := 0; i < mp.planOpts.PlanIter; i++ {
-		select {
-		case <-ctx.Done():
+		mp.logger.CDebugf(ctx, "iteration: %d target: %v\n", i, target.inputs)
+		if ctx.Err() != nil {
 			mp.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
 			rrt.solutionChan <- &rrtSolution{err: fmt.Errorf("cbirrt timeout %w", ctx.Err()), maps: rrt.maps}
 			return
-		default:
-		}
-		if i > 0 && i%100 == 0 {
-			mp.logger.CDebugf(ctx, "CBiRRT planner iteration %d", i)
 		}
 
-		tryExtend := func(target node) (node, node, error) {
+		tryExtend := func(target *node) (*node, *node) {
 			// attempt to extend maps 1 and 2 towards the target
-			utils.PanicCapturingGo(func() {
-				m1chan <- nearestNeighbor(target, map1, nodeConfigurationDistanceFunc)
-			})
-			utils.PanicCapturingGo(func() {
-				m2chan <- nearestNeighbor(target, map2, nodeConfigurationDistanceFunc)
-			})
-			nearest1 := <-m1chan
-			nearest2 := <-m2chan
-			// If ctx is done, nearest neighbors will be invalid and we want to return immediately
-			select {
-			case <-ctx.Done():
-				return nil, nil, ctx.Err()
-			default:
-			}
 
-			//nolint: gosec
-			rseed1 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
-			//nolint: gosec
-			rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int())))
+			nearest1 := nearestNeighbor(target, map1, nodeConfigurationDistanceFunc)
+			nearest2 := nearestNeighbor(target, map2, nodeConfigurationDistanceFunc)
 
-			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, rseed1, map1, nearest1, target, m1chan)
-			})
-			utils.PanicCapturingGo(func() {
-				mp.constrainedExtend(ctx, rseed2, map2, nearest2, target, m2chan)
-			})
-			map1reached := <-m1chan
-			map2reached := <-m2chan
+			rseed1 := rand.New(rand.NewSource(int64(mp.randseed.Int()))) //nolint: gosec
+			rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int()))) //nolint: gosec
 
-			map1reached.SetCorner(true)
-			map2reached.SetCorner(true)
+			map1reached := mp.constrainedExtend(ctx, rseed1, map1, nearest1, target)
+			map2reached := mp.constrainedExtend(ctx, rseed2, map2, nearest2, target)
 
-			return map1reached, map2reached, nil
+			map1reached.corner = true
+			map2reached.corner = true
+
+			return map1reached, map2reached
 		}
 
-		map1reached, map2reached, err := tryExtend(target)
-		if err != nil {
-			rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
-			return
-		}
+		map1reached, map2reached := tryExtend(target)
 
 		reachedDelta := mp.configurationDistanceFunc(
 			&motionplan.SegmentFS{
-				StartConfiguration: map1reached.Q(),
-				EndConfiguration:   map2reached.Q(),
+				StartConfiguration: map1reached.inputs,
+				EndConfiguration:   map2reached.inputs,
 			},
 		)
 
 		// Second iteration; extend maps 1 and 2 towards the halfway point between where they reached
 		if reachedDelta > mp.planOpts.InputIdentDist {
-			targetConf, err := referenceframe.InterpolateFS(mp.fs, map1reached.Q(), map2reached.Q(), 0.5)
+			targetConf, err := referenceframe.InterpolateFS(mp.fs, map1reached.inputs, map2reached.inputs, 0.5)
 			if err != nil {
 				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
 				return
 			}
 			target = newConfigurationNode(targetConf)
-			map1reached, map2reached, err = tryExtend(target)
-			if err != nil {
-				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
-				return
-			}
+			map1reached, map2reached = tryExtend(target)
+
 			reachedDelta = mp.configurationDistanceFunc(&motionplan.SegmentFS{
-				StartConfiguration: map1reached.Q(),
-				EndConfiguration:   map2reached.Q(),
+				StartConfiguration: map1reached.inputs,
+				EndConfiguration:   map2reached.inputs,
 			})
 		}
 
 		// Solved!
 		if reachedDelta <= mp.planOpts.InputIdentDist {
-			mp.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations", i)
+			mp.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations in %v", i, time.Since(startTime))
 			cancel()
 			path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached}, true)
 			rrt.solutionChan <- &rrtSolution{steps: path, maps: rrt.maps}
@@ -277,10 +240,9 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	ctx context.Context,
 	randseed *rand.Rand,
-	rrtMap map[node]node,
-	near, target node,
-	mchan chan node,
-) {
+	rrtMap map[*node]*node,
+	near, target *node,
+) *node {
 	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
 	deepCopyQstep := func() map[string][]float64 {
 		qstep := map[string][]float64{}
@@ -302,36 +264,28 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	// 4) further iterations change our best node by close-to-zero amounts
 	// 5) we have iterated more than maxExtendIter times
 	for i := 0; i < maxExtendIter; i++ {
-		select {
-		case <-ctx.Done():
-			mchan <- oldNear
-			return
-		default:
-		}
 		configDistMetric := mp.configurationDistanceFunc
 		dist := configDistMetric(
-			&motionplan.SegmentFS{StartConfiguration: near.Q(), EndConfiguration: target.Q()})
+			&motionplan.SegmentFS{StartConfiguration: near.inputs, EndConfiguration: target.inputs})
 		oldDist := configDistMetric(
-			&motionplan.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: target.Q()})
+			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: target.inputs})
 
 		switch {
 		case dist < mp.planOpts.InputIdentDist:
-			mchan <- near
-			return
+			return near
 		case dist > oldDist:
-			mchan <- oldNear
-			return
+			return oldNear
 		}
 
 		oldNear = near
 
 		newNear := fixedStepInterpolation(near, target, mp.qstep)
 		// Check whether newNear meets constraints, and if not, update it to a configuration that does meet constraints (or nil)
-		newNear = mp.constrainNear(ctx, randseed, oldNear.Q(), newNear)
+		newNear = mp.constrainNear(ctx, randseed, oldNear.inputs, newNear)
 
 		if newNear != nil {
 			nearDist := mp.configurationDistanceFunc(
-				&motionplan.SegmentFS{StartConfiguration: oldNear.Q(), EndConfiguration: newNear})
+				&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: newNear})
 
 			if nearDist < math.Pow(mp.planOpts.InputIdentDist, 3) {
 				if !doubled {
@@ -348,21 +302,20 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 				}
 				// We've arrived back at very nearly the same configuration again; stop solving and send back oldNear.
 				// Do not add the near-identical configuration to the RRT map
-				mchan <- oldNear
-				return
+				return oldNear
 			}
 			if doubled {
 				qstep = deepCopyQstep()
 				doubled = false
 			}
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
-			near = &basicNode{q: newNear}
+			near = &node{inputs: newNear}
 			rrtMap[near] = oldNear
 		} else {
 			break
 		}
 	}
-	mchan <- oldNear
+	return oldNear
 }
 
 // constrainNear will do a IK gradient descent from seedInputs to target. If a gradient descent distance
@@ -388,8 +341,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		// Check if the arc of "seedInputs" to "target" is valid
-		ok, _ := mp.checker.CheckSegmentAndStateValidityFS(newArc, mp.planOpts.Resolution)
-		if ok {
+		_, err := mp.checker.CheckSegmentAndStateValidityFS(newArc, mp.planOpts.Resolution)
+		if err == nil {
 			return target
 		}
 		solutionGen := make(chan *ik.Solution, 1)
@@ -416,7 +369,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return nil
 		}
 
-		ok, failpos := mp.checker.CheckSegmentAndStateValidityFS(
+		failpos, err := mp.checker.CheckSegmentAndStateValidityFS(
 			&motionplan.SegmentFS{
 				StartConfiguration: seedInputs,
 				EndConfiguration:   solutionMap,
@@ -424,7 +377,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			},
 			mp.planOpts.Resolution,
 		)
-		if ok {
+		if err == nil {
 			return solutionMap
 		}
 		if failpos != nil {
@@ -446,11 +399,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 
 // smoothPath will pick two points at random along the path and attempt to do a fast gradient descent directly between
 // them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
-func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []node) []node {
+func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []*node) []*node {
 	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), float64(mp.planOpts.SmoothIter)))
-
-	schan := make(chan node, 1)
-	defer close(schan)
 
 	for numCornersToPass := 2; numCornersToPass > 0; numCornersToPass-- {
 		for iter := 0; iter < toIter/2 && len(inputSteps) > 3; iter++ {
@@ -464,10 +414,10 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []node
 			i := mp.randseed.Intn(len(inputSteps) - 2)
 			j := i + 1
 			cornersPassed := 0
-			hitCorners := []node{}
-			for (cornersPassed != numCornersToPass || !inputSteps[j].Corner()) && j < len(inputSteps)-1 {
+			hitCorners := []*node{}
+			for (cornersPassed != numCornersToPass || !inputSteps[j].corner) && j < len(inputSteps)-1 {
 				j++
-				if cornersPassed < numCornersToPass && inputSteps[j].Corner() {
+				if cornersPassed < numCornersToPass && inputSteps[j].corner {
 					cornersPassed++
 					hitCorners = append(hitCorners, inputSteps[j])
 				}
@@ -477,34 +427,33 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []node
 				continue
 			}
 
-			shortcutGoal := make(map[node]node)
+			shortcutGoal := make(rrtMap)
 
 			iSol := inputSteps[i]
 			jSol := inputSteps[j]
 			shortcutGoal[jSol] = nil
 
-			mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, jSol, iSol, schan)
-			reached := <-schan
+			reached := mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, jSol, iSol)
 
 			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 			// so we allow elongation here.
 			dist := mp.configurationDistanceFunc(&motionplan.SegmentFS{
-				StartConfiguration: inputSteps[i].Q(),
-				EndConfiguration:   reached.Q(),
+				StartConfiguration: inputSteps[i].inputs,
+				EndConfiguration:   reached.inputs,
 			})
 			if dist < mp.planOpts.InputIdentDist {
 				for _, hitCorner := range hitCorners {
-					hitCorner.SetCorner(false)
+					hitCorner.corner = false
 				}
 
-				newInputSteps := append([]node{}, inputSteps[:i]...)
+				newInputSteps := append([]*node{}, inputSteps[:i]...)
 				for reached != nil {
 					newInputSteps = append(newInputSteps, reached)
 					reached = shortcutGoal[reached]
 				}
-				newInputSteps[i].SetCorner(true)
-				newInputSteps[len(newInputSteps)-1].SetCorner(true)
+				newInputSteps[i].corner = true
+				newInputSteps[len(newInputSteps)-1].corner = true
 				newInputSteps = append(newInputSteps, inputSteps[j+1:]...)
 				inputSteps = newInputSteps
 			}
@@ -546,8 +495,8 @@ func (mp *cBiRRTMotionPlanner) checkInputs(inputs referenceframe.FrameSystemInpu
 	}) == nil
 }
 
-func (mp *cBiRRTMotionPlanner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) bool {
-	ok, _ := mp.checker.CheckSegmentAndStateValidityFS(
+func (mp *cBiRRTMotionPlanner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) error {
+	_, err := mp.checker.CheckSegmentAndStateValidityFS(
 		&motionplan.SegmentFS{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
@@ -555,10 +504,10 @@ func (mp *cBiRRTMotionPlanner) checkPath(seedInputs, target referenceframe.Frame
 		},
 		mp.planOpts.Resolution,
 	)
-	return ok
+	return err
 }
 
-func (mp *cBiRRTMotionPlanner) sample(rSeed node, sampleNum int) (node, error) {
+func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and gofsal maps.
 	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
@@ -574,7 +523,7 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed node, sampleNum int) (node, error) {
 
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
 	newInputs := make(referenceframe.FrameSystemInputs)
-	for name, inputs := range rSeed.Q() {
+	for name, inputs := range rSeed.inputs {
 		f := mp.fs.Frame(name)
 		if f != nil && len(f.DoF()) > 0 {
 			q, err := referenceframe.RestrictedRandomFrameInputs(f, mp.randseed, 0.1, inputs)
@@ -588,11 +537,12 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed node, sampleNum int) (node, error) {
 }
 
 type solutionSolvingState struct {
-	solutions         map[float64]referenceframe.FrameSystemInputs
+	solutions         []*node
 	failures          map[string]int // A map keeping track of which constraints fail
 	constraintFailCnt int
 	startTime         time.Time
 	firstSolutionTime time.Duration
+	bestScore         float64
 }
 
 // return bool is if we should stop because we're done.
@@ -635,25 +585,24 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 
 	score := mp.configurationDistanceFunc(stepArc)
 
-	mp.logger.Infof("got score %v", score)
-
-	if approxCartesianDist > 0 && score < (approxCartesianDist/200) && mp.checkPath(seed, step) {
-		sss.solutions = map[float64]referenceframe.FrameSystemInputs{}
-		sss.solutions[score] = step
-		// good solution, stopping early
-		return true
-	}
-
-	if score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0 {
-		sss.solutions = map[float64]referenceframe.FrameSystemInputs{}
-		sss.solutions[score] = step
-		// good solution, stopping early
-		return true
+	if (approxCartesianDist > 0 && score < (approxCartesianDist/25)) || // this checks the absolute score of the plan
+		// if we've got something sane, and it's really good, let's check
+		(score < (sss.bestScore*defaultOptimalityMultiple) && score < approxCartesianDist) ||
+		// this one is questionable
+		(score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0) {
+		whyNot := mp.checkPath(seed, step)
+		if whyNot == nil {
+			mp.logger.Debugf("got score %v and approxCartesianDist: %v - stopping early", score, approxCartesianDist)
+			sss.solutions = []*node{{inputs: step, cost: score, checkPath: true}}
+			// good solution, stopping early
+			return true
+		}
+		mp.logger.Debugf("got score %v and approxCartesianDist: %v - failed %v", score, approxCartesianDist, whyNot)
 	}
 
 	for _, oldSol := range sss.solutions {
 		similarity := &motionplan.SegmentFS{
-			StartConfiguration: oldSol,
+			StartConfiguration: oldSol.inputs,
 			EndConfiguration:   step,
 			FS:                 mp.fs,
 		}
@@ -663,10 +612,13 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 		}
 	}
 
-	sss.solutions[score] = step
+	sss.solutions = append(sss.solutions, &node{inputs: step, cost: score})
 	if len(sss.solutions) >= mp.planOpts.MaxSolutions {
 		// sufficient solutions found, stopping early
 		return true
+	}
+	if score < sss.bestScore {
+		sss.bestScore = score
 	}
 
 	if len(sss.solutions) == 1 {
@@ -688,7 +640,7 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 	ctx context.Context,
 	seed referenceframe.FrameSystemInputs,
 	metric motionplan.StateFSMetric,
-) ([]node, error) {
+) ([]*node, error) {
 	if mp.planOpts.MaxSolutions == 0 {
 		mp.planOpts.MaxSolutions = defaultSolutionsToSeed
 	}
@@ -741,10 +693,11 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 	})
 
 	solvingState := solutionSolvingState{
-		solutions:         map[float64]referenceframe.FrameSystemInputs{},
+		solutions:         []*node{},
 		failures:          map[string]int{},
 		startTime:         time.Now(),
 		firstSolutionTime: time.Hour,
+		bestScore:         10000000,
 	}
 
 	for !solverFinished.Load() {
@@ -777,17 +730,11 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 		return nil, newIKConstraintErr(solvingState.failures, solvingState.constraintFailCnt)
 	}
 
-	keys := make([]float64, 0, len(solvingState.solutions))
-	for k := range solvingState.solutions {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
+	sort.Slice(solvingState.solutions, func(i, j int) bool {
+		return solvingState.solutions[i].cost < solvingState.solutions[j].cost
+	})
 
-	orderedSolutions := make([]node, 0)
-	for _, key := range keys {
-		orderedSolutions = append(orderedSolutions, &basicNode{q: solvingState.solutions[key]})
-	}
-	return orderedSolutions, nil
+	return solvingState.solutions, nil
 }
 
 // linearize the goal metric for use with solvers.
@@ -822,9 +769,11 @@ func (mp *cBiRRTMotionPlanner) nonchainMinimize(seed, step referenceframe.FrameS
 	if mp.checkInputs(alteredStep) {
 		return alteredStep
 	}
+
 	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
 
-	_, lastGood := mp.checker.CheckStateConstraintsAcrossSegmentFS(
+	//nolint:errcheck
+	lastGood, _ := mp.checker.CheckStateConstraintsAcrossSegmentFS(
 		&motionplan.SegmentFS{
 			StartConfiguration: step,
 			EndConfiguration:   alteredStep,
