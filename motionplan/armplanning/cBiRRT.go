@@ -585,7 +585,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 
 	score := mp.configurationDistanceFunc(stepArc)
 
-	if (approxCartesianDist > 0 && score < (approxCartesianDist/50)) || // this checks the absolute score of the plan
+	if (approxCartesianDist > 0 && score < (approxCartesianDist/25)) || // this checks the absolute score of the plan
 		// if we've got something sane, and it's really good, let's check
 		(score < (sss.bestScore*defaultOptimalityMultiple) && score < approxCartesianDist) ||
 		// this one is questionable
