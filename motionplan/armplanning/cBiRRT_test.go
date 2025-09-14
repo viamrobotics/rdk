@@ -66,12 +66,12 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
-	seedReached := mp.constrainedExtend(ctx, mp.randseed, seedMap, near1, &node{inputs: target})
+	seedReached := mp.constrainedExtend(ctx, 1, mp.randseed, seedMap, near1, &node{inputs: target})
 
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
 	near2 := nearestNeighbor(seedReached, goalMap, nodeConfigurationDistanceFunc)
 	// extend goalMap towards the point in seedMap
-	goalReached := mp.constrainedExtend(ctx, mp.randseed, goalMap, near2, seedReached)
+	goalReached := mp.constrainedExtend(ctx, 1, mp.randseed, goalMap, near2, seedReached)
 
 	dist := mp.configurationDistanceFunc(
 		&motionplan.SegmentFS{StartConfiguration: seedReached.inputs, EndConfiguration: goalReached.inputs},

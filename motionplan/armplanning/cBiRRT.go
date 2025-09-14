@@ -162,7 +162,6 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	target := newConfigurationNode(interpConfig)
 
 	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
-
 	for i := 0; i < mp.planOpts.PlanIter; i++ {
 		mp.logger.CDebugf(ctx, "iteration: %d target: %v\n", i, target.inputs)
 		if ctx.Err() != nil {
@@ -180,8 +179,8 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			rseed1 := rand.New(rand.NewSource(int64(mp.randseed.Int()))) //nolint: gosec
 			rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int()))) //nolint: gosec
 
-			map1reached := mp.constrainedExtend(ctx, rseed1, map1, nearest1, target)
-			map2reached := mp.constrainedExtend(ctx, rseed2, map2, nearest2, target)
+			map1reached := mp.constrainedExtend(ctx, i, rseed1, map1, nearest1, target)
+			map2reached := mp.constrainedExtend(ctx, i, rseed2, map2, nearest2, target)
 
 			map1reached.corner = true
 			map2reached.corner = true
@@ -238,11 +237,12 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 // return the closest solution to the target that it reaches, which may or may not actually be the target.
 func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	ctx context.Context,
+	iterationNumber int,
 	randseed *rand.Rand,
 	rrtMap map[*node]*node,
 	near, target *node,
 ) *node {
-	qstep := mp.getFrameSteps(defaultFrameStep, false)
+	qstep := mp.getFrameSteps(defaultFrameStep, iterationNumber, false)
 
 	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
 	doubled := false
@@ -288,7 +288,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 				// If so, qstep will be reset to its original value after the rescue.
 
 				doubled = true
-				qstep = mp.getFrameSteps(defaultFrameStep, true)
+				qstep = mp.getFrameSteps(defaultFrameStep, iterationNumber, true)
 				continue
 			}
 			// We've arrived back at very nearly the same configuration again; stop solving and send back oldNear.
@@ -296,7 +296,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			return oldNear
 		}
 		if doubled {
-			qstep = mp.getFrameSteps(defaultFrameStep, false)
+			qstep = mp.getFrameSteps(defaultFrameStep, iterationNumber, false)
 			doubled = false
 		}
 		// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
@@ -421,7 +421,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []*nod
 			jSol := inputSteps[j]
 			shortcutGoal[jSol] = nil
 
-			reached := mp.constrainedExtend(ctx, mp.randseed, shortcutGoal, jSol, iSol)
+			reached := mp.constrainedExtend(ctx, i, mp.randseed, shortcutGoal, jSol, iSol)
 
 			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
@@ -452,7 +452,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []*nod
 
 // getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should
 // move in any given step. The second argument is a float describing the percentage of the total movement.
-func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, double bool) map[string][]float64 {
+func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, iterationNumber int, double bool) map[string][]float64 {
 	moving, _ := mp.motionChains.framesFilteredByMovingAndNonmoving(mp.fs)
 
 	frameQstep := map[string][]float64{}
@@ -482,11 +482,22 @@ func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, doubl
 			jRange := math.Abs(u - l)
 			pos[i] = jRange * percentTotalMovement
 
-			if isMoving && double {
-				pos[i] *= 2
-			}
-			if !isMoving {
-				pos[i] *= .25 // we move non-moving frames just a little if we have to get them out of the way
+			if isMoving {
+				if iterationNumber > 20 {
+					pos[i] *= 2
+				}
+				if double {
+					pos[i] *= 2
+				}
+			} else { // nonmoving
+				// we move non-moving frames just a little if we have to get them out of the way
+				if iterationNumber > 50 {
+					pos[i] *= .5
+				} else if iterationNumber > 20 {
+					pos[i] *= .25 // we move non-moving frames just a little if we have to get them out of the way
+				} else {
+					pos[i] = 0
+				}
 			}
 		}
 		frameQstep[f.Name()] = pos
