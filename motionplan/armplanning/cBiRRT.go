@@ -600,23 +600,6 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 		return false
 	}
 
-	score := mp.configurationDistanceFunc(stepArc)
-
-	if (approxCartesianDist > 0 && score < (approxCartesianDist/25)) || // this checks the absolute score of the plan
-		// if we've got something sane, and it's really good, let's check
-		(score < (sss.bestScore*defaultOptimalityMultiple) && score < approxCartesianDist) ||
-		// this one is questionable
-		(score < mp.planOpts.MinScore && mp.planOpts.MinScore > 0) {
-		whyNot := mp.checkPath(seed, step)
-		if whyNot == nil {
-			mp.logger.Debugf("got score %v and approxCartesianDist: %v - stopping early", score, approxCartesianDist)
-			sss.solutions = []*node{{inputs: step, cost: score, checkPath: true}}
-			// good solution, stopping early
-			return true
-		}
-		mp.logger.Debugf("got score %v and approxCartesianDist: %v - failed %v", score, approxCartesianDist, whyNot)
-	}
-
 	for _, oldSol := range sss.solutions {
 		similarity := &motionplan.SegmentFS{
 			StartConfiguration: oldSol.inputs,
@@ -629,13 +612,31 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 		}
 	}
 
-	sss.solutions = append(sss.solutions, &node{inputs: step, cost: score})
+	myNode := &node{inputs: step, cost: mp.configurationDistanceFunc(stepArc)}
+	sss.solutions = append(sss.solutions, myNode)
+
+	if (approxCartesianDist > 0 && myNode.cost < (approxCartesianDist/25)) || // this checks the absolute score of the plan
+		// if we've got something sane, and it's really good, let's check
+		(myNode.cost < (sss.bestScore*defaultOptimalityMultiple) && myNode.cost < approxCartesianDist) {
+		whyNot := mp.checkPath(seed, step)
+		mp.logger.Debugf("got score %v and approxCartesianDist: %v - result: %v", myNode.cost, approxCartesianDist, whyNot)
+		if whyNot == nil {
+			myNode.checkPath = true
+			if (approxCartesianDist > 0 && myNode.cost < (approxCartesianDist/100)) ||
+				(myNode.cost < mp.planOpts.MinScore && mp.planOpts.MinScore > 0) {
+				mp.logger.Debugf("\tscore %v stopping early", myNode.cost)
+				return true // good solution, stopping early
+			}
+		}
+	}
+
 	if len(sss.solutions) >= mp.planOpts.MaxSolutions {
 		// sufficient solutions found, stopping early
 		return true
 	}
-	if score < sss.bestScore {
-		sss.bestScore = score
+
+	if myNode.cost < sss.bestScore {
+		sss.bestScore = myNode.cost
 	}
 
 	if len(sss.solutions) == 1 {
