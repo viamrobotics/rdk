@@ -449,12 +449,12 @@ func testPlanner(t *testing.T, config planConfigConstructor, seed int) {
 	// test that path doesn't violate constraints
 	test.That(t, len(nodes), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(nodes)-1; j++ {
-		ok, _ := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(&motionplan.SegmentFS{
-			StartConfiguration: nodes[j].Q(),
-			EndConfiguration:   nodes[j+1].Q(),
+		_, err := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(&motionplan.SegmentFS{
+			StartConfiguration: nodes[j].inputs,
+			EndConfiguration:   nodes[j+1].inputs,
 			FS:                 cfg.FS,
 		}, cfg.Options.Resolution)
-		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, err, test.ShouldBeNil)
 	}
 }
 

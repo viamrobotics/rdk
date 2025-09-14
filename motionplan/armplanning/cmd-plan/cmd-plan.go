@@ -32,11 +32,16 @@ func realMain() error {
 
 	pseudolinearLine := flag.Float64("pseudolinear-line", 0, "")
 	pseudolinearOrientation := flag.Float64("pseudolinear-orientation", 0, "")
-	seed := flag.Int("seed", 0, "")
+	seed := flag.Int("seed", -1, "")
+	verbose := flag.Bool("v", false, "verbose")
 
 	flag.Parse()
 	if len(flag.Args()) == 0 {
 		return fmt.Errorf("need a json file")
+	}
+
+	if *verbose {
+		logger.SetLevel(logging.DEBUG)
 	}
 
 	logger.Infof("reading plan from %s", flag.Arg(0))
@@ -57,7 +62,9 @@ func realMain() error {
 		req.Constraints.AddPseudolinearConstraint(motionplan.PseudolinearConstraint{*pseudolinearLine, *pseudolinearOrientation})
 	}
 
-	req.PlannerOptions.RandomSeed = *seed
+	if *seed >= 0 {
+		req.PlannerOptions.RandomSeed = *seed
+	}
 
 	start := time.Now()
 

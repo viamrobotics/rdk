@@ -97,7 +97,7 @@ func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	if err != nil {
 		return nil, err
 	}
-	m.OrdTransforms = append(m.OrdTransforms, f)
+	m.SetOrdTransforms(append(m.OrdTransforms(), f))
 	return m, nil
 }
 
