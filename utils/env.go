@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -75,6 +76,9 @@ const (
 	// per-resource gRPC request limit. If it is unset or invalid the limit
 	// defaults to 100.
 	ViamResourceRequestsLimitEnvVar = "VIAM_RESOURCE_REQUESTS_LIMIT"
+
+	// GetImagesInStreamServerEnvVar is the environment variable that enables the GetImages feature flag in stream server.
+	GetImagesInStreamServerEnvVar = "VIAM_GET_IMAGES_IN_STREAM_SERVER"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
@@ -179,6 +183,11 @@ func GetenvInt(v string, def int) int {
 	}
 
 	return num
+}
+
+// GetImagesInStreamServer returns true iff an env bool was set to use the GetImages feature flag in stream server.
+func GetImagesInStreamServer() bool {
+	return slices.Contains(EnvTrueValues, os.Getenv(GetImagesInStreamServerEnvVar))
 }
 
 // CleanWindowsSocketPath mutates socket paths on windows only so they
