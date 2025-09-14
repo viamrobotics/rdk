@@ -17,10 +17,14 @@ func fixedStepInterpolation(start, target *node, qstep map[string][]float64) ref
 		targetInputs := target.inputs[frameName]
 		frameSteps := make([]referenceframe.Input, len(startInputs))
 
+		qframe, ok := qstep[frameName]
 		for j, nearInput := range startInputs {
 			v1, v2 := nearInput.Value, targetInputs[j].Value
 
-			step := qstep[frameName][j]
+			step := 0.0
+			if ok {
+				step = qframe[j]
+			}
 			if step > math.Abs(v2-v1) {
 				frameSteps[j] = referenceframe.Input{Value: v2}
 			} else if v1 < v2 {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -47,7 +48,6 @@ type cBiRRTMotionPlanner struct {
 	motionChains              *motionChains
 
 	fastGradDescent ik.Solver
-	qstep           map[string][]float64
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
@@ -97,7 +97,6 @@ func newCBiRRTMotionPlanner(
 		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
 		motionChains:              chains,
 		fastGradDescent:           nlopt,
-		qstep:                     getFrameSteps(lfs, defaultFrameStep),
 	}, nil
 }
 
@@ -243,17 +242,9 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	rrtMap map[*node]*node,
 	near, target *node,
 ) *node {
+	qstep := mp.getFrameSteps(defaultFrameStep, false)
+
 	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
-	deepCopyQstep := func() map[string][]float64 {
-		qstep := map[string][]float64{}
-		for fName, fStep := range mp.qstep {
-			newStep := make([]float64, len(fStep))
-			copy(newStep, fStep)
-			qstep[fName] = newStep
-		}
-		return qstep
-	}
-	qstep := deepCopyQstep()
 	doubled := false
 
 	oldNear := near
@@ -279,41 +270,38 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		oldNear = near
 
-		newNear := fixedStepInterpolation(near, target, mp.qstep)
+		newNear := fixedStepInterpolation(near, target, qstep)
 		// Check whether newNear meets constraints, and if not, update it to a configuration that does meet constraints (or nil)
 		newNear = mp.constrainNear(ctx, randseed, oldNear.inputs, newNear)
 
-		if newNear != nil {
-			nearDist := mp.configurationDistanceFunc(
-				&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: newNear})
-
-			if nearDist < math.Pow(mp.planOpts.InputIdentDist, 3) {
-				if !doubled {
-					doubled = true
-					// Check if doubling qstep will allow escape from the identical configuration
-					// If not, we terminate and return.
-					// If so, qstep will be reset to its original value after the rescue.
-					for f, frameQ := range qstep {
-						for i, q := range frameQ {
-							qstep[f][i] = q * 2.0
-						}
-					}
-					continue
-				}
-				// We've arrived back at very nearly the same configuration again; stop solving and send back oldNear.
-				// Do not add the near-identical configuration to the RRT map
-				return oldNear
-			}
-			if doubled {
-				qstep = deepCopyQstep()
-				doubled = false
-			}
-			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
-			near = &node{inputs: newNear}
-			rrtMap[near] = oldNear
-		} else {
-			break
+		if newNear == nil {
+			return oldNear
 		}
+
+		nearDist := mp.configurationDistanceFunc(
+			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: newNear})
+
+		if nearDist < math.Pow(mp.planOpts.InputIdentDist, 3) {
+			if !doubled {
+				// Check if doubling qstep will allow escape from the identical configuration
+				// If not, we terminate and return.
+				// If so, qstep will be reset to its original value after the rescue.
+
+				doubled = true
+				qstep = mp.getFrameSteps(defaultFrameStep, true)
+				continue
+			}
+			// We've arrived back at very nearly the same configuration again; stop solving and send back oldNear.
+			// Do not add the near-identical configuration to the RRT map
+			return oldNear
+		}
+		if doubled {
+			qstep = mp.getFrameSteps(defaultFrameStep, false)
+			doubled = false
+		}
+		// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
+		near = &node{inputs: newNear}
+		rrtMap[near] = oldNear
 	}
 	return oldNear
 }
@@ -464,10 +452,21 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []*nod
 
 // getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should
 // move in any given step. The second argument is a float describing the percentage of the total movement.
-func getFrameSteps(lfs *linearizedFrameSystem, percentTotalMovement float64) map[string][]float64 {
+func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, double bool) map[string][]float64 {
+	moving, _ := mp.motionChains.framesFilteredByMovingAndNonmoving(mp.fs)
+
 	frameQstep := map[string][]float64{}
-	for _, f := range lfs.frames {
+	for _, f := range mp.lfs.frames {
+		isMoving := slices.Contains(moving, f.Name())
+		if !isMoving && !double {
+			continue
+		}
+
 		dof := f.DoF()
+		if len(dof) == 0 {
+			continue
+		}
+
 		pos := make([]float64, len(dof))
 		for i, lim := range dof {
 			l, u := lim.Min, lim.Max
@@ -482,6 +481,13 @@ func getFrameSteps(lfs *linearizedFrameSystem, percentTotalMovement float64) map
 
 			jRange := math.Abs(u - l)
 			pos[i] = jRange * percentTotalMovement
+
+			if isMoving && double {
+				pos[i] *= 2
+			}
+			if !isMoving {
+				pos[i] *= .25 // we move non-moving frames just a little if we have to get them out of the way
+			}
 		}
 		frameQstep[f.Name()] = pos
 	}
