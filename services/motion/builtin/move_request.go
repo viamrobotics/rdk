@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/baseplanning"
@@ -616,7 +617,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	// build the localizer from the movement sensor
 	movementSensor, ok := ms.movementSensors[req.MovementSensorName]
 	if !ok {
-		return nil, resource.DependencyNotFoundError(resource.Name{Name: req.MovementSensorName})
+		return nil, resource.DependencyNotFoundError(movementsensor.Named(req.MovementSensorName))
 	}
 
 	origin, _, err := movementSensor.Position(ctx, nil)
@@ -642,7 +643,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	// create a KinematicBase from the componentName
 	baseComponent, ok := ms.components[req.ComponentName]
 	if !ok {
-		return nil, resource.NewNotFoundError(resource.Name{Name: req.ComponentName})
+		return nil, resource.NewNotFoundError(base.Named(req.ComponentName))
 	}
 	b, ok := baseComponent.(base.Base)
 	if !ok {
@@ -736,7 +737,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	// get the SLAM Service from the slamName
 	slamSvc, ok := ms.slamServices[req.SlamName]
 	if !ok {
-		return nil, resource.DependencyNotFoundError(resource.Name{Name: req.SlamName})
+		return nil, resource.DependencyNotFoundError(slam.Named(req.SlamName))
 	}
 
 	// verify slam is in localization mode
@@ -758,7 +759,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	// create a KinematicBase from the componentName
 	component, ok := ms.components[req.ComponentName]
 	if !ok {
-		return nil, resource.DependencyNotFoundError(resource.Name{Name: req.ComponentName})
+		return nil, resource.DependencyNotFoundError(base.Named(req.ComponentName))
 	}
 	b, ok := component.(base.Base)
 	if !ok {

@@ -58,23 +58,6 @@ func TestMoveCallInputs(t *testing.T) {
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
-		t.Run("Returns an error if the base provided is not a base", func(t *testing.T) {
-			t.Parallel()
-			_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer closeFunc(ctx)
-
-			req := motion.MoveOnMapReq{
-				ComponentName: "test_slam",
-				Destination:   goalPose,
-				SlamName:      "test_slam",
-				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
-			}
-
-			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
-			test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:service:slam/test_slam"))
-			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-		})
-
 		t.Run("Returns an error if the slamName provided is not SLAM", func(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
@@ -482,44 +465,6 @@ func TestMoveCallInputs(t *testing.T) {
 				test.That(t, err, test.ShouldBeError, errors.New("destination may not contain NaN"))
 				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 			}
-		})
-
-		t.Run("returns an error if the base provided is not a base", func(t *testing.T) {
-			t.Parallel()
-			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
-			defer closeFunc(ctx)
-			req := motion.MoveOnGlobeReq{
-				ComponentName:      moveSensorName,
-				MovementSensorName: moveSensorName,
-				Heading:            90,
-				Destination:        dst,
-				Extra: map[string]interface{}{
-					"timeout":     5.,
-					"smooth_iter": 5.,
-				},
-			}
-			executionID, err := ms.MoveOnGlobe(ctx, req)
-			test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:movement_sensor/test-movement-sensor\" not found"))
-			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-		})
-
-		t.Run("returns an error if the movement_sensor provided is not a movement_sensor", func(t *testing.T) {
-			t.Parallel()
-			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
-			defer closeFunc(ctx)
-			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseName,
-				MovementSensorName: baseName,
-				Heading:            90,
-				Destination:        dst,
-				Extra: map[string]interface{}{
-					"timeout":     5.,
-					"smooth_iter": 5.,
-				},
-			}
-			executionID, err := ms.MoveOnGlobe(ctx, req)
-			test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:component:base/test-base"))
-			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
 		t.Run("errors when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {

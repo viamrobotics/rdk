@@ -1005,8 +1005,8 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.mogrs[1].Destination, test.ShouldResemble, pt2)
 
 					// PlanStop called twice, once for each waypoint
-					test.That(t, s.sprs[0].ComponentName, test.ShouldResemble, s.base.Name())
-					test.That(t, s.sprs[1].ComponentName, test.ShouldResemble, s.base.Name())
+					test.That(t, s.sprs[0].ComponentName, test.ShouldResemble, s.base.Name().ShortName())
+					test.That(t, s.sprs[1].ComponentName, test.ShouldResemble, s.base.Name().ShortName())
 
 					// Motion reports that the last execution succeeded
 					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().ShortName()})
