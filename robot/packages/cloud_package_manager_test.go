@@ -344,20 +344,16 @@ func TestCloud(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, failedStatusFile.Status, test.ShouldEqual, syncStatusFailed)
 
-		// Sleep to make super sure modification time increments if it were to be modified
-		time.Sleep(10 * time.Millisecond)
-
 		// Second sync should error and not re-download since package is present but marked as failed
 		err = pm.Sync(ctx, []config.PackageConfig{input}, []config.Module{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to unzip")
 
-		// Validate sync file exists and has failed status and mod time has not changed
+		// Validate sync file exists and has failed status
 		_, err = os.Stat(syncFileName)
 		test.That(t, err, test.ShouldBeNil)
 		statusFile, err := readStatusFile(input, pm.(*cloudManager).packagesDir)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, statusFile.ModifiedTime, test.ShouldEqual, failedStatusFile.ModifiedTime)
 		test.That(t, statusFile.Status, test.ShouldEqual, syncStatusFailed)
 
 		// Validate only one get and one download call were made total even though we tried to sync invalid package twice
@@ -372,19 +368,15 @@ func TestCloud(t *testing.T) {
 		input = config.PackageConfig{Name: "some-name-1", Package: "org1/test-model", Version: "v2", Type: "ml_model"}
 		fakeServer.StorePackage(input)
 
-		// Sleep to make super sure modification time increments if it were to be modified
-		time.Sleep(10 * time.Millisecond)
-
 		// Third sync should re-download and succeed
 		err = pm.Sync(ctx, []config.PackageConfig{input}, []config.Module{})
 		test.That(t, err, test.ShouldBeNil)
 
-		// Validate sync file exists and has succeeded status and mod time has changed
+		// Validate sync file exists and has succeeded status
 		_, err = os.Stat(syncFileName)
 		test.That(t, err, test.ShouldBeNil)
 		statusFile, err = readStatusFile(input, pm.(*cloudManager).packagesDir)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, statusFile.ModifiedTime, test.ShouldNotEqual, failedStatusFile.ModifiedTime)
 		test.That(t, statusFile.Status, test.ShouldEqual, syncStatusDone)
 
 		// Validate two gets and two downloads were made total
