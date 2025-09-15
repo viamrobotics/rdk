@@ -351,9 +351,9 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 			return err
 		}
 		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
-			VisionServiceName: visionSvc.Name().String(), CameraName: camera.Name().String(),
+			VisionServiceName: visionSvc.Name().ShortName(), CameraName: camera.Name().ShortName(),
 		})
-		visionServicesByName[visionSvc.Name().String()] = visionSvc
+		visionServicesByName[visionSvc.Name().ShortName()] = visionSvc
 	}
 
 	// Parse movement sensor from the configuration if map type is GPS
@@ -544,10 +544,10 @@ func (svc *builtIn) Close(ctx context.Context) error {
 
 func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, extra map[string]interface{}) error {
 	req := motion.MoveOnGlobeReq{
-		ComponentName:      svc.base.Name().String(),
+		ComponentName:      svc.base.Name().ShortName(),
 		Destination:        wp.ToPoint(),
 		Heading:            math.NaN(),
-		MovementSensorName: svc.movementSensor.Name().String(),
+		MovementSensorName: svc.movementSensor.Name().ShortName(),
 		Obstacles:          svc.obstacles,
 		MotionCfg:          svc.motionCfg,
 		BoundingRegions:    svc.boundingRegions,
@@ -822,7 +822,7 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 	}
 
 	ph, err := svc.motionService.PlanHistory(ctx, motion.PlanHistoryReq{
-		ComponentName: svc.base.Name().String(),
+		ComponentName: svc.base.Name().ShortName(),
 		ExecutionID:   ewp.executionID,
 		LastPlanOnly:  true,
 	})

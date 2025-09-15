@@ -194,13 +194,13 @@ func (ms *builtIn) Reconfigure(
 		case framesystem.Service:
 			ms.fsService = dep
 		case movementsensor.MovementSensor:
-			movementSensors[name.String()] = dep
+			movementSensors[name.ShortName()] = dep
 		case slam.Service:
-			slamServices[name.String()] = dep
+			slamServices[name.ShortName()] = dep
 		case vision.Service:
-			visionServices[name.String()] = dep
+			visionServices[name.ShortName()] = dep
 		default:
-			componentMap[name.String()] = dep
+			componentMap[name.ShortName()] = dep
 		}
 	}
 	ms.movementSensors = movementSensors

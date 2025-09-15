@@ -981,9 +981,9 @@ func TestStartWaypoint(t *testing.T) {
 				if len(s.sprs) == 2 {
 					// MoveOnGlobe was called twice, once for each waypoint
 					test.That(t, len(s.mogrs), test.ShouldEqual, 2)
-					test.That(t, s.mogrs[0].ComponentName, test.ShouldResemble, s.base.Name())
+					test.That(t, s.mogrs[0].ComponentName, test.ShouldResemble, s.base.Name().ShortName())
 					test.That(t, math.IsNaN(s.mogrs[0].Heading), test.ShouldBeTrue)
-					test.That(t, s.mogrs[0].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
+					test.That(t, s.mogrs[0].MovementSensorName, test.ShouldResemble, s.movementSensor.Name().ShortName())
 
 					test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
 						"motion_profile": "position_only",
@@ -993,9 +993,9 @@ func TestStartWaypoint(t *testing.T) {
 					// waypoint 1
 					test.That(t, s.mogrs[0].Destination, test.ShouldResemble, pt1)
 
-					test.That(t, s.mogrs[1].ComponentName, test.ShouldResemble, s.base.Name())
+					test.That(t, s.mogrs[1].ComponentName, test.ShouldResemble, s.base.Name().ShortName())
 					test.That(t, math.IsNaN(s.mogrs[1].Heading), test.ShouldBeTrue)
-					test.That(t, s.mogrs[1].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
+					test.That(t, s.mogrs[1].MovementSensorName, test.ShouldResemble, s.movementSensor.Name().ShortName())
 					test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{
 						"motion_profile": "position_only",
 					})
@@ -1009,7 +1009,7 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.sprs[1].ComponentName, test.ShouldResemble, s.base.Name())
 
 					// Motion reports that the last execution succeeded
-					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().String()})
+					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().ShortName()})
 					test.That(t, err, test.ShouldBeNil)
 					test.That(t, len(ph), test.ShouldEqual, 1)
 					test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[1])
@@ -1256,7 +1256,7 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.mogrs[4].Destination, test.ShouldResemble, pt1)
 
 					// Motion reports that the last execution succeeded
-					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().String()})
+					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().ShortName()})
 					test.That(t, err, test.ShouldBeNil)
 					test.That(t, len(ph), test.ShouldEqual, 1)
 					test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[2])
@@ -1389,7 +1389,7 @@ func TestStartWaypoint(t *testing.T) {
 			test.That(t, wpAfter, test.ShouldResemble, wpBefore)
 
 			// check the last state of the execution
-			ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().String()})
+			ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().ShortName()})
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(ph), test.ShouldEqual, 1)
 			test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 2)
@@ -1521,7 +1521,7 @@ func TestStartWaypoint(t *testing.T) {
 				// Motion reports that the last execution succeeded
 				s.RUnlock()
 
-				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().String()})
+				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().ShortName()})
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, len(ph), test.ShouldEqual, 1)
 				test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[1])
@@ -1650,7 +1650,7 @@ func TestStartWaypoint(t *testing.T) {
 				// Motion reports that the last execution succeeded
 				s.RUnlock()
 
-				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().String()})
+				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().ShortName()})
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, len(ph), test.ShouldEqual, 1)
 				test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[0])
