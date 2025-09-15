@@ -661,9 +661,9 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			}
 
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      injectBase.Name().String(),
+				ComponentName:      injectBase.Name().ShortName(),
 				Destination:        goal,
-				MovementSensorName: injectMovementSensor.Name().String(),
+				MovementSensorName: injectMovementSensor.Name().ShortName(),
 				MotionCfg:          &motionCfg,
 				Extra:              extra,
 			}
@@ -713,9 +713,9 @@ func TestStoppableMoveFunctions(t *testing.T) {
 
 			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500})
 			req := motion.MoveOnMapReq{
-				ComponentName: injectBase.Name().String(),
+				ComponentName: injectBase.Name().ShortName(),
 				Destination:   goal,
-				SlamName:      injectSlam.Name().String(),
+				SlamName:      injectSlam.Name().ShortName(),
 				MotionCfg: &motion.MotionConfiguration{
 					PlanDeviationMM: 0.2,
 				},
@@ -767,9 +767,9 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			ms.(*builtIn).fsService = fsSvc
 
 			req := motion.MoveOnMapReq{
-				ComponentName: injectBase.Name().String(),
+				ComponentName: injectBase.Name().ShortName(),
 				Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500}),
-				SlamName:      injectSlam.Name().String(),
+				SlamName:      injectSlam.Name().ShortName(),
 				MotionCfg: &motion.MotionConfiguration{
 					PlanDeviationMM: 1,
 				},
@@ -885,7 +885,7 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 	moveReq := motion.MoveOnGlobeReq{
 		ComponentName:      "test-base",
 		Destination:        destinationGeoPose.Location(),
-		MovementSensorName: moveSensor.Name().String(),
+		MovementSensorName: moveSensor.Name().ShortName(),
 		MotionCfg: &motion.MotionConfiguration{
 			PlanDeviationMM: 1,
 			ObstacleDetectors: []motion.ObstacleDetectorName{
@@ -1057,9 +1057,9 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	req := motion.MoveOnGlobeReq{
-		ComponentName:      fakeBase.Name().String(),
+		ComponentName:      fakeBase.Name().ShortName(),
 		Destination:        dst,
-		MovementSensorName: movementSensor.Name().String(),
+		MovementSensorName: movementSensor.Name().ShortName(),
 	}
 
 	// construct move request
