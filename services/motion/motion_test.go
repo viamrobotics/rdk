@@ -91,14 +91,24 @@ func TestPlanWithStatus(t *testing.T) {
 			},
 			{
 				description: "empty status returns an error",
-				input:       &pb.PlanWithStatus{Plan: PlanWithMetadata{}.ToProto()},
-				result:      PlanWithStatus{},
-				err:         errors.New("received nil *pb.PlanStatus"),
+				input: &pb.PlanWithStatus{
+					Plan: &pb.Plan{
+						Id:            "00000000-0000-0000-0000-000000000001",
+						ExecutionId:   "00000000-0000-0000-0000-000000000002",
+						ComponentName: "test-component",
+					},
+				},
+				result: PlanWithStatus{},
+				err:    errors.New("received nil *pb.PlanStatus"),
 			},
 			{
 				description: "nil pointers in the status history returns an error",
 				input: &pb.PlanWithStatus{
-					Plan:          PlanWithMetadata{}.ToProto(),
+					Plan: &pb.Plan{
+						Id:            "00000000-0000-0000-0000-000000000001",
+						ExecutionId:   "00000000-0000-0000-0000-000000000002",
+						ComponentName: "test-component",
+					},
 					Status:        PlanStatus{}.ToProto(),
 					StatusHistory: []*pb.PlanStatus{nil},
 				},
@@ -108,11 +118,19 @@ func TestPlanWithStatus(t *testing.T) {
 			{
 				description: "empty *pb.PlanWithStatus status returns an empty PlanWithStatus",
 				input: &pb.PlanWithStatus{
-					Plan:   PlanWithMetadata{}.ToProto(),
+					Plan: &pb.Plan{
+						Id:            "00000000-0000-0000-0000-000000000001",
+						ExecutionId:   "00000000-0000-0000-0000-000000000002",
+						ComponentName: "test-component",
+					},
 					Status: PlanStatus{}.ToProto(),
 				},
 				result: PlanWithStatus{
-					Plan:          PlanWithMetadata{},
+					Plan: PlanWithMetadata{
+						ID:            uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+						ComponentName: "test-component",
+						ExecutionID:   uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+					},
 					StatusHistory: []PlanStatus{{}},
 				},
 			},
@@ -141,8 +159,8 @@ func TestPlanWithStatus(t *testing.T) {
 				},
 			},
 		}
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
+		for i, tc := range testCases {
+			t.Run(fmt.Sprintf("TestCase #%d: %s", i+1, tc.description), func(t *testing.T) {
 				res, err := planWithStatusFromProto(tc.input)
 				if tc.err != nil {
 					test.That(t, err, test.ShouldBeError, tc.err)
