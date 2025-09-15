@@ -1402,7 +1402,7 @@ func TestPlanHistoryReq(t *testing.T) {
 				},
 				result: PlanHistoryReq{
 					ComponentName: "component_name",
-					Extra: map[string]interface{}{},
+					Extra:         map[string]interface{}{},
 				},
 			},
 			{
