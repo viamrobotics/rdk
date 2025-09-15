@@ -642,7 +642,7 @@ func TestPlan(t *testing.T) {
 				input: &pb.Plan{
 					Id:            planID.String(),
 					ExecutionId:   executionID.String(),
-					ComponentName: "",
+					ComponentName: "component_name",
 					Steps:         []*pb.PlanStep{nil},
 				},
 				result: PlanWithMetadata{},
@@ -653,12 +653,12 @@ func TestPlan(t *testing.T) {
 				input: &pb.Plan{
 					Id:            planID.String(),
 					ExecutionId:   executionID.String(),
-					ComponentName: "",
+					ComponentName: "component_name",
 				},
 				result: PlanWithMetadata{
 					ID:            planID,
 					ExecutionID:   executionID,
-					ComponentName: "",
+					ComponentName: "component_name",
 				},
 			},
 			{
@@ -1398,9 +1398,12 @@ func TestPlanHistoryReq(t *testing.T) {
 			{
 				description: "empty struct returns an empty struct",
 				input: &pb.GetPlanRequest{
-					ComponentName: "",
+					ComponentName: "component_name",
 				},
-				result: PlanHistoryReq{Extra: map[string]interface{}{}},
+				result: PlanHistoryReq{
+					ComponentName: "component_name",
+					Extra: map[string]interface{}{},
+				},
 			},
 			{
 				description: "full struct returns a full struct",
