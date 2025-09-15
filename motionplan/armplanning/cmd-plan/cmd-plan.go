@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func main() {
@@ -119,8 +120,49 @@ func realMain() error {
 	}
 
 	renderFramePeriod := 50 * time.Millisecond
+	if err := viz.RemoveAllSpatialObjects(); err != nil {
+		mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
+		return nil
+	}
+
 	for idx := range plan.Path() {
+		// `DrawWorldState` just draws the obstacles. I think the FrameSystem/Path are necessary
+		// because obstacles can be in terms of reference frames contained within the frame
+		// system. Such as a camera attached to an arm.
+		if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, plan.Trajectory()[0]); err != nil {
+			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
+			break
+		}
+
+		// `DrawFrameSystem` draws everything else we're interested in.
 		if err := viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx]); err != nil {
+			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
+			break
+		}
+
+		var goalPoses []spatialmath.Pose
+		for _, goalPlanState := range req.Goals {
+			poses, err := goalPlanState.ComputePoses(req.FrameSystem)
+			if err != nil {
+				mylog.Println("Could not compute goal poses. Err:", err)
+				continue
+			}
+
+			for _, poseValue := range poses {
+				// Dan: This is my guess on how to assure the goal pose is in the world reference
+				// frame.
+				poseInWorldFrame := poseValue.Transform(
+					referenceframe.NewPoseInFrame(
+						req.FrameSystem.World().Name(),
+						spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+				goalPoses = append(goalPoses, poseInWorldFrame.Pose())
+			}
+		}
+
+		// A matter of preference. The arrow head will point at the goal point. As opposed to the
+		// tail starting at the goal point.
+		arrowHeadAtPose := true
+		if err := viz.DrawPoses(goalPoses, []string{"blue"}, arrowHeadAtPose); err != nil {
 			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
 			break
 		}
