@@ -244,7 +244,9 @@ func NewCollisionConstraint(
 	return constraint, nil
 }
 
-func collisionCheckFinish(internalGeoms, static []spatial.Geometry, zeroCG *collisionGraph, reportDistances bool, collisionBufferMM float64) error {
+func collisionCheckFinish(internalGeoms, static []spatial.Geometry, zeroCG *collisionGraph,
+	reportDistances bool, collisionBufferMM float64,
+) error {
 	cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
 	if err != nil {
 		return err

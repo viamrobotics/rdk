@@ -385,9 +385,25 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	return nil
 }
 
+func (mp *cBiRRTMotionPlanner) simpleSmooth(steps []*node) []*node {
+	// look at each triplet, see if we can remove the middle one
+	for i := 2; i < len(steps); i++ {
+		err := mp.checkPath(steps[i-2].inputs, steps[i].inputs)
+		if err != nil {
+			continue
+		}
+		// we can merge
+		steps = append(steps[0:i-1], steps[i:]...)
+		i--
+	}
+	return steps
+}
+
 // smoothPath will pick two points at random along the path and attempt to do a fast gradient descent directly between
 // them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
 func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []*node) []*node {
+	inputSteps = mp.simpleSmooth(inputSteps)
+
 	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), float64(mp.planOpts.SmoothIter)))
 
 	for numCornersToPass := 2; numCornersToPass > 0; numCornersToPass-- {

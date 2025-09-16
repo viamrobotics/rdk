@@ -340,9 +340,9 @@ func InterpolateSegment(ci *Segment, resolution float64) ([][]referenceframe.Inp
 	return interpolatedConfigurations, nil
 }
 
-// interpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
+// InterpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
 // configuration of a segment at a given resolution value.
-func interpolateSegmentFS(ci *SegmentFS, resolution float64) ([]referenceframe.FrameSystemInputs, error) {
+func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]referenceframe.FrameSystemInputs, error) {
 	// Find the frame with the most steps by calculating steps for each frame
 	maxSteps := defaultMinStepCount
 	for frameName, startConfig := range ci.StartConfiguration {
@@ -504,7 +504,7 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	ci *SegmentFS,
 	resolution float64,
 ) (*SegmentFS, error) {
-	interpolatedConfigurations, err := interpolateSegmentFS(ci, resolution)
+	interpolatedConfigurations, err := InterpolateSegmentFS(ci, resolution)
 	if err != nil {
 		return nil, err
 	}
