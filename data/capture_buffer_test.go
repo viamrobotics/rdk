@@ -225,7 +225,7 @@ func TestCaptureBufferReader(t *testing.T) {
 
 				readImageCaptureMetadata, _ := BuildCaptureMetadata(
 					tc.resourceName.API,
-					tc.resourceName.ShortName(),
+					tc.resourceName.Name,
 					tc.methodName,
 					tc.additionalParams,
 					methodParams,
@@ -233,7 +233,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				)
 
 				test.That(t, readImageCaptureMetadata, test.ShouldResemble, &v1.DataCaptureMetadata{
-					ComponentName:    tc.resourceName.ShortName(),
+					ComponentName:    tc.resourceName.Name,
 					ComponentType:    tc.resourceName.API.String(),
 					MethodName:       tc.methodName,
 					MethodParameters: methodParams,
@@ -365,7 +365,7 @@ func TestCaptureBufferReader(t *testing.T) {
 
 			readImageCaptureMetadata, _ := BuildCaptureMetadata(
 				name.API,
-				name.ShortName(),
+				name.Name,
 				method,
 				additionalParams,
 				methodParams,
@@ -484,7 +484,7 @@ func TestCaptureBufferReader(t *testing.T) {
 
 				readImageCaptureMetadata, _ := BuildCaptureMetadata(
 					tc.resourceName.API,
-					tc.resourceName.ShortName(),
+					tc.resourceName.Name,
 					tc.methodName,
 					tc.additionalParams,
 					methodParams,
@@ -492,7 +492,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				)
 
 				test.That(t, readImageCaptureMetadata, test.ShouldResemble, &v1.DataCaptureMetadata{
-					ComponentName:    tc.resourceName.ShortName(),
+					ComponentName:    tc.resourceName.Name,
 					ComponentType:    tc.resourceName.API.String(),
 					MethodName:       tc.methodName,
 					MethodParameters: methodParams,
@@ -634,7 +634,7 @@ func TestCaptureBufferReader(t *testing.T) {
 
 		readImageCaptureMetadata, _ := BuildCaptureMetadata(
 			name.API,
-			name.ShortName(),
+			name.Name,
 			method,
 			additionalParams,
 			methodParams,

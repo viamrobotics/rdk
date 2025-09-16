@@ -178,7 +178,7 @@ func newSortedResourceStatuses(resourceStatuses []resource.Status) []resource.St
 func ExtractNames(values ...resource.Name) []string {
 	var names []string
 	for _, n := range values {
-		names = append(names, n.ShortName())
+		names = append(names, n.Name)
 	}
 	return names
 }

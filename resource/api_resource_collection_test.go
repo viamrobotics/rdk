@@ -18,27 +18,27 @@ func TestAPIResourceCollection(t *testing.T) {
 	}
 	svc, err := resource.NewAPIResourceCollection(generic.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	res, err := svc.Resource(res1.Name().ShortName())
+	res, err := svc.Resource(res1.Name().Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldResemble, res1)
-	_, err = svc.Resource(res2.Name().ShortName())
+	_, err = svc.Resource(res2.Name().Name)
 	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(res2.Name()))
 
 	resources[res2.Name()] = res2
 	err = svc.ReplaceAll(resources)
 	test.That(t, err, test.ShouldBeNil)
-	res, err = svc.Resource(res1.Name().ShortName())
+	res, err = svc.Resource(res1.Name().Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldResemble, res1)
-	res, err = svc.Resource(res2.Name().ShortName())
+	res, err = svc.Resource(res2.Name().Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldResemble, res2)
 
 	err = svc.ReplaceAll(map[resource.Name]resource.Resource{})
 	test.That(t, err, test.ShouldBeNil)
-	_, err = svc.Resource(res1.Name().ShortName())
+	_, err = svc.Resource(res1.Name().Name)
 	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(res1.Name()))
-	_, err = svc.Resource(res2.Name().ShortName())
+	_, err = svc.Resource(res2.Name().Name)
 	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(res2.Name()))
 	// Test should error if resource name is empty
 	resources = map[resource.Name]resource.Resource{

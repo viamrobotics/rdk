@@ -31,7 +31,7 @@ func TestSafetyMonitoring(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	myBaseName := base.Named("warf")
-	injectBase := inject.NewBase(myBaseName.ShortName())
+	injectBase := inject.NewBase(myBaseName.Name)
 
 	setPowerFirst := make(chan struct{})
 	injectBase.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
@@ -185,7 +185,7 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	myBaseName := base.Named("warf")
-	injectBase := inject.NewBase(myBaseName.ShortName())
+	injectBase := inject.NewBase(myBaseName.Name)
 
 	setPowerVal := make(chan r3.Vector)
 	injectBase.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
@@ -277,7 +277,7 @@ func TestReconfigure(t *testing.T) {
 	close(setPowerVal)
 
 	myBaseName2 := base.Named("warf2")
-	injectBase2 := inject.NewBase(myBaseName2.ShortName())
+	injectBase2 := inject.NewBase(myBaseName2.Name)
 
 	setPowerVal2 := make(chan r3.Vector)
 	injectBase2.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {

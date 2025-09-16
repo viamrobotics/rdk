@@ -192,7 +192,7 @@ func (s *serviceServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest)
 // NewClientFromConn creates a new gizmo RPC client from an existing connection.
 func NewClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger logging.Logger) Gizmo {
 	sc := newSvcClientFromConn(conn, remoteName, name, logger)
-	return clientFromSvcClient(sc, name.ShortName())
+	return clientFromSvcClient(sc, name.Name)
 }
 
 func newSvcClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger logging.Logger) *serviceClient {

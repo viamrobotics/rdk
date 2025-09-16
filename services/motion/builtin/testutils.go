@@ -272,7 +272,7 @@ func createMovementSensor(
 	odoConf := &wheeledodometry.Config{
 		LeftMotors:        []string{leftMotorName},
 		RightMotors:       []string{rightMotorName},
-		Base:              fakeBase.Name().ShortName(),
+		Base:              fakeBase.Name().Name,
 		TimeIntervalMSecs: float64(updateRate),
 	}
 

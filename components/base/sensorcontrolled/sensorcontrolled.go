@@ -161,7 +161,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		if err == nil && props.OrientationSupported {
 			// return first sensor that does not error that satisfies the properties wanted
 			orientation = ms
-			sb.logger.CInfof(ctx, "using sensor %s as orientation sensor for base", orientation.Name().ShortName())
+			sb.logger.CInfof(ctx, "using sensor %s as orientation sensor for base", orientation.Name().Name)
 			break
 		}
 	}
@@ -171,7 +171,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		if err == nil && props.AngularVelocitySupported && props.LinearVelocitySupported {
 			// return first sensor that does not error that satisfies the properties wanted
 			sb.velocities = ms
-			sb.logger.CInfof(ctx, "using sensor %s as velocity sensor for base", sb.velocities.Name().ShortName())
+			sb.logger.CInfof(ctx, "using sensor %s as velocity sensor for base", sb.velocities.Name().Name)
 			break
 		}
 	}
@@ -181,7 +181,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		if err == nil && props.PositionSupported {
 			// return first sensor that does not error that satisfies the properties wanted
 			sb.position = ms
-			sb.logger.CInfof(ctx, "using sensor %s as position sensor for base", sb.position.Name().ShortName())
+			sb.logger.CInfof(ctx, "using sensor %s as position sensor for base", sb.position.Name().Name)
 			break
 		}
 	}
@@ -191,7 +191,7 @@ func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencie
 		if err == nil && props.CompassHeadingSupported {
 			// return first sensor that does not error that satisfies the properties wanted
 			compassHeading = ms
-			sb.logger.CInfof(ctx, "using sensor %s as compassHeading sensor for base", compassHeading.Name().ShortName())
+			sb.logger.CInfof(ctx, "using sensor %s as compassHeading sensor for base", compassHeading.Name().Name)
 			break
 		}
 	}
@@ -310,7 +310,7 @@ func (sb *sensorBase) determineHeadingFunc(ctx context.Context,
 	switch {
 	case orientation != nil:
 
-		sb.logger.CInfof(ctx, "using sensor %s as angular heading sensor for base %v", orientation.Name().ShortName(), sb.Name().ShortName())
+		sb.logger.CInfof(ctx, "using sensor %s as angular heading sensor for base %v", orientation.Name().Name, sb.Name().Name)
 
 		sb.headingFunc = func(ctx context.Context) (float64, bool, error) {
 			orient, err := orientation.Orientation(ctx, nil)
@@ -323,7 +323,7 @@ func (sb *sensorBase) determineHeadingFunc(ctx context.Context,
 			return yaw, true, nil
 		}
 	case compassHeading != nil:
-		sb.logger.CInfof(ctx, "using sensor %s as angular heading sensor for base %v", compassHeading.Name().ShortName(), sb.Name().ShortName())
+		sb.logger.CInfof(ctx, "using sensor %s as angular heading sensor for base %v", compassHeading.Name().Name, sb.Name().Name)
 
 		sb.headingFunc = func(ctx context.Context) (float64, bool, error) {
 			compass, err := compassHeading.CompassHeading(ctx, nil)
@@ -342,7 +342,7 @@ func (sb *sensorBase) determineHeadingFunc(ctx context.Context,
 		}
 	default:
 		sb.logger.CInfof(ctx, "base %v cannot control heading, no heading related sensor given",
-			sb.Name().ShortName())
+			sb.Name().Name)
 		sb.headingFunc = func(ctx context.Context) (float64, bool, error) {
 			return 0, false, nil
 		}
@@ -367,9 +367,9 @@ func (sb *sensorBase) checkTuningStatus() error {
 
 	if needsTuning {
 		if done {
-			return control.TunedPIDErr(sb.Name().ShortName(), *sb.tunedVals)
+			return control.TunedPIDErr(sb.Name().Name, *sb.tunedVals)
 		}
-		return control.TuningInProgressErr(sb.Name().ShortName())
+		return control.TuningInProgressErr(sb.Name().Name)
 	}
 
 	return nil

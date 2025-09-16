@@ -98,8 +98,8 @@ func TestControlledMotorCreation(t *testing.T) {
 	cm, ok := m.(*controlledMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	test.That(t, cm.enc.Name().ShortName(), test.ShouldEqual, encoderName)
-	test.That(t, cm.real.Name().ShortName(), test.ShouldEqual, motorName)
+	test.That(t, cm.enc.Name().Name, test.ShouldEqual, encoderName)
+	test.That(t, cm.real.Name().Name, test.ShouldEqual, motorName)
 
 	// test DoCommand
 	expectedPID := control.PIDConfig{P: 0.1, I: 2.0, D: 0.0}

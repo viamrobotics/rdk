@@ -37,7 +37,7 @@ func (sb *sensorBase) MoveStraight(
 	if sb.controlLoopConfig == nil {
 		sb.logger.CWarnf(ctx,
 			"control loop not configured, using base %s's MoveStraight",
-			sb.controlledBase.Name().ShortName())
+			sb.controlledBase.Name().Name)
 		if sb.loop != nil {
 			sb.loop.Pause()
 		}

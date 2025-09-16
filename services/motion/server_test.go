@@ -41,7 +41,7 @@ func newServer(resources map[resource.Name]motion.Service) (pb.MotionServiceServ
 
 func TestServerMove(t *testing.T) {
 	grabRequest := &pb.MoveRequest{
-		Name:          testMotionServiceName.ShortName(),
+		Name:          testMotionServiceName.Name,
 		ComponentName: protoutils.ResourceNameToProto(gripper.Named("fake")),
 		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
 	}
@@ -87,7 +87,7 @@ func TestServerMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
 	grabRequest2 := &pb.MoveRequest{
-		Name:          testMotionServiceName2.ShortName(),
+		Name:          testMotionServiceName2.Name,
 		ComponentName: protoutils.ResourceNameToProto(gripper.Named("fake")),
 		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
 	}
@@ -123,7 +123,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 
 	t.Run("returns error if destination is nil without calling MoveOnGlobe", func(t *testing.T) {
 		moveOnGlobeRequest := &pb.MoveOnGlobeRequest{
-			Name:               testMotionServiceName.ShortName(),
+			Name:               testMotionServiceName.Name,
 			ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
 			MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
 		}
@@ -140,7 +140,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 	})
 
 	validMoveOnGlobeRequest := &pb.MoveOnGlobeRequest{
-		Name:               testMotionServiceName.ShortName(),
+		Name:               testMotionServiceName.Name,
 		ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
 		Destination:        &commonpb.GeoPoint{Latitude: 0.0, Longitude: 0.0},
 		MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
@@ -231,7 +231,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 		}
 
 		moveOnGlobeRequest := &pb.MoveOnGlobeRequest{
-			Name:               testMotionServiceName.ShortName(),
+			Name:               testMotionServiceName.Name,
 			Heading:            &reqHeading,
 			ComponentName:      protoutils.ResourceNameToProto(expectedComponentName),
 			Destination:        &commonpb.GeoPoint{Latitude: 1.0, Longitude: 2.0},
@@ -306,7 +306,7 @@ func TestServerMoveOnMap(t *testing.T) {
 
 	t.Run("returns error if destination is nil without calling MoveOnMap", func(t *testing.T) {
 		moveOnMapRequest := &pb.MoveOnMapRequest{
-			Name:            testMotionServiceName.ShortName(),
+			Name:            testMotionServiceName.Name,
 			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
 			Destination:     nil,
 			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
@@ -323,7 +323,7 @@ func TestServerMoveOnMap(t *testing.T) {
 	})
 
 	validMoveOnMapRequest := &pb.MoveOnMapRequest{
-		Name:            testMotionServiceName.ShortName(),
+		Name:            testMotionServiceName.Name,
 		ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
 		Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 		SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
@@ -363,7 +363,7 @@ func TestServerMoveOnMap(t *testing.T) {
 		}
 
 		moveOnMapRequest := &pb.MoveOnMapRequest{
-			Name: testMotionServiceName.ShortName(),
+			Name: testMotionServiceName.Name,
 
 			ComponentName:   protoutils.ResourceNameToProto(expectedComponentName),
 			Destination:     expectedDestination,
@@ -407,7 +407,7 @@ func TestServerMoveOnMap(t *testing.T) {
 
 	t.Run("non-nil obstacles passes", func(t *testing.T) {
 		moveOnMapReq := &pb.MoveOnMapRequest{
-			Name:            testMotionServiceName.ShortName(),
+			Name:            testMotionServiceName.Name,
 			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
 			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
@@ -429,7 +429,7 @@ func TestServerMoveOnMap(t *testing.T) {
 
 	t.Run("fails with inconvertible geometry", func(t *testing.T) {
 		moveOnMapReq := &pb.MoveOnMapRequest{
-			Name:            testMotionServiceName.ShortName(),
+			Name:            testMotionServiceName.Name,
 			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
 			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
@@ -461,7 +461,7 @@ func TestServerStopPlan(t *testing.T) {
 
 	validStopPlanRequest := &pb.StopPlanRequest{
 		ComponentName: protoutils.ResourceNameToProto(expectedComponentName),
-		Name:          testMotionServiceName.ShortName(),
+		Name:          testMotionServiceName.Name,
 	}
 
 	t.Run("returns error without calling StopPlan if req.Name doesn't map to a resource", func(t *testing.T) {
@@ -523,7 +523,7 @@ func TestServerListPlanStatuses(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	validListPlanStatusesRequest := &pb.ListPlanStatusesRequest{
-		Name: testMotionServiceName.ShortName(),
+		Name: testMotionServiceName.Name,
 	}
 
 	t.Run("returns error without calling ListPlanStatuses if req.Name doesn't map to a resource", func(t *testing.T) {
@@ -634,7 +634,7 @@ func TestServerGetPlan(t *testing.T) {
 
 	validGetPlanRequest := &pb.GetPlanRequest{
 		ComponentName: protoutils.ResourceNameToProto(expectedComponentName),
-		Name:          testMotionServiceName.ShortName(),
+		Name:          testMotionServiceName.Name,
 		LastPlanOnly:  false,
 		ExecutionId:   &id,
 	}
@@ -672,7 +672,7 @@ func TestServerGetPlan(t *testing.T) {
 		planID2 := uuid.New()
 
 		base1 := base.Named("base1")
-		steps := []referenceframe.FrameSystemPoses{{base1.ShortName(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}}
+		steps := []referenceframe.FrameSystemPoses{{base1.Name: referenceframe.NewZeroPoseInFrame(referenceframe.World)}}
 
 		plan1 := motion.PlanWithMetadata{
 			ID:            planID1,
@@ -761,7 +761,7 @@ func TestServerDoCommand(t *testing.T) {
 	cmd, err := vprotoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 	doCommandRequest := &commonpb.DoCommandRequest{
-		Name:    testMotionServiceName.ShortName(),
+		Name:    testMotionServiceName.Name,
 		Command: cmd,
 	}
 	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)

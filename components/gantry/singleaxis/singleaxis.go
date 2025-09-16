@@ -168,7 +168,7 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 
 	// Rerun homing if the board has changed
 	if newConf.Board != "" {
-		if g.board == nil || g.board.Name().ShortName() != newConf.Board {
+		if g.board == nil || g.board.Name().Name != newConf.Board {
 			board, err := board.FromDependencies(deps, newConf.Board)
 			if err != nil {
 				return err
@@ -179,7 +179,7 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	}
 
 	// Rerun homing if the motor changes
-	if g.motor == nil || g.motor.Name().ShortName() != newConf.Motor {
+	if g.motor == nil || g.motor.Name().Name != newConf.Motor {
 		needsToReHome = true
 		motorDep, err := motor.FromDependencies(deps, newConf.Motor)
 		if err != nil {
@@ -216,7 +216,7 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	}
 
 	if needsToReHome {
-		g.logger.CInfof(ctx, "single-axis gantry '%v' needs to re-home", g.Named.Name().ShortName())
+		g.logger.CInfof(ctx, "single-axis gantry '%v' needs to re-home", g.Named.Name().Name)
 		g.positionRange = 0
 		g.positionLimits = []float64{0, 0}
 	}
@@ -520,7 +520,7 @@ func (g *singleAxis) Lengths(ctx context.Context, extra map[string]interface{}) 
 // MoveToPosition moves along an axis using inputs in millimeters.
 func (g *singleAxis) MoveToPosition(ctx context.Context, positions, speeds []float64, extra map[string]interface{}) error {
 	if g.positionRange == 0 {
-		return errors.Errorf("cannot move to position until gantry '%v' is homed", g.Named.Name().ShortName())
+		return errors.Errorf("cannot move to position until gantry '%v' is homed", g.Named.Name().Name)
 	}
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
@@ -604,13 +604,13 @@ func (g *singleAxis) Kinematics(ctx context.Context) (referenceframe.Model, erro
 	if g.model == nil {
 		m := referenceframe.NewSimpleModel("")
 
-		f, err := referenceframe.NewStaticFrame(g.Name().ShortName(), spatial.NewZeroPose())
+		f, err := referenceframe.NewStaticFrame(g.Name().Name, spatial.NewZeroPose())
 		if err != nil {
 			return nil, err
 		}
 		m.OrdTransforms = append(m.OrdTransforms, f)
 
-		f, err = referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{Min: 0, Max: g.lengthMm})
+		f, err = referenceframe.NewTranslationalFrame(g.Name().Name, g.frame, referenceframe.Limit{Min: 0, Max: g.lengthMm})
 		if err != nil {
 			return nil, err
 		}

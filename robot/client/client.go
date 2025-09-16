@@ -745,7 +745,7 @@ func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, erro
 	if !ok || apiInfo.RPCClient == nil {
 		return grpc.NewForeignResource(name, rc.getClientConn()), nil
 	}
-	logger := rc.Logger().Sublogger(resource.RemoveRemoteName(name).ShortName())
+	logger := rc.Logger().Sublogger(resource.RemoveRemoteName(name).Name)
 	return apiInfo.RPCClient(rc.backgroundCtx, rc.getClientConn(), rc.remoteName, name, logger)
 }
 
@@ -1079,7 +1079,7 @@ func (rc *RobotClient) CurrentInputs(ctx context.Context) (referenceframe.FrameS
 			if err != nil {
 				return nil, err
 			}
-			input[name.ShortName()] = pos
+			input[name.Name] = pos
 		}
 	}
 	return input, nil

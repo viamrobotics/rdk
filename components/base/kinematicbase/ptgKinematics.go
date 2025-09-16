@@ -112,7 +112,7 @@ func wrapWithPTGKinematics(
 
 	nonzeroBaseTurningRadiusMeters := (linVelocityMMPerSecond / rdkutils.DegToRad(angVelocityDegsPerSecond)) / 1000.
 	planningFrame, err := tpspace.NewPTGFrameFromKinematicOptions(
-		b.Name().ShortName(),
+		b.Name().Name,
 		logger,
 		nonzeroBaseTurningRadiusMeters,
 		0, // If zero, will use default trajectory count on the receiver end.
@@ -145,7 +145,7 @@ func wrapWithPTGKinematics(
 	}
 	startingState := baseState{currentInputs: zeroInput}
 
-	localizationFrame, err := referenceframe.NewPoseFrame(b.Name().ShortName()+"_LocalizationFrame", nil)
+	localizationFrame, err := referenceframe.NewPoseFrame(b.Name().Name+"_LocalizationFrame", nil)
 	if err != nil {
 		return nil, err
 	}

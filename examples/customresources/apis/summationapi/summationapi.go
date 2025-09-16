@@ -73,7 +73,7 @@ func (s *serviceServer) Sum(ctx context.Context, req *pb.SumRequest) (*pb.SumRes
 
 func newClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger logging.Logger) Summation {
 	sc := newSvcClientFromConn(conn, remoteName, name, logger)
-	return clientFromSvcClient(sc, name.ShortName())
+	return clientFromSvcClient(sc, name.Name)
 }
 
 func newSvcClientFromConn(conn rpc.ClientConn, remoteName string, name resource.Name, logger logging.Logger) *serviceClient {

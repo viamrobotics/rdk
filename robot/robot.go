@@ -211,7 +211,7 @@ func AllResourcesByName(r Robot, name string) []resource.Resource {
 	all := []resource.Resource{}
 
 	for _, n := range r.ResourceNames() {
-		if n.ShortName() == name {
+		if n.Name == name {
 			r, err := r.ResourceByName(n)
 			if err != nil {
 				panic("this should be impossible")
@@ -228,7 +228,7 @@ func NamesByAPI(r Robot, api resource.API) []string {
 	names := []string{}
 	for _, n := range r.ResourceNames() {
 		if n.API == api {
-			names = append(names, n.ShortName())
+			names = append(names, n.Name)
 		}
 	}
 	return names

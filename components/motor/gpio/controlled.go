@@ -73,7 +73,7 @@ func (cm *controlledMotor) setupControlLoop(conf *Config) error {
 		options.NeedsAutoTuning = true
 	}
 
-	pl, err := control.SetupPIDControlConfig(cm.configPIDVals, cm.Name().ShortName(), options, cm, cm.logger)
+	pl, err := control.SetupPIDControlConfig(cm.configPIDVals, cm.Name().Name, options, cm, cm.logger)
 	if err != nil {
 		return err
 	}
@@ -428,9 +428,9 @@ func (cm *controlledMotor) checkTuningStatus() error {
 
 	if needsTuning {
 		if done {
-			return control.TunedPIDErr(cm.Name().ShortName(), *cm.tunedVals)
+			return control.TunedPIDErr(cm.Name().Name, *cm.tunedVals)
 		}
-		return control.TuningInProgressErr(cm.Name().ShortName())
+		return control.TuningInProgressErr(cm.Name().Name)
 	}
 
 	return nil

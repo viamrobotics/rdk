@@ -241,7 +241,7 @@ func (wb *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, e
 	wb.logger.CDebugf(ctx, "received a Spin with angleDeg:%.2f, degsPerSec:%.2f", angleDeg, degsPerSec)
 
 	if math.Abs(angleDeg) < 0.0001 {
-		return fmt.Errorf("cannot move base %v for an angle that is nearly 0", wb.Name().ShortName())
+		return fmt.Errorf("cannot move base %v for an angle that is nearly 0", wb.Name().Name)
 	}
 
 	// Stop the motors if the speed is 0

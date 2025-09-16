@@ -2020,12 +2020,12 @@ func TestCurrentInputs(t *testing.T) {
 	testName2 := resource.NewName(testAPI, "arm2")
 
 	expectedInputs := referenceframe.FrameSystemInputs{
-		testName.ShortName():  []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}},
-		testName2.ShortName(): []referenceframe.Input{{math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}, {0}},
+		testName.Name:  []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}},
+		testName2.Name: []referenceframe.Input{{math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}, {0}},
 	}
 	injectArm := &inject.Arm{
 		JointPositionsFunc: func(ctx context.Context, extra map[string]any) ([]referenceframe.Input, error) {
-			return expectedInputs[testName.ShortName()], nil
+			return expectedInputs[testName.Name], nil
 		},
 		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
 			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
@@ -2033,7 +2033,7 @@ func TestCurrentInputs(t *testing.T) {
 	}
 	injectArm2 := &inject.Arm{
 		JointPositionsFunc: func(ctx context.Context, extra map[string]any) ([]referenceframe.Input, error) {
-			return expectedInputs[testName2.ShortName()], nil
+			return expectedInputs[testName2.Name], nil
 		},
 		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
 			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")

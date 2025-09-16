@@ -910,20 +910,20 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		kbInputs := make([]referenceframe.Input, len(k.DoF()))
 		kbInputs = append(kbInputs, referenceframe.PoseToInputs(currentPose)...)
-		inputMap[mr.kinematicBase.Name().ShortName()] = kbInputs
+		inputMap[mr.kinematicBase.Name().Name] = kbInputs
 
 		fakeDetectionGeometry, err := spatialmath.NewBox(
 			obstaclePose, r3.Vector{X: 8, Y: 4, Z: 2}, "box",
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		cam, ok := ms.(*builtIn).components[resource.NewName(camera.API, "injectedCamera").ShortName()]
+		cam, ok := ms.(*builtIn).components[resource.NewName(camera.API, "injectedCamera").Name]
 		test.That(t, ok, test.ShouldBeTrue)
 
 		tf, err := mr.localizingFS.Transform(
 			inputMap,
 			referenceframe.NewGeometriesInFrame(
-				cam.Name().ShortName(), []spatialmath.Geometry{fakeDetectionGeometry},
+				cam.Name().Name, []spatialmath.Geometry{fakeDetectionGeometry},
 			),
 			referenceframe.World,
 		)
@@ -1056,7 +1056,7 @@ func TestCheckPlan(t *testing.T) {
 	movementSensor, ok := localizer.(movementsensor.MovementSensor)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	fakeBase, ok := ms.(*builtIn).components[baseResource.ShortName()]
+	fakeBase, ok := ms.(*builtIn).components[baseResource.Name]
 	test.That(t, ok, test.ShouldBeTrue)
 
 	req := motion.MoveOnGlobeReq{

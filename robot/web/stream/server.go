@@ -577,14 +577,13 @@ func (server *Server) removeMissingStreams() {
 	for key, streamState := range server.nameToStreamState {
 		// Stream names are slightly modified versions of the resource short name
 		camName := streamState.Stream.Name()
-		shortName := resource.SDPTrackNameToShortName(camName)
-		if _, err := audioinput.FromRobot(server.robot, shortName); err == nil {
+		if _, err := audioinput.FromRobot(server.robot, camName); err == nil {
 			// `nameToStreamState` can contain names for both camera and audio resources. Leave the
 			// stream in place if its an audio resource.
 			continue
 		}
 
-		_, err := camera.FromRobot(server.robot, shortName)
+		_, err := camera.FromRobot(server.robot, camName)
 		if !resource.IsNotFoundError(err) {
 			// Cameras can go through transient states during reconfigure that don't necessarily
 			// imply the camera is missing. E.g: *resource.notAvailableError. To double-check we

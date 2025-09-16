@@ -22,7 +22,7 @@ func (r collectorMetadata) String() string {
 
 func newCollectorMetadata(c datamanager.DataCaptureConfig) collectorMetadata {
 	return collectorMetadata{
-		ResourceName: c.Name.ShortName(),
+		ResourceName: c.Name.Name,
 		MethodParams: fmt.Sprintf("%v", c.AdditionalParams),
 		MethodMetadata: data.MethodMetadata{
 			API:        c.Name.API,

@@ -82,7 +82,7 @@ func TestResourceAPIRegistry(t *testing.T) {
 		return 5
 	}
 	rcf := func(_ context.Context, _ rpc.ClientConn, _ string, name resource.Name, _ logging.Logger) (motor.Motor, error) {
-		return capColl.Resource(name.ShortName())
+		return capColl.Resource(name.Name)
 	}
 
 	test.That(t, func() {

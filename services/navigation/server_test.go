@@ -79,7 +79,7 @@ func TestServer(t *testing.T) {
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
-		req := &pb.GetModeRequest{Name: testSvcName1.ShortName(), Extra: ext}
+		req := &pb.GetModeRequest{Name: testSvcName1.Name, Extra: ext}
 		resp, err := navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_MANUAL)
@@ -89,7 +89,7 @@ func TestServer(t *testing.T) {
 		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
 			return navigation.ModeWaypoint, nil
 		}
-		req = &pb.GetModeRequest{Name: testSvcName1.ShortName()}
+		req = &pb.GetModeRequest{Name: testSvcName1.Name}
 		resp, err = navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_WAYPOINT)
@@ -98,7 +98,7 @@ func TestServer(t *testing.T) {
 		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
 			return navigation.Mode(math.MaxUint8), nil
 		}
-		req = &pb.GetModeRequest{Name: testSvcName1.ShortName()}
+		req = &pb.GetModeRequest{Name: testSvcName1.Name}
 		resp, err = navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_UNSPECIFIED)
@@ -108,7 +108,7 @@ func TestServer(t *testing.T) {
 		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
 			return 0, errors.New("mode failed")
 		}
-		req := &pb.GetModeRequest{Name: testSvcName1.ShortName()}
+		req := &pb.GetModeRequest{Name: testSvcName1.Name}
 		resp, err := navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resp, test.ShouldBeNil)
@@ -127,7 +127,7 @@ func TestServer(t *testing.T) {
 
 		// set manual mode
 		req := &pb.SetModeRequest{
-			Name:  testSvcName1.ShortName(),
+			Name:  testSvcName1.Name,
 			Mode:  pb.Mode_MODE_MANUAL,
 			Extra: ext,
 		}
@@ -139,7 +139,7 @@ func TestServer(t *testing.T) {
 
 		// set waypoint mode
 		req = &pb.SetModeRequest{
-			Name: testSvcName1.ShortName(),
+			Name: testSvcName1.Name,
 			Mode: pb.Mode_MODE_WAYPOINT,
 		}
 		resp, err = navServer.SetMode(context.Background(), req)
@@ -149,7 +149,7 @@ func TestServer(t *testing.T) {
 
 		// set explore mode
 		req = &pb.SetModeRequest{
-			Name: testSvcName1.ShortName(),
+			Name: testSvcName1.Name,
 			Mode: pb.Mode_MODE_EXPLORE,
 		}
 		resp, err = navServer.SetMode(context.Background(), req)
@@ -159,7 +159,7 @@ func TestServer(t *testing.T) {
 
 		// set unknown mode
 		req = &pb.SetModeRequest{
-			Name: testSvcName1.ShortName(),
+			Name: testSvcName1.Name,
 			Mode: 99,
 		}
 		resp, err = navServer.SetMode(context.Background(), req)
@@ -174,7 +174,7 @@ func TestServer(t *testing.T) {
 			return errors.New("failed to set mode")
 		}
 		req := &pb.SetModeRequest{
-			Name: testSvcName1.ShortName(),
+			Name: testSvcName1.Name,
 			Mode: pb.Mode_MODE_MANUAL,
 		}
 		resp, err := navServer.SetMode(context.Background(), req)
@@ -186,7 +186,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 		req = &pb.SetModeRequest{
-			Name: testSvcName1.ShortName(),
+			Name: testSvcName1.Name,
 			Mode: pb.Mode_MODE_UNSPECIFIED,
 		}
 		resp, err = navServer.SetMode(context.Background(), req)
@@ -206,7 +206,7 @@ func TestServer(t *testing.T) {
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
-		req := &pb.GetLocationRequest{Name: testSvcName1.ShortName(), Extra: ext}
+		req := &pb.GetLocationRequest{Name: testSvcName1.Name, Extra: ext}
 		resp, err := navServer.GetLocation(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		protoLoc := resp.GetLocation()
@@ -220,7 +220,7 @@ func TestServer(t *testing.T) {
 		injectSvc.LocationFunc = func(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
 			return nil, errors.New("location retrieval failed")
 		}
-		req := &pb.GetLocationRequest{Name: testSvcName1.ShortName()}
+		req := &pb.GetLocationRequest{Name: testSvcName1.Name}
 		resp, err := navServer.GetLocation(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resp, test.ShouldBeNil)
@@ -236,7 +236,7 @@ func TestServer(t *testing.T) {
 		ext, err := protoutils.StructToStructPb(extra)
 		test.That(t, err, test.ShouldBeNil)
 
-		req := &pb.GetWaypointsRequest{Name: testSvcName1.ShortName(), Extra: ext}
+		req := &pb.GetWaypointsRequest{Name: testSvcName1.Name, Extra: ext}
 		resp, err := navServer.GetWaypoints(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.GetWaypoints(), test.ShouldResemble, expectedResp)
@@ -247,7 +247,7 @@ func TestServer(t *testing.T) {
 		injectSvc.WaypointsFunc = func(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
 			return nil, errors.New("waypoints retrieval failed")
 		}
-		req := &pb.GetWaypointsRequest{Name: testSvcName1.ShortName()}
+		req := &pb.GetWaypointsRequest{Name: testSvcName1.Name}
 		resp, err := navServer.GetWaypoints(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resp, test.ShouldBeNil)
@@ -265,7 +265,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		req := &pb.AddWaypointRequest{
-			Name: testSvcName1.ShortName(),
+			Name: testSvcName1.Name,
 			Location: &commonpb.GeoPoint{
 				Latitude:  90,
 				Longitude: 0,
@@ -289,7 +289,7 @@ func TestServer(t *testing.T) {
 			return errors.New("failed to add waypoint")
 		}
 		req := &pb.AddWaypointRequest{
-			Name: testSvcName1.ShortName(),
+			Name: testSvcName1.Name,
 			Location: &commonpb.GeoPoint{
 				Latitude:  90,
 				Longitude: 0,
@@ -314,7 +314,7 @@ func TestServer(t *testing.T) {
 
 		objectID := primitive.NewObjectID()
 		req := &pb.RemoveWaypointRequest{
-			Name:  testSvcName1.ShortName(),
+			Name:  testSvcName1.Name,
 			Id:    objectID.Hex(),
 			Extra: ext,
 		}
@@ -331,7 +331,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 		req := &pb.RemoveWaypointRequest{
-			Name: testSvcName1.ShortName(),
+			Name: testSvcName1.Name,
 			Id:   "not a hex",
 		}
 		resp, err := navServer.RemoveWaypoint(context.Background(), req)
@@ -343,7 +343,7 @@ func TestServer(t *testing.T) {
 			return errors.New("failed to remove waypoint")
 		}
 		req = &pb.RemoveWaypointRequest{
-			Name: testSvcName1.ShortName(),
+			Name: testSvcName1.Name,
 			Id:   primitive.NewObjectID().Hex(),
 		}
 		resp, err = navServer.RemoveWaypoint(context.Background(), req)
@@ -358,7 +358,7 @@ func TestServer(t *testing.T) {
 		injectSvc.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 			return expectedOutput, nil
 		}
-		req := &pb.GetPathsRequest{Name: testSvcName1.ShortName()}
+		req := &pb.GetPathsRequest{Name: testSvcName1.Name}
 		resp, err := navServer.GetPaths(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		convertedPbPath, err := navigation.ProtoSliceToPaths(resp.Paths)
@@ -370,7 +370,7 @@ func TestServer(t *testing.T) {
 		injectSvc.PathsFunc = func(ctx context.Context, extra map[string]interface{}) ([]*navigation.Path, error) {
 			return nil, expectedErr
 		}
-		req := &pb.GetPathsRequest{Name: testSvcName1.ShortName()}
+		req := &pb.GetPathsRequest{Name: testSvcName1.Name}
 		resp, err := navServer.GetPaths(context.Background(), req)
 		test.That(t, err, test.ShouldResemble, expectedErr)
 		test.That(t, resp, test.ShouldBeNil)
@@ -383,7 +383,7 @@ func TestServer(t *testing.T) {
 		injectSvc.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
 			return prop, nil
 		}
-		req := &pb.GetPropertiesRequest{Name: testSvcName1.ShortName()}
+		req := &pb.GetPropertiesRequest{Name: testSvcName1.Name}
 		resp, err := navServer.GetProperties(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.MapType, test.ShouldEqual, pb.MapType_MAP_TYPE_NONE)
@@ -393,7 +393,7 @@ func TestServer(t *testing.T) {
 		injectSvc.PropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
 			return navigation.Properties{}, expectedErr
 		}
-		req := &pb.GetPropertiesRequest{Name: testSvcName1.ShortName()}
+		req := &pb.GetPropertiesRequest{Name: testSvcName1.Name}
 		resp, err := navServer.GetProperties(context.Background(), req)
 		test.That(t, err, test.ShouldBeError, expectedErr)
 		test.That(t, resp, test.ShouldBeNil)
@@ -402,7 +402,7 @@ func TestServer(t *testing.T) {
 	injectAPISvc, _ = resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{})
 	navServer = navigation.NewRPCServiceServer(injectAPISvc).(pb.NavigationServiceServer)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
-		req := &pb.GetModeRequest{Name: testSvcName1.ShortName()}
+		req := &pb.GetModeRequest{Name: testSvcName1.Name}
 		resp, err := navServer.GetMode(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(testSvcName1))
@@ -419,11 +419,11 @@ func TestServer(t *testing.T) {
 		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
 			return navigation.ModeManual, nil
 		}
-		req := &pb.GetModeRequest{Name: testSvcName1.ShortName()}
+		req := &pb.GetModeRequest{Name: testSvcName1.Name}
 		resp, err := navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_MANUAL)
-		req = &pb.GetModeRequest{Name: testSvcName2.ShortName()}
+		req = &pb.GetModeRequest{Name: testSvcName2.Name}
 		resp, err = navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_MANUAL)
@@ -443,7 +443,7 @@ func TestServerDoCommand(t *testing.T) {
 	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 	doCommandRequest := &commonpb.DoCommandRequest{
-		Name:    testSvcName1.ShortName(),
+		Name:    testSvcName1.Name,
 		Command: cmd,
 	}
 	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)

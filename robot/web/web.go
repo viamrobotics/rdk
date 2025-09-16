@@ -804,7 +804,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 	}
 
 	if fqName.ContainsRemoteNames() {
-		firstMsg.SetFieldByName("name", fqName.PopRemote().ShortName())
+		firstMsg.SetFieldByName("name", fqName.PopRemote().Name)
 	}
 
 	foreignRes, ok := resource.(*grpc.ForeignResource)
@@ -851,7 +851,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 				}
 				// remove a remote from the name if needed
 				if fqName.ContainsRemoteNames() {
-					msg.SetFieldByName("name", fqName.PopRemote().ShortName())
+					msg.SetFieldByName("name", fqName.PopRemote().Name)
 				}
 				err = bidiStream.SendMsg(msg)
 			}
@@ -902,7 +902,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 				return err
 			}
 			if fqName.ContainsRemoteNames() {
-				msg.SetFieldByName("name", fqName.PopRemote().ShortName())
+				msg.SetFieldByName("name", fqName.PopRemote().Name)
 			}
 			if err := clientStream.SendMsg(msg); err != nil {
 				if errors.Is(err, io.EOF) {

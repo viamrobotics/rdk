@@ -54,12 +54,12 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	t.Run("Kinematics", func(t *testing.T) {
 		frame, err := tpspace.NewPTGFrameFromKinematicOptions(
-			b.Name().ShortName(), logger, 0.3, 0, nil, NewKinematicBaseOptions().NoSkidSteer, b.TurningRadius == 0,
+			b.Name().Name, logger, 0.3, 0, nil, NewKinematicBaseOptions().NoSkidSteer, b.TurningRadius == 0,
 		)
 		test.That(t, frame, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, f.Name(), test.ShouldEqual, b.Name().ShortName())
+		test.That(t, f.Name(), test.ShouldEqual, b.Name().Name)
 		test.That(t, f.DoF(), test.ShouldResemble, frame.DoF())
 
 		gifs, err := f.Geometries(referenceframe.FloatsToInputs([]float64{0, 0, 0, 0}))
@@ -308,12 +308,12 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 
 	t.Run("Kinematics", func(t *testing.T) {
 		f, err := tpspace.NewPTGFrameFromKinematicOptions(
-			b.Name().ShortName(), logger, 0.3, 0, []spatialmath.Geometry{baseGeom}, kbOpt.NoSkidSteer, b.TurningRadius == 0,
+			b.Name().Name, logger, 0.3, 0, []spatialmath.Geometry{baseGeom}, kbOpt.NoSkidSteer, b.TurningRadius == 0,
 		)
 		test.That(t, f, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, k.Name(), test.ShouldEqual, b.Name().ShortName())
+		test.That(t, k.Name(), test.ShouldEqual, b.Name().Name)
 		test.That(t, k.DoF(), test.ShouldResemble, f.DoF())
 
 		gifs, err := k.Geometries(referenceframe.FloatsToInputs([]float64{0, 0, 0, 0}))
@@ -348,7 +348,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 			return math.Abs(headingRightHanded) - 360, nil
 		}
 
-		waypoints, err := plan.Trajectory().GetFrameInputs(kb.Name().ShortName())
+		waypoints, err := plan.Trajectory().GetFrameInputs(kb.Name().Name)
 		test.That(t, err, test.ShouldBeNil)
 		// Start by resetting current inputs to 0
 		err = kb.GoToInputs(ctx, waypoints[0])

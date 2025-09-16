@@ -326,7 +326,7 @@ func (c *Capture) initializeOrUpdateCollector(
 	// Build metadata.
 	captureMetadata, dataType := data.BuildCaptureMetadata(
 		collectorConfig.Name.API,
-		collectorConfig.Name.ShortName(),
+		collectorConfig.Name.Name,
 		collectorConfig.Method,
 		collectorConfig.AdditionalParams,
 		methodParams,
@@ -338,7 +338,7 @@ func (c *Capture) initializeOrUpdateCollector(
 	collector, err := collectorConstructor(res, data.CollectorParams{
 		MongoCollection: collection,
 		DataType:        dataType,
-		ComponentName:   collectorConfig.Name.ShortName(),
+		ComponentName:   collectorConfig.Name.Name,
 		ComponentType:   collectorConfig.Name.API.String(),
 		MethodName:      collectorConfig.Method,
 		Interval:        data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz),
@@ -379,7 +379,7 @@ func collectorConfigDescription(
 func targetDir(captureDir string, collectorConfig datamanager.DataCaptureConfig) string {
 	return data.CaptureFilePathWithReplacedReservedChars(
 		filepath.Join(captureDir, collectorConfig.Name.API.String(),
-			collectorConfig.Name.ShortName(), collectorConfig.Method))
+			collectorConfig.Name.Name, collectorConfig.Method))
 }
 
 // closeCollectors closes collectors.

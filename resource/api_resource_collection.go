@@ -105,38 +105,46 @@ func (s *apiResourceCollection[T]) ReplaceOne(resName Name, res T) error {
 	return s.doAdd(resName, res)
 }
 
+func nameToKey(name Name) string {
+	key := name.Name
+	if name.Remote != "" {
+		key = name.Remote + ":" + key
+	}
+	return key
+}
+
 func (s *apiResourceCollection[T]) doAdd(resName Name, res T) error {
 	if resName.Name == "" {
 		return errors.Errorf("empty name used for resource: %s", resName)
 	}
-	name := resName.ShortName()
+	key := nameToKey(resName)
 
-	_, exists := s.resources[name]
+	_, exists := s.resources[key]
 	if exists {
 		return errors.Errorf("resource %s already exists", resName)
 	}
 
-	s.resources[name] = res
-	shortcut := getShortcutName(name)
-	if shortcut != name {
+	s.resources[key] = res
+	shortcut := getShortcutName(key)
+	if shortcut != key {
 		if _, ok := s.shortNames[shortcut]; ok {
 			s.shortNames[shortcut] = ""
 		} else {
-			s.shortNames[shortcut] = name
+			s.shortNames[shortcut] = key
 		}
 	}
 	return nil
 }
 
 func (s *apiResourceCollection[T]) doRemove(n Name) error {
-	name := n.ShortName()
-	_, ok := s.resources[name]
+	key := nameToKey(n)
+	_, ok := s.resources[key]
 	if !ok {
-		return errors.Errorf("resource %s not found", name)
+		return errors.Errorf("resource %s not found", key)
 	}
-	delete(s.resources, name)
+	delete(s.resources, key)
 
-	shortcut := getShortcutName(name)
+	shortcut := getShortcutName(key)
 	_, ok = s.shortNames[shortcut]
 	if ok {
 		delete(s.shortNames, shortcut)
@@ -144,7 +152,7 @@ func (s *apiResourceCollection[T]) doRemove(n Name) error {
 
 	// case: remote1:nameA and remote2:nameA both existed, and remote2:nameA is being deleted, restore shortcut to remote1:nameA
 	for k := range s.resources {
-		if shortcut == getShortcutName(k) && name != getShortcutName(k) {
+		if shortcut == getShortcutName(k) && key != getShortcutName(k) {
 			if _, ok := s.shortNames[shortcut]; ok {
 				s.shortNames[shortcut] = ""
 			} else {

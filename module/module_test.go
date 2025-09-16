@@ -923,11 +923,11 @@ func TestNewFrameSystemClient(t *testing.T) {
 	testName := resource.NewName(testAPI, "arm1")
 
 	expectedInputs := referenceframe.FrameSystemInputs{
-		testName.ShortName(): []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}},
+		testName.Name: []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}},
 	}
 	injectArm := &inject.Arm{
 		JointPositionsFunc: func(ctx context.Context, extra map[string]any) ([]referenceframe.Input, error) {
-			return expectedInputs[testName.ShortName()], nil
+			return expectedInputs[testName.Name], nil
 		},
 		KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
 			return referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")

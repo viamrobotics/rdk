@@ -20,7 +20,7 @@ func (sb *sensorBase) SetVelocity(
 	defer done()
 
 	if sb.controlLoopConfig == nil {
-		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's SetVelocity method", sb.controlledBase.Name().ShortName())
+		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's SetVelocity method", sb.controlledBase.Name().Name)
 		return sb.controlledBase.SetVelocity(ctx, linear, angular, extra)
 	}
 
@@ -77,7 +77,7 @@ func (sb *sensorBase) setupControlLoop(linear, angular control.PIDConfig) error 
 	pidVals := []control.PIDConfig{linear, angular}
 
 	// fully set up the control config based on the provided options
-	pl, err := control.SetupPIDControlConfig(pidVals, sb.Name().ShortName(), options, sb, sb.logger)
+	pl, err := control.SetupPIDControlConfig(pidVals, sb.Name().Name, options, sb, sb.logger)
 	if err != nil {
 		return err
 	}

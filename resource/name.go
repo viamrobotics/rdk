@@ -115,15 +115,6 @@ func RemoveRemoteName(n Name) Name {
 	return tempName
 }
 
-// ShortName returns the short name on Name n in the form of <remote>:<name>.
-func (n Name) ShortName() string {
-	nameR := n.Name
-	if n.Remote != "" {
-		nameR = fmt.Sprintf("%s:%s", n.Remote, nameR)
-	}
-	return nameR
-}
-
 // Validate ensures that important fields exist and are valid.
 func (n Name) Validate() error {
 	if n.Name == "" {
@@ -148,11 +139,6 @@ func (n Name) String() string {
 		name = fmt.Sprintf("%s/%s", name, n.Name)
 	}
 	return name
-}
-
-// SDPTrackNameToShortName takes the output of SDPTrackName() and returns the resource ShortName.
-func SDPTrackNameToShortName(name string) string {
-	return strings.ReplaceAll(name, "+", ":")
 }
 
 // NamesToStrings is a utility that takes a list of resource names and returns a list of fully qualified names.

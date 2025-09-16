@@ -779,7 +779,7 @@ func NewClientFromConn(
 	c := echopb.NewEchoResourceServiceClient(conn)
 	return &dummyClient{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		client: c,
 	}
 }

@@ -951,7 +951,7 @@ func NewClientFromConn(
 	c := echopb.NewTestEchoServiceClient(conn)
 	return &dummyClient{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		client: c,
 	}
 }

@@ -28,7 +28,7 @@ func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, ex
 	// Instead we need to use the Spin method of the base that the sensorBase wraps.
 	// If there is no valid velocity sensor, there won't be a controlLoopConfig.
 	if sb.controlLoopConfig == nil {
-		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's Spin method", sb.controlledBase.Name().ShortName())
+		sb.logger.CWarnf(ctx, "control parameters not configured, using %v's Spin method", sb.controlledBase.Name().Name)
 		return sb.controlledBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}
 

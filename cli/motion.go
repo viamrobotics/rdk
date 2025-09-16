@@ -114,7 +114,7 @@ func motionPrintStatusAction(c *cli.Context, args motionPrintArgs) error {
 			return err
 		}
 
-		printf(c.App.Writer, "%20s : %v", theComponent.Name().ShortName(), prettyString(pif.Pose()))
+		printf(c.App.Writer, "%20s : %v", theComponent.Name().Name, prettyString(pif.Pose()))
 	}
 
 	return nil

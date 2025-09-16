@@ -585,14 +585,14 @@ func TestState(t *testing.T) {
 					// first plan succeeds
 					if replanCount == 0 {
 						pbc := referenceframe.FrameSystemPoses{
-							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+							req.ComponentName.Name: referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
 						return motionplan.NewSimplePlan([]referenceframe.FrameSystemPoses{pbc}, nil), nil
 					}
 					// first replan succeeds
 					if replanCount == 1 {
 						pbc := referenceframe.FrameSystemPoses{
-							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+							req.ComponentName.Name: referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
 						return motionplan.NewSimplePlan([]referenceframe.FrameSystemPoses{pbc, pbc}, nil), nil
 					}
@@ -952,7 +952,7 @@ func TestState(t *testing.T) {
 		test.That(t, len(ps6), test.ShouldEqual, 0)
 
 		pbc := referenceframe.FrameSystemPoses{
-			req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+			req.ComponentName.Name: referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 		}
 
 		// Failed after replanning

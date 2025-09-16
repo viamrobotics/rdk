@@ -225,7 +225,7 @@ func NewWebcam(
 ) (camera.Camera, error) {
 	cam := &webcam{
 		Named:   conf.ResourceName().AsNamed(),
-		logger:  logger.WithFields("camera_name", conf.ResourceName().ShortName()),
+		logger:  logger.WithFields("camera_name", conf.ResourceName().Name),
 		workers: goutils.NewBackgroundStoppableWorkers(),
 	}
 	cam.buffer = NewWebcamBuffer(cam.workers.Context())

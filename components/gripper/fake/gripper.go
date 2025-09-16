@@ -59,7 +59,7 @@ func (g *Gripper) Reconfigure(_ context.Context, _ resource.Dependencies, conf r
 		}
 		g.geometries = []spatialmath.Geometry{geometry}
 	}
-	model, err := gripper.MakeModel(g.Name().ShortName(), g.geometries)
+	model, err := gripper.MakeModel(g.Name().Name, g.geometries)
 	if err != nil {
 		return err
 	}

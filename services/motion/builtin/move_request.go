@@ -156,12 +156,12 @@ func (mr *moveRequest) execute(ctx context.Context, plan motionplan.Plan) (state
 	// If our motion profile is position_only then, we only check against our current & desired position
 	// Conversely if our motion profile is anything else, then we also need to check again our
 	// current & desired orientation
-	if resp := mr.atGoalCheck(mr.planRequest.StartState.Poses()[mr.kinematicBase.Name().ShortName()].Pose()); resp {
+	if resp := mr.atGoalCheck(mr.planRequest.StartState.Poses()[mr.kinematicBase.Name().Name].Pose()); resp {
 		mr.logger.Info("no need to move, already within planDeviationMM of the goal")
 		return state.ExecuteResponse{Replan: false}, nil
 	}
 
-	waypoints, err := plan.Trajectory().GetFrameInputs(mr.kinematicBase.Name().ShortName())
+	waypoints, err := plan.Trajectory().GetFrameInputs(mr.kinematicBase.Name().Name)
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
@@ -226,8 +226,8 @@ func (mr *moveRequest) getTransientDetections(
 ) (*referenceframe.GeometriesInFrame, error) {
 	mr.logger.CDebugf(ctx,
 		"proceeding to get detections from vision service: %s with camera: %s",
-		visSrvc.Name().ShortName(),
-		camName.ShortName(),
+		visSrvc.Name().Name,
+		camName.Name,
 	)
 
 	baseExecutionState, err := mr.kinematicBase.ExecutionState(ctx)
@@ -251,7 +251,7 @@ func (mr *moveRequest) getTransientDetections(
 	kbInputs = append(kbInputs, referenceframe.PoseToInputs(
 		baseExecutionState.CurrentPoses()[mr.kinematicBase.LocalizationFrame().Name()].Pose(),
 	)...)
-	inputMap[mr.kinematicBase.Name().ShortName()] = kbInputs
+	inputMap[mr.kinematicBase.Name().Name] = kbInputs
 
 	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
 	if err != nil {
@@ -263,7 +263,7 @@ func (mr *moveRequest) getTransientDetections(
 	for i, detection := range detections {
 		geometry := detection.Geometry
 		// update the label of the geometry so we know it is transient
-		label := camName.ShortName() + "_transientObstacle_" + strconv.Itoa(i)
+		label := camName.Name + "_transientObstacle_" + strconv.Itoa(i)
 		if geometry.Label() != "" {
 			label += "_" + geometry.Label()
 		}
@@ -274,7 +274,7 @@ func (mr *moveRequest) getTransientDetections(
 		// in the world frame
 		tf, err := mr.localizingFS.Transform(
 			inputMap,
-			referenceframe.NewGeometriesInFrame(camName.ShortName(), []spatialmath.Geometry{geometry}),
+			referenceframe.NewGeometriesInFrame(camName.Name, []spatialmath.Geometry{geometry}),
 			referenceframe.World,
 		)
 		if err != nil {
@@ -630,8 +630,8 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	// add an offset between the movement sensor and the base if it is applicable
-	baseOrigin := referenceframe.NewPoseInFrame(req.ComponentName.ShortName(), spatialmath.NewZeroPose())
-	movementSensorToBase, err := ms.fsService.TransformPose(ctx, baseOrigin, movementSensor.Name().ShortName(), nil)
+	baseOrigin := referenceframe.NewPoseInFrame(req.ComponentName.Name, spatialmath.NewZeroPose())
+	movementSensorToBase, err := ms.fsService.TransformPose(ctx, baseOrigin, movementSensor.Name().Name, nil)
 	if err != nil {
 		// here we make the assumption the movement sensor is coincident with the base
 		movementSensorToBase = baseOrigin
@@ -640,7 +640,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose()))
 
 	// create a KinematicBase from the componentName
-	baseComponent, ok := ms.components[req.ComponentName.ShortName()]
+	baseComponent, ok := ms.components[req.ComponentName.Name]
 	if !ok {
 		return nil, resource.NewNotFoundError(req.ComponentName)
 	}
@@ -756,7 +756,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
 	// create a KinematicBase from the componentName
-	component, ok := ms.components[req.ComponentName.ShortName()]
+	component, ok := ms.components[req.ComponentName.Name]
 	if !ok {
 		return nil, resource.DependencyNotFoundError(req.ComponentName)
 	}

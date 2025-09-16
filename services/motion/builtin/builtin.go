@@ -200,7 +200,7 @@ func (ms *builtIn) Reconfigure(
 		case vision.Service:
 			visionServices[name] = dep
 		default:
-			componentMap[name.ShortName()] = dep
+			componentMap[name.Name] = dep
 		}
 	}
 	ms.movementSensors = movementSensors
@@ -334,7 +334,7 @@ func (ms *builtIn) GetPose(
 	ms.logger.Warn("GetPose is deprecated. Please switch to using the GetPose method defined on the FrameSystem service")
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return ms.fsService.GetPose(ctx, componentName.ShortName(), destinationFrame, supplementalTransforms, extra)
+	return ms.fsService.GetPose(ctx, componentName.Name, destinationFrame, supplementalTransforms, extra)
 }
 
 func (ms *builtIn) StopPlan(
@@ -480,9 +480,9 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	}
 	logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
 
-	movingFrame := frameSys.Frame(req.ComponentName.ShortName())
+	movingFrame := frameSys.Frame(req.ComponentName.Name)
 	if movingFrame == nil {
-		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName.ShortName())
+		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName.Name)
 	}
 
 	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
@@ -719,7 +719,7 @@ func waypointsFromRequest(
 			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
 		}
 	} else if req.Destination != nil {
-		goalState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName.ShortName(): req.Destination}, nil)
+		goalState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName.Name: req.Destination}, nil)
 		waypoints = append(waypoints, goalState)
 	}
 	return startState, waypoints, nil

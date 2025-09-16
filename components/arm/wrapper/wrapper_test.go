@@ -29,7 +29,7 @@ func TestReconfigure(t *testing.T) {
 		Name: "testArm",
 		ConvertedAttributes: &Config{
 			ModelFilePath: "../fake/kinematics/xarm6.json",
-			ArmName:       armName.ShortName(),
+			ArmName:       armName.Name,
 		},
 	}
 
@@ -45,7 +45,7 @@ func TestReconfigure(t *testing.T) {
 		Name: "testArm",
 		ConvertedAttributes: &Config{
 			ModelFilePath: "DNE",
-			ArmName:       armName.ShortName(),
+			ArmName:       armName.Name,
 		},
 	}
 

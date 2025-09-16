@@ -199,7 +199,7 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 
 	components := make(map[string]resource.Resource)
 	for name, r := range deps {
-		short := name.ShortName()
+		short := name.Name
 		if _, present := components[short]; present {
 			return DuplicateResourceShortNameError(short)
 		}
@@ -351,7 +351,7 @@ func NewFromService(
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.NewFrameSystem(service.Name().ShortName(), fsCfg.Parts, supplementalTransforms)
+	return referenceframe.NewFrameSystem(service.Name().Name, fsCfg.Parts, supplementalTransforms)
 }
 
 // PrefixRemoteParts applies prefixes to a list of FrameSystemParts appropriate to the remote they originate from.

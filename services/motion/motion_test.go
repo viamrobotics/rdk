@@ -50,8 +50,8 @@ func TestPlanWithStatus(t *testing.T) {
 		ComponentName: baseName,
 		Plan: motionplan.NewSimplePlan(
 			[]referenceframe.FrameSystemPoses{
-				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
-				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
+				{baseName.Name: referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
+				{baseName.Name: referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
 			},
 			nil,
 		),
@@ -64,12 +64,12 @@ func TestPlanWithStatus(t *testing.T) {
 		Steps: []*pb.PlanStep{
 			{
 				Step: map[string]*pb.ComponentState{
-					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseA)},
+					baseName.Name: {Pose: spatialmath.PoseToProtobuf(poseA)},
 				},
 			},
 			{
 				Step: map[string]*pb.ComponentState{
-					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseB)},
+					baseName.Name: {Pose: spatialmath.PoseToProtobuf(poseB)},
 				},
 			},
 		},
@@ -570,12 +570,12 @@ func TestPlan(t *testing.T) {
 		Steps: []*pb.PlanStep{
 			{
 				Step: map[string]*pb.ComponentState{
-					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseA)},
+					baseName.Name: {Pose: spatialmath.PoseToProtobuf(poseA)},
 				},
 			},
 			{
 				Step: map[string]*pb.ComponentState{
-					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseB)},
+					baseName.Name: {Pose: spatialmath.PoseToProtobuf(poseB)},
 				},
 			},
 		},
@@ -586,8 +586,8 @@ func TestPlan(t *testing.T) {
 		ComponentName: baseName,
 		Plan: motionplan.NewSimplePlan(
 			[]referenceframe.FrameSystemPoses{
-				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
-				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
+				{baseName.Name: referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
+				{baseName.Name: referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
 			},
 			nil,
 		),

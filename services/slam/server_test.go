@@ -385,7 +385,7 @@ func TestServerDoCommand(t *testing.T) {
 	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 	doCommandRequest := &commonpb.DoCommandRequest{
-		Name:    testSvcName1.ShortName(),
+		Name:    testSvcName1.Name,
 		Command: cmd,
 	}
 	doCommandResponse, err := server.DoCommand(context.Background(), doCommandRequest)
