@@ -351,9 +351,9 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 			return err
 		}
 		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
-			VisionServiceName: visionSvc.Name().ShortName(), CameraName: camera.Name().ShortName(),
+			VisionServiceName: visionSvc.Name().Name, CameraName: camera.Name().Name,
 		})
-		visionServicesByName[visionSvc.Name().ShortName()] = visionSvc
+		visionServicesByName[visionSvc.Name().Name] = visionSvc
 	}
 
 	// Parse movement sensor from the configuration if map type is GPS
@@ -544,10 +544,10 @@ func (svc *builtIn) Close(ctx context.Context) error {
 
 func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, extra map[string]interface{}) error {
 	req := motion.MoveOnGlobeReq{
-		ComponentName:      svc.base.Name().ShortName(),
+		ComponentName:      svc.base.Name().Name,
 		Destination:        wp.ToPoint(),
 		Heading:            math.NaN(),
-		MovementSensorName: svc.movementSensor.Name().ShortName(),
+		MovementSensorName: svc.movementSensor.Name().Name,
 		Obstacles:          svc.obstacles,
 		MotionCfg:          svc.motionCfg,
 		BoundingRegions:    svc.boundingRegions,
@@ -687,7 +687,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			svc.logger.CDebugf(
 				ctx,
 				"we assume the movementsensor named: %s is coincident with the camera named: %s due to err: %v",
-				svc.movementSensor.Name().ShortName(), detector.CameraName, err.Error(),
+				svc.movementSensor.Name().Name, detector.CameraName, err.Error(),
 			)
 			cameraToMovementsensor = movementsensorOrigin
 		}
@@ -822,7 +822,7 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 	}
 
 	ph, err := svc.motionService.PlanHistory(ctx, motion.PlanHistoryReq{
-		ComponentName: svc.base.Name().ShortName(),
+		ComponentName: svc.base.Name().Name,
 		ExecutionID:   ewp.executionID,
 		LastPlanOnly:  true,
 	})

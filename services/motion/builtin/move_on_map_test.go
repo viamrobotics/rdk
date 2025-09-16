@@ -200,9 +200,9 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.6556e3, Y: 0.64152e3})
 
 	req := motion.MoveOnMapReq{
-		ComponentName: injectBase.Name().ShortName(),
+		ComponentName: injectBase.Name().Name,
 		Destination:   goal,
-		SlamName:      injectSlam.Name().ShortName(),
+		SlamName:      injectSlam.Name().Name,
 		MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 0.01},
 		Extra:         extra,
 	}
