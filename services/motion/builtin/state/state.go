@@ -3,7 +3,6 @@
 package state
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -480,7 +479,7 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 
 	statuses := []motion.PlanStatusWithID{}
 	componentNames := maps.Keys(s.componentStateByComponent)
-	slices.SortFunc(componentNames, cmp.Compare[string])
+	slices.Sort(componentNames)
 
 	if req.OnlyActivePlans {
 		for _, name := range componentNames {
