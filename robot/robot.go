@@ -192,7 +192,7 @@ type RestartModuleRequest struct {
 	ModuleName string
 }
 
-// ResourceByName looks up via short name, and will error if none or more than 1 exist.
+// ResourceByName looks up via simple name, and will error if none or more than 1 exist.
 func ResourceByName(r Robot, name string) (resource.Resource, error) {
 	all := AllResourcesByName(r, name)
 	if len(all) == 0 {
@@ -204,8 +204,8 @@ func ResourceByName(r Robot, name string) (resource.Resource, error) {
 	return all[0], nil
 }
 
-// AllResourcesByName returns an array of all resources that have this short name.
-// NOTE: this function queries by the shortname rather than the fully qualified resource name which is not recommended practice
+// AllResourcesByName returns an array of all resources that have this simple name.
+// NOTE: this function queries by the simple name rather than the fully qualified resource name which is not recommended practice
 // and may become deprecated in the future.
 func AllResourcesByName(r Robot, name string) []resource.Resource {
 	all := []resource.Resource{}
