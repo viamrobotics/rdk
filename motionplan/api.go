@@ -20,6 +20,7 @@ type MotionPlanner interface {
 	) ([][]referenceframe.Input, error)
 }
 
+var test = "ignore"
 var global MotionPlanner
 
 // GetGlobal - get the global motion planner or panic.
