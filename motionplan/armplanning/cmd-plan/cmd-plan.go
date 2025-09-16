@@ -35,6 +35,7 @@ func realMain() error {
 	pseudolinearOrientation := flag.Float64("pseudolinear-orientation", 0, "")
 	seed := flag.Int("seed", -1, "")
 	verbose := flag.Bool("v", false, "verbose")
+	loop := flag.Int("loop", 1, "loop")
 
 	flag.Parse()
 	if len(flag.Args()) == 0 {
@@ -119,10 +120,20 @@ func realMain() error {
 		}
 	}
 
+	for i := 0; i < *loop; i++ {
+		err = visualize(req, plan, mylog)
+		if err != nil {
+			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
+		}
+	}
+
+	return nil
+}
+
+func visualize(req armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger) error {
 	renderFramePeriod := 50 * time.Millisecond
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
-		mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
-		return nil
+		return err
 	}
 
 	for idx := range plan.Path() {
@@ -130,14 +141,12 @@ func realMain() error {
 		// because obstacles can be in terms of reference frames contained within the frame
 		// system. Such as a camera attached to an arm.
 		if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, plan.Trajectory()[0]); err != nil {
-			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
-			break
+			return err
 		}
 
 		// `DrawFrameSystem` draws everything else we're interested in.
 		if err := viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx]); err != nil {
-			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
-			break
+			return err
 		}
 
 		var goalPoses []spatialmath.Pose
@@ -163,8 +172,7 @@ func realMain() error {
 		// tail starting at the goal point.
 		arrowHeadAtPose := true
 		if err := viz.DrawPoses(goalPoses, []string{"blue"}, arrowHeadAtPose); err != nil {
-			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
-			break
+			return err
 		}
 
 		if idx == 0 {
