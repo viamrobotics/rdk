@@ -124,6 +124,7 @@ func realMain() error {
 		err = visualize(req, plan, mylog)
 		if err != nil {
 			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
+			break
 		}
 	}
 
