@@ -1807,7 +1807,7 @@ func (c *AppClient) GetRobotPartMetadata(ctx context.Context, robotID string) (m
 //
 // For more information, see the [UpdateRobotPartMetadata method docs].
 //
-// [UpdateRobotPartMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updatemetadata
+// [UpdateRobotPartMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updaterobotpartmetadata
 func (c *AppClient) UpdateRobotPartMetadata(ctx context.Context, robotID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
