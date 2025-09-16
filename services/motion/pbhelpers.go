@@ -15,6 +15,8 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+var ErrEmptyComponentName = errors.New("component name cannot be empty")
+
 // ToProto converts a MoveReq to a pb.MoveRequest
 // the name argument should correspond to the name of the motion service the request will be used with.
 func (r MoveReq) ToProto(name string) (*pb.MoveRequest, error) {
@@ -129,7 +131,7 @@ func planStatusWithIDFromProto(ps *pb.PlanStatusWithID) (PlanStatusWithID, error
 	}
 
 	if ps.ComponentName == "" {
-		return PlanStatusWithID{}, errors.New("received nil *commonpb.ResourceName")
+		return PlanStatusWithID{}, ErrEmptyComponentName
 	}
 
 	return PlanStatusWithID{
@@ -157,7 +159,7 @@ func planFromProto(p *pb.Plan) (PlanWithMetadata, error) {
 	}
 
 	if p.ComponentName == "" {
-		return PlanWithMetadata{}, errors.New("received nil *pb.ResourceName")
+		return PlanWithMetadata{}, ErrEmptyComponentName
 	}
 
 	plan := PlanWithMetadata{
@@ -280,13 +282,13 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 
 	protoComponentName := req.GetComponentName()
 	if protoComponentName == "" {
-		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName")
+		return MoveOnGlobeReq{}, ErrEmptyComponentName
 	}
 	componentName := protoComponentName
 	destination := geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude())
 	protoMovementSensorName := req.GetMovementSensorName()
 	if protoMovementSensorName == "" {
-		return MoveOnGlobeReq{}, errors.New("received nil *commonpb.ResourceName")
+		return MoveOnGlobeReq{}, ErrEmptyComponentName
 	}
 	movementSensorName := protoMovementSensorName
 	motionCfg := configurationFromProto(req.MotionConfiguration)
@@ -325,7 +327,7 @@ func (req PlanHistoryReq) toProto(name string) (*pb.GetPlanRequest, error) {
 
 func getPlanRequestFromProto(req *pb.GetPlanRequest) (PlanHistoryReq, error) {
 	if req.GetComponentName() == "" {
-		return PlanHistoryReq{}, errors.New("received nil *commonpb.ResourceName")
+		return PlanHistoryReq{}, ErrEmptyComponentName
 	}
 
 	executionID := uuid.Nil
@@ -354,11 +356,11 @@ func moveOnMapRequestFromProto(req *pb.MoveOnMapRequest) (MoveOnMapReq, error) {
 	}
 	protoComponentName := req.GetComponentName()
 	if protoComponentName == "" {
-		return MoveOnMapReq{}, errors.New("received nil *commonpb.ResourceName for component name")
+		return MoveOnMapReq{}, ErrEmptyComponentName
 	}
 	protoSlamServiceName := req.GetSlamServiceName()
 	if protoSlamServiceName == "" {
-		return MoveOnMapReq{}, errors.New("received nil *commonpb.ResourceName for SlamService name")
+		return MoveOnMapReq{}, errors.New("SlamService name cannot be empty")
 	}
 	geoms := []spatialmath.Geometry{}
 	if obs := req.GetObstacles(); len(obs) > 0 {

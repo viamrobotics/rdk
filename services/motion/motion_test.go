@@ -91,45 +91,35 @@ func TestPlanWithStatus(t *testing.T) {
 			},
 			{
 				description: "empty status returns an error",
-				input: &pb.PlanWithStatus{
-					Plan: &pb.Plan{
-						Id:            "00000000-0000-0000-0000-000000000001",
-						ExecutionId:   "00000000-0000-0000-0000-000000000002",
+				input : &pb.PlanWithStatus{
+					Plan: PlanWithMetadata{
 						ComponentName: "test-component",
-					},
+					}.ToProto(),
 				},
 				result: PlanWithStatus{},
 				err:    errors.New("received nil *pb.PlanStatus"),
 			},
 			{
 				description: "nil pointers in the status history returns an error",
-				input: &pb.PlanWithStatus{
-					Plan: &pb.Plan{
-						Id:            "00000000-0000-0000-0000-000000000001",
-						ExecutionId:   "00000000-0000-0000-0000-000000000002",
+				input : &pb.PlanWithStatus{
+					Plan: PlanWithMetadata{
 						ComponentName: "test-component",
-					},
-					Status:        PlanStatus{}.ToProto(),
-					StatusHistory: []*pb.PlanStatus{nil},
+					}.ToProto(),
 				},
 				result: PlanWithStatus{},
 				err:    errors.New("received nil *pb.PlanStatus"),
 			},
 			{
 				description: "empty *pb.PlanWithStatus status returns an empty PlanWithStatus",
-				input: &pb.PlanWithStatus{
-					Plan: &pb.Plan{
-						Id:            "00000000-0000-0000-0000-000000000001",
-						ExecutionId:   "00000000-0000-0000-0000-000000000002",
+				input : &pb.PlanWithStatus{
+					Plan: PlanWithMetadata{
 						ComponentName: "test-component",
-					},
+					}.ToProto(),
 					Status: PlanStatus{}.ToProto(),
 				},
 				result: PlanWithStatus{
 					Plan: PlanWithMetadata{
-						ID:            uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 						ComponentName: "test-component",
-						ExecutionID:   uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 					},
 					StatusHistory: []PlanStatus{{}},
 				},
@@ -342,7 +332,7 @@ func TestPlanStatusWithID(t *testing.T) {
 				description: "no component name returns error",
 				input:       &pb.PlanStatusWithID{PlanId: id.String(), ExecutionId: id.String(), Status: &pb.PlanStatus{}},
 				result:      PlanStatusWithID{},
-				err:         errors.New("received nil *commonpb.ResourceName"),
+				err:         ErrEmptyComponentName,
 			},
 			{
 				description: "success case with a failed plan status & reason",
@@ -635,7 +625,7 @@ func TestPlan(t *testing.T) {
 				description: "empty ComponentName in *pb.Plan{} returns an error",
 				input:       &pb.Plan{Id: planID.String(), ExecutionId: executionID.String()},
 				result:      PlanWithMetadata{},
-				err:         errors.New("received nil *pb.ResourceName"),
+				err:         ErrEmptyComponentName,
 			},
 			{
 				description: "a nil *pb.PlanStep{} returns an error",
@@ -946,7 +936,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					Destination: &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
 				},
 				result: MoveOnGlobeReq{},
-				err:    errors.New("received nil *commonpb.ResourceName"),
+				err:    ErrEmptyComponentName,
 			},
 			{
 				description: "an empty movement sensor name returns an error",
@@ -955,7 +945,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					ComponentName: mybase,
 				},
 				result: MoveOnGlobeReq{},
-				err:    errors.New("received nil *commonpb.ResourceName"),
+				err:    ErrEmptyComponentName,
 			},
 			{
 				description: "an empty *pb.MoveOnGlobeRequest returns an empty MoveOnGlobeReq",
@@ -1236,7 +1226,7 @@ func TestMoveOnMapReq(t *testing.T) {
 					Destination: spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 				},
 				result: MoveOnMapReq{},
-				err:    errors.New("received nil *commonpb.ResourceName for component name"),
+				err:    ErrEmptyComponentName,
 			},
 			{
 				description: "nil SlamName causes failure",
@@ -1246,7 +1236,7 @@ func TestMoveOnMapReq(t *testing.T) {
 					ComponentName: myBase,
 				},
 				result: MoveOnMapReq{},
-				err:    errors.New("received nil *commonpb.ResourceName for SlamService name"),
+				err:    errors.New("SlamService name cannot be empty"),
 			},
 			{
 				description: "success",
@@ -1393,7 +1383,7 @@ func TestPlanHistoryReq(t *testing.T) {
 				description: "returns an error if component name is nil",
 				input:       &pb.GetPlanRequest{},
 				result:      PlanHistoryReq{},
-				err:         errors.New("received nil *commonpb.ResourceName"),
+				err:         ErrEmptyComponentName,
 			},
 			{
 				description: "empty struct returns an empty struct",
