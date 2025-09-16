@@ -91,4 +91,6 @@ func TestWineCrazyTouch(t *testing.T) {
 		logger.Info(now)
 		test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
 	}
+
+	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 5)
 }

@@ -239,18 +239,24 @@ func NewCollisionConstraint(
 			return errors.New("need either a Position or Configuration to be set for a State")
 		}
 
-		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
-		if err != nil {
-			return err
-		}
-		cs := cg.collisions(collisionBufferMM)
-		if len(cs) != 0 {
-			// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
-			return fmt.Errorf("violation between %s and %s geometries", cs[0].name1, cs[0].name2)
-		}
-		return nil
+		return collisionCheckFinish(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
 	}
 	return constraint, nil
+}
+
+func collisionCheckFinish(internalGeoms, static []spatial.Geometry, zeroCG *collisionGraph,
+	reportDistances bool, collisionBufferMM float64,
+) error {
+	cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
+	if err != nil {
+		return err
+	}
+	cs := cg.collisions(collisionBufferMM)
+	if len(cs) != 0 {
+		// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
+		return fmt.Errorf("violation between %s and %s geometries (tolal collisions: %d)", cs[0].name1, cs[0].name2, len(cs))
+	}
+	return nil
 }
 
 // NewCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
@@ -291,16 +297,7 @@ func NewCollisionConstraintFS(
 			}
 		}
 
-		cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
-		if err != nil {
-			return err
-		}
-		cs := cg.collisions(collisionBufferMM)
-		if len(cs) != 0 {
-			// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
-			return fmt.Errorf("violation between %s and %s geometries", cs[0].name1, cs[0].name2)
-		}
-		return nil
+		return collisionCheckFinish(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
 	}
 	return constraint, nil
 }

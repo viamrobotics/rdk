@@ -35,6 +35,7 @@ func realMain() error {
 	pseudolinearOrientation := flag.Float64("pseudolinear-orientation", 0, "")
 	seed := flag.Int("seed", -1, "")
 	verbose := flag.Bool("v", false, "verbose")
+	loop := flag.Int("loop", 1, "loop")
 
 	flag.Parse()
 	if len(flag.Args()) == 0 {
@@ -119,52 +120,45 @@ func realMain() error {
 		}
 	}
 
+	for i := 0; i < *loop; i++ {
+		err = visualize(req, plan, mylog)
+		if err != nil {
+			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
+			break
+		}
+	}
+
+	return nil
+}
+
+func visualize(req armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger) error {
 	renderFramePeriod := 50 * time.Millisecond
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
-		mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
-		return nil
+		return err
 	}
 
 	for idx := range plan.Path() {
-		// `DrawWorldState` just draws the obstacles. I think the FrameSystem/Path are necessary
-		// because obstacles can be in terms of reference frames contained within the frame
-		// system. Such as a camera attached to an arm.
-		if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, plan.Trajectory()[0]); err != nil {
-			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
-			break
-		}
-
-		// `DrawFrameSystem` draws everything else we're interested in.
-		if err := viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx]); err != nil {
-			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
-			break
-		}
-
-		var goalPoses []spatialmath.Pose
-		for _, goalPlanState := range req.Goals {
-			poses, err := goalPlanState.ComputePoses(req.FrameSystem)
+		if idx > 0 {
+			midPoints, err := motionplan.InterpolateSegmentFS(
+				&motionplan.SegmentFS{plan.Trajectory()[idx-1], plan.Trajectory()[idx], req.FrameSystem},
+				2)
 			if err != nil {
-				mylog.Println("Could not compute goal poses. Err:", err)
-				continue
+				return err
 			}
 
-			for _, poseValue := range poses {
-				// Dan: This is my guess on how to assure the goal pose is in the world reference
-				// frame.
-				poseInWorldFrame := poseValue.Transform(
-					referenceframe.NewPoseInFrame(
-						req.FrameSystem.World().Name(),
-						spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
-				goalPoses = append(goalPoses, poseInWorldFrame.Pose())
+			for _, mp := range midPoints {
+				err := drawPosition(req, mp)
+				if err != nil {
+					return err
+				}
 			}
+
+			time.Sleep(renderFramePeriod)
 		}
 
-		// A matter of preference. The arrow head will point at the goal point. As opposed to the
-		// tail starting at the goal point.
-		arrowHeadAtPose := true
-		if err := viz.DrawPoses(goalPoses, []string{"blue"}, arrowHeadAtPose); err != nil {
-			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
-			break
+		err := drawPosition(req, plan.Trajectory()[idx])
+		if err != nil {
+			return err
 		}
 
 		if idx == 0 {
@@ -173,6 +167,47 @@ func realMain() error {
 		}
 
 		time.Sleep(renderFramePeriod)
+	}
+
+	return nil
+}
+
+func drawPosition(req armplanning.PlanRequest, inputs referenceframe.FrameSystemInputs) error {
+	// `DrawWorldState` just draws the obstacles. I think the FrameSystem/Path are necessary
+	// because obstacles can be in terms of reference frames contained within the frame
+	// system. Such as a camera attached to an arm.
+	if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, inputs); err != nil {
+		return err
+	}
+
+	// `DrawFrameSystem` draws everything else we're interested in.
+	if err := viz.DrawFrameSystem(req.FrameSystem, inputs); err != nil {
+		return err
+	}
+
+	var goalPoses []spatialmath.Pose
+	for _, goalPlanState := range req.Goals {
+		poses, err := goalPlanState.ComputePoses(req.FrameSystem)
+		if err != nil {
+			return err
+		}
+
+		for _, poseValue := range poses {
+			// Dan: This is my guess on how to assure the goal pose is in the world reference
+			// frame.
+			poseInWorldFrame := poseValue.Transform(
+				referenceframe.NewPoseInFrame(
+					req.FrameSystem.World().Name(),
+					spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+			goalPoses = append(goalPoses, poseInWorldFrame.Pose())
+		}
+	}
+
+	// A matter of preference. The arrow head will point at the goal point. As opposed to the
+	// tail starting at the goal point.
+	arrowHeadAtPose := true
+	if err := viz.DrawPoses(goalPoses, []string{"blue"}, arrowHeadAtPose); err != nil {
+		return err
 	}
 
 	return nil
