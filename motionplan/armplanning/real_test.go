@@ -3,6 +3,7 @@ package armplanning
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -29,7 +30,7 @@ func readRequestFromFile(f string) (*PlanRequest, error) {
 	return req, nil
 }
 
-func TestOrb1(t *testing.T) {
+func TestOrbOneSeed(t *testing.T) {
 	matches, err := filepath.Glob("data/orb-plan*.json")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -40,7 +41,29 @@ func TestOrb1(t *testing.T) {
 			req, err := readRequestFromFile(fp)
 			test.That(t, err, test.ShouldBeNil)
 
-			for i := 0; i < 100; i++ {
+			plan, err := PlanMotion(context.Background(), logger, req)
+			test.That(t, err, test.ShouldBeNil)
+
+			a := plan.Trajectory()[0]["sanding-ur5"]
+			b := plan.Trajectory()[1]["sanding-ur5"]
+
+			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .005)
+		})
+	}
+}
+
+func TestOrbManySeeds(t *testing.T) {
+	matches, err := filepath.Glob("data/orb-plan*.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	for _, fp := range matches {
+		req, err := readRequestFromFile(fp)
+		test.That(t, err, test.ShouldBeNil)
+
+		for i := 0; i < 100; i++ {
+			t.Run(fmt.Sprintf("%s-%d", fp, i), func(t *testing.T) {
+				logger := logging.NewTestLogger(t)
+
 				req.PlannerOptions.RandomSeed = i
 				plan, err := PlanMotion(context.Background(), logger, req)
 				test.That(t, err, test.ShouldBeNil)
@@ -49,13 +72,12 @@ func TestOrb1(t *testing.T) {
 				b := plan.Trajectory()[1]["sanding-ur5"]
 
 				test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .005)
-			}
-		})
+			})
+		}
 	}
 }
 
 func TestWineCrazyTouch(t *testing.T) {
-	t.Skip()
 	logger := logging.NewTestLogger(t)
 
 	req, err := readRequestFromFile("data/wine-crazy-touch.json")
@@ -70,4 +92,25 @@ func TestWineCrazyTouch(t *testing.T) {
 		logger.Info(now)
 		test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
 	}
+
+	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 5)
+}
+
+func TestWineCrazyTouch2(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	req, err := readRequestFromFile("data/wine-crazy-touch2.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	plan, err := PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
+
+	orig := plan.Trajectory()[0]["arm-right"]
+	for _, tt := range plan.Trajectory() {
+		now := tt["arm-right"]
+		logger.Info(now)
+		test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
+	}
+
+	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 5)
 }

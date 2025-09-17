@@ -129,7 +129,15 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	// Updated managed map with existingPackages
 	for _, p := range existingPackages {
-		p := p
+		statusFile, err := readStatusFile(p, m.packagesDir)
+		if err != nil {
+			m.logger.Errorf("Failed reading status file for synced package %s: %v", p.Name, err)
+			return multierr.Append(outErr, err)
+		}
+		if statusFile.Status == syncStatusFailed {
+			m.logger.Errorf("Package %s was fully downloaded but failed to unzip, please try a different version", p.Name)
+			return multierr.Append(outErr, fmt.Errorf("package %s was fully downloaded but failed to unzip, please try a different version", p.Name))
+		}
 		newManagedPackages[PackageName(p.Name)] = &p
 	}
 

@@ -1,5 +1,3 @@
-//go:build !windows && !no_cgo
-
 package armplanning
 
 import (
@@ -9,7 +7,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -32,7 +29,7 @@ var interp = referenceframe.FloatsToInputs([]float64{
 // This test will step through the different stages of cbirrt and test each one in turn.
 func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
-	inputSteps := []node{}
+	inputSteps := []*node{}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
@@ -48,18 +45,17 @@ func TestSimpleLinearMotion(t *testing.T) {
 	chains, err := motionChainsFromPlanState(fs, &PlanState{poses: goal})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, chains, test.ShouldNotBeNil)
-	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, motionplan.NewEmptyConstraintHandler(), chains)
+	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, motionplan.NewEmptyConstraintChecker(), chains)
 	test.That(t, err, test.ShouldBeNil)
-	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goalMetric)
 	test.That(t, err, test.ShouldBeNil)
 
-	near1 := &basicNode{q: referenceframe.FrameSystemInputs{m.Name(): home7}}
-	seedMap := make(map[node]node)
+	near1 := &node{inputs: referenceframe.FrameSystemInputs{m.Name(): home7}}
+	seedMap := rrtMap{}
 	seedMap[near1] = nil
 	target := referenceframe.FrameSystemInputs{m.Name(): interp}
 
-	goalMap := make(map[node]node)
+	goalMap := rrtMap{}
 
 	if len(solutions) < nSolutions {
 		nSolutions = len(solutions)
@@ -69,28 +65,21 @@ func TestSimpleLinearMotion(t *testing.T) {
 		goalMap[solution] = nil
 	}
 
-	m1chan := make(chan node, 1)
-	defer close(m1chan)
-
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
-	utils.PanicCapturingGo(func() {
-		cbirrt.constrainedExtend(ctx, cbirrt.randseed, seedMap, near1, &basicNode{q: target}, m1chan)
-	})
-	seedReached := <-m1chan
+	seedReached := mp.constrainedExtend(ctx, 1, mp.randseed, seedMap, near1, &node{inputs: target})
+
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
 	near2 := nearestNeighbor(seedReached, goalMap, nodeConfigurationDistanceFunc)
 	// extend goalMap towards the point in seedMap
-	utils.PanicCapturingGo(func() {
-		cbirrt.constrainedExtend(ctx, cbirrt.randseed, goalMap, near2, seedReached, m1chan)
-	})
-	goalReached := <-m1chan
-	dist := cbirrt.configurationDistanceFunc(
-		&motionplan.SegmentFS{StartConfiguration: seedReached.Q(), EndConfiguration: goalReached.Q()},
-	)
-	test.That(t, dist < cbirrt.planOpts.InputIdentDist, test.ShouldBeTrue)
+	goalReached := mp.constrainedExtend(ctx, 1, mp.randseed, goalMap, near2, seedReached)
 
-	seedReached.SetCorner(true)
-	goalReached.SetCorner(true)
+	dist := mp.configurationDistanceFunc(
+		&motionplan.SegmentFS{StartConfiguration: seedReached.inputs, EndConfiguration: goalReached.inputs},
+	)
+	test.That(t, dist < mp.planOpts.InputIdentDist, test.ShouldBeTrue)
+
+	seedReached.corner = true
+	goalReached.corner = true
 
 	// extract the path to the seed
 	for seedReached != nil {
@@ -109,7 +98,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Test that smoothing succeeds and does not lengthen the path (it may be the same length)
 	unsmoothLen := len(inputSteps)
-	finalSteps := cbirrt.smoothPath(ctx, inputSteps)
+	finalSteps := mp.smoothPath(ctx, inputSteps)
 	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
 	// Test that path has changed after smoothing was applied
 	test.That(t, finalSteps, test.ShouldNotResemble, inputSteps)

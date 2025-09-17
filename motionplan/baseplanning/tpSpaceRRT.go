@@ -157,7 +157,7 @@ func newTPSpaceMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
-	constraintHandler *motionplan.ConstraintHandler,
+	constraintHandler *motionplan.ConstraintChecker,
 	chains *motionChains,
 ) (motionPlanner, error) {
 	if opt == nil {
@@ -897,7 +897,7 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		mp.randseed,
 		mp.logger,
 		mp.planOpts,
-		mp.ConstraintHandler,
+		mp.ConstraintChecker,
 		mp.motionChains,
 	)
 	if err != nil {

@@ -149,6 +149,7 @@ var (
 				YMaxNormalized: 0.85,
 			},
 		},
+		Classifications: []*Classification{},
 	}
 
 	dataPipelineID = "data_pipeline_id"

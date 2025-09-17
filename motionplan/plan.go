@@ -45,6 +45,28 @@ func NewSimplePlan(path Path, traj Trajectory) *SimplePlan {
 	return &SimplePlan{path: path, traj: traj}
 }
 
+// NewSimplePlanFromTrajectory instantiates a new Plan from a Trajectory, making the poses.
+func NewSimplePlanFromTrajectory(traj Trajectory, fs *referenceframe.FrameSystem) (*SimplePlan, error) {
+	path := Path{}
+	for _, inputNode := range traj {
+		poseMap := make(map[string]*referenceframe.PoseInFrame)
+		for frame := range inputNode {
+			tf, err := fs.Transform(inputNode, referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World)
+			if err != nil {
+				return nil, err
+			}
+			pose, ok := tf.(*referenceframe.PoseInFrame)
+			if !ok {
+				return nil, fmt.Errorf("pose not transformable")
+			}
+			poseMap[frame] = pose
+		}
+		path = append(path, poseMap)
+	}
+
+	return &SimplePlan{path: path, traj: traj}, nil
+}
+
 // NewGeoPlan returns a Plan containing a Path with GPS coordinates smuggled into the Pose struct. Each GPS point is created using:
 // A Point with X as the longitude and Y as the latitude
 // An orientation using the heading as the theta in an OrientationVector with Z=1.

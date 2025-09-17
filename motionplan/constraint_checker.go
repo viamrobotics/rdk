@@ -13,9 +13,9 @@ import (
 
 var defaultMinStepCount = 2
 
-// ConstraintHandler is a convenient wrapper for constraint handling which is likely to be common among most motion
+// ConstraintChecker is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
-type ConstraintHandler struct {
+type ConstraintChecker struct {
 	segmentConstraints   map[string]SegmentConstraint
 	segmentFSConstraints map[string]SegmentFSConstraint
 	stateConstraints     map[string]StateConstraint
@@ -24,22 +24,22 @@ type ConstraintHandler struct {
 	boundingRegions      []spatialmath.Geometry
 }
 
-// NewEmptyConstraintHandler - creates a ConstraintHandler with nothing.
-func NewEmptyConstraintHandler() *ConstraintHandler {
-	handler := ConstraintHandler{}
+// NewEmptyConstraintChecker - creates a ConstraintChecker with nothing.
+func NewEmptyConstraintChecker() *ConstraintChecker {
+	handler := ConstraintChecker{}
 	handler.pathMetric = NewZeroFSMetric()
 	return &handler
 }
 
-// NewConstraintHandlerWithPathMetric - creates a ConstraintHandler with a specific metric.
-func NewConstraintHandlerWithPathMetric(m StateFSMetric) *ConstraintHandler {
-	handler := ConstraintHandler{}
+// NewConstraintCheckerWithPathMetric - creates a ConstraintChecker with a specific metric.
+func NewConstraintCheckerWithPathMetric(m StateFSMetric) *ConstraintChecker {
+	handler := ConstraintChecker{}
 	handler.pathMetric = m
 	return &handler
 }
 
-// NewConstraintHandler - creates a ConstraintHandler with all the params.
-func NewConstraintHandler(
+// NewConstraintChecker - creates a ConstraintChecker with all the params.
+func NewConstraintChecker(
 	collisionBufferMM float64,
 	constraints *Constraints,
 	startPoses, goalPoses referenceframe.FrameSystemPoses,
@@ -49,13 +49,13 @@ func NewConstraintHandler(
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
 	useTPspace bool,
-) (*ConstraintHandler, error) {
+) (*ConstraintChecker, error) {
 	if constraints == nil {
 		// Constraints may be nil, but if a motion profile is set in planningOpts
 		// we need it to be a valid pointer to an empty struct.
 		constraints = &Constraints{}
 	}
-	handler := NewEmptyConstraintHandler()
+	handler := NewEmptyConstraintChecker()
 	handler.boundingRegions = boundingRegions
 
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, seedMap)
@@ -136,7 +136,7 @@ func NewConstraintHandler(
 
 // addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological
 // constraints. It will return a bool indicating whether there are any to add.
-func (c *ConstraintHandler) addTopoConstraints(
+func (c *ConstraintChecker) addTopoConstraints(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
@@ -171,7 +171,7 @@ func (c *ConstraintHandler) addTopoConstraints(
 	return topoConstraints, nil
 }
 
-func (c *ConstraintHandler) addLinearConstraints(
+func (c *ConstraintChecker) addLinearConstraints(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
@@ -187,7 +187,7 @@ func (c *ConstraintHandler) addLinearConstraints(
 	if orientTol == 0 {
 		orientTol = defaultOrientationDeviation
 	}
-	constraint, pathDist, err := CreateAbsoluteLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
+	constraint, pathDist, err := createAbsoluteLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func (c *ConstraintHandler) addLinearConstraints(
 	return nil
 }
 
-func (c *ConstraintHandler) addPseudolinearConstraints(
+func (c *ConstraintChecker) addPseudolinearConstraints(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
@@ -213,7 +213,7 @@ func (c *ConstraintHandler) addPseudolinearConstraints(
 	if orientTol == 0 {
 		orientTol = defaultPseudolinearTolerance
 	}
-	constraint, pathDist, err := CreateProportionalLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
+	constraint, pathDist, err := createProportionalLinearInterpolatingConstraintFS(fs, startCfg, from, to, linTol, orientTol)
 	if err != nil {
 		return err
 	}
@@ -223,7 +223,7 @@ func (c *ConstraintHandler) addPseudolinearConstraints(
 	return nil
 }
 
-func (c *ConstraintHandler) addOrientationConstraints(
+func (c *ConstraintChecker) addOrientationConstraints(
 	fs *referenceframe.FrameSystem,
 	startCfg referenceframe.FrameSystemInputs,
 	from, to referenceframe.FrameSystemPoses,
@@ -233,7 +233,7 @@ func (c *ConstraintHandler) addOrientationConstraints(
 	if orientTol == 0 {
 		orientTol = defaultOrientationDeviation
 	}
-	constraint, pathDist, err := CreateSlerpOrientationConstraintFS(fs, startCfg, from, to, orientTol)
+	constraint, pathDist, err := createSlerpOrientationConstraintFS(fs, startCfg, from, to, orientTol)
 	if err != nil {
 		return err
 	}
@@ -243,7 +243,7 @@ func (c *ConstraintHandler) addOrientationConstraints(
 }
 
 // CheckStateConstraints will check a given input against all state constraints.
-func (c *ConstraintHandler) CheckStateConstraints(state *State) error {
+func (c *ConstraintChecker) CheckStateConstraints(state *State) error {
 	for name, cFunc := range c.stateConstraints {
 		if err := cFunc(state); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -254,7 +254,7 @@ func (c *ConstraintHandler) CheckStateConstraints(state *State) error {
 }
 
 // CheckStateFSConstraints will check a given input against all FS state constraints.
-func (c *ConstraintHandler) CheckStateFSConstraints(state *StateFS) error {
+func (c *ConstraintChecker) CheckStateFSConstraints(state *StateFS) error {
 	for name, cFunc := range c.stateFSConstraints {
 		if err := cFunc(state); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -265,7 +265,7 @@ func (c *ConstraintHandler) CheckStateFSConstraints(state *StateFS) error {
 }
 
 // CheckSegmentConstraints will check a given input against all segment constraints.
-func (c *ConstraintHandler) CheckSegmentConstraints(segment *Segment) error {
+func (c *ConstraintChecker) CheckSegmentConstraints(segment *Segment) error {
 	for name, cFunc := range c.segmentConstraints {
 		if err := cFunc(segment); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -276,7 +276,7 @@ func (c *ConstraintHandler) CheckSegmentConstraints(segment *Segment) error {
 }
 
 // CheckSegmentFSConstraints will check a given input against all FS segment constraints.
-func (c *ConstraintHandler) CheckSegmentFSConstraints(segment *SegmentFS) error {
+func (c *ConstraintChecker) CheckSegmentFSConstraints(segment *SegmentFS) error {
 	for name, cFunc := range c.segmentFSConstraints {
 		if err := cFunc(segment); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -290,7 +290,7 @@ func (c *ConstraintHandler) CheckSegmentFSConstraints(segment *SegmentFS) error 
 // states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will return `true, nil`.
 // If any constraints fail, this will return false, and an Segment representing the valid portion of the segment, if any. If no
 // part of the segment is valid, then `false, nil` is returned.
-func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *Segment, resolution float64) (bool, *Segment) {
+func (c *ConstraintChecker) CheckStateConstraintsAcrossSegment(ci *Segment, resolution float64) (bool, *Segment) {
 	interpolatedConfigurations, err := InterpolateSegment(ci, resolution)
 	if err != nil {
 		return false, nil
@@ -298,7 +298,7 @@ func (c *ConstraintHandler) CheckStateConstraintsAcrossSegment(ci *Segment, reso
 	var lastGood []referenceframe.Input
 	for i, interpConfig := range interpolatedConfigurations {
 		interpC := &State{Frame: ci.Frame, Configuration: interpConfig}
-		if ResolveStatesToPositions(interpC) != nil {
+		if interpC.ResolveStateAndUpdatePositions() != nil {
 			return false, nil
 		}
 		if c.CheckStateConstraints(interpC) != nil {
@@ -340,9 +340,9 @@ func InterpolateSegment(ci *Segment, resolution float64) ([][]referenceframe.Inp
 	return interpolatedConfigurations, nil
 }
 
-// interpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
+// InterpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
 // configuration of a segment at a given resolution value.
-func interpolateSegmentFS(ci *SegmentFS, resolution float64) ([]referenceframe.FrameSystemInputs, error) {
+func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]referenceframe.FrameSystemInputs, error) {
 	// Find the frame with the most steps by calculating steps for each frame
 	maxSteps := defaultMinStepCount
 	for frameName, startConfig := range ci.StartConfiguration {
@@ -405,7 +405,7 @@ func interpolateSegmentFS(ci *SegmentFS, resolution float64) ([]referenceframe.F
 // CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
-func (c *ConstraintHandler) CheckSegmentAndStateValidity(segment *Segment, resolution float64) (bool, *Segment) {
+func (c *ConstraintChecker) CheckSegmentAndStateValidity(segment *Segment, resolution float64) (bool, *Segment) {
 	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution)
 	if !valid {
 		if subSegment != nil {
@@ -421,7 +421,7 @@ func (c *ConstraintHandler) CheckSegmentAndStateValidity(segment *Segment, resol
 
 // AddStateConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
 // if the given position satisfies the constraint.
-func (c *ConstraintHandler) AddStateConstraint(name string, cons StateConstraint) {
+func (c *ConstraintChecker) AddStateConstraint(name string, cons StateConstraint) {
 	if c.stateConstraints == nil {
 		c.stateConstraints = map[string]StateConstraint{}
 	}
@@ -429,13 +429,8 @@ func (c *ConstraintHandler) AddStateConstraint(name string, cons StateConstraint
 	c.stateConstraints[name] = cons
 }
 
-// RemoveStateConstraint will remove the given constraint.
-func (c *ConstraintHandler) RemoveStateConstraint(name string) {
-	delete(c.stateConstraints, name)
-}
-
 // StateConstraints will list all state constraints by name.
-func (c *ConstraintHandler) StateConstraints() []string {
+func (c *ConstraintChecker) StateConstraints() []string {
 	names := make([]string, 0, len(c.stateConstraints))
 	for name := range c.stateConstraints {
 		names = append(names, name)
@@ -445,7 +440,7 @@ func (c *ConstraintHandler) StateConstraints() []string {
 
 // AddSegmentConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
 // if the given position satisfies the constraint.
-func (c *ConstraintHandler) AddSegmentConstraint(name string, cons SegmentConstraint) {
+func (c *ConstraintChecker) AddSegmentConstraint(name string, cons SegmentConstraint) {
 	if c.segmentConstraints == nil {
 		c.segmentConstraints = map[string]SegmentConstraint{}
 	}
@@ -454,13 +449,8 @@ func (c *ConstraintHandler) AddSegmentConstraint(name string, cons SegmentConstr
 	c.segmentConstraints[name] = cons
 }
 
-// RemoveSegmentConstraint will remove the given constraint.
-func (c *ConstraintHandler) RemoveSegmentConstraint(name string) {
-	delete(c.segmentConstraints, name)
-}
-
 // SegmentConstraints will list all segment constraints by name.
-func (c *ConstraintHandler) SegmentConstraints() []string {
+func (c *ConstraintChecker) SegmentConstraints() []string {
 	names := make([]string, 0, len(c.segmentConstraints))
 	for name := range c.segmentConstraints {
 		names = append(names, name)
@@ -470,7 +460,7 @@ func (c *ConstraintHandler) SegmentConstraints() []string {
 
 // AddStateFSConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
 // if the given position satisfies the constraint.
-func (c *ConstraintHandler) AddStateFSConstraint(name string, cons StateFSConstraint) {
+func (c *ConstraintChecker) AddStateFSConstraint(name string, cons StateFSConstraint) {
 	if c.stateFSConstraints == nil {
 		c.stateFSConstraints = map[string]StateFSConstraint{}
 	}
@@ -478,13 +468,8 @@ func (c *ConstraintHandler) AddStateFSConstraint(name string, cons StateFSConstr
 	c.stateFSConstraints[name] = cons
 }
 
-// RemoveStateFSConstraint will remove the given constraint.
-func (c *ConstraintHandler) RemoveStateFSConstraint(name string) {
-	delete(c.stateFSConstraints, name)
-}
-
 // StateFSConstraints will list all FS state constraints by name.
-func (c *ConstraintHandler) StateFSConstraints() []string {
+func (c *ConstraintChecker) StateFSConstraints() []string {
 	names := make([]string, 0, len(c.stateFSConstraints))
 	for name := range c.stateFSConstraints {
 		names = append(names, name)
@@ -494,7 +479,7 @@ func (c *ConstraintHandler) StateFSConstraints() []string {
 
 // AddSegmentFSConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
 // if the given position satisfies the constraint.
-func (c *ConstraintHandler) AddSegmentFSConstraint(name string, cons SegmentFSConstraint) {
+func (c *ConstraintChecker) AddSegmentFSConstraint(name string, cons SegmentFSConstraint) {
 	if c.segmentFSConstraints == nil {
 		c.segmentFSConstraints = map[string]SegmentFSConstraint{}
 	}
@@ -502,13 +487,8 @@ func (c *ConstraintHandler) AddSegmentFSConstraint(name string, cons SegmentFSCo
 	c.segmentFSConstraints[name] = cons
 }
 
-// RemoveSegmentFSConstraint will remove the given constraint.
-func (c *ConstraintHandler) RemoveSegmentFSConstraint(name string) {
-	delete(c.segmentFSConstraints, name)
-}
-
 // SegmentFSConstraints will list all FS segment constraints by name.
-func (c *ConstraintHandler) SegmentFSConstraints() []string {
+func (c *ConstraintChecker) SegmentFSConstraints() []string {
 	names := make([]string, 0, len(c.segmentFSConstraints))
 	for name := range c.segmentFSConstraints {
 		names = append(names, name)
@@ -520,56 +500,57 @@ func (c *ConstraintHandler) SegmentFSConstraints() []string {
 // that all intermediate states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will
 // return `true, nil`. If any constraints fail, this will return false, and an SegmentFS representing the valid portion of the segment,
 // if any. If no part of the segment is valid, then `false, nil` is returned.
-func (c *ConstraintHandler) CheckStateConstraintsAcrossSegmentFS(
+func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	ci *SegmentFS,
 	resolution float64,
-) (bool, *SegmentFS) {
-	interpolatedConfigurations, err := interpolateSegmentFS(ci, resolution)
+) (*SegmentFS, error) {
+	interpolatedConfigurations, err := InterpolateSegmentFS(ci, resolution)
 	if err != nil {
-		return false, nil
+		return nil, err
 	}
 	var lastGood referenceframe.FrameSystemInputs
 	for i, interpConfig := range interpolatedConfigurations {
 		interpC := &StateFS{FS: ci.FS, Configuration: interpConfig}
-		if c.CheckStateFSConstraints(interpC) != nil {
+		err = c.CheckStateFSConstraints(interpC)
+		if err != nil {
 			if i == 0 {
 				// fail on start pos
-				return false, nil
+				return nil, err
 			}
-			return false, &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}
+			return &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}, err
 		}
 		lastGood = interpC.Configuration
 	}
 
-	return true, nil
+	return nil, nil
 }
 
 // CheckSegmentAndStateValidityFS will check a segment input and confirm that it 1) meets all segment constraints, and 2) meets all
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
-func (c *ConstraintHandler) CheckSegmentAndStateValidityFS(
+func (c *ConstraintChecker) CheckSegmentAndStateValidityFS(
 	segment *SegmentFS,
 	resolution float64,
-) (bool, *SegmentFS) {
-	valid, subSegment := c.CheckStateConstraintsAcrossSegmentFS(segment, resolution)
-	if !valid {
+) (*SegmentFS, error) {
+	subSegment, err := c.CheckStateConstraintsAcrossSegmentFS(segment, resolution)
+	if err != nil {
 		if subSegment != nil {
 			if c.CheckSegmentFSConstraints(subSegment) == nil {
-				return false, subSegment
+				return subSegment, err
 			}
 		}
-		return false, nil
+		return nil, err
 	}
-	// all states are valid
-	return c.CheckSegmentFSConstraints(segment) == nil, nil
+
+	return nil, c.CheckSegmentFSConstraints(segment)
 }
 
 // BoundingRegions returns the bounding regions - TODO what does this mean??
-func (c *ConstraintHandler) BoundingRegions() []spatialmath.Geometry {
+func (c *ConstraintChecker) BoundingRegions() []spatialmath.Geometry {
 	return c.boundingRegions
 }
 
-// PathMetric returns the path metric being used for this ConstraintHandler.
-func (c *ConstraintHandler) PathMetric() StateFSMetric {
+// PathMetric returns the path metric being used for this ConstraintChecker.
+func (c *ConstraintChecker) PathMetric() StateFSMetric {
 	return c.pathMetric
 }

@@ -11,7 +11,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
@@ -27,18 +26,12 @@ var (
 	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 )
 
-var logger = logging.FromZapCompatible(zap.Must(zap.Config{
-	Level:             zap.NewAtomicLevelAt(zap.FatalLevel),
-	Encoding:          "console",
-	DisableStacktrace: true,
-}.Build()).Sugar())
-
 type planConfig struct {
 	Start            *PlanState
 	Goal             *PlanState
 	FS               *frame.FrameSystem
 	Options          *PlannerOptions
-	ConstraintHander *motionplan.ConstraintHandler
+	ConstraintHander *motionplan.ConstraintChecker
 	MotionChains     *motionChains
 }
 
@@ -120,7 +113,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 		return oFunc(currPose.(*frame.PoseInFrame).Pose().Orientation())
 	}
 	orientConstraint := func(cInput *motionplan.State) error {
-		err := motionplan.ResolveStatesToPositions(cInput)
+		err := cInput.ResolveStateAndUpdatePositions()
 		if err != nil {
 			return err
 		}
@@ -132,7 +125,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	}
 
 	opt.GoalMetricType = motionplan.ArcLengthConvergence
-	constraintHandler := motionplan.NewConstraintHandlerWithPathMetric(oFuncMet)
+	constraintHandler := motionplan.NewConstraintCheckerWithPathMetric(oFuncMet)
 	constraintHandler.AddStateConstraint("orientation", orientConstraint)
 
 	start := &PlanState{configuration: map[string][]frame.Input{model.Name(): home7}}
@@ -153,6 +146,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 }
 
 func TestPlanningWithGripper(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("")
 	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "ur")
 	test.That(t, err, test.ShouldBeNil)
@@ -226,7 +220,7 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 
 	// setup planner options
 	opt := NewBasicPlannerOptions()
-	constraintHandler := motionplan.NewEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintChecker()
 	startInput := frame.NewZeroInputs(fs)
 	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90., 0})
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
@@ -340,7 +334,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		return nil, err
 	}
 
-	constraintHandler := motionplan.NewEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintChecker()
 	for name, constraint := range collisionConstraints {
 		constraintHandler.AddStateConstraint(name, constraint)
 	}
@@ -413,7 +407,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	constraintHandler := motionplan.NewEmptyConstraintHandler()
+	constraintHandler := motionplan.NewEmptyConstraintChecker()
 	for name, constraint := range collisionConstraints {
 		constraintHandler.AddStateConstraint(name, constraint)
 	}
@@ -449,18 +443,18 @@ func testPlanner(t *testing.T, config planConfigConstructor, seed int) {
 		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander, cfg.MotionChains)
 	test.That(t, err, test.ShouldBeNil)
 
-	nodes, err := mp.plan(context.Background(), cfg.Start, cfg.Goal)
+	nodes, err := mp.planForTest(context.Background(), cfg.Start, cfg.Goal)
 	test.That(t, err, test.ShouldBeNil)
 
 	// test that path doesn't violate constraints
 	test.That(t, len(nodes), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(nodes)-1; j++ {
-		ok, _ := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(&motionplan.SegmentFS{
-			StartConfiguration: nodes[j].Q(),
-			EndConfiguration:   nodes[j+1].Q(),
+		_, err := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(&motionplan.SegmentFS{
+			StartConfiguration: nodes[j].inputs,
+			EndConfiguration:   nodes[j+1].inputs,
 			FS:                 cfg.FS,
 		}, cfg.Options.Resolution)
-		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, err, test.ShouldBeNil)
 	}
 }
 
@@ -599,6 +593,7 @@ func TestSerializedPlanRequest(t *testing.T) {
 }
 
 func TestArmOOBSolve(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	fs := makeTestFS(t)
 	positions := frame.NewZeroInputs(fs)
 
@@ -615,6 +610,8 @@ func TestArmOOBSolve(t *testing.T) {
 }
 
 func TestArmObstacleSolve(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
 	fs := makeTestFS(t)
 	positions := frame.NewZeroInputs(fs)
 
@@ -641,6 +638,7 @@ func TestArmObstacleSolve(t *testing.T) {
 }
 
 func TestArmAndGantrySolve(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	t.Parallel()
 	fs := makeTestFS(t)
 	positions := frame.NewZeroInputs(fs)
@@ -674,6 +672,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 }
 
 func TestMultiArmSolve(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	fs := makeTestFS(t)
 	positions := frame.NewZeroInputs(fs)
 	// Solve such that the ur5 and xArm are pointing at each other, 40mm from gripper to camera
@@ -727,6 +726,8 @@ func TestReachOverArm(t *testing.T) {
 	opts := map[string]interface{}{"timeout": 150.0}
 	planOpts, err := NewPlannerOptionsFromExtra(opts)
 	test.That(t, err, test.ShouldBeNil)
+
+	logger := logging.NewTestLogger(t)
 	plan, err := PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{xarm.Name(): goal}}},
@@ -824,6 +825,7 @@ func TestSliceUniq(t *testing.T) {
 }
 
 func TestArmConstraintSpecificationSolve(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("")
 	x, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -923,6 +925,7 @@ func TestMovementWithGripper(t *testing.T) {
 		StartState:     &PlanState{configuration: startConfig},
 		PlannerOptions: planOpts,
 	}
+	logger := logging.NewTestLogger(t)
 	solution, err := PlanMotion(context.Background(), logger, request)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)

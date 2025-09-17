@@ -81,7 +81,7 @@ func (c *viamClient) moduleBuildStartForRepo(
 	version = strings.TrimPrefix(version, "v")
 
 	var platforms []string
-	if len(args.Platforms) > 0 { //nolint:gocritic
+	if len(args.Platforms) > 0 {
 		platforms = args.Platforms
 	} else if len(manifest.Build.Arch) > 0 {
 		platforms = manifest.Build.Arch
@@ -862,7 +862,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, generalFlagID)
 	}
 	request := &robot.RestartModuleRequest{}
-	//nolint:gocritic
+
 	if len(modName) > 0 {
 		request.ModuleName = modName
 	} else if len(modID) > 0 {

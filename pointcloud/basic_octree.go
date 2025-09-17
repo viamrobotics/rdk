@@ -405,12 +405,27 @@ func (octree *BasicOctree) FinalizeAfterReading() (PointCloud, error) {
 // PointsCollidingWith returns all points in the octree that collide with any of the given geometries.
 // A point is considered colliding if it meets the confidence threshold and is within the collision buffer distance.
 func (octree *BasicOctree) PointsCollidingWith(geometries []spatialmath.Geometry, collisionBufferMM float64) []r3.Vector {
+	// Finding these points in an octree involves recursing into each child node of the tree.
+	// Rather than returning a list of points from each recursive call and concatenating copies of
+	// them together, we pass an accumulator in, which greatly reduces the number of copies of data
+	// created.
+	results := []r3.Vector{}
+	octree.accumulatePointsCollidingWith(geometries, collisionBufferMM, &results)
+	return results
+}
+
+// accumulatePointsCollidingWith is a helper function internal to PointsCollidingWith. It takes an
+// extra argument, a pointer to where results should be stored, and stores additional points to it
+// as relevant.
+func (octree *BasicOctree) accumulatePointsCollidingWith(
+	geometries []spatialmath.Geometry,
+	collisionBufferMM float64,
+	accumulator *[]r3.Vector,
+) {
 	// Early exit if this octree region has no points above confidence threshold
 	if octree.MaxVal() < octree.confidenceThreshold {
-		return nil
+		return
 	}
-
-	var collidingPoints []r3.Vector
 
 	switch octree.node.nodeType {
 	case internalNode:
@@ -425,7 +440,7 @@ func (octree *BasicOctree) PointsCollidingWith(geometries []spatialmath.Geometry
 			"",
 		)
 		if err != nil {
-			return nil
+			return
 		}
 
 		// Check if any geometry intersects with this octree region
@@ -440,23 +455,22 @@ func (octree *BasicOctree) PointsCollidingWith(geometries []spatialmath.Geometry
 
 		// If no geometry intersects this region, skip all children
 		if !intersects {
-			return nil
+			return
 		}
 
 		// Recursively check children and collect results
 		for _, child := range octree.node.children {
-			childPoints := child.PointsCollidingWith(geometries, collisionBufferMM)
-			collidingPoints = append(collidingPoints, childPoints...)
+			child.accumulatePointsCollidingWith(geometries, collisionBufferMM, accumulator)
 		}
 
 	case leafNodeEmpty:
 		// Empty leaf has no points
-		return nil
+		return
 
 	case leafNodeFilled:
 		// Check confidence threshold
 		if octree.node.point.D.HasValue() && octree.node.point.D.Value() < octree.confidenceThreshold {
-			return nil
+			return
 		}
 
 		// Create a point geometry for collision checking
@@ -466,13 +480,11 @@ func (octree *BasicOctree) PointsCollidingWith(geometries []spatialmath.Geometry
 		for _, geom := range geometries {
 			collides, err := geom.CollidesWith(pointGeom, collisionBufferMM)
 			if err == nil && collides {
-				collidingPoints = append(collidingPoints, octree.node.point.P)
+				*accumulator = append(*accumulator, octree.node.point.P)
 				break // Point collides with at least one geometry, no need to check others
 			}
 		}
 	}
-
-	return collidingPoints
 }
 
 // PointsWithinRadius returns all points in the octree that are within the specified radius of the given location.

@@ -183,9 +183,6 @@ func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode
 	started := false
 	exactEnd := false
 	for _, wp := range trajPrecompute {
-		// gocritic prefers there be a switch statement here, but doing so makes this much messier, as the `break` would break the
-		// switch statement and we would require label loops to break the for loop.
-		//nolint: gocritic
 		if !started { // First, skip ahead to the start distance
 			if wp.Dist >= startPos { // Check if we have entered the trajectory
 				if wp.Dist != startPos {

@@ -41,7 +41,7 @@ func newCBiRRTMotionPlanner(
 	seed *rand.Rand,
 	logger logging.Logger,
 	opt *PlannerOptions,
-	constraintHandler *motionplan.ConstraintHandler,
+	constraintHandler *motionplan.ConstraintChecker,
 	chains *motionChains,
 ) (motionPlanner, error) {
 	if opt == nil {
@@ -353,8 +353,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		// Check if the arc of "seedInputs" to "target" is valid
-		ok, _ := mp.CheckSegmentAndStateValidityFS(newArc, mp.planOpts.Resolution)
-		if ok {
+		_, err := mp.CheckSegmentAndStateValidityFS(newArc, mp.planOpts.Resolution)
+		if err == nil {
 			return target
 		}
 		solutionGen := make(chan *ik.Solution, 1)
@@ -365,7 +365,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 
 		// Spawn the IK solver to generate solutions until done
 		err = mp.fastGradDescent.Solve(ctx, solutionGen, linearSeed, 0, 0,
-			mp.linearizeFSmetric(mp.ConstraintHandler.PathMetric()), randseed.Int())
+			mp.linearizeFSmetric(mp.ConstraintChecker.PathMetric()), randseed.Int())
 		// We should have zero or one solutions
 		var solved *ik.Solution
 		select {
@@ -381,7 +381,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return nil
 		}
 
-		ok, failpos := mp.CheckSegmentAndStateValidityFS(
+		failpos, err := mp.CheckSegmentAndStateValidityFS(
 			&motionplan.SegmentFS{
 				StartConfiguration: seedInputs,
 				EndConfiguration:   solutionMap,
@@ -389,7 +389,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			},
 			mp.planOpts.Resolution,
 		)
-		if ok {
+		if err == nil {
 			return solutionMap
 		}
 		if failpos != nil {

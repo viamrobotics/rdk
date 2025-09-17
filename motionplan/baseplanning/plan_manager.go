@@ -395,7 +395,7 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 		return nil, err
 	}
 
-	constraintHandler, err := newConstraintHandler(
+	constraintHandler, err := newConstraintChecker(
 		opt,
 		pm.request.Constraints,
 		startState,
@@ -429,7 +429,7 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 			return nil, err
 		}
 
-		constraintHandler, err = newConstraintHandler(
+		constraintHandler, err = newConstraintChecker(
 			opt,
 			pm.request.Constraints,
 			startState,
@@ -446,7 +446,7 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 
 		pm.motionChains = motionChains
 	}
-	pm.ConstraintHandler = constraintHandler
+	pm.ConstraintChecker = constraintHandler
 
 	// TPspace should never use subwaypoints
 	if !subWaypoints || motionChains.useTPspace {
@@ -469,8 +469,7 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 
 	numSteps := 0
 	for frame, pif := range goalPoses {
-		// Calculate steps needed for this frame
-		steps := CalculateStepCount(startPoses[frame].Pose(), pif.Pose(), stepSize)
+		steps := motionplan.CalculateStepCount(startPoses[frame].Pose(), pif.Pose(), stepSize)
 		if steps > numSteps {
 			numSteps = steps
 		}
@@ -508,7 +507,7 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 			return nil, err
 		}
 
-		wpConstraintHandler, err := newConstraintHandler(
+		wpConstraintChecker, err := newConstraintChecker(
 			wpOpt,
 			pm.request.Constraints,
 			from,
@@ -529,7 +528,7 @@ func (pm *planManager) generateWaypoints(seedPlan motionplan.Plan, wpi int) ([]a
 			rand.New(rand.NewSource(int64(pm.randseed.Int()))),
 			pm.logger,
 			wpOpt,
-			wpConstraintHandler,
+			wpConstraintChecker,
 			pm.motionChains,
 		)
 		if err != nil {

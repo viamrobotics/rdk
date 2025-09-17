@@ -577,6 +577,14 @@ func newAppClient(conn rpc.ClientConn) *AppClient {
 }
 
 // GetUserIDByEmail gets the ID of the user with the given email.
+//
+// GetUserIDByEmail example:
+//
+//	userID, err := cloud.GetUserIDByEmail(context.Background(), "test@example.com")
+//
+// For more information, see the [GetUserIDByEmail method docs].
+//
+// [GetUserIDByEmail method docs]: https://docs.viam.com/dev/reference/apis/app/#getuseridbyemail
 func (c *AppClient) GetUserIDByEmail(ctx context.Context, email string) (string, error) {
 	resp, err := c.client.GetUserIDByEmail(ctx, &pb.GetUserIDByEmailRequest{
 		Email: email,
@@ -588,6 +596,14 @@ func (c *AppClient) GetUserIDByEmail(ctx context.Context, email string) (string,
 }
 
 // CreateOrganization creates a new organization.
+//
+// CreateOrganization example:
+//
+//	organization, err := cloud.CreateOrganization(context.Background(), "testOrganization")
+//
+// For more information, see the [CreateOrganization method docs].
+//
+// [CreateOrganization method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createorganization
 func (c *AppClient) CreateOrganization(ctx context.Context, name string) (*Organization, error) {
 	resp, err := c.client.CreateOrganization(ctx, &pb.CreateOrganizationRequest{
 		Name: name,
@@ -599,6 +615,14 @@ func (c *AppClient) CreateOrganization(ctx context.Context, name string) (*Organ
 }
 
 // ListOrganizations lists all the organizations.
+//
+// ListOrganizations example:
+//
+//	organizations, err := cloud.ListOrganizations(context.Background())
+//
+// For more information, see the [ListOrganizations method docs].
+//
+// [ListOrganizations method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listorganizations
 func (c *AppClient) ListOrganizations(ctx context.Context) ([]*Organization, error) {
 	resp, err := c.client.ListOrganizations(ctx, &pb.ListOrganizationsRequest{})
 	if err != nil {
@@ -613,6 +637,14 @@ func (c *AppClient) ListOrganizations(ctx context.Context) ([]*Organization, err
 }
 
 // GetOrganizationsWithAccessToLocation gets all the organizations that have access to a location.
+//
+// GetOrganizationsWithAccessToLocation example:
+//
+//	organizations, err := cloud.GetOrganizationsWithAccessToLocation(context.Background(), "ab1c2d3e45")
+//
+// For more information, see the [GetOrganizationsWithAccessToLocation method docs].
+//
+// [GetOrganizationsWithAccessToLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getorganizationswithaccesstolocation
 func (c *AppClient) GetOrganizationsWithAccessToLocation(ctx context.Context, locationID string) ([]*OrganizationIdentity, error) {
 	resp, err := c.client.GetOrganizationsWithAccessToLocation(ctx, &pb.GetOrganizationsWithAccessToLocationRequest{
 		LocationId: locationID,
@@ -629,6 +661,14 @@ func (c *AppClient) GetOrganizationsWithAccessToLocation(ctx context.Context, lo
 }
 
 // ListOrganizationsByUser lists all the organizations that a user belongs to.
+//
+// ListOrganizationsByUser example:
+//
+//	organizations, err := cloud.ListOrganizationsByUser(context.Background(), "1234a56b-1234-1a23-1234-a12bcd3ef4a5")
+//
+// For more information, see the [ListOrganizationsByUser method docs].
+//
+// [ListOrganizationsByUser method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listorganizationsbyuser
 func (c *AppClient) ListOrganizationsByUser(ctx context.Context, userID string) ([]*OrgDetails, error) {
 	resp, err := c.client.ListOrganizationsByUser(ctx, &pb.ListOrganizationsByUserRequest{
 		UserId: userID,
@@ -645,6 +685,14 @@ func (c *AppClient) ListOrganizationsByUser(ctx context.Context, userID string) 
 }
 
 // GetOrganization gets an organization.
+//
+// GetOrganization example:
+//
+//	organization, err := cloud.GetOrganization(context.Background(), "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//
+// For more information, see the [GetOrganization method docs].
+//
+// [GetOrganization method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getorganization
 func (c *AppClient) GetOrganization(ctx context.Context, orgID string) (*Organization, error) {
 	resp, err := c.client.GetOrganization(ctx, &pb.GetOrganizationRequest{
 		OrganizationId: orgID,
@@ -656,6 +704,14 @@ func (c *AppClient) GetOrganization(ctx context.Context, orgID string) (*Organiz
 }
 
 // GetOrganizationNamespaceAvailability checks for namespace availability throughout all organizations.
+//
+// GetOrganizationNamespaceAvailability example:
+//
+//	available, err := cloud.GetOrganizationNamespaceAvailability(context.Background(), "test-namespace")
+//
+// For more information, see the [GetOrganizationNamespaceAvailability method docs].
+//
+// [GetOrganizationNamespaceAvailability method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getorganizationnamespaceavailability
 func (c *AppClient) GetOrganizationNamespaceAvailability(ctx context.Context, namespace string) (bool, error) {
 	resp, err := c.client.GetOrganizationNamespaceAvailability(ctx, &pb.GetOrganizationNamespaceAvailabilityRequest{
 		PublicNamespace: namespace,
@@ -667,6 +723,20 @@ func (c *AppClient) GetOrganizationNamespaceAvailability(ctx context.Context, na
 }
 
 // UpdateOrganization updates an organization.
+//
+// UpdateOrganization example:
+//
+//	 name := "tests-name"
+//		organization, err := cloud.UpdateOrganization(
+//			context.Background(),
+//			"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//			&UpdateOrganizationOptions{
+//				Name: &name,
+//			})
+//
+// For more information, see the [UpdateOrganization method docs].
+//
+// [UpdateOrganization method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updateorganization
 func (c *AppClient) UpdateOrganization(ctx context.Context, orgID string, opts *UpdateOrganizationOptions) (*Organization, error) {
 	var name, namespace, region, cid *string
 	if opts != nil {
@@ -686,6 +756,14 @@ func (c *AppClient) UpdateOrganization(ctx context.Context, orgID string, opts *
 }
 
 // DeleteOrganization deletes an organization.
+//
+// DeleteOrganization example:
+//
+//	err := cloud.DeleteOrganization(context.Background(), "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//
+// For more information, see the [DeleteOrganization method docs].
+//
+// [DeleteOrganization method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleteorganization
 func (c *AppClient) DeleteOrganization(ctx context.Context, orgID string) error {
 	_, err := c.client.DeleteOrganization(ctx, &pb.DeleteOrganizationRequest{
 		OrganizationId: orgID,
@@ -694,6 +772,16 @@ func (c *AppClient) DeleteOrganization(ctx context.Context, orgID string) error 
 }
 
 // GetOrganizationMetadata gets the user-defined metadata for an organization.
+//
+// GetOrganizationMetadata example:
+//
+//	metadata, err := cloud.GetOrganizationMetadata(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//
+// For more information, see the [GetOrganizationMetadata method docs].
+//
+// [GetOrganizationMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getorganizationmetadata
 func (c *AppClient) GetOrganizationMetadata(ctx context.Context, organizationID string) (map[string]interface{}, error) {
 	resp, err := c.client.GetOrganizationMetadata(ctx, &pb.GetOrganizationMetadataRequest{
 		OrganizationId: organizationID,
@@ -705,6 +793,20 @@ func (c *AppClient) GetOrganizationMetadata(ctx context.Context, organizationID 
 }
 
 // UpdateOrganizationMetadata updates the user-defined metadata for an organization.
+//
+// UpdateOrganizationMetadata example:
+//
+//	err := cloud.UpdateOrganizationMetadata(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//		map[string]interface{}{
+//			"key": "value",
+//		},
+//	)
+//
+// For more information, see the [UpdateOrganizationMetadata method docs].
+//
+// [UpdateOrganizationMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updateorganizationmetadata
 func (c *AppClient) UpdateOrganizationMetadata(ctx context.Context, organizationID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
@@ -718,6 +820,14 @@ func (c *AppClient) UpdateOrganizationMetadata(ctx context.Context, organization
 }
 
 // ListOrganizationMembers lists all members of an organization and all invited members to the organization.
+//
+// ListOrganizationMembers example:
+//
+//	members, invites, err := cloud.ListOrganizationMembers(context.Background(), "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//
+// For more information, see the [ListOrganizationMembers method docs].
+//
+// [ListOrganizationMembers method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listorganizationmembers
 func (c *AppClient) ListOrganizationMembers(ctx context.Context, orgID string) ([]*OrganizationMember, []*OrganizationInvite, error) {
 	resp, err := c.client.ListOrganizationMembers(ctx, &pb.ListOrganizationMembersRequest{
 		OrganizationId: orgID,
@@ -738,6 +848,25 @@ func (c *AppClient) ListOrganizationMembers(ctx context.Context, orgID string) (
 }
 
 // CreateOrganizationInvite creates an organization invite to an organization.
+//
+// CreateOrganizationInvite example:
+//
+//	func boolPtr(b bool) *bool {
+//		return &b
+//	}
+//
+//	invite, err := cloud.CreateOrganizationInvite(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//		"test@example.com",
+//		[]*Authorization{&Authorization{}},
+//		&app.CreateOrganizationInviteOptions{
+//			SendEmailInvite: boolPtr(true),
+//		})
+//
+// For more information, see the [CreateOrganizationInvite method docs].
+//
+// [CreateOrganizationInvite method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createorganizationinvite
 func (c *AppClient) CreateOrganizationInvite(
 	ctx context.Context, orgID, email string, authorizations []*Authorization, opts *CreateOrganizationInviteOptions,
 ) (*OrganizationInvite, error) {
@@ -762,6 +891,30 @@ func (c *AppClient) CreateOrganizationInvite(
 }
 
 // UpdateOrganizationInviteAuthorizations updates the authorizations attached to an organization invite.
+//
+// UpdateOrganizationInviteAuthorizations example:
+//
+//	invite, err := cloud.UpdateOrganizationInviteAuthorizations(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//		"test@example.com",
+//		[]*app.Authorization{
+//			AuthorizationType: "role",
+//			AuthorizationID:   "location_owner",
+//			ResourceType:      "location",
+//			ResourceID:        LOCATION_ID,
+//			OrganizationID:    ORG_ID,
+//			IdentityID:        "",
+//		},
+//		[]*app.Authorization{})
+//
+// For more information, see the [UpdateOrganizationInviteAuthorizations method docs].
+//
+// [UpdateOrganizationInviteAuthorizations method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updateorganizationinviteauthorizations
+//
+// [UpdateOrganizationInviteAuthorizations method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updateorganizationinviteauthorizations
+//
+//nolint:lll
 func (c *AppClient) UpdateOrganizationInviteAuthorizations(
 	ctx context.Context, orgID, email string, addAuthorizations, removeAuthorizations []*Authorization,
 ) (*OrganizationInvite, error) {
@@ -786,6 +939,17 @@ func (c *AppClient) UpdateOrganizationInviteAuthorizations(
 }
 
 // DeleteOrganizationMember deletes an organization member from an organization.
+//
+// DeleteOrganizationMember example:
+//
+//	err := cloud.DeleteOrganizationMember(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//		"1234a56b-1234-1a23-1234-a12bcd3ef4a5")
+//
+// For more information, see the [DeleteOrganizationMember method docs].
+//
+// [DeleteOrganizationMember method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleteorganizationmember
 func (c *AppClient) DeleteOrganizationMember(ctx context.Context, orgID, userID string) error {
 	_, err := c.client.DeleteOrganizationMember(ctx, &pb.DeleteOrganizationMemberRequest{
 		OrganizationId: orgID,
@@ -795,6 +959,17 @@ func (c *AppClient) DeleteOrganizationMember(ctx context.Context, orgID, userID 
 }
 
 // DeleteOrganizationInvite deletes an organization invite.
+//
+// DeleteOrganizationInvite example:
+//
+//	err := cloud.DeleteOrganizationInvite(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//		"test@example.com")
+//
+// For more information, see the [DeleteOrganizationInvite method docs].
+//
+// [DeleteOrganizationInvite method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleteorganizationinvite
 func (c *AppClient) DeleteOrganizationInvite(ctx context.Context, orgID, email string) error {
 	_, err := c.client.DeleteOrganizationInvite(ctx, &pb.DeleteOrganizationInviteRequest{
 		OrganizationId: orgID,
@@ -804,6 +979,14 @@ func (c *AppClient) DeleteOrganizationInvite(ctx context.Context, orgID, email s
 }
 
 // ResendOrganizationInvite resends an organization invite.
+//
+// ResendOrganizationInvite example:
+//
+//	invite, err := cloud.ResendOrganizationInvite(context.Background(), "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2", "test@example.com")
+//
+// For more information, see the [ResendOrganizationInvite method docs].
+//
+// [ResendOrganizationInvite method docs]: https://docs.viam.com/dev/reference/apis/fleet/#resendorganizationinvite
 func (c *AppClient) ResendOrganizationInvite(ctx context.Context, orgID, email string) (*OrganizationInvite, error) {
 	resp, err := c.client.ResendOrganizationInvite(ctx, &pb.ResendOrganizationInviteRequest{
 		OrganizationId: orgID,
@@ -825,6 +1008,14 @@ func (c *AppClient) EnableBillingService(ctx context.Context, orgID string, bill
 }
 
 // DisableBillingService disables the billing service for an organization.
+//
+// DisableBillingService example:
+//
+//	err := cloud.DisableBillingService(context.Background(), "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//
+// For more information, see the [DisableBillingService method docs].
+//
+// [DisableBillingService method docs]: https://docs.viam.com/dev/reference/apis/fleet/#disablebillingservice
 func (c *AppClient) DisableBillingService(ctx context.Context, orgID string) error {
 	_, err := c.client.DisableBillingService(ctx, &pb.DisableBillingServiceRequest{
 		OrgId: orgID,
@@ -842,6 +1033,14 @@ func (c *AppClient) UpdateBillingService(ctx context.Context, orgID string, bill
 }
 
 // OrganizationSetSupportEmail sets an organization's support email.
+//
+// OrganizationSetSupportEmail example:
+//
+//	err := cloud.OrganizationSetSupportEmail(context.Background(), "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2", "test@example.com")
+//
+// For more information, see the [OrganizationSetSupportEmail method docs].
+//
+// [OrganizationSetSupportEmail method docs]: https://docs.viam.com/dev/reference/apis/fleet/#organizationsetsupportemail
 func (c *AppClient) OrganizationSetSupportEmail(ctx context.Context, orgID, email string) error {
 	_, err := c.client.OrganizationSetSupportEmail(ctx, &pb.OrganizationSetSupportEmailRequest{
 		OrgId: orgID,
@@ -851,6 +1050,14 @@ func (c *AppClient) OrganizationSetSupportEmail(ctx context.Context, orgID, emai
 }
 
 // OrganizationGetSupportEmail gets an organization's support email.
+//
+// OrganizationGetSupportEmail example:
+//
+//	email, err := cloud.OrganizationGetSupportEmail(context.Background(), "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//
+// For more information, see the [OrganizationGetSupportEmail method docs].
+//
+// [OrganizationGetSupportEmail method docs]: https://docs.viam.com/dev/reference/apis/fleet/#organizationgetsupportemail
 func (c *AppClient) OrganizationGetSupportEmail(ctx context.Context, orgID string) (string, error) {
 	resp, err := c.client.OrganizationGetSupportEmail(ctx, &pb.OrganizationGetSupportEmailRequest{
 		OrgId: orgID,
@@ -862,6 +1069,16 @@ func (c *AppClient) OrganizationGetSupportEmail(ctx context.Context, orgID strin
 }
 
 // GetBillingServiceConfig gets the billing service configuration for an organization.
+//
+// GetBillingServiceConfig example:
+//
+//	config, err := cloud.GetBillingServiceConfig(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//
+// For more information, see the [GetBillingServiceConfig method docs].
+//
+// [GetBillingServiceConfig method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getbillingserviceconfig
 func (c *AppClient) GetBillingServiceConfig(ctx context.Context, orgID string) (*pb.GetBillingServiceConfigResponse, error) {
 	resp, err := c.client.GetBillingServiceConfig(ctx, &pb.GetBillingServiceConfigRequest{
 		OrgId: orgID,
@@ -873,6 +1090,19 @@ func (c *AppClient) GetBillingServiceConfig(ctx context.Context, orgID string) (
 }
 
 // OrganizationSetLogo sets an organization's logo.
+//
+// OrganizationSetLogo example:
+//
+//	logoData, err := os.ReadFile("logo.png")
+//	err := cloud.OrganizationSetLogo(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//		logoData)
+//	)
+//
+// For more information, see the [OrganizationSetLogo method docs].
+//
+// [OrganizationSetLogo method docs]: https://docs.viam.com/dev/reference/apis/fleet/#organizationsetlogo
 func (c *AppClient) OrganizationSetLogo(ctx context.Context, orgID string, logo []byte) error {
 	_, err := c.client.OrganizationSetLogo(ctx, &pb.OrganizationSetLogoRequest{
 		OrgId: orgID,
@@ -882,6 +1112,17 @@ func (c *AppClient) OrganizationSetLogo(ctx context.Context, orgID string, logo 
 }
 
 // OrganizationGetLogo gets an organization's logo.
+//
+// OrganizationGetLogo example:
+//
+//	logoURL, err := cloud.OrganizationGetLogo(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//	)
+//
+// For more information, see the [OrganizationGetLogo method docs].
+//
+// [OrganizationGetLogo method docs]: https://docs.viam.com/dev/reference/apis/fleet/#organizationgetlogo
 func (c *AppClient) OrganizationGetLogo(ctx context.Context, orgID string) (string, error) {
 	resp, err := c.client.OrganizationGetLogo(ctx, &pb.OrganizationGetLogoRequest{
 		OrgId: orgID,
@@ -893,6 +1134,17 @@ func (c *AppClient) OrganizationGetLogo(ctx context.Context, orgID string) (stri
 }
 
 // ListOAuthApps gets the client's list of OAuth applications.
+//
+// ListOAuthApps example:
+//
+//	apps, err := cloud.ListOAuthApps(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//	)
+//
+// For more information, see the [ListOAuthApps method docs].
+//
+// [ListOAuthApps method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listoauthapps
 func (c *AppClient) ListOAuthApps(ctx context.Context, orgID string) ([]string, error) {
 	resp, err := c.client.ListOAuthApps(ctx, &pb.ListOAuthAppsRequest{
 		OrgId: orgID,
@@ -904,6 +1156,21 @@ func (c *AppClient) ListOAuthApps(ctx context.Context, orgID string) ([]string, 
 }
 
 // CreateLocation creates a location with the given name under the given organization.
+//
+// CreateLocation example:
+//
+//	 locationID := "ab1c2d3e45"
+//		err := cloud.CreateLocation(
+//			context.Background(),
+//			"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//			"test-location",
+//			&app.CreateLocationOptions{
+//				ParentLocationID: &locationID,
+//		})
+//
+// For more information, see the [CreateLocation method docs].
+//
+// [CreateLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createlocation
 func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts *CreateLocationOptions) (*Location, error) {
 	var parentID *string
 	if opts != nil {
@@ -921,6 +1188,14 @@ func (c *AppClient) CreateLocation(ctx context.Context, orgID, name string, opts
 }
 
 // GetLocation gets a location.
+//
+// GetLocation example:
+//
+//	location, err := cloud.GetLocation(context.Background(), "ab1c2d3e45")
+//
+// For more information, see the [GetLocation method docs].
+//
+// [GetLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getlocation
 func (c *AppClient) GetLocation(ctx context.Context, locationID string) (*Location, error) {
 	resp, err := c.client.GetLocation(ctx, &pb.GetLocationRequest{
 		LocationId: locationID,
@@ -932,6 +1207,22 @@ func (c *AppClient) GetLocation(ctx context.Context, locationID string) (*Locati
 }
 
 // UpdateLocation updates a location.
+//
+// UpdateLocation example:
+//
+//	 locationID := "ab1c2d3e45"
+//	 name := "test-name"
+//		err := cloud.UpdateLocation(
+//			context.Background(),
+//			"ab1c2d3e45",
+//			&app.UpdateLocationOptions{
+//				Name: &name,
+//				ParentLocationID: &locationID,
+//			})
+//
+// For more information, see the [UpdateLocation method docs].
+//
+// [UpdateLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updatelocation
 func (c *AppClient) UpdateLocation(ctx context.Context, locationID string, opts *UpdateLocationOptions) (*Location, error) {
 	var name, parentID, region *string
 	if opts != nil {
@@ -950,6 +1241,14 @@ func (c *AppClient) UpdateLocation(ctx context.Context, locationID string, opts 
 }
 
 // DeleteLocation deletes a location.
+//
+// DeleteLocation example:
+//
+//	err := cloud.DeleteLocation(context.Background(), "ab1c2d3e45")
+//
+// For more information, see the [DeleteLocation method docs].
+//
+// [DeleteLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deletelocation
 func (c *AppClient) DeleteLocation(ctx context.Context, locationID string) error {
 	_, err := c.client.DeleteLocation(ctx, &pb.DeleteLocationRequest{
 		LocationId: locationID,
@@ -958,6 +1257,14 @@ func (c *AppClient) DeleteLocation(ctx context.Context, locationID string) error
 }
 
 // ListLocations gets a list of locations under the specified organization.
+//
+// ListLocations example:
+//
+//	locations, err := cloud.ListLocations(context.Background(), "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//
+// For more information, see the [ListLocations method docs].
+//
+// [ListLocations method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listlocations
 func (c *AppClient) ListLocations(ctx context.Context, orgID string) ([]*Location, error) {
 	resp, err := c.client.ListLocations(ctx, &pb.ListLocationsRequest{
 		OrganizationId: orgID,
@@ -974,6 +1281,14 @@ func (c *AppClient) ListLocations(ctx context.Context, orgID string) ([]*Locatio
 }
 
 // ShareLocation shares a location with an organization.
+//
+// ShareLocation example:
+//
+//	err := cloud.ShareLocation(context.Background(), "ab1c2d3e45", "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//
+// For more information, see the [ShareLocation method docs].
+//
+// [ShareLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#sharelocation
 func (c *AppClient) ShareLocation(ctx context.Context, locationID, orgID string) error {
 	_, err := c.client.ShareLocation(ctx, &pb.ShareLocationRequest{
 		LocationId:     locationID,
@@ -983,6 +1298,14 @@ func (c *AppClient) ShareLocation(ctx context.Context, locationID, orgID string)
 }
 
 // UnshareLocation stops sharing a location with an organization.
+//
+// UnshareLocation example:
+//
+//	err := cloud.UnshareLocation(context.Background(), "ab1c2d3e45", "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//
+// For more information, see the [UnshareLocation method docs].
+//
+// [UnshareLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#unsharelocation
 func (c *AppClient) UnshareLocation(ctx context.Context, locationID, orgID string) error {
 	_, err := c.client.UnshareLocation(ctx, &pb.UnshareLocationRequest{
 		LocationId:     locationID,
@@ -992,6 +1315,14 @@ func (c *AppClient) UnshareLocation(ctx context.Context, locationID, orgID strin
 }
 
 // LocationAuth gets a location's authorization secrets.
+//
+// LocationAuth example:
+//
+//	auth, err := cloud.LocationAuth(context.Background(), "ab1c2d3e45")
+//
+// For more information, see the [LocationAuth method docs].
+//
+// [LocationAuth method docs]: https://docs.viam.com/dev/reference/apis/fleet/#locationauth
 func (c *AppClient) LocationAuth(ctx context.Context, locationID string) (*LocationAuth, error) {
 	resp, err := c.client.LocationAuth(ctx, &pb.LocationAuthRequest{
 		LocationId: locationID,
@@ -1003,6 +1334,14 @@ func (c *AppClient) LocationAuth(ctx context.Context, locationID string) (*Locat
 }
 
 // CreateLocationSecret creates a new generated secret in the location. Succeeds if there are no more than 2 active secrets after creation.
+//
+// CreateLocationSecret example:
+//
+//	auth, err := cloud.CreateLocationSecret(context.Background(), "ab1c2d3e45")
+//
+// For more information, see the [CreateLocationSecret method docs].
+//
+// [CreateLocationSecret method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createlocationsecret
 func (c *AppClient) CreateLocationSecret(ctx context.Context, locationID string) (*LocationAuth, error) {
 	resp, err := c.client.CreateLocationSecret(ctx, &pb.CreateLocationSecretRequest{
 		LocationId: locationID,
@@ -1014,6 +1353,18 @@ func (c *AppClient) CreateLocationSecret(ctx context.Context, locationID string)
 }
 
 // DeleteLocationSecret deletes a secret from the location.
+//
+// DeleteLocationSecret example:
+//
+//	err := cloud.DeleteLocationSecret(
+//		context.Background(),
+//		"ab1c2d3e45",
+//		"a12bcd3e-a12b-1234-1ab2-abc123d4e5f6")
+//	)
+//
+// For more information, see the [DeleteLocationSecret method docs].
+//
+// [DeleteLocationSecret method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deletelocationsecret
 func (c *AppClient) DeleteLocationSecret(ctx context.Context, locationID, secretID string) error {
 	_, err := c.client.DeleteLocationSecret(ctx, &pb.DeleteLocationSecretRequest{
 		LocationId: locationID,
@@ -1023,6 +1374,14 @@ func (c *AppClient) DeleteLocationSecret(ctx context.Context, locationID, secret
 }
 
 // GetLocationMetadata gets the user-defined metadata for a location.
+//
+// GetLocationMetadata example:
+//
+//	metadata, err := cloud.GetLocationMetadata(context.Background(), "ab1c2d3e45")
+//
+// For more information, see the [GetLocationMetadata method docs].
+//
+// [GetLocationMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getlocationmetadata
 func (c *AppClient) GetLocationMetadata(ctx context.Context, locationID string) (map[string]interface{}, error) {
 	resp, err := c.client.GetLocationMetadata(ctx, &pb.GetLocationMetadataRequest{
 		LocationId: locationID,
@@ -1034,6 +1393,20 @@ func (c *AppClient) GetLocationMetadata(ctx context.Context, locationID string) 
 }
 
 // UpdateLocationMetadata updates the user-defined metadata for a location.
+//
+// UpdateLocationMetadata example:
+//
+//	err := cloud.UpdateLocationMetadata(
+//		context.Background(),
+//		"ab1c2d3e45",
+//		map[string]interface{}{
+//			"key": "value",
+//		},
+//	)
+//
+// For more information, see the [UpdateLocationMetadata method docs].
+//
+// [UpdateLocationMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updatelocationmetadata
 func (c *AppClient) UpdateLocationMetadata(ctx context.Context, locationID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
@@ -1047,6 +1420,14 @@ func (c *AppClient) UpdateLocationMetadata(ctx context.Context, locationID strin
 }
 
 // GetRobot gets a specific robot by ID.
+//
+// GetRobot example:
+//
+//	robot, err := cloud.GetRobot(context.Background(), "1ab2345c-a123-1ab2-1abc-1ab234567a12")
+//
+// For more information, see the [GetRobot method docs].
+//
+// [GetRobot method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobot
 func (c *AppClient) GetRobot(ctx context.Context, id string) (*Robot, error) {
 	resp, err := c.client.GetRobot(ctx, &pb.GetRobotRequest{
 		Id: id,
@@ -1058,6 +1439,16 @@ func (c *AppClient) GetRobot(ctx context.Context, id string) (*Robot, error) {
 }
 
 // GetRobotMetadata gets the user-defined metadata for a robot.
+//
+// GetRobotMetadata example:
+//
+//	metadata, err := cloud.GetRobotMetadata(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12")
+//
+// For more information, see the [GetRobotMetadata method docs].
+//
+// [GetRobotMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotmetadata
 func (c *AppClient) GetRobotMetadata(ctx context.Context, robotID string) (map[string]interface{}, error) {
 	resp, err := c.client.GetRobotMetadata(ctx, &pb.GetRobotMetadataRequest{
 		Id: robotID,
@@ -1069,6 +1460,20 @@ func (c *AppClient) GetRobotMetadata(ctx context.Context, robotID string) (map[s
 }
 
 // UpdateRobotMetadata updates the user-defined metadata for a robot.
+//
+// UpdateRobotMetadata example:
+//
+//	err := cloud.UpdateRobotMetadata(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12",
+//		map[string]interface{}{
+//			"key": "value",
+//		},
+//	)
+//
+// For more information, see the [UpdateRobotMetadata method docs].
+//
+// [UpdateRobotMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updaterobotmetadata
 func (c *AppClient) UpdateRobotMetadata(ctx context.Context, robotID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
@@ -1097,6 +1502,14 @@ func (c *AppClient) GetRoverRentalRobots(ctx context.Context, orgID string) ([]*
 }
 
 // GetRobotParts gets a list of all the parts under a specific machine.
+//
+// GetRobotParts example:
+//
+//	parts, err := cloud.GetRobotParts(context.Background(), "1ab2345c-a123-1ab2-1abc-1ab234567a12")
+//
+// For more information, see the [GetRobotParts method docs].
+//
+// [GetRobotParts method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotparts
 func (c *AppClient) GetRobotParts(ctx context.Context, robotID string) ([]*RobotPart, error) {
 	resp, err := c.client.GetRobotParts(ctx, &pb.GetRobotPartsRequest{
 		RobotId: robotID,
@@ -1112,6 +1525,17 @@ func (c *AppClient) GetRobotParts(ctx context.Context, robotID string) ([]*Robot
 }
 
 // GetRobotPart gets a specific robot part and its config by ID.
+//
+// GetRobotPart example:
+//
+//	part, config, err := cloud.GetRobotPart(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12",
+//	)
+//
+// For more information, see the [GetRobotPart method docs].
+//
+// [GetRobotPart method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotpart
 func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*RobotPart, string, error) {
 	resp, err := c.client.GetRobotPart(ctx, &pb.GetRobotPartRequest{
 		Id: id,
@@ -1123,6 +1547,32 @@ func (c *AppClient) GetRobotPart(ctx context.Context, id string) (*RobotPart, st
 }
 
 // GetRobotPartLogs gets the logs associated with a robot part and the next page token.
+//
+// GetRobotPartLogs example:
+//
+//		filter := ""
+//		pageToken := ""
+//		startTime := time.Now().Add(-720 * time.Hour)
+//		endTime := time.Now()
+//		limit := 5
+//		source := ""
+//		partLogs, _, err := cloud.GetRobotPartLogs(
+//	        ctx,
+//	        PART_ID,
+//	       &GetRobotPartLogsOptions{
+//				Filter: &filter,
+//				PageToken: &pageToken,
+//				Levels: []string{"INFO", "WARN", "ERROR"},
+//				Start: &startTime,
+//				End: &endTime,
+//				Limit: &limit,
+//				Source: &source,
+//			},
+//		)
+//
+// For more information, see the [GetRobotPartLogs method docs].
+//
+// [GetRobotPartLogs method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotpartlogs
 func (c *AppClient) GetRobotPartLogs(ctx context.Context, id string, opts *GetRobotPartLogsOptions) ([]*LogEntry, string, error) {
 	var filter, token, source *string
 	var levels []string
@@ -1181,6 +1631,22 @@ func (s *RobotPartLogStream) Next() ([]*LogEntry, error) {
 }
 
 // TailRobotPartLogs gets a stream of log entries for a specific robot part. Logs are ordered by newest first.
+//
+// TailRobotPartLogs example:
+//
+//	logFilter := "error"
+//	stream, err := cloud.TailRobotPartLogs(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12",
+//		true,
+//		&app.TailRobotPartLogsOptions{
+//			Filter: &logFilter,
+//		},
+//	)
+//
+// For more information, see the [TailRobotPartLogs method docs].
+//
+// [TailRobotPartLogs method docs]: https://docs.viam.com/dev/reference/apis/fleet/#tailrobotpartlogs
 func (c *AppClient) TailRobotPartLogs(
 	ctx context.Context, id string, errorsOnly bool, opts *TailRobotPartLogsOptions,
 ) (*RobotPartLogStream, error) {
@@ -1200,6 +1666,16 @@ func (c *AppClient) TailRobotPartLogs(
 }
 
 // GetRobotPartHistory gets a specific robot part history by ID.
+//
+// GetRobotPartHistory example:
+//
+//	history, err := cloud.GetRobotPartHistory(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12")
+//
+// For more information, see the [GetRobotPartHistory method docs].
+//
+// [GetRobotPartHistory method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotparthistory
 func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*RobotPartHistoryEntry, error) {
 	resp, err := c.client.GetRobotPartHistory(ctx, &pb.GetRobotPartHistoryRequest{
 		Id: id,
@@ -1215,6 +1691,32 @@ func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*Robo
 }
 
 // UpdateRobotPart updates a robot part.
+//
+// UpdateRobotPart example:
+//
+//	robotConfig := map[string]interface{}{
+//		"components": []map[string]interface{}{
+//			{
+//				"name":       "camera-1",
+//				"api":        "rdk:component:camera",
+//				"model":      "rdk:builtin:fake",
+//				"attributes": map[string]interface{}{},
+//			},
+//		},
+//	}
+//
+//	part, err := cloud.UpdateRobotPart(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12",
+//		"part_name",
+//		map[string]interface{}{
+//			"key": "value",
+//		},
+//	)
+//
+// For more information, see the [UpdateRobotPart method docs].
+//
+// [UpdateRobotPart method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updaterobotpart
 func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotConfig interface{}) (*RobotPart, error) {
 	config, err := protoutils.StructToStructPb(robotConfig)
 	if err != nil {
@@ -1232,6 +1734,17 @@ func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotC
 }
 
 // NewRobotPart creates a new robot part and returns its ID.
+//
+// NewRobotPart example:
+//
+//	partID, err := cloud.NewRobotPart(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12",
+//		"part_name")
+//
+// For more information, see the [NewRobotPart method docs].
+//
+// [NewRobotPart method docs]: https://docs.viam.com/dev/reference/apis/fleet/#newrobotpart
 func (c *AppClient) NewRobotPart(ctx context.Context, robotID, partName string) (string, error) {
 	resp, err := c.client.NewRobotPart(ctx, &pb.NewRobotPartRequest{
 		RobotId:  robotID,
@@ -1244,6 +1757,14 @@ func (c *AppClient) NewRobotPart(ctx context.Context, robotID, partName string) 
 }
 
 // DeleteRobotPart deletes a robot part.
+//
+// DeleteRobotPart example:
+//
+//	err := cloud.DeleteRobotPart(context.Background(), "1ab2345c-a123-1ab2-1abc-1ab234567a12")
+//
+// For more information, see the [DeleteRobotPart method docs].
+//
+// [DeleteRobotPart method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleterobotpart
 func (c *AppClient) DeleteRobotPart(ctx context.Context, partID string) error {
 	_, err := c.client.DeleteRobotPart(ctx, &pb.DeleteRobotPartRequest{
 		PartId: partID,
@@ -1252,6 +1773,16 @@ func (c *AppClient) DeleteRobotPart(ctx context.Context, partID string) error {
 }
 
 // GetRobotPartMetadata gets the user-defined metadata for a robot part.
+//
+// GetRobotPartMetadata example:
+//
+//	metadata, err := cloud.GetRobotPartMetadata(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12")
+//
+// For more information, see the [GetRobotPartMetadata method docs].
+//
+// [GetRobotPartMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotpartmetadata
 func (c *AppClient) GetRobotPartMetadata(ctx context.Context, robotID string) (map[string]interface{}, error) {
 	resp, err := c.client.GetRobotPartMetadata(ctx, &pb.GetRobotPartMetadataRequest{
 		Id: robotID,
@@ -1263,6 +1794,20 @@ func (c *AppClient) GetRobotPartMetadata(ctx context.Context, robotID string) (m
 }
 
 // UpdateRobotPartMetadata updates the user-defined metadata for a robot part.
+//
+// UpdateRobotPartMetadata example:
+//
+//	err := cloud.UpdateRobotPartMetadata(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12",
+//		map[string]interface{}{
+//			"key": "value",
+//		},
+//	)
+//
+// For more information, see the [UpdateRobotPartMetadata method docs].
+//
+// [UpdateRobotPartMetadata method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updaterobotpartmetadata
 func (c *AppClient) UpdateRobotPartMetadata(ctx context.Context, robotID string, data interface{}) error {
 	d, err := protoutils.StructToStructPb(data)
 	if err != nil {
@@ -1276,6 +1821,14 @@ func (c *AppClient) UpdateRobotPartMetadata(ctx context.Context, robotID string,
 }
 
 // GetRobotAPIKeys gets the robot API keys for the robot.
+//
+// GetRobotAPIKeys example:
+//
+//	keys, err := cloud.GetRobotAPIKeys(context.Background(), "1ab2345c-a123-1ab2-1abc-1ab234567a12")
+//
+// For more information, see the [GetRobotAPIKeys method docs].
+//
+// [GetRobotAPIKeys method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotapikeys
 func (c *AppClient) GetRobotAPIKeys(ctx context.Context, robotID string) ([]*APIKeyWithAuthorizations, error) {
 	resp, err := c.client.GetRobotAPIKeys(ctx, &pb.GetRobotAPIKeysRequest{
 		RobotId: robotID,
@@ -1291,6 +1844,14 @@ func (c *AppClient) GetRobotAPIKeys(ctx context.Context, robotID string) ([]*API
 }
 
 // MarkPartAsMain marks the given part as the main part, and all the others as not.
+//
+// MarkPartAsMain example:
+//
+//	err := cloud.MarkPartAsMain(context.Background(), "1ab2345c-a123-1ab2-1abc-1ab234567a12")
+//
+// For more information, see the [MarkPartAsMain method docs].
+//
+// [MarkPartAsMain method docs]: https://docs.viam.com/dev/reference/apis/fleet/#markpartasmain
 func (c *AppClient) MarkPartAsMain(ctx context.Context, partID string) error {
 	_, err := c.client.MarkPartAsMain(ctx, &pb.MarkPartAsMainRequest{
 		PartId: partID,
@@ -1301,6 +1862,14 @@ func (c *AppClient) MarkPartAsMain(ctx context.Context, partID string) error {
 // MarkPartForRestart marks the given part for restart.
 // Once the robot part checks-in with the app the flag is reset on the robot part.
 // Calling this multiple times before a robot part checks-in has no effect.
+//
+// MarkPartForRestart example:
+//
+//	err := cloud.MarkPartForRestart(context.Background(), "1ab2345c-a123-1ab2-1abc-1ab234567a12")
+//
+// For more information, see the [MarkPartForRestart method docs].
+//
+// [MarkPartForRestart method docs]: https://docs.viam.com/dev/reference/apis/fleet/#markpartforrestart
 func (c *AppClient) MarkPartForRestart(ctx context.Context, partID string) error {
 	_, err := c.client.MarkPartForRestart(ctx, &pb.MarkPartForRestartRequest{
 		PartId: partID,
@@ -1310,6 +1879,16 @@ func (c *AppClient) MarkPartForRestart(ctx context.Context, partID string) error
 
 // CreateRobotPartSecret creates a new generated secret in the robot part.
 // Succeeds if there are no more than 2 active secrets after creation.
+//
+// CreateRobotPartSecret example:
+//
+//	part, err := cloud.CreateRobotPartSecret(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12")
+//
+// For more information, see the [CreateRobotPartSecret method docs].
+//
+// [CreateRobotPartSecret method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createrobotpartsecret
 func (c *AppClient) CreateRobotPartSecret(ctx context.Context, partID string) (*RobotPart, error) {
 	resp, err := c.client.CreateRobotPartSecret(ctx, &pb.CreateRobotPartSecretRequest{
 		PartId: partID,
@@ -1321,6 +1900,17 @@ func (c *AppClient) CreateRobotPartSecret(ctx context.Context, partID string) (*
 }
 
 // DeleteRobotPartSecret deletes a secret from the robot part.
+//
+// DeleteRobotPartSecret example:
+//
+//	err := cloud.DeleteRobotPartSecret(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12",
+//		"a12bcd34-1234-12ab-1ab2-123a4567890b")
+//
+// For more information, see the [DeleteRobotPartSecret method docs].
+//
+// [DeleteRobotPartSecret method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleterobotpartsecret
 func (c *AppClient) DeleteRobotPartSecret(ctx context.Context, partID, secretID string) error {
 	_, err := c.client.DeleteRobotPartSecret(ctx, &pb.DeleteRobotPartSecretRequest{
 		PartId:   partID,
@@ -1330,6 +1920,14 @@ func (c *AppClient) DeleteRobotPartSecret(ctx context.Context, partID, secretID 
 }
 
 // ListRobots gets a list of robots under a location.
+//
+// ListRobots example:
+//
+//	robots, err := cloud.ListRobots(context.Background(), "ab1c2d3e45")
+//
+// For more information, see the [ListRobots method docs].
+//
+// [ListRobots method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listrobots
 func (c *AppClient) ListRobots(ctx context.Context, locationID string) ([]*Robot, error) {
 	resp, err := c.client.ListRobots(ctx, &pb.ListRobotsRequest{
 		LocationId: locationID,
@@ -1345,6 +1943,14 @@ func (c *AppClient) ListRobots(ctx context.Context, locationID string) ([]*Robot
 }
 
 // NewRobot creates a new robot and returns its ID.
+//
+// NewRobot example:
+//
+//	robotID, err := cloud.NewRobot(context.Background(), "robot_name", "ab1c2d3e45")
+//
+// For more information, see the [NewRobot method docs].
+//
+// [NewRobot method docs]: https://docs.viam.com/dev/reference/apis/fleet/#newrobot
 func (c *AppClient) NewRobot(ctx context.Context, name, location string) (string, error) {
 	resp, err := c.client.NewRobot(ctx, &pb.NewRobotRequest{
 		Name:     name,
@@ -1357,6 +1963,14 @@ func (c *AppClient) NewRobot(ctx context.Context, name, location string) (string
 }
 
 // UpdateRobot updates a robot.
+//
+// UpdateRobot example:
+//
+//	robot, err := cloud.UpdateRobot(context.Background(), "1ab2345c-a123-1ab2-1abc-1ab234567a12", "robot_name", "ab1c2d3e45")
+//
+// For more information, see the [UpdateRobot method docs].
+//
+// [UpdateRobot method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updaterobot
 func (c *AppClient) UpdateRobot(ctx context.Context, id, name, location string) (*Robot, error) {
 	resp, err := c.client.UpdateRobot(ctx, &pb.UpdateRobotRequest{
 		Id:       id,
@@ -1370,6 +1984,14 @@ func (c *AppClient) UpdateRobot(ctx context.Context, id, name, location string) 
 }
 
 // DeleteRobot deletes a robot.
+//
+// DeleteRobot example:
+//
+//	err := cloud.DeleteRobot(context.Background(), "1ab2345c-a123-1ab2-1abc-1ab234567a12")
+//
+// For more information, see the [DeleteRobot method docs].
+//
+// [DeleteRobot method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleterobot
 func (c *AppClient) DeleteRobot(ctx context.Context, id string) error {
 	_, err := c.client.DeleteRobot(ctx, &pb.DeleteRobotRequest{
 		Id: id,
@@ -1378,6 +2000,19 @@ func (c *AppClient) DeleteRobot(ctx context.Context, id string) error {
 }
 
 // ListFragments gets a list of fragments.
+//
+// ListFragments example:
+//
+//	fragments, err := cloud.ListFragments(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//		true,
+//		[]app.FragmentVisibility{app.FragmentVisibilityPublic},
+//	)
+//
+// For more information, see the [ListFragments method docs].
+//
+// [ListFragments method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listfragments
 func (c *AppClient) ListFragments(
 	ctx context.Context, orgID string, showPublic bool, fragmentVisibility []FragmentVisibility,
 ) ([]*Fragment, error) {
@@ -1402,6 +2037,14 @@ func (c *AppClient) ListFragments(
 }
 
 // GetFragment gets a single fragment.
+//
+// GetFragment example:
+//
+//	fragment, err := cloud.GetFragment(context.Background(), "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2", "")
+//
+// For more information, see the [GetFragment method docs].
+//
+// [GetFragment method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getfragment
 func (c *AppClient) GetFragment(ctx context.Context, id, version string) (*Fragment, error) {
 	req := &pb.GetFragmentRequest{
 		Id: id,
@@ -1418,6 +2061,31 @@ func (c *AppClient) GetFragment(ctx context.Context, id, version string) (*Fragm
 }
 
 // CreateFragment creates a fragment.
+//
+// CreateFragment example:
+//
+//	fragmentConfig := map[string]interface{}{
+//		"components": []map[string]interface{}{
+//			{
+//				"name":       "camera-1",
+//				"api":        "rdk:component:camera",
+//				"model":      "rdk:builtin:fake",
+//				"attributes": map[string]interface{}{},
+//			},
+//		},
+//	}
+//
+//	fragment, err := cloud.CreateFragment(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//		"My Fragment",
+//		fragmentConfig,
+//		&app.CreateFragmentOptions{Visibility: &app.FragmentVisibilityPublic},
+//	)
+//
+// For more information, see the [CreateFragment method docs].
+//
+// [CreateFragment method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createfragment
 func (c *AppClient) CreateFragment(
 	ctx context.Context, orgID, name string, config map[string]interface{}, opts *CreateFragmentOptions,
 ) (*Fragment, error) {
@@ -1442,6 +2110,30 @@ func (c *AppClient) CreateFragment(
 }
 
 // UpdateFragment updates a fragment.
+//
+// UpdateFragment example:
+//
+//	fragmentConfig := map[string]interface{}{
+//		"components": []map[string]interface{}{
+//			{
+//				"name":       "camera-1",
+//				"api":        "rdk:component:camera",
+//				"model":      "rdk:builtin:fake",
+//				"attributes": map[string]interface{}{},
+//			},
+//		},
+//	}
+//
+//	fragment, err := cloud.UpdateFragment(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//		"My Fragment",
+//		fragmentConfig,
+//		&app.UpdateFragmentOptions{Visibility: &app.FragmentVisibilityPublic})
+//
+// For more information, see the [UpdateFragment method docs].
+//
+// [UpdateFragment method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updatefragment
 func (c *AppClient) UpdateFragment(
 	ctx context.Context, id, name string, config map[string]interface{}, opts *UpdateFragmentOptions,
 ) (*Fragment, error) {
@@ -1471,6 +2163,14 @@ func (c *AppClient) UpdateFragment(
 }
 
 // DeleteFragment deletes a fragment.
+//
+// DeleteFragment example:
+//
+//	err := cloud.DeleteFragment(context.Background(), "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//
+// For more information, see the [DeleteFragment method docs].
+//
+// [DeleteFragment method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deletefragment
 func (c *AppClient) DeleteFragment(ctx context.Context, id string) error {
 	_, err := c.client.DeleteFragment(ctx, &pb.DeleteFragmentRequest{
 		Id: id,
@@ -1478,8 +2178,16 @@ func (c *AppClient) DeleteFragment(ctx context.Context, id string) error {
 	return err
 }
 
-// ListMachineFragments gets top level and nested fragments for a amchine, as well as any other fragments specified by IDs.
+// ListMachineFragments gets top level and nested fragments for a machine, as well as any other fragments specified by IDs.
 // Additional fragments are useful to view fragments that will be provisionally added to the machine alongside existing fragments.
+//
+// ListMachineFragments example:
+//
+//	fragments, err := cloud.ListMachineFragments(context.Background(), "1ab2345c-a123-1ab2-1abc-1ab234567a12", []string{})
+//
+// For more information, see the [ListMachineFragments method docs].
+//
+// [ListMachineFragments method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listmachinefragments
 func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, additionalIDs []string) ([]*Fragment, error) {
 	resp, err := c.client.ListMachineFragments(ctx, &pb.ListMachineFragmentsRequest{
 		MachineId:             machineID,
@@ -1496,6 +2204,18 @@ func (c *AppClient) ListMachineFragments(ctx context.Context, machineID string, 
 }
 
 // GetFragmentHistory gets the fragment's history and the next page token.
+//
+// GetFragmentHistory example:
+//
+//	 limit := 10
+//		history, token, err := cloud.GetFragmentHistory(
+//			context.Background(),
+//			"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//			&app.GetFragmentHistoryOptions{PageLimit: &limit})
+//
+// For more information, see the [GetFragmentHistory method docs].
+//
+// [GetFragmentHistory method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getfragmenthistory
 func (c *AppClient) GetFragmentHistory(
 	ctx context.Context, id string, opts *GetFragmentHistoryOptions,
 ) ([]*FragmentHistoryEntry, string, error) {
@@ -1561,6 +2281,18 @@ func (c *AppClient) ChangeRole(
 
 // ListAuthorizations returns all authorization roles for any given resources.
 // If no resources are given, all resources within the organization will be included.
+//
+// ListAuthorizations example:
+//
+//	err := cloud.ListAuthorizations(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//		[]string{"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2"},
+//	)
+//
+// For more information, see the [ListAuthorizations method docs].
+//
+// [ListAuthorizations method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listauthorizations
 func (c *AppClient) ListAuthorizations(ctx context.Context, orgID string, resourceIDs []string) ([]*Authorization, error) {
 	resp, err := c.client.ListAuthorizations(ctx, &pb.ListAuthorizationsRequest{
 		OrganizationId: orgID,
@@ -1577,6 +2309,23 @@ func (c *AppClient) ListAuthorizations(ctx context.Context, orgID string, resour
 }
 
 // CheckPermissions checks the validity of a list of permissions.
+//
+// CheckPermissions example:
+//
+//	err := cloud.CheckPermissions(
+//		context.Background(),
+//		[]*app.AuthorizedPermissions{
+//			{
+//				ResourceType: app.AuthResourceTypeLocation,
+//				ResourceID:   "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//				Permissions:  []string{"control_robot", "read_robot_logs"},
+//			},
+//		},
+//	)
+//
+// For more information, see the [CheckPermissions method docs].
+//
+// [CheckPermissions method docs]: https://docs.viam.com/dev/reference/apis/fleet/#checkpermissions
 func (c *AppClient) CheckPermissions(ctx context.Context, permissions []*AuthorizedPermissions) ([]*AuthorizedPermissions, error) {
 	var pbPermissions []*pb.AuthorizedPermissions
 	for _, permission := range permissions {
@@ -1598,6 +2347,14 @@ func (c *AppClient) CheckPermissions(ctx context.Context, permissions []*Authori
 }
 
 // GetRegistryItem gets a registry item.
+//
+// GetRegistryItem example:
+//
+//	registryItem, err := cloud.GetRegistryItem(context.Background(), "namespace:name")
+//
+// For more information, see the [GetRegistryItem method docs].
+//
+// [GetRegistryItem method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getregistryitem
 func (c *AppClient) GetRegistryItem(ctx context.Context, itemID string) (*RegistryItem, error) {
 	resp, err := c.client.GetRegistryItem(ctx, &pb.GetRegistryItemRequest{
 		ItemId: itemID,
@@ -1613,6 +2370,18 @@ func (c *AppClient) GetRegistryItem(ctx context.Context, itemID string) (*Regist
 }
 
 // CreateRegistryItem creates a registry item.
+//
+// CreateRegistryItem example:
+//
+//	err := cloud.CreateRegistryItem(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//		"registry_item_name",
+//		app.PackageTypeMLModel)
+//
+// For more information, see the [CreateRegistryItem method docs].
+//
+// [CreateRegistryItem method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createregistryitem
 func (c *AppClient) CreateRegistryItem(ctx context.Context, orgID, name string, packageType PackageType) error {
 	_, err := c.client.CreateRegistryItem(ctx, &pb.CreateRegistryItemRequest{
 		OrganizationId: orgID,
@@ -1623,6 +2392,22 @@ func (c *AppClient) CreateRegistryItem(ctx context.Context, orgID, name string, 
 }
 
 // UpdateRegistryItem updates a registry item.
+//
+// UpdateRegistryItem example:
+//
+//	siteURL := "https://example.com"
+//	err := cloud.UpdateRegistryItem(
+//		context.Background(),
+//		"namespace:name",
+//		app.PackageTypeMLModel,
+//		"description",
+//		app.VisibilityPrivate,
+//		&app.UpdateRegistryItemOptions{URL: &siteURL},
+//	)
+//
+// For more information, see the [UpdateRegistryItem method docs].
+//
+// [UpdateRegistryItem method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updateregistryitem
 func (c *AppClient) UpdateRegistryItem(
 	ctx context.Context, itemID string, packageType PackageType, description string, visibility Visibility, opts *UpdateRegistryItemOptions,
 ) error {
@@ -1641,6 +2426,30 @@ func (c *AppClient) UpdateRegistryItem(
 }
 
 // ListRegistryItems lists the registry items in an organization.
+//
+// ListRegistryItems example:
+//
+//	organizationID := "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2"
+//	searchTerm := ""
+//	pageToken := ""
+//	namespaces := []string{}
+//	items, err := cloud.ListRegistryItems(
+//		context.Background(),
+//		&organizationID,
+//		[]app.PackageType{app.PackageTypeModule},
+//		[]app.Visibility{app.VisibilityPublic},
+//		[]string{"linux/any"},
+//		[]app.RegistryItemStatus{app.RegistryItemStatusPublished},
+//		&app.ListRegistryItemsOptions{
+//			SearchTerm: &searchTerm,
+//			PageToken: &pageToken,
+//			PublicNamespaces: namespaces,
+//		},
+//	)
+//
+// For more information, see the [ListRegistryItems method docs].
+//
+// [ListRegistryItems method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listregistryitems
 func (c *AppClient) ListRegistryItems(
 	ctx context.Context,
 	orgID *string,
@@ -1693,8 +2502,16 @@ func (c *AppClient) ListRegistryItems(
 	return items, nil
 }
 
-// DeleteRegistryItem deletes a registry item given an ID that is formatted as `prefix:name“
-// where `prefix“ is the owner's organization ID or namespace.
+// DeleteRegistryItem deletes a registry item given an ID that is formatted as `prefix:name"
+// where `prefix" is the owner's organization ID or namespace.
+//
+// DeleteRegistryItem example:
+//
+//	err := cloud.DeleteRegistryItem(context.Background(), "namespace:name")
+//
+// For more information, see the [DeleteRegistryItem method docs].
+//
+// [DeleteRegistryItem method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deleteregistryitem
 func (c *AppClient) DeleteRegistryItem(ctx context.Context, itemID string) error {
 	_, err := c.client.DeleteRegistryItem(ctx, &pb.DeleteRegistryItemRequest{
 		ItemId: itemID,
@@ -1703,6 +2520,14 @@ func (c *AppClient) DeleteRegistryItem(ctx context.Context, itemID string) error
 }
 
 // TransferRegistryItem transfers a registry item to a namespace.
+//
+// TransferRegistryItem example:
+//
+//	err := cloud.TransferRegistryItem(context.Background(), "namespace:name", "new_namespace")
+//
+// For more information, see the [TransferRegistryItem method docs].
+//
+// [TransferRegistryItem method docs]: https://docs.viam.com/dev/reference/apis/fleet/#transferregistryitem
 func (c *AppClient) TransferRegistryItem(ctx context.Context, itemID, newPublicNamespace string) error {
 	_, err := c.client.TransferRegistryItem(ctx, &pb.TransferRegistryItemRequest{
 		ItemId:             itemID,
@@ -1712,6 +2537,18 @@ func (c *AppClient) TransferRegistryItem(ctx context.Context, itemID, newPublicN
 }
 
 // CreateModule creates a module and returns its ID and URL.
+//
+// CreateModule example:
+//
+//	moduleID, url, err := cloud.CreateModule(
+//		context.Background(),
+//		"a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2",
+//		"module_name",
+//	)
+//
+// For more information, see the [CreateModule method docs].
+//
+// [CreateModule method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createmodule
 func (c *AppClient) CreateModule(ctx context.Context, orgID, name string) (string, string, error) {
 	resp, err := c.client.CreateModule(ctx, &pb.CreateModuleRequest{
 		OrganizationId: orgID,
@@ -1725,6 +2562,34 @@ func (c *AppClient) CreateModule(ctx context.Context, orgID, name string) (strin
 
 // UpdateModule updates the documentation URL, description, models, entrypoint, and/or the visibility of a module and returns its URL.
 // A path to a setup script can be added that is run before a newly downloaded module starts.
+//
+// UpdateModule example:
+//
+//	model := &app.Model{
+//		API:   "rdk:service:generic",
+//		Model: "docs-test:new_test_module:test_model",
+//	}
+//	app := &app.App{
+//		Name:       "app_name",
+//		Type:       "app_type",
+//		Entrypoint: "entrypoint",
+//	}
+//	firstRun := "first_run.sh"
+//	url, err := cloud.UpdateModule(
+//		context.Background(),
+//		"namespace:name",
+//		app.VisibilityPublic,
+//		"https://example.com",
+//		"description",
+//		[]*app.Model{model},
+//		[]*app.App{app},
+//		"entrypoint",
+//		&app.UpdateModuleOptions{FirstRun: &firstRun},
+//	)
+//
+// For more information, see the [UpdateModule method docs].
+//
+// [UpdateModule method docs]: https://docs.viam.com/dev/reference/apis/fleet/#updatemodule
 func (c *AppClient) UpdateModule(
 	ctx context.Context,
 	moduleID string,
@@ -1765,6 +2630,19 @@ func (c *AppClient) UpdateModule(
 }
 
 // UploadModuleFile uploads a module file and returns the URL of the uploaded file.
+//
+// UploadModuleFile example:
+//
+//	moduleFileInfo := app.ModuleFileInfo{
+//		ModuleID: "namespace:name",
+//		Version:  "1.0.0",
+//		Platform: "darwin/arm64",
+//	}
+//	fileURL, err := cloud.UploadModuleFile(context.Background(), fileInfo, []byte("empty.txt"))
+//
+// For more information, see the [UploadModuleFile method docs].
+//
+// [UploadModuleFile method docs]: https://docs.viam.com/dev/reference/apis/fleet/#uploadmodulefile
 func (c *AppClient) UploadModuleFile(ctx context.Context, fileInfo ModuleFileInfo, file []byte) (string, error) {
 	stream, err := c.client.UploadModuleFile(ctx)
 	if err != nil {
@@ -1809,6 +2687,14 @@ func (c *AppClient) UploadModuleFile(ctx context.Context, fileInfo ModuleFileInf
 }
 
 // GetModule gets a module.
+//
+// GetModule example:
+//
+//	module, err := cloud.GetModule(context.Background(), "namespace:name")
+//
+// For more information, see the [GetModule method docs].
+//
+// [GetModule method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getmodule
 func (c *AppClient) GetModule(ctx context.Context, moduleID string) (*Module, error) {
 	resp, err := c.client.GetModule(ctx, &pb.GetModuleRequest{
 		ModuleId: moduleID,
@@ -1820,6 +2706,15 @@ func (c *AppClient) GetModule(ctx context.Context, moduleID string) (*Module, er
 }
 
 // ListModules lists the modules in the organization.
+//
+// ListModules example:
+//
+//	orgID := "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2"
+//	modules, err := cloud.ListModules(context.Background(), &app.ListModulesOptions{OrgID: &orgID})
+//
+// For more information, see the [ListModules method docs].
+//
+// [ListModules method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listmodules
 func (c *AppClient) ListModules(ctx context.Context, opts *ListModulesOptions) ([]*Module, error) {
 	var orgID *string
 	if opts != nil {
@@ -1860,6 +2755,14 @@ func (c *AppClient) CreateKey(
 }
 
 // DeleteKey deletes an API key.
+//
+// DeleteKey example:
+//
+//	err := cloud.DeleteKey(context.Background(), "a1bcdefghi2jklmnopqrstuvw3xyzabc")
+//
+// For more information, see the [DeleteKey method docs].
+//
+// [DeleteKey method docs]: https://docs.viam.com/dev/reference/apis/fleet/#deletekey
 func (c *AppClient) DeleteKey(ctx context.Context, id string) error {
 	_, err := c.client.DeleteKey(ctx, &pb.DeleteKeyRequest{
 		Id: id,
@@ -1867,6 +2770,13 @@ func (c *AppClient) DeleteKey(ctx context.Context, id string) error {
 	return err
 }
 
+// ListKeys example:
+//
+//	keys, err := cloud.ListKeys(context.Background(), "a1b2c345-abcd-1a2b-abc1-a1b23cd4561e2")
+//
+// For more information, see the [ListKeys method docs].
+//
+// [ListKeys method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listkeys
 // ListKeys lists all the keys for the organization.
 func (c *AppClient) ListKeys(ctx context.Context, orgID string) ([]*APIKeyWithAuthorizations, error) {
 	resp, err := c.client.ListKeys(ctx, &pb.ListKeysRequest{
@@ -1883,6 +2793,14 @@ func (c *AppClient) ListKeys(ctx context.Context, orgID string) ([]*APIKeyWithAu
 }
 
 // RenameKey renames an API key and returns its ID and name.
+//
+// RenameKey example:
+//
+//	_, name, err := cloud.RenameKey(context.Background(), "a1bcdefghi2jklmnopqrstuvw3xyzabc", "new_name")
+//
+// For more information, see the [RenameKey method docs].
+//
+// [RenameKey method docs]: https://docs.viam.com/dev/reference/apis/fleet/#renamekey
 func (c *AppClient) RenameKey(ctx context.Context, id, name string) (string, string, error) {
 	resp, err := c.client.RenameKey(ctx, &pb.RenameKeyRequest{
 		Id:   id,
@@ -1895,6 +2813,14 @@ func (c *AppClient) RenameKey(ctx context.Context, id, name string) (string, str
 }
 
 // RotateKey rotates an API key and returns its ID and key.
+//
+// RotateKey example:
+//
+//	id, key, err := cloud.RotateKey(context.Background(), "a1bcdefghi2jklmnopqrstuvw3xyzabc")
+//
+// For more information, see the [RotateKey method docs].
+//
+// [RotateKey method docs]: https://docs.viam.com/dev/reference/apis/fleet/#rotatekey
 func (c *AppClient) RotateKey(ctx context.Context, id string) (string, string, error) {
 	resp, err := c.client.RotateKey(ctx, &pb.RotateKeyRequest{
 		Id: id,
@@ -1906,6 +2832,16 @@ func (c *AppClient) RotateKey(ctx context.Context, id string) (string, string, e
 }
 
 // CreateKeyFromExistingKeyAuthorizations creates a new API key with an existing key's authorizations and returns its ID and key.
+//
+// CreateKeyFromExistingKeyAuthorizations example:
+//
+//	id, key, err := cloud.CreateKeyFromExistingKeyAuthorizations(context.Background(), "a1bcdefghi2jklmnopqrstuvw3xyzabc")
+//
+// For more information, see the [CreateKeyFromExistingKeyAuthorizations method docs].
+//
+// [CreateKeyFromExistingKeyAuthorizations method docs]: https://docs.viam.com/dev/reference/apis/fleet/#createkeyfromexistingkeyauthorizations
+//
+//nolint:lll
 func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, id string) (string, string, error) {
 	resp, err := c.client.CreateKeyFromExistingKeyAuthorizations(ctx, &pb.CreateKeyFromExistingKeyAuthorizationsRequest{
 		Id: id,

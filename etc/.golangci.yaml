@@ -111,6 +111,9 @@ linters-settings:
       - name: var-naming
   lll:
     line-length: 140
+  gocritic:
+    disabled-checks:
+      - ifElseChain
 issues:
   exclude-rules:
     - path: _test\.go$

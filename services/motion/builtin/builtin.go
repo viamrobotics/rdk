@@ -492,6 +492,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	if len(waypoints) == 0 {
 		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
 	}
+
 	// The contents of waypoints can be gigantic, and if so, making copies of `extra` becomes the majority of motion planning runtime.
 	// As the meaning from `waypoints` has already been extracted above into its proper data structure, there is no longer a need to
 	// keep it in `extra`.
@@ -682,8 +683,8 @@ func waypointsFromRequest(
 		} else {
 			return nil, nil, errors.New("extras start_state could not be interpreted as map[string]interface{}")
 		}
-		if startState.Configuration() == nil {
-			startState = armplanning.NewPlanState(startState.Poses(), fsInputs)
+		if len(startState.Configuration()) == 0 {
+			return nil, nil, fmt.Errorf("can't specify start_state without joint configuration")
 		}
 	} else {
 		startState = armplanning.NewPlanState(nil, fsInputs)

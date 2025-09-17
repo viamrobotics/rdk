@@ -61,6 +61,10 @@ func (*NoOpClientConn) PeerConn() *webrtc.PeerConnection {
 	return nil
 }
 
+func (*NoOpClientConn) GetState() connectivity.State {
+	return rpc.Unknown
+}
+
 func (*NoOpClientConn) Close() error {
 	return nil
 }
