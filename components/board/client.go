@@ -48,7 +48,7 @@ func NewClientFromConn(
 		Named:     name.PrependRemote(remoteName).AsNamed(),
 		client:    bClient,
 		logger:    logger,
-		boardName: name.ShortName(),
+		boardName: name.Name,
 	}
 	return c, nil
 }
