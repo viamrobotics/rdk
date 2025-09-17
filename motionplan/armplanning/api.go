@@ -252,6 +252,12 @@ func PlanArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 		return nil, err
 	}
 
+	return PlanArmWithInputs(ctx, logger, a, inputs, dst)
+}
+// PlanArmWithInputs is a helper function to abstract away movement for general arms.
+func PlanArmWithInputs(ctx context.Context, logger logging.Logger,
+	a arm.Arm, inputs []referenceframe.Input, dst spatialmath.Pose,
+) ([][]referenceframe.Input, error) {
 	model, err := a.Kinematics(ctx)
 	if err != nil {
 		return nil, err
