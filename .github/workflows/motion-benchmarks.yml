@@ -59,18 +59,29 @@ jobs:
         sudo -Hu testbot bash -lc "go test ./... -v -run TestScores --baselineDir=$BASELINE --modifiedDir=$MODIFIED"
         cat results/motion-benchmarks.md
 
-    # Now that RDK is public, can't directly comment without token having full read/write access
-    # motion-benchmarks-comment.yml will trigger seperately and post the actual comments
-
-    - name: Prepare code comment
-      run: |
-        echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
-
-    - name: Upload results
+    - name: Upload results for comment
       uses: actions/upload-artifact@v4
       with:
-        name: pr-motion-benchmark
-        path: |
-          pr.env
-          motion-testing/results/motion-benchmarks.md
+        name: motion-benchmarks-results
+        path: motion-testing/results/motion-benchmarks.md
         retention-days: 1
+
+
+  motion_comment:
+    name: 'Post Comment on PR'
+    runs-on: ubuntu-latest
+    needs: motion_benchmarks
+    if: ${{ github.event.workflow_run.event == 'pull_request_target' && needs.motion_benchmarks.result == 'success' }}
+    steps:
+      - name: Download Motion Benchmarks Results
+        uses: actions/download-artifact@v4
+        with:
+          name: motion-benchmarks-results
+
+      - name: Add Motion Benchmarks Comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: motion-benchmark
+          number: ${{ github.event.pull_request.number }}
+          recreate: true
+          path: motion-benchmarks.md
