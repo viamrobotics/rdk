@@ -32,7 +32,6 @@ updates:
       - dependency-name: "*"
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
     assignees:
-      - Otterverse
       - joncha1
       - 10zingpd
       - IanWhalen
