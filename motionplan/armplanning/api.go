@@ -245,30 +245,25 @@ var defaultArmPlannerOptions = &motionplan.Constraints{
 	LinearConstraint: []motionplan.LinearConstraint{},
 }
 
-// PlanArm is a helper function to abstract away movement for general arms.
-func PlanArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialmath.Pose) ([][]referenceframe.Input, error) {
+// MoveArm is a helper function to abstract away movement for general arms.
+func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialmath.Pose) error {
 	inputs, err := a.CurrentInputs(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	model, err := a.Kinematics(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	_, err = model.Transform(inputs)
 	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
-		return nil, errors.New("cannot move arm: " + err.Error())
+		return errors.New("cannot move arm: " + err.Error())
 	} else if err != nil {
-		return nil, err
+		return err
 	}
 
-	return PlanFrameMotion(ctx, logger, dst, model, inputs, defaultArmPlannerOptions, nil)
-}
-
-// MoveArm is a helper function to abstract away movement for general arms.
-func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialmath.Pose) error {
-	plan, err := PlanArm(ctx, logger, a, dst)
+	plan, err := PlanFrameMotion(ctx, logger, dst, model, inputs, defaultArmPlannerOptions, nil)
 	if err != nil {
 		return err
 	}
