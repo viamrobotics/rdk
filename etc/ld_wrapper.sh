@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # find the real linker, from env or same defaults as go
 REAL_LD="${CC}"

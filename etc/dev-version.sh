@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Exit with a blank if tree is dirty
 if [ -n "$(git status -s)" ]; then

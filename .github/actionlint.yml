@@ -1,5 +1,6 @@
 self-hosted-runner:
   labels:
+    - windows-2025
     - macos-13
     - pi4
     - pi5

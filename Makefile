@@ -1,3 +1,4 @@
+SHELL := $(shell which bash)
 # TESTBUILD_OUTPUT_PATH should only be defined during testing
 ifdef TESTBUILD_OUTPUT_PATH
 	BIN_OUTPUT_PATH = $(TESTBUILD_OUTPUT_PATH)

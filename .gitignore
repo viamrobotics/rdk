@@ -96,3 +96,6 @@ web/cmd/server/*.core
 
 # codegpt
 .codegpt/*
+# pixi environments
+.pixi/*
+!.pixi/config.toml
