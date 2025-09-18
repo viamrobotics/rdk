@@ -16,7 +16,8 @@ func NewNotFoundError(name Name) error {
 // IsNotFoundError returns if the given error is any kind of not found error.
 func IsNotFoundError(err error) bool {
 	var errArt *notFoundError
-	return errors.As(err, &errArt)
+	var errNodeNotFound *NodeNotFoundError
+	return errors.As(err, &errArt) || errors.As(err, &errNodeNotFound)
 }
 
 type notFoundError struct {
