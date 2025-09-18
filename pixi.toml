@@ -1,6 +1,6 @@
 [workspace]
 authors = ["James Otting <james@viam.com>"]
-channels = ["file:///home/otterverse/source/conda-feed/", "conda-forge"]
+channels = ["http://packages.viam.com/conda/", "conda-forge"]
 name = "rdk"
 platforms = ["linux-64", "linux-aarch64"]
 version = "0.1.0"
@@ -19,3 +19,4 @@ x264 = ">=1!164.3095,<1!165"
 nlopt = ">=2.10.0,<3"
 bash = ">=5.2.37,<6"
 gcc = ">=15.1.0,<15.2"
+git = ">=2.51.0,<3"
