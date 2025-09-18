@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/gostream/codec"
-	genericcodec "go.viam.com/rdk/gostream/codec/generic"
+	servicecodec "go.viam.com/rdk/gostream/codec/service"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -718,12 +718,12 @@ func (server *Server) refreshAudioSources() {
 	}
 }
 
-func (server *Server) refreshEncoderFactories(ctx context.Context) {
+func (server *Server) refreshEncoderFactories(_ context.Context) {
 	server.mu.Lock()
 	defer server.mu.Unlock()
 	encoder, err := generic.FromRobot(server.robot, "x264-encoder")
 	if err != nil {
-		server.logger.Debugw("no x264-encoder found", "error", err)
+		server.logger.Infow("no x264-encoder found", "error", err)
 		return
 	}
 	genericEncoder, ok := encoder.(generic.Service)
@@ -731,9 +731,9 @@ func (server *Server) refreshEncoderFactories(ctx context.Context) {
 		server.logger.Errorw("resource is not a generic service", "name", "x264-encoder")
 		return
 	}
-	factory := genericcodec.NewEncoderFactory(genericEncoder, server.logger)
+	factory := servicecodec.NewEncoderFactory(genericEncoder, server.logger)
 	server.encoderFactories["x264-encoder"] = factory
-	server.logger.Debugf("found and registered generic encoder factory: x264-encoder")
+	server.logger.Infof("found and registered generic service encoder factory: x264-encoder")
 }
 
 func (server *Server) createStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
