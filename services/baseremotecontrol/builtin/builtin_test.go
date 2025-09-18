@@ -151,7 +151,7 @@ func TestBaseRemoteControl(t *testing.T) {
 		},
 		logger)
 	test.That(t, err, test.ShouldBeError,
-		errors.New("dependency \"rdk:component:base/baseTest\" should be an implementation of base.Base but it was a *inject.InputController"))
+		errors.New("dependency rdk:component:base/baseTest should be an implementation of base.Base but it was a *inject.InputController"))
 
 	// Controller event by mode
 	t.Run("controller events joystick control mode", func(t *testing.T) {

@@ -419,7 +419,7 @@ func TestMoveCallInputs(t *testing.T) {
 				Destination:        geo.NewPoint(0, 0),
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
-			test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:base/non existent base\" not found"))
+			test.That(t, err, test.ShouldBeError, errors.New("resource rdk:component:base/non existent base not found"))
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
@@ -504,7 +504,7 @@ func TestMoveCallInputs(t *testing.T) {
 				},
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
-			test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:movement_sensor/test-movement-sensor\" not found"))
+			test.That(t, err, test.ShouldBeError, errors.New("resource rdk:component:movement_sensor/test-movement-sensor not found"))
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 

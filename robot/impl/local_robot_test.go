@@ -1111,7 +1111,7 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 	s, err := r.ResourceByName(navigation.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:service:navigation/fake1\" not available")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource rdk:service:navigation/fake1 not available")
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
 	test.That(t, rem, test.ShouldBeNil)
@@ -1193,7 +1193,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 	s, err := r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:service:data_manager/fake1\" not available")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource rdk:service:data_manager/fake1 not available")
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
 	test.That(t, rem, test.ShouldBeNil)
@@ -1314,7 +1314,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	s, err = r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:service:data_manager/fake1\" not available")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource rdk:service:data_manager/fake1 not available")
 	// Test Remote Error
 	rem, ok = r.RemoteByName("remote")
 	test.That(t, rem, test.ShouldBeNil)
@@ -1368,7 +1368,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 		test.ShouldBeError,
 		resource.NewNotAvailableError(
 			base.Named("fake0"),
-			errors.New(`resource build error: unknown resource type: API "rdk:component:base" with model "rdk:builtin:random" not registered`),
+			errors.New(`resource build error: unknown resource type: API rdk:component:base with model rdk:builtin:random not registered`),
 		),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
@@ -1956,7 +1956,7 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotAvailableError(
 				gizmoapi.Named("g"),
-				errors.New(`resource build error: unknown resource type: API "acme:component:gizmo" with model "acme:demo:mygizmo" not registered`),
+				errors.New(`resource build error: unknown resource type: API acme:component:gizmo with model acme:demo:mygizmo not registered`),
 			),
 		)
 		test.That(t, res, test.ShouldBeNil)
@@ -1964,7 +1964,7 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotAvailableError(
 				summationapi.Named("s"),
-				errors.New(`resource build error: unknown resource type: API "acme:service:summation" with model "acme:demo:mysum" not registered`),
+				errors.New(`resource build error: unknown resource type: API acme:service:summation with model acme:demo:mysum not registered`),
 			),
 		)
 		test.That(t, res, test.ShouldBeNil)
@@ -2323,14 +2323,14 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 	test.That(t, err, test.ShouldBeError,
 		resource.NewNotAvailableError(
 			gizmoapi.Named("g"),
-			errors.New(`resource build error: unknown resource type: API "acme:component:gizmo" with model "acme:demo:mygizmo" not registered`),
+			errors.New(`resource build error: unknown resource type: API acme:component:gizmo with model acme:demo:mygizmo not registered`),
 		),
 	)
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(resource.NewName(doodadAPI, "d"))
 	test.That(
 		t, err.Error(), test.ShouldContainSubstring,
-		`resource "rdk:component:doodad/d" not available; reason="resource build error: dependency \"g\" is not ready yet`,
+		`resource rdk:component:doodad/d not available; reason=resource build error: dependency g is not ready yet`,
 	)
 	test.That(t, res, test.ShouldBeNil)
 	_, err = r.ResourceByName(motor.Named("m"))
@@ -2538,7 +2538,7 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotAvailableError(
 				generic.Named("h"),
-				errors.New(`resource build error: unknown resource type: API "rdk:component:generic" with model "rdk:test:helper" not registered`),
+				errors.New(`resource build error: unknown resource type: API rdk:component:generic with model rdk:test:helper not registered`),
 			),
 		)
 	})
