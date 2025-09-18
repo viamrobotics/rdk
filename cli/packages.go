@@ -185,6 +185,7 @@ type packageUploadArgs struct {
 	Version        string
 	Type           string
 	ModelFramework string
+	ModelType      string
 }
 
 // PackageUploadAction is the corresponding action for "packages upload".
@@ -214,6 +215,11 @@ func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
 				"model_framework": {
 					Kind: &structpb.Value_StringValue{
 						StringValue: args.ModelFramework,
+					},
+				},
+				"model_type": {
+					Kind: &structpb.Value_StringValue{
+						StringValue: args.ModelType,
 					},
 				},
 			},

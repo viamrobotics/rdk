@@ -132,6 +132,7 @@ const (
 	datapipelineFlagEnableBackfill = "enable-backfill"
 
 	packageFlagFramework = "model-framework"
+	packageFlagModelType = "model-type"
 
 	oauthAppFlagClientID             = "client-id"
 	oauthAppFlagClientName           = "client-name"
@@ -3130,6 +3131,12 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name: packageFlagFramework,
 							Usage: formatAcceptedValues(
 								"framework for an ml_model being uploaded. Required if packages is of type 'ml_model'", modelFrameworks...,
+							),
+						},
+						&cli.StringFlag{
+							Name: packageFlagModelType,
+							Usage: formatAcceptedValues(
+								"type of the model for an ml_model being uploaded. Required if packages is of type 'ml_model'", modelTypes...,
 							),
 						},
 					},
