@@ -82,7 +82,7 @@ func (ik *combinedIK) Solve(ctx context.Context,
 
 		maxTravel := overallMaxTravel
 		if maxTravel <= 0 && cartestianDistance > 0 && i == 0 {
-			maxTravel = cartestianDistance / 100
+			maxTravel = max(.25, cartestianDistance/100)
 		}
 
 		utils.PanicCapturingGo(func() {

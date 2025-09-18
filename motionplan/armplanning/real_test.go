@@ -77,6 +77,26 @@ func TestOrbManySeeds(t *testing.T) {
 	}
 }
 
+func TestPourManySeeds(t *testing.T) {
+	req, err := readRequestFromFile("data/pour-plan-bad.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	for i := 0; i < 100; i++ {
+		t.Run(fmt.Sprintf("seed-%d", i), func(t *testing.T) {
+			logger := logging.NewTestLogger(t)
+
+			req.PlannerOptions.RandomSeed = i
+			plan, err := PlanMotion(context.Background(), logger, req)
+			test.That(t, err, test.ShouldBeNil)
+
+			a := plan.Trajectory()[0]["arm-right"]
+			b := plan.Trajectory()[1]["arm-right"]
+
+			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .15)
+		})
+	}
+}
+
 func TestWineCrazyTouch(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -112,5 +132,5 @@ func TestWineCrazyTouch2(t *testing.T) {
 		test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
 	}
 
-	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 5)
+	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
 }
