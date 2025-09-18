@@ -32,7 +32,7 @@ func BuildViamServer(tb testing.TB) string {
 
 	if runtime.GOOS != "windows" {
 		command := "server-static"
-		if runtime.GOOS == osDarwin {
+		if runtime.GOOS == osDarwin || os.Getenv("DOCKERIZED") == "1" {
 			command = "server"
 		}
 		builder = exec.Command("make", command)
