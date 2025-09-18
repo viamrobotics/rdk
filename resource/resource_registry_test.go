@@ -75,9 +75,9 @@ func TestComponentRegistry(t *testing.T) {
 }
 
 func TestResourceAPIRegistry(t *testing.T) {
-	var capColl resource.APIResourceCollection[motor.Motor]
+	var capColl resource.APIResourceGetter[motor.Motor]
 
-	sf := func(apiResColl resource.APIResourceCollection[motor.Motor]) interface{} {
+	sf := func(apiResColl resource.APIResourceGetter[motor.Motor]) interface{} {
 		capColl = apiResColl
 		return 5
 	}
@@ -202,7 +202,7 @@ func (st *mockAssociatedConfig) Link(conf *resource.Config) {
 }
 
 func TestResourceAPIRegistryWithAssociation(t *testing.T) {
-	sf := func(apiResColl resource.APIResourceCollection[motor.Motor]) interface{} {
+	sf := func(apiResColl resource.APIResourceGetter[motor.Motor]) interface{} {
 		return nil
 	}
 

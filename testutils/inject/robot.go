@@ -26,20 +26,21 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
-	Mu                       sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
-	GetModelsFromModulesFunc func(ctx context.Context) ([]resource.ModuleModel, error)
-	RemoteByNameFunc         func(name string) (robot.Robot, bool)
-	ResourceByNameFunc       func(name resource.Name) (resource.Resource, error)
-	RemoteNamesFunc          func() []string
-	ResourceNamesFunc        func() []resource.Name
-	ResourceRPCAPIsFunc      func() []resource.RPCAPI
-	ProcessManagerFunc       func() pexec.ProcessManager
-	ConfigFunc               func() *config.Config
-	LoggerFunc               func() logging.Logger
-	CloseFunc                func(ctx context.Context) error
-	StopAllFunc              func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
-	FrameSystemConfigFunc    func(ctx context.Context) (*framesystem.Config, error)
-	TransformPoseFunc        func(
+	Mu                         sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
+	GetModelsFromModulesFunc   func(ctx context.Context) ([]resource.ModuleModel, error)
+	RemoteByNameFunc           func(name string) (robot.Robot, bool)
+	ResourceByNameFunc         func(name resource.Name) (resource.Resource, error)
+	RemoteNamesFunc            func() []string
+	ResourceNamesFunc          func() []resource.Name
+	ResourceRPCAPIsFunc        func() []resource.RPCAPI
+	FindBySimpleNameAndAPIFunc func(string, resource.API) (resource.Resource, error)
+	ProcessManagerFunc         func() pexec.ProcessManager
+	ConfigFunc                 func() *config.Config
+	LoggerFunc                 func() logging.Logger
+	CloseFunc                  func(ctx context.Context) error
+	StopAllFunc                func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
+	FrameSystemConfigFunc      func(ctx context.Context) (*framesystem.Config, error)
+	TransformPoseFunc          func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
@@ -60,28 +61,46 @@ type Robot struct {
 
 // MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
 func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
-	func() {
-		r.Mu.Lock()
-		defer r.Mu.Unlock()
-		r.ResourceNamesFunc = func() []resource.Name {
-			result := []resource.Name{}
-			for name := range rs {
-				result = append(result, name)
-			}
-			return result
+	r.Mu.Lock()
+	defer r.Mu.Unlock()
+	r.ResourceNamesFunc = func() []resource.Name {
+		result := []resource.Name{}
+		for name := range rs {
+			result = append(result, name)
 		}
-	}()
-	func() {
-		r.Mu.Lock()
-		defer r.Mu.Unlock()
-		r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
-			result, ok := rs[name]
-			if ok {
-				return result, nil
-			}
-			return nil, errors.New("not found")
+		return result
+	}
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		result, ok := rs[name]
+		if ok {
+			return result, nil
 		}
-	}()
+		return nil, errors.New("not found")
+	}
+	r.FindBySimpleNameAndAPIFunc = func(name string, api resource.API) (resource.Resource, error) {
+		var remoteNames []string
+		var remoteResults []resource.Resource
+		for resName, res := range rs {
+			if resName.Name == name && resName.API == api {
+				if resName.Remote == "" {
+					return res, nil
+				}
+				remoteResults = append(remoteResults, res)
+				remoteNames = append(remoteNames, resName.Remote)
+			}
+		}
+		switch len(remoteResults) {
+		case 1:
+			return remoteResults[0], nil
+		case 0:
+			return nil, &resource.MultipleMatchingRemoteNodesError{
+				Name:    name,
+				API:     api,
+				Remotes: remoteNames,
+			}
+		}
+		return nil, resource.NewNotFoundError(resource.NewName(api, name))
+	}
 }
 
 // RemoteByName calls the injected RemoteByName or the real version.
@@ -132,6 +151,16 @@ func (r *Robot) ResourceRPCAPIs() []resource.RPCAPI {
 		return r.LocalRobot.ResourceRPCAPIs()
 	}
 	return r.ResourceRPCAPIsFunc()
+}
+
+// FindBySimpleNameAndAPI returns a list of all known resource RPC APIs.
+func (r *Robot) FindBySimpleNameAndAPI(name string, api resource.API) (resource.Resource, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.FindBySimpleNameAndAPIFunc == nil {
+		return r.LocalRobot.FindBySimpleNameAndAPI(name, api)
+	}
+	return r.FindBySimpleNameAndAPIFunc(name, api)
 }
 
 // OperationManager calls the injected OperationManager or the real version.

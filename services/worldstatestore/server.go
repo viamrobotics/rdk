@@ -16,11 +16,11 @@ import (
 
 type serviceServer struct {
 	pb.UnimplementedWorldStateStoreServiceServer
-	coll resource.APIResourceCollection[Service]
+	coll resource.APIResourceGetter[Service]
 }
 
 // NewRPCServiceServer constructs a the world state store gRPC service server.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

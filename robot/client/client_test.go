@@ -1739,7 +1739,7 @@ func TestRemoteClientMatch(t *testing.T) {
 
 	resource1, err := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, client.resourceClients[arm.Named("remote:arm1")], test.ShouldEqual, resource1)
+	test.That(t, client.resourceClients[arm.Named("arm1")], test.ShouldEqual, resource1)
 	pos, err := resource1.(arm.Arm).EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostEqual(pos, pose1), test.ShouldBeTrue)
@@ -1753,7 +1753,8 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
-	validResources := []resource.Name{arm.Named("remote1:arm1"), arm.Named("remote2:arm1")}
+	// Robots will not report colliding remote resource names
+	validResources := []resource.Name{}
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return validResources },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },

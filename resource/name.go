@@ -63,6 +63,14 @@ func NewFromString(resourceName string) (Name, error) {
 	return newRemoteName(remoteName, api, matches[3]), nil
 }
 
+// WithPrefix returns a copy of this name with the prefix prepended.
+func (n Name) WithPrefix(prefix string) Name {
+	if prefix == "" {
+		return n
+	}
+	return newRemoteName(n.Remote, n.API, prefix+n.Name)
+}
+
 // PrependRemote returns a Name with a remote prepended.
 func (n Name) PrependRemote(remoteName string) Name {
 	if remoteName == "" {
@@ -130,7 +138,8 @@ func (n Name) Validate() error {
 	return nil
 }
 
-// String returns the fully qualified name for the resource.
+// String returns the fully qualified name for the resource. The Remote field is ignored,
+// as it's only used internally.
 func (n Name) String() string {
 	name := n.API.String()
 	if n.Remote != "" {
@@ -139,12 +148,6 @@ func (n Name) String() string {
 		name = fmt.Sprintf("%s/%s", name, n.Name)
 	}
 	return name
-}
-
-// SDPTrackName returns a valid SDP video/audio track name as defined in RFC 4566 (https://www.rfc-editor.org/rfc/rfc4566)
-// where track names should not include colons.
-func (n Name) SDPTrackName() string {
-	return strings.ReplaceAll(n.ShortName(), ":", "+")
 }
 
 // SDPTrackNameToShortName takes the output of SDPTrackName() and returns the resource ShortName.

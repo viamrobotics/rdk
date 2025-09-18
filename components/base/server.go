@@ -22,12 +22,12 @@ var ErrGeometriesNil = func(baseName string) error {
 // serviceServer implements the BaseService from base.proto.
 type serviceServer struct {
 	pb.UnimplementedBaseServiceServer
-	coll resource.APIResourceCollection[Base]
+	coll resource.APIResourceGetter[Base]
 }
 
 // NewRPCServiceServer constructs a base gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Base]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Base]) interface{} {
 	return &serviceServer{coll: coll}
 }
 
