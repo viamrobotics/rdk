@@ -220,7 +220,7 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 	}{
 		{"no world node", "2", referenceframe.ErrNoWorldConnection},
 		{"frame named world", "3", errors.Errorf("cannot give frame system part the name %s", referenceframe.World)},
-		{"parent field empty", "4", errors.New("parent field in frame config for part cameraOver is empty")},
+		{"parent field empty", "4", errors.New("parent field in frame config for part \"cameraOver\" is empty")},
 	}
 
 	for _, tc := range testCases {

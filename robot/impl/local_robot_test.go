@@ -2078,7 +2078,7 @@ func TestOrphanedResources(t *testing.T) {
 
 		_, err = r.ResourceByName(generic.Named("h"))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, `resource "rdk:component:generic/h" not available`)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `resource rdk:component:generic/h not available`)
 
 		// Also assert that testmodule's resources were deregistered.
 		_, ok := resource.LookupRegistration(generic.API, helperModel)
