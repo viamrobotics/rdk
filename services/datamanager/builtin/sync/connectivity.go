@@ -5,9 +5,10 @@ import (
 	"runtime"
 	"time"
 
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/connectivity"
+
+	"go.viam.com/rdk/grpc"
 )
 
 // ConnToConnectivityState takes an rpc.ClientConn and returns an object
