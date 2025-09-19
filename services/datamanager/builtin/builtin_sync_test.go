@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -45,7 +46,7 @@ func TestSyncEnabled(t *testing.T) {
 		name                 string
 		syncStartDisabled    bool
 		syncEndDisabled      bool
-		connStateConstructor func(rpc.ClientConn) datasync.ConnectivityState
+		connStateConstructor func(rpc.ClientConn) rgrpc.ConnectivityState
 		cloudConnectionErr   error
 	}{
 		{
@@ -226,7 +227,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 		scheduledSyncDisabled bool
 		failTransiently       bool
 		emptyFile             bool
-		connStateConstructor  func(rpc.ClientConn) datasync.ConnectivityState
+		connStateConstructor  func(rpc.ClientConn) rgrpc.ConnectivityState
 		cloudConnectionErr    error
 	}{
 		{
@@ -558,7 +559,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 		scheduleSyncDisabled bool
 		uploadToDataset      bool
 		serviceFail          bool
-		connStateConstructor func(rpc.ClientConn) datasync.ConnectivityState
+		connStateConstructor func(rpc.ClientConn) rgrpc.ConnectivityState
 		cloudConnectionErr   error
 	}{
 		{

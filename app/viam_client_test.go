@@ -16,7 +16,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
@@ -44,8 +43,6 @@ func (m *MockConn) Invoke(ctx context.Context, method string, args, reply any, o
 	return nil
 }
 func (m *MockConn) PeerConn() *webrtc.PeerConnection { return nil }
-
-func (m *MockConn) GetState() connectivity.State { return rpc.Unknown }
 
 func (m *MockConn) Close() error { return nil }
 func mockDialDirectGRPC(

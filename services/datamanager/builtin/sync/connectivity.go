@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"time"
 
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/connectivity"
 )
@@ -16,15 +17,8 @@ import (
 // with app.viam.com, but once https://viam.atlassian.net/browse/DATA-3009 is
 // unblocked & implemented, we will either remove this function or have it call the appropriate
 // methods on conn.
-func ConnToConnectivityState(conn rpc.ClientConn) ConnectivityState {
+func ConnToConnectivityState(conn rpc.ClientConn) grpc.ConnectivityState {
 	return offlineChecker{}
-}
-
-// ConnectivityState allows callers to check the connectivity state of
-// the connection
-// see https://github.com/grpc/grpc-go/blob/master/clientconn.go#L648
-type ConnectivityState interface {
-	GetState() connectivity.State
 }
 
 type offlineChecker struct{}
