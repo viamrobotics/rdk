@@ -61,6 +61,7 @@ func init() {
 			deps,
 			conf,
 			v1.NewDataSyncServiceClient,
+
 			datasync.ConnToConnectivityState,
 			logger,
 		)
@@ -95,7 +96,8 @@ func New(
 	deps resource.Dependencies,
 	conf resource.Config,
 	cloudClientConstructor func(grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	connToConnectivityStateEnabled func(conn rpc.ClientConn) datasync.ConnectivityState,
+	// conn rpc.ClientConn,
+	connToConnectivityStateEnabled func(conn rpc.ClientConn) rpc.ClientConn,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
 	logger.Info("New START")
@@ -108,6 +110,7 @@ func New(
 	// or manual sync call
 	sync := datasync.New(
 		cloudClientConstructor,
+		// conn,
 		connToConnectivityStateEnabled,
 		capture.FlushCollectors,
 		clk,

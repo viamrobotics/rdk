@@ -380,7 +380,7 @@ func TestSync(t *testing.T) {
 		name                 string
 		dataType             v1.DataType
 		failTransiently      bool
-		connStateConstructor func(rpc.ClientConn) datasync.ConnectivityState
+		connStateConstructor func(rpc.ClientConn) rpc.ClientConn
 		cloudConnectionErr   error
 	}{
 		{
@@ -486,6 +486,10 @@ func TestSync(t *testing.T) {
 				config, deps = setupConfig(t, r, enabledBinaryCollectorConfigPath)
 			}
 
+			injectedCloudConn := deps[cloud.InternalServiceName].(*cloudinject.CloudConnectionService)
+			if tc.connStateConstructor != nil {
+				injectedCloudConn.Conn = tc.connStateConstructor(NewNoOpClientConn())
+			}
 			// Set up service config with only capture enabled.
 			c := config.ConvertedAttributes.(*Config)
 			c.CaptureDisabled = false
