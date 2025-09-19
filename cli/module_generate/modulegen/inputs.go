@@ -68,6 +68,7 @@ var Resources = []string{
 	"navigation service",
 	"slam service",
 	"vision service",
+	"world_state_store service",
 }
 
 // GoModuleTmpl contains necessary information to fill out the go method stubs.
