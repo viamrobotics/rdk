@@ -59,6 +59,14 @@ func warningf(w io.Writer, format string, a ...interface{}) {
 // Errorf prints a message prefixed with a bold red "Error: " prefix and exits with 1.
 // It also capitalizes the first letter of the message.
 func Errorf(w io.Writer, format string, a ...interface{}) {
+	errorf(w, format, a...)
+
+	os.Exit(1)
+}
+
+// errorf prints a message prefixed with a bold red "Error: " prefix without exiting.
+// It also capitalizes the first letter of the message.
+func errorf(w io.Writer, format string, a ...interface{}) {
 	if _, err := color.New(color.Bold, color.FgRed).Fprint(w, "Error: "); err != nil {
 		log.Fatal(err)
 	}
@@ -70,8 +78,6 @@ func Errorf(w io.Writer, format string, a ...interface{}) {
 	}
 	upperR := unicode.ToUpper(r)
 	fmt.Fprintf(w, string(upperR)+toPrint[i:]) //nolint:errcheck
-
-	os.Exit(1)
 }
 
 // viamLogo prints an ASCII Viam logo.
