@@ -244,6 +244,7 @@ func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 		jm.logger.CWarnw(jm.ctx, "Job failed to validate", "name", jc.Name, "error", err.Error())
 		return
 	}
+
 	var jobType gocron.JobDefinition
 	var jobLimitMode gocron.LimitMode
 	t, err := time.ParseDuration(jc.Schedule)
@@ -290,14 +291,17 @@ func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 		// queued on the job scheduler, while CRON jobs are tied to the physical clock.
 		gocron.WithSingletonMode(jobLimitMode),
 	)
+
+	jobLogger := jm.logger.Sublogger(jc.Name)
+
 	if err != nil {
-		jm.logger.CErrorw(jm.ctx, "Failed to create a new job", "name", jc.Name, "error", err.Error())
+		jobLogger.CErrorw(jm.ctx, "Failed to create a new job", "name", jc.Name, "error", err.Error())
 		return
 	}
 	jobID := j.ID()
 
 	if verbose {
-		jm.logger.CInfow(jm.ctx, "Job created", "name", jc.Name)
+		jobLogger.CInfow(jm.ctx, "Job created", "name", jc.Name)
 	}
 
 	jm.namesToJobIDs[jc.Name] = jobID
