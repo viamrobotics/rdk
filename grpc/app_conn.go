@@ -14,6 +14,13 @@ import (
 	"go.viam.com/rdk/web/networkcheck"
 )
 
+// ConnectivityState allows callers to check the connectivity state of
+// the connection
+// see https://github.com/grpc/grpc-go/blob/master/clientconn.go#L648
+type ConnectivityState interface {
+	GetState() connectivity.State
+}
+
 // AppConn maintains an underlying client connection meant to be used globally to connect to App. The `AppConn` constructor repeatedly
 // attempts to dial App until a connection is successfully established.
 type AppConn struct {
@@ -109,7 +116,11 @@ func (ac *AppConn) GetState() connectivity.State {
 		return connectivity.Connecting
 	}
 
-	return ac.conn.GetState()
+	checker, ok := ac.conn.(ConnectivityState)
+	if !ok {
+		return connectivity.Connecting
+	}
+	return checker.GetState()
 }
 
 // Close attempts to close the underlying connection and stops background dialing attempts.

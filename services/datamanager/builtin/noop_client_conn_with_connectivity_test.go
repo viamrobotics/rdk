@@ -8,18 +8,19 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 
+	rgrpc "go.viam.com/rdk/grpc"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 )
 
-func ConnToConnectivityStateReady(rpc.ClientConn) datasync.ConnectivityState {
+func ConnToConnectivityStateReady(rpc.ClientConn) rgrpc.ConnectivityState {
 	return newNoOpClientConnWithConnectivity(func() connectivity.State { return connectivity.Ready })
 }
 
-func connToConnectivityStateError(rpc.ClientConn) datasync.ConnectivityState {
+func connToConnectivityStateError(rpc.ClientConn) rgrpc.ConnectivityState {
 	return newNoOpClientConnWithConnectivity(func() connectivity.State { return connectivity.TransientFailure })
 }
 
-func newNoOpClientConnWithConnectivity(f func() connectivity.State) datasync.ConnectivityState {
+func newNoOpClientConnWithConnectivity(f func() connectivity.State) rgrpc.ConnectivityState {
 	return &noOpClientConnWithConnectivity{getStateFunc: f}
 }
 
@@ -62,7 +63,8 @@ func (*NoOpClientConn) PeerConn() *webrtc.PeerConnection {
 }
 
 func (*NoOpClientConn) GetState() connectivity.State {
-	return rpc.Unknown
+	// TO BE REMOVED after v0.94.0
+	return connectivity.Idle
 }
 
 func (*NoOpClientConn) Close() error {

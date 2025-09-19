@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/data"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager"
@@ -58,7 +59,7 @@ const (
 type Sync struct {
 	// ScheduledTicker only exists for tests
 	ScheduledTicker         *clock.Ticker
-	connToConnectivityState func(conn rpc.ClientConn) ConnectivityState
+	connToConnectivityState func(conn rpc.ClientConn) rgrpc.ConnectivityState
 	logger                  logging.Logger
 	workersWg               sync.WaitGroup
 	flushCollectors         func()
@@ -88,7 +89,7 @@ type Sync struct {
 // New creates a new Sync.
 func New(
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	connToConnectivityState func(conn rpc.ClientConn) ConnectivityState,
+	connToConnectivityState func(conn rpc.ClientConn) rgrpc.ConnectivityState,
 	flushCollectors func(),
 	clock clock.Clock,
 	logger logging.Logger,
@@ -234,7 +235,7 @@ type cloudConn struct {
 	partID                       string
 	client                       v1.DataSyncServiceClient
 	conn                         rpc.ClientConn
-	connectivityStateEnabledConn ConnectivityState
+	connectivityStateEnabledConn rgrpc.ConnectivityState
 }
 
 // BEGIN connection management

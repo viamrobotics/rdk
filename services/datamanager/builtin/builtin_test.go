@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/logging"
@@ -380,7 +381,7 @@ func TestSync(t *testing.T) {
 		name                 string
 		dataType             v1.DataType
 		failTransiently      bool
-		connStateConstructor func(rpc.ClientConn) datasync.ConnectivityState
+		connStateConstructor func(rpc.ClientConn) rgrpc.ConnectivityState
 		cloudConnectionErr   error
 	}{
 		{

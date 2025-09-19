@@ -362,8 +362,9 @@ func (sc *SharedConn) ProcessEncodedAnswer(encodedAnswer string) error {
 
 // GetState returns the current state of the connection.
 func (sc *SharedConn) GetState() connectivity.State {
+	// TO BE REMOVED after v0.94.0
 	// TODO: RSDK-11849 - Handle surfacing dual connectivity states (grpc + webrtc).
-	return rpc.Unknown
+	return connectivity.Idle
 }
 
 // Close closes a shared connection.

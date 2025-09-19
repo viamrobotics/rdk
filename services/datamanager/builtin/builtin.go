@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/sensor"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -95,7 +96,7 @@ func New(
 	deps resource.Dependencies,
 	conf resource.Config,
 	cloudClientConstructor func(grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	connToConnectivityStateEnabled func(conn rpc.ClientConn) datasync.ConnectivityState,
+	connToConnectivityStateEnabled func(conn rpc.ClientConn) rgrpc.ConnectivityState,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
 	logger.Info("New START")
