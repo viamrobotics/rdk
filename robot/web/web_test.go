@@ -1213,7 +1213,7 @@ func TestUnaryRequestCounter(t *testing.T) {
 	_, err = genericclient.DoCommand(ctx, nil)
 	// errors here but RC still counts the request.
 	test.That(t, err.Error(), test.ShouldEqual,
-		"rpc error: code = Unknown desc = resource \"rdk:service:generic/generictest\" not found")
+		"rpc error: code = Unknown desc = resource rdk:service:generic/generictest not found")
 
 	count = svc.RequestCounter().Stats().(map[string]int64)["generictest.GenericService/DoCommand"]
 	test.That(t, count, test.ShouldEqual, 1)

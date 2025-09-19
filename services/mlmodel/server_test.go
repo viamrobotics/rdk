@@ -31,7 +31,7 @@ func TestServerNotFound(t *testing.T) {
 	server, err := newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Metadata(context.Background(), metadataRequest)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:mlmodel/mlmodel1\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:mlmodel/mlmodel1 not found"))
 }
 
 func TestServerMetadata(t *testing.T) {

@@ -388,5 +388,5 @@ func TestValidationFailure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = rc.ResourceByName(base.Named("base1"))
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldResemble, `resource "rdk:component:base/base1" not found`)
+	test.That(t, err.Error(), test.ShouldResemble, `resource rdk:component:base/base1 not found`)
 }
