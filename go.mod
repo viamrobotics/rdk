@@ -1,6 +1,6 @@
 module go.viam.com/rdk
 
-go 1.23.8
+go 1.25.1
 
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
