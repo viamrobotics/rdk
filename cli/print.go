@@ -64,7 +64,7 @@ func Errorf(w io.Writer, format string, a ...interface{}) {
 	os.Exit(1)
 }
 
-// rrrorf prints a message prefixed with a bold red "Error: " prefix without exiting.
+// errorf prints a message prefixed with a bold red "Error: " prefix without exiting.
 // It also capitalizes the first letter of the message.
 func errorf(w io.Writer, format string, a ...interface{}) {
 	if _, err := color.New(color.Bold, color.FgRed).Fprint(w, "Error: "); err != nil {
