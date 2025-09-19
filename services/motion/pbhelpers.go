@@ -289,7 +289,7 @@ func moveOnGlobeRequestFromProto(req *pb.MoveOnGlobeRequest) (MoveOnGlobeReq, er
 	destination := geo.NewPoint(req.GetDestination().GetLatitude(), req.GetDestination().GetLongitude())
 	protoMovementSensorName := req.GetMovementSensorName()
 	if protoMovementSensorName == "" {
-		return MoveOnGlobeReq{}, ErrEmptyComponentName
+		return MoveOnGlobeReq{}, errors.New("movement sensor name cannot be empty")
 	}
 	movementSensorName := protoMovementSensorName
 	motionCfg := configurationFromProto(req.MotionConfiguration)
