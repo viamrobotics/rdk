@@ -58,7 +58,7 @@ const (
 type Sync struct {
 	// ScheduledTicker only exists for tests
 	ScheduledTicker         *clock.Ticker
-	connToConnectivityState func(conn rpc.ClientConn) ConnectivityState
+	connToConnectivityState func(conn rpc.ClientConn) rpc.ClientConn
 	logger                  logging.Logger
 	workersWg               sync.WaitGroup
 	flushCollectors         func()
@@ -88,7 +88,8 @@ type Sync struct {
 // New creates a new Sync.
 func New(
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	connToConnectivityState func(conn rpc.ClientConn) ConnectivityState,
+	// conn rpc.ClientConn,
+	connToConnectivityState func(conn rpc.ClientConn) rpc.ClientConn,
 	flushCollectors func(),
 	clock clock.Clock,
 	logger logging.Logger,
@@ -285,7 +286,7 @@ func (s *Sync) runCloudConnManager(
 		// set the values & connunicate that it is ready
 		s.cloudConn.partID = partID
 		s.cloudConn.conn = conn
-		s.cloudConn.connectivityStateEnabledConn = s.connToConnectivityState(conn)
+		// s.cloudConn.connectivityStateEnabledConn = s.connToConnectivityState(conn)
 		s.cloudConn.client = s.clientConstructor(conn)
 		s.logger.Info("cloud connection ready")
 		close(s.cloudConn.ready)

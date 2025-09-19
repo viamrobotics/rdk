@@ -25,6 +25,8 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/internal/cloud"
+	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -45,7 +47,7 @@ func TestSyncEnabled(t *testing.T) {
 		name                 string
 		syncStartDisabled    bool
 		syncEndDisabled      bool
-		connStateConstructor func(rpc.ClientConn) datasync.ConnectivityState
+		connStateConstructor func(rpc.ClientConn) rpc.ClientConn
 		cloudConnectionErr   error
 	}{
 		{
@@ -164,7 +166,13 @@ func TestSyncEnabled(t *testing.T) {
 					},
 				},
 			})
+
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
+			injectedCloudConn := deps[cloud.InternalServiceName].(*cloudinject.CloudConnectionService)
+			if tc.connStateConstructor != nil {
+				injectedCloudConn.Conn = tc.connStateConstructor(NewNoOpClientConn())
+			}
+
 			c := config.ConvertedAttributes.(*Config)
 			c.CaptureDisabled = false
 			c.ScheduledSyncDisabled = tc.syncStartDisabled
@@ -216,7 +224,7 @@ func TestSyncEnabled(t *testing.T) {
 	}
 }
 
-// TODO DATA-849: Test concurrent capture and sync more thoroughly.
+// // TODO DATA-849: Test concurrent capture and sync more thoroughly.
 func TestDataCaptureUploadIntegration(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	tests := []struct {
@@ -226,7 +234,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 		scheduledSyncDisabled bool
 		failTransiently       bool
 		emptyFile             bool
-		connStateConstructor  func(rpc.ClientConn) datasync.ConnectivityState
+		connStateConstructor  func(rpc.ClientConn) rpc.ClientConn
 		cloudConnectionErr    error
 	}{
 		{
@@ -369,6 +377,10 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 					})
 					config, deps = setupConfig(t, r, enabledBinaryCollectorConfigPath)
 				}
+			}
+			injectedCloudConn := deps[cloud.InternalServiceName].(*cloudinject.CloudConnectionService)
+			if tc.connStateConstructor != nil {
+				injectedCloudConn.Conn = tc.connStateConstructor(NewNoOpClientConn())
 			}
 
 			// Set up service config with only capture enabled.
@@ -558,7 +570,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 		scheduleSyncDisabled bool
 		uploadToDataset      bool
 		serviceFail          bool
-		connStateConstructor func(rpc.ClientConn) datasync.ConnectivityState
+		connStateConstructor func(rpc.ClientConn) rpc.ClientConn
 		cloudConnectionErr   error
 	}{
 		{
@@ -655,6 +667,10 @@ func TestArbitraryFileUpload(t *testing.T) {
 			})
 			dataSyncServiceClientConstructor := func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient { return mockClient }
 			config, deps := setupConfig(t, r, disabledTabularCollectorConfigPath)
+			injectedCloudConn := deps[cloud.InternalServiceName].(*cloudinject.CloudConnectionService)
+			if tc.connStateConstructor != nil {
+				injectedCloudConn.Conn = tc.connStateConstructor(NewNoOpClientConn())
+			}
 			c := config.ConvertedAttributes.(*Config)
 			c.ScheduledSyncDisabled = tc.scheduleSyncDisabled
 			c.SyncIntervalMins = syncIntervalMins

@@ -16,8 +16,8 @@ import (
 // with app.viam.com, but once https://viam.atlassian.net/browse/DATA-3009 is
 // unblocked & implemented, we will either remove this function or have it call the appropriate
 // methods on conn.
-func ConnToConnectivityState(conn rpc.ClientConn) ConnectivityState {
-	return offlineChecker{}
+func ConnToConnectivityState(conn rpc.ClientConn) rpc.ClientConn {
+	return conn
 }
 
 // ConnectivityState allows callers to check the connectivity state of
