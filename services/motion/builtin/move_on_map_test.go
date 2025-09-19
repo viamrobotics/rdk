@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -70,9 +69,9 @@ func TestMoveOnMap(t *testing.T) {
 		ms.(*builtIn).fsService = fsSvc
 
 		req := motion.MoveOnMapReq{
-			ComponentName: base.Named("test-base"),
+			ComponentName: "test-base",
 			Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 1001, Y: 1001}),
-			SlamName:      slam.Named("test_slam"),
+			SlamName:      "test_slam",
 			Extra:         map[string]interface{}{"timeout": 0.01},
 		}
 
@@ -90,10 +89,10 @@ func TestMoveOnMap(t *testing.T) {
 		easyGoalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, easyGoalInBaseFrame)
 
 		req := motion.MoveOnMapReq{
-			ComponentName: base.Named("test-base"),
+			ComponentName: "test-base",
 			Destination:   easyGoalInSLAMFrame,
 			MotionCfg:     motionCfg,
-			SlamName:      slam.Named("test_slam"),
+			SlamName:      "test_slam",
 			Extra:         map[string]interface{}{"smooth_iter": 0},
 		}
 
@@ -112,7 +111,7 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
 		test.That(t, len(ph[0].Plan.Path()), test.ShouldNotEqual, 0)
 
-		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseResource})
+		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseName})
 		test.That(t, err, test.ShouldBeNil)
 
 		ph2, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
@@ -125,7 +124,7 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, len(ph2[0].Plan.Path()), test.ShouldNotEqual, 0)
 
 		// Proves that calling StopPlan after the plan has reached a terminal state is idempotent
-		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseResource})
+		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseName})
 		test.That(t, err, test.ShouldBeNil)
 		ph3, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
 		test.That(t, err, test.ShouldBeNil)
@@ -137,10 +136,10 @@ func TestMoveOnMap(t *testing.T) {
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnMapReq{
-			ComponentName: base.Named("test-base"),
+			ComponentName: "test-base",
 			MotionCfg:     motionCfg,
 			Destination:   spatialmath.NewPoseFromOrientation(&spatialmath.EulerAngles{Yaw: 3}),
-			SlamName:      slam.Named("test_slam"),
+			SlamName:      "test_slam",
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -160,7 +159,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	}
 
 	baseName := "test-base"
-	slamName := "test-slam"
+	slamName := "test_slam"
 
 	// Create an injected Base
 	geometry, err := (&spatialmath.GeometryConfig{R: 30}).ParseConfig()
@@ -201,9 +200,9 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.6556e3, Y: 0.64152e3})
 
 	req := motion.MoveOnMapReq{
-		ComponentName: injectBase.Name(),
+		ComponentName: injectBase.Name().Name,
 		Destination:   goal,
-		SlamName:      injectSlam.Name(),
+		SlamName:      injectSlam.Name().Name,
 		MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 0.01},
 		Extra:         extra,
 	}
