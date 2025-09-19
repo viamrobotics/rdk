@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// ErrEmptyComponentName is returned when a component name is empty.
 var ErrEmptyComponentName = errors.New("component name cannot be empty")
 
 // ToProto converts a MoveReq to a pb.MoveRequest

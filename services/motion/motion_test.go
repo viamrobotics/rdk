@@ -91,7 +91,7 @@ func TestPlanWithStatus(t *testing.T) {
 			},
 			{
 				description: "empty status returns an error",
-				input : &pb.PlanWithStatus{
+				input: &pb.PlanWithStatus{
 					Plan: PlanWithMetadata{
 						ComponentName: "test-component",
 					}.ToProto(),
@@ -101,7 +101,7 @@ func TestPlanWithStatus(t *testing.T) {
 			},
 			{
 				description: "nil pointers in the status history returns an error",
-				input : &pb.PlanWithStatus{
+				input: &pb.PlanWithStatus{
 					Plan: PlanWithMetadata{
 						ComponentName: "test-component",
 					}.ToProto(),
@@ -111,7 +111,7 @@ func TestPlanWithStatus(t *testing.T) {
 			},
 			{
 				description: "empty *pb.PlanWithStatus status returns an empty PlanWithStatus",
-				input : &pb.PlanWithStatus{
+				input: &pb.PlanWithStatus{
 					Plan: PlanWithMetadata{
 						ComponentName: "test-component",
 					}.ToProto(),
