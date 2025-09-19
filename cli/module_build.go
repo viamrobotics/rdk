@@ -2,6 +2,7 @@ package cli
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
@@ -514,28 +516,160 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 		return "", err
 	}
 	viamReloadArchive := ".VIAM_RELOAD_ARCHIVE.tar.gz"
-	rmArchiveCmd := exec.Command("rm", "-f", viamReloadArchive)
-	rmArchiveCmd.Dir = repoPath
-	if _, err = rmArchiveCmd.Output(); err != nil {
-		return "", err
-	}
-	cmd := fmt.Sprintf("git ls-files -z | xargs -0 tar -czvf %s", viamReloadArchive)
-	//nolint:gosec
-	createArchiveCmd := exec.Command("bash", "-c", cmd)
-	createArchiveCmd.Dir = repoPath
-	if _, err = createArchiveCmd.Output(); err != nil {
+	archivePath := filepath.Join(repoPath, viamReloadArchive)
+
+	// Remove existing archive if it exists
+	if err := os.Remove(archivePath); err != nil && !os.IsNotExist(err) {
 		return "", err
 	}
 
-	getArchiveDirCmd := exec.Command("pwd")
-	getArchiveDirCmd.Dir = repoPath
-	dir, err := getArchiveDirCmd.Output()
+	// Load gitignore patterns
+	matcher, err := c.loadGitignorePatterns(repoPath)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to load gitignore patterns")
 	}
 
-	stringDir := strings.TrimSpace(string(dir))
-	return filepath.Join(stringDir, viamReloadArchive), nil
+	// Create the tar.gz archive
+	//nolint:gosec // archivePath is constructed from validated repoPath and constant filename
+	archiveFile, err := os.Create(archivePath)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create archive file")
+	}
+	defer func() {
+		if closeErr := archiveFile.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close archive file"))
+		}
+	}()
+
+	gzWriter := gzip.NewWriter(archiveFile)
+	defer func() {
+		if closeErr := gzWriter.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close gzip writer"))
+		}
+	}()
+
+	tarWriter := tar.NewWriter(gzWriter)
+	defer func() {
+		if closeErr := tarWriter.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close tar writer"))
+		}
+	}()
+
+	// Walk the filesystem and add files that are not ignored
+	err = filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip the archive file itself
+		if path == archivePath {
+			return nil
+		}
+
+		// Get relative path from repo root
+		relPath, err := filepath.Rel(repoPath, path)
+		if err != nil {
+			return err
+		}
+
+		// Skip directories and check if file should be ignored
+		if info.IsDir() {
+			// Skip .git directory
+			if info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Check if file matches gitignore patterns
+		if c.shouldIgnoreFile(relPath, matcher) {
+			return nil
+		}
+
+		// Read file content
+		//nolint:gosec // path is validated through filepath.Walk and relative path checks
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read file %s", relPath)
+		}
+
+		// Create tar header
+		header := &tar.Header{
+			Name:    filepath.ToSlash(relPath), // Use forward slashes in tar
+			Mode:    int64(info.Mode()),
+			Size:    info.Size(),
+			ModTime: info.ModTime(),
+		}
+
+		// Write header
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return errors.Wrapf(err, "failed to write header for file %s", relPath)
+		}
+
+		// Write file content
+		if _, err := tarWriter.Write(content); err != nil {
+			return errors.Wrapf(err, "failed to write content for file %s", relPath)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to process filesystem files")
+	}
+
+	return archivePath, nil
+}
+
+func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, error) {
+	var patterns []gitignore.Pattern
+
+	// Add default patterns to ignore common files
+	defaultIgnores := []string{
+		".git/",
+		".DS_Store",
+		"Thumbs.db",
+		".VIAM_RELOAD_ARCHIVE.tar.gz", // Ignore the archive file itself
+	}
+
+	for _, pattern := range defaultIgnores {
+		patterns = append(patterns, gitignore.ParsePattern(pattern, nil))
+	}
+
+	// Load .gitignore file if it exists
+	gitignorePath := filepath.Join(repoPath, ".gitignore")
+	if _, err := os.Stat(gitignorePath); err == nil {
+		//nolint:gosec // gitignorePath is constructed from validated repoPath and constant filename
+		file, err := os.Open(gitignorePath)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to open .gitignore file")
+		}
+		defer func() {
+			//nolint:errcheck,gosec // Ignore close error for read-only file
+			file.Close()
+		}()
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			// Skip empty lines and comments
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			patterns = append(patterns, gitignore.ParsePattern(line, nil))
+		}
+
+		if err := scanner.Err(); err != nil {
+			return nil, errors.Wrap(err, "failed to read .gitignore file")
+		}
+	}
+
+	return gitignore.NewMatcher(patterns), nil
+}
+
+func (c *viamClient) shouldIgnoreFile(relPath string, matcher gitignore.Matcher) bool {
+	// Convert to forward slashes for gitignore matching
+	normalizedPath := filepath.ToSlash(relPath)
+	return matcher.Match(strings.Split(normalizedPath, "/"), false)
 }
 
 // moduleCloudReload triggers a cloud build and then reloads the specified module with that build.
