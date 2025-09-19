@@ -54,8 +54,9 @@ func (e *Encoder) Encode(ctx context.Context, img image.Image) ([]byte, error) {
 	if err := jpeg.Encode(buf, img, nil); err != nil {
 		return nil, errors.Wrap(err, "failed to encode image to jpeg")
 	}
+	imageBase64 := base64.StdEncoding.EncodeToString(buf.Bytes())
 
-	cmd := map[string]interface{}{"image": buf.Bytes()}
+	cmd := map[string]interface{}{"image": imageBase64}
 
 	resp, err := e.encoder.DoCommand(ctx, cmd)
 	if err != nil {
