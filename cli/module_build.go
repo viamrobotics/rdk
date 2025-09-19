@@ -530,17 +530,30 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 	}
 
 	// Create the tar.gz archive
+	//nolint:gosec // archivePath is constructed from validated repoPath and constant filename
 	archiveFile, err := os.Create(archivePath)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to create archive file")
 	}
-	defer archiveFile.Close()
+	defer func() {
+		if closeErr := archiveFile.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close archive file"))
+		}
+	}()
 
 	gzWriter := gzip.NewWriter(archiveFile)
-	defer gzWriter.Close()
+	defer func() {
+		if closeErr := gzWriter.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close gzip writer"))
+		}
+	}()
 
 	tarWriter := tar.NewWriter(gzWriter)
-	defer tarWriter.Close()
+	defer func() {
+		if closeErr := tarWriter.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close tar writer"))
+		}
+	}()
 
 	// Walk the filesystem and add files that are not ignored
 	err = filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
@@ -574,6 +587,7 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 		}
 
 		// Read file content
+		//nolint:gosec // path is validated through filepath.Walk and relative path checks
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return errors.Wrapf(err, "failed to read file %s", relPath)
@@ -599,7 +613,6 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 
 		return nil
 	})
-
 	if err != nil {
 		return "", errors.Wrap(err, "failed to process filesystem files")
 	}
@@ -625,11 +638,15 @@ func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, 
 	// Load .gitignore file if it exists
 	gitignorePath := filepath.Join(repoPath, ".gitignore")
 	if _, err := os.Stat(gitignorePath); err == nil {
+		//nolint:gosec // gitignorePath is constructed from validated repoPath and constant filename
 		file, err := os.Open(gitignorePath)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to open .gitignore file")
 		}
-		defer file.Close()
+		defer func() {
+			//nolint:errcheck,gosec // Ignore close error for read-only file
+			file.Close()
+		}()
 
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
