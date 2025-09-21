@@ -6,12 +6,10 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"sync"
 
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -43,12 +41,6 @@ type nloptIK struct {
 	// If true, this will terminate solving when nlopt alg iterations change the distance to goal by less than some proportion of calculated
 	// distance. This can cause premature terminations when the distances are large.
 	useRelTol bool
-}
-
-type optimizeReturn struct {
-	solution []float64
-	score    float64
-	err      error
 }
 
 // CreateNloptSolver creates an nloptIK object that can perform gradient descent on functions. The parameters are the limits
@@ -120,9 +112,6 @@ func (ik *nloptIK) Solve(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "nlopt creation error")
 	}
-
-	var activeSolvers sync.WaitGroup
-
 	jumpVal := 0.
 
 	// checkVals is our set of inputs that we evaluate for distance
@@ -165,16 +154,19 @@ func (ik *nloptIK) Solve(ctx context.Context,
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),
 	)
+	if err != nil {
+		return err
+	}
 	if ik.useRelTol {
 		err = multierr.Combine(
-			err,
 			opt.SetFtolRel(ik.epsilon),
 			opt.SetXtolRel(ik.epsilon),
 		)
+		if err != nil {
+			return err
+		}
 	}
 
-	solveChan := make(chan *optimizeReturn, 1)
-	defer close(solveChan)
 	for iterations < ik.maxIterations {
 		select {
 		case <-ctx.Done():
@@ -182,27 +174,9 @@ func (ik *nloptIK) Solve(ctx context.Context,
 		default:
 		}
 
-		var solutionRaw []float64
-		var result float64
-		var nloptErr error
-
 		iterations++
-		activeSolvers.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer activeSolvers.Done()
-			solutionRaw, result, nloptErr := opt.Optimize(seed)
-			solveChan <- &optimizeReturn{solutionRaw, result, nloptErr}
-		})
-		select {
-		case <-ctx.Done():
-			err = multierr.Combine(err, opt.ForceStop())
-			activeSolvers.Wait()
-			return multierr.Combine(err, ctx.Err())
-		case solution := <-solveChan:
-			solutionRaw = solution.solution
-			result = solution.score
-			nloptErr = solution.err
-		}
+
+		solutionRaw, result, nloptErr := opt.Optimize(seed)
 		if nloptErr != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
