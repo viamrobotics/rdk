@@ -43,12 +43,6 @@ type nloptIK struct {
 	useRelTol bool
 }
 
-type optimizeReturn struct {
-	solution []float64
-	score    float64
-	err      error
-}
-
 // CreateNloptSolver creates an nloptIK object that can perform gradient descent on functions. The parameters are the limits
 // of the solver, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
