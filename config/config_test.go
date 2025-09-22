@@ -975,7 +975,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 
 		for alg := range algTypes {
 			keyset := jwk.NewSet()
-			privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 256)
+			privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 2048)
 			test.That(t, err, test.ShouldBeNil)
 			publicKeyForWebAuth, err := jwk.New(privKeyForWebAuth.PublicKey)
 			test.That(t, err, test.ShouldBeNil)
@@ -1006,7 +1006,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 		for _, badType := range badTypes {
 			t.Run(fmt.Sprintf(" with %s", badType), func(t *testing.T) {
 				keyset := jwk.NewSet()
-				privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 256)
+				privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 2048)
 				test.That(t, err, test.ShouldBeNil)
 				publicKeyForWebAuth, err := jwk.New(privKeyForWebAuth.PublicKey)
 				test.That(t, err, test.ShouldBeNil)
