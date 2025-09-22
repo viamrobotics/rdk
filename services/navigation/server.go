@@ -17,12 +17,12 @@ import (
 // serviceServer implements the contract from navigation.proto.
 type serviceServer struct {
 	pb.UnimplementedNavigationServiceServer
-	coll resource.APIResourceCollection[Service]
+	coll resource.APIResourceGetter[Service]
 }
 
 // NewRPCServiceServer constructs a navigation gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

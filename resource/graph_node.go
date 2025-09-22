@@ -85,6 +85,10 @@ type GraphNode struct {
 	// unreachable is an informational field that indicates if a resource on a remote
 	// machine is disconnected.
 	unreachable bool
+
+	// prefix is an optional string that will be prepended to the resource name for
+	// the purpose of simple name queries against remote resources.
+	prefix string
 }
 
 var (
@@ -111,10 +115,17 @@ func NewUnconfiguredGraphNode(config Config, dependencies []string) *GraphNode {
 // NewConfiguredGraphNode returns a node that is already configured with
 // the supplied config and resource.
 func NewConfiguredGraphNode(config Config, res Resource, resModel Model) *GraphNode {
+	return NewConfiguredGraphNodeWithPrefix(config, res, resModel, "")
+}
+
+// NewConfiguredGraphNodeWithPrefix returns a node that is already configured with
+// the supplied config, resource, and prefix.
+func NewConfiguredGraphNodeWithPrefix(config Config, res Resource, resModel Model, prefix string) *GraphNode {
 	node := NewUninitializedNode()
 	node.SetNewConfig(config, nil)
 	node.setDependenciesResolved()
 	node.SwapResource(res, resModel, nil)
+	node.setPrefix(prefix)
 	return node
 }
 
@@ -371,6 +382,13 @@ func (w *GraphNode) markReachability(reachable bool) {
 	w.unreachable = !reachable
 }
 
+// IsReachable indicates if a resource on a remote machine is connected.
+func (w *GraphNode) IsReachable() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return !w.unreachable
+}
+
 // SetNewConfig is used to inform the node that it has been modified
 // and requires a reconfiguration. If the node was previously marked for removal,
 // this unmarks it.
@@ -426,6 +444,20 @@ func (w *GraphNode) UnresolvedDependencies() []string {
 	unresolvedDependencies := make([]string, 0, len(w.unresolvedDependencies))
 	unresolvedDependencies = append(unresolvedDependencies, w.unresolvedDependencies...)
 	return unresolvedDependencies
+}
+
+// SetPrefix sets the prefix field.
+func (w *GraphNode) setPrefix(prefix string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.prefix = prefix
+}
+
+// GetPrefix gets the prefix field.
+func (w *GraphNode) GetPrefix() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.prefix
 }
 
 // Close closes the underlying resource of this node.

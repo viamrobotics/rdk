@@ -92,6 +92,9 @@ func realMain() error {
 	}
 	sort.Strings(relevantParts)
 
+	totalCartesion := 0.0
+	totalL2 := 0.0
+
 	for idx, p := range plan.Path() {
 		mylog.Printf("step %d", idx)
 
@@ -111,14 +114,22 @@ func realMain() error {
 			mylog.Printf("\t\t\t %v", t[c])
 			if idx > 0 {
 				p := plan.Trajectory()[idx-1][c]
+
+				myl2n := referenceframe.InputsL2Distance(p, t[c])
+				totalL2 += myl2n
+				cart := pp.Pose().Point().Distance(plan.Path()[idx-1][c].Pose().Point())
+				totalCartesion += cart
+
 				mylog.Printf("\t\t\t\t distances l2: %0.4f Linf %0.4f cartesion: %0.2f",
-					referenceframe.InputsL2Distance(p, t[c]),
+					myl2n,
 					referenceframe.InputsLinfDistance(p, t[c]),
-					pp.Pose().Point().Distance(plan.Path()[idx-1][c].Pose().Point()),
-				)
+					cart)
 			}
 		}
 	}
+
+	mylog.Printf("totalCartesion: %0.4f\n", totalCartesion)
+	mylog.Printf("totalL2: %0.4f\n", totalL2)
 
 	for i := 0; i < *loop; i++ {
 		err = visualize(req, plan, mylog)

@@ -14,11 +14,11 @@ import (
 // serviceServer implements the resource.Generic service.
 type serviceServer struct {
 	genericpb.UnimplementedGenericServiceServer
-	coll resource.APIResourceCollection[resource.Resource]
+	coll resource.APIResourceGetter[resource.Resource]
 }
 
 // NewRPCServiceServer constructs an generic gRPC service serviceServer.
-func NewRPCServiceServer(coll resource.APIResourceCollection[resource.Resource]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[resource.Resource]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

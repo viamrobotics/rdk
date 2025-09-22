@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/lo"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -17,6 +18,9 @@ import (
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	_ "go.viam.com/rdk/examples/customresources/models/mygizmo"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	rclient "go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -34,6 +38,7 @@ func TestGizmo(t *testing.T) {
 
 	// Create remote B. Loop to ensure we find an available port.
 	var remoteAddrB string
+	var remoteB robot.LocalRobot
 	for portTryNum := 0; portTryNum < 10; portTryNum++ {
 		port, err := goutils.TryReserveRandomPort()
 		test.That(t, err, test.ShouldBeNil)
@@ -42,7 +47,7 @@ func TestGizmo(t *testing.T) {
 
 		cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customresources/demos/remoteserver/remote.json"), logger, nil)
 		test.That(t, err, test.ShouldBeNil)
-		remoteB, err := robotimpl.New(ctx, cfgServer, nil, logger.Sublogger("remoteB"))
+		remoteB, err = robotimpl.New(ctx, cfgServer, nil, logger.Sublogger("remoteB"))
 		test.That(t, err, test.ShouldBeNil)
 		options := weboptions.New()
 		options.Network.BindAddress = remoteAddrB
@@ -62,6 +67,7 @@ func TestGizmo(t *testing.T) {
 
 	// Create remote A. Loop to ensure we find an available port.
 	var remoteAddrA string
+	var remoteA robot.Robot
 	success := false
 	for portTryNum := 0; portTryNum < 10; portTryNum++ {
 		// The process executing this test has loaded the "gizmo" API + model into a global registry
@@ -98,6 +104,8 @@ func TestGizmo(t *testing.T) {
 			defer func() {
 				test.That(t, pmgr.Stop(), test.ShouldBeNil)
 			}()
+			remoteA, err = rclient.New(context.Background(), remoteAddrA, logger.Sublogger("remoteA-client"))
+			test.That(t, err, test.ShouldBeNil)
 			break
 		}
 		logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
@@ -142,9 +150,23 @@ func TestGizmo(t *testing.T) {
 	_, err = gizmo1.DoOneBiDiStream(context.Background(), []string{"arg1", "arg1", "arg1"})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = mainPart.ResourceByName(gizmoapi.Named("remoteA:robot1:gizmo1"))
+	_, err = mainPart.ResourceByName(gizmoapi.Named("gizmo1"))
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = mainPart.ResourceByName(gizmoapi.Named("remoteA:gizmo1"))
-	test.That(t, err, test.ShouldNotBeNil)
+	extractAPIs := func(rpcapi resource.RPCAPI, _ int) resource.API {
+		return rpcapi.API
+	}
+
+	// Of the 3 parts only B should actually have the gizmo API registered
+	mainApis := lo.Map(mainPart.ResourceRPCAPIs(), extractAPIs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mainApis, test.ShouldNotContain, gizmoapi.API)
+
+	aApis := lo.Map(remoteA.ResourceRPCAPIs(), extractAPIs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, aApis, test.ShouldNotContain, gizmoapi.API)
+
+	bApis := lo.Map(remoteB.ResourceRPCAPIs(), extractAPIs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, bApis, test.ShouldContain, gizmoapi.API)
 }

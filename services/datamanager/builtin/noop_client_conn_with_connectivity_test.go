@@ -58,7 +58,8 @@ func (*NoOpClientConn) PeerConn() *webrtc.PeerConnection {
 }
 
 func (*NoOpClientConn) GetState() connectivity.State {
-	return rpc.Unknown
+	// TO BE REMOVED after v0.94.0
+	return connectivity.Idle
 }
 
 func (*NoOpClientConn) Close() error {

@@ -46,7 +46,7 @@ func TestVisionServerFailures(t *testing.T) {
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetDetections(context.Background(), detectRequest)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:vision/vision1\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:vision/vision1 not found"))
 	// correct server with error returned
 	injectVS := &inject.VisionService{}
 	passedErr := errors.New("fake error")

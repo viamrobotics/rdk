@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 )
@@ -19,7 +18,7 @@ import (
 // an error if it has no camera.
 func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
 	// Stream names are slightly modified versions of the resource short name
-	shortName := resource.SDPTrackNameToShortName(stream.Name())
+	shortName := stream.Name()
 	cam, err := camera.FromRobot(robot, shortName)
 	if err != nil {
 		return nil, err

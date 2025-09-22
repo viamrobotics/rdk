@@ -35,7 +35,7 @@ func NewClientFromConn(
 	grpcClient := pb.NewSLAMServiceClient(conn)
 	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		client: grpcClient,
 		logger: logger,
 	}

@@ -13,11 +13,11 @@ import (
 
 type serviceServer struct {
 	pb.UnimplementedPowerSensorServiceServer
-	coll resource.APIResourceCollection[PowerSensor]
+	coll resource.APIResourceGetter[PowerSensor]
 }
 
 // NewRPCServiceServer constructs a PowerSesnsor gRPC service serviceServer.
-func NewRPCServiceServer(coll resource.APIResourceCollection[PowerSensor]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[PowerSensor]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

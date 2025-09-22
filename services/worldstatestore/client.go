@@ -36,7 +36,7 @@ func NewClientFromConn(
 	grpcClient := pb.NewWorldStateStoreServiceClient(conn)
 	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		client: grpcClient,
 		logger: logger,
 	}

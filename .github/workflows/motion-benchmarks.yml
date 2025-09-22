@@ -3,6 +3,9 @@ name: Motion Benchmarks
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      pr_number:
+        type: string
 
 jobs:
   motion_benchmarks:
@@ -59,29 +62,12 @@ jobs:
         sudo -Hu testbot bash -lc "go test ./... -v -run TestScores --baselineDir=$BASELINE --modifiedDir=$MODIFIED"
         cat results/motion-benchmarks.md
 
-    - name: Upload results for comment
-      uses: actions/upload-artifact@v4
+    - name: Add Motion Benchmarks Comment
+      uses: marocchino/sticky-pull-request-comment@v2
+      if: ${{ inputs.pr_number }}
       with:
-        name: motion-benchmarks-results
+        header: motion-benchmark
+        number: ${{ inputs.pr_number }}
+        recreate: true
         path: motion-testing/results/motion-benchmarks.md
-        retention-days: 1
 
-
-  motion_comment:
-    name: 'Post Comment on PR'
-    runs-on: ubuntu-latest
-    needs: motion_benchmarks
-    if: ${{ github.event.workflow_run.event == 'pull_request_target' && needs.motion_benchmarks.result == 'success' }}
-    steps:
-      - name: Download Motion Benchmarks Results
-        uses: actions/download-artifact@v4
-        with:
-          name: motion-benchmarks-results
-
-      - name: Add Motion Benchmarks Comment
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          header: motion-benchmark
-          number: ${{ github.event.pull_request.number }}
-          recreate: true
-          path: motion-benchmarks.md
