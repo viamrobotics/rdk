@@ -3,7 +3,6 @@ package armplanning
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -26,8 +25,7 @@ const (
 )
 
 type rrtParallelPlannerShared struct {
-	maps         *rrtMaps
-	solutionChan chan *rrtSolution
+	maps *rrtMaps
 }
 
 type rrtMap map[*node]*node
@@ -56,7 +54,7 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 	}
 
 	if len(wp.startState.configuration) == 0 {
-		rrt.err = fmt.Errorf("no configurations")
+		rrt.err = errors.New("no configurations")
 		return rrt
 	}
 	seed := newConfigurationNode(wp.startState.configuration)

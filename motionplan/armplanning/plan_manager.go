@@ -281,14 +281,16 @@ type rrtResult struct {
 func (pm *planManager) planRRTMotion(
 	ctx context.Context,
 	wp atomicWaypoint,
+	endpointPreview chan *node,
+	solutionChan chan *rrtSolution,
 	maps *rrtMaps,
-) (rrtResult, error) {
-	var rrtBackground sync.WaitGroup
+) {
 	// publish endpoint of plan if it is known
-	var nextSeed *node
 	if len(maps.goalMap) == 1 {
 		for key := range maps.goalMap {
-			return rrtResult{endpointPreview: key}, nil
+			endpointPreview <- key
+			// Dan: I think the caller, upon observing `endpointPreview`, will never check
+			// `solutionChan`. But preserving existing behavior for now.
 		}
 	}
 
@@ -296,25 +298,12 @@ func (pm *planManager) planRRTMotion(
 	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(wp.mp.planOpts.Timeout*float64(time.Second)))
 	defer cancel()
 
-	plannerChan := make(chan *rrtSolution, 1)
-
-	// start the planner
-	rrtBackground.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer rrtBackground.Done()
-		wp.mp.rrtBackgroundRunner(plannerctx, &rrtParallelPlannerShared{maps, plannerChan})
-	})
-
-	select {
-	case finalSteps := <-plannerChan:
-		// Receive the newly smoothed path from our original solve, and score it
-		finalSteps.steps = wp.mp.smoothPath(ctx, finalSteps.steps)
-		rrtBackground.Wait()
-		return rrtResult{solution: finalSteps}, nil
-	case <-ctx.Done():
-		rrtBackground.Wait()
-		return rrtResult{}, ctx.Err()
-	}
+	// Dan: This is preserving original behavior. Where we'll return whatever steps we have in
+	// addition to an error.
+	finalSteps, err := wp.mp.rrtRunner(plannerctx, maps)
+	finalSteps.steps = wp.mp.smoothPath(ctx, finalSteps.steps)
+	finalSteps.err = err
+	solutionChan <- finalSteps
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
