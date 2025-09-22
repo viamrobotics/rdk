@@ -45,7 +45,11 @@ type rrtMaps struct {
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK solutions to pre-populate the goal
 // map, and will check if any of those goals are able to be directly interpolated to.
 // If the waypoint specifies poses for start or goal, IK will be run to create configurations.
-func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
+func initRRTSolutions(ctx context.Context, wp atomicWaypoint) (*rrtSolution, error) {
+	if len(wp.startState.configuration) == 0 {
+		return nil, errors.New("no start configurations")
+	}
+
 	rrt := &rrtSolution{
 		maps: &rrtMaps{
 			startMap: rrtMap{},
@@ -53,32 +57,25 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 		},
 	}
 
-	if len(wp.startState.configuration) == 0 {
-		rrt.err = errors.New("no configurations")
-		return rrt
-	}
 	seed := newConfigurationNode(wp.startState.configuration)
-
 	goalNodes, err := generateNodeListForPlanState(ctx, wp.mp, wp.goalState, wp.startState.configuration)
 	if err != nil {
-		rrt.err = err
-		return rrt
+		return rrt, err
 	}
 
 	rrt.maps.optNode = goalNodes[0]
-
 	for _, solution := range goalNodes {
 		if solution.checkPath && solution.cost < goalNodes[0].cost*defaultOptimalityMultiple {
 			wp.mp.logger.Debugf("found an ideal ik solution")
 			rrt.steps = []*node{seed, solution}
-			return rrt
+			return rrt, nil
 		}
 
 		rrt.maps.goalMap[&node{inputs: solution.inputs}] = nil
 	}
 	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil
 
-	return rrt
+	return rrt, nil
 }
 
 func newRRTPlan(solution []*node, fs *referenceframe.FrameSystem) (motionplan.Plan, error) {

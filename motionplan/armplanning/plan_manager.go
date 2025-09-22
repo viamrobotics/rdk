@@ -155,13 +155,13 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 			// If we have a seed, we are linking multiple waypoints, so the next one MUST start at the ending configuration of the last
 			wp.startState = &PlanState{configuration: seed}
 		}
-		planSeed := initRRTSolutions(ctx, wp)
-		if planSeed.err != nil {
+		planSeed, err := initRRTSolutions(ctx, wp)
+		if err != nil {
 			if wp.mp.planOpts.ReturnPartialPlan {
 				returnPartial = true
 				break
 			}
-			return nil, planSeed.err
+			return nil, err
 		}
 
 		pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))

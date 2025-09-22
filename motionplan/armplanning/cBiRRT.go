@@ -101,10 +101,11 @@ func newCBiRRTMotionPlanner(
 
 // only used for testin.
 func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context, seed, goal *PlanState) ([]*node, error) {
-	initMaps := initRRTSolutions(ctx, atomicWaypoint{mp: mp, startState: seed, goalState: goal})
-	if initMaps.err != nil {
-		return nil, initMaps.err
+	initMaps, err := initRRTSolutions(ctx, atomicWaypoint{mp: mp, startState: seed, goalState: goal})
+	if err != nil {
+		return nil, err
 	}
+
 	if initMaps.steps != nil {
 		return initMaps.steps, nil
 	}
