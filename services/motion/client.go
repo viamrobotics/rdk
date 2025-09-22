@@ -97,7 +97,7 @@ func (c *client) MoveOnGlobe(
 
 func (c *client) GetPose(
 	ctx context.Context,
-	componentName resource.Name,
+	componentName string,
 	destinationFrame string,
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
@@ -113,7 +113,7 @@ func (c *client) GetPose(
 	//nolint:staticcheck
 	resp, err := c.client.GetPose(ctx, &pb.GetPoseRequest{
 		Name:                   c.name,
-		ComponentName:          protoutils.ResourceNameToProto(componentName),
+		ComponentName:          componentName,
 		DestinationFrame:       destinationFrame,
 		SupplementalTransforms: transforms,
 		Extra:                  ext,
@@ -131,7 +131,7 @@ func (c *client) StopPlan(ctx context.Context, req StopPlanReq) error {
 	}
 	_, err = c.client.StopPlan(ctx, &pb.StopPlanRequest{
 		Name:          c.name,
-		ComponentName: protoutils.ResourceNameToProto(req.ComponentName),
+		ComponentName: req.ComponentName,
 		Extra:         ext,
 	})
 	return err

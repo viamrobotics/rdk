@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -58,7 +57,7 @@ func (tpe *testPlannerExecutor) AnchorGeoPose() *spatialmath.GeoPose {
 
 func TestState(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	myBase := base.Named("mybase")
+	myBase := "mybase"
 	t.Parallel()
 
 	executionWaitingForCtxCancelledPlanConstructor := func(
@@ -315,7 +314,7 @@ func TestState(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		req2 := motion.PlanHistoryReq{}
 		_, err = s.PlanHistory(req2)
-		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(req2.ComponentName))
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(resource.Name{Name: req2.ComponentName}))
 	})
 
 	t.Run("end to end test", func(t *testing.T) {
@@ -585,14 +584,14 @@ func TestState(t *testing.T) {
 					// first plan succeeds
 					if replanCount == 0 {
 						pbc := referenceframe.FrameSystemPoses{
-							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+							req.ComponentName: referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
 						return motionplan.NewSimplePlan([]referenceframe.FrameSystemPoses{pbc}, nil), nil
 					}
 					// first replan succeeds
 					if replanCount == 1 {
 						pbc := referenceframe.FrameSystemPoses{
-							req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+							req.ComponentName: referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 						}
 						return motionplan.NewSimplePlan([]referenceframe.FrameSystemPoses{pbc, pbc}, nil), nil
 					}
@@ -720,7 +719,7 @@ func TestState(t *testing.T) {
 
 		// providing an executionID which is not known to the state returns an error
 		pws14, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: myBase, ExecutionID: uuid.New()})
-		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(myBase))
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(resource.Name{Name: myBase}))
 		test.That(t, len(pws14), test.ShouldEqual, 0)
 
 		// Returns the last status of all plans that have executed
@@ -862,14 +861,14 @@ func TestState(t *testing.T) {
 
 		// the first execution (stopped) has been forgotten
 		ph4, err := s.PlanHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName, ExecutionID: executionID1})
-		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(req.ComponentName))
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(resource.Name{Name: req.ComponentName}))
 		test.That(t, len(ph4), test.ShouldEqual, 0)
 
-		req2 := motion.MoveOnGlobeReq{ComponentName: base.Named("mybase2")}
+		req2 := motion.MoveOnGlobeReq{ComponentName: "mybase2"}
 		executionID4, err := state.StartExecution(ctx, s, req2.ComponentName, req2, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
-		req3 := motion.MoveOnGlobeReq{ComponentName: base.Named("mybase3")}
+		req3 := motion.MoveOnGlobeReq{ComponentName: "mybase3"}
 		_, err = state.StartExecution(ctx, s, req3.ComponentName, req3, executionWaitingForCtxCancelledPlanConstructor)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -945,14 +944,14 @@ func TestState(t *testing.T) {
 		time.Sleep(sleepTTLDuration)
 
 		_, err = s.PlanHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName})
-		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(req.ComponentName))
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(resource.Name{Name: req.ComponentName}))
 
 		ps6, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ps6), test.ShouldEqual, 0)
 
 		pbc := referenceframe.FrameSystemPoses{
-			req.ComponentName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
+			req.ComponentName: referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose()),
 		}
 
 		// Failed after replanning
@@ -1008,7 +1007,7 @@ func TestState(t *testing.T) {
 
 		time.Sleep(sleepTTLDuration)
 		_, err = s.PlanHistory(motion.PlanHistoryReq{ComponentName: req.ComponentName})
-		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(req.ComponentName))
+		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(resource.Name{Name: req.ComponentName}))
 
 		ps8, err := s.ListPlanStatuses(motion.ListPlanStatusesReq{})
 		test.That(t, err, test.ShouldBeNil)

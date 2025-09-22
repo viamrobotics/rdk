@@ -79,14 +79,14 @@ func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 	if err != nil {
 		return nil, err
 	}
-	if req.ComponentName == nil {
+	if req.ComponentName == "" {
 		return nil, errors.New("must provide component name")
 	}
 	transforms, err := referenceframe.LinkInFramesFromTransformsProtobuf(req.GetSupplementalTransforms())
 	if err != nil {
 		return nil, err
 	}
-	pose, err := svc.GetPose(ctx, protoutils.ResourceNameFromProto(req.ComponentName), req.DestinationFrame, transforms, req.Extra.AsMap())
+	pose, err := svc.GetPose(ctx, req.ComponentName, req.DestinationFrame, transforms, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (server *serviceServer) StopPlan(ctx context.Context, req *pb.StopPlanReque
 		return nil, err
 	}
 
-	componentName := protoutils.ResourceNameFromProto(req.GetComponentName())
+	componentName := req.GetComponentName()
 	r := StopPlanReq{ComponentName: componentName, Extra: req.Extra.AsMap()}
 	err = svc.StopPlan(ctx, r)
 	if err != nil {

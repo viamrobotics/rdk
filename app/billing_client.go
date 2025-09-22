@@ -83,6 +83,8 @@ const (
 	PaymentMethodTypeUnspecified PaymentMethodType = iota
 	// PaymentMethodtypeCard represents a payment by card.
 	PaymentMethodtypeCard
+	// PaymentMethodTypeUSBankAccount represents a payment by US Bank Account.
+	PaymentMethodTypeUSBankAccount
 )
 
 // PaymentMethodCard holds the information of a card used for payment.
@@ -302,6 +304,8 @@ func paymentMethodTypeFromProto(methodType pb.PaymentMethodType) PaymentMethodTy
 		return PaymentMethodTypeUnspecified
 	case pb.PaymentMethodType_PAYMENT_METHOD_TYPE_CARD:
 		return PaymentMethodtypeCard
+	case pb.PaymentMethodType_PAYMENT_METHOD_TYPE_USBANKACCOUNT:
+		return PaymentMethodTypeUSBankAccount
 	default:
 		return PaymentMethodTypeUnspecified
 	}

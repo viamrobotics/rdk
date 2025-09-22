@@ -3,7 +3,6 @@
 package state
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -64,7 +63,7 @@ type planMsg struct {
 }
 
 type stateUpdateMsg struct {
-	componentName resource.Name
+	componentName string
 	executionID   motion.ExecutionID
 	planID        motion.PlanID
 	planStatus    motion.PlanStatus
@@ -76,7 +75,7 @@ type stateUpdateMsg struct {
 // required to shut down an execution's goroutine.
 type stateExecution struct {
 	id            motion.ExecutionID
-	componentName resource.Name
+	componentName string
 	waitGroup     *sync.WaitGroup
 	cancelFunc    context.CancelFunc
 	history       []motion.PlanWithStatus
@@ -104,7 +103,7 @@ type execution[R any] struct {
 	cancelCtx                  context.Context
 	cancelFunc                 context.CancelFunc
 	logger                     logging.Logger
-	componentName              resource.Name
+	componentName              string
 	req                        R
 	plannerExecutorConstructor PlannerExecutorConstructor[R]
 }
@@ -291,7 +290,7 @@ type State struct {
 	ttl        time.Duration
 	// mu protects the componentStateByComponent
 	mu                        sync.RWMutex
-	componentStateByComponent map[resource.Name]componentState
+	componentStateByComponent map[string]componentState
 }
 
 // NewState creates a new state.
@@ -324,7 +323,7 @@ func NewState(
 		cancelCtx:                 cancelCtx,
 		cancelFunc:                cancelFunc,
 		waitGroup:                 &sync.WaitGroup{},
-		componentStateByComponent: make(map[resource.Name]componentState),
+		componentStateByComponent: make(map[string]componentState),
 		ttl:                       ttl,
 		logger:                    logger,
 	}
@@ -355,7 +354,7 @@ func NewState(
 func StartExecution[R any](
 	ctx context.Context,
 	s *State,
-	componentName resource.Name,
+	componentName string,
 	req R,
 	plannerExecutorConstructor PlannerExecutorConstructor[R],
 ) (motion.ExecutionID, error) {
@@ -395,7 +394,7 @@ func (s *State) Stop() {
 }
 
 // StopExecutionByResource stops the active execution with a given resource name in the State.
-func (s *State) StopExecutionByResource(componentName resource.Name) error {
+func (s *State) StopExecutionByResource(componentName string) error {
 	// Read lock held to get the execution
 	s.mu.RLock()
 	componentExectionState, exists := s.componentStateByComponent[componentName]
@@ -403,13 +402,13 @@ func (s *State) StopExecutionByResource(componentName resource.Name) error {
 	// return error if component name is not in StateMap
 	if !exists {
 		s.mu.RUnlock()
-		return resource.NewNotFoundError(componentName)
+		return resource.NewNotFoundError(resource.Name{Name: componentName})
 	}
 
 	e, exists := componentExectionState.executionsByID[componentExectionState.lastExecutionID()]
 	if !exists {
 		s.mu.RUnlock()
-		return resource.NewNotFoundError(componentName)
+		return resource.NewNotFoundError(resource.Name{Name: componentName})
 	}
 	s.mu.RUnlock()
 
@@ -431,7 +430,7 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 	defer s.mu.RUnlock()
 	cs, exists := s.componentStateByComponent[req.ComponentName]
 	if !exists {
-		return nil, resource.NewNotFoundError(req.ComponentName)
+		return nil, resource.NewNotFoundError(resource.Name{Name: req.ComponentName})
 	}
 
 	executionID := req.ExecutionID
@@ -446,7 +445,7 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 		if ex, exists := cs.executionsByID[executionID]; exists {
 			return renderableHistory(ex.history[:1]), nil
 		}
-		return nil, resource.NewNotFoundError(req.ComponentName)
+		return nil, resource.NewNotFoundError(resource.Name{Name: req.ComponentName})
 	}
 
 	// specific execution id when lastPlanOnly is NOT enabled
@@ -454,7 +453,7 @@ func (s *State) PlanHistory(req motion.PlanHistoryReq) ([]motion.PlanWithStatus,
 		if ex, exists := cs.executionsByID[executionID]; exists {
 			return renderableHistory(ex.history), nil
 		}
-		return nil, resource.NewNotFoundError(req.ComponentName)
+		return nil, resource.NewNotFoundError(resource.Name{Name: req.ComponentName})
 	}
 
 	return renderableHistory(cs.lastExecution().history), nil
@@ -480,9 +479,7 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 
 	statuses := []motion.PlanStatusWithID{}
 	componentNames := maps.Keys(s.componentStateByComponent)
-	slices.SortFunc(componentNames, func(a, b resource.Name) int {
-		return cmp.Compare(a.String(), b.String())
-	})
+	slices.Sort(componentNames)
 
 	if req.OnlyActivePlans {
 		for _, name := range componentNames {
@@ -524,7 +521,7 @@ func (s *State) ListPlanStatuses(req motion.ListPlanStatusesReq) ([]motion.PlanS
 
 // ValidateNoActiveExecutionID returns an error if there is already an active
 // Execution for the resource name within the State.
-func (s *State) ValidateNoActiveExecutionID(name resource.Name) error {
+func (s *State) ValidateNoActiveExecutionID(name string) error {
 	if es, err := s.activeExecution(name); err == nil {
 		return fmt.Errorf("there is already an active executionID: %s", es.id)
 	}
@@ -606,7 +603,7 @@ func (s *State) updateStateStatusUpdate(update stateUpdateMsg) {
 	s.componentStateByComponent[update.componentName] = componentExecutions
 }
 
-func (s *State) activeExecution(name resource.Name) (stateExecution, error) {
+func (s *State) activeExecution(name string) (stateExecution, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -614,11 +611,11 @@ func (s *State) activeExecution(name resource.Name) (stateExecution, error) {
 		es := cs.lastExecution()
 
 		if _, exists := motion.TerminalStateSet[es.history[0].StatusHistory[0].State]; exists {
-			return stateExecution{}, resource.NewNotFoundError(name)
+			return stateExecution{}, resource.NewNotFoundError(resource.Name{Name: name})
 		}
 		return es, nil
 	}
-	return stateExecution{}, resource.NewNotFoundError(name)
+	return stateExecution{}, resource.NewNotFoundError(resource.Name{Name: name})
 }
 
 func (s *State) purgeOlderThanTTL() error {
