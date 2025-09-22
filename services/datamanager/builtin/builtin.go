@@ -96,7 +96,6 @@ func New(
 	deps resource.Dependencies,
 	conf resource.Config,
 	cloudClientConstructor func(grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	// conn rpc.ClientConn,
 	connToConnectivityStateEnabled func(conn rpc.ClientConn) rpc.ClientConn,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
@@ -110,7 +109,6 @@ func New(
 	// or manual sync call
 	sync := datasync.New(
 		cloudClientConstructor,
-		// conn,
 		connToConnectivityStateEnabled,
 		capture.FlushCollectors,
 		clk,

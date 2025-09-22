@@ -88,7 +88,6 @@ type Sync struct {
 // New creates a new Sync.
 func New(
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	// conn rpc.ClientConn,
 	connToConnectivityState func(conn rpc.ClientConn) rpc.ClientConn,
 	flushCollectors func(),
 	clock clock.Clock,
@@ -231,11 +230,10 @@ func (s *Sync) Sync(ctx context.Context, _ map[string]interface{}) error {
 
 type cloudConn struct {
 	// closed by cloud conn manager
-	ready                        chan struct{}
-	partID                       string
-	client                       v1.DataSyncServiceClient
-	conn                         rpc.ClientConn
-	connectivityStateEnabledConn ConnectivityState
+	ready  chan struct{}
+	partID string
+	client v1.DataSyncServiceClient
+	conn   rpc.ClientConn
 }
 
 // BEGIN connection management
@@ -286,7 +284,6 @@ func (s *Sync) runCloudConnManager(
 		// set the values & connunicate that it is ready
 		s.cloudConn.partID = partID
 		s.cloudConn.conn = conn
-		// s.cloudConn.connectivityStateEnabledConn = s.connToConnectivityState(conn)
 		s.cloudConn.client = s.clientConstructor(conn)
 		s.logger.Info("cloud connection ready")
 		close(s.cloudConn.ready)
