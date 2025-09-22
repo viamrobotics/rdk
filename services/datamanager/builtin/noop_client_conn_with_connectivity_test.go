@@ -11,11 +11,11 @@ import (
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 )
 
-func ConnToConnectivityStateReady(rpc.ClientConn) rpc.ClientConn {
+func NoOpClientConnReady(rpc.ClientConn) rpc.ClientConn {
 	return &noOpClientConnWithConnectivity{getStateFunc: func() connectivity.State { return connectivity.Ready }}
 }
 
-func connToConnectivityStateError(rpc.ClientConn) rpc.ClientConn {
+func noOpClientConnError(rpc.ClientConn) rpc.ClientConn {
 	return &noOpClientConnWithConnectivity{getStateFunc: func() connectivity.State { return connectivity.TransientFailure }}
 }
 

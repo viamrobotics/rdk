@@ -385,13 +385,13 @@ func TestSync(t *testing.T) {
 		{
 			name:                 "manual sync should return success and enqueue captured tabular data to be synced if got ready cloud connection",
 			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 			cloudConnectionErr:   nil,
 		},
 		{
 			name:                 "manual sync should return success and enqueue captured binary data to be synced if got ready cloud connection",
 			dataType:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 			cloudConnectionErr:   nil,
 		},
 		{
@@ -399,7 +399,7 @@ func TestSync(t *testing.T) {
 				"data to be synced if transient errors are encountered",
 			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			failTransiently:      true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 			cloudConnectionErr:   nil,
 		},
 		{
@@ -407,7 +407,7 @@ func TestSync(t *testing.T) {
 				"synced if transient errors are encountered",
 			dataType:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			failTransiently:      true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 			cloudConnectionErr:   nil,
 		},
 		{
@@ -424,14 +424,14 @@ func TestSync(t *testing.T) {
 			name: "manual sync should return an success and leave captured tabular data on " +
 				"disk if cloud connection was created but is currently not ready",
 			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			connStateConstructor: connToConnectivityStateError,
+			connStateConstructor: noOpClientConnError,
 			cloudConnectionErr:   nil,
 		},
 		{
 			name: "manual sync should return an success and leave captured binary data on " +
 				"disk if cloud connection was created but is currently not ready",
 			dataType:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			connStateConstructor: connToConnectivityStateError,
+			connStateConstructor: noOpClientConnError,
 			cloudConnectionErr:   nil,
 		},
 	}
