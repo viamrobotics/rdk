@@ -57,16 +57,15 @@ const (
 // - Close (once).
 type Sync struct {
 	// ScheduledTicker only exists for tests
-	ScheduledTicker         *clock.Ticker
-	connToConnectivityState func(conn rpc.ClientConn) rpc.ClientConn
-	logger                  logging.Logger
-	workersWg               sync.WaitGroup
-	flushCollectors         func()
-	fileTracker             *fileTracker
-	filesToSync             chan string
-	clientConstructor       func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
-	clock                   clock.Clock
-	atomicUploadStats       *atomicUploadStats
+	ScheduledTicker   *clock.Ticker
+	logger            logging.Logger
+	workersWg         sync.WaitGroup
+	flushCollectors   func()
+	fileTracker       *fileTracker
+	filesToSync       chan string
+	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
+	clock             clock.Clock
+	atomicUploadStats *atomicUploadStats
 
 	configMu sync.Mutex
 	config   Config
@@ -88,7 +87,7 @@ type Sync struct {
 // New creates a new Sync.
 func New(
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	connToConnectivityState func(conn rpc.ClientConn) rpc.ClientConn,
+	// connToConnectivityState func(conn rpc.ClientConn) rpc.ClientConn,
 	flushCollectors func(),
 	clock clock.Clock,
 	logger logging.Logger,
@@ -97,20 +96,20 @@ func New(
 	var atomicUploadStats atomicUploadStats
 	statsWorker := newStatsWorker(logger)
 	s := Sync{
-		connToConnectivityState: connToConnectivityState,
-		clock:                   clock,
-		configCtx:               configCtx,
-		configCancelFunc:        configCancelFunc,
-		clientConstructor:       clientConstructor,
-		logger:                  logger,
-		fileTracker:             newFileTracker(),
-		filesToSync:             make(chan string),
-		flushCollectors:         flushCollectors,
-		Scheduler:               goutils.NewBackgroundStoppableWorkers(),
-		cloudConn:               cloudConn{ready: make(chan struct{})},
-		FileDeletingWorkers:     goutils.NewBackgroundStoppableWorkers(),
-		statsWorker:             statsWorker,
-		atomicUploadStats:       &atomicUploadStats,
+		// connToConnectivityState: connToConnectivityState,
+		clock:               clock,
+		configCtx:           configCtx,
+		configCancelFunc:    configCancelFunc,
+		clientConstructor:   clientConstructor,
+		logger:              logger,
+		fileTracker:         newFileTracker(),
+		filesToSync:         make(chan string),
+		flushCollectors:     flushCollectors,
+		Scheduler:           goutils.NewBackgroundStoppableWorkers(),
+		cloudConn:           cloudConn{ready: make(chan struct{})},
+		FileDeletingWorkers: goutils.NewBackgroundStoppableWorkers(),
+		statsWorker:         statsWorker,
+		atomicUploadStats:   &atomicUploadStats,
 	}
 	return &s
 }

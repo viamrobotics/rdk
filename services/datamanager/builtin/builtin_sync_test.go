@@ -182,7 +182,7 @@ func TestSyncEnabled(t *testing.T) {
 			// and we can confidently read the capture file without it's contents being modified by the collector
 			c.MaximumCaptureFileSizeBytes = 1
 
-			b, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
+			b, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer b.Close(context.Background())
 			t.Logf("waiting for data capture to write a data capture file %s", time.Now())
@@ -390,7 +390,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			c.SyncIntervalMins = syncIntervalMins
 			c.CaptureDir = tmpDir
 
-			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, tc.connStateConstructor, logger)
+			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			time.Sleep(captureInterval * 20)
@@ -466,7 +466,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			c.ScheduledSyncDisabled = tc.scheduledSyncDisabled
 			c.SyncIntervalMins = syncIntervalMins
 
-			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
+			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			b2 := b2Svc.(*builtIn)
 
@@ -679,7 +679,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			c.FileLastModifiedMillis = 1
 			t.Logf("cfg.AdditionalSyncPaths: %s, cfg.CaptureDir: %s", additionalPathsDir, c.CaptureDir)
 
-			b, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
+			b, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer b.Close(context.Background())
 
@@ -855,7 +855,7 @@ func TestStreamingDCUpload(t *testing.T) {
 			// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
 			// and we can confidently read the capture file without it's contents being modified by the collector
 			c.MaximumCaptureFileSizeBytes = 1
-			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, ConnToConnectivityStateReady, logger)
+			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			// Capture an image, then close.
@@ -931,7 +931,7 @@ func TestStreamingDCUpload(t *testing.T) {
 			c.CaptureDisabled = true
 			c.ScheduledSyncDisabled = true
 
-			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, ConnToConnectivityStateReady, logger)
+			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			b2 := b2Svc.(*builtIn)
 			defer b2.Close(context.Background())
@@ -1094,7 +1094,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			c.CaptureDir = tmpDir
 			c.SyncIntervalMins = tc.initSyncIntervalMins
 
-			bSvc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, ConnToConnectivityStateReady, logger)
+			bSvc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			b := bSvc.(*builtIn)
 			defer b.Close(context.Background())

@@ -131,7 +131,7 @@ func TestNew(t *testing.T) {
 	t.Run("returns an error if called with a resource.Config that can't be converted into a builtin.*Config", func(t *testing.T) {
 		ctx := context.Background()
 		mockDeps := mockDeps(nil, nil)
-		_, err := New(ctx, mockDeps, resource.Config{}, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+		_, err := New(ctx, mockDeps, resource.Config{}, datasync.NoOpCloudClientConstructor, logger)
 
 		expErr := errors.New("incorrect config type: NativeConfig expected *builtin.Config but got <nil>. " +
 			"Make sure the config type registered to the resource matches the one passed into NativeConfig")
@@ -150,7 +150,7 @@ func TestNew(t *testing.T) {
 				mockDeps,
 				resource.Config{ConvertedAttributes: c},
 				datasync.NoOpCloudClientConstructor,
-				connToConnectivityStateError,
+				// connToConnectivityStateError,
 				logger,
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -160,7 +160,7 @@ func TestNew(t *testing.T) {
 
 		t.Run("returns an error if booted in an untrusted environment with a non default capture_dir", func(t *testing.T) {
 			config := resource.Config{ConvertedAttributes: &Config{CaptureDir: "/tmp/sth/else"}}
-			_, err = New(ctx, nil, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+			_, err = New(ctx, nil, config, datasync.NoOpCloudClientConstructor, logger)
 			test.That(t, err, test.ShouldBeError, ErrCaptureDirectoryConfigurationDisabled)
 		})
 	})
@@ -170,7 +170,7 @@ func TestNew(t *testing.T) {
 		_, err := New(
 			ctx,
 			resource.Dependencies{},
-			resource.Config{ConvertedAttributes: &Config{}}, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+			resource.Config{ConvertedAttributes: &Config{}}, datasync.NoOpCloudClientConstructor, logger)
 		errExp := errors.New("Resource missing from dependencies. " +
 			"Resource: rdk-internal:service:cloud_connection/builtin")
 		test.That(t, err, test.ShouldBeError, errExp)
@@ -182,7 +182,7 @@ func TestNew(t *testing.T) {
 		aa := map[resource.Name]resource.AssociatedConfig{arm.Named("arm1"): &pathologicalAssociatedConfig{}}
 		config := resource.Config{ConvertedAttributes: &Config{}, AssociatedAttributes: aa}
 		deps := mockDeps(nil, resource.Dependencies{arm.Named("arm1"): &inject.Arm{}})
-		_, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+		_, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, logger)
 		test.That(t, err, test.ShouldBeError, errors.New("expected *datamanager.AssociatedConfig but got *builtin.pathologicalAssociatedConfig"))
 	})
 
@@ -200,7 +200,7 @@ func TestNew(t *testing.T) {
 		})
 
 		config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
-		b, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+		b, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, b, test.ShouldNotBeNil)
 		test.That(t, b.Close(context.Background()), test.ShouldBeNil)
@@ -336,7 +336,7 @@ func TestFileDeletion(t *testing.T) {
 	c.MaximumCaptureFileSizeBytes = 1
 	c.DiskUsageDeletionThreshold = math.SmallestNonzeroFloat64
 	c.CaptureDirDeletionThreshold = math.SmallestNonzeroFloat64
-	bSvc, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+	bSvc, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, logger)
 	test.That(t, err, test.ShouldBeNil)
 	b := bSvc.(*builtIn)
 	defer b.Close(context.Background())
@@ -497,7 +497,7 @@ func TestSync(t *testing.T) {
 			c.SyncIntervalMins = syncIntervalMins
 			c.CaptureDir = tmpDir
 
-			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, tc.connStateConstructor, logger)
+			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			time.Sleep(captureInterval * 20)
@@ -571,7 +571,7 @@ func TestSync(t *testing.T) {
 			c.ScheduledSyncDisabled = true
 			c.SyncIntervalMins = syncIntervalMins
 
-			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
+			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			b2 := b2Svc.(*builtIn)
 
@@ -812,7 +812,7 @@ func builtinWithEmptyConfig(t *testing.T, logger logging.Logger) (datamanager.Se
 		mockDeps,
 		resource.Config{ConvertedAttributes: &Config{}},
 		datasync.NoOpCloudClientConstructor,
-		connToConnectivityStateError,
+		// connToConnectivityStateError,
 		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)

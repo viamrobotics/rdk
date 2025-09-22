@@ -19,7 +19,6 @@ import (
 
 	"github.com/benbjohnson/clock"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/sensor"
@@ -62,7 +61,7 @@ func init() {
 			conf,
 			v1.NewDataSyncServiceClient,
 
-			datasync.ConnToConnectivityState,
+			// datasync.ConnToConnectivityState,
 			logger,
 		)
 	}
@@ -96,7 +95,7 @@ func New(
 	deps resource.Dependencies,
 	conf resource.Config,
 	cloudClientConstructor func(grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	connToConnectivityStateEnabled func(conn rpc.ClientConn) rpc.ClientConn,
+	// connToConnectivityStateEnabled func(conn rpc.ClientConn) rpc.ClientConn,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
 	logger.Info("New START")
@@ -109,7 +108,7 @@ func New(
 	// or manual sync call
 	sync := datasync.New(
 		cloudClientConstructor,
-		connToConnectivityStateEnabled,
+		// connToConnectivityStateEnabled,
 		capture.FlushCollectors,
 		clk,
 		logger.Sublogger("sync"),
