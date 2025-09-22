@@ -945,7 +945,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					ComponentName: mybase,
 				},
 				result: MoveOnGlobeReq{},
-				err:    ErrEmptyComponentName,
+				err:    errors.New("movement sensor name cannot be empty"),
 			},
 			{
 				description: "an empty *pb.MoveOnGlobeRequest returns an empty MoveOnGlobeReq",
