@@ -150,7 +150,6 @@ func TestNew(t *testing.T) {
 				mockDeps,
 				resource.Config{ConvertedAttributes: c},
 				datasync.NoOpCloudClientConstructor,
-				// connToConnectivityStateError,
 				logger,
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -812,7 +811,6 @@ func builtinWithEmptyConfig(t *testing.T, logger logging.Logger) (datamanager.Se
 		mockDeps,
 		resource.Config{ConvertedAttributes: &Config{}},
 		datasync.NoOpCloudClientConstructor,
-		// connToConnectivityStateError,
 		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)

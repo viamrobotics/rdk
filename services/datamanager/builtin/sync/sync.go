@@ -87,7 +87,6 @@ type Sync struct {
 // New creates a new Sync.
 func New(
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	// connToConnectivityState func(conn rpc.ClientConn) rpc.ClientConn,
 	flushCollectors func(),
 	clock clock.Clock,
 	logger logging.Logger,
@@ -96,7 +95,6 @@ func New(
 	var atomicUploadStats atomicUploadStats
 	statsWorker := newStatsWorker(logger)
 	s := Sync{
-		// connToConnectivityState: connToConnectivityState,
 		clock:               clock,
 		configCtx:           configCtx,
 		configCancelFunc:    configCancelFunc,

@@ -224,7 +224,7 @@ func TestSyncEnabled(t *testing.T) {
 	}
 }
 
-// // TODO DATA-849: Test concurrent capture and sync more thoroughly.
+// TODO DATA-849: Test concurrent capture and sync more thoroughly.
 func TestDataCaptureUploadIntegration(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	tests := []struct {
