@@ -180,7 +180,12 @@ func (ik *nloptIK) Solve(ctx context.Context,
 		if nloptErr != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
-			err = multierr.Combine(err, nloptErr)
+			// Above was previous comment.
+			// I (Eliot) think this is caused by a bug in how we compute the gradient
+			// When the absolute value of the gradient is too high, it blows up
+			if nloptErr.Error() != "nlopt: FAILURE" {
+				return nloptErr
+			}
 		}
 
 		if result < ik.epsilon || (solutionRaw != nil && !ik.exact) {
