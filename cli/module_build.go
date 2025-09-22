@@ -605,9 +605,21 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	}
 
 	// ensure the build completes before we try to dowload and use it
-	_, err = c.waitForBuildToFinish(buildID, platform)
+	statuses, err := c.waitForBuildToFinish(buildID, platform)
 	if err != nil {
 		return "", err
+	}
+
+	// if the build failed, print the logs and return an error
+	if statuses[platform] == jobStatusFailed {
+		// Print error message without exiting (don't use Errorf since it calls os.Exit(1))
+		errorf(c.c.App.Writer, "Build %q failed to complete. Please check the logs below for more information.", buildID)
+
+		if err = c.printModuleBuildLogs(buildID, platform); err != nil {
+			return "", err
+		}
+
+		return "", errors.Errorf("Reloading module failed")
 	}
 
 	// (TODO RSDK-11517) There seems to be some delay between a build finishing and being findable

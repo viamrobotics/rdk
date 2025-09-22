@@ -45,7 +45,7 @@ func TestServerMove(t *testing.T) {
 	server, err := newServer(resources)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Move(context.Background(), grabRequest)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/motion1\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/motion1 not found"))
 
 	// error
 	injectMS := injectmotion.NewMotionService("test")
@@ -112,7 +112,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 
 		moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), moveOnGlobeRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/ not found"))
 		test.That(t, moveOnGlobeResponse, test.ShouldBeNil)
 	})
 
@@ -295,7 +295,7 @@ func TestServerMoveOnMap(t *testing.T) {
 
 		moveOnMapResponse, err := server.MoveOnMap(context.Background(), moveOnMapRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/ not found"))
 		test.That(t, moveOnMapResponse, test.ShouldBeNil)
 	})
 
@@ -475,7 +475,7 @@ func TestServerStopPlan(t *testing.T) {
 
 		stopPlanResponse, err := server.StopPlan(context.Background(), stopPlanRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/ not found"))
 		test.That(t, stopPlanResponse, test.ShouldBeNil)
 	})
 
@@ -534,7 +534,7 @@ func TestServerListPlanStatuses(t *testing.T) {
 
 		listPlanStatusesResponse, err := server.ListPlanStatuses(context.Background(), listPlanStatusesRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/ not found"))
 		test.That(t, listPlanStatusesResponse, test.ShouldBeNil)
 	})
 
@@ -645,7 +645,7 @@ func TestServerGetPlan(t *testing.T) {
 
 		getPlanResponse, err := server.GetPlan(context.Background(), getPlanRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/ not found"))
 		test.That(t, getPlanResponse, test.ShouldBeNil)
 	})
 

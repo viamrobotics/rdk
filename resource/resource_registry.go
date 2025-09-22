@@ -70,7 +70,7 @@ type DependencyNotReadyError struct {
 }
 
 func (e *DependencyNotReadyError) Error() string {
-	return fmt.Sprintf("dependency %q is not ready yet; reason=%s", e.Name, e.Reason)
+	return fmt.Sprintf("dependency %v is not ready yet; reason=%s", e.Name, e.Reason)
 }
 
 // PrettyPrint returns a formatted string representing a `DependencyNotReadyError` error. This can be useful as a
@@ -83,10 +83,10 @@ func (e *DependencyNotReadyError) PrettyPrint() string {
 	for curError := e; curError != nil; indent = fmt.Sprintf("%v%v", indent, "  ") {
 		// Give the top-level error different language.
 		if curError == e {
-			ret.WriteString(fmt.Sprintf("Dependency %q is not ready yet\n", curError.Name))
+			ret.WriteString(fmt.Sprintf("Dependency %v is not ready yet\n", curError.Name))
 		} else {
 			ret.WriteString(indent)
-			ret.WriteString(fmt.Sprintf("- Because %q is not ready yet\n", curError.Name))
+			ret.WriteString(fmt.Sprintf("- Because %v is not ready yet\n", curError.Name))
 		}
 
 		// If the `Reason` is also of type `DependencyNotReadyError`, we keep going with the
@@ -101,7 +101,7 @@ func (e *DependencyNotReadyError) PrettyPrint() string {
 	}
 
 	ret.WriteString(indent)
-	ret.WriteString(fmt.Sprintf("- Because %q", leafError))
+	ret.WriteString(fmt.Sprintf("- Because %v", leafError))
 
 	return ret.String()
 }

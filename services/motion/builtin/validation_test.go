@@ -397,7 +397,7 @@ func TestMoveCallInputs(t *testing.T) {
 				Destination:        geo.NewPoint(0, 0),
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
-			test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:base/non existent base\" not found"))
+			test.That(t, err, test.ShouldBeError, errors.New("resource rdk:component:base/non existent base not found"))
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
@@ -466,7 +466,7 @@ func TestMoveCallInputs(t *testing.T) {
 				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 			}
 		})
-
+    
 		t.Run("errors when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)

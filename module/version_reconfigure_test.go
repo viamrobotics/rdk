@@ -159,7 +159,7 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 
 	_, err = robot.ResourceByName(generic.Named("generic1"))
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `resource "rdk:component:generic/generic1" not available`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `resource rdk:component:generic/generic1 not available`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `version 3 requires a motor`)
 
 	// Assert that Validation failure message is present. As the component config did not change, the validation failure will happen
