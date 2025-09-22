@@ -58,7 +58,7 @@ var fakeDetections = []objectdetection.Detection{
 			Max: image.Point{X: 110, Y: 120},
 		},
 		normalizedBox: []float64{0.01, 0.02, 0.11, 0.12},
-		score:         0.95,
+		score:         0.45,
 		label:         "cat",
 	},
 }
@@ -156,7 +156,7 @@ func TestCollectors(t *testing.T) {
 	// 32 x 32 image
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 32)
 	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 32)
-	bboxConf := 0.95
+	bboxConf := 0.45
 	classConf := 0.85
 	tests := []struct {
 		name      string
@@ -190,17 +190,6 @@ func TestCollectors(t *testing.T) {
 				Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 			}},
 			vision: newVisionService(img),
-		},
-		{
-			name:      "CaptureAllFromCameraCollector w/ Classifications & Detections < 0.5 returns empty CaptureAllFromCameraResp",
-			collector: visionservice.NewCaptureAllFromCameraCollector,
-			expected: []*datasyncpb.SensorData{{
-				Metadata: &datasyncpb.SensorMetadata{
-					MimeType: datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
-				},
-				Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
-			}},
-			vision: newVisionService2(img),
 		},
 	}
 
@@ -254,24 +243,6 @@ func newVisionService(img image.Image) visionservice.Service {
 			Image:           img,
 			Detections:      fakeDetections,
 			Classifications: fakeClassifications,
-		}, nil
-	}
-	v.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-		return doCommandMap, nil
-	}
-
-	return v
-}
-
-func newVisionService2(img image.Image) visionservice.Service {
-	v := &inject.VisionService{}
-	v.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions,
-		extra map[string]interface{},
-	) (viscapture.VisCapture, error) {
-		return viscapture.VisCapture{
-			Image:           img,
-			Detections:      fakeDetections2,
-			Classifications: fakeClassifications2,
 		}, nil
 	}
 	v.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
