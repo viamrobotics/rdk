@@ -176,11 +176,8 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 			nearest1 := nearestNeighbor(target, map1, nodeConfigurationDistanceFunc)
 			nearest2 := nearestNeighbor(target, map2, nodeConfigurationDistanceFunc)
 
-			rseed1 := rand.New(rand.NewSource(int64(mp.randseed.Int()))) //nolint: gosec
-			rseed2 := rand.New(rand.NewSource(int64(mp.randseed.Int()))) //nolint: gosec
-
-			map1reached := mp.constrainedExtend(ctx, i, rseed1, map1, nearest1, target)
-			map2reached := mp.constrainedExtend(ctx, i, rseed2, map2, nearest2, target)
+			map1reached := mp.constrainedExtend(ctx, i, map1, nearest1, target)
+			map2reached := mp.constrainedExtend(ctx, i, map2, nearest2, target)
 
 			map1reached.corner = true
 			map2reached.corner = true
@@ -238,7 +235,6 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	ctx context.Context,
 	iterationNumber int,
-	randseed *rand.Rand,
 	rrtMap map[*node]*node,
 	near, target *node,
 ) *node {
@@ -272,7 +268,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		newNear := fixedStepInterpolation(near, target, qstep)
 		// Check whether newNear meets constraints, and if not, update it to a configuration that does meet constraints (or nil)
-		newNear = mp.constrainNear(ctx, randseed, oldNear.inputs, newNear)
+		newNear = mp.constrainNear(ctx, oldNear.inputs, newNear)
 
 		if newNear == nil {
 			return oldNear
@@ -311,7 +307,6 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 // This function will return either a valid configuration that meets constraints, or nil.
 func (mp *cBiRRTMotionPlanner) constrainNear(
 	ctx context.Context,
-	randseed *rand.Rand,
 	seedInputs,
 	target referenceframe.FrameSystemInputs,
 ) referenceframe.FrameSystemInputs {
@@ -333,27 +328,26 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		if err == nil {
 			return target
 		}
-		solutionGen := make(chan *ik.Solution, 1)
+
 		linearSeed, err := mp.lfs.mapToSlice(target)
 		if err != nil {
+			mp.logger.Infof("constrainNear fail: %v", err)
 			return nil
 		}
 
-		// Spawn the IK solver to generate solutions until done
-		err = mp.fastGradDescent.Solve(ctx, solutionGen, linearSeed, 0, 0,
-			mp.linearizeFSmetric(mp.checker.PathMetric()), randseed.Int())
-		// We should have zero or one solutions
-		var solved *ik.Solution
-		select {
-		case solved = <-solutionGen:
-		default:
-		}
-		close(solutionGen)
-		if err != nil || solved == nil {
+		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent, mp.linearizeFSmetric(mp.checker.PathMetric()), linearSeed)
+		if err != nil {
+			mp.logger.Infof("constrainNear fail: %v", err)
 			return nil
 		}
-		solutionMap, err := mp.lfs.sliceToMap(solved.Configuration)
+
+		if len(solutions) == 0 {
+			return nil
+		}
+
+		solutionMap, err := mp.lfs.sliceToMap(solutions[0])
 		if err != nil {
+			mp.logger.Infof("constrainNear fail: %v", err)
 			return nil
 		}
 
@@ -437,7 +431,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []*nod
 			jSol := inputSteps[j]
 			shortcutGoal[jSol] = nil
 
-			reached := mp.constrainedExtend(ctx, i, mp.randseed, shortcutGoal, jSol, iSol)
+			reached := mp.constrainedExtend(ctx, i, shortcutGoal, jSol, iSol)
 
 			// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 			// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
@@ -718,11 +712,9 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 	utils.PanicCapturingGo(func() {
 		defer activeSolvers.Done()
 		defer solverFinished.Store(true)
-		err := mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, 0, approxCartesianDist, minFunc, mp.randseed.Int())
+		_, err := mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, 0, approxCartesianDist, minFunc, mp.randseed.Int())
 		if err != nil {
-			if ctxWithCancel.Err() == nil {
-				mp.logger.Warnf("solver had an error: %v", err)
-			}
+			mp.logger.Warnf("solver had an error: %v", err)
 		}
 	})
 

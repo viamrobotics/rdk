@@ -15,10 +15,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-var (
-	errNoSolve   = errors.New("kinematics could not solve for position")
-	errBadBounds = errors.New("cannot set upper or lower bounds for nlopt, slice is empty. Are you trying to move a static frame?")
-)
+var errBadBounds = errors.New("cannot set upper or lower bounds for nlopt, slice is empty. Are you trying to move a static frame?")
 
 const (
 	nloptStepsPerIter = 4001
@@ -27,10 +24,8 @@ const (
 )
 
 type nloptIK struct {
-	id            int
 	limits        []referenceframe.Limit
 	maxIterations int
-	epsilon       float64
 	logger        logging.Logger
 
 	// Nlopt will try to minimize a configuration for whatever is passed in. If exact is false, then the solver will emit partial
@@ -53,11 +48,7 @@ func CreateNloptSolver(
 	exact, useRelTol bool,
 ) (Solver, error) {
 	ik := &nloptIK{logger: logger, limits: limits}
-	ik.id = 0
 
-	// Stop optimizing when iterations change by less than this much
-	// Also, how close we want to get to the goal region. The metric should reflect any buffer.
-	ik.epsilon = defaultEpsilon * defaultEpsilon
 	if iter < 1 {
 		// default value
 		iter = defaultMaxIter
@@ -81,9 +72,9 @@ func (ik *nloptIK) Solve(ctx context.Context,
 	maxTravel, cartestianDistance float64,
 	minFunc func([]float64) float64,
 	rseed int,
-) error {
+) (int, error) {
 	if len(seed) != len(ik.limits) {
-		return fmt.Errorf("nlopt initialized with %d dof but seed was length %d", len(ik.limits), len(seed))
+		return 0, fmt.Errorf("nlopt initialized with %d dof but seed was length %d", len(ik.limits), len(seed))
 	}
 	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(int64(rseed)))
@@ -97,7 +88,7 @@ func (ik *nloptIK) Solve(ctx context.Context,
 
 	lowerBound, upperBound := limitsToArrays(ik.limits)
 	if len(lowerBound) == 0 || len(upperBound) == 0 {
-		return errBadBounds
+		return 0, errBadBounds
 	}
 
 	if maxTravel > 0 {
@@ -110,7 +101,7 @@ func (ik *nloptIK) Solve(ctx context.Context,
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(lowerBound)))
 	defer opt.Destroy()
 	if err != nil {
-		return errors.Wrap(err, "nlopt creation error")
+		return 0, errors.Wrap(err, "nlopt creation error")
 	}
 	jumpVal := 0.
 
@@ -146,32 +137,30 @@ func (ik *nloptIK) Solve(ctx context.Context,
 	}
 
 	err = multierr.Combine(
-		opt.SetFtolAbs(ik.epsilon),
+		opt.SetFtolAbs(defaultGoalThreshold),
 		opt.SetLowerBounds(lowerBound),
-		opt.SetStopVal(ik.epsilon),
+		opt.SetStopVal(defaultGoalThreshold),
 		opt.SetUpperBounds(upperBound),
-		opt.SetXtolAbs1(ik.epsilon),
+		opt.SetXtolAbs1(defaultGoalThreshold),
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),
 	)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if ik.useRelTol {
 		err = multierr.Combine(
-			opt.SetFtolRel(ik.epsilon),
-			opt.SetXtolRel(ik.epsilon),
+			opt.SetFtolRel(defaultGoalThreshold),
+			opt.SetXtolRel(defaultGoalThreshold),
 		)
 		if err != nil {
-			return err
+			return 0, err
 		}
 	}
 
 	for iterations < ik.maxIterations {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+		if ctx.Err() != nil {
+			break
 		}
 
 		iterations++
@@ -184,29 +173,21 @@ func (ik *nloptIK) Solve(ctx context.Context,
 			// I (Eliot) think this is caused by a bug in how we compute the gradient
 			// When the absolute value of the gradient is too high, it blows up
 			if nloptErr.Error() != "nlopt: FAILURE" {
-				return nloptErr
+				return solutionsFound, nloptErr
 			}
-		}
-
-		if result < ik.epsilon || (solutionRaw != nil && !ik.exact) {
-			select {
-			case <-ctx.Done():
-				return err
-			default:
-			}
+		} else if solutionRaw == nil {
+			panic("why is solutionRaw nil")
+		} else if result < defaultGoalThreshold || !ik.exact {
 			solutionChan <- &Solution{
 				Configuration: solutionRaw,
 				Score:         result,
-				Exact:         result < ik.epsilon,
+				Exact:         result < defaultGoalThreshold,
 			}
 			solutionsFound++
 		}
 		seed = generateRandomPositions(randSeed, lowerBound, upperBound)
 	}
-	if solutionsFound > 0 {
-		return nil
-	}
-	return multierr.Combine(err, errNoSolve)
+	return solutionsFound, nil
 }
 
 func (ik *nloptIK) calcJump(testJump float64, seed []float64, minFunc func([]float64) float64) []float64 {

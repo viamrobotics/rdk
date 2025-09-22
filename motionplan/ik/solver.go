@@ -4,6 +4,7 @@ package ik
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"strings"
@@ -31,7 +32,7 @@ type Solver interface {
 	// Solve receives a context, a channel to which solutions will be provided, a function whose output should be minimized, and a
 	// number of iterations to run.
 	Solve(ctx context.Context, solutions chan<- *Solution, seed []float64,
-		maxTravel, cartestianDistance float64, minFunc func([]float64) float64, rseed int) error
+		maxTravel, cartestianDistance float64, minFunc func([]float64) float64, rseed int) (int, error)
 }
 
 // Solution is the struct returned from an IK solver. It contains the solution configuration, the score of the solution, and a flag
@@ -86,4 +87,32 @@ func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame,
 		mInput.Position = eePos
 		return metric(mInput)
 	}
+}
+
+// DoSolve is a synchronous wrapper around Solver.Solve.
+func DoSolve(ctx context.Context, solver Solver, solveFunc func([]float64) float64, seed []float64) ([][]float64, error) {
+	solutionGen := make(chan *Solution)
+
+	var solveErrors error
+
+	go func() {
+		defer close(solutionGen)
+		_, err := solver.Solve(ctx, solutionGen, seed, 0, 0, solveFunc, 1)
+		solveErrors = err
+	}()
+
+	var solutions [][]float64
+	for step := range solutionGen {
+		solutions = append(solutions, step.Configuration)
+	}
+
+	if solveErrors != nil {
+		return nil, solveErrors
+	}
+
+	if len(solutions) == 0 {
+		return nil, fmt.Errorf("unable to solve for position")
+	}
+
+	return solutions, nil
 }
