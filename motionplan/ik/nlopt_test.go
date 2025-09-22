@@ -21,13 +21,12 @@ func TestCreateNloptSolver(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateNloptSolver(m.DoF(), logger, -1, false, true)
 	test.That(t, err, test.ShouldBeNil)
-	ik.(*nloptIK).id = 1
 
 	// matches xarm home end effector position
 	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
 	seed := []float64{1, 1, -1, 1, 1, 0}
 	solveFunc := NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
-	_, err = solveTest(context.Background(), ik, solveFunc, seed)
+	_, err = DoSolve(context.Background(), ik, solveFunc, seed)
 	test.That(t, err, test.ShouldBeNil)
 
 	pos = spatialmath.NewPose(
@@ -39,6 +38,6 @@ func TestCreateNloptSolver(t *testing.T) {
 	seed = referenceframe.InputsToFloats(m.InputFromProtobuf(&pb.JointPositions{Values: []float64{49, 28, -101, 0, -73, 0}}))
 	solveFunc = NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
 
-	_, err = solveTest(context.Background(), ik, solveFunc, seed)
+	_, err = DoSolve(context.Background(), ik, solveFunc, seed)
 	test.That(t, err, test.ShouldBeNil)
 }

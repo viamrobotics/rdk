@@ -812,7 +812,7 @@ func (manager *resourceManager) completeConfig(
 
 						if err != nil {
 							gNode.LogAndSetLastError(
-								fmt.Errorf("resource build error: %w", err),
+								fmt.Errorf("resource build error: %v", err.Error()),
 								"resource", conf.ResourceName(),
 								"model", conf.Model)
 							return

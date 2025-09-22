@@ -45,7 +45,10 @@ func (m *MockConn) Invoke(ctx context.Context, method string, args, reply any, o
 }
 func (m *MockConn) PeerConn() *webrtc.PeerConnection { return nil }
 
-func (m *MockConn) GetState() connectivity.State { return rpc.Unknown }
+func (m *MockConn) GetState() connectivity.State {
+	// TO BE REMOVED after v0.94.0
+	return connectivity.Idle
+}
 
 func (m *MockConn) Close() error { return nil }
 func mockDialDirectGRPC(

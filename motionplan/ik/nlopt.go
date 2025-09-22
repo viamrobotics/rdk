@@ -6,21 +6,16 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"sync"
 
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 )
 
-var (
-	errNoSolve   = errors.New("kinematics could not solve for position")
-	errBadBounds = errors.New("cannot set upper or lower bounds for nlopt, slice is empty. Are you trying to move a static frame?")
-)
+var errBadBounds = errors.New("cannot set upper or lower bounds for nlopt, slice is empty. Are you trying to move a static frame?")
 
 const (
 	nloptStepsPerIter = 4001
@@ -29,10 +24,8 @@ const (
 )
 
 type nloptIK struct {
-	id            int
 	limits        []referenceframe.Limit
 	maxIterations int
-	epsilon       float64
 	logger        logging.Logger
 
 	// Nlopt will try to minimize a configuration for whatever is passed in. If exact is false, then the solver will emit partial
@@ -45,12 +38,6 @@ type nloptIK struct {
 	useRelTol bool
 }
 
-type optimizeReturn struct {
-	solution []float64
-	score    float64
-	err      error
-}
-
 // CreateNloptSolver creates an nloptIK object that can perform gradient descent on functions. The parameters are the limits
 // of the solver, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
@@ -61,11 +48,7 @@ func CreateNloptSolver(
 	exact, useRelTol bool,
 ) (Solver, error) {
 	ik := &nloptIK{logger: logger, limits: limits}
-	ik.id = 0
 
-	// Stop optimizing when iterations change by less than this much
-	// Also, how close we want to get to the goal region. The metric should reflect any buffer.
-	ik.epsilon = defaultEpsilon * defaultEpsilon
 	if iter < 1 {
 		// default value
 		iter = defaultMaxIter
@@ -89,9 +72,9 @@ func (ik *nloptIK) Solve(ctx context.Context,
 	maxTravel, cartestianDistance float64,
 	minFunc func([]float64) float64,
 	rseed int,
-) error {
+) (int, error) {
 	if len(seed) != len(ik.limits) {
-		return fmt.Errorf("nlopt initialized with %d dof but seed was length %d", len(ik.limits), len(seed))
+		return 0, fmt.Errorf("nlopt initialized with %d dof but seed was length %d", len(ik.limits), len(seed))
 	}
 	//nolint: gosec
 	randSeed := rand.New(rand.NewSource(int64(rseed)))
@@ -105,7 +88,7 @@ func (ik *nloptIK) Solve(ctx context.Context,
 
 	lowerBound, upperBound := limitsToArrays(ik.limits)
 	if len(lowerBound) == 0 || len(upperBound) == 0 {
-		return errBadBounds
+		return 0, errBadBounds
 	}
 
 	if maxTravel > 0 {
@@ -118,11 +101,8 @@ func (ik *nloptIK) Solve(ctx context.Context,
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(lowerBound)))
 	defer opt.Destroy()
 	if err != nil {
-		return errors.Wrap(err, "nlopt creation error")
+		return 0, errors.Wrap(err, "nlopt creation error")
 	}
-
-	var activeSolvers sync.WaitGroup
-
 	jumpVal := 0.
 
 	// checkVals is our set of inputs that we evaluate for distance
@@ -157,77 +137,57 @@ func (ik *nloptIK) Solve(ctx context.Context,
 	}
 
 	err = multierr.Combine(
-		opt.SetFtolAbs(ik.epsilon),
+		opt.SetFtolAbs(defaultGoalThreshold),
 		opt.SetLowerBounds(lowerBound),
-		opt.SetStopVal(ik.epsilon),
+		opt.SetStopVal(defaultGoalThreshold),
 		opt.SetUpperBounds(upperBound),
-		opt.SetXtolAbs1(ik.epsilon),
+		opt.SetXtolAbs1(defaultGoalThreshold),
 		opt.SetMinObjective(nloptMinFunc),
 		opt.SetMaxEval(nloptStepsPerIter),
 	)
+	if err != nil {
+		return 0, err
+	}
 	if ik.useRelTol {
 		err = multierr.Combine(
-			err,
-			opt.SetFtolRel(ik.epsilon),
-			opt.SetXtolRel(ik.epsilon),
+			opt.SetFtolRel(defaultGoalThreshold),
+			opt.SetXtolRel(defaultGoalThreshold),
 		)
+		if err != nil {
+			return 0, err
+		}
 	}
 
-	solveChan := make(chan *optimizeReturn, 1)
-	defer close(solveChan)
 	for iterations < ik.maxIterations {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
+		if ctx.Err() != nil {
+			break
 		}
-
-		var solutionRaw []float64
-		var result float64
-		var nloptErr error
 
 		iterations++
-		activeSolvers.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer activeSolvers.Done()
-			solutionRaw, result, nloptErr := opt.Optimize(seed)
-			solveChan <- &optimizeReturn{solutionRaw, result, nloptErr}
-		})
-		select {
-		case <-ctx.Done():
-			err = multierr.Combine(err, opt.ForceStop())
-			activeSolvers.Wait()
-			return multierr.Combine(err, ctx.Err())
-		case solution := <-solveChan:
-			solutionRaw = solution.solution
-			result = solution.score
-			nloptErr = solution.err
-		}
+
+		solutionRaw, result, nloptErr := opt.Optimize(seed)
 		if nloptErr != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
-			err = multierr.Combine(err, nloptErr)
-		}
-
-		if result < ik.epsilon || (solutionRaw != nil && !ik.exact) {
-			select {
-			case <-ctx.Done():
-				return err
-			default:
+			// Above was previous comment.
+			// I (Eliot) think this is caused by a bug in how we compute the gradient
+			// When the absolute value of the gradient is too high, it blows up
+			if nloptErr.Error() != "nlopt: FAILURE" {
+				return solutionsFound, nloptErr
 			}
+		} else if solutionRaw == nil {
+			panic("why is solutionRaw nil")
+		} else if result < defaultGoalThreshold || !ik.exact {
 			solutionChan <- &Solution{
 				Configuration: solutionRaw,
 				Score:         result,
-				Exact:         result < ik.epsilon,
+				Exact:         result < defaultGoalThreshold,
 			}
 			solutionsFound++
 		}
 		seed = generateRandomPositions(randSeed, lowerBound, upperBound)
 	}
-	if solutionsFound > 0 {
-		return nil
-	}
-	return multierr.Combine(err, errNoSolve)
+	return solutionsFound, nil
 }
 
 func (ik *nloptIK) calcJump(testJump float64, seed []float64, minFunc func([]float64) float64) []float64 {
