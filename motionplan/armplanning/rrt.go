@@ -26,9 +26,8 @@ const (
 )
 
 type rrtParallelPlannerShared struct {
-	maps            *rrtMaps
-	endpointPreview chan *node
-	solutionChan    chan *rrtSolution
+	maps         *rrtMaps
+	solutionChan chan *rrtSolution
 }
 
 type rrtMap map[*node]*node

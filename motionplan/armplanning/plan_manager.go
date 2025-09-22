@@ -292,8 +292,8 @@ func (pm *planManager) planParallelRRTMotion(
 			nextSeed = key
 		}
 		if endpointPreview != nil {
+			pm.logger.Infof("Publishing an endpointPreview: %+v", *nextSeed)
 			endpointPreview <- nextSeed
-			endpointPreview = nil
 		}
 	}
 
@@ -307,7 +307,7 @@ func (pm *planManager) planParallelRRTMotion(
 	rrtBackground.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer rrtBackground.Done()
-		wp.mp.rrtBackgroundRunner(plannerctx, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
+		wp.mp.rrtBackgroundRunner(plannerctx, &rrtParallelPlannerShared{maps, plannerChan})
 	})
 
 	select {
