@@ -77,7 +77,7 @@ func errorf(w io.Writer, format string, a ...interface{}) {
 		log.Fatal("Malformed error message:", toPrint)
 	}
 	upperR := unicode.ToUpper(r)
-	fmt.Fprintf(w, string(upperR)+toPrint[i:]) //nolint:errcheck
+	fmt.Fprintf(w, "%s", string(upperR)+toPrint[i:]) //nolint:errcheck
 }
 
 // viamLogo prints an ASCII Viam logo.
