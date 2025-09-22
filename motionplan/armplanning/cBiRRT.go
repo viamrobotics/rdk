@@ -380,6 +380,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 }
 
 func (mp *cBiRRTMotionPlanner) simpleSmooth(steps []*node) []*node {
+	originalSize := len(steps)
 	// look at each triplet, see if we can remove the middle one
 	for i := 2; i < len(steps); i++ {
 		err := mp.checkPath(steps[i-2].inputs, steps[i].inputs)
@@ -389,6 +390,10 @@ func (mp *cBiRRTMotionPlanner) simpleSmooth(steps []*node) []*node {
 		// we can merge
 		steps = append(steps[0:i-1], steps[i:]...)
 		i--
+	}
+	if len(steps) != originalSize {
+		mp.logger.Debugf("simpleSmooth %d -> %d", originalSize, len(steps))
+		return mp.simpleSmooth(steps)
 	}
 	return steps
 }
