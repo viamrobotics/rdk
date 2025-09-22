@@ -253,7 +253,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	pm.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer pm.activeBackgroundWorkers.Done()
-		pm.planParallelRRTMotion(ctx, wp, endpointPreview, solutionChan, maps)
+		pm.planRRTMotion(ctx, wp, endpointPreview, solutionChan, maps)
 	})
 
 	// We don't want to check context here; context cancellation will be handled by planParallelRRTMotion.
@@ -271,29 +271,24 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	}
 }
 
+// Exactly one of `endpointPreview` or `solution` will be non-nil
+type rrtResult struct {
+	endpointPreview *node
+	solution        *rrtSolution
+}
+
 // planParallelRRTMotion will handle planning a single atomic waypoint using a parallel-enabled RRT solver.
-func (pm *planManager) planParallelRRTMotion(
+func (pm *planManager) planRRTMotion(
 	ctx context.Context,
 	wp atomicWaypoint,
-	endpointPreview chan *node,
-	solutionChan chan *rrtSolution,
 	maps *rrtMaps,
-) {
+) (rrtResult, error) {
 	var rrtBackground sync.WaitGroup
-	if maps == nil {
-		solutionChan <- &rrtSolution{err: errors.New("nil maps")}
-		return
-	}
-
 	// publish endpoint of plan if it is known
 	var nextSeed *node
 	if len(maps.goalMap) == 1 {
 		for key := range maps.goalMap {
-			nextSeed = key
-		}
-		if endpointPreview != nil {
-			pm.logger.Infof("Publishing an endpointPreview: %+v", *nextSeed)
-			endpointPreview <- nextSeed
+			return rrtResult{endpointPreview: key}, nil
 		}
 	}
 
@@ -314,13 +309,11 @@ func (pm *planManager) planParallelRRTMotion(
 	case finalSteps := <-plannerChan:
 		// Receive the newly smoothed path from our original solve, and score it
 		finalSteps.steps = wp.mp.smoothPath(ctx, finalSteps.steps)
-		solutionChan <- finalSteps
-		return
-
+		rrtBackground.Wait()
+		return rrtResult{solution: finalSteps}, nil
 	case <-ctx.Done():
 		rrtBackground.Wait()
-		solutionChan <- &rrtSolution{err: ctx.Err()}
-		return
+		return rrtResult{}, ctx.Err()
 	}
 }
 
