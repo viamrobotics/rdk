@@ -104,7 +104,7 @@ func TestResourceGraphConstruct(t *testing.T) {
 					DependsOn: []Name{NewName(apiA, "A")},
 				},
 			},
-			"circular dependency - \"A\" already depends on \"B\"",
+			"circular dependency - A already depends on B",
 		},
 		{
 			[]fakeComponent{
@@ -117,7 +117,7 @@ func TestResourceGraphConstruct(t *testing.T) {
 					DependsOn: []Name{NewName(apiA, "B")},
 				},
 			},
-			"\"B\" cannot depend on itself",
+			"B cannot depend on itself",
 		},
 	} {
 		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
@@ -254,7 +254,7 @@ func TestResourceGraphSubGraph(t *testing.T) {
 	sg, err := g.SubGraphFrom(NewName(apiA, "W"))
 	test.That(t, sg, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldResemble,
-		"cannot create sub-graph from non existing node \"W\" ")
+		"cannot create sub-graph from non existing node W ")
 	sg, err = g.SubGraphFrom(NewName(apiA, "C"))
 	test.That(t, sg, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
@@ -307,7 +307,7 @@ func TestResourceGraphDepTree(t *testing.T) {
 	}
 	err := g.AddChild(NewName(apiA, "A"),
 		NewName(apiA, "F"))
-	test.That(t, err.Error(), test.ShouldEqual, "circular dependency - \"F\" already depends on \"A\"")
+	test.That(t, err.Error(), test.ShouldEqual, "circular dependency - F already depends on A")
 	test.That(t, g.AddChild(NewName(apiA, "D"),
 		NewName(apiA, "F")), test.ShouldBeNil)
 }

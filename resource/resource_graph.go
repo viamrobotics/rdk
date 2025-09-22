@@ -597,7 +597,7 @@ func (g *Graph) RemoveChild(child, parent Name) {
 
 func (g *Graph) addChild(child, parent Name) error {
 	if child == parent {
-		return errors.Errorf("%q cannot depend on itself", child.Name)
+		return errors.Errorf("%v cannot depend on itself", child.Name)
 	}
 	// Maybe we haven't encountered yet the parent so let's add it here and assign an uninitialized node
 	if _, ok := g.nodes.Get(parent); !ok {
@@ -605,7 +605,7 @@ func (g *Graph) addChild(child, parent Name) error {
 			return err
 		}
 	} else if g.transitiveClosureMatrix[parent][child] != 0 {
-		return errors.Errorf("circular dependency - %q already depends on %q", parent.Name, child.Name)
+		return errors.Errorf("circular dependency - %v already depends on %v", parent.Name, child.Name)
 	}
 	if _, ok := g.parents[child][parent]; ok {
 		return nil
@@ -945,7 +945,7 @@ func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
 // This method is NOT threadsafe: A client must hold [Graph.mu] while calling this method.
 func (g *Graph) subGraphFromWithMutex(node Name) (*Graph, error) {
 	if _, ok := g.nodes.Get(node); !ok {
-		return nil, errors.Errorf("cannot create sub-graph from non existing node %q ", node.Name)
+		return nil, errors.Errorf("cannot create sub-graph from non existing node %v ", node.Name)
 	}
 	subGraph := g.clone()
 	sorted := subGraph.ReverseTopologicalSort()

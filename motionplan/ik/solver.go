@@ -87,18 +87,3 @@ func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame,
 		return metric(mInput)
 	}
 }
-
-// SolveMetric is a wrapper for Metrics to be used easily with Solve for IK solvers.
-func SolveMetric(
-	ctx context.Context,
-	ik Solver,
-	frame referenceframe.Frame,
-	solutionChan chan<- *Solution,
-	seed []referenceframe.Input,
-	solveMetric motionplan.StateMetric,
-	rseed int,
-	logger logging.Logger,
-) error {
-	minFunc := NewMetricMinFunc(solveMetric, frame, logger)
-	return ik.Solve(ctx, solutionChan, referenceframe.InputsToFloats(seed), 0, 0, minFunc, rseed)
-}
