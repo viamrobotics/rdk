@@ -38,7 +38,6 @@ func CreateCombinedIKSolver(
 	for i := 1; i <= nCPU; i++ {
 		solver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
 		nlopt := solver.(*nloptIK)
-		nlopt.id = i
 		if err != nil {
 			return nil, err
 		}
@@ -56,20 +55,17 @@ func (ik *combinedIK) Solve(ctx context.Context,
 	overallMaxTravel, cartestianDistance float64,
 	m func([]float64) float64,
 	rseed int,
-) error {
-	var err error
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
+) (int, error) {
+	randSeed := rand.New(rand.NewSource(int64(rseed))) //nolint: gosec
 
-	//nolint: gosec
-	randSeed := rand.New(rand.NewSource(int64(rseed)))
-
-	errChan := make(chan error, len(ik.solvers))
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
-	activeSolvers.Add(len(ik.solvers))
 
 	lowerBound, upperBound := limitsToArrays(ik.limits)
+
+	var solveErrors error
+	totalSolutionsFound := 0
+	var solveResultLock sync.Mutex
 
 	for i, solver := range ik.solvers {
 		rseed += 1500
@@ -85,58 +81,21 @@ func (ik *combinedIK) Solve(ctx context.Context,
 			maxTravel = max(.25, cartestianDistance/100)
 		}
 
+		activeSolvers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			errChan <- thisSolver.Solve(ctxWithCancel, c, seedFloats, maxTravel, cartestianDistance, m, parseed)
+			n, err := thisSolver.Solve(ctx, c, seedFloats, maxTravel, cartestianDistance, m, parseed)
+
+			solveResultLock.Lock()
+			defer solveResultLock.Unlock()
+			totalSolutionsFound += n
+			solveErrors = multierr.Combine(solveErrors, err)
 		})
 	}
 
-	returned := 0
-	done := false
-
-	var collectedErrs error
-
-	// Wait until either 1) we have a success or 2) all solvers have returned false
-	// Multiple selects are necessary in the case where we get a ctx.Done() while there is also an error waiting
-	for !done {
-		select {
-		case <-ctx.Done():
-			activeSolvers.Wait()
-			return ctx.Err()
-		default:
-		}
-
-		select {
-		case err = <-errChan:
-			returned++
-			if err != nil {
-				collectedErrs = multierr.Combine(collectedErrs, err)
-			}
-		default:
-			if returned == len(ik.solvers) {
-				done = true
-			}
-		}
-	}
-	cancel()
-	for returned < len(ik.solvers) {
-		// Collect return errors from all solvers
-		select {
-		case <-ctx.Done():
-			activeSolvers.Wait()
-			return ctx.Err()
-		default:
-		}
-
-		err = <-errChan
-		returned++
-		if err != nil {
-			collectedErrs = multierr.Combine(collectedErrs, err)
-		}
-	}
 	activeSolvers.Wait()
-	return collectedErrs
+	return totalSolutionsFound, solveErrors
 }
 
 // DoF returns the DoF of the solver.
