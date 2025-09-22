@@ -466,7 +466,7 @@ func TestMoveCallInputs(t *testing.T) {
 				test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 			}
 		})
-    
+
 		t.Run("errors when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
