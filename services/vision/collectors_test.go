@@ -63,28 +63,9 @@ var fakeDetections = []objectdetection.Detection{
 	},
 }
 
-var fakeDetections2 = []objectdetection.Detection{
-	&fakeDetection{
-		boundingBox: &image.Rectangle{
-			Min: image.Point{X: 10, Y: 20},
-			Max: image.Point{X: 110, Y: 120},
-		},
-		normalizedBox: []float64{0.01, 0.02, 0.11, 0.12},
-		score:         0.3,
-		label:         "cat",
-	},
-}
-
 var fakeClassifications = []classification.Classification{
 	&fakeClassification{
 		score: 0.85,
-		label: "cat",
-	},
-}
-
-var fakeClassifications2 = []classification.Classification{
-	&fakeClassification{
-		score: 0.49,
 		label: "cat",
 	},
 }
