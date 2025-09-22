@@ -310,29 +310,10 @@ func (pm *planManager) planParallelRRTMotion(
 		wp.mp.rrtBackgroundRunner(plannerctx, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
 	})
 
-	// Wait for results from the planner.
-	select {
-	case <-ctx.Done():
-		// Error will be caught by monitoring loop
-		rrtBackground.Wait()
-		solutionChan <- &rrtSolution{err: ctx.Err()}
-		return
-	default:
-	}
-
 	select {
 	case finalSteps := <-plannerChan:
-		// We didn't get a solution preview (possible error), so we get and process the full step set and error.
-		smoothChan := make(chan []*node, 1)
-		rrtBackground.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer rrtBackground.Done()
-			smoothChan <- wp.mp.smoothPath(ctx, finalSteps.steps)
-		})
-
 		// Receive the newly smoothed path from our original solve, and score it
-		finalSteps.steps = <-smoothChan
-
+		finalSteps.steps = wp.mp.smoothPath(ctx, finalSteps.steps)
 		solutionChan <- finalSteps
 		return
 
