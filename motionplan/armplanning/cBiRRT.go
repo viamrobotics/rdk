@@ -46,7 +46,7 @@ type cBiRRTMotionPlanner struct {
 	planOpts                  *PlannerOptions
 	motionChains              *motionChains
 
-	fastGradDescent ik.Solver
+	fastGradDescent *ik.NloptIK
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
