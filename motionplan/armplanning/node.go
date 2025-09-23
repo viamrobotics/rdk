@@ -98,23 +98,25 @@ func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []*node
 	return path
 }
 
-// This function is the entrypoint to IK for all cases. Everything prior to here is poses or configurations as the user passed in, which
-// here are converted to a list of nodes which are to be used as the from or to states for a motionPlanner.
-func generateNodeListForPlanState(
+// This function is the entrypoint to IK for all cases. Everything prior to here is poses or
+// configurations as the user passed in, which here are converted to a list of nodes which are to be
+// used as the from or to states for a motionPlanner.
+func generateNodeListForGoalState(
 	ctx context.Context,
-	mp *cBiRRTMotionPlanner,
-	state *PlanState,
+	motionPlanner *cBiRRTMotionPlanner,
+	goalState *PlanState,
 	ikSeed referenceframe.FrameSystemInputs,
 ) ([]*node, error) {
 	nodes := []*node{}
 
-	if len(state.configuration) > 0 {
-		nodes = append(nodes, newConfigurationNode(state.configuration))
+	if len(goalState.configuration) > 0 {
+		nodes = append(nodes, newConfigurationNode(goalState.configuration))
 		return nodes, nil
 	}
 
-	if len(state.poses) != 0 {
-		solutions, err := mp.getSolutions(ctx, ikSeed, state.poses)
+	if len(goalState.poses) != 0 {
+		// get many potential end goals from IK solver
+		solutions, err := motionPlanner.getSolutions(ctx, ikSeed, goalState.poses)
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +124,7 @@ func generateNodeListForPlanState(
 	}
 
 	if len(nodes) == 0 {
-		return nil, fmt.Errorf("could not create any nodes for state %v", state)
+		return nil, fmt.Errorf("could not create any nodes for state %v", goalState)
 	}
 
 	return nodes, nil
