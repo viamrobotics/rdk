@@ -8,20 +8,15 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 
-	rgrpc "go.viam.com/rdk/grpc"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 )
 
-func ConnToConnectivityStateReady(rpc.ClientConn) rgrpc.ConnectivityState {
-	return newNoOpClientConnWithConnectivity(func() connectivity.State { return connectivity.Ready })
+func NoOpClientConnReady(rpc.ClientConn) rpc.ClientConn {
+	return &noOpClientConnWithConnectivity{getStateFunc: func() connectivity.State { return connectivity.Ready }}
 }
 
-func connToConnectivityStateError(rpc.ClientConn) rgrpc.ConnectivityState {
-	return newNoOpClientConnWithConnectivity(func() connectivity.State { return connectivity.TransientFailure })
-}
-
-func newNoOpClientConnWithConnectivity(f func() connectivity.State) rgrpc.ConnectivityState {
-	return &noOpClientConnWithConnectivity{getStateFunc: f}
+func noOpClientConnError(rpc.ClientConn) rpc.ClientConn {
+	return &noOpClientConnWithConnectivity{getStateFunc: func() connectivity.State { return connectivity.TransientFailure }}
 }
 
 type noOpClientConnWithConnectivity struct {

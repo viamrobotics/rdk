@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/data"
-	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager"
@@ -58,16 +57,15 @@ const (
 // - Close (once).
 type Sync struct {
 	// ScheduledTicker only exists for tests
-	ScheduledTicker         *clock.Ticker
-	connToConnectivityState func(conn rpc.ClientConn) rgrpc.ConnectivityState
-	logger                  logging.Logger
-	workersWg               sync.WaitGroup
-	flushCollectors         func()
-	fileTracker             *fileTracker
-	filesToSync             chan string
-	clientConstructor       func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
-	clock                   clock.Clock
-	atomicUploadStats       *atomicUploadStats
+	ScheduledTicker   *clock.Ticker
+	logger            logging.Logger
+	workersWg         sync.WaitGroup
+	flushCollectors   func()
+	fileTracker       *fileTracker
+	filesToSync       chan string
+	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
+	clock             clock.Clock
+	atomicUploadStats *atomicUploadStats
 
 	configMu sync.Mutex
 	config   Config
@@ -89,7 +87,6 @@ type Sync struct {
 // New creates a new Sync.
 func New(
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	connToConnectivityState func(conn rpc.ClientConn) rgrpc.ConnectivityState,
 	flushCollectors func(),
 	clock clock.Clock,
 	logger logging.Logger,
@@ -98,20 +95,19 @@ func New(
 	var atomicUploadStats atomicUploadStats
 	statsWorker := newStatsWorker(logger)
 	s := Sync{
-		connToConnectivityState: connToConnectivityState,
-		clock:                   clock,
-		configCtx:               configCtx,
-		configCancelFunc:        configCancelFunc,
-		clientConstructor:       clientConstructor,
-		logger:                  logger,
-		fileTracker:             newFileTracker(),
-		filesToSync:             make(chan string),
-		flushCollectors:         flushCollectors,
-		Scheduler:               goutils.NewBackgroundStoppableWorkers(),
-		cloudConn:               cloudConn{ready: make(chan struct{})},
-		FileDeletingWorkers:     goutils.NewBackgroundStoppableWorkers(),
-		statsWorker:             statsWorker,
-		atomicUploadStats:       &atomicUploadStats,
+		clock:               clock,
+		configCtx:           configCtx,
+		configCancelFunc:    configCancelFunc,
+		clientConstructor:   clientConstructor,
+		logger:              logger,
+		fileTracker:         newFileTracker(),
+		filesToSync:         make(chan string),
+		flushCollectors:     flushCollectors,
+		Scheduler:           goutils.NewBackgroundStoppableWorkers(),
+		cloudConn:           cloudConn{ready: make(chan struct{})},
+		FileDeletingWorkers: goutils.NewBackgroundStoppableWorkers(),
+		statsWorker:         statsWorker,
+		atomicUploadStats:   &atomicUploadStats,
 	}
 	return &s
 }
@@ -231,11 +227,10 @@ func (s *Sync) Sync(ctx context.Context, _ map[string]interface{}) error {
 
 type cloudConn struct {
 	// closed by cloud conn manager
-	ready                        chan struct{}
-	partID                       string
-	client                       v1.DataSyncServiceClient
-	conn                         rpc.ClientConn
-	connectivityStateEnabledConn rgrpc.ConnectivityState
+	ready  chan struct{}
+	partID string
+	client v1.DataSyncServiceClient
+	conn   rpc.ClientConn
 }
 
 // BEGIN connection management
@@ -286,7 +281,6 @@ func (s *Sync) runCloudConnManager(
 		// set the values & connunicate that it is ready
 		s.cloudConn.partID = partID
 		s.cloudConn.conn = conn
-		s.cloudConn.connectivityStateEnabledConn = s.connToConnectivityState(conn)
 		s.cloudConn.client = s.clientConstructor(conn)
 		s.logger.Info("cloud connection ready")
 		close(s.cloudConn.ready)
@@ -568,7 +562,7 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 			return
 		case <-tkr.C:
 			shouldSync := readyToSyncDirectories(ctx, config, s.logger)
-			state := s.cloudConn.connectivityStateEnabledConn.GetState()
+			state := s.cloudConn.conn.GetState()
 			online := state == connectivity.Ready
 			if !online {
 				s.logger.Infof("data manager: NOT syncing data to the cloud as it's cloud connection is in state: %s"+
