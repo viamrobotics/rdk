@@ -179,15 +179,22 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		} else if solutionRaw == nil {
 			panic("why is solutionRaw nil")
 		} else if result < defaultGoalThreshold || !ik.exact {
-			solutionChan <- &Solution{
+			solution := &Solution{
 				Configuration: solutionRaw,
 				Score:         result,
 				Exact:         result < defaultGoalThreshold,
 			}
-			solutionsFound++
+			select {
+			case <-ctx.Done():
+				break
+			case solutionChan <- solution:
+				solutionsFound++
+			}
 		}
+
 		seed = generateRandomPositions(randSeed, lowerBound, upperBound)
 	}
+
 	return solutionsFound, nil
 }
 

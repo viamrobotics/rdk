@@ -7,8 +7,6 @@ import (
 	"math/rand"
 	"slices"
 	"sort"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"go.viam.com/utils"
@@ -680,34 +678,29 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 		}
 	}
 
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	//
-	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*20)
-	defer func() {
-		// In the case that we have an error, we need to explicitly drain the channel before we return
-		for len(solutionGen) > 0 {
-			<-solutionGen
-		}
-	}()
-
 	linearSeed, err := mp.lfs.mapToSlice(seed)
 	if err != nil {
 		return nil, err
 	}
 
-	minFunc := mp.linearizeFSmetric(mp.planOpts.getGoalMetric(goal))
 	// Spawn the IK solver to generate solutions until done
+	minFunc := mp.linearizeFSmetric(mp.planOpts.getGoalMetric(goal))
 	approxCartesianDist := math.Sqrt(minFunc(linearSeed))
 
-	var activeSolvers sync.WaitGroup
-	defer activeSolvers.Wait()
-	activeSolvers.Add(1)
-	var solverFinished atomic.Bool
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*20)
+	defer func() {
+		// In lieu of creating a separate WaitGroup to wait on before returning, we simply wait to
+		// see the `solutionGen` channel get closed to know that the goroutine we spawned has
+		// finished.
+		for _ = range solutionGen {
+		}
+	}()
+
+	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
-		defer activeSolvers.Done()
-		defer solverFinished.Store(true)
+		// This channel close doubles as signaling that the goroutine has exited.
+		defer close(solutionGen)
 		_, err := mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, 0, approxCartesianDist, minFunc, mp.randseed.Int())
 		if err != nil {
 			mp.logger.Warnf("solver had an error: %v", err)
@@ -722,29 +715,24 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 		bestScore:         10000000,
 	}
 
-	for !solverFinished.Load() {
+solutionLoop:
+	for {
 		select {
 		case <-ctx.Done():
+			// We've been canceled. So have our workers. Can just return.
 			return nil, ctx.Err()
-
-		case stepSolution := <-solutionGen:
-			if mp.process(&solvingState, seed, stepSolution, approxCartesianDist) {
+		case stepSolution, ok := <-solutionGen:
+			if !ok || mp.process(&solvingState, seed, stepSolution, approxCartesianDist) {
+				// No longer using the generated solutions. Cancel the workers.
 				cancel()
+				break solutionLoop
 			}
-
-		default:
-			continue
 		}
 	}
 
-	// Cancel any ongoing processing within the IK solvers if we're done receiving solutions
-	cancel()
-
-	activeSolvers.Wait()
-
 	if len(solvingState.solutions) == 0 {
-		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions were produced, or if non-zero solutions
-		// were produced, which constraints were failed
+		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions
+		// were produced, or if non-zero solutions were produced, which constraints were violated.
 		if solvingState.constraintFailCnt == 0 {
 			return nil, errIKSolve
 		}
