@@ -39,7 +39,7 @@ type cBiRRTMotionPlanner struct {
 	checker                   *motionplan.ConstraintChecker
 	fs                        *referenceframe.FrameSystem
 	lfs                       *linearizedFrameSystem
-	solver                    ik.Solver
+	solver                    *ik.CombinedIK
 	logger                    logging.Logger
 	randseed                  *rand.Rand
 	configurationDistanceFunc motionplan.SegmentFSMetric
@@ -683,8 +683,8 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	//
 	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*20)
-
 	defer func() {
 		// In the case that we have an error, we need to explicitly drain the channel before we return
 		for len(solutionGen) > 0 {

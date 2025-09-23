@@ -14,8 +14,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// combinedIK defines the fields necessary to run a combined solver.
-type combinedIK struct {
+// CombinedIK defines the fields necessary to run a combined solver.
+type CombinedIK struct {
 	solvers []*NloptIK
 	logger  logging.Logger
 	limits  []referenceframe.Limit
@@ -29,8 +29,8 @@ func CreateCombinedIKSolver(
 	logger logging.Logger,
 	nCPU int,
 	goalThreshold float64,
-) (Solver, error) {
-	ik := &combinedIK{}
+) (*CombinedIK, error) {
+	ik := &CombinedIK{}
 	ik.limits = limits
 	if nCPU <= 0 {
 		nCPU = 2
@@ -48,7 +48,7 @@ func CreateCombinedIKSolver(
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil.
-func (ik *combinedIK) Solve(ctx context.Context,
+func (ik *CombinedIK) Solve(ctx context.Context,
 	retChan chan<- *Solution,
 	seed []float64,
 	overallMaxTravel, cartestianDistance float64,
@@ -98,6 +98,6 @@ func (ik *combinedIK) Solve(ctx context.Context,
 }
 
 // DoF returns the DoF of the solver.
-func (ik *combinedIK) DoF() []referenceframe.Limit {
+func (ik *CombinedIK) DoF() []referenceframe.Limit {
 	return ik.limits
 }
