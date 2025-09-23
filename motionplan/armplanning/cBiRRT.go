@@ -2,7 +2,6 @@ package armplanning
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -75,20 +74,8 @@ func newCBiRRTMotionPlanner(
 		chains = &motionChains{}
 	}
 
-	solver, err := ik.CreateCombinedIKSolver(lfs.dof, logger, opt.NumThreads, opt.GoalThreshold)
-	if err != nil {
-		return nil, err
-	}
-
-	// nlopt should try only once
-	nlopt, err := ik.CreateNloptSolver(lfs.dof, logger, 1, true, true)
-	if err != nil {
-		return nil, err
-	}
-
-	return &cBiRRTMotionPlanner{
+	c := &cBiRRTMotionPlanner{
 		checker:                   constraintHandler,
-		solver:                    solver,
 		fs:                        fs,
 		lfs:                       lfs,
 		logger:                    logger,
@@ -96,8 +83,20 @@ func newCBiRRTMotionPlanner(
 		planOpts:                  opt,
 		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(opt.ConfigurationDistanceMetric),
 		motionChains:              chains,
-		fastGradDescent:           nlopt,
-	}, nil
+	}
+
+	c.solver, err = ik.CreateCombinedIKSolver(lfs.dof, logger, opt.NumThreads, opt.GoalThreshold)
+	if err != nil {
+		return nil, err
+	}
+
+	// nlopt should try only once
+	c.fastGradDescent, err = ik.CreateNloptSolver(lfs.dof, logger, 1, true, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
 
 // only used for testin.
@@ -672,7 +671,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 func (mp *cBiRRTMotionPlanner) getSolutions(
 	ctx context.Context,
 	seed referenceframe.FrameSystemInputs,
-	metric motionplan.StateFSMetric,
+	goal referenceframe.FrameSystemPoses,
 ) ([]*node, error) {
 	if mp.planOpts.MaxSolutions == 0 {
 		mp.planOpts.MaxSolutions = defaultSolutionsToSeed
@@ -683,10 +682,6 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 		for _, frameName := range mp.fs.FrameNames() {
 			seed[frameName] = referenceframe.RandomFrameInputs(mp.fs.Frame(frameName), mp.randseed)
 		}
-	}
-
-	if metric == nil {
-		return nil, errors.New("metric is nil")
 	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
@@ -706,7 +701,7 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 		return nil, err
 	}
 
-	minFunc := mp.linearizeFSmetric(metric)
+	minFunc := mp.linearizeFSmetric(mp.planOpts.getGoalMetric(goal))
 	// Spawn the IK solver to generate solutions until done
 	approxCartesianDist := math.Sqrt(minFunc(linearSeed))
 
