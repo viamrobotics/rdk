@@ -16,7 +16,7 @@ import (
 
 // combinedIK defines the fields necessary to run a combined solver.
 type combinedIK struct {
-	solvers []Solver
+	solvers []*NloptIK
 	logger  logging.Logger
 	limits  []referenceframe.Limit
 }
@@ -36,12 +36,11 @@ func CreateCombinedIKSolver(
 		nCPU = 2
 	}
 	for i := 1; i <= nCPU; i++ {
-		solver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
-		nlopt := solver.(*nloptIK)
+		nloptSolver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
 		if err != nil {
 			return nil, err
 		}
-		ik.solvers = append(ik.solvers, nlopt)
+		ik.solvers = append(ik.solvers, nloptSolver)
 	}
 	ik.logger = logger
 	return ik, nil
