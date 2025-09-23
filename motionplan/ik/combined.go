@@ -50,7 +50,7 @@ func CreateCombinedIKSolver(
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil.
 func (ik *combinedIK) Solve(ctx context.Context,
-	c chan<- *Solution,
+	retChan chan<- *Solution,
 	seed []float64,
 	overallMaxTravel, cartestianDistance float64,
 	m func([]float64) float64,
@@ -85,7 +85,7 @@ func (ik *combinedIK) Solve(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			n, err := thisSolver.Solve(ctx, c, seedFloats, maxTravel, cartestianDistance, m, parseed)
+			n, err := thisSolver.Solve(ctx, retChan, seedFloats, maxTravel, cartestianDistance, m, parseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()
