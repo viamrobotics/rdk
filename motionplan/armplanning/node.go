@@ -114,8 +114,10 @@ func generateNodeListForPlanState(
 		}
 		nodes = append(nodes, solutions...)
 	}
+
 	if len(nodes) == 0 {
 		return nil, fmt.Errorf("could not create any nodes for state %v", state)
 	}
+
 	return nodes, nil
 }
