@@ -130,8 +130,9 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 			TimeReceived:  time.Now(),
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
-			MimeType: mimeType,
-			Payload:  img,
+			MimeType:    mimeType,
+			Payload:     img,
+			Annotations: metadata.Annotations,
 		}}), nil
 	})
 	return data.NewCollector(cFunc, params)
