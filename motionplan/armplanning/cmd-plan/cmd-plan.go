@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/pprof"
 	"sort"
 	"time"
 
 	viz "github.com/viam-labs/motion-tools/client/client"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -36,10 +38,27 @@ func realMain() error {
 	seed := flag.Int("seed", -1, "")
 	verbose := flag.Bool("v", false, "verbose")
 	loop := flag.Int("loop", 1, "loop")
+	cpu := flag.String("cpu", "", "cpu profiling")
 
 	flag.Parse()
+
 	if len(flag.Args()) == 0 {
 		return fmt.Errorf("need a json file")
+	}
+
+	if *cpu != "" {
+		logger.Infof("writing cpu data to [%s]", *cpu)
+		f, err := os.Create(*cpu)
+		if err != nil {
+			return fmt.Errorf("couldn't create %s %w", *cpu, err)
+		}
+		defer utils.UncheckedError(f.Close())
+
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			return fmt.Errorf("could not start CPU profile: %w", err)
+		}
+		defer pprof.StopCPUProfile()
 	}
 
 	if *verbose {
@@ -82,6 +101,13 @@ func realMain() error {
 	mylog := log.New(os.Stdout, "", 0)
 
 	mylog.Printf("planning took %v", time.Since(start))
+
+	for *cpu != "" && time.Since(start) < time.Second {
+		_, err := armplanning.PlanMotion(ctx, logger, &req)
+		if err != nil {
+			return err
+		}
+	}
 
 	relevantParts := []string{}
 	for c := range plan.Path()[0] {
