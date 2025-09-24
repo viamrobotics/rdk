@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -277,6 +278,14 @@ func (nl *NetAppender) addToQueue(logEntry *commonpb.LogEntry) {
 		nl.toLog = nl.toLog[1:]
 		nl.toLogOverflowsSinceLastSync++
 	}
+	// Go strings are arbitrary byte slices not guaranteed to contain valid UTF-8,
+	// but protobuf will fail to serialize anything other than valid UTF-8. Since
+	// there are situations where we try to log from sources that are not
+	// guaranteed to produce UTF-8, such as stdout/stderr of modules, we need to
+	// sanitize the log lines first. At time of writing [strings.ToValidUTF8] has
+	// an optimized path to return the original string if no modifications are
+	// necessary.
+	logEntry.Message = strings.ToValidUTF8(logEntry.Message, "�")
 	nl.toLog = append(nl.toLog, logEntry)
 }
 
@@ -356,7 +365,15 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	batch := nl.toLog[:batchSize]
 	nl.toLogMutex.Unlock()
 
-	if err := nl.remoteWriter.write(nl.cancelCtx, batch); err != nil {
+	err := nl.remoteWriter.write(nl.cancelCtx, batch)
+	if err.Error() == "string field contains invalid UTF-8" {
+		nl.loggerWithoutNet.Warn("Log batch failed to serialize due to invalid UTF-8, will sanitize and retry")
+		for _, record := range batch {
+			record.Message = strings.ToValidUTF8(record.Message, "�")
+		}
+		err = nl.remoteWriter.write(nl.cancelCtx, batch)
+	}
+	if err != nil {
 		return false, err
 	}
 
