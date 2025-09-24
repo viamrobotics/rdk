@@ -149,3 +149,4 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 
 	return ratios, nil
 }
+
