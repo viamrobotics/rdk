@@ -7,6 +7,7 @@ package vision
 
 import (
 	"context"
+	"fmt"
 	"image"
 
 	servicepb "go.viam.com/api/service/vision/v1"
@@ -42,7 +43,7 @@ func init() {
 //
 // DetectionsFromCamera example:
 //
-//	myDetectorService, err := vision.FromRobot(machine, "my_detector")
+//	myDetectorService, err := vision.GetResource(machine, "my_detector")
 //	if err != nil {
 //		logger.Error(err)
 //		return
@@ -63,7 +64,7 @@ func init() {
 //
 //	 // add "go.viam.com/rdk/utils" to imports to use this code snippet
 //
-//		myCam, err := camera.FromRobot(machine, "my_camera")
+//		myCam, err := camera.GetResource(machine, "my_camera")
 //		if err != nil {
 //			logger.Error(err)
 //			return
@@ -71,7 +72,7 @@ func init() {
 //		// Get an image from the camera decoded as an image.Image
 //		img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCam)
 //
-//		myDetectorService, err := vision.FromRobot(machine, "my_detector")
+//		myDetectorService, err := vision.GetResource(machine, "my_detector")
 //		if err != nil {
 //			logger.Error(err)
 //			return
@@ -89,7 +90,7 @@ func init() {
 //
 // ClassificationsFromCamera example:
 //
-//	myClassifierService, err := vision.FromRobot(machine, "my_classifier")
+//	myClassifierService, err := vision.GetResource(machine, "my_classifier")
 //	if err != nil {
 //		logger.Error(err)
 //		return
@@ -109,7 +110,7 @@ func init() {
 //
 //	 // add "go.viam.com/rdk/utils" to imports to use this code snippet
 //
-//		myCam, err := camera.FromRobot(machine, "my_camera")
+//		myCam, err := camera.GetResource(machine, "my_camera")
 //		if err != nil {
 //			logger.Error(err)
 //			return
@@ -117,7 +118,7 @@ func init() {
 //		// Get an image from the camera decoded as an image.Image
 //		img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCam)
 //
-//		myClassifierService, err := vision.FromRobot(machine, "my_classifier")
+//		myClassifierService, err := vision.GetResource(machine, "my_classifier")
 //		if err != nil {
 //			logger.Error(err)
 //			return
@@ -135,7 +136,7 @@ func init() {
 //
 // GetObjectPointClouds example:
 //
-//	mySegmenterService, err := vision.FromRobot(machine, "my_segmenter")
+//	mySegmenterService, err := vision.GetResource(machine, "my_segmenter")
 //	if err != nil {
 //		logger.Error(err)
 //		return
@@ -225,14 +226,17 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named vision service from the given Robot.
-func FromRobot(r robot.Robot, name string) (Service, error) {
-	return robot.ResourceFromRobot[Service](r, Named(name))
-}
-
-// FromDependencies is a helper for getting the named vision service from a collection of dependencies.
-func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
-	return resource.FromDependencies[Service](deps, Named(name))
+// GetResource is a helper for getting the named Vision service from either a collection of dependencies
+// or the given robot.
+func GetResource(src any, name string) (Service, error) {
+	switch v := src.(type) {
+	case resource.Dependencies:
+		return resource.FromDependencies[Service](v, Named(name))
+	case robot.Robot:
+		return robot.ResourceFromRobot[Service](v, Named(name))
+	default:
+		return nil, fmt.Errorf("unsupported source type %T", src)
+	}
 }
 
 // Properties returns various information regarding the current vision service,

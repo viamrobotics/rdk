@@ -6,6 +6,7 @@ package baseremotecontrol
 
 import (
 	"context"
+	"fmt"
 
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/data"
@@ -24,9 +25,17 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named base remote control service from the given Robot.
-func FromRobot(r robot.Robot, name string) (Service, error) {
-	return robot.ResourceFromRobot[Service](r, Named(name))
+// GetResource is a helper for getting the named Base remote control service 
+// from either a collection of dependencies or the given robot.
+func GetResource(src any, name string) (Service, error) {
+	switch v := src.(type) {
+	case resource.Dependencies:
+		return resource.FromDependencies[Service](v, Named(name))
+	case robot.Robot:
+		return robot.ResourceFromRobot[Service](v, Named(name))
+	default:
+		return nil, fmt.Errorf("unsupported source type %T", src)
+	}
 }
 
 func init() {

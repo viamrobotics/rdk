@@ -216,7 +216,7 @@ func syncSensorFromDeps(name string, deps resource.Dependencies, logger logging.
 	if name == "" {
 		return nil, false
 	}
-	syncSensor, err := sensor.FromDependencies(deps, name)
+	syncSensor, err := sensor.GetResource(deps, name)
 	if err != nil {
 		// see sync.Config for how this affects whether or not scheduled sync will run
 		logger.Errorw(

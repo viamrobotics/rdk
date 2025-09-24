@@ -86,7 +86,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::classifier::Read")
 	defer span.End()
 
-	srv, err := vision.FromRobot(cs.r, cs.classifierName)
+	srv, err := vision.GetResource(cs.r, cs.classifierName)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "source_classifier can't find vision service")
 	}

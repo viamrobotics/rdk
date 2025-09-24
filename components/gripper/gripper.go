@@ -6,6 +6,7 @@ package gripper
 
 import (
 	"context"
+	"fmt"
 
 	pb "go.viam.com/api/component/gripper/v1"
 
@@ -53,7 +54,7 @@ type HoldingStatus struct {
 //
 // Open example:
 //
-//	myGripper, err := gripper.FromRobot(machine, "my_gripper")
+//	myGripper, err := gripper.GetResource(machine, "my_gripper")
 //
 //	// Open the gripper.
 //	err := myGripper.Open(context.Background(), nil)
@@ -62,7 +63,7 @@ type HoldingStatus struct {
 //
 // Grab example:
 //
-//	myGripper, err := gripper.FromRobot(machine, "my_gripper")
+//	myGripper, err := gripper.GetResource(machine, "my_gripper")
 //
 //	// Grab with the gripper.
 //	grabbed, err := myGripper.Grab(context.Background(), nil)
@@ -91,15 +92,17 @@ type Gripper interface {
 	IsHoldingSomething(ctx context.Context, extra map[string]interface{}) (HoldingStatus, error)
 }
 
-// FromRobot is a helper for getting the named Gripper from the given Robot.
-func FromRobot(r robot.Robot, name string) (Gripper, error) {
-	return robot.ResourceFromRobot[Gripper](r, Named(name))
-}
-
-// FromDependencies is a helper for getting the named gripper from a collection of
-// dependencies.
-func FromDependencies(deps resource.Dependencies, name string) (Gripper, error) {
-	return resource.FromDependencies[Gripper](deps, Named(name))
+// GetResource is a helper for getting the named Gripper from either a collection of dependencies
+// or the given robot.
+func GetResource(src any, name string) (Gripper, error) {
+	switch v := src.(type) {
+	case resource.Dependencies:
+		return resource.FromDependencies[Gripper](v, Named(name))
+	case robot.Robot:
+		return robot.ResourceFromRobot[Gripper](v, Named(name))
+	default:
+		return nil, fmt.Errorf("unsupported source type %T", src)
+	}
 }
 
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.

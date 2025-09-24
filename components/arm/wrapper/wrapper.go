@@ -79,7 +79,7 @@ func (wrapper *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	newArm, err := arm.FromDependencies(deps, newConf.ArmName)
+	newArm, err := arm.GetResource(deps, newConf.ArmName)
 	if err != nil {
 		return err
 	}

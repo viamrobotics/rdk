@@ -6,6 +6,7 @@ package navigation
 
 import (
 	"context"
+	"fmt"
 
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
@@ -219,9 +220,17 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named navigation service from the given Robot.
-func FromRobot(r robot.Robot, name string) (Service, error) {
-	return robot.ResourceFromRobot[Service](r, Named(name))
+// GetResource is a helper for getting the named Navigation service from either a collection of dependencies
+// or the given robot.
+func GetResource(src any, name string) (Service, error) {
+	switch v := src.(type) {
+	case resource.Dependencies:
+		return resource.FromDependencies[Service](v, Named(name))
+	case robot.Robot:
+		return robot.ResourceFromRobot[Service](v, Named(name))
+	default:
+		return nil, fmt.Errorf("unsupported source type %T", src)
+	}
 }
 
 func mapTypeToProtobuf(mapType MapType) servicepb.MapType {

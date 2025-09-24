@@ -492,7 +492,7 @@ func TestStatusClient(t *testing.T) {
 	client, err := New(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.FromRobot(client, "arm1")
+	arm1, err := arm.GetResource(client, "arm1")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = arm1.EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -510,10 +510,10 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	_, err = base.FromRobot(client, "base1")
+	_, err = base.GetResource(client, "base1")
 	test.That(t, err, test.ShouldBeNil)
 
-	board1, err := board.FromRobot(client, "board1")
+	board1, err := board.GetResource(client, "board1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, board1, test.ShouldNotBeNil)
 	pin, err := board1.GPIOPinByName("pin")
@@ -521,7 +521,7 @@ func TestStatusClient(t *testing.T) {
 	_, err = pin.Get(context.Background(), nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	camera1, err := camera.FromRobot(client, "camera1")
+	camera1, err := camera.GetResource(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
 	imgBytes, metadata, err := camera1.Image(context.Background(), rutils.MimeTypeJPEG, nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -529,7 +529,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, imgBytes, test.ShouldBeNil)
 	test.That(t, metadata, test.ShouldResemble, camera.ImageMetadata{})
 
-	gripper1, err := gripper.FromRobot(client, "gripper1")
+	gripper1, err := gripper.GetResource(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
 	err = gripper1.Open(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -538,7 +538,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	motor1, err := motor.FromRobot(client, "motor1")
+	motor1, err := motor.GetResource(client, "motor1")
 	test.That(t, err, test.ShouldBeNil)
 	err = motor1.SetPower(context.Background(), 0, nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -547,13 +547,13 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	sensorDevice, err := sensor.FromRobot(client, "sensor1")
+	sensorDevice, err := sensor.GetResource(client, "sensor1")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = sensorDevice.Readings(context.Background(), make(map[string]interface{}))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	servo1, err := servo.FromRobot(client, "servo1")
+	servo1, err := servo.GetResource(client, "servo1")
 	test.That(t, err, test.ShouldBeNil)
 	err = servo1.Move(context.Background(), 5, nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -589,19 +589,19 @@ func TestStatusClient(t *testing.T) {
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
 
-	arm1, err = arm.FromRobot(client, "arm1")
+	arm1, err = arm.GetResource(client, "arm1")
 	test.That(t, err, test.ShouldBeNil)
 	pos, err := arm1.EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostEqual(pos, pose1), test.ShouldBeTrue)
 
-	_, err = base.FromRobot(client, "base1")
+	_, err = base.GetResource(client, "base1")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = board.FromRobot(client, "board1")
+	_, err = board.GetResource(client, "board1")
 	test.That(t, err, test.ShouldBeNil)
 
-	camera1, err = camera.FromRobot(client, "camera1")
+	camera1, err = camera.GetResource(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
 
 	frame, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1)
@@ -610,28 +610,28 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 
-	gripper1, err = gripper.FromRobot(client, "gripper1")
+	gripper1, err = gripper.GetResource(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
 	err = gripper1.Open(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gripperOpenCalled, test.ShouldBeTrue)
 	test.That(t, gripperGrabCalled, test.ShouldBeFalse)
 
-	inputDev, err := input.FromRobot(client, "inputController1")
+	inputDev, err := input.GetResource(client, "inputController1")
 	test.That(t, err, test.ShouldBeNil)
 	controlList, err := inputDev.Controls(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
-	motor1, err = motor.FromRobot(client, "motor1")
+	motor1, err = motor.GetResource(client, "motor1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, motor1, test.ShouldNotBeNil)
 
-	motor2, err := motor.FromRobot(client, "motor2")
+	motor2, err := motor.GetResource(client, "motor2")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, motor2, test.ShouldNotBeNil)
 
-	servo1, err = servo.FromRobot(client, "servo1")
+	servo1, err = servo.GetResource(client, "servo1")
 	test.That(t, err, test.ShouldBeNil)
 	err = servo1.Move(context.Background(), 4, nil)
 	test.That(t, err, test.ShouldBeNil)

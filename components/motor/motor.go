@@ -48,7 +48,7 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 // SetPower example:
 //
-//	myMotorComponent, err := motor.FromRobot(machine, "my_motor")
+//	myMotorComponent, err := motor.GetResource(machine, "my_motor")
 //	// Set the motor power to 40% forwards.
 //	myMotorComponent.SetPower(context.Background(), 0.4, nil)
 //
@@ -56,7 +56,7 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 // GoFor example:
 //
-//	myMotorComponent, err := motor.FromRobot(machine, "my_motor")
+//	myMotorComponent, err := motor.GetResource(machine, "my_motor")
 //	// Turn the motor 7.2 revolutions at 60 RPM.
 //	myMotorComponent.GoFor(context.Background(), 60, 7.2, nil)
 //
@@ -171,15 +171,17 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromDependencies is a helper for getting the named motor from a collection of
-// dependencies.
-func FromDependencies(deps resource.Dependencies, name string) (Motor, error) {
-	return resource.FromDependencies[Motor](deps, Named(name))
-}
-
-// FromRobot is a helper for getting the named motor from the given Robot.
-func FromRobot(r robot.Robot, name string) (Motor, error) {
-	return robot.ResourceFromRobot[Motor](r, Named(name))
+// GetResource is a helper for getting the named Motor from either a collection of dependencies
+// or the given robot.
+func GetResource(src any, name string) (Motor, error) {
+	switch v := src.(type) {
+	case resource.Dependencies:
+		return resource.FromDependencies[Motor](v, Named(name))
+	case robot.Robot:
+		return robot.ResourceFromRobot[Motor](v, Named(name))
+	default:
+		return nil, fmt.Errorf("unsupported source type %T", src)
+	}
 }
 
 // NamesFromRobot is a helper for getting all motor names from the given Robot.

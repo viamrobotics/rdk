@@ -7,6 +7,7 @@ package mlmodel
 
 import (
 	"context"
+	"fmt"
 	"unsafe"
 
 	"github.com/pkg/errors"
@@ -40,7 +41,7 @@ func init() {
 //		"gorgonia.org/tensor"
 //	 )
 //
-//	myMLModel, err := mlmodel.FromRobot(machine, "my_mlmodel")
+//	myMLModel, err := mlmodel.GetResource(machine, "my_mlmodel")
 //
 //	input_tensors := ml.Tensors{
 //		"image": tensor.New(
@@ -56,7 +57,7 @@ func init() {
 //
 // Metadata example:
 //
-//	myMLModel, err := mlmodel.FromRobot(machine, "my_mlmodel")
+//	myMLModel, err := mlmodel.GetResource(machine, "my_mlmodel")
 //	metadata, err := myMLModel.Metadata(context.Background())
 //
 // For more information, see the [Metadata method docs].
@@ -333,12 +334,15 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named ML model service from the given Robot.
-func FromRobot(r robot.Robot, name string) (Service, error) {
-	return robot.ResourceFromRobot[Service](r, Named(name))
-}
-
-// FromDependencies is a helper for getting the named ml model service from a collection of dependencies.
-func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
-	return resource.FromDependencies[Service](deps, Named(name))
+// GetResource is a helper for getting the named ML model service from either a collection of dependencies
+// or the given robot.
+func GetResource(src any, name string) (Service, error) {
+	switch v := src.(type) {
+	case resource.Dependencies:
+		return resource.FromDependencies[Service](v, Named(name))
+	case robot.Robot:
+		return robot.ResourceFromRobot[Service](v, Named(name))
+	default:
+		return nil, fmt.Errorf("unsupported source type %T", src)
+	}
 }

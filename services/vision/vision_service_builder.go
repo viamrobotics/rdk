@@ -60,7 +60,7 @@ func NewService(
 	}
 
 	getCamera := func(cameraName string) (camera.Camera, error) {
-		return camera.FromDependencies(deps, cameraName)
+		return camera.GetResource(deps, cameraName)
 	}
 
 	return &vizModel{
@@ -106,7 +106,7 @@ func DeprecatedNewService(
 	logger := r.Logger()
 
 	getCamera := func(cameraName string) (camera.Camera, error) {
-		return camera.FromRobot(r, cameraName)
+		return camera.GetResource(r, cameraName)
 	}
 
 	return &vizModel{

@@ -85,7 +85,7 @@ func TestConfig1(t *testing.T) {
 
 	r := setupLocalRobot(t, context.Background(), cfg, logger)
 
-	c1, err := camera.FromRobot(r, "c1")
+	c1, err := camera.GetResource(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c1.Name(), test.ShouldResemble, camera.Named("c1"))
 
@@ -1181,7 +1181,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 
 	// Test Component Error
 	name := base.Named("test")
-	noBase, err := base.FromRobot(r, "test")
+	noBase, err := base.GetResource(r, "test")
 	test.That(
 		t,
 		err,
@@ -1201,7 +1201,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 
 	r.Reconfigure(ctx, goodConfig)
 	// Test Component Valid
-	noBase, err = base.FromRobot(r, "test")
+	noBase, err = base.GetResource(r, "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, noBase, test.ShouldNotBeNil)
 	// Test Service Valid
@@ -1287,7 +1287,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	}
 	test.That(t, badConfig.Ensure(false, logger), test.ShouldBeNil)
 	// Test Component Valid
-	noBase, err := base.FromRobot(r, "test")
+	noBase, err := base.GetResource(r, "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, noBase, test.ShouldNotBeNil)
 	// Test Service Valid
@@ -1302,7 +1302,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	r.Reconfigure(ctx, badConfig)
 	// Test Component Error
 	name := base.Named("test")
-	noBase, err = base.FromRobot(r, "test")
+	noBase, err = base.GetResource(r, "test")
 	test.That(
 		t,
 		err,

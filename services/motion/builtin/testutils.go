@@ -380,7 +380,7 @@ func CreateMoveOnGlobeTestEnvironment(ctx context.Context, t *testing.T, origin 
 
 	// create fake wheeled base
 	deps := createDependencies(t, ctx, logger, geometrySize, origin, noise)
-	movementSensor, err := movementsensor.FromDependencies(deps, moveSensorName)
+	movementSensor, err := movementsensor.GetResource(deps, moveSensorName)
 	test.That(t, err, test.ShouldBeNil)
 	// create base link
 	baseLink := createBaseLink(t)
@@ -461,7 +461,7 @@ func CreateMoveOnMapTestEnvironment(
 
 	deps := createDependencies(t, ctx, logger, geomSize, &geo.Point{}, nil)
 
-	movementSensor, err := movementsensor.FromDependencies(deps, moveSensorName)
+	movementSensor, err := movementsensor.GetResource(deps, moveSensorName)
 	test.That(t, err, test.ShouldBeNil)
 	injectSlam, err := createMockSlamService("test_slam", pcdPath, origin, movementSensor)
 	test.That(t, err, test.ShouldBeNil)
@@ -521,9 +521,9 @@ func createTestKinematicBase(ctx context.Context, t *testing.T) (
 
 	// create fake wheeled base
 	deps := createDependencies(t, ctx, logger, 80, &geo.Point{}, nil)
-	movementSensor, err := movementsensor.FromDependencies(deps, moveSensorName)
+	movementSensor, err := movementsensor.GetResource(deps, moveSensorName)
 	test.That(t, err, test.ShouldBeNil)
-	b, err := base.FromDependencies(deps, baseName)
+	b, err := base.GetResource(deps, baseName)
 	test.That(t, err, test.ShouldBeNil)
 
 	startPosition, _, err := movementSensor.Position(context.Background(), nil)

@@ -3,6 +3,7 @@ package gizmoapi
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/pkg/errors"
@@ -23,9 +24,17 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named Gizmo from the given Robot.
-func FromRobot(r robot.Robot, name string) (Gizmo, error) {
-	return robot.ResourceFromRobot[Gizmo](r, Named(name))
+// GetResource is a helper for getting the named Gizmo from either a collection of dependencies
+// or the given robot.
+func GetResource(src any, name string) (Gizmo, error) {
+	switch v := src.(type) {
+	case resource.Dependencies:
+		return resource.FromDependencies[Gizmo](v, Named(name))
+	case robot.Robot:
+		return robot.ResourceFromRobot[Gizmo](v, Named(name))
+	default:
+		return nil, fmt.Errorf("unsupported source type %T", src)
+	}
 }
 
 func init() {

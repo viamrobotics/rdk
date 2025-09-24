@@ -56,7 +56,7 @@ var (
 // DoCommand example:
 //
 //	// This example shows using DoCommand with an arm component.
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.GetResource(machine, "my_arm")
 //
 //	command := map[string]interface{}{"cmd": "test", "data1": 500}
 //	result, err := myArm.DoCommand(context.Background(), command)
@@ -64,7 +64,7 @@ var (
 // Close example:
 //
 //	// This example shows using Close with an arm component.
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.GetResource(machine, "my_arm")
 //
 //	err = myArm.Close(context.Background())
 type Resource interface {
@@ -172,7 +172,7 @@ type Sensor interface {
 // IsMoving example:
 //
 //	// This example shows using IsMoving with an arm component.
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.GetResource(machine, "my_arm")
 //
 //	// Stop all motion of the arm. It is assumed that the arm stops immediately.
 //	myArm.Stop(context.Background(), nil)
@@ -184,7 +184,7 @@ type Sensor interface {
 // Stop example:
 //
 //	// This example shows using Stop with an arm component.
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.GetResource(machine, "my_arm")
 //
 //	// Stop all motion of the arm. It is assumed that the arm stops immediately.
 //	err = myArm.Stop(context.Background(), nil)
@@ -201,7 +201,7 @@ type Actuator interface {
 // Geometries example:
 //
 //	// This example shows using Geometries with an arm component.
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.GetResource(machine, "my_arm")
 //
 //	geometries, err := myArm.Geometries(context.Background(), nil)
 //
