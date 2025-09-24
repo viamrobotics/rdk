@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -341,7 +342,7 @@ func isUTF8MarshallingError(err error) bool {
 		return false
 	}
 	status := status.Convert(err)
-	return status.Code() == 13 && status.Message() == "grpc: error while marshaling: string field contains invalid UTF-8"
+	return status.Code() == codes.Internal && status.Message() == "grpc: error while marshaling: string field contains invalid UTF-8"
 }
 
 // Returns whether there is more work to do or if an error was encountered
