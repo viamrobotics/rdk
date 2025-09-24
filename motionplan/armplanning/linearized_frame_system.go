@@ -11,6 +11,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
+const minJogPercent = .03
+
 // linearizedFrameSystem wraps a framesystem, allowing conversion in a known order between a FrameConfiguratinos and a flat array of floats,
 // useful for being able to call IK solvers against framesystems.
 type linearizedFrameSystem struct {
@@ -80,19 +82,17 @@ func (lfs *linearizedFrameSystem) sliceToMap(floatSlice []float64) (referencefra
 // return is floats from [0-1] given a percentage of their input range that should be searched
 // for example, if the frame system has 2 arms, and only is moving, the inputs for the non-moving arm will all be 0
 // the other arm will be scaled 0-1 based on the expected joint distance
-// there is a chacne it's not enough and will need be moved more
+// there is a chacne it's not enough and will need be moved more.
 func (lfs *linearizedFrameSystem) inputChangeRatio(
 	mc *motionChains,
 	start referenceframe.FrameSystemInputs,
-	goal referenceframe.FrameSystemPoses,
 	distanceFunc motionplan.StateFSMetric,
-	logger logging.Logger) ([]float64, error) {
-
+	logger logging.Logger,
+) []float64 {
 	_, nonmoving := mc.framesFilteredByMovingAndNonmoving()
 
 	startDistance := distanceFunc(&motionplan.StateFS{Configuration: start, FS: mc.fs})
-	logger.Debugf("startDistance: %v", startDistance)
-	
+
 	ratios := []float64{}
 
 	for _, frame := range lfs.frames {
@@ -101,52 +101,38 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 		}
 
 		if slices.Contains(nonmoving, frame.Name()) {
-			for _ = range frame.DoF() {
+			for range frame.DoF() {
 				ratios = append(ratios, 0)
 			}
 			continue
 		}
-
-		orig := start[frame.Name()]
-
 		const percentJog = .01
 
-		adjusted := []referenceframe.Input{}
 		for idx, r := range frame.DoF() {
+			orig := start[frame.Name()][idx]
+
 			x := r.Range() * percentJog
-			y := orig[idx].Value + x
+			y := orig.Value + x
 			if y > r.Max {
-				y = y - (2 * x)
+				y -= (2 * x)
 			}
 
-			logger.Debugf("%v (%v) %v -> %v", r, x, orig[idx].Value, y)
+			start[frame.Name()][idx] = referenceframe.Input{y}
 
-			adjusted = append(adjusted, referenceframe.Input{y})
+			myDistance := distanceFunc(&motionplan.StateFS{Configuration: start, FS: mc.fs})
+			thisRatio := startDistance / math.Abs(myDistance-startDistance)
+			myJogRatio := percentJog * thisRatio
+			adjustLogRatio := min(1, max(.03, myJogRatio*5))
+			logger.Debugf("idx: %d startDistance: %0.2f myDistance: %0.2f thisRatio: %0.4f myJogRatio: %0.4f adjustLogRatio: %0.4f",
+				idx, startDistance, myDistance, thisRatio, myJogRatio, adjustLogRatio)
+
+			ratios = append(ratios, adjustLogRatio)
+
+			start[frame.Name()][idx] = orig
 		}
-
-		mine := referenceframe.FrameSystemInputs{}
-		for k, v := range start {
-			mine[k] = v
-		}
-		mine[frame.Name()] = adjusted
-
-		logger.Debugf("hi: %v", mine[frame.Name()])
-
-		myDistance := distanceFunc(&motionplan.StateFS{Configuration: mine, FS: mc.fs})
-
-		
-		thisRatio := startDistance / math.Abs(myDistance - startDistance)
-		myJogRatio := min(1, percentJog * thisRatio)
-		
-
-		logger.Debugf("myDistance: %v thisRatio: %v myJogRatio: %v", myDistance, thisRatio, myJogRatio)
-		
-		for _ = range frame.DoF() {
-			ratios = append(ratios, myJogRatio)
-		}
-		
 	}
 
-	return ratios, nil
-}
+	logger.Debugf("inputChangeRatio result: %v", ratios)
 
+	return ratios
+}

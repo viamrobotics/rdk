@@ -30,7 +30,6 @@ type Limit struct {
 	Max float64
 }
 
-
 // Range gives the range of the limit.
 func (l *Limit) Range() float64 {
 	return l.Max - l.Min

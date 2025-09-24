@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"runtime"
 
 	"go.viam.com/rdk/motionplan"
@@ -198,11 +197,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 			poseParent := goal[frame].Parent()
 			currPose, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
 			if err != nil {
-				fmt.Printf("about to panic fs: %v err: %v frame: %v poseParent: %v\n", state.FS.FrameNames(), err, frame, poseParent)
-				fmt.Println(state.Configuration)
-
-				panic(err)
-				score += math.Inf(1)
+				panic(fmt.Errorf("fs: %v err: %w frame: %s poseParent: %v", state.FS.FrameNames(), err, frame, poseParent))
 			}
 
 			score += goalMetric(&motionplan.State{

@@ -30,7 +30,7 @@ func TestIKTolerances(t *testing.T) {
 
 	mc, err := motionChainsFromPlanState(fs, goal)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	mp, err := newCBiRRTMotionPlanner(
 		fs, rand.New(rand.NewSource(1)), logger, NewBasicPlannerOptions(), motionplan.NewEmptyConstraintChecker(), mc)
 	test.That(t, err, test.ShouldBeNil)

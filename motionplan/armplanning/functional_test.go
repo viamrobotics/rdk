@@ -976,7 +976,7 @@ func TestValidatePlanRequest(t *testing.T) {
 
 	fs := frame.NewEmptyFrameSystem("test")
 	frame1 := frame.NewZeroStaticFrame("frame1")
-	frame2, err := frame.NewTranslationalFrame("frame2", r3.Vector{1, 0, 0}, frame.Limit{1, 1})
+	frame2, err := frame.NewTranslationalFrame("frame2", r3.Vector{1, 0, 0}, frame.Limit{-1, 1})
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame1, fs.World())
 	test.That(t, err, test.ShouldBeNil)

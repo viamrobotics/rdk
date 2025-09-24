@@ -58,7 +58,6 @@ func newCBiRRTMotionPlanner(
 	constraintHandler *motionplan.ConstraintChecker,
 	chains *motionChains,
 ) (*cBiRRTMotionPlanner, error) {
-
 	if opt == nil {
 		return nil, errNoPlannerOptions
 	}
@@ -580,7 +579,7 @@ type solutionSolvingState struct {
 
 // return bool is if we should stop because we're done.
 func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed referenceframe.FrameSystemInputs,
-	stepSolution *ik.Solution, approxCartesianDist float64,
+	stepSolution *ik.Solution, goodCost float64,
 ) bool {
 	step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
 	if err != nil {
@@ -631,16 +630,18 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 	myNode := &node{inputs: step, cost: mp.configurationDistanceFunc(stepArc)}
 	sss.solutions = append(sss.solutions, myNode)
 
-	if (approxCartesianDist > 0 && myNode.cost < (approxCartesianDist/25)) || // this checks the absolute score of the plan
+	const goodCostStopDivier = 5.0
+
+	if myNode.cost < goodCost || // this checks the absolute score of the plan
 		// if we've got something sane, and it's really good, let's check
-		(myNode.cost < (sss.bestScore*defaultOptimalityMultiple) && myNode.cost < approxCartesianDist) {
+		(myNode.cost < (sss.bestScore*defaultOptimalityMultiple) && myNode.cost < goodCost) {
 		whyNot := mp.checkPath(seed, step)
-		mp.logger.Debugf("got score %v and approxCartesianDist: %v - result: %v", myNode.cost, approxCartesianDist, whyNot)
+		mp.logger.Debugf("got score %0.4f and goodCost: %0.2f - result: %v", myNode.cost, goodCost, whyNot)
 		if whyNot == nil {
 			myNode.checkPath = true
-			if (approxCartesianDist > 0 && myNode.cost < (approxCartesianDist/100)) ||
+			if (myNode.cost < (goodCost / goodCostStopDivier)) ||
 				(myNode.cost < mp.planOpts.MinScore && mp.planOpts.MinScore > 0) {
-				mp.logger.Debugf("\tscore %v stopping early", myNode.cost)
+				mp.logger.Debugf("\tscore %0.4f stopping early (%0.2f)", myNode.cost, goodCost/goodCostStopDivier)
 				return true // good solution, stopping early
 			}
 		}
@@ -707,10 +708,27 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 	// Spawn the IK solver to generate solutions until done
 
 	mp.logger.Debugf("seed: %v", seed)
-	
-	ratios, err := mp.lfs.inputChangeRatio(mp.motionChains, seed, goal, mp.planOpts.getGoalMetric(goal), mp.logger)
-	if err != nil {
-		return nil, err
+
+	ratios := mp.lfs.inputChangeRatio(mp.motionChains, seed, mp.planOpts.getGoalMetric(goal), mp.logger)
+
+	var goodCost float64
+
+	{
+		adjusted := []float64{}
+		for idx, r := range ratios {
+			adjusted = append(adjusted, linearSeed[idx]*r)
+		}
+		step, err := mp.lfs.sliceToMap(adjusted)
+		if err != nil {
+			return nil, err
+		}
+		stepArc := &motionplan.SegmentFS{
+			StartConfiguration: seed,
+			EndConfiguration:   step,
+			FS:                 mp.fs,
+		}
+		goodCost = mp.configurationDistanceFunc(stepArc)
+		mp.logger.Debugf("goodCost: %v", goodCost)
 	}
 
 	var activeSolvers sync.WaitGroup
@@ -740,7 +758,7 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 			return nil, ctx.Err()
 
 		case stepSolution := <-solutionGen:
-			if mp.process(&solvingState, seed, stepSolution, 100) {
+			if mp.process(&solvingState, seed, stepSolution, goodCost) {
 				cancel()
 			}
 

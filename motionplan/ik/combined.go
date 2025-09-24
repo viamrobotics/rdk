@@ -78,7 +78,7 @@ func (ik *combinedIK) Solve(ctx context.Context,
 		var myTravelPercent []float64
 		if i == 0 {
 			// TODO: this is probablytoo conservative
-			myTravelPercent = travelPercent 
+			myTravelPercent = travelPercent
 		}
 
 		activeSolvers.Add(1)

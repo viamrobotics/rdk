@@ -93,8 +93,8 @@ func (ik *nloptIK) Solve(ctx context.Context,
 
 	if len(travelPercent) == len(lowerBound) {
 		for i := 0; i < len(lowerBound); i++ {
-			lowerBound[i] = max(lowerBound[i], seed[i]-(ik.limits[i].Range() * travelPercent[i]))
-			upperBound[i] = min(upperBound[i], seed[i]+(ik.limits[i].Range() * travelPercent[i]))
+			lowerBound[i] = max(lowerBound[i], seed[i]-(ik.limits[i].Range()*travelPercent[i]))
+			upperBound[i] = min(upperBound[i], seed[i]+(ik.limits[i].Range()*travelPercent[i]))
 		}
 	}
 

@@ -8,7 +8,7 @@ import (
 )
 
 type motionChains struct {
-	fs *referenceframe.FrameSystem
+	fs    *referenceframe.FrameSystem
 	inner []*motionChain
 }
 
@@ -36,7 +36,7 @@ func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to *PlanState) (*
 	}
 
 	return &motionChains{
-		fs: fs,
+		fs:    fs,
 		inner: inner,
 	}, nil
 }
