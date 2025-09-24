@@ -42,12 +42,9 @@ type node struct {
 	inputs referenceframe.FrameSystemInputs
 	// Dan: What is a corner?
 	corner bool
-	// Dan: What is this cost? The cost of the `inputs`? Or the cost it took to get from some
-	// arbitrary prior node to this one? Can we have multiple nodes keying a map with the same
-	// `inputs` but different `cost`s?
+	// cost of moving from seed to this inputs
 	cost float64
-	// Dan: What is this? Whether we've checked for collisions? Self collisions or collisions from
-	// some arbitrary prior node?
+	// checkPath is true when the path has been checked and was determined to meet constraints
 	checkPath bool
 }
 
