@@ -23,7 +23,8 @@ const (
 	defaultJump       = 1e-8
 )
 
-type nloptIK struct {
+// NloptIK can solve IK problems with nlopt.
+type NloptIK struct {
 	limits        []referenceframe.Limit
 	maxIterations int
 	logger        logging.Logger
@@ -46,8 +47,8 @@ func CreateNloptSolver(
 	logger logging.Logger,
 	iter int,
 	exact, useRelTol bool,
-) (Solver, error) {
-	ik := &nloptIK{logger: logger, limits: limits}
+) (*NloptIK, error) {
+	ik := &NloptIK{logger: logger, limits: limits}
 
 	if iter < 1 {
 		// default value
@@ -61,12 +62,12 @@ func CreateNloptSolver(
 }
 
 // DoF returns the DoF of the solver.
-func (ik *nloptIK) DoF() []referenceframe.Limit {
+func (ik *NloptIK) DoF() []referenceframe.Limit {
 	return ik.limits
 }
 
 // Solve runs the actual solver and sends any solutions found to the given channel.
-func (ik *nloptIK) Solve(ctx context.Context,
+func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
 	seed []float64,
 	maxTravel, cartestianDistance float64,
@@ -178,19 +179,26 @@ func (ik *nloptIK) Solve(ctx context.Context,
 		} else if solutionRaw == nil {
 			panic("why is solutionRaw nil")
 		} else if result < defaultGoalThreshold || !ik.exact {
-			solutionChan <- &Solution{
+			solution := &Solution{
 				Configuration: solutionRaw,
 				Score:         result,
 				Exact:         result < defaultGoalThreshold,
 			}
-			solutionsFound++
+			select {
+			case <-ctx.Done():
+				break
+			case solutionChan <- solution:
+				solutionsFound++
+			}
 		}
+
 		seed = generateRandomPositions(randSeed, lowerBound, upperBound)
 	}
+
 	return solutionsFound, nil
 }
 
-func (ik *nloptIK) calcJump(testJump float64, seed []float64, minFunc func([]float64) float64) []float64 {
+func (ik *NloptIK) calcJump(testJump float64, seed []float64, minFunc func([]float64) float64) []float64 {
 	jump := make([]float64, 0, len(seed))
 	lowerBound, upperBound := limitsToArrays(ik.limits)
 

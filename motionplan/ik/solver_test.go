@@ -69,5 +69,5 @@ func TestCombinedCPUs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m.DoF(), logger, runtime.NumCPU()/400000, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(ik.(*combinedIK).solvers), test.ShouldEqual, 2)
+	test.That(t, len(ik.solvers), test.ShouldEqual, 2)
 }

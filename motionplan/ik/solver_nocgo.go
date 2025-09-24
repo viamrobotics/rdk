@@ -3,21 +3,13 @@
 package ik
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/logging"
 
 	"go.viam.com/rdk/referenceframe"
 )
-
-// CreateCombinedIKSolver is not supported on no_cgo builds.
-func CreateCombinedIKSolver(
-	limits []referenceframe.Limit,
-	logger logging.Logger,
-	nCPU int,
-	goalThreshold float64,
-) (Solver, error) {
-	return nil, errors.New("nlopt is not supported on this build")
-}
 
 // CreateNloptSolver is not supported on no_cgo builds.
 func CreateNloptSolver(
@@ -25,6 +17,25 @@ func CreateNloptSolver(
 	logger logging.Logger,
 	iter int,
 	exact, useRelTol bool,
-) (Solver, error) {
+) (*NloptIK, error) {
 	return nil, errors.New("nlopt is not supported on this build")
+}
+
+// NloptIK mimics the type in the cgo compiled code.
+type NloptIK struct{}
+
+// Solve refuses to solve problems without cgo.
+func (ik *NloptIK) Solve(ctx context.Context,
+	solutionChan chan<- *Solution,
+	seed []float64,
+	maxTravel, cartestianDistance float64,
+	minFunc func([]float64) float64,
+	rseed int,
+) (int, error) {
+	return 0, errors.New("Cannot solve without cgo")
+}
+
+// DoF returns nil. The solver isn't real.
+func (ik *NloptIK) DoF() []referenceframe.Limit {
+	return []referenceframe.Limit{}
 }
