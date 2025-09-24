@@ -108,14 +108,10 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 		}
 		const percentJog = .01
 
-		for idx, r := range frame.DoF() {
+		for idx := range frame.DoF() {
 			orig := start[frame.Name()][idx]
 
-			x := r.Range() * percentJog
-			y := orig.Value + x
-			if y > r.Max {
-				y -= (2 * x)
-			}
+			y := lfs.jog(len(ratios), orig.Value, percentJog)
 
 			start[frame.Name()][idx] = referenceframe.Input{y}
 
@@ -135,4 +131,17 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 	logger.Debugf("inputChangeRatio result: %v", ratios)
 
 	return ratios
+}
+
+func (lfs *linearizedFrameSystem) jog(idx int, val, percentJog float64) float64 {
+	r := lfs.dof[idx]
+
+	x := r.Range() * percentJog
+
+	val += x
+	if val > r.Max {
+		val -= (2 * x)
+	}
+
+	return val
 }

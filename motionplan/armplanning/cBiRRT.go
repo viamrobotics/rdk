@@ -716,7 +716,7 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 	{
 		adjusted := []float64{}
 		for idx, r := range ratios {
-			adjusted = append(adjusted, linearSeed[idx]*r)
+			adjusted = append(adjusted, mp.lfs.jog(len(adjusted), linearSeed[idx], r))
 		}
 		step, err := mp.lfs.sliceToMap(adjusted)
 		if err != nil {
