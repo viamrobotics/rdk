@@ -24,10 +24,6 @@ const (
 	defaultOptimalityMultiple = 3.0
 )
 
-type rrtParallelPlannerShared struct {
-	maps *rrtMaps
-}
-
 type rrtMap map[*node]*node
 
 type rrtSolution struct {

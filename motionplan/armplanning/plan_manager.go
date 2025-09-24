@@ -274,12 +274,6 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	}
 }
 
-// Exactly one of `endpointPreview` or `solution` will be non-nil
-type rrtResult struct {
-	endpointPreview *node
-	solution        *rrtSolution
-}
-
 // planParallelRRTMotion will handle planning a single atomic waypoint using a parallel-enabled RRT solver.
 func (pm *planManager) planRRTMotion(
 	ctx context.Context,

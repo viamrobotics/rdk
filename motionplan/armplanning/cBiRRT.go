@@ -688,12 +688,14 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 	approxCartesianDist := math.Sqrt(minFunc(linearSeed))
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*20)
 	defer func() {
 		// In lieu of creating a separate WaitGroup to wait on before returning, we simply wait to
 		// see the `solutionGen` channel get closed to know that the goroutine we spawned has
 		// finished.
-		for _ = range solutionGen {
+		for range solutionGen {
 		}
 	}()
 
