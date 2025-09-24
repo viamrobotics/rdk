@@ -3,6 +3,7 @@ package armplanning
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"runtime"
 
@@ -197,8 +198,13 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 			poseParent := goal[frame].Parent()
 			currPose, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
 			if err != nil {
+				fmt.Printf("about to panic fs: %v err: %v frame: %v poseParent: %v\n", state.FS.FrameNames(), err, frame, poseParent)
+				fmt.Println(state.Configuration)
+
+				panic(err)
 				score += math.Inf(1)
 			}
+
 			score += goalMetric(&motionplan.State{
 				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
 				Configuration: state.Configuration[frame],

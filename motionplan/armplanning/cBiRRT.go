@@ -58,8 +58,13 @@ func newCBiRRTMotionPlanner(
 	constraintHandler *motionplan.ConstraintChecker,
 	chains *motionChains,
 ) (*cBiRRTMotionPlanner, error) {
+
 	if opt == nil {
 		return nil, errNoPlannerOptions
+	}
+
+	if chains == nil {
+		return nil, fmt.Errorf("no motionChains passed to newCBiRRTMotionPlanner")
 	}
 
 	lfs, err := newLinearizedFrameSystem(fs)
@@ -69,9 +74,6 @@ func newCBiRRTMotionPlanner(
 
 	if constraintHandler == nil {
 		constraintHandler = motionplan.NewEmptyConstraintChecker()
-	}
-	if chains == nil {
-		chains = &motionChains{}
 	}
 
 	c := &cBiRRTMotionPlanner{
@@ -467,7 +469,7 @@ func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, inputSteps []*nod
 // getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should
 // move in any given step. The second argument is a float describing the percentage of the total movement.
 func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, iterationNumber int, double bool) map[string][]float64 {
-	moving, _ := mp.motionChains.framesFilteredByMovingAndNonmoving(mp.fs)
+	moving, _ := mp.motionChains.framesFilteredByMovingAndNonmoving()
 
 	frameQstep := map[string][]float64{}
 	for _, f := range mp.lfs.frames {
@@ -703,7 +705,13 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 
 	minFunc := mp.linearizeFSmetric(mp.planOpts.getGoalMetric(goal))
 	// Spawn the IK solver to generate solutions until done
-	approxCartesianDist := math.Sqrt(minFunc(linearSeed))
+
+	mp.logger.Debugf("seed: %v", seed)
+	
+	ratios, err := mp.lfs.inputChangeRatio(mp.motionChains, seed, goal, mp.planOpts.getGoalMetric(goal), mp.logger)
+	if err != nil {
+		return nil, err
+	}
 
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
@@ -712,7 +720,7 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 	utils.PanicCapturingGo(func() {
 		defer activeSolvers.Done()
 		defer solverFinished.Store(true)
-		_, err := mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, 0, approxCartesianDist, minFunc, mp.randseed.Int())
+		_, err := mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, ratios, minFunc, mp.randseed.Int())
 		if err != nil {
 			mp.logger.Warnf("solver had an error: %v", err)
 		}
@@ -732,7 +740,7 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 			return nil, ctx.Err()
 
 		case stepSolution := <-solutionGen:
-			if mp.process(&solvingState, seed, stepSolution, approxCartesianDist) {
+			if mp.process(&solvingState, seed, stepSolution, 100) {
 				cancel()
 			}
 
@@ -783,7 +791,7 @@ func (mp *cBiRRTMotionPlanner) linearizeFSmetric(metric motionplan.StateFSMetric
 // and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
 // configuration to the seed.
 func (mp *cBiRRTMotionPlanner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
-	moving, nonmoving := mp.motionChains.framesFilteredByMovingAndNonmoving(mp.fs)
+	moving, nonmoving := mp.motionChains.framesFilteredByMovingAndNonmoving() // TODO - this is done lots of times and isn't fast
 	// Create a map with nonmoving configurations replaced with their seed values
 	alteredStep := referenceframe.FrameSystemInputs{}
 	for _, frame := range moving {

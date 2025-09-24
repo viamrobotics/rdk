@@ -402,14 +402,13 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 
 // Returns the relative pose between the parent and the destination frame.
 func (sfs *FrameSystem) transformFromParent(inputMap FrameSystemInputs, src, dst Frame) (*PoseInFrame, error) {
-	// catch all errors together to allow for hypothetical calculations that result in errors
-	var errAll error
 	dstToWorld, err := sfs.getFrameToWorldTransform(inputMap, dst)
-	multierr.AppendInto(&errAll, err)
+	if err != nil {
+		return nil, err
+	}
 	srcToWorld, err := sfs.getFrameToWorldTransform(inputMap, src)
-	multierr.AppendInto(&errAll, err)
-	if errAll != nil && (dstToWorld == nil || srcToWorld == nil) {
-		return nil, errAll
+	if err != nil {
+		return nil, err
 	}
 
 	// transform from source to world, world to target parent

@@ -30,6 +30,12 @@ type Limit struct {
 	Max float64
 }
 
+
+// Range gives the range of the limit.
+func (l *Limit) Range() float64 {
+	return l.Max - l.Min
+}
+
 func limitsAlmostEqual(limits1, limits2 []Limit, epsilon float64) bool {
 	if len(limits1) != len(limits2) {
 		return false
