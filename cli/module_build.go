@@ -622,10 +622,6 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 		return "", errors.Errorf("Reloading module failed")
 	}
 
-	// (TODO RSDK-11517) There seems to be some delay between a build finishing and being findable
-	// for download. In testing, a delay of 3 seconds wasn't reliably long enough but 5 seconds was.
-	time.Sleep(time.Second * 5)
-
 	downloadArgs := downloadModuleFlags{
 		ID:       id,
 		Version:  reloadVersion,
