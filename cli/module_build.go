@@ -672,9 +672,68 @@ func (c *viamClient) shouldIgnoreFile(relPath string, matcher gitignore.Matcher)
 	return matcher.Match(strings.Split(normalizedPath, "/"), false)
 }
 
+func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID moduleID, manifest *moduleManifest) error {
+	_, err := c.getModule(moduleID)
+	if err != nil {
+		// Module is not registered in the cloud, prompt user for confirmation
+		red := "\033[1;31m%s\033[0m"
+		printf(ctx.App.Writer, red, "Error: module not registered in cloud or you lack permissions to edit it.")
+
+		yellow := "\033[1;33m%s\033[0m"
+		printf(ctx.App.Writer, yellow, "Info: The reloading process requires the module to first be registered in the cloud. "+
+			"Type 'y' to proceed with module registration or 'n' to quit.")
+		printf(ctx.App.Writer, "Continue: y/n: ")
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		rawInput, err := bufio.NewReader(ctx.App.Reader).ReadString('\n')
+		if err != nil {
+			return err
+		}
+
+		input := strings.ToUpper(strings.TrimSpace(rawInput))
+		if input != "Y" {
+			return errors.New("module reload aborted - module not registered in cloud")
+		}
+
+		// If user confirmed, we'll proceed with the reload which will register the module
+		// The registration happens implicitly through the cloud build process
+
+		org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
+		if err != nil {
+			return err
+		}
+		// Create the module in the cloud
+		_, err = c.createModule(moduleID.name, org.GetId())
+		if err != nil {
+			return err
+		}
+	}
+
+	// always update the cloud module before reloading
+	_, err = c.updateModule(moduleID, *manifest)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // moduleCloudReload triggers a cloud build and then reloads the specified module with that build.
 func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string) (string, error) {
 	manifest, err := loadManifest(args.Module)
+	if err != nil {
+		return "", err
+	}
+
+	// ensure that the module has been registered in the cloud
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return "", err
+	}
+
+	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, &manifest)
 	if err != nil {
 		return "", err
 	}
@@ -685,11 +744,6 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	}
 
 	archivePath, err := c.createGitArchive(args.Path)
-	if err != nil {
-		return "", err
-	}
-
-	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
 		return "", err
 	}
