@@ -564,6 +564,7 @@ type solutionSolvingState struct {
 	startTime         time.Time
 	firstSolutionTime time.Duration
 	bestScore         float64
+	ikTimeMultiple    int
 }
 
 // return bool is if we should stop because we're done.
@@ -619,7 +620,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 	myNode := &node{inputs: step, cost: mp.configurationDistanceFunc(stepArc)}
 	sss.solutions = append(sss.solutions, myNode)
 
-	const goodCostStopDivier = 2.0
+	const goodCostStopDivier = 3.0
 
 	if myNode.cost < goodCost || // this checks the absolute score of the plan
 		// if we've got something sane, and it's really good, let's check
@@ -632,6 +633,8 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 				(myNode.cost < mp.planOpts.MinScore && mp.planOpts.MinScore > 0) {
 				mp.logger.Debugf("\tscore %0.4f stopping early (%0.2f)", myNode.cost, goodCost/goodCostStopDivier)
 				return true // good solution, stopping early
+			} else if myNode.cost < (goodCost / (.5 * goodCostStopDivier)) {
+				sss.ikTimeMultiple = mp.planOpts.TimeMultipleAfterFindingFirstSolution / 2
 			}
 		}
 	}
@@ -649,7 +652,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 		sss.firstSolutionTime = time.Since(sss.startTime)
 	} else {
 		elapsed := time.Since(sss.startTime)
-		if elapsed > (time.Duration(mp.planOpts.TimeMultipleAfterFindingFirstSolution) * sss.firstSolutionTime) {
+		if elapsed > (time.Duration(sss.ikTimeMultiple) * sss.firstSolutionTime) {
 			mp.logger.Infof("ending early because of time elapsed: %v firstSolutionTime: %v", elapsed, sss.firstSolutionTime)
 			return true
 		}
@@ -741,6 +744,7 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 		startTime:         time.Now(),
 		firstSolutionTime: time.Hour,
 		bestScore:         10000000,
+		ikTimeMultiple:    mp.planOpts.TimeMultipleAfterFindingFirstSolution,
 	}
 
 solutionLoop:
