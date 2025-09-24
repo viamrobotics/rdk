@@ -85,10 +85,15 @@ func (lfs *linearizedFrameSystem) sliceToMap(floatSlice []float64) (referencefra
 // there is a chacne it's not enough and will need be moved more.
 func (lfs *linearizedFrameSystem) inputChangeRatio(
 	mc *motionChains,
-	start referenceframe.FrameSystemInputs,
+	startNotMine referenceframe.FrameSystemInputs,
 	distanceFunc motionplan.StateFSMetric,
 	logger logging.Logger,
 ) []float64 {
+	start := referenceframe.FrameSystemInputs{}
+	for k, v := range startNotMine {
+		start[k] = append([]referenceframe.Input{}, v...)
+	}
+
 	_, nonmoving := mc.framesFilteredByMovingAndNonmoving()
 
 	startDistance := distanceFunc(&motionplan.StateFS{Configuration: start, FS: mc.fs})
