@@ -16,6 +16,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -278,14 +279,6 @@ func (nl *NetAppender) addToQueue(logEntry *commonpb.LogEntry) {
 		nl.toLog = nl.toLog[1:]
 		nl.toLogOverflowsSinceLastSync++
 	}
-	// Go strings are arbitrary byte slices not guaranteed to contain valid UTF-8,
-	// but protobuf will fail to serialize anything other than valid UTF-8. Since
-	// there are situations where we try to log from sources that are not
-	// guaranteed to produce UTF-8, such as stdout/stderr of modules, we need to
-	// sanitize the log lines first. At time of writing [strings.ToValidUTF8] has
-	// an optimized path to return the original string if no modifications are
-	// necessary.
-	logEntry.Message = strings.ToValidUTF8(logEntry.Message, "�")
 	nl.toLog = append(nl.toLog, logEntry)
 }
 
@@ -343,6 +336,14 @@ func (nl *NetAppender) backgroundWorker() {
 	}
 }
 
+func isUTF8MarshallingError(err error) bool {
+	if err == nil {
+		return false
+	}
+	status := status.Convert(err)
+	return status.Code() == 13 && status.Message() == "grpc: error while marshaling: string field contains invalid UTF-8"
+}
+
 // Returns whether there is more work to do or if an error was encountered
 // while trying to ship logs over the network.
 func (nl *NetAppender) syncOnce() (bool, error) {
@@ -366,7 +367,7 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	nl.toLogMutex.Unlock()
 
 	err := nl.remoteWriter.write(nl.cancelCtx, batch)
-	if err.Error() == "string field contains invalid UTF-8" {
+	if isUTF8MarshallingError(err) {
 		nl.loggerWithoutNet.Warn("Log batch failed to serialize due to invalid UTF-8, will sanitize and retry")
 		for _, record := range batch {
 			record.Message = strings.ToValidUTF8(record.Message, "�")
