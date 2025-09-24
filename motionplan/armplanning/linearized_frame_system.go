@@ -1,33 +1,14 @@
 package armplanning
 
 import (
-	"errors"
 	"fmt"
 
 	"go.viam.com/rdk/referenceframe"
 )
 
-type resultPromise struct {
-	steps  []*node
-	future chan *rrtSolution
-}
-
-func (r *resultPromise) result() ([]*node, error) {
-	if r.steps != nil && len(r.steps) > 0 { //nolint:gosimple
-		return r.steps, nil
-	}
-	// wait for a context cancel or a valid channel result
-	planReturn := <-r.future
-	if planReturn.err != nil {
-		return nil, planReturn.err
-	}
-	return planReturn.steps, nil
-}
-
 // linearizedFrameSystem wraps a framesystem, allowing conversion in a known order between a FrameConfiguratinos and a flat array of floats,
 // useful for being able to call IK solvers against framesystems.
 type linearizedFrameSystem struct {
-	fs     *referenceframe.FrameSystem
 	frames []referenceframe.Frame // cached ordering of frames. Order is unimportant but cannot change once set.
 	dof    []referenceframe.Limit
 }
@@ -44,7 +25,6 @@ func newLinearizedFrameSystem(fs *referenceframe.FrameSystem) (*linearizedFrameS
 		dof = append(dof, frame.DoF()...)
 	}
 	return &linearizedFrameSystem{
-		fs:     fs,
 		frames: frames,
 		dof:    dof,
 	}, nil
@@ -87,46 +67,4 @@ func (lfs *linearizedFrameSystem) sliceToMap(floatSlice []float64) (referencefra
 		inputs[frame.Name()] = frameInputs
 	}
 	return inputs, nil
-}
-
-// findPivotFrame finds the first common frame in two ordered lists of frames.
-func findPivotFrame(frameList1, frameList2 []referenceframe.Frame) (referenceframe.Frame, error) {
-	// find shorter list
-	shortList := frameList1
-	longList := frameList2
-	if len(frameList1) > len(frameList2) {
-		shortList = frameList2
-		longList = frameList1
-	}
-
-	// cache names seen in shorter list
-	nameSet := make(map[string]struct{}, len(shortList))
-	for _, frame := range shortList {
-		nameSet[frame.Name()] = struct{}{}
-	}
-
-	// look for already seen names in longer list
-	for _, frame := range longList {
-		if _, ok := nameSet[frame.Name()]; ok {
-			return frame, nil
-		}
-	}
-	return nil, errors.New("no path from solve frame to goal frame")
-}
-
-// uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than
-// a solution using append().
-// This function does not remove anything from the input slice, but it does rearrange the elements.
-func uniqInPlaceSlice(s []referenceframe.Frame) []referenceframe.Frame {
-	seen := make(map[referenceframe.Frame]struct{}, len(s))
-	j := 0
-	for _, v := range s {
-		if _, ok := seen[v]; ok {
-			continue
-		}
-		seen[v] = struct{}{}
-		s[j] = v
-		j++
-	}
-	return s[:j]
 }

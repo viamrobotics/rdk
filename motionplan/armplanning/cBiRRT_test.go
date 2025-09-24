@@ -39,7 +39,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	opt := NewBasicPlannerOptions()
 	goal := referenceframe.FrameSystemPoses{m.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos)}
-	goalMetric := opt.getGoalMetric(goal)
 	fs := referenceframe.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())
 	chains, err := motionChainsFromPlanState(fs, &PlanState{poses: goal})
@@ -47,7 +46,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	test.That(t, chains, test.ShouldNotBeNil)
 	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, motionplan.NewEmptyConstraintChecker(), chains)
 	test.That(t, err, test.ShouldBeNil)
-	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goalMetric)
+	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goal)
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &node{inputs: referenceframe.FrameSystemInputs{m.Name(): home7}}

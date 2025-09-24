@@ -523,3 +523,20 @@ func (pm *planManager) useSubWaypoints(wpi int) bool {
 	}
 	return false
 }
+
+type resultPromise struct {
+	steps  []*node
+	future chan *rrtSolution
+}
+
+func (r *resultPromise) result() ([]*node, error) {
+	if r.steps != nil && len(r.steps) > 0 { //nolint:gosimple
+		return r.steps, nil
+	}
+	// wait for a context cancel or a valid channel result
+	planReturn := <-r.future
+	if planReturn.err != nil {
+		return nil, planReturn.err
+	}
+	return planReturn.steps, nil
+}

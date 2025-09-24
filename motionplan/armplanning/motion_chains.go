@@ -242,3 +242,45 @@ func motionChainFromGoal(fs *referenceframe.FrameSystem, moveFrame, goalFrameNam
 		worldRooted:    worldRooted,
 	}, nil
 }
+
+// uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than
+// a solution using append().
+// This function does not remove anything from the input slice, but it does rearrange the elements.
+func uniqInPlaceSlice(s []referenceframe.Frame) []referenceframe.Frame {
+	seen := make(map[referenceframe.Frame]struct{}, len(s))
+	j := 0
+	for _, v := range s {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		s[j] = v
+		j++
+	}
+	return s[:j]
+}
+
+// findPivotFrame finds the first common frame in two ordered lists of frames.
+func findPivotFrame(frameList1, frameList2 []referenceframe.Frame) (referenceframe.Frame, error) {
+	// find shorter list
+	shortList := frameList1
+	longList := frameList2
+	if len(frameList1) > len(frameList2) {
+		shortList = frameList2
+		longList = frameList1
+	}
+
+	// cache names seen in shorter list
+	nameSet := make(map[string]struct{}, len(shortList))
+	for _, frame := range shortList {
+		nameSet[frame.Name()] = struct{}{}
+	}
+
+	// look for already seen names in longer list
+	for _, frame := range longList {
+		if _, ok := nameSet[frame.Name()]; ok {
+			return frame, nil
+		}
+	}
+	return nil, errors.New("no path from solve frame to goal frame")
+}
