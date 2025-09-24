@@ -25,7 +25,7 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// GetResource is a helper for getting the named Base remote control service 
+// GetResource is a helper for getting the named Base remote control service
 // from either a collection of dependencies or the given robot.
 func GetResource(src any, name string) (Service, error) {
 	switch v := src.(type) {

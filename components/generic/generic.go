@@ -6,7 +6,7 @@ package generic
 
 import (
 	"fmt"
-	
+
 	pb "go.viam.com/api/component/generic/v1"
 
 	"go.viam.com/rdk/data"

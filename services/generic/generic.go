@@ -51,7 +51,6 @@ func GetResource(src any, name string) (resource.Resource, error) {
 	}
 }
 
-
 // NamesFromRobot is a helper for getting all generic names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
