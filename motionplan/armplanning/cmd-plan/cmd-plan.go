@@ -102,11 +102,13 @@ func realMain() error {
 
 	mylog.Printf("planning took %v", time.Since(start))
 
-	for *cpu != "" && time.Since(start) < time.Second {
+	for *cpu != "" && time.Since(start) < (10*time.Second) {
+		ss := time.Now()
 		_, err := armplanning.PlanMotion(ctx, logger, &req)
 		if err != nil {
 			return err
 		}
+		mylog.Printf("extra plan took %v", time.Since(ss))
 	}
 
 	relevantParts := []string{}
