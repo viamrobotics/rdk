@@ -7,8 +7,6 @@ import (
 	"math/rand"
 	"slices"
 	"sort"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"go.viam.com/utils"
@@ -39,14 +37,14 @@ type cBiRRTMotionPlanner struct {
 	checker                   *motionplan.ConstraintChecker
 	fs                        *referenceframe.FrameSystem
 	lfs                       *linearizedFrameSystem
-	solver                    ik.Solver
+	solver                    *ik.CombinedIK
 	logger                    logging.Logger
 	randseed                  *rand.Rand
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
 	motionChains              *motionChains
 
-	fastGradDescent ik.Solver
+	fastGradDescent *ik.NloptIK
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
@@ -102,37 +100,32 @@ func newCBiRRTMotionPlanner(
 
 // only used for testin.
 func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context, seed, goal *PlanState) ([]*node, error) {
-	solutionChan := make(chan *rrtSolution, 1)
-	initMaps := initRRTSolutions(ctx, atomicWaypoint{mp: mp, startState: seed, goalState: goal})
-	if initMaps.err != nil {
-		return nil, initMaps.err
+	initMaps, err := initRRTSolutions(ctx, atomicWaypoint{motionPlanner: mp, startState: seed, goalState: goal})
+	if err != nil {
+		return nil, err
 	}
+
 	if initMaps.steps != nil {
 		return initMaps.steps, nil
 	}
-	utils.PanicCapturingGo(func() {
-		mp.rrtBackgroundRunner(ctx, &rrtParallelPlannerShared{initMaps.maps, nil, solutionChan})
-	})
-	solution := <-solutionChan
-	if solution.err != nil {
-		return nil, solution.err
+	solution, err := mp.rrtRunner(ctx, initMaps.maps)
+	if err != nil {
+		return nil, err
 	}
 	return solution.steps, nil
 }
 
-// rrtBackgroundRunner will execute the plan. Plan() will call rrtBackgroundRunner in a separate thread and wait for results.
-// Separating this allows other things to call rrtBackgroundRunner in parallel allowing the thread-agnostic Plan to be accessible.
-func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
+// rrtRunner will execute the plan. Plan() will call rrtRunner in a separate thread and wait for results.
+// Separating this allows other things to call rrtRunner in parallel allowing the thread-agnostic Plan to be accessible.
+func (mp *cBiRRTMotionPlanner) rrtRunner(
 	ctx context.Context,
-	rrt *rrtParallelPlannerShared,
-) {
-	defer close(rrt.solutionChan)
-	mp.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d\n", len(rrt.maps.startMap), len(rrt.maps.goalMap))
+	rrtMaps *rrtMaps,
+) (*rrtSolution, error) {
+	mp.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d\n", len(rrtMaps.startMap), len(rrtMaps.goalMap))
 
 	// setup planner options
 	if mp.planOpts == nil {
-		rrt.solutionChan <- &rrtSolution{err: errNoPlannerOptions}
-		return
+		return nil, errNoPlannerOptions
 	}
 
 	_, cancel := context.WithCancel(ctx)
@@ -143,31 +136,29 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 
 	// initialize maps
 	// Pick a random (first in map) seed node to create the first interp node
-	for sNode, parent := range rrt.maps.startMap {
+	for sNode, parent := range rrtMaps.startMap {
 		if parent == nil {
 			seed = sNode.inputs
 			break
 		}
 	}
-	mp.logger.CDebugf(ctx, "goal node: %v\n", rrt.maps.optNode.inputs)
+	mp.logger.CDebugf(ctx, "goal node: %v\n", rrtMaps.optNode.inputs)
 	mp.logger.CDebugf(ctx, "start node: %v\n", seed)
 	mp.logger.Debug("DOF", mp.lfs.dof)
 
-	interpConfig, err := referenceframe.InterpolateFS(mp.fs, seed, rrt.maps.optNode.inputs, 0.5)
+	interpConfig, err := referenceframe.InterpolateFS(mp.fs, seed, rrtMaps.optNode.inputs, 0.5)
 	if err != nil {
-		rrt.solutionChan <- &rrtSolution{err: err}
-		return
+		return nil, err
 	}
 
 	target := newConfigurationNode(interpConfig)
 
-	map1, map2 := rrt.maps.startMap, rrt.maps.goalMap
+	map1, map2 := rrtMaps.startMap, rrtMaps.goalMap
 	for i := 0; i < mp.planOpts.PlanIter; i++ {
 		mp.logger.CDebugf(ctx, "iteration: %d target: %v\n", i, target.inputs)
 		if ctx.Err() != nil {
 			mp.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
-			rrt.solutionChan <- &rrtSolution{err: fmt.Errorf("cbirrt timeout %w", ctx.Err()), maps: rrt.maps}
-			return
+			return &rrtSolution{maps: rrtMaps}, fmt.Errorf("cbirrt timeout %w", ctx.Err())
 		}
 
 		tryExtend := func(target *node) (*node, *node) {
@@ -198,8 +189,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		if reachedDelta > mp.planOpts.InputIdentDist {
 			targetConf, err := referenceframe.InterpolateFS(mp.fs, map1reached.inputs, map2reached.inputs, 0.5)
 			if err != nil {
-				rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
-				return
+				return &rrtSolution{maps: rrtMaps}, err
 			}
 			target = newConfigurationNode(targetConf)
 			map1reached, map2reached = tryExtend(target)
@@ -214,20 +204,19 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 		if reachedDelta <= mp.planOpts.InputIdentDist {
 			mp.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations in %v", i, time.Since(startTime))
 			cancel()
-			path := extractPath(rrt.maps.startMap, rrt.maps.goalMap, &nodePair{map1reached, map2reached}, true)
-			rrt.solutionChan <- &rrtSolution{steps: path, maps: rrt.maps}
-			return
+			path := extractPath(rrtMaps.startMap, rrtMaps.goalMap, &nodePair{map1reached, map2reached}, true)
+			return &rrtSolution{steps: path, maps: rrtMaps}, nil
 		}
 
 		// sample near map 1 and switch which map is which to keep adding to them even
 		target, err = mp.sample(map1reached, i)
 		if err != nil {
-			rrt.solutionChan <- &rrtSolution{err: err, maps: rrt.maps}
-			return
+			return &rrtSolution{maps: rrtMaps}, err
 		}
 		map1, map2 = map2, map1
 	}
-	rrt.solutionChan <- &rrtSolution{err: errPlannerFailed, maps: rrt.maps}
+
+	return &rrtSolution{maps: rrtMaps}, errPlannerFailed
 }
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will
@@ -668,9 +657,14 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 	return false
 }
 
-// getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
-// If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
-// If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
+// getSolutions will initiate an IK solver for the given position and seed, collect solutions, and
+// score them by constraints.
+//
+// If maxSolutions is positive, once that many solutions have been collected, the solver will
+// terminate and return that many solutions.
+//
+// If minScore is positive, if a solution scoring below that amount is found, the solver will
+// terminate and return that one solution.
 func (mp *cBiRRTMotionPlanner) getSolutions(
 	ctx context.Context,
 	seed referenceframe.FrameSystemInputs,
@@ -687,25 +681,13 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 		}
 	}
 
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*20)
-
-	defer func() {
-		// In the case that we have an error, we need to explicitly drain the channel before we return
-		for len(solutionGen) > 0 {
-			<-solutionGen
-		}
-	}()
-
 	linearSeed, err := mp.lfs.mapToSlice(seed)
 	if err != nil {
 		return nil, err
 	}
 
-	minFunc := mp.linearizeFSmetric(mp.planOpts.getGoalMetric(goal))
 	// Spawn the IK solver to generate solutions until done
+	minFunc := mp.linearizeFSmetric(mp.planOpts.getGoalMetric(goal))
 
 	mp.logger.Debugf("seed: %v", seed)
 
@@ -731,13 +713,22 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 		mp.logger.Debugf("goodCost: %v", goodCost)
 	}
 
-	var activeSolvers sync.WaitGroup
-	defer activeSolvers.Wait()
-	activeSolvers.Add(1)
-	var solverFinished atomic.Bool
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*20)
+	defer func() {
+		// In lieu of creating a separate WaitGroup to wait on before returning, we simply wait to
+		// see the `solutionGen` channel get closed to know that the goroutine we spawned has
+		// finished.
+		for range solutionGen {
+		}
+	}()
+
+	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
-		defer activeSolvers.Done()
-		defer solverFinished.Store(true)
+		// This channel close doubles as signaling that the goroutine has exited.
+		defer close(solutionGen)
 		_, err := mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, ratios, minFunc, mp.randseed.Int())
 		if err != nil {
 			mp.logger.Warnf("solver had an error: %v", err)
@@ -752,29 +743,24 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 		bestScore:         10000000,
 	}
 
-	for !solverFinished.Load() {
+solutionLoop:
+	for {
 		select {
 		case <-ctx.Done():
+			// We've been canceled. So have our workers. Can just return.
 			return nil, ctx.Err()
-
-		case stepSolution := <-solutionGen:
-			if mp.process(&solvingState, seed, stepSolution, goodCost) {
+		case stepSolution, ok := <-solutionGen:
+			if !ok || mp.process(&solvingState, seed, stepSolution, goodCost) {
+				// No longer using the generated solutions. Cancel the workers.
 				cancel()
+				break solutionLoop
 			}
-
-		default:
-			continue
 		}
 	}
 
-	// Cancel any ongoing processing within the IK solvers if we're done receiving solutions
-	cancel()
-
-	activeSolvers.Wait()
-
 	if len(solvingState.solutions) == 0 {
-		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions were produced, or if non-zero solutions
-		// were produced, which constraints were failed
+		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions
+		// were produced, or if non-zero solutions were produced, which constraints were violated.
 		if solvingState.constraintFailCnt == 0 {
 			return nil, errIKSolve
 		}

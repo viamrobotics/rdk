@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 package ik
 
 import (
@@ -14,9 +12,9 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// combinedIK defines the fields necessary to run a combined solver.
-type combinedIK struct {
-	solvers []Solver
+// CombinedIK defines the fields necessary to run a combined solver.
+type CombinedIK struct {
+	solvers []*NloptIK
 	logger  logging.Logger
 	limits  []referenceframe.Limit
 }
@@ -29,18 +27,17 @@ func CreateCombinedIKSolver(
 	logger logging.Logger,
 	nCPU int,
 	goalThreshold float64,
-) (Solver, error) {
-	ik := &combinedIK{}
+) (*CombinedIK, error) {
+	ik := &CombinedIK{}
 	ik.limits = limits
 	nCPU = max(nCPU, 2)
 
 	for i := 1; i <= nCPU; i++ {
-		solver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
-		nlopt := solver.(*nloptIK)
+		nloptSolver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
 		if err != nil {
 			return nil, err
 		}
-		ik.solvers = append(ik.solvers, nlopt)
+		ik.solvers = append(ik.solvers, nloptSolver)
 	}
 	ik.logger = logger
 	return ik, nil
@@ -48,8 +45,8 @@ func CreateCombinedIKSolver(
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil.
-func (ik *combinedIK) Solve(ctx context.Context,
-	c chan<- *Solution,
+func (ik *CombinedIK) Solve(ctx context.Context,
+	retChan chan<- *Solution,
 	seed []float64,
 	travelPercent []float64,
 	m func([]float64) float64,
@@ -85,7 +82,7 @@ func (ik *combinedIK) Solve(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			n, err := thisSolver.Solve(ctx, c, seedFloats, myTravelPercent, m, parseed)
+			n, err := thisSolver.Solve(ctx, retChan, seedFloats, myTravelPercent, m, parseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()
@@ -99,6 +96,6 @@ func (ik *combinedIK) Solve(ctx context.Context,
 }
 
 // DoF returns the DoF of the solver.
-func (ik *combinedIK) DoF() []referenceframe.Limit {
+func (ik *CombinedIK) DoF() []referenceframe.Limit {
 	return ik.limits
 }

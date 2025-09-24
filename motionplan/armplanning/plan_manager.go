@@ -67,22 +67,28 @@ func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, 
 }
 
 type atomicWaypoint struct {
-	mp         *cBiRRTMotionPlanner // this is unique to each right now because it embeds the checker, which has the start/goal
-	startState *PlanState           // A list of starting states, any of which would be valid to start from
-	goalState  *PlanState           // A list of goal states, any of which would be valid to arrive at
+	// this is unique to each (Dan: each what?) right now because it embeds the checker, which has
+	// the start/goal
+	motionPlanner *cBiRRTMotionPlanner
 
-	// If partial plans are requested, we return up to the last explicit waypoint solved.
-	// We want to distinguish between actual user-requested waypoints and automatically-generated intermediate waypoints, and only
-	// consider the former when returning partial plans.
-	origWP int
+	// A list of starting states, any of which would be valid to start from
+	startState *PlanState
+	// A list of goal states, any of which would be valid to arrive at
+	goalState *PlanState
+
+	// If partial plans are requested, we return up to the last explicit waypoint solved.  We want
+	// to distinguish between actual user-requested waypoints and automatically-generated
+	// intermediate waypoints, and only consider the former when returning partial plans.
+	origWaypoints int
 }
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
 func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Plan, error) {
-	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
-	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
-	// are allowed to collide with one another.
+	// Theoretically, a plan could be made between two poses, by running IK on both the start and
+	// end poses to create sets of seed and goal configurations. However, the blocker here is the
+	// lack of a "known good" configuration used to determine which obstacles are allowed to collide
+	// with one another.
 	if pm.request.StartState.configuration == nil {
 		return nil, errors.New("must populate start state configuration if not planning for 2d base/tpspace")
 	}
@@ -99,11 +105,8 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Plan, 
 	waypoints := []atomicWaypoint{}
 
 	for i := range pm.request.Goals {
-		if ctx.Err() != nil { // this is probably silly, generateWaypoints is very fast
-			return nil, ctx.Err()
-		}
-
-		// Solving highly constrained motions by breaking apart into small pieces is much more performant
+		// Solving highly constrained motions by breaking apart into small pieces is much more
+		// performant.
 		goalWaypoints, err := pm.generateWaypoints(i)
 		if err != nil {
 			return nil, err
@@ -138,7 +141,7 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 	// try to solve each goal, one at a time
 	for i, wp := range waypoints {
 		if ctx.Err() != nil {
-			if wp.mp.planOpts.ReturnPartialPlan {
+			if wp.motionPlanner.planOpts.ReturnPartialPlan {
 				returnPartial = true
 				break
 			}
@@ -155,13 +158,13 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 			// If we have a seed, we are linking multiple waypoints, so the next one MUST start at the ending configuration of the last
 			wp.startState = &PlanState{configuration: seed}
 		}
-		planSeed := initRRTSolutions(ctx, wp)
-		if planSeed.err != nil {
-			if wp.mp.planOpts.ReturnPartialPlan {
+		planSeed, err := initRRTSolutions(ctx, wp)
+		if err != nil {
+			if wp.motionPlanner.planOpts.ReturnPartialPlan {
 				returnPartial = true
 				break
 			}
-			return nil, planSeed.err
+			return nil, err
 		}
 
 		pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
@@ -177,7 +180,7 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, wp, planSeed.maps)
 		if err != nil {
 			// Error getting the next seed. If we can, return the partial path if requested.
-			if wp.mp.planOpts.ReturnPartialPlan {
+			if wp.motionPlanner.planOpts.ReturnPartialPlan {
 				returnPartial = true
 				break
 			}
@@ -210,13 +213,13 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 		} else {
 			partialSlices = append(partialSlices, steps...)
 		}
-		if waypoints[i].origWP >= 0 {
-			lastOrig = waypoints[i].origWP
+		if waypoints[i].origWaypoints >= 0 {
+			lastOrig = waypoints[i].origWaypoints
 			resultSlices = append(resultSlices, partialSlices...)
 			partialSlices = []*node{}
 		}
 	}
-	if !waypoints[len(waypoints)-1].mp.planOpts.ReturnPartialPlan && len(partialSlices) > 0 {
+	if !waypoints[len(waypoints)-1].motionPlanner.planOpts.ReturnPartialPlan && len(partialSlices) > 0 {
 		resultSlices = append(resultSlices, partialSlices...)
 	}
 	if returnPartial {
@@ -253,7 +256,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	pm.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer pm.activeBackgroundWorkers.Done()
-		pm.planParallelRRTMotion(ctx, wp, endpointPreview, solutionChan, maps)
+		pm.planRRTMotion(ctx, wp, endpointPreview, solutionChan, maps)
 	})
 
 	// We don't want to check context here; context cancellation will be handled by planParallelRRTMotion.
@@ -272,75 +275,32 @@ func (pm *planManager) planSingleAtomicWaypoint(
 }
 
 // planParallelRRTMotion will handle planning a single atomic waypoint using a parallel-enabled RRT solver.
-func (pm *planManager) planParallelRRTMotion(
+func (pm *planManager) planRRTMotion(
 	ctx context.Context,
 	wp atomicWaypoint,
 	endpointPreview chan *node,
 	solutionChan chan *rrtSolution,
 	maps *rrtMaps,
 ) {
-	var rrtBackground sync.WaitGroup
-	if maps == nil {
-		solutionChan <- &rrtSolution{err: errors.New("nil maps")}
-		return
-	}
-
 	// publish endpoint of plan if it is known
-	var nextSeed *node
 	if len(maps.goalMap) == 1 {
 		for key := range maps.goalMap {
-			nextSeed = key
-		}
-		if endpointPreview != nil {
-			endpointPreview <- nextSeed
-			endpointPreview = nil
+			endpointPreview <- key
+			// Dan: I think the caller, upon observing `endpointPreview`, will never check
+			// `solutionChan`. But preserving existing behavior for now.
 		}
 	}
 
 	// This ctx is used exclusively for the running of the new planner and timing it out.
-	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(wp.mp.planOpts.Timeout*float64(time.Second)))
+	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(wp.motionPlanner.planOpts.Timeout*float64(time.Second)))
 	defer cancel()
 
-	plannerChan := make(chan *rrtSolution, 1)
-
-	// start the planner
-	rrtBackground.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer rrtBackground.Done()
-		wp.mp.rrtBackgroundRunner(plannerctx, &rrtParallelPlannerShared{maps, endpointPreview, plannerChan})
-	})
-
-	// Wait for results from the planner.
-	select {
-	case <-ctx.Done():
-		// Error will be caught by monitoring loop
-		rrtBackground.Wait()
-		solutionChan <- &rrtSolution{err: ctx.Err()}
-		return
-	default:
-	}
-
-	select {
-	case finalSteps := <-plannerChan:
-		// We didn't get a solution preview (possible error), so we get and process the full step set and error.
-		smoothChan := make(chan []*node, 1)
-		rrtBackground.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer rrtBackground.Done()
-			smoothChan <- wp.mp.smoothPath(ctx, finalSteps.steps)
-		})
-
-		// Receive the newly smoothed path from our original solve, and score it
-		finalSteps.steps = <-smoothChan
-
-		solutionChan <- finalSteps
-		return
-
-	case <-ctx.Done():
-		rrtBackground.Wait()
-		solutionChan <- &rrtSolution{err: ctx.Err()}
-		return
-	}
+	// Dan: This is preserving original behavior. Where we'll return whatever steps we have in
+	// addition to an error.
+	finalSteps, err := wp.motionPlanner.rrtRunner(plannerctx, maps)
+	finalSteps.steps = wp.motionPlanner.smoothPath(ctx, finalSteps.steps)
+	finalSteps.err = err
+	solutionChan <- finalSteps
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
@@ -425,7 +385,7 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		if err != nil {
 			return nil, err
 		}
-		return []atomicWaypoint{{mp: pathPlanner, startState: pm.request.StartState, goalState: wpGoals, origWP: wpi}}, nil
+		return []atomicWaypoint{{motionPlanner: pathPlanner, startState: pm.request.StartState, goalState: wpGoals, origWaypoints: wpi}}, nil
 	}
 
 	stepSize := pm.request.PlannerOptions.PathStepSize
@@ -493,11 +453,11 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 		if err != nil {
 			return nil, err
 		}
-		waypoints = append(waypoints, atomicWaypoint{mp: pathPlanner, startState: from, goalState: to, origWP: -1})
+		waypoints = append(waypoints, atomicWaypoint{motionPlanner: pathPlanner, startState: from, goalState: to, origWaypoints: -1})
 
 		from = to
 	}
-	waypoints[len(waypoints)-1].origWP = wpi
+	waypoints[len(waypoints)-1].origWaypoints = wpi
 
 	return waypoints, nil
 }

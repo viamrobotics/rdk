@@ -191,6 +191,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 			metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
 		}
 	}
+
 	return func(state *motionplan.StateFS) float64 {
 		score := 0.
 		for frame, goalMetric := range metrics {
