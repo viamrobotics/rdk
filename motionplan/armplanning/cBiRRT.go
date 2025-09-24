@@ -619,7 +619,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 	myNode := &node{inputs: step, cost: mp.configurationDistanceFunc(stepArc)}
 	sss.solutions = append(sss.solutions, myNode)
 
-	const goodCostStopDivier = 5.0
+	const goodCostStopDivier = 2.0
 
 	if myNode.cost < goodCost || // this checks the absolute score of the plan
 		// if we've got something sane, and it's really good, let's check
