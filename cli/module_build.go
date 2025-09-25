@@ -681,7 +681,7 @@ func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID mo
 
 		yellow := "\033[1;33m%s\033[0m"
 		printf(ctx.App.Writer, yellow, "Info: The reloading process requires the module to first be registered in the cloud. "+
-			"Type 'y' to proceed with module registration or 'n' to quit.")
+			"Do you want to proceed with module registration?")
 		printf(ctx.App.Writer, "Continue: y/n: ")
 		if err := ctx.Err(); err != nil {
 			return err
