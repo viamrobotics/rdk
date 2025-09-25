@@ -138,11 +138,16 @@ func (n Name) Validate() error {
 	return nil
 }
 
-// String returns the fully qualified name for the resource. The Remote field is ignored,
-// as it's only used internally.
+// String returns the fully qualified name for the resource.
 func (n Name) String() string {
 	name := n.API.String()
-	name = fmt.Sprintf("%s/%s", name, n.Name)
+	// The Remote field is used, even if ResourceNames API will not return them,
+	// for better introspection of the Name struct.
+	if n.Remote != "" {
+		name = fmt.Sprintf("%s/%s:%s", name, n.Remote, n.Name)
+	} else {
+		name = fmt.Sprintf("%s/%s", name, n.Name)
+	}
 	return name
 }
 
