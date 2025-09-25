@@ -1065,7 +1065,7 @@ func getFullEnvironment(
 func DepsToNames(deps resource.Dependencies) []string {
 	var depStrings []string
 	for dep := range deps {
-		depStrings = append(depStrings, dep.String())
+		depStrings = append(depStrings, resource.RemoveRemoteName(dep).String())
 	}
 	return depStrings
 }
