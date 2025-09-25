@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -36,6 +37,7 @@ func realMain() error {
 	seed := flag.Int("seed", -1, "")
 	verbose := flag.Bool("v", false, "verbose")
 	loop := flag.Int("loop", 1, "loop")
+	noObstacles := flag.Bool("no-obstacles", false, "disable obstacle constraints for testing")
 
 	flag.Parse()
 	if len(flag.Args()) == 0 {
@@ -68,7 +70,83 @@ func realMain() error {
 		req.PlannerOptions.RandomSeed = *seed
 	}
 
+	// Optionally disable obstacle constraints for testing
+	if *noObstacles {
+		logger.Info("Disabling obstacle constraints for testing")
+		req.WorldState = referenceframe.NewEmptyWorldState()
+		// Also clear collision specifications that reference obstacles
+		req.Constraints = &motionplan.Constraints{}
+	}
+
 	start := time.Now()
+	if err := viz.RemoveAllSpatialObjects(); err != nil {
+		return nil
+	}
+
+	if err := viz.DrawFrameSystem(req.FrameSystem, req.StartState.Configuration()); err != nil {
+		return err
+	}
+
+	if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, req.StartState.Configuration()); err != nil {
+		return err
+	}
+
+	// Debug: Print mesh information
+	if req.WorldState != nil {
+		logger.Infof("WorldState obstacles count: %d", len(req.WorldState.Obstacles()))
+		for i, obstacle := range req.WorldState.Obstacles() {
+			logger.Infof("Obstacle %d: %s", i, obstacle.Parent())
+			for j, geom := range obstacle.Geometries() {
+				logger.Infof("  Geometry %d: %s at pose %v", j, geom.Label(), geom.Pose())
+			}
+		}
+	}
+	var goalPoses []spatialmath.Pose
+	for _, goalPlanState := range req.Goals {
+		poses, err := goalPlanState.ComputePoses(req.FrameSystem)
+		if err != nil {
+			return err
+		}
+
+		for _, poseValue := range poses {
+			// Dan: This is my guess on how to assure the goal pose is in the world reference
+			// frame.
+			poseInWorldFrame := poseValue.Transform(
+				referenceframe.NewPoseInFrame(
+					req.FrameSystem.World().Name(),
+					spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+			goalPoses = append(goalPoses, poseInWorldFrame.Pose())
+		}
+	}
+	// A matter of preference. The arrow head will point at the goal point. As opposed to the
+	// tail starting at the goal point.
+	arrowHeadAtPose := true
+	if err := viz.DrawPoses(goalPoses, []string{"blue"}, arrowHeadAtPose); err != nil {
+		return err
+	}
+
+	// If no obstacles but we want to see the mesh, extract it from the original plan
+	if *noObstacles {
+		logger.Info("Extracting mesh from original plan for visualization")
+		// Restore the original WorldState temporarily for visualization
+		originalReq := armplanning.PlanRequest{}
+		content, err := os.ReadFile(flag.Arg(0))
+		if err == nil {
+			json.Unmarshal(content, &originalReq)
+			if originalReq.WorldState != nil {
+				logger.Infof("Original WorldState obstacles count: %d", len(originalReq.WorldState.Obstacles()))
+				for _, obstacle := range originalReq.WorldState.Obstacles() {
+					for _, geom := range obstacle.Geometries() {
+						logger.Infof("Found geometry: %s (type: %T) at pose %v", geom.Label(), geom, geom.Pose())
+						if octree, ok := geom.(*pointcloud.BasicOctree); ok {
+							logger.Infof("Found point cloud octree: %s at pose %v with %d points", octree.Label(), octree.Pose(), octree.Size())
+							viz.DrawPointCloud(octree.Label(), octree, &[3]uint8{0, 255, 0})
+						}
+					}
+				}
+			}
+		}
+	}
 
 	plan, err := armplanning.PlanMotion(ctx, logger, &req)
 	if err != nil {
