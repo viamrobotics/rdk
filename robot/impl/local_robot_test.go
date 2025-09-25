@@ -2918,6 +2918,164 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+func TestModuleDependencyToRemotes(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Setup a robot1 -> robot2 -> robot3 -> robot4 remote chain. Ensure that if
+	// robot4 has an generic "h", ensure that a modular generic "h1" on robot1,
+	// a modular generic "h2" on robot2, and a modular generic "h3" on robot3
+	// can depend on "h".
+
+	startWeb := func(r robot.LocalRobot) string {
+		var boundAddress string
+		for i := 0; i < 10; i++ {
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+
+			options := weboptions.New()
+			boundAddress = fmt.Sprintf("localhost:%v", port)
+			options.Network.BindAddress = boundAddress
+			if err := r.StartWeb(ctx, options); err != nil {
+				r.StopWeb()
+				if strings.Contains(err.Error(), "address already in use") {
+					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
+					continue
+				}
+				t.Fatalf("StartWeb error: %v", err)
+			}
+			break
+		}
+		return boundAddress
+	}
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	test2Path := rtestutils.BuildTempModule(t, "module/testmodule2")
+
+	// Manually define models, as importing them can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+	helper2Model := resource.NewModel("rdk", "test", "helper2")
+
+	cfg4 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	robot4 := setupLocalRobot(t, ctx, cfg4, logger)
+	addr4 := startWeb(robot4)
+	test.That(t, addr4, test.ShouldNotBeBlank)
+
+	cfg3 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot4",
+				Address: addr4,
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod2",
+				ExePath: test2Path,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:      "h3",
+				Model:     helper2Model,
+				API:       generic.API,
+				DependsOn: []string{"h"},
+			},
+		},
+	}
+	robot3 := setupLocalRobot(t, ctx, cfg3, logger)
+	addr3 := startWeb(robot3)
+	test.That(t, addr3, test.ShouldNotBeBlank)
+
+	cfg2 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot3",
+				Address: addr3,
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod2",
+				ExePath: test2Path,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h2",
+				Model: helper2Model,
+				API:   generic.API,
+				// ensure DependsOn works with simple name (implicit remotes)
+				DependsOn: []string{"h"},
+			},
+		},
+	}
+	robot2 := setupLocalRobot(t, ctx, cfg2, logger)
+	addr2 := startWeb(robot2)
+	test.That(t, addr2, test.ShouldNotBeBlank)
+
+	cfg1 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot2",
+				Address: addr2,
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod2",
+				ExePath: test2Path,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h1",
+				Model: helper2Model,
+				API:   generic.API,
+				// ensure DependsOn works with simple name (implicit remotes)
+				DependsOn: []string{"h"},
+			},
+		},
+	}
+	robot1 := setupLocalRobot(t, ctx, cfg1, logger)
+
+	// Ensure "h1", "h2", and "h3" can all be retrieved from their
+	// respective robots and can use their dependency.
+
+	h3, err := robot3.ResourceByName(generic.Named("h3"))
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := h3.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
+
+	h2, err := robot2.ResourceByName(generic.Named("h2"))
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
+
+	h1, err := robot1.ResourceByName(generic.Named("h1"))
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = h1.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
+}
+
 func TestCloudMetadata(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
