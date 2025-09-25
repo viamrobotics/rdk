@@ -149,11 +149,15 @@ type Base interface {
 
 // Deprecated: FromDependencies is a helper for getting the named base from a collection of
 // dependencies.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Base, error) {
 	return resource.FromDependencies[Base](deps, Named(name))
 }
 
 // Deprecated: FromRobot is a helper for getting the named base from the given Robot.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Base, error) {
 	return robot.ResourceFromRobot[Base](r, Named(name))
 }

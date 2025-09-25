@@ -183,11 +183,15 @@ type MovementSensor interface {
 
 // Deprecated: FromDependencies is a helper for getting the named movementsensor from a collection of
 // dependencies.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (MovementSensor, error) {
 	return resource.FromDependencies[MovementSensor](deps, Named(name))
 }
 
 // Deprecated: FromRobot is a helper for getting the named MovementSensor from the given Robot.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (MovementSensor, error) {
 	return robot.ResourceFromRobot[MovementSensor](r, Named(name))
 }

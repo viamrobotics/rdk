@@ -382,11 +382,15 @@ func NewPropertiesError(cameraIdentifier string) error {
 
 // Deprecated: FromDependencies is a helper for getting the named camera from a collection of
 // dependencies.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Camera, error) {
 	return resource.FromDependencies[Camera](deps, Named(name))
 }
 
 // Deprecated: FromRobot is a helper for getting the named Camera from the given Robot.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Camera, error) {
 	return robot.ResourceFromRobot[Camera](r, Named(name))
 }

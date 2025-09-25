@@ -123,11 +123,15 @@ func Named(name string) resource.Name {
 
 // Deprecated: FromDependencies is a helper for getting the named encoder from a collection of
 // dependencies.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Encoder, error) {
 	return resource.FromDependencies[Encoder](deps, Named(name))
 }
 
 // Deprecated: FromRobot is a helper for getting the named encoder from the given Robot.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Encoder, error) {
 	return robot.ResourceFromRobot[Encoder](r, Named(name))
 }

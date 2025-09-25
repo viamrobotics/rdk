@@ -190,11 +190,14 @@ type AnalogValue struct {
 
 // Deprecated: FromDependencies is a helper for getting the named board from a collection of
 // dependencies.
+// //nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Board, error) {
 	return resource.FromDependencies[Board](deps, Named(name))
 }
 
 // Deprecated: FromRobot is a helper for getting the named board from the given Robot.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Board, error) {
 	return robot.ResourceFromRobot[Board](r, Named(name))
 }

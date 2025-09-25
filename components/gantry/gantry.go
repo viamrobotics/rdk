@@ -117,11 +117,15 @@ type Gantry interface {
 
 // Deprecated: FromDependencies is a helper for getting the named gantry from a collection of
 // dependencies.
+//
+//nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Gantry, error) {
 	return resource.FromDependencies[Gantry](deps, Named(name))
 }
 
 // Deprecated: FromRobot is a helper for getting the named gantry from the given Robot.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	return robot.ResourceFromRobot[Gantry](r, Named(name))
 }

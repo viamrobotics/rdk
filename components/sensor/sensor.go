@@ -49,11 +49,15 @@ type Sensor interface {
 
 // Deprecated: FromDependencies is a helper for getting the named sensor from a collection of
 // dependencies.
+//
+//nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Sensor, error) {
 	return resource.FromDependencies[Sensor](deps, Named(name))
 }
 
 // Deprecated: FromRobot is a helper for getting the named Sensor from the given Robot.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Sensor, error) {
 	return robot.ResourceFromRobot[Sensor](r, Named(name))
 }

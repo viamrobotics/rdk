@@ -44,11 +44,15 @@ type Button interface {
 }
 
 // Deprecated: FromRobot is a helper for getting the named Button from the given Robot.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Button, error) {
 	return robot.ResourceFromRobot[Button](r, Named(name))
 }
 
 // Deprecated: FromDependencies is a helper for getting the named button component from a collection of dependencies.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Button, error) {
 	return resource.FromDependencies[Button](deps, Named(name))
 }

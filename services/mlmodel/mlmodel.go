@@ -334,11 +334,15 @@ func Named(name string) resource.Name {
 }
 
 // Deprecated: FromRobot is a helper for getting the named ML model service from the given Robot.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
 // Deprecated: FromDependencies is a helper for getting the named ml model service from a collection of dependencies.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
 	return resource.FromDependencies[Service](deps, Named(name))
 }

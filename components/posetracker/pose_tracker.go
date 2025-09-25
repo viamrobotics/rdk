@@ -46,12 +46,16 @@ type PoseTracker interface {
 }
 
 // Deprecated: FromRobot is a helper for getting the named force matrix sensor from the given Robot.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
 	return robot.ResourceFromRobot[PoseTracker](r, Named(name))
 }
 
 // Deprecated: FromDependencies is a helper for getting the named pose tracker from a collection of
 // dependencies.
+//
+//nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (PoseTracker, error) {
 	return resource.FromDependencies[PoseTracker](deps, Named(name))
 }

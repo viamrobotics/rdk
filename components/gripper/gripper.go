@@ -92,12 +92,16 @@ type Gripper interface {
 }
 
 // Deprecated: FromRobot is a helper for getting the named Gripper from the given Robot.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Gripper, error) {
 	return robot.ResourceFromRobot[Gripper](r, Named(name))
 }
 
 // Deprecated: FromDependencies is a helper for getting the named gripper from a collection of
 // dependencies.
+//
+//nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Gripper, error) {
 	return resource.FromDependencies[Gripper](deps, Named(name))
 }

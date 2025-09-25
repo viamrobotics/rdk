@@ -21,6 +21,8 @@ func Named(name string) resource.Name {
 }
 
 // Deprecated: FromRobot is a helper for getting the named Summation from the given Robot.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Summation, error) {
 	return robot.ResourceFromRobot[Summation](r, Named(name))
 }
