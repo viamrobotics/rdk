@@ -14,14 +14,15 @@ import (
 
 func TestFakeWorldStateStore(t *testing.T) {
 	// Create a new fake service
-	fake := newFakeWorldStateStore(resource.Name{Name: "test"}, nil)
+	logger := logging.NewTestLogger(t)
+	fake := newFakeWorldStateStore(resource.Name{Name: "test"}, logger)
 	defer fake.Close(context.Background())
 
 	// Test ListUUIDs
 	uuids, err := fake.ListUUIDs(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(uuids), test.ShouldBeGreaterThanOrEqualTo, 3) // Static transforms are available
-	test.That(t, len(uuids), test.ShouldBeLessThanOrEqualTo, 4)    // Dynamic transform may be available
+	test.That(t, len(uuids), test.ShouldBeGreaterThanOrEqualTo, 4) // Static transforms are available
+	test.That(t, len(uuids), test.ShouldBeLessThanOrEqualTo, 5)    // Dynamic transform may be available
 
 	// Test GetTransform for each static transform
 	boxTransform, err := fake.GetTransform(context.Background(), []byte("box-001"), nil)
@@ -40,6 +41,12 @@ func TestFakeWorldStateStore(t *testing.T) {
 	test.That(t, capsuleTransform, test.ShouldNotBeNil)
 	test.That(t, capsuleTransform.Uuid, test.ShouldResemble, []byte("capsule-001"))
 	test.That(t, capsuleTransform.Metadata, test.ShouldNotBeNil)
+
+	pointcloudTransform, err := fake.GetTransform(context.Background(), []byte("pointcloud-001"), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pointcloudTransform, test.ShouldNotBeNil)
+	test.That(t, pointcloudTransform.Uuid, test.ShouldResemble, []byte("pointcloud-001"))
+	test.That(t, pointcloudTransform.Metadata, test.ShouldNotBeNil)
 
 	// Test StreamTransformChanges
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

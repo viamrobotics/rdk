@@ -5,16 +5,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image/color"
 	"math"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"bytes"
+	"encoding/binary"
+	"io"
+
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/worldstatestore"
 )
@@ -40,9 +51,10 @@ type WorldStateStore struct {
 }
 
 var (
-	boxUUID     = "box-001"
-	sphereUUID  = "sphere-001"
-	capsuleUUID = "capsule-001"
+	boxUUID        = "box-001"
+	sphereUUID     = "sphere-001"
+	capsuleUUID    = "capsule-001"
+	pointcloudUUID = "pointcloud-001"
 
 	boxMetadata = &structpb.Struct{
 		Fields: map[string]*structpb.Value{
@@ -244,12 +256,201 @@ func newFakeWorldStateStore(name resource.Name, logger logging.Logger) worldstat
 	return fake
 }
 
-// initializeStaticTransforms creates the initial three transforms in the world.
+func heightToColor(normalizedHeight float64) color.NRGBA {
+	h := math.Max(0, math.Min(1, normalizedHeight))
+
+	var r, g, b uint8
+	if h < 0.25 {
+		// Blue to Cyan
+		t := h / 0.25
+		r = 0
+		g = uint8(t * 255)
+		b = 255
+	} else if h < 0.5 {
+		// Cyan to Green
+		t := (h - 0.25) / 0.25
+		r = 0
+		g = 255
+		b = uint8((1 - t) * 255)
+	} else if h < 0.75 {
+		// Green to Yellow
+		t := (h - 0.5) / 0.25
+		r = uint8(t * 255)
+		g = 255
+		b = 0
+	} else {
+		// Yellow to Red
+		t := (h - 0.75) / 0.25
+		r = 255
+		g = uint8((1 - t) * 255)
+		b = 0
+	}
+
+	return color.NRGBA{R: r, G: g, B: b, A: 255}
+}
+
+func packColor(c color.NRGBA) float32 {
+	rgb := (uint32(c.R) << 16) | (uint32(c.G) << 8) | uint32(c.B)
+	return math.Float32frombits(rgb)
+}
+
+func (f *WorldStateStore) processPointCloud(pc pointcloud.PointCloud) (pointcloud.PointCloud, error) {
+	if pc.Size() == 0 {
+		return pc, nil
+	}
+
+	var sumX, sumY float64
+	var zValues []float64
+	pc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		sumX += p.X
+		sumY += p.Y
+		zValues = append(zValues, p.Z)
+		return true
+	})
+
+	count := len(zValues)
+	if count == 0 {
+		return pc, nil // Should be covered by pc.Size() check, but for safety
+	}
+
+	sort.Float64s(zValues)
+	minIndex := int(float64(count) * 0.01)
+	maxIndex := int(float64(count) * 0.99)
+	if maxIndex >= count {
+		maxIndex = count - 1
+	}
+
+	minZ := zValues[minIndex]
+	maxZ := zValues[maxIndex]
+	center := r3.Vector{
+		X: sumX / float64(count),
+		Y: sumY / float64(count),
+		Z: minZ,
+	}
+
+	zRange := maxZ - minZ
+	if zRange == 0 {
+		zRange = 1
+	}
+
+	withColors := pointcloud.NewBasicEmpty()
+	pc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		translatedPoint := r3.Vector{X: p.X - center.X, Y: p.Y - center.Y, Z: p.Z - center.Z}
+		normalizedHeight := (p.Z - minZ) / zRange
+		heightColor := heightToColor(normalizedHeight)
+		packedColor := packColor(heightColor)
+		data := pointcloud.NewValueData(int(math.Float32bits(packedColor)))
+		err := withColors.Set(translatedPoint, data)
+		if err != nil {
+			f.logger.Debug("failed to set color for point", "error", err)
+		}
+		return true
+	})
+
+	return withColors, nil
+}
+
+func writePCD(cloud pointcloud.PointCloud, out io.Writer) error {
+	if _, err := fmt.Fprintf(out, "VERSION .7\n"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "FIELDS x y z rgb\n"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "SIZE 4 4 4 4\n"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "TYPE F F F F\n"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "COUNT 1 1 1 1\n"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "WIDTH %d\n", cloud.Size()); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "HEIGHT 1\n"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "VIEWPOINT 0 0 0 1 0 0 0\n"); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "POINTS %d\n", cloud.Size()); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "DATA binary\n"); err != nil {
+		return err
+	}
+
+	buf := make([]byte, 16)
+	var iterErr error
+	cloud.Iterate(0, 0, func(pos r3.Vector, d pointcloud.Data) bool {
+		x := float32(pos.X / 1000.)
+		y := float32(pos.Y / 1000.)
+		z := float32(pos.Z / 1000.)
+		rgb := math.Float32frombits(uint32(d.Value()))
+
+		binary.LittleEndian.PutUint32(buf, math.Float32bits(x))
+		binary.LittleEndian.PutUint32(buf[4:], math.Float32bits(y))
+		binary.LittleEndian.PutUint32(buf[8:], math.Float32bits(z))
+		binary.LittleEndian.PutUint32(buf[12:], math.Float32bits(rgb))
+
+		if _, err := out.Write(buf); err != nil {
+			iterErr = err
+			return false
+		}
+		return true
+	})
+	if iterErr != nil {
+		return iterErr
+	}
+	return nil
+}
+
+func (f *WorldStateStore) loadPointcloudFromFile() ([]byte, *structpb.Struct) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		f.logger.Errorw("failed to get current file path")
+		return nil, nil
+	}
+
+	// From: https://github.com/PointCloudLibrary/data
+	pcdPath := filepath.Join(filepath.Dir(filename), "FSite5_orig-utm.pcd")
+
+	file, err := os.Open(pcdPath)
+	if err != nil {
+		f.logger.Errorw("failed to open PCD file", "error", err, "path", pcdPath)
+		return nil, nil
+	}
+	defer file.Close()
+
+	pc, err := pointcloud.ReadPCD(file, pointcloud.BasicOctreeType)
+	if err != nil {
+		f.logger.Errorw("failed to read PCD file", "error", err)
+		return nil, nil
+	}
+
+	withColors, err := f.processPointCloud(pc)
+	if err != nil {
+		f.logger.Errorw("failed to add height-based colors", "error", err)
+		return nil, nil
+	}
+
+	var buf bytes.Buffer
+	if err := writePCD(withColors, &buf); err != nil {
+		f.logger.Errorw("failed to write colorized pointcloud file", "error", err)
+		return nil, nil
+	}
+	bytes := buf.Bytes()
+
+	metadata := &structpb.Struct{}
+	return bytes, metadata
+}
+
 func (f *WorldStateStore) initializeStaticTransforms() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	// Create initial transforms
 	f.transforms[boxUUID] = &commonpb.Transform{
 		ReferenceFrame: "static-box",
 		PoseInObserverFrame: &commonpb.PoseInFrame{
@@ -311,6 +512,28 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 		Uuid:     []byte(capsuleUUID),
 		Metadata: capsuleMetadata,
 	}
+
+	pointcloudBytes, pointcloudMetadata := f.loadPointcloudFromFile()
+	if pointcloudBytes != nil {
+		f.transforms[pointcloudUUID] = &commonpb.Transform{
+			ReferenceFrame: "static-pointcloud",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "world",
+				Pose: &commonpb.Pose{
+					X: 0, Y: 0, Z: 0, Theta: 0, OX: 0, OY: 0, OZ: 1,
+				},
+			},
+			PhysicalObject: &commonpb.Geometry{
+				GeometryType: &commonpb.Geometry_Pointcloud{
+					Pointcloud: &commonpb.PointCloud{
+						PointCloud: pointcloudBytes,
+					},
+				},
+			},
+			Uuid:     []byte(pointcloudUUID),
+			Metadata: pointcloudMetadata,
+		}
+	}
 }
 
 func (f *WorldStateStore) updateBoxTransform(elapsed time.Duration) {
@@ -341,16 +564,16 @@ func (f *WorldStateStore) updateSphereTransform(elapsed time.Duration) {
 
 	f.mu.Lock()
 	if transform, exists := f.transforms["sphere-001"]; exists {
-		transform.PoseInObserverFrame.Pose.Y = height
+		transform.PoseInObserverFrame.Pose.Z = height
 		f.mu.Unlock()
 		f.emitTransformUpdate(&commonpb.Transform{
 			Uuid: transform.Uuid,
 			PoseInObserverFrame: &commonpb.PoseInFrame{
 				Pose: &commonpb.Pose{
-					Y: height,
+					Z: height,
 				},
 			},
-		}, []string{"poseInObserverFrame.pose.y"})
+		}, []string{"poseInObserverFrame.pose.z"})
 		return
 	}
 	f.mu.Unlock()
