@@ -131,7 +131,6 @@ func (r *Robot) GetResource(name resource.Name) (resource.Resource, error) {
 		return r.LocalRobot.GetResource(name)
 	}
 	return r.ResourceByNameFunc(name)
-
 }
 
 // RemoteNames calls the injected RemoteNames or the real version.
