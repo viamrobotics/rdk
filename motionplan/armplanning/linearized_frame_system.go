@@ -102,33 +102,49 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 
 	for _, frame := range lfs.frames {
 		if len(frame.DoF()) == 0 {
+			// Frames without degrees of freedom can't move.
 			continue
 		}
 
 		if slices.Contains(nonmoving, frame.Name()) {
+			// Frames that can move, but we are not moving them to solve this problem.
 			for range frame.DoF() {
 				ratios = append(ratios, 0)
 			}
 			continue
 		}
-		const percentJog = .01
+		const percentJog = 0.01
 
+		// For each degree of freedom, we want to determine how much impact a small change
+		// makes. For cases where a small movement results in a big change in distance, we want to
+		// walk in smaller steps. For cases where a small change has a small effect, we want to
+		// allow the walking algorithm to take bigger steps.
 		for idx := range frame.DoF() {
 			orig := start[frame.Name()][idx]
 
+			// Compute the new input for a specific joint that's one "jog" away. E.g: ~5 degrees for
+			// a rotational joint.
 			y := lfs.jog(len(ratios), orig.Value, percentJog)
-
+			// Update the copied joint set in place. This is undone at the end of the loop.
 			start[frame.Name()][idx] = referenceframe.Input{y}
 
 			myDistance := distanceFunc(&motionplan.StateFS{Configuration: start, FS: mc.fs})
+			// Compute how much effect the small change made. The bigger the difference, the smaller
+			// the ratio.
+			//
+			// Note that Go deals with the potential divide by 0. Representing `thisRatio` as
+			// infinite. The following comparisons continue to work as expected. Resulting in an
+			// adjusted jog ratio of 1.
 			thisRatio := startDistance / math.Abs(myDistance-startDistance)
 			myJogRatio := percentJog * thisRatio
-			adjustLogRatio := min(1, max(.03, myJogRatio*5))
-			logger.Debugf("idx: %d startDistance: %0.2f myDistance: %0.2f thisRatio: %0.4f myJogRatio: %0.4f adjustLogRatio: %0.4f",
-				idx, startDistance, myDistance, thisRatio, myJogRatio, adjustLogRatio)
+			// For movable frames/joints, 0.03 is the actual smallest value we'll use.
+			adjustedJogRatio := min(1, max(.03, myJogRatio*5))
+			logger.Debugf("idx: %d startDistance: %0.2f myDistance: %0.2f thisRatio: %0.4f myJogRatio: %0.4f adjustJogRatio: %0.4f",
+				idx, startDistance, myDistance, thisRatio, myJogRatio, adjustedJogRatio)
 
-			ratios = append(ratios, adjustLogRatio)
+			ratios = append(ratios, adjustedJogRatio)
 
+			// Undo the above modification. Returning `start` back to its original state.
 			start[frame.Name()][idx] = orig
 		}
 	}
