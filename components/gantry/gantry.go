@@ -6,7 +6,6 @@ package gantry
 
 import (
 	"context"
-	"fmt"
 
 	pb "go.viam.com/api/component/gantry/v1"
 
@@ -53,7 +52,7 @@ func Named(name string) resource.Name {
 //
 // Position example:
 //
-//	myGantry, err := gantry.GetResource(machine, "my_gantry")
+//	myGantry, err := gantry.FromProvider(machine, "my_gantry")
 //
 //	// Get the current positions of the axes of the gantry in millimeters.
 //	position, err := myGantry.Position(context.Background(), nil)
@@ -62,7 +61,7 @@ func Named(name string) resource.Name {
 //
 // MoveToPosition example:
 //
-//	myGantry, err := gantry.GetResource(machine, "my_gantry")
+//	myGantry, err := gantry.FromProvider(machine, "my_gantry")
 //
 //	// Create a list of positions for the axes of the gantry to move to.
 //	// Assume in this example that the gantry is multi-axis, with 3 axes.
@@ -77,7 +76,7 @@ func Named(name string) resource.Name {
 //
 // Lengths example:
 //
-//	myGantry, err := gantry.GetResource(machine, "my_gantry")
+//	myGantry, err := gantry.FromProvider(machine, "my_gantry")
 //
 //	// Get the lengths of the axes of the gantry in millimeters.
 //	lengths_mm, err := myGantry.Lengths(context.Background(), nil)
@@ -86,7 +85,7 @@ func Named(name string) resource.Name {
 //
 // Home example:
 //
-//	myGantry, err := gantry.GetResource(machine, "my_gantry")
+//	myGantry, err := gantry.FromProvider(machine, "my_gantry")
 //
 //	myGantry.Home(context.Background(), nil)
 //
@@ -116,17 +115,20 @@ type Gantry interface {
 	Home(ctx context.Context, extra map[string]interface{}) (bool, error)
 }
 
-// GetResource is a helper for getting the named Gantry from either a collection of dependencies
-// or the given robot.
-func GetResource(src any, name string) (Gantry, error) {
-	switch v := src.(type) {
-	case resource.Dependencies:
-		return resource.FromDependencies[Gantry](v, Named(name))
-	case robot.Robot:
-		return robot.ResourceFromRobot[Gantry](v, Named(name))
-	default:
-		return nil, fmt.Errorf("unsupported source type %T", src)
-	}
+// Deprecated: FromDependencies is a helper for getting the named gantry from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Gantry, error) {
+	return resource.FromDependencies[Gantry](deps, Named(name))
+}
+
+// Deprecated: FromRobot is a helper for getting the named gantry from the given Robot.
+func FromRobot(r robot.Robot, name string) (Gantry, error) {
+	return robot.ResourceFromRobot[Gantry](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Gantry from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Gantry, error) {
+	return resource.FromProvider[Gantry](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all gantry names from the given Robot.

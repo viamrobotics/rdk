@@ -50,7 +50,7 @@ func NewController(
 	}
 
 	for _, s := range newConf.Sources {
-		c, err := input.GetResource(deps, s)
+		c, err := input.FromProvider(deps, s)
 		if err != nil {
 			return nil, err
 		}

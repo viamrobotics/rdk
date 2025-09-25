@@ -102,7 +102,7 @@ func (c *component) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 	if VERSION == "v3" {
 		// Version 3 should have a motor in the deps
-		if _, err := motor.GetResource(deps, "motor1"); err != nil {
+		if _, err := motor.FromProvider(deps, "motor1"); err != nil {
 			return errors.Wrapf(err, "failed to resolve motor %q for version 3", "motor1")
 		}
 	}

@@ -116,7 +116,7 @@ func TestColorDetectionSource(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	detector, err := camera.GetResource(r, "color_detect")
+	detector, err := camera.FromProvider(r, "color_detect")
 	test.That(t, err, test.ShouldBeNil)
 	defer detector.Close(ctx)
 
@@ -138,7 +138,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 		test.That(b, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(b, err, test.ShouldBeNil)
-	detector, err := camera.GetResource(r, "color_detect")
+	detector, err := camera.FromProvider(r, "color_detect")
 	test.That(b, err, test.ShouldBeNil)
 	defer detector.Close(ctx)
 

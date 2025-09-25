@@ -127,6 +127,16 @@ type RobotClient struct {
 	sharedConn *grpc.SharedConn
 }
 
+// GetResource implements resource.Provider for a RobotClient by looking up a resource by name.
+func (rc *RobotClient) GetResource(name resource.Name) (resource.Resource, error) {
+	res, err := rc.ResourceByName(name)
+	if err != nil {
+		var zero resource.Resource
+		return zero, err
+	}
+	return res, nil
+}
+
 // RemoteTypeName is the type name used for a remote. This is for internal use.
 const RemoteTypeName = string("remote")
 

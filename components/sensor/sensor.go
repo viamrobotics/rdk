@@ -5,8 +5,6 @@
 package sensor
 
 import (
-	"fmt"
-
 	pb "go.viam.com/api/component/sensor/v1"
 
 	"go.viam.com/rdk/data"
@@ -49,17 +47,20 @@ type Sensor interface {
 	resource.Sensor
 }
 
-// GetResource is a helper for getting the named Sensor from either a collection of dependencies
-// or the given robot.
-func GetResource(src any, name string) (Sensor, error) {
-	switch v := src.(type) {
-	case resource.Dependencies:
-		return resource.FromDependencies[Sensor](v, Named(name))
-	case robot.Robot:
-		return robot.ResourceFromRobot[Sensor](v, Named(name))
-	default:
-		return nil, fmt.Errorf("unsupported source type %T", src)
-	}
+// Deprecated: FromDependencies is a helper for getting the named sensor from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Sensor, error) {
+	return resource.FromDependencies[Sensor](deps, Named(name))
+}
+
+// Deprecated: FromRobot is a helper for getting the named Sensor from the given Robot.
+func FromRobot(r robot.Robot, name string) (Sensor, error) {
+	return robot.ResourceFromRobot[Sensor](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Sensor from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Sensor, error) {
+	return resource.FromProvider[Sensor](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all sensor names from the given Robot.

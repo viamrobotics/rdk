@@ -6,7 +6,6 @@ package base
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/component/base/v1"
@@ -45,7 +44,7 @@ func Named(name string) resource.Name {
 //
 // MoveStraight example:
 //
-//	myBase, err := base.GetResource(machine, "my_base")
+//	myBase, err := base.FromProvider(machine, "my_base")
 //	// Move the base forward 40 mm at a velocity of 90 mm/s.
 //	myBase.MoveStraight(context.Background(), 40, 90, nil)
 //
@@ -56,7 +55,7 @@ func Named(name string) resource.Name {
 //
 // Spin example:
 //
-//	myBase, err := base.GetResource(machine, "my_base")
+//	myBase, err := base.FromProvider(machine, "my_base")
 //
 //	// Spin the base 10 degrees at an angular velocity of 15 deg/sec.
 //	myBase.Spin(context.Background(), 10, 15, nil)
@@ -65,7 +64,7 @@ func Named(name string) resource.Name {
 //
 // SetPower example:
 //
-//	myBase, err := base.GetResource(machine, "my_base")
+//	myBase, err := base.FromProvider(machine, "my_base")
 //
 //	// Make your wheeled base move forward. Set linear power to 75%.
 //	logger.Info("move forward")
@@ -87,7 +86,7 @@ func Named(name string) resource.Name {
 //
 // SetVelocity example:
 //
-//	myBase, err := base.GetResource(machine, "my_base")
+//	myBase, err := base.FromProvider(machine, "my_base")
 //
 //	// Set the linear velocity to 50 mm/sec and the angular velocity to 15 deg/sec.
 //	myBase.SetVelocity(context.Background(), r3.Vector{Y: 50}, r3.Vector{Z: 15}, nil)
@@ -96,7 +95,7 @@ func Named(name string) resource.Name {
 //
 // Properties example:
 //
-//	myBase, err := base.GetResource(machine, "my_base")
+//	myBase, err := base.FromProvider(machine, "my_base")
 //
 //	// Get the width and turning radius of the base
 //	properties, err := myBase.Properties(context.Background(), nil)
@@ -148,17 +147,20 @@ type Base interface {
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
 }
 
-// GetResource is a helper for getting the named Base from either a collection of dependencies
-// or the given robot.
-func GetResource(src any, name string) (Base, error) {
-	switch v := src.(type) {
-	case resource.Dependencies:
-		return resource.FromDependencies[Base](v, Named(name))
-	case robot.Robot:
-		return robot.ResourceFromRobot[Base](v, Named(name))
-	default:
-		return nil, fmt.Errorf("unsupported source type %T", src)
-	}
+// Deprecated: FromDependencies is a helper for getting the named base from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Base, error) {
+	return resource.FromDependencies[Base](deps, Named(name))
+}
+
+// Deprecated: FromRobot is a helper for getting the named base from the given Robot.
+func FromRobot(r robot.Robot, name string) (Base, error) {
+	return robot.ResourceFromRobot[Base](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Base from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Base, error) {
+	return resource.FromProvider[Base](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all base names from the given Robot.

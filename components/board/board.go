@@ -9,7 +9,6 @@ package board
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	pb "go.viam.com/api/component/board/v1"
@@ -57,7 +56,7 @@ func Named(name string) resource.Name {
 //
 // AnalogByName example:
 //
-//	myBoard, err := board.GetResource(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the Analog pin "my_example_analog".
 //	analog, err := myBoard.AnalogByName("my_example_analog")
@@ -66,7 +65,7 @@ func Named(name string) resource.Name {
 //
 // DigitalInterruptByName example:
 //
-//	myBoard, err := board.GetResource(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the DigitalInterrupt "my_example_digital_interrupt".
 //	interrupt, err := myBoard.DigitalInterruptByName("my_example_digital_interrupt")
@@ -75,7 +74,7 @@ func Named(name string) resource.Name {
 //
 // GPIOPinByName example:
 //
-//	myBoard, err := board.GetResource(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
@@ -84,7 +83,7 @@ func Named(name string) resource.Name {
 //
 // SetPowerMode example:
 //
-//	myBoard, err := board.GetResource(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	Set the power mode of the board to OFFLINE_DEEP.
 //	myBoard.SetPowerMode(context.Background(), boardpb.PowerMode_POWER_MODE_OFFLINE_DEEP, nil)
@@ -93,7 +92,7 @@ func Named(name string) resource.Name {
 //
 // StreamTicks example:
 //
-//	myBoard, err := board.GetResource(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Make a channel to stream ticks
 //	ticksChan := make(chan board.Tick)
@@ -144,7 +143,7 @@ type Board interface {
 //
 // Read example:
 //
-//	myBoard, err := board.GetResource(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the analog pin "my_example_analog".
 //	analog, err := myBoard.AnalogByName("my_example_analog")
@@ -158,7 +157,7 @@ type Board interface {
 //
 // Write example:
 //
-//	myBoard, err := board.GetResource(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the Analog pin "my_example_analog".
 //	analog, err := myBoard.AnalogByName("my_example_analog")
@@ -189,17 +188,20 @@ type AnalogValue struct {
 	StepSize float32
 }
 
-// GetResource is a helper for getting the named Board from either a collection of dependencies
-// or the given robot.
-func GetResource(src any, name string) (Board, error) {
-	switch v := src.(type) {
-	case resource.Dependencies:
-		return resource.FromDependencies[Board](v, Named(name))
-	case robot.Robot:
-		return robot.ResourceFromRobot[Board](v, Named(name))
-	default:
-		return nil, fmt.Errorf("unsupported source type %T", src)
-	}
+// Deprecated: FromDependencies is a helper for getting the named board from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Board, error) {
+	return resource.FromDependencies[Board](deps, Named(name))
+}
+
+// Deprecated: FromRobot is a helper for getting the named board from the given Robot.
+func FromRobot(r robot.Robot, name string) (Board, error) {
+	return robot.ResourceFromRobot[Board](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Board from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Board, error) {
+	return resource.FromProvider[Board](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all board names from the given Robot.

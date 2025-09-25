@@ -5,8 +5,6 @@
 package generic
 
 import (
-	"fmt"
-
 	pb "go.viam.com/api/component/generic/v1"
 
 	"go.viam.com/rdk/data"
@@ -38,17 +36,20 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// GetResource is a helper for getting the named Generic from either a collection of dependencies
-// or the given robot.
-func GetResource(src any, name string) (resource.Resource, error) {
-	switch v := src.(type) {
-	case resource.Dependencies:
-		return resource.FromDependencies[resource.Resource](v, Named(name))
-	case robot.Robot:
-		return robot.ResourceFromRobot[resource.Resource](v, Named(name))
-	default:
-		return nil, fmt.Errorf("unsupported source type %T", src)
-	}
+// Deprecated: FromDependencies is a helper for getting the named generic from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (resource.Resource, error) {
+	return resource.FromDependencies[resource.Resource](deps, Named(name))
+}
+
+// Deprecated: FromRobot is a helper for getting the named Generic from the given Robot.
+func FromRobot(r robot.Robot, name string) (resource.Resource, error) {
+	return robot.ResourceFromRobot[resource.Resource](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Generic from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (resource.Resource, error) {
+	return resource.FromProvider[resource.Resource](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all generic names from the given Robot.

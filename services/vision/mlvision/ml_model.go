@@ -110,7 +110,7 @@ func registerMLModelVisionService(
 	_, span := trace.StartSpan(ctx, "service::vision::registerMLModelVisionService")
 	defer span.End()
 
-	mlm, err := mlmodel.GetResource(r, params.ModelName)
+	mlm, err := mlmodel.FromProvider(r, params.ModelName)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +214,7 @@ func registerMLModelVisionService(
 	}
 
 	if params.DefaultCamera != "" {
-		_, err = camera.GetResource(r, params.DefaultCamera)
+		_, err = camera.FromProvider(r, params.DefaultCamera)
 		if err != nil {
 			return nil, errors.Errorf("could not find camera %q", params.DefaultCamera)
 		}

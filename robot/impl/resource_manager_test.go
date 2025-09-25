@@ -1574,7 +1574,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		mainRobot := setupLocalRobot(t, ctx, mainRobotCfg, logger.Sublogger("main"))
 
 		// Grab motor of remote1 to check that it won't work after switching remotes
-		motor1, err := motor.GetResource(mainRobot, "motor")
+		motor1, err := motor.FromProvider(mainRobot, "motor")
 		test.That(t, err, test.ShouldBeNil)
 
 		moving, speed, err := motor1.IsPowered(ctx, nil)
@@ -1592,7 +1592,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// Grab motor of remote2 to check that it won't work after switching remotes
-		motor2, err := motor.GetResource(mainRobot, "motor")
+		motor2, err := motor.FromProvider(mainRobot, "motor")
 		test.That(t, err, test.ShouldBeNil)
 
 		moving, speed, _ = motor2.IsPowered(ctx, nil)
@@ -1612,7 +1612,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// Check that we were able to grab the motor from remote1 through the main robot and successfully call IsPowered()
-		motor1, err = motor.GetResource(mainRobot, "motor")
+		motor1, err = motor.FromProvider(mainRobot, "motor")
 		test.That(t, err, test.ShouldBeNil)
 
 		moving, speed, err = motor1.IsPowered(ctx, nil)
@@ -1648,7 +1648,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		mainRobot := setupLocalRobot(t, ctx, mainRobotCfg, logger.Sublogger("main"))
 
 		// Grab arm of remote1 to check that it won't work after switching remotes
-		arm1, err := arm.GetResource(mainRobot, "arm")
+		arm1, err := arm.FromProvider(mainRobot, "arm")
 		test.That(t, err, test.ShouldBeNil)
 
 		moving, err := arm1.IsMoving(ctx)
@@ -1665,7 +1665,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// Grab motor of remote2 to check that it won't work after switching remotes
-		motor1, err := motor.GetResource(mainRobot, "motor")
+		motor1, err := motor.FromProvider(mainRobot, "motor")
 		test.That(t, err, test.ShouldBeNil)
 
 		moving, speed, _ := motor1.IsPowered(ctx, nil)
@@ -1685,7 +1685,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// Check that we were able to grab the arm from remote1 through the main robot and successfully call IsMoving()
-		arm1, err = arm.GetResource(mainRobot, "arm")
+		arm1, err = arm.FromProvider(mainRobot, "arm")
 		test.That(t, err, test.ShouldBeNil)
 
 		moving, err = arm1.IsMoving(ctx)
@@ -1785,6 +1785,16 @@ type dummyRobot struct {
 	modmanager *modmanager.Manager
 
 	offline bool
+}
+
+// GetResource implements resource.Provider for a dummyRobot by looking up a resource by name.
+func (rr *dummyRobot) GetResource(name resource.Name) (resource.Resource, error) {
+	res, err := rr.ResourceByName(name)
+	if err != nil {
+		var zero resource.Resource
+		return zero, err
+	}
+	return res, nil
 }
 
 // newDummyRobot returns a new dummy robot wrapping a given robot.Robot

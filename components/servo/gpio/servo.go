@@ -141,7 +141,7 @@ func (s *servoGPIO) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	boardName := newConf.Board
 
-	b, err := board.GetResource(deps, boardName)
+	b, err := board.FromProvider(deps, boardName)
 	if err != nil {
 		return errors.Wrap(err, "board doesn't exist")
 	}

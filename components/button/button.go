@@ -3,7 +3,6 @@ package button
 
 import (
 	"context"
-	"fmt"
 
 	pb "go.viam.com/api/component/button/v1"
 
@@ -44,17 +43,19 @@ type Button interface {
 	Push(ctx context.Context, extra map[string]interface{}) error
 }
 
-// GetResource is a helper for getting the named Button from either a collection of dependencies
-// or the given robot.
-func GetResource(src any, name string) (Button, error) {
-	switch v := src.(type) {
-	case resource.Dependencies:
-		return resource.FromDependencies[Button](v, Named(name))
-	case robot.Robot:
-		return robot.ResourceFromRobot[Button](v, Named(name))
-	default:
-		return nil, fmt.Errorf("unsupported source type %T", src)
-	}
+// Deprecated: FromRobot is a helper for getting the named Button from the given Robot.
+func FromRobot(r robot.Robot, name string) (Button, error) {
+	return robot.ResourceFromRobot[Button](r, Named(name))
+}
+
+// Deprecated: FromDependencies is a helper for getting the named button component from a collection of dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Button, error) {
+	return resource.FromDependencies[Button](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named Button from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Button, error) {
+	return resource.FromProvider[Button](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.

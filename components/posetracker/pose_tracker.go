@@ -4,7 +4,6 @@ package posetracker
 
 import (
 	"context"
-	"fmt"
 
 	pb "go.viam.com/api/component/posetracker/v1"
 
@@ -46,15 +45,18 @@ type PoseTracker interface {
 	Poses(ctx context.Context, bodyNames []string, extra map[string]interface{}) (referenceframe.FrameSystemPoses, error)
 }
 
-// GetResource is a helper for getting the named PoseTracker from either a collection of dependencies
-// or the given robot.
-func GetResource(src any, name string) (PoseTracker, error) {
-	switch v := src.(type) {
-	case resource.Dependencies:
-		return resource.FromDependencies[PoseTracker](v, Named(name))
-	case robot.Robot:
-		return robot.ResourceFromRobot[PoseTracker](v, Named(name))
-	default:
-		return nil, fmt.Errorf("unsupported source type %T", src)
-	}
+// Deprecated: FromRobot is a helper for getting the named force matrix sensor from the given Robot.
+func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
+	return robot.ResourceFromRobot[PoseTracker](r, Named(name))
+}
+
+// Deprecated: FromDependencies is a helper for getting the named pose tracker from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (PoseTracker, error) {
+	return resource.FromDependencies[PoseTracker](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named PoseTracker from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (PoseTracker, error) {
+	return resource.FromProvider[PoseTracker](provider, Named(name))
 }

@@ -73,7 +73,7 @@ func newHelper(
 	var dependsOnGeneric resource.Resource
 	var err error
 	if len(conf.DependsOn) > 0 {
-		dependsOnGeneric, err = generic.GetResource(deps, conf.DependsOn[0])
+		dependsOnGeneric, err = generic.FromProvider(deps, conf.DependsOn[0])
 		if err != nil {
 			return nil, err
 		}

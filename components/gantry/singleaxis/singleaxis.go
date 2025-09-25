@@ -169,7 +169,7 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	// Rerun homing if the board has changed
 	if newConf.Board != "" {
 		if g.board == nil || g.board.Name().ShortName() != newConf.Board {
-			board, err := board.GetResource(deps, newConf.Board)
+			board, err := board.FromProvider(deps, newConf.Board)
 			if err != nil {
 				return err
 			}
@@ -181,7 +181,7 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	// Rerun homing if the motor changes
 	if g.motor == nil || g.motor.Name().ShortName() != newConf.Motor {
 		needsToReHome = true
-		motorDep, err := motor.GetResource(deps, newConf.Motor)
+		motorDep, err := motor.FromProvider(deps, newConf.Motor)
 		if err != nil {
 			return err
 		}

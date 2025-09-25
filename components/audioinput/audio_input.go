@@ -4,7 +4,6 @@ package audioinput
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/pion/mediadevices/pkg/prop"
 	pb "go.viam.com/api/component/audioinput/v1"
@@ -62,17 +61,20 @@ type LivenessMonitor interface {
 	Monitor(notifyReset func())
 }
 
-// GetResource is a helper for getting the named Audio Input from either a collection of dependencies
-// or the given robot.
-func GetResource(src any, name string) (AudioInput, error) {
-	switch v := src.(type) {
-	case resource.Dependencies:
-		return resource.FromDependencies[AudioInput](v, Named(name))
-	case robot.Robot:
-		return robot.ResourceFromRobot[AudioInput](v, Named(name))
-	default:
-		return nil, fmt.Errorf("unsupported source type %T", src)
-	}
+// Deprecated: FromDependencies is a helper for getting the named audio input from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (AudioInput, error) {
+	return resource.FromDependencies[AudioInput](deps, Named(name))
+}
+
+// Deprecated: FromRobot is a helper for getting the named audio input from the given Robot.
+func FromRobot(r robot.Robot, name string) (AudioInput, error) {
+	return robot.ResourceFromRobot[AudioInput](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named AudioInput from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (AudioInput, error) {
+	return resource.FromProvider[AudioInput](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all audio input names from the given Robot.

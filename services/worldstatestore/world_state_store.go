@@ -8,7 +8,6 @@ package worldstatestore
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -43,17 +42,21 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// GetResource is a helper for getting the named world state store service from either a collection of dependencies
-// or the given robot.
-func GetResource(src any, name string) (Service, error) {
-	switch v := src.(type) {
-	case resource.Dependencies:
-		return resource.FromDependencies[Service](v, Named(name))
-	case robot.Robot:
-		return robot.ResourceFromRobot[Service](v, Named(name))
-	default:
-		return nil, fmt.Errorf("unsupported source type %T", src)
-	}
+// Deprecated: FromRobot is a helper for getting the named world state store service from the given Robot.
+func FromRobot(r robot.Robot, name string) (Service, error) {
+	return robot.ResourceFromRobot[Service](r, Named(name))
+}
+
+// Deprecated: FromDependencies is a helper for getting the named world state store service from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
+	return resource.FromDependencies[Service](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named World State Store service
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Service, error) {
+	return resource.FromProvider[Service](provider, Named(name))
 }
 
 // Service describes the functions that are available to the service.

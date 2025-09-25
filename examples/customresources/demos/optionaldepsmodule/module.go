@@ -93,13 +93,13 @@ func (f *foo) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	f.requiredMotor, err = motor.GetResource(deps, fooConfig.RequiredMotor)
+	f.requiredMotor, err = motor.FromProvider(deps, fooConfig.RequiredMotor)
 	if err != nil {
 		return fmt.Errorf("could not get required motor %s from dependencies",
 			fooConfig.RequiredMotor)
 	}
 
-	f.optionalMotor, err = motor.GetResource(deps, fooConfig.OptionalMotor)
+	f.optionalMotor, err = motor.FromProvider(deps, fooConfig.OptionalMotor)
 	if err != nil {
 		f.logger.Infof("could not get optional motor %s from dependencies; continuing",
 			fooConfig.OptionalMotor)
@@ -188,7 +188,7 @@ func newMutualOptionalChild(ctx context.Context,
 		return nil, err
 	}
 
-	moc.otherMOC, err = generic.GetResource(deps, mutualOptionalChildConfig.OtherMOC)
+	moc.otherMOC, err = generic.FromProvider(deps, mutualOptionalChildConfig.OtherMOC)
 	if err != nil {
 		moc.logger.Infof("could not get other MOC %s from dependencies; continuing",
 			mutualOptionalChildConfig.OtherMOC)

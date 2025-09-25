@@ -3,7 +3,6 @@ package toggleswitch
 
 import (
 	"context"
-	"fmt"
 
 	pb "go.viam.com/api/component/switch/v1"
 
@@ -52,17 +51,19 @@ type Switch interface {
 	GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, []string, error)
 }
 
-// GetResource is a helper for getting the named Switch from either a collection of dependencies
-// or the given robot.
-func GetResource(src any, name string) (Switch, error) {
-	switch v := src.(type) {
-	case resource.Dependencies:
-		return resource.FromDependencies[Switch](v, Named(name))
-	case robot.Robot:
-		return robot.ResourceFromRobot[Switch](v, Named(name))
-	default:
-		return nil, fmt.Errorf("unsupported source type %T", src)
-	}
+// Deprecated: FromRobot is a helper for getting the named Switch from the given Robot.
+func FromRobot(r robot.Robot, name string) (Switch, error) {
+	return robot.ResourceFromRobot[Switch](r, Named(name))
+}
+
+// Deprecated: FromDependencies is a helper for getting the named button component from a collection of dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (Switch, error) {
+	return resource.FromDependencies[Switch](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named Switch from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Switch, error) {
+	return resource.FromProvider[Switch](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all switch names from the given Robot.

@@ -3,7 +3,6 @@ package summationapi
 
 import (
 	"context"
-	"fmt"
 
 	"go.viam.com/utils/rpc"
 
@@ -21,17 +20,15 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// GetResource is a helper for getting the named Summation from either a collection of dependencies
-// or the given robot.
-func GetResource(src any, name string) (Summation, error) {
-	switch v := src.(type) {
-	case resource.Dependencies:
-		return resource.FromDependencies[Summation](v, Named(name))
-	case robot.Robot:
-		return robot.ResourceFromRobot[Summation](v, Named(name))
-	default:
-		return nil, fmt.Errorf("unsupported source type %T", src)
-	}
+// Deprecated: FromRobot is a helper for getting the named Summation from the given Robot.
+func FromRobot(r robot.Robot, name string) (Summation, error) {
+	return robot.ResourceFromRobot[Summation](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Summation
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Summation, error) {
+	return resource.FromProvider[Summation](provider, Named(name))
 }
 
 func init() {

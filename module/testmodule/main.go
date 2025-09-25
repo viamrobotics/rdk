@@ -116,7 +116,7 @@ func newHelper(
 	var dependsOnSensor sensor.Sensor
 	var err error
 	if len(conf.DependsOn) > 0 {
-		dependsOnSensor, err = sensor.GetResource(deps, conf.DependsOn[0])
+		dependsOnSensor, err = sensor.FromProvider(deps, conf.DependsOn[0])
 		if err != nil {
 			return nil, err
 		}

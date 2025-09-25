@@ -49,7 +49,7 @@ func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.S
 	test.That(t, err, test.ShouldBeNil)
 	myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc, err := motion.GetResource(myRobot, "builtin")
+	svc, err := motion.FromProvider(myRobot, "builtin")
 	test.That(t, err, test.ShouldBeNil)
 	return svc, func() {
 		myRobot.Close(context.Background())

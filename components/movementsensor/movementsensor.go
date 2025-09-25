@@ -6,7 +6,6 @@ package movementsensor
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strings"
 
@@ -182,17 +181,20 @@ type MovementSensor interface {
 	Accuracy(ctx context.Context, extra map[string]interface{}) (*Accuracy, error)
 }
 
-// GetResource is a helper for getting the named MovementSensor from either a collection of dependencies
-// or the given robot.
-func GetResource(src any, name string) (MovementSensor, error) {
-	switch v := src.(type) {
-	case resource.Dependencies:
-		return resource.FromDependencies[MovementSensor](v, Named(name))
-	case robot.Robot:
-		return robot.ResourceFromRobot[MovementSensor](v, Named(name))
-	default:
-		return nil, fmt.Errorf("unsupported source type %T", src)
-	}
+// Deprecated: FromDependencies is a helper for getting the named movementsensor from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (MovementSensor, error) {
+	return resource.FromDependencies[MovementSensor](deps, Named(name))
+}
+
+// Deprecated: FromRobot is a helper for getting the named MovementSensor from the given Robot.
+func FromRobot(r robot.Robot, name string) (MovementSensor, error) {
+	return robot.ResourceFromRobot[MovementSensor](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named MovementSensor from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (MovementSensor, error) {
+	return resource.FromProvider[MovementSensor](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all MovementSensor names from the given Robot.
