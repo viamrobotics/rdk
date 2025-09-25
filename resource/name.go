@@ -142,11 +142,7 @@ func (n Name) Validate() error {
 // as it's only used internally.
 func (n Name) String() string {
 	name := n.API.String()
-	if n.Remote != "" {
-		name = fmt.Sprintf("%s/%s:%s", name, n.Remote, n.Name)
-	} else {
-		name = fmt.Sprintf("%s/%s", name, n.Name)
-	}
+	name = fmt.Sprintf("%s/%s", name, n.Name)
 	return name
 }
 
