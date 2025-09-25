@@ -3,7 +3,7 @@ package armplanning
 import (
 	"encoding/json"
 	"errors"
-	"math"
+	"fmt"
 	"runtime"
 
 	"go.viam.com/rdk/motionplan"
@@ -198,7 +198,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 			poseParent := goal[frame].Parent()
 			currPose, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
 			if err != nil {
-				score += math.Inf(1)
+				panic(fmt.Errorf("fs: %v err: %w frame: %s poseParent: %v", state.FS.FrameNames(), err, frame, poseParent))
 			}
 
 			score += goalMetric(&motionplan.State{

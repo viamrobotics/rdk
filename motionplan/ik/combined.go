@@ -30,9 +30,8 @@ func CreateCombinedIKSolver(
 ) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.limits = limits
-	if nCPU <= 0 {
-		nCPU = 2
-	}
+	nCPU = max(nCPU, 2)
+
 	for i := 1; i <= nCPU; i++ {
 		nloptSolver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
 		if err != nil {
@@ -49,7 +48,7 @@ func CreateCombinedIKSolver(
 func (ik *CombinedIK) Solve(ctx context.Context,
 	retChan chan<- *Solution,
 	seed []float64,
-	overallMaxTravel, cartestianDistance float64,
+	travelPercent []float64,
 	m func([]float64) float64,
 	rseed int,
 ) (int, error) {
@@ -73,16 +72,17 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 			seedFloats = generateRandomPositions(randSeed, lowerBound, upperBound)
 		}
 
-		maxTravel := overallMaxTravel
-		if maxTravel <= 0 && cartestianDistance > 0 && i == 0 {
-			maxTravel = max(.25, cartestianDistance/100)
+		var myTravelPercent []float64
+		if i == 0 {
+			// TODO: this is probablytoo conservative
+			myTravelPercent = travelPercent
 		}
 
 		activeSolvers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			n, err := thisSolver.Solve(ctx, retChan, seedFloats, maxTravel, cartestianDistance, m, parseed)
+			n, err := thisSolver.Solve(ctx, retChan, seedFloats, myTravelPercent, m, parseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()

@@ -8,6 +8,7 @@ import (
 )
 
 type motionChains struct {
+	fs    *referenceframe.FrameSystem
 	inner []*motionChain
 }
 
@@ -35,6 +36,7 @@ func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to *PlanState) (*
 	}
 
 	return &motionChains{
+		fs:    fs,
 		inner: inner,
 	}, nil
 }
@@ -93,7 +95,7 @@ func (mC *motionChains) translateGoalsToWorldPosition(
 	return goal, nil
 }
 
-func (mC *motionChains) framesFilteredByMovingAndNonmoving(fs *referenceframe.FrameSystem) (moving, nonmoving []string) {
+func (mC *motionChains) framesFilteredByMovingAndNonmoving() (moving, nonmoving []string) {
 	movingMap := map[string]referenceframe.Frame{}
 	for _, chain := range mC.inner {
 		for _, frame := range chain.frames {
@@ -102,7 +104,7 @@ func (mC *motionChains) framesFilteredByMovingAndNonmoving(fs *referenceframe.Fr
 	}
 
 	// Here we account for anything in the framesystem that is not part of a motion chain
-	for _, frameName := range fs.FrameNames() {
+	for _, frameName := range mC.fs.FrameNames() {
 		if _, ok := movingMap[frameName]; ok {
 			moving = append(moving, frameName)
 		} else {
