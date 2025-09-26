@@ -10,10 +10,9 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-func TestSmoothPlans1(t *testing.T) {
-	//nolint
-	nodes := []*node{
-		{inputs: referenceframe.FrameSystemInputs{"arm-left": []referenceframe.Input{{Value: -5.448896408081055}, {Value: -1.18217408657074}, {Value: -0.52701336145401}, {Value: 3.471836566925049}, {Value: -1.0830711126327515}, {Value: -0.8000170588493347}}, "arm-left_origin": []referenceframe.Input{}, "arm-right": []referenceframe.Input{{Value: -1.1314610242843628}, {Value: -1.8993258476257324}, {Value: -0.5695485472679138}, {Value: 6.087271213531494}, {Value: 1.9338887929916382}, {Value: -3.221126079559326}}, "arm-right_origin": []referenceframe.Input{}, "cam-left": []referenceframe.Input{}, "cam-left_origin": []referenceframe.Input{}, "cam-right": []referenceframe.Input{}, "cam-right_origin": []referenceframe.Input{}, "gripper-left": []referenceframe.Input{}, "gripper-left_origin": []referenceframe.Input{}, "gripper-right": []referenceframe.Input{}, "gripper-right_origin": []referenceframe.Input{}, "obstacle-arm-left-cord": []referenceframe.Input{}, "obstacle-arm-left-cord_origin": []referenceframe.Input{}, "obstacle-back-wall": []referenceframe.Input{}, "obstacle-back-wall_origin": []referenceframe.Input{}, "obstacle-ceiling": []referenceframe.Input{}, "obstacle-ceiling_origin": []referenceframe.Input{}, "obstacle-front-wall": []referenceframe.Input{}, "obstacle-front-wall_origin": []referenceframe.Input{}, "obstacle-left-wall": []referenceframe.Input{}, "obstacle-left-wall_origin": []referenceframe.Input{}, "obstacle-right-bottle": []referenceframe.Input{}, "obstacle-right-bottle_origin": []referenceframe.Input{}, "obstacle-right-wall": []referenceframe.Input{}, "obstacle-right-wall_origin": []referenceframe.Input{}, "obstacle-table": []referenceframe.Input{}, "obstacle-table_origin": []referenceframe.Input{}}, corner: false, cost: 0, checkPath: false},
+//nolint
+var testSmoothNodes = []*node{
+	{inputs: referenceframe.FrameSystemInputs{"arm-left": []referenceframe.Input{{Value: -5.448896408081055}, {Value: -1.18217408657074}, {Value: -0.52701336145401}, {Value: 3.471836566925049}, {Value: -1.0830711126327515}, {Value: -0.8000170588493347}}, "arm-left_origin": []referenceframe.Input{}, "arm-right": []referenceframe.Input{{Value: -1.1314610242843628}, {Value: -1.8993258476257324}, {Value: -0.5695485472679138}, {Value: 6.087271213531494}, {Value: 1.9338887929916382}, {Value: -3.221126079559326}}, "arm-right_origin": []referenceframe.Input{}, "cam-left": []referenceframe.Input{}, "cam-left_origin": []referenceframe.Input{}, "cam-right": []referenceframe.Input{}, "cam-right_origin": []referenceframe.Input{}, "gripper-left": []referenceframe.Input{}, "gripper-left_origin": []referenceframe.Input{}, "gripper-right": []referenceframe.Input{}, "gripper-right_origin": []referenceframe.Input{}, "obstacle-arm-left-cord": []referenceframe.Input{}, "obstacle-arm-left-cord_origin": []referenceframe.Input{}, "obstacle-back-wall": []referenceframe.Input{}, "obstacle-back-wall_origin": []referenceframe.Input{}, "obstacle-ceiling": []referenceframe.Input{}, "obstacle-ceiling_origin": []referenceframe.Input{}, "obstacle-front-wall": []referenceframe.Input{}, "obstacle-front-wall_origin": []referenceframe.Input{}, "obstacle-left-wall": []referenceframe.Input{}, "obstacle-left-wall_origin": []referenceframe.Input{}, "obstacle-right-bottle": []referenceframe.Input{}, "obstacle-right-bottle_origin": []referenceframe.Input{}, "obstacle-right-wall": []referenceframe.Input{}, "obstacle-right-wall_origin": []referenceframe.Input{}, "obstacle-table": []referenceframe.Input{}, "obstacle-table_origin": []referenceframe.Input{}}, corner: false, cost: 0, checkPath: false},
 		{inputs: referenceframe.FrameSystemInputs{"arm-left": []referenceframe.Input{{Value: -5.323581767787862}, {Value: -1.1406352503732748}, {Value: -0.5680285988758768}, {Value: 3.597151207218242}, {Value: -1.0349000252777079}, {Value: -0.6747024185561419}}, "arm-left_origin": []referenceframe.Input{}, "arm-right": []referenceframe.Input{{Value: -1.1314610242843628}, {Value: -1.8993258476257324}, {Value: -0.5695485472679138}, {Value: 6.087271213531494}, {Value: 1.9338887929916382}, {Value: -3.221126079559326}}, "arm-right_origin": []referenceframe.Input{}, "cam-left": []referenceframe.Input{}, "cam-left_origin": []referenceframe.Input{}, "cam-right": []referenceframe.Input{}, "cam-right_origin": []referenceframe.Input{}, "gripper-left": []referenceframe.Input{}, "gripper-left_origin": []referenceframe.Input{}, "gripper-right": []referenceframe.Input{}, "gripper-right_origin": []referenceframe.Input{}, "obstacle-arm-left-cord": []referenceframe.Input{}, "obstacle-arm-left-cord_origin": []referenceframe.Input{}, "obstacle-back-wall": []referenceframe.Input{}, "obstacle-back-wall_origin": []referenceframe.Input{}, "obstacle-ceiling": []referenceframe.Input{}, "obstacle-ceiling_origin": []referenceframe.Input{}, "obstacle-front-wall": []referenceframe.Input{}, "obstacle-front-wall_origin": []referenceframe.Input{}, "obstacle-left-wall": []referenceframe.Input{}, "obstacle-left-wall_origin": []referenceframe.Input{}, "obstacle-right-bottle": []referenceframe.Input{}, "obstacle-right-bottle_origin": []referenceframe.Input{}, "obstacle-right-wall": []referenceframe.Input{}, "obstacle-right-wall_origin": []referenceframe.Input{}, "obstacle-table": []referenceframe.Input{}, "obstacle-table_origin": []referenceframe.Input{}}, corner: false, cost: 0, checkPath: false},
 		{inputs: referenceframe.FrameSystemInputs{"arm-left": []referenceframe.Input{{Value: -5.198267127494669}, {Value: -1.0990964141758097}, {Value: -0.6090438362977435}, {Value: 3.722465847511435}, {Value: -0.9867289379226644}, {Value: -0.549387778262949}}, "arm-left_origin": []referenceframe.Input{}, "arm-right": []referenceframe.Input{{Value: -1.1314610242843628}, {Value: -1.8993258476257324}, {Value: -0.5695485472679138}, {Value: 6.087271213531494}, {Value: 1.9338887929916382}, {Value: -3.221126079559326}}, "arm-right_origin": []referenceframe.Input{}, "cam-left": []referenceframe.Input{}, "cam-left_origin": []referenceframe.Input{}, "cam-right": []referenceframe.Input{}, "cam-right_origin": []referenceframe.Input{}, "gripper-left": []referenceframe.Input{}, "gripper-left_origin": []referenceframe.Input{}, "gripper-right": []referenceframe.Input{}, "gripper-right_origin": []referenceframe.Input{}, "obstacle-arm-left-cord": []referenceframe.Input{}, "obstacle-arm-left-cord_origin": []referenceframe.Input{}, "obstacle-back-wall": []referenceframe.Input{}, "obstacle-back-wall_origin": []referenceframe.Input{}, "obstacle-ceiling": []referenceframe.Input{}, "obstacle-ceiling_origin": []referenceframe.Input{}, "obstacle-front-wall": []referenceframe.Input{}, "obstacle-front-wall_origin": []referenceframe.Input{}, "obstacle-left-wall": []referenceframe.Input{}, "obstacle-left-wall_origin": []referenceframe.Input{}, "obstacle-right-bottle": []referenceframe.Input{}, "obstacle-right-bottle_origin": []referenceframe.Input{}, "obstacle-right-wall": []referenceframe.Input{}, "obstacle-right-wall_origin": []referenceframe.Input{}, "obstacle-table": []referenceframe.Input{}, "obstacle-table_origin": []referenceframe.Input{}}, corner: false, cost: 0, checkPath: false},
 		{inputs: referenceframe.FrameSystemInputs{"arm-left": []referenceframe.Input{{Value: -5.0729524872014755}, {Value: -1.0575575779783446}, {Value: -0.6500590737196102}, {Value: 3.847780487804628}, {Value: -0.9385578505676209}, {Value: -0.5251720434411875}}, "arm-left_origin": []referenceframe.Input{}, "arm-right": []referenceframe.Input{{Value: -1.1314610242843628}, {Value: -1.8993258476257324}, {Value: -0.5695485472679138}, {Value: 6.087271213531494}, {Value: 1.9338887929916382}, {Value: -3.221126079559326}}, "arm-right_origin": []referenceframe.Input{}, "cam-left": []referenceframe.Input{}, "cam-left_origin": []referenceframe.Input{}, "cam-right": []referenceframe.Input{}, "cam-right_origin": []referenceframe.Input{}, "gripper-left": []referenceframe.Input{}, "gripper-left_origin": []referenceframe.Input{}, "gripper-right": []referenceframe.Input{}, "gripper-right_origin": []referenceframe.Input{}, "obstacle-arm-left-cord": []referenceframe.Input{}, "obstacle-arm-left-cord_origin": []referenceframe.Input{}, "obstacle-back-wall": []referenceframe.Input{}, "obstacle-back-wall_origin": []referenceframe.Input{}, "obstacle-ceiling": []referenceframe.Input{}, "obstacle-ceiling_origin": []referenceframe.Input{}, "obstacle-front-wall": []referenceframe.Input{}, "obstacle-front-wall_origin": []referenceframe.Input{}, "obstacle-left-wall": []referenceframe.Input{}, "obstacle-left-wall_origin": []referenceframe.Input{}, "obstacle-right-bottle": []referenceframe.Input{}, "obstacle-right-bottle_origin": []referenceframe.Input{}, "obstacle-right-wall": []referenceframe.Input{}, "obstacle-right-wall_origin": []referenceframe.Input{}, "obstacle-table": []referenceframe.Input{}, "obstacle-table_origin": []referenceframe.Input{}}, corner: false, cost: 0, checkPath: false},
@@ -77,7 +76,8 @@ func TestSmoothPlans1(t *testing.T) {
 		{inputs: referenceframe.FrameSystemInputs{"arm-left": []referenceframe.Input{{Value: -4.204021272922442}, {Value: 0.5516692618134813}, {Value: -0.8020252409018331}, {Value: 4.69761921848357}, {Value: 1.5670119983367359}, {Value: -0.25032702803304036}}, "arm-left_origin": []referenceframe.Input(nil), "arm-right": []referenceframe.Input{{Value: -1.1314610242843628}, {Value: -1.8993258476257324}, {Value: -0.5695485472679138}, {Value: 6.087271213531494}, {Value: 1.9338887929916382}, {Value: -3.221126079559326}}, "arm-right_origin": []referenceframe.Input{}, "cam-left": []referenceframe.Input{}, "cam-left_origin": []referenceframe.Input{}, "cam-right": []referenceframe.Input{}, "cam-right_origin": []referenceframe.Input{}, "gripper-left": []referenceframe.Input(nil), "gripper-left_origin": []referenceframe.Input(nil), "gripper-right": []referenceframe.Input{}, "gripper-right_origin": []referenceframe.Input{}, "obstacle-arm-left-cord": []referenceframe.Input{}, "obstacle-arm-left-cord_origin": []referenceframe.Input{}, "obstacle-back-wall": []referenceframe.Input{}, "obstacle-back-wall_origin": []referenceframe.Input{}, "obstacle-ceiling": []referenceframe.Input{}, "obstacle-ceiling_origin": []referenceframe.Input{}, "obstacle-front-wall": []referenceframe.Input{}, "obstacle-front-wall_origin": []referenceframe.Input{}, "obstacle-left-wall": []referenceframe.Input{}, "obstacle-left-wall_origin": []referenceframe.Input{}, "obstacle-right-bottle": []referenceframe.Input{}, "obstacle-right-bottle_origin": []referenceframe.Input{}, "obstacle-right-wall": []referenceframe.Input{}, "obstacle-right-wall_origin": []referenceframe.Input{}, "obstacle-table": []referenceframe.Input{}, "obstacle-table_origin": []referenceframe.Input{}}, corner: false, cost: 0, checkPath: false},
 	}
 
-	test.That(t, len(nodes), test.ShouldEqual, 62)
+func TestSmoothPlans1(t *testing.T) {
+	test.That(t, len(testSmoothNodes), test.ShouldEqual, 62)
 
 	logger := logging.NewTestLogger(t)
 
@@ -97,9 +97,39 @@ func TestSmoothPlans1(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	nodes = pathPlanner.simpleSmooth(nodes)
+	nodes := pathPlanner.simpleSmooth(testSmoothNodes)
 	for idx, n := range nodes {
 		logger.Infof("%d : %v", idx, n.inputs["arm-left"])
 	}
 	test.That(t, len(nodes), test.ShouldEqual, 3)
+}
+
+func BenchmarkSmoothPlans1(b *testing.B) {
+	// go test -bench Smooth -benchtime 5s -cpuprofile cpu.out && go tool pprof cpu.out
+	test.That(b, len(testSmoothNodes), test.ShouldEqual, 62)
+
+	logger := logging.NewTestLogger(b)
+
+	req, err := readRequestFromFile("data/wine-crazy-touch.json")
+	test.That(b, err, test.ShouldBeNil)
+
+	pm, err := newPlanManager(logger, req)
+	test.That(b, err, test.ShouldBeNil)
+
+	pathPlanner, err := newCBiRRTMotionPlanner(
+		pm.request.FrameSystem,
+		rand.New(rand.NewSource(int64(pm.randseed.Int()))),
+		pm.logger,
+		pm.request.PlannerOptions,
+		pm.checker,
+		pm.motionChains,
+	)
+	test.That(b, err, test.ShouldBeNil)
+
+	b.ResetTimer()
+	for b.Loop() {
+		nodes := pathPlanner.simpleSmooth(testSmoothNodes)
+		test.That(b, len(nodes), test.ShouldEqual, 3)
+	}
+
 }

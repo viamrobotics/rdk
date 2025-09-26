@@ -87,6 +87,7 @@ func realMain() error {
 		req.PlannerOptions.RandomSeed = *seed
 	}
 
+	logger.Infof("starting motion planning for #d goals", len(req.Goals))
 	start := time.Now()
 
 	plan, err := armplanning.PlanMotion(ctx, logger, &req)
@@ -100,7 +101,8 @@ func realMain() error {
 
 	mylog := log.New(os.Stdout, "", 0)
 
-	mylog.Printf("planning took %v", time.Since(start))
+	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
+		time.Since(start).Truncate(time.Millisecond), len(req.Goals), len(plan.Trajectory()))
 
 	for *cpu != "" && time.Since(start) < (10*time.Second) {
 		ss := time.Now()
