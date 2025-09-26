@@ -131,5 +131,4 @@ func BenchmarkSmoothPlans1(b *testing.B) {
 		nodes := pathPlanner.simpleSmooth(testSmoothNodes)
 		test.That(b, len(nodes), test.ShouldEqual, 3)
 	}
-
 }
