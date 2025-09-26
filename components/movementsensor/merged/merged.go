@@ -100,7 +100,7 @@ func (m *merged) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		}
 
 		for _, name := range names {
-			ms, err := movementsensor.FromDependencies(deps, name)
+			ms, err := movementsensor.FromProvider(deps, name)
 			msName := ms.Name().ShortName()
 			if err != nil {
 				logger.CDebugf(ctx, "error getting sensor %v from dependencies", msName)

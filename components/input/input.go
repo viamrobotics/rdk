@@ -45,7 +45,7 @@ func Named(name string) resource.Name {
 //
 // Controls example:
 //
-//	myController, err := input.FromRobot(machine, "my_input_controller")
+//	myController, err := input.FromProvider(machine, "my_input_controller")
 //
 //	// Get the list of Controls provided by the controller.
 //	controls, err := myController.Controls(context.Background(), nil)
@@ -54,7 +54,7 @@ func Named(name string) resource.Name {
 //
 // Events example:
 //
-//	myController, err := input.FromRobot(machine, "my_input_controller")
+//	myController, err := input.FromProvider(machine, "my_input_controller")
 //
 //	// Get the most recent Event for each Control.
 //	recent_events, err := myController.Events(context.Background(), nil)
@@ -68,7 +68,7 @@ func Named(name string) resource.Name {
 //	    logger.Info("Start Menu Button was pressed at this time: %v", event.Time)
 //	}
 //
-//	myController, err := input.FromRobot(machine, "my_input_controller")
+//	myController, err := input.FromProvider(machine, "my_input_controller")
 //
 //	// Define the EventType "ButtonPress" to serve as the trigger for printStartTime.
 //	triggers := []input.EventType{input.ButtonPress}
@@ -191,15 +191,25 @@ type Triggerable interface {
 	TriggerEvent(ctx context.Context, event Event, extra map[string]interface{}) error
 }
 
-// FromDependencies is a helper for getting the named input controller from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named input controller from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Controller, error) {
 	return resource.FromDependencies[Controller](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named input controller from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named input controller from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment checkx
 func FromRobot(r robot.Robot, name string) (Controller, error) {
 	return robot.ResourceFromRobot[Controller](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Input Controller from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Controller, error) {
+	return resource.FromProvider[Controller](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all input controller names from the given Robot.

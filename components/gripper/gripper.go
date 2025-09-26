@@ -53,7 +53,7 @@ type HoldingStatus struct {
 //
 // Open example:
 //
-//	myGripper, err := gripper.FromRobot(machine, "my_gripper")
+//	myGripper, err := gripper.FromProvider(machine, "my_gripper")
 //
 //	// Open the gripper.
 //	err := myGripper.Open(context.Background(), nil)
@@ -62,7 +62,7 @@ type HoldingStatus struct {
 //
 // Grab example:
 //
-//	myGripper, err := gripper.FromRobot(machine, "my_gripper")
+//	myGripper, err := gripper.FromProvider(machine, "my_gripper")
 //
 //	// Grab with the gripper.
 //	grabbed, err := myGripper.Grab(context.Background(), nil)
@@ -91,15 +91,25 @@ type Gripper interface {
 	IsHoldingSomething(ctx context.Context, extra map[string]interface{}) (HoldingStatus, error)
 }
 
-// FromRobot is a helper for getting the named Gripper from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named Gripper from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Gripper, error) {
 	return robot.ResourceFromRobot[Gripper](r, Named(name))
 }
 
-// FromDependencies is a helper for getting the named gripper from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named gripper from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Gripper, error) {
 	return resource.FromDependencies[Gripper](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named Gripper from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Gripper, error) {
+	return resource.FromProvider[Gripper](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.

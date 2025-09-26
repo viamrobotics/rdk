@@ -56,7 +56,7 @@ func cropToEvenDimensions(img image.Image) (image.Image, error) {
 func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
 	// Stream names are slightly modified versions of the resource short name
 	shortName := resource.SDPTrackNameToShortName(stream.Name())
-	cam, err := camera.FromRobot(robot, shortName)
+	cam, err := camera.FromProvider(robot, shortName)
 	if err != nil {
 		return nil, err
 	}
