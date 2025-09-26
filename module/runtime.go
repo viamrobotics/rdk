@@ -2,6 +2,7 @@ package module
 
 import (
 	"context"
+	"runtime/debug"
 
 	"go.viam.com/utils"
 
@@ -13,6 +14,11 @@ import (
 // the provided APIModels added to it.
 func ModularMain(models ...resource.APIModel) {
 	mainWithArgs := func(ctx context.Context, args []string, logger logging.Logger) error {
+		info, ok := debug.ReadBuildInfo()
+		if ok {
+			logger.Infof("module version: %s, go version: %s", info.Main.Version, info.GoVersion)
+		}
+
 		mod, err := NewModuleFromArgs(ctx)
 		if err != nil {
 			return err
