@@ -87,7 +87,7 @@ func realMain() error {
 		req.PlannerOptions.RandomSeed = *seed
 	}
 
-	logger.Infof("starting motion planning for #d goals", len(req.Goals))
+	logger.Infof("starting motion planning for %d goals", len(req.Goals))
 	start := time.Now()
 
 	plan, err := armplanning.PlanMotion(ctx, logger, &req)
