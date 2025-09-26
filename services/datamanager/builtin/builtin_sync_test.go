@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/logging"
@@ -195,7 +196,7 @@ func TestSyncEnabled(t *testing.T) {
 			case <-firstCalledCtx.Done():
 			}
 
-			offline := tc.connStateConstructor == nil || tc.connStateConstructor(nil).GetState() != connectivity.Ready
+			offline := tc.connStateConstructor == nil || tc.connStateConstructor(nil).(rgrpc.ConnectivityState).GetState() != connectivity.Ready
 			if tc.syncStartDisabled || offline || tc.cloudConnectionErr != nil {
 				test.That(t, firstCalledCtx.Err(), test.ShouldBeNil)
 			} else {
@@ -515,7 +516,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				for i := 0; i < numFiles; i++ {
 					select {
 					case <-wait:
-						offline := tc.connStateConstructor == nil || tc.connStateConstructor(nil).GetState() != connectivity.Ready
+						offline := tc.connStateConstructor == nil || tc.connStateConstructor(nil).(rgrpc.ConnectivityState).GetState() != connectivity.Ready
 						if offline && !tc.manualSync {
 							err = b2.Close(context.Background())
 							test.That(t, err, test.ShouldBeNil)
