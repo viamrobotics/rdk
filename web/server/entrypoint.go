@@ -444,15 +444,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	defer func() { <-forceShutdown }()
 
 	var (
-		theRobot                  robot.LocalRobot
-		theRobotLock              sync.Mutex
-		cloudRestartCheckerActive chan struct{}
+		theRobot     robot.LocalRobot
+		theRobotLock sync.Mutex
 	)
 	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
-		if cloudRestartCheckerActive != nil {
-			<-cloudRestartCheckerActive
-		}
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
 	defer cancel()
@@ -528,33 +524,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	//
 	// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
 	config.UpdateLoggerRegistryFromConfig(s.registry, fullProcessedConfig, s.logger)
-
-	if fullProcessedConfig.Cloud != nil {
-		cloudRestartCheckerActive = make(chan struct{})
-		utils.PanicCapturingGo(func() {
-			defer close(cloudRestartCheckerActive)
-			restartCheck := newRestartChecker(cfg.Cloud, s.logger, s.conn)
-			restartInterval := defaultNeedsRestartCheckInterval
-
-			for {
-				if !utils.SelectContextOrWait(ctx, restartInterval) {
-					return
-				}
-
-				mustRestart, newRestartInterval, err := restartCheck.needsRestart(ctx)
-				if err != nil {
-					s.logger.Infow("failed to check restart", "error", err)
-					continue
-				}
-
-				restartInterval = newRestartInterval
-
-				if mustRestart {
-					logStackTraceAndCancel(cancel, s.logger)
-				}
-			}
-		})
-	}
 
 	robotOptions := createRobotOptions()
 	if s.args.RevealSensitiveConfigDiffs {
