@@ -91,7 +91,7 @@ type Gripper interface {
 	IsHoldingSomething(ctx context.Context, extra map[string]interface{}) (HoldingStatus, error)
 }
 
-// Deprecated: FromRobot is a helper for getting the named Gripper from the given Robot. 
+// Deprecated: FromRobot is a helper for getting the named Gripper from the given Robot.
 // Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check

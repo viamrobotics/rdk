@@ -129,7 +129,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Encoder, error) 
 	return resource.FromDependencies[Encoder](deps, Named(name))
 }
 
-// Deprecated: FromRobot is a helper for getting the named encoder from the given Robot. 
+// Deprecated: FromRobot is a helper for getting the named encoder from the given Robot.
 // Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check

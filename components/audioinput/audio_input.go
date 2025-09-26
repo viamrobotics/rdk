@@ -69,7 +69,7 @@ func FromDependencies(deps resource.Dependencies, name string) (AudioInput, erro
 	return resource.FromDependencies[AudioInput](deps, Named(name))
 }
 
-// Deprecated: FromRobot is a helper for getting the named audio input from the given Robot. 
+// Deprecated: FromRobot is a helper for getting the named audio input from the given Robot.
 // Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check

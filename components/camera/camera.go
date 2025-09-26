@@ -388,7 +388,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Camera, error) {
 	return resource.FromDependencies[Camera](deps, Named(name))
 }
 
-// Deprecated: FromRobot is a helper for getting the named Camera from the given Robot. 
+// Deprecated: FromRobot is a helper for getting the named Camera from the given Robot.
 // Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check

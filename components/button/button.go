@@ -43,7 +43,7 @@ type Button interface {
 	Push(ctx context.Context, extra map[string]interface{}) error
 }
 
-// Deprecated: FromRobot is a helper for getting the named Button from the given Robot. 
+// Deprecated: FromRobot is a helper for getting the named Button from the given Robot.
 // Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check
@@ -51,7 +51,7 @@ func FromRobot(r robot.Robot, name string) (Button, error) {
 	return robot.ResourceFromRobot[Button](r, Named(name))
 }
 
-// Deprecated: FromDependencies is a helper for getting the named button component from a collection of dependencies. 
+// Deprecated: FromDependencies is a helper for getting the named button component from a collection of dependencies.
 // Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check

@@ -155,7 +155,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Base, error) {
 	return resource.FromDependencies[Base](deps, Named(name))
 }
 
-// Deprecated: FromRobot is a helper for getting the named base from the given Robot. 
+// Deprecated: FromRobot is a helper for getting the named base from the given Robot.
 // Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check
