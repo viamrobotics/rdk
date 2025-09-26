@@ -89,6 +89,7 @@ type Resource interface {
 type Dependencies map[Name]Resource
 
 // Deprecated: FromDependencies returns a named component from a collection of dependencies.
+// Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies[T Resource](resources Dependencies, name Name) (T, error) {
@@ -120,12 +121,7 @@ func FromProvider[T Resource](provider Provider, name Name) (T, error) {
 
 // GetResource implements Provider for Dependencies by looking up a resource by name.
 func (d Dependencies) GetResource(name Name) (Resource, error) {
-	res, err := d.Lookup(name)
-	if err != nil {
-		var zero Resource
-		return zero, DependencyNotFoundError(name)
-	}
-	return res, nil
+	return d.Lookup(name)
 }
 
 // Lookup searches for a given dependency by name.

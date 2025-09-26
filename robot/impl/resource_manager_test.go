@@ -1789,12 +1789,7 @@ type dummyRobot struct {
 
 // GetResource implements resource.Provider for a dummyRobot by looking up a resource by name.
 func (rr *dummyRobot) GetResource(name resource.Name) (resource.Resource, error) {
-	res, err := rr.ResourceByName(name)
-	if err != nil {
-		var zero resource.Resource
-		return zero, err
-	}
-	return res, nil
+	return rr.ResourceByName(name)
 }
 
 // newDummyRobot returns a new dummy robot wrapping a given robot.Robot

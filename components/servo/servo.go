@@ -84,6 +84,7 @@ func Named(name string) resource.Name {
 }
 
 // Deprecated: FromRobot is a helper for getting the named servo from the given Robot.
+// Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Servo, error) {

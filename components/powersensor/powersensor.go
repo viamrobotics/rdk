@@ -96,7 +96,7 @@ type PowerSensor interface {
 }
 
 // Deprecated: FromDependencies is a helper for getting the named PowerSensor from a collection of
-// dependencies.
+// dependencies. Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (PowerSensor, error) {
@@ -104,6 +104,7 @@ func FromDependencies(deps resource.Dependencies, name string) (PowerSensor, err
 }
 
 // Deprecated: FromRobot is a helper for getting the named PowerSensor from the given Robot.
+// Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (PowerSensor, error) {

@@ -41,6 +41,7 @@ func Named(name string) resource.Name {
 }
 
 // Deprecated: FromRobot is a helper for getting the named discovery service from the given Robot.
+// Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
@@ -48,7 +49,7 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 }
 
 // Deprecated: FromDependencies is a helper for getting the named discovery service from a collection of
-// dependencies.
+// dependencies. Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {

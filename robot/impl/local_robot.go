@@ -1816,10 +1816,5 @@ func (r *localRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpo
 
 // GetResource implements resource.Provider for a localRobot by looking up a resource by name.
 func (r *localRobot) GetResource(name resource.Name) (resource.Resource, error) {
-	res, err := r.ResourceByName(name)
-	if err != nil {
-		var zero resource.Resource
-		return zero, err
-	}
-	return res, nil
+	return r.ResourceByName(name)
 }

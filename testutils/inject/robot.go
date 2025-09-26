@@ -125,11 +125,6 @@ func (r *Robot) ResourceByName(name resource.Name) (resource.Resource, error) {
 
 // GetResource calls the injected ResourceByName or the real version of GetResource.
 func (r *Robot) GetResource(name resource.Name) (resource.Resource, error) {
-	r.Mu.RLock()
-	defer r.Mu.RUnlock()
-	if r.ResourceByNameFunc == nil {
-		return r.LocalRobot.GetResource(name)
-	}
 	return r.ResourceByNameFunc(name)
 }
 

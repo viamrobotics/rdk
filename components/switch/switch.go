@@ -52,6 +52,7 @@ type Switch interface {
 }
 
 // Deprecated: FromRobot is a helper for getting the named Switch from the given Robot.
+// Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Switch, error) {
@@ -59,6 +60,7 @@ func FromRobot(r robot.Robot, name string) (Switch, error) {
 }
 
 // Deprecated: FromDependencies is a helper for getting the named button component from a collection of dependencies.
+// Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Switch, error) {

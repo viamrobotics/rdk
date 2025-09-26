@@ -145,14 +145,15 @@ type Arm interface {
 }
 
 // Deprecated: FromDependencies is a helper for getting the named arm from a collection of
-// dependencies.
+// dependencies. Use FromProvider instead. 
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Arm, error) {
 	return resource.FromDependencies[Arm](deps, Named(name))
 }
 
-// Deprecated: FromRobot is a helper for getting the named Arm from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named Arm from the given Robot. 
+// Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Arm, error) {

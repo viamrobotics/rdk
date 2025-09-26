@@ -192,7 +192,7 @@ type Triggerable interface {
 }
 
 // Deprecated: FromDependencies is a helper for getting the named input controller from a collection of
-// dependencies.
+// dependencies. Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Controller, error) {
@@ -200,6 +200,7 @@ func FromDependencies(deps resource.Dependencies, name string) (Controller, erro
 }
 
 // Deprecated: FromRobot is a helper for getting the named input controller from the given Robot.
+// Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment checkx
 func FromRobot(r robot.Robot, name string) (Controller, error) {
