@@ -643,7 +643,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 				mp.logger.Debugf("\tscore %0.4f stopping early (%0.2f)", myNode.cost, goodCost/goodCostStopDivier)
 				return true // good solution, stopping early
 			} else if myNode.cost < (goodCost / (.5 * goodCostStopDivier)) {
-				sss.ikTimeMultiple = mp.planOpts.TimeMultipleAfterFindingFirstSolution / 4
+				sss.ikTimeMultiple = mp.planOpts.TimeMultipleAfterFindingFirstSolution / 2
 			}
 		}
 	}
