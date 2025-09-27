@@ -496,13 +496,12 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 			}
 
 			sm.DoF()[idx] = l
-
 		}
-
 	}
 
 	return frameSys, nil
 }
+
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
 	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
