@@ -489,13 +489,40 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
 		}
 
-		for idxString, l := range mods {
-			idx, err := strconv.Atoi(idxString)
-			if err != nil {
-				return nil, fmt.Errorf("joint offset (%s) bad %w", idxString, err)
+		smCloned, err := referenceframe.Clone(sm)
+		if err != nil {
+			return nil, err
+		}
+		smClonedTyped := smCloned.(*referenceframe.SimpleModel)
+
+		sub := smClonedTyped.OrdTransforms()
+
+		for modString, l := range mods {
+			idx := 0
+
+			found := false
+			for _, ss := range sub {
+				if len(ss.DoF()) > 0 && (modString == ss.Name() || modString == strconv.Itoa(idx)) {
+					found = true
+					ss.DoF()[0] = l
+					break
+				}
+
+				if len(ss.DoF()) > 0 {
+					idx++
+				}
 			}
 
-			sm.DoF()[idx] = l
+			if !found {
+				return nil, fmt.Errorf("can't find mod (%s)", modString)
+			}
+		}
+
+		smClonedTyped.SetOrdTransforms(sub)
+
+		err = frameSys.ReplaceFrame(smClonedTyped)
+		if err != nil {
+			return nil, err
 		}
 	}
 
