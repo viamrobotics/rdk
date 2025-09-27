@@ -368,20 +368,29 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	return nil
 }
 
-func (mp *cBiRRTMotionPlanner) simpleSmooth(steps []*node) []*node {
-	originalSize := len(steps)
+func (mp *cBiRRTMotionPlanner) simpleSmoothStep(steps []*node, step int) []*node {
 	// look at each triplet, see if we can remove the middle one
-	for i := 2; i < len(steps); i++ {
-		err := mp.checkPath(steps[i-2].inputs, steps[i].inputs)
+	for i := step + 1; i < len(steps); i += step {
+		err := mp.checkPath(steps[i-step-1].inputs, steps[i].inputs)
 		if err != nil {
 			continue
 		}
 		// we can merge
-		steps = append(steps[0:i-1], steps[i:]...)
+		steps = append(steps[0:i-step], steps[i:]...)
 		i--
 	}
+	return steps
+}
+
+func (mp *cBiRRTMotionPlanner) simpleSmooth(steps []*node) []*node {
+	start := time.Now()
+
+	originalSize := len(steps)
+	steps = mp.simpleSmoothStep(steps, 10)
+	steps = mp.simpleSmoothStep(steps, 1)
+
 	if len(steps) != originalSize {
-		mp.logger.Debugf("simpleSmooth %d -> %d", originalSize, len(steps))
+		mp.logger.Debugf("simpleSmooth %d -> %d in %v", originalSize, len(steps), time.Since(start))
 		return mp.simpleSmooth(steps)
 	}
 	return steps
@@ -631,7 +640,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 				mp.logger.Debugf("\tscore %0.4f stopping early (%0.2f)", myNode.cost, goodCost/goodCostStopDivier)
 				return true // good solution, stopping early
 			} else if myNode.cost < (goodCost / (.5 * goodCostStopDivier)) {
-				sss.ikTimeMultiple = mp.planOpts.TimeMultipleAfterFindingFirstSolution / 2
+				sss.ikTimeMultiple = mp.planOpts.TimeMultipleAfterFindingFirstSolution / 4
 			}
 		}
 	}

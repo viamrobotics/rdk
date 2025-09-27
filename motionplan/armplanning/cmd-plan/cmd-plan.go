@@ -95,7 +95,6 @@ func realMain() error {
 	}
 
 	logger.Infof("starting motion planning for %d goals", len(req.Goals))
-
 	mylog := log.New(os.Stdout, "", 0)
 	start := time.Now()
 
@@ -106,7 +105,6 @@ func realMain() error {
 		}
 		return nil
 	}
-
 	if err != nil {
 		return err
 	}
