@@ -559,8 +559,7 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 
 type solutionSolvingState struct {
 	solutions         []*node
-	failures          map[string]int // A map keeping track of which constraints fail
-	constraintFailCnt int
+	failures          *IkConstraintFailures
 	startTime         time.Time
 	firstSolutionTime time.Duration
 	bestScore         float64
@@ -588,8 +587,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 		FS:            mp.fs,
 	})
 	if err != nil {
-		sss.constraintFailCnt++
-		sss.failures[err.Error()]++
+		sss.failures.Add(step, err)
 		return false
 	}
 
@@ -600,8 +598,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 	}
 	err = mp.checker.CheckSegmentFSConstraints(stepArc)
 	if err != nil {
-		sss.constraintFailCnt++
-		sss.failures[err.Error()]++
+		sss.failures.Add(step, err)
 		return false
 	}
 
@@ -740,7 +737,7 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 
 	solvingState := solutionSolvingState{
 		solutions:         []*node{},
-		failures:          map[string]int{},
+		failures:          NewIkConstraintFailures(mp.fs, mp.checker),
 		startTime:         time.Now(),
 		firstSolutionTime: time.Hour,
 		bestScore:         10000000,
@@ -765,11 +762,11 @@ solutionLoop:
 	if len(solvingState.solutions) == 0 {
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions
 		// were produced, or if non-zero solutions were produced, which constraints were violated.
-		if solvingState.constraintFailCnt == 0 {
+		if solvingState.failures.Count == 0 {
 			return nil, errIKSolve
 		}
 
-		return nil, newIKConstraintErr(solvingState.failures, solvingState.constraintFailCnt)
+		return nil, solvingState.failures
 	}
 
 	sort.Slice(solvingState.solutions, func(i, j int) bool {
