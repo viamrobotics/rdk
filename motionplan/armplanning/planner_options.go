@@ -35,6 +35,20 @@ const (
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultStepSizeMM = 10
+
+	// Number of planner iterations before giving up.
+	defaultPlanIter = 1500
+
+	// The maximum percent of a joints range of motion to allow per step.
+	defaultFrameStep = 0.01
+
+	// If the dot product between two sets of configurations is less than this, consider them identical.
+	defaultInputIdentDist = 0.0001
+
+	// Number of iterations to run before beginning to accept randomly seeded locations.
+	defaultIterBeforeRand = 50
+
+	defaultOptimalityMultiple = 3.0
 )
 
 var (

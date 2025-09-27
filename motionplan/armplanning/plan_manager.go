@@ -222,11 +222,21 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atom
 	if !waypoints[len(waypoints)-1].motionPlanner.planOpts.ReturnPartialPlan && len(partialSlices) > 0 {
 		resultSlices = append(resultSlices, partialSlices...)
 	}
+
 	if returnPartial {
 		pm.logger.Infof("returning partial plan up to waypoint %d", lastOrig)
 	}
 
-	return newRRTPlan(resultSlices, pm.request.FrameSystem)
+	if len(resultSlices) == 0 {
+		return nil, errors.New("cannot create plan, no solution was found")
+	}
+
+	traj := motionplan.Trajectory{}
+	for _, n := range resultSlices {
+		traj = append(traj, n.inputs)
+	}
+
+	return motionplan.NewSimplePlanFromTrajectory(traj, pm.request.FrameSystem)
 }
 
 // planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
@@ -499,4 +509,55 @@ func (r *resultPromise) result() ([]*node, error) {
 		return nil, planReturn.err
 	}
 	return planReturn.steps, nil
+}
+
+type rrtMap map[*node]*node
+
+type rrtSolution struct {
+	steps []*node
+	err   error
+	maps  *rrtMaps
+}
+
+type rrtMaps struct {
+	startMap rrtMap
+	goalMap  rrtMap
+	optNode  *node // The highest quality IK solution
+}
+
+// initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK
+// solutions to pre-populate the goal map, and will check if any of those goals are able to be
+// directly interpolated to.  If the waypoint specifies poses for start or goal, IK will be run to
+// create configurations.
+func initRRTSolutions(ctx context.Context, wp atomicWaypoint) (*rrtSolution, error) {
+	if len(wp.startState.configuration) == 0 {
+		return nil, errors.New("no start configurations")
+	}
+
+	rrt := &rrtSolution{
+		maps: &rrtMaps{
+			startMap: rrtMap{},
+			goalMap:  rrtMap{},
+		},
+	}
+
+	seed := newConfigurationNode(wp.startState.configuration)
+	goalNodes, err := generateNodeListForGoalState(ctx, wp.motionPlanner, wp.goalState, wp.startState.configuration)
+	if err != nil {
+		return rrt, err
+	}
+
+	rrt.maps.optNode = goalNodes[0]
+	for _, solution := range goalNodes {
+		if solution.checkPath && solution.cost < goalNodes[0].cost*defaultOptimalityMultiple {
+			wp.motionPlanner.logger.Debugf("found an ideal ik solution")
+			rrt.steps = []*node{seed, solution}
+			return rrt, nil
+		}
+
+		rrt.maps.goalMap[&node{inputs: solution.inputs}] = nil
+	}
+	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil
+
+	return rrt, nil
 }
