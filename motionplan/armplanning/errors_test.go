@@ -16,10 +16,10 @@ func TestNewIKConstraintErr(t *testing.T) {
 			errors.New("self-collision constraint: violation between gripper-1:clamp and ur5e-modular:wrist_1_link geometries"): 97,
 		}
 
-		ikError := NewIkConstraintFailures(nil, nil)
+		ikError := newIkConstraintError(nil, nil)
 		for err, cnt := range failures {
 			for range cnt {
-				ikError.Add(nil, err)
+				ikError.add(nil, err)
 			}
 		}
 		ikError.Count = constraintFailCnt
@@ -35,10 +35,10 @@ func TestNewIKConstraintErr(t *testing.T) {
 			errors.New("self-collision constraint: violation between gripper-1:clamp and ur5e-modular:wrist_1_link geometries"): 97,
 		}
 
-		ikError := NewIkConstraintFailures(nil, nil)
+		ikError := newIkConstraintError(nil, nil)
 		for err, cnt := range failures {
 			for range cnt {
-				ikError.Add(nil, err)
+				ikError.add(nil, err)
 			}
 		}
 		ikError.Count = constraintFailCnt

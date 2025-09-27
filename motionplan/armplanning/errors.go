@@ -26,9 +26,9 @@ func NewAlgAndConstraintMismatchErr(planAlg string) error {
 	return fmt.Errorf("cannot specify a planning algorithm other than cbirrt with topo constraints. algorithm specified was %s", planAlg)
 }
 
-// ikConstraintFailures contains information on possible solutions that fail constraint checks. This
+// IkConstraintError contains information on possible solutions that fail constraint checks. This
 // data can be used to visualize the constraint thats being violated.
-type IkConstraintFailures struct {
+type IkConstraintError struct {
 	// A map keeping track of which constraints fail
 	FailuresByType map[string][]referenceframe.FrameSystemInputs
 	// Count is the total number of failures. Equivalent to summing the size of the value slices in
@@ -39,22 +39,22 @@ type IkConstraintFailures struct {
 	Checker *motionplan.ConstraintChecker
 }
 
-func NewIkConstraintFailures(fs *referenceframe.FrameSystem, checker *motionplan.ConstraintChecker) *IkConstraintFailures {
-	return &IkConstraintFailures{
+func newIkConstraintError(fs *referenceframe.FrameSystem, checker *motionplan.ConstraintChecker) *IkConstraintError {
+	return &IkConstraintError{
 		FailuresByType: make(map[string][]referenceframe.FrameSystemInputs),
 		Fs:             fs,
 		Checker:        checker,
 	}
 }
 
-func (fail *IkConstraintFailures) Add(solution referenceframe.FrameSystemInputs, err error) {
+func (fail *IkConstraintError) add(solution referenceframe.FrameSystemInputs, err error) {
 	fail.FailuresByType[err.Error()] = append(fail.FailuresByType[err.Error()], solution)
 	fail.Count++
 }
 
 // OutputString formats the structure as a string. If pretty is true, there will be newlines and
 // indentation for prettier formatting.
-func (fail *IkConstraintFailures) OutputString(pretty bool) string {
+func (fail *IkConstraintError) OutputString(pretty bool) string {
 	// sort the map keys by the integer they map to
 	keys := make([]string, 0, len(fail.FailuresByType))
 	for k := range fail.FailuresByType {
@@ -83,6 +83,6 @@ func (fail *IkConstraintFailures) OutputString(pretty bool) string {
 	return errMsg
 }
 
-func (fail *IkConstraintFailures) Error() string {
+func (fail *IkConstraintError) Error() string {
 	return fail.OutputString(false)
 }

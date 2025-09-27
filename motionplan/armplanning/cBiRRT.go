@@ -559,7 +559,7 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 
 type solutionSolvingState struct {
 	solutions         []*node
-	failures          *IkConstraintFailures
+	failures          *IkConstraintError
 	startTime         time.Time
 	firstSolutionTime time.Duration
 	bestScore         float64
@@ -587,7 +587,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 		FS:            mp.fs,
 	})
 	if err != nil {
-		sss.failures.Add(step, err)
+		sss.failures.add(step, err)
 		return false
 	}
 
@@ -598,7 +598,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 	}
 	err = mp.checker.CheckSegmentFSConstraints(stepArc)
 	if err != nil {
-		sss.failures.Add(step, err)
+		sss.failures.add(step, err)
 		return false
 	}
 
@@ -737,7 +737,7 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 
 	solvingState := solutionSolvingState{
 		solutions:         []*node{},
-		failures:          NewIkConstraintFailures(mp.fs, mp.checker),
+		failures:          newIkConstraintError(mp.fs, mp.checker),
 		startTime:         time.Now(),
 		firstSolutionTime: time.Hour,
 		bestScore:         10000000,

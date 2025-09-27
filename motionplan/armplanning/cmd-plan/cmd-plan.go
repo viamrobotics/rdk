@@ -269,7 +269,8 @@ func drawPosition(req armplanning.PlanRequest, inputs referenceframe.FrameSystem
 }
 
 func doInteractive(req armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger) error {
-	ikErr, isIkErr := planErr.(*armplanning.IkConstraintFailures)
+	var ikErr *armplanning.IkConstraintError
+	errors.As(planErr, &ikErr)
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
 		return err
 	}
@@ -285,7 +286,7 @@ func doInteractive(req armplanning.PlanRequest, plan motionplan.Plan, planErr er
 	// ikIterOrder is a hack for helping index into individual failures. Such that an interactive
 	// user can deterministically reference errors.
 	var ikIterOrder []string
-	if isIkErr {
+	if ikErr != nil {
 		for key := range ikErr.FailuresByType {
 			ikIterOrder = append(ikIterOrder, key)
 		}
@@ -301,7 +302,9 @@ func doInteractive(req armplanning.PlanRequest, plan motionplan.Plan, planErr er
 	for {
 		if render {
 			if planErr == nil {
-				visualize(req, plan, logger)
+				if err := visualize(req, plan, logger); err != nil {
+					return err
+				}
 			} else {
 				if ikErr != nil {
 					logger.Println("Plan error:", ikErr.OutputString(true))
@@ -393,7 +396,9 @@ func doInteractive(req armplanning.PlanRequest, plan motionplan.Plan, planErr er
 					logger.Println("Rendering failed solution")
 					logger.Println("  Err:", errStr)
 					logger.Println("  Inputs:", configuration)
-					viz.DrawFrameSystem(req.FrameSystem, configuration)
+					if err := viz.DrawFrameSystem(req.FrameSystem, configuration); err != nil {
+						return err
+					}
 					break searchLoop
 				}
 			}
