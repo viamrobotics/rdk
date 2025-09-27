@@ -39,7 +39,7 @@ const (
 
 var (
 	defaultNumThreads                            = utils.MinInt(runtime.NumCPU()/2, 10)
-	defaultTimeMultipleAfterFindingFirstSolution = 10
+	defaultTimeMultipleAfterFindingFirstSolution = 20
 )
 
 func init() {
