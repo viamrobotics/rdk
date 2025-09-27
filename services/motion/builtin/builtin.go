@@ -100,6 +100,9 @@ type Config struct {
 	PlanFilePath           string `json:"plan_file_path"`
 	LogPlannerErrors       bool   `json:"log_planner_errors"`
 	LogSlowPlanThresholdMS int    `json:"log_slow_plan_threshold_ms"`
+
+	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
+	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {
@@ -467,8 +470,41 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 	return resp, nil
 }
 
+func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referenceframe.LinkInFrame) (*referenceframe.FrameSystem, error) {
+	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, transforms)
+	if err != nil {
+		return nil, err
+	}
+
+	for fName, mods := range ms.conf.InputRangeOverride {
+		f := frameSys.Frame(fName)
+		if f == nil {
+			return nil, fmt.Errorf("frame (%s) in input_range_override doesn't exist", fName)
+		}
+
+		ms.logger.Debugf("limit override f: %v mods: %v", fName, mods, f)
+
+		sm, ok := f.(*referenceframe.SimpleModel)
+		if !ok {
+			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
+		}
+
+		for idxString, l := range mods {
+			idx, err := strconv.Atoi(idxString)
+			if err != nil {
+				return nil, fmt.Errorf("joint offset (%s) bad %w", idxString, err)
+			}
+
+			sm.DoF()[idx] = l
+
+		}
+
+	}
+
+	return frameSys, nil
+}
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
-	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, req.WorldState.Transforms())
+	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
 	}
