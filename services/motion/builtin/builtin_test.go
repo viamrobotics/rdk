@@ -1587,3 +1587,47 @@ func TestConfiguredDefaultExtras(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
+
+func TestConfigureJointLimits(t *testing.T) {
+	ctx := context.Background()
+
+	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+	defer teardown()
+
+	svc := ms.(*builtIn)
+
+	fs, err := svc.getFrameSystem(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	f := fs.Frame("pieceArm")
+	test.That(t, f.DoF()[0].Min, test.ShouldAlmostEqual, -2*math.Pi)
+	test.That(t, f.DoF()[1].Min, test.ShouldAlmostEqual, -2*math.Pi)
+
+	svc.conf.InputRangeOverride = map[string]map[string]referenceframe.Limit{
+		"pieceArm": {"0": referenceframe.Limit{0, 1}},
+	}
+
+	fs, err = svc.getFrameSystem(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	f = fs.Frame("pieceArm")
+	test.That(t, f.DoF()[0].Min, test.ShouldAlmostEqual, 0)
+
+	svc.conf.InputRangeOverride = map[string]map[string]referenceframe.Limit{}
+
+	fs, err = svc.getFrameSystem(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	f = fs.Frame("pieceArm")
+	test.That(t, f.DoF()[0].Min, test.ShouldAlmostEqual, -2*math.Pi)
+
+	svc.conf.InputRangeOverride = map[string]map[string]referenceframe.Limit{
+		"pieceArm": {"shoulder_lift_joint": referenceframe.Limit{0, 1}},
+	}
+
+	fs, err = svc.getFrameSystem(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	f = fs.Frame("pieceArm")
+	test.That(t, f.DoF()[1].Min, test.ShouldAlmostEqual, 0)
+}

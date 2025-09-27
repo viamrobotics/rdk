@@ -736,3 +736,31 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 	}
 	return true, nil
 }
+
+// Clone makes a copy of a Frame.
+func Clone(f Frame) (Frame, error) {
+	t := reflect.TypeOf(f)
+	var newFrame Frame
+
+	// If f is already a pointer type, we need to create a new instance of the underlying type
+	if t.Kind() == reflect.Ptr {
+		newValue := reflect.New(t.Elem())
+		newFrame = newValue.Interface().(Frame)
+	} else {
+		newValue := reflect.New(t)
+		newFramePointer := newValue.Interface().(*Frame)
+		newFrame = *newFramePointer
+	}
+
+	data, err := f.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	err = newFrame.UnmarshalJSON(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return newFrame, nil
+}
