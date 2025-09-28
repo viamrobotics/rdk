@@ -50,7 +50,7 @@ func TestUnconstrainedMotion(t *testing.T) {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
-			testPlanner(t, tcCopy.config, 1)
+			testPlanner(t, tcCopy.config)
 		})
 	}
 }
@@ -67,7 +67,7 @@ func TestConstrainedMotion(t *testing.T) {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
-			testPlanner(t, tcCopy.config, 1)
+			testPlanner(t, tcCopy.config)
 		})
 	}
 }
@@ -432,7 +432,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
-func testPlanner(t *testing.T, config planConfigConstructor, seed int) {
+func testPlanner(t *testing.T, config planConfigConstructor) {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
 
@@ -442,11 +442,11 @@ func testPlanner(t *testing.T, config planConfigConstructor, seed int) {
 
 	// Create PlanRequest to use the new API
 	request := &PlanRequest{
-		FrameSystem: cfg.FS,
-		Goals: []*PlanState{cfg.Goal},
-		StartState: cfg.Start,
+		FrameSystem:    cfg.FS,
+		Goals:          []*PlanState{cfg.Goal},
+		StartState:     cfg.Start,
 		PlannerOptions: cfg.Options,
-		Constraints: &motionplan.Constraints{},
+		Constraints:    &motionplan.Constraints{},
 	}
 
 	pc, err := newPlanContext(logger, request)

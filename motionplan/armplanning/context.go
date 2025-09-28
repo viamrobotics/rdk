@@ -3,7 +3,7 @@ package armplanning
 import (
 	"math"
 	"math/rand"
-	
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -11,34 +11,32 @@ import (
 )
 
 type planContext struct {
-	fs                        *referenceframe.FrameSystem
-	lfs                       *linearizedFrameSystem
+	fs  *referenceframe.FrameSystem
+	lfs *linearizedFrameSystem
 
 	boundingRegions []spatialmath.Geometry
-	
+
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
-	request *PlanRequest
-	
-	randseed                  *rand.Rand
-	
-	logger                    logging.Logger
+	request                   *PlanRequest
 
+	randseed *rand.Rand
+
+	logger logging.Logger
 }
 
 func newPlanContext(logger logging.Logger, request *PlanRequest) (*planContext, error) {
-
 	pc := &planContext{
-		fs: request.FrameSystem,
+		fs:                        request.FrameSystem,
 		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(request.PlannerOptions.ConfigurationDistanceMetric),
-		planOpts: request.PlannerOptions,
-		request: request,
-		randseed:     rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
-		logger: logger,
+		planOpts:                  request.PlannerOptions,
+		request:                   request,
+		randseed:                  rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
+		logger:                    logger,
 	}
 
 	var err error
-	
+
 	pc.lfs, err = newLinearizedFrameSystem(pc.fs)
 	if err != nil {
 		return nil, err
@@ -49,7 +47,6 @@ func newPlanContext(logger logging.Logger, request *PlanRequest) (*planContext, 
 		return nil, err
 	}
 
-	
 	return pc, nil
 }
 
@@ -68,31 +65,38 @@ func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) func([
 
 type planSegmentContext struct {
 	pc *planContext
-	
+
 	start referenceframe.FrameSystemInputs
-	goal referenceframe.FrameSystemPoses
+	goal  referenceframe.FrameSystemPoses
 
 	startPoses referenceframe.FrameSystemPoses
-	
-	motionChains              *motionChains
-	checker                   *motionplan.ConstraintChecker
+
+	motionChains *motionChains
+	checker      *motionplan.ConstraintChecker
 }
 
-func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInputs, goal referenceframe.FrameSystemPoses) (*planSegmentContext, error) {
+func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInputs,
+	goal referenceframe.FrameSystemPoses,
+) (*planSegmentContext, error) {
 	psc := &planSegmentContext{
-		pc: pc,
+		pc:    pc,
 		start: start,
-		goal: goal,
+		goal:  goal,
 	}
 
 	var err error
-	
+
 	psc.startPoses, err = start.ComputePoses(pc.fs)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	psc.motionChains, err = motionChainsFromPlanState(pc.fs, goal)
+	if err != nil {
+		return nil, err
+	}
+
+	psc.goal, err = psc.motionChains.translateGoalsToWorldPosition(psc.start, psc.goal)
 	if err != nil {
 		return nil, err
 	}
@@ -102,9 +106,9 @@ func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInpu
 	if err != nil {
 		return nil, err
 	}
-	
+
 	movingRobotGeometries, staticRobotGeometries := psc.motionChains.geometries(pc.fs, frameSystemGeometries)
-	
+
 	psc.checker, err = motionplan.NewConstraintChecker(
 		pc.planOpts.CollisionBufferMM,
 		pc.request.Constraints,
@@ -120,7 +124,7 @@ func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInpu
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return psc, nil
 }
 

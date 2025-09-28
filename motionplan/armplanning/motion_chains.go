@@ -63,29 +63,19 @@ func (mC *motionChains) geometries(
 // If a motion chain is worldrooted, then goals are translated to their position in `World` before solving.
 // This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper.
 func (mC *motionChains) translateGoalsToWorldPosition(
-	fs *referenceframe.FrameSystem,
 	start referenceframe.FrameSystemInputs,
-	goal *PlanState,
-) (*PlanState, error) {
+	goal referenceframe.FrameSystemPoses,
+) (referenceframe.FrameSystemPoses, error) {
 	alteredGoals := referenceframe.FrameSystemPoses{}
-	if goal.poses != nil {
-		for _, chain := range mC.inner {
-			// chain solve frame may only be in the goal configuration, in which case we skip as the configuration will be passed through
-			if goalPif, ok := goal.poses[chain.solveFrameName]; ok {
-				if chain.worldRooted {
-					tf, err := fs.Transform(start, goalPif, referenceframe.World)
-					if err != nil {
-						return nil, err
-					}
-					alteredGoals[chain.solveFrameName] = tf.(*referenceframe.PoseInFrame)
-				} else {
-					alteredGoals[chain.solveFrameName] = goalPif
-				}
-			}
+	for f, pif := range goal {
+		tf, err := mC.fs.Transform(start, pif, referenceframe.World)
+		if err != nil {
+			return nil, err
 		}
-		return &PlanState{poses: alteredGoals, configuration: goal.configuration}, nil
+
+		alteredGoals[f] = tf.(*referenceframe.PoseInFrame)
 	}
-	return goal, nil
+	return alteredGoals, nil
 }
 
 func (mC *motionChains) framesFilteredByMovingAndNonmoving() (moving, nonmoving []string) {

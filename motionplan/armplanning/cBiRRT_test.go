@@ -43,11 +43,11 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Create PlanRequest to use the new API
 	request := &PlanRequest{
-		FrameSystem: fs,
-		Goals: []*PlanState{NewPlanState(goal, nil)},
-		StartState: NewPlanState(nil, referenceframe.FrameSystemInputs{m.Name(): home7}),
+		FrameSystem:    fs,
+		Goals:          []*PlanState{NewPlanState(goal, nil)},
+		StartState:     NewPlanState(nil, referenceframe.FrameSystemInputs{m.Name(): home7}),
 		PlannerOptions: opt,
-		Constraints: &motionplan.Constraints{},
+		Constraints:    &motionplan.Constraints{},
 	}
 
 	pc, err := newPlanContext(logger, request)

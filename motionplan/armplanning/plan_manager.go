@@ -3,6 +3,7 @@ package armplanning
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -13,9 +14,9 @@ import (
 
 // planManager is intended to be the single entry point to motion planners.
 type planManager struct {
-	pc *planContext
-	request                 *PlanRequest
-	logger logging.Logger
+	pc      *planContext
+	request *PlanRequest
+	logger  logging.Logger
 }
 
 func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, error) {
@@ -24,12 +25,11 @@ func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, 
 		return nil, err
 	}
 	return &planManager{
-		pc: pc,
-		logger:       logger,
-		request:      request,
+		pc:      pc,
+		logger:  logger,
+		request: request,
 	}, nil
 }
-
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
@@ -80,12 +80,11 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Plan, 
 // the next motion as soon as its starting point is known. This is responsible for repeatedly calling planSingleAtomicWaypoint for each
 // intermediate waypoint. Waypoints here refer to points that the software has generated to.
 func (pm *planManager) planAtomicWaypoints(ctx context.Context, goals []referenceframe.FrameSystemPoses) (motionplan.Plan, error) {
-
 	traj := motionplan.Trajectory{pm.request.StartState.Configuration()}
 
 	var err error
 	var newTraj []referenceframe.FrameSystemInputs
-	
+
 	for i, wp := range goals {
 		if ctx.Err() != nil {
 			err = ctx.Err()
@@ -96,8 +95,6 @@ func (pm *planManager) planAtomicWaypoints(ctx context.Context, goals []referenc
 		for k, v := range wp {
 			pm.logger.Info(k, v)
 		}
-
-
 		newTraj, err = pm.planSingleAtomicWaypoint(ctx, traj[len(traj)-1], wp)
 		if err != nil {
 			break
@@ -124,25 +121,25 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	goal referenceframe.FrameSystemPoses,
 ) ([]referenceframe.FrameSystemInputs, error) {
 	pm.logger.Debug("start configuration", start)
-	pm.logger.Debug("going to",  goal)
+	pm.logger.Debug("going to", goal)
 
 	psc, err := newPlanSegmentContext(pm.pc, start, goal)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	planSeed, err := initRRTSolutions(ctx, psc)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
 
 	if planSeed.steps != nil {
 		pm.logger.Debugf("found an ideal ik solution")
 		return planSeed.steps, nil
 	}
-	
+
 	pathPlanner, err := newCBiRRTMotionPlanner(pm.pc, psc)
 	if err != nil {
 		return nil, err
@@ -174,16 +171,18 @@ func (pm *planManager) generateWaypoints(start, goal referenceframe.FrameSystemP
 
 	pm.logger.Debugf("numSteps: %d", numSteps)
 
-
 	waypoints := []referenceframe.FrameSystemPoses{}
-	
+
 	from := start
-	
+
 	for i := 1; i <= numSteps; i++ {
 		by := float64(i) / float64(numSteps)
 		to := referenceframe.FrameSystemPoses{}
-		
+
 		for frameName, pif := range goal {
+			if from[frameName].Parent() != pif.Parent() {
+				return nil, fmt.Errorf("frame mismatch %v %v", from[frameName].Parent(), pif.Parent())
+			}
 			toPose := spatialmath.Interpolate(from[frameName].Pose(), pif.Pose(), by)
 			to[frameName] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
 		}

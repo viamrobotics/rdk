@@ -31,11 +31,11 @@ func TestIKTolerances(t *testing.T) {
 
 	// Create PlanRequest to use the new API
 	request := &PlanRequest{
-		FrameSystem: fs,
-		Goals: []*PlanState{NewPlanState(goal, nil)},
-		StartState: NewPlanState(nil, seed),
+		FrameSystem:    fs,
+		Goals:          []*PlanState{NewPlanState(goal, nil)},
+		StartState:     NewPlanState(nil, seed),
 		PlannerOptions: NewBasicPlannerOptions(),
-		Constraints: &motionplan.Constraints{},
+		Constraints:    &motionplan.Constraints{},
 	}
 
 	pc, err := newPlanContext(logger, request)
@@ -57,11 +57,11 @@ func TestIKTolerances(t *testing.T) {
 	opt.SetMaxSolutions(50)
 
 	request2 := &PlanRequest{
-		FrameSystem: fs,
-		Goals: []*PlanState{NewPlanState(goal, nil)},
-		StartState: NewPlanState(nil, seed),
+		FrameSystem:    fs,
+		Goals:          []*PlanState{NewPlanState(goal, nil)},
+		StartState:     NewPlanState(nil, seed),
 		PlannerOptions: opt,
-		Constraints: &motionplan.Constraints{},
+		Constraints:    &motionplan.Constraints{},
 	}
 
 	pc2, err := newPlanContext(logger, request2)

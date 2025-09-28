@@ -128,7 +128,7 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 
 			// Update the copied joint set in place. This is undone at the end of the loop.
 			start[frame.Name()][idx] = referenceframe.Input{y}
-			
+
 			myDistance := distanceFunc(&motionplan.StateFS{Configuration: start, FS: mc.fs})
 			// Compute how much effect the small change made. The bigger the difference, the smaller
 			// the ratio.

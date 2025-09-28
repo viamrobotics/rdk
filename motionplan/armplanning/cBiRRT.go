@@ -29,21 +29,21 @@ const (
 // It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
 // https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
-	pc *planContext
+	pc  *planContext
 	psc *planSegmentContext
-	
+
 	fastGradDescent *ik.NloptIK
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
 func newCBiRRTMotionPlanner(pc *planContext, psc *planSegmentContext) (*cBiRRTMotionPlanner, error) {
 	c := &cBiRRTMotionPlanner{
-		pc: pc,
+		pc:  pc,
 		psc: psc,
 	}
 
 	var err error
-	
+
 	// nlopt should try only once
 	c.fastGradDescent, err = ik.CreateNloptSolver(pc.lfs.dof, pc.logger, 1, true, true)
 	if err != nil {
@@ -323,7 +323,6 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	return nil
 }
 
-
 // getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should
 // move in any given step. The second argument is a float describing the percentage of the total movement.
 func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, iterationNumber int, double bool) map[string][]float64 {
@@ -407,5 +406,3 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 	}
 	return newConfigurationNode(newInputs), nil
 }
-
-

@@ -109,9 +109,9 @@ type solutionSolvingState struct {
 
 	moving, nonmoving []string
 
-	ratios []float64
+	ratios   []float64
 	goodCost float64
-	
+
 	solutions         []*node
 	failures          *IkConstraintError
 	startTime         time.Time
@@ -120,20 +120,21 @@ type solutionSolvingState struct {
 	ikTimeMultiple    int
 }
 
-func (sss *solutionSolvingState) setup(goal referenceframe.FrameSystemPoses ) error {
+func (sss *solutionSolvingState) setup(goal referenceframe.FrameSystemPoses) error {
 	err := sss.computeGoodCost(goal)
 	if err != nil {
 		return err
 	}
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
-	
+
 	return nil
 }
 
 func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) error {
-	sss.ratios = sss.psc.pc.lfs.inputChangeRatio(sss.psc.motionChains, sss.psc.start, sss.psc.pc.planOpts.getGoalMetric(goal), sss.psc.pc.logger)
-	
+	sss.ratios = sss.psc.pc.lfs.inputChangeRatio(sss.psc.motionChains, sss.psc.start,
+		sss.psc.pc.planOpts.getGoalMetric(goal), sss.psc.pc.logger)
+
 	adjusted := []float64{}
 	for idx, r := range sss.ratios {
 		adjusted = append(adjusted, sss.psc.pc.lfs.jog(idx, sss.linearSeed[idx], r))
@@ -186,7 +187,6 @@ func (sss *solutionSolvingState) nonchainMinimize(seed, step referenceframe.Fram
 	}
 	return nil
 }
-
 
 // return bool is if we should stop because we're done.
 func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
@@ -288,7 +288,7 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 // terminate and return that one solution.
 func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error) {
 	var err error
-	
+
 	if psc.pc.planOpts.MaxSolutions == 0 {
 		psc.pc.planOpts.MaxSolutions = defaultSolutionsToSeed
 	}
@@ -298,7 +298,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 	}
 
 	solvingState := solutionSolvingState{
-		psc: psc,
+		psc:               psc,
 		solutions:         []*node{},
 		failures:          newIkConstraintError(psc.pc.fs, psc.checker),
 		startTime:         time.Now(),
@@ -306,7 +306,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		bestScore:         10000000,
 		ikTimeMultiple:    psc.pc.planOpts.TimeMultipleAfterFindingFirstSolution,
 	}
-	
+
 	solvingState.linearSeed, err = psc.pc.lfs.mapToSlice(psc.start)
 	if err != nil {
 		return nil, err
@@ -316,13 +316,11 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Spawn the IK solver to generate solutions until done
 	minFunc := psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
 
 	psc.pc.logger.Debugf("seed: %v", psc.start)
-
-
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -343,7 +341,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 
 	var solveError error
 	var solveErrorLock sync.Mutex
-	
+
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		// This channel close doubles as signaling that the goroutine has exited.
@@ -356,8 +354,6 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		}
 	})
 
-
-	
 solutionLoop:
 	for {
 		select {
@@ -378,7 +374,7 @@ solutionLoop:
 	if solveError != nil {
 		return nil, fmt.Errorf("solver had an error: %w", solveError)
 	}
-	
+
 	if len(solvingState.solutions) == 0 {
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions
 		// were produced, or if non-zero solutions were produced, which constraints were violated.
@@ -395,4 +391,3 @@ solutionLoop:
 
 	return solvingState.solutions, nil
 }
-
