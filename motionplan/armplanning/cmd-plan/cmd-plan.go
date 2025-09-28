@@ -2,14 +2,20 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"runtime/pprof"
+	"slices"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	viz "github.com/viam-labs/motion-tools/client/client"
@@ -39,6 +45,7 @@ func realMain() error {
 	verbose := flag.Bool("v", false, "verbose")
 	loop := flag.Int("loop", 1, "loop")
 	cpu := flag.String("cpu", "", "cpu profiling")
+	interactive := flag.Bool("i", false, "interactive")
 
 	flag.Parse()
 
@@ -88,9 +95,16 @@ func realMain() error {
 	}
 
 	logger.Infof("starting motion planning for %d goals", len(req.Goals))
+	mylog := log.New(os.Stdout, "", 0)
 	start := time.Now()
 
 	plan, err := armplanning.PlanMotion(ctx, logger, &req)
+	if *interactive {
+		if interactiveErr := doInteractive(req, plan, err, mylog); interactiveErr != nil {
+			logger.Fatal("Interactive mode failed:", interactiveErr)
+		}
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -98,8 +112,6 @@ func realMain() error {
 	if len(plan.Path()) != len(plan.Trajectory()) {
 		return fmt.Errorf("path and trajectory not the same %d vs %d", len(plan.Path()), len(plan.Trajectory()))
 	}
-
-	mylog := log.New(os.Stdout, "", 0)
 
 	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
 		time.Since(start).Truncate(time.Millisecond), len(req.Goals), len(plan.Trajectory()))
@@ -252,4 +264,146 @@ func drawPosition(req armplanning.PlanRequest, inputs referenceframe.FrameSystem
 	}
 
 	return nil
+}
+
+func doInteractive(req armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger) error {
+	var ikErr *armplanning.IkConstraintError
+	errors.As(planErr, &ikErr)
+	if err := viz.RemoveAllSpatialObjects(); err != nil {
+		return err
+	}
+
+	if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, req.StartState.Configuration()); err != nil {
+		return err
+	}
+
+	if err := viz.DrawFrameSystem(req.FrameSystem, req.StartState.Configuration()); err != nil {
+		return err
+	}
+
+	// ikIterOrder is a hack for helping index into individual failures. Such that an interactive
+	// user can deterministically reference errors.
+	var ikIterOrder []string
+	if ikErr != nil {
+		for key := range ikErr.FailuresByType {
+			ikIterOrder = append(ikIterOrder, key)
+		}
+
+		// We sort such that the failure index across runs of `cmd-plan` interactive mode will pull
+		// out the same error. This does not have to be sorted in string order. That's just a
+		// convenient stable comparison for now.
+		slices.Sort(ikIterOrder)
+	}
+
+	stdinReader := bufio.NewReader(os.Stdin)
+	render := true
+	for {
+		if render {
+			if planErr == nil {
+				if err := visualize(req, plan, logger); err != nil {
+					return err
+				}
+			} else {
+				if ikErr != nil {
+					logger.Println("Plan error:", ikErr.OutputString(true))
+				} else {
+					logger.Println("Plan error:", planErr)
+				}
+			}
+			render = false
+		}
+
+		//nolint
+		fmt.Print("$ ") // `logger.Print` seems to add a newline.
+		cmd, err := stdinReader.ReadString('\n')
+		cmd = strings.TrimSpace(cmd)
+		switch {
+		case err != nil && errors.Is(err, io.EOF):
+			logger.Println("\nExiting...")
+			return nil
+		case cmd == "quit":
+			logger.Println("Exiting...")
+			return nil
+		case cmd == "h" || cmd == "help":
+			logger.Println("r, render")
+			logger.Println("-  Rerender the selected motion plan.")
+			logger.Println()
+			logger.Println("le, list errors")
+			logger.Println("-  If there were no IK solutions that satisfied constraints,",
+				"this will list all of the failures grouped by error string.")
+			logger.Println()
+			logger.Println("de, detailed errors")
+			logger.Println("-  If there were no IK solutions that satisfied constraints,",
+				"this will list the configuration for each failed solution.")
+			logger.Println()
+			logger.Println("re, render error <number>")
+			logger.Println("-  Renders the configuration of a failed solution.")
+			logger.Println()
+			logger.Println("`quit` or Ctrl-d to exit")
+		case cmd == "render" || cmd == "r":
+			logger.Println("Rendering motion plan")
+			render = true
+		case cmd == "list errors" || cmd == "le":
+			if ikErr == nil {
+				logger.Println("The error was not an IK error. No further diagnostics.")
+				logger.Println("  Err:", planErr)
+				continue
+			}
+
+			logger.Println("Listing errors:")
+			for _, errStr := range ikIterOrder {
+				failedSolutions := ikErr.FailuresByType[errStr]
+				logger.Printf("  Err: %q Count: %v", errStr, len(failedSolutions))
+			}
+		case cmd == "detailed errors" || cmd == "de":
+			if ikErr == nil {
+				logger.Println("The error was not an IK error. No further diagnostics.")
+				logger.Println("  Err:", planErr)
+				continue
+			}
+
+			logger.Println("Listing errors:")
+			idxCounter := 1
+			for _, errStr := range ikIterOrder {
+				failedConfigurations := ikErr.FailuresByType[errStr]
+				logger.Printf("  Err: %q Count: %v", errStr, len(failedConfigurations))
+				for _, configuration := range failedConfigurations {
+					logger.Printf("    %d Inputs: %v", idxCounter, configuration)
+					idxCounter++
+				}
+			}
+		case strings.HasPrefix(cmd, "render error ") || strings.HasPrefix(cmd, "re "):
+			pieces := strings.Split(cmd, " ")
+			errorNumberStr := pieces[len(pieces)-1]
+			errorNumber, err := strconv.Atoi(errorNumberStr)
+			if err != nil {
+				logger.Printf("Failed to parse error number. Val: %v Err: %v", errorNumberStr, err)
+				logger.Println("Usage: `re <error number>`")
+			}
+
+			idxCounter := 1
+		searchLoop:
+			for _, errStr := range ikIterOrder {
+				failedConfigurations := ikErr.FailuresByType[errStr]
+				for _, configuration := range failedConfigurations {
+					if idxCounter != errorNumber {
+						idxCounter++
+						continue
+					}
+
+					logger.Println("Rendering failed solution")
+					logger.Println("  Err:", errStr)
+					logger.Println("  Inputs:", configuration)
+					if err := viz.DrawFrameSystem(req.FrameSystem, configuration); err != nil {
+						return err
+					}
+					break searchLoop
+				}
+			}
+
+		case len(cmd) == 0:
+		default:
+			logger.Println("Unknown command. Type `h` for help.")
+		}
+	}
 }
