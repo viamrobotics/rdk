@@ -140,6 +140,11 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 			myJogRatio := percentJog * thisRatio
 			// For movable frames/joints, 0.03 is the actual smallest value we'll use.
 			adjustedJogRatio := min(1, max(.03, myJogRatio*5))
+
+			if math.IsNaN(adjustedJogRatio) {
+				adjustedJogRatio = 1
+			}
+
 			logger.Debugf("idx: %d startDistance: %0.2f myDistance: %0.2f thisRatio: %0.4f myJogRatio: %0.4f adjustJogRatio: %0.4f",
 				idx, startDistance, myDistance, thisRatio, myJogRatio, adjustedJogRatio)
 

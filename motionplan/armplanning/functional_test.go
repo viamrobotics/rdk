@@ -692,14 +692,19 @@ func TestMultiArmSolve(t *testing.T) {
 	positions := frame.NewZeroInputs(fs)
 
 	// Solve such that the ur5 and xArm are pointing at each other, 40mm from gripper to camera
-	goal2 := spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})
+	goals := frame.FrameSystemPoses{
+		"xArmVgripper": frame.NewPoseInFrame("urCamera", spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})),
+	}
+	goals, err := translateGoalsToWorldPosition(fs, positions, goals)
+	test.That(t, err, test.ShouldBeNil)
+
 	planOpts, err := NewPlannerOptionsFromExtra(
 		map[string]interface{}{"max_ik_solutions": 10, "timeout": 150.0, "smooth_iter": 5},
 	)
 	test.That(t, err, test.ShouldBeNil)
 	plan, err := PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
-		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame("urCamera", goal2)}}},
+		Goals:          []*PlanState{{poses: goals}},
 		StartState:     &PlanState{configuration: positions},
 		PlannerOptions: planOpts,
 	})
@@ -709,19 +714,15 @@ func TestMultiArmSolve(t *testing.T) {
 	solvedPose, err := fs.Transform(
 		plan.Trajectory()[len(plan.Trajectory())-1],
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
-		"urCamera",
+		"world",
 	)
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose2, err := fs.Transform(
-		plan.Trajectory()[len(plan.Trajectory())-1],
-		frame.NewPoseInFrame("urCamera", spatialmath.NewZeroPose()),
-		"xArmVgripper",
-	)
-	logger.Infof("solvedPose: %v", solvedPose2)
-	logger.Infof("solvedPose2: %v", solvedPose2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose.(*frame.PoseInFrame).Pose(), goal2, 0.1), test.ShouldBeTrue)
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose2.(*frame.PoseInFrame).Pose(), goal2, 0.1), test.ShouldBeTrue)
+
+	test.That(t,
+		spatialmath.PoseAlmostCoincidentEps(
+			solvedPose.(*frame.PoseInFrame).Pose(),
+			goals["xArmVgripper"].Pose(), 0.1),
+		test.ShouldBeTrue)
 }
 
 func TestReachOverArm(t *testing.T) {
