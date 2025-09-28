@@ -193,7 +193,10 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 // getGoalMetric creates the distance metric for the solver using the configured options.
 func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) motionplan.StateFSMetric {
 	metrics := map[string]motionplan.StateMetric{}
+	frames := map[string]string{}
+
 	for frame, goalInFrame := range goal {
+		frames[frame] = goalInFrame.Parent()
 		switch p.GoalMetricType {
 		case motionplan.PositionOnly:
 			metrics[frame] = motionplan.NewPositionOnlyMetric(goalInFrame.Pose())
@@ -209,7 +212,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 	return func(state *motionplan.StateFS) float64 {
 		score := 0.
 		for frame, goalMetric := range metrics {
-			poseParent := goal[frame].Parent()
+			poseParent := frames[frame]
 			currPose, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
 			if err != nil {
 				panic(fmt.Errorf("fs: %v err: %w frame: %s poseParent: %v", state.FS.FrameNames(), err, frame, poseParent))

@@ -690,7 +690,7 @@ func TestMultiArmSolve(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	fs := makeTestFS(t)
 	positions := frame.NewZeroInputs(fs)
-	logger.Infof("hi %v\n", positions)
+
 	// Solve such that the ur5 and xArm are pointing at each other, 40mm from gripper to camera
 	goal2 := spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	planOpts, err := NewPlannerOptionsFromExtra(
@@ -717,6 +717,8 @@ func TestMultiArmSolve(t *testing.T) {
 		frame.NewPoseInFrame("urCamera", spatialmath.NewZeroPose()),
 		"xArmVgripper",
 	)
+	logger.Infof("solvedPose: %v", solvedPose2)
+	logger.Infof("solvedPose2: %v", solvedPose2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose.(*frame.PoseInFrame).Pose(), goal2, 0.1), test.ShouldBeTrue)
 	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose2.(*frame.PoseInFrame).Pose(), goal2, 0.1), test.ShouldBeTrue)

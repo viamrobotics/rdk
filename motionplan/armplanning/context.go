@@ -66,8 +66,9 @@ func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) func([
 type planSegmentContext struct {
 	pc *planContext
 
-	start referenceframe.FrameSystemInputs
-	goal  referenceframe.FrameSystemPoses
+	start    referenceframe.FrameSystemInputs
+	origGoal referenceframe.FrameSystemPoses // goals are defined in frames willy nilly
+	goal     referenceframe.FrameSystemPoses // all in world
 
 	startPoses referenceframe.FrameSystemPoses
 
@@ -79,12 +80,17 @@ func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInpu
 	goal referenceframe.FrameSystemPoses,
 ) (*planSegmentContext, error) {
 	psc := &planSegmentContext{
-		pc:    pc,
-		start: start,
-		goal:  goal,
+		pc:       pc,
+		start:    start,
+		origGoal: goal,
 	}
 
 	var err error
+
+	psc.goal, err = translateGoalsToWorldPosition(pc.fs, psc.start, psc.origGoal)
+	if err != nil {
+		return nil, err
+	}
 
 	psc.startPoses, err = start.ComputePoses(pc.fs)
 	if err != nil {
@@ -92,11 +98,6 @@ func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInpu
 	}
 
 	psc.motionChains, err = motionChainsFromPlanState(pc.fs, goal)
-	if err != nil {
-		return nil, err
-	}
-
-	psc.goal, err = psc.motionChains.translateGoalsToWorldPosition(psc.start, psc.goal)
 	if err != nil {
 		return nil, err
 	}
@@ -145,4 +146,21 @@ func (psc *planSegmentContext) checkInputs(inputs referenceframe.FrameSystemInpu
 		Configuration: inputs,
 		FS:            psc.pc.fs,
 	}) == nil
+}
+
+func translateGoalsToWorldPosition(
+	fs *referenceframe.FrameSystem,
+	start referenceframe.FrameSystemInputs,
+	goal referenceframe.FrameSystemPoses,
+) (referenceframe.FrameSystemPoses, error) {
+	alteredGoals := referenceframe.FrameSystemPoses{}
+	for f, pif := range goal {
+		tf, err := fs.Transform(start, pif, referenceframe.World)
+		if err != nil {
+			return nil, err
+		}
+
+		alteredGoals[f] = tf.(*referenceframe.PoseInFrame)
+	}
+	return alteredGoals, nil
 }
