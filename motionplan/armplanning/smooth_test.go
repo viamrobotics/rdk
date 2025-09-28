@@ -84,20 +84,13 @@ func TestSmoothPlans1(t *testing.T) {
 	req, err := readRequestFromFile("data/wine-crazy-touch.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	pm, err := newPlanManager(logger, req)
+	pc, err := newPlanContext(logger, req)
 	test.That(t, err, test.ShouldBeNil)
 
-	pathPlanner, err := newCBiRRTMotionPlanner(
-		pm.request.FrameSystem,
-		rand.New(rand.NewSource(int64(pm.randseed.Int()))),
-		pm.logger,
-		pm.request.PlannerOptions,
-		pm.checker,
-		pm.motionChains,
-	)
+	psc, err := newPlanSegmentContext(pc, request.StartState.Configuration(), request.Goals[0].Poses())
 	test.That(t, err, test.ShouldBeNil)
 
-	nodes := pathPlanner.simpleSmooth(testSmoothNodes)
+	nodes := smoothPath(ctx, psc, testSmoothNodes)
 	for idx, n := range nodes {
 		logger.Infof("%d : %v", idx, n.inputs["arm-left"])
 	}
@@ -113,17 +106,10 @@ func BenchmarkSmoothPlans1(b *testing.B) {
 	req, err := readRequestFromFile("data/wine-crazy-touch.json")
 	test.That(b, err, test.ShouldBeNil)
 
-	pm, err := newPlanManager(logger, req)
+	pc, err := newPlanContext(logger, req)
 	test.That(b, err, test.ShouldBeNil)
 
-	pathPlanner, err := newCBiRRTMotionPlanner(
-		pm.request.FrameSystem,
-		rand.New(rand.NewSource(int64(pm.randseed.Int()))),
-		pm.logger,
-		pm.request.PlannerOptions,
-		pm.checker,
-		pm.motionChains,
-	)
+	psc, err := newPlanSegmentContext(pc, request.StartState.Configuration(), request.Goals[0].Poses())
 	test.That(b, err, test.ShouldBeNil)
 
 	b.ResetTimer()

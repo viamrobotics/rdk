@@ -1,0 +1,144 @@
+package armplanning
+
+import (
+	"math"
+	"math/rand"
+	
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
+)
+
+type planContext struct {
+	fs                        *referenceframe.FrameSystem
+	lfs                       *linearizedFrameSystem
+
+	boundingRegions []spatialmath.Geometry
+	
+	configurationDistanceFunc motionplan.SegmentFSMetric
+	planOpts                  *PlannerOptions
+	request *PlanRequest
+	
+	randseed                  *rand.Rand
+	
+	logger                    logging.Logger
+
+}
+
+func newPlanContext(logger logging.Logger, request *PlanRequest) (*planContext, error) {
+
+	pc := &planContext{
+		fs: request.FrameSystem,
+		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(request.PlannerOptions.ConfigurationDistanceMetric),
+		planOpts: request.PlannerOptions,
+		request: request,
+		randseed:     rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
+		logger: logger,
+	}
+
+	var err error
+	
+	pc.lfs, err = newLinearizedFrameSystem(pc.fs)
+	if err != nil {
+		return nil, err
+	}
+
+	pc.boundingRegions, err = referenceframe.NewGeometriesFromProto(request.BoundingRegions)
+	if err != nil {
+		return nil, err
+	}
+
+	
+	return pc, nil
+}
+
+// linearize the goal metric for use with solvers.
+// Since our solvers operate on arrays of floats, there needs to be a way to map bidirectionally between the framesystem configuration
+// of FrameSystemInputs and the []float64 that the solver expects. This is that mapping.
+func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) func([]float64) float64 {
+	return func(query []float64) float64 {
+		inputs, err := pc.lfs.sliceToMap(query)
+		if err != nil {
+			return math.Inf(1)
+		}
+		return metric(&motionplan.StateFS{Configuration: inputs, FS: pc.fs})
+	}
+}
+
+type planSegmentContext struct {
+	pc *planContext
+	
+	start referenceframe.FrameSystemInputs
+	goal referenceframe.FrameSystemPoses
+
+	startPoses referenceframe.FrameSystemPoses
+	
+	motionChains              *motionChains
+	checker                   *motionplan.ConstraintChecker
+}
+
+func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInputs, goal referenceframe.FrameSystemPoses) (*planSegmentContext, error) {
+	psc := &planSegmentContext{
+		pc: pc,
+		start: start,
+		goal: goal,
+	}
+
+	var err error
+	
+	psc.startPoses, err = start.ComputePoses(pc.fs)
+	if err != nil {
+		return nil, err
+	}
+	
+	psc.motionChains, err = motionChainsFromPlanState(pc.fs, goal)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: this is duplicated work as it's also done in motionplan.NewConstraintChecker
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pc.fs, start)
+	if err != nil {
+		return nil, err
+	}
+	
+	movingRobotGeometries, staticRobotGeometries := psc.motionChains.geometries(pc.fs, frameSystemGeometries)
+	
+	psc.checker, err = motionplan.NewConstraintChecker(
+		pc.planOpts.CollisionBufferMM,
+		pc.request.Constraints,
+		psc.startPoses,
+		goal,
+		pc.fs,
+		movingRobotGeometries, staticRobotGeometries,
+		start,
+		pc.request.WorldState,
+		pc.boundingRegions,
+		false,
+	)
+	if err != nil {
+		return nil, err
+	}
+	
+	return psc, nil
+}
+
+func (psc *planSegmentContext) checkPath(start, end referenceframe.FrameSystemInputs) error {
+	_, err := psc.checker.CheckSegmentAndStateValidityFS(
+		&motionplan.SegmentFS{
+			StartConfiguration: start,
+			EndConfiguration:   end,
+			FS:                 psc.pc.fs,
+		},
+		psc.pc.planOpts.Resolution,
+	)
+	return err
+}
+
+func (psc *planSegmentContext) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
+	return psc.checker.CheckStateFSConstraints(&motionplan.StateFS{
+		Configuration: inputs,
+		FS:            psc.pc.fs,
+	}) == nil
+}

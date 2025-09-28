@@ -18,49 +18,18 @@ import (
 
 // planManager is intended to be the single entry point to motion planners.
 type planManager struct {
-	boundingRegions []spatialmath.Geometry
-
-	randseed     *rand.Rand
-
-	logger logging.Logger
-
-	// We store the request because we want to be able to inspect the original state of the plan
-	// that was requested at any point during the process of creating multiple planners
-	// for waypoints and such.
+	pc *planContext
 	request                 *PlanRequest
-}
-
-type planContext struct {
-	fs                        *referenceframe.FrameSystem
-	lfs                       *linearizedFrameSystem
-
-	configurationDistanceFunc motionplan.SegmentFSMetric
-	planOpts                  *PlannerOptions
-	
-	randseed                  *rand.Rand
-	
-	logger                    logging.Logger
-
-}
-
-type planSegmentContext struct {
-	start referenceframe.FrameSystemInputs
-	goal referenceframe.FrameSystemPoses
-
-
-	checker                   *motionplan.ConstraintChecker
-	motionChains              *motionChains
+	logger logging.Logger
 }
 
 func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, error) {
-	boundingRegions, err := referenceframe.NewGeometriesFromProto(request.BoundingRegions)
+	pc, err := newPlanContext(logger, request)
 	if err != nil {
 		return nil, err
 	}
-
 	return &planManager{
-		boundingRegions: boundingRegions,
-		randseed:     rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
+		pc: pc,
 		logger:       logger,
 		request:      request,
 	}, nil
@@ -162,7 +131,12 @@ func (pm *planManager) planSingleAtomicWaypoint(
 	pm.logger.Debug("start configuration", start)
 	pm.logger.Debug("going to",  goal)
 
-	planSeed, err := initRRTSolutions(ctx, start, goal)
+	psc, err := newPlanSegmentContext(pm.pc, start, goal)
+	if err != nil {
+		return nil, err
+	}
+	
+	planSeed, err := initRRTSolutions(ctx, psc)
 	if err != nil {
 		return nil, err
 	}
@@ -173,46 +147,17 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		pm.logger.Debugf("found an ideal ik solution")
 		return planSeed.steps, nil
 	}
-
-	motionChains, err := motionChainsFromPlanState(pm.request.FrameSystem, goal)
-	if err != nil {
-		return nil, err
-	}
-
-	startPoses, err := start.ComputePoses(pm.request.FrameSystem)
-	if err != nil {
-		return nil, err
-	}
 	
-	constraintHandler, err := newConstraintChecker(
-		pm.request.PlannerOptions,
-		pm.request.Constraints,
-		startPoses,
-		goal,
-		pm.request.FrameSystem,
-		motionChains,
-		pm.request.StartState.configuration,
-		pm.request.WorldState,
-		pm.boundingRegions,
-	)
+	pathPlanner, err := newCBiRRTMotionPlanner(pm.pc, psc)
 	if err != nil {
 		return nil, err
 	}
-	
-	pathPlanner, err := newCBiRRTMotionPlanner(
-		pm.request.FrameSystem,
-		rand.New(rand.NewSource(int64(pm.randseed.Int()))), //nolint: gosec
-		pm.logger,
-		pm.request.PlannerOptions,
-		constraintHandler,
-		motionChains,
-	)
 
 	finalSteps, err := pathPlanner.rrtRunner(ctx, planSeed.maps)
 	if err != nil {
 		return nil, err
 	}
-	finalSteps.steps = pathPlanner.smoothPath(ctx, finalSteps.steps)
+	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
 	return finalSteps.steps, nil
 }
 
@@ -273,7 +218,7 @@ type rrtMaps struct {
 // solutions to pre-populate the goal map, and will check if any of those goals are able to be
 // directly interpolated to.  If the waypoint specifies poses for start or goal, IK will be run to
 // create configurations.
-func initRRTSolutions(ctx context.Context, start referenceframe.FrameSystemInputs, goal referenceframe.FrameSystemPoses) (*rrtSolution, error) {
+func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolution, error) {
 	rrt := &rrtSolution{
 		maps: &rrtMaps{
 			startMap: rrtMap{},
@@ -281,8 +226,8 @@ func initRRTSolutions(ctx context.Context, start referenceframe.FrameSystemInput
 		},
 	}
 
-	seed := newConfigurationNode(start)
-	goalNodes, err := generateNodeListForGoalState(ctx, wp.motionPlanner, goal, start)
+	seed := newConfigurationNode(psc.start)
+	goalNodes, err := getSolutions(ctx, psc)
 	if err != nil {
 		return rrt, err
 	}

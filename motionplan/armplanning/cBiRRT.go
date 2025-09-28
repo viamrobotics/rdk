@@ -34,7 +34,6 @@ type cBiRRTMotionPlanner struct {
 	pc *planContext
 	psc *planSegmentContext
 	
-	solver                    *ik.CombinedIK
 	fastGradDescent *ik.NloptIK
 }
 
@@ -47,11 +46,6 @@ func newCBiRRTMotionPlanner(pc *planContext, psc *planSegmentContext) (*cBiRRTMo
 
 	var err error
 	
-	c.solver, err = ik.CreateCombinedIKSolver(pc.lfs.dof, pc.logger, pc.planOpts.NumThreads, pc.planOpts.GoalThreshold)
-	if err != nil {
-		return nil, err
-	}
-
 	// nlopt should try only once
 	c.fastGradDescent, err = ik.CreateNloptSolver(pc.lfs.dof, pc.logger, 1, true, true)
 	if err != nil {
@@ -62,9 +56,8 @@ func newCBiRRTMotionPlanner(pc *planContext, psc *planSegmentContext) (*cBiRRTMo
 }
 
 // only used for testin.
-func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context, start referenceframe.FrameSystemInputs,
-	goal referenceframe.FrameSystemPoses) ([]referenceframe.FrameSystemInputs, error) {
-	initMaps, err := initRRTSolutions(ctx, start, goal)
+func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]referenceframe.FrameSystemInputs, error) {
+	initMaps, err := initRRTSolutions(ctx, mp.psc)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +281,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return nil
 		}
 
-		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent, mp.linearizeFSmetric(mp.psc.checker.PathMetric()), linearSeed)
+		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent, mp.pc.linearizeFSmetric(mp.psc.checker.PathMetric()), linearSeed)
 		if err != nil {
 			mp.pc.logger.Infof("constrainNear fail: %v", err)
 			return nil
@@ -332,41 +325,11 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	return nil
 }
 
-func (mp *cBiRRTMotionPlanner) simpleSmoothStep(steps []referenceframe.FrameSystemInputs, step int) []referenceframe.FrameSystemInputs {
-	// look at each triplet, see if we can remove the middle one
-	for i := step + 1; i < len(steps); i += step {
-		err := mp.checkPath(steps[i-step-1], steps[i])
-		if err != nil {
-			continue
-		}
-		// we can merge
-		steps = append(steps[0:i-step], steps[i:]...)
-		i--
-	}
-	return steps
-}
-
-// smoothPath will pick two points at random along the path and attempt to do a fast gradient descent directly between
-// them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
-func (mp *cBiRRTMotionPlanner) smoothPath(ctx context.Context, steps []referenceframe.FrameSystemInputs) []referenceframe.FrameSystemInputs {
-	start := time.Now()
-
-	originalSize := len(steps)
-	steps = mp.simpleSmoothStep(steps, 10)
-	steps = mp.simpleSmoothStep(steps, 1)
-
-	if len(steps) != originalSize {
-		mp.pc.logger.Debugf("simpleSmooth %d -> %d in %v", originalSize, len(steps), time.Since(start))
-		return mp.smoothPath(ctx, steps)
-	}
-	return steps
-
-}
 
 // getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should
 // move in any given step. The second argument is a float describing the percentage of the total movement.
 func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, iterationNumber int, double bool) map[string][]float64 {
-	moving, _ := mp.motionChains.framesFilteredByMovingAndNonmoving()
+	moving, _ := mp.psc.motionChains.framesFilteredByMovingAndNonmoving()
 
 	frameQstep := map[string][]float64{}
 	for _, f := range mp.pc.lfs.frames {
@@ -418,15 +381,6 @@ func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, itera
 	return frameQstep
 }
 
-func (mp *cBiRRTMotionPlanner) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
-	return mp.psc.checker.CheckStateFSConstraints(&motionplan.StateFS{
-		Configuration: inputs,
-		FS:            mp.pc.fs,
-	}) == nil
-}
-
-
-
 func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and gofsal maps.
@@ -435,7 +389,7 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 		for _, name := range mp.pc.fs.FrameNames() {
 			f := mp.pc.fs.Frame(name)
 			if f != nil && len(f.DoF()) > 0 {
-				randomInputs[name] = referenceframe.RandomFrameInputs(f, mp.randseed)
+				randomInputs[name] = referenceframe.RandomFrameInputs(f, mp.pc.randseed)
 			}
 		}
 		return newConfigurationNode(randomInputs), nil
@@ -446,7 +400,7 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 	for name, inputs := range rSeed.inputs {
 		f := mp.pc.fs.Frame(name)
 		if f != nil && len(f.DoF()) > 0 {
-			q, err := referenceframe.RestrictedRandomFrameInputs(f, mp.randseed, 0.1, inputs)
+			q, err := referenceframe.RestrictedRandomFrameInputs(f, mp.pc.randseed, 0.1, inputs)
 			if err != nil {
 				return nil, err
 			}
@@ -456,51 +410,4 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 	return newConfigurationNode(newInputs), nil
 }
 
-// linearize the goal metric for use with solvers.
-// Since our solvers operate on arrays of floats, there needs to be a way to map bidirectionally between the framesystem configuration
-// of FrameSystemInputs and the []float64 that the solver expects. This is that mapping.
-func (mp *cBiRRTMotionPlanner) linearizeFSmetric(metric motionplan.StateFSMetric) func([]float64) float64 {
-	return func(query []float64) float64 {
-		inputs, err := mp.pc.lfs.sliceToMap(query)
-		if err != nil {
-			return math.Inf(1)
-		}
-		return metric(&motionplan.StateFS{Configuration: inputs, FS: mp.pc.fs})
-	}
-}
 
-// The purpose of this function is to allow solves that require the movement of components not in a motion chain, while preventing wild or
-// random motion of these components unnecessarily. A classic example would be a scene with two arms. One arm is given a goal in World
-// which it could reach, but the other arm is in the way. Randomly seeded IK will produce a valid configuration for the moving arm, and a
-// random configuration for the other. This function attempts to replace that random configuration with the seed configuration, if valid,
-// and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
-// configuration to the seed.
-func (mp *cBiRRTMotionPlanner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
-	moving, nonmoving := mp.motionChains.framesFilteredByMovingAndNonmoving() // TODO - this is done lots of times and isn't fast
-	// Create a map with nonmoving configurations replaced with their seed values
-	alteredStep := referenceframe.FrameSystemInputs{}
-	for _, frame := range moving {
-		alteredStep[frame] = step[frame]
-	}
-	for _, frame := range nonmoving {
-		alteredStep[frame] = seed[frame]
-	}
-	if mp.checkInputs(alteredStep) {
-		return alteredStep
-	}
-
-	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
-
-	//nolint:errcheck
-	lastGood, _ := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(
-		&motionplan.SegmentFS{
-			StartConfiguration: step,
-			EndConfiguration:   alteredStep,
-			FS:                 mp.pc.fs,
-		}, mp.pc.planOpts.Resolution,
-	)
-	if lastGood != nil {
-		return lastGood.EndConfiguration
-	}
-	return nil
-}

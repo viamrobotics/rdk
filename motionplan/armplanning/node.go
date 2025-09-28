@@ -101,23 +101,14 @@ func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []refer
 	return path
 }
 
-// This function is the entrypoint to IK for all cases. Everything prior to here is poses or
-// configurations as the user passed in, which here are converted to a list of nodes which are to be
-// used as the from or to states for a motionPlanner.
-func generateNodeListForGoalState(
-	ctx context.Context,
-	motionPlanner *cBiRRTMotionPlanner,
-	goal referenceframe.FrameSystemPoses,
-	ikSeed referenceframe.FrameSystemInputs,
-) ([]*node, error) {
-
-	return motionPlanner.getSolutions(ctx, ikSeed, goal)
-}
-
 type solutionSolvingState struct {
-	pm *planManager
-	
-	seed referenceframe.FrameSystemInputs
+	psc *planSegmentContext
+
+	linearSeed []float64
+
+	moving, nonmoving []string
+
+	ratios []float64
 	goodCost float64
 	
 	solutions         []*node
@@ -128,44 +119,92 @@ type solutionSolvingState struct {
 	ikTimeMultiple    int
 }
 
-func (sss * solutionSolvingState) computeGoodCost() {
-	ratios := mp.lfs.inputChangeRatio(mp.motionChains, seed, mp.planOpts.getGoalMetric(goal), mp.logger)
+func (sss *solutionSolvingState) setup(goal referenceframe.FrameSystemPoses ) error {
+	err := sss.computeGoodCost(goal)
+	if err != nil {
+		return err
+	}
+
+	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
+	
+	return nil
+}
+
+func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) error {
+	sss.ratios = sss.psc.pc.lfs.inputChangeRatio(sss.psc.motionChains, sss.psc.start, sss.psc.pc.planOpts.getGoalMetric(goal), sss.psc.pc.logger)
 	
 	adjusted := []float64{}
-	for idx, r := range ratios {
-		adjusted = append(adjusted, mp.lfs.jog(idx, linearSeed[idx], r))
+	for idx, r := range sss.ratios {
+		adjusted = append(adjusted, sss.psc.pc.lfs.jog(idx, sss.linearSeed[idx], r))
 	}
-	step, err := mp.lfs.sliceToMap(adjusted)
+	step, err := sss.psc.pc.lfs.sliceToMap(adjusted)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	stepArc := &motionplan.SegmentFS{
-		StartConfiguration: seed,
+		StartConfiguration: sss.psc.start,
 		EndConfiguration:   step,
-		FS:                 mp.fs,
+		FS:                 sss.psc.pc.fs,
 	}
-	sss.goodCost = mp.configurationDistanceFunc(stepArc)
-	sss.pm.logger.Debugf("goodCost: %v", sss.goodCost)
+	sss.goodCost = sss.psc.pc.configurationDistanceFunc(stepArc)
+	sss.psc.pc.logger.Debugf("goodCost: %v", sss.goodCost)
+	return nil
 }
+
+// The purpose of this function is to allow solves that require the movement of components not in a motion chain, while preventing wild or
+// random motion of these components unnecessarily. A classic example would be a scene with two arms. One arm is given a goal in World
+// which it could reach, but the other arm is in the way. Randomly seeded IK will produce a valid configuration for the moving arm, and a
+// random configuration for the other. This function attempts to replace that random configuration with the seed configuration, if valid,
+// and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
+// configuration to the seed.
+func (sss *solutionSolvingState) nonchainMinimize(seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
+	// Create a map with nonmoving configurations replaced with their seed values
+	alteredStep := referenceframe.FrameSystemInputs{}
+	for _, frame := range sss.moving {
+		alteredStep[frame] = step[frame]
+	}
+	for _, frame := range sss.nonmoving {
+		alteredStep[frame] = seed[frame]
+	}
+	if sss.psc.checkInputs(alteredStep) {
+		return alteredStep
+	}
+
+	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
+
+	//nolint:errcheck
+	lastGood, _ := sss.psc.checker.CheckStateConstraintsAcrossSegmentFS(
+		&motionplan.SegmentFS{
+			StartConfiguration: step,
+			EndConfiguration:   alteredStep,
+			FS:                 sss.psc.pc.fs,
+		}, sss.psc.pc.planOpts.Resolution,
+	)
+	if lastGood != nil {
+		return lastGood.EndConfiguration
+	}
+	return nil
+}
+
 
 // return bool is if we should stop because we're done.
 func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 ) bool {
-	step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
+	step, err := sss.psc.pc.lfs.sliceToMap(stepSolution.Configuration)
 	if err != nil {
-		mp.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
+		sss.psc.pc.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
 		return false
 	}
 
-	alteredStep := mp.nonchainMinimize(seed, step)
+	alteredStep := sss.nonchainMinimize(sss.psc.start, step)
 	if alteredStep != nil {
 		// if nil, step is guaranteed to fail the below check, but we want to do it anyway to capture the failure reason
 		step = alteredStep
 	}
 	// Ensure the end state is a valid one
-	err = mp.checker.CheckStateFSConstraints(&motionplan.StateFS{
+	err = sss.psc.checker.CheckStateFSConstraints(&motionplan.StateFS{
 		Configuration: step,
-		FS:            mp.fs,
+		FS:            sss.psc.pc.fs,
 	})
 	if err != nil {
 		sss.failures.add(step, err)
@@ -173,11 +212,11 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 	}
 
 	stepArc := &motionplan.SegmentFS{
-		StartConfiguration: seed,
+		StartConfiguration: sss.psc.start,
 		EndConfiguration:   step,
-		FS:                 mp.fs,
+		FS:                 sss.psc.pc.fs,
 	}
-	err = mp.checker.CheckSegmentFSConstraints(stepArc)
+	err = sss.psc.checker.CheckSegmentFSConstraints(stepArc)
 	if err != nil {
 		sss.failures.add(step, err)
 		return false
@@ -187,37 +226,37 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 		similarity := &motionplan.SegmentFS{
 			StartConfiguration: oldSol.inputs,
 			EndConfiguration:   step,
-			FS:                 mp.fs,
+			FS:                 sss.psc.pc.fs,
 		}
-		simscore := mp.configurationDistanceFunc(similarity)
+		simscore := sss.psc.pc.configurationDistanceFunc(similarity)
 		if simscore < defaultSimScore {
 			return false
 		}
 	}
 
-	myNode := &node{inputs: step, cost: mp.configurationDistanceFunc(stepArc)}
+	myNode := &node{inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
 	sss.solutions = append(sss.solutions, myNode)
 
 	const goodCostStopDivier = 3.0
 
-	if myNode.cost < goodCost || // this checks the absolute score of the plan
+	if myNode.cost < sss.goodCost || // this checks the absolute score of the plan
 		// if we've got something sane, and it's really good, let's check
-		(myNode.cost < (sss.bestScore*defaultOptimalityMultiple) && myNode.cost < goodCost) {
-		whyNot := mp.checkPath(seed, step)
-		mp.logger.Debugf("got score %0.4f and goodCost: %0.2f - result: %v", myNode.cost, goodCost, whyNot)
+		(myNode.cost < (sss.bestScore*defaultOptimalityMultiple) && myNode.cost < sss.goodCost) {
+		whyNot := sss.psc.checkPath(sss.psc.start, step)
+		sss.psc.pc.logger.Debugf("got score %0.4f and goodCost: %0.2f - result: %v", myNode.cost, sss.goodCost, whyNot)
 		if whyNot == nil {
 			myNode.checkPath = true
-			if (myNode.cost < (goodCost / goodCostStopDivier)) ||
-				(myNode.cost < mp.planOpts.MinScore && mp.planOpts.MinScore > 0) {
-				mp.logger.Debugf("\tscore %0.4f stopping early (%0.2f)", myNode.cost, goodCost/goodCostStopDivier)
+			if (myNode.cost < (sss.goodCost / goodCostStopDivier)) ||
+				(myNode.cost < sss.psc.pc.planOpts.MinScore && sss.psc.pc.planOpts.MinScore > 0) {
+				sss.psc.pc.logger.Debugf("\tscore %0.4f stopping early (%0.2f)", myNode.cost, sss.goodCost/goodCostStopDivier)
 				return true // good solution, stopping early
-			} else if myNode.cost < (goodCost / (.5 * goodCostStopDivier)) {
-				sss.ikTimeMultiple = mp.planOpts.TimeMultipleAfterFindingFirstSolution / 4
+			} else if myNode.cost < (sss.goodCost / (.5 * goodCostStopDivier)) {
+				sss.ikTimeMultiple = sss.psc.pc.planOpts.TimeMultipleAfterFindingFirstSolution / 4
 			}
 		}
 	}
 
-	if len(sss.solutions) >= mp.planOpts.MaxSolutions {
+	if len(sss.solutions) >= sss.psc.pc.planOpts.MaxSolutions {
 		// sufficient solutions found, stopping early
 		return true
 	}
@@ -231,7 +270,7 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 	} else {
 		elapsed := time.Since(sss.startTime)
 		if elapsed > (time.Duration(sss.ikTimeMultiple) * sss.firstSolutionTime) {
-			mp.logger.Infof("ending early because of time elapsed: %v firstSolutionTime: %v", elapsed, sss.firstSolutionTime)
+			sss.psc.pc.logger.Infof("ending early because of time elapsed: %v firstSolutionTime: %v", elapsed, sss.firstSolutionTime)
 			return true
 		}
 	}
@@ -246,39 +285,48 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 //
 // If minScore is positive, if a solution scoring below that amount is found, the solver will
 // terminate and return that one solution.
-func (mp *cBiRRTMotionPlanner) getSolutions(
-	ctx context.Context,
-	pm *planManager,
-	seed referenceframe.FrameSystemInputs,
-	goal referenceframe.FrameSystemPoses,
-) ([]*node, error) {
-	if mp.planOpts.MaxSolutions == 0 {
-		mp.planOpts.MaxSolutions = defaultSolutionsToSeed
-	}
-	if len(seed) == 0 {
-		seed = referenceframe.FrameSystemInputs{}
-		// If no seed is passed, generate one randomly
-		for _, frameName := range mp.fs.FrameNames() {
-			seed[frameName] = referenceframe.RandomFrameInputs(mp.fs.Frame(frameName), mp.randseed)
-		}
+func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error) {
+	var err error
+	
+	if psc.pc.planOpts.MaxSolutions == 0 {
+		psc.pc.planOpts.MaxSolutions = defaultSolutionsToSeed
 	}
 
-	linearSeed, err := mp.lfs.mapToSlice(seed)
+	if len(psc.start) == 0 {
+		return nil, fmt.Errorf("getSolutions start can't be empty")
+	}
+
+	solvingState := solutionSolvingState{
+		psc: psc,
+		solutions:         []*node{},
+		failures:          newIkConstraintError(psc.pc.fs, psc.checker),
+		startTime:         time.Now(),
+		firstSolutionTime: time.Hour,
+		bestScore:         10000000,
+		ikTimeMultiple:    psc.pc.planOpts.TimeMultipleAfterFindingFirstSolution,
+	}
+	
+	solvingState.linearSeed, err = psc.pc.lfs.mapToSlice(psc.start)
 	if err != nil {
 		return nil, err
 	}
 
+	err = solvingState.setup(psc.goal)
+	if err != nil {
+		return nil, err
+	}
+	
 	// Spawn the IK solver to generate solutions until done
-	minFunc := mp.linearizeFSmetric(mp.planOpts.getGoalMetric(goal))
+	minFunc := psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
 
-	mp.logger.Debugf("seed: %v", seed)
+	psc.pc.logger.Debugf("seed: %v", psc.start)
 
 
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	solutionGen := make(chan *ik.Solution, mp.planOpts.NumThreads*20)
+	solutionGen := make(chan *ik.Solution, psc.pc.planOpts.NumThreads*20)
 	defer func() {
 		// In lieu of creating a separate WaitGroup to wait on before returning, we simply wait to
 		// see the `solutionGen` channel get closed to know that the goroutine we spawned has
@@ -287,27 +335,22 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 		}
 	}()
 
+	solver, err := ik.CreateCombinedIKSolver(psc.pc.lfs.dof, psc.pc.logger, psc.pc.planOpts.NumThreads, psc.pc.planOpts.GoalThreshold)
+	if err != nil {
+		return nil, err
+	}
+	
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		// This channel close doubles as signaling that the goroutine has exited.
 		defer close(solutionGen)
-		_, err := mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, ratios, minFunc, mp.randseed.Int())
+		_, err := solver.Solve(ctxWithCancel, solutionGen, solvingState.linearSeed, solvingState.ratios, minFunc, psc.pc.randseed.Int())
 		if err != nil {
-			mp.logger.Warnf("solver had an error: %v", err)
+			psc.pc.logger.Warnf("solver had an error: %v", err)
 		}
 	})
 
-	solvingState := solutionSolvingState{
-		seed: seed,
-		pm: pm,
-		solutions:         []*node{},
-		failures:          newIkConstraintError(mp.fs, mp.checker),
-		startTime:         time.Now(),
-		firstSolutionTime: time.Hour,
-		bestScore:         10000000,
-		ikTimeMultiple:    mp.planOpts.TimeMultipleAfterFindingFirstSolution,
-	}
-	solvingState.computeGoodCost()
+
 	
 solutionLoop:
 	for {
@@ -316,7 +359,7 @@ solutionLoop:
 			// We've been canceled. So have our workers. Can just return.
 			return nil, ctx.Err()
 		case stepSolution, ok := <-solutionGen:
-			if !ok || mp.process(&solvingState, seed, stepSolution, goodCost) {
+			if !ok || solvingState.process(stepSolution) {
 				// No longer using the generated solutions. Cancel the workers.
 				cancel()
 				break solutionLoop
@@ -341,14 +384,3 @@ solutionLoop:
 	return solvingState.solutions, nil
 }
 
-func checkPath(request PlanRequest, checker *motionplan.ConstraintChecker, seedInputs, target referenceframe.FrameSystemInputs) error {
-	_, err := checker.CheckSegmentAndStateValidityFS(
-		&motionplan.SegmentFS{
-			StartConfiguration: seedInputs,
-			EndConfiguration:   target,
-			FS:                 request.FrameSystem,
-		},
-		request.PlannerOptions.Resolution,
-	)
-	return err
-}
