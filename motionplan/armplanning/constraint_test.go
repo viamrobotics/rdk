@@ -2,7 +2,6 @@ package armplanning
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -28,24 +27,51 @@ func TestIKTolerances(t *testing.T) {
 		spatial.NewPoseFromProtobuf(&commonpb.Pose{X: -46, Y: 0, Z: 372, OX: -1.78, OY: -3.3, OZ: -1.11}),
 	)}
 
-	mc, err := motionChainsFromPlanState(fs, goal)
+	seed := frame.FrameSystemInputs{m.Name(): frame.FloatsToInputs(make([]float64, 6))}
+
+	// Create PlanRequest to use the new API
+	request := &PlanRequest{
+		FrameSystem: fs,
+		Goals: []*PlanState{NewPlanState(goal, nil)},
+		StartState: NewPlanState(nil, seed),
+		PlannerOptions: NewBasicPlannerOptions(),
+		Constraints: &motionplan.Constraints{},
+	}
+
+	pc, err := newPlanContext(logger, request)
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := newCBiRRTMotionPlanner(
-		fs, rand.New(rand.NewSource(1)), logger, NewBasicPlannerOptions(), motionplan.NewEmptyConstraintChecker(), mc)
+	psc, err := newPlanSegmentContext(pc, seed, goal)
+	test.That(t, err, test.ShouldBeNil)
+
+	mp, err := newCBiRRTMotionPlanner(pc, psc)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
-	seed := map[string][]frame.Input{m.Name(): frame.FloatsToInputs(make([]float64, 6))}
-	_, err = mp.planForTest(context.Background(), seed, goal)
+	_, err = mp.planForTest(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
 	opt := NewBasicPlannerOptions()
 	opt.GoalMetricType = motionplan.PositionOnly
 	opt.SetMaxSolutions(50)
-	mp, err = newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(1)), logger, opt, motionplan.NewEmptyConstraintChecker(), mc)
+
+	request2 := &PlanRequest{
+		FrameSystem: fs,
+		Goals: []*PlanState{NewPlanState(goal, nil)},
+		StartState: NewPlanState(nil, seed),
+		PlannerOptions: opt,
+		Constraints: &motionplan.Constraints{},
+	}
+
+	pc2, err := newPlanContext(logger, request2)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = mp.planForTest(context.Background(), seed, goal)
+
+	psc2, err := newPlanSegmentContext(pc2, seed, goal)
+	test.That(t, err, test.ShouldBeNil)
+
+	mp2, err := newCBiRRTMotionPlanner(pc2, psc2)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = mp2.planForTest(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }

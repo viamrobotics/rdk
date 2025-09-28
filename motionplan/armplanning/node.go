@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"sync"
 	"time"
 
 	"go.viam.com/utils"
@@ -339,6 +340,9 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 	if err != nil {
 		return nil, err
 	}
+
+	var solveError error
+	var solveErrorLock sync.Mutex
 	
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
@@ -346,7 +350,9 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		defer close(solutionGen)
 		_, err := solver.Solve(ctxWithCancel, solutionGen, solvingState.linearSeed, solvingState.ratios, minFunc, psc.pc.randseed.Int())
 		if err != nil {
-			psc.pc.logger.Warnf("solver had an error: %v", err)
+			solveErrorLock.Lock()
+			solveError = err
+			solveErrorLock.Unlock()
 		}
 	})
 
@@ -367,6 +373,12 @@ solutionLoop:
 		}
 	}
 
+	solveErrorLock.Lock()
+	defer solveErrorLock.Unlock()
+	if solveError != nil {
+		return nil, fmt.Errorf("solver had an error: %w", solveError)
+	}
+	
 	if len(solvingState.solutions) == 0 {
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions
 		// were produced, or if non-zero solutions were produced, which constraints were violated.

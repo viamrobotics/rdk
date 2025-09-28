@@ -125,9 +125,10 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 			// Compute the new input for a specific joint that's one "jog" away. E.g: ~5 degrees for
 			// a rotational joint.
 			y := lfs.jog(len(ratios), orig.Value, percentJog)
+
 			// Update the copied joint set in place. This is undone at the end of the loop.
 			start[frame.Name()][idx] = referenceframe.Input{y}
-
+			
 			myDistance := distanceFunc(&motionplan.StateFS{Configuration: start, FS: mc.fs})
 			// Compute how much effect the small change made. The bigger the difference, the smaller
 			// the ratio.

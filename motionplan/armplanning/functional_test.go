@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"math"
-	"math/rand"
 	"os"
 	"sort"
 	"testing"
@@ -129,8 +128,9 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	constraintHandler.AddStateConstraint("orientation", orientConstraint)
 
 	start := &PlanState{configuration: map[string][]frame.Input{model.Name(): home7}}
-	goal := &PlanState{poses: frame.FrameSystemPoses{model.Name(): frame.NewPoseInFrame(frame.World, pos)}}
-	motionChains, err := motionChainsFromPlanState(fs, goal)
+	goalPoses := frame.FrameSystemPoses{model.Name(): frame.NewPoseInFrame(frame.World, pos)}
+	goal := &PlanState{poses: goalPoses}
+	motionChains, err := motionChainsFromPlanState(fs, goalPoses)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +267,7 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 	for name, constraint := range collisionConstraints {
 		constraintHandler.AddStateConstraint(name, constraint)
 	}
-	motionChains, err := motionChainsFromPlanState(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +342,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		constraintHandler.AddStateFSConstraint(name, constraint)
 	}
 	start := map[string][]frame.Input{xarm.Name(): home7}
-	motionChains, err := motionChainsFromPlanState(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +415,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 		constraintHandler.AddStateFSConstraint(name, constraint)
 	}
 	start := map[string][]frame.Input{ur5e.Name(): home6}
-	motionChains, err := motionChainsFromPlanState(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
 		return nil, err
 	}
@@ -439,19 +439,34 @@ func testPlanner(t *testing.T, config planConfigConstructor, seed int) {
 	// plan
 	cfg, err := config(logger)
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := newCBiRRTMotionPlanner(
-		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander, cfg.MotionChains)
+
+	// Create PlanRequest to use the new API
+	request := &PlanRequest{
+		FrameSystem: cfg.FS,
+		Goals: []*PlanState{cfg.Goal},
+		StartState: cfg.Start,
+		PlannerOptions: cfg.Options,
+		Constraints: &motionplan.Constraints{},
+	}
+
+	pc, err := newPlanContext(logger, request)
 	test.That(t, err, test.ShouldBeNil)
 
-	nodes, err := mp.planForTest(context.Background(), cfg.Start, cfg.Goal)
+	psc, err := newPlanSegmentContext(pc, cfg.Start.configuration, cfg.Goal.poses)
+	test.That(t, err, test.ShouldBeNil)
+
+	mp, err := newCBiRRTMotionPlanner(pc, psc)
+	test.That(t, err, test.ShouldBeNil)
+
+	nodes, err := mp.planForTest(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
 	// test that path doesn't violate constraints
 	test.That(t, len(nodes), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(nodes)-1; j++ {
 		_, err := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(&motionplan.SegmentFS{
-			StartConfiguration: nodes[j].inputs,
-			EndConfiguration:   nodes[j+1].inputs,
+			StartConfiguration: nodes[j],
+			EndConfiguration:   nodes[j+1],
 			FS:                 cfg.FS,
 		}, cfg.Options.Resolution)
 		test.That(t, err, test.ShouldBeNil)

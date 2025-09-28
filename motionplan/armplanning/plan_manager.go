@@ -3,12 +3,7 @@ package armplanning
 import (
 	"context"
 	"errors"
-	"fmt"
-	"math/rand"
-	"sync"
 	"time"
-
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"

@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"math/rand"
 	"slices"
 	"time"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
