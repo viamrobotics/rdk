@@ -12,19 +12,12 @@ type motionChains struct {
 	inner []*motionChain
 }
 
-func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to *PlanState) (*motionChains, error) {
+func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to referenceframe.FrameSystemPoses) (*motionChains, error) {
 	// create motion chains for each goal
-	inner := make([]*motionChain, 0, len(to.poses)+len(to.configuration))
+	inner := make([]*motionChain, 0, len(to))
 
-	for frame, pif := range to.poses {
+	for frame, pif := range to {
 		chain, err := motionChainFromGoal(fs, frame, pif.Parent())
-		if err != nil {
-			return nil, err
-		}
-		inner = append(inner, chain)
-	}
-	for frame := range to.configuration {
-		chain, err := motionChainFromGoal(fs, frame, frame)
 		if err != nil {
 			return nil, err
 		}

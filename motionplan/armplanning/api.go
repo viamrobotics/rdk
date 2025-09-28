@@ -43,6 +43,7 @@ type PlanRequest struct {
 	Constraints *motionplan.Constraints `json:"constraints"`
 	// Other more granular parameters for the plan used to move the robot.
 	PlannerOptions *PlannerOptions `json:"planner_options"`
+
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.

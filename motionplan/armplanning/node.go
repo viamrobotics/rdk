@@ -65,7 +65,7 @@ func newConfigurationNode(q referenceframe.FrameSystemInputs) *node {
 // TODO(rb): in the future we might think about making this into a list of nodes.
 type nodePair struct{ a, b *node }
 
-func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []*node {
+func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []referenceframe.FrameSystemInputs {
 	// need to figure out which of the two nodes is in the start map
 	var startReached, goalReached *node
 	if _, ok := startMap[pair.a]; ok {
@@ -75,9 +75,9 @@ func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []*node
 	}
 
 	// extract the path to the seed
-	path := make([]*node, 0)
+	path := []referenceframe.FrameSystemInputs{}
 	for startReached != nil {
-		path = append(path, startReached)
+		path = append(path, startReached.inputs)
 		startReached = startMap[startReached]
 	}
 
@@ -94,7 +94,7 @@ func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []*node
 
 		// extract the path to the goal
 		for goalReached != nil {
-			path = append(path, goalReached)
+			path = append(path, goalReached.inputs)
 			goalReached = goalMap[goalReached]
 		}
 	}
@@ -107,33 +107,19 @@ func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []*node
 func generateNodeListForGoalState(
 	ctx context.Context,
 	motionPlanner *cBiRRTMotionPlanner,
-	goalState *PlanState,
+	goal referenceframe.FrameSystemPoses,
 	ikSeed referenceframe.FrameSystemInputs,
 ) ([]*node, error) {
-	nodes := []*node{}
 
-	if len(goalState.configuration) > 0 {
-		nodes = append(nodes, newConfigurationNode(goalState.configuration))
-		return nodes, nil
-	}
-
-	if len(goalState.poses) != 0 {
-		// get many potential end goals from IK solver
-		solutions, err := motionPlanner.getSolutions(ctx, ikSeed, goalState.poses)
-		if err != nil {
-			return nil, err
-		}
-		nodes = append(nodes, solutions...)
-	}
-
-	if len(nodes) == 0 {
-		return nil, fmt.Errorf("could not create any nodes for state %v", goalState)
-	}
-
-	return nodes, nil
+	return motionPlanner.getSolutions(ctx, ikSeed, goal)
 }
 
 type solutionSolvingState struct {
+	pm *planManager
+	
+	seed referenceframe.FrameSystemInputs
+	goodCost float64
+	
 	solutions         []*node
 	failures          map[string]int // A map keeping track of which constraints fail
 	constraintFailCnt int
@@ -143,9 +129,28 @@ type solutionSolvingState struct {
 	ikTimeMultiple    int
 }
 
+func (sss * solutionSolvingState) computeGoodCost() {
+	ratios := mp.lfs.inputChangeRatio(mp.motionChains, seed, mp.planOpts.getGoalMetric(goal), mp.logger)
+	
+	adjusted := []float64{}
+	for idx, r := range ratios {
+		adjusted = append(adjusted, mp.lfs.jog(idx, linearSeed[idx], r))
+	}
+	step, err := mp.lfs.sliceToMap(adjusted)
+	if err != nil {
+		return nil, err
+	}
+	stepArc := &motionplan.SegmentFS{
+		StartConfiguration: seed,
+		EndConfiguration:   step,
+		FS:                 mp.fs,
+	}
+	sss.goodCost = mp.configurationDistanceFunc(stepArc)
+	sss.pm.logger.Debugf("goodCost: %v", sss.goodCost)
+}
+
 // return bool is if we should stop because we're done.
-func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed referenceframe.FrameSystemInputs,
-	stepSolution *ik.Solution, goodCost float64,
+func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 ) bool {
 	step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
 	if err != nil {
@@ -246,6 +251,7 @@ func (mp *cBiRRTMotionPlanner) process(sss *solutionSolvingState, seed reference
 // terminate and return that one solution.
 func (mp *cBiRRTMotionPlanner) getSolutions(
 	ctx context.Context,
+	pm *planManager,
 	seed referenceframe.FrameSystemInputs,
 	goal referenceframe.FrameSystemPoses,
 ) ([]*node, error) {
@@ -270,27 +276,7 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 
 	mp.logger.Debugf("seed: %v", seed)
 
-	ratios := mp.lfs.inputChangeRatio(mp.motionChains, seed, mp.planOpts.getGoalMetric(goal), mp.logger)
 
-	var goodCost float64
-
-	{
-		adjusted := []float64{}
-		for idx, r := range ratios {
-			adjusted = append(adjusted, mp.lfs.jog(idx, linearSeed[idx], r))
-		}
-		step, err := mp.lfs.sliceToMap(adjusted)
-		if err != nil {
-			return nil, err
-		}
-		stepArc := &motionplan.SegmentFS{
-			StartConfiguration: seed,
-			EndConfiguration:   step,
-			FS:                 mp.fs,
-		}
-		goodCost = mp.configurationDistanceFunc(stepArc)
-		mp.logger.Debugf("goodCost: %v", goodCost)
-	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -315,6 +301,8 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 	})
 
 	solvingState := solutionSolvingState{
+		seed: seed,
+		pm: pm,
 		solutions:         []*node{},
 		failures:          map[string]int{},
 		startTime:         time.Now(),
@@ -322,7 +310,8 @@ func (mp *cBiRRTMotionPlanner) getSolutions(
 		bestScore:         10000000,
 		ikTimeMultiple:    mp.planOpts.TimeMultipleAfterFindingFirstSolution,
 	}
-
+	solvingState.computeGoodCost()
+	
 solutionLoop:
 	for {
 		select {
@@ -353,4 +342,16 @@ solutionLoop:
 	})
 
 	return solvingState.solutions, nil
+}
+
+func checkPath(request PlanRequest, checker *motionplan.ConstraintChecker, seedInputs, target referenceframe.FrameSystemInputs) error {
+	_, err := checker.CheckSegmentAndStateValidityFS(
+		&motionplan.SegmentFS{
+			StartConfiguration: seedInputs,
+			EndConfiguration:   target,
+			FS:                 request.FrameSystem,
+		},
+		request.PlannerOptions.Resolution,
+	)
+	return err
 }
