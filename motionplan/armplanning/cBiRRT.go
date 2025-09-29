@@ -77,8 +77,6 @@ func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]referencefram
 	return x, nil
 }
 
-// rrtRunner will execute the plan. Plan() will call rrtRunner in a separate thread and wait for results.
-// Separating this allows other things to call rrtRunner in parallel allowing the thread-agnostic Plan to be accessible.
 func (mp *cBiRRTMotionPlanner) rrtRunner(
 	ctx context.Context,
 	rrtMaps *rrtMaps,

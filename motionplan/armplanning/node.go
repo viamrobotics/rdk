@@ -242,7 +242,7 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 
 	if myNode.cost < sss.goodCost || // this checks the absolute score of the plan
 		// if we've got something sane, and it's really good, let's check
-		(myNode.cost < (sss.bestScore*defaultOptimalityMultiple) && myNode.cost < sss.goodCost) {
+		myNode.cost < (sss.bestScore*defaultOptimalityMultiple) {
 		whyNot := sss.psc.checkPath(sss.psc.start, step)
 		sss.psc.pc.logger.Debugf("got score %0.4f and goodCost: %0.2f - result: %v", myNode.cost, sss.goodCost, whyNot)
 		if whyNot == nil {
