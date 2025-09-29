@@ -233,12 +233,16 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 		return nil, err
 	}
 
-	newPlan, err := sfPlanner.planMultiWaypoint(ctx)
+	traj, err := sfPlanner.planMultiWaypoint(ctx)
 	if err != nil {
-		return nil, err
+		if request.PlannerOptions.ReturnPartialPlan {
+			logger.Infof("returning partial plan")
+		} else {
+			return nil, err
+		}
 	}
 
-	return newPlan, nil
+	return motionplan.NewSimplePlanFromTrajectory(traj, request.FrameSystem)
 }
 
 var defaultArmPlannerOptions = &motionplan.Constraints{

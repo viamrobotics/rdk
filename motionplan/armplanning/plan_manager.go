@@ -33,7 +33,7 @@ func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, 
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
-func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Plan, error) {
+func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajectory, error) {
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and
 	// end poses to create sets of seed and goal configurations. However, the blocker here is the
 	// lack of a "known good" configuration used to determine which obstacles are allowed to collide
@@ -51,66 +51,48 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Plan, 
 		defer cancel()
 	}
 
-	goals := []referenceframe.FrameSystemPoses{}
+	traj := motionplan.Trajectory{pm.request.StartState.Configuration()}
 
 	start, err := pm.request.StartState.ComputePoses(pm.request.FrameSystem)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, g := range pm.request.Goals {
+	for i, g := range pm.request.Goals {
+		if ctx.Err() != nil {
+			return traj, err // note: here and below, we return traj because of ReturnPartialPlan
+		}
+
 		to, err := g.ComputePoses(pm.request.FrameSystem)
 		if err != nil {
-			return nil, err
+			return traj, err
 		}
-		subGoals, err := pm.generateWaypoints(start, to)
-		if err != nil {
-			return nil, err
+
+		pm.logger.Info("planning step", i, "of", len(pm.request.Goals))
+		for k, v := range to {
+			pm.logger.Info(k, v)
 		}
-		goals = append(goals, subGoals...)
+
+		if len(g.configuration) > 0 {
+			traj = append(traj, g.configuration)
+		} else {
+			subGoals, err := pm.generateWaypoints(start, to)
+			if err != nil {
+				return traj, err
+			}
+
+			for _, sg := range subGoals {
+				newTraj, err := pm.planSingleAtomicWaypoint(ctx, traj[len(traj)-1], sg)
+				if err != nil {
+					return traj, err
+				}
+				traj = append(traj, newTraj...)
+			}
+		}
 		start = to
 	}
 
-	pm.logger.Debugf("planMultiWaypoint orig goals:%v total goals:%v\n", len(pm.request.Goals), len(goals))
-
-	return pm.planAtomicWaypoints(ctx, goals)
-}
-
-// planAtomicWaypoints will plan a single motion, which may be composed of one or more waypoints. Waypoints are here used to begin planning
-// the next motion as soon as its starting point is known. This is responsible for repeatedly calling planSingleAtomicWaypoint for each
-// intermediate waypoint. Waypoints here refer to points that the software has generated to.
-func (pm *planManager) planAtomicWaypoints(ctx context.Context, goals []referenceframe.FrameSystemPoses) (motionplan.Plan, error) {
-	traj := motionplan.Trajectory{pm.request.StartState.Configuration()}
-
-	var err error
-	var newTraj []referenceframe.FrameSystemInputs
-
-	for i, wp := range goals {
-		if ctx.Err() != nil {
-			err = ctx.Err()
-			break
-		}
-
-		pm.logger.Info("planning step", i, "of", len(goals))
-		for k, v := range wp {
-			pm.logger.Info(k, v)
-		}
-		newTraj, err = pm.planSingleAtomicWaypoint(ctx, traj[len(traj)-1], wp)
-		if err != nil {
-			break
-		}
-		traj = append(traj, newTraj...)
-	}
-
-	if err != nil {
-		if pm.request.PlannerOptions.ReturnPartialPlan {
-			pm.logger.Infof("returning partial plan")
-		} else {
-			return nil, err
-		}
-	}
-
-	return motionplan.NewSimplePlanFromTrajectory(traj, pm.request.FrameSystem)
+	return traj, nil
 }
 
 // planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
