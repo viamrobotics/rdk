@@ -245,8 +245,7 @@ type rrtMaps struct {
 
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK
 // solutions to pre-populate the goal map, and will check if any of those goals are able to be
-// directly interpolated to.  If the waypoint specifies poses for start or goal, IK will be run to
-// create configurations.
+// directly interpolated to.
 func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolution, error) {
 	rrt := &rrtSolution{
 		maps: &rrtMaps{
@@ -256,14 +255,19 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolutio
 	}
 
 	seed := newConfigurationNode(psc.start)
+	// goalNodes are sorted from lowest cost to highest.
 	goalNodes, err := getSolutions(ctx, psc)
 	if err != nil {
 		return rrt, err
 	}
 
 	rrt.maps.optNode = goalNodes[0]
+	// `defaultOptimalityMultiple` is > 1.0
+	reasonableCost := goalNodes[0].cost * defaultOptimalityMultiple
 	for _, solution := range goalNodes {
-		if solution.checkPath && solution.cost < goalNodes[0].cost*defaultOptimalityMultiple {
+		if solution.checkPath && solution.cost < reasonableCost {
+			// If we've already checked the path of a solution that is "reasonable", we can just
+			// return now. Otherwise, continue to initialize goal map with keys.
 			rrt.steps = []referenceframe.FrameSystemInputs{solution.inputs}
 			return rrt, nil
 		}

@@ -238,7 +238,7 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 	myNode := &node{inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
 	sss.solutions = append(sss.solutions, myNode)
 
-	const goodCostStopDivier = 3.0
+	const goodCostStopDivider = 3.0
 
 	if myNode.cost < sss.goodCost || // this checks the absolute score of the plan
 		// if we've got something sane, and it's really good, let's check
@@ -247,11 +247,11 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 		sss.psc.pc.logger.Debugf("got score %0.4f and goodCost: %0.2f - result: %v", myNode.cost, sss.goodCost, whyNot)
 		if whyNot == nil {
 			myNode.checkPath = true
-			if (myNode.cost < (sss.goodCost / goodCostStopDivier)) ||
+			if (myNode.cost < (sss.goodCost / goodCostStopDivider)) ||
 				(myNode.cost < sss.psc.pc.planOpts.MinScore && sss.psc.pc.planOpts.MinScore > 0) {
-				sss.psc.pc.logger.Debugf("\tscore %0.4f stopping early (%0.2f)", myNode.cost, sss.goodCost/goodCostStopDivier)
+				sss.psc.pc.logger.Debugf("\tscore %0.4f stopping early (%0.2f)", myNode.cost, sss.goodCost/goodCostStopDivider)
 				return true // good solution, stopping early
-			} else if myNode.cost < (sss.goodCost / (.5 * goodCostStopDivier)) {
+			} else if myNode.cost < (sss.goodCost / (.5 * goodCostStopDivider)) {
 				sss.ikTimeMultiple = sss.psc.pc.planOpts.TimeMultipleAfterFindingFirstSolution / 4
 			}
 		}
