@@ -262,6 +262,9 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolutio
 	}
 
 	rrt.maps.optNode = goalNodes[0]
+
+	psc.pc.logger.Debugf("optNode cost: %v", rrt.maps.optNode.cost)
+
 	// `defaultOptimalityMultiple` is > 1.0
 	reasonableCost := goalNodes[0].cost * defaultOptimalityMultiple
 	for _, solution := range goalNodes {

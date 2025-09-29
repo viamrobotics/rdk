@@ -82,7 +82,7 @@ func TestSmoothPlans1(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
-	req, err := readRequestFromFile("data/wine-crazy-touch.json")
+	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	pc, err := newPlanContext(logger, req)
@@ -111,7 +111,7 @@ func BenchmarkSmoothPlans1(b *testing.B) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(b)
 
-	req, err := readRequestFromFile("data/wine-crazy-touch.json")
+	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
 	test.That(b, err, test.ShouldBeNil)
 
 	pc, err := newPlanContext(logger, req)
