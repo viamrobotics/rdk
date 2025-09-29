@@ -20,7 +20,7 @@ func TestLinearFrameSystemGoalThing(t *testing.T) {
 	test.That(t, len(lfs.frames), test.ShouldEqual, 8)
 	test.That(t, len(lfs.dof), test.ShouldEqual, 6)
 
-	mc, err := motionChainsFromPlanState(req.FrameSystem, req.Goals[0])
+	mc, err := motionChainsFromPlanState(req.FrameSystem, req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
 	toChange := lfs.inputChangeRatio(

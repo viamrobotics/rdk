@@ -12,19 +12,12 @@ type motionChains struct {
 	inner []*motionChain
 }
 
-func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to *PlanState) (*motionChains, error) {
+func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to referenceframe.FrameSystemPoses) (*motionChains, error) {
 	// create motion chains for each goal
-	inner := make([]*motionChain, 0, len(to.poses)+len(to.configuration))
+	inner := make([]*motionChain, 0, len(to))
 
-	for frame, pif := range to.poses {
+	for frame, pif := range to {
 		chain, err := motionChainFromGoal(fs, frame, pif.Parent())
-		if err != nil {
-			return nil, err
-		}
-		inner = append(inner, chain)
-	}
-	for frame := range to.configuration {
-		chain, err := motionChainFromGoal(fs, frame, frame)
 		if err != nil {
 			return nil, err
 		}
@@ -65,34 +58,6 @@ func (mC *motionChains) geometries(
 		}
 	}
 	return movingRobotGeometries, staticRobotGeometries
-}
-
-// If a motion chain is worldrooted, then goals are translated to their position in `World` before solving.
-// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper.
-func (mC *motionChains) translateGoalsToWorldPosition(
-	fs *referenceframe.FrameSystem,
-	start referenceframe.FrameSystemInputs,
-	goal *PlanState,
-) (*PlanState, error) {
-	alteredGoals := referenceframe.FrameSystemPoses{}
-	if goal.poses != nil {
-		for _, chain := range mC.inner {
-			// chain solve frame may only be in the goal configuration, in which case we skip as the configuration will be passed through
-			if goalPif, ok := goal.poses[chain.solveFrameName]; ok {
-				if chain.worldRooted {
-					tf, err := fs.Transform(start, goalPif, referenceframe.World)
-					if err != nil {
-						return nil, err
-					}
-					alteredGoals[chain.solveFrameName] = tf.(*referenceframe.PoseInFrame)
-				} else {
-					alteredGoals[chain.solveFrameName] = goalPif
-				}
-			}
-		}
-		return &PlanState{poses: alteredGoals, configuration: goal.configuration}, nil
-	}
-	return goal, nil
 }
 
 func (mC *motionChains) framesFilteredByMovingAndNonmoving() (moving, nonmoving []string) {

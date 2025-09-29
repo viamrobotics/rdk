@@ -1,7 +1,7 @@
 package armplanning
 
 import (
-	"math/rand"
+	"context"
 	"testing"
 
 	"go.viam.com/test"
@@ -79,27 +79,27 @@ var testSmoothNodes = []*node{
 func TestSmoothPlans1(t *testing.T) {
 	test.That(t, len(testSmoothNodes), test.ShouldEqual, 62)
 
+	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
 	req, err := readRequestFromFile("data/wine-crazy-touch.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	pm, err := newPlanManager(logger, req)
+	pc, err := newPlanContext(logger, req)
 	test.That(t, err, test.ShouldBeNil)
 
-	pathPlanner, err := newCBiRRTMotionPlanner(
-		pm.request.FrameSystem,
-		rand.New(rand.NewSource(int64(pm.randseed.Int()))),
-		pm.logger,
-		pm.request.PlannerOptions,
-		pm.checker,
-		pm.motionChains,
-	)
+	psc, err := newPlanSegmentContext(pc, req.StartState.Configuration(), req.Goals[0].Poses())
 	test.That(t, err, test.ShouldBeNil)
 
-	nodes := pathPlanner.simpleSmooth(testSmoothNodes)
+	// Convert []*node to []referenceframe.FrameSystemInputs for smoothPath
+	inputSlice := make([]referenceframe.FrameSystemInputs, len(testSmoothNodes))
+	for i, n := range testSmoothNodes {
+		inputSlice[i] = n.inputs
+	}
+
+	nodes := smoothPath(ctx, psc, inputSlice)
 	for idx, n := range nodes {
-		logger.Infof("%d : %v", idx, n.inputs["arm-left"])
+		logger.Infof("%d : %v", idx, n["arm-left"])
 	}
 	test.That(t, len(nodes), test.ShouldEqual, 3)
 }
@@ -108,27 +108,27 @@ func BenchmarkSmoothPlans1(b *testing.B) {
 	// go test -bench Smooth -benchtime 5s -cpuprofile cpu.out && go tool pprof cpu.out
 	test.That(b, len(testSmoothNodes), test.ShouldEqual, 62)
 
+	ctx := context.Background()
 	logger := logging.NewTestLogger(b)
 
 	req, err := readRequestFromFile("data/wine-crazy-touch.json")
 	test.That(b, err, test.ShouldBeNil)
 
-	pm, err := newPlanManager(logger, req)
+	pc, err := newPlanContext(logger, req)
 	test.That(b, err, test.ShouldBeNil)
 
-	pathPlanner, err := newCBiRRTMotionPlanner(
-		pm.request.FrameSystem,
-		rand.New(rand.NewSource(int64(pm.randseed.Int()))),
-		pm.logger,
-		pm.request.PlannerOptions,
-		pm.checker,
-		pm.motionChains,
-	)
+	psc, err := newPlanSegmentContext(pc, req.StartState.Configuration(), req.Goals[0].Poses())
 	test.That(b, err, test.ShouldBeNil)
+
+	// Convert []*node to []referenceframe.FrameSystemInputs for smoothPath
+	inputSlice := make([]referenceframe.FrameSystemInputs, len(testSmoothNodes))
+	for i, n := range testSmoothNodes {
+		inputSlice[i] = n.inputs
+	}
 
 	b.ResetTimer()
 	for b.Loop() {
-		nodes := pathPlanner.simpleSmooth(testSmoothNodes)
+		nodes := smoothPath(ctx, psc, inputSlice)
 		test.That(b, len(nodes), test.ShouldEqual, 3)
 	}
 }

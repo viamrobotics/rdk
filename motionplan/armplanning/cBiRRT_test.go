@@ -2,7 +2,6 @@ package armplanning
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -41,12 +40,25 @@ func TestSimpleLinearMotion(t *testing.T) {
 	goal := referenceframe.FrameSystemPoses{m.Name(): referenceframe.NewPoseInFrame(referenceframe.World, goalPos)}
 	fs := referenceframe.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())
-	chains, err := motionChainsFromPlanState(fs, &PlanState{poses: goal})
+
+	// Create PlanRequest to use the new API
+	request := &PlanRequest{
+		FrameSystem:    fs,
+		Goals:          []*PlanState{NewPlanState(goal, nil)},
+		StartState:     NewPlanState(nil, referenceframe.FrameSystemInputs{m.Name(): home7}),
+		PlannerOptions: opt,
+		Constraints:    &motionplan.Constraints{},
+	}
+
+	pc, err := newPlanContext(logger, request)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, chains, test.ShouldNotBeNil)
-	mp, err := newCBiRRTMotionPlanner(fs, rand.New(rand.NewSource(42)), logger, opt, motionplan.NewEmptyConstraintChecker(), chains)
+
+	psc, err := newPlanSegmentContext(pc, referenceframe.FrameSystemInputs{m.Name(): home7}, goal)
 	test.That(t, err, test.ShouldBeNil)
-	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goal)
+
+	mp, err := newCBiRRTMotionPlanner(pc, psc)
+	test.That(t, err, test.ShouldBeNil)
+	solutions, err := getSolutions(ctx, psc)
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &node{inputs: referenceframe.FrameSystemInputs{m.Name(): home7}}
@@ -72,10 +84,10 @@ func TestSimpleLinearMotion(t *testing.T) {
 	// extend goalMap towards the point in seedMap
 	goalReached := mp.constrainedExtend(ctx, 1, goalMap, near2, seedReached)
 
-	dist := mp.configurationDistanceFunc(
+	dist := pc.configurationDistanceFunc(
 		&motionplan.SegmentFS{StartConfiguration: seedReached.inputs, EndConfiguration: goalReached.inputs},
 	)
-	test.That(t, dist < mp.planOpts.InputIdentDist, test.ShouldBeTrue)
+	test.That(t, dist, test.ShouldBeLessThan, pc.planOpts.InputIdentDist)
 
 	seedReached.corner = true
 	goalReached.corner = true
@@ -97,7 +109,12 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Test that smoothing succeeds and does not lengthen the path (it may be the same length)
 	unsmoothLen := len(inputSteps)
-	finalSteps := mp.smoothPath(ctx, inputSteps)
+	// Convert node slice to FrameSystemInputs slice for smoothPath
+	inputSlice := make([]referenceframe.FrameSystemInputs, len(inputSteps))
+	for i, step := range inputSteps {
+		inputSlice[i] = step.inputs
+	}
+	finalSteps := smoothPath(ctx, psc, inputSlice)
 	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
 	// Test that path has changed after smoothing was applied
 	test.That(t, finalSteps, test.ShouldNotResemble, inputSteps)

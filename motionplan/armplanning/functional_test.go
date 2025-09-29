@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"math"
-	"math/rand"
 	"os"
 	"sort"
 	"testing"
@@ -51,7 +50,7 @@ func TestUnconstrainedMotion(t *testing.T) {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
-			testPlanner(t, tcCopy.config, 1)
+			testPlanner(t, tcCopy.config)
 		})
 	}
 }
@@ -68,7 +67,7 @@ func TestConstrainedMotion(t *testing.T) {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
-			testPlanner(t, tcCopy.config, 1)
+			testPlanner(t, tcCopy.config)
 		})
 	}
 }
@@ -129,8 +128,9 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	constraintHandler.AddStateConstraint("orientation", orientConstraint)
 
 	start := &PlanState{configuration: map[string][]frame.Input{model.Name(): home7}}
-	goal := &PlanState{poses: frame.FrameSystemPoses{model.Name(): frame.NewPoseInFrame(frame.World, pos)}}
-	motionChains, err := motionChainsFromPlanState(fs, goal)
+	goalPoses := frame.FrameSystemPoses{model.Name(): frame.NewPoseInFrame(frame.World, pos)}
+	goal := &PlanState{poses: goalPoses}
+	motionChains, err := motionChainsFromPlanState(fs, goalPoses)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +267,7 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 	for name, constraint := range collisionConstraints {
 		constraintHandler.AddStateConstraint(name, constraint)
 	}
-	motionChains, err := motionChainsFromPlanState(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +342,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		constraintHandler.AddStateFSConstraint(name, constraint)
 	}
 	start := map[string][]frame.Input{xarm.Name(): home7}
-	motionChains, err := motionChainsFromPlanState(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +415,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 		constraintHandler.AddStateFSConstraint(name, constraint)
 	}
 	start := map[string][]frame.Input{ur5e.Name(): home6}
-	motionChains, err := motionChainsFromPlanState(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
 		return nil, err
 	}
@@ -432,26 +432,41 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
-func testPlanner(t *testing.T, config planConfigConstructor, seed int) {
+func testPlanner(t *testing.T, config planConfigConstructor) {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
 
 	// plan
 	cfg, err := config(logger)
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := newCBiRRTMotionPlanner(
-		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander, cfg.MotionChains)
+
+	// Create PlanRequest to use the new API
+	request := &PlanRequest{
+		FrameSystem:    cfg.FS,
+		Goals:          []*PlanState{cfg.Goal},
+		StartState:     cfg.Start,
+		PlannerOptions: cfg.Options,
+		Constraints:    &motionplan.Constraints{},
+	}
+
+	pc, err := newPlanContext(logger, request)
 	test.That(t, err, test.ShouldBeNil)
 
-	nodes, err := mp.planForTest(context.Background(), cfg.Start, cfg.Goal)
+	psc, err := newPlanSegmentContext(pc, cfg.Start.configuration, cfg.Goal.poses)
+	test.That(t, err, test.ShouldBeNil)
+
+	mp, err := newCBiRRTMotionPlanner(pc, psc)
+	test.That(t, err, test.ShouldBeNil)
+
+	nodes, err := mp.planForTest(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
 	// test that path doesn't violate constraints
 	test.That(t, len(nodes), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(nodes)-1; j++ {
 		_, err := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(&motionplan.SegmentFS{
-			StartConfiguration: nodes[j].inputs,
-			EndConfiguration:   nodes[j+1].inputs,
+			StartConfiguration: nodes[j],
+			EndConfiguration:   nodes[j+1],
 			FS:                 cfg.FS,
 		}, cfg.Options.Resolution)
 		test.That(t, err, test.ShouldBeNil)
@@ -675,16 +690,21 @@ func TestMultiArmSolve(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	fs := makeTestFS(t)
 	positions := frame.NewZeroInputs(fs)
-	logger.Infof("hi %v\n", positions)
+
 	// Solve such that the ur5 and xArm are pointing at each other, 40mm from gripper to camera
-	goal2 := spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})
+	goals := frame.FrameSystemPoses{
+		"xArmVgripper": frame.NewPoseInFrame("urCamera", spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})),
+	}
+	goals, err := translateGoalsToWorldPosition(fs, positions, goals)
+	test.That(t, err, test.ShouldBeNil)
+
 	planOpts, err := NewPlannerOptionsFromExtra(
 		map[string]interface{}{"max_ik_solutions": 10, "timeout": 150.0, "smooth_iter": 5},
 	)
 	test.That(t, err, test.ShouldBeNil)
 	plan, err := PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
-		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame("urCamera", goal2)}}},
+		Goals:          []*PlanState{{poses: goals}},
 		StartState:     &PlanState{configuration: positions},
 		PlannerOptions: planOpts,
 	})
@@ -694,17 +714,15 @@ func TestMultiArmSolve(t *testing.T) {
 	solvedPose, err := fs.Transform(
 		plan.Trajectory()[len(plan.Trajectory())-1],
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
-		"urCamera",
+		"world",
 	)
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose2, err := fs.Transform(
-		plan.Trajectory()[len(plan.Trajectory())-1],
-		frame.NewPoseInFrame("urCamera", spatialmath.NewZeroPose()),
-		"xArmVgripper",
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose.(*frame.PoseInFrame).Pose(), goal2, 0.1), test.ShouldBeTrue)
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose2.(*frame.PoseInFrame).Pose(), goal2, 0.1), test.ShouldBeTrue)
+
+	test.That(t,
+		spatialmath.PoseAlmostCoincidentEps(
+			solvedPose.(*frame.PoseInFrame).Pose(),
+			goals["xArmVgripper"].Pose(), 0.1),
+		test.ShouldBeTrue)
 }
 
 func TestReachOverArm(t *testing.T) {

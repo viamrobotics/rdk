@@ -125,6 +125,7 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 			// Compute the new input for a specific joint that's one "jog" away. E.g: ~5 degrees for
 			// a rotational joint.
 			y := lfs.jog(len(ratios), orig.Value, percentJog)
+
 			// Update the copied joint set in place. This is undone at the end of the loop.
 			start[frame.Name()][idx] = referenceframe.Input{y}
 
@@ -139,6 +140,11 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 			myJogRatio := percentJog * thisRatio
 			// For movable frames/joints, 0.03 is the actual smallest value we'll use.
 			adjustedJogRatio := min(1, max(.03, myJogRatio*5))
+
+			if math.IsNaN(adjustedJogRatio) {
+				adjustedJogRatio = 1
+			}
+
 			logger.Debugf("idx: %d startDistance: %0.2f myDistance: %0.2f thisRatio: %0.4f myJogRatio: %0.4f adjustJogRatio: %0.4f",
 				idx, startDistance, myDistance, thisRatio, myJogRatio, adjustedJogRatio)
 
