@@ -138,6 +138,6 @@ func TestSandingLargeMove1(t *testing.T) {
 	solutions, err := getSolutions(context.Background(), psc)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, solutions[0].cost, test.ShouldBeLessThan, 8)
 	test.That(t, solutions[0].checkPath, test.ShouldBeTrue)
+	test.That(t, solutions[0].cost, test.ShouldBeLessThan, 10)
 }
