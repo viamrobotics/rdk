@@ -32,6 +32,7 @@ func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
 
 	originalSize := len(steps)
 	steps = simpleSmoothStep(psc, steps, 10)
+	steps = simpleSmoothStep(psc, steps, 2)
 	steps = simpleSmoothStep(psc, steps, 1)
 
 	if len(steps) != originalSize {
