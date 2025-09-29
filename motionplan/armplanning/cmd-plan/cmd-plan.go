@@ -204,9 +204,9 @@ func visualize(req armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Log
 				if err != nil {
 					return err
 				}
-			}
 
-			time.Sleep(renderFramePeriod)
+				time.Sleep(renderFramePeriod)
+			}
 		}
 
 		err := drawPosition(req, plan.Trajectory()[idx])

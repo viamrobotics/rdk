@@ -70,11 +70,15 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 
 		pm.logger.Info("planning step", i, "of", len(pm.request.Goals))
 		for k, v := range to {
-			pm.logger.Info(k, v)
+			pm.logger.Debug(k, v)
 		}
 
 		if len(g.configuration) > 0 {
-			traj = append(traj, g.configuration)
+			newTraj, err := pm.planToDirectJoints(ctx, traj[len(traj)-1], g)
+			if err != nil {
+				return traj, err
+			}
+			traj = append(traj, newTraj...)
 		} else {
 			subGoals, err := pm.generateWaypoints(start, to)
 			if err != nil {
@@ -82,7 +86,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 			}
 
 			for _, sg := range subGoals {
-				newTraj, err := pm.planSingleAtomicWaypoint(ctx, traj[len(traj)-1], sg)
+				newTraj, err := pm.planSingleGoal(ctx, traj[len(traj)-1], sg)
 				if err != nil {
 					return traj, err
 				}
@@ -95,9 +99,58 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 	return traj, nil
 }
 
-// planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
-// planner if supported, or ignored if not.
-func (pm *planManager) planSingleAtomicWaypoint(
+func (pm *planManager) planToDirectJoints(
+	ctx context.Context,
+	start referenceframe.FrameSystemInputs,
+	goal *PlanState,
+) ([]referenceframe.FrameSystemInputs, error) {
+	fullConfig := referenceframe.FrameSystemInputs{}
+	for k, v := range goal.configuration {
+		fullConfig[k] = v
+	}
+
+	for k, v := range start {
+		if len(fullConfig[k]) == 0 {
+			fullConfig[k] = v
+		}
+	}
+
+	goalPoses, err := goal.ComputePoses(pm.pc.fs)
+	if err != nil {
+		return nil, err
+	}
+
+	psc, err := newPlanSegmentContext(pm.pc, start, goalPoses)
+	if err != nil {
+		return nil, err
+	}
+
+	err = psc.checkPath(start, fullConfig)
+	if err == nil {
+		return []referenceframe.FrameSystemInputs{fullConfig}, nil
+	}
+
+	pm.logger.Debugf("want to go to specific joint positions, but path is blocked: %v", err)
+
+	pathPlanner, err := newCBiRRTMotionPlanner(pm.pc, psc)
+	if err != nil {
+		return nil, err
+	}
+
+	maps := rrtMaps{}
+	maps.startMap = rrtMap{&node{inputs: start}: nil}
+	maps.goalMap = rrtMap{&node{inputs: fullConfig}: nil}
+	maps.optNode = &node{inputs: fullConfig}
+
+	finalSteps, err := pathPlanner.rrtRunner(ctx, &maps)
+	if err != nil {
+		return nil, err
+	}
+	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
+	return finalSteps.steps, nil
+}
+
+func (pm *planManager) planSingleGoal(
 	ctx context.Context,
 	start referenceframe.FrameSystemInputs,
 	goal referenceframe.FrameSystemPoses,
