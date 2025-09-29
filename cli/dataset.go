@@ -12,7 +12,6 @@ import (
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 const (
@@ -270,23 +269,16 @@ type Annotation struct {
 
 // ImageMetadata defines the format of the data in jsonlines for custom training.
 type ImageMetadata struct {
-	ImagePath                 string                `json:"image_path"`
-	ClassificationAnnotations []Annotation          `json:"classification_annotations"`
-	BBoxAnnotations           []BBoxAnnotation      `json:"bounding_box_annotations"`
-	Timestamp                 string                `json:"timestamp"`
-	BinaryDataID              string                `json:"binary_data_id,omitempty"`
-	OrganizationID            string                `json:"organization_id,omitempty"`
-	LocationID                string                `json:"location_id,omitempty"`
-	RobotName                 string                `json:"robot_name,omitempty"`
-	RobotID                   string                `json:"robot_id,omitempty"`
-	PartName                  string                `json:"part_name,omitempty"`
-	PartID                    string                `json:"part_id,omitempty"`
-	ComponentType             string                `json:"component_type,omitempty"`
-	ComponentName             string                `json:"component_name,omitempty"`
-	MethodName                string                `json:"method_name,omitempty"`
-	MethodParameters          map[string]*anypb.Any `json:"method_parameters,omitempty"`
-	Tags                      []string              `json:"tags,omitempty"`
-	MimeType                  string                `json:"mime_type,omitempty"`
+	ImagePath                 string           `json:"image_path"`
+	ClassificationAnnotations []Annotation     `json:"classification_annotations"`
+	BBoxAnnotations           []BBoxAnnotation `json:"bounding_box_annotations"`
+	Timestamp                 string           `json:"timestamp"`
+	BinaryDataID              string           `json:"binary_data_id,omitempty"`
+	OrganizationID            string           `json:"organization_id,omitempty"`
+	LocationID                string           `json:"location_id,omitempty"`
+	FileID                    string           `json:"file_id,omitempty"`
+	PartID                    string           `json:"part_id,omitempty"`
+	ComponentName             string           `json:"component_name,omitempty"`
 }
 
 // BBoxAnnotation holds the information associated with each bounding box.
@@ -353,15 +345,8 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 		BinaryDataID:              datum.GetMetadata().GetBinaryDataId(),
 		OrganizationID:            captureMD.GetOrganizationId(),
 		LocationID:                captureMD.GetLocationId(),
-		RobotName:                 captureMD.GetRobotName(),
-		RobotID:                   captureMD.GetRobotId(),
 		PartID:                    captureMD.GetPartId(),
-		ComponentType:             captureMD.GetComponentType(),
 		ComponentName:             captureMD.GetComponentName(),
-		MethodName:                captureMD.GetMethodName(),
-		MethodParameters:          captureMD.GetMethodParameters(),
-		Tags:                      captureMD.GetTags(),
-		MimeType:                  captureMD.GetMimeType(),
 	}
 
 	line, err := json.Marshal(jsonl)
