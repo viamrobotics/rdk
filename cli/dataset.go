@@ -274,6 +274,7 @@ type ImageMetadata struct {
 	ClassificationAnnotations []Annotation          `json:"classification_annotations"`
 	BBoxAnnotations           []BBoxAnnotation      `json:"bounding_box_annotations"`
 	Timestamp                 string                `json:"timestamp"`
+	BinaryDataID              string                `json:"binary_data_id,omitempty"`
 	OrganizationID            string                `json:"organization_id,omitempty"`
 	LocationID                string                `json:"location_id,omitempty"`
 	RobotName                 string                `json:"robot_name,omitempty"`
@@ -349,6 +350,7 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 		ClassificationAnnotations: annotations,
 		BBoxAnnotations:           bboxAnnotations,
 		Timestamp:                 datum.GetMetadata().GetTimeRequested().AsTime().String(),
+		BinaryDataID:              datum.GetMetadata().GetBinaryDataId(),
 		OrganizationID:            captureMD.GetOrganizationId(),
 		LocationID:                captureMD.GetLocationId(),
 		RobotName:                 captureMD.GetRobotName(),
