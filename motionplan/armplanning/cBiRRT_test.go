@@ -87,7 +87,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	dist := pc.configurationDistanceFunc(
 		&motionplan.SegmentFS{StartConfiguration: seedReached.inputs, EndConfiguration: goalReached.inputs},
 	)
-	test.That(t, dist < pc.planOpts.InputIdentDist, test.ShouldBeTrue)
+	test.That(t, dist, test.ShouldBeLessThan, pc.planOpts.InputIdentDist)
 
 	seedReached.corner = true
 	goalReached.corner = true
