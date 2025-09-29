@@ -60,14 +60,21 @@ func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]referencefram
 		return nil, err
 	}
 
+	x := []referenceframe.FrameSystemInputs{mp.psc.start}
+
 	if initMaps.steps != nil {
-		return initMaps.steps, nil
+		x = append(x, initMaps.steps...)
+		return x, nil
 	}
+
 	solution, err := mp.rrtRunner(ctx, initMaps.maps)
 	if err != nil {
 		return nil, err
 	}
-	return solution.steps, nil
+
+	x = append(x, solution.steps...)
+
+	return x, nil
 }
 
 // rrtRunner will execute the plan. Plan() will call rrtRunner in a separate thread and wait for results.
