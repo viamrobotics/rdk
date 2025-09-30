@@ -7,12 +7,9 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/utils"
 )
 
 type method int64
@@ -80,30 +77,6 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 	if err != nil {
 		return nil, err
 	}
-	// choose the best/fastest representation
-	mimeType := params.MethodParams["mime_type"]
-	if mimeType == nil {
-		// TODO: Potentially log the actual mime type at collector instantiation or include in response.
-		strWrapper := wrapperspb.String(utils.MimeTypeJPEG)
-		mimeType, err = anypb.New(strWrapper)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	var mimeStr string
-	// For backwards compatibility - allow string (old behavior) and Value (new behavior) types
-	strVal := &wrapperspb.StringValue{}
-	if err := mimeType.UnmarshalTo(strVal); err == nil {
-		mimeStr = strVal.Value
-	} else {
-		// If that fails, try to unmarshal as Value
-		val := &structpb.Value{}
-		if err := mimeType.UnmarshalTo(val); err != nil {
-			return nil, err
-		}
-		mimeStr = val.GetStringValue()
-	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
 		timeRequested := time.Now()
@@ -111,7 +84,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
-		img, metadata, err := camera.Image(ctx, mimeStr, data.FromDMExtraMap)
+		resImgs, resMetadata, err := camera.Images(ctx, nil, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
@@ -122,15 +95,26 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
 		}
 
-		mimeType := data.CameraFormatToMimeType(utils.MimeTypeToFormat[metadata.MimeType])
+		if len(resImgs) == 0 {
+			err = errors.New("no images returned from camera")
+			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
+		}
+
+		img := resImgs[0]
+		imgBytes, err := img.Bytes(ctx)
+		if err != nil {
+			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
+		}
+
+		mimeType := data.MimeTypeStringToMimeType(img.MimeType())
 		ts := data.Timestamps{
 			TimeRequested: timeRequested,
-			TimeReceived:  time.Now(),
+			TimeReceived:  resMetadata.CapturedAt,
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
 			MimeType:    mimeType,
-			Payload:     img,
-			Annotations: metadata.Annotations,
+			Annotations: img.Annotations,
+			Payload:     imgBytes,
 		}}), nil
 	})
 	return data.NewCollector(cFunc, params)
