@@ -130,6 +130,14 @@ func (pm *planManager) planToDirectJoints(
 		return []referenceframe.FrameSystemInputs{fullConfig}, nil
 	}
 
+	err = psc.checker.CheckStateFSConstraints(&motionplan.StateFS{
+		Configuration: fullConfig,
+		FS:            psc.pc.fs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("want to go to specific joint config but it is invalid: %w", err)
+	}
+
 	pm.logger.Debugf("want to go to specific joint positions, but path is blocked: %v", err)
 
 	pathPlanner, err := newCBiRRTMotionPlanner(pm.pc, psc)
