@@ -185,7 +185,7 @@ func realMain() error {
 }
 
 func visualize(req armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger) error {
-	renderFramePeriod := 50 * time.Millisecond
+	renderFramePeriod := 5 * time.Millisecond
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
 		return err
 	}
@@ -221,7 +221,7 @@ func visualize(req armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Log
 					return err
 				}
 
-				time.Sleep(renderFramePeriod / time.Duration(len(midPoints)))
+				time.Sleep(renderFramePeriod)
 			}
 		}
 
