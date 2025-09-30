@@ -5,6 +5,7 @@ package armplanning
 import (
 	"context"
 	"fmt"
+	"math"
 	"path/filepath"
 	"testing"
 	"time"
@@ -13,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/utils"
 )
 
 func TestOrbOneSeed(t *testing.T) {
@@ -141,4 +143,96 @@ func TestSandingLargeMove1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(solution.steps), test.ShouldEqual, 1)
+}
+
+func TestPirouette(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	// get arm kinematics for fk
+	armName := "ur5e"
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	test.That(t, err, test.ShouldBeNil)
+
+	idealJointValues := [][]referenceframe.Input{
+		{{0 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{30 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{55.7492 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{90 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{120 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{150 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{180 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{180 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{150 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{120 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{90 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{59.7492 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{30 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{0 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+	}
+
+	// determine pose given elements of idealJointValues
+	pifs := []*referenceframe.PoseInFrame{}
+	for _, pos := range idealJointValues {
+		pose, err := m.Transform(pos)
+		test.That(t, err, test.ShouldBeNil)
+		posInF := referenceframe.NewPoseInFrame(referenceframe.World, pose)
+		pifs = append(pifs, posInF)
+	}
+
+	// construct framesystem
+	fs := referenceframe.NewEmptyFrameSystem("pirouette")
+	err = fs.AddFrame(m, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	failureCount := 0
+	num := 10
+	count := num * len(idealJointValues)
+	for range num {
+		// keep track of what the value of j0 previously was
+		prevJ0Value := 0.
+
+		// all we care about is the plan and not actually executing it
+		startState := NewPlanState(nil, map[string][]referenceframe.Input{armName: idealJointValues[0]})
+
+		// iterate through pifs and create a plan which gets the arm there
+		for i, p := range pifs {
+			// construct req and get the plan
+			goalState := NewPlanState(map[string]*referenceframe.PoseInFrame{armName: p}, nil)
+			req := &PlanRequest{
+				FrameSystem: fs,
+				Goals:       []*PlanState{goalState},
+				StartState:  startState,
+			}
+			plan, err := PlanMotion(context.Background(), logger, req)
+			test.That(t, err, test.ShouldBeNil)
+
+			// determine how much joint 0 has changed in degrees from this trajectory
+			traj := plan.Trajectory()
+			allArmInputs, err := traj.GetFrameInputs(armName)
+			test.That(t, err, test.ShouldBeNil)
+			j0Start := allArmInputs[0][0].Value
+			j0End := allArmInputs[len(allArmInputs)-1][0].Value
+			change := utils.RadToDeg(math.Abs(j0End - j0Start))
+
+			// figure out expected change given what the ideal change in joint 0 would be
+			newJP := idealJointValues[i][0].Value
+			expectedChange := utils.RadToDeg(math.Abs(newJP-prevJ0Value)) + 1e-1 // add small value as buffer
+
+			// determine if a pirouette happened
+			// in order to satisfy our desired pose in frame while execeeding the expected change in joint 0 a pirouette was necessary
+			if change > expectedChange {
+				logger.Infof("change: %f was greater than expectedChange: %f, took this long: %d\n", change, expectedChange, count)
+				failureCount++
+			}
+
+			// increment everything
+			prevJ0Value = newJP
+			startState = NewPlanState(nil, map[string][]referenceframe.Input{
+				armName: traj[len(traj)-1][armName],
+			})
+		}
+	}
+	logger.Infof("failed this many times: %d", failureCount)
+	logger.Infof("ran this many times: %d", count)
+	logger.Infof("percentage of pirouette motions: %f, failureCount/count", float64(failureCount)/float64(count))
 }
