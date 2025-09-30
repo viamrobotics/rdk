@@ -8,6 +8,7 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/pkg/errors"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/proto"
@@ -117,14 +118,20 @@ func newBoard() board.Board {
 		return board.AnalogValue{Value: 1, Min: 0, Max: 10, StepSize: 0.1}, nil
 	}
 	b.AnalogByNameFunc = func(name string) (board.Analog, error) {
-		return analog, nil
+		if name == "analog" {
+			return analog, nil
+		}
+		return nil, errors.New("analog not found")
 	}
 	gpioPin := &inject.GPIOPin{}
 	gpioPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return true, nil
 	}
 	b.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
-		return gpioPin, nil
+		if name == "gpio" {
+			return gpioPin, nil
+		}
+		return nil, errors.New("gpio pin not found")
 	}
 	b.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil
@@ -135,6 +142,16 @@ func newBoard() board.Board {
 func convertInterfaceToAny(v interface{}) *anypb.Any {
 	anyValue := &anypb.Any{}
 
+	// Handle string values properly as StringValue.
+	if str, ok := v.(string); ok {
+		stringValue := &wrappers.StringValue{
+			Value: str,
+		}
+		anypb.MarshalFrom(anyValue, stringValue, proto.MarshalOptions{})
+		return anyValue
+	}
+
+	// For other types, use the JSON marshaling approach.
 	bytes, err := json.Marshal(v)
 	if err != nil {
 		return nil
