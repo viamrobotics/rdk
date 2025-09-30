@@ -276,7 +276,6 @@ type ImageMetadata struct {
 	BinaryDataID              string           `json:"binary_data_id,omitempty"`
 	OrganizationID            string           `json:"organization_id,omitempty"`
 	LocationID                string           `json:"location_id,omitempty"`
-	FileID                    string           `json:"file_id,omitempty"`
 	PartID                    string           `json:"part_id,omitempty"`
 	ComponentName             string           `json:"component_name,omitempty"`
 }
