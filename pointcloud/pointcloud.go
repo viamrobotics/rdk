@@ -7,6 +7,7 @@ package pointcloud
 
 import (
 	"bytes"
+	"fmt"
 	"math"
 	"sync"
 
@@ -257,10 +258,11 @@ func NewPointCloudFromProto(pointCloud *commonpb.PointCloud, label string) (*Bas
 	if err != nil {
 		return nil, err
 	}
-	octree, err := ToBasicOctree(pc, 0)
-	if err != nil {
-		return nil, err
+	octree, ok := pc.(*BasicOctree)
+	if !ok {
+		return nil, fmt.Errorf("why did ReadPCD not return a BasicOctree but a %T", pc)
 	}
+	octree.confidenceThreshold = 0
 	octree.SetLabel(label)
 	return octree, nil
 }
