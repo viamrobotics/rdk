@@ -2,10 +2,13 @@
 package fake
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"image/color"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -19,10 +22,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
 	"google.golang.org/protobuf/types/known/structpb"
-
-	"bytes"
-	"encoding/binary"
-	"io"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -48,7 +47,31 @@ type WorldStateStore struct {
 	cancel     context.CancelFunc
 
 	logger logging.Logger
+
+	noiseTime float64
 }
+
+const (
+	// GPUBufferAlignment ensures optimal GPU memory transfer (aligned to 256 bytes)
+	GPUBufferAlignment = 256
+)
+
+var (
+	XYZRGB_FIELDS = []string{"x", "y", "z", "rgb"}
+	XYZRGB_SIZES  = []uint32{4, 4, 4, 4}
+	XYZRGB_TYPES  = []commonpb.PointCloudDataType{
+		commonpb.PointCloudDataType_POINT_CLOUD_DATA_TYPE_FLOAT,
+		commonpb.PointCloudDataType_POINT_CLOUD_DATA_TYPE_FLOAT,
+		commonpb.PointCloudDataType_POINT_CLOUD_DATA_TYPE_FLOAT,
+		commonpb.PointCloudDataType_POINT_CLOUD_DATA_TYPE_FLOAT,
+	}
+	XYZRGB_COUNTS = []uint32{1, 1, 1, 1}
+)
+
+var (
+	ErrTransformNotFound = errors.New("transform not found")
+	ErrInvalidFPS        = errors.New("fps must be greater than 0")
+)
 
 var (
 	boxUUID        = "box-001"
@@ -76,6 +99,7 @@ var (
 			},
 		},
 	}
+
 	sphereMetadata = &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"color": {
@@ -96,6 +120,7 @@ var (
 			},
 		},
 	}
+
 	capsuleMetadata = &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"color": {
@@ -116,6 +141,7 @@ var (
 			},
 		},
 	}
+
 	dynamicBoxMetadata = &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			"color": {
@@ -136,9 +162,35 @@ var (
 			},
 		},
 	}
+
+	permutations = []int{
+		151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140,
+		36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148, 247, 120,
+		234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33,
+		88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175, 74, 165, 71,
+		134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122, 60, 211, 133,
+		230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54, 65, 25, 63, 161,
+		1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169, 200, 196, 135, 130,
+		116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64, 52, 217, 226, 250,
+		124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212, 207, 206, 59, 227, 47,
+		16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213, 119, 248, 152, 2, 44, 154,
+		163, 70, 221, 153, 101, 155, 167, 43, 172, 9, 129, 22, 39, 253, 19, 98, 108,
+		110, 79, 113, 224, 232, 178, 185, 112, 104, 218, 246, 97, 228, 251, 34, 242,
+		193, 238, 210, 144, 12, 191, 179, 162, 241, 81, 51, 145, 235, 249, 14, 239,
+		107, 49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115, 121, 50,
+		45, 127, 4, 150, 254, 138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141,
+		128, 195, 78, 66, 215, 61, 156, 180,
+	}
+
+	permutationCache [512]int
+
+	chunkSize = 1000 // Animate 1000 points per frame
 )
 
 func init() {
+	copy(permutationCache[:256], permutations)
+	copy(permutationCache[256:], permutations)
+
 	resource.RegisterService(
 		worldstatestore.API,
 		resource.DefaultModelFamily.WithModel("fake"),
@@ -153,12 +205,12 @@ func init() {
 }
 
 // ListUUIDs returns all transform UUIDs currently in the store.
-func (f *WorldStateStore) ListUUIDs(ctx context.Context, extra map[string]any) ([][]byte, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
+func (worldState *WorldStateStore) ListUUIDs(ctx context.Context, extra map[string]any) ([][]byte, error) {
+	worldState.mu.RLock()
+	defer worldState.mu.RUnlock()
 
-	uuids := make([][]byte, 0, len(f.transforms))
-	for _, transform := range f.transforms {
+	uuids := make([][]byte, 0, len(worldState.transforms))
+	for _, transform := range worldState.transforms {
 		uuids = append(uuids, transform.Uuid)
 	}
 
@@ -166,35 +218,37 @@ func (f *WorldStateStore) ListUUIDs(ctx context.Context, extra map[string]any) (
 }
 
 // GetTransform returns the transform for the given UUID.
-func (f *WorldStateStore) GetTransform(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
+func (worldState *WorldStateStore) GetTransform(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error) {
+	worldState.mu.RLock()
+	defer worldState.mu.RUnlock()
 
-	transform, exists := f.transforms[string(uuid)]
+	uuidStr := string(uuid)
+	transform, exists := worldState.transforms[uuidStr]
 	if !exists {
-		return nil, errors.New("transform not found")
+		return nil, ErrTransformNotFound
 	}
 
 	return transform, nil
 }
 
 // StreamTransformChanges returns a channel of transform changes.
-func (f *WorldStateStore) StreamTransformChanges(
+func (worldState *WorldStateStore) StreamTransformChanges(
 	ctx context.Context,
 	extra map[string]any,
 ) (*worldstatestore.TransformChangeStream, error) {
-	return worldstatestore.NewTransformChangeStreamFromChannel(ctx, f.changeChan), nil
+	return worldstatestore.NewTransformChangeStreamFromChannel(ctx, worldState.changeChan), nil
 }
 
-// DoCommand handles arbitrary commands. Currently accepts "fps": float64 to set the animation rate.
-func (f *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand handles arbitrary commands. Accepts:
+// - "fps": float64 to set the animation rate
+func (worldState *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if fps, ok := cmd["fps"].(float64); ok {
 		if fps <= 0 {
-			return nil, errors.New("fps must be greater than 0")
+			return nil, ErrInvalidFPS
 		}
-		f.mu.Lock()
-		f.fps = float64(fps)
-		f.mu.Unlock()
+		worldState.mu.Lock()
+		worldState.fps = fps
+		worldState.mu.Unlock()
 		return map[string]any{
 			"status": "fps set to " + fmt.Sprintf("%.2f", fps),
 		}, nil
@@ -206,12 +260,12 @@ func (f *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interfac
 }
 
 // Close stops the fake service and cleans up resources.
-func (f *WorldStateStore) Close(ctx context.Context) error {
-	f.cancel()
+func (worldState *WorldStateStore) Close(ctx context.Context) error {
+	worldState.cancel()
 
 	done := make(chan struct{})
 	go func() {
-		f.activeBackgroundWorkers.Wait()
+		worldState.activeBackgroundWorkers.Wait()
 		close(done)
 	}()
 
@@ -221,7 +275,7 @@ func (f *WorldStateStore) Close(ctx context.Context) error {
 		// proceed even if workers did not exit in time
 	}
 
-	close(f.changeChan)
+	close(worldState.changeChan)
 	return nil
 }
 
@@ -241,87 +295,263 @@ func newFakeWorldStateStore(name resource.Name, logger logging.Logger) worldstat
 		logger:                  logger,
 	}
 
-	fake.initializeStaticTransforms()
+	fake.initializeTransforms()
 	fake.activeBackgroundWorkers.Add(1)
 	go func() {
 		defer fake.activeBackgroundWorkers.Done()
-		fake.animationLoop()
+		fake.animate()
 	}()
 	fake.activeBackgroundWorkers.Add(1)
 	go func() {
 		defer fake.activeBackgroundWorkers.Done()
-		fake.dynamicBoxSequence()
+		fake.boxSequence()
 	}()
 
 	return fake
 }
 
+func getStride() int {
+	stride := 0
+	for i := range XYZRGB_SIZES {
+		stride += int(XYZRGB_SIZES[i] * XYZRGB_COUNTS[i])
+	}
+	return stride
+}
+
 func heightToColor(normalizedHeight float64) color.NRGBA {
-	h := math.Max(0, math.Min(1, normalizedHeight))
+	height := math.Max(0, math.Min(1, normalizedHeight))
 
 	var r, g, b uint8
-	if h < 0.25 {
+	if height < 0.25 {
 		// Blue to Cyan
-		t := h / 0.25
+		transition := height / 0.25
 		r = 0
-		g = uint8(t * 255)
+		g = uint8(transition * 255)
 		b = 255
-	} else if h < 0.5 {
+	} else if height < 0.5 {
 		// Cyan to Green
-		t := (h - 0.25) / 0.25
+		transition := (height - 0.25) / 0.25
 		r = 0
 		g = 255
-		b = uint8((1 - t) * 255)
-	} else if h < 0.75 {
+		b = uint8((1 - transition) * 255)
+	} else if height < 0.75 {
 		// Green to Yellow
-		t := (h - 0.5) / 0.25
-		r = uint8(t * 255)
+		transition := (height - 0.5) / 0.25
+		r = uint8(transition * 255)
 		g = 255
 		b = 0
 	} else {
 		// Yellow to Red
-		t := (h - 0.75) / 0.25
+		transition := (height - 0.75) / 0.25
 		r = 255
-		g = uint8((1 - t) * 255)
+		g = uint8((1 - transition) * 255)
 		b = 0
 	}
 
 	return color.NRGBA{R: r, G: g, B: b, A: 255}
 }
 
-func packColor(c color.NRGBA) float32 {
-	rgb := (uint32(c.R) << 16) | (uint32(c.G) << 8) | uint32(c.B)
+func packColor(colorValue color.NRGBA) float32 {
+	rgb := (uint32(colorValue.R) << 16) | (uint32(colorValue.G) << 8) | uint32(colorValue.B)
 	return math.Float32frombits(rgb)
 }
 
-func (f *WorldStateStore) processPointCloud(pc pointcloud.PointCloud) (pointcloud.PointCloud, error) {
-	if pc.Size() == 0 {
-		return pc, nil
+func fade(interpolation float64) float64 {
+	return interpolation * interpolation * interpolation * (interpolation*(interpolation*6-15) + 10)
+}
+
+func lerp(interpolation, start, end float64) float64 {
+	return start + interpolation*(end-start)
+}
+
+func gradient(hash int, x, y, z float64) float64 {
+	hashValue := hash & 15
+	gradientU := x
+	if hashValue < 8 {
+		gradientU = y
 	}
 
+	gradientV := y
+	if hashValue < 4 {
+		gradientV = x
+	} else if hashValue == 12 || hashValue == 14 {
+		gradientV = x
+	} else {
+		gradientV = z
+	}
+
+	if (hashValue & 1) == 0 {
+		gradientU = -gradientU
+	}
+
+	if (hashValue & 2) == 0 {
+		gradientV = -gradientV
+	}
+
+	return gradientU + gradientV
+}
+
+func fastFloor(x float64) int {
+	if x >= 0 {
+		return int(x)
+	}
+	return int(x) - 1
+}
+
+func noise(x, y, z float64) float64 {
+	X := fastFloor(x) & 255
+	Y := fastFloor(y) & 255
+	Z := fastFloor(z) & 255
+
+	x -= math.Floor(x)
+	y -= math.Floor(y)
+	z -= math.Floor(z)
+
+	fadeX := fade(x)
+	fadeY := fade(y)
+	fadeZ := fade(z)
+
+	A := permutationCache[X] + Y
+	AA := permutationCache[A&255] + Z
+	AB := permutationCache[(A+1)&255] + Z
+	B := permutationCache[(X+1)&255] + Y
+	BA := permutationCache[B&255] + Z
+	BB := permutationCache[(B+1)&255] + Z
+
+	return lerp(
+		fadeZ,
+		lerp(
+			fadeY,
+			lerp(
+				fadeX,
+				gradient(permutationCache[AA&255], x, y, z),
+				gradient(permutationCache[BA&255], x-1, y, z),
+			),
+			lerp(
+				fadeX,
+				gradient(permutationCache[AB&255], x, y-1, z),
+				gradient(permutationCache[BB&255], x-1, y-1, z),
+			),
+		),
+		lerp(
+			fadeY,
+			lerp(
+				fadeX,
+				gradient(permutationCache[(AA+1)&255], x, y, z-1),
+				gradient(permutationCache[(BA+1)&255], x-1, y, z-1),
+			),
+			lerp(
+				fadeX,
+				gradient(permutationCache[(AB+1)&255], x, y-1, z-1),
+				gradient(permutationCache[(BB+1)&255], x-1, y-1, z-1),
+			),
+		),
+	)
+}
+
+func sampleBounds(values []float64, lowPerc, highPerc float64) (float64, float64) {
+	count := len(values)
+	if count == 0 {
+		return 0, 0
+	}
+
+	sampleSize := 1000
+	if count < sampleSize {
+		sampleSize = count
+	}
+
+	step := count / sampleSize
+	sample := make([]float64, 0, sampleSize)
+	for i := 0; i < count; i += step {
+		sample = append(sample, values[i])
+		if len(sample) >= sampleSize {
+			break
+		}
+	}
+
+	sort.Float64s(sample)
+	sampleCount := len(sample)
+	lowIdx := int(float64(sampleCount) * lowPerc)
+	highIdx := int(float64(sampleCount) * highPerc)
+	if highIdx >= sampleCount {
+		highIdx = sampleCount - 1
+	}
+
+	return sample[lowIdx], sample[highIdx]
+}
+
+func buildUpdateHeader(start, count uint32) *commonpb.PointCloudHeader {
+	startPtr := &start
+	header := &commonpb.PointCloudHeader{
+		Fields: append([]string{}, XYZRGB_FIELDS...),
+		Size:   append([]uint32{}, XYZRGB_SIZES...),
+		Type:   append([]commonpb.PointCloudDataType{}, XYZRGB_TYPES...),
+		Count:  append([]uint32{}, XYZRGB_COUNTS...),
+		Width:  count, // Number of points in this update
+		Height: 1,
+		Start:  startPtr, // Buffer offset for partial update
+	}
+
+	return header
+}
+
+func validateStride(header *commonpb.PointCloudHeader) int {
+	if len(header.Size) != len(header.Count) {
+		return 0
+	}
+
+	stride := 0
+	for i := range header.Size {
+		stride += int(header.Size[i] * header.Count[i])
+	}
+	return stride
+}
+
+func validatePointCloud(data []byte, header *commonpb.PointCloudHeader) error {
+	if header == nil {
+		return errors.New("header cannot be nil")
+	}
+
+	stride := validateStride(header)
+	if stride <= 0 {
+		return errors.New("invalid header: stride must be positive")
+	}
+
+	expectedSize := stride * int(header.Width)
+	if len(data) != expectedSize {
+		return fmt.Errorf("binary data size mismatch: expected %d bytes, got %d bytes", expectedSize, len(data))
+	}
+
+	return nil
+}
+
+func createBuffer(sizeBytes int) []byte {
+	alignedSize := ((sizeBytes + GPUBufferAlignment - 1) / GPUBufferAlignment) * GPUBufferAlignment
+	return make([]byte, sizeBytes, alignedSize)
+}
+
+func (worldState *WorldStateStore) processPointCloud(pc pointcloud.PointCloud) pointcloud.PointCloud {
+	size := pc.Size()
+	if size == 0 {
+		return pc
+	}
+
+	zValues := make([]float64, 0, size)
+
 	var sumX, sumY float64
-	var zValues []float64
-	pc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-		sumX += p.X
-		sumY += p.Y
-		zValues = append(zValues, p.Z)
+	pc.Iterate(0, 0, func(point r3.Vector, data pointcloud.Data) bool {
+		sumX += point.X
+		sumY += point.Y
+		zValues = append(zValues, point.Z)
 		return true
 	})
 
 	count := len(zValues)
 	if count == 0 {
-		return pc, nil // Should be covered by pc.Size() check, but for safety
+		return pc
 	}
 
-	sort.Float64s(zValues)
-	minIndex := int(float64(count) * 0.01)
-	maxIndex := int(float64(count) * 0.99)
-	if maxIndex >= count {
-		maxIndex = count - 1
-	}
-
-	minZ := zValues[minIndex]
-	maxZ := zValues[maxIndex]
+	minZ, maxZ := sampleBounds(zValues, 0.01, 0.99)
 	center := r3.Vector{
 		X: sumX / float64(count),
 		Y: sumY / float64(count),
@@ -333,125 +563,114 @@ func (f *WorldStateStore) processPointCloud(pc pointcloud.PointCloud) (pointclou
 		zRange = 1
 	}
 
-	withColors := pointcloud.NewBasicEmpty()
-	pc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-		translatedPoint := r3.Vector{X: p.X - center.X, Y: p.Y - center.Y, Z: p.Z - center.Z}
-		normalizedHeight := (p.Z - minZ) / zRange
+	withColors := pointcloud.NewBasicPointCloud(size)
+	pc.Iterate(0, 0, func(point r3.Vector, data pointcloud.Data) bool {
+		translatedPoint := r3.Vector{X: point.X - center.X, Y: point.Y - center.Y, Z: point.Z - center.Z}
+		normalizedHeight := (point.Z - minZ) / zRange
 		heightColor := heightToColor(normalizedHeight)
 		packedColor := packColor(heightColor)
-		data := pointcloud.NewValueData(int(math.Float32bits(packedColor)))
-		err := withColors.Set(translatedPoint, data)
+		colorData := pointcloud.NewValueData(int(math.Float32bits(packedColor)))
+		err := withColors.Set(translatedPoint, colorData)
 		if err != nil {
-			f.logger.Debug("failed to set color for point", "error", err)
+			worldState.logger.Debug("failed to set color for point", "error", err)
 		}
 		return true
 	})
 
-	return withColors, nil
+	return withColors
 }
 
-func writePCD(cloud pointcloud.PointCloud, out io.Writer) error {
-	if _, err := fmt.Fprintf(out, "VERSION .7\n"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(out, "FIELDS x y z rgb\n"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(out, "SIZE 4 4 4 4\n"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(out, "TYPE F F F F\n"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(out, "COUNT 1 1 1 1\n"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(out, "WIDTH %d\n", cloud.Size()); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(out, "HEIGHT 1\n"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(out, "VIEWPOINT 0 0 0 1 0 0 0\n"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(out, "POINTS %d\n", cloud.Size()); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(out, "DATA binary\n"); err != nil {
-		return err
+func writePointCloud(cloud pointcloud.PointCloud, out io.Writer) error {
+	size := cloud.Size()
+	if size == 0 {
+		return nil
 	}
 
-	buf := make([]byte, 16)
+	const bufSize = 256 * 1024
+	buf := make([]byte, bufSize)
+	pos := 0
+
 	var iterErr error
-	cloud.Iterate(0, 0, func(pos r3.Vector, d pointcloud.Data) bool {
-		x := float32(pos.X / 1000.)
-		y := float32(pos.Y / 1000.)
-		z := float32(pos.Z / 1000.)
-		rgb := math.Float32frombits(uint32(d.Value()))
-
-		binary.LittleEndian.PutUint32(buf, math.Float32bits(x))
-		binary.LittleEndian.PutUint32(buf[4:], math.Float32bits(y))
-		binary.LittleEndian.PutUint32(buf[8:], math.Float32bits(z))
-		binary.LittleEndian.PutUint32(buf[12:], math.Float32bits(rgb))
-
-		if _, err := out.Write(buf); err != nil {
-			iterErr = err
-			return false
+	cloud.Iterate(0, 0, func(position r3.Vector, data pointcloud.Data) bool {
+		x := float32(position.X / 1000.)
+		y := float32(position.Y / 1000.)
+		z := float32(position.Z / 1000.)
+		rgb := math.Float32frombits(uint32(data.Value()))
+		if pos+16 > len(buf) {
+			if _, err := out.Write(buf[:pos]); err != nil {
+				iterErr = err
+				return false
+			}
+			pos = 0
 		}
+
+		binary.LittleEndian.PutUint32(buf[pos:], math.Float32bits(x))
+		binary.LittleEndian.PutUint32(buf[pos+4:], math.Float32bits(y))
+		binary.LittleEndian.PutUint32(buf[pos+8:], math.Float32bits(z))
+		binary.LittleEndian.PutUint32(buf[pos+12:], math.Float32bits(rgb))
+		pos += 16
+
 		return true
 	})
-	if iterErr != nil {
-		return iterErr
+
+	if pos > 0 && iterErr == nil {
+		if _, err := out.Write(buf[:pos]); err != nil {
+			iterErr = err
+		}
 	}
-	return nil
+
+	return iterErr
 }
 
-func (f *WorldStateStore) loadPointcloudFromFile() ([]byte, *structpb.Struct) {
+func (worldState *WorldStateStore) loadPointCloud() ([]byte, *commonpb.PointCloudHeader, error) {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		f.logger.Errorw("failed to get current file path")
-		return nil, nil
+		worldState.logger.Errorw("failed to get current file path")
+		return nil, nil, errors.New("failed to get current file path")
 	}
 
 	// From: https://github.com/PointCloudLibrary/data
 	pcdPath := filepath.Join(filepath.Dir(filename), "FSite5_orig-utm.pcd")
-
 	file, err := os.Open(pcdPath)
 	if err != nil {
-		f.logger.Errorw("failed to open PCD file", "error", err, "path", pcdPath)
-		return nil, nil
+		worldState.logger.Errorw("failed to open PCD file", "error", err, "path", pcdPath)
+		return nil, nil, err
 	}
 	defer file.Close()
 
 	pc, err := pointcloud.ReadPCD(file, pointcloud.BasicOctreeType)
 	if err != nil {
-		f.logger.Errorw("failed to read PCD file", "error", err)
-		return nil, nil
+		worldState.logger.Errorw("failed to read PCD file", "error", err)
+		return nil, nil, err
 	}
 
-	withColors, err := f.processPointCloud(pc)
-	if err != nil {
-		f.logger.Errorw("failed to add height-based colors", "error", err)
-		return nil, nil
+	worldState.logger.Infow("Loaded point cloud", "size", pc.Size())
+	withColors := worldState.processPointCloud(pc)
+	header := buildUpdateHeader(0, uint32(withColors.Size()))
+	buf := &bytes.Buffer{}
+	stride := getStride()
+	buf.Grow(withColors.Size() * stride)
+	if err := writePointCloud(withColors, buf); err != nil {
+		worldState.logger.Errorw("failed to write interleaved pointcloud data", "error", err)
+		return nil, nil, err
 	}
 
-	var buf bytes.Buffer
-	if err := writePCD(withColors, &buf); err != nil {
-		f.logger.Errorw("failed to write colorized pointcloud file", "error", err)
-		return nil, nil
-	}
-	bytes := buf.Bytes()
+	result := make([]byte, buf.Len())
+	copy(result, buf.Bytes())
 
-	metadata := &structpb.Struct{}
-	return bytes, metadata
+	if err := validatePointCloud(result, header); err != nil {
+		worldState.logger.Errorw("generated point cloud data validation failed", "error", err)
+		return nil, nil, err
+	}
+
+	return result, header, nil
 }
 
-func (f *WorldStateStore) initializeStaticTransforms() {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+func (worldState *WorldStateStore) initializeTransforms() {
+	worldState.mu.Lock()
+	defer worldState.mu.Unlock()
 
-	f.transforms[boxUUID] = &commonpb.Transform{
+	worldState.transforms[boxUUID] = &commonpb.Transform{
 		ReferenceFrame: "static-box",
 		PoseInObserverFrame: &commonpb.PoseInFrame{
 			ReferenceFrame: "world",
@@ -474,7 +693,7 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 		Metadata: boxMetadata,
 	}
 
-	f.transforms[sphereUUID] = &commonpb.Transform{
+	worldState.transforms[sphereUUID] = &commonpb.Transform{
 		ReferenceFrame: "static-sphere",
 		PoseInObserverFrame: &commonpb.PoseInFrame{
 			ReferenceFrame: "world",
@@ -493,7 +712,7 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 		Metadata: sphereMetadata,
 	}
 
-	f.transforms[capsuleUUID] = &commonpb.Transform{
+	worldState.transforms[capsuleUUID] = &commonpb.Transform{
 		ReferenceFrame: "static-capsule",
 		PoseInObserverFrame: &commonpb.PoseInFrame{
 			ReferenceFrame: "world",
@@ -513,9 +732,11 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 		Metadata: capsuleMetadata,
 	}
 
-	pointcloudBytes, pointcloudMetadata := f.loadPointcloudFromFile()
-	if pointcloudBytes != nil {
-		f.transforms[pointcloudUUID] = &commonpb.Transform{
+	pointcloudBytes, pointcloudHeader, err := worldState.loadPointCloud()
+	if err != nil {
+		worldState.logger.Errorw("failed to load point cloud", "error", err)
+	} else if pointcloudBytes != nil {
+		worldState.transforms[pointcloudUUID] = &commonpb.Transform{
 			ReferenceFrame: "static-pointcloud",
 			PoseInObserverFrame: &commonpb.PoseInFrame{
 				ReferenceFrame: "world",
@@ -527,86 +748,202 @@ func (f *WorldStateStore) initializeStaticTransforms() {
 				GeometryType: &commonpb.Geometry_Pointcloud{
 					Pointcloud: &commonpb.PointCloud{
 						PointCloud: pointcloudBytes,
+						Header:     pointcloudHeader,
 					},
 				},
 			},
 			Uuid:     []byte(pointcloudUUID),
-			Metadata: pointcloudMetadata,
+			Metadata: &structpb.Struct{},
 		}
 	}
 }
 
-func (f *WorldStateStore) updateBoxTransform(elapsed time.Duration) {
-	rotationSpeed := 2 * math.Pi / 5.0 // radians per second
+func (worldState *WorldStateStore) updateBox(elapsed time.Duration) {
+	rotationSpeed := 2 * math.Pi / 5.0
 	angle := rotationSpeed * elapsed.Seconds()
 
-	f.mu.Lock()
-	if transform, exists := f.transforms["box-001"]; exists {
+	worldState.mu.Lock()
+	if transform, exists := worldState.transforms["box-001"]; exists {
 		theta := angle * 180 / math.Pi
 		transform.PoseInObserverFrame.Pose.Theta = theta
-		f.mu.Unlock()
-		f.emitTransformUpdate(&commonpb.Transform{
-			Uuid: transform.Uuid,
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				Pose: &commonpb.Pose{
-					Theta: theta,
-				},
-			},
-		}, []string{"poseInObserverFrame.pose.theta"})
-		return
-	}
-	f.mu.Unlock()
-}
-
-func (f *WorldStateStore) updateSphereTransform(elapsed time.Duration) {
-	frequency := 2 * math.Pi / 5.0                           // radians per second
-	height := math.Sin(frequency*elapsed.Seconds()) * 2000.0 // ±2 units
-
-	f.mu.Lock()
-	if transform, exists := f.transforms["sphere-001"]; exists {
-		transform.PoseInObserverFrame.Pose.Z = height
-		f.mu.Unlock()
-		f.emitTransformUpdate(&commonpb.Transform{
-			Uuid: transform.Uuid,
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				Pose: &commonpb.Pose{
-					Z: height,
-				},
-			},
-		}, []string{"poseInObserverFrame.pose.z"})
-		return
-	}
-	f.mu.Unlock()
-}
-
-func (f *WorldStateStore) updateCapsuleTransform(elapsed time.Duration) {
-	frequency := 2 * math.Pi / 5.0                           // radians per second
-	scale := 1.0 + 0.5*math.Sin(frequency*elapsed.Seconds()) // 0.5x to 1.5x
-	r := 125 * scale
-	l := 1000 * scale
-
-	f.mu.Lock()
-	if transform, exists := f.transforms["capsule-001"]; exists {
-		transform.PhysicalObject.GetCapsule().RadiusMm = r
-		transform.PhysicalObject.GetCapsule().LengthMm = l
-		f.mu.Unlock()
-		f.emitTransformUpdate(&commonpb.Transform{
-			Uuid: transform.Uuid,
-			PhysicalObject: &commonpb.Geometry{
-				GeometryType: &commonpb.Geometry_Capsule{
-					Capsule: &commonpb.Capsule{
-						RadiusMm: r,
-						LengthMm: l,
+		worldState.mu.Unlock()
+		worldState.emitTransformChange(
+			&commonpb.Transform{
+				Uuid: transform.Uuid,
+				PoseInObserverFrame: &commonpb.PoseInFrame{
+					Pose: &commonpb.Pose{
+						Theta: theta,
 					},
 				},
 			},
-		}, []string{"physicalObject.geometryType.value.radiusMm", "physicalObject.geometryType.value.lengthMm"})
+			pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_UPDATED,
+			[]string{"poseInObserverFrame.pose.theta"},
+		)
 		return
 	}
-	f.mu.Unlock()
+	worldState.mu.Unlock()
 }
 
-func (f *WorldStateStore) emitTransformChange(transform *commonpb.Transform, changeType pb.TransformChangeType, updatedFields []string) {
+func (worldState *WorldStateStore) updateSphere(elapsed time.Duration) {
+	frequency := 2 * math.Pi / 5.0
+	height := math.Sin(frequency*elapsed.Seconds()) * 2000.0 // ±2 units
+
+	worldState.mu.Lock()
+	if transform, exists := worldState.transforms["sphere-001"]; exists {
+		transform.PoseInObserverFrame.Pose.Z = height
+		worldState.mu.Unlock()
+		worldState.emitTransformChange(
+			&commonpb.Transform{
+				Uuid: transform.Uuid,
+				PoseInObserverFrame: &commonpb.PoseInFrame{
+					Pose: &commonpb.Pose{
+						Z: height,
+					},
+				},
+			},
+			pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_UPDATED,
+			[]string{"poseInObserverFrame.pose.z"},
+		)
+		return
+	}
+	worldState.mu.Unlock()
+}
+
+func (worldState *WorldStateStore) updateCapsule(elapsed time.Duration) {
+	frequency := 2 * math.Pi / 5.0
+	scale := 1.0 + 0.5*math.Sin(frequency*elapsed.Seconds()) // 0.5x to 1.5x
+	radius := 125 * scale
+	length := 1000 * scale
+
+	worldState.mu.Lock()
+	if transform, exists := worldState.transforms["capsule-001"]; exists {
+		transform.PhysicalObject.GetCapsule().RadiusMm = radius
+		transform.PhysicalObject.GetCapsule().LengthMm = length
+		worldState.mu.Unlock()
+		worldState.emitTransformChange(
+			&commonpb.Transform{
+				Uuid: transform.Uuid,
+				PhysicalObject: &commonpb.Geometry{
+					GeometryType: &commonpb.Geometry_Capsule{
+						Capsule: &commonpb.Capsule{
+							RadiusMm: radius,
+							LengthMm: length,
+						},
+					},
+				},
+			},
+			pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_UPDATED,
+			[]string{"physicalObject.geometryType.value.radiusMm", "physicalObject.geometryType.value.lengthMm"},
+		)
+		return
+	}
+	worldState.mu.Unlock()
+}
+
+func (worldState *WorldStateStore) updatePointCloud(elapsed time.Duration) {
+	worldState.mu.Lock()
+	transform, exists := worldState.transforms[pointcloudUUID]
+	if !exists {
+		worldState.mu.Unlock()
+		return
+	}
+
+	originalPC := transform.PhysicalObject.GetPointcloud()
+	if originalPC == nil || originalPC.Header == nil {
+		worldState.mu.Unlock()
+		return
+	}
+
+	totalPoints := int(originalPC.Header.Width)
+	if totalPoints == 0 {
+		worldState.mu.Unlock()
+		return
+	}
+
+	originalData := originalPC.PointCloud
+	worldState.mu.Unlock()
+	worldState.mu.RLock()
+	fps := worldState.fps
+	worldState.mu.RUnlock()
+	if fps < 0 {
+		fps = 0
+	}
+
+	worldState.noiseTime = elapsed.Seconds()
+	frameNumber := int(elapsed.Seconds() * fps)
+	totalChunks := (totalPoints + chunkSize - 1) / chunkSize
+	chunkIdx := frameNumber % totalChunks
+	startIdx := chunkIdx * chunkSize
+	count := chunkSize
+	if startIdx+count > totalPoints {
+		count = totalPoints - startIdx
+	}
+
+	stride := getStride()
+	chunkData := createBuffer(count * stride)
+	for i := 0; i < count; i++ {
+		pointIdx := startIdx + i
+		originalOffset := pointIdx * stride
+		if originalOffset+stride > len(originalData) {
+			worldState.logger.Errorw("point index out of bounds", "pointIdx", pointIdx)
+			continue
+		}
+
+		origX := math.Float32frombits(binary.LittleEndian.Uint32(originalData[originalOffset : originalOffset+4]))
+		origY := math.Float32frombits(binary.LittleEndian.Uint32(originalData[originalOffset+4 : originalOffset+8]))
+		origZ := math.Float32frombits(binary.LittleEndian.Uint32(originalData[originalOffset+8 : originalOffset+12]))
+		origRGB := math.Float32frombits(binary.LittleEndian.Uint32(originalData[originalOffset+12 : originalOffset+16]))
+		posX := float64(origX * 1000.0)
+		posY := float64(origY * 1000.0)
+		noiseScale := 0.0015
+		noiseValue := noise(
+			posX*noiseScale,
+			posY*noiseScale,
+			worldState.noiseTime*0.8,
+		)
+
+		waveAmplitude := 5000.0
+		heightOffset := waveAmplitude * noiseValue
+		animatedZ := origZ + float32(heightOffset/1000.0)
+		offset := i * stride
+
+		binary.LittleEndian.PutUint32(chunkData[offset:], math.Float32bits(origX))
+		binary.LittleEndian.PutUint32(chunkData[offset+4:], math.Float32bits(origY))
+		binary.LittleEndian.PutUint32(chunkData[offset+8:], math.Float32bits(animatedZ))
+		binary.LittleEndian.PutUint32(chunkData[offset+12:], math.Float32bits(origRGB))
+	}
+
+	header := buildUpdateHeader(uint32(startIdx), uint32(count))
+	if err := validatePointCloud(chunkData, header); err != nil {
+		worldState.logger.Errorw("chunk data validation failed", "error", err)
+		return
+	}
+
+	updatedFields := []string{
+		"physicalObject.geometryType.value.pointCloud.pointCloud",
+		"physicalObject.geometryType.value.pointCloud.header",
+	}
+
+	deltaTransform := &commonpb.Transform{
+		Uuid: transform.Uuid,
+		PhysicalObject: &commonpb.Geometry{
+			GeometryType: &commonpb.Geometry_Pointcloud{
+				Pointcloud: &commonpb.PointCloud{
+					PointCloud: chunkData,
+					Header:     header,
+				},
+			},
+		},
+	}
+
+	worldState.emitTransformChange(deltaTransform, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_UPDATED, updatedFields)
+}
+
+func (worldState *WorldStateStore) emitTransformChange(transform *commonpb.Transform, changeType pb.TransformChangeType, updatedFields []string) {
+	if transform == nil || len(transform.GetUuid()) == 0 {
+		return
+	}
+
 	change := worldstatestore.TransformChange{
 		ChangeType:    changeType,
 		Transform:     transform,
@@ -614,62 +951,63 @@ func (f *WorldStateStore) emitTransformChange(transform *commonpb.Transform, cha
 	}
 
 	select {
-	case f.changeChan <- change:
-	case <-f.streamCtx.Done():
-	default:
-		// Channel is full, skip this update
-	}
-}
-
-func (f *WorldStateStore) emitTransformUpdate(partial *commonpb.Transform, updatedFields []string) {
-	if partial == nil || len(partial.GetUuid()) == 0 {
+	case worldState.changeChan <- change:
+		// Successfully sent
+	case <-worldState.streamCtx.Done():
 		return
-	}
-	change := worldstatestore.TransformChange{
-		ChangeType:    pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_UPDATED,
-		Transform:     partial,
-		UpdatedFields: updatedFields,
-	}
-	select {
-	case f.changeChan <- change:
-	case <-f.streamCtx.Done():
 	default:
-		// Channel is full, skip this update
+		// Channel is full - implement backpressure strategy with brief timeout
+		select {
+		case worldState.changeChan <- change:
+		case <-time.After(time.Millisecond):
+			// Drop update after timeout to prevent blocking
+		case <-worldState.streamCtx.Done():
+			return
+		}
 	}
 }
 
-func (f *WorldStateStore) animationLoop() {
-	f.mu.RLock()
-	curFPS := f.fps
-	f.mu.RUnlock()
-	if curFPS <= 0 {
-		curFPS = 1
-	}
-	interval := time.Duration(float64(time.Second) / curFPS)
-	ticker := time.NewTicker(interval)
+func (worldState *WorldStateStore) animate() {
+	var (
+		curFPS          = 10.0
+		interval        = time.Duration(float64(time.Second) / curFPS)
+		ticker          = time.NewTicker(interval)
+		lastElapsed     time.Duration
+		fpsCheckCounter int64
+	)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-f.streamCtx.Done():
+		case <-worldState.streamCtx.Done():
 			return
 		case <-ticker.C:
-			f.updateTransforms()
-			// Reconfigure ticker if FPS changed
-			f.mu.RLock()
-			newFPS := f.fps
-			f.mu.RUnlock()
-			if newFPS != curFPS && newFPS > 0 {
-				ticker.Stop()
-				curFPS = newFPS
-				interval = time.Duration(float64(time.Second) / curFPS)
-				ticker = time.NewTicker(interval)
+			elapsed := time.Since(worldState.startTime)
+			if elapsed-lastElapsed < time.Millisecond {
+				continue
+			}
+
+			lastElapsed = elapsed
+			worldState.update()
+
+			fpsCheckCounter++
+			if fpsCheckCounter%100 == 0 {
+				worldState.mu.RLock()
+				newFPS := worldState.fps
+				worldState.mu.RUnlock()
+
+				if newFPS != curFPS && newFPS > 0 {
+					ticker.Stop()
+					curFPS = newFPS
+					interval = time.Duration(float64(time.Second) / curFPS)
+					ticker = time.NewTicker(interval)
+				}
 			}
 		}
 	}
 }
 
-func (f *WorldStateStore) dynamicBoxSequence() {
+func (worldState *WorldStateStore) boxSequence() {
 	delay := 3 * time.Second
 	sequence := []struct {
 		action string
@@ -686,20 +1024,20 @@ func (f *WorldStateStore) dynamicBoxSequence() {
 	for {
 		for _, step := range sequence {
 			select {
-			case <-f.streamCtx.Done():
+			case <-worldState.streamCtx.Done():
 				return
 			default:
 			}
 
 			switch step.action {
 			case "add":
-				f.addDynamicBox(step.name)
+				worldState.addBox(step.name)
 			case "remove":
-				f.removeDynamicBox(step.name)
+				worldState.removeBox(step.name)
 			}
 
 			select {
-			case <-f.streamCtx.Done():
+			case <-worldState.streamCtx.Done():
 				return
 			case <-time.After(delay):
 			}
@@ -707,7 +1045,7 @@ func (f *WorldStateStore) dynamicBoxSequence() {
 	}
 }
 
-func (f *WorldStateStore) addDynamicBox(name string) {
+func (worldState *WorldStateStore) addBox(name string) {
 	var xOffset float64
 
 	switch name {
@@ -743,18 +1081,18 @@ func (f *WorldStateStore) addDynamicBox(name string) {
 		Metadata: dynamicBoxMetadata,
 	}
 
-	f.mu.Lock()
-	f.transforms[uuid] = transform
-	f.mu.Unlock()
+	worldState.mu.Lock()
+	worldState.transforms[uuid] = transform
+	worldState.mu.Unlock()
 
-	f.emitTransformChange(transform, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED, nil)
+	worldState.emitTransformChange(transform, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED, nil)
 }
 
-func (f *WorldStateStore) removeDynamicBox(name string) {
-	f.mu.Lock()
+func (worldState *WorldStateStore) removeBox(name string) {
+	worldState.mu.Lock()
 
 	var uuidToRemove string
-	for uuid := range f.transforms {
+	for uuid := range worldState.transforms {
 		if strings.HasPrefix(uuid, name) {
 			uuidToRemove = uuid
 			break
@@ -762,13 +1100,13 @@ func (f *WorldStateStore) removeDynamicBox(name string) {
 	}
 
 	if uuidToRemove == "" {
-		f.mu.Unlock()
+		worldState.mu.Unlock()
 		return
 	}
 
-	transform := f.transforms[uuidToRemove]
-	delete(f.transforms, uuidToRemove)
-	f.mu.Unlock()
+	transform := worldState.transforms[uuidToRemove]
+	delete(worldState.transforms, uuidToRemove)
+	worldState.mu.Unlock()
 
 	change := worldstatestore.TransformChange{
 		ChangeType: pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_REMOVED,
@@ -778,17 +1116,18 @@ func (f *WorldStateStore) removeDynamicBox(name string) {
 	}
 
 	select {
-	case f.changeChan <- change:
-	case <-f.streamCtx.Done():
+	case worldState.changeChan <- change:
+	case <-worldState.streamCtx.Done():
 	default:
 		// Channel is full, skip this update
 	}
 }
 
-func (f *WorldStateStore) updateTransforms() {
-	elapsed := time.Since(f.startTime)
+func (worldState *WorldStateStore) update() {
+	elapsed := time.Since(worldState.startTime)
 
-	f.updateBoxTransform(elapsed)
-	f.updateSphereTransform(elapsed)
-	f.updateCapsuleTransform(elapsed)
+	worldState.updateBox(elapsed)
+	worldState.updateSphere(elapsed)
+	worldState.updateCapsule(elapsed)
+	worldState.updatePointCloud(elapsed)
 }
