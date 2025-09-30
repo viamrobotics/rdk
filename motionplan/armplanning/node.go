@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-const ikTimeMultipleStart = 50
+const ikTimeMultipleStart = 60
 
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target.
 func fixedStepInterpolation(start, target *node, qstep map[string][]float64) referenceframe.FrameSystemInputs {
