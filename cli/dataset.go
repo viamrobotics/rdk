@@ -273,8 +273,11 @@ type ImageMetadata struct {
 	ClassificationAnnotations []Annotation     `json:"classification_annotations"`
 	BBoxAnnotations           []BBoxAnnotation `json:"bounding_box_annotations"`
 	Timestamp                 string           `json:"timestamp"`
-	PartID                    string           `json:"part_id"`
-	ComponentName             string           `json:"component_name"`
+	BinaryDataID              string           `json:"binary_data_id,omitempty"`
+	OrganizationID            string           `json:"organization_id,omitempty"`
+	LocationID                string           `json:"location_id,omitempty"`
+	PartID                    string           `json:"part_id,omitempty"`
+	ComponentName             string           `json:"component_name,omitempty"`
 }
 
 // BBoxAnnotation holds the information associated with each bounding box.
@@ -332,13 +335,17 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 		fileName += ext
 	}
 
+	captureMD := datum.GetMetadata().GetCaptureMetadata()
 	jsonl = ImageMetadata{
 		ImagePath:                 fileName,
 		ClassificationAnnotations: annotations,
 		BBoxAnnotations:           bboxAnnotations,
-		PartID:                    datum.GetMetadata().GetCaptureMetadata().GetPartId(),
-		ComponentName:             datum.GetMetadata().GetCaptureMetadata().GetComponentName(),
 		Timestamp:                 datum.GetMetadata().GetTimeRequested().AsTime().String(),
+		BinaryDataID:              datum.GetMetadata().GetBinaryDataId(),
+		OrganizationID:            captureMD.GetOrganizationId(),
+		LocationID:                captureMD.GetLocationId(),
+		PartID:                    captureMD.GetPartId(),
+		ComponentName:             captureMD.GetComponentName(),
 	}
 
 	line, err := json.Marshal(jsonl)
