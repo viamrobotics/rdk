@@ -1,34 +1,19 @@
+//go:build !386 && !arm
+
 package armplanning
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 )
-
-func readRequestFromFile(f string) (*PlanRequest, error) {
-	content, err := os.ReadFile(f)
-	if err != nil {
-		return nil, err
-	}
-
-	req := &PlanRequest{}
-
-	err = json.Unmarshal(content, req)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
 
 func TestOrbOneSeed(t *testing.T) {
 	matches, err := filepath.Glob("data/orb-plan*.json")
@@ -38,7 +23,7 @@ func TestOrbOneSeed(t *testing.T) {
 		t.Run(fp, func(t *testing.T) {
 			logger := logging.NewTestLogger(t)
 
-			req, err := readRequestFromFile(fp)
+			req, err := ReadRequestFromFile(fp)
 			test.That(t, err, test.ShouldBeNil)
 
 			plan, err := PlanMotion(context.Background(), logger, req)
@@ -57,7 +42,7 @@ func TestOrbManySeeds(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, fp := range matches {
-		req, err := readRequestFromFile(fp)
+		req, err := ReadRequestFromFile(fp)
 		test.That(t, err, test.ShouldBeNil)
 
 		for i := 0; i < 100; i++ {
@@ -78,7 +63,7 @@ func TestOrbManySeeds(t *testing.T) {
 }
 
 func TestPourManySeeds(t *testing.T) {
-	req, err := readRequestFromFile("data/pour-plan-bad.json")
+	req, err := ReadRequestFromFile("data/pour-plan-bad.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	for i := 0; i < 100; i++ {
@@ -100,7 +85,7 @@ func TestPourManySeeds(t *testing.T) {
 func TestWineCrazyTouch1(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	req, err := readRequestFromFile("data/wine-crazy-touch.json")
+	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	plan, err := PlanMotion(context.Background(), logger, req)
@@ -121,7 +106,7 @@ func TestWineCrazyTouch1(t *testing.T) {
 func TestWineCrazyTouch2(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	req, err := readRequestFromFile("data/wine-crazy-touch2.json")
+	req, err := ReadRequestFromFile("data/wine-crazy-touch2.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	plan, err := PlanMotion(context.Background(), logger, req)
@@ -135,4 +120,25 @@ func TestWineCrazyTouch2(t *testing.T) {
 	}
 
 	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
+}
+
+func TestSandingLargeMove1(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	start := time.Now()
+	req, err := ReadRequestFromFile("data/sanding-large-move1.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
+
+	pc, err := newPlanContext(logger, req)
+	test.That(t, err, test.ShouldBeNil)
+
+	psc, err := newPlanSegmentContext(pc, req.StartState.configuration, req.Goals[0].poses)
+	test.That(t, err, test.ShouldBeNil)
+
+	solution, err := initRRTSolutions(context.Background(), psc)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(solution.steps), test.ShouldEqual, 1)
 }

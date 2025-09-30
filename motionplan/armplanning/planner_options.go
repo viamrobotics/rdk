@@ -51,13 +51,9 @@ const (
 	defaultOptimalityMultiple = 3.0
 )
 
-var (
-	defaultNumThreads                            = utils.MinInt(runtime.NumCPU()/2, 10)
-	defaultTimeMultipleAfterFindingFirstSolution = 20
-)
+var defaultNumThreads = utils.MinInt(runtime.NumCPU()/2, 10)
 
 func init() {
-	defaultTimeMultipleAfterFindingFirstSolution = utils.GetenvInt("MP_TIME_MULTIPLIER", defaultTimeMultipleAfterFindingFirstSolution)
 	defaultNumThreads = utils.GetenvInt("MP_NUM_THREADS", defaultNumThreads)
 }
 
@@ -82,7 +78,6 @@ func NewBasicPlannerOptions() *PlannerOptions {
 
 	opt.SmoothIter = defaultSmoothIter
 
-	opt.TimeMultipleAfterFindingFirstSolution = defaultTimeMultipleAfterFindingFirstSolution
 	opt.NumThreads = defaultNumThreads
 
 	opt.PathStepSize = defaultStepSizeMM
@@ -161,11 +156,6 @@ type PlannerOptions struct {
 
 	// Setting indicating that all mesh geometries should be converted into octrees.
 	MeshesAsOctrees bool `json:"meshes_as_octrees"`
-
-	// For inverse kinematics, the time within which each pending solution must finish its computation is
-	// a multiple of the time taken to compute the first solution. This parameter is a way to
-	// set that multiplicative factor.
-	TimeMultipleAfterFindingFirstSolution int `json:"time_multiple_after_finding_first_solution"`
 }
 
 // NewPlannerOptionsFromExtra returns basic default settings updated by overridden parameters

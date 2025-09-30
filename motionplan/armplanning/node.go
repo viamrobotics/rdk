@@ -15,6 +15,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
+const ikTimeMultipleStart = 70
+
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target.
 func fixedStepInterpolation(start, target *node, qstep map[string][]float64) referenceframe.FrameSystemInputs {
 	newNear := make(referenceframe.FrameSystemInputs)
@@ -103,32 +105,56 @@ func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []refer
 }
 
 type solutionSolvingState struct {
-	psc *planSegmentContext
+	psc          *planSegmentContext
+	maxSolutions int
 
-	linearSeed []float64
-
+	linearSeed        []float64
 	moving, nonmoving []string
 
 	ratios   []float64
 	goodCost float64
 
+	processCalls int
+	failures     *IkConstraintError
+
 	solutions         []*node
-	failures          *IkConstraintError
 	startTime         time.Time
-	firstSolutionTime time.Duration
 	bestScore         float64
 	ikTimeMultiple    int
+	firstSolutionTime time.Duration
 }
 
-func (sss *solutionSolvingState) setup(goal referenceframe.FrameSystemPoses) error {
-	err := sss.computeGoodCost(goal)
+func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, error) {
+	var err error
+
+	sss := &solutionSolvingState{
+		psc:               psc,
+		solutions:         []*node{},
+		failures:          newIkConstraintError(psc.pc.fs, psc.checker),
+		startTime:         time.Now(),
+		firstSolutionTime: time.Hour,
+		bestScore:         10000000,
+		maxSolutions:      psc.pc.planOpts.MaxSolutions,
+		ikTimeMultiple:    ikTimeMultipleStart, // look for a while, unless we find good things
+	}
+
+	if sss.maxSolutions <= 0 {
+		sss.maxSolutions = defaultSolutionsToSeed
+	}
+
+	sss.linearSeed, err = psc.pc.lfs.mapToSlice(psc.start)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
 
-	return nil
+	err = sss.computeGoodCost(psc.goal)
+	if err != nil {
+		return nil, err
+	}
+
+	return sss, nil
 }
 
 func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) error {
@@ -191,6 +217,8 @@ func (sss *solutionSolvingState) nonchainMinimize(seed, step referenceframe.Fram
 // return bool is if we should stop because we're done.
 func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 ) bool {
+	sss.processCalls++
+
 	step, err := sss.psc.pc.lfs.sliceToMap(stepSolution.Configuration)
 	if err != nil {
 		sss.psc.pc.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
@@ -249,16 +277,22 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 			myNode.checkPath = true
 			if (myNode.cost < (sss.goodCost / goodCostStopDivider)) ||
 				(myNode.cost < sss.psc.pc.planOpts.MinScore && sss.psc.pc.planOpts.MinScore > 0) {
-				sss.psc.pc.logger.Debugf("\tscore %0.4f stopping early (%0.2f)", myNode.cost, sss.goodCost/goodCostStopDivider)
+				sss.psc.pc.logger.Debugf("\tscore %0.4f stopping early (%0.2f) processCalls: %d",
+					myNode.cost, sss.goodCost/goodCostStopDivider, sss.processCalls)
 				return true // good solution, stopping early
-			} else if myNode.cost < (sss.goodCost / (.5 * goodCostStopDivider)) {
-				sss.ikTimeMultiple = sss.psc.pc.planOpts.TimeMultipleAfterFindingFirstSolution / 4
+			}
+
+			if myNode.cost < (sss.goodCost / (.5 * goodCostStopDivider)) {
+				// we find something very good, but not great
+				// so we look at lot
+				sss.ikTimeMultiple = min(sss.ikTimeMultiple, ikTimeMultipleStart/12)
+			} else if myNode.cost < sss.goodCost {
+				sss.ikTimeMultiple = min(sss.ikTimeMultiple, ikTimeMultipleStart/5)
 			}
 		}
 	}
 
-	if len(sss.solutions) >= sss.psc.pc.planOpts.MaxSolutions {
-		// sufficient solutions found, stopping early
+	if len(sss.solutions) >= sss.maxSolutions {
 		return true
 	}
 
@@ -271,7 +305,8 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 	} else {
 		elapsed := time.Since(sss.startTime)
 		if elapsed > (time.Duration(sss.ikTimeMultiple) * sss.firstSolutionTime) {
-			sss.psc.pc.logger.Infof("ending early because of time elapsed: %v firstSolutionTime: %v", elapsed, sss.firstSolutionTime)
+			sss.psc.pc.logger.Infof("ending early because of time elapsed: %v firstSolutionTime: %v processCalls: %d",
+				elapsed, sss.firstSolutionTime, sss.processCalls)
 			return true
 		}
 	}
@@ -287,32 +322,11 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 // If minScore is positive, if a solution scoring below that amount is found, the solver will
 // terminate and return that one solution.
 func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error) {
-	var err error
-
-	if psc.pc.planOpts.MaxSolutions == 0 {
-		psc.pc.planOpts.MaxSolutions = defaultSolutionsToSeed
-	}
-
 	if len(psc.start) == 0 {
 		return nil, fmt.Errorf("getSolutions start can't be empty")
 	}
 
-	solvingState := solutionSolvingState{
-		psc:               psc,
-		solutions:         []*node{},
-		failures:          newIkConstraintError(psc.pc.fs, psc.checker),
-		startTime:         time.Now(),
-		firstSolutionTime: time.Hour,
-		bestScore:         10000000,
-		ikTimeMultiple:    psc.pc.planOpts.TimeMultipleAfterFindingFirstSolution,
-	}
-
-	solvingState.linearSeed, err = psc.pc.lfs.mapToSlice(psc.start)
-	if err != nil {
-		return nil, err
-	}
-
-	err = solvingState.setup(psc.goal)
+	solvingState, err := newSolutionSolvingState(psc)
 	if err != nil {
 		return nil, err
 	}

@@ -4,7 +4,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -74,14 +73,7 @@ func realMain() error {
 
 	logger.Infof("reading plan from %s", flag.Arg(0))
 
-	content, err := os.ReadFile(flag.Arg(0))
-	if err != nil {
-		return err
-	}
-
-	req := armplanning.PlanRequest{}
-
-	err = json.Unmarshal(content, &req)
+	req, err := armplanning.ReadRequestFromFile(flag.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -98,7 +90,7 @@ func realMain() error {
 	mylog := log.New(os.Stdout, "", 0)
 	start := time.Now()
 
-	plan, err := armplanning.PlanMotion(ctx, logger, &req)
+	plan, err := armplanning.PlanMotion(ctx, logger, req)
 	if *interactive {
 		if interactiveErr := doInteractive(req, plan, err, mylog); interactiveErr != nil {
 			logger.Fatal("Interactive mode failed:", interactiveErr)
@@ -118,7 +110,7 @@ func realMain() error {
 
 	for *cpu != "" && time.Since(start) < (10*time.Second) {
 		ss := time.Now()
-		_, err := armplanning.PlanMotion(ctx, logger, &req)
+		_, err := armplanning.PlanMotion(ctx, logger, req)
 		if err != nil {
 			return err
 		}
@@ -184,7 +176,7 @@ func realMain() error {
 	return nil
 }
 
-func visualize(req armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger) error {
+func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger) error {
 	renderFramePeriod := 5 * time.Millisecond
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
 		return err
@@ -239,7 +231,7 @@ func visualize(req armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Log
 	return nil
 }
 
-func drawGoalPoses(req armplanning.PlanRequest) error {
+func drawGoalPoses(req *armplanning.PlanRequest) error {
 	var goalPoses []spatialmath.Pose
 	for _, goalPlanState := range req.Goals {
 		poses, err := goalPlanState.ComputePoses(req.FrameSystem)
@@ -268,7 +260,7 @@ func drawGoalPoses(req armplanning.PlanRequest) error {
 	return nil
 }
 
-func doInteractive(req armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger) error {
+func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger) error {
 	var ikErr *armplanning.IkConstraintError
 	errors.As(planErr, &ikErr)
 	if err := viz.RemoveAllSpatialObjects(); err != nil {

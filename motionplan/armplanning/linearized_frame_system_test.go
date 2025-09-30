@@ -11,7 +11,7 @@ import (
 func TestLinearFrameSystemGoalThing(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	req, err := readRequestFromFile("data/orb-plan1.json")
+	req, err := ReadRequestFromFile("data/orb-plan1.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	lfs, err := newLinearizedFrameSystem(req.FrameSystem)
