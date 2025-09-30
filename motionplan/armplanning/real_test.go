@@ -1,3 +1,5 @@
+//go:build !386 && !arm
+
 package armplanning
 
 import (
@@ -135,9 +137,8 @@ func TestSandingLargeMove1(t *testing.T) {
 	psc, err := newPlanSegmentContext(pc, req.StartState.configuration, req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
-	solutions, err := getSolutions(context.Background(), psc)
+	solution, err := initRRTSolutions(context.Background(), psc)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, solutions[0].checkPath, test.ShouldBeTrue)
-	test.That(t, solutions[0].cost, test.ShouldBeLessThan, 10)
+	test.That(t, len(solution.steps), test.ShouldEqual, 1)
 }
