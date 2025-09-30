@@ -160,7 +160,7 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 		for _, img := range resImgs {
 			imgBytes, err := img.Bytes(ctx)
 			if err != nil {
-				return res, err
+				return res, data.NewFailedToReadError(params.ComponentName, getImages.String(), err)
 			}
 			binaries = append(binaries, data.Binary{
 				Annotations: data.Annotations{Classifications: []data.Classification{{Label: img.SourceName}}},
