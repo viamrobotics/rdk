@@ -19,10 +19,7 @@ var logger = logging.NewDebugLogger("droid-entrypoint")
 
 // DroidStopHook used by android harness to stop the RDK.
 func DroidStopHook() { //nolint:revive
-	// NOTE(benjirewis): In RSDK-11248, we removed the restart checking logic from
-	// viam-server and put it in viam-agent. This method used to set a flag used by restart
-	// checking logic, but since that no longer exists and we have no users of this droid
-	// code, we no longer support this method.
+	// We have no users of this droid code, so we no longer support this method.
 	logger.Error("DroidStopHook is no longer supported")
 }
 
