@@ -146,17 +146,18 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestPirouette(t *testing.T) {
+	// Note: this does not test that pirouettes happen less than some value, this is a benchmark of how often pirouettes occur
 	logger := logging.NewTestLogger(t)
 
-	// get arm kinematics for fk
+	// get arm kinematics for forward kinematics
 	armName := "ur5e"
-	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
 	test.That(t, err, test.ShouldBeNil)
 
 	idealJointValues := [][]referenceframe.Input{
 		{{0 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
 		{{30 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{55.7492 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{60 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
 		{{90 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
 		{{120 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
 		{{150 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
@@ -165,15 +166,18 @@ func TestPirouette(t *testing.T) {
 		{{150 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
 		{{120 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
 		{{90 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{59.7492 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{{60 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
 		{{30 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
 		{{0 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
 	}
+	// the only change here is in joint 0 in increments of 30, while all the other joints are kept at a constant value
+	// below is change in joint 0 in degrees:
+	// 0 -> 30 -> 60 -> 90 -> 120 -> 150 -> 180 -> 180 -> 150 -> 120 -> 90 -> 60 -> 30 -> 0
 
 	// determine pose given elements of idealJointValues
 	pifs := []*referenceframe.PoseInFrame{}
 	for _, pos := range idealJointValues {
-		pose, err := m.Transform(pos)
+		pose, err := armKinematics.Transform(pos)
 		test.That(t, err, test.ShouldBeNil)
 		posInF := referenceframe.NewPoseInFrame(referenceframe.World, pose)
 		pifs = append(pifs, posInF)
@@ -181,12 +185,12 @@ func TestPirouette(t *testing.T) {
 
 	// construct framesystem
 	fs := referenceframe.NewEmptyFrameSystem("pirouette")
-	err = fs.AddFrame(m, fs.World())
+	err = fs.AddFrame(armKinematics, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	failureCount := 0
-	num := 10
-	count := num * len(idealJointValues)
+	num := 10 // the number of times we iterate through idealJointValue
+	numPlanMotionCalls := 0
 	for range num {
 		// keep track of what the value of j0 previously was
 		prevJ0Value := 0.
@@ -205,9 +209,13 @@ func TestPirouette(t *testing.T) {
 			}
 			plan, err := PlanMotion(context.Background(), logger, req)
 			test.That(t, err, test.ShouldBeNil)
+			numPlanMotionCalls++
+
+			traj := plan.Trajectory()
+			// since we do not specify a constraint we are in the "free" motion profile which gives us a trajectory of length two
+			test.That(t, len(traj), test.ShouldEqual, 2) // ensure length is always two
 
 			// determine how much joint 0 has changed in degrees from this trajectory
-			traj := plan.Trajectory()
 			allArmInputs, err := traj.GetFrameInputs(armName)
 			test.That(t, err, test.ShouldBeNil)
 			j0Start := allArmInputs[0][0].Value
@@ -221,7 +229,7 @@ func TestPirouette(t *testing.T) {
 			// determine if a pirouette happened
 			// in order to satisfy our desired pose in frame while execeeding the expected change in joint 0 a pirouette was necessary
 			if change > expectedChange {
-				logger.Infof("change: %f was greater than expectedChange: %f, took this long: %d\n", change, expectedChange, count)
+				logger.Infof("change: %f was greater than expectedChange: %f, took this long: %d\n", change, expectedChange, numPlanMotionCalls)
 				failureCount++
 			}
 
@@ -233,6 +241,6 @@ func TestPirouette(t *testing.T) {
 		}
 	}
 	logger.Infof("failed this many times: %d", failureCount)
-	logger.Infof("ran this many times: %d", count)
-	logger.Infof("percentage of pirouette motions: %f, failureCount/count", float64(failureCount)/float64(count))
+	logger.Infof("ran this many times: %d", numPlanMotionCalls)
+	logger.Infof("percentage of pirouette motions: %f, failureCount/count", float64(failureCount)/float64(numPlanMotionCalls))
 }
