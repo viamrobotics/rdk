@@ -2,11 +2,13 @@ package board
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/board/v1"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/data"
 )
@@ -48,11 +50,18 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 		timeRequested := time.Now()
 		var res data.CaptureResult
 		var analogValue AnalogValue
-		if _, ok := arg[analogReaderNameKey]; !ok {
+		analogReaderNameMarshaled, ok := arg[analogReaderNameKey]
+		if !ok {
 			return res, data.NewFailedToReadError(params.ComponentName, analogs.String(),
 				errors.New("Must supply reader_name in additional_params for analog collector"))
 		}
-		if reader, err := board.AnalogByName(arg[analogReaderNameKey].String()); err == nil {
+
+		analogReaderName, err := unmarshalName(analogReaderNameMarshaled)
+		if err != nil {
+			return res, data.NewFailedToReadError(params.ComponentName, analogs.String(), errors.Wrap(err, "failed to get reader name"))
+		}
+
+		if reader, err := board.AnalogByName(analogReaderName); err == nil {
 			analogValue, err = reader.Read(ctx, data.FromDMExtraMap)
 			if err != nil {
 				// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -87,11 +96,19 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 		timeRequested := time.Now()
 		var res data.CaptureResult
 		var value bool
-		if _, ok := arg[gpioPinNameKey]; !ok {
+
+		pinNameMarshaled, ok := arg[gpioPinNameKey]
+		if !ok {
 			return res, data.NewFailedToReadError(params.ComponentName, gpios.String(),
 				errors.New("Must supply pin_name in additional params for gpio collector"))
 		}
-		if gpio, err := board.GPIOPinByName(arg[gpioPinNameKey].String()); err == nil {
+
+		pinName, err := unmarshalName(pinNameMarshaled)
+		if err != nil {
+			return res, data.NewFailedToReadError(params.ComponentName, gpios.String(), errors.Wrap(err, "failed to get pin name"))
+		}
+
+		if gpio, err := board.GPIOPinByName(pinName); err == nil {
 			value, err = gpio.Get(ctx, data.FromDMExtraMap)
 			if err != nil {
 				// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
@@ -129,4 +146,20 @@ func assertBoard(resource interface{}) (Board, error) {
 	}
 
 	return board, nil
+}
+
+func unmarshalName(nameMarshaled *anypb.Any) (string, error) {
+	// Try to unmarshal as string first.
+	var strVal wrapperspb.StringValue
+	if err := nameMarshaled.UnmarshalTo(&strVal); err == nil {
+		return strVal.Value, nil
+	}
+
+	// Try as int32.
+	var int32Val wrapperspb.Int32Value
+	if err := nameMarshaled.UnmarshalTo(&int32Val); err == nil {
+		return fmt.Sprintf("%d", int32Val.Value), nil
+	}
+
+	return "", errors.New("Name must be a string or int32")
 }
