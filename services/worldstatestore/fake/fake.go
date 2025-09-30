@@ -931,6 +931,22 @@ func (worldState *WorldStateStore) updatePointCloud(elapsed time.Duration) {
 		return
 	}
 
+	worldState.mu.Lock()
+	if transform, exists := worldState.transforms[pointcloudUUID]; exists {
+		pc := transform.PhysicalObject.GetPointcloud()
+		if pc != nil && pc.PointCloud != nil {
+			for i := 0; i < count; i++ {
+				pointIdx := startIdx + i
+				srcOffset := i * stride
+				dstOffset := pointIdx * stride
+				if dstOffset+stride <= len(pc.PointCloud) && srcOffset+stride <= len(chunkData) {
+					copy(pc.PointCloud[dstOffset:dstOffset+stride], chunkData[srcOffset:srcOffset+stride])
+				}
+			}
+		}
+	}
+	worldState.mu.Unlock()
+
 	updatedFields := []string{
 		"physicalObject.geometryType.value.pointCloud.pointCloud",
 		"physicalObject.geometryType.value.pointCloud.header",
