@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-const ikTimeMultipleStart = 60
+const ikTimeMultipleStart = 70
 
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target.
 func fixedStepInterpolation(start, target *node, qstep map[string][]float64) referenceframe.FrameSystemInputs {
@@ -285,9 +285,9 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 			if myNode.cost < (sss.goodCost / (.5 * goodCostStopDivider)) {
 				// we find something very good, but not great
 				// so we look at lot
-				sss.ikTimeMultiple = min(sss.ikTimeMultiple, ikTimeMultipleStart/10)
+				sss.ikTimeMultiple = min(sss.ikTimeMultiple, ikTimeMultipleStart/12)
 			} else if myNode.cost < sss.goodCost {
-				sss.ikTimeMultiple = min(sss.ikTimeMultiple, ikTimeMultipleStart/4)
+				sss.ikTimeMultiple = min(sss.ikTimeMultiple, ikTimeMultipleStart/5)
 			}
 		}
 	}
