@@ -177,8 +177,25 @@ func realMain() error {
 }
 
 func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger) error {
-	renderFramePeriod := 50 * time.Millisecond
+	renderFramePeriod := 5 * time.Millisecond
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
+		return err
+	}
+
+	startInputs := req.StartState.Configuration()
+	// `DrawWorldState` just draws the obstacles. I think the FrameSystem/Path are necessary
+	// because obstacles can be in terms of reference frames contained within the frame
+	// system. Such as a camera attached to an arm.
+	if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, startInputs); err != nil {
+		return err
+	}
+
+	// `DrawFrameSystem` draws everything else we're interested in.
+	if err := viz.DrawFrameSystem(req.FrameSystem, startInputs); err != nil {
+		return err
+	}
+
+	if err := drawGoalPoses(req); err != nil {
 		return err
 	}
 
@@ -192,8 +209,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 			}
 
 			for _, mp := range midPoints {
-				err := drawPosition(req, mp)
-				if err != nil {
+				if err := viz.DrawFrameSystem(req.FrameSystem, mp); err != nil {
 					return err
 				}
 
@@ -201,14 +217,12 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 			}
 		}
 
-		err := drawPosition(req, plan.Trajectory()[idx])
-		if err != nil {
+		if err := viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx]); err != nil {
 			return err
 		}
 
 		if idx == 0 {
-			mylog.Println("Rendering motion plan. Num steps:", len(plan.Path()),
-				"Approx time:", time.Duration(len(plan.Path()))*renderFramePeriod)
+			mylog.Println("Rendering motion plan. Num steps:", len(plan.Path()))
 		}
 
 		time.Sleep(renderFramePeriod)
@@ -217,19 +231,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 	return nil
 }
 
-func drawPosition(req *armplanning.PlanRequest, inputs referenceframe.FrameSystemInputs) error {
-	// `DrawWorldState` just draws the obstacles. I think the FrameSystem/Path are necessary
-	// because obstacles can be in terms of reference frames contained within the frame
-	// system. Such as a camera attached to an arm.
-	if err := viz.DrawWorldState(req.WorldState, req.FrameSystem, inputs); err != nil {
-		return err
-	}
-
-	// `DrawFrameSystem` draws everything else we're interested in.
-	if err := viz.DrawFrameSystem(req.FrameSystem, inputs); err != nil {
-		return err
-	}
-
+func drawGoalPoses(req *armplanning.PlanRequest) error {
 	var goalPoses []spatialmath.Pose
 	for _, goalPlanState := range req.Goals {
 		poses, err := goalPlanState.ComputePoses(req.FrameSystem)
