@@ -65,7 +65,7 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	frame3, err := NewStaticFrameWithGeometry("link2", offset, bc)
 	test.That(t, err, test.ShouldBeNil)
-	m := &SimpleModel{baseFrame: &baseFrame{name: "test"}}
+	m := &SimpleModel{baseFrame: baseFrame{name: "test"}}
 	m.SetOrdTransforms([]Frame{frame1, frame2, frame3})
 
 	// test zero pose of model
