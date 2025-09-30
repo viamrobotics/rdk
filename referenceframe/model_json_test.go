@@ -9,6 +9,26 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+func TestLimitsParsing(t *testing.T) {
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	smodel, ok := model.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
+	smodel.limits[0].Min = 0
+	smodel.limits[0].Max = 1
+
+	data, err := smodel.MarshalJSON()
+	test.That(t, err, test.ShouldBeNil)
+
+	simpleModelDeserialized := new(SimpleModel)
+	err = simpleModelDeserialized.UnmarshalJSON(data)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, simpleModelDeserialized.limits[0].Min, test.ShouldEqual, 0)
+	test.That(t, simpleModelDeserialized.limits[0].Max, test.ShouldEqual, 1)
+	test.That(t, simpleModelDeserialized.DoF()[0], test.ShouldResemble, Limit{0, 1})
+}
+
 // Tests that yml files are properly parsed and correctly loaded into the model
 // Should not need to actually test the contained rotation/translation values
 // since that will be caught by tests to the actual kinematics
