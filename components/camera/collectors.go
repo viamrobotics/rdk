@@ -7,9 +7,12 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/utils"
 )
 
 type method int64
@@ -77,12 +80,38 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 	if err != nil {
 		return nil, err
 	}
+	// choose the best/fastest representation
+	mimeType := params.MethodParams["mime_type"]
+	if mimeType == nil {
+		// TODO: Potentially log the actual mime type at collector instantiation or include in response.
+		strWrapper := wrapperspb.String(utils.MimeTypeJPEG)
+		mimeType, err = anypb.New(strWrapper)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var mimeStr string
+	// For backwards compatibility - allow string (old behavior) and Value (new behavior) types
+	strVal := &wrapperspb.StringValue{}
+	if err := mimeType.UnmarshalTo(strVal); err == nil {
+		mimeStr = strVal.Value
+	} else {
+		// If that fails, try to unmarshal as Value
+		val := &structpb.Value{}
+		if err := mimeType.UnmarshalTo(val); err != nil {
+			return nil, err
+		}
+		mimeStr = val.GetStringValue()
+	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
 		timeRequested := time.Now()
 		var res data.CaptureResult
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
+
+		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
 
 		resImgs, resMetadata, err := camera.Images(ctx, nil, data.FromDMExtraMap)
 		if err != nil {
@@ -103,11 +132,6 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		// Select the corresponding image based on requested mime type if provided
 		var img NamedImage
 		var foundMatchingMimeType bool
-		// mimeStr is not defined in this context, assuming it should be passed in or derived.
-		// For the purpose of resolving the merge conflict, we keep the logic as provided.
-		// If mimeStr is intended to be an argument, it needs to be added to the CaptureFunc signature or derived from params.
-		// For now, assuming mimeStr is an empty string, which would default to resImgs[0].
-		mimeStr := "" // Placeholder for mimeStr, as it's not defined in the provided context.
 		if mimeStr != "" {
 			for _, candidateImg := range resImgs {
 				if candidateImg.MimeType() == mimeStr {
