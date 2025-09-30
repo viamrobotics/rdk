@@ -49,6 +49,8 @@ type WorldStateStore struct {
 	logger logging.Logger
 
 	noiseTime float64
+	minZ      float64
+	maxZ      float64
 }
 
 const (
@@ -563,6 +565,9 @@ func (worldState *WorldStateStore) processPointCloud(pc pointcloud.PointCloud) p
 		zRange = 1
 	}
 
+	worldState.minZ = minZ
+	worldState.maxZ = maxZ
+
 	withColors := pointcloud.NewBasicPointCloud(size)
 	pc.Iterate(0, 0, func(point r3.Vector, data pointcloud.Data) bool {
 		translatedPoint := r3.Vector{X: point.X - center.X, Y: point.Y - center.Y, Z: point.Z - center.Z}
@@ -892,10 +897,9 @@ func (worldState *WorldStateStore) updatePointCloud(elapsed time.Duration) {
 		origX := math.Float32frombits(binary.LittleEndian.Uint32(originalData[originalOffset : originalOffset+4]))
 		origY := math.Float32frombits(binary.LittleEndian.Uint32(originalData[originalOffset+4 : originalOffset+8]))
 		origZ := math.Float32frombits(binary.LittleEndian.Uint32(originalData[originalOffset+8 : originalOffset+12]))
-		origRGB := math.Float32frombits(binary.LittleEndian.Uint32(originalData[originalOffset+12 : originalOffset+16]))
 		posX := float64(origX * 1000.0)
 		posY := float64(origY * 1000.0)
-		noiseScale := 0.0015
+		noiseScale := 0.005
 		noiseValue := noise(
 			posX*noiseScale,
 			posY*noiseScale,
@@ -905,12 +909,20 @@ func (worldState *WorldStateStore) updatePointCloud(elapsed time.Duration) {
 		waveAmplitude := 5000.0
 		heightOffset := waveAmplitude * noiseValue
 		animatedZ := origZ + float32(heightOffset/1000.0)
-		offset := i * stride
+		animatedZMm := float64(animatedZ * 1000.0)
+		zRange := worldState.maxZ - worldState.minZ
+		if zRange == 0 {
+			zRange = 1
+		}
+		normalizedHeight := animatedZMm / zRange
+		heightColor := heightToColor(normalizedHeight)
+		animatedRGB := packColor(heightColor)
 
+		offset := i * stride
 		binary.LittleEndian.PutUint32(chunkData[offset:], math.Float32bits(origX))
 		binary.LittleEndian.PutUint32(chunkData[offset+4:], math.Float32bits(origY))
 		binary.LittleEndian.PutUint32(chunkData[offset+8:], math.Float32bits(animatedZ))
-		binary.LittleEndian.PutUint32(chunkData[offset+12:], math.Float32bits(origRGB))
+		binary.LittleEndian.PutUint32(chunkData[offset+12:], math.Float32bits(animatedRGB))
 	}
 
 	header := buildUpdateHeader(uint32(startIdx), uint32(count))
