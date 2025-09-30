@@ -203,7 +203,7 @@ func visualize(req armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Log
 		return err
 	}
 
-	if err := drawGoalPoses(req, startInputs); err != nil {
+	if err := drawGoalPoses(req); err != nil {
 		return err
 	}
 
@@ -239,7 +239,7 @@ func visualize(req armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Log
 	return nil
 }
 
-func drawGoalPoses(req armplanning.PlanRequest, inputs referenceframe.FrameSystemInputs) error {
+func drawGoalPoses(req armplanning.PlanRequest) error {
 	var goalPoses []spatialmath.Pose
 	for _, goalPlanState := range req.Goals {
 		poses, err := goalPlanState.ComputePoses(req.FrameSystem)
