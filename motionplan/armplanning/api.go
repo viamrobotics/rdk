@@ -3,11 +3,14 @@ package armplanning
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -272,4 +275,24 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 		return err
 	}
 	return a.MoveThroughJointPositions(ctx, plan, nil, nil)
+}
+
+// ReadRequestFromFile reads a PlanRequest from a json file.
+func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
+	f, err := os.Open(fileName) //nolint:gosec
+	if err != nil {
+		return nil, err
+	}
+	defer utils.UncheckedErrorFunc(f.Close)
+
+	decoder := json.NewDecoder(f)
+
+	req := &PlanRequest{}
+
+	err = decoder.Decode(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }

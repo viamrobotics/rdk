@@ -4,7 +4,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -74,14 +73,7 @@ func realMain() error {
 
 	logger.Infof("reading plan from %s", flag.Arg(0))
 
-	content, err := os.ReadFile(flag.Arg(0))
-	if err != nil {
-		return err
-	}
-
-	req := armplanning.PlanRequest{}
-
-	err = json.Unmarshal(content, &req)
+	req, err := armplanning.ReadRequestFromFile(flag.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -98,7 +90,7 @@ func realMain() error {
 	mylog := log.New(os.Stdout, "", 0)
 	start := time.Now()
 
-	plan, err := armplanning.PlanMotion(ctx, logger, &req)
+	plan, err := armplanning.PlanMotion(ctx, logger, req)
 	if *interactive {
 		if interactiveErr := doInteractive(req, plan, err, mylog); interactiveErr != nil {
 			logger.Fatal("Interactive mode failed:", interactiveErr)
@@ -118,7 +110,7 @@ func realMain() error {
 
 	for *cpu != "" && time.Since(start) < (10*time.Second) {
 		ss := time.Now()
-		_, err := armplanning.PlanMotion(ctx, logger, &req)
+		_, err := armplanning.PlanMotion(ctx, logger, req)
 		if err != nil {
 			return err
 		}
@@ -184,7 +176,7 @@ func realMain() error {
 	return nil
 }
 
-func visualize(req armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger) error {
+func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger) error {
 	renderFramePeriod := 50 * time.Millisecond
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
 		return err
@@ -225,7 +217,7 @@ func visualize(req armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Log
 	return nil
 }
 
-func drawPosition(req armplanning.PlanRequest, inputs referenceframe.FrameSystemInputs) error {
+func drawPosition(req *armplanning.PlanRequest, inputs referenceframe.FrameSystemInputs) error {
 	// `DrawWorldState` just draws the obstacles. I think the FrameSystem/Path are necessary
 	// because obstacles can be in terms of reference frames contained within the frame
 	// system. Such as a camera attached to an arm.
@@ -266,7 +258,7 @@ func drawPosition(req armplanning.PlanRequest, inputs referenceframe.FrameSystem
 	return nil
 }
 
-func doInteractive(req armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger) error {
+func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger) error {
 	var ikErr *armplanning.IkConstraintError
 	errors.As(planErr, &ikErr)
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
