@@ -106,7 +106,10 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 
 		pinName, err := unmarshalName(pinNameMarshaled)
 		if err != nil {
-			return res, data.NewFailedToReadError(params.ComponentName, gpios.String(), errors.Wrap(err, fmt.Sprintf("failed to get pin name: %v; type: %s", pinNameMarshaled, pinNameMarshaled.TypeUrl)))
+			return res, data.NewFailedToReadError(
+				params.ComponentName, gpios.String(),
+				errors.Wrap(err, fmt.Sprintf("failed to get pin name: %v; type: %s", pinNameMarshaled, pinNameMarshaled.TypeUrl)),
+			)
 		}
 
 		if gpio, err := board.GPIOPinByName(pinName); err == nil {
