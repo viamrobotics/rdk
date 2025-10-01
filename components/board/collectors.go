@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/board/v1"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
 )
@@ -105,7 +105,7 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 
 		pinName, err := unmarshalName(pinNameMarshaled)
 		if err != nil {
-			return res, data.NewFailedToReadError(params.ComponentName, gpios.String(), errors.Wrap(err, "failed to get pin name"))
+			return res, data.NewFailedToReadError(params.ComponentName, gpios.String(), errors.Wrap(err, fmt.Sprintf("failed to get pin name: %v; type: %s", pinNameMarshaled, pinNameMarshaled.TypeUrl)))
 		}
 
 		if gpio, err := board.GPIOPinByName(pinName); err == nil {
@@ -149,17 +149,15 @@ func assertBoard(resource interface{}) (Board, error) {
 }
 
 func unmarshalName(nameMarshaled *anypb.Any) (string, error) {
-	// Try to unmarshal as string first.
-	var strVal wrapperspb.StringValue
-	if err := nameMarshaled.UnmarshalTo(&strVal); err == nil {
-		return strVal.Value, nil
+	var structVal structpb.Value
+	if err := nameMarshaled.UnmarshalTo(&structVal); err != nil {
+		return "", errors.Wrap(err, "failed to unmarshal name")
 	}
 
-	// Try as int32.
-	var int32Val wrapperspb.Int32Value
-	if err := nameMarshaled.UnmarshalTo(&int32Val); err == nil {
-		return fmt.Sprintf("%d", int32Val.Value), nil
+	switch kind := structVal.Kind.(type) {
+	case *structpb.Value_StringValue:
+		return kind.StringValue, nil
+	default:
+		return "", errors.New("name must be a string")
 	}
-
-	return "", errors.New("Name must be a string or int32")
 }
