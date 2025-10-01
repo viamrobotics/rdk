@@ -205,7 +205,7 @@ func TestPirouette(t *testing.T) {
 					Goals:       []*PlanState{goalState},
 					StartState:  startState,
 				}
-				plan, err := PlanMotion(context.Background(), logger, req)
+				plan, _, err := PlanMotion(context.Background(), logger, req)
 				test.That(t, err, test.ShouldBeNil)
 
 				traj := plan.Trajectory()
