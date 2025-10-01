@@ -50,6 +50,7 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 		timeRequested := time.Now()
 		var res data.CaptureResult
 		var analogValue AnalogValue
+
 		analogReaderNameMarshaled, ok := arg[analogReaderNameKey]
 		if !ok {
 			return res, data.NewFailedToReadError(params.ComponentName, analogs.String(),
