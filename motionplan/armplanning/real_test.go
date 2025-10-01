@@ -196,7 +196,7 @@ func TestPirouette(t *testing.T) {
 
 		// iterate through pifs and create a plan which gets the arm there
 		for i, p := range pifs {
-			t.Run(fmt.Sprintf("iteration%d-%d", iter, i), func(t *testing.T) {
+			t.Run(fmt.Sprintf("iteration-%d-%d", iter, i), func(t *testing.T) {
 				logger := logging.NewTestLogger(t)
 				// construct req and get the plan
 				goalState := NewPlanState(map[string]*referenceframe.PoseInFrame{armName: p}, nil)
