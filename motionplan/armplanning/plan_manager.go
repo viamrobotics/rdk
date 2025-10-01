@@ -33,13 +33,14 @@ func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, 
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
-func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajectory, error) {
+// return trajector (always, even with error), which goal we got to, error.
+func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajectory, int, error) {
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and
 	// end poses to create sets of seed and goal configurations. However, the blocker here is the
 	// lack of a "known good" configuration used to determine which obstacles are allowed to collide
 	// with one another.
 	if pm.request.StartState.configuration == nil {
-		return nil, errors.New("must populate start state configuration if not planning for 2d base/tpspace")
+		return nil, 0, errors.New("must populate start state configuration if not planning for 2d base/tpspace")
 	}
 
 	// set timeout for entire planning process if specified
@@ -55,17 +56,17 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 
 	start, err := pm.request.StartState.ComputePoses(pm.request.FrameSystem)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	for i, g := range pm.request.Goals {
 		if ctx.Err() != nil {
-			return traj, err // note: here and below, we return traj because of ReturnPartialPlan
+			return traj, i, err // note: here and below, we return traj because of ReturnPartialPlan
 		}
 
 		to, err := g.ComputePoses(pm.request.FrameSystem)
 		if err != nil {
-			return traj, err
+			return traj, i, err
 		}
 
 		pm.logger.Info("planning step", i, "of", len(pm.request.Goals))
@@ -76,19 +77,19 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 		if len(g.configuration) > 0 {
 			newTraj, err := pm.planToDirectJoints(ctx, traj[len(traj)-1], g)
 			if err != nil {
-				return traj, err
+				return traj, i, err
 			}
 			traj = append(traj, newTraj...)
 		} else {
 			subGoals, err := pm.generateWaypoints(start, to)
 			if err != nil {
-				return traj, err
+				return traj, i, err
 			}
 
 			for _, sg := range subGoals {
 				newTraj, err := pm.planSingleGoal(ctx, traj[len(traj)-1], sg)
 				if err != nil {
-					return traj, err
+					return traj, i, err
 				}
 				traj = append(traj, newTraj...)
 			}
@@ -96,7 +97,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 		start = to
 	}
 
-	return traj, nil
+	return traj, len(pm.request.Goals), nil
 }
 
 func (pm *planManager) planToDirectJoints(

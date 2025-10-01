@@ -603,7 +603,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	}
 
 	start := time.Now()
-	plan, err := armplanning.PlanMotion(ctx, logger, planRequest)
+	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
 	if ms.conf.shouldWritePlan(start, err) {
 		err := ms.writePlanRequest(planRequest)
 		if err != nil {
