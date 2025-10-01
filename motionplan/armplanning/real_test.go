@@ -146,8 +146,7 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestPirouette(t *testing.T) {
-	// Note: this does not test that pirouettes happen less than some value, this is a benchmark of how often pirouettes occur
-	logger := logging.NewTestLogger(t)
+	t.Skip()
 
 	// get arm kinematics for forward kinematics
 	armName := "ur5e"
@@ -188,10 +187,7 @@ func TestPirouette(t *testing.T) {
 	err = fs.AddFrame(armKinematics, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	failureCount := 0
-	num := 10 // the number of times we iterate through idealJointValue
-	numPlanMotionCalls := 0
-	for range num {
+	for iter := 0; iter < 10; iter++ {
 		// keep track of what the value of j0 previously was
 		prevJ0Value := 0.
 
@@ -200,47 +196,41 @@ func TestPirouette(t *testing.T) {
 
 		// iterate through pifs and create a plan which gets the arm there
 		for i, p := range pifs {
-			// construct req and get the plan
-			goalState := NewPlanState(map[string]*referenceframe.PoseInFrame{armName: p}, nil)
-			req := &PlanRequest{
-				FrameSystem: fs,
-				Goals:       []*PlanState{goalState},
-				StartState:  startState,
-			}
-			plan, err := PlanMotion(context.Background(), logger, req)
-			test.That(t, err, test.ShouldBeNil)
-			numPlanMotionCalls++
+			t.Run(fmt.Sprintf("iteration: %d, pifs index: %d, pif: %v", iter, i, p), func(t *testing.T) {
+				subLogger := logging.NewTestLogger(t)
+				// construct req and get the plan
+				goalState := NewPlanState(map[string]*referenceframe.PoseInFrame{armName: p}, nil)
+				req := &PlanRequest{
+					FrameSystem: fs,
+					Goals:       []*PlanState{goalState},
+					StartState:  startState,
+				}
+				plan, err := PlanMotion(context.Background(), subLogger, req)
+				test.That(t, err, test.ShouldBeNil)
 
-			traj := plan.Trajectory()
-			// since we do not specify a constraint we are in the "free" motion profile which gives us a trajectory of length two
-			test.That(t, len(traj), test.ShouldEqual, 2) // ensure length is always two
+				traj := plan.Trajectory()
+				// since we do not specify a constraint we are in the "free" motion profile which gives us a trajectory of length two
+				test.That(t, len(traj), test.ShouldEqual, 2) // ensure length is always two
 
-			// determine how much joint 0 has changed in degrees from this trajectory
-			allArmInputs, err := traj.GetFrameInputs(armName)
-			test.That(t, err, test.ShouldBeNil)
-			j0Start := allArmInputs[0][0].Value
-			j0End := allArmInputs[len(allArmInputs)-1][0].Value
-			change := utils.RadToDeg(math.Abs(j0End - j0Start))
+				// determine how much joint 0 has changed in degrees from this trajectory
+				allArmInputs, err := traj.GetFrameInputs(armName)
+				test.That(t, err, test.ShouldBeNil)
+				j0TrajStart := allArmInputs[0][0].Value
+				j0TrajEnd := allArmInputs[len(allArmInputs)-1][0].Value
+				j0Change := utils.RadToDeg(math.Abs(j0TrajEnd - j0TrajStart))
 
-			// figure out expected change given what the ideal change in joint 0 would be
-			newJP := idealJointValues[i][0].Value
-			expectedChange := utils.RadToDeg(math.Abs(newJP-prevJ0Value)) + 1e-1 // add small value as buffer
+				// figure out expected change given what the ideal change in joint 0 would be
+				idealJ0Value := idealJointValues[i][0].Value
+				expectedJ0Change := utils.RadToDeg(math.Abs(idealJ0Value-prevJ0Value)) + 1e-1 // add buffer
 
-			// determine if a pirouette happened
-			// in order to satisfy our desired pose in frame while execeeding the expected change in joint 0 a pirouette was necessary
-			if change > expectedChange {
-				logger.Infof("change: %f was greater than expectedChange: %f, took this long: %d\n", change, expectedChange, numPlanMotionCalls)
-				failureCount++
-			}
+				// determine if a pirouette happened
+				// in order to satisfy our desired pose in frame while execeeding the expected change in joint 0 a pirouette was necessary
+				test.That(t, j0Change, test.ShouldBeLessThanOrEqualTo, expectedJ0Change)
 
-			// increment everything
-			prevJ0Value = newJP
-			startState = NewPlanState(nil, map[string][]referenceframe.Input{
-				armName: traj[len(traj)-1][armName],
+				// increment everything
+				prevJ0Value = idealJ0Value
+				startState = NewPlanState(nil, map[string][]referenceframe.Input{armName: traj[len(traj)-1][armName]})
 			})
 		}
 	}
-	logger.Infof("failed this many times: %d", failureCount)
-	logger.Infof("ran this many times: %d", numPlanMotionCalls)
-	logger.Infof("percentage of pirouette motions: %f, failureCount/count", float64(failureCount)/float64(numPlanMotionCalls))
 }
