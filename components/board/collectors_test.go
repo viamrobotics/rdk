@@ -2,17 +2,16 @@ package board_test
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/pkg/errors"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/data"
@@ -44,7 +43,7 @@ func TestCollectors(t *testing.T) {
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
 				MethodParams: map[string]*anypb.Any{
-					"reader_name": convertInterfaceToAny("analog"),
+					"reader_name": convertStringToAny("analog"),
 				},
 			},
 			collector: board.NewAnalogCollector,
@@ -66,7 +65,7 @@ func TestCollectors(t *testing.T) {
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
 				MethodParams: map[string]*anypb.Any{
-					"pin_name": convertInterfaceToAny("gpio"),
+					"pin_name": convertStringToAny("gpio"),
 				},
 			},
 			collector: board.NewGPIOCollector,
@@ -139,27 +138,17 @@ func newBoard() board.Board {
 	return b
 }
 
-func convertInterfaceToAny(v interface{}) *anypb.Any {
+func convertStringToAny(str string) *anypb.Any {
 	anyValue := &anypb.Any{}
 
-	// Handle string values properly as StringValue.
-	if str, ok := v.(string); ok {
-		stringValue := &wrappers.StringValue{
-			Value: str,
-		}
-		anypb.MarshalFrom(anyValue, stringValue, proto.MarshalOptions{})
-		return anyValue
+	// Handle string values as structpb.Value with StringValue
+	structValue := &structpb.Value{
+		Kind: &structpb.Value_StringValue{
+			StringValue: str,
+		},
 	}
 
-	// For other types, use the JSON marshaling approach.
-	bytes, err := json.Marshal(v)
-	if err != nil {
-		return nil
-	}
-	bytesValue := &wrappers.BytesValue{
-		Value: bytes,
-	}
+	anypb.MarshalFrom(anyValue, structValue, proto.MarshalOptions{})
 
-	anypb.MarshalFrom(anyValue, bytesValue, proto.MarshalOptions{})
 	return anyValue
 }
