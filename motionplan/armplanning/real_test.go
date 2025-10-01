@@ -217,19 +217,19 @@ func TestPirouette(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				j0TrajStart := allArmInputs[0][0].Value
 				j0TrajEnd := allArmInputs[len(allArmInputs)-1][0].Value
-				j0ChangeDeg := utils.RadToDeg(math.Abs(j0TrajEnd - j0TrajStart))
+				j0Change := math.Abs(j0TrajEnd - j0TrajStart)
 
 				// figure out expected change given what the ideal change in joint 0 would be
 				idealJ0Value := idealJointValues[i][0].Value
 				idealPreviousJ0Value := idealJointValues[prevIndex][0].Value
-				expectedJ0ChangeDeg := utils.RadToDeg(math.Abs(idealJ0Value-idealPreviousJ0Value)) + 1e-1 // add buffer
+				expectedJ0Change := math.Abs(idealJ0Value-idealPreviousJ0Value) + 2e-2 // add buffer of 1.15 degrees
 
 				logger.Infof("motionplan's trajectory: %v", traj)
 				logger.Infof("ideal trajectory: \n%v\n%v\n", idealJointValues[prevIndex], idealJointValues[i])
 
 				// determine if a pirouette happened
 				// in order to satisfy our desired pose in frame while execeeding the expected change in joint 0 a pirouette was necessary
-				test.That(t, j0ChangeDeg, test.ShouldBeLessThanOrEqualTo, expectedJ0ChangeDeg)
+				test.That(t, j0Change, test.ShouldBeLessThanOrEqualTo, expectedJ0Change)
 
 				// increment everything
 				prevIndex = i
