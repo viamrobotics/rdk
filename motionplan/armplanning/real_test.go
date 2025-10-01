@@ -26,7 +26,7 @@ func TestOrbOneSeed(t *testing.T) {
 			req, err := ReadRequestFromFile(fp)
 			test.That(t, err, test.ShouldBeNil)
 
-			plan, err := PlanMotion(context.Background(), logger, req)
+			plan, _, err := PlanMotion(context.Background(), logger, req)
 			test.That(t, err, test.ShouldBeNil)
 
 			a := plan.Trajectory()[0]["sanding-ur5"]
@@ -50,7 +50,7 @@ func TestOrbManySeeds(t *testing.T) {
 				logger := logging.NewTestLogger(t)
 
 				req.PlannerOptions.RandomSeed = i
-				plan, err := PlanMotion(context.Background(), logger, req)
+				plan, _, err := PlanMotion(context.Background(), logger, req)
 				test.That(t, err, test.ShouldBeNil)
 
 				a := plan.Trajectory()[0]["sanding-ur5"]
@@ -71,7 +71,7 @@ func TestPourManySeeds(t *testing.T) {
 			logger := logging.NewTestLogger(t)
 
 			req.PlannerOptions.RandomSeed = i
-			plan, err := PlanMotion(context.Background(), logger, req)
+			plan, _, err := PlanMotion(context.Background(), logger, req)
 			test.That(t, err, test.ShouldBeNil)
 
 			a := plan.Trajectory()[0]["arm-right"]
@@ -88,7 +88,7 @@ func TestWineCrazyTouch1(t *testing.T) {
 	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	plan, err := PlanMotion(context.Background(), logger, req)
+	plan, _, err := PlanMotion(context.Background(), logger, req)
 	test.That(t, err, test.ShouldBeNil)
 
 	orig := plan.Trajectory()[0]["arm-right"]
@@ -109,7 +109,7 @@ func TestWineCrazyTouch2(t *testing.T) {
 	req, err := ReadRequestFromFile("data/wine-crazy-touch2.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	plan, err := PlanMotion(context.Background(), logger, req)
+	plan, _, err := PlanMotion(context.Background(), logger, req)
 	test.That(t, err, test.ShouldBeNil)
 
 	orig := plan.Trajectory()[0]["arm-right"]
