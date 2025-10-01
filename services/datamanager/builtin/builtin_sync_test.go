@@ -158,6 +158,7 @@ func TestSyncEnabled(t *testing.T) {
 			imgPng := newImgPng(t)
 			r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 <<<<<<< HEAD
+<<<<<<< HEAD
 				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
 =======
 				camera.Named("c1"): &inject.Camera{
@@ -186,6 +187,9 @@ func TestSyncEnabled(t *testing.T) {
 					},
 				},
 >>>>>>> ae8e378f4 (Fix affected tests)
+=======
+				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
+>>>>>>> 479bbbd44 (Make lint)
 			})
 
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
@@ -848,6 +852,7 @@ func TestStreamingDCUpload(t *testing.T) {
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
 <<<<<<< HEAD
+<<<<<<< HEAD
 				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
 =======
 				camera.Named("c1"): &inject.Camera{
@@ -876,6 +881,9 @@ func TestStreamingDCUpload(t *testing.T) {
 					},
 				},
 >>>>>>> ae8e378f4 (Fix affected tests)
+=======
+				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
+>>>>>>> 479bbbd44 (Make lint)
 			})
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
 			c := config.ConvertedAttributes.(*Config)
@@ -1109,6 +1117,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
 <<<<<<< HEAD
+<<<<<<< HEAD
 				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
 =======
 				camera.Named("c1"): &inject.Camera{
@@ -1137,6 +1146,9 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 					},
 				},
 >>>>>>> ae8e378f4 (Fix affected tests)
+=======
+				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
+>>>>>>> 479bbbd44 (Make lint)
 			})
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
 			c := config.ConvertedAttributes.(*Config)
