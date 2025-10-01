@@ -56,6 +56,22 @@ type WorldStateStore struct {
 const (
 	// GPUBufferAlignment ensures optimal GPU memory transfer (aligned to 256 bytes)
 	GPUBufferAlignment = 256
+
+	// MaxFPS is the maximum supported frame rate (matches high-end monitors)
+	MaxFPS = 144.0
+
+	// MinFPS is the minimum non-zero frame rate
+	MinFPS = 0.1
+
+	// TargetBandwidthMBps is the target bandwidth in MB/sec for point cloud updates
+	// This balances network efficiency with real-time performance
+	TargetBandwidthMBps = 8.0
+
+	// MinChunkSize is the minimum chunk size to avoid excessive overhead
+	MinChunkSize = 1000
+
+	// MaxChunkSize is the maximum chunk size to keep messages under ~1MB
+	MaxChunkSize = 65000
 )
 
 var (
@@ -185,8 +201,6 @@ var (
 	}
 
 	permutationCache [512]int
-
-	chunkSize = 1000 // Animate 1000 points per frame
 )
 
 func init() {
@@ -242,17 +256,34 @@ func (worldState *WorldStateStore) StreamTransformChanges(
 }
 
 // DoCommand handles arbitrary commands. Accepts:
-// - "fps": float64 to set the animation rate
+//
+// - "fps": float64 to set the animation rate (0 to pause, max 144)
 func (worldState *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if fps, ok := cmd["fps"].(float64); ok {
-		if fps <= 0 {
-			return nil, ErrInvalidFPS
+		originalFPS := fps
+
+		if fps < 0 {
+			worldState.logger.Warnf("FPS value %.2f is below 0, clamping to 0 (paused)", fps)
+			fps = 0
+		} else if fps > 0 && fps < MinFPS {
+			worldState.logger.Warnf("FPS value %.2f is below minimum %.2f, clamping to %.2f", fps, MinFPS, MinFPS)
+			fps = MinFPS
+		} else if fps > MaxFPS {
+			worldState.logger.Warnf("FPS value %.2f exceeds maximum %.2f, clamping to %.2f", fps, MaxFPS, MaxFPS)
+			fps = MaxFPS
 		}
+
 		worldState.mu.Lock()
 		worldState.fps = fps
 		worldState.mu.Unlock()
+
+		statusMsg := fmt.Sprintf("fps set to %.2f", fps)
+		if fps != originalFPS {
+			statusMsg += fmt.Sprintf(" (clamped from %.2f)", originalFPS)
+		}
+
 		return map[string]any{
-			"status": "fps set to " + fmt.Sprintf("%.2f", fps),
+			"status": statusMsg,
 		}, nil
 	}
 
@@ -845,6 +876,35 @@ func (worldState *WorldStateStore) updateCapsule(elapsed time.Duration) {
 	worldState.mu.Unlock()
 }
 
+// calculateChunkSize returns an FPS-adaptive chunk size that balances bandwidth and latency.
+//
+// Examples at 16 bytes per point:
+//
+//	| FPS | Chunk Size | Message Size | Bandwidth |
+//	|-----|------------|--------------|-----------|
+//	| 10  | 50,000     | 800 KB       | 8 MB/sec  |
+//	| 30  | 16,666     | 266 KB       | 8 MB/sec  |
+//	| 60  | 8,333      | 133 KB       | 8 MB/sec  |
+//	| 144 | 3,472      | 55 KB        | 8 MB/sec  |
+func calculateChunkSize(fps float64) int {
+	if fps <= 0 {
+		return MaxChunkSize
+	}
+
+	stride := getStride()
+	targetBytesPerSecond := TargetBandwidthMBps * 1024 * 1024
+	pointsPerSecond := targetBytesPerSecond / float64(stride)
+	chunkSize := int(pointsPerSecond / fps)
+	if chunkSize < MinChunkSize {
+		return MinChunkSize
+	}
+	if chunkSize > MaxChunkSize {
+		return MaxChunkSize
+	}
+
+	return chunkSize
+}
+
 func (worldState *WorldStateStore) updatePointCloud(elapsed time.Duration) {
 	worldState.mu.Lock()
 	transform, exists := worldState.transforms[pointcloudUUID]
@@ -874,6 +934,7 @@ func (worldState *WorldStateStore) updatePointCloud(elapsed time.Duration) {
 		fps = 0
 	}
 
+	chunkSize := calculateChunkSize(fps)
 	worldState.noiseTime = elapsed.Seconds()
 	frameNumber := int(elapsed.Seconds() * fps)
 	totalChunks := (totalPoints + chunkSize - 1) / chunkSize
