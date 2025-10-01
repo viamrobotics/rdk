@@ -163,7 +163,23 @@ func TestSyncEnabled(t *testing.T) {
 						mimeType string,
 						extra map[string]interface{},
 					) ([]byte, camera.ImageMetadata, error) {
-						return newImageBytesResp(ctx, imgPng, mimeType)
+						t.Fatalf("ImageFunc should not be called")
+						return nil, camera.ImageMetadata{}, nil
+					},
+					ImagesFunc: func(
+						ctx context.Context,
+						filterSourceNames []string,
+						extra map[string]interface{},
+					) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+						imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
+						if err != nil {
+							return nil, resource.ResponseMetadata{}, err
+						}
+						namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType)
+						if err != nil {
+							return nil, resource.ResponseMetadata{}, err
+						}
+						return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 					},
 				},
 			})
@@ -372,7 +388,23 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 								mimeType string,
 								extra map[string]interface{},
 							) ([]byte, camera.ImageMetadata, error) {
-								return newImageBytesResp(ctx, imgPng, mimeType)
+								t.Fatalf("ImageFunc should not be called")
+								return nil, camera.ImageMetadata{}, nil
+							},
+							ImagesFunc: func(
+								ctx context.Context,
+								filterSourceNames []string,
+								extra map[string]interface{},
+							) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+								imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
+								if err != nil {
+									return nil, resource.ResponseMetadata{}, err
+								}
+								namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType)
+								if err != nil {
+									return nil, resource.ResponseMetadata{}, err
+								}
+								return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 							},
 						},
 					})
@@ -841,7 +873,23 @@ func TestStreamingDCUpload(t *testing.T) {
 						mimeType string,
 						extra map[string]interface{},
 					) ([]byte, camera.ImageMetadata, error) {
-						return newImageBytesResp(ctx, imgPng, mimeType)
+						t.Fatalf("ImageFunc should not be called")
+						return nil, camera.ImageMetadata{}, nil
+					},
+					ImagesFunc: func(
+						ctx context.Context,
+						filterSourceNames []string,
+						extra map[string]interface{},
+					) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+						imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
+						if err != nil {
+							return nil, resource.ResponseMetadata{}, err
+						}
+						namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType)
+						if err != nil {
+							return nil, resource.ResponseMetadata{}, err
+						}
+						return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 					},
 				},
 			})
@@ -1082,7 +1130,23 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 						mimeType string,
 						extra map[string]interface{},
 					) ([]byte, camera.ImageMetadata, error) {
-						return newImageBytesResp(ctx, imgPng, mimeType)
+						t.Fatalf("ImageFunc should not be called")
+						return nil, camera.ImageMetadata{}, nil
+					},
+					ImagesFunc: func(
+						ctx context.Context,
+						filterSourceNames []string,
+						extra map[string]interface{},
+					) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+						imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
+						if err != nil {
+							return nil, resource.ResponseMetadata{}, err
+						}
+						namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType)
+						if err != nil {
+							return nil, resource.ResponseMetadata{}, err
+						}
+						return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 					},
 				},
 			})
