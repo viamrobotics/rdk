@@ -157,7 +157,35 @@ func TestSyncEnabled(t *testing.T) {
 
 			imgPng := newImgPng(t)
 			r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
+<<<<<<< HEAD
 				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
+=======
+				camera.Named("c1"): &inject.Camera{
+					ImageFunc: func(
+						ctx context.Context,
+						mimeType string,
+						extra map[string]interface{},
+					) ([]byte, camera.ImageMetadata, error) {
+						t.Fatalf("ImageFunc should not be called")
+						return nil, camera.ImageMetadata{}, nil
+					},
+					ImagesFunc: func(
+						ctx context.Context,
+						filterSourceNames []string,
+						extra map[string]interface{},
+					) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+						imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
+						if err != nil {
+							return nil, resource.ResponseMetadata{}, err
+						}
+						namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType)
+						if err != nil {
+							return nil, resource.ResponseMetadata{}, err
+						}
+						return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+					},
+				},
+>>>>>>> ae8e378f4 (Fix affected tests)
 			})
 
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
@@ -819,7 +847,35 @@ func TestStreamingDCUpload(t *testing.T) {
 			// Set up data manager.
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
+<<<<<<< HEAD
 				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
+=======
+				camera.Named("c1"): &inject.Camera{
+					ImageFunc: func(
+						ctx context.Context,
+						mimeType string,
+						extra map[string]interface{},
+					) ([]byte, camera.ImageMetadata, error) {
+						t.Fatalf("ImageFunc should not be called")
+						return nil, camera.ImageMetadata{}, nil
+					},
+					ImagesFunc: func(
+						ctx context.Context,
+						filterSourceNames []string,
+						extra map[string]interface{},
+					) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+						imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
+						if err != nil {
+							return nil, resource.ResponseMetadata{}, err
+						}
+						namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType)
+						if err != nil {
+							return nil, resource.ResponseMetadata{}, err
+						}
+						return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+					},
+				},
+>>>>>>> ae8e378f4 (Fix affected tests)
 			})
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
 			c := config.ConvertedAttributes.(*Config)
@@ -1052,7 +1108,35 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
+<<<<<<< HEAD
 				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
+=======
+				camera.Named("c1"): &inject.Camera{
+					ImageFunc: func(
+						ctx context.Context,
+						mimeType string,
+						extra map[string]interface{},
+					) ([]byte, camera.ImageMetadata, error) {
+						t.Fatalf("ImageFunc should not be called")
+						return nil, camera.ImageMetadata{}, nil
+					},
+					ImagesFunc: func(
+						ctx context.Context,
+						filterSourceNames []string,
+						extra map[string]interface{},
+					) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+						imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
+						if err != nil {
+							return nil, resource.ResponseMetadata{}, err
+						}
+						namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType)
+						if err != nil {
+							return nil, resource.ResponseMetadata{}, err
+						}
+						return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+					},
+				},
+>>>>>>> ae8e378f4 (Fix affected tests)
 			})
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
 			c := config.ConvertedAttributes.(*Config)
