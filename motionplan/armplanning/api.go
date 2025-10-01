@@ -246,6 +246,9 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 	}
 
 	meta := PlanMeta{}
+	defer func() {
+		meta.Duration = time.Since(start)
+	}()
 
 	traj, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
 	if err != nil {
@@ -257,7 +260,6 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 		}
 	}
 
-	meta.Duration = time.Since(start)
 	meta.GoalsProcessed = goalsProcessed
 
 	t, err := motionplan.NewSimplePlanFromTrajectory(traj, request.FrameSystem)
