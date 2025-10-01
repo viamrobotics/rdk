@@ -188,16 +188,16 @@ func TestPirouette(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	for iter := 0; iter < 10; iter++ {
-		// keep track of what the value of j0 previously was
-		prevJ0Value := 0.
+		// keep track of previous index of idealJointValues, used for calculating expected joint 0 change
+		prevIndex := 0
 
 		// all we care about is the plan and not actually executing it
 		startState := NewPlanState(nil, map[string][]referenceframe.Input{armName: idealJointValues[0]})
 
 		// iterate through pifs and create a plan which gets the arm there
 		for i, p := range pifs {
-			t.Run(fmt.Sprintf("iteration: %d, pifs index: %d, pif: %v", iter, i, p), func(t *testing.T) {
-				subLogger := logging.NewTestLogger(t)
+			t.Run(fmt.Sprintf("iteration: %d-%d", iter, i), func(t *testing.T) {
+				logger := logging.NewTestLogger(t)
 				// construct req and get the plan
 				goalState := NewPlanState(map[string]*referenceframe.PoseInFrame{armName: p}, nil)
 				req := &PlanRequest{
@@ -205,7 +205,7 @@ func TestPirouette(t *testing.T) {
 					Goals:       []*PlanState{goalState},
 					StartState:  startState,
 				}
-				plan, err := PlanMotion(context.Background(), subLogger, req)
+				plan, err := PlanMotion(context.Background(), logger, req)
 				test.That(t, err, test.ShouldBeNil)
 
 				traj := plan.Trajectory()
@@ -217,18 +217,22 @@ func TestPirouette(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				j0TrajStart := allArmInputs[0][0].Value
 				j0TrajEnd := allArmInputs[len(allArmInputs)-1][0].Value
-				j0Change := utils.RadToDeg(math.Abs(j0TrajEnd - j0TrajStart))
+				j0ChangeDeg := utils.RadToDeg(math.Abs(j0TrajEnd - j0TrajStart))
 
 				// figure out expected change given what the ideal change in joint 0 would be
 				idealJ0Value := idealJointValues[i][0].Value
-				expectedJ0Change := utils.RadToDeg(math.Abs(idealJ0Value-prevJ0Value)) + 1e-1 // add buffer
+				idealPreviousJ0Value := idealJointValues[prevIndex][0].Value
+				expectedJ0ChangeDeg := utils.RadToDeg(math.Abs(idealJ0Value-idealPreviousJ0Value)) + 1e-1 // add buffer
+
+				logger.Infof("motionplan's trajectory: %v", traj)
+				logger.Infof("ideal trajectory: \n%v\n%v\n", idealJointValues[prevIndex], idealJointValues[i])
 
 				// determine if a pirouette happened
 				// in order to satisfy our desired pose in frame while execeeding the expected change in joint 0 a pirouette was necessary
-				test.That(t, j0Change, test.ShouldBeLessThanOrEqualTo, expectedJ0Change)
+				test.That(t, j0ChangeDeg, test.ShouldBeLessThanOrEqualTo, expectedJ0ChangeDeg)
 
 				// increment everything
-				prevJ0Value = idealJ0Value
+				prevIndex = i
 				startState = NewPlanState(nil, map[string][]referenceframe.Input{armName: traj[len(traj)-1][armName]})
 			})
 		}
