@@ -263,13 +263,13 @@ jobs:
           payload: |
             {
               "channel": "${{ vars.SLACK_CHANNEL_ID }}",
-              "text": "Dev RDK binary release *published* :white_check_mark:",
+              "text": "Dev RDK release *published* :white_check_mark:",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "• Dev version: `${{ steps.dev-version.outputs.version }}`\n\n*Versioned Binaries (${{ steps.dev-version.outputs.version }}):*\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-aarch64|Linux ARM64>\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-x86_64|Linux x86_64>\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-windows-x86_64|Windows x86_64>\n\n*Usage:*\n• You can use this dev release by setting your agent config viam-server version to one of the URLs above.\n\n*Build Info:*\n• <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow run>\n• Commit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>"
+                    "text": "Dev RDK release *published* :white_check_mark:"\n\n• Dev version: `${{ steps.dev-version.outputs.version }}`\n\n*Versioned Binaries (${{ steps.dev-version.outputs.version }}):*\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-aarch64|Linux ARM64>\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-x86_64|Linux x86_64>\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-windows-x86_64|Windows x86_64>\nYou can use this dev release by setting your agent config viam-server version to one of the URLs above.\n\n*Build Info:*\n• <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow run>\n• Commit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>"
                   }
                 }
               ]
