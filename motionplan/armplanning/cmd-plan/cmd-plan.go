@@ -90,7 +90,7 @@ func realMain() error {
 	mylog := log.New(os.Stdout, "", 0)
 	start := time.Now()
 
-	plan, err := armplanning.PlanMotion(ctx, logger, req)
+	plan, _, err := armplanning.PlanMotion(ctx, logger, req)
 	if *interactive {
 		if interactiveErr := doInteractive(req, plan, err, mylog); interactiveErr != nil {
 			logger.Fatal("Interactive mode failed:", interactiveErr)
@@ -110,7 +110,7 @@ func realMain() error {
 
 	for *cpu != "" && time.Since(start) < (10*time.Second) {
 		ss := time.Now()
-		_, err := armplanning.PlanMotion(ctx, logger, req)
+		_, _, err := armplanning.PlanMotion(ctx, logger, req)
 		if err != nil {
 			return err
 		}

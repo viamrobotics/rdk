@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -195,7 +196,7 @@ func PlanFrameMotion(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	plan, err := PlanMotion(ctx, logger, &PlanRequest{
+	plan, _, err := PlanMotion(ctx, logger, &PlanRequest{
 		FrameSystem: fs,
 		Goals: []*PlanState{
 			{poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
@@ -210,11 +211,19 @@ func PlanFrameMotion(ctx context.Context,
 	return plan.Trajectory().GetFrameInputs(f.Name())
 }
 
+// PlanMeta is meta data about plan generation.
+type PlanMeta struct {
+	Duration       time.Duration
+	Partial        bool
+	GoalsProcessed int
+}
+
 // PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, error) {
-	// Make sure request is well formed and not missing vital information
+func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, PlanMeta, error) {
+	start := time.Now()
+
 	if err := request.validatePlanRequest(); err != nil {
-		return nil, err
+		return nil, PlanMeta{}, err
 	}
 	logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	logger.CDebugf(ctx, "motion config for this step: %v", request.PlannerOptions)
@@ -228,24 +237,37 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
 	if request.StartState.configuration == nil {
-		return nil, errors.New("must populate start state configuration")
+		return nil, PlanMeta{}, errors.New("must populate start state configuration")
 	}
 
 	sfPlanner, err := newPlanManager(logger, request)
 	if err != nil {
-		return nil, err
+		return nil, PlanMeta{}, err
 	}
 
-	traj, err := sfPlanner.planMultiWaypoint(ctx)
+	meta := PlanMeta{}
+	defer func() {
+		meta.Duration = time.Since(start)
+	}()
+
+	traj, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
 	if err != nil {
 		if request.PlannerOptions.ReturnPartialPlan {
+			meta.Partial = true
 			logger.Infof("returning partial plan")
 		} else {
-			return nil, err
+			return nil, meta, err
 		}
 	}
 
-	return motionplan.NewSimplePlanFromTrajectory(traj, request.FrameSystem)
+	meta.GoalsProcessed = goalsProcessed
+
+	t, err := motionplan.NewSimplePlanFromTrajectory(traj, request.FrameSystem)
+	if err != nil {
+		return nil, meta, err
+	}
+
+	return t, meta, nil
 }
 
 var defaultArmPlannerOptions = &motionplan.Constraints{

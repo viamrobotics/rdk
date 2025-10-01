@@ -277,8 +277,8 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 			myNode.checkPath = true
 			if (myNode.cost < (sss.goodCost / goodCostStopDivider)) ||
 				(myNode.cost < sss.psc.pc.planOpts.MinScore && sss.psc.pc.planOpts.MinScore > 0) {
-				sss.psc.pc.logger.Debugf("\tscore %0.4f stopping early (%0.2f) processCalls: %d",
-					myNode.cost, sss.goodCost/goodCostStopDivider, sss.processCalls)
+				sss.psc.pc.logger.Debugf("\tscore %0.4f stopping early (%0.2f) processCalls: %d after %v",
+					myNode.cost, sss.goodCost/goodCostStopDivider, sss.processCalls, time.Since(sss.startTime))
 				return true // good solution, stopping early
 			}
 
