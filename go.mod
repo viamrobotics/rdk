@@ -86,7 +86,7 @@ require (
 	go.uber.org/zap v1.27.0
 	go.viam.com/api v0.1.477
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.1.170
+	go.viam.com/utils v0.1.171-0.20251001212327-571997a05abc
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.25.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
@@ -403,7 +403,7 @@ require (
 	github.com/ultraware/whitespace v0.1.1 // indirect
 	github.com/uudashr/gocognit v1.1.3 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
-	github.com/viamrobotics/ice/v2 v2.3.39 // indirect
+	github.com/viamrobotics/ice/v2 v2.3.40-0.20251001211904-b00d0ad2aa81 // indirect
 	github.com/viamrobotics/zeroconf v1.0.12 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
