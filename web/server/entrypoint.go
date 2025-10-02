@@ -529,7 +529,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
 	config.UpdateLoggerRegistryFromConfig(s.registry, fullProcessedConfig, s.logger)
 
-	if fullProcessedConfig.Cloud != nil {
+	// Only start cloud restart checker if cloud config is non-nil, and viam-agent is not
+	// handling restart checking for us (relevant environment variable is unset).
+	if fullProcessedConfig.Cloud != nil && os.Getenv(rutils.ViamAgentHandlesNeedsRestartChecking) == "" {
+		s.logger.CInfo(ctx, "Agent does not handle checking needs restart functionality; will handle in server")
 		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {
 			defer close(cloudRestartCheckerActive)
