@@ -386,7 +386,7 @@ func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, itera
 func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error) {
 	// we look close first, and expand
 	// we try to find a balance between not making wild motions for simple motions
-	// while looking broadly for situations we have ot make large movements to work around obstacles.
+	// while looking broadly for situations we have to make large movements to work around obstacles.
 
 	percent := min(1, float64(sampleNum)/1000.0)
 
