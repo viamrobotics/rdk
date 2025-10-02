@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -316,4 +317,22 @@ func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
 	}
 
 	return req, nil
+}
+
+// WriteToFile write a request to a .json file.
+func (req *PlanRequest) WriteToFile(fileName string) error {
+	data, err := json.MarshalIndent(req, "", "  ")
+	if err != nil {
+		return err
+	}
+	file, err := os.OpenFile(filepath.Clean(fileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(file.Close)
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
 }
