@@ -3,10 +3,8 @@ package builtin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -20,7 +18,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/service/motion/v1"
-	vutils "go.viam.com/utils"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -791,19 +788,5 @@ func waypointsFromRequest(
 func (ms *builtIn) writePlanRequest(req *armplanning.PlanRequest) error {
 	fn := filepath.Join(ms.conf.PlanFilePath, fmt.Sprintf("plan-%s.json", time.Now().Format(time.RFC3339)))
 	ms.logger.Infof("writing plan to %s", fn)
-
-	data, err := json.MarshalIndent(req, "", "  ")
-	if err != nil {
-		return err
-	}
-	file, err := os.OpenFile(filepath.Clean(fn), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return err
-	}
-	defer vutils.UncheckedErrorFunc(file.Close)
-	_, err = file.Write(data)
-	if err != nil {
-		return err
-	}
-	return nil
+	return req.WriteToFile(fn)
 }
