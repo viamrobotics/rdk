@@ -90,14 +90,21 @@ func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame,
 }
 
 // DoSolve is a synchronous wrapper around Solver.Solve.
-func DoSolve(ctx context.Context, solver Solver, solveFunc func([]float64) float64, seed []float64) ([][]float64, error) {
+func DoSolve(ctx context.Context, solver Solver, solveFunc func([]float64) float64,
+	seed []float64, rangeModifier float64,
+) ([][]float64, error) {
+	travelPercent := []float64{}
+	for range seed {
+		travelPercent = append(travelPercent, rangeModifier)
+	}
+
 	solutionGen := make(chan *Solution)
 
 	var solveErrors error
 
 	go func() {
 		defer close(solutionGen)
-		_, err := solver.Solve(ctx, solutionGen, seed, nil, solveFunc, 1)
+		_, err := solver.Solve(ctx, solutionGen, seed, travelPercent, solveFunc, 1)
 		solveErrors = err
 	}()
 

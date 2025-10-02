@@ -98,6 +98,9 @@ func realMain() error {
 		return nil
 	}
 	if err != nil {
+		if plan != nil {
+			mylog.Printf("error but partial result of length: %d", len(plan.Trajectory()))
+		}
 		return err
 	}
 

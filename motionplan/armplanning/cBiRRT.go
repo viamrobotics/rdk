@@ -280,13 +280,13 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 
 		linearSeed, err := mp.pc.lfs.mapToSlice(target)
 		if err != nil {
-			mp.pc.logger.Infof("constrainNear fail: %v", err)
+			mp.pc.logger.Infof("constrainNear fail (mapToSlice): %v", err)
 			return nil
 		}
 
-		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent, mp.pc.linearizeFSmetric(mp.psc.checker.PathMetric()), linearSeed)
+		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent, mp.pc.linearizeFSmetric(mp.psc.checker.PathMetric()), linearSeed, .25)
 		if err != nil {
-			mp.pc.logger.Infof("constrainNear fail: %v", err)
+			mp.pc.logger.Infof("constrainNear fail (DoSolve): %v", err)
 			return nil
 		}
 
@@ -296,7 +296,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 
 		solutionMap, err := mp.pc.lfs.sliceToMap(solutions[0])
 		if err != nil {
-			mp.pc.logger.Infof("constrainNear fail: %v", err)
+			mp.pc.logger.Infof("constrainNear fail (sliceToMap): %v", err)
 			return nil
 		}
 
@@ -384,25 +384,16 @@ func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, itera
 }
 
 func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error) {
-	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
-	// The 2 at a time is to ensure random seeds are added onto both the seed and gofsal maps.
-	if sampleNum >= mp.pc.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
-		randomInputs := make(referenceframe.FrameSystemInputs)
-		for _, name := range mp.pc.fs.FrameNames() {
-			f := mp.pc.fs.Frame(name)
-			if f != nil && len(f.DoF()) > 0 {
-				randomInputs[name] = referenceframe.RandomFrameInputs(f, mp.pc.randseed)
-			}
-		}
-		return newConfigurationNode(randomInputs), nil
-	}
+	// we look close first, and expand
 
-	// Seeding nearby to valid points results in much faster convergence in less constrained space
+	percent := float64(sampleNum) / 1000.0
+	percent = min(1, percent*percent)
+
 	newInputs := make(referenceframe.FrameSystemInputs)
 	for name, inputs := range rSeed.inputs {
 		f := mp.pc.fs.Frame(name)
 		if f != nil && len(f.DoF()) > 0 {
-			q, err := referenceframe.RestrictedRandomFrameInputs(f, mp.pc.randseed, 0.1, inputs)
+			q, err := referenceframe.RestrictedRandomFrameInputs(f, mp.pc.randseed, percent, inputs)
 			if err != nil {
 				return nil, err
 			}
