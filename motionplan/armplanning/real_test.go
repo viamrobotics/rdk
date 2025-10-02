@@ -28,13 +28,14 @@ func TestOrbOneSeed(t *testing.T) {
 			req, err := ReadRequestFromFile(fp)
 			test.That(t, err, test.ShouldBeNil)
 
-			plan, _, err := PlanMotion(context.Background(), logger, req)
+			plan, meta, err := PlanMotion(context.Background(), logger, req)
 			test.That(t, err, test.ShouldBeNil)
 
 			a := plan.Trajectory()[0]["sanding-ur5"]
 			b := plan.Trajectory()[1]["sanding-ur5"]
 
 			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .005)
+			test.That(t, meta.Duration.Milliseconds(), test.ShouldBeGreaterThan, 0)
 		})
 	}
 }
