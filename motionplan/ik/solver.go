@@ -90,6 +90,9 @@ func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame,
 }
 
 // DoSolve is a synchronous wrapper around Solver.Solve.
+// rangeModifier is [0-1] - 0 means don't really look a lot, which is good for highly constrained things
+//
+//	but will fail if you have to move. 1 means search the entire range.
 func DoSolve(ctx context.Context, solver Solver, solveFunc func([]float64) float64,
 	seed []float64, rangeModifier float64,
 ) ([][]float64, error) {
