@@ -18,7 +18,7 @@ import (
 )
 
 func TestConfigureModule(t *testing.T) {
-	manifestPath := createTestManifest(t, "")
+	manifestPath := createTestManifest(t, "", nil)
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
@@ -35,7 +35,7 @@ func TestConfigureModule(t *testing.T) {
 func TestFullReloadFlow(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	manifestPath := createTestManifest(t, "")
+	manifestPath := createTestManifest(t, "", nil)
 	confStruct, err := structpb.NewStruct(map[string]any{
 		"modules": []any{},
 	})
