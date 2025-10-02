@@ -386,8 +386,7 @@ func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, itera
 func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error) {
 	// we look close first, and expand
 
-	percent := float64(sampleNum) / 1000.0
-	percent = min(1, percent*percent)
+	percent := min(1, float64(sampleNum) / 1000.0)
 
 	newInputs := make(referenceframe.FrameSystemInputs)
 	for name, inputs := range rSeed.inputs {
