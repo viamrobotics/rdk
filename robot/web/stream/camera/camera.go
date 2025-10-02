@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 )
 
@@ -30,22 +29,31 @@ func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
 // This is useful for streaming video from a camera resource.
 func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.VideoSource, error) {
 	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-		img, err := camera.DecodeImageFromCamera(ctx, "", nil, cam)
+		namedImages, _, err := cam.Images(ctx, nil, nil)
+		if err != nil {
+			return nil, func() {}, err
+		}
+		if len(namedImages) == 0 {
+			return nil, func() {}, fmt.Errorf("no images returned from camera")
+		}
+		img, err := namedImages[0].Image(ctx)
 		if err != nil {
 			return nil, func() {}, err
 		}
 		return img, func() {}, nil
 	})
 
-	img, err := camera.DecodeImageFromCamera(ctx, "", nil, cam)
+	namedImages, _, err := cam.Images(ctx, nil, nil)
 	if err != nil {
 		// Okay to return empty prop because processInputFrames will tick and set them
 		return gostream.NewVideoSource(reader, prop.Video{}), nil //nolint:nilerr
 	}
-	if lazyImg, ok := img.(*rimage.LazyEncodedImage); ok {
-		if err := lazyImg.DecodeConfig(); err != nil {
-			return nil, fmt.Errorf("failed to decode lazy encoded image: %w", err)
-		}
+	if len(namedImages) == 0 {
+		return gostream.NewVideoSource(reader, prop.Video{}), nil
+	}
+	img, err := namedImages[0].Image(ctx)
+	if err != nil {
+		return gostream.NewVideoSource(reader, prop.Video{}), nil //nolint:nilerr
 	}
 
 	return gostream.NewVideoSource(reader, prop.Video{Width: img.Bounds().Dx(), Height: img.Bounds().Dy()}), nil

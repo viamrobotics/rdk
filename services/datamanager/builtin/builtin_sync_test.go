@@ -1216,15 +1216,6 @@ func newImageBytesResp(ctx context.Context, img image.Image, mimeType string) ([
 // ImageFunc will fail the test if called, ImagesFunc returns a single JPEG image.
 func newMockCameraWithImages(t *testing.T, imgPng image.Image) *inject.Camera {
 	return &inject.Camera{
-		ImageFunc: func(
-			ctx context.Context,
-			mimeType string,
-			extra map[string]interface{},
-		) ([]byte, camera.ImageMetadata, error) {
-			// TODO(RSDK-11726): Remove once GetImage is removed
-			t.Fatalf("ImageFunc should not be called")
-			return nil, camera.ImageMetadata{}, nil
-		},
 		ImagesFunc: func(
 			ctx context.Context,
 			filterSourceNames []string,

@@ -469,14 +469,6 @@ func TestSync(t *testing.T) {
 			if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
 				r = setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 					camera.Named("c1"): &inject.Camera{
-						ImageFunc: func(
-							ctx context.Context,
-							mimeType string,
-							extra map[string]interface{},
-						) ([]byte, camera.ImageMetadata, error) {
-							t.Fatalf("ImageFunc should not be called")
-							return nil, camera.ImageMetadata{}, nil
-						},
 						ImagesFunc: func(
 							ctx context.Context,
 							filterSourceNames []string,
