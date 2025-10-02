@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 func TestFakeCameraParams(t *testing.T) {
@@ -94,7 +93,10 @@ func TestRTPPassthrough(t *testing.T) {
 		cam, err := NewCamera(context.Background(), nil, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		img, err := camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeRawRGBA, nil, cam)
+		namedImages, _, err := cam.Images(context.Background(), nil, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(namedImages) > 0, test.ShouldBeTrue)
+		img, err := namedImages[0].Image(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		// GetImage returns the world jpeg
 		test.That(t, img.Bounds(), test.ShouldResemble, image.Rectangle{Max: image.Point{X: 480, Y: 270}})

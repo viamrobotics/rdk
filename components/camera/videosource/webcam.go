@@ -422,30 +422,6 @@ func (c *webcam) ensureActive() error {
 	return nil
 }
 
-func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if err := c.ensureActive(); err != nil {
-		return nil, camera.ImageMetadata{}, err
-	}
-	if c.reader == nil {
-		return nil, camera.ImageMetadata{}, errors.New("underlying reader is nil")
-	}
-	img, err := c.getLatestFrame()
-	if err != nil {
-		return nil, camera.ImageMetadata{}, err
-	}
-
-	if mimeType == "" {
-		mimeType = utils.MimeTypeJPEG
-	}
-	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
-	if err != nil {
-		return nil, camera.ImageMetadata{}, err
-	}
-	return imgBytes, camera.ImageMetadata{MimeType: mimeType}, nil
-}
 
 func (c *webcam) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	c.mu.RLock()

@@ -10,20 +10,17 @@ import (
 	"fmt"
 	"image"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/utils"
 )
 
 // ErrMIMETypeBytesMismatch indicates that the NamedImage's mimeType does not match the image bytes header.
@@ -218,10 +215,6 @@ type Camera interface {
 	resource.Resource
 	resource.Shaped
 
-	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
-	// Image also may return metadata about the frame.
-	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error)
-
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
 	// The extra parameter can be used to pass additional options to the camera resource. The filterSourceNames parameter can be used to filter
@@ -237,121 +230,6 @@ type Camera interface {
 	Properties(ctx context.Context) (Properties, error)
 }
 
-// DecodeImageFromCamera retrieves image bytes from a camera resource and serializes it as an image.Image.
-func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[string]interface{}, cam Camera) (image.Image, error) {
-	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
-	if err != nil {
-		return nil, fmt.Errorf("could not get image bytes from camera: %w", err)
-	}
-	if len(resBytes) == 0 {
-		return nil, errors.New("received empty bytes from camera")
-	}
-	img, err := rimage.DecodeImage(ctx, resBytes, utils.WithLazyMIMEType(resMetadata.MimeType))
-	if err != nil {
-		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
-	}
-	return img, nil
-}
-
-// GetImageFromGetImages will be deprecated after RSDK-11726.
-// It is a utility function to quickly implement GetImage from an already-implemented GetImages method.
-// It returns a byte slice and ImageMetadata, which is the same response signature as the Image method.
-//
-// If sourceName is nil, it returns the first image in the response slice.
-// If sourceName is not nil, it returns the image with the matching source name.
-// If no image is found with the matching source name, it returns an error.
-//
-// It uses the mimeType arg to specify how to encode the bytes returned from GetImages.
-// The extra parameter is passed through to the underlying Images method.
-func GetImageFromGetImages(
-	ctx context.Context,
-	sourceName *string,
-	cam Camera,
-	extra map[string]interface{},
-	filterSourceNames []string,
-) ([]byte, ImageMetadata, error) {
-	sourceNames := []string{}
-	if sourceName != nil {
-		sourceNames = append(sourceNames, *sourceName)
-	}
-	namedImages, _, err := cam.Images(ctx, sourceNames, extra)
-	if err != nil {
-		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
-	}
-	if len(namedImages) == 0 {
-		return nil, ImageMetadata{}, errors.New("no images returned from camera")
-	}
-
-	var img image.Image
-	var mimeType string
-	if sourceName == nil {
-		img, err = namedImages[0].Image(ctx)
-		if err != nil {
-			return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
-		}
-		mimeType = namedImages[0].MimeType()
-	} else {
-		for _, i := range namedImages {
-			if i.SourceName == *sourceName {
-				img, err = i.Image(ctx)
-				if err != nil {
-					return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
-				}
-				mimeType = i.MimeType()
-				break
-			}
-		}
-		if img == nil {
-			return nil, ImageMetadata{}, errors.New("no image found with source name: " + *sourceName)
-		}
-	}
-
-	if img == nil {
-		return nil, ImageMetadata{}, errors.New("image is nil")
-	}
-
-	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
-	if err != nil {
-		return nil, ImageMetadata{}, fmt.Errorf("could not encode image with encoding %s: %w", mimeType, err)
-	}
-	return imgBytes, ImageMetadata{MimeType: mimeType}, nil
-}
-
-// GetImagesFromGetImage will be deprecated after RSDK-11726.
-// It is a utility function to quickly implement GetImages from an already-implemented GetImage method.
-// It takes a mimeType, extra parameters, and a camera as args, and returns a slice of NamedImage and ResponseMetadata,
-// which is the same response signature as the Images method. We use the mimeType arg to specify
-// how to decode the image bytes returned from GetImage. The extra parameter is passed through to the underlying GetImage method.
-// Source name is empty string always.
-// It returns a slice of NamedImage of length 1 and ResponseMetadata, with empty string as the source name.
-func GetImagesFromGetImage(
-	ctx context.Context,
-	mimeType string,
-	cam Camera,
-	logger logging.Logger,
-	extra map[string]interface{},
-) ([]NamedImage, resource.ResponseMetadata, error) {
-	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
-	if err != nil {
-		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not get image bytes from camera: %w", err)
-	}
-	if len(resBytes) == 0 {
-		return nil, resource.ResponseMetadata{}, errors.New("received empty bytes from camera")
-	}
-
-	resMimetype, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
-	reqMimetype, _ := utils.CheckLazyMIMEType(mimeType)
-	if resMimetype != reqMimetype {
-		logger.Warnf("requested mime type %s, but received %s", mimeType, resMimetype)
-	}
-
-	namedImg, err := NamedImageFromBytes(resBytes, "", resMetadata.MimeType)
-	if err != nil {
-		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not create named image: %w", err)
-	}
-
-	return []NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
-}
 
 // VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.
 // Note that generally, when writing camera components from scratch, embedding `Stream` is an anti-pattern.
