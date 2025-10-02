@@ -23,12 +23,12 @@ func TestFromRobot(t *testing.T) {
 	expected := []string{"board1"}
 	testutils.VerifySameElements(t, board.NamesFromRobot(r), expected)
 
-	_, err := board.FromRobot(r, "board1")
+	_, err := board.FromProvider(r, "board1")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = board.FromRobot(r, "board0")
+	_, err = board.FromProvider(r, "board0")
 	test.That(t, err, test.ShouldNotBeNil)
 
-	_, err = board.FromRobot(r, "g")
+	_, err = board.FromProvider(r, "g")
 	test.That(t, err, test.ShouldNotBeNil)
 }

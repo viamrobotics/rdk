@@ -20,9 +20,18 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named Summation from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named Summation from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Summation, error) {
 	return robot.ResourceFromRobot[Summation](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Summation
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Summation, error) {
+	return resource.FromProvider[Summation](provider, Named(name))
 }
 
 func init() {

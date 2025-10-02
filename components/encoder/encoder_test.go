@@ -23,12 +23,12 @@ func TestFromRobot(t *testing.T) {
 	expected := []string{"e1"}
 	testutils.VerifySameElements(t, encoder.NamesFromRobot(r), expected)
 
-	_, err := encoder.FromRobot(r, "e1")
+	_, err := encoder.FromProvider(r, "e1")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = encoder.FromRobot(r, "e0")
+	_, err = encoder.FromProvider(r, "e0")
 	test.That(t, err, test.ShouldNotBeNil)
 
-	_, err = encoder.FromRobot(r, "g")
+	_, err = encoder.FromProvider(r, "g")
 	test.That(t, err, test.ShouldNotBeNil)
 }

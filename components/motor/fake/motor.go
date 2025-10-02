@@ -121,7 +121,7 @@ func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 	var b board.Board
 	if newConf.BoardName != "" {
 		m.Board = newConf.BoardName
-		b, err = board.FromDependencies(deps, m.Board)
+		b, err = board.FromProvider(deps, m.Board)
 		if err != nil {
 			return err
 		}
@@ -156,7 +156,7 @@ func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 	if newConf.Encoder != "" {
 		m.TicksPerRotation = newConf.TicksPerRotation
 
-		e, err := encoder.FromDependencies(deps, newConf.Encoder)
+		e, err := encoder.FromProvider(deps, newConf.Encoder)
 		if err != nil {
 			return err
 		}

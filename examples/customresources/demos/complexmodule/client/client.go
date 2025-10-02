@@ -34,7 +34,7 @@ func main() {
 	}()
 
 	logger.Info("---- Testing gizmo1 (gizmoapi) -----")
-	comp1, err := gizmoapi.FromRobot(robot, "gizmo1")
+	comp1, err := gizmoapi.FromProvider(robot, "gizmo1")
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func main() {
 	logger.Info(ret3)
 
 	logger.Info("---- Testing adder (summationapi) -----")
-	add, err := summationapi.FromRobot(robot, "adder")
+	add, err := summationapi.FromProvider(robot, "adder")
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func main() {
 	logger.Info(nums, "sum to", retAdd)
 
 	logger.Info("---- Testing subtractor (summationapi) -----")
-	sub, err := summationapi.FromRobot(robot, "subtractor")
+	sub, err := summationapi.FromProvider(robot, "subtractor")
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func main() {
 	logger.Info(nums, "subtract to", retSub)
 
 	logger.Info("---- Testing denali (navigation) -----")
-	nav, err := navigation.FromRobot(robot, "denali")
+	nav, err := navigation.FromProvider(robot, "denali")
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func main() {
 	}
 
 	logger.Info("---- Testing base1 (base) -----")
-	mybase, err := base.FromRobot(robot, "base1")
+	mybase, err := base.FromProvider(robot, "base1")
 	if err != nil {
 		logger.Fatal(err)
 	}

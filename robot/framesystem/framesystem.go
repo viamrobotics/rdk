@@ -113,7 +113,7 @@ type RobotFrameSystem interface {
 
 // FromDependencies is a helper for getting the framesystem from a collection of dependencies.
 func FromDependencies(deps resource.Dependencies) (Service, error) {
-	return resource.FromDependencies[Service](deps, PublicServiceName)
+	return resource.FromProvider[Service](deps, PublicServiceName)
 }
 
 // New returns a new frame system service for the given robot.
