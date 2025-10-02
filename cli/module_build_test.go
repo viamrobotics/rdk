@@ -82,7 +82,7 @@ func TestStartBuild(t *testing.T) {
 
 	path, err = ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "your meta.json must have a url field in order to start a cloud build")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "meta.json must have a url field set in order to start a cloud build")
 	test.That(t, path, test.ShouldBeEmpty)
 	test.That(t, out.messages, test.ShouldHaveLength, 0)
 	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
