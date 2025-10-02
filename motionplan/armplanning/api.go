@@ -219,11 +219,15 @@ type PlanMeta struct {
 }
 
 // PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, PlanMeta, error) {
+func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, *PlanMeta, error) {
 	start := time.Now()
+	meta := &PlanMeta{}
+	defer func() {
+		meta.Duration = time.Since(start)
+	}()
 
 	if err := request.validatePlanRequest(); err != nil {
-		return nil, PlanMeta{}, err
+		return nil, meta, err
 	}
 	logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	logger.CDebugf(ctx, "motion config for this step: %v", request.PlannerOptions)
@@ -237,18 +241,13 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
 	if request.StartState.configuration == nil {
-		return nil, PlanMeta{}, errors.New("must populate start state configuration")
+		return nil, meta, errors.New("must populate start state configuration")
 	}
 
 	sfPlanner, err := newPlanManager(logger, request)
 	if err != nil {
-		return nil, PlanMeta{}, err
+		return nil, meta, err
 	}
-
-	meta := PlanMeta{}
-	defer func() {
-		meta.Duration = time.Since(start)
-	}()
 
 	traj, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
 	if err != nil {
