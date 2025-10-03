@@ -99,8 +99,8 @@ full-static:
 # should be kept in sync with the windows build in the BuildViamServer helper in testutils/file_utils.go
 windows:
 	mkdir -p bin/windows
-	GOOS=windows go build -tags no_cgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/windows/viam-server-$(shell go env GOARCH).exe ./web/cmd/server
-	cd bin/windows && zip viam.zip viam-server-$(shell go env GOARCH).exe
+	GOOS=windows GOARCH=amd64 go build -tags no_cgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/windows/viam-server-amd64.exe ./web/cmd/server
+	cd bin/windows && zip viam.zip viam-server-amd64.exe
 
 server-static-compressed: server-static
 	upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server
