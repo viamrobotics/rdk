@@ -26,7 +26,7 @@ DESC=$(git describe --tags --match="v*" --exclude="*-rc*" --long | sed 's/^v//')
 
 BASE_VERSION=$(echo "$DESC" | cut -d'-' -f1)
 COMMITS_SINCE_TAG=$(echo "$DESC" | cut -d'-' -f2)
-COMMIT_HASH=$(echo "$DESC" | cut -d'-' -f3)
+COMMIT_HASH=$(echo "$DESC" | cut -d'-' -f3 | sed 's/^g//')
 
 # Calculate next version by incrementing patch number
 NEXT_VERSION=$(echo "$BASE_VERSION" | awk -F. '{$3+=1}1' OFS=.)
