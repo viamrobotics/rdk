@@ -21,13 +21,13 @@ import (
 	armFake "go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
+	"go.viam.com/rdk/motionplan/baseplanning"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -35,8 +35,6 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/state"
-	"go.viam.com/rdk/services/slam"
-	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -135,12 +133,12 @@ func TestMoveFailures(t *testing.T) {
 	ctx := context.Background()
 	t.Run("fail on not finding gripper", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("fakeGripper", spatialmath.NewPoseFromPoint(r3.Vector{X: 10.0, Y: 10.0, Z: 10.0}))
-		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: gripper.Named("fake"), Destination: grabPose})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: "fake", Destination: grabPose})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	t.Run("fail on nil destination", func(t *testing.T) {
-		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: arm.Named("arm1")})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: "arm1"})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -155,7 +153,7 @@ func TestMoveFailures(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(nil, transforms)
 		test.That(t, err, test.ShouldBeNil)
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
-		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: arm.Named("arm1"), Destination: poseInFrame, WorldState: worldState})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: "arm1", Destination: poseInFrame, WorldState: worldState})
 		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("frame2", "noParent"))
 	})
 }
@@ -168,7 +166,7 @@ func TestArmMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
-		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: grabPose})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: "pieceGripper", Destination: grabPose})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -176,7 +174,7 @@ func TestArmMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
-		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: arm.Named("pieceArm"), Destination: grabPose})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: "pieceArm", Destination: grabPose})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -184,7 +182,7 @@ func TestArmMove(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 		grabPose := referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50}))
-		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: grabPose})
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: "pieceGripper", Destination: grabPose})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -204,7 +202,7 @@ func TestArmMove(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(nil, transforms)
 		test.That(t, err, test.ShouldBeNil)
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", spatialmath.NewPoseFromPoint(r3.Vector{X: -20, Y: -130, Z: -40}))
-		moveReq := motion.MoveReq{ComponentName: gripper.Named("pieceGripper"), Destination: grabPose, WorldState: worldState}
+		moveReq := motion.MoveReq{ComponentName: "pieceGripper", Destination: grabPose, WorldState: worldState}
 		_, err = ms.Move(context.Background(), moveReq)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -254,7 +252,7 @@ func TestArmMoveWithObstacles(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = ms.Move(
 			context.Background(),
-			motion.MoveReq{ComponentName: gripper.Named("pieceArm"), Destination: grabPose, WorldState: worldState},
+			motion.MoveReq{ComponentName: "pieceArm", Destination: grabPose, WorldState: worldState},
 		)
 		// This fails due to a large obstacle being in the way
 		test.That(t, err, test.ShouldNotBeNil)
@@ -317,9 +315,9 @@ func TestPositionalReplanning(t *testing.T) {
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      resource.NewName(base.API, baseName),
+			ComponentName:      baseName,
 			Destination:        dst,
-			MovementSensorName: resource.NewName(movementsensor.API, moveSensorName),
+			MovementSensorName: moveSensorName,
 			MotionCfg:          motionCfg,
 			Extra:              tc.extra,
 		}
@@ -376,7 +374,7 @@ func TestObstacleReplanningSlam(t *testing.T) {
 
 	// This vision service should return nothing the first time it is called, and should return an obstacle all other times.
 	// In this way we generate a valid plan, and then can create a transient obstacle which we must route around.
-	visSrvc, ok := ms.(*builtIn).visionServices[vision.Named("test-vision")].(*inject.VisionService)
+	visSrvc, ok := ms.(*builtIn).visionServices["test-vision"].(*inject.VisionService)
 	test.That(t, ok, test.ShouldBeTrue)
 	i := 0
 	visSrvc.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error) {
@@ -394,14 +392,14 @@ func TestObstacleReplanningSlam(t *testing.T) {
 	}
 
 	obstacleDetectorSlice := []motion.ObstacleDetectorName{
-		{VisionServiceName: vision.Named("test-vision"), CameraName: camera.Named("test-camera")},
+		{VisionServiceName: "test-vision", CameraName: "test-camera"},
 	}
 	positionPollingFreq := 0.
 	obstaclePollingFreq := 5.
 	req := motion.MoveOnMapReq{
-		ComponentName: base.Named("test-base"),
+		ComponentName: "test-base",
 		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 800, Y: 0, Z: 0}),
-		SlamName:      slam.Named("test_slam"),
+		SlamName:      "test_slam",
 		MotionCfg: &motion.MotionConfiguration{
 			PositionPollingFreqHz: &positionPollingFreq,
 			ObstaclePollingFreqHz: &obstaclePollingFreq,
@@ -429,7 +427,7 @@ func TestMultiplePieces(t *testing.T) {
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/fake_tomato.json")
 	defer teardown()
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: -0, Y: -30, Z: -50}))
-	_, err = ms.Move(context.Background(), motion.MoveReq{ComponentName: gripper.Named("gr"), Destination: grabPose})
+	_, err = ms.Move(context.Background(), motion.MoveReq{ComponentName: "gr", Destination: grabPose})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -438,35 +436,35 @@ func TestGetPose(t *testing.T) {
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/arm_gantry.json")
 	defer teardown()
 
-	pose, err := ms.GetPose(context.Background(), arm.Named("gantry1"), "", nil, map[string]interface{}{})
+	pose, err := ms.GetPose(context.Background(), "gantry1", "", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Parent(), test.ShouldEqual, referenceframe.World)
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 1.2)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "", nil, map[string]interface{}{})
+	pose, err = ms.GetPose(context.Background(), "arm1", "", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Parent(), test.ShouldEqual, referenceframe.World)
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 501.2)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 300)
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "gantry1", nil, map[string]interface{}{})
+	pose, err = ms.GetPose(context.Background(), "arm1", "gantry1", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Parent(), test.ShouldEqual, "gantry1")
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 500)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 300)
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("gantry1"), "gantry1", nil, map[string]interface{}{})
+	pose, err = ms.GetPose(context.Background(), "gantry1", "gantry1", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Parent(), test.ShouldEqual, "gantry1")
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "arm1", nil, map[string]interface{}{})
+	pose, err = ms.GetPose(context.Background(), "arm1", "arm1", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Parent(), test.ShouldEqual, "arm1")
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 0)
@@ -479,7 +477,7 @@ func TestGetPose(t *testing.T) {
 		referenceframe.NewLinkInFrame("testFrame", testPose, "testFrame2", nil),
 	}
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame2", transforms, map[string]interface{}{})
+	pose, err = ms.GetPose(context.Background(), "arm1", "testFrame2", transforms, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, -501.2)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
@@ -492,7 +490,7 @@ func TestGetPose(t *testing.T) {
 	transforms = []*referenceframe.LinkInFrame{
 		referenceframe.NewLinkInFrame("noParent", testPose, "testFrame", nil),
 	}
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transforms, map[string]interface{}{})
+	pose, err = ms.GetPose(context.Background(), "arm1", "testFrame", transforms, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("testFrame", "noParent"))
 	test.That(t, pose, test.ShouldBeNil)
 }
@@ -512,7 +510,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 
 	t.Run("successfully stop arms", func(t *testing.T) {
 		armName := "test-arm"
-		injectArmName := arm.Named(armName)
+		injectArmName := armName
 		goal := referenceframe.NewPoseInFrame(
 			armName,
 			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -10, Z: -10}),
@@ -568,7 +566,7 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			},
 		}
 		deps := resource.Dependencies{
-			injectArmName: injectArm,
+			resource.Name{Name: injectArmName}: injectArm,
 		}
 
 		_, err = createFrameSystemService(ctx, deps, fsParts, logger)
@@ -663,9 +661,9 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			}
 
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      injectBase.Name(),
+				ComponentName:      injectBase.Name().Name,
 				Destination:        goal,
-				MovementSensorName: injectMovementSensor.Name(),
+				MovementSensorName: injectMovementSensor.Name().Name,
 				MotionCfg:          &motionCfg,
 				Extra:              extra,
 			}
@@ -715,9 +713,9 @@ func TestStoppableMoveFunctions(t *testing.T) {
 
 			goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500})
 			req := motion.MoveOnMapReq{
-				ComponentName: injectBase.Name(),
+				ComponentName: injectBase.Name().Name,
 				Destination:   goal,
-				SlamName:      injectSlam.Name(),
+				SlamName:      injectSlam.Name().Name,
 				MotionCfg: &motion.MotionConfiguration{
 					PlanDeviationMM: 0.2,
 				},
@@ -769,9 +767,9 @@ func TestStoppableMoveFunctions(t *testing.T) {
 			ms.(*builtIn).fsService = fsSvc
 
 			req := motion.MoveOnMapReq{
-				ComponentName: injectBase.Name(),
+				ComponentName: injectBase.Name().Name,
 				Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 500}),
-				SlamName:      injectSlam.Name(),
+				SlamName:      injectSlam.Name().Name,
 				MotionCfg: &motion.MotionConfiguration{
 					PlanDeviationMM: 1,
 				},
@@ -807,13 +805,13 @@ func TestGetTransientDetectionsSlam(t *testing.T) {
 
 	// construct move request
 	moveReq := motion.MoveOnMapReq{
-		ComponentName: base.Named("test-base"),
+		ComponentName: "test-base",
 		Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 10, Y: 0, Z: 0}),
-		SlamName:      slam.Named("test_slam"),
+		SlamName:      "test_slam",
 		MotionCfg: &motion.MotionConfiguration{
 			PlanDeviationMM: 1,
 			ObstacleDetectors: []motion.ObstacleDetectorName{
-				{VisionServiceName: vision.Named("test-vision"), CameraName: camera.Named("test-camera")},
+				{VisionServiceName: "test-vision", CameraName: "test-camera"},
 			},
 		},
 	}
@@ -824,7 +822,7 @@ func TestGetTransientDetectionsSlam(t *testing.T) {
 	mr, ok := planExecutor.(*moveRequest)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	injectedVis, ok := ms.(*builtIn).visionServices[vision.Named("test-vision")].(*inject.VisionService)
+	injectedVis, ok := ms.(*builtIn).visionServices["test-vision"].(*inject.VisionService)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// define injected method on vision service
@@ -853,7 +851,7 @@ func TestGetTransientDetectionsSlam(t *testing.T) {
 
 	testFn := func(t *testing.T, tc testCase) {
 		t.Helper()
-		transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, camera.Named("test-camera"))
+		transformedGeoms, err := mr.getTransientDetections(ctx, injectedVis, "test-camera")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, transformedGeoms.Parent(), test.ShouldEqual, referenceframe.World)
 		test.That(t, len(transformedGeoms.Geometries()), test.ShouldEqual, 1)
@@ -880,18 +878,18 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 	geoPoseOrigin := spatialmath.NewGeoPose(geo.NewPoint(0, 0), 0)
 	destinationGeoPose := spatialmath.PoseToGeoPose(geoPoseOrigin, destinationPose)
 
-	moveSensor, ok := ms.(*builtIn).movementSensors[resource.NewName(movementsensor.API, moveSensorName)]
+	moveSensor, ok := ms.(*builtIn).movementSensors[moveSensorName]
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// construct move request
 	moveReq := motion.MoveOnGlobeReq{
-		ComponentName:      base.Named("test-base"),
+		ComponentName:      "test-base",
 		Destination:        destinationGeoPose.Location(),
-		MovementSensorName: moveSensor.Name(),
+		MovementSensorName: moveSensor.Name().Name,
 		MotionCfg: &motion.MotionConfiguration{
 			PlanDeviationMM: 1,
 			ObstacleDetectors: []motion.ObstacleDetectorName{
-				{VisionServiceName: vision.Named("injectedVisionSvc"), CameraName: camera.Named("test-camera")},
+				{VisionServiceName: "injectedVisionSvc", CameraName: "test-camera"},
 			},
 		},
 	}
@@ -996,7 +994,7 @@ func TestStopPlan(t *testing.T) {
 
 	req := motion.StopPlanReq{}
 	err := ms.StopPlan(ctx, req)
-	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(req.ComponentName))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(resource.Name{Name: req.ComponentName}))
 }
 
 func TestListPlanStatuses(t *testing.T) {
@@ -1025,7 +1023,7 @@ func TestPlanHistory(t *testing.T) {
 	defer closeFunc(ctx)
 	req := motion.PlanHistoryReq{}
 	history, err := ms.PlanHistory(ctx, req)
-	test.That(t, err, test.ShouldResemble, resource.NewNotFoundError(req.ComponentName))
+	test.That(t, err, test.ShouldResemble, resource.NewNotFoundError(resource.Name{Name: req.ComponentName}))
 	test.That(t, history, test.ShouldBeNil)
 }
 
@@ -1044,7 +1042,6 @@ func TestBaseInputs(t *testing.T) {
 
 func TestCheckPlan(t *testing.T) {
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
 	origin := geo.NewPoint(0, 0)
 
 	localizer, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, origin, 30, spatialmath.NewZeroPose())
@@ -1056,13 +1053,13 @@ func TestCheckPlan(t *testing.T) {
 	movementSensor, ok := localizer.(movementsensor.MovementSensor)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	fakeBase, ok := ms.(*builtIn).components[baseResource.ShortName()]
+	fakeBase, ok := ms.(*builtIn).components[baseName]
 	test.That(t, ok, test.ShouldBeTrue)
 
 	req := motion.MoveOnGlobeReq{
-		ComponentName:      fakeBase.Name(),
+		ComponentName:      fakeBase.Name().Name,
 		Destination:        dst,
-		MovementSensorName: movementSensor.Name(),
+		MovementSensorName: movementSensor.Name().Name,
 	}
 
 	// construct move request
@@ -1098,7 +1095,7 @@ func TestCheckPlan(t *testing.T) {
 		},
 	}
 
-	baseExecutionState, err := armplanning.NewExecutionState(
+	baseExecutionState, err := baseplanning.NewExecutionState(
 		plan, 0, currentInputs,
 		map[string]*referenceframe.PoseInFrame{
 			mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
@@ -1113,7 +1110,7 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("base case - validate plan without obstacles", func(t *testing.T) {
-		err = armplanning.CheckPlan(wrapperFrame, augmentedBaseExecutionState, nil, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, augmentedBaseExecutionState, nil, mr.localizingFS, math.Inf(1))
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1127,7 +1124,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = armplanning.CheckPlan(wrapperFrame, augmentedBaseExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, augmentedBaseExecutionState, worldState, mr.localizingFS, math.Inf(1))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
@@ -1151,7 +1148,7 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	inputs := augmentedBaseExecutionState.CurrentInputs()
 	inputs[cameraFrame.Name()] = referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF())))
-	executionStateWithCamera, err := armplanning.NewExecutionState(
+	executionStateWithCamera, err := baseplanning.NewExecutionState(
 		augmentedBaseExecutionState.Plan(), augmentedBaseExecutionState.Index(),
 		inputs, augmentedBaseExecutionState.CurrentPoses(),
 	)
@@ -1169,7 +1166,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = armplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1))
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1185,7 +1182,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = armplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, executionStateWithCamera, worldState, mr.localizingFS, math.Inf(1))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)
 	})
@@ -1215,7 +1212,7 @@ func TestCheckPlan(t *testing.T) {
 		)),
 	}
 
-	newExecutionState, err := armplanning.NewExecutionState(plan, 2, currentInputs, currentPoses)
+	newExecutionState, err := baseplanning.NewExecutionState(plan, 2, currentInputs, currentPoses)
 	test.That(t, err, test.ShouldBeNil)
 	updatedExecutionState, err := mr.augmentBaseExecutionState(ctx, newExecutionState)
 	test.That(t, err, test.ShouldBeNil)
@@ -1233,7 +1230,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = armplanning.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1))
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -1246,7 +1243,7 @@ func TestCheckPlan(t *testing.T) {
 		worldState, err := referenceframe.NewWorldState(gifs, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = armplanning.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1), logger)
+		err = baseplanning.CheckPlan(wrapperFrame, updatedExecutionState, worldState, mr.localizingFS, math.Inf(1))
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -1259,7 +1256,7 @@ func TestDoCommand(t *testing.T) {
 	worldState, err := referenceframe.NewWorldState(geometries, nil)
 	test.That(t, err, test.ShouldBeNil)
 	moveReq := motion.MoveReq{
-		ComponentName: gripper.Named("pieceGripper"),
+		ComponentName: "pieceGripper",
 		WorldState:    worldState,
 		Destination:   referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50})),
 		Extra:         nil,
@@ -1360,30 +1357,6 @@ func TestDoCommand(t *testing.T) {
 				"pieceArm", defaultExecuteEpsilon, start, end))
 		test.That(t, respMap, test.ShouldBeEmpty)
 	})
-
-	t.Run("Extras transmitted correctly", func(t *testing.T) {
-		// test that DoPlan correctly breaks if bad inputs are provided, meaning it is being parsed correctly
-		moveReq.Extra = map[string]interface{}{
-			"motion_profile": armplanning.LinearMotionProfile,
-			"planning_algorithm_settings": map[string]interface{}{
-				"algorithm": "rrtstar",
-			},
-		}
-		_, err = testDoPlan(moveReq)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldResemble, armplanning.NewAlgAndConstraintMismatchErr("rrtstar"))
-	})
-
-	t.Run("Extras transmitted correctly (with deprecated key)", func(t *testing.T) {
-		// test that DoPlan correctly breaks if bad inputs are provided, meaning it is being parsed correctly
-		moveReq.Extra = map[string]interface{}{
-			"motion_profile": armplanning.LinearMotionProfile,
-			"planning_alg":   "rrtstar",
-		}
-		_, err = testDoPlan(moveReq)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldResemble, armplanning.NewAlgAndConstraintMismatchErr("rrtstar"))
-	})
 }
 
 func TestMultiWaypointPlanning(t *testing.T) {
@@ -1420,7 +1393,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		wp2State := armplanning.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint2}, nil)
 
 		moveReq := motion.MoveReq{
-			ComponentName: gripper.Named("pieceGripper"),
+			ComponentName: "pieceGripper",
 			Destination:   finalPose,
 			Extra: map[string]interface{}{
 				"waypoints":   []interface{}{wp1State.Serialize(), wp2State.Serialize()},
@@ -1449,50 +1422,6 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, finalPose.Pose(), 1e-3), test.ShouldBeTrue)
 	})
 
-	t.Run("plan with pose start state", func(t *testing.T) {
-		// Define waypoints as poses relative to world frame
-		start := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -180, Z: 30}))
-		waypoint := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -190, Z: 30}))
-		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -200, Z: 30}))
-
-		startState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": start}, nil)
-		wpState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{"pieceGripper": waypoint}, nil)
-
-		moveReq := motion.MoveReq{
-			ComponentName: gripper.Named("pieceGripper"),
-			Destination:   finalPose,
-			Extra: map[string]interface{}{
-				"start_state": startState.Serialize(),
-				"waypoints":   []interface{}{wpState.Serialize()},
-				"smooth_iter": 5,
-			},
-		}
-
-		plan := getPlanFromMove(t, moveReq)
-		test.That(t, len(plan), test.ShouldBeGreaterThan, 0)
-
-		frameSys, err := framesystem.NewFromService(ctx, ms.(*builtIn).fsService, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		// Verify start configuration matches start pose
-		firstConfig := plan[0]
-		firstPoseInWorld, err := frameSys.Transform(firstConfig,
-			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
-			"world")
-		test.That(t, err, test.ShouldBeNil)
-		plannedPose := firstPoseInWorld.(*referenceframe.PoseInFrame).Pose()
-		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, start.Pose(), 1e-3), test.ShouldBeTrue)
-
-		// Verify final pose
-		finalConfig := plan[len(plan)-1]
-		finalPoseInWorld, err := frameSys.Transform(finalConfig,
-			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
-			"world")
-		test.That(t, err, test.ShouldBeNil)
-		plannedPose = finalPoseInWorld.(*referenceframe.PoseInFrame).Pose()
-		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, finalPose.Pose(), 1e-3), test.ShouldBeTrue)
-	})
-
 	t.Run("plan through mixed pose and configuration waypoints", func(t *testing.T) {
 		// Define specific arm configuration for first waypoint
 		armConfig := []float64{0.2, 0.3, 0.4, 0.5, 0.6, 0.7}
@@ -1510,7 +1439,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -180, Z: 34}))
 
 		moveReq := motion.MoveReq{
-			ComponentName: gripper.Named("pieceGripper"),
+			ComponentName: "pieceGripper",
 			Destination:   finalPose,
 			Extra: map[string]interface{}{
 				"waypoints":   []interface{}{wp1State.Serialize(), wp2State.Serialize()},
@@ -1563,7 +1492,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -180, Z: 34}))
 
 		moveReq := motion.MoveReq{
-			ComponentName: gripper.Named("pieceGripper"),
+			ComponentName: "pieceGripper",
 			Destination:   finalPose,
 			Extra: map[string]interface{}{
 				"start_state": startState.Serialize(),
@@ -1597,7 +1526,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		goalState := armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{"pieceArm": referenceframe.FloatsToInputs(goalConfig)})
 
 		moveReq := motion.MoveReq{
-			ComponentName: gripper.Named("pieceGripper"),
+			ComponentName: "pieceGripper",
 			Extra: map[string]interface{}{
 				"goal_state":  goalState.Serialize(),
 				"smooth_iter": 5,
@@ -1657,4 +1586,48 @@ func TestConfiguredDefaultExtras(t *testing.T) {
 		_, _, err := cfg.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
+}
+
+func TestConfigureJointLimits(t *testing.T) {
+	ctx := context.Background()
+
+	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+	defer teardown()
+
+	svc := ms.(*builtIn)
+
+	fs, err := svc.getFrameSystem(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	f := fs.Frame("pieceArm")
+	test.That(t, f.DoF()[0].Min, test.ShouldAlmostEqual, -2*math.Pi)
+	test.That(t, f.DoF()[1].Min, test.ShouldAlmostEqual, -2*math.Pi)
+
+	svc.conf.InputRangeOverride = map[string]map[string]referenceframe.Limit{
+		"pieceArm": {"0": referenceframe.Limit{0, 1}},
+	}
+
+	fs, err = svc.getFrameSystem(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	f = fs.Frame("pieceArm")
+	test.That(t, f.DoF()[0].Min, test.ShouldAlmostEqual, 0)
+
+	svc.conf.InputRangeOverride = map[string]map[string]referenceframe.Limit{}
+
+	fs, err = svc.getFrameSystem(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	f = fs.Frame("pieceArm")
+	test.That(t, f.DoF()[0].Min, test.ShouldAlmostEqual, -2*math.Pi)
+
+	svc.conf.InputRangeOverride = map[string]map[string]referenceframe.Limit{
+		"pieceArm": {"shoulder_lift_joint": referenceframe.Limit{0, 1}},
+	}
+
+	fs, err = svc.getFrameSystem(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	f = fs.Frame("pieceArm")
+	test.That(t, f.DoF()[1].Min, test.ShouldAlmostEqual, 0)
 }

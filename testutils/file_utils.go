@@ -50,7 +50,7 @@ func BuildViamServer(tb testing.TB) string {
 	}
 	// set Dir to root of repo
 	builder.Dir = utils.ResolveFile(".")
-	out, err := builder.Output()
+	out, err := builder.CombinedOutput()
 	if len(out) > 0 {
 		tb.Logf("Build Output: %s", out)
 	}

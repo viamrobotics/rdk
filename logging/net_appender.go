@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -334,6 +337,14 @@ func (nl *NetAppender) backgroundWorker() {
 	}
 }
 
+func isUTF8MarshallingError(err error) bool {
+	if err == nil {
+		return false
+	}
+	status := status.Convert(err)
+	return status.Code() == codes.Internal && status.Message() == "grpc: error while marshaling: string field contains invalid UTF-8"
+}
+
 // Returns whether there is more work to do or if an error was encountered
 // while trying to ship logs over the network.
 func (nl *NetAppender) syncOnce() (bool, error) {
@@ -356,7 +367,15 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	batch := nl.toLog[:batchSize]
 	nl.toLogMutex.Unlock()
 
-	if err := nl.remoteWriter.write(nl.cancelCtx, batch); err != nil {
+	err := nl.remoteWriter.write(nl.cancelCtx, batch)
+	if isUTF8MarshallingError(err) {
+		nl.loggerWithoutNet.Warn("Log batch failed to serialize due to invalid UTF-8, will sanitize and retry")
+		for _, record := range batch {
+			record.Message = strings.ToValidUTF8(record.Message, "�")
+		}
+		err = nl.remoteWriter.write(nl.cancelCtx, batch)
+	}
+	if err != nil {
 		return false, err
 	}
 

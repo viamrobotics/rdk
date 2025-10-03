@@ -1,12 +1,18 @@
+// Package armplanning is a motion planning library.
 package armplanning
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -112,7 +118,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 		req.WorldState = newWS
 	}
 
-	boundingRegions, err := spatialmath.NewGeometriesFromProto(req.BoundingRegions)
+	boundingRegions, err := referenceframe.NewGeometriesFromProto(req.BoundingRegions)
 	if err != nil {
 		return err
 	}
@@ -153,7 +159,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 						for _, geom := range robotGifs.Geometries() {
 							robotGeoms = append(robotGeoms, geom.Transform(startPose.Pose()))
 						}
-						robotGeomBoundingRegionCheck := NewBoundingRegionConstraint(robotGeoms, boundingRegions, buffer)
+						robotGeomBoundingRegionCheck := motionplan.NewBoundingRegionConstraint(robotGeoms, boundingRegions, buffer)
 						if robotGeomBoundingRegionCheck(&motionplan.State{}) != nil {
 							return fmt.Errorf("frame named %s is not within the provided bounding regions", fName)
 						}
@@ -161,7 +167,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 
 					// check that the destination is within or in collision with the bounding regions
 					destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(pif.Pose().Point(), "")}
-					destinationBoundingRegionCheck := NewBoundingRegionConstraint(destinationAsGeom, boundingRegions, buffer)
+					destinationBoundingRegionCheck := motionplan.NewBoundingRegionConstraint(destinationAsGeom, boundingRegions, buffer)
 					if destinationBoundingRegionCheck(&motionplan.State{}) != nil {
 						return errors.New("destination was not within the provided bounding regions")
 					}
@@ -170,12 +176,6 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 	}
 	return nil
-}
-
-// PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, error) {
-	// Calls Replan but without a seed plan
-	return Replan(ctx, logger, request, nil, 0)
 }
 
 // PlanFrameMotion plans a motion to destination for a given frame with no frame system. It will create a new FS just for the plan.
@@ -197,7 +197,7 @@ func PlanFrameMotion(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	plan, err := PlanMotion(ctx, logger, &PlanRequest{
+	plan, _, err := PlanMotion(ctx, logger, &PlanRequest{
 		FrameSystem: fs,
 		Goals: []*PlanState{
 			{poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
@@ -212,46 +212,62 @@ func PlanFrameMotion(ctx context.Context,
 	return plan.Trajectory().GetFrameInputs(f.Name())
 }
 
-// Replan plans a motion from a provided plan request, and then will return that plan only if its cost is better than the cost of the
-// passed-in plan multiplied by `replanCostFactor`.
-func Replan(
-	ctx context.Context,
-	logger logging.Logger,
-	request *PlanRequest,
-	currentPlan motionplan.Plan,
-	replanCostFactor float64,
-) (motionplan.Plan, error) {
-	// Make sure request is well formed and not missing vital information
+// PlanMeta is meta data about plan generation.
+type PlanMeta struct {
+	Duration       time.Duration
+	Partial        bool
+	GoalsProcessed int
+}
+
+// PlanMotion plans a motion from a provided plan request.
+func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, *PlanMeta, error) {
+	start := time.Now()
+	meta := &PlanMeta{}
+	defer func() {
+		meta.Duration = time.Since(start)
+	}()
+
 	if err := request.validatePlanRequest(); err != nil {
-		return nil, err
+		return nil, meta, err
 	}
 	logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	logger.CDebugf(ctx, "motion config for this step: %v", request.PlannerOptions)
+	logger.CDebugf(ctx, "start position: %v", request.StartState.configuration)
+
+	if request.PlannerOptions == nil {
+		request.PlannerOptions = NewBasicPlannerOptions()
+	}
+
+	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
+	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
+	// are allowed to collide with one another.
+	if request.StartState.configuration == nil {
+		return nil, meta, errors.New("must populate start state configuration")
+	}
 
 	sfPlanner, err := newPlanManager(logger, request)
 	if err != nil {
-		return nil, err
+		return nil, meta, err
 	}
 
-	newPlan, err := sfPlanner.planMultiWaypoint(ctx, currentPlan)
+	traj, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
 	if err != nil {
-		return nil, err
-	}
-
-	if replanCostFactor > 0 && currentPlan != nil {
-		initialPlanCost := currentPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
-		finalPlanCost := newPlan.Trajectory().EvaluateCost(sfPlanner.scoringFunction)
-		logger.CDebugf(ctx,
-			"initialPlanCost %f adjusted with cost factor to %f, replan cost %f",
-			initialPlanCost, initialPlanCost*replanCostFactor, finalPlanCost,
-		)
-
-		if finalPlanCost > initialPlanCost*replanCostFactor {
-			return nil, errHighReplanCost
+		if request.PlannerOptions.ReturnPartialPlan {
+			meta.Partial = true
+			logger.Infof("returning partial plan")
+		} else {
+			return nil, meta, err
 		}
 	}
 
-	return newPlan, nil
+	meta.GoalsProcessed = goalsProcessed
+
+	t, err := motionplan.NewSimplePlanFromTrajectory(traj, request.FrameSystem)
+	if err != nil {
+		return nil, meta, err
+	}
+
+	return t, meta, nil
 }
 
 var defaultArmPlannerOptions = &motionplan.Constraints{
@@ -281,4 +297,42 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 		return err
 	}
 	return a.MoveThroughJointPositions(ctx, plan, nil, nil)
+}
+
+// ReadRequestFromFile reads a PlanRequest from a json file.
+func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
+	f, err := os.Open(fileName) //nolint:gosec
+	if err != nil {
+		return nil, err
+	}
+	defer utils.UncheckedErrorFunc(f.Close)
+
+	decoder := json.NewDecoder(f)
+
+	req := &PlanRequest{}
+
+	err = decoder.Decode(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// WriteToFile write a request to a .json file.
+func (req *PlanRequest) WriteToFile(fileName string) error {
+	data, err := json.MarshalIndent(req, "", "  ")
+	if err != nil {
+		return err
+	}
+	file, err := os.OpenFile(filepath.Clean(fileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(file.Close)
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
 }

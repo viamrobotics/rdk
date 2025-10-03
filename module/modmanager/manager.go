@@ -817,7 +817,7 @@ var oueRestartInterval = 5 * time.Second
 // newOnUnexpectedExitHandler returns the appropriate OnUnexpectedExit function
 // for the passed-in module to include in the pexec.ProcessConfig.
 func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module) pexec.UnexpectedExitHandler {
-	return func(exitCode int) (continueAttemptingRestart bool) {
+	return func(oueCtx context.Context, exitCode int) (continueAttemptingRestart bool) {
 		// Log error immediately, as this is unexpected behavior.
 		mod.logger.Errorw(
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
@@ -861,6 +861,10 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			// starting and/or leaking a module process.
 			if err := ctx.Err(); err != nil {
 				mod.logger.Infow("Restart context canceled, abandoning restart attempt", "err", err)
+				return
+			}
+			if err := oueCtx.Err(); err != nil {
+				mod.logger.Infow("pexec context canceled, abandoning restart attempt", "err", err)
 				return
 			}
 
@@ -971,12 +975,12 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	// continues with the normal OUE execution on success.
 	blockRestart := make(chan struct{})
 	defer close(blockRestart)
-	oue := func(exitCode int) bool {
+	oue := func(oueCtx context.Context, exitCode int) bool {
 		<-blockRestart
 		if !success {
 			return false
 		}
-		return mgr.newOnUnexpectedExitHandler(ctx, mod)(exitCode)
+		return mgr.newOnUnexpectedExitHandler(ctx, mod)(oueCtx, exitCode)
 	}
 
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
@@ -1020,13 +1024,14 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 			return err
 		}
 	}
-	env := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
+	env := getFullEnvironment(conf, pkgsDir, dataDir, mgr.viamHomeDir)
 
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
 func getFullEnvironment(
 	cfg config.Module,
+	packagesDir string,
 	dataDir string,
 	viamHomeDir string,
 ) map[string]string {
@@ -1038,8 +1043,18 @@ func getFullEnvironment(
 	if cfg.Type == config.ModuleTypeRegistry {
 		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
-	// Overwrite the base environment variables with the module's environment variables (if specified)
+
+	// For local modules, we set VIAM_MODULE_ROOT to the parent directory of the unpacked module.
 	// VIAM_MODULE_ROOT is filled out by app.viam.com in cloud robots.
+	if cfg.Type == config.ModuleTypeLocal {
+		moduleRoot, err := cfg.ExeDir(packages.LocalPackagesDir(packagesDir))
+		// err should never not be nil since we are working with local modules
+		if err == nil {
+			environment["VIAM_MODULE_ROOT"] = moduleRoot
+		}
+	}
+
+	// Overwrite the base environment variables with the module's environment variables (if specified)
 	for key, value := range cfg.Environment {
 		environment[key] = value
 	}
@@ -1050,7 +1065,7 @@ func getFullEnvironment(
 func DepsToNames(deps resource.Dependencies) []string {
 	var depStrings []string
 	for dep := range deps {
-		depStrings = append(depStrings, dep.String())
+		depStrings = append(depStrings, resource.RemoveRemoteName(dep).String())
 	}
 	return depStrings
 }

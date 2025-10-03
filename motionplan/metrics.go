@@ -94,6 +94,25 @@ type State struct {
 	Frame         referenceframe.Frame
 }
 
+// ResolveStateAndUpdatePositions converts Position Configuration to Position.
+func (state *State) ResolveStateAndUpdatePositions() error {
+	if state.Position != nil {
+		return nil
+	}
+
+	if state.Frame == nil || state.Configuration == nil {
+		return errInvalidConstraint
+	}
+
+	pos, err := state.Frame.Transform(state.Configuration)
+	if err != nil {
+		return err
+	}
+
+	state.Position = pos
+	return nil
+}
+
 // StateFS contains all the information a constraint needs to determine validity for a particular state or configuration of an entire
 // framesystem. It contains inputs, the corresponding poses, and the frame it refers to.
 // Pose field may be empty, and may be filled in by a constraint that needs it.
@@ -194,20 +213,19 @@ func OrientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Or
 
 // NewSquaredNormMetric is the default distance function between two poses to be used for gradient descent.
 func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
-	weightedSqNormDist := func(query *State) float64 {
-		delta := spatial.PoseDelta(goal, query.Position)
-		// Increase weight for orientation since it's a small number
-		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
-	}
-	return weightedSqNormDist
+	return NewScaledSquaredNormMetric(goal, orientationDistanceScaling)
 }
 
 // NewScaledSquaredNormMetric is a distance function between two poses. It allows the user to scale the contribution of orientation.
+// Increase weight for orientation since it's a small number.
 func NewScaledSquaredNormMetric(goal spatial.Pose, orientationDistanceScale float64) StateMetric {
 	weightedSqNormDist := func(query *State) float64 {
-		delta := spatial.PoseDelta(goal, query.Position)
-		// Increase weight for orientation since it's a small number
-		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScale).Norm2()
+		deltaCartesian := spatial.PoseDelta(goal, query.Position)
+		deltaOrientation := spatial.QuatToR3AA(deltaCartesian.Orientation().Quaternion()).Mul(orientationDistanceScale)
+
+		// fmt.Printf("delta cart: %0.4f orient: %0.4f\n", deltaCartesian.Point().Norm2(), deltaOrientation.Norm2())
+
+		return deltaCartesian.Point().Norm2() + deltaOrientation.Norm2()
 	}
 	return weightedSqNormDist
 }

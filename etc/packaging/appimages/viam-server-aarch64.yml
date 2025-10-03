@@ -10,7 +10,7 @@ script:
  - cp ./install ./postupdate "$TARGET_APPDIR/aix.d/"
  - chmod 755 "$TARGET_APPDIR/aix.d/install" "$TARGET_APPDIR/aix.d/postupdate"
  - cp ./viam-server.service "$TARGET_APPDIR/"
- - go install -ldflags "-s -w" -tags osusergo,netgo github.com/Otterverse/aix@latest
+ - go install -ldflags "-s -w" -tags osusergo,netgo github.com/viamrobotics/aix@latest
  - cp `go env GOPATH`/bin/aix "$TARGET_APPDIR/usr/bin/"
  - cp `which env` "$TARGET_APPDIR/usr/bin/"
  - chmod 755 "$TARGET_APPDIR/usr/bin/"*

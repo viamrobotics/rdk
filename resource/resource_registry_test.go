@@ -75,9 +75,9 @@ func TestComponentRegistry(t *testing.T) {
 }
 
 func TestResourceAPIRegistry(t *testing.T) {
-	var capColl resource.APIResourceCollection[motor.Motor]
+	var capColl resource.APIResourceGetter[motor.Motor]
 
-	sf := func(apiResColl resource.APIResourceCollection[motor.Motor]) interface{} {
+	sf := func(apiResColl resource.APIResourceGetter[motor.Motor]) interface{} {
 		capColl = apiResColl
 		return 5
 	}
@@ -202,7 +202,7 @@ func (st *mockAssociatedConfig) Link(conf *resource.Config) {
 }
 
 func TestResourceAPIRegistryWithAssociation(t *testing.T) {
-	sf := func(apiResColl resource.APIResourceCollection[motor.Motor]) interface{} {
+	sf := func(apiResColl resource.APIResourceGetter[motor.Motor]) interface{} {
 		return nil
 	}
 
@@ -301,9 +301,9 @@ func TestDependencyNotReadyError(t *testing.T) {
 	human := &resource.DependencyNotReadyError{"human", leg}
 
 	test.That(t, strings.Count(human.Error(), "\\"), test.ShouldEqual, 0)
-	test.That(t, human.PrettyPrint(), test.ShouldEqual, `Dependency "human" is not ready yet
-  - Because "leg" is not ready yet
-    - Because "foot" is not ready yet
-      - Because "toe" is not ready yet
-        - Because "turf toe"`)
+	test.That(t, human.PrettyPrint(), test.ShouldEqual, `Dependency human is not ready yet
+  - Because leg is not ready yet
+    - Because foot is not ready yet
+      - Because toe is not ready yet
+        - Because turf toe`)
 }

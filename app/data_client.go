@@ -153,9 +153,16 @@ type BoundingBox struct {
 	YMaxNormalized float64
 }
 
+// Classification represents a labeled classification on an image.
+type Classification struct {
+	ID    string
+	Label string
+}
+
 // Annotations are data annotations used for machine learning.
 type Annotations struct {
-	Bboxes []*BoundingBox
+	Bboxes          []*BoundingBox
+	Classifications []*Classification
 }
 
 // TabularDataByFilterResponse represents the result of a TabularDataByFilter query.
@@ -1537,6 +1544,16 @@ func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
 	}
 }
 
+func classificationFromProto(proto *pb.Classification) *Classification {
+	if proto == nil {
+		return nil
+	}
+	return &Classification{
+		ID:    proto.Id,
+		Label: proto.Label,
+	}
+}
+
 func exportTabularDataResponseFromProto(proto *pb.ExportTabularDataResponse) *ExportTabularDataResponse {
 	return &ExportTabularDataResponse{
 		OrganizationID:   proto.OrganizationId,
@@ -1559,12 +1576,17 @@ func annotationsFromProto(proto *pb.Annotations) *Annotations {
 	if proto == nil {
 		return nil
 	}
-	bboxes := make([]*BoundingBox, len(proto.Bboxes))
-	for i, bboxProto := range proto.Bboxes {
-		bboxes[i] = boundingBoxFromProto(bboxProto)
+	bboxes := make([]*BoundingBox, 0, len(proto.Bboxes))
+	for _, bboxProto := range proto.Bboxes {
+		bboxes = append(bboxes, boundingBoxFromProto(bboxProto))
+	}
+	classifications := make([]*Classification, 0, len(proto.Classifications))
+	for _, classificationProto := range proto.Classifications {
+		classifications = append(classifications, classificationFromProto(classificationProto))
 	}
 	return &Annotations{
-		Bboxes: bboxes,
+		Bboxes:          bboxes,
+		Classifications: classifications,
 	}
 }
 
@@ -1786,7 +1808,7 @@ func annotationsToProto(annotations *Annotations) *pb.Annotations {
 	if annotations == nil {
 		return nil
 	}
-	var protoBboxes []*pb.BoundingBox
+	protoBboxes := make([]*pb.BoundingBox, 0, len(annotations.Bboxes))
 	for _, bbox := range annotations.Bboxes {
 		protoBboxes = append(protoBboxes, &pb.BoundingBox{
 			Id:             bbox.ID,
@@ -1797,8 +1819,16 @@ func annotationsToProto(annotations *Annotations) *pb.Annotations {
 			YMaxNormalized: bbox.YMaxNormalized,
 		})
 	}
+	protoClassifications := make([]*pb.Classification, 0, len(annotations.Classifications))
+	for _, classification := range annotations.Classifications {
+		protoClassifications = append(protoClassifications, &pb.Classification{
+			Id:    classification.ID,
+			Label: classification.Label,
+		})
+	}
 	return &pb.Annotations{
-		Bboxes: protoBboxes,
+		Bboxes:          protoBboxes,
+		Classifications: protoClassifications,
 	}
 }
 

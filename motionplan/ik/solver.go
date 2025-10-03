@@ -4,6 +4,7 @@ package ik
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"strings"
@@ -31,7 +32,7 @@ type Solver interface {
 	// Solve receives a context, a channel to which solutions will be provided, a function whose output should be minimized, and a
 	// number of iterations to run.
 	Solve(ctx context.Context, solutions chan<- *Solution, seed []float64,
-		maxTravel, cartestianDistance float64, minFunc func([]float64) float64, rseed int) error
+		travelPercent []float64, minFunc func([]float64) float64, rseed int) (int, error)
 }
 
 // Solution is the struct returned from an IK solver. It contains the solution configuration, the score of the solution, and a flag
@@ -88,17 +89,40 @@ func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame,
 	}
 }
 
-// SolveMetric is a wrapper for Metrics to be used easily with Solve for IK solvers.
-func SolveMetric(
-	ctx context.Context,
-	ik Solver,
-	frame referenceframe.Frame,
-	solutionChan chan<- *Solution,
-	seed []referenceframe.Input,
-	solveMetric motionplan.StateMetric,
-	rseed int,
-	logger logging.Logger,
-) error {
-	minFunc := NewMetricMinFunc(solveMetric, frame, logger)
-	return ik.Solve(ctx, solutionChan, referenceframe.InputsToFloats(seed), 0, 0, minFunc, rseed)
+// DoSolve is a synchronous wrapper around Solver.Solve.
+// rangeModifier is [0-1] - 0 means don't really look a lot, which is good for highly constrained things
+//
+//	but will fail if you have to move. 1 means search the entire range.
+func DoSolve(ctx context.Context, solver Solver, solveFunc func([]float64) float64,
+	seed []float64, rangeModifier float64,
+) ([][]float64, error) {
+	travelPercent := []float64{}
+	for range seed {
+		travelPercent = append(travelPercent, rangeModifier)
+	}
+
+	solutionGen := make(chan *Solution)
+
+	var solveErrors error
+
+	go func() {
+		defer close(solutionGen)
+		_, err := solver.Solve(ctx, solutionGen, seed, travelPercent, solveFunc, 1)
+		solveErrors = err
+	}()
+
+	var solutions [][]float64
+	for step := range solutionGen {
+		solutions = append(solutions, step.Configuration)
+	}
+
+	if solveErrors != nil {
+		return nil, solveErrors
+	}
+
+	if len(solutions) == 0 {
+		return nil, fmt.Errorf("unable to solve for position")
+	}
+
+	return solutions, nil
 }

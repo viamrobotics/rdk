@@ -53,7 +53,7 @@ func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 		Namespace: string(name.API.Type.Namespace),
 		Type:      name.API.Type.Name,
 		Subtype:   name.API.SubtypeName,
-		Name:      name.ShortName(),
+		Name:      name.Name,
 	}
 }
 

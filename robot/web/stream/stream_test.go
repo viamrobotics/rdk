@@ -97,7 +97,7 @@ func TestAudioTrackIsNotCreatedForVideoStream(t *testing.T) {
 	defer cam.Close(ctx)
 
 	// Test that getting a single image succeeds.
-	_, _, err = cam.Images(ctx, nil)
+	_, _, err = cam.Images(ctx, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Create a stream client. Listing the streams should give back a single stream named `origCamera`;
@@ -331,7 +331,7 @@ func TestGetStreamOptions(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, streamOptionsResp, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no node found")
 
 	// Sanity check that we get valid stream options for both properties and sampling.
 	streamOptionsResp, err = livestreamClient.GetStreamOptions(ctx, &streampb.GetStreamOptionsRequest{

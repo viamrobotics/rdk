@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"runtime"
 
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
 )
@@ -17,32 +15,14 @@ import (
 const (
 	defaultCollisionBufferMM = 1e-8
 
-	// max linear deviation from straight-line between start and goal, in mm.
-	defaultLinearDeviation = 0.1
-
-	// allowable deviation from slerp between start/goal orientations, unit is the number of degrees of rotation away from the most direct
-	// arc from start orientation to goal orientation.
-	defaultOrientationDeviation = 2.0
-
-	// allowable linear and orientation deviation from direct interpolation path, as a proportion of the linear and orientation distances
-	// between the start and goal.
-	defaultPseudolinearTolerance = 0.8
-
 	// Number of IK solutions that should be generated before stopping.
 	defaultSolutionsToSeed = 100
 
 	// Check constraints are still met every this many mm/degrees of movement.
 	defaultResolution = 2.0
 
-	// default motion planning collision resolution is every 2mm.
-	// For bases we increase this to 60mm, a bit more than 2 inches.
-	defaultPTGCollisionResolution = 60
-
 	// If an IK solution scores below this much, return it immediately.
 	defaultMinIkScore = 0.01
-
-	// Default distance below which two distances are considered equal.
-	defaultEpsilon = 0.001
 
 	// default number of seconds to try to solve in total before returning.
 	defaultTimeout = 300.
@@ -50,50 +30,38 @@ const (
 	// default number of times to try to smooth the path.
 	defaultSmoothIter = 100
 
-	// default number of position only seeds to use for tp-space planning.
-	defaultTPspacePositionOnlySeeds = 16
-
 	// random seed.
 	defaultRandomSeed = 0
-
-	// constraints passed over the wire do not get names and we want to call them something.
-	defaultConstraintName = "unnamed constraint"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultStepSizeMM = 10
 
-	// This is commented out due to Go compiler bug. See comment in newBasicPlannerOptions for explanation.
-	// var defaultPlanner = newCBiRRTMotionPlanner.
+	// Number of planner iterations before giving up.
+	defaultPlanIter = 1500
+
+	// The maximum percent of a joints range of motion to allow per step.
+	defaultFrameStep = 0.01
+
+	// If the dot product between two sets of configurations is less than this, consider them identical.
+	defaultInputIdentDist = 0.0001
+
+	// Number of iterations to run before beginning to accept randomly seeded locations.
+	defaultIterBeforeRand = 50
+
+	defaultOptimalityMultiple = 3.0
 )
 
-var (
-	defaultNumThreads                            = utils.MinInt(runtime.NumCPU()/2, 10)
-	defaultTimeMultipleAfterFindingFirstSolution = 10
-)
+var defaultNumThreads = utils.MinInt(runtime.NumCPU()/2, 10)
 
 func init() {
-	defaultTimeMultipleAfterFindingFirstSolution = utils.GetenvInt("MP_TIME_MULTIPLIER", defaultTimeMultipleAfterFindingFirstSolution)
 	defaultNumThreads = utils.GetenvInt("MP_NUM_THREADS", defaultNumThreads)
 }
-
-// MotionProfile is an enum which indicates the motion profile to use when planning.
-type MotionProfile string
-
-// These are the currently supported motion profiles.
-const (
-	FreeMotionProfile         MotionProfile = "free"
-	LinearMotionProfile       MotionProfile = "linear"
-	PseudolinearMotionProfile MotionProfile = "pseudolinear"
-	OrientationMotionProfile  MotionProfile = "orientation"
-	PositionOnlyMotionProfile MotionProfile = "position_only"
-)
 
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
 func NewBasicPlannerOptions() *PlannerOptions {
 	opt := &PlannerOptions{}
 	opt.GoalMetricType = motionplan.SquaredNorm
 	opt.ConfigurationDistanceMetric = motionplan.FSConfigurationL2DistanceMetric
-	opt.ScoringMetric = motionplan.FSConfigL2ScoringMetric
 
 	// TODO: RSDK-6079 this should be properly used, and deduplicated with defaultEpsilon, InputIdentDist, etc.
 	opt.GoalThreshold = 0.1
@@ -102,25 +70,15 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
-	opt.PositionSeeds = defaultTPspacePositionOnlySeeds
 
 	opt.PlanIter = defaultPlanIter
 	opt.FrameStep = defaultFrameStep
 	opt.InputIdentDist = defaultInputIdentDist
 	opt.IterBeforeRand = defaultIterBeforeRand
 
-	opt.PlanningAlgorithmSettings = AlgorithmSettings{
-		Algorithm: UnspecifiedAlgorithm,
-	}
-
 	opt.SmoothIter = defaultSmoothIter
 
-	opt.TimeMultipleAfterFindingFirstSolution = defaultTimeMultipleAfterFindingFirstSolution
 	opt.NumThreads = defaultNumThreads
-
-	opt.LineTolerance = defaultLinearDeviation
-	opt.OrientationTolerance = defaultOrientationDeviation
-	opt.ToleranceFactor = defaultPseudolinearTolerance
 
 	opt.PathStepSize = defaultStepSizeMM
 	opt.CollisionBufferMM = defaultCollisionBufferMM
@@ -148,9 +106,6 @@ type PlannerOptions struct {
 
 	// Check constraints are still met every this many mm/degrees of movement.
 	Resolution float64 `json:"resolution"`
-
-	// Percentage interval of max iterations after which to print debug logs
-	LoggingInterval float64 `json:"logging_interval"`
 
 	// Number of seconds before terminating planner
 	Timeout float64 `json:"timeout"`
@@ -183,40 +138,13 @@ type PlannerOptions struct {
 	// this will if true return the valid plan up to the last solved waypoint.
 	ReturnPartialPlan bool `json:"return_partial_plan"`
 
-	// ScoringMetricStr is an enum indicating the function that the planner will use to evaluate a plan for final cost comparisons.
-	ScoringMetric motionplan.ScoringMetric `json:"scoring_metric"`
-
-	// TPSpaceOrientationScale is the scale factor on orientation for the squared norm segment metric used
-	// to calculate the distance between poses when planning for a TP-space frame
-	TPSpaceOrientationScale float64 `json:"tp_space_orientation_scale"`
-
 	// Determines the algorithm that the planner will use to measure the degree of "closeness" between two states of the robot
 	// See metrics.go for options
 	ConfigurationDistanceMetric motionplan.SegmentFSMetricType `json:"configuration_distance_metric"`
 
-	// A profile indicating which of the tolerance parameters listed below should be considered
-	// for further constraining the motion.
-	MotionProfile MotionProfile `json:"motion_profile"`
-
-	// Linear tolerance for translational deviation for a path. Only used when the
-	// `MotionProfile` is `LinearMotionProfile`.
-	LineTolerance float64 `json:"line_tolerance"`
-
-	// Orientation tolerance for angular deviation for a path. Used for either the `LinearMotionProfile`
-	// or the `OrientationMotionProfile`.
-	OrientationTolerance float64 `json:"orient_tolerance"`
-
-	// A factor by which the entire pose is allowed to deviate for a path. Used only for a PseudolinearMotionProfile.
-	ToleranceFactor float64 `json:"tolerance"`
-
 	// No two geometries that did not start the motion in collision may come within this distance of
 	// one another at any time during a motion.
 	CollisionBufferMM float64 `json:"collision_buffer_mm"`
-
-	// The algorithm used for pathfinding along with any configurable settings for that algorithm. If this
-	// object is not provided, motion planning will attempt to use RRT* and, in the event of failure
-	// to find an acceptable path, it will fallback to cBiRRT.
-	PlanningAlgorithmSettings AlgorithmSettings `json:"planning_algorithm_settings"`
 
 	// The random seed used by motion algorithms during planning. This parameter guarantees deterministic
 	// outputs for a given set of identical inputs
@@ -228,16 +156,6 @@ type PlannerOptions struct {
 
 	// Setting indicating that all mesh geometries should be converted into octrees.
 	MeshesAsOctrees bool `json:"meshes_as_octrees"`
-
-	// A set of fallback options to use on initial planning failure. This is used to facilitate the default
-	// behavior described above in the comment for `PlanningAlgorithmSettings`. This will be populated
-	// automatically if needed and is not meant to be set by users of the library.
-	Fallback *PlannerOptions `json:"fallback_options"`
-
-	// For inverse kinematics, the time within which each pending solution must finish its computation is
-	// a multiple of the time taken to compute the first solution. This parameter is a way to
-	// set that multiplicative factor.
-	TimeMultipleAfterFindingFirstSolution int `json:"time_multiple_after_finding_first_solution"`
 }
 
 // NewPlannerOptionsFromExtra returns basic default settings updated by overridden parameters
@@ -259,64 +177,16 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 		return nil, errors.New("collision_buffer_mm can't be negative")
 	}
 
-	// we want to deprecate, rather than break, usage of the "tolerance" key for
-	// OrientationMotionProfile
-	if opt.MotionProfile == OrientationMotionProfile {
-		opt.OrientationTolerance = opt.ToleranceFactor
-	}
 	return opt, nil
-}
-
-// Returns an updated PlannerOptions taking into account whether TP-Space is being used and whether
-// a Free or Position-Only motion profile was requested with an unspecified algorithm (indicating the desire
-// to let motionplan handle what algorithm to use and allow for a fallback).
-func updateOptionsForPlanning(opt *PlannerOptions, useTPSpace bool) (*PlannerOptions, error) {
-	optCopy := *opt
-	planningAlgorithm := optCopy.PlanningAlgorithm()
-	if useTPSpace && (planningAlgorithm != UnspecifiedAlgorithm) && (planningAlgorithm != TPSpace) {
-		return nil, fmt.Errorf("cannot specify a planning algorithm when planning for a TP-space frame. alg specified was %s",
-			planningAlgorithm)
-	}
-
-	if useTPSpace {
-		// overwrite default with TP space
-		optCopy.PlanningAlgorithmSettings = AlgorithmSettings{
-			Algorithm: TPSpace,
-		}
-
-		optCopy.TPSpaceOrientationScale = defaultTPspaceOrientationScale
-
-		optCopy.Resolution = defaultPTGCollisionResolution
-
-		// If we have PTGs, then we calculate distances using the PTG-specific distance function.
-		// Otherwise we just use squared norm on inputs.
-		optCopy.ScoringMetric = motionplan.PTGDistance
-	}
-
-	if optCopy.MotionProfile == FreeMotionProfile || optCopy.MotionProfile == PositionOnlyMotionProfile {
-		if optCopy.PlanningAlgorithm() == UnspecifiedAlgorithm {
-			fallbackOpts := &optCopy
-
-			optCopy.Timeout = defaultFallbackTimeout
-			optCopy.PlanningAlgorithmSettings = AlgorithmSettings{
-				Algorithm: RRTStar,
-			}
-			optCopy.Fallback = fallbackOpts
-		}
-	}
-
-	return &optCopy, nil
-}
-
-// PlanningAlgorithm returns the label of the planning algorithm in plannerOptions.
-func (p *PlannerOptions) PlanningAlgorithm() PlanningAlgorithm {
-	return p.PlanningAlgorithmSettings.Algorithm
 }
 
 // getGoalMetric creates the distance metric for the solver using the configured options.
 func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) motionplan.StateFSMetric {
 	metrics := map[string]motionplan.StateMetric{}
+	frames := map[string]string{}
+
 	for frame, goalInFrame := range goal {
+		frames[frame] = goalInFrame.Parent()
 		switch p.GoalMetricType {
 		case motionplan.PositionOnly:
 			metrics[frame] = motionplan.NewPositionOnlyMetric(goalInFrame.Pose())
@@ -328,14 +198,16 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 			metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
 		}
 	}
+
 	return func(state *motionplan.StateFS) float64 {
 		score := 0.
 		for frame, goalMetric := range metrics {
-			poseParent := goal[frame].Parent()
+			poseParent := frames[frame]
 			currPose, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
 			if err != nil {
-				score += math.Inf(1)
+				panic(fmt.Errorf("fs: %v err: %w frame: %s poseParent: %v", state.FS.FrameNames(), err, frame, poseParent))
 			}
+
 			score += goalMetric(&motionplan.State{
 				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
 				Configuration: state.Configuration[frame],
@@ -346,13 +218,6 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 	}
 }
 
-// In the scenario where we use TP-space, we call this to retrieve a function that computes distances
-// in cartesian space rather than configuration space. The planner will use this to measure the degree of "closeness"
-// between two poses.
-func (p *PlannerOptions) getPoseDistanceFunc() motionplan.SegmentMetric {
-	return motionplan.NewSquaredNormSegmentMetric(p.TPSpaceOrientationScale)
-}
-
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
 func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
 	p.MaxSolutions = maxSolutions
@@ -361,17 +226,4 @@ func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
 // SetMinScore specifies the IK stopping score for the planner.
 func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
-}
-
-func (p *PlannerOptions) getScoringFunction(mcs *motionChains) motionplan.SegmentFSMetric {
-	switch p.ScoringMetric {
-	case motionplan.FSConfigScoringMetric:
-		return motionplan.FSConfigurationDistance
-	case motionplan.FSConfigL2ScoringMetric:
-		return motionplan.FSConfigurationL2Distance
-	case motionplan.PTGDistance:
-		return tpspace.NewPTGDistanceMetric([]string{mcs.ptgFrameName})
-	default:
-		return motionplan.FSConfigurationL2Distance
-	}
 }

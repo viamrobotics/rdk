@@ -402,14 +402,13 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 
 // Returns the relative pose between the parent and the destination frame.
 func (sfs *FrameSystem) transformFromParent(inputMap FrameSystemInputs, src, dst Frame) (*PoseInFrame, error) {
-	// catch all errors together to allow for hypothetical calculations that result in errors
-	var errAll error
 	dstToWorld, err := sfs.getFrameToWorldTransform(inputMap, dst)
-	multierr.AppendInto(&errAll, err)
+	if err != nil {
+		return nil, err
+	}
 	srcToWorld, err := sfs.getFrameToWorldTransform(inputMap, src)
-	multierr.AppendInto(&errAll, err)
-	if errAll != nil && (dstToWorld == nil || srcToWorld == nil) {
-		return nil, errAll
+	if err != nil {
+		return nil, err
 	}
 
 	// transform from source to world, world to target parent
@@ -732,7 +731,7 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 		return topoSortedParts, nil
 	}
 	stack := make([]string, 0)
-	visited := make(map[string]bool)
+	visited := make(map[string]struct{})
 	if _, ok := children[World]; !ok {
 		return nil, ErrNoWorldConnection
 	}
@@ -744,7 +743,7 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error
 		if _, ok := visited[parent]; ok {
 			return nil, errors.Errorf("the system contains a cycle, have already visited frame %s", parent)
 		}
-		visited[parent] = true
+		visited[parent] = struct{}{}
 		sort.Slice(children[parent], func(i, j int) bool {
 			return children[parent][i].FrameConfig.Name() < children[parent][j].FrameConfig.Name()
 		}) // sort alphabetically within the topological sort

@@ -14,9 +14,10 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/base/kinematicbase"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/armplanning"
+	"go.viam.com/rdk/motionplan/baseplanning"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -63,10 +64,10 @@ type moveRequest struct {
 	logger            logging.Logger
 	config            *validatedMotionConfiguration
 	frameSystem       *referenceframe.FrameSystem
-	planRequest       *armplanning.PlanRequest
+	planRequest       *baseplanning.PlanRequest
 	seedPlan          motionplan.Plan
 	kinematicBase     kinematicbase.KinematicBase
-	obstacleDetectors map[vision.Service][]resource.Name
+	obstacleDetectors map[vision.Service][]string
 	replanCostFactor  float64
 	// TODO(RSDK-8683): remove atGoalCheck and put it in the motionplan package
 	// atGoalCheck func(basePose spatialmath.Pose) *state.ExecuteResponse
@@ -102,7 +103,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 		inputs = inputs[:2]
 	}
 	startConf := referenceframe.FrameSystemInputs{k.Name(): inputs}
-	mr.planRequest.StartState = armplanning.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
+	mr.planRequest.StartState = baseplanning.NewPlanState(mr.planRequest.StartState.Poses(), startConf)
 
 	// get existing elements of the worldstate
 
@@ -133,7 +134,7 @@ func (mr *moveRequest) Plan(ctx context.Context) (motionplan.Plan, error) {
 	planRequestCopy.WorldState = worldState
 
 	// TODO(RSDK-5634): this should pass in mr.seedplan and the appropriate replanCostFactor once this bug is found and fixed.
-	return armplanning.Replan(ctx, mr.logger, &planRequestCopy, nil, 0)
+	return baseplanning.Replan(ctx, mr.logger, &planRequestCopy, nil, 0)
 }
 
 func (mr *moveRequest) Execute(ctx context.Context, plan motionplan.Plan) (state.ExecuteResponse, error) {
@@ -202,7 +203,7 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Pla
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
-	errorState, err := armplanning.CalculateFrameErrorState(executionState, k, mr.kinematicBase.LocalizationFrame())
+	errorState, err := baseplanning.CalculateFrameErrorState(executionState, k, mr.kinematicBase.LocalizationFrame())
 	if err != nil {
 		return state.ExecuteResponse{}, err
 	}
@@ -222,12 +223,12 @@ func (mr *moveRequest) deviatedFromPlan(ctx context.Context, plan motionplan.Pla
 func (mr *moveRequest) getTransientDetections(
 	ctx context.Context,
 	visSrvc vision.Service,
-	camName resource.Name,
+	camName string,
 ) (*referenceframe.GeometriesInFrame, error) {
 	mr.logger.CDebugf(ctx,
 		"proceeding to get detections from vision service: %s with camera: %s",
 		visSrvc.Name().ShortName(),
-		camName.ShortName(),
+		camName,
 	)
 
 	baseExecutionState, err := mr.kinematicBase.ExecutionState(ctx)
@@ -253,7 +254,7 @@ func (mr *moveRequest) getTransientDetections(
 	)...)
 	inputMap[mr.kinematicBase.Name().ShortName()] = kbInputs
 
-	detections, err := visSrvc.GetObjectPointClouds(ctx, camName.Name, nil)
+	detections, err := visSrvc.GetObjectPointClouds(ctx, camName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +264,7 @@ func (mr *moveRequest) getTransientDetections(
 	for i, detection := range detections {
 		geometry := detection.Geometry
 		// update the label of the geometry so we know it is transient
-		label := camName.ShortName() + "_transientObstacle_" + strconv.Itoa(i)
+		label := camName + "_transientObstacle_" + strconv.Itoa(i)
 		if geometry.Label() != "" {
 			label += "_" + geometry.Label()
 		}
@@ -274,7 +275,7 @@ func (mr *moveRequest) getTransientDetections(
 		// in the world frame
 		tf, err := mr.localizingFS.Transform(
 			inputMap,
-			referenceframe.NewGeometriesInFrame(camName.ShortName(), []spatialmath.Geometry{geometry}),
+			referenceframe.NewGeometriesInFrame(camName, []spatialmath.Geometry{geometry}),
 			referenceframe.World,
 		)
 		if err != nil {
@@ -355,13 +356,12 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				updatedBaseExecutionState.CurrentInputs(),
 				worldState.String(),
 			)
-			if err := armplanning.CheckPlan(
+			if err := baseplanning.CheckPlan(
 				mr.localizingFS.Frame(k.Name()), // frame we wish to check for collisions
 				updatedBaseExecutionState,
 				worldState, // detected obstacles by this instance of camera + service
 				mr.localizingFS,
 				lookAheadDistanceMM,
-				mr.logger,
 			); err != nil {
 				mr.logger.CInfo(ctx, err.Error())
 				return state.ExecuteResponse{Replan: true, ReplanReason: err.Error()}, nil
@@ -382,11 +382,11 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 // mr.kinematicBase.Kinematics().
 func (mr *moveRequest) augmentBaseExecutionState(
 	ctx context.Context,
-	baseExecutionState armplanning.ExecutionState,
-) (armplanning.ExecutionState, error) {
+	baseExecutionState baseplanning.ExecutionState,
+) (baseplanning.ExecutionState, error) {
 	k, err := mr.kinematicBase.Kinematics(ctx)
 	if err != nil {
-		return armplanning.ExecutionState{}, err
+		return baseplanning.ExecutionState{}, err
 	}
 	// update plan
 	existingPlan := baseExecutionState.Plan()
@@ -461,12 +461,12 @@ func (mr *moveRequest) augmentBaseExecutionState(
 	existingCurrentPoses[mr.kinematicBase.Name().Name] = localizationFramePose
 	delete(existingCurrentPoses, mr.kinematicBase.LocalizationFrame().Name())
 
-	return armplanning.NewExecutionState(
+	return baseplanning.NewExecutionState(
 		augmentedPlan, baseExecutionState.Index(), allCurrentInputsFromBaseExecutionState, existingCurrentPoses,
 	)
 }
 
-func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra validatedExtra) kinematicbase.Options {
+func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration) kinematicbase.Options {
 	kinematicsOptions := kinematicbase.NewKinematicBaseOptions()
 
 	if motionCfg.linearMPerSec > 0 {
@@ -479,10 +479,6 @@ func kbOptionsFromCfg(motionCfg *validatedMotionConfiguration, validatedExtra va
 
 	if motionCfg.planDeviationMM > 0 {
 		kinematicsOptions.PlanDeviationThresholdMM = motionCfg.planDeviationMM
-	}
-
-	if validatedExtra.motionProfile != "" {
-		kinematicsOptions.PositionOnlyMode = validatedExtra.motionProfile == armplanning.PositionOnlyMotionProfile
 	}
 
 	kinematicsOptions.GoalRadiusMM = motionCfg.planDeviationMM
@@ -616,12 +612,12 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	// build kinematic options
-	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
+	kinematicsOptions := kbOptionsFromCfg(motionCfg)
 
 	// build the localizer from the movement sensor
 	movementSensor, ok := ms.movementSensors[req.MovementSensorName]
 	if !ok {
-		return nil, resource.DependencyNotFoundError(req.MovementSensorName)
+		return nil, resource.DependencyNotFoundError(movementsensor.Named(req.MovementSensorName))
 	}
 
 	origin, _, err := movementSensor.Position(ctx, nil)
@@ -635,7 +631,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	}
 
 	// add an offset between the movement sensor and the base if it is applicable
-	baseOrigin := referenceframe.NewPoseInFrame(req.ComponentName.ShortName(), spatialmath.NewZeroPose())
+	baseOrigin := referenceframe.NewPoseInFrame(req.ComponentName, spatialmath.NewZeroPose())
 	movementSensorToBase, err := ms.fsService.TransformPose(ctx, baseOrigin, movementSensor.Name().ShortName(), nil)
 	if err != nil {
 		// here we make the assumption the movement sensor is coincident with the base
@@ -645,9 +641,9 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 	localizer := motion.TwoDLocalizer(motion.NewMovementSensorLocalizer(movementSensor, origin, movementSensorToBase.Pose()))
 
 	// create a KinematicBase from the componentName
-	baseComponent, ok := ms.components[req.ComponentName.ShortName()]
+	baseComponent, ok := ms.components[req.ComponentName]
 	if !ok {
-		return nil, resource.NewNotFoundError(req.ComponentName)
+		return nil, resource.NewNotFoundError(base.Named(req.ComponentName))
 	}
 	b, ok := baseComponent.(base.Base)
 	if !ok {
@@ -689,7 +685,7 @@ func (ms *builtIn) newMoveOnGlobeRequest(
 
 	// TODO (GV) - Remove this unnecessary converion/re-conversion when an
 	// opinionated proto message is created for PlanRequest
-	boundingRegionsProto := spatialmath.NewGeometriesToProto(boundingRegions)
+	boundingRegionsProto := referenceframe.NewGeometriesToProto(boundingRegions)
 
 	mr, err := ms.createBaseMoveRequest(
 		ctx,
@@ -741,7 +737,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	// get the SLAM Service from the slamName
 	slamSvc, ok := ms.slamServices[req.SlamName]
 	if !ok {
-		return nil, resource.DependencyNotFoundError(req.SlamName)
+		return nil, resource.DependencyNotFoundError(slam.Named(req.SlamName))
 	}
 
 	// verify slam is in localization mode
@@ -761,9 +757,9 @@ func (ms *builtIn) newMoveOnMapRequest(
 	limits = append(limits, referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
 
 	// create a KinematicBase from the componentName
-	component, ok := ms.components[req.ComponentName.ShortName()]
+	component, ok := ms.components[req.ComponentName]
 	if !ok {
-		return nil, resource.DependencyNotFoundError(req.ComponentName)
+		return nil, resource.DependencyNotFoundError(base.Named(req.ComponentName))
 	}
 	b, ok := component.(base.Base)
 	if !ok {
@@ -771,7 +767,7 @@ func (ms *builtIn) newMoveOnMapRequest(
 	}
 
 	// build kinematic options
-	kinematicsOptions := kbOptionsFromCfg(motionCfg, valExtra)
+	kinematicsOptions := kbOptionsFromCfg(motionCfg)
 
 	fs, err := framesystem.NewFromService(ctx, ms.fsService, nil)
 	if err != nil {
@@ -903,19 +899,19 @@ func (ms *builtIn) createBaseMoveRequest(
 		return nil, err
 	}
 
-	obstacleDetectors := make(map[vision.Service][]resource.Name)
+	obstacleDetectors := make(map[vision.Service][]string)
 	for _, obstacleDetectorNamePair := range motionCfg.obstacleDetectors {
 		// get vision service
 		visionServiceName := obstacleDetectorNamePair.VisionServiceName
 		visionSvc, ok := ms.visionServices[visionServiceName]
 		if !ok {
-			return nil, resource.DependencyNotFoundError(visionServiceName)
+			return nil, resource.DependencyNotFoundError(resource.Name{Name: visionServiceName})
 		}
 
 		// add camera to vision service map
 		camList, ok := obstacleDetectors[visionSvc]
 		if !ok {
-			obstacleDetectors[visionSvc] = []resource.Name{obstacleDetectorNamePair.CameraName}
+			obstacleDetectors[visionSvc] = []string{obstacleDetectorNamePair.CameraName}
 		} else {
 			camList = append(camList, obstacleDetectorNamePair.CameraName)
 			obstacleDetectors[visionSvc] = camList
@@ -941,21 +937,18 @@ func (ms *builtIn) createBaseMoveRequest(
 
 	// TODO(RSDK-8683): move this check into the motionplan package
 	atGoalCheck := func(basePose spatialmath.Pose) bool {
-		if valExtra.motionProfile == armplanning.PositionOnlyMotionProfile {
-			return spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM)
-		}
 		return spatialmath.OrientationAlmostEqualEps(goal.Pose().Orientation(), basePose.Orientation(), 5) &&
 			spatialmath.PoseAlmostCoincidentEps(goal.Pose(), basePose, motionCfg.planDeviationMM)
 	}
 
 	var backgroundWorkers sync.WaitGroup
-	startState := armplanning.NewPlanState(
+	startState := baseplanning.NewPlanState(
 		referenceframe.FrameSystemPoses{kinematicFrame.Name(): referenceframe.NewPoseInFrame(referenceframe.World, startPose)},
 		currentInputs,
 	)
-	goals := []*armplanning.PlanState{armplanning.NewPlanState(referenceframe.FrameSystemPoses{kinematicFrame.Name(): goal}, nil)}
+	goals := []*baseplanning.PlanState{baseplanning.NewPlanState(referenceframe.FrameSystemPoses{kinematicFrame.Name(): goal}, nil)}
 
-	planOpts, err := armplanning.NewPlannerOptionsFromExtra(valExtra.extra)
+	planOpts, err := baseplanning.NewPlannerOptionsFromExtra(valExtra.extra)
 	if err != nil {
 		return nil, err
 	}
@@ -963,7 +956,7 @@ func (ms *builtIn) createBaseMoveRequest(
 		config:      motionCfg,
 		logger:      ms.logger,
 		frameSystem: planningFS,
-		planRequest: &armplanning.PlanRequest{
+		planRequest: &baseplanning.PlanRequest{
 			FrameSystem:    planningFS,
 			Goals:          goals,
 			StartState:     startState,

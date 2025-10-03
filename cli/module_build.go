@@ -2,8 +2,8 @@ package cli
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/gzip"
-	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -15,6 +15,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
@@ -82,7 +83,7 @@ func (c *viamClient) moduleBuildStartForRepo(
 	version = strings.TrimPrefix(version, "v")
 
 	var platforms []string
-	if len(args.Platforms) > 0 { //nolint:gocritic
+	if len(args.Platforms) > 0 {
 		platforms = args.Platforms
 	} else if len(manifest.Build.Arch) > 0 {
 		platforms = manifest.Build.Arch
@@ -117,6 +118,12 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 	if err != nil {
 		return "", err
 	}
+
+	if manifest.URL == "" {
+		return "", errors.New("meta.json must have a url field set in order to start a cloud build. " +
+			"Ex: 'https://github.com/your-username/your-repo'")
+	}
+
 	return c.moduleBuildStartForRepo(cCtx, args, &manifest, manifest.URL)
 }
 
@@ -515,33 +522,224 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 		return "", err
 	}
 	viamReloadArchive := ".VIAM_RELOAD_ARCHIVE.tar.gz"
-	rmArchiveCmd := exec.Command("rm", "-f", viamReloadArchive)
-	rmArchiveCmd.Dir = repoPath
-	if _, err = rmArchiveCmd.Output(); err != nil {
-		return "", err
-	}
-	cmd := fmt.Sprintf("git ls-files -z | xargs -0 tar -czvf %s", viamReloadArchive)
-	//nolint:gosec
-	createArchiveCmd := exec.Command("bash", "-c", cmd)
-	createArchiveCmd.Dir = repoPath
-	if _, err = createArchiveCmd.Output(); err != nil {
+	archivePath := filepath.Join(repoPath, viamReloadArchive)
+
+	// Remove existing archive if it exists
+	if err := os.Remove(archivePath); err != nil && !os.IsNotExist(err) {
 		return "", err
 	}
 
-	getArchiveDirCmd := exec.Command("pwd")
-	getArchiveDirCmd.Dir = repoPath
-	dir, err := getArchiveDirCmd.Output()
+	// Load gitignore patterns
+	matcher, err := c.loadGitignorePatterns(repoPath)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to load gitignore patterns")
 	}
 
-	stringDir := strings.TrimSpace(string(dir))
-	return filepath.Join(stringDir, viamReloadArchive), nil
+	// Create the tar.gz archive
+	//nolint:gosec // archivePath is constructed from validated repoPath and constant filename
+	archiveFile, err := os.Create(archivePath)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create archive file")
+	}
+	defer func() {
+		if closeErr := archiveFile.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close archive file"))
+		}
+	}()
+
+	gzWriter := gzip.NewWriter(archiveFile)
+	defer func() {
+		if closeErr := gzWriter.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close gzip writer"))
+		}
+	}()
+
+	tarWriter := tar.NewWriter(gzWriter)
+	defer func() {
+		if closeErr := tarWriter.Close(); closeErr != nil {
+			err = multierr.Append(err, errors.Wrap(closeErr, "failed to close tar writer"))
+		}
+	}()
+
+	// Walk the filesystem and add files that are not ignored
+	err = filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip the archive file itself
+		if path == archivePath {
+			return nil
+		}
+
+		// Get relative path from repo root
+		relPath, err := filepath.Rel(repoPath, path)
+		if err != nil {
+			return err
+		}
+
+		// Skip directories and check if file should be ignored
+		if info.IsDir() {
+			// Skip .git directory
+			if info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Check if file matches gitignore patterns
+		if c.shouldIgnoreFile(relPath, matcher) {
+			return nil
+		}
+
+		// Read file content
+		//nolint:gosec // path is validated through filepath.Walk and relative path checks
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read file %s", relPath)
+		}
+
+		// Create tar header
+		header := &tar.Header{
+			Name:    filepath.ToSlash(relPath), // Use forward slashes in tar
+			Mode:    int64(info.Mode()),
+			Size:    info.Size(),
+			ModTime: info.ModTime(),
+		}
+
+		// Write header
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return errors.Wrapf(err, "failed to write header for file %s", relPath)
+		}
+
+		// Write file content
+		if _, err := tarWriter.Write(content); err != nil {
+			return errors.Wrapf(err, "failed to write content for file %s", relPath)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to process filesystem files")
+	}
+
+	return archivePath, nil
+}
+
+func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, error) {
+	var patterns []gitignore.Pattern
+
+	// Add default patterns to ignore common files
+	defaultIgnores := []string{
+		".git/",
+		".DS_Store",
+		"Thumbs.db",
+		".VIAM_RELOAD_ARCHIVE.tar.gz", // Ignore the archive file itself
+	}
+
+	for _, pattern := range defaultIgnores {
+		patterns = append(patterns, gitignore.ParsePattern(pattern, nil))
+	}
+
+	// Load .gitignore file if it exists
+	gitignorePath := filepath.Join(repoPath, ".gitignore")
+	if _, err := os.Stat(gitignorePath); err == nil {
+		//nolint:gosec // gitignorePath is constructed from validated repoPath and constant filename
+		file, err := os.Open(gitignorePath)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to open .gitignore file")
+		}
+		defer func() {
+			//nolint:errcheck,gosec // Ignore close error for read-only file
+			file.Close()
+		}()
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			// Skip empty lines and comments
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			patterns = append(patterns, gitignore.ParsePattern(line, nil))
+		}
+
+		if err := scanner.Err(); err != nil {
+			return nil, errors.Wrap(err, "failed to read .gitignore file")
+		}
+	}
+
+	return gitignore.NewMatcher(patterns), nil
+}
+
+func (c *viamClient) shouldIgnoreFile(relPath string, matcher gitignore.Matcher) bool {
+	// Convert to forward slashes for gitignore matching
+	normalizedPath := filepath.ToSlash(relPath)
+	return matcher.Match(strings.Split(normalizedPath, "/"), false)
+}
+
+func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID moduleID, manifest *moduleManifest) error {
+	_, err := c.getModule(moduleID)
+	if err != nil {
+		// Module is not registered in the cloud, prompt user for confirmation
+		red := "\033[1;31m%s\033[0m"
+		printf(ctx.App.Writer, red, "Error: module not registered in cloud or you lack permissions to edit it.")
+
+		yellow := "\033[1;33m%s\033[0m"
+		printf(ctx.App.Writer, yellow, "Info: The reloading process requires the module to first be registered in the cloud. "+
+			"Do you want to proceed with module registration?")
+		printf(ctx.App.Writer, "Continue: y/n: ")
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		rawInput, err := bufio.NewReader(ctx.App.Reader).ReadString('\n')
+		if err != nil {
+			return err
+		}
+
+		input := strings.ToUpper(strings.TrimSpace(rawInput))
+		if input != "Y" {
+			return errors.New("module reload aborted - module not registered in cloud")
+		}
+
+		// If user confirmed, we'll proceed with the reload which will register the module
+		// The registration happens implicitly through the cloud build process
+
+		org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
+		if err != nil {
+			return err
+		}
+		// Create the module in the cloud
+		_, err = c.createModule(moduleID.name, org.GetId())
+		if err != nil {
+			return err
+		}
+	}
+
+	// always update the cloud module before reloading
+	_, err = c.updateModule(moduleID, *manifest)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // moduleCloudReload triggers a cloud build and then reloads the specified module with that build.
 func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string) (string, error) {
 	manifest, err := loadManifest(args.Module)
+	if err != nil {
+		return "", err
+	}
+
+	// ensure that the module has been registered in the cloud
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return "", err
+	}
+
+	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, &manifest)
 	if err != nil {
 		return "", err
 	}
@@ -552,11 +750,6 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	}
 
 	archivePath, err := c.createGitArchive(args.Path)
-	if err != nil {
-		return "", err
-	}
-
-	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
 		return "", err
 	}
@@ -606,14 +799,22 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	}
 
 	// ensure the build completes before we try to dowload and use it
-	_, err = c.waitForBuildToFinish(buildID, platform)
+	statuses, err := c.waitForBuildToFinish(buildID, platform)
 	if err != nil {
 		return "", err
 	}
 
-	// (TODO RSDK-11517) There seems to be some delay between a build finishing and being findable
-	// for download. In testing, a delay of 3 seconds wasn't reliably long enough but 5 seconds was.
-	time.Sleep(time.Second * 5)
+	// if the build failed, print the logs and return an error
+	if statuses[platform] == jobStatusFailed {
+		// Print error message without exiting (don't use Errorf since it calls os.Exit(1))
+		errorf(c.c.App.Writer, "Build %q failed to complete. Please check the logs below for more information.", buildID)
+
+		if err = c.printModuleBuildLogs(buildID, platform); err != nil {
+			return "", err
+		}
+
+		return "", errors.Errorf("Reloading module failed")
+	}
 
 	downloadArgs := downloadModuleFlags{
 		ID:       id,
@@ -661,7 +862,7 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, logger logging.Logger) error {
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
-	partID, err := resolvePartID(c.Context, args.PartID, args.CloudConfig)
+	partID, err := resolvePartID(args.PartID, args.CloudConfig)
 	if err != nil {
 		return err
 	}
@@ -831,14 +1032,14 @@ func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
 }
 
 // resolvePartID takes an optional provided part ID (from partFlag), and an optional default viam.json, and returns a part ID to use.
-func resolvePartID(ctx context.Context, partIDFromFlag, cloudJSON string) (string, error) {
+func resolvePartID(partIDFromFlag, cloudJSON string) (string, error) {
 	if len(partIDFromFlag) > 0 {
 		return partIDFromFlag, nil
 	}
 	if len(cloudJSON) == 0 {
 		return "", errors.New("no --part and no default json")
 	}
-	conf, err := config.ReadLocalConfig(ctx, cloudJSON, logging.NewLogger("config"))
+	conf, err := config.ReadLocalConfig(cloudJSON, logging.NewLogger("config"))
 	if err != nil {
 		return "", err
 	}
@@ -863,7 +1064,7 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, generalFlagID)
 	}
 	request := &robot.RestartModuleRequest{}
-	//nolint:gocritic
+
 	if len(modName) > 0 {
 		request.ModuleName = modName
 	} else if len(modID) > 0 {

@@ -22,7 +22,8 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	camerautils "go.viam.com/rdk/robot/web/stream/camera"
+	camerautils1 "go.viam.com/rdk/robot/web/stream/camera"
+	camerautils2 "go.viam.com/rdk/robot/web/stream/camera2"
 	"go.viam.com/rdk/robot/web/stream/state"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -171,8 +172,8 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	}
 
 	// return error if resource is neither a camera nor audioinput
-	_, isCamErr := camerautils.Camera(server.robot, streamStateToAdd.Stream)
-	_, isAudioErr := audioinput.FromRobot(server.robot, resource.SDPTrackNameToShortName(streamStateToAdd.Stream.Name()))
+	_, isCamErr := cameraUtilsCamera(server.robot, streamStateToAdd.Stream)
+	_, isAudioErr := audioinput.FromRobot(server.robot, streamStateToAdd.Stream.Name())
 	if isCamErr != nil && isAudioErr != nil {
 		return nil, errors.Errorf("stream is neither a camera nor audioinput. streamName: %v", streamStateToAdd.Stream)
 	}
@@ -270,9 +271,9 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 		return &streampb.RemoveStreamResponse{}, nil
 	}
 
-	shortName := resource.SDPTrackNameToShortName(streamToRemove.Stream.Name())
-	_, isAudioResourceErr := audioinput.FromRobot(server.robot, shortName)
-	_, isCameraResourceErr := camerautils.Camera(server.robot, streamToRemove.Stream)
+	streamName := streamToRemove.Stream.Name()
+	_, isAudioResourceErr := audioinput.FromRobot(server.robot, streamName)
+	_, isCameraResourceErr := cameraUtilsCamera(server.robot, streamToRemove.Stream)
 
 	if isAudioResourceErr != nil && isCameraResourceErr != nil {
 		return &streampb.RemoveStreamResponse{}, nil
@@ -412,7 +413,7 @@ func (server *Server) resizeVideoSource(ctx context.Context, name string, width,
 	if !ok {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
-	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
+	vs, err := cameraUtilsVideoSourceFromCamera(ctx, cam)
 	if err != nil {
 		return fmt.Errorf("failed to create video source from camera: %w", err)
 	}
@@ -444,7 +445,7 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
 	server.logger.Debug("resetting video source")
-	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
+	vs, err := cameraUtilsVideoSourceFromCamera(ctx, cam)
 	if err != nil {
 		return fmt.Errorf("failed to create video source from camera: %w", err)
 	}
@@ -636,19 +637,19 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 		if err != nil {
 			continue
 		}
-		src, err := camerautils.VideoSourceFromCamera(ctx, cam)
+		src, err := cameraUtilsVideoSourceFromCamera(ctx, cam)
 		if err != nil {
 			server.logger.Errorf("error creating video source from camera: %v", err)
 			continue
 		}
-		existing, ok := server.videoSources[cam.Name().SDPTrackName()]
+		existing, ok := server.videoSources[cam.Name().Name]
 		if ok {
 			// Check stream state for the camera to see if it is in resized mode.
 			// If it is in resized mode, we want to apply the resize transformation to the
 			// video source before swapping it.
-			streamState, ok := server.nameToStreamState[cam.Name().SDPTrackName()]
+			streamState, ok := server.nameToStreamState[cam.Name().Name]
 			if ok && streamState.IsResized() {
-				server.logger.Debugf("stream %q is resized attempting to reapply resize transformation", cam.Name().SDPTrackName())
+				server.logger.Debugf("stream %q is resized attempting to reapply resize transformation", cam.Name().Name)
 				mediaProps, err := existing.MediaProperties(server.closedCtx)
 				if err != nil {
 					server.logger.Errorf("error getting media properties from resize source: %v", err)
@@ -668,17 +669,17 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 				// If we can't get the media properties or the width and height are 0, we fall back to
 				// the original source and need to notify the stream state that the source is no longer
 				// resized.
-				server.logger.Warnf("falling back to original source for stream %q", cam.Name().SDPTrackName())
+				server.logger.Warnf("falling back to original source for stream %q", cam.Name().Name)
 				err = streamState.Reset()
 				if err != nil {
-					server.logger.Errorf("error resetting stream %q: %v", cam.Name().SDPTrackName(), err)
+					server.logger.Errorf("error resetting stream %q: %v", cam.Name().Name, err)
 				}
 			}
 			existing.Swap(src)
 			continue
 		}
 		newSwapper := gostream.NewHotSwappableVideoSource(src)
-		server.videoSources[cam.Name().SDPTrackName()] = newSwapper
+		server.videoSources[cam.Name().Name] = newSwapper
 	}
 }
 
@@ -689,13 +690,13 @@ func (server *Server) refreshAudioSources() {
 		if err != nil {
 			continue
 		}
-		existing, ok := server.audioSources[input.Name().SDPTrackName()]
+		existing, ok := server.audioSources[input.Name().Name]
 		if ok {
 			existing.Swap(input)
 			continue
 		}
 		newSwapper := gostream.NewHotSwappableAudioSource(input)
-		server.audioSources[input.Name().SDPTrackName()] = newSwapper
+		server.audioSources[input.Name().Name] = newSwapper
 	}
 }
 
@@ -787,9 +788,30 @@ func GenerateResolutions(width, height int32, logger logging.Logger) []Resolutio
 	return resolutions
 }
 
+func cameraUtilsCamera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
+	if rutils.GetImagesInStreamServer() {
+		return camerautils2.Camera(robot, stream)
+	}
+	return camerautils1.Camera(robot, stream)
+}
+
+func cameraUtilsVideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.VideoSource, error) {
+	if rutils.GetImagesInStreamServer() {
+		return camerautils2.VideoSourceFromCamera(ctx, cam)
+	}
+	return camerautils1.VideoSourceFromCamera(ctx, cam)
+}
+
 // sampleFrameSize takes in a camera.Camera, starts a stream, attempts to
 // pull a frame, and returns the width and height.
 func sampleFrameSize(ctx context.Context, cam camera.Camera, logger logging.Logger) (int, int, error) {
+	if rutils.GetImagesInStreamServer() {
+		return sampleFrameSize2(ctx, cam, logger)
+	}
+	return sampleFrameSize1(ctx, cam, logger)
+}
+
+func sampleFrameSize1(ctx context.Context, cam camera.Camera, logger logging.Logger) (int, int, error) {
 	logger.Debug("sampling frame size")
 	// Attempt to get a frame from the stream with a maximum of 5 retries.
 	// This is useful if cameras have a warm-up period before they can start streaming.
@@ -813,6 +835,37 @@ retryLoop:
 		return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", err)
 	}
 	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
+}
+
+func sampleFrameSize2(ctx context.Context, cam camera.Camera, logger logging.Logger) (int, int, error) {
+	logger.Debug("sampling frame size")
+	// Attempt to get a frame from the stream with a maximum of 5 retries.
+	// This is useful if cameras have a warm-up period before they can start streaming.
+	var lastErr error
+
+	for i := 0; i < 5; i++ {
+		select {
+		case <-ctx.Done():
+			return 0, 0, ctx.Err()
+		default:
+			namedImage, err := camerautils2.GetStreamableNamedImageFromCamera(ctx, cam)
+			if err != nil {
+				logger.Debugf("failed to get streamable named image from camera: %v", err)
+				lastErr = err
+				time.Sleep(retryDelay)
+				continue
+			}
+			frame, err := namedImage.Image(ctx)
+			if err != nil {
+				logger.Debugf("failed to get frame from named image: %v", err)
+				lastErr = err
+				time.Sleep(retryDelay)
+				continue
+			}
+			return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
+		}
+	}
+	return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", lastErr)
 }
 
 func removeStreamsOnPCDisconnect(server *Server, pc *webrtc.PeerConnection, peerConnectionState webrtc.PeerConnectionState) {

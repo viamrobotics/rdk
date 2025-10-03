@@ -3,32 +3,21 @@ package armplanning
 import (
 	"errors"
 
-	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
 type motionChains struct {
-	inner        []*motionChain
-	useTPspace   bool
-	ptgFrameName string
+	fs    *referenceframe.FrameSystem
+	inner []*motionChain
 }
 
-func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to *PlanState) (*motionChains, error) {
-	// create motion chains for each goal, and error check for PTG frames
-	// TODO: currently, if any motion chain has a PTG frame, that must be the only motion chain and that frame must be the only
-	// frame in the chain with nonzero DoF. Eventually this need not be the case.
-	inner := make([]*motionChain, 0, len(to.poses)+len(to.configuration))
+func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to referenceframe.FrameSystemPoses) (*motionChains, error) {
+	// create motion chains for each goal
+	inner := make([]*motionChain, 0, len(to))
 
-	for frame, pif := range to.poses {
+	for frame, pif := range to {
 		chain, err := motionChainFromGoal(fs, frame, pif.Parent())
-		if err != nil {
-			return nil, err
-		}
-		inner = append(inner, chain)
-	}
-	for frame := range to.configuration {
-		chain, err := motionChainFromGoal(fs, frame, frame)
 		if err != nil {
 			return nil, err
 		}
@@ -39,31 +28,9 @@ func motionChainsFromPlanState(fs *referenceframe.FrameSystem, to *PlanState) (*
 		return nil, errors.New("must have at least one motion chain")
 	}
 
-	useTPspace := false
-	ptgFrameName := ""
-	for _, chain := range inner {
-		for _, movingFrame := range chain.frames {
-			if _, isPTGframe := movingFrame.(tpspace.PTGProvider); isPTGframe {
-				if useTPspace {
-					return nil, errors.New("only one PTG frame can be planned for at a time")
-				}
-				if len(inner) > 1 {
-					return nil, errMixedFrameTypes
-				}
-				useTPspace = true
-				ptgFrameName = movingFrame.Name()
-				chain.worldRooted = true
-			} else if len(movingFrame.DoF()) > 0 {
-				if useTPspace {
-					return nil, errMixedFrameTypes
-				}
-			}
-		}
-	}
 	return &motionChains{
-		inner:        inner,
-		useTPspace:   useTPspace,
-		ptgFrameName: ptgFrameName,
+		fs:    fs,
+		inner: inner,
 	}, nil
 }
 
@@ -93,35 +60,7 @@ func (mC *motionChains) geometries(
 	return movingRobotGeometries, staticRobotGeometries
 }
 
-// If a motion chain is worldrooted, then goals are translated to their position in `World` before solving.
-// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper.
-func (mC *motionChains) translateGoalsToWorldPosition(
-	fs *referenceframe.FrameSystem,
-	start referenceframe.FrameSystemInputs,
-	goal *PlanState,
-) (*PlanState, error) {
-	alteredGoals := referenceframe.FrameSystemPoses{}
-	if goal.poses != nil {
-		for _, chain := range mC.inner {
-			// chain solve frame may only be in the goal configuration, in which case we skip as the configuration will be passed through
-			if goalPif, ok := goal.poses[chain.solveFrameName]; ok {
-				if chain.worldRooted {
-					tf, err := fs.Transform(start, goalPif, referenceframe.World)
-					if err != nil {
-						return nil, err
-					}
-					alteredGoals[chain.solveFrameName] = tf.(*referenceframe.PoseInFrame)
-				} else {
-					alteredGoals[chain.solveFrameName] = goalPif
-				}
-			}
-		}
-		return &PlanState{poses: alteredGoals, configuration: goal.configuration}, nil
-	}
-	return goal, nil
-}
-
-func (mC *motionChains) framesFilteredByMovingAndNonmoving(fs *referenceframe.FrameSystem) (moving, nonmoving []string) {
+func (mC *motionChains) framesFilteredByMovingAndNonmoving() (moving, nonmoving []string) {
 	movingMap := map[string]referenceframe.Frame{}
 	for _, chain := range mC.inner {
 		for _, frame := range chain.frames {
@@ -130,7 +69,7 @@ func (mC *motionChains) framesFilteredByMovingAndNonmoving(fs *referenceframe.Fr
 	}
 
 	// Here we account for anything in the framesystem that is not part of a motion chain
-	for _, frameName := range fs.FrameNames() {
+	for _, frameName := range mC.fs.FrameNames() {
 		if _, ok := movingMap[frameName]; ok {
 			moving = append(moving, frameName)
 		} else {
@@ -269,4 +208,46 @@ func motionChainFromGoal(fs *referenceframe.FrameSystem, moveFrame, goalFrameNam
 		goalFrameName:  goalFrame.Name(),
 		worldRooted:    worldRooted,
 	}, nil
+}
+
+// uniqInPlaceSlice will deduplicate the values in a slice using in-place replacement on the slice. This is faster than
+// a solution using append().
+// This function does not remove anything from the input slice, but it does rearrange the elements.
+func uniqInPlaceSlice(s []referenceframe.Frame) []referenceframe.Frame {
+	seen := make(map[referenceframe.Frame]struct{}, len(s))
+	j := 0
+	for _, v := range s {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		s[j] = v
+		j++
+	}
+	return s[:j]
+}
+
+// findPivotFrame finds the first common frame in two ordered lists of frames.
+func findPivotFrame(frameList1, frameList2 []referenceframe.Frame) (referenceframe.Frame, error) {
+	// find shorter list
+	shortList := frameList1
+	longList := frameList2
+	if len(frameList1) > len(frameList2) {
+		shortList = frameList2
+		longList = frameList1
+	}
+
+	// cache names seen in shorter list
+	nameSet := make(map[string]struct{}, len(shortList))
+	for _, frame := range shortList {
+		nameSet[frame.Name()] = struct{}{}
+	}
+
+	// look for already seen names in longer list
+	for _, frame := range longList {
+		if _, ok := nameSet[frame.Name()]; ok {
+			return frame, nil
+		}
+	}
+	return nil, errors.New("no path from solve frame to goal frame")
 }

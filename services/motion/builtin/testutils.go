@@ -41,8 +41,6 @@ var (
 	baseName       = "test-base"
 	moveSensorName = "test-movement-sensor"
 
-	moveSensorResource        = resource.NewName(movementsensor.API, moveSensorName)
-	baseResource              = resource.NewName(base.API, baseName)
 	movementSensorInBasePoint = r3.Vector{X: -10, Y: 0, Z: 0}
 	updateRate                = 33
 )

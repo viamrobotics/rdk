@@ -2,7 +2,6 @@ package spatialmath
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/golang/geo/r3"
@@ -188,53 +187,4 @@ func GeometriesAlmostEqual(a, b Geometry) bool {
 	default:
 		return false
 	}
-}
-
-// NewGeometryFromProto instantiates a new Geometry from a protobuf Geometry message.
-func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
-	if geometry.Center == nil {
-		return nil, errors.New("cannot have nil pose for geometry")
-	}
-	pose := NewPoseFromProtobuf(geometry.Center)
-	if box := geometry.GetBox().GetDimsMm(); box != nil {
-		return NewBox(pose, r3.Vector{X: box.X, Y: box.Y, Z: box.Z}, geometry.Label)
-	}
-	if capsule := geometry.GetCapsule(); capsule != nil {
-		return NewCapsule(pose, capsule.RadiusMm, capsule.LengthMm, geometry.Label)
-	}
-	if sphere := geometry.GetSphere(); sphere != nil {
-		if sphere.RadiusMm == 0 {
-			return NewPoint(pose.Point(), geometry.Label), nil
-		}
-		return NewSphere(pose, sphere.RadiusMm, geometry.Label)
-	}
-	if mesh := geometry.GetMesh(); mesh != nil {
-		return newMeshFromProto(pose, mesh, geometry.Label)
-	}
-	return nil, errGeometryTypeUnsupported
-}
-
-// NewGeometriesFromProto converts a list of Geometries from protobuf.
-func NewGeometriesFromProto(proto []*commonpb.Geometry) ([]Geometry, error) {
-	if proto == nil {
-		return nil, nil
-	}
-	geometries := []Geometry{}
-	for _, geometry := range proto {
-		g, err := NewGeometryFromProto(geometry)
-		if err != nil {
-			return nil, err
-		}
-		geometries = append(geometries, g)
-	}
-	return geometries, nil
-}
-
-// NewGeometriesToProto converts a list of Geometries to profobuf.
-func NewGeometriesToProto(geometries []Geometry) []*commonpb.Geometry {
-	var proto []*commonpb.Geometry
-	for _, geometry := range geometries {
-		proto = append(proto, geometry.ToProtobuf())
-	}
-	return proto
 }

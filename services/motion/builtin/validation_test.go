@@ -13,14 +13,8 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
-	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/slam"
-	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -37,9 +31,9 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("non existent base"),
+				ComponentName: "non existent base",
 				Destination:   goalPose,
-				SlamName:      slam.Named("test_slam"),
+				SlamName:      "test_slam",
 				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 			}
 
@@ -54,30 +48,13 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
-				SlamName:      slam.Named("test_slam"),
+				ComponentName: "test-base",
+				SlamName:      "test_slam",
 				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 			}
 
 			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
 			test.That(t, err, test.ShouldBeError, errors.New("destination cannot be nil"))
-			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-		})
-
-		t.Run("Returns an error if the base provided is not a base", func(t *testing.T) {
-			t.Parallel()
-			_, ms, closeFunc := CreateMoveOnMapTestEnvironment(ctx, t, "pointcloud/octagonspace.pcd", 40, nil)
-			defer closeFunc(ctx)
-
-			req := motion.MoveOnMapReq{
-				ComponentName: slam.Named("test_slam"),
-				Destination:   goalPose,
-				SlamName:      slam.Named("test_slam"),
-				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
-			}
-
-			executionID, err := ms.(*builtIn).MoveOnMap(context.Background(), req)
-			test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:service:slam/test_slam"))
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
@@ -87,9 +64,9 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
-				ComponentName: slam.Named("test-base"),
+				ComponentName: "test-base",
 				Destination:   goalPose,
-				SlamName:      slam.Named("test-base"),
+				SlamName:      "test-base",
 				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 			}
 
@@ -104,9 +81,9 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
+				ComponentName: "test-base",
 				Destination:   goalPose,
-				SlamName:      slam.Named("test_slam"),
+				SlamName:      "test_slam",
 				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: -1},
 			}
 
@@ -121,9 +98,9 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
+				ComponentName: "test-base",
 				Destination:   goalPose,
-				SlamName:      slam.Named("test_slam"),
+				SlamName:      "test_slam",
 				MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: math.NaN()},
 			}
 
@@ -138,9 +115,9 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 			pollingFreq := -1.
 			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
+				ComponentName: "test-base",
 				Destination:   goalPose,
-				SlamName:      slam.Named("test_slam"),
+				SlamName:      "test_slam",
 				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq, PlanDeviationMM: 10},
 			}
 
@@ -155,9 +132,9 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 			pollingFreq := math.NaN()
 			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
+				ComponentName: "test-base",
 				Destination:   goalPose,
-				SlamName:      slam.Named("test_slam"),
+				SlamName:      "test_slam",
 				MotionCfg:     &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq, PlanDeviationMM: 10},
 			}
 
@@ -172,9 +149,9 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 			pollingFreq := -1.
 			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
+				ComponentName: "test-base",
 				Destination:   goalPose,
-				SlamName:      slam.Named("test_slam"),
+				SlamName:      "test_slam",
 				MotionCfg:     &motion.MotionConfiguration{PositionPollingFreqHz: &pollingFreq, PlanDeviationMM: 10},
 			}
 
@@ -189,9 +166,9 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 			pollingFreq := math.NaN()
 			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
+				ComponentName: "test-base",
 				Destination:   goalPose,
-				SlamName:      slam.Named("test_slam"),
+				SlamName:      "test_slam",
 				MotionCfg:     &motion.MotionConfiguration{PositionPollingFreqHz: &pollingFreq, PlanDeviationMM: 10},
 			}
 
@@ -206,9 +183,9 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
+				ComponentName: "test-base",
 				Destination:   goalPose,
-				SlamName:      slam.Named("test_slam"),
+				SlamName:      "test_slam",
 				MotionCfg:     &motion.MotionConfiguration{AngularDegsPerSec: -1, PlanDeviationMM: 10},
 			}
 
@@ -223,9 +200,9 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
+				ComponentName: "test-base",
 				Destination:   goalPose,
-				SlamName:      slam.Named("test_slam"),
+				SlamName:      "test_slam",
 				MotionCfg:     &motion.MotionConfiguration{AngularDegsPerSec: math.NaN(), PlanDeviationMM: 10},
 			}
 
@@ -240,9 +217,9 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
+				ComponentName: "test-base",
 				Destination:   goalPose,
-				SlamName:      slam.Named("test_slam"),
+				SlamName:      "test_slam",
 				MotionCfg:     &motion.MotionConfiguration{LinearMPerSec: -1, PlanDeviationMM: 10},
 			}
 
@@ -257,9 +234,9 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 
 			req := motion.MoveOnMapReq{
-				ComponentName: base.Named("test-base"),
+				ComponentName: "test-base",
 				Destination:   goalPose,
-				SlamName:      slam.Named("test_slam"),
+				SlamName:      "test_slam",
 				MotionCfg:     &motion.MotionConfiguration{LinearMPerSec: math.NaN(), PlanDeviationMM: 10},
 			}
 
@@ -274,9 +251,9 @@ func TestMoveCallInputs(t *testing.T) {
 				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
-					ComponentName: base.Named("test-base"),
+					ComponentName: "test-base",
 					Destination:   goalPose,
-					SlamName:      slam.Named("test_slam"),
+					SlamName:      "test_slam",
 					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 					Extra:         map[string]interface{}{"collision_buffer_mm": "not a float"},
 				}
@@ -294,9 +271,9 @@ func TestMoveCallInputs(t *testing.T) {
 				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
-					ComponentName: base.Named("test-base"),
+					ComponentName: "test-base",
 					Destination:   goalPose,
-					SlamName:      slam.Named("test_slam"),
+					SlamName:      "test_slam",
 					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 					Extra:         map[string]interface{}{"collision_buffer_mm": -1.},
 				}
@@ -313,9 +290,9 @@ func TestMoveCallInputs(t *testing.T) {
 				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
-					ComponentName: base.Named("test-base"),
+					ComponentName: "test-base",
 					Destination:   goalPose,
-					SlamName:      slam.Named("test_slam"),
+					SlamName:      "test_slam",
 					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 					Extra:         map[string]interface{}{"collision_buffer_mm": 2000.},
 				}
@@ -333,9 +310,9 @@ func TestMoveCallInputs(t *testing.T) {
 				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
-					ComponentName: base.Named("test-base"),
+					ComponentName: "test-base",
 					Destination:   goalPose,
-					SlamName:      slam.Named("test_slam"),
+					SlamName:      "test_slam",
 					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 					Extra:         map[string]interface{}{"collision_buffer_mm": 1e-5},
 				}
@@ -352,9 +329,9 @@ func TestMoveCallInputs(t *testing.T) {
 				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
-					ComponentName: base.Named("test-base"),
+					ComponentName: "test-base",
 					Destination:   goalPose,
-					SlamName:      slam.Named("test_slam"),
+					SlamName:      "test_slam",
 					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 					Extra:         map[string]interface{}{"collision_buffer_mm": 0.1},
 				}
@@ -371,9 +348,9 @@ func TestMoveCallInputs(t *testing.T) {
 				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
-					ComponentName: base.Named("test-base"),
+					ComponentName: "test-base",
 					Destination:   goalPose,
-					SlamName:      slam.Named("test_slam"),
+					SlamName:      "test_slam",
 					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 					Extra:         map[string]interface{}{},
 				}
@@ -390,9 +367,9 @@ func TestMoveCallInputs(t *testing.T) {
 				defer closeFunc(ctx)
 
 				req := motion.MoveOnMapReq{
-					ComponentName: base.Named("test-base"),
+					ComponentName: "test-base",
 					Destination:   goalPose,
-					SlamName:      slam.Named("test_slam"),
+					SlamName:      "test_slam",
 					MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 10},
 				}
 
@@ -415,12 +392,12 @@ func TestMoveCallInputs(t *testing.T) {
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      base.Named("non existent base"),
-				MovementSensorName: moveSensorResource,
+				ComponentName:      "non existent base",
+				MovementSensorName: moveSensorName,
 				Destination:        geo.NewPoint(0, 0),
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
-			test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:base/non existent base\" not found"))
+			test.That(t, err, test.ShouldBeError, errors.New("resource rdk:component:base/non existent base not found"))
 			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
 		})
 
@@ -429,8 +406,8 @@ func TestMoveCallInputs(t *testing.T) {
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: movementsensor.Named("non existent movement sensor"),
+				ComponentName:      baseName,
+				MovementSensorName: "non existent movement sensor",
 				Destination:        geo.NewPoint(0, 0),
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
@@ -444,8 +421,8 @@ func TestMoveCallInputs(t *testing.T) {
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 				Destination:        geo.NewPoint(0, 0),
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
@@ -458,8 +435,8 @@ func TestMoveCallInputs(t *testing.T) {
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 			}
 			executionID, err := ms.MoveOnGlobe(ctx, req)
 			test.That(t, err, test.ShouldBeError, errors.New("destination cannot be nil"))
@@ -472,8 +449,8 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 			}
 
 			dests := []*geo.Point{
@@ -490,53 +467,13 @@ func TestMoveCallInputs(t *testing.T) {
 			}
 		})
 
-		t.Run("returns an error if the base provided is not a base", func(t *testing.T) {
-			t.Parallel()
-			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
-			defer closeFunc(ctx)
-			req := motion.MoveOnGlobeReq{
-				ComponentName:      moveSensorResource,
-				MovementSensorName: moveSensorResource,
-				Heading:            90,
-				Destination:        dst,
-				Extra: map[string]interface{}{
-					"motion_profile": armplanning.PositionOnlyMotionProfile,
-					"timeout":        5.,
-					"smooth_iter":    5.,
-				},
-			}
-			executionID, err := ms.MoveOnGlobe(ctx, req)
-			test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:movement_sensor/test-movement-sensor\" not found"))
-			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-		})
-
-		t.Run("returns an error if the movement_sensor provided is not a movement_sensor", func(t *testing.T) {
-			t.Parallel()
-			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
-			defer closeFunc(ctx)
-			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: baseResource,
-				Heading:            90,
-				Destination:        dst,
-				Extra: map[string]interface{}{
-					"motion_profile": armplanning.PositionOnlyMotionProfile,
-					"timeout":        5.,
-					"smooth_iter":    5.,
-				},
-			}
-			executionID, err := ms.MoveOnGlobe(ctx, req)
-			test.That(t, err, test.ShouldBeError, errors.New("Resource missing from dependencies. Resource: rdk:component:base/test-base"))
-			test.That(t, executionID, test.ShouldResemble, uuid.Nil)
-		})
-
 		t.Run("errors when motion configuration has a negative PlanDeviationMM", func(t *testing.T) {
 			t.Parallel()
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{PlanDeviationMM: -1},
@@ -551,8 +488,8 @@ func TestMoveCallInputs(t *testing.T) {
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{PlanDeviationMM: math.NaN()},
@@ -568,8 +505,8 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 			pollingFreq := -1.
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq},
@@ -585,8 +522,8 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 			pollingFreq := math.NaN()
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{ObstaclePollingFreqHz: &pollingFreq},
@@ -602,8 +539,8 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 			pollingFreq := -1.
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: &pollingFreq},
@@ -619,8 +556,8 @@ func TestMoveCallInputs(t *testing.T) {
 			defer closeFunc(ctx)
 			pollingFreq := math.NaN()
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{PositionPollingFreqHz: &pollingFreq},
@@ -635,8 +572,8 @@ func TestMoveCallInputs(t *testing.T) {
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{AngularDegsPerSec: -1},
@@ -651,8 +588,8 @@ func TestMoveCallInputs(t *testing.T) {
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{AngularDegsPerSec: math.NaN()},
@@ -667,8 +604,8 @@ func TestMoveCallInputs(t *testing.T) {
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{LinearMPerSec: -1},
@@ -683,8 +620,8 @@ func TestMoveCallInputs(t *testing.T) {
 			_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 			defer closeFunc(ctx)
 			req := motion.MoveOnGlobeReq{
-				ComponentName:      baseResource,
-				MovementSensorName: moveSensorResource,
+				ComponentName:      baseName,
+				MovementSensorName: moveSensorName,
 				Heading:            90,
 				Destination:        dst,
 				MotionCfg:          &motion.MotionConfiguration{LinearMPerSec: math.NaN()},
@@ -699,8 +636,8 @@ func TestMoveCallInputs(t *testing.T) {
 				_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 				defer closeFunc(ctx)
 				req := motion.MoveOnGlobeReq{
-					ComponentName:      baseResource,
-					MovementSensorName: moveSensorResource,
+					ComponentName:      baseName,
+					MovementSensorName: moveSensorName,
 					Heading:            90,
 					Destination:        dst,
 					MotionCfg:          &motion.MotionConfiguration{},
@@ -716,8 +653,8 @@ func TestMoveCallInputs(t *testing.T) {
 				_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 				defer closeFunc(ctx)
 				req := motion.MoveOnGlobeReq{
-					ComponentName:      baseResource,
-					MovementSensorName: moveSensorResource,
+					ComponentName:      baseName,
+					MovementSensorName: moveSensorName,
 					Heading:            90,
 					Destination:        dst,
 					MotionCfg:          &motion.MotionConfiguration{},
@@ -732,8 +669,8 @@ func TestMoveCallInputs(t *testing.T) {
 				_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 				defer closeFunc(ctx)
 				req := motion.MoveOnGlobeReq{
-					ComponentName:      baseResource,
-					MovementSensorName: moveSensorResource,
+					ComponentName:      baseName,
+					MovementSensorName: moveSensorName,
 					Heading:            90,
 					Destination:        dst,
 					MotionCfg:          &motion.MotionConfiguration{},
@@ -748,8 +685,8 @@ func TestMoveCallInputs(t *testing.T) {
 				_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 				defer closeFunc(ctx)
 				req := motion.MoveOnGlobeReq{
-					ComponentName:      baseResource,
-					MovementSensorName: moveSensorResource,
+					ComponentName:      baseName,
+					MovementSensorName: moveSensorName,
 					Heading:            90,
 					Destination:        dst,
 					MotionCfg:          &motion.MotionConfiguration{},
@@ -764,8 +701,8 @@ func TestMoveCallInputs(t *testing.T) {
 				_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 				defer closeFunc(ctx)
 				req := motion.MoveOnGlobeReq{
-					ComponentName:      baseResource,
-					MovementSensorName: moveSensorResource,
+					ComponentName:      baseName,
+					MovementSensorName: moveSensorName,
 					Heading:            90,
 					Destination:        dst,
 					MotionCfg:          &motion.MotionConfiguration{},
@@ -780,8 +717,8 @@ func TestMoveCallInputs(t *testing.T) {
 				_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 				defer closeFunc(ctx)
 				req := motion.MoveOnGlobeReq{
-					ComponentName:      baseResource,
-					MovementSensorName: moveSensorResource,
+					ComponentName:      baseName,
+					MovementSensorName: moveSensorName,
 					Heading:            90,
 					Destination:        dst,
 					MotionCfg:          &motion.MotionConfiguration{},
@@ -844,8 +781,8 @@ func TestNewValidatedMotionCfg(t *testing.T) {
 			ObstaclePollingFreqHz: &pollingFreq,
 			ObstacleDetectors: []motion.ObstacleDetectorName{
 				{
-					VisionServiceName: vision.Named("fakeVision"),
-					CameraName:        camera.Named("fakeCamera"),
+					VisionServiceName: "fakeVision",
+					CameraName:        "fakeCamera",
 				},
 			},
 		}, requestTypeMoveOnMap)
@@ -858,8 +795,8 @@ func TestNewValidatedMotionCfg(t *testing.T) {
 			obstaclePollingFreqHz: pollingFreq,
 			obstacleDetectors: []motion.ObstacleDetectorName{
 				{
-					VisionServiceName: vision.Named("fakeVision"),
-					CameraName:        camera.Named("fakeCamera"),
+					VisionServiceName: "fakeVision",
+					CameraName:        "fakeCamera",
 				},
 			},
 		})

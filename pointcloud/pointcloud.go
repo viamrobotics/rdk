@@ -6,10 +6,13 @@
 package pointcloud
 
 import (
+	"bytes"
+	"fmt"
 	"math"
 	"sync"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
 
@@ -168,6 +171,16 @@ func CloudCentroid(pc PointCloud) r3.Vector {
 	}
 }
 
+// CloudToPoints converts a point cloud to a list of points (a list of vectors).
+func CloudToPoints(pc PointCloud) []r3.Vector {
+	points := make([]r3.Vector, 0, pc.Size())
+	pc.Iterate(0, 0, func(point r3.Vector, _ Data) bool {
+		points = append(points, point)
+		return true // Keep going through all points
+	})
+	return points
+}
+
 // CloudMatrixCol is a type that represents the columns of a CloudMatrix.
 type CloudMatrixCol int
 
@@ -236,4 +249,20 @@ func CloudMatrix(pc PointCloud) (*mat.Dense, []CloudMatrixCol) {
 		matData = append(matData, <-matChan...)
 	}
 	return mat.NewDense(pc.Size(), pointSize, matData), header
+}
+
+// NewPointCloudFromProto creates a new point cloud geometry from a protobuf point cloud.
+func NewPointCloudFromProto(pointCloud *commonpb.PointCloud, label string) (*BasicOctree, error) {
+	reader := bytes.NewReader(pointCloud.PointCloud)
+	pc, err := ReadPCD(reader, BasicOctreeType)
+	if err != nil {
+		return nil, err
+	}
+	octree, ok := pc.(*BasicOctree)
+	if !ok {
+		return nil, fmt.Errorf("why did ReadPCD not return a BasicOctree but a %T", pc)
+	}
+	octree.confidenceThreshold = 0
+	octree.SetLabel(label)
+	return octree, nil
 }

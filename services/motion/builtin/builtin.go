@@ -3,10 +3,8 @@ package builtin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -20,7 +18,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/service/motion/v1"
-	vutils "go.viam.com/utils"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -100,6 +97,9 @@ type Config struct {
 	PlanFilePath           string `json:"plan_file_path"`
 	LogPlannerErrors       bool   `json:"log_planner_errors"`
 	LogSlowPlanThresholdMS int    `json:"log_slow_plan_threshold_ms"`
+
+	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
+	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {
@@ -137,9 +137,9 @@ type builtIn struct {
 	conf                    *Config
 	mu                      sync.RWMutex
 	fsService               framesystem.Service
-	movementSensors         map[resource.Name]movementsensor.MovementSensor
-	slamServices            map[resource.Name]slam.Service
-	visionServices          map[resource.Name]vision.Service
+	movementSensors         map[string]movementsensor.MovementSensor
+	slamServices            map[string]slam.Service
+	visionServices          map[string]vision.Service
 	components              map[string]resource.Resource
 	logger                  logging.Logger
 	state                   *state.State
@@ -185,22 +185,22 @@ func (ms *builtIn) Reconfigure(
 		ms.configuredDefaultExtras["num_threads"] = config.NumThreads
 	}
 
-	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
-	slamServices := make(map[resource.Name]slam.Service)
-	visionServices := make(map[resource.Name]vision.Service)
+	movementSensors := make(map[string]movementsensor.MovementSensor)
+	slamServices := make(map[string]slam.Service)
+	visionServices := make(map[string]vision.Service)
 	componentMap := make(map[string]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
 			ms.fsService = dep
 		case movementsensor.MovementSensor:
-			movementSensors[name] = dep
+			movementSensors[name.Name] = dep
 		case slam.Service:
-			slamServices[name] = dep
+			slamServices[name.Name] = dep
 		case vision.Service:
-			visionServices[name] = dep
+			visionServices[name.Name] = dep
 		default:
-			componentMap[name.ShortName()] = dep
+			componentMap[name.Name] = dep
 		}
 	}
 	ms.movementSensors = movementSensors
@@ -265,14 +265,12 @@ func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 type validatedExtra struct {
 	maxReplans       int
 	replanCostFactor float64
-	motionProfile    armplanning.MotionProfile
 	extra            map[string]interface{}
 }
 
 func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 	maxReplans := -1
 	replanCostFactor := defaultReplanCostFactor
-	motionProfile := armplanning.FreeMotionProfile
 	v := validatedExtra{}
 	if extra == nil {
 		v.extra = map[string]interface{}{"smooth_iter": defaultSmoothIter}
@@ -283,12 +281,7 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 			maxReplans = replans
 		}
 	}
-	if profile, ok := extra["motion_profile"]; ok {
-		motionProfile, ok = profile.(armplanning.MotionProfile)
-		if !ok {
-			return v, errors.New("could not interpret motion_profile field as string")
-		}
-	}
+
 	if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
 		costFactor, ok := costFactorRaw.(float64)
 		if !ok {
@@ -306,7 +299,6 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 
 	return validatedExtra{
 		maxReplans:       maxReplans,
-		motionProfile:    motionProfile,
 		replanCostFactor: replanCostFactor,
 		extra:            extra,
 	}, nil
@@ -334,7 +326,7 @@ func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (
 // GetPose is deprecated.
 func (ms *builtIn) GetPose(
 	ctx context.Context,
-	componentName resource.Name,
+	componentName string,
 	destinationFrame string,
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
@@ -342,7 +334,7 @@ func (ms *builtIn) GetPose(
 	ms.logger.Warn("GetPose is deprecated. Please switch to using the GetPose method defined on the FrameSystem service")
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	return ms.fsService.GetPose(ctx, componentName.ShortName(), destinationFrame, supplementalTransforms, extra)
+	return ms.fsService.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 }
 
 func (ms *builtIn) StopPlan(
@@ -475,8 +467,67 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 	return resp, nil
 }
 
+func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referenceframe.LinkInFrame) (*referenceframe.FrameSystem, error) {
+	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, transforms)
+	if err != nil {
+		return nil, err
+	}
+
+	for fName, mods := range ms.conf.InputRangeOverride {
+		f := frameSys.Frame(fName)
+		if f == nil {
+			return nil, fmt.Errorf("frame (%s) in input_range_override doesn't exist", fName)
+		}
+
+		ms.logger.Debugf("limit override f: %v mods: %v", fName, mods, f)
+
+		sm, ok := f.(*referenceframe.SimpleModel)
+		if !ok {
+			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
+		}
+
+		smCloned, err := referenceframe.Clone(sm)
+		if err != nil {
+			return nil, err
+		}
+		smClonedTyped := smCloned.(*referenceframe.SimpleModel)
+
+		sub := smClonedTyped.OrdTransforms()
+
+		for modString, l := range mods {
+			idx := 0
+
+			found := false
+			for _, ss := range sub {
+				if len(ss.DoF()) > 0 && (modString == ss.Name() || modString == strconv.Itoa(idx)) {
+					found = true
+					ss.DoF()[0] = l
+					break
+				}
+
+				if len(ss.DoF()) > 0 {
+					idx++
+				}
+			}
+
+			if !found {
+				return nil, fmt.Errorf("can't find mod (%s)", modString)
+			}
+		}
+
+		smClonedTyped.SetOrdTransforms(sub)
+
+		err = frameSys.ReplaceFrame(smClonedTyped)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return frameSys, nil
+}
+
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
-	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, req.WorldState.Transforms())
+	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
 	}
@@ -488,9 +539,9 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	}
 	logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
 
-	movingFrame := frameSys.Frame(req.ComponentName.ShortName())
+	movingFrame := frameSys.Frame(req.ComponentName)
 	if movingFrame == nil {
-		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName.ShortName())
+		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
 	}
 
 	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
@@ -500,39 +551,12 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	if len(waypoints) == 0 {
 		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
 	}
+
 	// The contents of waypoints can be gigantic, and if so, making copies of `extra` becomes the majority of motion planning runtime.
 	// As the meaning from `waypoints` has already been extracted above into its proper data structure, there is no longer a need to
 	// keep it in `extra`.
 	if req.Extra != nil {
 		req.Extra["waypoints"] = nil
-	}
-
-	// TODO: RSDK-11198 REMOVE THIS IN THE RELEASE AFTER THE RELEASE THAT INTRODUCED THIS CODE. It is only here
-	// to deprecate rather than break the "planning_alg" key and give us time to inform users/engineers
-	// how to use the "planning_algorithm_settings" option
-	if deprecatedKeyAlg, ok := req.Extra["planning_alg"]; ok {
-		logger.Warn("the 'planning_alg' key is deprecated and will soon no longer be accepted, please use 'planning_algorithm_settings' instead")
-		if deprecatedKeyAlgParsed, ok := deprecatedKeyAlg.(string); ok {
-			req.Extra["planning_algorithm_settings"] = map[string]interface{}{
-				"algorithm": deprecatedKeyAlgParsed,
-			}
-		}
-	}
-
-	// TODO: RSDK-11198 Similar to above
-	if deprecatedKeySeed, ok := req.Extra["solutions_to_seed"]; ok {
-		logger.Warn(
-			"the top level 'solutions_to_seed' key is deprecated and will soon no longer be accepted," +
-				"please include it in 'planning_algorithm_settings' instead",
-		)
-		if deprecatedSeedParsed, ok := deprecatedKeySeed.(int); ok {
-			req.Extra["planning_algorithm_settings"] = map[string]interface{}{
-				"algorithm": armplanning.CBiRRT,
-				"cbirrt_settings": map[string]interface{}{
-					"solutions_to_seed": deprecatedSeedParsed,
-				},
-			}
-		}
 	}
 
 	// re-evaluate goal poses to be in the frame of World
@@ -576,7 +600,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	}
 
 	start := time.Now()
-	plan, err := armplanning.PlanMotion(ctx, logger, planRequest)
+	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
 	if ms.conf.shouldWritePlan(start, err) {
 		err := ms.writePlanRequest(planRequest)
 		if err != nil {
@@ -718,8 +742,8 @@ func waypointsFromRequest(
 		} else {
 			return nil, nil, errors.New("extras start_state could not be interpreted as map[string]interface{}")
 		}
-		if startState.Configuration() == nil {
-			startState = armplanning.NewPlanState(startState.Poses(), fsInputs)
+		if len(startState.Configuration()) == 0 {
+			return nil, nil, fmt.Errorf("can't specify start_state without joint configuration")
 		}
 	} else {
 		startState = armplanning.NewPlanState(nil, fsInputs)
@@ -755,7 +779,7 @@ func waypointsFromRequest(
 			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
 		}
 	} else if req.Destination != nil {
-		goalState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName.ShortName(): req.Destination}, nil)
+		goalState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName: req.Destination}, nil)
 		waypoints = append(waypoints, goalState)
 	}
 	return startState, waypoints, nil
@@ -764,19 +788,5 @@ func waypointsFromRequest(
 func (ms *builtIn) writePlanRequest(req *armplanning.PlanRequest) error {
 	fn := filepath.Join(ms.conf.PlanFilePath, fmt.Sprintf("plan-%s.json", time.Now().Format(time.RFC3339)))
 	ms.logger.Infof("writing plan to %s", fn)
-
-	data, err := json.MarshalIndent(req, "", "  ")
-	if err != nil {
-		return err
-	}
-	file, err := os.OpenFile(filepath.Clean(fn), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return err
-	}
-	defer vutils.UncheckedErrorFunc(file.Close)
-	_, err = file.Write(data)
-	if err != nil {
-		return err
-	}
-	return nil
+	return req.WriteToFile(fn)
 }

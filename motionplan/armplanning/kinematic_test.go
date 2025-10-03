@@ -8,7 +8,6 @@ import (
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
-	"gonum.org/v1/gonum/num/quat"
 
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -92,67 +91,6 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 }
 
-const derivEqualityEpsilon = 1e-16
-
-func derivComponentAlmostEqual(left, right float64) bool {
-	return math.Abs(left-right) <= derivEqualityEpsilon
-}
-
-func areDerivsEqual(q1, q2 []quat.Number) bool {
-	if len(q1) != len(q2) {
-		return false
-	}
-	for i, dq1 := range q1 {
-		dq2 := q2[i]
-		if !derivComponentAlmostEqual(dq1.Real, dq2.Real) {
-			return false
-		}
-		if !derivComponentAlmostEqual(dq1.Imag, dq2.Imag) {
-			return false
-		}
-		if !derivComponentAlmostEqual(dq1.Jmag, dq2.Jmag) {
-			return false
-		}
-		if !derivComponentAlmostEqual(dq1.Kmag, dq2.Kmag) {
-			return false
-		}
-	}
-	return true
-}
-
-func TestDeriv(t *testing.T) {
-	// Test identity quaternion
-	q := quat.Number{1, 0, 0, 0}
-	qDeriv := []quat.Number{{0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}
-
-	match := areDerivsEqual(qDeriv, deriv(q))
-	test.That(t, match, test.ShouldBeTrue)
-
-	// Test non-identity single-axis unit quaternion
-	q = quat.Exp(quat.Number{0, 2, 0, 0})
-
-	qDeriv = []quat.Number{
-		{-0.9092974268256816, -0.4161468365471424, 0, 0},
-		{0, 0, 0.4546487134128408, 0},
-		{0, 0, 0, 0.4546487134128408},
-	}
-
-	match = areDerivsEqual(qDeriv, deriv(q))
-	test.That(t, match, test.ShouldBeTrue)
-
-	// Test non-identity multi-axis unit quaternion
-	q = quat.Exp(quat.Number{0, 2, 1.5, 0.2})
-
-	qDeriv = []quat.Number{
-		{-0.472134934000233, -0.42654977821280804, -0.4969629339096933, -0.06626172452129245},
-		{-0.35410120050017474, -0.4969629339096933, -0.13665473343215354, -0.049696293390969336},
-		{-0.0472134934000233, -0.06626172452129245, -0.049696293390969336, 0.22944129454798728},
-	}
-
-	match = areDerivsEqual(qDeriv, deriv(q))
-	test.That(t, match, test.ShouldBeTrue)
-}
-
 // Test dynamic frame systems
 // Since kinematics imports reference frame, this needs to be here to avoid circular dependencies.
 func TestDynamicFrameSystemXArm(t *testing.T) {
@@ -166,26 +104,10 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 
 	// World point of xArm at 0 position
 	poseWorld1 := spatial.NewPoseFromPoint(r3.Vector{207, 0, 112})
-	// World point of xArm at (90,-90,90,-90,90,-90) joint positions
-	poseWorld2 := spatial.NewPoseFromPoint(r3.Vector{97, -207, -98})
-
-	// Note that because the arm is pointing in a different direction, this point is not a direct inverse of pointWorld2
-	pointXarm := spatial.NewPoseFromPoint(r3.Vector{207, 98, -97})
 
 	transformPoint1, err := fs.Transform(positions, frame.NewPoseInFrame("xArm6", spatial.NewZeroPose()), frame.World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(transformPoint1.(*frame.PoseInFrame).Pose(), poseWorld1), test.ShouldBeTrue)
-
-	// Test ability to calculate hypothetical out-of-bounds positions for the arm, but still return an error
-	positions["xArm6"] = frame.FloatsToInputs(
-		[]float64{math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2})
-	transformPoint2, err := fs.Transform(positions, frame.NewPoseInFrame("xArm6", spatial.NewZeroPose()), frame.World)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincident(transformPoint2.(*frame.PoseInFrame).Pose(), poseWorld2), test.ShouldBeTrue)
-
-	transformPoint3, err := fs.Transform(positions, frame.NewPoseInFrame(frame.World, spatial.NewZeroPose()), "xArm6")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincident(transformPoint3.(*frame.PoseInFrame).Pose(), pointXarm), test.ShouldBeTrue)
 }
 
 // Test a complicated dynamic frame system. We model a UR5 at (100,100,200) holding a camera pointing in line with the

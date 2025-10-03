@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/lo"
 	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
@@ -133,6 +134,48 @@ func TestNetLoggerSync(t *testing.T) {
 	for i := 0; i < writeBatchSize+1; i++ {
 		test.That(t, server.service.logs[i].Message, test.ShouldEqual, fmt.Sprintf("Some-info %d", i))
 	}
+}
+
+func TestNetLoggerSyncInvalidUTF8(t *testing.T) {
+	server := makeServerForRobotLogger(t)
+	defer server.stop()
+
+	// This test is testing the behavior of sync(), so the background worker shouldn't be running at the same time.
+	loggerWithoutNet, observedLogs := NewObservedTestLogger(t)
+	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, loggerWithoutNet)
+	test.That(t, err, test.ShouldBeNil)
+
+	logger := NewDebugLogger("test logger")
+	// The stdout appender is not necessary for test correctness. But it does provide information in
+	// the output w.r.t the injected grpc errors.
+	logger.AddAppender(netAppender)
+
+	logger.Info("valid message")
+	logger.Info("pre text \xB0 post text")
+	logger.Info("another valid message")
+	test.That(t, netAppender.sync(), test.ShouldBeNil)
+	netAppender.Close()
+
+	server.service.logsMu.Lock()
+	defer server.service.logsMu.Unlock()
+	test.That(t, server.service.logBatches, test.ShouldHaveLength, 1)
+	test.That(t, server.service.logBatches[0], test.ShouldHaveLength, 3)
+	logMessages := lo.Map(
+		server.service.logs,
+		func(entry *commonpb.LogEntry, _ int) string { return entry.Message },
+	)
+	test.That(
+		t,
+		logMessages,
+		test.ShouldResemble,
+		[]string{"valid message", "pre text � post text", "another valid message"},
+	)
+	test.That(
+		t,
+		observedLogs.FilterMessage("Log batch failed to serialize due to invalid UTF-8, will sanitize and retry").Len(),
+		test.ShouldEqual,
+		1,
+	)
 }
 
 func TestNetLoggerSyncFailureAndRetry(t *testing.T) {

@@ -14,12 +14,12 @@ import (
 
 type serviceServer struct {
 	pb.UnimplementedMotorServiceServer
-	coll resource.APIResourceCollection[Motor]
+	coll resource.APIResourceGetter[Motor]
 }
 
 // NewRPCServiceServer constructs a motor gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Motor]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Motor]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

@@ -2,7 +2,6 @@ package data
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -67,7 +66,7 @@ func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 	md := &v1.DataCaptureMetadata{}
 	initOffset, err := pbutil.ReadDelimited(f, md)
 	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name()))
+		return nil, errors.Wrapf(err, "failed to read DataCaptureMetadata from %s", f.Name())
 	}
 
 	ret := CaptureFile{

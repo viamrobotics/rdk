@@ -88,18 +88,17 @@ func KinematicModelFromFile(modelPath, name string) (Model, error) {
 
 // SimpleModel is a model that serially concatenates a list of Frames.
 type SimpleModel struct {
-	*baseFrame
+	baseFrame
 	// OrdTransforms is the list of transforms ordered from end effector to base
-	OrdTransforms []Frame
+	ordTransforms []Frame
 	modelConfig   *ModelConfigJSON
 	poseCache     sync.Map
-	lock          sync.RWMutex
 }
 
 // NewSimpleModel constructs a new model.
 func NewSimpleModel(name string) *SimpleModel {
 	return &SimpleModel{
-		baseFrame: &baseFrame{name: name},
+		baseFrame: baseFrame{name: name},
 	}
 }
 
@@ -137,7 +136,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error) {
 	interp := make([]Input, 0, len(from))
 	posIdx := 0
-	for _, transform := range m.OrdTransforms {
+	for _, transform := range m.OrdTransforms() {
 		dof := len(transform.DoF()) + posIdx
 		fromSubset := from[posIdx:dof]
 		toSubset := to[posIdx:dof]
@@ -152,11 +151,16 @@ func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error)
 	return interp, nil
 }
 
+// OrdTransforms gets the OrdTransforms.
+func (m *SimpleModel) OrdTransforms() []Frame {
+	return m.ordTransforms
+}
+
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	inputs := make([]Input, 0, len(jp.Values))
 	posIdx := 0
-	for _, transform := range m.OrdTransforms {
+	for _, transform := range m.OrdTransforms() {
 		dof := len(transform.DoF()) + posIdx
 		jPos := jp.Values[posIdx:dof]
 		posIdx = dof
@@ -171,7 +175,7 @@ func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
 	jPos := &pb.JointPositions{}
 	posIdx := 0
-	for _, transform := range m.OrdTransforms {
+	for _, transform := range m.OrdTransforms() {
 		dof := len(transform.DoF()) + posIdx
 		jPos.Values = append(jPos.Values, transform.ProtobufFromInput(input[posIdx:dof]).Values...)
 		posIdx = dof
@@ -224,23 +228,18 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 
 // DoF returns the number of degrees of freedom within a model.
 func (m *SimpleModel) DoF() []Limit {
-	m.lock.RLock()
-	if len(m.limits) > 0 {
-		defer m.lock.RUnlock()
-		return m.limits
-	}
-	m.lock.RUnlock()
+	return m.limits
+}
 
-	limits := make([]Limit, 0, len(m.OrdTransforms))
-	for _, transform := range m.OrdTransforms {
+// SetOrdTransforms sets the ordTransforms.
+func (m *SimpleModel) SetOrdTransforms(fs []Frame) {
+	m.ordTransforms = fs
+	m.limits = []Limit{}
+	for _, transform := range m.ordTransforms {
 		if len(transform.DoF()) > 0 {
-			limits = append(limits, transform.DoF()...)
+			m.limits = append(m.limits, transform.DoF()...)
 		}
 	}
-	m.lock.Lock()
-	m.limits = limits
-	m.lock.Unlock()
-	return limits
 }
 
 // MarshalJSON serializes a Model.
@@ -284,9 +283,9 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		if !ok {
 			return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
 		}
-		m.OrdTransforms = newModel.OrdTransforms
+		m.SetOrdTransforms(newModel.OrdTransforms())
 	}
-	m.baseFrame = &baseFrame{name: frameName, limits: ser.Limits}
+	m.baseFrame = baseFrame{name: frameName, limits: ser.Limits}
 	m.modelConfig = ser.Model
 
 	return nil
@@ -314,12 +313,12 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
 	var err error
-	poses := make([]*staticFrame, 0, len(m.OrdTransforms))
+	poses := make([]*staticFrame, 0, len(m.OrdTransforms()))
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	composedTransformation := spatialmath.NewZeroPose()
 	posIdx := 0
 	// get quaternions from the base outwards.
-	for _, transform := range m.OrdTransforms {
+	for _, transform := range m.OrdTransforms() {
 		dof := len(transform.DoF()) + posIdx
 		input := inputs[posIdx:dof]
 		posIdx = dof
@@ -396,9 +395,9 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 		if err != nil {
 			return nil, err
 		}
-		model.OrdTransforms = []Frame{x, y, theta, geometry}
+		model.SetOrdTransforms([]Frame{x, y, theta, geometry})
 	} else {
-		model.OrdTransforms = []Frame{x, y, geometry}
+		model.SetOrdTransforms([]Frame{x, y, geometry})
 	}
 	return model, nil
 }

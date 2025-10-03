@@ -85,6 +85,7 @@ var testRemote = Remote{
 		},
 	},
 	ManagedBy:               "managed-by",
+	Prefix:                  "some-prefix",
 	Insecure:                true,
 	ConnectionCheckInterval: 1000000000,
 	ReconnectInterval:       2000000000,
@@ -562,7 +563,9 @@ func validateRemote(t *testing.T, actual, expected Remote) {
 	test.That(t, actual.Insecure, test.ShouldEqual, expected.Insecure)
 	test.That(t, actual.ReconnectInterval, test.ShouldEqual, expected.ReconnectInterval)
 	test.That(t, actual.ConnectionCheckInterval, test.ShouldEqual, expected.ConnectionCheckInterval)
+	test.That(t, actual.Prefix, test.ShouldEqual, expected.Prefix)
 	test.That(t, actual.Auth, test.ShouldResemble, expected.Auth)
+	test.That(t, actual.Prefix, test.ShouldEqual, expected.Prefix)
 	f1, err := actual.Frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	f2, err := testComponent.Frame.ParseConfig()
@@ -604,13 +607,14 @@ func TestRemoteConfigToProto(t *testing.T) {
 		proto := pb.RemoteConfig{
 			Name:    "some-name",
 			Address: "localohst:8080",
+			Prefix:  "some-prefix",
 		}
 
 		out, err := RemoteConfigFromProto(&proto, logger)
 		test.That(t, err, test.ShouldBeNil)
-
 		test.That(t, out.Name, test.ShouldEqual, proto.Name)
 		test.That(t, out.Address, test.ShouldEqual, proto.Address)
+		test.That(t, out.Prefix, test.ShouldEqual, proto.Prefix)
 		test.That(t, out.Auth, test.ShouldResemble, RemoteAuth{})
 	})
 }
@@ -1048,8 +1052,13 @@ func TestMaintenanceConfigToProtoMalformedName(t *testing.T) {
 	out, err := MaintenanceConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	// We strip the remote name during proto conversion as part of our migration
+	// to simple resource names.
+	modifiedMaintenanceConfig := testMaintenanceConfig
+	modifiedMaintenanceConfig.SensorName = "::/go"
+
 	testMaintenanceConfig.SensorName = resource.NewName(resource.API{}, testMaintenanceConfig.SensorName).String()
-	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+	test.That(t, *out, test.ShouldResemble, modifiedMaintenanceConfig)
 }
 
 func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
@@ -1064,7 +1073,12 @@ func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
 	out, err := MaintenanceConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+	// We strip the remote name during proto conversion as part of our migration
+	// to simple resource names.
+	modifiedMaintenanceConfig := testMaintenanceConfig
+	modifiedMaintenanceConfig.SensorName = "rdk:component:sensor/store"
+
+	test.That(t, *out, test.ShouldResemble, modifiedMaintenanceConfig)
 }
 
 func TestJobsConfigProtoConversions(t *testing.T) {

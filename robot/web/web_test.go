@@ -738,86 +738,6 @@ func TestWebWithOnlyNewAPIKeyAuthHandlers(t *testing.T) {
 	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 }
 
-func TestWebReconfigure(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	// robot is configured with an arm
-	ctx, robot := setupRobotCtx(t)
-
-	svc := web.New(robot, logger)
-
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	err := svc.Start(ctx, options)
-	test.That(t, err, test.ShouldBeNil)
-	t.Cleanup(func() {
-		test.That(t, svc.Close(ctx), test.ShouldBeNil)
-	})
-
-	conn, err := rgrpc.Dial(context.Background(), addr, logger)
-	test.That(t, err, test.ShouldBeNil)
-	t.Cleanup(func() {
-		test.That(t, conn.Close(), test.ShouldBeNil)
-	})
-
-	aClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
-	t.Cleanup(func() {
-		test.That(t, aClient.Close(ctx), test.ShouldBeNil)
-	})
-
-	arm1Position, err := aClient.EndPosition(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1Position, test.ShouldResemble, pos)
-
-	// replace the arm in the robot and then reconfigure web service
-	injectArm := &inject.Arm{}
-	newPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 3, Z: 6})
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-		return newPos, nil
-	}
-	rs := map[resource.Name]resource.Resource{arm.Named(arm1String): injectArm}
-	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
-	test.That(t, err, test.ShouldBeNil)
-
-	aClient, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
-	position, err := aClient.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, position, test.ShouldResemble, newPos)
-
-	// add a second arm
-	arm2 := "arm2"
-	injectArm2 := &inject.Arm{}
-	pos2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 2, Y: 3, Z: 4})
-	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-		return pos2, nil
-	}
-	rs[arm.Named(arm2)] = injectArm2
-	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
-	test.That(t, err, test.ShouldBeNil)
-
-	aClient2, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm2), logger)
-	test.That(t, err, test.ShouldBeNil)
-	t.Cleanup(func() {
-		test.That(t, aClient2.Close(ctx), test.ShouldBeNil)
-	})
-
-	position, err = aClient2.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, position, test.ShouldResemble, pos2)
-
-	// check that removing both arms means that neither arms are accessible
-	err = svc.Reconfigure(context.Background(), make(map[resource.Name]resource.Resource), resource.Config{})
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = aClient.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:component:arm/arm1\" not found")
-
-	_, err = aClient2.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:component:arm/arm2\" not found")
-}
-
 func TestWebWithStreams(t *testing.T) {
 	const (
 		camera1Key = "camera1"
@@ -1001,7 +921,7 @@ func withMachineStatus(f machineStatusFunc) setupRobotOption {
 	}
 }
 
-func setupRobotCtx(t *testing.T, opts ...setupRobotOption) (context.Context, robot.Robot) {
+func setupRobotCtx(t *testing.T, opts ...setupRobotOption) (context.Context, robot.LocalRobot) {
 	t.Helper()
 
 	options := &setupRobotOptions{
@@ -1020,6 +940,9 @@ func setupRobotCtx(t *testing.T, opts ...setupRobotOption) (context.Context, rob
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		return injectArm, nil
+	}
+	injectRobot.FindBySimpleNameAndAPIFunc = func(string, resource.API) (resource.Resource, error) {
 		return injectArm, nil
 	}
 	injectRobot.LoggerFunc = func() logging.Logger { return logging.NewTestLogger(t) }
@@ -1155,7 +1078,7 @@ func TestRawClientOperation(t *testing.T) {
 	// Need an unfiltered streaming call to test interceptors
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} { return &echoServer{} },
 		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
 	})
@@ -1221,7 +1144,7 @@ func TestRawClientOperation(t *testing.T) {
 func TestUnaryRequestCounter(t *testing.T) {
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} { return &echoServer{} },
 		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
 	})
@@ -1238,6 +1161,9 @@ func TestUnaryRequestCounter(t *testing.T) {
 
 	iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
 		return robot.MachineStatus{}, nil
+	}
+	iRobot.(*inject.Robot).FindBySimpleNameAndAPIFunc = func(s string, a resource.API) (resource.Resource, error) {
+		return nil, resource.NewNotFoundError(resource.NewName(a, s))
 	}
 
 	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
@@ -1285,9 +1211,9 @@ func TestUnaryRequestCounter(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = genericclient.DoCommand(ctx, nil)
-	// errors here because we haven't created defined generictest, but RC still counts the request.
+	// errors here but RC still counts the request.
 	test.That(t, err.Error(), test.ShouldEqual,
-		"rpc error: code = Unknown desc = resource \"rdk:service:generic/generictest\" not found")
+		"rpc error: code = Unknown desc = resource rdk:service:generic/generictest not found")
 
 	count = svc.RequestCounter().Stats().(map[string]int64)["generictest.GenericService/DoCommand"]
 	test.That(t, count, test.ShouldEqual, 1)
@@ -1299,7 +1225,7 @@ func TestUnaryRequestCounter(t *testing.T) {
 func TestStreamingRequestCounter(t *testing.T) {
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} { return &echoServer{} },
 		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
 	})

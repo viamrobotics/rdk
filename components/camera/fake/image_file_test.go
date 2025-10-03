@@ -2,10 +2,6 @@ package fake
 
 import (
 	"context"
-	"image"
-	"image/color"
-	"image/jpeg"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -80,41 +76,6 @@ func TestColor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestColorOddResolution(t *testing.T) {
-	imgFilePath := t.TempDir() + "/test_img.jpg"
-	imgFile, err := os.Create(imgFilePath)
-	test.That(t, err, test.ShouldBeNil)
-
-	img := image.NewRGBA(image.Rect(0, 0, 3, 3))
-	for x := 0; x < img.Bounds().Dx(); x++ {
-		for y := 0; y < img.Bounds().Dy(); y++ {
-			img.Set(x, y, color.White)
-		}
-	}
-	err = jpeg.Encode(imgFile, img, nil)
-	test.That(t, err, test.ShouldBeNil)
-	err = imgFile.Close()
-	test.That(t, err, test.ShouldBeNil)
-
-	cfg := &fileSourceConfig{Color: imgFilePath}
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	strmImg, err := camera.DecodeImageFromCamera(ctx, utils.MimeTypeRawRGBA, nil, cam)
-	test.That(t, err, test.ShouldBeNil)
-
-	expectedBounds := image.Rect(0, 0, img.Bounds().Dx()-1, img.Bounds().Dy()-1)
-	test.That(t, strmImg.Bounds(), test.ShouldResemble, expectedBounds)
-	val, _, err := rimage.CompareImages(strmImg, img.SubImage(expectedBounds))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, val, test.ShouldEqual, 0)
-
-	err = cam.Close(ctx)
-	test.That(t, err, test.ShouldBeNil)
-}
-
 func TestPreloadedImages(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -134,7 +95,7 @@ func TestPreloadedImages(t *testing.T) {
 			test.That(t, bounds.Dx() > 0, test.ShouldBeTrue)
 			test.That(t, bounds.Dy() > 0, test.ShouldBeTrue)
 
-			namedImages, metadata, err := cam.Images(ctx, nil)
+			namedImages, metadata, err := cam.Images(ctx, nil, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(namedImages), test.ShouldEqual, 1)
 			test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
@@ -159,11 +120,35 @@ func TestPreloadedImages(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Should return both images
-	namedImages, _, err := cam.Images(ctx, nil)
+	namedImages, _, err := cam.Images(ctx, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(namedImages), test.ShouldEqual, 2)
 	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
 	test.That(t, namedImages[1].SourceName, test.ShouldEqual, "color")
+
+	// Should return only preloaded
+	namedImages, _, err = cam.Images(ctx, []string{"preloaded"}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(namedImages), test.ShouldEqual, 1)
+	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
+
+	// Should return only color
+	namedImages, _, err = cam.Images(ctx, []string{"color"}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(namedImages), test.ShouldEqual, 1)
+	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "color")
+
+	// Should return both
+	namedImages, _, err = cam.Images(ctx, []string{"preloaded", "color"}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(namedImages), test.ShouldEqual, 2)
+	test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
+	test.That(t, namedImages[1].SourceName, test.ShouldEqual, "color")
+
+	// Should error on invalid source name
+	_, _, err = cam.Images(ctx, []string{"not a source"}, nil)
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, err.Error(), test.ShouldEqual, "invalid source name: not a source")
 
 	cameraImg, err := camera.DecodeImageFromCamera(ctx, utils.MimeTypeRawRGBA, nil, cam)
 	test.That(t, err, test.ShouldBeNil)

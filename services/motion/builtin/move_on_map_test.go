@@ -15,12 +15,11 @@ import (
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/armplanning"
+	"go.viam.com/rdk/motionplan/baseplanning"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -70,13 +69,13 @@ func TestMoveOnMap(t *testing.T) {
 		ms.(*builtIn).fsService = fsSvc
 
 		req := motion.MoveOnMapReq{
-			ComponentName: base.Named("test-base"),
+			ComponentName: "test-base",
 			Destination:   spatialmath.NewPoseFromPoint(r3.Vector{X: 1001, Y: 1001}),
-			SlamName:      slam.Named("test_slam"),
+			SlamName:      "test_slam",
 			Extra:         map[string]interface{}{"timeout": 0.01},
 		}
 
-		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
+		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Millisecond)
 		defer timeoutFn()
 		executionID, err := ms.(*builtIn).MoveOnMap(timeoutCtx, req)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -90,10 +89,10 @@ func TestMoveOnMap(t *testing.T) {
 		easyGoalInSLAMFrame := spatialmath.PoseBetweenInverse(motion.SLAMOrientationAdjustment, easyGoalInBaseFrame)
 
 		req := motion.MoveOnMapReq{
-			ComponentName: base.Named("test-base"),
+			ComponentName: "test-base",
 			Destination:   easyGoalInSLAMFrame,
 			MotionCfg:     motionCfg,
-			SlamName:      slam.Named("test_slam"),
+			SlamName:      "test_slam",
 			Extra:         map[string]interface{}{"smooth_iter": 0},
 		}
 
@@ -112,7 +111,7 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
 		test.That(t, len(ph[0].Plan.Path()), test.ShouldNotEqual, 0)
 
-		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseResource})
+		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseName})
 		test.That(t, err, test.ShouldBeNil)
 
 		ph2, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
@@ -125,7 +124,7 @@ func TestMoveOnMap(t *testing.T) {
 		test.That(t, len(ph2[0].Plan.Path()), test.ShouldNotEqual, 0)
 
 		// Proves that calling StopPlan after the plan has reached a terminal state is idempotent
-		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseResource})
+		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseName})
 		test.That(t, err, test.ShouldBeNil)
 		ph3, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
 		test.That(t, err, test.ShouldBeNil)
@@ -137,10 +136,10 @@ func TestMoveOnMap(t *testing.T) {
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnMapReq{
-			ComponentName: base.Named("test-base"),
+			ComponentName: "test-base",
 			MotionCfg:     motionCfg,
 			Destination:   spatialmath.NewPoseFromOrientation(&spatialmath.EulerAngles{Yaw: 3}),
-			SlamName:      slam.Named("test_slam"),
+			SlamName:      "test_slam",
 		}
 
 		timeoutCtx, timeoutFn := context.WithTimeout(ctx, time.Second*5)
@@ -155,13 +154,12 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	extra := map[string]interface{}{
-		"motion_profile": armplanning.PositionOnlyMotionProfile,
-		"timeout":        5.,
-		"smooth_iter":    10.,
+		"timeout":     5.,
+		"smooth_iter": 10.,
 	}
 
 	baseName := "test-base"
-	slamName := "test-slam"
+	slamName := "test_slam"
 
 	// Create an injected Base
 	geometry, err := (&spatialmath.GeometryConfig{R: 30}).ParseConfig()
@@ -202,9 +200,9 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 	goal := spatialmath.NewPoseFromPoint(r3.Vector{X: 0.6556e3, Y: 0.64152e3})
 
 	req := motion.MoveOnMapReq{
-		ComponentName: injectBase.Name(),
+		ComponentName: injectBase.Name().Name,
 		Destination:   goal,
-		SlamName:      injectSlam.Name(),
+		SlamName:      injectSlam.Name().Name,
 		MotionCfg:     &motion.MotionConfiguration{PlanDeviationMM: 0.01},
 		Extra:         extra,
 	}
@@ -277,7 +275,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 			},
 		}
 
-		baseExecutionState, err := armplanning.NewExecutionState(
+		baseExecutionState, err := baseplanning.NewExecutionState(
 			plan, 1, currentInputs,
 			map[string]*referenceframe.PoseInFrame{
 				mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
@@ -294,13 +292,12 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		wrapperFrame := mr.localizingFS.Frame(mr.kinematicBase.Name().Name)
 
 		test.That(t, err, test.ShouldBeNil)
-		err = armplanning.CheckPlan(
+		err = baseplanning.CheckPlan(
 			wrapperFrame,
 			augmentedBaseExecutionState,
 			wrldSt,
 			mr.localizingFS,
 			lookAheadDistanceMM,
-			logger,
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, strings.Contains(err.Error(), "found constraint violation or collision in segment between"), test.ShouldBeTrue)

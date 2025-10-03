@@ -91,7 +91,6 @@ linters-settings:
           - allowTypesBefore: "testing.TB,*testing.T,*testing.B,*testing.F"
       - name: context-keys-type
       - name: dot-imports
-      - name: empty-block
       - name: error-naming
       - name: error-return
       - name: error-strings
@@ -111,6 +110,9 @@ linters-settings:
       - name: var-naming
   lll:
     line-length: 140
+  gocritic:
+    disabled-checks:
+      - ifElseChain
 issues:
   exclude-rules:
     - path: _test\.go$

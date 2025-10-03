@@ -2,7 +2,6 @@ package ik
 
 import (
 	"context"
-	"errors"
 	"math"
 	"runtime"
 	"testing"
@@ -35,7 +34,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		&spatial.OrientationVectorDegrees{OX: 1.79, OY: -1.32, OZ: -1.11},
 	)
 	solveFunc := NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
-	solution, err := solveTest(context.Background(), ik, solveFunc, home)
+	solution, err := DoSolve(context.Background(), ik, solveFunc, home, 1)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test moving forward 20 in X direction from previous position
@@ -44,7 +43,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		&spatial.OrientationVectorDegrees{OX: 1.78, OY: -3.3, OZ: -1.11},
 	)
 	solveFunc = NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
-	_, err = solveTest(context.Background(), ik, solveFunc, solution[0])
+	_, err = DoSolve(context.Background(), ik, solveFunc, solution[0], 1)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -60,7 +59,7 @@ func TestUR5NloptIKinematics(t *testing.T) {
 	goal, err := m.Transform(m.InputFromProtobuf(goalJP))
 	test.That(t, err, test.ShouldBeNil)
 	solveFunc := NewMetricMinFunc(motionplan.NewSquaredNormMetric(goal), m, logger)
-	_, err = solveTest(context.Background(), ik, solveFunc, home)
+	_, err = DoSolve(context.Background(), ik, solveFunc, home, 1)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -70,52 +69,5 @@ func TestCombinedCPUs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m.DoF(), logger, runtime.NumCPU()/400000, defaultGoalThreshold)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(ik.(*combinedIK).solvers), test.ShouldEqual, 2)
-}
-
-func solveTest(ctx context.Context, solver Solver, solveFunc func([]float64) float64, seed []float64) ([][]float64, error) {
-	solutionGen := make(chan *Solution)
-	ikErr := make(chan error)
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// Spawn the IK solver to generate solutions until done
-	go func() {
-		defer close(ikErr)
-		ikErr <- solver.Solve(ctxWithCancel, solutionGen, seed, 0, 0, solveFunc, 1)
-	}()
-
-	var solutions [][]float64
-
-	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
-IK:
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		select {
-		case step := <-solutionGen:
-			solutions = append(solutions, step.Configuration)
-			// Skip the return check below until we have nothing left to read from solutionGen
-			continue IK
-		default:
-		}
-
-		select {
-		case <-ikErr:
-			// If we have a return from the IK solver, there are no more solutions, so we finish processing above
-			// until we've drained the channel
-			break IK
-		default:
-		}
-	}
-	cancel()
-	if len(solutions) == 0 {
-		return nil, errors.New("unable to solve for position")
-	}
-
-	return solutions, nil
+	test.That(t, len(ik.solvers), test.ShouldEqual, 2)
 }

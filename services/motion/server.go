@@ -15,12 +15,12 @@ import (
 // serviceServer implements the MotionService from motion.proto.
 type serviceServer struct {
 	pb.UnimplementedMotionServiceServer
-	coll resource.APIResourceCollection[Service]
+	coll resource.APIResourceGetter[Service]
 }
 
 // NewRPCServiceServer constructs a motion gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service]) interface{} {
 	return &serviceServer{coll: coll}
 }
 
@@ -79,14 +79,14 @@ func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 	if err != nil {
 		return nil, err
 	}
-	if req.ComponentName == nil {
+	if req.ComponentName == "" {
 		return nil, errors.New("must provide component name")
 	}
 	transforms, err := referenceframe.LinkInFramesFromTransformsProtobuf(req.GetSupplementalTransforms())
 	if err != nil {
 		return nil, err
 	}
-	pose, err := svc.GetPose(ctx, protoutils.ResourceNameFromProto(req.ComponentName), req.DestinationFrame, transforms, req.Extra.AsMap())
+	pose, err := svc.GetPose(ctx, req.ComponentName, req.DestinationFrame, transforms, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (server *serviceServer) StopPlan(ctx context.Context, req *pb.StopPlanReque
 		return nil, err
 	}
 
-	componentName := protoutils.ResourceNameFromProto(req.GetComponentName())
+	componentName := req.GetComponentName()
 	r := StopPlanReq{ComponentName: componentName, Extra: req.Extra.AsMap()}
 	err = svc.StopPlan(ctx, r)
 	if err != nil {

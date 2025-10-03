@@ -237,7 +237,7 @@ func (g *multiAxis) Kinematics(ctx context.Context) (referenceframe.Model, error
 			if err != nil {
 				return nil, err
 			}
-			model.OrdTransforms = append(model.OrdTransforms, k)
+			model.SetOrdTransforms(append(model.OrdTransforms(), k))
 		}
 		g.model = model
 	}

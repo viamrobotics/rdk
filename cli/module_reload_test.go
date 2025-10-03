@@ -18,7 +18,7 @@ import (
 )
 
 func TestConfigureModule(t *testing.T) {
-	manifestPath := createTestManifest(t, "")
+	manifestPath := createTestManifest(t, "", nil)
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
@@ -35,7 +35,7 @@ func TestConfigureModule(t *testing.T) {
 func TestFullReloadFlow(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
-	manifestPath := createTestManifest(t, "")
+	manifestPath := createTestManifest(t, "", nil)
 	confStruct, err := structpb.NewStruct(map[string]any{
 		"modules": []any{},
 	})
@@ -93,13 +93,13 @@ func TestRestartModule(t *testing.T) {
 func TestResolvePartId(t *testing.T) {
 	c := newTestContext(t, map[string]any{})
 	// empty flag, no path
-	partID, err := resolvePartID(c.Context, c.String(generalFlagPartID), "")
+	partID, err := resolvePartID(c.String(generalFlagPartID), "")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, partID, test.ShouldBeEmpty)
 
 	// empty flag, fake path
 	missingPath := filepath.Join(t.TempDir(), "MISSING.json")
-	_, err = resolvePartID(c.Context, c.String(generalFlagPartID), missingPath)
+	_, err = resolvePartID(c.String(generalFlagPartID), missingPath)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// empty flag, valid path
@@ -108,13 +108,13 @@ func TestResolvePartId(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = fi.WriteString(`{"cloud":{"app_address":"https://app.viam.com:443","id":"JSON-PART","secret":"SECRET"}}`)
 	test.That(t, err, test.ShouldBeNil)
-	partID, err = resolvePartID(c.Context, c.String(generalFlagPartID), path)
+	partID, err = resolvePartID(c.String(generalFlagPartID), path)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, partID, test.ShouldEqual, "JSON-PART")
 
 	// given flag, valid path
 	c = newTestContext(t, map[string]any{generalFlagPartID: "FLAG-PART"})
-	partID, err = resolvePartID(c.Context, c.String(generalFlagPartID), path)
+	partID, err = resolvePartID(c.String(generalFlagPartID), path)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, partID, test.ShouldEqual, "FLAG-PART")
 }

@@ -328,19 +328,66 @@ func TestCloud(t *testing.T) {
 
 		fakeServer.SetInvalidTar(true)
 
-		input := []config.PackageConfig{
-			{Name: "some-name-1", Package: "org1/test-model", Version: "v1", Type: "ml_model"},
-		}
-		fakeServer.StorePackage(input...)
+		input := config.PackageConfig{Name: "some-name-1", Package: "org1/test-model", Version: "v1", Type: "ml_model"}
+		fakeServer.StorePackage(input)
 
-		err = pm.Sync(ctx, input, []config.Module{})
+		// First sync should fail due to invalid tar
+		err = pm.Sync(ctx, []config.PackageConfig{input}, []config.Module{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected EOF")
+
+		// Validate sync file exists and has failed status
+		syncFileName := getSyncFileName(input.LocalDataDirectory(pm.(*cloudManager).packagesDir))
+		_, err = os.Stat(syncFileName)
+		test.That(t, err, test.ShouldBeNil)
+		failedStatusFile, err := readStatusFile(input, pm.(*cloudManager).packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, failedStatusFile.Status, test.ShouldEqual, syncStatusFailed)
+
+		// Second sync should error and not re-download since package is present but marked as failed
+		err = pm.Sync(ctx, []config.PackageConfig{input}, []config.Module{})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to unzip")
+
+		// Validate sync file exists and has failed status
+		_, err = os.Stat(syncFileName)
+		test.That(t, err, test.ShouldBeNil)
+		statusFile, err := readStatusFile(input, pm.(*cloudManager).packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusFile.Status, test.ShouldEqual, syncStatusFailed)
+
+		// Validate only one get and one download call were made total even though we tried to sync invalid package twice
+		getCount, downloadCount := fakeServer.RequestCounts()
+		test.That(t, getCount, test.ShouldEqual, 1)
+		test.That(t, downloadCount, test.ShouldEqual, 1)
+
+		// Now set to valid tar and ensure next sync re-downloads and succeeds
+		fakeServer.SetInvalidTar(false)
+
+		// Change package version to mimic package update on server since tar won't un-invalidate itself
+		input = config.PackageConfig{Name: "some-name-1", Package: "org1/test-model", Version: "v2", Type: "ml_model"}
+		fakeServer.StorePackage(input)
+
+		// Third sync should re-download and succeed
+		err = pm.Sync(ctx, []config.PackageConfig{input}, []config.Module{})
+		test.That(t, err, test.ShouldBeNil)
+
+		// Validate sync file exists and has succeeded status
+		_, err = os.Stat(syncFileName)
+		test.That(t, err, test.ShouldBeNil)
+		statusFile, err = readStatusFile(input, pm.(*cloudManager).packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusFile.Status, test.ShouldEqual, syncStatusDone)
+
+		// Validate two gets and two downloads were made total
+		getCount, downloadCount = fakeServer.RequestCounts()
+		test.That(t, getCount, test.ShouldEqual, 2)
+		test.That(t, downloadCount, test.ShouldEqual, 2)
 
 		err = pm.Cleanup(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		validatePackageDir(t, packageDir, []config.PackageConfig{})
+		validatePackageDir(t, packageDir, []config.PackageConfig{input})
 	})
 }
 

@@ -7,13 +7,23 @@ import (
 	"github.com/pkg/errors"
 )
 
-// APIResourceCollection defines a collection of typed resources.
-type APIResourceCollection[T Resource] interface {
+// APIResourceGetter defines methods for reading a set of typed resources.
+type APIResourceGetter[T Resource] interface {
 	Resource(name string) (T, error)
+}
+
+// APIResourceSetter defines methods for mutating a set of typed resources.
+type APIResourceSetter[T Resource] interface {
 	ReplaceAll(resources map[Name]T) error
 	Add(resName Name, res T) error
 	Remove(name Name) error
 	ReplaceOne(resName Name, res T) error
+}
+
+// APIResourceCollection defines a collection of typed resources.
+type APIResourceCollection[T Resource] interface {
+	APIResourceGetter[T]
+	APIResourceSetter[T]
 }
 
 type apiResourceCollection[T Resource] struct {

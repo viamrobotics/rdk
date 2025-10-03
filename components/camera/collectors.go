@@ -143,11 +143,12 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 		return nil, err
 	}
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
 		var res data.CaptureResult
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::GetImages")
 		defer span.End()
 
-		resImgs, resMetadata, err := camera.Images(ctx, data.FromDMExtraMap)
+		resImgs, resMetadata, err := camera.Images(ctx, nil, data.FromDMExtraMap)
 		if err != nil {
 			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
@@ -157,18 +158,18 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 
 		var binaries []data.Binary
 		for _, img := range resImgs {
-			format, imgBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
+			imgBytes, err := img.Bytes(ctx)
 			if err != nil {
-				return res, err
+				return res, data.NewFailedToReadError(params.ComponentName, getImages.String(), err)
 			}
 			binaries = append(binaries, data.Binary{
 				Annotations: data.Annotations{Classifications: []data.Classification{{Label: img.SourceName}}},
 				Payload:     imgBytes,
-				MimeType:    data.CameraFormatToMimeType(format),
+				MimeType:    data.MimeTypeStringToMimeType(img.MimeType()),
 			})
 		}
 		ts := data.Timestamps{
-			TimeRequested: resMetadata.CapturedAt,
+			TimeRequested: timeRequested,
 			TimeReceived:  resMetadata.CapturedAt,
 		}
 		return data.NewBinaryCaptureResult(ts, binaries), nil

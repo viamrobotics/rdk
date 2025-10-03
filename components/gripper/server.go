@@ -13,7 +13,6 @@ import (
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // ErrGeometriesNil is the returned error if gripper geometries are nil.
@@ -24,12 +23,12 @@ var ErrGeometriesNil = func(gripperName string) error {
 // serviceServer implements the GripperService from gripper.proto.
 type serviceServer struct {
 	pb.UnimplementedGripperServiceServer
-	coll resource.APIResourceCollection[Gripper]
+	coll resource.APIResourceGetter[Gripper]
 }
 
 // NewRPCServiceServer constructs an gripper gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Gripper]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Gripper]) interface{} {
 	return &serviceServer{coll: coll}
 }
 
@@ -118,7 +117,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	if geometries == nil {
 		return nil, ErrGeometriesNil(req.GetName())
 	}
-	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
+	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }
 
 func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
