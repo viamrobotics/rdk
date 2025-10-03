@@ -118,6 +118,12 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 	if err != nil {
 		return "", err
 	}
+
+	if manifest.URL == "" {
+		return "", errors.New("meta.json must have a url field set in order to start a cloud build. " +
+			"Ex: 'https://github.com/your-username/your-repo'")
+	}
+
 	return c.moduleBuildStartForRepo(cCtx, args, &manifest, manifest.URL)
 }
 

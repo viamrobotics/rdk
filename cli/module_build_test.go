@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,42 +17,52 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func createTestManifest(t *testing.T, path string) string {
+func createTestManifest(t *testing.T, path string, overrides map[string]any) string {
 	t.Helper()
 	if len(path) == 0 {
 		path = filepath.Join(t.TempDir(), "meta.json")
 	}
-	fi, err := os.Create(path)
+
+	// Default manifest structure
+	defaultManifest := map[string]any{
+		"module_id":   "test:test",
+		"visibility":  "private",
+		"url":         "https://github.com/",
+		"description": "a",
+		"models": []any{
+			map[string]any{
+				"api":   "a:b:c",
+				"model": "a:b:c",
+			},
+		},
+		"build": map[string]any{
+			"setup": "./setup.sh",
+			"build": "make build",
+			"path":  "module",
+			"arch":  []any{"linux/amd64"},
+		},
+		"entrypoint": "bin/module",
+	}
+
+	// Apply overrides
+	for key, value := range overrides {
+		defaultManifest[key] = value
+	}
+
+	// Marshal to JSON
+	jsonBytes, err := json.MarshalIndent(defaultManifest, "", "  ")
 	test.That(t, err, test.ShouldBeNil)
-	_, err = fi.WriteString(`{
-  "module_id": "test:test",
-  "visibility": "private",
-  "url": "https://github.com/",
-  "description": "a",
-  "models": [
-    {
-      "api": "a:b:c",
-      "model": "a:b:c"
-    }
-  ],
-  "build": {
-    "setup": "./setup.sh",
-    "build": "make build",
-    "path": "module",
-    "arch": ["linux/amd64"]
-  },
-  "entrypoint": "bin/module"
-}
-`)
+
+	// Write to file
+	err = os.WriteFile(path, jsonBytes, 0o644)
 	test.That(t, err, test.ShouldBeNil)
-	err = fi.Close()
-	test.That(t, err, test.ShouldBeNil)
+
 	return path
 }
 
 func TestStartBuild(t *testing.T) {
 	manifest := filepath.Join(t.TempDir(), "meta.json")
-	createTestManifest(t, manifest)
+	createTestManifest(t, manifest, nil)
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
@@ -63,11 +74,23 @@ func TestStartBuild(t *testing.T) {
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
 	test.That(t, out.messages[0], test.ShouldEqual, "xyz123\n")
 	test.That(t, errOut.messages, test.ShouldHaveLength, 1)
+
+	// Modify manifest to set url to empty string
+	createTestManifest(t, manifest, map[string]any{"url": ""})
+	out.messages = nil
+	errOut.messages = nil
+
+	path, err = ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "meta.json must have a url field set in order to start a cloud build")
+	test.That(t, path, test.ShouldBeEmpty)
+	test.That(t, out.messages, test.ShouldHaveLength, 0)
+	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
 }
 
 func TestListBuild(t *testing.T) {
 	manifest := filepath.Join(t.TempDir(), "meta.json")
-	createTestManifest(t, manifest)
+	createTestManifest(t, manifest, nil)
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
 		ListJobsFunc: func(ctx context.Context, in *v1.ListJobsRequest, opts ...grpc.CallOption) (*v1.ListJobsResponse, error) {
 			return &v1.ListJobsResponse{Jobs: []*v1.JobInfo{
@@ -179,7 +202,7 @@ func TestLocalBuild(t *testing.T) {
 	// the manifest contains a:
 	// "setup": "./setup.sh"
 	// and a "build": "make build"
-	manifestPath := createTestManifest(t, "")
+	manifestPath := createTestManifest(t, "", nil)
 	err := os.WriteFile(
 		filepath.Join(testDir, "setup.sh"),
 		[]byte("echo setup step msg"),
