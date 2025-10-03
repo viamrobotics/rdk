@@ -120,12 +120,12 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 		func(raw any) (ResourceMap, error) { return ResourceMap(raw.(map[string]any)), nil },
 	)
 	if slices.ContainsFunc(services, func(service ResourceMap) bool {
-		return service["type"] == "shell" || service["api"] == "viam:service:shell"
+		return service["type"] == "shell" || service["api"] == "rdk:service:shell"
 	}) {
 		debugf(c.App.Writer, args.Debug, "shell service found on target machine, not installing")
 		return nil
 	}
-	services = append(services, ResourceMap{"name": "shell", "api": "viam:service:shell"})
+	services = append(services, ResourceMap{"name": "shell", "api": "rdk:service:shell"})
 	asAny, _ := rutils.MapOver(services, func(service ResourceMap) (any, error) { //nolint:errcheck
 		return map[string]any(service), nil
 	})

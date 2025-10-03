@@ -106,7 +106,7 @@ func TestFullReloadFlow(t *testing.T) {
 			test.That(t, len(services), test.ShouldEqual, 1)
 			service := services[0].(map[string]any)
 			test.That(t, service["name"], test.ShouldEqual, "shell")
-			test.That(t, service["api"], test.ShouldEqual, "viam:service:shell")
+			test.That(t, service["api"], test.ShouldEqual, "rdk:service:shell")
 		})
 
 		// Helper function to test detection of existing shell service
@@ -144,7 +144,7 @@ func TestFullReloadFlow(t *testing.T) {
 
 		t.Run("detectsExistingServiceWithApiField", func(t *testing.T) {
 			testExistingShellService(t, map[string]any{
-				"api":  "viam:service:shell",
+				"api":  "rdk:service:shell",
 				"name": "existing-shell",
 			})
 		})
