@@ -86,11 +86,17 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 				return traj, i, err
 			}
 
-			for _, sg := range subGoals {
+			if len(subGoals) > 1 {
+				pm.logger.Infof("\t generateWaypoint turned into %d subGoals", len(subGoals))
+			}
+
+			for subGoalIdx, sg := range subGoals {
+				singleGoalStart := time.Now()
 				newTraj, err := pm.planSingleGoal(ctx, traj[len(traj)-1], sg)
 				if err != nil {
 					return traj, i, err
 				}
+				pm.logger.Debug("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
 				traj = append(traj, newTraj...)
 			}
 		}
