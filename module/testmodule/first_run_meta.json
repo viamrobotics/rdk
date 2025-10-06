@@ -19,6 +19,10 @@
     {
       "api": "rdk:component:motor",
       "model": "rdk:test:motor"
+    },
+    {
+      "api": "rdk:component:generic",
+      "model": "rdk:test:fsdep"
     }
   ],
   "entrypoint": "./testmodule",
