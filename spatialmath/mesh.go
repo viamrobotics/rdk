@@ -45,7 +45,7 @@ func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 	}
 
 	// Convert triangles to PLY for protobuf
-	plyBytes := mesh.trianglesToPLYBytes()
+	plyBytes := mesh.TrianglesToPLYBytes()
 	mesh.fileType = plyType
 	mesh.rawBytes = plyBytes
 
@@ -586,8 +586,8 @@ func calculatePolygonAreaWithTriangulation(vertices []r3.Vector) float64 {
 	}
 }
 
-// trianglesToPLYBytes converts the mesh's triangles to bytes in PLY format.
-func (m *Mesh) trianglesToPLYBytes() []byte {
+// TrianglesToPLYBytes converts the mesh's triangles to bytes in PLY format.
+func (m *Mesh) TrianglesToPLYBytes() []byte {
 	// Collect all unique vertices and create vertex-to-index mapping
 	vertexMap := make(map[string]int)
 	vertices := make([]r3.Vector, 0)
