@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/spatialmath"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -236,4 +238,56 @@ func TestServiceWithUnavailableRemote(t *testing.T) {
 	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 2)
+}
+
+func TestModularFramesystemDependency(t *testing.T) {
+	// Primarily a regression test for RSDK-9430. Ensures that a modular resource can depend
+	// on the framesystem service and use the service through that dependency.
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	testFSDependentModel := resource.NewModel("rdk", "test", "fsdep")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	config := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "fsDep",
+				Model: testFSDependentModel,
+				API:   generic.API,
+			},
+			{
+				Name:  "foo",
+				API:   base.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					Parent: referenceframe.World,
+				},
+			},
+			{
+				Name:  "myParentIsFoo",
+				API:   gripper.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					Parent: "foo",
+				},
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, config, logger)
+
+	fsDep, err := r.ResourceByName(generic.Named("fsDep"))
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err := fsDep.DoCommand(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp["fsCfg"], test.ShouldNotBeNil)
+	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "foo")
+	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "myParentIsFoo")
 }

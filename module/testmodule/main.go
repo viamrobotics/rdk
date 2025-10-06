@@ -17,15 +17,17 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	genericservice "go.viam.com/rdk/services/generic"
 )
 
 var (
-	helperModel    = resource.NewModel("rdk", "test", "helper")
-	otherModel     = resource.NewModel("rdk", "test", "other")
-	testMotorModel = resource.NewModel("rdk", "test", "motor")
-	testSlowModel  = resource.NewModel("rdk", "test", "slow")
-	myMod          *module.Module
+	helperModel          = resource.NewModel("rdk", "test", "helper")
+	otherModel           = resource.NewModel("rdk", "test", "other")
+	testMotorModel       = resource.NewModel("rdk", "test", "motor")
+	testSlowModel        = resource.NewModel("rdk", "test", "slow")
+	testFSDependentModel = resource.NewModel("rdk", "test", "fsdep")
+	myMod                *module.Module
 )
 
 func main() {
@@ -78,6 +80,15 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		testSlowModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newSlow})
 	err = myMod.AddModelFromRegistry(ctx, generic.API, testSlowModel)
+	if err != nil {
+		return err
+	}
+
+	resource.RegisterComponent(
+		generic.API,
+		testFSDependentModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newFSDependent})
+	err = myMod.AddModelFromRegistry(ctx, generic.API, testFSDependentModel)
 	if err != nil {
 		return err
 	}
@@ -386,4 +397,33 @@ func (s *slow) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 func (s *slow) Close(ctx context.Context) error {
 	time.Sleep(s.configDuration)
 	return nil
+}
+
+func newFSDependent(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
+	fs, err := framesystem.FromDependencies(deps)
+	if err != nil {
+		return nil, err
+	}
+	return &fsDependent{
+		Named: conf.ResourceName().AsNamed(),
+		fs:    fs,
+	}, nil
+}
+
+type fsDependent struct {
+	resource.Named
+	resource.TriviallyCloseable
+	resource.TriviallyReconfigurable
+	fs framesystem.Service
+}
+
+// DoCommand always returns a stringified version of the frame system config as "fsCfg".
+func (fd *fsDependent) DoCommand(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	fsCfg, err := fd.fs.FrameSystemConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{"fsCfg": fsCfg.String()}, nil
 }
