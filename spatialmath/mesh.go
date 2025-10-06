@@ -594,10 +594,10 @@ func (m *Mesh) TrianglesToPLYBytes(convertToWorldFrame bool) []byte {
 	vertices := make([]r3.Vector, 0)
 
 	for _, tri := range m.triangles {
+		if convertToWorldFrame {
+			tri = tri.Transform(m.pose)
+		}
 		for _, pt := range tri.Points() {
-			if convertToWorldFrame {
-				pt = NewPoint(pt, "").Transform(PoseInverse(m.pose)).ToPoints(1e-10)[0]
-			}
 			scaledPt := r3.Vector{X: pt.X / 1000.0, Y: pt.Y / 1000.0, Z: pt.Z / 1000.0}
 			key := fmt.Sprintf("%.10f,%.10f,%.10f", scaledPt.X, scaledPt.Y, scaledPt.Z)
 			if _, exists := vertexMap[key]; !exists {

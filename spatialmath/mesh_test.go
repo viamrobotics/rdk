@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -31,16 +32,12 @@ func makeSimpleTriangleMesh() Geometry {
 	return makeTestMesh(NewZeroOrientation(), r3.Vector{}, []*Triangle{tri1, tri2, tri3})
 }
 
-func TestProtoConversion(t *testing.T) {
-	mesh1 := makeSimpleTriangleMesh().(*Mesh)
-	proto := mesh1.ToProtobuf()
-	zeroPose := NewPose(r3.Vector{0, 0, 0}, NewZeroOrientation())
-	mesh2, err := NewMeshFromProto(zeroPose, proto.GetMesh(), "")
-	test.That(t, err, test.ShouldBeNil)
-
+func assertMeshesNearlyEqual(t *testing.T, mesh1, mesh2 *Mesh) {
+	t.Helper()
+	test.That(t, mesh1, test.ShouldResemble, mesh2)
 	// We want to assert that mesh1 resembles mesh2. However, test.ShouldResemble on non-proto
-	// objects is an alias for test.ShouldEqual, which fails because the coordinates differ by a
-	// floating point roundoff. Instead, convert both to triangles and assert that the points
+	// objects is an alias for test.ShouldEqual, which fails because the coordinates could differ
+	// by a floating point roundoff. Instead, convert both to triangles and assert that the points
 	// within are nearly equal.
 	triangles1 := mesh1.Triangles()
 	triangles2 := mesh2.Triangles()
@@ -54,6 +51,58 @@ func TestProtoConversion(t *testing.T) {
 			test.That(t, R3VectorAlmostEqual(p1, p2, 1e-5), test.ShouldBeTrue)
 		}
 	}
+}
+
+func TestProtoConversion(t *testing.T) {
+	mesh1 := makeSimpleTriangleMesh().(*Mesh)
+	proto := mesh1.ToProtobuf()
+	mesh2, err := NewMeshFromProto(NewZeroPose(), proto.GetMesh(), "")
+	test.That(t, err, test.ShouldBeNil)
+	assertMeshesNearlyEqual(t, mesh1, mesh2)
+}
+
+func TestPLYConversion(t *testing.T) {
+	mesh1 := makeSimpleTriangleMesh().(*Mesh)
+	plyBytes := mesh1.TrianglesToPLYBytes(false)
+	mesh2, err := newMeshFromBytes(NewZeroPose(), plyBytes, "")
+	test.That(t, err, test.ShouldBeNil)
+	assertMeshesNearlyEqual(t, mesh1, mesh2)
+}
+
+func TestPLYConversionWithPose(t *testing.T) {
+	// We always load a mesh in its own local frame, even if it was stored in the world frame. To
+	// test that this works without hand-coding a bunch of meshes here, Move it to a pose, then
+	// encode/decode it, then move it back, then encode/decode it again, and assert we're back
+	// where we started.
+	////ov := &OrientationVector{math.Pi / 2, 0.3, 0.4, 0.5}
+	//ov := &OrientationVector{0 * math.Pi / 2, 1, 0, 0}//0.3, 0.4, 0.5}
+    //ov.Normalize()
+	//pose := NewPose(r3.Vector{1, 2, 3}, ov)
+	pose := NewPoseFromPoint(r3.Vector{1, 2, 3})
+	fmt.Println(pose)
+	fmt.Println(PoseInverse(pose))
+
+	mesh1 := makeSimpleTriangleMesh().(*Mesh)
+	fmt.Println(mesh1.pose)
+	fmt.Println(Compose(pose, mesh1.pose))
+	mesh2 := mesh1.Transform(pose).(*Mesh)
+	fmt.Println(mesh2.pose)
+
+	plyBytes1 := mesh2.TrianglesToPLYBytes(true)
+	mesh3, err := newMeshFromBytes(pose, plyBytes1, "")
+	fmt.Println(mesh3.pose)
+	assertMeshesNearlyEqual(t, mesh2, mesh3)
+
+	test.That(t, err, test.ShouldBeNil)
+	mesh4 := mesh3.Transform(PoseInverse(pose)).(*Mesh)
+	fmt.Println(mesh4.pose)
+	plyBytes2 := mesh4.TrianglesToPLYBytes(true)
+	mesh5, err := newMeshFromBytes(NewZeroPose(), plyBytes2, "")
+	assertMeshesNearlyEqual(t, mesh4, mesh5)
+	fmt.Println(mesh5.pose)
+	assertMeshesNearlyEqual(t, mesh1, mesh5)
+
+	assertMeshesNearlyEqual(t, mesh1, mesh5)
 }
 
 func TestNewMesh(t *testing.T) {
