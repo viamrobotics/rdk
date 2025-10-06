@@ -31,6 +31,31 @@ func makeSimpleTriangleMesh() Geometry {
 	return makeTestMesh(NewZeroOrientation(), r3.Vector{}, []*Triangle{tri1, tri2, tri3})
 }
 
+func TestProtoConversion(t *testing.T) {
+	mesh1 := makeSimpleTriangleMesh().(*Mesh)
+	proto := mesh1.ToProtobuf()
+	zeroPose := NewPose(r3.Vector{0, 0, 0}, NewZeroOrientation())
+	mesh2, err := NewMeshFromProto(zeroPose, proto.GetMesh(), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// We want to assert that mesh1 resembles mesh2. However, test.ShouldResemble on non-proto
+	// objects is an alias for test.ShouldEqual, which fails because the coordinates differ by a
+	// floating point roundoff. Instead, convert both to triangles and assert that the points
+	// within are nearly equal.
+	triangles1 := mesh1.Triangles()
+	triangles2 := mesh2.Triangles()
+	test.That(t, len(triangles1), test.ShouldEqual, len(triangles2))
+	for i, t1 := range triangles1 {
+		t2 := triangles2[i]
+		points1 := t1.Points()
+		points2 := t2.Points()
+		for j, p1 := range points1 {
+			p2 := points2[j]
+			test.That(t, R3VectorAlmostEqual(p1, p2, 1e-5), test.ShouldBeTrue)
+		}
+	}
+}
+
 func TestNewMesh(t *testing.T) {
 	tri := NewTriangle(
 		r3.Vector{X: 0, Y: 0, Z: 0},
