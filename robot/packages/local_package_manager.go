@@ -49,6 +49,7 @@ type managedModuleMap map[string]*managedModule
 func NewLocalManager(conf *config.Config, logger logging.Logger) (ManagerSyncer, error) {
 	packagesDir := LocalPackagesDir(conf.PackagePath)
 	packagesDataDir := filepath.Join(packagesDir, "data")
+	// if the package path isn't set, don't generate folders because they're not used and won't get deleted
 	if conf.PackagePath != "" {
 		if err := os.MkdirAll(packagesDir, 0o700); err != nil {
 			return nil, err
