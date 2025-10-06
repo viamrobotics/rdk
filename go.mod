@@ -4,8 +4,10 @@ go 1.25.1
 
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
+	github.com/Auburn/FastNoiseLite v1.1.1
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/a8m/envsubst v1.4.2
+	github.com/aquilax/go-perlin v1.1.0
 	github.com/axw/gocov v1.1.0
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/benbjohnson/clock v1.3.5

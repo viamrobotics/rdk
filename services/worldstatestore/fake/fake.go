@@ -2,22 +2,17 @@
 package fake
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"image/color"
-	"io"
 	"math"
-	"os"
-	"path/filepath"
-	"runtime"
-	"sort"
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
+	"github.com/aquilax/go-perlin"
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
@@ -48,30 +43,39 @@ type WorldStateStore struct {
 
 	logger logging.Logger
 
+	noise     *perlin.Perlin
 	noiseTime float64
 	minZ      float64
 	maxZ      float64
+	width     int
+	height    int
+	spacing   float64
 }
 
 const (
 	// GPUBufferAlignment ensures optimal GPU memory transfer (aligned to 256 bytes)
 	GPUBufferAlignment = 256
 
+	// MinFPS is the minimum non-zero frame rate
+	MinFPS = 0
+
 	// MaxFPS is the maximum supported frame rate (matches high-end monitors)
 	MaxFPS = 144.0
 
-	// MinFPS is the minimum non-zero frame rate
-	MinFPS = 0.1
+	// MaxPointCloudSize is the maximum point cloud size
+	MaxPointCloudSize = 1000000
+
+	// MinPointCloudSpacing is the minimum point cloud spacing
+	MinPointCloudSpacing = 1
 
 	// TargetBandwidthMBps is the target bandwidth in MB/sec for point cloud updates
-	// This balances network efficiency with real-time performance
-	TargetBandwidthMBps = 8.0
+	TargetBandwidthMBps = 2.0
 
 	// MinChunkSize is the minimum chunk size to avoid excessive overhead
 	MinChunkSize = 1000
 
-	// MaxChunkSize is the maximum chunk size to keep messages under ~1MB
-	MaxChunkSize = 65000
+	// MaxChunkSize is the maximum chunk size - capped at 512KB worth of points
+	MaxChunkSize = 32000
 )
 
 var (
@@ -180,33 +184,9 @@ var (
 			},
 		},
 	}
-
-	permutations = []int{
-		151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140,
-		36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148, 247, 120,
-		234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33,
-		88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175, 74, 165, 71,
-		134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122, 60, 211, 133,
-		230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54, 65, 25, 63, 161,
-		1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169, 200, 196, 135, 130,
-		116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64, 52, 217, 226, 250,
-		124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212, 207, 206, 59, 227, 47,
-		16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213, 119, 248, 152, 2, 44, 154,
-		163, 70, 221, 153, 101, 155, 167, 43, 172, 9, 129, 22, 39, 253, 19, 98, 108,
-		110, 79, 113, 224, 232, 178, 185, 112, 104, 218, 246, 97, 228, 251, 34, 242,
-		193, 238, 210, 144, 12, 191, 179, 162, 241, 81, 51, 145, 235, 249, 14, 239,
-		107, 49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115, 121, 50,
-		45, 127, 4, 150, 254, 138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141,
-		128, 195, 78, 66, 215, 61, 156, 180,
-	}
-
-	permutationCache [512]int
 )
 
 func init() {
-	copy(permutationCache[:256], permutations)
-	copy(permutationCache[256:], permutations)
-
 	resource.RegisterService(
 		worldstatestore.API,
 		resource.DefaultModelFamily.WithModel("fake"),
@@ -257,8 +237,15 @@ func (worldState *WorldStateStore) StreamTransformChanges(
 
 // DoCommand handles arbitrary commands. Accepts:
 //
-// - "fps": float64 to set the animation rate (0 to pause, max 144)
+// - "fps": float64 to set the animation rate (0 to pause)
+//
+// - "point_cloud_width": int to set the width of the point cloud
+//
+// - "point_cloud_height": int to set the height of the point cloud
+//
+// - "point_cloud_spacing": float64 to set the spacing of the point cloud
 func (worldState *WorldStateStore) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	var statusMsgs []string
 	if fps, ok := cmd["fps"].(float64); ok {
 		originalFPS := fps
 
@@ -277,22 +264,101 @@ func (worldState *WorldStateStore) DoCommand(ctx context.Context, cmd map[string
 		worldState.fps = fps
 		worldState.mu.Unlock()
 
-		statusMsg := fmt.Sprintf("fps set to %.2f", fps)
+		msg := fmt.Sprintf("fps set to %.2f", fps)
 		if fps != originalFPS {
-			statusMsg += fmt.Sprintf(" (clamped from %.2f)", originalFPS)
+			msg += fmt.Sprintf(" (clamped from %.2f)", originalFPS)
+		}
+		statusMsgs = append(statusMsgs, msg)
+	}
+
+	worldState.mu.Lock()
+	currentWidth := worldState.width
+	currentHeight := worldState.height
+	worldState.mu.Unlock()
+
+	if pointCloudWidth, ok := cmd["point_cloud_width"].(int); ok {
+		originalWidth := pointCloudWidth
+		if pointCloudWidth < 1 {
+			worldState.logger.Warnf("Point cloud width %d is below 1, clamping to 1", pointCloudWidth)
+			pointCloudWidth = 1
 		}
 
+		height := currentHeight
+		if h, ok := cmd["point_cloud_height"].(int); ok {
+			height = h
+		}
+		if pointCloudWidth*height > MaxPointCloudSize {
+			pointCloudWidth = MaxPointCloudSize / height
+			worldState.logger.Warnf("Point cloud dimensions exceed maximum points (%d), clamping width to %d", MaxPointCloudSize, pointCloudWidth)
+		}
+
+		worldState.mu.Lock()
+		worldState.width = pointCloudWidth
+		worldState.mu.Unlock()
+
+		msg := fmt.Sprintf("point cloud width set to %d", pointCloudWidth)
+		if pointCloudWidth != originalWidth {
+			msg += fmt.Sprintf(" (clamped from %d)", originalWidth)
+		}
+		statusMsgs = append(statusMsgs, msg)
+	}
+
+	if pointCloudHeight, ok := cmd["point_cloud_height"].(int); ok {
+		originalHeight := pointCloudHeight
+		if pointCloudHeight < 1 {
+			worldState.logger.Warnf("Point cloud height %d is below 1, clamping to 1", pointCloudHeight)
+			pointCloudHeight = 1
+		}
+
+		width := currentWidth
+		if w, ok := cmd["point_cloud_width"].(int); ok {
+			width = w
+		}
+		if width*pointCloudHeight > MaxPointCloudSize {
+			pointCloudHeight = MaxPointCloudSize / width
+			worldState.logger.Warnf("Point cloud dimensions exceed maximum points (%d), clamping height to %d", MaxPointCloudSize, pointCloudHeight)
+		}
+
+		worldState.mu.Lock()
+		worldState.height = pointCloudHeight
+		worldState.mu.Unlock()
+
+		msg := fmt.Sprintf("point cloud height set to %d", pointCloudHeight)
+		if pointCloudHeight != originalHeight {
+			msg += fmt.Sprintf(" (clamped from %d)", originalHeight)
+		}
+		statusMsgs = append(statusMsgs, msg)
+	}
+
+	if pointCloudSpacing, ok := cmd["point_cloud_spacing"].(float64); ok {
+		originalSpacing := pointCloudSpacing
+		if pointCloudSpacing < 1 {
+			worldState.logger.Warnf("Point cloud spacing %.2f is below 1, clamping to 1", pointCloudSpacing)
+			pointCloudSpacing = 1
+		}
+
+		worldState.mu.Lock()
+		worldState.spacing = pointCloudSpacing
+		worldState.mu.Unlock()
+
+		msg := fmt.Sprintf("point cloud spacing set to %.2f", pointCloudSpacing)
+		if pointCloudSpacing != originalSpacing {
+			msg += fmt.Sprintf(" (clamped from %.2f)", originalSpacing)
+		}
+		statusMsgs = append(statusMsgs, msg)
+	}
+
+	if len(statusMsgs) == 0 {
 		return map[string]any{
-			"status": statusMsg,
+			"status": "no commands processed",
 		}, nil
 	}
 
 	return map[string]any{
-		"status": "command not implemented",
+		"status": strings.Join(statusMsgs, "; "),
 	}, nil
 }
 
-// Close stops the fake service and cleans up resources.
 func (worldState *WorldStateStore) Close(ctx context.Context) error {
 	worldState.cancel()
 
@@ -314,6 +380,7 @@ func (worldState *WorldStateStore) Close(ctx context.Context) error {
 
 func newFakeWorldStateStore(name resource.Name, logger logging.Logger) worldstatestore.Service {
 	ctx, cancel := context.WithCancel(context.Background())
+	noise := perlin.NewPerlin(2, 2, 5, 1337)
 
 	fake := &WorldStateStore{
 		Named:                   name.AsNamed(),
@@ -326,6 +393,10 @@ func newFakeWorldStateStore(name resource.Name, logger logging.Logger) worldstat
 		streamCtx:               ctx,
 		cancel:                  cancel,
 		logger:                  logger,
+		noise:                   noise,
+		width:                   750,
+		height:                  750,
+		spacing:                 100,
 	}
 
 	fake.initializeTransforms()
@@ -351,166 +422,38 @@ func getStride() int {
 	return stride
 }
 
-func heightToColor(normalizedHeight float64) color.NRGBA {
-	height := math.Max(0, math.Min(1, normalizedHeight))
+func pointCloudToRawBytes(pc pointcloud.PointCloud) []byte {
+	stride := getStride()
+	size := pc.Size()
+	data := make([]byte, size*stride)
 
-	var r, g, b uint8
-	if height < 0.25 {
-		// Blue to Cyan
-		transition := height / 0.25
-		r = 0
-		g = uint8(transition * 255)
-		b = 255
-	} else if height < 0.5 {
-		// Cyan to Green
-		transition := (height - 0.25) / 0.25
-		r = 0
-		g = 255
-		b = uint8((1 - transition) * 255)
-	} else if height < 0.75 {
-		// Green to Yellow
-		transition := (height - 0.5) / 0.25
-		r = uint8(transition * 255)
-		g = 255
-		b = 0
-	} else {
-		// Yellow to Red
-		transition := (height - 0.75) / 0.25
-		r = 255
-		g = uint8((1 - transition) * 255)
-		b = 0
-	}
+	idx := 0
+	pc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		offset := idx * stride
+		xMeters := float32(p.X / 1000.0)
+		yMeters := float32(p.Y / 1000.0)
+		zMeters := float32(p.Z / 1000.0)
 
-	return color.NRGBA{R: r, G: g, B: b, A: 255}
+		var rgb float32
+		if d != nil && d.HasValue() {
+			rgb = math.Float32frombits(uint32(d.Value()))
+		}
+
+		*(*float32)(unsafe.Pointer(&data[offset])) = xMeters
+		*(*float32)(unsafe.Pointer(&data[offset+4])) = yMeters
+		*(*float32)(unsafe.Pointer(&data[offset+8])) = zMeters
+		*(*float32)(unsafe.Pointer(&data[offset+12])) = rgb
+
+		idx++
+		return true
+	})
+
+	return data
 }
 
 func packColor(colorValue color.NRGBA) float32 {
 	rgb := (uint32(colorValue.R) << 16) | (uint32(colorValue.G) << 8) | uint32(colorValue.B)
 	return math.Float32frombits(rgb)
-}
-
-func fade(interpolation float64) float64 {
-	return interpolation * interpolation * interpolation * (interpolation*(interpolation*6-15) + 10)
-}
-
-func lerp(interpolation, start, end float64) float64 {
-	return start + interpolation*(end-start)
-}
-
-func gradient(hash int, x, y, z float64) float64 {
-	hashValue := hash & 15
-	gradientU := x
-	if hashValue < 8 {
-		gradientU = y
-	}
-
-	gradientV := y
-	if hashValue < 4 {
-		gradientV = x
-	} else if hashValue == 12 || hashValue == 14 {
-		gradientV = x
-	} else {
-		gradientV = z
-	}
-
-	if (hashValue & 1) == 0 {
-		gradientU = -gradientU
-	}
-
-	if (hashValue & 2) == 0 {
-		gradientV = -gradientV
-	}
-
-	return gradientU + gradientV
-}
-
-func fastFloor(x float64) int {
-	if x >= 0 {
-		return int(x)
-	}
-	return int(x) - 1
-}
-
-func noise(x, y, z float64) float64 {
-	X := fastFloor(x) & 255
-	Y := fastFloor(y) & 255
-	Z := fastFloor(z) & 255
-
-	x -= math.Floor(x)
-	y -= math.Floor(y)
-	z -= math.Floor(z)
-
-	fadeX := fade(x)
-	fadeY := fade(y)
-	fadeZ := fade(z)
-
-	A := permutationCache[X] + Y
-	AA := permutationCache[A&255] + Z
-	AB := permutationCache[(A+1)&255] + Z
-	B := permutationCache[(X+1)&255] + Y
-	BA := permutationCache[B&255] + Z
-	BB := permutationCache[(B+1)&255] + Z
-
-	return lerp(
-		fadeZ,
-		lerp(
-			fadeY,
-			lerp(
-				fadeX,
-				gradient(permutationCache[AA&255], x, y, z),
-				gradient(permutationCache[BA&255], x-1, y, z),
-			),
-			lerp(
-				fadeX,
-				gradient(permutationCache[AB&255], x, y-1, z),
-				gradient(permutationCache[BB&255], x-1, y-1, z),
-			),
-		),
-		lerp(
-			fadeY,
-			lerp(
-				fadeX,
-				gradient(permutationCache[(AA+1)&255], x, y, z-1),
-				gradient(permutationCache[(BA+1)&255], x-1, y, z-1),
-			),
-			lerp(
-				fadeX,
-				gradient(permutationCache[(AB+1)&255], x, y-1, z-1),
-				gradient(permutationCache[(BB+1)&255], x-1, y-1, z-1),
-			),
-		),
-	)
-}
-
-func sampleBounds(values []float64, lowPerc, highPerc float64) (float64, float64) {
-	count := len(values)
-	if count == 0 {
-		return 0, 0
-	}
-
-	sampleSize := 1000
-	if count < sampleSize {
-		sampleSize = count
-	}
-
-	step := count / sampleSize
-	sample := make([]float64, 0, sampleSize)
-	for i := 0; i < count; i += step {
-		sample = append(sample, values[i])
-		if len(sample) >= sampleSize {
-			break
-		}
-	}
-
-	sort.Float64s(sample)
-	sampleCount := len(sample)
-	lowIdx := int(float64(sampleCount) * lowPerc)
-	highIdx := int(float64(sampleCount) * highPerc)
-	if highIdx >= sampleCount {
-		highIdx = sampleCount - 1
-	}
-
-	return sample[lowIdx], sample[highIdx]
 }
 
 func buildUpdateHeader(start, count uint32) *commonpb.PointCloudHeader {
@@ -561,145 +504,6 @@ func validatePointCloud(data []byte, header *commonpb.PointCloudHeader) error {
 func createBuffer(sizeBytes int) []byte {
 	alignedSize := ((sizeBytes + GPUBufferAlignment - 1) / GPUBufferAlignment) * GPUBufferAlignment
 	return make([]byte, sizeBytes, alignedSize)
-}
-
-func (worldState *WorldStateStore) processPointCloud(pc pointcloud.PointCloud) pointcloud.PointCloud {
-	size := pc.Size()
-	if size == 0 {
-		return pc
-	}
-
-	zValues := make([]float64, 0, size)
-
-	var sumX, sumY float64
-	pc.Iterate(0, 0, func(point r3.Vector, data pointcloud.Data) bool {
-		sumX += point.X
-		sumY += point.Y
-		zValues = append(zValues, point.Z)
-		return true
-	})
-
-	count := len(zValues)
-	if count == 0 {
-		return pc
-	}
-
-	minZ, maxZ := sampleBounds(zValues, 0.01, 0.99)
-	center := r3.Vector{
-		X: sumX / float64(count),
-		Y: sumY / float64(count),
-		Z: minZ,
-	}
-
-	zRange := maxZ - minZ
-	if zRange == 0 {
-		zRange = 1
-	}
-
-	worldState.minZ = minZ
-	worldState.maxZ = maxZ
-
-	withColors := pointcloud.NewBasicPointCloud(size)
-	pc.Iterate(0, 0, func(point r3.Vector, data pointcloud.Data) bool {
-		translatedPoint := r3.Vector{X: point.X - center.X, Y: point.Y - center.Y, Z: point.Z - center.Z}
-		normalizedHeight := (point.Z - minZ) / zRange
-		heightColor := heightToColor(normalizedHeight)
-		packedColor := packColor(heightColor)
-		colorData := pointcloud.NewValueData(int(math.Float32bits(packedColor)))
-		err := withColors.Set(translatedPoint, colorData)
-		if err != nil {
-			worldState.logger.Debug("failed to set color for point", "error", err)
-		}
-		return true
-	})
-
-	return withColors
-}
-
-func writePointCloud(cloud pointcloud.PointCloud, out io.Writer) error {
-	size := cloud.Size()
-	if size == 0 {
-		return nil
-	}
-
-	const bufSize = 256 * 1024
-	buf := make([]byte, bufSize)
-	pos := 0
-
-	var iterErr error
-	cloud.Iterate(0, 0, func(position r3.Vector, data pointcloud.Data) bool {
-		x := float32(position.X / 1000.)
-		y := float32(position.Y / 1000.)
-		z := float32(position.Z / 1000.)
-		rgb := math.Float32frombits(uint32(data.Value()))
-		if pos+16 > len(buf) {
-			if _, err := out.Write(buf[:pos]); err != nil {
-				iterErr = err
-				return false
-			}
-			pos = 0
-		}
-
-		binary.LittleEndian.PutUint32(buf[pos:], math.Float32bits(x))
-		binary.LittleEndian.PutUint32(buf[pos+4:], math.Float32bits(y))
-		binary.LittleEndian.PutUint32(buf[pos+8:], math.Float32bits(z))
-		binary.LittleEndian.PutUint32(buf[pos+12:], math.Float32bits(rgb))
-		pos += 16
-
-		return true
-	})
-
-	if pos > 0 && iterErr == nil {
-		if _, err := out.Write(buf[:pos]); err != nil {
-			iterErr = err
-		}
-	}
-
-	return iterErr
-}
-
-func (worldState *WorldStateStore) loadPointCloud() ([]byte, *commonpb.PointCloudHeader, error) {
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		worldState.logger.Errorw("failed to get current file path")
-		return nil, nil, errors.New("failed to get current file path")
-	}
-
-	// From: https://github.com/PointCloudLibrary/data
-	pcdPath := filepath.Join(filepath.Dir(filename), "FSite5_orig-utm.pcd")
-	file, err := os.Open(pcdPath)
-	if err != nil {
-		worldState.logger.Errorw("failed to open PCD file", "error", err, "path", pcdPath)
-		return nil, nil, err
-	}
-	defer file.Close()
-
-	pc, err := pointcloud.ReadPCD(file, pointcloud.BasicOctreeType)
-	if err != nil {
-		worldState.logger.Errorw("failed to read PCD file", "error", err)
-		return nil, nil, err
-	}
-
-	worldState.logger.Infow("Loaded point cloud", "size", pc.Size())
-	withColors := worldState.processPointCloud(pc)
-	header := buildUpdateHeader(0, uint32(withColors.Size()))
-	buf := &bytes.Buffer{}
-	stride := getStride()
-	buf.Grow(withColors.Size() * stride)
-	if err := writePointCloud(withColors, buf); err != nil {
-		worldState.logger.Errorw("failed to write interleaved pointcloud data", "error", err)
-		return nil, nil, err
-	}
-
-	result := make([]byte, buf.Len())
-	copy(result, buf.Bytes())
-
-	if err := validatePointCloud(result, header); err != nil {
-		worldState.logger.Errorw("generated point cloud data validation failed", "error", err)
-		return nil, nil, err
-	}
-
-	return result, header, nil
 }
 
 func (worldState *WorldStateStore) initializeTransforms() {
@@ -768,29 +572,28 @@ func (worldState *WorldStateStore) initializeTransforms() {
 		Metadata: capsuleMetadata,
 	}
 
-	pointcloudBytes, pointcloudHeader, err := worldState.loadPointCloud()
-	if err != nil {
-		worldState.logger.Errorw("failed to load point cloud", "error", err)
-	} else if pointcloudBytes != nil {
-		worldState.transforms[pointcloudUUID] = &commonpb.Transform{
-			ReferenceFrame: "static-pointcloud",
-			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "world",
-				Pose: &commonpb.Pose{
-					X: 0, Y: 0, Z: 0, Theta: 0, OX: 0, OY: 0, OZ: 1,
+	pointCloud := worldState.generatePointCloud(worldState.width, worldState.height)
+	pointcloudBytes := pointCloudToRawBytes(pointCloud)
+	pointcloudHeader := buildUpdateHeader(0, uint32(worldState.width*worldState.height))
+
+	worldState.transforms[pointcloudUUID] = &commonpb.Transform{
+		ReferenceFrame: "static-pointcloud",
+		PoseInObserverFrame: &commonpb.PoseInFrame{
+			ReferenceFrame: "world",
+			Pose: &commonpb.Pose{
+				X: 0, Y: 0, Z: 0, Theta: 0, OX: 0, OY: 0, OZ: 1,
+			},
+		},
+		PhysicalObject: &commonpb.Geometry{
+			GeometryType: &commonpb.Geometry_Pointcloud{
+				Pointcloud: &commonpb.PointCloud{
+					PointCloud: pointcloudBytes,
+					Header:     pointcloudHeader,
 				},
 			},
-			PhysicalObject: &commonpb.Geometry{
-				GeometryType: &commonpb.Geometry_Pointcloud{
-					Pointcloud: &commonpb.PointCloud{
-						PointCloud: pointcloudBytes,
-						Header:     pointcloudHeader,
-					},
-				},
-			},
-			Uuid:     []byte(pointcloudUUID),
-			Metadata: &structpb.Struct{},
-		}
+		},
+		Uuid:     []byte(pointcloudUUID),
+		Metadata: &structpb.Struct{},
 	}
 }
 
@@ -876,16 +679,6 @@ func (worldState *WorldStateStore) updateCapsule(elapsed time.Duration) {
 	worldState.mu.Unlock()
 }
 
-// calculateChunkSize returns an FPS-adaptive chunk size that balances bandwidth and latency.
-//
-// Examples at 16 bytes per point:
-//
-//	| FPS | Chunk Size | Message Size | Bandwidth |
-//	|-----|------------|--------------|-----------|
-//	| 10  | 50,000     | 800 KB       | 8 MB/sec  |
-//	| 30  | 16,666     | 266 KB       | 8 MB/sec  |
-//	| 60  | 8,333      | 133 KB       | 8 MB/sec  |
-//	| 144 | 3,472      | 55 KB        | 8 MB/sec  |
 func calculateChunkSize(fps float64) int {
 	if fps <= 0 {
 		return MaxChunkSize
@@ -930,9 +723,6 @@ func (worldState *WorldStateStore) updatePointCloud(elapsed time.Duration) {
 	worldState.mu.RLock()
 	fps := worldState.fps
 	worldState.mu.RUnlock()
-	if fps < 0 {
-		fps = 0
-	}
 
 	chunkSize := calculateChunkSize(fps)
 	worldState.noiseTime = elapsed.Seconds()
@@ -949,41 +739,36 @@ func (worldState *WorldStateStore) updatePointCloud(elapsed time.Duration) {
 	chunkData := createBuffer(count * stride)
 	for i := 0; i < count; i++ {
 		pointIdx := startIdx + i
+		offset := i * stride
+
+		x := pointIdx / worldState.width
+		y := pointIdx % worldState.height
+
 		originalOffset := pointIdx * stride
-		if originalOffset+stride > len(originalData) {
-			worldState.logger.Errorw("point index out of bounds", "pointIdx", pointIdx)
-			continue
+		currentHeightMeters := float32(0)
+		if originalOffset+8 < len(originalData) {
+			currentHeightMeters = math.Float32frombits(
+				uint32(originalData[originalOffset+8]) |
+					uint32(originalData[originalOffset+9])<<8 |
+					uint32(originalData[originalOffset+10])<<16 |
+					uint32(originalData[originalOffset+11])<<24,
+			)
 		}
 
-		origX := math.Float32frombits(binary.LittleEndian.Uint32(originalData[originalOffset : originalOffset+4]))
-		origY := math.Float32frombits(binary.LittleEndian.Uint32(originalData[originalOffset+4 : originalOffset+8]))
-		origZ := math.Float32frombits(binary.LittleEndian.Uint32(originalData[originalOffset+8 : originalOffset+12]))
-		posX := float64(origX * 1000.0)
-		posY := float64(origY * 1000.0)
-		noiseScale := 0.005
-		noiseValue := noise(
-			posX*noiseScale,
-			posY*noiseScale,
-			worldState.noiseTime*0.8,
-		)
+		currentNoiseValue := float64(currentHeightMeters*1000.0) / (worldState.spacing * 10.0)
+		newNoiseValue := worldState.updatePointHeight(x, y, currentNoiseValue, worldState.noiseTime)
 
-		waveAmplitude := 5000.0
-		heightOffset := waveAmplitude * noiseValue
-		animatedZ := origZ + float32(heightOffset/1000.0)
-		animatedZMm := float64(animatedZ * 1000.0)
-		zRange := worldState.maxZ - worldState.minZ
-		if zRange == 0 {
-			zRange = 1
-		}
-		normalizedHeight := animatedZMm / zRange
-		heightColor := heightToColor(normalizedHeight)
+		heightColor := heightToColor(newNoiseValue)
 		animatedRGB := packColor(heightColor)
 
-		offset := i * stride
-		binary.LittleEndian.PutUint32(chunkData[offset:], math.Float32bits(origX))
-		binary.LittleEndian.PutUint32(chunkData[offset+4:], math.Float32bits(origY))
-		binary.LittleEndian.PutUint32(chunkData[offset+8:], math.Float32bits(animatedZ))
-		binary.LittleEndian.PutUint32(chunkData[offset+12:], math.Float32bits(animatedRGB))
+		xMeters := float32(x) * float32(worldState.spacing) / 1000.0
+		yMeters := float32(y) * float32(worldState.spacing) / 1000.0
+		zMeters := float32((newNoiseValue * worldState.spacing * 10.0) / 1000.0)
+
+		*(*float32)(unsafe.Pointer(&chunkData[offset])) = xMeters
+		*(*float32)(unsafe.Pointer(&chunkData[offset+4])) = yMeters
+		*(*float32)(unsafe.Pointer(&chunkData[offset+8])) = zMeters
+		*(*float32)(unsafe.Pointer(&chunkData[offset+12])) = animatedRGB
 	}
 
 	header := buildUpdateHeader(uint32(startIdx), uint32(count))
