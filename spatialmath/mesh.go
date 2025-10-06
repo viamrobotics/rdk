@@ -45,7 +45,7 @@ func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 	}
 
 	// Convert triangles to PLY for protobuf
-	plyBytes := mesh.TrianglesToPLYBytes()
+	plyBytes := mesh.TrianglesToPLYBytes(false) // Keep it in the local frame
 	mesh.fileType = plyType
 	mesh.rawBytes = plyBytes
 
@@ -586,14 +586,18 @@ func calculatePolygonAreaWithTriangulation(vertices []r3.Vector) float64 {
 	}
 }
 
-// TrianglesToPLYBytes converts the mesh's triangles to bytes in PLY format.
-func (m *Mesh) TrianglesToPLYBytes() []byte {
+// TrianglesToPLYBytes converts the mesh's triangles to bytes in PLY format. The boolean determines
+// whether to convert to the world frame or keep it in the local frame.
+func (m *Mesh) TrianglesToPLYBytes(convertToWorldFrame bool) []byte {
 	// Collect all unique vertices and create vertex-to-index mapping
 	vertexMap := make(map[string]int)
 	vertices := make([]r3.Vector, 0)
 
 	for _, tri := range m.triangles {
 		for _, pt := range tri.Points() {
+			if convertToWorldFrame {
+				pt = NewPoint(pt, "").Transform(PoseInverse(m.pose)).ToPoints(1e-10)[0]
+			}
 			scaledPt := r3.Vector{X: pt.X / 1000.0, Y: pt.Y / 1000.0, Z: pt.Z / 1000.0}
 			key := fmt.Sprintf("%.10f,%.10f,%.10f", scaledPt.X, scaledPt.Y, scaledPt.Z)
 			if _, exists := vertexMap[key]; !exists {
