@@ -53,7 +53,7 @@ func NewLocalManager(conf *config.Config, logger logging.Logger) (ManagerSyncer,
 		if err := os.MkdirAll(packagesDir, 0o700); err != nil {
 			return nil, err
 		}
-	
+
 		if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
 			return nil, err
 		}
