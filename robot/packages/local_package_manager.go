@@ -47,16 +47,21 @@ type managedModuleMap map[string]*managedModule
 
 // NewLocalManager returns a noop package manager that does nothing. On path requests it returns the name of the package.
 func NewLocalManager(conf *config.Config, logger logging.Logger) (ManagerSyncer, error) {
-	packagesDir := LocalPackagesDir(conf.PackagePath)
-	packagesDataDir := filepath.Join(packagesDir, "data")
-
-	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
-		return nil, err
+	packagesDir := ""
+	packagesDataDir := ""
+	if conf.PackagePath != "" {
+		packagesDir = LocalPackagesDir(conf.PackagePath)
+		packagesDataDir = filepath.Join(packagesDir, "data")
+	
+		if err := os.MkdirAll(packagesDir, 0o700); err != nil {
+			return nil, err
+		}
+	
+		if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
+			return nil, err
+		}
 	}
 
-	if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
-		return nil, err
-	}
 	return &localManager{
 		Named:           InternalServiceName.AsNamed(),
 		managedModules:  make(managedModuleMap),
