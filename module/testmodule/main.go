@@ -87,7 +87,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	resource.RegisterComponent(
 		generic.API,
 		testFSDependentModel,
-		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newFSDependent})
+		resource.Registration[resource.Resource, *fsDepConfig]{Constructor: newFSDependent})
 	err = myMod.AddModelFromRegistry(ctx, generic.API, testFSDependentModel)
 	if err != nil {
 		return err
@@ -410,6 +410,18 @@ func newFSDependent(
 		Named: conf.ResourceName().AsNamed(),
 		fs:    fs,
 	}, nil
+}
+
+type fsDepConfig struct{}
+
+// Validate INCORRECTLY returns $framesystem, framesystem, and
+// framesystem.PublicServiceName.String() as implicit dependencies (both required and
+// optional). Validate methods do NOT need to do this, as the framesystem is always
+// available in constructors and Reconfigure methods through framesystem.FromDependencies.
+// The incorrect Validate method here is only used for testing that the appropriate
+// warnings are logged.
+func (fsc *fsDepConfig) Validate(_ string) ([]string, []string, error) {
+	return []string{"$framesystem", "framesystem"}, []string{framesystem.PublicServiceName.String()}, nil
 }
 
 type fsDependent struct {

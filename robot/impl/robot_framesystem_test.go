@@ -244,7 +244,7 @@ func TestModularFramesystemDependency(t *testing.T) {
 	// Primarily a regression test for RSDK-9430/12124. Ensures that a modular resource can
 	// depend on the framesystem service and use the service through that dependency,
 	// whether through the constructor or the Reconfigure method.
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
 	testFSDependentModel := resource.NewModel("rdk", "test", "fsdep")
@@ -306,4 +306,14 @@ func TestModularFramesystemDependency(t *testing.T) {
 	test.That(t, resp["fsCfg"], test.ShouldNotBeNil)
 	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "foo")
 	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "myParentIsFoo")
+
+	// Assert that observed logs contain 12 warnings. For each call to validate `fsDep`, of
+	// which there are 4 given the construction and reconfiguration above, there should be
+	// 3 warnings (4 * 3 == 12). 2 for the required implicit dependencies on "$framesystem" and
+	// "framesystem", and 1 for the optional implicit dependency on
+	// `framesystem.PublicServiceName.String()`.
+	test.That(t, logs.FilterMessageSnippet("Attempt to depend on framesystem detected").Len(),
+		test.ShouldEqual, 8)
+	test.That(t, logs.FilterMessageSnippet("Attempt to optionally depend on framesystem detected").Len(),
+		test.ShouldEqual, 4)
 }
