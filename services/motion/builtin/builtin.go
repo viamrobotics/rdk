@@ -602,7 +602,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	start := time.Now()
 	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
 	if ms.conf.shouldWritePlan(start, err) {
-		err := ms.writePlanRequest(planRequest)
+		err := ms.writePlanRequest(planRequest, plan, start, err)
 		if err != nil {
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
@@ -785,8 +785,29 @@ func waypointsFromRequest(
 	return startState, waypoints, nil
 }
 
-func (ms *builtIn) writePlanRequest(req *armplanning.PlanRequest) error {
-	fn := filepath.Join(ms.conf.PlanFilePath, fmt.Sprintf("plan-%s.json", time.Now().Format(time.RFC3339)))
+func (ms *builtIn) writePlanRequest(req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, planError error) error {
+	planExtra := fmt.Sprintf("-goals-%d", len(req.Goals))
+
+	if planError != nil {
+		planExtra += "-err"
+	}
+
+	if plan != nil {
+		totalL2 := 0.0
+
+		t := plan.Trajectory()
+		for idx := 1; idx < len(t); idx++ {
+			for k := range t[idx] {
+				myl2n := referenceframe.InputsL2Distance(t[idx-1][k], t[idx][k])
+				totalL2 += myl2n
+			}
+		}
+
+		planExtra += fmt.Sprintf("-traj-%d-l2-%0.2f", len(t), totalL2)
+	}
+
+	fn := filepath.Join(ms.conf.PlanFilePath,
+		fmt.Sprintf("plan-%s-ms-%d-%s.json", time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra))
 	ms.logger.Infof("writing plan to %s", fn)
 	return req.WriteToFile(fn)
 }
