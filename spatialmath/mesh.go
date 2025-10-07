@@ -627,6 +627,9 @@ func (m *Mesh) TrianglesToPLYBytes(convertToWorldFrame bool) []byte {
 
 	// Write faces
 	for _, tri := range m.triangles {
+		if convertToWorldFrame {
+			tri = tri.Transform(m.pose)
+		}
 		buf.WriteString("3 ")
 		for i, pt := range tri.Points() {
 			// Convert from millimeters back to meters for lookup
