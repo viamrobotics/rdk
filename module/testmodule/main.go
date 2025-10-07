@@ -419,6 +419,27 @@ type fsDependent struct {
 	fs framesystem.Service
 }
 
+// Reconfigure ensures that the framesystem is available in the dependencies passed to
+// reconfigure (not just the constructor).
+func (fd *fsDependent) Reconfigure(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+) error {
+	fs, err := framesystem.FromDependencies(deps)
+	if err != nil {
+		return err
+	}
+	fsCfg, err := fs.FrameSystemConfig(ctx)
+	if err != nil {
+		return err
+	}
+	if fsCfg == nil {
+		return errors.New("received an empty framesystem config in Reconfigure")
+	}
+	return nil
+}
+
 // DoCommand always returns a stringified version of the frame system config as "fsCfg".
 func (fd *fsDependent) DoCommand(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 	fsCfg, err := fd.fs.FrameSystemConfig(ctx)
