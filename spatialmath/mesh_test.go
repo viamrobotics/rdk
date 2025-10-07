@@ -33,7 +33,6 @@ func makeSimpleTriangleMesh() Geometry {
 
 func assertMeshesNearlyEqual(t *testing.T, mesh1, mesh2 *Mesh) {
 	t.Helper()
-	//test.That(t, mesh1, test.ShouldResemble, mesh2)
 	// We want to assert that mesh1 resembles mesh2. However, test.ShouldResemble on non-proto
 	// objects is an alias for test.ShouldEqual, which fails because the coordinates could differ
 	// by a floating point roundoff. Instead, convert both to triangles and assert that the points
