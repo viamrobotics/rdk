@@ -630,15 +630,12 @@ func (m *Mesh) TrianglesToPLYBytes(convertToWorldFrame bool) []byte {
 		if convertToWorldFrame {
 			tri = tri.Transform(m.pose)
 		}
-		buf.WriteString("3 ")
-		for i, pt := range tri.Points() {
+		buf.WriteString("3")
+		for _, pt := range tri.Points() {
 			// Convert from millimeters back to meters for lookup
 			scaledPt := r3.Vector{X: pt.X / 1000.0, Y: pt.Y / 1000.0, Z: pt.Z / 1000.0}
 			key := fmt.Sprintf("%.10f,%.10f,%.10f", scaledPt.X, scaledPt.Y, scaledPt.Z)
-			if i > 0 {
-				buf.WriteString(" ")
-			}
-			buf.WriteString(fmt.Sprintf("%d", vertexMap[key]))
+			buf.WriteString(fmt.Sprintf(" %d", vertexMap[key]))
 		}
 		buf.WriteString("\n")
 	}
