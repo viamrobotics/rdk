@@ -31,6 +31,64 @@ func makeSimpleTriangleMesh() Geometry {
 	return makeTestMesh(NewZeroOrientation(), r3.Vector{}, []*Triangle{tri1, tri2, tri3})
 }
 
+func assertMeshesNearlyEqual(t *testing.T, mesh1, mesh2 *Mesh) {
+	t.Helper()
+	// We want to assert that mesh1 resembles mesh2. However, test.ShouldResemble on non-proto
+	// objects is an alias for test.ShouldEqual, which fails because the coordinates could differ
+	// by a floating point roundoff. Instead, convert both to triangles and assert that the points
+	// within are nearly equal.
+	triangles1 := mesh1.Triangles()
+	triangles2 := mesh2.Triangles()
+	test.That(t, len(triangles1), test.ShouldEqual, len(triangles2))
+	for i, t1 := range triangles1 {
+		t2 := triangles2[i]
+		points1 := t1.Points()
+		points2 := t2.Points()
+		for j, p1 := range points1 {
+			p2 := points2[j]
+			test.That(t, R3VectorAlmostEqual(p1, p2, 1e-3), test.ShouldBeTrue)
+		}
+	}
+}
+
+func TestProtoConversion(t *testing.T) {
+	mesh1 := makeSimpleTriangleMesh().(*Mesh)
+	proto := mesh1.ToProtobuf()
+	mesh2, err := NewMeshFromProto(NewZeroPose(), proto.GetMesh(), "")
+	test.That(t, err, test.ShouldBeNil)
+	assertMeshesNearlyEqual(t, mesh1, mesh2)
+}
+
+func TestPLYConversion(t *testing.T) {
+	mesh1 := makeSimpleTriangleMesh().(*Mesh)
+	plyBytes := mesh1.TrianglesToPLYBytes(false)
+	mesh2, err := newMeshFromBytes(NewZeroPose(), plyBytes, "")
+	test.That(t, err, test.ShouldBeNil)
+	assertMeshesNearlyEqual(t, mesh1, mesh2)
+}
+
+func TestPLYConversionWithPose(t *testing.T) {
+	// We always load a mesh in its own local frame, even if it was stored in the world frame. To
+	// test that this works without hand-coding a bunch of meshes here, Move it to a pose, then
+	// encode/decode it, then move it back, then encode/decode it again, and assert we're back
+	// where we started.
+	ov := &OrientationVector{math.Pi / 2, 0.3, 0.4, 0.5}
+	ov.Normalize()
+	pose := NewPose(r3.Vector{1, 2, 3}, ov)
+
+	mesh1 := makeSimpleTriangleMesh().(*Mesh)
+	mesh2 := mesh1.Transform(pose).(*Mesh)
+	plyBytes1 := mesh2.TrianglesToPLYBytes(true)
+	mesh3, err := newMeshFromBytes(NewZeroPose(), plyBytes1, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	mesh4 := mesh3.Transform(PoseInverse(pose)).(*Mesh)
+	plyBytes2 := mesh4.TrianglesToPLYBytes(true)
+	mesh5, err := newMeshFromBytes(NewZeroPose(), plyBytes2, "")
+	test.That(t, err, test.ShouldBeNil)
+	assertMeshesNearlyEqual(t, mesh1, mesh5)
+}
+
 func TestNewMesh(t *testing.T) {
 	tri := NewTriangle(
 		r3.Vector{X: 0, Y: 0, Z: 0},
