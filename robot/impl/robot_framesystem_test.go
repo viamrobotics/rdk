@@ -312,8 +312,8 @@ func TestModularFramesystemDependency(t *testing.T) {
 	// 3 warnings (4 * 3 == 12). 2 for the required implicit dependencies on "$framesystem" and
 	// "framesystem", and 1 for the optional implicit dependency on
 	// `framesystem.PublicServiceName.String()`.
-	test.That(t, logs.FilterMessageSnippet("Attempt to depend on framesystem detected").Len(),
+	test.That(t, logs.FilterMessageSnippet("Do not attempt to depend on the framesystem through Validate").Len(),
 		test.ShouldEqual, 8)
-	test.That(t, logs.FilterMessageSnippet("Attempt to optionally depend on framesystem detected").Len(),
+	test.That(t, logs.FilterMessageSnippet("Do not attempt to optionally depend on the framesystem through Validate").Len(),
 		test.ShouldEqual, 4)
 }

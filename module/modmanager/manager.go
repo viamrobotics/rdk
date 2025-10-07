@@ -695,8 +695,9 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	for _, dep := range resp.Dependencies {
 		switch dep {
 		case "framesystem", "$framesystem", framesystem.PublicServiceName.String():
-			mgr.logger.Warnw("Attempt to depend on framesystem detected. The framesystem is always available "+
-				"in Golang modular resources through framesystem.FromDependencies; ignoring", "ignored_dependency",
+			mgr.logger.Warnw("Do not attempt to depend on the framesystem through Validate. "+
+				"The framesystem is always available in Golang modular resources through "+
+				"framesystem.FromDependencies; ignoring", "ignored_dependency",
 				dep, "resource", conf.Name)
 		default:
 			requiredImplicitDeps = append(requiredImplicitDeps, dep)
@@ -705,8 +706,9 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	for _, optionalDep := range resp.OptionalDependencies {
 		switch optionalDep {
 		case "framesystem", "$framesystem", framesystem.PublicServiceName.String():
-			mgr.logger.Warnw("Attempt to optionally depend on framesystem detected. The framesystem is always available "+
-				"in Golang modular resources through framesystem.FromDependencies; ignoring", "ignored_dependency",
+			mgr.logger.Warnw("Do not attempt to optionally depend on the framesystem through Validate. "+
+				"The framesystem is always available in Golang modular resources through "+
+				"framesystem.FromDependencies; ignoring", "ignored_dependency",
 				optionalDep, "resource", conf.Name)
 			continue
 		default:
