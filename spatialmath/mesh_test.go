@@ -73,7 +73,7 @@ func TestPLYConversionWithPose(t *testing.T) {
 	// encode/decode it, then move it back, then encode/decode it again, and assert we're back
 	// where we started.
 	ov := &OrientationVector{math.Pi / 2, 0.3, 0.4, 0.5}
-    ov.Normalize()
+	ov.Normalize()
 	pose := NewPose(r3.Vector{1, 2, 3}, ov)
 
 	mesh1 := makeSimpleTriangleMesh().(*Mesh)
@@ -85,6 +85,7 @@ func TestPLYConversionWithPose(t *testing.T) {
 	mesh4 := mesh3.Transform(PoseInverse(pose)).(*Mesh)
 	plyBytes2 := mesh4.TrianglesToPLYBytes(true)
 	mesh5, err := newMeshFromBytes(NewZeroPose(), plyBytes2, "")
+	test.That(t, err, test.ShouldBeNil)
 	assertMeshesNearlyEqual(t, mesh1, mesh5)
 }
 
