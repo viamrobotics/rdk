@@ -721,7 +721,7 @@ func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID mo
 }
 
 // moduleCloudReload triggers a cloud build and then reloads the specified module with that build.
-func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string, partID string) (string, error) {
+func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform, partID string) (string, error) {
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return "", err
@@ -855,7 +855,7 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 	return reloadModuleAction(c, vc, args, logger)
 }
 
-func getReloadVersion(versionPrefix string, partID string) string {
+func getReloadVersion(versionPrefix, partID string) string {
 	return versionPrefix + "-" + partID
 }
 
