@@ -25,6 +25,7 @@ import (
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -687,7 +688,35 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	if err != nil {
 		return nil, nil, err
 	}
-	return resp.Dependencies, resp.OptionalDependencies, nil
+
+	// RSDK-12124: Log a warning if a user tries to depend on the framesystem in some way
+	// and ignore that dependency.
+	var requiredImplicitDeps, optionalImplicitDeps []string
+	for _, dep := range resp.Dependencies {
+		switch dep {
+		case "framesystem", "$framesystem", framesystem.PublicServiceName.String():
+			mgr.logger.Warnw("Do not attempt to depend on the framesystem through Validate. "+
+				"The framesystem is always available in Golang modular resources through "+
+				"framesystem.FromDependencies; ignoring", "ignored_dependency",
+				dep, "resource", conf.Name)
+		default:
+			requiredImplicitDeps = append(requiredImplicitDeps, dep)
+		}
+	}
+	for _, optionalDep := range resp.OptionalDependencies {
+		switch optionalDep {
+		case "framesystem", "$framesystem", framesystem.PublicServiceName.String():
+			mgr.logger.Warnw("Do not attempt to optionally depend on the framesystem through Validate. "+
+				"The framesystem is always available in Golang modular resources through "+
+				"framesystem.FromDependencies; ignoring", "ignored_dependency",
+				optionalDep, "resource", conf.Name)
+			continue
+		default:
+			optionalImplicitDeps = append(optionalImplicitDeps, optionalDep)
+		}
+	}
+
+	return requiredImplicitDeps, optionalImplicitDeps, nil
 }
 
 // ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added

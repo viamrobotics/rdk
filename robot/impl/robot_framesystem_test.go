@@ -241,15 +241,16 @@ func TestServiceWithUnavailableRemote(t *testing.T) {
 }
 
 func TestModularFramesystemDependency(t *testing.T) {
-	// Primarily a regression test for RSDK-9430. Ensures that a modular resource can depend
-	// on the framesystem service and use the service through that dependency.
-	logger := logging.NewTestLogger(t)
+	// Primarily a regression test for RSDK-9430/12124. Ensures that a modular resource can
+	// depend on the framesystem service and use the service through that dependency,
+	// whether through the constructor or the Reconfigure method.
+	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
 	testFSDependentModel := resource.NewModel("rdk", "test", "fsdep")
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
 
-	config := &config.Config{
+	cfg := &config.Config{
 		Components: []resource.Config{
 			{
 				Name:  "fsDep",
@@ -280,7 +281,7 @@ func TestModularFramesystemDependency(t *testing.T) {
 			},
 		},
 	}
-	r := setupLocalRobot(t, ctx, config, logger)
+	r := setupLocalRobot(t, ctx, cfg, logger)
 
 	fsDep, err := r.ResourceByName(generic.Named("fsDep"))
 	test.That(t, err, test.ShouldBeNil)
@@ -290,4 +291,29 @@ func TestModularFramesystemDependency(t *testing.T) {
 	test.That(t, resp["fsCfg"], test.ShouldNotBeNil)
 	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "foo")
 	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "myParentIsFoo")
+
+	// Do a meaningless reconfigure (random attributes) to force a ReconfigureResource call
+	// to `fsDep` that will try to grab the framesystem from the passed in deps.
+	cfg.Components[0].Attributes = rutils.AttributeMap{"not": "used"}
+	r.Reconfigure(ctx, cfg)
+
+	// Assert that `fsDep` is still reachable and usable.
+	fsDep, err = r.ResourceByName(generic.Named("fsDep"))
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err = fsDep.DoCommand(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp["fsCfg"], test.ShouldNotBeNil)
+	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "foo")
+	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "myParentIsFoo")
+
+	// Assert that observed logs contain 12 warnings. For each call to validate `fsDep`, of
+	// which there are 4 given the construction and reconfiguration above, there should be
+	// 3 warnings (4 * 3 == 12). 2 for the required implicit dependencies on "$framesystem" and
+	// "framesystem", and 1 for the optional implicit dependency on
+	// `framesystem.PublicServiceName.String()`.
+	test.That(t, logs.FilterMessageSnippet("Do not attempt to depend on the framesystem through Validate").Len(),
+		test.ShouldEqual, 8)
+	test.That(t, logs.FilterMessageSnippet("Do not attempt to optionally depend on the framesystem through Validate").Len(),
+		test.ShouldEqual, 4)
 }
