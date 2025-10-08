@@ -721,7 +721,7 @@ func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID mo
 }
 
 // moduleCloudReload triggers a cloud build and then reloads the specified module with that build.
-func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string) (string, error) {
+func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string, partID string) (string, error) {
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return "", err
@@ -755,13 +755,13 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	// Upload a package with the bundled local dev code. Note that "reload" is a sentinel
 	// value for hot reloading modules. App expects it; don't change without making a
 	// complimentary update to the app repo
-	resp, err := c.uploadPackage(org.GetId(), reloadVersion, reloadVersion, "module", archivePath, nil)
+	resp, err := c.uploadPackage(org.GetId(), moduleID.name, reloadSourceVersion, "module", archivePath, nil)
 	if err != nil {
 		return "", err
 	}
 
 	// get package URL for downloading purposes
-	packageURL, err := c.getPackageDownloadURL(org.GetId(), reloadVersion, reloadVersion, "module")
+	packageURL, err := c.getPackageDownloadURL(org.GetId(), moduleID.name, reloadSourceVersion, "module")
 	if err != nil {
 		return "", err
 	}
@@ -912,7 +912,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				err = moduleBuildLocalAction(c, manifest, environment)
 				buildPath = manifest.Build.Path
 			} else {
-				buildPath, err = vc.moduleCloudReload(c, args, platform)
+				buildPath, err = vc.moduleCloudReload(c, args, platform, partID)
 			}
 			if err != nil {
 				return err

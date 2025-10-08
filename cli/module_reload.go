@@ -19,6 +19,7 @@ import (
 )
 
 const reloadVersion = "reload"
+const reloadSourceVersion = "reload-source"
 
 // ModuleMap is a type alias to indicate where a map represents a module config.
 // We don't convert to rdkConfig.Module because it can get out of date with what's in the db.
