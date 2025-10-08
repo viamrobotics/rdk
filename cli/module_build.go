@@ -755,13 +755,14 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	// Upload a package with the bundled local dev code. Note that "reload" is a sentinel
 	// value for hot reloading modules. App expects it; don't change without making a
 	// complimentary update to the app repo
-	resp, err := c.uploadPackage(org.GetId(), moduleID.name, reloadSourceVersion, "module", archivePath, nil)
+	reloadSourceVersionFormatted := getReloadVersion(reloadSourceVersionPrefix, partID)
+	resp, err := c.uploadPackage(org.GetId(), moduleID.name, reloadSourceVersionFormatted, "module", archivePath, nil)
 	if err != nil {
 		return "", err
 	}
 
 	// get package URL for downloading purposes
-	packageURL, err := c.getPackageDownloadURL(org.GetId(), moduleID.name, reloadSourceVersion, "module")
+	packageURL, err := c.getPackageDownloadURL(org.GetId(), moduleID.name, reloadSourceVersionFormatted, "module")
 	if err != nil {
 		return "", err
 	}
@@ -778,9 +779,10 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	// TODO (RSDK-11692) - passing org ID in the ref field and `resp.Version` (which is actually an object ID)
 	// in the token field is pretty hacky, let's fix it up
 	infof(c.c.App.Writer, "Creating a new cloud build and swapping it onto the requested machine part. This may take a few minutes...")
+	reloadVersionFormatted := getReloadVersion(reloadVersionPrefix, partID)
 	buildArgs := moduleBuildStartArgs{
 		Module:    args.Module,
-		Version:   reloadVersion,
+		Version:   reloadVersionFormatted,
 		Workdir:   args.Workdir,
 		Ref:       org.GetId(),
 		Platforms: []string{platform},
@@ -812,17 +814,17 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 
 	downloadArgs := downloadModuleFlags{
 		ID:       id,
-		Version:  reloadVersion,
+		Version:  reloadVersionFormatted,
 		Platform: platform,
 	}
 
 	// delete the package now that the build is complete
 	_, err = c.packageClient.DeletePackage(
 		ctx.Context,
-		&v1.DeletePackageRequest{Id: resp.GetId(), Version: reloadVersion, Type: v1.PackageType_PACKAGE_TYPE_MODULE},
+		&v1.DeletePackageRequest{Id: resp.GetId(), Version: reloadSourceVersionFormatted, Type: v1.PackageType_PACKAGE_TYPE_MODULE},
 	)
 	if err != nil {
-		warningf(ctx.App.Writer, "failed to delete package: %s", err.Error())
+		warningf(ctx.App.Writer, "failed to delete reload source code package: %s", err.Error())
 	}
 
 	// delete the archive we created
@@ -851,6 +853,10 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 	}
 
 	return reloadModuleAction(c, vc, args, logger)
+}
+
+func getReloadVersion(versionPrefix string, partID string) string {
+	return versionPrefix + "-" + partID
 }
 
 // reloadModuleAction is the testable inner reload logic.
@@ -943,7 +949,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 			dest := reloadingDestination(c, manifest)
 			err = vc.copyFilesToFqdn(
 				part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
-				dest, logging.NewLogger(reloadVersion), args.NoProgress)
+				dest, logging.NewLogger(reloadVersionPrefix), args.NoProgress)
 			if err != nil {
 				if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
 					warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
