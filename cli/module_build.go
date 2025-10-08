@@ -888,11 +888,10 @@ func reloadModuleAction(
 	if part.Part.UserSuppliedInfo != nil {
 		// Check if the viam-server version is supported for hot reloading
 		if part.Part.UserSuppliedInfo.Fields["version"] != nil {
+			// Note: developer instances of viam-server will not have a semver version (instead it is a git commit)
+			// so we can safely ignore the error here, assuming that all real instances of viam-server will have a semver version
 			version, err := semver.NewVersion(part.Part.UserSuppliedInfo.Fields["version"].GetStringValue())
-			if err != nil {
-				return fmt.Errorf("unable to determine viam-server version: %w", err)
-			}
-			if version.LessThan(reloadVersionSupported) {
+			if err == nil && version.LessThan(reloadVersionSupported) {
 				return fmt.Errorf("viam-server version %s is not supported for hot reloading,"+
 					"please update to at least %s", version.Original(), reloadVersionSupported.Original())
 			}
