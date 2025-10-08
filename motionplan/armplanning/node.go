@@ -266,7 +266,8 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 	myNode := &node{inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
 	sss.solutions = append(sss.solutions, myNode)
 
-	const goodCostStopDivider = 3.0
+	// TODO: Reevaluate this constant when better quality IK solutions are being generated.
+	const goodCostStopDivider = 4.0
 
 	if myNode.cost < sss.goodCost || // this checks the absolute score of the plan
 		// if we've got something sane, and it's really good, let's check
