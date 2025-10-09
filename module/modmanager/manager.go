@@ -648,15 +648,15 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	mgr.rMap.Delete(name)
 	delete(mod.resources, name)
 	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
-	if err != nil {
+	if err != nil && !errors.Is(err, rdkgrpc.ErrNotConnected) {
 		return err
 	}
 
 	// if the module is marked for removal, actually remove it when the final resource is closed
 	if mod.pendingRemoval && len(mod.resources) == 0 {
-		err = multierr.Combine(err, mgr.closeModule(mod, false))
+		return multierr.Combine(err, mgr.closeModule(mod, false))
 	}
-	return err
+	return nil
 }
 
 // ValidateConfig determines whether the given config is valid and returns its implicit
