@@ -528,7 +528,7 @@ func (c *viamClient) uploadModuleFile(
 	var errs error
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
-	if err := sendUploadRequests(ctx, stream, nil, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendUploadRequests(ctx, stream, file, c.c.App.Writer, getNextModuleUploadRequest); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
@@ -977,12 +977,18 @@ func sameModels(a, b []ModuleComponent) bool {
 	return true
 }
 
-func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_UploadModuleFileClient,
-	pkgStream packagespb.PackageService_CreatePackageClient, file *os.File, stdout io.Writer,
+type sender[RequestT any] interface {
+	Send(*RequestT) error
+	CloseSend() error
+}
+
+func sendUploadRequests[RequestT any, StreamT sender[RequestT]](
+	ctx context.Context,
+	stream StreamT,
+	file *os.File,
+	stdout io.Writer,
+	getRequest func(file *os.File) (*RequestT, int, error),
 ) error {
-	if moduleStream != nil && pkgStream != nil {
-		return errors.New("can use either module or package client, not both")
-	}
 	stat, err := file.Stat()
 	if err != nil {
 		return err
@@ -992,26 +998,14 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 	// Close the line with the progress reading
 	defer printf(stdout, "")
 
-	if moduleStream != nil {
-		defer vutils.UncheckedErrorFunc(moduleStream.CloseSend)
-	}
-	if pkgStream != nil {
-		defer vutils.UncheckedErrorFunc(pkgStream.CloseSend)
-	}
+	defer vutils.UncheckedErrorFunc(stream.CloseSend)
 	// Loop until there is no more content to be read from file or the context expires.
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		// Get the next UploadRequest from the file.
-		var moduleUploadReq *apppb.UploadModuleFileRequest
-		if moduleStream != nil {
-			moduleUploadReq, err = getNextModuleUploadRequest(file)
-		}
-		var pkgUploadReq *packagespb.CreatePackageRequest
-		if pkgStream != nil {
-			pkgUploadReq, err = getNextPackageUploadRequest(file)
-		}
+		uploadReq, bytesCount, err := getRequest(file)
 
 		// EOF means we've completed successfully.
 		if errors.Is(err, io.EOF) {
@@ -1022,18 +1016,11 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 			return errors.Wrap(err, "could not read file")
 		}
 
-		if moduleUploadReq != nil {
-			if err = moduleStream.Send(moduleUploadReq); err != nil {
-				return err
-			}
-			uploadedBytes += len(moduleUploadReq.GetFile())
+		if err = stream.Send(uploadReq); err != nil {
+			return err
 		}
-		if pkgUploadReq != nil {
-			if err = pkgStream.Send(pkgUploadReq); err != nil {
-				return err
-			}
-			uploadedBytes += len(pkgUploadReq.GetContents())
-		}
+
+		uploadedBytes += bytesCount
 
 		// Simple progress reading until we have a proper tui library
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
@@ -1041,21 +1028,16 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 	}
 }
 
-func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, error) {
-	// get the next chunk of bytes from the file
-	byteArr := make([]byte, moduleUploadChunkSize)
-	numBytesRead, err := file.Read(byteArr)
+func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, int, error) {
+	byteArr, err := getBytesFromFile(file)
 	if err != nil {
-		return nil, err
-	}
-	if numBytesRead < moduleUploadChunkSize {
-		byteArr = byteArr[:numBytesRead]
+		return nil, 0, err
 	}
 	return &apppb.UploadModuleFileRequest{
 		ModuleFile: &apppb.UploadModuleFileRequest_File{
 			File: byteArr,
 		},
-	}, nil
+	}, len(byteArr), nil
 }
 
 type downloadModuleFlags struct {
