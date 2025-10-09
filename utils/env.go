@@ -79,6 +79,16 @@ const (
 
 	// GetImagesInStreamServerEnvVar is the environment variable that enables the GetImages feature flag in stream server.
 	GetImagesInStreamServerEnvVar = "VIAM_GET_IMAGES_IN_STREAM_SERVER"
+
+	// ViamAgentHandlesNeedsRestartChecking is the environment variable that viam-agent will
+	// set before starting viam-server to indicate that agent is a new enough version to
+	// have its own background loop that runs NeedsRestart against app.viam.com to determine
+	// if the system needs a restart. MUST be kept in line with the equivalent value in the
+	// agent repo.
+	//
+	// TODO(RSDK-12057): Remove sensitivity to this environment variable once we fully
+	// remove all NeedsRestart checking logic from viam-server.
+	ViamAgentHandlesNeedsRestartChecking = "VIAM_AGENT_HANDLES_NEEDS_RESTART_CHECKING"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
