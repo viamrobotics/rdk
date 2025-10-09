@@ -11,7 +11,7 @@ import (
 //
 // Set example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
@@ -23,7 +23,7 @@ import (
 //
 // Get example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
@@ -35,7 +35,7 @@ import (
 //
 // PWM example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
@@ -47,7 +47,7 @@ import (
 //
 // SetPWM example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
@@ -59,7 +59,7 @@ import (
 //
 // PWMFreq example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
@@ -71,7 +71,7 @@ import (
 //
 // SetPWMFreq example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")

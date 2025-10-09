@@ -328,13 +328,13 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// Parse base from the configuration
-	baseComponent, err := base.FromDependencies(deps, svcConfig.BaseName)
+	baseComponent, err := base.FromProvider(deps, svcConfig.BaseName)
 	if err != nil {
 		return err
 	}
 
 	// Parse motion services from the configuration
-	motionSvc, err := motion.FromDependencies(deps, motionServiceName)
+	motionSvc, err := motion.FromProvider(deps, motionServiceName)
 	if err != nil {
 		return err
 	}
@@ -342,11 +342,11 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
 	visionServicesByName := make(map[string]vision.Service)
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
-		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
+		visionSvc, err := vision.FromProvider(deps, pbObstacleDetectorPair.VisionServiceName)
 		if err != nil {
 			return err
 		}
-		camera, err := camera.FromDependencies(deps, pbObstacleDetectorPair.CameraName)
+		camera, err := camera.FromProvider(deps, pbObstacleDetectorPair.CameraName)
 		if err != nil {
 			return err
 		}
@@ -358,7 +358,7 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	// Parse movement sensor from the configuration if map type is GPS
 	if mapType == navigation.GPSMap {
-		movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
+		movementSensor, err := movementsensor.FromProvider(deps, svcConfig.MovementSensorName)
 		if err != nil {
 			return err
 		}

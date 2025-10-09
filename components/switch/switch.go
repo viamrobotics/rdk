@@ -51,14 +51,25 @@ type Switch interface {
 	GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, []string, error)
 }
 
-// FromRobot is a helper for getting the named Switch from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named Switch from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Switch, error) {
 	return robot.ResourceFromRobot[Switch](r, Named(name))
 }
 
-// FromDependencies is a helper for getting the named button component from a collection of dependencies.
+// Deprecated: FromDependencies is a helper for getting the named switch component from a collection of dependencies.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Switch, error) {
 	return resource.FromDependencies[Switch](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named Switch from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Switch, error) {
+	return resource.FromProvider[Switch](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all switch names from the given Robot.

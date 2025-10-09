@@ -45,13 +45,23 @@ type PoseTracker interface {
 	Poses(ctx context.Context, bodyNames []string, extra map[string]interface{}) (referenceframe.FrameSystemPoses, error)
 }
 
-// FromRobot is a helper for getting the named force matrix sensor from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named force matrix sensor from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
 	return robot.ResourceFromRobot[PoseTracker](r, Named(name))
 }
 
-// FromDependencies is a helper for getting the named pose tracker from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named pose tracker from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (PoseTracker, error) {
 	return resource.FromDependencies[PoseTracker](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named PoseTracker from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (PoseTracker, error) {
+	return resource.FromProvider[PoseTracker](provider, Named(name))
 }
