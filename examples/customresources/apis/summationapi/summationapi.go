@@ -9,7 +9,6 @@ import (
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/service/summation/v1"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 )
 
 // API is the full API definition.
@@ -18,14 +17,6 @@ var API = resource.APINamespace("acme").WithServiceType("summation")
 // Named is a helper for getting the named Summation's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
-}
-
-// Deprecated: FromRobot is a helper for getting the named Summation from the given Robot.
-// Use FromProvider instead.
-//
-//nolint:revive // ignore exported comment check
-func FromRobot(r robot.Robot, name string) (Summation, error) {
-	return robot.ResourceFromRobot[Summation](r, Named(name))
 }
 
 // FromProvider is a helper for getting the named Summation

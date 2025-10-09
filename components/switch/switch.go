@@ -59,7 +59,7 @@ func FromRobot(r robot.Robot, name string) (Switch, error) {
 	return robot.ResourceFromRobot[Switch](r, Named(name))
 }
 
-// Deprecated: FromDependencies is a helper for getting the named button component from a collection of dependencies.
+// Deprecated: FromDependencies is a helper for getting the named switch component from a collection of dependencies.
 // Use FromProvider instead.
 //
 //nolint:revive // ignore exported comment check
