@@ -347,8 +347,12 @@ func TestStatusClient(t *testing.T) {
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
-	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-		return imgBuf.Bytes(), camera.ImageMetadata{MimeType: rutils.MimeTypePNG}, nil
+	injectCamera.ImagesFunc = func(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		namedImg, err := camera.NamedImageFromBytes(imgBuf.Bytes(), "", rutils.MimeTypePNG)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -523,11 +527,11 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err := camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	imgBytes, metadata, err := camera1.Image(context.Background(), rutils.MimeTypeJPEG, nil)
+	namedImages, metadata, err := camera1.Images(context.Background(), nil, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-	test.That(t, imgBytes, test.ShouldBeNil)
-	test.That(t, metadata, test.ShouldResemble, camera.ImageMetadata{})
+	test.That(t, len(namedImages), test.ShouldEqual, 0)
+	test.That(t, metadata, test.ShouldResemble, resource.ResponseMetadata{})
 
 	gripper1, err := gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
@@ -604,7 +608,11 @@ func TestStatusClient(t *testing.T) {
 	camera1, err = camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
 
-	frame, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1)
+	namedImages, _, err = camera1.Images(context.Background(), nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(namedImages), test.ShouldEqual, 1)
+
+	frame, err := namedImages[0].Image(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)

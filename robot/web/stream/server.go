@@ -823,9 +823,16 @@ retryLoop:
 		case <-ctx.Done():
 			return 0, 0, ctx.Err()
 		default:
-			frame, err = camera.DecodeImageFromCamera(ctx, "", nil, cam)
-			if err == nil {
-				break retryLoop // Break out of the for loop, not just the select.
+			namedImages, _, imgErr := cam.Images(ctx, nil, nil)
+			if imgErr == nil && len(namedImages) > 0 {
+				frame, err = namedImages[0].Image(ctx)
+				if err == nil {
+					break retryLoop // Break out of the for loop, not just the select.
+				}
+			} else if imgErr != nil {
+				err = imgErr
+			} else {
+				err = fmt.Errorf("no images returned from camera")
 			}
 			logger.Debugf("failed to get frame, retrying... (%d/5)", i+1)
 			time.Sleep(retryDelay)

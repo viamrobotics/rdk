@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	camerautils "go.viam.com/rdk/robot/web/stream/camera"
 	"go.viam.com/rdk/testutils/inject"
@@ -17,10 +18,12 @@ import (
 func TestVideoSourceFromCamera(t *testing.T) {
 	sourceImg := image.NewRGBA(image.Rect(0, 0, 3, 3))
 	cam := &inject.Camera{
-		ImageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+		ImagesFunc: func(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			imgBytes, err := rimage.EncodeImage(ctx, sourceImg, utils.MimeTypePNG)
 			test.That(t, err, test.ShouldBeNil)
-			return imgBytes, camera.ImageMetadata{MimeType: utils.MimeTypePNG}, nil
+			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", utils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeNil)
+			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{}, nil
 		},
 	}
 	vs, err := camerautils.VideoSourceFromCamera(context.Background(), cam)
@@ -39,8 +42,10 @@ func TestVideoSourceFromCamera(t *testing.T) {
 
 func TestVideoSourceFromCameraFailure(t *testing.T) {
 	malformedCam := &inject.Camera{
-		ImageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-			return []byte("not a valid image"), camera.ImageMetadata{MimeType: utils.MimeTypePNG}, nil
+		ImagesFunc: func(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			namedImg, err := camera.NamedImageFromBytes([]byte("not a valid image"), "", utils.MimeTypePNG)
+			test.That(t, err, test.ShouldBeNil)
+			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{}, nil
 		},
 	}
 
@@ -55,10 +60,12 @@ func TestVideoSourceFromCameraWithNonsenseMimeType(t *testing.T) {
 	sourceImg := image.NewRGBA(image.Rect(0, 0, 3, 3))
 
 	camWithNonsenseMimeType := &inject.Camera{
-		ImageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+		ImagesFunc: func(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			imgBytes, err := rimage.EncodeImage(ctx, sourceImg, utils.MimeTypePNG)
 			test.That(t, err, test.ShouldBeNil)
-			return imgBytes, camera.ImageMetadata{MimeType: "rand"}, nil
+			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", "rand")
+			test.That(t, err, test.ShouldBeNil)
+			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{}, nil
 		},
 	}
 
