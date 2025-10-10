@@ -147,7 +147,6 @@ func (psc *planSegmentContext) checkPath(start, end referenceframe.FrameSystemIn
 }
 
 func (psc *planSegmentContext) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
-	defer psc.pc.planMeta.DeferTiming("checkInputs", time.Now())
 	return psc.checker.CheckStateFSConstraints(&motionplan.StateFS{
 		Configuration: inputs,
 		FS:            psc.pc.fs,
