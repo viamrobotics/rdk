@@ -217,6 +217,7 @@ func (sss *solutionSolvingState) nonchainMinimize(seed, step referenceframe.Fram
 // return bool is if we should stop because we're done.
 func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 ) bool {
+	defer sss.psc.pc.planMeta.DeferTiming("sss.process", time.Now())
 	sss.processCalls++
 
 	step, err := sss.psc.pc.lfs.sliceToMap(stepSolution.Configuration)

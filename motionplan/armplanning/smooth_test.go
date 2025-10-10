@@ -85,7 +85,7 @@ func TestSmoothPlans1(t *testing.T) {
 	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	pc, err := newPlanContext(logger, req)
+	pc, err := newPlanContext(logger, req, NewPlanMeta())
 	test.That(t, err, test.ShouldBeNil)
 
 	psc, err := newPlanSegmentContext(pc, req.StartState.Configuration(), req.Goals[0].Poses())
@@ -114,7 +114,7 @@ func BenchmarkSmoothPlans1(b *testing.B) {
 	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
 	test.That(b, err, test.ShouldBeNil)
 
-	pc, err := newPlanContext(logger, req)
+	pc, err := newPlanContext(logger, req, NewPlanMeta())
 	test.That(b, err, test.ShouldBeNil)
 
 	psc, err := newPlanSegmentContext(pc, req.StartState.Configuration(), req.Goals[0].Poses())

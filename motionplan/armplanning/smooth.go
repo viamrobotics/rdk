@@ -10,6 +10,7 @@ import (
 )
 
 func simpleSmoothStep(psc *planSegmentContext, steps []referenceframe.FrameSystemInputs, step int) []referenceframe.FrameSystemInputs {
+	defer psc.pc.planMeta.DeferTiming("simpleSmoothStep", time.Now())
 	// look at each triplet, see if we can remove the middle one
 	for i := step + 1; i < len(steps); i += step {
 		err := psc.checkPath(steps[i-step-1], steps[i])
@@ -28,6 +29,7 @@ func simpleSmoothStep(psc *planSegmentContext, steps []referenceframe.FrameSyste
 func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
 	steps []referenceframe.FrameSystemInputs,
 ) []referenceframe.FrameSystemInputs {
+	defer psc.pc.planMeta.DeferTiming("smoothPathSimple", time.Now())
 	start := time.Now()
 
 	originalSize := len(steps)

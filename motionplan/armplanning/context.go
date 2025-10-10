@@ -3,6 +3,7 @@ package armplanning
 import (
 	"math"
 	"math/rand"
+	"time"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -22,21 +23,23 @@ type planContext struct {
 
 	randseed *rand.Rand
 
-	logger logging.Logger
+	planMeta *PlanMeta
+	logger   logging.Logger
 }
 
-func newPlanContext(logger logging.Logger, request *PlanRequest) (*planContext, error) {
+func newPlanContext(logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planContext, error) {
 	pc := &planContext{
 		fs:                        request.FrameSystem,
 		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(request.PlannerOptions.ConfigurationDistanceMetric),
 		planOpts:                  request.PlannerOptions,
 		request:                   request,
 		randseed:                  rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
+		planMeta:                  meta,
 		logger:                    logger,
 	}
+	defer meta.DeferTiming("newPlanContext", time.Now())
 
 	var err error
-
 	pc.lfs, err = newLinearizedFrameSystem(pc.fs)
 	if err != nil {
 		return nil, err
@@ -79,6 +82,7 @@ type planSegmentContext struct {
 func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInputs,
 	goal referenceframe.FrameSystemPoses,
 ) (*planSegmentContext, error) {
+	defer pc.planMeta.DeferTiming("newPlanSegmentContext", time.Now())
 	psc := &planSegmentContext{
 		pc:       pc,
 		start:    start,
@@ -130,6 +134,7 @@ func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInpu
 }
 
 func (psc *planSegmentContext) checkPath(start, end referenceframe.FrameSystemInputs) error {
+	defer psc.pc.planMeta.DeferTiming("checkPath", time.Now())
 	_, err := psc.checker.CheckSegmentAndStateValidityFS(
 		&motionplan.SegmentFS{
 			StartConfiguration: start,
