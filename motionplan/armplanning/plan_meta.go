@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// InvocationCounters is used to count the number of times a method has been invoked and the
+// accumulated time spent in that function.
 type InvocationCounters struct {
 	calls     atomic.Int64
 	timeNanos atomic.Int64
@@ -23,6 +25,7 @@ type PlanMeta struct {
 	Timing   map[string]*InvocationCounters
 }
 
+// NewPlanMeta constructs PlanMeta.
 func NewPlanMeta() *PlanMeta {
 	return &PlanMeta{
 		Timing: make(map[string]*InvocationCounters),
@@ -41,6 +44,7 @@ func (pm *PlanMeta) DeferTiming(opName string, start time.Time) {
 	pm.AddTiming(opName, time.Since(start))
 }
 
+// AddTiming will increment the invocation count and time spent for an "operation".
 func (pm *PlanMeta) AddTiming(opName string, dur time.Duration) {
 	pm.timingMu.Lock()
 	defer pm.timingMu.Unlock()
@@ -56,9 +60,11 @@ func (pm *PlanMeta) AddTiming(opName string, dur time.Duration) {
 	}
 }
 
+// OutputTiming pretty-prints in a text format the timing information for a motion plan.
 func (pm *PlanMeta) OutputTiming(outputWriter io.Writer) {
 	if _, exists := pm.Timing["planToDirectJoints"]; exists {
 		// Joint -> Joint(s) request
+		//nolint:errcheck
 		fmt.Fprintf(outputWriter, `PlanMotion:						%v
   newPlanContext:				%v
   planMultiWaypoint:			%v
@@ -87,6 +93,7 @@ func (pm *PlanMeta) OutputTiming(outputWriter io.Writer) {
 		)
 	} else {
 		// Joint -> Pose(s) request
+		//nolint:errcheck
 		fmt.Fprintf(outputWriter, `PlanMotion:						%v
   newPlanContext:				%v
   planMultiWaypoint:			%v
@@ -120,6 +127,7 @@ func (pm *PlanMeta) OutputTiming(outputWriter io.Writer) {
 	}
 }
 
+// Calls returns the number of times a function was called.
 func (ic *InvocationCounters) Calls() int64 {
 	if ic == nil {
 		return 0
@@ -128,6 +136,7 @@ func (ic *InvocationCounters) Calls() int64 {
 	return ic.calls.Load()
 }
 
+// TotalTimeNanos returns the total accumulated runtime of a function as a time in nanoseconds.
 func (ic *InvocationCounters) TotalTimeNanos() int64 {
 	if ic == nil {
 		return 0
@@ -136,10 +145,13 @@ func (ic *InvocationCounters) TotalTimeNanos() int64 {
 	return ic.timeNanos.Load()
 }
 
+// TotalTime returns the total accumulated runtime of a function as a time.Duration.
 func (ic *InvocationCounters) TotalTime() time.Duration {
 	return time.Duration(ic.TotalTimeNanos())
 }
 
+// Average returns the average time spent per function invocation. Returns a zero-value when a
+// function was not called.
 func (ic *InvocationCounters) Average() time.Duration {
 	calls := ic.Calls()
 	if calls == 0 {
@@ -149,6 +161,7 @@ func (ic *InvocationCounters) Average() time.Duration {
 	return time.Duration(ic.timeNanos.Load() / calls)
 }
 
+// String is a pretty-formated string representation of the number of calls/total time/average.
 func (ic *InvocationCounters) String() string {
 	// Calls is fixed at three spaces, right aligned.
 	// Total time is fixed at thirteen spaces, left aligned.
