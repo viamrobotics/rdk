@@ -214,11 +214,8 @@ func PlanFrameMotion(ctx context.Context,
 
 // PlanMotion plans a motion from a provided plan request.
 func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, *PlanMeta, error) {
-	start := time.Now()
-	meta := &PlanMeta{}
-	defer func() {
-		meta.Duration = time.Since(start)
-	}()
+	meta := NewPlanMeta()
+	defer meta.DeferTiming("PlanMotion", time.Now())
 
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, meta, err
@@ -238,7 +235,7 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 		return nil, meta, errors.New("must populate start state configuration")
 	}
 
-	sfPlanner, err := newPlanManager(logger, request)
+	sfPlanner, err := newPlanManager(logger, request, meta)
 	if err != nil {
 		return nil, meta, err
 	}

@@ -19,8 +19,8 @@ type planManager struct {
 	logger  logging.Logger
 }
 
-func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, error) {
-	pc, err := newPlanContext(logger, request)
+func newPlanManager(logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planManager, error) {
+	pc, err := newPlanContext(logger, request, meta)
 	if err != nil {
 		return nil, err
 	}

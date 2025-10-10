@@ -26,19 +26,18 @@ type planContext struct {
 	logger   logging.Logger
 }
 
-func newPlanContext(logger logging.Logger, request *PlanRequest) (*planContext, error) {
+func newPlanContext(logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planContext, error) {
 	pc := &planContext{
 		fs:                        request.FrameSystem,
 		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(request.PlannerOptions.ConfigurationDistanceMetric),
 		planOpts:                  request.PlannerOptions,
 		request:                   request,
 		randseed:                  rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
-		planMeta:                  NewPlanMeta(),
+		planMeta:                  meta,
 		logger:                    logger,
 	}
 
 	var err error
-
 	pc.lfs, err = newLinearizedFrameSystem(pc.fs)
 	if err != nil {
 		return nil, err

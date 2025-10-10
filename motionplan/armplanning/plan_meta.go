@@ -28,6 +28,18 @@ func NewPlanMeta() *PlanMeta {
 	}
 }
 
+// DeferTiming can be used as a one-liner for tracking a function invocation. Expected usage at the
+// top of a function is:
+//
+//	defer planMeta.DeferTiming("functionName", time.Now())
+//
+// Note this helper/usage is "clever" in that it the above example `time.Now()` is computed at the
+// beginning of the function. But moving this call into a larger `defer func () { DeferTiming(...)
+// }()` would break when the start time is computed.
+func (pm *PlanMeta) DeferTiming(opName string, start time.Time) {
+	pm.AddTiming(opName, time.Since(start))
+}
+
 func (pm *PlanMeta) AddTiming(opName string, dur time.Duration) {
 	pm.timingMu.Lock()
 	defer pm.timingMu.Unlock()
