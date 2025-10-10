@@ -37,7 +37,7 @@ func NewPlanMeta() *PlanMeta {
 //
 //	defer planMeta.DeferTiming("functionName", time.Now())
 //
-// Note this helper/usage is "clever" in that it the above example `time.Now()` is computed at the
+// Note this helper/usage is "clever" in that in the above example `time.Now()` is computed at the
 // beginning of the function. But moving this call into a larger `defer func () { DeferTiming(...)
 // }()` would break when the start time is computed.
 func (pm *PlanMeta) DeferTiming(opName string, start time.Time) {
