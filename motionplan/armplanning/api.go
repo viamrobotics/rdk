@@ -212,13 +212,6 @@ func PlanFrameMotion(ctx context.Context,
 	return plan.Trajectory().GetFrameInputs(f.Name())
 }
 
-// PlanMeta is meta data about plan generation.
-type PlanMeta struct {
-	Duration       time.Duration
-	Partial        bool
-	GoalsProcessed int
-}
-
 // PlanMotion plans a motion from a provided plan request.
 func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, *PlanMeta, error) {
 	start := time.Now()

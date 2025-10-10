@@ -22,7 +22,8 @@ type planContext struct {
 
 	randseed *rand.Rand
 
-	logger logging.Logger
+	planMeta *PlanMeta
+	logger   logging.Logger
 }
 
 func newPlanContext(logger logging.Logger, request *PlanRequest) (*planContext, error) {
@@ -32,6 +33,7 @@ func newPlanContext(logger logging.Logger, request *PlanRequest) (*planContext, 
 		planOpts:                  request.PlannerOptions,
 		request:                   request,
 		randseed:                  rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
+		planMeta:                  NewPlanMeta(),
 		logger:                    logger,
 	}
 
