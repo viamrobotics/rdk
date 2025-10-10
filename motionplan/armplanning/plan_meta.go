@@ -102,12 +102,13 @@ func (pm *PlanMeta) OutputTiming(outputWriter io.Writer) {
     planSingleGoal:				%v
       newPlanSegmentContext:	%v
       initRRTSolutions:			%v
+        sss.process:			%v
       newCBiRRTMotionPlanner:	%v
       rrtRunner:				%v
         constrainedExtend:		%v
       smoothPathSimple:			%v
         simpleSmoothStep:		%v
-        checkPath:				%v
+  checkPath (smooth + process):	%v
 `,
 			pm.Timing["PlanMotion"],
 			pm.Timing["newPlanContext"],
@@ -117,6 +118,7 @@ func (pm *PlanMeta) OutputTiming(outputWriter io.Writer) {
 			pm.Timing["planSingleGoal"],
 			pm.Timing["newPlanSegmentContext"],
 			pm.Timing["initRRTSolutions"],
+			pm.Timing["sss.process"],
 			pm.Timing["newCBiRRTMotionPlanner"],
 			pm.Timing["rrtRunner"],
 			pm.Timing["constrainedExtend"],
