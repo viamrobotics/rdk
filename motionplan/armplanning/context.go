@@ -3,6 +3,7 @@ package armplanning
 import (
 	"math"
 	"math/rand"
+	"time"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -36,6 +37,7 @@ func newPlanContext(logger logging.Logger, request *PlanRequest, meta *PlanMeta)
 		planMeta:                  meta,
 		logger:                    logger,
 	}
+	defer meta.DeferTiming("newPlanContext", time.Now())
 
 	var err error
 	pc.lfs, err = newLinearizedFrameSystem(pc.fs)
@@ -80,6 +82,7 @@ type planSegmentContext struct {
 func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInputs,
 	goal referenceframe.FrameSystemPoses,
 ) (*planSegmentContext, error) {
+	defer pc.planMeta.DeferTiming("newPlanSegmentContext", time.Now())
 	psc := &planSegmentContext{
 		pc:       pc,
 		start:    start,
@@ -131,6 +134,7 @@ func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInpu
 }
 
 func (psc *planSegmentContext) checkPath(start, end referenceframe.FrameSystemInputs) error {
+	defer psc.pc.planMeta.DeferTiming("checkPath", time.Now())
 	_, err := psc.checker.CheckSegmentAndStateValidityFS(
 		&motionplan.SegmentFS{
 			StartConfiguration: start,
@@ -143,6 +147,7 @@ func (psc *planSegmentContext) checkPath(start, end referenceframe.FrameSystemIn
 }
 
 func (psc *planSegmentContext) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
+	defer psc.pc.planMeta.DeferTiming("checkInputs", time.Now())
 	return psc.checker.CheckStateFSConstraints(&motionplan.StateFS{
 		Configuration: inputs,
 		FS:            psc.pc.fs,
