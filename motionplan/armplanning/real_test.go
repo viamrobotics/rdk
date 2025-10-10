@@ -134,7 +134,7 @@ func TestSandingLargeMove1(t *testing.T) {
 
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
 
-	pc, err := newPlanContext(logger, req)
+	pc, err := newPlanContext(logger, req, NewPlanMeta())
 	test.That(t, err, test.ShouldBeNil)
 
 	psc, err := newPlanSegmentContext(pc, req.StartState.configuration, req.Goals[0].poses)
