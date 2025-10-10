@@ -2,6 +2,7 @@ package armplanning
 
 import (
 	"fmt"
+	"io"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -55,8 +56,92 @@ func (pm *PlanMeta) AddTiming(opName string, dur time.Duration) {
 	}
 }
 
+func (pm *PlanMeta) OutputTiming(outputWriter io.Writer) {
+	if _, exists := pm.Timing["planToDirectJoints"]; exists {
+		// Joint -> Joint(s) request
+		fmt.Fprintf(outputWriter, `PlanMotion:						%v
+  newPlanContext:				%v
+  planMultiWaypoint:			%v
+    ComputePoses:				%v
+    planToDirectJoints:			%v
+      newPlanSegmentContext:	%v
+      newCBiRRTMotionPlanner:	%v
+      rrtRunner:				%v
+        constrainedExtend:		%v
+      smoothPathSimple:			%v
+        simpleSmoothStep:		%v
+          checkPath:			%v
+`,
+			pm.Timing["PlanMotion"],
+			pm.Timing["newPlanContext"],
+			pm.Timing["planMultiWaypoint"],
+			pm.Timing["ComputePoses"],
+			pm.Timing["planToDirectJoints"],
+			pm.Timing["newPlanSegmentContext"],
+			pm.Timing["newCBiRRTMotionPlanner"],
+			pm.Timing["rrtRunner"],
+			pm.Timing["constrainedExtend"],
+			pm.Timing["smoothPathSimple"],
+			pm.Timing["simpleSmoothStep"],
+			pm.Timing["checkPath"],
+		)
+	} else {
+		// Joint -> Pose(s) request
+		fmt.Fprintf(outputWriter, `PlanMotion:						%v
+  newPlanContext:				%v
+  planMultiWaypoint:			%v
+    ComputePoses:				%v
+    generateWaypoints:			%v
+    planSingleGoal:				%v
+      newPlanSegmentContext:	%v
+      initRRTSolutions:			%v
+      newCBiRRTMotionPlanner:	%v
+      rrtRunner:				%v
+        constrainedExtend:		%v
+      smoothPathSimple:			%v
+        simpleSmoothStep:		%v
+        checkPath:				%v
+`,
+			pm.Timing["PlanMotion"],
+			pm.Timing["newPlanContext"],
+			pm.Timing["planMultiWaypoint"],
+			pm.Timing["ComputePoses"],
+			pm.Timing["generateWaypoints"],
+			pm.Timing["planSingleGoal"],
+			pm.Timing["newPlanSegmentContext"],
+			pm.Timing["initRRTSolutions"],
+			pm.Timing["newCBiRRTMotionPlanner"],
+			pm.Timing["rrtRunner"],
+			pm.Timing["constrainedExtend"],
+			pm.Timing["smoothPathSimple"],
+			pm.Timing["simpleSmoothStep"],
+			pm.Timing["checkPath"],
+		)
+	}
+}
+
+func (ic *InvocationCounters) Calls() int64 {
+	if ic == nil {
+		return 0
+	}
+
+	return ic.calls.Load()
+}
+
+func (ic *InvocationCounters) TotalTimeNanos() int64 {
+	if ic == nil {
+		return 0
+	}
+
+	return ic.timeNanos.Load()
+}
+
+func (ic *InvocationCounters) TotalTime() time.Duration {
+	return time.Duration(ic.TotalTimeNanos())
+}
+
 func (ic *InvocationCounters) Average() time.Duration {
-	calls := ic.calls.Load()
+	calls := ic.Calls()
 	if calls == 0 {
 		return time.Duration(0)
 	}
@@ -64,7 +149,9 @@ func (ic *InvocationCounters) Average() time.Duration {
 	return time.Duration(ic.timeNanos.Load() / calls)
 }
 
-func (foo *InvocationCounters) String() string {
-	return fmt.Sprintf("Calls: %v Total time: %v Average time: %v",
-		foo.calls.Load(), foo.timeNanos.Load())
+func (ic *InvocationCounters) String() string {
+	// Calls is fixed at three spaces, right aligned.
+	// Total time is fixed at thirteen spaces, left aligned.
+	return fmt.Sprintf("Calls: %3d Total time: %-13s Average time: %v",
+		ic.Calls(), ic.TotalTime(), ic.Average())
 }
