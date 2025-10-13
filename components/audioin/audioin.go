@@ -40,9 +40,9 @@ type Properties struct {
 
 // AudioInfo defines information about audio data.
 type AudioInfo struct {
-	codec       string
-	sampleRate  int32
-	numChannels int32
+	Codec       string
+	SampleRate  int32
+	NumChannels int32
 }
 
 // AudioChunk defines a chunk of audio data.
