@@ -8,9 +8,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/utils"
 )
 
 func TestFFMPEGCamera(t *testing.T) {
@@ -21,7 +19,10 @@ func TestFFMPEGCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 5; i++ {
-		_, err = camera.DecodeImageFromCamera(ctx, utils.MimeTypeJPEG, nil, cam)
+		namedImages, _, err := cam.Images(ctx, nil, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(namedImages) > 0, test.ShouldBeTrue)
+		_, err = namedImages[0].Image(ctx)
 		test.That(t, err, test.ShouldBeNil)
 	}
 	test.That(t, cam.Close(context.Background()), test.ShouldBeNil)

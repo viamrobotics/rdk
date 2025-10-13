@@ -2,7 +2,6 @@ package transformpipeline
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/prop"
@@ -38,7 +37,10 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	vs, err := videoSourceFromCamera(context.Background(), src)
 	test.That(t, err, test.ShouldBeNil)
-	inImg, err := camera.DecodeImageFromCamera(context.Background(), "", nil, src)
+	namedImages, _, err := src.Images(context.Background(), nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(namedImages) > 0, test.ShouldBeTrue)
+	inImg, err := namedImages[0].Image(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
@@ -84,7 +86,10 @@ func TestTransformPipelineDepth(t *testing.T) {
 	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: dm}, prop.Video{})
 	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
-	inImg, err := camera.DecodeImageFromCamera(context.Background(), "", nil, src)
+	namedImages, _, err := src.Images(context.Background(), nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(namedImages) > 0, test.ShouldBeTrue)
+	inImg, err := namedImages[0].Image(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
@@ -207,13 +212,23 @@ func TestTransformPipelineValidateFail(t *testing.T) {
 
 func TestVideoSourceFromCameraError(t *testing.T) {
 	malformedCam := &inject.Camera{
-		ImageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-			return []byte("not a valid image"), camera.ImageMetadata{MimeType: utils.MimeTypePNG}, nil
+		ImagesFunc: func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]any,
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			namedImg, _ := camera.NamedImageFromBytes([]byte("not a valid image"), "", utils.MimeTypePNG)
+			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{}, nil
 		},
 	}
 
 	vs, err := videoSourceFromCamera(context.Background(), malformedCam)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, vs, test.ShouldNotBeNil)
+
+	stream, err := vs.Stream(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	defer stream.Close(context.Background())
+	_, _, err = stream.Next(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, errors.Is(err, ErrVideoSourceCreation), test.ShouldBeTrue)
-	test.That(t, vs, test.ShouldBeNil)
 }
