@@ -764,7 +764,7 @@ func TestReachOverArm(t *testing.T) {
 	opts = map[string]interface{}{"timeout": 150.0, "smooth_iter": 5}
 	planOpts, err = NewPlannerOptionsFromExtra(opts)
 	test.That(t, err, test.ShouldBeNil)
-	plan, _, err = PlanMotion(context.Background(), logger, &PlanRequest{
+	_, _, err = PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{xarm.Name(): goal}}},
 		StartState:     &PlanState{configuration: frame.NewZeroInputs(fs)},
