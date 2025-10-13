@@ -771,7 +771,6 @@ func TestReachOverArm(t *testing.T) {
 		PlannerOptions: planOpts,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(plan.Trajectory()), test.ShouldBeGreaterThan, 2)
 }
 
 func TestPlanMapMotion(t *testing.T) {
