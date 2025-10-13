@@ -6,11 +6,12 @@ import (
 	"github.com/google/uuid"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioin/v1"
+	utils "go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	utils "go.viam.com/utils/protoutils"
-	"go.viam.com/utils/rpc"
 )
 
 // client implements AudioInServiceClient.
@@ -44,7 +45,9 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
-func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64, extra map[string]interface{}) (chan *AudioChunk, error) {
+func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64,
+	extra map[string]interface{}) (chan *AudioChunk, error,
+) {
 	ext, err := utils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -58,7 +61,6 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 		RequestId:         uuid.New().String(),
 		Extra:             ext,
 	})
-
 	if err != nil {
 		return nil, err
 	}

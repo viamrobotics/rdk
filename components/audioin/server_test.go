@@ -3,12 +3,12 @@ package audioin_test
 import (
 	"context"
 	"errors"
-	"sync"
 	"testing"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioin/v1"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 
@@ -28,6 +28,7 @@ var (
 	errSendFailed       = errors.New("send fail")
 )
 
+// Mock streaming server for getAudio RPC.
 type getAudioServer struct {
 	grpc.ServerStream
 	ctx       context.Context
@@ -68,7 +69,7 @@ func TestServer(t *testing.T) {
 	audioInServer, injectAudioIn, _, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	var audioInCapReq = &pb.GetAudioRequest{
+	getAudioRequest := &pb.GetAudioRequest{
 		Name:            testAudioInName,
 		Codec:           "pcm16",
 		DurationSeconds: 5.0,
@@ -85,7 +86,9 @@ func TestServer(t *testing.T) {
 			Sequence:  2,
 		}
 
-		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64, extra map[string]interface{}) (chan *audioin.AudioChunk, error) {
+		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64,
+			extra map[string]interface{}) (chan *audioin.AudioChunk, error,
+		) {
 			ch := make(chan *audioin.AudioChunk, 2)
 			ch <- mockChunk1
 			ch <- mockChunk2
@@ -102,13 +105,10 @@ func TestServer(t *testing.T) {
 			fail:      false,
 		}
 
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := audioInServer.GetAudio(audioInCapReq, s)
+		workers := goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
+			err := audioInServer.GetAudio(getAudioRequest, s)
 			test.That(t, err, test.ShouldBeNil)
-		}()
+		})
 
 		// Test that the channel returns the expected chunks
 		resp1 := <-s.audioChan
@@ -119,10 +119,12 @@ func TestServer(t *testing.T) {
 		test.That(t, resp2.Audio.AudioData, test.ShouldResemble, []byte{5, 6, 7, 8})
 		test.That(t, resp2.Audio.Sequence, test.ShouldEqual, 2)
 
-		cancel()
-		wg.Wait()
+		workers.Stop()
 
-		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64, extra map[string]interface{}) (chan *audioin.AudioChunk, error) {
+		// Test a failing getAudio request
+		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64,
+			extra map[string]interface{}) (chan *audioin.AudioChunk, error,
+		) {
 			return nil, errGetAudioFailed
 		}
 
@@ -131,7 +133,7 @@ func TestServer(t *testing.T) {
 			audioChan: nil,
 			fail:      false,
 		}
-		err = audioInServer.GetAudio(audioInCapReq, s2)
+		err = audioInServer.GetAudio(getAudioRequest, s2)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetAudioFailed.Error())
 	})
@@ -162,7 +164,6 @@ func TestServer(t *testing.T) {
 	t.Run("DoCommand", func(t *testing.T) {
 		command := map[string]interface{}{"command": "test", "data": 500}
 		injectAudioIn.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-			t.Logf("DoFunc called with: %+v", cmd)
 			return cmd, nil
 		}
 

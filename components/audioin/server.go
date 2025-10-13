@@ -5,6 +5,7 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioin/v1"
+
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -64,8 +65,11 @@ func (s *serviceServer) GetProperties(ctx context.Context, req *commonpb.GetProp
 	if err != nil {
 		return nil, err
 	}
-	return &commonpb.GetPropertiesResponse{SupportedCodecs: props.SupportedCodecs, SampleRate: props.SampleRate, NumChannels: props.NumChannels}, nil
-
+	return &commonpb.GetPropertiesResponse{
+		SupportedCodecs: props.SupportedCodecs,
+		SampleRate:      props.SampleRate,
+		NumChannels:     props.NumChannels,
+	}, nil
 }
 
 // DoCommand receives arbitrary commands.

@@ -25,7 +25,8 @@ func setupAudioInService(t *testing.T, injectAudioIn *inject.AudioIn) (net.Liste
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	audioInSvc, err := resource.NewAPIResourceCollection(audioin.API, map[resource.Name]audioin.AudioIn{audioin.Named(testAudioInName): injectAudioIn})
+	audioInSvc, err := resource.NewAPIResourceCollection(
+		audioin.API, map[resource.Name]audioin.AudioIn{audioin.Named(testAudioInName): injectAudioIn})
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[audioin.AudioIn](audioin.API)
 	test.That(t, err, test.ShouldBeNil)
@@ -86,7 +87,9 @@ func TestWorkingAudioInClient(t *testing.T) {
 			EndTimestampNanoseconds:   3000000,
 		}
 
-		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64, extra map[string]interface{}) (chan *audioin.AudioChunk, error) {
+		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64,
+			extra map[string]interface{}) (chan *audioin.AudioChunk, error,
+		) {
 			ch := make(chan *audioin.AudioChunk, 2)
 			ch <- mockChunk1
 			ch <- mockChunk2
@@ -172,7 +175,9 @@ func TestAudioInClientGetAudioError(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test GetAudio error
-	injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64, extra map[string]interface{}) (chan *audioin.AudioChunk, error) {
+	injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64,
+		extra map[string]interface{}) (chan *audioin.AudioChunk, error,
+	) {
 		return nil, errGetAudioFailed
 	}
 

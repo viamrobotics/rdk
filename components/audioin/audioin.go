@@ -1,3 +1,4 @@
+// Package audioin defines an audioin component
 package audioin
 
 import (
@@ -30,18 +31,21 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// Properties defines properties of an audio in device.
 type Properties struct {
 	SupportedCodecs []string
 	SampleRate      int32
 	NumChannels     int32
 }
 
+// AudioInfo defines information about audio data.
 type AudioInfo struct {
 	codec       string
 	sampleRate  int32
 	numChannels int32
 }
 
+// AudioChunk defines a chunk of audio data.
 type AudioChunk struct {
 	AudioData                 []byte
 	Info                      *AudioInfo
@@ -50,10 +54,11 @@ type AudioChunk struct {
 	EndTimestampNanoseconds   int64
 }
 
+// AudioIn defines an audioin component.
 type AudioIn interface {
 	resource.Resource
-
-	GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64, extra map[string]interface{}) (chan *AudioChunk, error)
+	GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64, extra map[string]interface{}) (
+		chan *AudioChunk, error)
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
 }
 
@@ -94,7 +99,6 @@ func audioChunkToPb(chunk *AudioChunk) *pb.AudioChunk {
 		EndTimestampNanoseconds:   chunk.EndTimestampNanoseconds,
 		Sequence:                  chunk.Sequence,
 	}
-
 }
 
 func audioInfoPBToStruct(pb *commonpb.AudioInfo) *AudioInfo {
