@@ -3,12 +3,12 @@ package audioout
 import (
 	"context"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioout/v1"
 
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/protoutils"
-
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // serviceServer implements the AudioOutService.
@@ -28,7 +28,7 @@ func (s *serviceServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.Play
 		return nil, err
 	}
 
-	info := audioInfoPBToStruct(req.Info)
+	info := rdkutils.AudioInfoPBToStruct(req.Info)
 
 	err = a.Play(ctx, req.AudioData, info, req.Extra.AsMap())
 	if err != nil {

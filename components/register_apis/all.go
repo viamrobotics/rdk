@@ -5,6 +5,7 @@ package registerapis
 import (
 	// Register components.
 	_ "go.viam.com/rdk/components/arm"
+	_ "go.viam.com/rdk/components/audioout"
 	_ "go.viam.com/rdk/components/base"
 	_ "go.viam.com/rdk/components/board"
 	_ "go.viam.com/rdk/components/button"
