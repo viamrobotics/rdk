@@ -418,8 +418,8 @@ type fsDepConfig struct{}
 // framesystem.PublicServiceName.String() as implicit dependencies (both required and
 // optional). Validate methods do NOT need to do this, as the framesystem is always
 // available in constructors and Reconfigure methods through framesystem.FromDependencies.
-// The incorrect Validate method here is only used for testing that the appropriate
-// warnings are logged.
+// The incorrect Validate method here is only used for testing that these specific string
+// values are ignored in dependency calculation (resource can construct and reconfigure).
 func (fsc *fsDepConfig) Validate(_ string) ([]string, []string, error) {
 	return []string{"$framesystem", "framesystem"}, []string{framesystem.PublicServiceName.String()}, nil
 }
