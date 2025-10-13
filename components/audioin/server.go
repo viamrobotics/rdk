@@ -10,13 +10,13 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// serviceServer implements the ButtonService from button.proto.
+// serviceServer implements the AudioInService
 type serviceServer struct {
 	pb.UnimplementedAudioInServiceServer
 	coll resource.APIResourceGetter[AudioIn]
 }
 
-// NewRPCServiceServer constructs an gripper gRPC service server.
+// NewRPCServiceServer constructs an audioin gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
 func NewRPCServiceServer(coll resource.APIResourceGetter[AudioIn]) interface{} {
 	return &serviceServer{coll: coll}
