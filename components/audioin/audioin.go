@@ -86,9 +86,9 @@ func audioChunkToPb(chunk *AudioChunk) *pb.AudioChunk {
 	var info *commonpb.AudioInfo
 	if chunk.Info != nil {
 		info = &commonpb.AudioInfo{
-			Codec:       chunk.Info.codec,
-			SampleRate:  chunk.Info.sampleRate,
-			NumChannels: chunk.Info.numChannels,
+			Codec:       chunk.Info.Codec,
+			SampleRate:  chunk.Info.SampleRate,
+			NumChannels: chunk.Info.NumChannels,
 		}
 	}
 
@@ -103,8 +103,8 @@ func audioChunkToPb(chunk *AudioChunk) *pb.AudioChunk {
 
 func audioInfoPBToStruct(pb *commonpb.AudioInfo) *AudioInfo {
 	return &AudioInfo{
-		codec:       pb.Codec,
-		sampleRate:  pb.SampleRate,
-		numChannels: pb.NumChannels,
+		Codec:       pb.Codec,
+		SampleRate:  pb.SampleRate,
+		NumChannels: pb.NumChannels,
 	}
 }
