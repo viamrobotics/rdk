@@ -214,8 +214,12 @@ func PlanFrameMotion(ctx context.Context,
 
 // PlanMotion plans a motion from a provided plan request.
 func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, *PlanMeta, error) {
+	start := time.Now()
 	meta := NewPlanMeta()
-	defer meta.DeferTiming("PlanMotion", time.Now())
+	defer func() {
+		meta.Duration = time.Since(start)
+		meta.AddTiming("PlanMotion", meta.Duration)
+	}()
 
 	if err := request.validatePlanRequest(); err != nil {
 		return nil, meta, err
