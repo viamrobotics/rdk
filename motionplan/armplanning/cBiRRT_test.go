@@ -50,7 +50,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 		Constraints:    &motionplan.Constraints{},
 	}
 
-	pc, err := newPlanContext(logger, request)
+	pc, err := newPlanContext(logger, request, NewPlanMeta())
 	test.That(t, err, test.ShouldBeNil)
 
 	psc, err := newPlanSegmentContext(pc, referenceframe.FrameSystemInputs{m.Name(): home7}, goal)

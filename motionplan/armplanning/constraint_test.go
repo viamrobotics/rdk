@@ -38,7 +38,7 @@ func TestIKTolerances(t *testing.T) {
 		Constraints:    &motionplan.Constraints{},
 	}
 
-	pc, err := newPlanContext(logger, request)
+	pc, err := newPlanContext(logger, request, NewPlanMeta())
 	test.That(t, err, test.ShouldBeNil)
 
 	psc, err := newPlanSegmentContext(pc, seed, goal)
@@ -64,7 +64,7 @@ func TestIKTolerances(t *testing.T) {
 		Constraints:    &motionplan.Constraints{},
 	}
 
-	pc2, err := newPlanContext(logger, request2)
+	pc2, err := newPlanContext(logger, request2, NewPlanMeta())
 	test.That(t, err, test.ShouldBeNil)
 
 	psc2, err := newPlanSegmentContext(pc2, seed, goal)
