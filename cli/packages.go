@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chelnak/ysmrr"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
@@ -204,6 +205,11 @@ func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
 		return err
 	}
 
+	sm := ysmrr.NewSpinnerManager()
+	sm.Start()
+	defer sm.Stop()
+
+	s := sm.AddSpinner("Uploading package...")
 	resp, err := client.uploadPackage(
 		args.OrgID,
 		args.Name,
@@ -224,18 +230,21 @@ func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
 				},
 			},
 		},
+		s,
 	)
 	if err != nil {
+		s.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return err
 	}
+	s.CompleteWithMessage(fmt.Sprintf("Successfully uploaded package %s, version: %s", resp.GetId(), resp.GetVersion()))
 
-	printf(c.App.Writer, "Successfully uploaded package %s, version: %s!", resp.GetId(), resp.GetVersion())
 	return nil
 }
 
 func (c *viamClient) uploadPackage(
 	orgID, name, version, packageType, tarballPath string,
 	metadataStruct *structpb.Struct,
+	spinner *ysmrr.Spinner,
 ) (*packagespb.CreatePackageResponse, error) {
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
@@ -275,7 +284,7 @@ func (c *viamClient) uploadPackage(
 	var errs error
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
-	if err := sendUploadRequests(ctx, nil, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendUploadRequests(ctx, stream, file, spinner, getNextPackageUploadRequest); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
@@ -284,12 +293,12 @@ func (c *viamClient) uploadPackage(
 	return resp, errs
 }
 
-func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageRequest, error) {
+func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageRequest, int, error) {
 	// get the next chunk of bytes from the file
 	byteArr := make([]byte, moduleUploadChunkSize)
 	numBytesRead, err := file.Read(byteArr)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if numBytesRead < moduleUploadChunkSize {
 		byteArr = byteArr[:numBytesRead]
@@ -298,7 +307,7 @@ func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageReques
 		Package: &packagespb.CreatePackageRequest_Contents{
 			Contents: byteArr,
 		},
-	}, nil
+	}, numBytesRead, nil
 }
 
 func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {

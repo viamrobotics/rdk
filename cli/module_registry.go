@@ -19,6 +19,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chelnak/ysmrr"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -375,12 +376,17 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 		}
 	}
 
-	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, constraints, tarballPath)
+	sm := ysmrr.NewSpinnerManager()
+	sm.Start()
+	defer sm.Stop()
+
+	s := sm.AddSpinner("Uploading module file...")
+	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, constraints, tarballPath, s)
 	if err != nil {
+		s.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return err
 	}
-
-	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", response.GetUrl())
+	s.CompleteWithMessage(fmt.Sprintf("Version successfully uploaded! View online: %s", response.GetUrl()))
 
 	return nil
 }
@@ -500,6 +506,7 @@ func (c *viamClient) uploadModuleFile(
 	platform string,
 	constraints []string,
 	tarballPath string,
+	spinner *ysmrr.Spinner,
 ) (*apppb.UploadModuleFileResponse, error) {
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
@@ -528,7 +535,7 @@ func (c *viamClient) uploadModuleFile(
 	var errs error
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
-	if err := sendUploadRequests(ctx, stream, nil, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendUploadRequests(ctx, stream, file, spinner, getNextModuleUploadRequest); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
@@ -977,41 +984,35 @@ func sameModels(a, b []ModuleComponent) bool {
 	return true
 }
 
-func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_UploadModuleFileClient,
-	pkgStream packagespb.PackageService_CreatePackageClient, file *os.File, stdout io.Writer,
+type sender[RequestT any] interface {
+	Send(*RequestT) error
+	CloseSend() error
+}
+
+func sendUploadRequests[RequestT any, StreamT sender[RequestT]](
+	ctx context.Context,
+	stream StreamT,
+	file *os.File,
+	spinner *ysmrr.Spinner,
+	getRequest func(file *os.File) (*RequestT, int, error),
 ) error {
-	if moduleStream != nil && pkgStream != nil {
-		return errors.New("can use either module or package client, not both")
-	}
 	stat, err := file.Stat()
 	if err != nil {
 		return err
 	}
 	fileSize := stat.Size()
 	uploadedBytes := 0
-	// Close the line with the progress reading
-	defer printf(stdout, "")
 
-	if moduleStream != nil {
-		defer vutils.UncheckedErrorFunc(moduleStream.CloseSend)
-	}
-	if pkgStream != nil {
-		defer vutils.UncheckedErrorFunc(pkgStream.CloseSend)
-	}
+	defer vutils.UncheckedErrorFunc(stream.CloseSend)
+
 	// Loop until there is no more content to be read from file or the context expires.
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+
 		// Get the next UploadRequest from the file.
-		var moduleUploadReq *apppb.UploadModuleFileRequest
-		if moduleStream != nil {
-			moduleUploadReq, err = getNextModuleUploadRequest(file)
-		}
-		var pkgUploadReq *packagespb.CreatePackageRequest
-		if pkgStream != nil {
-			pkgUploadReq, err = getNextPackageUploadRequest(file)
-		}
+		req, bytesRead, err := getRequest(file)
 
 		// EOF means we've completed successfully.
 		if errors.Is(err, io.EOF) {
@@ -1022,31 +1023,23 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 			return errors.Wrap(err, "could not read file")
 		}
 
-		if moduleUploadReq != nil {
-			if err = moduleStream.Send(moduleUploadReq); err != nil {
-				return err
-			}
-			uploadedBytes += len(moduleUploadReq.GetFile())
+		if err = stream.Send(req); err != nil {
+			return err
 		}
-		if pkgUploadReq != nil {
-			if err = pkgStream.Send(pkgUploadReq); err != nil {
-				return err
-			}
-			uploadedBytes += len(pkgUploadReq.GetContents())
-		}
+		uploadedBytes += bytesRead
 
-		// Simple progress reading until we have a proper tui library
+		// Update spinner with progress
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
-		fmt.Fprintf(stdout, "\rUploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize) //nolint:errcheck // no newline
+		spinner.UpdateMessage(fmt.Sprintf("Uploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize))
 	}
 }
 
-func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, error) {
+func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, int, error) {
 	// get the next chunk of bytes from the file
 	byteArr := make([]byte, moduleUploadChunkSize)
 	numBytesRead, err := file.Read(byteArr)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if numBytesRead < moduleUploadChunkSize {
 		byteArr = byteArr[:numBytesRead]
@@ -1055,7 +1048,7 @@ func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, 
 		ModuleFile: &apppb.UploadModuleFileRequest_File{
 			File: byteArr,
 		},
-	}, nil
+	}, numBytesRead, nil
 }
 
 type downloadModuleFlags struct {
@@ -1066,6 +1059,11 @@ type downloadModuleFlags struct {
 }
 
 func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModuleFlags) (string, error) {
+	globalArgs, err := getGlobalArgs(ctx)
+	if err != nil {
+		return "", err
+	}
+
 	moduleID := flags.ID
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)
@@ -1097,7 +1095,7 @@ func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModule
 			return "", fmt.Errorf("version %s not found in versions for module", requestedVersion)
 		}
 	}
-	infof(ctx.App.ErrWriter, "found version %s", ver.Version)
+	debugf(ctx.App.ErrWriter, globalArgs.Debug, "found version %s", ver.Version)
 	if len(ver.Files) == 0 {
 		return "", fmt.Errorf("version %s has 0 files uploaded", ver.Version)
 	}
@@ -1123,7 +1121,7 @@ func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModule
 		return "", err
 	}
 	destName := strings.ReplaceAll(moduleID, ":", "-")
-	infof(ctx.App.ErrWriter, "saving to %s", path.Join(flags.Destination, fullVersion, destName+".tar.gz"))
+	debugf(ctx.App.ErrWriter, globalArgs.Debug, "saving to %s", path.Join(flags.Destination, fullVersion, destName+".tar.gz"))
 	return downloadPackageFromURL(ctx.Context, c.authFlow.httpClient,
 		flags.Destination, destName,
 		fullVersion, pkg.Package.Url, c.conf.Auth,

@@ -15,6 +15,7 @@ require (
 	github.com/bufbuild/buf v1.30.0
 	github.com/charmbracelet/huh v0.6.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20240917123815-c9b2c9cdb7b6
+	github.com/chelnak/ysmrr v0.6.0
 	github.com/chenzhekl/goply v0.0.0-20190930133256-258c2381defd
 	github.com/creack/pty v1.1.19-0.20220421211855-0d412c9fbeb1
 	github.com/disintegration/imaging v1.6.2

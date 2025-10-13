@@ -24,7 +24,7 @@ func TestConfigureModule(t *testing.T) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
 	}, map[string]any{moduleFlagPath: manifestPath, generalFlagVersion: "1.2.3"}, "token")
-	path, err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
+	path, err := ac.moduleBuildStartAction(parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldEqual, "xyz123")
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
@@ -77,8 +77,9 @@ func TestFullReloadFlow(t *testing.T) {
 
 	t.Run("addShellService", func(t *testing.T) {
 		part, _ := vc.getRobotPart("id")
-		err := addShellService(cCtx, vc, part.Part, false)
+		added, err := addShellService(cCtx, vc, part.Part, false)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, added, test.ShouldBeTrue)
 		services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, services, test.ShouldNotBeNil)

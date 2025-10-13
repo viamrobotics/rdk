@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/chelnak/ysmrr"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -1431,7 +1432,13 @@ func (c *viamClient) machinesPartCopyFilesAction(
 			)
 		}
 
-		return c.copyFilesToMachine(
+		// Create spinner for copy operation
+		spinnerManager := ysmrr.NewSpinnerManager()
+		spinnerManager.Start()
+		defer spinnerManager.Stop()
+
+		spinner := spinnerManager.AddSpinner("Copying files...")
+		err := c.copyFilesToMachine(
 			flagArgs.Organization,
 			flagArgs.Location,
 			flagArgs.Machine,
@@ -1443,7 +1450,14 @@ func (c *viamClient) machinesPartCopyFilesAction(
 			destination,
 			logger,
 			flagArgs.NoProgress,
+			spinner,
 		)
+		if err != nil {
+			spinner.ErrorWithMessage(fmt.Sprintf("Copy failed: %s", err.Error()))
+			return err
+		}
+		spinner.Complete()
+		return nil
 	}
 	if err := doCopy(); err != nil {
 		if statusErr := status.Convert(err); statusErr != nil &&
@@ -2590,12 +2604,13 @@ func (c *viamClient) copyFilesToMachine(
 	destination string,
 	logger logging.Logger,
 	noProgress bool,
+	spinner *ysmrr.Spinner,
 ) error {
 	shellSvc, closeClient, err := c.connectToShellService(orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress, spinner)
 }
 
 // copyFilesToFqdn is a copyFilesToMachine variant that makes use of pre-fetched part FQDN.
@@ -2608,12 +2623,13 @@ func (c *viamClient) copyFilesToFqdn(
 	destination string,
 	logger logging.Logger,
 	noProgress bool,
+	spinner *ysmrr.Spinner,
 ) error {
 	shellSvc, closeClient, err := c.connectToShellServiceFqdn(fqdn, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress, spinner)
 }
 
 // copyFilesToMachineInner is the common logic for both copyFiles variants.
@@ -2625,6 +2641,7 @@ func (c *viamClient) copyFilesToMachineInner(
 	paths []string,
 	destination string,
 	noProgress bool,
+	spinner *ysmrr.Spinner,
 ) error {
 	defer func() {
 		utils.UncheckedError(closeClient(c.c.Context))
@@ -2678,17 +2695,13 @@ func (c *viamClient) copyFilesToMachineInner(
 	var currentFile string
 	progressFunc := func(bytes int64, file string, fileSize int64) {
 		if file != currentFile {
-			if currentFile != "" {
-				//nolint:errcheck // progress display is non-critical
-				_, _ = os.Stdout.WriteString("\n")
-			}
 			currentFile = file
-			//nolint:errcheck // progress display is non-critical
-			_, _ = os.Stdout.WriteString(fmt.Sprintf("Copying %s...\n", file))
+			// Use spinner to display file name
+			spinner.UpdateMessage(fmt.Sprintf("Copying %s...", file))
 		}
 		uploadPercent := int(math.Ceil(100 * float64(bytes) / float64(fileSize)))
-		//nolint:errcheck // progress display is non-critical
-		_, _ = os.Stdout.WriteString(fmt.Sprintf("\rProgress: %d%% (%d/%d bytes)", uploadPercent, bytes, fileSize))
+		// Update spinner message in place with progress
+		spinner.UpdateMessage(fmt.Sprintf("Uploading... %d%% (%d/%d bytes)", uploadPercent, bytes, fileSize))
 	}
 
 	// Wrap the copy factory to track progress

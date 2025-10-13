@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chelnak/ysmrr"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
@@ -78,11 +79,18 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 		return err
 	}
 
+	sm := ysmrr.NewSpinnerManager()
+	sm.Start()
+	defer sm.Stop()
+
+	s := sm.AddSpinner("Uploading training script...")
 	resp, err := client.uploadTrainingScript(true, args.ModelType, args.Framework,
-		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path)
+		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, s)
 	if err != nil {
+		s.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return err
 	}
+	s.Complete()
 	registryItemID := fmt.Sprintf("%s:%s", args.OrgID, args.ScriptName)
 
 	moduleID := moduleID{
@@ -378,13 +386,20 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 		return err
 	}
 
+	sm := ysmrr.NewSpinnerManager()
+	sm.Start()
+	defer sm.Stop()
+
+	s := sm.AddSpinner("Uploading training script...")
 	_, err = client.uploadTrainingScript(args.Draft, args.Type,
 		args.Framework, args.URL, args.OrgID, args.ScriptName,
-		args.Version, args.Path,
+		args.Version, args.Path, s,
 	)
 	if err != nil {
+		s.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return err
 	}
+	s.Complete()
 
 	moduleID := moduleID{
 		prefix: args.OrgID,
@@ -397,7 +412,10 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 	return nil
 }
 
-func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path string) (
+func (c *viamClient) uploadTrainingScript(
+	draft bool, modelType, framework, url, orgID, name, version, path string,
+	spinner *ysmrr.Spinner,
+) (
 	*packagespb.CreatePackageResponse, error,
 ) {
 	metadata, err := createMetadata(draft, modelType, framework, url)
@@ -415,6 +433,7 @@ func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url,
 		string(PackageTypeMLTraining),
 		path,
 		metadataStruct,
+		spinner,
 	)
 	if err != nil {
 		return nil, err

@@ -107,10 +107,10 @@ func (c *viamClient) addResourceFromModule(
 }
 
 // addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
-func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait bool) error {
+func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait bool) (bool, error) {
 	args, err := getGlobalArgs(c)
 	if err != nil {
-		return err
+		return false, err
 	}
 	partMap := part.RobotConfig.AsMap()
 	if _, ok := partMap["services"]; !ok {
@@ -121,7 +121,7 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 	)
 	if slices.ContainsFunc(services, func(service ResourceMap) bool { return service["type"] == "shell" }) {
 		debugf(c.App.Writer, args.Debug, "shell service found on target machine, not installing")
-		return nil
+		return false, nil
 	}
 	services = append(services, ResourceMap{"name": "shell", "type": "shell"})
 	asAny, _ := rutils.MapOver(services, func(service ResourceMap) (any, error) { //nolint:errcheck
@@ -129,14 +129,14 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 	})
 	partMap["services"] = asAny
 	if err := writeBackConfig(part, partMap); err != nil {
-		return err
+		return false, err
 	}
 	infof(c.App.Writer, "installing shell service on target machine for file transfer")
 	if err := vc.updateRobotPart(part, partMap); err != nil {
-		return err
+		return false, err
 	}
 	if !wait {
-		return nil
+		return true, nil
 	}
 	// note: we wait up to 11 seconds; that's the 10 second default Cloud.RefreshInterval plus padding.
 	// If we don't wait, the reload command will usually fail on first run.
@@ -145,13 +145,13 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, args.Debug, logging.NewLogger("shellsvc"))
 		if err == nil {
 			goutils.UncheckedError(closeClient(c.Context))
-			return nil
+			return true, nil
 		}
 		if !errors.Is(err, errNoShellService) {
-			return err
+			return false, err
 		}
 	}
-	return errors.New("timed out waiting for shell service to start")
+	return false, errors.New("timed out waiting for shell service to start")
 }
 
 // writeBackConfig mutates part.RobotConfig with an edited config; this is necessary so that changes
@@ -217,10 +217,12 @@ func configureModule(
 	// to get the most up-to-date version, and return it for further use.
 	partResponse, err := vc.getRobotPart(part.Id)
 	if err != nil {
-		return part, !dirty, err
+		return part, dirty, err
 	}
-	// if we modified config, caller doesn't need to restart module.
-	return partResponse.Part, !dirty, nil
+	// Return dirty to indicate if config was modified.
+	// If config was modified (dirty=true), RDK will auto-restart the module.
+	// If config was unchanged (dirty=false), caller needs to manually restart the module.
+	return partResponse.Part, dirty, nil
 }
 
 // localizeModuleID converts a module ID to its 'local mode' name.

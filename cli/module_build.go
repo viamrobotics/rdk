@@ -15,6 +15,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/chelnak/ysmrr"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -52,6 +53,9 @@ const (
 
 var moduleBuildPollingInterval = 2 * time.Second
 
+// ErrReloadFailed is returned when module reload fails.
+var ErrReloadFailed = errors.Errorf("Reloading module failed")
+
 type moduleBuildStartArgs struct {
 	Module    string
 	Version   string
@@ -61,18 +65,25 @@ type moduleBuildStartArgs struct {
 	Platforms []string
 }
 
+// moduleDownloadInfo holds the information needed to download a built module.
+type moduleDownloadInfo struct {
+	ID       string
+	Version  string
+	Platform string
+}
+
 // ModuleBuildStartAction starts a cloud build.
 func ModuleBuildStartAction(cCtx *cli.Context, args moduleBuildStartArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
 	}
-	_, err = c.moduleBuildStartAction(cCtx, args)
+	_, err = c.moduleBuildStartAction(args)
 	return err
 }
 
 func (c *viamClient) moduleBuildStartForRepo(
-	cCtx *cli.Context, args moduleBuildStartArgs, manifest *moduleManifest, repo string,
+	args moduleBuildStartArgs, manifest *moduleManifest, repo string, sm ysmrr.SpinnerManager,
 ) (string, error) {
 	version := args.Version
 	if manifest.Build == nil || manifest.Build.Build == "" {
@@ -103,22 +114,37 @@ func (c *viamClient) moduleBuildStartForRepo(
 		Token:         &token,
 		Workdir:       &workdir,
 	}
+
+	childSpinner := sm.AddSpinner("Starting cloud build...")
+	childSpinner.UpdatePrefix("  → ")
+
 	res, err := c.buildClient.StartBuild(c.c.Context, &req)
 	if err != nil {
+		childSpinner.ErrorWithMessage(fmt.Sprintf("Failed to start build: %s", err.Error()))
 		return "", err
 	}
-	// Print to stderr so that the buildID is the only thing in stdout
-	printf(cCtx.App.ErrWriter, "Started build:")
-	printf(cCtx.App.Writer, res.BuildId)
+
+	childSpinner.CompleteWithMessage(fmt.Sprintf("Build started (ID: %s)", res.BuildId))
 	return res.BuildId, nil
 }
 
-func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildStartArgs) (string, error) {
+func (c *viamClient) moduleBuildStartAction(args moduleBuildStartArgs) (string, error) {
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return "", err
 	}
-	return c.moduleBuildStartForRepo(cCtx, args, &manifest, manifest.URL)
+
+	if manifest.URL == "" {
+		return "", errors.New("meta.json must have a url field set in order to start a cloud build. " +
+			"Ex: 'https://github.com/your-username/your-repo'")
+	}
+
+	// Create spinner manager for build progress
+	sm := ysmrr.NewSpinnerManager()
+	sm.Start()
+	defer sm.Stop()
+
+	return c.moduleBuildStartForRepo(args, &manifest, manifest.URL, sm)
 }
 
 type moduleBuildLocalArgs struct {
@@ -672,10 +698,15 @@ func (c *viamClient) shouldIgnoreFile(relPath string, matcher gitignore.Matcher)
 	return matcher.Match(strings.Split(normalizedPath, "/"), false)
 }
 
-func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID moduleID, manifest *moduleManifest) error {
+func (c *viamClient) ensureModuleRegisteredInCloud(
+	ctx *cli.Context, moduleID moduleID, manifest *moduleManifest, sm ysmrr.SpinnerManager,
+) error {
 	_, err := c.getModule(moduleID)
 	if err != nil {
 		// Module is not registered in the cloud, prompt user for confirmation
+		// Stop spinners before showing interactive prompt
+		sm.Stop()
+
 		red := "\033[1;31m%s\033[0m"
 		printf(ctx.App.Writer, red, "Error: module not registered in cloud or you lack permissions to edit it.")
 
@@ -696,6 +727,9 @@ func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID mo
 		if input != "Y" {
 			return errors.New("module reload aborted - module not registered in cloud")
 		}
+
+		// Restart spinners after getting user input
+		sm.Start()
 
 		// If user confirmed, we'll proceed with the reload which will register the module
 		// The registration happens implicitly through the cloud build process
@@ -720,64 +754,85 @@ func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID mo
 	return nil
 }
 
-// moduleCloudReload triggers a cloud build and then reloads the specified module with that build.
-func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string) (string, error) {
-	manifest, err := loadManifest(args.Module)
-	if err != nil {
-		return "", err
-	}
-
+// moduleCloudReload triggers a cloud build and then returns the download info for the built module.
+func (c *viamClient) moduleCloudReload(
+	ctx *cli.Context, args reloadModuleArgs, manifest *moduleManifest, platform string,
+	spinnerManager ysmrr.SpinnerManager,
+) (*moduleDownloadInfo, error) {
 	// ensure that the module has been registered in the cloud
 	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, &manifest)
+	// Preparing for Build (parent spinner)
+	sPrepare := spinnerManager.AddSpinner("Preparing for build...")
+
+	childSpinner1 := spinnerManager.AddSpinner("Ensuring module is registered...")
+	childSpinner1.UpdatePrefix("  → ")
+	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, manifest, spinnerManager)
 	if err != nil {
-		return "", err
+		childSpinner1.ErrorWithMessage(fmt.Sprintf("Registration failed: %s", err.Error()))
+		sPrepare.Error()
+		return nil, err
 	}
+	childSpinner1.Complete()
 
 	id := ctx.String(generalFlagID)
 	if id == "" {
 		id = manifest.ModuleID
 	}
 
+	childSpinner2 := spinnerManager.AddSpinner("Creating source code archive...")
+	childSpinner2.UpdatePrefix("  → ")
 	archivePath, err := c.createGitArchive(args.Path)
 	if err != nil {
-		return "", err
+		childSpinner2.ErrorWithMessage(fmt.Sprintf("Archive creation failed: %s", err.Error()))
+		sPrepare.Error()
+		return nil, err
 	}
+	childSpinner2.CompleteWithMessage(fmt.Sprintf("Source code archive created at %s", archivePath))
+
 	org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
 	if err != nil {
-		return "", err
+		sPrepare.Error()
+		return nil, err
 	}
 
 	// Upload a package with the bundled local dev code. Note that "reload" is a sentinel
 	// value for hot reloading modules. App expects it; don't change without making a
 	// complimentary update to the app repo
-	resp, err := c.uploadPackage(org.GetId(), reloadVersion, reloadVersion, "module", archivePath, nil)
+	childSpinner3 := spinnerManager.AddSpinner("Uploading package...")
+	childSpinner3.UpdatePrefix("  → ")
+	resp, err := c.uploadPackage(org.GetId(), reloadVersion, reloadVersion, "module", archivePath, nil, childSpinner3)
 	if err != nil {
-		return "", err
+		childSpinner3.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
+		sPrepare.Error()
+		return nil, err
 	}
+	childSpinner3.CompleteWithMessage("Source code uploaded")
+	sPrepare.Complete()
 
 	// get package URL for downloading purposes
 	packageURL, err := c.getPackageDownloadURL(org.GetId(), reloadVersion, reloadVersion, "module")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// object ID stringifies as `ObjectID("{actual_id}")` but we only want the actual ID when
 	// passing back to app for package lookup.
 	versionParts := strings.Split(resp.Version, "\"")
 	if len(versionParts) != 3 {
-		return "", errors.Errorf("malformed ID %s", versionParts)
+		return nil, errors.Errorf("malformed ID %s", versionParts)
 	}
 	resp.Version = versionParts[1]
+
+	// Building (parent spinner)
+	sBuild := spinnerManager.AddSpinner("Building...")
 
 	// (TODO RSDK-11531) It'd be nice to add some streaming logs for this so we can see how the progress is going. create a new build
 	// TODO (RSDK-11692) - passing org ID in the ref field and `resp.Version` (which is actually an object ID)
 	// in the token field is pretty hacky, let's fix it up
-	infof(c.c.App.Writer, "Creating a new cloud build and swapping it onto the requested machine part. This may take a few minutes...")
 	buildArgs := moduleBuildStartArgs{
 		Module:    args.Module,
 		Version:   reloadVersion,
@@ -787,34 +842,41 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 		Token:     resp.Version,
 	}
 
-	buildID, err := c.moduleBuildStartForRepo(ctx, buildArgs, &manifest, packageURL)
+	buildID, err := c.moduleBuildStartForRepo(buildArgs, manifest, packageURL, spinnerManager)
 	if err != nil {
-		return "", err
+		sBuild.Error()
+		return nil, err
 	}
 
 	// ensure the build completes before we try to dowload and use it
+	childSpinner4 := spinnerManager.AddSpinner(fmt.Sprintf("Waiting for build %s to finish...", buildID))
+	childSpinner4.UpdatePrefix("  → ")
 	statuses, err := c.waitForBuildToFinish(buildID, platform)
 	if err != nil {
-		return "", err
+		childSpinner4.ErrorWithMessage(fmt.Sprintf("Build wait failed: %s", err.Error()))
+		sBuild.Error()
+		return nil, err
 	}
 
 	// if the build failed, print the logs and return an error
 	if statuses[platform] == jobStatusFailed {
+		childSpinner4.ErrorWithMessage(fmt.Sprintf("Build %s failed", buildID))
+		sBuild.Error()
+
+		// Stop spinners before printing logs to avoid output conflicts
+		spinnerManager.Stop()
+
 		// Print error message without exiting (don't use Errorf since it calls os.Exit(1))
 		errorf(c.c.App.Writer, "Build %q failed to complete. Please check the logs below for more information.", buildID)
 
 		if err = c.printModuleBuildLogs(buildID, platform); err != nil {
-			return "", err
+			return nil, err
 		}
 
-		return "", errors.Errorf("Reloading module failed")
+		return nil, ErrReloadFailed
 	}
-
-	downloadArgs := downloadModuleFlags{
-		ID:       id,
-		Version:  reloadVersion,
-		Platform: platform,
-	}
+	childSpinner4.CompleteWithMessage(fmt.Sprintf("Build %s completed successfully", buildID))
+	sBuild.Complete()
 
 	// delete the package now that the build is complete
 	_, err = c.packageClient.DeletePackage(
@@ -830,7 +892,13 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 		warningf(ctx.App.Writer, "failed to delete archive at %s", archivePath)
 	}
 
-	return c.downloadModuleAction(ctx, downloadArgs)
+	// Return the module download info so the download can happen in reloadModuleAction
+	// This allows us to structure the download under "Reloading to Part..."
+	return &moduleDownloadInfo{
+		ID:       id,
+		Version:  reloadVersion,
+		Platform: platform,
+	}, nil
 }
 
 // ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
@@ -855,22 +923,45 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, logger logging.Logger) error {
+	// Initialize spinner manager
+	spinnerManager := ysmrr.NewSpinnerManager()
+	spinnerManager.Start()
+	defer spinnerManager.Stop()
+
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	partID, err := resolvePartID(args.PartID, args.CloudConfig)
 	if err != nil {
 		return err
 	}
+
+	// Load manifest
+	s2 := spinnerManager.AddSpinner("Loading and validating meta.json...")
 	manifest, err := loadManifestOrNil(args.Module)
 	if err != nil {
 		return err
 	}
+	if !args.RestartOnly {
+		if !args.NoBuild {
+			if manifest == nil {
+				s2.ErrorWithMessage(fmt.Sprintf("Failed to load meta.json: file not found at %s.", moduleFlagPath))
+				return ErrReloadFailed
+			}
+		}
+	}
+	s2.Complete()
+
+	// Get robot part
+	s3 := spinnerManager.AddSpinner("Fetching robot part...")
 	part, err := vc.getRobotPart(partID)
 	if err != nil {
+		s3.ErrorWithMessage(fmt.Sprintf("Failed to fetch robot part: %s", err.Error()))
 		return err
 	}
 	if part.Part == nil {
+		s3.ErrorWithMessage(fmt.Sprintf("Part with id=%s not found", partID))
 		return fmt.Errorf("part with id=%s not found", partID)
 	}
+	s3.Complete()
 
 	var partOs string
 	var partArch string
@@ -901,24 +992,131 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	// CLI will see configuration changes before the robot, and skip to the needsRestart
 	// case on the second call. Because these are triggered by user actions, we're okay
 	// with this behavior, and the robot will eventually converge to what is in config.
-	needsRestart := true
 	var buildPath string
 	if !args.RestartOnly {
 		if !args.NoBuild {
-			if manifest == nil {
-				return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
-			}
 			if !args.CloudBuild {
+				// Local build - simple single spinner
+				sBuild := spinnerManager.AddSpinner("Building module locally...")
 				err = moduleBuildLocalAction(c, manifest, environment)
 				buildPath = manifest.Build.Path
+				if err != nil {
+					sBuild.ErrorWithMessage(fmt.Sprintf("Build failed: %s", err.Error()))
+					return err
+				}
+				sBuild.CompleteWithMessage("Build complete")
 			} else {
-				buildPath, err = vc.moduleCloudReload(c, args, platform)
-			}
-			if err != nil {
-				return err
+				// Cloud build - structured with parent spinners
+				downloadInfo, err := vc.moduleCloudReload(c, args, manifest, platform, spinnerManager)
+				if err != nil {
+					return err
+				}
+
+				// Reloading to Part (parent spinner - combines download, shell, copy, config, restart)
+				sReload := spinnerManager.AddSpinner("Reloading to part...")
+
+				sDownload := spinnerManager.AddSpinner("Downloading build artifact...")
+				sDownload.UpdatePrefix("  → ")
+				downloadArgs := downloadModuleFlags{
+					ID:       downloadInfo.ID,
+					Version:  downloadInfo.Version,
+					Platform: downloadInfo.Platform,
+				}
+				buildPath, err = vc.downloadModuleAction(c, downloadArgs)
+				if err != nil {
+					sDownload.ErrorWithMessage(fmt.Sprintf("Download failed: %s", err.Error()))
+					sReload.Error()
+					return err
+				}
+				sDownload.Complete()
+
+				sShell := spinnerManager.AddSpinner("Setting up shell service...")
+				sShell.UpdatePrefix("  → ")
+				shellAdded, err := addShellService(c, vc, part.Part, true)
+				if err != nil {
+					sShell.ErrorWithMessage(fmt.Sprintf("Failed to add shell service: %s", err.Error()))
+					sReload.Error()
+					return err
+				}
+				if shellAdded {
+					sShell.CompleteWithMessage("Shell service added to part config")
+				} else {
+					sShell.CompleteWithMessage("Shell service already exists, skipped")
+				}
+
+				sCopy := spinnerManager.AddSpinner(fmt.Sprintf("Copying %s to part %s...", buildPath, part.Part.Id))
+				sCopy.UpdatePrefix("  → ")
+				globalArgs, err := getGlobalArgs(c)
+				if err != nil {
+					sCopy.ErrorWithMessage(fmt.Sprintf("Failed to get global args: %s", err.Error()))
+					sReload.Error()
+					return err
+				}
+				dest := reloadingDestination(c, manifest)
+				err = vc.copyFilesToFqdn(
+					part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
+					dest, logger, args.NoProgress, sCopy)
+				if err != nil {
+					if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
+						sCopy.ErrorWithMessage("Permission denied")
+						warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
+							"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
+							"Alternatively, run the RDK as root.")
+					} else {
+						sCopy.ErrorWithMessage(fmt.Sprintf("Copy failed: %s", err.Error()))
+					}
+					sReload.Error()
+					return fmt.Errorf("failed copying to part (%v): %w", dest, err)
+				}
+				sCopy.CompleteWithMessage(fmt.Sprintf("Copied to %s", dest))
+
+				// Continue with configuration under same parent spinner
+				sConfigModule := spinnerManager.AddSpinner("Configuring module...")
+				sConfigModule.UpdatePrefix("  → ")
+				var newPart *apppb.RobotPart
+				newPart, configUpdated, err := configureModule(c, vc, manifest, part.Part, args.Local)
+				if newPart != nil {
+					part.Part = newPart
+				}
+				if err != nil {
+					sConfigModule.ErrorWithMessage(fmt.Sprintf("Configuration failed: %s", err.Error()))
+					sReload.Error()
+					return err
+				}
+				if configUpdated {
+					sConfigModule.CompleteWithMessage("Module added to part config")
+				} else {
+					sConfigModule.CompleteWithMessage("Module already exists on part, skipped")
+				}
+
+				// If config was not updated, we need to manually restart the module
+				// (if config was updated, RDK will auto-restart)
+				if !configUpdated {
+					sRestart := spinnerManager.AddSpinner("Restarting module...")
+					sRestart.UpdatePrefix("  → ")
+					if err = restartModule(c, vc, part.Part, manifest, logger); err != nil {
+						sRestart.ErrorWithMessage(fmt.Sprintf("Restart failed: %s", err.Error()))
+						sReload.Error()
+						return err
+					}
+					sRestart.CompleteWithMessage("Module restarted successfully")
+				}
+
+				// Handle adding a resource/component if --model-name was specified
+				if args.ModelName != "" {
+					sResource := spinnerManager.AddSpinner(fmt.Sprintf("Adding resource/component %s...", args.ModelName))
+					sResource.UpdatePrefix("  → ")
+					if err = vc.addResourceFromModule(c, part.Part, manifest, args.ModelName, args.ResourceName); err != nil {
+						sResource.ErrorWithMessage(fmt.Sprintf("Resource %s not added to part config", args.ModelName))
+						warningf(c.App.ErrWriter, "unable to add requested resource to robot config: %s", err)
+					} else {
+						sResource.CompleteWithMessage(fmt.Sprintf("Resource %s added to part config", args.ModelName))
+					}
+				}
+				sReload.Complete()
 			}
 		}
-		if !args.Local {
+		if !args.Local && !args.CloudBuild {
 			if manifest == nil || manifest.Build == nil || buildPath == "" {
 				return errors.New(
 					"remote reloading requires a meta.json with the 'build.path' field set. " +
@@ -926,58 +1124,101 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				)
 			}
 			if err := validateReloadableArchive(c, manifest.Build); err != nil {
-				// if it is a cloud build then it makes sense that we might not have a reloadable
-				// archive locally, so we can safely ignore the error
-				if !args.CloudBuild {
-					return err
-				}
-			}
-			if err := addShellService(c, vc, part.Part, true); err != nil {
 				return err
 			}
-			infof(c.App.Writer, "Copying %s to part %s", buildPath, part.Part.Id)
+
+			// Reloading to Part (parent spinner) - for local builds
+			sReload := spinnerManager.AddSpinner("Reloading to part...")
+
+			sShell := spinnerManager.AddSpinner("Setting up shell service...")
+			sShell.UpdatePrefix("  → ")
+			shellAdded, err := addShellService(c, vc, part.Part, true)
+			if err != nil {
+				sShell.ErrorWithMessage(fmt.Sprintf("Failed to add shell service: %s", err.Error()))
+				sReload.Error()
+				return err
+			}
+			if shellAdded {
+				sShell.CompleteWithMessage("Shell service added to part config")
+			} else {
+				sShell.CompleteWithMessage("Shell service already exists, skipped")
+			}
+
+			sCopy := spinnerManager.AddSpinner(fmt.Sprintf("Copying %s to part %s...", buildPath, part.Part.Id))
+			sCopy.UpdatePrefix("  → ")
 			globalArgs, err := getGlobalArgs(c)
 			if err != nil {
+				sCopy.ErrorWithMessage(fmt.Sprintf("Failed to get global args: %s", err.Error()))
+				sReload.Error()
 				return err
 			}
 			dest := reloadingDestination(c, manifest)
 			err = vc.copyFilesToFqdn(
 				part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
-				dest, logging.NewLogger(reloadVersion), args.NoProgress)
+				dest, logger, args.NoProgress, sCopy)
 			if err != nil {
 				if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
+					sCopy.ErrorWithMessage("Permission denied")
 					warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
 						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
 						"Alternatively, run the RDK as root.")
+				} else {
+					sCopy.ErrorWithMessage(fmt.Sprintf("Copy failed: %s", err.Error()))
 				}
+				sReload.Error()
 				return fmt.Errorf("failed copying to part (%v): %w", dest, err)
 			}
-		}
-		var newPart *apppb.RobotPart
-		newPart, needsRestart, err = configureModule(c, vc, manifest, part.Part, args.Local)
-		// if the module has been configured, the cached response we have may no longer accurately reflect
-		// the update, so we set the updated `part.Part`
-		if newPart != nil {
-			part.Part = newPart
-		}
+			sCopy.CompleteWithMessage(fmt.Sprintf("Copied to %s", dest))
 
-		if err != nil {
-			return err
-		}
-	}
-	if needsRestart {
-		if err = restartModule(c, vc, part.Part, manifest, logger); err != nil {
-			return err
+			// Continue with configuration under same parent spinner
+			sConfigModule := spinnerManager.AddSpinner("Configuring module...")
+			sConfigModule.UpdatePrefix("  → ")
+			var newPart *apppb.RobotPart
+			newPart, configUpdated, err := configureModule(c, vc, manifest, part.Part, args.Local)
+			if newPart != nil {
+				part.Part = newPart
+			}
+			if err != nil {
+				sConfigModule.ErrorWithMessage(fmt.Sprintf("Configuration failed: %s", err.Error()))
+				sReload.Error()
+				return err
+			}
+			if configUpdated {
+				sConfigModule.CompleteWithMessage("Module added to part config")
+			} else {
+				sConfigModule.CompleteWithMessage("Module already exists on part, skipped")
+			}
+
+			// If config was not updated, we need to manually restart the module
+			// (if config was updated, RDK will auto-restart)
+			if !configUpdated {
+				sRestart := spinnerManager.AddSpinner("Restarting module...")
+				sRestart.UpdatePrefix("  → ")
+				if err = restartModule(c, vc, part.Part, manifest, logger); err != nil {
+					sRestart.ErrorWithMessage(fmt.Sprintf("Restart failed: %s", err.Error()))
+					sReload.Error()
+					return err
+				}
+				sRestart.CompleteWithMessage("Module restarted successfully")
+			}
+
+			// Handle adding a resource/component if --model-name was specified
+			if args.ModelName != "" {
+				sResource := spinnerManager.AddSpinner(fmt.Sprintf("Adding resource %s...", args.ModelName))
+				sResource.UpdatePrefix("  → ")
+				if err = vc.addResourceFromModule(c, part.Part, manifest, args.ModelName, args.ResourceName); err != nil {
+					sResource.ErrorWithMessage(fmt.Sprintf("Resource %s not added to part config", args.ModelName))
+					warningf(c.App.ErrWriter, "unable to add requested resource to robot config: %s", err)
+				} else {
+					sResource.CompleteWithMessage(fmt.Sprintf("Resource %s added to part config", args.ModelName))
+				}
+			}
+			sReload.Complete()
 		}
 	} else {
 		infof(c.App.Writer, "Reload complete")
 	}
 
-	if args.ModelName != "" {
-		if err = vc.addResourceFromModule(c, part.Part, manifest, args.ModelName, args.ResourceName); err != nil {
-			warningf(c.App.ErrWriter, "unable to add requested resource to robot config: %s", err)
-		}
-	}
 	return nil
 }
 
@@ -1109,8 +1350,6 @@ func restartModule(
 	debugf(c.App.Writer, args.Debug, "restarting module %v", restartReq)
 	// todo: make this a stream so '--wait' can tell user what's happening
 	err = robotClient.RestartModule(c.Context, *restartReq)
-	if err == nil {
-		infof(c.App.Writer, "restarted module.")
-	}
+
 	return err
 }
