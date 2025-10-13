@@ -773,6 +773,7 @@ func (c *viamClient) triggerCloudReload(
 		return "", errors.New("unable to determine platform for part")
 	}
 
+	// App expects `BuildInfo` as the first request
 	platform := part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
 	req := &buildpb.StartReloadBuildRequest{
 		CloudBuild: &buildpb.StartReloadBuildRequest_BuildInfo{
@@ -887,9 +888,6 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 		Platform: platform,
 	}
 
-	// CR erodkin: confirm that we don't actually want to delete the package like this anymore.
-	// good to talk to michael lee to confirm
-
 	// delete the archive we created
 	if err := os.Remove(archivePath); err != nil {
 		warningf(ctx.App.Writer, "failed to delete archive at %s", archivePath)
@@ -898,6 +896,7 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	return c.downloadModuleAction(ctx, downloadArgs)
 }
 
+// ReloadModuleLocalAction builds a module locally, configures it on a robot, and starts or restarts it.
 func ReloadModuleLocalAction(c *cli.Context, args reloadModuleArgs) error {
 	return reloadModuleAction(c, args, false)
 }
@@ -1149,6 +1148,7 @@ type moduleRestartArgs struct {
 	CloudConfig string
 }
 
+// ModuleRestartAction triggers a restart of the requested module.
 func ModuleRestartAction(c *cli.Context, args moduleRestartArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
