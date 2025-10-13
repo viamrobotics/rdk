@@ -96,7 +96,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 				if err != nil {
 					return traj, i, err
 				}
-				pm.logger.Debug("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
+				pm.logger.Debugf("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
 				traj = append(traj, newTraj...)
 			}
 		}
