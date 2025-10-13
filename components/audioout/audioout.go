@@ -6,6 +6,7 @@ import (
 
 	pb "go.viam.com/api/component/audioout/v1"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -28,8 +29,39 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// Properties defines properties of an audio out device.
+type Properties struct {
+	SupportedCodecs []string
+	SampleRate      int32
+	NumChannels     int32
+}
+
+// AudioInfo defines information about audio data.
+type AudioInfo struct {
+	codec       string
+	sampleRate  int32
+	numChannels int32
+}
+
 // An AudioInput is a resource that can output audio.
 type AudioOut interface {
 	resource.Resource
-	Play(ctx context.Context, data []byte, AudioInfo info) error
+	Play(ctx context.Context, data []byte, info AudioInfo) error
+	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
+}
+
+// FromDependencies is a helper for getting the named AudioOut from a collection of
+// dependencies.
+func FromDependencies(deps resource.Dependencies, name string) (AudioOut, error) {
+	return resource.FromDependencies[AudioOut](deps, Named(name))
+}
+
+// FromRobot is a helper for getting the named AudioOutfrom the given Robot.
+func FromRobot(r robot.Robot, name string) (AudioOut, error) {
+	return robot.ResourceFromRobot[AudioOut](r, Named(name))
+}
+
+// NamesFromRobot is a helper for getting all AudioIn names from the given Robot.
+func NamesFromRobot(r robot.Robot) []string {
+	return robot.NamesByAPI(r, API)
 }
