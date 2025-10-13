@@ -64,7 +64,11 @@ func TestDefaultCameraSettings(t *testing.T) {
 	var s simpleSegmenter
 
 	fakeCamera := &inject.Camera{
-		ImagesFunc: func(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		ImagesFunc: func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			sourceImg := image.NewRGBA(image.Rect(0, 0, 3, 3))
 			imgBytes, err := rimage.EncodeImage(ctx, sourceImg, utils.MimeTypePNG)
 			test.That(t, err, test.ShouldBeNil)

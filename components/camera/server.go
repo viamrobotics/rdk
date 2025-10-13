@@ -3,7 +3,6 @@ package camera
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -21,22 +20,17 @@ import (
 // serviceServer implements the CameraService from camera.proto.
 type serviceServer struct {
 	pb.UnimplementedCameraServiceServer
-	coll resource.APIResourceGetter[Camera]
-
-	imgTypesMu sync.RWMutex
-	imgTypes   map[string]ImageType
-	logger     logging.Logger
+	coll   resource.APIResourceGetter[Camera]
+	logger logging.Logger
 }
 
 // NewRPCServiceServer constructs an camera gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
 func NewRPCServiceServer(coll resource.APIResourceGetter[Camera]) interface{} {
 	logger := logging.NewLogger("camserver")
-	imgTypes := make(map[string]ImageType)
 	return &serviceServer{
-		coll:     coll,
-		logger:   logger,
-		imgTypes: imgTypes,
+		coll:   coll,
+		logger: logger,
 	}
 }
 

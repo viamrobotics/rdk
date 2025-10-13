@@ -157,7 +157,11 @@ func TestClient(t *testing.T) {
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, errCameraProjectorFailed
 	}
-	injectCamera2.ImagesFunc = func(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	injectCamera2.ImagesFunc = func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		return nil, resource.ResponseMetadata{}, errGetImageFailed
 	}
 
@@ -196,7 +200,7 @@ func TestClient(t *testing.T) {
 		test.That(t, len(namedImages) > 0, test.ShouldBeTrue)
 		frame, err := namedImages[0].Image(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		compVal, _, err := rimage.CompareImages(img, frame)
+		compVal, _, err := rimage.CompareImages(expectedColor, frame)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 

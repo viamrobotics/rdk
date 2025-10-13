@@ -2,7 +2,6 @@ package transformpipeline
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/prop"
@@ -213,14 +212,23 @@ func TestTransformPipelineValidateFail(t *testing.T) {
 
 func TestVideoSourceFromCameraError(t *testing.T) {
 	malformedCam := &inject.Camera{
-		ImagesFunc: func(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		ImagesFunc: func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]any,
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			namedImg, _ := camera.NamedImageFromBytes([]byte("not a valid image"), "", utils.MimeTypePNG)
 			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{}, nil
 		},
 	}
 
 	vs, err := videoSourceFromCamera(context.Background(), malformedCam)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, vs, test.ShouldNotBeNil)
+
+	stream, err := vs.Stream(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	defer stream.Close(context.Background())
+	_, _, err = stream.Next(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, errors.Is(err, ErrVideoSourceCreation), test.ShouldBeTrue)
-	test.That(t, vs, test.ShouldBeNil)
 }

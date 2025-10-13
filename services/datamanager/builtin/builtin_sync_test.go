@@ -1221,14 +1221,11 @@ func newMockCameraWithImages(t *testing.T, imgPng image.Image) *inject.Camera {
 			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			t.Helper()
 			imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
-			if err != nil {
-				return nil, resource.ResponseMetadata{}, err
-			}
+			test.That(t, err, test.ShouldBeNil)
 			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType)
-			if err != nil {
-				return nil, resource.ResponseMetadata{}, err
-			}
+			test.That(t, err, test.ShouldBeNil)
 			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 		},
 	}

@@ -347,7 +347,11 @@ func TestStatusClient(t *testing.T) {
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
-	injectCamera.ImagesFunc = func(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	injectCamera.ImagesFunc = func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		namedImg, err := camera.NamedImageFromBytes(imgBuf.Bytes(), "", rutils.MimeTypePNG)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err

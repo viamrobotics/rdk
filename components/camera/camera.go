@@ -230,7 +230,6 @@ type Camera interface {
 	Properties(ctx context.Context) (Properties, error)
 }
 
-
 // VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.
 // Note that generally, when writing camera components from scratch, embedding `Stream` is an anti-pattern.
 type VideoSource interface {

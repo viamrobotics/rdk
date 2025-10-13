@@ -422,7 +422,6 @@ func (c *webcam) ensureActive() error {
 	return nil
 }
 
-
 func (c *webcam) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

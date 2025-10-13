@@ -262,27 +262,6 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, cam2.Close(context.Background()), test.ShouldBeNil)
 }
 
-// verifyDecodedImage verifies that decoded image bytes match the original image.
-func verifyDecodedImage(t *testing.T, imgBytes []byte, mimeType string, originalImg image.Image) {
-	t.Helper()
-	test.That(t, len(imgBytes), test.ShouldBeGreaterThan, 0)
-
-	// For JPEG, compare the raw bytes instead of the decoded image since the decoded image is
-	// not guaranteed to be the same as the original image due to lossy compression.
-	if mimeType == rutils.MimeTypeJPEG {
-		expectedBytes, err := rimage.EncodeImage(context.Background(), originalImg, mimeType)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, imgBytes, test.ShouldResemble, expectedBytes)
-		return
-	}
-
-	// For other formats, compare the decoded images
-	decodedImg, err := rimage.DecodeImage(context.Background(), imgBytes, mimeType)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, rimage.ImagesExactlyEqual(decodedImg, originalImg), test.ShouldBeTrue)
-}
-
-
 // TestImages asserts the core expected behavior of the Images API.
 func TestImages(t *testing.T) {
 	ctx := context.Background()

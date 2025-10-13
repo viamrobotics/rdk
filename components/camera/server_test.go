@@ -26,7 +26,6 @@ import (
 )
 
 var (
-	errInvalidMimeType          = errors.New("invalid mime type")
 	errGeneratePointCloudFailed = errors.New("can't generate next point cloud")
 	errPropertiesFailed         = errors.New("can't get camera properties")
 	errCameraProjectorFailed    = errors.New("can't get camera properties")
@@ -168,7 +167,11 @@ func TestServer(t *testing.T) {
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, errCameraProjectorFailed
 	}
-	injectCamera2.ImagesFunc = func(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	injectCamera2.ImagesFunc = func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		return nil, resource.ResponseMetadata{}, errGetImageFailed
 	}
 
@@ -413,4 +416,3 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 	})
 }
-
