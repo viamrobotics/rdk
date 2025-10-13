@@ -689,16 +689,14 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 		return nil, nil, err
 	}
 
-	// RSDK-12124: Log a warning if a user tries to depend on the framesystem in some way
-	// and ignore that dependency.
+	// RSDK-12124: Ignore any dependency that looks like the user is trying to depend on the
+	// framesystem. That can be done through framesystem.FromDependencies in all golang
+	// modular resources, but users may think it's a required return-value from Validate.
 	var requiredImplicitDeps, optionalImplicitDeps []string
 	for _, dep := range resp.Dependencies {
 		switch dep {
 		case "framesystem", "$framesystem", framesystem.PublicServiceName.String():
-			mgr.logger.Warnw("Do not attempt to depend on the framesystem through Validate. "+
-				"The framesystem is always available in Golang modular resources through "+
-				"framesystem.FromDependencies; ignoring", "ignored_dependency",
-				dep, "resource", conf.Name)
+			continue
 		default:
 			requiredImplicitDeps = append(requiredImplicitDeps, dep)
 		}
@@ -706,10 +704,6 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	for _, optionalDep := range resp.OptionalDependencies {
 		switch optionalDep {
 		case "framesystem", "$framesystem", framesystem.PublicServiceName.String():
-			mgr.logger.Warnw("Do not attempt to optionally depend on the framesystem through Validate. "+
-				"The framesystem is always available in Golang modular resources through "+
-				"framesystem.FromDependencies; ignoring", "ignored_dependency",
-				optionalDep, "resource", conf.Name)
 			continue
 		default:
 			optionalImplicitDeps = append(optionalImplicitDeps, optionalDep)
