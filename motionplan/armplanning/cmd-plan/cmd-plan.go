@@ -97,6 +97,10 @@ func realMain() error {
 	}
 
 	plan, _, err := armplanning.PlanMotion(ctx, logger, req)
+	if err != nil {
+		panic(err)
+	}
+
 	exporter.Stop()
 	if *interactive {
 		if interactiveErr := doInteractive(req, plan, err, mylog); interactiveErr != nil {
