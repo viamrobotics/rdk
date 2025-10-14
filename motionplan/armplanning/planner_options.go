@@ -3,7 +3,7 @@ package armplanning
 import (
 	"encoding/json"
 	"errors"
-	"math"
+	"fmt"
 	"runtime"
 
 	"go.viam.com/rdk/motionplan"
@@ -35,15 +35,25 @@ const (
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultStepSizeMM = 10
+
+	// Number of planner iterations before giving up.
+	defaultPlanIter = 1500
+
+	// The maximum percent of a joints range of motion to allow per step.
+	defaultFrameStep = 0.01
+
+	// If the dot product between two sets of configurations is less than this, consider them identical.
+	defaultInputIdentDist = 0.0001
+
+	// Number of iterations to run before beginning to accept randomly seeded locations.
+	defaultIterBeforeRand = 50
+
+	defaultOptimalityMultiple = 3.0
 )
 
-var (
-	defaultNumThreads                            = utils.MinInt(runtime.NumCPU()/2, 10)
-	defaultTimeMultipleAfterFindingFirstSolution = 10
-)
+var defaultNumThreads = utils.MinInt(runtime.NumCPU()/2, 10)
 
 func init() {
-	defaultTimeMultipleAfterFindingFirstSolution = utils.GetenvInt("MP_TIME_MULTIPLIER", defaultTimeMultipleAfterFindingFirstSolution)
 	defaultNumThreads = utils.GetenvInt("MP_NUM_THREADS", defaultNumThreads)
 }
 
@@ -68,7 +78,6 @@ func NewBasicPlannerOptions() *PlannerOptions {
 
 	opt.SmoothIter = defaultSmoothIter
 
-	opt.TimeMultipleAfterFindingFirstSolution = defaultTimeMultipleAfterFindingFirstSolution
 	opt.NumThreads = defaultNumThreads
 
 	opt.PathStepSize = defaultStepSizeMM
@@ -147,11 +156,6 @@ type PlannerOptions struct {
 
 	// Setting indicating that all mesh geometries should be converted into octrees.
 	MeshesAsOctrees bool `json:"meshes_as_octrees"`
-
-	// For inverse kinematics, the time within which each pending solution must finish its computation is
-	// a multiple of the time taken to compute the first solution. This parameter is a way to
-	// set that multiplicative factor.
-	TimeMultipleAfterFindingFirstSolution int `json:"time_multiple_after_finding_first_solution"`
 }
 
 // NewPlannerOptionsFromExtra returns basic default settings updated by overridden parameters
@@ -179,7 +183,10 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 // getGoalMetric creates the distance metric for the solver using the configured options.
 func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) motionplan.StateFSMetric {
 	metrics := map[string]motionplan.StateMetric{}
+	frames := map[string]string{}
+
 	for frame, goalInFrame := range goal {
+		frames[frame] = goalInFrame.Parent()
 		switch p.GoalMetricType {
 		case motionplan.PositionOnly:
 			metrics[frame] = motionplan.NewPositionOnlyMetric(goalInFrame.Pose())
@@ -195,10 +202,10 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 	return func(state *motionplan.StateFS) float64 {
 		score := 0.
 		for frame, goalMetric := range metrics {
-			poseParent := goal[frame].Parent()
+			poseParent := frames[frame]
 			currPose, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
 			if err != nil {
-				score += math.Inf(1)
+				panic(fmt.Errorf("fs: %v err: %w frame: %s poseParent: %v", state.FS.FrameNames(), err, frame, poseParent))
 			}
 
 			score += goalMetric(&motionplan.State{

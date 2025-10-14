@@ -32,7 +32,7 @@ type Solver interface {
 	// Solve receives a context, a channel to which solutions will be provided, a function whose output should be minimized, and a
 	// number of iterations to run.
 	Solve(ctx context.Context, solutions chan<- *Solution, seed []float64,
-		maxTravel, cartestianDistance float64, minFunc func([]float64) float64, rseed int) (int, error)
+		travelPercent []float64, minFunc func([]float64) float64, rseed int) (int, error)
 }
 
 // Solution is the struct returned from an IK solver. It contains the solution configuration, the score of the solution, and a flag
@@ -90,14 +90,24 @@ func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame,
 }
 
 // DoSolve is a synchronous wrapper around Solver.Solve.
-func DoSolve(ctx context.Context, solver Solver, solveFunc func([]float64) float64, seed []float64) ([][]float64, error) {
+// rangeModifier is [0-1] - 0 means don't really look a lot, which is good for highly constrained things
+//
+//	but will fail if you have to move. 1 means search the entire range.
+func DoSolve(ctx context.Context, solver Solver, solveFunc func([]float64) float64,
+	seed []float64, rangeModifier float64,
+) ([][]float64, error) {
+	travelPercent := []float64{}
+	for range seed {
+		travelPercent = append(travelPercent, rangeModifier)
+	}
+
 	solutionGen := make(chan *Solution)
 
 	var solveErrors error
 
 	go func() {
 		defer close(solutionGen)
-		_, err := solver.Solve(ctx, solutionGen, seed, 0, 0, solveFunc, 1)
+		_, err := solver.Solve(ctx, solutionGen, seed, travelPercent, solveFunc, 1)
 		solveErrors = err
 	}()
 

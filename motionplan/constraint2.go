@@ -254,7 +254,7 @@ func collisionCheckFinish(internalGeoms, static []spatial.Geometry, zeroCG *coll
 	cs := cg.collisions(collisionBufferMM)
 	if len(cs) != 0 {
 		// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
-		return fmt.Errorf("violation between %s and %s geometries (tolal collisions: %d)", cs[0].name1, cs[0].name2, len(cs))
+		return fmt.Errorf("violation between %s and %s geometries (total collisions: %d)", cs[0].name1, cs[0].name2, len(cs))
 	}
 	return nil
 }

@@ -28,7 +28,7 @@ type NloptIK struct{}
 func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
 	seed []float64,
-	maxTravel, cartestianDistance float64,
+	travelPercent []float64,
 	minFunc func([]float64) float64,
 	rseed int,
 ) (int, error) {

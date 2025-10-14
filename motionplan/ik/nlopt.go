@@ -70,7 +70,7 @@ func (ik *NloptIK) DoF() []referenceframe.Limit {
 func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
 	seed []float64,
-	maxTravel, cartestianDistance float64,
+	travelPercent []float64,
 	minFunc func([]float64) float64,
 	rseed int,
 ) (int, error) {
@@ -92,10 +92,10 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		return 0, errBadBounds
 	}
 
-	if maxTravel > 0 {
+	if len(travelPercent) == len(lowerBound) {
 		for i := 0; i < len(lowerBound); i++ {
-			lowerBound[i] = max(lowerBound[i], seed[i]-maxTravel)
-			upperBound[i] = min(upperBound[i], seed[i]+maxTravel)
+			lowerBound[i] = max(lowerBound[i], seed[i]-(ik.limits[i].Range()*travelPercent[i]))
+			upperBound[i] = min(upperBound[i], seed[i]+(ik.limits[i].Range()*travelPercent[i]))
 		}
 	}
 

@@ -337,7 +337,12 @@ func (mp *planner) getSolutions(
 
 	minFunc := mp.linearizeFSmetric(metric)
 	// Spawn the IK solver to generate solutions until done
+
 	approxCartesianDist := math.Sqrt(minFunc(linearSeed))
+	ratios := []float64{}
+	for range linearSeed {
+		ratios = append(ratios, min(1, max(.15, approxCartesianDist/100)))
+	}
 
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
@@ -346,7 +351,7 @@ func (mp *planner) getSolutions(
 	utils.PanicCapturingGo(func() {
 		defer activeSolvers.Done()
 		defer solverFinished.Store(true)
-		_, err := mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, 0, approxCartesianDist, minFunc, mp.randseed.Int())
+		_, err := mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, ratios, minFunc, mp.randseed.Int())
 		if err != nil {
 			if ctxWithCancel.Err() == nil {
 				mp.logger.Warnf("solver had an error: %v", err)

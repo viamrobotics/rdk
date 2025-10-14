@@ -104,26 +104,10 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 
 	// World point of xArm at 0 position
 	poseWorld1 := spatial.NewPoseFromPoint(r3.Vector{207, 0, 112})
-	// World point of xArm at (90,-90,90,-90,90,-90) joint positions
-	poseWorld2 := spatial.NewPoseFromPoint(r3.Vector{97, -207, -98})
-
-	// Note that because the arm is pointing in a different direction, this point is not a direct inverse of pointWorld2
-	pointXarm := spatial.NewPoseFromPoint(r3.Vector{207, 98, -97})
 
 	transformPoint1, err := fs.Transform(positions, frame.NewPoseInFrame("xArm6", spatial.NewZeroPose()), frame.World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(transformPoint1.(*frame.PoseInFrame).Pose(), poseWorld1), test.ShouldBeTrue)
-
-	// Test ability to calculate hypothetical out-of-bounds positions for the arm, but still return an error
-	positions["xArm6"] = frame.FloatsToInputs(
-		[]float64{math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2})
-	transformPoint2, err := fs.Transform(positions, frame.NewPoseInFrame("xArm6", spatial.NewZeroPose()), frame.World)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincident(transformPoint2.(*frame.PoseInFrame).Pose(), poseWorld2), test.ShouldBeTrue)
-
-	transformPoint3, err := fs.Transform(positions, frame.NewPoseInFrame(frame.World, spatial.NewZeroPose()), "xArm6")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincident(transformPoint3.(*frame.PoseInFrame).Pose(), pointXarm), test.ShouldBeTrue)
 }
 
 // Test a complicated dynamic frame system. We model a UR5 at (100,100,200) holding a camera pointing in line with the

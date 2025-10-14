@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/data"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager"
@@ -230,7 +231,7 @@ type cloudConn struct {
 	ready  chan struct{}
 	partID string
 	client v1.DataSyncServiceClient
-	conn   rpc.ClientConn
+	conn   rgrpc.ConnectivityState
 }
 
 // BEGIN connection management
@@ -280,7 +281,19 @@ func (s *Sync) runCloudConnManager(
 		// we have a working cloudConn,
 		// set the values & connunicate that it is ready
 		s.cloudConn.partID = partID
-		s.cloudConn.conn = conn
+		checker, ok := conn.(rgrpc.ConnectivityState)
+		if !ok {
+			// should never happen, as rgrpc.AppConn (which is the underlying type of the connection)
+			// implements GetState explicitly.
+			s.logger.Errorf("cloud connection does not expose connectivity state, "+
+				"will retry in %s", durationBetweenAcquireConnection)
+			if goutils.SelectContextOrWait(ctx, durationBetweenAcquireConnection) {
+				continue
+			}
+			// exit loop if context is cancelled
+			return
+		}
+		s.cloudConn.conn = checker
 		s.cloudConn.client = s.clientConstructor(conn)
 		s.logger.Info("cloud connection ready")
 		close(s.cloudConn.ready)

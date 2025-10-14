@@ -30,6 +30,11 @@ type Limit struct {
 	Max float64
 }
 
+// Range gives the range of the limit.
+func (l *Limit) Range() float64 {
+	return l.Max - l.Min
+}
+
 func limitsAlmostEqual(limits1, limits2 []Limit, epsilon float64) bool {
 	if len(limits1) != len(limits2) {
 		return false
@@ -730,4 +735,32 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		return false, fmt.Errorf("equality conditions not defined for %t", frame1)
 	}
 	return true, nil
+}
+
+// Clone makes a copy of a Frame.
+func Clone(f Frame) (Frame, error) {
+	t := reflect.TypeOf(f)
+	var newFrame Frame
+
+	// If f is already a pointer type, we need to create a new instance of the underlying type
+	if t.Kind() == reflect.Ptr {
+		newValue := reflect.New(t.Elem())
+		newFrame = newValue.Interface().(Frame)
+	} else {
+		newValue := reflect.New(t)
+		newFramePointer := newValue.Interface().(*Frame)
+		newFrame = *newFramePointer
+	}
+
+	data, err := f.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	err = newFrame.UnmarshalJSON(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return newFrame, nil
 }

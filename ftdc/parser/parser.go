@@ -26,8 +26,8 @@ import (
 // min/max values for scaling purposes when generating plots.
 type graphInfo struct {
 	file   *os.File
-	minVal int64
-	maxVal int64
+	minVal float32
+	maxVal float32
 
 	prevVal float32
 }
@@ -345,8 +345,8 @@ func (gpw *gnuplotWriter) addPoint(timeSeconds int64, metricName string, metricV
 	}
 
 	gi.prevVal = metricValue
-	gi.minVal = min(gi.minVal, int64(metricValue))
-	gi.maxVal = max(gi.maxVal, int64(metricValue))
+	gi.minVal = min(gi.minVal, metricValue)
+	gi.maxVal = max(gi.maxVal, metricValue)
 	writelnf(gi.file, "%v %.5f", timeSeconds, metricValue)
 }
 
@@ -682,8 +682,11 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 		// - [0, positive number]
 		// - [negative number, positive number]
 		// - [negative number, 0]
-		minY = min(minY, graphInfo.minVal)
-		maxY = max(maxY, graphInfo.maxVal)
+		minY = min(minY, int64(graphInfo.minVal))
+		maxY = max(maxY, int64(graphInfo.maxVal))
+		if minY == 0 && maxY == 0 {
+			maxY = 1
+		}
 
 		// If we're graphing something that has the same value for all readings, bump the yrange to
 		// avoid gnuplot complaints. E.g: `set yrange [0:0]` turns into `set yrange [0:1]`.
@@ -860,7 +863,7 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, []in
 
 // LaunchREPL opens an ftdc file or directory, plots it, and runs a cli for it.
 func LaunchREPL(ftdcFilepath string) {
-	logger := logging.NewDebugLogger("parser")
+	logger := logging.NewLogger("parser")
 	data, fileBoundaryTimestamps, err := getFTDCData(filepath.Clean(ftdcFilepath), logger)
 	if err != nil {
 		NolintPrintln("Error getting ftdc data from path:", ftdcFilepath, "Err:", err)
