@@ -52,6 +52,7 @@ type AudioChunk struct {
 	Sequence                  int32
 	StartTimestampNanoseconds int64
 	EndTimestampNanoseconds   int64
+	RequestID                 string
 }
 
 // AudioIn defines an audioin component.

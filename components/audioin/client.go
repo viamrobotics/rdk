@@ -96,6 +96,7 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 				Sequence:                  resp.Audio.Sequence,
 				StartTimestampNanoseconds: resp.Audio.StartTimestampNanoseconds,
 				EndTimestampNanoseconds:   resp.Audio.EndTimestampNanoseconds,
+				RequestID:                 resp.RequestId,
 			}
 		}
 	}()
