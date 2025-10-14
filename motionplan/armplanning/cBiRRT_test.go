@@ -50,13 +50,13 @@ func TestSimpleLinearMotion(t *testing.T) {
 		Constraints:    &motionplan.Constraints{},
 	}
 
-	pc, err := newPlanContext(logger, request, NewPlanMeta())
+	pc, err := newPlanContext(ctx, logger, request, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(pc, referenceframe.FrameSystemInputs{m.Name(): home7}, goal)
+	psc, err := newPlanSegmentContext(ctx, pc, referenceframe.FrameSystemInputs{m.Name(): home7}, goal)
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := newCBiRRTMotionPlanner(pc, psc)
+	mp, err := newCBiRRTMotionPlanner(ctx, pc, psc)
 	test.That(t, err, test.ShouldBeNil)
 	solutions, err := getSolutions(ctx, psc)
 	test.That(t, err, test.ShouldBeNil)

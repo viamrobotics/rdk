@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/motionplan"
@@ -215,9 +216,10 @@ func (sss *solutionSolvingState) nonchainMinimize(seed, step referenceframe.Fram
 }
 
 // return bool is if we should stop because we're done.
-func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
+func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution,
 ) bool {
-	defer sss.psc.pc.planMeta.DeferTiming("sss.process", time.Now())
+	ctx, span := trace.StartSpan(ctx, "process")
+	defer span.End()
 	sss.processCalls++
 
 	step, err := sss.psc.pc.lfs.sliceToMap(stepSolution.Configuration)
@@ -273,7 +275,7 @@ func (sss *solutionSolvingState) process(stepSolution *ik.Solution,
 	if myNode.cost < sss.goodCost || // this checks the absolute score of the plan
 		// if we've got something sane, and it's really good, let's check
 		myNode.cost < (sss.bestScore*defaultOptimalityMultiple) {
-		whyNot := sss.psc.checkPath(sss.psc.start, step)
+		whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
 		sss.psc.pc.logger.Debugf("got score %0.4f and goodCost: %0.2f - result: %v", myNode.cost, sss.goodCost, whyNot)
 		if whyNot == nil {
 			myNode.checkPath = true
@@ -377,7 +379,7 @@ solutionLoop:
 			// We've been canceled. So have our workers. Can just return.
 			return nil, ctx.Err()
 		case stepSolution, ok := <-solutionGen:
-			if !ok || solvingState.process(stepSolution) {
+			if !ok || solvingState.process(ctx, stepSolution) {
 				// No longer using the generated solutions. Cancel the workers.
 				cancel()
 				break solutionLoop
