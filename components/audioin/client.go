@@ -2,6 +2,8 @@ package audioin
 
 import (
 	"context"
+	"errors"
+	"io"
 
 	"github.com/google/uuid"
 	commonpb "go.viam.com/api/common/v1"
@@ -65,7 +67,8 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 		return nil, err
 	}
 
-	ch := make(chan *AudioChunk)
+	// small buffered channel prevents blocking when receiver is temporarily slow
+	ch := make(chan *AudioChunk, 8)
 
 	go func() {
 		defer close(ch)
@@ -79,7 +82,7 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 			resp, err := stream.Recv()
 			if err != nil {
 				// EOF error indicates stream was closed by server.
-				if err.Error() != "EOF" {
+				if !errors.Is(err, io.EOF) {
 					c.logger.Error(err)
 				}
 				return
