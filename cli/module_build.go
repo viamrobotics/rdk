@@ -15,6 +15,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -925,8 +926,18 @@ func reloadModuleAction(c *cli.Context, args reloadModuleArgs, cloudBuild bool) 
 	return reloadModuleActionInner(c, vc, args, logger, cloudBuild)
 }
 
-// reloadModuleAction is the testable inner reload logic.
-func reloadModuleActionInner(c *cli.Context, vc *viamClient, args reloadModuleArgs, logger logging.Logger, cloudBuild bool) error {
+// reload with cloudbuild was supported starting in 0.90.0
+// there are older versions of viam-servet that don't support ~/ file prefix, so lets avoid using them.
+var reloadVersionSupported = semver.MustParse("0.90.0")
+
+// reloadModuleActionInner is the testable inner reload logic.
+func reloadModuleActionInner(
+	c *cli.Context,
+	vc *viamClient,
+	args reloadModuleArgs,
+	logger logging.Logger,
+  cloudBuild bool,
+) error {
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	partID, err := resolvePartID(args.PartID, args.CloudConfig)
 	if err != nil {
@@ -948,6 +959,17 @@ func reloadModuleActionInner(c *cli.Context, vc *viamClient, args reloadModuleAr
 	var partArch string
 	var platform string
 	if part.Part.UserSuppliedInfo != nil {
+		// Check if the viam-server version is supported for hot reloading
+		if part.Part.UserSuppliedInfo.Fields["version"] != nil {
+			// Note: developer instances of viam-server will not have a semver version (instead it is a git commit)
+			// so we can safely ignore the error here, assuming that all real instances of viam-server will have a semver version
+			version, err := semver.NewVersion(part.Part.UserSuppliedInfo.Fields["version"].GetStringValue())
+			if err == nil && version.LessThan(reloadVersionSupported) {
+				return fmt.Errorf("viam-server version %s is not supported for hot reloading,"+
+					"please update to at least %s", version.Original(), reloadVersionSupported.Original())
+			}
+		}
+
 		platform = part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
 		if partInfo := strings.SplitN(platform, "/", 2); len(partInfo) == 2 {
 			partOs = partInfo[0]

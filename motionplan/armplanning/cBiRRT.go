@@ -37,6 +37,7 @@ type cBiRRTMotionPlanner struct {
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
 func newCBiRRTMotionPlanner(pc *planContext, psc *planSegmentContext) (*cBiRRTMotionPlanner, error) {
+	defer pc.planMeta.DeferTiming("newCBiRRTMotionPlanner", time.Now())
 	c := &cBiRRTMotionPlanner{
 		pc:  pc,
 		psc: psc,
@@ -81,6 +82,8 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	ctx context.Context,
 	rrtMaps *rrtMaps,
 ) (*rrtSolution, error) {
+	defer mp.pc.planMeta.DeferTiming("rrtRunner", time.Now())
+
 	mp.pc.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d\n", len(rrtMaps.startMap), len(rrtMaps.goalMap))
 
 	// setup planner options
@@ -187,6 +190,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	rrtMap map[*node]*node,
 	near, target *node,
 ) *node {
+	defer mp.pc.planMeta.DeferTiming("constrainedExtend", time.Now())
 	qstep := mp.getFrameSteps(defaultFrameStep, iterationNumber, false)
 
 	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
