@@ -71,7 +71,7 @@ func TestFullReloadFlow(t *testing.T) {
 		"token",
 	)
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger)
+	err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 
