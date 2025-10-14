@@ -22,7 +22,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	buildpb "go.viam.com/api/app/build/v1"
-	packagespb "go.viam.com/api/app/packages/v1"
 	v1 "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
@@ -727,7 +726,7 @@ func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID mo
 	return nil
 }
 
-func (c *viamClient) inferOrgIDFromManifest(module string, manifest moduleManifest) (string, error) {
+func (c *viamClient) inferOrgIDFromManifest(manifest moduleManifest) (string, error) {
 	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
 		return "", err
@@ -751,12 +750,13 @@ func (c *viamClient) triggerCloudReload(
 		return "", err
 	}
 
+	//nolint:gosec
 	file, err := os.Open(archivePath)
 	if err != nil {
 		return "", err
 	}
 
-	orgID, err := c.inferOrgIDFromManifest(args.Module, manifest)
+	orgID, err := c.inferOrgIDFromManifest(manifest)
 	if err != nil {
 		return "", err
 	}
@@ -789,14 +789,14 @@ func (c *viamClient) triggerCloudReload(
 		return "", err
 	}
 
-	pkgInfo := packagespb.PackageInfo{
+	pkgInfo := v1.PackageInfo{
 		OrganizationId: orgID,
 		Name:           reloadVersion,
 		Version:        reloadVersion,
 		Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
 	}
-	reqInner := &packagespb.CreatePackageRequest{
-		Package: &packagespb.CreatePackageRequest_Info{
+	reqInner := &v1.CreatePackageRequest{
+		Package: &v1.CreatePackageRequest_Info{
 			Info: &pkgInfo,
 		},
 	}
@@ -817,7 +817,7 @@ func (c *viamClient) triggerCloudReload(
 	}
 
 	resp, closeErr := stream.CloseAndRecv()
-	if err != nil && !errors.Is(closeErr, io.EOF) {
+	if closeErr != nil && !errors.Is(closeErr, io.EOF) {
 		errs = multierr.Combine(errs, closeErr)
 	}
 	return resp.GetBuildId(), errs
@@ -995,7 +995,7 @@ func reloadModuleActionInner(
 	// CLI will see configuration changes before the robot, and skip to the needsRestart
 	// case on the second call. Because these are triggered by user actions, we're okay
 	// with this behavior, and the robot will eventually converge to what is in config.
-	needsRestart := true
+	var needsRestart bool
 	var buildPath string
 	if !args.NoBuild {
 		if manifest == nil {
