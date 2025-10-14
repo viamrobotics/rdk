@@ -936,7 +936,7 @@ func reloadModuleActionInner(
 	vc *viamClient,
 	args reloadModuleArgs,
 	logger logging.Logger,
-  cloudBuild bool,
+	cloudBuild bool,
 ) error {
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	partID, err := resolvePartID(args.PartID, args.CloudConfig)
