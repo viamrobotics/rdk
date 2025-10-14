@@ -19,6 +19,7 @@ import (
 
 	viz "github.com/viam-labs/motion-tools/client/client"
 	"go.viam.com/utils"
+	"go.viam.com/utils/perf"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -90,9 +91,13 @@ func realMain() error {
 	mylog := log.New(os.Stdout, "", 0)
 	start := time.Now()
 
-	plan, meta, err := armplanning.PlanMotion(ctx, logger, req)
-	meta.OutputTiming(os.Stdout)
+	exporter := perf.NewDevelopmentExporter()
+	if err := exporter.Start(); err != nil {
+		return err
+	}
 
+	plan, _, err := armplanning.PlanMotion(ctx, logger, req)
+	exporter.Stop()
 	if *interactive {
 		if interactiveErr := doInteractive(req, plan, err, mylog); interactiveErr != nil {
 			logger.Fatal("Interactive mode failed:", interactiveErr)

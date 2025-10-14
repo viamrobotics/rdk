@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"go.opencensus.io/trace"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -19,8 +20,8 @@ type planManager struct {
 	logger  logging.Logger
 }
 
-func newPlanManager(logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planManager, error) {
-	pc, err := newPlanContext(logger, request, meta)
+func newPlanManager(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planManager, error) {
+	pc, err := newPlanContext(ctx, logger, request, meta)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +36,8 @@ func newPlanManager(logger logging.Logger, request *PlanRequest, meta *PlanMeta)
 // Any constraints, etc, will be held for the entire motion.
 // return trajector (always, even with error), which goal we got to, error.
 func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajectory, int, error) {
-	defer pm.pc.planMeta.DeferTiming("planMultiWaypoint", time.Now())
+	ctx, span := trace.StartSpan(ctx, "planMultiWaypoint")
+	defer span.End()
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and
 	// end poses to create sets of seed and goal configurations. However, the blocker here is the
 	// lack of a "known good" configuration used to determine which obstacles are allowed to collide
@@ -54,9 +56,9 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 	}
 
 	traj := motionplan.Trajectory{pm.request.StartState.Configuration()}
-	now := time.Now()
+	_, span = trace.StartSpan(ctx, "ComputePoses")
 	start, err := pm.request.StartState.ComputePoses(pm.request.FrameSystem)
-	pm.pc.planMeta.AddTiming("ComputePoses", time.Since(now))
+	span.End()
 	if err != nil {
 		return nil, 0, err
 	}
@@ -66,9 +68,9 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 			return traj, i, err // note: here and below, we return traj because of ReturnPartialPlan
 		}
 
-		now = time.Now()
+		_, span = trace.StartSpan(ctx, "ComputePoses")
 		to, err := g.ComputePoses(pm.request.FrameSystem)
-		pm.pc.planMeta.AddTiming("ComputePoses", time.Since(now))
+		span.End()
 		if err != nil {
 			return traj, i, err
 		}
@@ -85,7 +87,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 			}
 			traj = append(traj, newTraj...)
 		} else {
-			subGoals, err := pm.generateWaypoints(start, to)
+			subGoals, err := pm.generateWaypoints(ctx, start, to)
 			if err != nil {
 				return traj, i, err
 			}
@@ -115,7 +117,8 @@ func (pm *planManager) planToDirectJoints(
 	start referenceframe.FrameSystemInputs,
 	goal *PlanState,
 ) ([]referenceframe.FrameSystemInputs, error) {
-	defer pm.pc.planMeta.DeferTiming("planToDirectJoints", time.Now())
+	ctx, span := trace.StartSpan(ctx, "planToDirectJoints")
+	defer span.End()
 	fullConfig := referenceframe.FrameSystemInputs{}
 	for k, v := range goal.configuration {
 		fullConfig[k] = v
@@ -127,19 +130,19 @@ func (pm *planManager) planToDirectJoints(
 		}
 	}
 
-	now := time.Now()
+	_, span = trace.StartSpan(ctx, "ComputePoses")
 	goalPoses, err := goal.ComputePoses(pm.pc.fs)
-	pm.pc.planMeta.AddTiming("ComputePoses", time.Since(now))
+	span.End()
 	if err != nil {
 		return nil, err
 	}
 
-	psc, err := newPlanSegmentContext(pm.pc, start, goalPoses)
+	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goalPoses)
 	if err != nil {
 		return nil, err
 	}
 
-	err = psc.checkPath(start, fullConfig)
+	err = psc.checkPath(ctx, start, fullConfig)
 	if err == nil {
 		return []referenceframe.FrameSystemInputs{fullConfig}, nil
 	}
@@ -154,7 +157,7 @@ func (pm *planManager) planToDirectJoints(
 
 	pm.logger.Debugf("want to go to specific joint positions, but path is blocked: %v", err)
 
-	pathPlanner, err := newCBiRRTMotionPlanner(pm.pc, psc)
+	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
 	if err != nil {
 		return nil, err
 	}
@@ -177,11 +180,12 @@ func (pm *planManager) planSingleGoal(
 	start referenceframe.FrameSystemInputs,
 	goal referenceframe.FrameSystemPoses,
 ) ([]referenceframe.FrameSystemInputs, error) {
-	defer pm.pc.planMeta.DeferTiming("planSingleGoal", time.Now())
+	ctx, span := trace.StartSpan(ctx, "planSingleGoal")
+	defer span.End()
 	pm.logger.Debug("start configuration", start)
 	pm.logger.Debug("going to", goal)
 
-	psc, err := newPlanSegmentContext(pm.pc, start, goal)
+	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goal)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +202,7 @@ func (pm *planManager) planSingleGoal(
 		return planSeed.steps, nil
 	}
 
-	pathPlanner, err := newCBiRRTMotionPlanner(pm.pc, psc)
+	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
 	if err != nil {
 		return nil, err
 	}
@@ -212,8 +216,9 @@ func (pm *planManager) planSingleGoal(
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
-func (pm *planManager) generateWaypoints(start, goal referenceframe.FrameSystemPoses) ([]referenceframe.FrameSystemPoses, error) {
-	defer pm.pc.planMeta.DeferTiming("generateWaypoints", time.Now())
+func (pm *planManager) generateWaypoints(ctx context.Context, start, goal referenceframe.FrameSystemPoses) ([]referenceframe.FrameSystemPoses, error) {
+	_, span := trace.StartSpan(ctx, "generateWaypoints")
+	defer span.End()
 	if len(pm.request.Constraints.GetLinearConstraint()) == 0 {
 		return []referenceframe.FrameSystemPoses{goal}, nil
 	}
@@ -271,7 +276,8 @@ type rrtMaps struct {
 // solutions to pre-populate the goal map, and will check if any of those goals are able to be
 // directly interpolated to.
 func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolution, error) {
-	defer psc.pc.planMeta.DeferTiming("initRRTSolutions", time.Now())
+	ctx, span := trace.StartSpan(ctx, "initRRTSolutions")
+	defer span.End()
 	rrt := &rrtSolution{
 		maps: &rrtMaps{
 			startMap: rrtMap{},
