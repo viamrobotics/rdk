@@ -244,7 +244,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 func drawGoalPoses(req *armplanning.PlanRequest) error {
 	var goalPoses []spatialmath.Pose
 	for _, goalPlanState := range req.Goals {
-		poses, err := goalPlanState.ComputePoses(req.FrameSystem)
+		poses, err := goalPlanState.ComputePoses(context.Background(), req.FrameSystem)
 		if err != nil {
 			return err
 		}

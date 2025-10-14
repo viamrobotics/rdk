@@ -15,6 +15,7 @@ import (
 )
 
 func TestIKTolerances(t *testing.T) {
+	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/ur5eDH.json"), "")
@@ -38,17 +39,17 @@ func TestIKTolerances(t *testing.T) {
 		Constraints:    &motionplan.Constraints{},
 	}
 
-	pc, err := newPlanContext(logger, request, NewPlanMeta())
+	pc, err := newPlanContext(ctx, logger, request, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(pc, seed, goal)
+	psc, err := newPlanSegmentContext(ctx, pc, seed, goal)
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := newCBiRRTMotionPlanner(pc, psc)
+	mp, err := newCBiRRTMotionPlanner(ctx, pc, psc)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
-	_, err = mp.planForTest(context.Background())
+	_, err = mp.planForTest(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
@@ -64,14 +65,14 @@ func TestIKTolerances(t *testing.T) {
 		Constraints:    &motionplan.Constraints{},
 	}
 
-	pc2, err := newPlanContext(logger, request2, NewPlanMeta())
+	pc2, err := newPlanContext(ctx, logger, request2, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc2, err := newPlanSegmentContext(pc2, seed, goal)
+	psc2, err := newPlanSegmentContext(ctx, pc2, seed, goal)
 	test.That(t, err, test.ShouldBeNil)
 
-	mp2, err := newCBiRRTMotionPlanner(pc2, psc2)
+	mp2, err := newCBiRRTMotionPlanner(ctx, pc2, psc2)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = mp2.planForTest(context.Background())
+	_, err = mp2.planForTest(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }

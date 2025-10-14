@@ -38,6 +38,7 @@ type planConfigConstructor func(logger logging.Logger) (*planConfig, error)
 
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 	testCases := []struct {
 		name   string
 		config planConfigConstructor
@@ -50,13 +51,14 @@ func TestUnconstrainedMotion(t *testing.T) {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
-			testPlanner(t, tcCopy.config)
+			testPlanner(t, ctx, tcCopy.config)
 		})
 	}
 }
 
 func TestConstrainedMotion(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 	testCases := []struct {
 		name   string
 		config planConfigConstructor
@@ -67,7 +69,7 @@ func TestConstrainedMotion(t *testing.T) {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
-			testPlanner(t, tcCopy.config)
+			testPlanner(t, ctx, tcCopy.config)
 		})
 	}
 }
@@ -432,7 +434,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
-func testPlanner(t *testing.T, config planConfigConstructor) {
+func testPlanner(t *testing.T, ctx context.Context, config planConfigConstructor) {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
 
@@ -449,13 +451,13 @@ func testPlanner(t *testing.T, config planConfigConstructor) {
 		Constraints:    &motionplan.Constraints{},
 	}
 
-	pc, err := newPlanContext(logger, request, NewPlanMeta())
+	pc, err := newPlanContext(ctx, logger, request, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(pc, cfg.Start.configuration, cfg.Goal.poses)
+	psc, err := newPlanSegmentContext(ctx, pc, cfg.Start.configuration, cfg.Goal.poses)
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := newCBiRRTMotionPlanner(pc, psc)
+	mp, err := newCBiRRTMotionPlanner(ctx, pc, psc)
 	test.That(t, err, test.ShouldBeNil)
 
 	nodes, err := mp.planForTest(context.Background())
