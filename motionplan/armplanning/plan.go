@@ -1,9 +1,11 @@
 package armplanning
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 
+	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/referenceframe"
@@ -57,7 +59,10 @@ func (p *PlanState) Configuration() referenceframe.FrameSystemInputs {
 }
 
 // ComputePoses returns the poses of a PlanState if they are populated, or computes them using the given FrameSystem if not.
-func (p *PlanState) ComputePoses(fs *referenceframe.FrameSystem) (referenceframe.FrameSystemPoses, error) {
+func (p *PlanState) ComputePoses(ctx context.Context, fs *referenceframe.FrameSystem) (
+	referenceframe.FrameSystemPoses, error) {
+	_, span := trace.StartSpan(ctx, "ComputePoses")
+	defer span.End()
 	if len(p.poses) > 0 {
 		return p.poses, nil
 	}

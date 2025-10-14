@@ -56,9 +56,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 	}
 
 	traj := motionplan.Trajectory{pm.request.StartState.Configuration()}
-	_, span = trace.StartSpan(ctx, "ComputePoses")
-	start, err := pm.request.StartState.ComputePoses(pm.request.FrameSystem)
-	span.End()
+	start, err := pm.request.StartState.ComputePoses(ctx, pm.request.FrameSystem)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -68,9 +66,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 			return traj, i, err // note: here and below, we return traj because of ReturnPartialPlan
 		}
 
-		_, span = trace.StartSpan(ctx, "ComputePoses")
-		to, err := g.ComputePoses(pm.request.FrameSystem)
-		span.End()
+		to, err := g.ComputePoses(ctx, pm.request.FrameSystem)
 		if err != nil {
 			return traj, i, err
 		}
@@ -130,9 +126,7 @@ func (pm *planManager) planToDirectJoints(
 		}
 	}
 
-	_, span = trace.StartSpan(ctx, "ComputePoses")
-	goalPoses, err := goal.ComputePoses(pm.pc.fs)
-	span.End()
+	goalPoses, err := goal.ComputePoses(ctx, pm.pc.fs)
 	if err != nil {
 		return nil, err
 	}
