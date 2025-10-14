@@ -5,6 +5,7 @@ import (
 
 	"go.viam.com/rdk/components/audioin"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 // AudioIn is an injected audioin component.
@@ -14,7 +15,7 @@ type AudioIn struct {
 	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	GetAudioFunc func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64, extra map[string]interface{}) (
 		chan *audioin.AudioChunk, error)
-	PropertiesFunc func(ctx context.Context, extra map[string]interface{}) (audioin.Properties, error)
+	PropertiesFunc func(ctx context.Context, extra map[string]interface{}) (utils.Properties, error)
 }
 
 // NewAudioIn returns a new injected audio in.
@@ -38,7 +39,7 @@ func (a *AudioIn) GetAudio(ctx context.Context, codec string, durationSeconds fl
 }
 
 // Properties returns the injected Properties or the real version.
-func (a *AudioIn) Properties(ctx context.Context, extra map[string]interface{}) (audioin.Properties, error) {
+func (a *AudioIn) Properties(ctx context.Context, extra map[string]interface{}) (utils.Properties, error) {
 	if a.PropertiesFunc == nil {
 		return a.AudioIn.Properties(ctx, extra)
 	}

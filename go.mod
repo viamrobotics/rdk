@@ -111,8 +111,6 @@ require (
 	periph.io/x/host/v3 v3.8.1-0.20230331112814-9f0d9f7d76db
 )
 
-replace go.viam.com/api => ../api
-
 require (
 	4d63.com/gocheckcompilerdirectives v1.2.1 // indirect
 	4d63.com/gochecknoglobals v0.2.1 // indirect

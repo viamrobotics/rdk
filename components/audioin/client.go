@@ -6,13 +6,13 @@ import (
 	"github.com/google/uuid"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioin/v1"
-	rdkutils "go.viam.com/rdk/utils"
 	utils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // client implements AudioInServiceClient.

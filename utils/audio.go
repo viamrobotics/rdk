@@ -2,7 +2,7 @@ package utils
 
 import commonpb "go.viam.com/api/common/v1"
 
-// Properties defines properties of an audio out device.
+// Properties defines properties of an audio device.
 type Properties struct {
 	SupportedCodecs []string
 	SampleRate      int32
