@@ -6,6 +6,7 @@ import (
 	"math/rand"
 
 	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -29,7 +30,7 @@ type planContext struct {
 }
 
 func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planContext, error) {
-	ctx, span := trace.StartSpan(ctx, "newPlanContext")
+	_, span := trace.StartSpan(ctx, "newPlanContext")
 	defer span.End()
 	pc := &planContext{
 		fs:                        request.FrameSystem,
@@ -84,7 +85,7 @@ type planSegmentContext struct {
 func newPlanSegmentContext(ctx context.Context, pc *planContext, start referenceframe.FrameSystemInputs,
 	goal referenceframe.FrameSystemPoses,
 ) (*planSegmentContext, error) {
-	ctx, span := trace.StartSpan(ctx, "newPlanSegmentContext")
+	_, span := trace.StartSpan(ctx, "newPlanSegmentContext")
 	defer span.End()
 	psc := &planSegmentContext{
 		pc:       pc,

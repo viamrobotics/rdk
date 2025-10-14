@@ -7,10 +7,12 @@ import (
 
 	// "go.viam.com/rdk/motionplan".
 	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/referenceframe"
 )
 
-func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []referenceframe.FrameSystemInputs, step int) []referenceframe.FrameSystemInputs {
+func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []referenceframe.FrameSystemInputs, step int,
+) []referenceframe.FrameSystemInputs {
 	ctx, span := trace.StartSpan(ctx, "simpleSmoothStep")
 	defer span.End()
 	// look at each triplet, see if we can remove the middle one

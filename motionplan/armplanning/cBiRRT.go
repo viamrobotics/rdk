@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"

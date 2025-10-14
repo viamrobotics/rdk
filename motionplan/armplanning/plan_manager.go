@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -210,7 +211,8 @@ func (pm *planManager) planSingleGoal(
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
-func (pm *planManager) generateWaypoints(ctx context.Context, start, goal referenceframe.FrameSystemPoses) ([]referenceframe.FrameSystemPoses, error) {
+func (pm *planManager) generateWaypoints(ctx context.Context, start, goal referenceframe.FrameSystemPoses,
+) ([]referenceframe.FrameSystemPoses, error) {
 	_, span := trace.StartSpan(ctx, "generateWaypoints")
 	defer span.End()
 	if len(pm.request.Constraints.GetLinearConstraint()) == 0 {

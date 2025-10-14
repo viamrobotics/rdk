@@ -60,7 +60,8 @@ func (p *PlanState) Configuration() referenceframe.FrameSystemInputs {
 
 // ComputePoses returns the poses of a PlanState if they are populated, or computes them using the given FrameSystem if not.
 func (p *PlanState) ComputePoses(ctx context.Context, fs *referenceframe.FrameSystem) (
-	referenceframe.FrameSystemPoses, error) {
+	referenceframe.FrameSystemPoses, error,
+) {
 	_, span := trace.StartSpan(ctx, "ComputePoses")
 	defer span.End()
 	if len(p.poses) > 0 {
