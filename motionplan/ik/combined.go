@@ -68,14 +68,17 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		parseed := rseed
 		thisSolver := solver
 		seedFloats := seed
-		if i > 1 {
-			seedFloats = generateRandomPositions(randSeed, lowerBound, upperBound)
-		}
 
 		var myTravelPercent []float64
-		if i == 0 {
-			// TODO: this is probablytoo conservative
+		if i <= len(ik.solvers) / 3 {
+			// TODO: this is probably too conservative
+			for _, p := range travelPercent {
+				myTravelPercent = append(myTravelPercent, max(.1, p))
+			}
+		} else if i < (2 * len(ik.solvers) / 3) {
 			myTravelPercent = travelPercent
+		} else {
+			seedFloats = generateRandomPositions(randSeed, lowerBound, upperBound)
 		}
 
 		activeSolvers.Add(1)

@@ -2,7 +2,8 @@ package armplanning
 
 import (
 	"testing"
-
+	"time"
+	
 	"github.com/golang/geo/r3"
 	
 	"go.viam.com/rdk/logging"
@@ -27,7 +28,8 @@ func TestSmartSeedCache1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	start := referenceframe.FrameSystemInputs{"ur5e" : {{1.0471667423817}, {0.011108350341463286}, {-1.0899013011625651}, {-3.0938870331059594}, {-1.767558957758243e-05}, {-3.681258507284093}}}
-	
+
+	startTime := time.Now()
 	seed, err := c.findSeed(
 		referenceframe.FrameSystemPoses{"ur5e": referenceframe.NewPoseInFrame("world",
 			spatialmath.NewPose(
@@ -36,7 +38,8 @@ func TestSmartSeedCache1(t *testing.T) {
 			))},
 		start, logger)
 	test.That(t, err, test.ShouldBeNil)
-
+	logger.Infof("time to run findSeed: %v", time.Since(startTime))
+	
 	cost := referenceframe.InputsL2Distance(start["ur5e"], seed["ur5e"])
 	test.That(t, cost, test.ShouldBeLessThan, 1.25)
 
