@@ -1,5 +1,7 @@
 // partial-dl is a test entrypoint for the partial downloader logic.
 // there is a mock in the test suite, but you must run this if you modify the utils/partial.go logic.
+//
+//nolint:forbidigo
 package main
 
 import (
@@ -13,15 +15,18 @@ import (
 	"go.viam.com/rdk/utils/partial"
 )
 
-var url = flag.String("url", "https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-latest-x86_64", "URL to use for testing")
-var dest = flag.String("dest", "partial-dl-test", "base output path")
-var maxRead = flag.Int("max-read", 1000000, "amount to read in first pass of resumption tests. set to less than size of your file")
-var testCase = flag.String("case", "", "pass 'non', 'resume', 'mismatch' to run a specific case, leave blank to run all three")
+var (
+	url = flag.String("url", "https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-latest-x86_64",
+		"URL to use for testing")
+	dest     = flag.String("dest", "partial-dl-test", "base output path")
+	maxRead  = flag.Int("max-read", 1000000, "amount to read in first pass of resumption tests. set to less than size of your file")
+	testCase = flag.String("case", "", "pass 'non', 'resume', 'mismatch' to run a specific case, leave blank to run all three")
+)
 
 func main() {
 	flag.Parse()
 	logger := logging.NewDebugLogger("partial-dl")
-	pd := partial.PartialDownloader{Client: http.DefaultClient, Logger: logger}
+	pd := partial.Downloader{Client: http.DefaultClient, Logger: logger}
 
 	ctx := context.Background()
 	if *testCase == "" || *testCase == "non" {
@@ -36,7 +41,7 @@ func main() {
 	if *testCase == "" || *testCase == "resume" {
 		logger.Info("resumable download case")
 		pd.MaxRead = *maxRead
-		if err := pd.Download(ctx, *url, *dest+"-r"); err != nil && !errors.Is(err, partial.InterruptedDownload) {
+		if err := pd.Download(ctx, *url, *dest+"-r"); err != nil && !errors.Is(err, partial.ErrInterruptedDownload) {
 			panic(err)
 		}
 
@@ -51,12 +56,12 @@ func main() {
 	if *testCase == "" || *testCase == "mismatch" {
 		logger.Info("etags mismatch case")
 		pd.MaxRead = *maxRead
-		if err := pd.Download(ctx, *url, *dest+"-et"); err != nil && !errors.Is(err, partial.InterruptedDownload) {
+		if err := pd.Download(ctx, *url, *dest+"-et"); err != nil && !errors.Is(err, partial.ErrInterruptedDownload) {
 			panic(err)
 		}
 
 		logger.Info("overwriting etag with garbage")
-		if err := os.WriteFile(*dest+"-et.etag", []byte(`"GARBAGEEEEE"`), 0o755); err != nil {
+		if err := os.WriteFile(*dest+"-et.etag", []byte(`"GARBAGEEEEE"`), 0o600); err != nil {
 			panic(err)
 		}
 

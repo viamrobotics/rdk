@@ -9,12 +9,15 @@ import (
 	"strconv"
 	"testing"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/logging"
 )
 
-var contents = []byte("contents contents contents contents contents contents")
-var otherContents = []byte("other other other other other other")
+var (
+	contents      = []byte("contents contents contents contents contents contents")
+	otherContents = []byte("other other other other other other")
+)
 
 func TestPartialDownloader(t *testing.T) {
 	// mock httptest server for exercising the different start-resume paths
@@ -46,7 +49,7 @@ func TestPartialDownloader(t *testing.T) {
 			w.Header().Add("Accept-Ranges", "bytes")
 			w.Write(slice)
 		default:
-			w.WriteHeader(404)
+			w.WriteHeader(http.StatusNotFound)
 		}
 	}))
 
@@ -59,7 +62,7 @@ func TestPartialDownloader(t *testing.T) {
 
 	t.Run("from-scratch", func(t *testing.T) {
 		dest := "scratch.txt"
-		pd := PartialDownloader{Client: server.Client(), Logger: logger}
+		pd := Downloader{Client: server.Client(), Logger: logger}
 		err := pd.Download(context.Background(), server.URL+"/non-resumable", dest)
 		test.That(t, err, test.ShouldBeNil)
 		body, _ := os.ReadFile(dest)
@@ -69,9 +72,9 @@ func TestPartialDownloader(t *testing.T) {
 	t.Run("resume", func(t *testing.T) {
 		t.Run("etag-match", func(t *testing.T) {
 			dest := "etag-match.txt"
-			pd := PartialDownloader{Client: server.Client(), Logger: logger, MaxRead: 10}
+			pd := Downloader{Client: server.Client(), Logger: logger, MaxRead: 10}
 			err := pd.Download(context.Background(), server.URL+"/resumable?etag=match", dest)
-			test.That(t, err, test.ShouldBeError, InterruptedDownload)
+			test.That(t, err, test.ShouldBeError, ErrInterruptedDownload)
 			body, _ := os.ReadFile(dest + partSuffix)
 			test.That(t, body, test.ShouldHaveLength, 10)
 
@@ -85,9 +88,9 @@ func TestPartialDownloader(t *testing.T) {
 
 		t.Run("etag-mismatch", func(t *testing.T) {
 			dest := "etag-mismatch.txt"
-			pd := PartialDownloader{Client: server.Client(), Logger: logger, MaxRead: 10}
+			pd := Downloader{Client: server.Client(), Logger: logger, MaxRead: 10}
 			err := pd.Download(context.Background(), server.URL+"/resumable?etag=match1", dest)
-			test.That(t, err, test.ShouldBeError, InterruptedDownload)
+			test.That(t, err, test.ShouldBeError, ErrInterruptedDownload)
 			body, _ := os.ReadFile(dest + partSuffix)
 			test.That(t, body, test.ShouldHaveLength, 10)
 
