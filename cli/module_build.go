@@ -1074,7 +1074,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				dest := reloadingDestination(c, manifest)
 				err = vc.copyFilesToFqdn(
 					part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
-					dest, logger, args.NoProgress)
+					dest, logger, args.NoProgress, "  → ")
 				if err != nil {
 					if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
 						warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
@@ -1167,7 +1167,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 			dest := reloadingDestination(c, manifest)
 			err = vc.copyFilesToFqdn(
 				part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
-				dest, logger, args.NoProgress)
+				dest, logger, args.NoProgress, "  → ")
 			if err != nil {
 				if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
 					warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+

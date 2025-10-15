@@ -1452,6 +1452,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 			destination,
 			logger,
 			flagArgs.NoProgress,
+			"", // No prefix for top-level copy command
 		)
 		if err != nil {
 			return err
@@ -2603,12 +2604,13 @@ func (c *viamClient) copyFilesToMachine(
 	destination string,
 	logger logging.Logger,
 	noProgress bool,
+	spinnerPrefix string,
 ) error {
 	shellSvc, closeClient, err := c.connectToShellService(orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress, spinnerPrefix)
 }
 
 // copyFilesToFqdn is a copyFilesToMachine variant that makes use of pre-fetched part FQDN.
@@ -2621,12 +2623,13 @@ func (c *viamClient) copyFilesToFqdn(
 	destination string,
 	logger logging.Logger,
 	noProgress bool,
+	spinnerPrefix string,
 ) error {
 	shellSvc, closeClient, err := c.connectToShellServiceFqdn(fqdn, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress, spinnerPrefix)
 }
 
 // copyFilesToMachineInner is the common logic for both copyFiles variants.
@@ -2638,6 +2641,7 @@ func (c *viamClient) copyFilesToMachineInner(
 	paths []string,
 	destination string,
 	noProgress bool,
+	spinnerPrefix string,
 ) error {
 	defer func() {
 		utils.UncheckedError(closeClient(c.c.Context))
@@ -2648,6 +2652,9 @@ func (c *viamClient) copyFilesToMachineInner(
 	if !noProgress {
 		pm := MustGetProgressManager(c.c.Context)
 		spinner = pm.AddSpinner("Copying files...")
+		if spinnerPrefix != "" {
+			spinner.UpdatePrefix(spinnerPrefix)
+		}
 	}
 
 	if noProgress {

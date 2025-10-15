@@ -98,7 +98,6 @@ func (c *viamClient) addResourceFromModule(
 	if err := writeBackConfig(part, partMap); err != nil {
 		return err
 	}
-	infof(ctx.App.Writer, "installing %s model with name %s on target machine", modelName, resourceName)
 	if err := c.updateRobotPart(part, partMap); err != nil {
 		return err
 	}
