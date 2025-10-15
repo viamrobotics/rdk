@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -12,6 +13,8 @@ import (
 )
 
 func TestSmartSeedCache1(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
 	armName := "ur5e"
 	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
 	test.That(t, err, test.ShouldBeNil)
@@ -31,7 +34,7 @@ func TestSmartSeedCache1(t *testing.T) {
 				r3.Vector{X:-337.976430, Y:-464.051182, Z:554.695381},
 				&spatialmath.OrientationVectorDegrees{OX:0.499987, OY:-0.866033, OZ:-0.000000, Theta:0.000000},
 			))},
-		start)
+		start, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	cost := referenceframe.InputsL2Distance(start["ur5e"], seed["ur5e"])
@@ -40,7 +43,8 @@ func TestSmartSeedCache1(t *testing.T) {
 }
 
 func BenchmarkSmartSeedCacheSearch(t *testing.B) {
-
+	logger := logging.NewTestLogger(t)
+	
 	armName := "ur5e"
 	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
 	test.That(t, err, test.ShouldBeNil)
@@ -63,7 +67,7 @@ func BenchmarkSmartSeedCacheSearch(t *testing.B) {
 					r3.Vector{X:-337.976430, Y:-464.051182, Z:554.695381},
 					&spatialmath.OrientationVectorDegrees{OX:0.499987, OY:-0.866033, OZ:-0.000000, Theta:0.000000},
 				))},
-			start)
+			start, logger)
 		test.That(t, err, test.ShouldBeNil)
 	}
 

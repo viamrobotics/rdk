@@ -147,7 +147,7 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 		return nil, err
 	}
 	
-	seed, err := ssc.findSeed(psc.goal, psc.start)
+	seed, err := ssc.findSeed(psc.goal, psc.start, psc.pc.logger)
 	if err != nil {
 		return nil, err
 	}
