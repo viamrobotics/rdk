@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -1434,20 +1433,11 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		}
 
 		// Create spinner for copy operation
-		spinnerManager := ysmrr.NewSpinnerManager()
-		defer spinnerManager.Stop()
+		pm := NewProgressManager()
+		defer pm.Stop()
 
-		// Set up signal handler for graceful shutdown on Ctrl+C
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-		go func() {
-			<-sigChan
-			spinnerManager.Stop()
-			os.Exit(130) // Standard exit code for SIGINT (128 + 2)
-		}()
-
-		spinner := spinnerManager.AddSpinner("Copying files...")
-		spinnerManager.Start()
+		spinner := pm.AddSpinner("Copying files...")
+		pm.Start()
 		err := c.copyFilesToMachine(
 			flagArgs.Organization,
 			flagArgs.Location,

@@ -9,15 +9,12 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
 	"text/tabwriter"
 	"time"
 
-	"github.com/chelnak/ysmrr"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -85,7 +82,7 @@ func ModuleBuildStartAction(cCtx *cli.Context, args moduleBuildStartArgs) error 
 }
 
 func (c *viamClient) moduleBuildStartForRepo(
-	args moduleBuildStartArgs, manifest *moduleManifest, repo string, sm ysmrr.SpinnerManager,
+	args moduleBuildStartArgs, manifest *moduleManifest, repo string,
 ) (string, error) {
 	version := args.Version
 	if manifest.Build == nil || manifest.Build.Build == "" {
@@ -117,9 +114,10 @@ func (c *viamClient) moduleBuildStartForRepo(
 		Workdir:       &workdir,
 	}
 
-	childSpinner := sm.AddSpinner("Starting cloud build...")
+	pm := GetProgressManager(c.c.Context)
+	childSpinner := pm.AddSpinner("Starting cloud build...")
 	childSpinner.UpdatePrefix("  → ")
-	sm.Start()
+	pm.Start()
 
 	res, err := c.buildClient.StartBuild(c.c.Context, &req)
 	if err != nil {
@@ -142,20 +140,14 @@ func (c *viamClient) moduleBuildStartAction(args moduleBuildStartArgs) (string, 
 			"Ex: 'https://github.com/your-username/your-repo'")
 	}
 
-	// Create spinner manager for build progress (but don't start yet)
-	sm := ysmrr.NewSpinnerManager()
-	defer sm.Stop()
+	// Create progress manager for build progress (but don't start yet)
+	pm := NewProgressManager()
+	defer pm.Stop()
 
-	// Set up signal handler for graceful shutdown on Ctrl+C
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		sm.Stop()
-		os.Exit(130) // Standard exit code for SIGINT (128 + 2)
-	}()
+	// Add to context for sub-functions
+	c.c.Context = WithProgressManager(c.c.Context, pm)
 
-	return c.moduleBuildStartForRepo(args, &manifest, manifest.URL, sm)
+	return c.moduleBuildStartForRepo(args, &manifest, manifest.URL)
 }
 
 type moduleBuildLocalArgs struct {
@@ -708,16 +700,17 @@ func (c *viamClient) shouldIgnoreFile(relPath string, matcher gitignore.Matcher)
 }
 
 func (c *viamClient) ensureModuleRegisteredInCloud(
-	ctx *cli.Context, moduleID moduleID, manifest *moduleManifest, sm ysmrr.SpinnerManager,
+	ctx *cli.Context, moduleID moduleID, manifest *moduleManifest,
 ) error {
+	pm := GetProgressManager(ctx.Context)
 	_, err := c.getModule(moduleID)
 	if err != nil {
 		// Module is not registered in the cloud, prompt user for confirmation
 		// Stop spinners before showing interactive prompt
-		sm.Stop()
+		pm.Stop()
 
 		// Ensure we restart spinner on any exit path
-		defer sm.Start()
+		defer pm.Start()
 
 		red := "\033[1;31m%s\033[0m"
 		printf(ctx.App.Writer, red, "Error: module not registered in cloud or you lack permissions to edit it.")
@@ -766,8 +759,8 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 // moduleCloudReload triggers a cloud build and then returns the download info for the built module.
 func (c *viamClient) moduleCloudReload(
 	ctx *cli.Context, args reloadModuleArgs, manifest *moduleManifest, platform string,
-	spinnerManager ysmrr.SpinnerManager, stopped *bool,
 ) (*moduleDownloadInfo, error) {
+	pm := GetProgressManager(ctx.Context)
 	// ensure that the module has been registered in the cloud
 	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
@@ -775,11 +768,11 @@ func (c *viamClient) moduleCloudReload(
 	}
 
 	// Preparing for Build (parent spinner)
-	sPrepare := spinnerManager.AddSpinner("Preparing for build...")
+	sPrepare := pm.AddSpinner("Preparing for build...")
 
-	childSpinner1 := spinnerManager.AddSpinner("Ensuring module is registered...")
+	childSpinner1 := pm.AddSpinner("Ensuring module is registered...")
 	childSpinner1.UpdatePrefix("  → ")
-	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, manifest, spinnerManager)
+	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, manifest)
 	if err != nil {
 		childSpinner1.ErrorWithMessage(fmt.Sprintf("Registration failed: %s", err.Error()))
 		sPrepare.Error()
@@ -792,7 +785,7 @@ func (c *viamClient) moduleCloudReload(
 		id = manifest.ModuleID
 	}
 
-	childSpinner2 := spinnerManager.AddSpinner("Creating source code archive...")
+	childSpinner2 := pm.AddSpinner("Creating source code archive...")
 	childSpinner2.UpdatePrefix("  → ")
 	archivePath, err := c.createGitArchive(args.Path)
 	if err != nil {
@@ -811,7 +804,7 @@ func (c *viamClient) moduleCloudReload(
 	// Upload a package with the bundled local dev code. Note that "reload" is a sentinel
 	// value for hot reloading modules. App expects it; don't change without making a
 	// complimentary update to the app repo
-	childSpinner3 := spinnerManager.AddSpinner("Uploading package...")
+	childSpinner3 := pm.AddSpinner("Uploading package...")
 	childSpinner3.UpdatePrefix("  → ")
 	resp, err := c.uploadPackage(org.GetId(), reloadVersion, reloadVersion, "module", archivePath, nil, childSpinner3)
 	if err != nil {
@@ -837,7 +830,7 @@ func (c *viamClient) moduleCloudReload(
 	resp.Version = versionParts[1]
 
 	// Building (parent spinner)
-	sBuild := spinnerManager.AddSpinner("Building...")
+	sBuild := pm.AddSpinner("Building...")
 
 	// (TODO RSDK-11531) It'd be nice to add some streaming logs for this so we can see how the progress is going. create a new build
 	// TODO (RSDK-11692) - passing org ID in the ref field and `resp.Version` (which is actually an object ID)
@@ -851,14 +844,14 @@ func (c *viamClient) moduleCloudReload(
 		Token:     resp.Version,
 	}
 
-	buildID, err := c.moduleBuildStartForRepo(buildArgs, manifest, packageURL, spinnerManager)
+	buildID, err := c.moduleBuildStartForRepo(buildArgs, manifest, packageURL)
 	if err != nil {
 		sBuild.Error()
 		return nil, err
 	}
 
 	// ensure the build completes before we try to dowload and use it
-	childSpinner4 := spinnerManager.AddSpinner(fmt.Sprintf("Waiting for build %s to finish...", buildID))
+	childSpinner4 := pm.AddSpinner(fmt.Sprintf("Waiting for build %s to finish...", buildID))
 	childSpinner4.UpdatePrefix("  → ")
 	statuses, err := c.waitForBuildToFinish(buildID, platform)
 	if err != nil {
@@ -873,8 +866,7 @@ func (c *viamClient) moduleCloudReload(
 		sBuild.Error()
 
 		// Stop spinners before printing logs to avoid output conflicts
-		*stopped = true
-		spinnerManager.Stop()
+		pm.Stop()
 
 		// Print error message without exiting (don't use Errorf since it calls os.Exit(1))
 		errorf(c.c.App.Writer, "Build %q failed to complete. Please check the logs below for more information.", buildID)
@@ -933,29 +925,15 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, logger logging.Logger) error {
-	// Initialize spinner manager (but don't start yet)
-	spinnerManager := ysmrr.NewSpinnerManager()
+	// Initialize progress manager (but don't start yet)
+	pm := NewProgressManager()
+	defer pm.Stop()
 
-	// Track if we've already stopped to avoid double-stop
-	stopped := false
-	defer func() {
-		if !stopped {
-			spinnerManager.Stop()
-		}
-	}()
+	// Set custom cancellation message for reload
+	pm.SetCancellationMessage("Module reloading aborted by user. The current step will be completed if it was running in the cloud, and then the rest of the steps will be skipped.")
 
-	// Set up signal handler for graceful shutdown on Ctrl+C
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		if !stopped {
-			stopped = true
-			spinnerManager.Stop()
-			errorf(c.App.ErrWriter, "Reloading module aborted by user. The current step will be completed if it was running in the cloud, and then the rest of the steps will be skipped.")
-		}
-		os.Exit(130) // Standard exit code for SIGINT (128 + 2)
-	}()
+	// Add to context for sub-functions
+	c.Context = WithProgressManager(c.Context, pm)
 
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	partID, err := resolvePartID(args.PartID, args.CloudConfig)
@@ -964,8 +942,8 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	}
 
 	// Add first spinner and start manager
-	s2 := spinnerManager.AddSpinner("Loading and validating meta.json...")
-	spinnerManager.Start()
+	s2 := pm.AddSpinner("Loading and validating meta.json...")
+	pm.Start()
 	manifest, err := loadManifestOrNil(args.Module)
 	if err != nil {
 		return err
@@ -985,7 +963,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	s2.Complete()
 
 	// Get robot part
-	s3 := spinnerManager.AddSpinner("Fetching robot part...")
+	s3 := pm.AddSpinner("Fetching robot part...")
 	part, err := vc.getRobotPart(partID)
 	if err != nil {
 		s3.ErrorWithMessage(fmt.Sprintf("Failed to fetch robot part: %s", err.Error()))
@@ -1031,22 +1009,17 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 		if !args.NoBuild {
 			if !args.CloudBuild {
 				// Local build - stop spinner to show build logs cleanly
-				sBuild := spinnerManager.AddSpinner("Building module locally...")
+				sBuild := pm.AddSpinner("Building module locally...")
 				sBuild.Complete()
-				stopped = true
-				spinnerManager.Stop()
+				pm.Stop()
 
 				// Run build (logs will print to stdout cleanly)
 				err = moduleBuildLocalAction(c, manifest, environment)
 				buildPath = manifest.Build.Path
 
-				// Create fresh spinner manager to avoid re-rendering previous spinners
-				spinnerManager = ysmrr.NewSpinnerManager()
-				stopped = false
-
-				// Add build result spinner and start
-				sBuildResult := spinnerManager.AddSpinner("Build result...")
-				spinnerManager.Start()
+				// Add build result spinner and start (Start automatically creates fresh manager after Stop)
+				sBuildResult := pm.AddSpinner("Build result...")
+				pm.Start()
 				if err != nil {
 					sBuildResult.ErrorWithMessage(fmt.Sprintf("Build failed: %s", err.Error()))
 					return err
@@ -1054,15 +1027,15 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				sBuildResult.CompleteWithMessage("Build complete")
 			} else {
 				// Cloud build - structured with parent spinners
-				downloadInfo, err := vc.moduleCloudReload(c, args, manifest, platform, spinnerManager, &stopped)
+				downloadInfo, err := vc.moduleCloudReload(c, args, manifest, platform)
 				if err != nil {
 					return err
 				}
 
 				// Reloading to Part (parent spinner - combines download, shell, copy, config, restart)
-				sReload := spinnerManager.AddSpinner("Reloading to part...")
+				sReload := pm.AddSpinner("Reloading to part...")
 
-				sDownload := spinnerManager.AddSpinner("Downloading build artifact...")
+				sDownload := pm.AddSpinner("Downloading build artifact...")
 				sDownload.UpdatePrefix("  → ")
 				downloadArgs := downloadModuleFlags{
 					ID:       downloadInfo.ID,
@@ -1077,7 +1050,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				}
 				sDownload.Complete()
 
-				sShell := spinnerManager.AddSpinner("Setting up shell service...")
+				sShell := pm.AddSpinner("Setting up shell service...")
 				sShell.UpdatePrefix("  → ")
 				shellAdded, err := addShellService(c, vc, part.Part, true)
 				if err != nil {
@@ -1091,7 +1064,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 					sShell.CompleteWithMessage("Shell service already exists, skipped")
 				}
 
-				sCopy := spinnerManager.AddSpinner(fmt.Sprintf("Copying %s to part %s...", buildPath, part.Part.Id))
+				sCopy := pm.AddSpinner(fmt.Sprintf("Copying %s to part %s...", buildPath, part.Part.Id))
 				sCopy.UpdatePrefix("  → ")
 				globalArgs, err := getGlobalArgs(c)
 				if err != nil {
@@ -1118,7 +1091,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				sCopy.CompleteWithMessage(fmt.Sprintf("Copied to %s", dest))
 
 				// Continue with configuration under same parent spinner
-				sConfigModule := spinnerManager.AddSpinner("Configuring module...")
+				sConfigModule := pm.AddSpinner("Configuring module...")
 				sConfigModule.UpdatePrefix("  → ")
 				var newPart *apppb.RobotPart
 				newPart, configUpdated, err := configureModule(c, vc, manifest, part.Part, args.Local)
@@ -1139,7 +1112,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				// If config was not updated, we need to manually restart the module
 				// (if config was updated, RDK will auto-restart)
 				if !configUpdated {
-					sRestart := spinnerManager.AddSpinner("Restarting module...")
+					sRestart := pm.AddSpinner("Restarting module...")
 					sRestart.UpdatePrefix("  → ")
 					if err = restartModule(c, vc, part.Part, manifest, logger); err != nil {
 						sRestart.ErrorWithMessage(fmt.Sprintf("Restart failed: %s", err.Error()))
@@ -1151,7 +1124,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 
 				// Handle adding a resource/component if --model-name was specified
 				if args.ModelName != "" {
-					sResource := spinnerManager.AddSpinner(fmt.Sprintf("Adding resource/component %s...", args.ModelName))
+					sResource := pm.AddSpinner(fmt.Sprintf("Adding resource/component %s...", args.ModelName))
 					sResource.UpdatePrefix("  → ")
 					if err = vc.addResourceFromModule(c, part.Part, manifest, args.ModelName, args.ResourceName); err != nil {
 						sResource.ErrorWithMessage(fmt.Sprintf("Resource %s not added to part config", args.ModelName))
@@ -1175,9 +1148,9 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 			}
 
 			// Reloading to Part (parent spinner) - for local builds
-			sReload := spinnerManager.AddSpinner("Reloading to part...")
+			sReload := pm.AddSpinner("Reloading to part...")
 
-			sShell := spinnerManager.AddSpinner("Setting up shell service...")
+			sShell := pm.AddSpinner("Setting up shell service...")
 			sShell.UpdatePrefix("  → ")
 			shellAdded, err := addShellService(c, vc, part.Part, true)
 			if err != nil {
@@ -1191,7 +1164,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				sShell.CompleteWithMessage("Shell service already exists, skipped")
 			}
 
-			sCopy := spinnerManager.AddSpinner(fmt.Sprintf("Copying %s to part %s...", buildPath, part.Part.Id))
+			sCopy := pm.AddSpinner(fmt.Sprintf("Copying %s to part %s...", buildPath, part.Part.Id))
 			sCopy.UpdatePrefix("  → ")
 			globalArgs, err := getGlobalArgs(c)
 			if err != nil {
@@ -1218,7 +1191,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 			sCopy.CompleteWithMessage(fmt.Sprintf("Copied to %s", dest))
 
 			// Continue with configuration under same parent spinner
-			sConfigModule := spinnerManager.AddSpinner("Configuring module...")
+			sConfigModule := pm.AddSpinner("Configuring module...")
 			sConfigModule.UpdatePrefix("  → ")
 			var newPart *apppb.RobotPart
 			newPart, configUpdated, err := configureModule(c, vc, manifest, part.Part, args.Local)
@@ -1239,7 +1212,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 			// If config was not updated, we need to manually restart the module
 			// (if config was updated, RDK will auto-restart)
 			if !configUpdated {
-				sRestart := spinnerManager.AddSpinner("Restarting module...")
+				sRestart := pm.AddSpinner("Restarting module...")
 				sRestart.UpdatePrefix("  → ")
 				if err = restartModule(c, vc, part.Part, manifest, logger); err != nil {
 					sRestart.ErrorWithMessage(fmt.Sprintf("Restart failed: %s", err.Error()))
@@ -1251,7 +1224,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 
 			// Handle adding a resource/component if --model-name was specified
 			if args.ModelName != "" {
-				sResource := spinnerManager.AddSpinner(fmt.Sprintf("Adding resource %s...", args.ModelName))
+				sResource := pm.AddSpinner(fmt.Sprintf("Adding resource %s...", args.ModelName))
 				sResource.UpdatePrefix("  → ")
 				if err = vc.addResourceFromModule(c, part.Part, manifest, args.ModelName, args.ResourceName); err != nil {
 					sResource.ErrorWithMessage(fmt.Sprintf("Resource %s not added to part config", args.ModelName))

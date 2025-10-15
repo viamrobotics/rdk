@@ -3,11 +3,8 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
 	"slices"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/chelnak/ysmrr"
@@ -82,20 +79,11 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 		return err
 	}
 
-	sm := ysmrr.NewSpinnerManager()
-	defer sm.Stop()
+	pm := NewProgressManager()
+	defer pm.Stop()
 
-	// Set up signal handler for graceful shutdown on Ctrl+C
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		sm.Stop()
-		os.Exit(130) // Standard exit code for SIGINT (128 + 2)
-	}()
-
-	s := sm.AddSpinner("Uploading training script...")
-	sm.Start()
+	s := pm.AddSpinner("Uploading training script...")
+	pm.Start()
 	resp, err := client.uploadTrainingScript(true, args.ModelType, args.Framework,
 		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, s)
 	if err != nil {
@@ -398,20 +386,11 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 		return err
 	}
 
-	sm := ysmrr.NewSpinnerManager()
-	defer sm.Stop()
+	pm := NewProgressManager()
+	defer pm.Stop()
 
-	// Set up signal handler for graceful shutdown on Ctrl+C
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		sm.Stop()
-		os.Exit(130) // Standard exit code for SIGINT (128 + 2)
-	}()
-
-	s := sm.AddSpinner("Uploading training script...")
-	sm.Start()
+	s := pm.AddSpinner("Uploading training script...")
+	pm.Start()
 	_, err = client.uploadTrainingScript(args.Draft, args.Type,
 		args.Framework, args.URL, args.OrgID, args.ScriptName,
 		args.Version, args.Path, s,
