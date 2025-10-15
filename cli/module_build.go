@@ -707,6 +707,9 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 		// Stop spinners before showing interactive prompt
 		sm.Stop()
 
+		// Ensure we restart spinner on any exit path
+		defer sm.Start()
+
 		red := "\033[1;31m%s\033[0m"
 		printf(ctx.App.Writer, red, "Error: module not registered in cloud or you lack permissions to edit it.")
 
@@ -727,9 +730,6 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 		if input != "Y" {
 			return errors.New("module reload aborted - module not registered in cloud")
 		}
-
-		// Restart spinners after getting user input
-		sm.Start()
 
 		// If user confirmed, we'll proceed with the reload which will register the module
 		// The registration happens implicitly through the cloud build process
@@ -757,7 +757,7 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 // moduleCloudReload triggers a cloud build and then returns the download info for the built module.
 func (c *viamClient) moduleCloudReload(
 	ctx *cli.Context, args reloadModuleArgs, manifest *moduleManifest, platform string,
-	spinnerManager ysmrr.SpinnerManager,
+	spinnerManager ysmrr.SpinnerManager, stopped *bool,
 ) (*moduleDownloadInfo, error) {
 	// ensure that the module has been registered in the cloud
 	moduleID, err := parseModuleID(manifest.ModuleID)
@@ -864,6 +864,7 @@ func (c *viamClient) moduleCloudReload(
 		sBuild.Error()
 
 		// Stop spinners before printing logs to avoid output conflicts
+		*stopped = true
 		spinnerManager.Stop()
 
 		// Print error message without exiting (don't use Errorf since it calls os.Exit(1))
@@ -926,7 +927,14 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	// Initialize spinner manager
 	spinnerManager := ysmrr.NewSpinnerManager()
 	spinnerManager.Start()
-	defer spinnerManager.Stop()
+
+	// Track if we've already stopped to avoid double-stop
+	stopped := false
+	defer func() {
+		if !stopped {
+			spinnerManager.Stop()
+		}
+	}()
 
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	partID, err := resolvePartID(args.PartID, args.CloudConfig)
@@ -1007,7 +1015,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				sBuild.CompleteWithMessage("Build complete")
 			} else {
 				// Cloud build - structured with parent spinners
-				downloadInfo, err := vc.moduleCloudReload(c, args, manifest, platform, spinnerManager)
+				downloadInfo, err := vc.moduleCloudReload(c, args, manifest, platform, spinnerManager, &stopped)
 				if err != nil {
 					return err
 				}
