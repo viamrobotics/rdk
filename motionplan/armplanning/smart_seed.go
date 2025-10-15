@@ -61,6 +61,13 @@ func (scs *smartSeedCache) findBoxes(goalFrame string, goalPose spatialmath.Pose
 		d float64
 	}
 
+	if scs.geoCache[goalFrame] == nil {
+		err := scs.buildInverseCache(goalFrame)
+		if err != nil {
+			panic(err)
+		}
+	}
+	
 	best := []e{}
 
 	for _, b := range scs.geoCache[goalFrame].boxes {
@@ -247,14 +254,14 @@ func (ssc *smartSeedCache) buildCache() error {
 	}
 
 	ssc.geoCache = map[string]*goalCache{}
-	
+	/*
 	for frame, _ := range ssc.rawCache[0].poses {
 		err = ssc.buildInverseCache(frame)
 		if err != nil {
 			return fmt.Errorf("cannot buildInverseCache for %s: %w", frame, err)
 		}
 	}
-
+	*/
 	return nil
 }
 
