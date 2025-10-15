@@ -40,7 +40,7 @@ func init() {
 //		"gorgonia.org/tensor"
 //	 )
 //
-//	myMLModel, err := mlmodel.FromRobot(machine, "my_mlmodel")
+//	myMLModel, err := mlmodel.FromProvider(machine, "my_mlmodel")
 //
 //	input_tensors := ml.Tensors{
 //		"image": tensor.New(
@@ -56,7 +56,7 @@ func init() {
 //
 // Metadata example:
 //
-//	myMLModel, err := mlmodel.FromRobot(machine, "my_mlmodel")
+//	myMLModel, err := mlmodel.FromProvider(machine, "my_mlmodel")
 //	metadata, err := myMLModel.Metadata(context.Background())
 //
 // For more information, see the [Metadata method docs].
@@ -333,12 +333,24 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named ML model service from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named ML model service from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
-// FromDependencies is a helper for getting the named ml model service from a collection of dependencies.
+// Deprecated: FromDependencies is a helper for getting the named ml model service from a collection of dependencies.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
 	return resource.FromDependencies[Service](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named ML model service
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Service, error) {
+	return resource.FromProvider[Service](provider, Named(name))
 }

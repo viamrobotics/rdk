@@ -407,7 +407,7 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	replay.APIKey = replayMovementSensorConfig.APIKey
 	replay.APIKeyID = replayMovementSensorConfig.APIKeyID
 
-	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
+	cloudConnSvc, err := resource.FromProvider[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
 		return err
 	}
