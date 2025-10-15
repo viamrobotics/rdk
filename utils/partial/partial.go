@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 
 	"go.viam.com/rdk/logging"
 )
@@ -20,12 +21,27 @@ const (
 	etagSuffix = ".etag"
 )
 
+// this is for testing
 var InterruptedDownload = errors.New("interrupting download to respect MaxRead")
+
+// ProgressFunc is for wrapping io.Copy with a progress bar
+type ProgressFunc func(ctx context.Context,
+	outWriter io.WriteSeeker,
+	outPath string,
+	size int64,
+	logger logging.Logger,
+	workers *sync.WaitGroup,
+) (io.WriteSeeker, context.CancelFunc)
 
 // manages on-disk state and decision tree for partial downloads
 type PartialDownloader struct {
 	Client *http.Client
 	Logger logging.Logger
+	// if non-nil, this wraps the io.Copy. See agent codebase for example.
+	Progress ProgressFunc
+	// if non-nil, call this after a successful copy. Used for platform-specific sync.
+	AfterCopy func(path string) error
+
 	// maximum bytes to read in one call to Download(). used only for testing.
 	MaxRead int
 	// turn off the resume path for testing
@@ -91,7 +107,8 @@ func (p *PartialDownloader) downloadResponseFromStart(ctx context.Context, dest 
 	var destFile *os.File
 	var err error
 
-	// todo: confirm there are no other values than 'bytes' for this header
+	// "bytes" is the only supported value for this header
+	// per https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Accept-Ranges
 	isPartial := false
 	if resp.Header.Get("Accept-Ranges") == "bytes" && resp.Header.Get("Etag") != "" {
 		p.Logger.Debugf("headers found (%q, %q), starting partial", resp.Header.Get("Accept-Ranges"), resp.Header.Get("Etag"))
@@ -172,16 +189,29 @@ func (p *PartialDownloader) cleanup(dest string, success bool) error {
 	return errors.Join(err, os.Remove(dest+etagSuffix))
 }
 
-func (p *PartialDownloader) copyWithProgress(_ context.Context, resp *http.Response, destFile *os.File) error {
-	// todo: wrap in progress
-	// todo: no Copy with context?
+func (p *PartialDownloader) copyWithProgress(ctx context.Context, resp *http.Response, destFile *os.File) error {
+	workers := &sync.WaitGroup{}
+	defer workers.Wait()
+
+	var writer io.WriteSeeker = destFile
+	cancelFunc := func() {}
+	if p.Progress != nil {
+		writer, cancelFunc = p.Progress(ctx, destFile, destFile.Name(), resp.ContentLength, p.Logger, workers)
+	}
+	defer cancelFunc()
+
 	if p.MaxRead != 0 {
-		_, err := io.CopyN(destFile, resp.Body, int64(p.MaxRead))
+		_, err := io.CopyN(writer, resp.Body, int64(p.MaxRead))
 		if err != nil {
 			return err
 		}
 		return InterruptedDownload
 	}
-	_, err := io.Copy(destFile, resp.Body)
-	return err
+	if _, err := io.Copy(writer, resp.Body); err != nil {
+		return err
+	}
+	if p.AfterCopy != nil {
+		return p.AfterCopy(destFile.Name())
+	}
+	return nil
 }
