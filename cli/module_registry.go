@@ -12,12 +12,14 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"slices"
 	"strings"
+	"syscall"
 
 	"github.com/chelnak/ysmrr"
 	"github.com/google/uuid"
@@ -377,10 +379,19 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 	}
 
 	sm := ysmrr.NewSpinnerManager()
-	sm.Start()
 	defer sm.Stop()
 
+	// Set up signal handler for graceful shutdown on Ctrl+C
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		sm.Stop()
+		os.Exit(130) // Standard exit code for SIGINT (128 + 2)
+	}()
+
 	s := sm.AddSpinner("Uploading module file...")
+	sm.Start()
 	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, constraints, tarballPath, s)
 	if err != nil {
 		s.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))

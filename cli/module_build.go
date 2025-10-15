@@ -9,9 +9,11 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -117,6 +119,7 @@ func (c *viamClient) moduleBuildStartForRepo(
 
 	childSpinner := sm.AddSpinner("Starting cloud build...")
 	childSpinner.UpdatePrefix("  → ")
+	sm.Start()
 
 	res, err := c.buildClient.StartBuild(c.c.Context, &req)
 	if err != nil {
@@ -139,10 +142,18 @@ func (c *viamClient) moduleBuildStartAction(args moduleBuildStartArgs) (string, 
 			"Ex: 'https://github.com/your-username/your-repo'")
 	}
 
-	// Create spinner manager for build progress
+	// Create spinner manager for build progress (but don't start yet)
 	sm := ysmrr.NewSpinnerManager()
-	sm.Start()
 	defer sm.Stop()
+
+	// Set up signal handler for graceful shutdown on Ctrl+C
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		sm.Stop()
+		os.Exit(130) // Standard exit code for SIGINT (128 + 2)
+	}()
 
 	return c.moduleBuildStartForRepo(args, &manifest, manifest.URL, sm)
 }
@@ -165,7 +176,6 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *moduleManifest, environ
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
-	infof(cCtx.App.Writer, "Starting build")
 	processConfig := pexec.ProcessConfig{
 		Environment: environment,
 		Name:        "bash",
@@ -189,7 +199,6 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *moduleManifest, environ
 	if err := proc.Start(cCtx.Context); err != nil {
 		return err
 	}
-	infof(cCtx.App.Writer, "Completed build")
 	return nil
 }
 
@@ -924,9 +933,8 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 
 // reloadModuleAction is the testable inner reload logic.
 func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, logger logging.Logger) error {
-	// Initialize spinner manager
+	// Initialize spinner manager (but don't start yet)
 	spinnerManager := ysmrr.NewSpinnerManager()
-	spinnerManager.Start()
 
 	// Track if we've already stopped to avoid double-stop
 	stopped := false
@@ -936,14 +944,28 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 		}
 	}()
 
+	// Set up signal handler for graceful shutdown on Ctrl+C
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		if !stopped {
+			stopped = true
+			spinnerManager.Stop()
+			errorf(c.App.ErrWriter, "Reloading module aborted by user. The current step will be completed if it was running in the cloud, and then the rest of the steps will be skipped.")
+		}
+		os.Exit(130) // Standard exit code for SIGINT (128 + 2)
+	}()
+
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	partID, err := resolvePartID(args.PartID, args.CloudConfig)
 	if err != nil {
 		return err
 	}
 
-	// Load manifest
+	// Add first spinner and start manager
 	s2 := spinnerManager.AddSpinner("Loading and validating meta.json...")
+	spinnerManager.Start()
 	manifest, err := loadManifestOrNil(args.Module)
 	if err != nil {
 		return err
@@ -951,7 +973,11 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	if !args.RestartOnly {
 		if !args.NoBuild {
 			if manifest == nil {
-				s2.ErrorWithMessage(fmt.Sprintf("Failed to load meta.json: file not found at %s.", moduleFlagPath))
+				if args.Module != "meta.json" {
+					s2.ErrorWithMessage(fmt.Sprintf("Failed to load meta.json: file not found at %s.", args.Module))
+					return ErrReloadFailed
+				}
+				s2.ErrorWithMessage(fmt.Sprintf("Failed to load meta.json: file not found in current directory. Please ensure you are within the directory of a module."))
 				return ErrReloadFailed
 			}
 		}
@@ -1004,15 +1030,28 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	if !args.RestartOnly {
 		if !args.NoBuild {
 			if !args.CloudBuild {
-				// Local build - simple single spinner
+				// Local build - stop spinner to show build logs cleanly
 				sBuild := spinnerManager.AddSpinner("Building module locally...")
+				sBuild.Complete()
+				stopped = true
+				spinnerManager.Stop()
+
+				// Run build (logs will print to stdout cleanly)
 				err = moduleBuildLocalAction(c, manifest, environment)
 				buildPath = manifest.Build.Path
+
+				// Create fresh spinner manager to avoid re-rendering previous spinners
+				spinnerManager = ysmrr.NewSpinnerManager()
+				stopped = false
+
+				// Add build result spinner and start
+				sBuildResult := spinnerManager.AddSpinner("Build result...")
+				spinnerManager.Start()
 				if err != nil {
-					sBuild.ErrorWithMessage(fmt.Sprintf("Build failed: %s", err.Error()))
+					sBuildResult.ErrorWithMessage(fmt.Sprintf("Build failed: %s", err.Error()))
 					return err
 				}
-				sBuild.CompleteWithMessage("Build complete")
+				sBuildResult.CompleteWithMessage("Build complete")
 			} else {
 				// Cloud build - structured with parent spinners
 				downloadInfo, err := vc.moduleCloudReload(c, args, manifest, platform, spinnerManager, &stopped)

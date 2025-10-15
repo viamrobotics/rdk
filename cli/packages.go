@@ -6,10 +6,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/chelnak/ysmrr"
@@ -206,10 +208,19 @@ func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
 	}
 
 	sm := ysmrr.NewSpinnerManager()
-	sm.Start()
 	defer sm.Stop()
 
+	// Set up signal handler for graceful shutdown on Ctrl+C
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		sm.Stop()
+		os.Exit(130) // Standard exit code for SIGINT (128 + 2)
+	}()
+
 	s := sm.AddSpinner("Uploading package...")
+	sm.Start()
 	resp, err := client.uploadPackage(
 		args.OrgID,
 		args.Name,
