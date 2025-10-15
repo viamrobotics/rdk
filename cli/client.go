@@ -1436,7 +1436,9 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		pm := NewProgressManager()
 		defer pm.Stop()
 
-		spinner := pm.AddSpinner("Copying files...")
+		// Add to context for sub-functions
+		c.c.Context = WithProgressManager(c.c.Context, pm)
+
 		pm.Start()
 		err := c.copyFilesToMachine(
 			flagArgs.Organization,
@@ -1450,13 +1452,10 @@ func (c *viamClient) machinesPartCopyFilesAction(
 			destination,
 			logger,
 			flagArgs.NoProgress,
-			spinner,
 		)
 		if err != nil {
-			spinner.ErrorWithMessage(fmt.Sprintf("Copy failed: %s", err.Error()))
 			return err
 		}
-		spinner.Complete()
 		return nil
 	}
 	if err := doCopy(); err != nil {
@@ -2604,13 +2603,12 @@ func (c *viamClient) copyFilesToMachine(
 	destination string,
 	logger logging.Logger,
 	noProgress bool,
-	spinner *ysmrr.Spinner,
 ) error {
 	shellSvc, closeClient, err := c.connectToShellService(orgStr, locStr, robotStr, partStr, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress, spinner)
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
 }
 
 // copyFilesToFqdn is a copyFilesToMachine variant that makes use of pre-fetched part FQDN.
@@ -2623,13 +2621,12 @@ func (c *viamClient) copyFilesToFqdn(
 	destination string,
 	logger logging.Logger,
 	noProgress bool,
-	spinner *ysmrr.Spinner,
 ) error {
 	shellSvc, closeClient, err := c.connectToShellServiceFqdn(fqdn, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress, spinner)
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
 }
 
 // copyFilesToMachineInner is the common logic for both copyFiles variants.
@@ -2641,11 +2638,17 @@ func (c *viamClient) copyFilesToMachineInner(
 	paths []string,
 	destination string,
 	noProgress bool,
-	spinner *ysmrr.Spinner,
 ) error {
 	defer func() {
 		utils.UncheckedError(closeClient(c.c.Context))
 	}()
+
+	// Get progress manager from context and create spinner
+	var spinner *ysmrr.Spinner
+	if !noProgress {
+		pm := MustGetProgressManager(c.c.Context)
+		spinner = pm.AddSpinner("Copying files...")
+	}
 
 	if noProgress {
 		// prepare a factory that understands the file copying service (RPC or not).
@@ -2723,7 +2726,16 @@ func (c *viamClient) copyFilesToMachineInner(
 
 	// ReadAll the files into the copier.
 	err = readCopier.ReadAll(c.c.Context)
-	return err
+	if err != nil {
+		if spinner != nil {
+			spinner.ErrorWithMessage(fmt.Sprintf("Copy failed: %s", err.Error()))
+		}
+		return err
+	}
+	if spinner != nil {
+		spinner.CompleteWithMessage("Files copied successfully")
+	}
+	return nil
 }
 
 // progressTrackingFactory wraps a copy factory to track progress.

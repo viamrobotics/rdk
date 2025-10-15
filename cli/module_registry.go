@@ -379,15 +379,16 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 	pm := NewProgressManager()
 	defer pm.Stop()
 
-	s := pm.AddSpinner("Uploading module file...")
+	// Add to context for sub-functions
+	c.Context = WithProgressManager(c.Context, pm)
+
 	pm.Start()
-	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, constraints, tarballPath, s)
+	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, constraints, tarballPath)
 	if err != nil {
-		s.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return err
 	}
-	s.CompleteWithMessage(fmt.Sprintf("Version successfully uploaded! View online: %s", response.GetUrl()))
 
+	printf(c.App.Writer, "Version successfully uploaded! View online: %s", response.GetUrl())
 	return nil
 }
 
@@ -506,17 +507,22 @@ func (c *viamClient) uploadModuleFile(
 	platform string,
 	constraints []string,
 	tarballPath string,
-	spinner *ysmrr.Spinner,
 ) (*apppb.UploadModuleFileResponse, error) {
+	// Get progress manager from context and create spinner
+	pm := MustGetProgressManager(c.c.Context)
+	spinner := pm.AddSpinner("Uploading module file...")
+
 	//nolint:gosec
 	file, err := os.Open(tarballPath)
 	if err != nil {
+		spinner.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return nil, err
 	}
 	ctx := c.c.Context
 
 	stream, err := c.client.UploadModuleFile(ctx)
 	if err != nil {
+		spinner.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return nil, err
 	}
 	moduleFileInfo := apppb.ModuleFileInfo{
@@ -529,6 +535,7 @@ func (c *viamClient) uploadModuleFile(
 		ModuleFile: &apppb.UploadModuleFileRequest_ModuleFileInfo{ModuleFileInfo: &moduleFileInfo},
 	}
 	if err := stream.Send(req); err != nil {
+		spinner.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return nil, err
 	}
 
@@ -541,6 +548,11 @@ func (c *viamClient) uploadModuleFile(
 
 	resp, closeErr := stream.CloseAndRecv()
 	errs = multierr.Combine(errs, closeErr)
+	if errs != nil {
+		spinner.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", errs.Error()))
+		return resp, errs
+	}
+	spinner.CompleteWithMessage("Module file uploaded successfully")
 	return resp, errs
 }
 

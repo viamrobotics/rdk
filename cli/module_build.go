@@ -930,7 +930,8 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	defer pm.Stop()
 
 	// Set custom cancellation message for reload
-	pm.SetCancellationMessage("Module reloading aborted by user. The current step will be completed if it was running in the cloud, and then the rest of the steps will be skipped.")
+	pm.SetCancellationMessage("Module reloading aborted by user." +
+		" The current step will be completed if it was running in the cloud, and then the rest of the steps will be skipped.")
 
 	// Add to context for sub-functions
 	c.Context = WithProgressManager(c.Context, pm)
@@ -955,7 +956,8 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 					s2.ErrorWithMessage(fmt.Sprintf("Failed to load meta.json: file not found at %s.", args.Module))
 					return ErrReloadFailed
 				}
-				s2.ErrorWithMessage(fmt.Sprintf("Failed to load meta.json: file not found in current directory. Please ensure you are within the directory of a module."))
+				s2.ErrorWithMessage(fmt.Sprintf("Failed to load meta.json:" +
+					"file not found in current directory. Please ensure you are within the directory of a module."))
 				return ErrReloadFailed
 			}
 		}
@@ -1064,31 +1066,24 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 					sShell.CompleteWithMessage("Shell service already exists, skipped")
 				}
 
-				sCopy := pm.AddSpinner(fmt.Sprintf("Copying %s to part %s...", buildPath, part.Part.Id))
-				sCopy.UpdatePrefix("  → ")
 				globalArgs, err := getGlobalArgs(c)
 				if err != nil {
-					sCopy.ErrorWithMessage(fmt.Sprintf("Failed to get global args: %s", err.Error()))
 					sReload.Error()
 					return err
 				}
 				dest := reloadingDestination(c, manifest)
 				err = vc.copyFilesToFqdn(
 					part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
-					dest, logger, args.NoProgress, sCopy)
+					dest, logger, args.NoProgress)
 				if err != nil {
 					if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
-						sCopy.ErrorWithMessage("Permission denied")
 						warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
 							"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
 							"Alternatively, run the RDK as root.")
-					} else {
-						sCopy.ErrorWithMessage(fmt.Sprintf("Copy failed: %s", err.Error()))
 					}
 					sReload.Error()
 					return fmt.Errorf("failed copying to part (%v): %w", dest, err)
 				}
-				sCopy.CompleteWithMessage(fmt.Sprintf("Copied to %s", dest))
 
 				// Continue with configuration under same parent spinner
 				sConfigModule := pm.AddSpinner("Configuring module...")
@@ -1164,31 +1159,24 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				sShell.CompleteWithMessage("Shell service already exists, skipped")
 			}
 
-			sCopy := pm.AddSpinner(fmt.Sprintf("Copying %s to part %s...", buildPath, part.Part.Id))
-			sCopy.UpdatePrefix("  → ")
 			globalArgs, err := getGlobalArgs(c)
 			if err != nil {
-				sCopy.ErrorWithMessage(fmt.Sprintf("Failed to get global args: %s", err.Error()))
 				sReload.Error()
 				return err
 			}
 			dest := reloadingDestination(c, manifest)
 			err = vc.copyFilesToFqdn(
 				part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
-				dest, logger, args.NoProgress, sCopy)
+				dest, logger, args.NoProgress)
 			if err != nil {
 				if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
-					sCopy.ErrorWithMessage("Permission denied")
 					warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
 						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
 						"Alternatively, run the RDK as root.")
-				} else {
-					sCopy.ErrorWithMessage(fmt.Sprintf("Copy failed: %s", err.Error()))
 				}
 				sReload.Error()
 				return fmt.Errorf("failed copying to part (%v): %w", dest, err)
 			}
-			sCopy.CompleteWithMessage(fmt.Sprintf("Copied to %s", dest))
 
 			// Continue with configuration under same parent spinner
 			sConfigModule := pm.AddSpinner("Configuring module...")

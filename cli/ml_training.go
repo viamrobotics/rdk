@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chelnak/ysmrr"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
@@ -82,15 +81,15 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 	pm := NewProgressManager()
 	defer pm.Stop()
 
-	s := pm.AddSpinner("Uploading training script...")
+	// Add to context for sub-functions
+	c.Context = WithProgressManager(c.Context, pm)
+
 	pm.Start()
 	resp, err := client.uploadTrainingScript(true, args.ModelType, args.Framework,
-		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, s)
+		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path)
 	if err != nil {
-		s.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return err
 	}
-	s.Complete()
 	registryItemID := fmt.Sprintf("%s:%s", args.OrgID, args.ScriptName)
 
 	moduleID := moduleID{
@@ -389,17 +388,17 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 	pm := NewProgressManager()
 	defer pm.Stop()
 
-	s := pm.AddSpinner("Uploading training script...")
+	// Add to context for sub-functions
+	c.Context = WithProgressManager(c.Context, pm)
+
 	pm.Start()
 	_, err = client.uploadTrainingScript(args.Draft, args.Type,
 		args.Framework, args.URL, args.OrgID, args.ScriptName,
-		args.Version, args.Path, s,
+		args.Version, args.Path,
 	)
 	if err != nil {
-		s.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return err
 	}
-	s.Complete()
 
 	moduleID := moduleID{
 		prefix: args.OrgID,
@@ -414,16 +413,21 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 
 func (c *viamClient) uploadTrainingScript(
 	draft bool, modelType, framework, url, orgID, name, version, path string,
-	spinner *ysmrr.Spinner,
 ) (
 	*packagespb.CreatePackageResponse, error,
 ) {
+	// Get progress manager from context and create spinner
+	pm := MustGetProgressManager(c.c.Context)
+	spinner := pm.AddSpinner("Uploading training script...")
+
 	metadata, err := createMetadata(draft, modelType, framework, url)
 	if err != nil {
+		spinner.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return nil, err
 	}
 	metadataStruct, err := convertMetadataToStruct(*metadata)
 	if err != nil {
+		spinner.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return nil, err
 	}
 
@@ -436,8 +440,10 @@ func (c *viamClient) uploadTrainingScript(
 		spinner,
 	)
 	if err != nil {
+		spinner.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
 		return nil, err
 	}
+	spinner.CompleteWithMessage("Training script uploaded successfully")
 	return resp, nil
 }
 
