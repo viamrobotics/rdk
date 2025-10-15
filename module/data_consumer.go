@@ -9,8 +9,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-type TabularDataOptions struct {
-	TabularDataSourceType app.TabularDataSourceType
+type QueryTabularDataOptions struct {
+	TimeBack time.Duration
+	AdditionalStages []map[string]any
 }
 
 type ResourceDataConsumer struct {
@@ -29,7 +30,7 @@ func (r *ResourceDataConsumer) dataClient(ctx context.Context) (*app.DataClient,
 	return r._dataClient, nil
 }
 
-func (r ResourceDataConsumer) TabularData(ctx context.Context, resourceName string, opts *TabularDataOptions) ([]map[string]any, error) {
+func (r ResourceDataConsumer) QueryTabularDataForResource(ctx context.Context, resourceName string, opts *QueryTabularDataOptions) ([]map[string]any, error) {
 	dataClient, err := r.dataClient(ctx)
 	if err != nil {
 		return nil, err
@@ -38,9 +39,12 @@ func (r ResourceDataConsumer) TabularData(ctx context.Context, resourceName stri
 	orgId := os.Getenv(utils.PrimaryOrgIDEnvVar)
 	partId := os.Getenv(utils.MachinePartIDEnvVar)
 
-	options := &TabularDataOptions{}
-	if opts != nil {
-		options = opts
+	timeBack := -24 * time.Hour
+	if opts != nil && opts.TimeBack != 0 {
+		timeBack = opts.TimeBack
+	}
+	if timeBack > 0 {
+		timeBack = -timeBack
 	}
 
 	query := []map[string]any{
@@ -49,11 +53,12 @@ func (r ResourceDataConsumer) TabularData(ctx context.Context, resourceName stri
 				"part_id":   partId,
 				"component_name": resourceName,
 				"time_received": map[string]any{
-					"$gte": time.Now().Add(-24 * time.Hour),
+					"$gte": time.Now().Add(timeBack),
 				},
 			},
 		},
 	}
+	query = append(query, opts.AdditionalStages...)
 	
-	return dataClient.TabularDataByMQL(ctx, orgId, query, &app.TabularDataByMQLOptions{TabularDataSourceType: options.TabularDataSourceType})
+	return dataClient.TabularDataByMQL(ctx, orgId, query, nil)
 }
