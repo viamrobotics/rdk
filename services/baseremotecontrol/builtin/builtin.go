@@ -134,11 +134,11 @@ func (svc *builtIn) Reconfigure(
 	if err != nil {
 		return err
 	}
-	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
+	base1, err := base.FromProvider(deps, svcConfig.BaseName)
 	if err != nil {
 		return err
 	}
-	controller, err := input.FromDependencies(deps, svcConfig.InputControllerName)
+	controller, err := input.FromProvider(deps, svcConfig.InputControllerName)
 	if err != nil {
 		return err
 	}

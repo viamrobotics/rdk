@@ -61,15 +61,25 @@ type LivenessMonitor interface {
 	Monitor(notifyReset func())
 }
 
-// FromDependencies is a helper for getting the named audio input from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named audio input from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (AudioInput, error) {
 	return resource.FromDependencies[AudioInput](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named audio input from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named audio input from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (AudioInput, error) {
 	return robot.ResourceFromRobot[AudioInput](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named AudioInput from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (AudioInput, error) {
+	return resource.FromProvider[AudioInput](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all audio input names from the given Robot.

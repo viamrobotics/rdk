@@ -43,14 +43,25 @@ type Button interface {
 	Push(ctx context.Context, extra map[string]interface{}) error
 }
 
-// FromRobot is a helper for getting the named Button from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named Button from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Button, error) {
 	return robot.ResourceFromRobot[Button](r, Named(name))
 }
 
-// FromDependencies is a helper for getting the named button component from a collection of dependencies.
+// Deprecated: FromDependencies is a helper for getting the named button component from a collection of dependencies.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Button, error) {
 	return resource.FromDependencies[Button](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named Button from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Button, error) {
+	return resource.FromProvider[Button](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.

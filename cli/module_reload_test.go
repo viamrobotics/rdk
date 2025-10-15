@@ -32,6 +32,44 @@ func TestConfigureModule(t *testing.T) {
 	test.That(t, errOut.messages, test.ShouldHaveLength, 1)
 }
 
+// Helper function to create a mock AppServiceClient with robot part.
+func mockAppServiceClientWithRobotPart(
+	robotConfig, userSuppliedInfo *structpb.Struct,
+) *inject.AppServiceClient {
+	return &inject.AppServiceClient{
+		GetRobotPartFunc: func(ctx context.Context, req *apppb.GetRobotPartRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartResponse, error) {
+			return &apppb.GetRobotPartResponse{Part: &apppb.RobotPart{
+				RobotConfig:      robotConfig,
+				Fqdn:             "test-robot.local",
+				UserSuppliedInfo: userSuppliedInfo,
+			}, ConfigJson: ``}, nil
+		},
+	}
+}
+
+// Helper function to create full mock AppServiceClient with update and API keys.
+func mockFullAppServiceClient(robotConfig, userSuppliedInfo *structpb.Struct, updateCount *int) *inject.AppServiceClient {
+	client := mockAppServiceClientWithRobotPart(robotConfig, userSuppliedInfo)
+	client.UpdateRobotPartFunc = func(ctx context.Context, req *apppb.UpdateRobotPartRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.UpdateRobotPartResponse, error) {
+		if updateCount != nil {
+			(*updateCount)++
+		}
+		return &apppb.UpdateRobotPartResponse{Part: &apppb.RobotPart{}}, nil
+	}
+	client.GetRobotAPIKeysFunc = func(ctx context.Context, in *apppb.GetRobotAPIKeysRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotAPIKeysResponse, error) {
+		return &apppb.GetRobotAPIKeysResponse{ApiKeys: []*apppb.APIKeyWithAuthorizations{
+			{ApiKey: &apppb.APIKey{}},
+		}}, nil
+	}
+	return client
+}
+
 func TestFullReloadFlow(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -40,30 +78,12 @@ func TestFullReloadFlow(t *testing.T) {
 		"modules": []any{},
 	})
 	test.That(t, err, test.ShouldBeNil)
+
 	updateCount := 0
-	cCtx, vc, _, _ := setup(&inject.AppServiceClient{
-		GetRobotPartFunc: func(ctx context.Context, req *apppb.GetRobotPartRequest,
-			opts ...grpc.CallOption,
-		) (*apppb.GetRobotPartResponse, error) {
-			return &apppb.GetRobotPartResponse{Part: &apppb.RobotPart{
-				RobotConfig: confStruct,
-				Fqdn:        "restart-module-robot.local",
-			}, ConfigJson: ``}, nil
-		},
-		UpdateRobotPartFunc: func(ctx context.Context, req *apppb.UpdateRobotPartRequest,
-			opts ...grpc.CallOption,
-		) (*apppb.UpdateRobotPartResponse, error) {
-			updateCount++
-			return &apppb.UpdateRobotPartResponse{Part: &apppb.RobotPart{}}, nil
-		},
-		GetRobotAPIKeysFunc: func(ctx context.Context, in *apppb.GetRobotAPIKeysRequest,
-			opts ...grpc.CallOption,
-		) (*apppb.GetRobotAPIKeysResponse, error) {
-			return &apppb.GetRobotAPIKeysResponse{ApiKeys: []*apppb.APIKeyWithAuthorizations{
-				{ApiKey: &apppb.APIKey{}},
-			}}, nil
-		},
-	}, nil, &inject.BuildServiceClient{},
+	cCtx, vc, _, _ := setup(
+		mockFullAppServiceClient(confStruct, nil, &updateCount),
+		nil,
+		&inject.BuildServiceClient{},
 		map[string]any{
 			moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 			moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
@@ -76,13 +96,109 @@ func TestFullReloadFlow(t *testing.T) {
 	test.That(t, updateCount, test.ShouldEqual, 1)
 
 	t.Run("addShellService", func(t *testing.T) {
-		part, _ := vc.getRobotPart("id")
-		err := addShellService(cCtx, vc, part.Part, false)
-		test.That(t, err, test.ShouldBeNil)
-		services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
-		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, services, test.ShouldNotBeNil)
-		test.That(t, services[0].(map[string]any)["type"], test.ShouldResemble, "shell")
+		t.Run("addsServiceWhenMissing", func(t *testing.T) {
+			part, _ := vc.getRobotPart("id")
+			err := addShellService(cCtx, vc, part.Part, false)
+			test.That(t, err, test.ShouldBeNil)
+			services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, services, test.ShouldNotBeNil)
+			test.That(t, len(services), test.ShouldEqual, 1)
+			service := services[0].(map[string]any)
+			test.That(t, service["name"], test.ShouldEqual, "shell")
+			test.That(t, service["api"], test.ShouldEqual, "rdk:service:shell")
+		})
+
+		// Helper function to test detection of existing shell service
+		testExistingShellService := func(t *testing.T, serviceConfig map[string]any) {
+			t.Helper()
+			confWithService, err := structpb.NewStruct(map[string]any{
+				"modules":  []any{},
+				"services": []any{serviceConfig},
+			})
+			test.That(t, err, test.ShouldBeNil)
+
+			cCtx2, vc2, _, _ := setup(
+				mockAppServiceClientWithRobotPart(confWithService, nil),
+				nil,
+				&inject.BuildServiceClient{},
+				map[string]any{moduleFlagPath: manifestPath},
+				"token",
+			)
+
+			part, _ := vc2.getRobotPart("id")
+			err = addShellService(cCtx2, vc2, part.Part, false)
+			test.That(t, err, test.ShouldBeNil)
+			services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
+			test.That(t, ok, test.ShouldBeTrue)
+			// Should still have only 1 service (not added again)
+			test.That(t, len(services), test.ShouldEqual, 1)
+		}
+
+		t.Run("detectsExistingServiceWithTypeField", func(t *testing.T) {
+			testExistingShellService(t, map[string]any{
+				"type": "shell",
+				"name": "existing-shell",
+			})
+		})
+
+		t.Run("detectsExistingServiceWithApiField", func(t *testing.T) {
+			testExistingShellService(t, map[string]any{
+				"api":  "rdk:service:shell",
+				"name": "existing-shell",
+			})
+		})
+	})
+
+	t.Run("versionCheck", func(t *testing.T) {
+		// Test with unsupported version (too old)
+		t.Run("unsupportedVersion", func(t *testing.T) {
+			userInfo, err := structpb.NewStruct(map[string]any{
+				"version":  "0.89.0",
+				"platform": "linux/amd64",
+			})
+			test.That(t, err, test.ShouldBeNil)
+
+			cCtx, vc, _, _ := setup(
+				mockAppServiceClientWithRobotPart(confStruct, userInfo),
+				nil,
+				&inject.BuildServiceClient{},
+				map[string]any{
+					moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
+					moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+				},
+				"token",
+			)
+
+			err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "not supported for hot reloading")
+		})
+
+		// Test with supported version
+		t.Run("supportedVersion", func(t *testing.T) {
+			userInfo, err := structpb.NewStruct(map[string]any{
+				"version":  "0.90.0",
+				"platform": "linux/amd64",
+			})
+			test.That(t, err, test.ShouldBeNil)
+
+			updateCount := 0
+			cCtx, vc, _, _ := setup(
+				mockFullAppServiceClient(confStruct, userInfo, &updateCount),
+				nil,
+				&inject.BuildServiceClient{},
+				map[string]any{
+					moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
+					moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+				},
+				"token",
+			)
+
+			err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, updateCount, test.ShouldEqual, 1)
+		})
 	})
 }
 

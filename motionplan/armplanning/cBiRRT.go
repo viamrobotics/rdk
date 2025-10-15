@@ -7,6 +7,8 @@ import (
 	"slices"
 	"time"
 
+	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
@@ -36,8 +38,9 @@ type cBiRRTMotionPlanner struct {
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
-func newCBiRRTMotionPlanner(pc *planContext, psc *planSegmentContext) (*cBiRRTMotionPlanner, error) {
-	defer pc.planMeta.DeferTiming("newCBiRRTMotionPlanner", time.Now())
+func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegmentContext) (*cBiRRTMotionPlanner, error) {
+	_, span := trace.StartSpan(ctx, "newCBiRRTMotionPlanner")
+	defer span.End()
 	c := &cBiRRTMotionPlanner{
 		pc:  pc,
 		psc: psc,
@@ -82,7 +85,8 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	ctx context.Context,
 	rrtMaps *rrtMaps,
 ) (*rrtSolution, error) {
-	defer mp.pc.planMeta.DeferTiming("rrtRunner", time.Now())
+	ctx, span := trace.StartSpan(ctx, "rrtRunner")
+	defer span.End()
 
 	mp.pc.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d\n", len(rrtMaps.startMap), len(rrtMaps.goalMap))
 
@@ -190,7 +194,8 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	rrtMap map[*node]*node,
 	near, target *node,
 ) *node {
-	defer mp.pc.planMeta.DeferTiming("constrainedExtend", time.Now())
+	ctx, span := trace.StartSpan(ctx, "constrainedExtend")
+	defer span.End()
 	qstep := mp.getFrameSteps(defaultFrameStep, iterationNumber, false)
 
 	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed

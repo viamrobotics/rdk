@@ -48,7 +48,7 @@ func TestMoveOnMap(t *testing.T) {
 
 		injectSlam := createInjectedSlam("test_slam")
 
-		realBase, err := base.FromRobot(myRobot, "test-base")
+		realBase, err := base.FromProvider(myRobot, "test-base")
 		test.That(t, err, test.ShouldBeNil)
 
 		deps := resource.Dependencies{

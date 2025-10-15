@@ -21,7 +21,7 @@ type Tick struct {
 //
 // Value example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the DigitalInterrupt "my_example_digital_interrupt".
 //	interrupt, err := myBoard.DigitalInterruptByName("my_example_digital_interrupt")

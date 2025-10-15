@@ -54,7 +54,7 @@ func registerColorDetector(
 		return nil, errors.Wrapf(err, "error registering color detector %q", name)
 	}
 	if conf.DefaultCamera != "" {
-		_, err = camera.FromRobot(r, conf.DefaultCamera)
+		_, err = camera.FromProvider(r, conf.DefaultCamera)
 		if err != nil {
 			return nil, errors.Errorf("could not find camera %q", conf.DefaultCamera)
 		}
