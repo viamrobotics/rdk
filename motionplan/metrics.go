@@ -312,7 +312,6 @@ func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
 	return ptDelta + orientDelta
 }
 
-
 // TODO(RSDK-2557): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of obstacles rather than terminating
 // the RRT tree when an obstacle is hit
 

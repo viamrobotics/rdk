@@ -142,19 +142,17 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 	}
 
 	if len(psc.pc.lfs.dof) <= 6 {
-		ssc, err := smartSeed(psc.pc.fs)
+		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		sss.seed, err = ssc.findSeed(psc.goal, psc.start, psc.pc.logger)
 		if err != nil {
 			return nil, err
 		}
 	}
 	psc.pc.logger.Debugf("psc.start -> seed: \n%v\n%v", psc.start, sss.seed)
-
-
 	sss.linearSeed, err = psc.pc.lfs.mapToSlice(sss.seed)
 	if err != nil {
 		return nil, err
@@ -280,10 +278,8 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 
 	if len(sss.solutions) == 0 {
 		sss.firstSolutionTime = time.Since(sss.startTime)
-	} 
+	}
 
-
-	
 	myNode := &node{inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
 	sss.solutions = append(sss.solutions, myNode)
 
@@ -303,7 +299,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 // return bool is if we should stop because we're done.
 func (sss *solutionSolvingState) shouldStopEarly() bool {
 	elapsed := time.Since(sss.startTime)
-	
+
 	if len(sss.solutions) >= sss.maxSolutions {
 		sss.psc.pc.logger.Debugf("stopping with %d solutions after: %v", len(sss.solutions), elapsed)
 		return true
@@ -314,8 +310,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		return true
 	}
 
-	
-	if sss.bestScore < (sss.goodCost / 10) && elapsed > 100 * time.Millisecond {
+	if sss.bestScore < (sss.goodCost/10) && elapsed > 100*time.Millisecond {
 		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f (%0.2f) after: %v", sss.bestScore, sss.goodCost, elapsed)
 		return true
 	}
@@ -325,14 +320,13 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		multiple *= (sss.bestScore / sss.goodCost)
 	}
 
-	if elapsed > max(sss.firstSolutionTime * time.Duration(multiple), 100*time.Millisecond) {
+	if elapsed > max(sss.firstSolutionTime*time.Duration(multiple), 100*time.Millisecond) {
 		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f after: %v", sss.bestScore, elapsed)
 		return true
 	}
 
 	return false
 }
-
 
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and
 // score them by constraints.

@@ -188,7 +188,7 @@ func TestPirouette(t *testing.T) {
 	fs := referenceframe.NewEmptyFrameSystem("pirouette")
 	err = fs.AddFrame(armKinematics, fs.World())
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	for iter := 0; iter < 10; iter++ {
 		// keep track of previous index of idealJointValues, used for calculating expected joint 0 change
 		prevIndex := 0

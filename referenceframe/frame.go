@@ -37,17 +37,17 @@ func (l *Limit) Range() float64 {
 
 const rangeLimit = 999
 
-// GoodLimits gives min, max, range, but capped to -999,999
+// GoodLimits gives min, max, range, but capped to -999,999.
 func (l *Limit) GoodLimits() (float64, float64, float64) {
 	a := l.Min
 	b := l.Max
-	if a < -1 * rangeLimit {
+	if a < -1*rangeLimit {
 		a = -1 * rangeLimit
 	}
 	if b > rangeLimit {
 		b = rangeLimit
 	}
-	return a, b, b-a
+	return a, b, b - a
 }
 
 func limitsAlmostEqual(limits1, limits2 []Limit, epsilon float64) bool {

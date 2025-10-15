@@ -70,7 +70,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		seedFloats := seed
 
 		var myTravelPercent []float64
-		if i <= len(ik.solvers) / 3 {
+		if i <= len(ik.solvers)/3 {
 			// TODO: this is probably too conservative
 			for _, p := range travelPercent {
 				myTravelPercent = append(myTravelPercent, max(.1, p))

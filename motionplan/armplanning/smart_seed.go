@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
-	
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -15,24 +15,24 @@ import (
 
 type smartSeedCacheEntry struct {
 	inputs referenceframe.FrameSystemInputs
-	poses referenceframe.FrameSystemPoses
+	poses  referenceframe.FrameSystemPoses
 }
 
 type goalCacheBox struct {
-	hash string
-	center r3.Vector
+	hash    string
+	center  r3.Vector
 	entries []smartSeedCacheEntry
 }
 
 type goalCache struct {
 	minCartesian, maxCartesian r3.Vector
-	boxes map[string]*goalCacheBox // hash to list
+	boxes                      map[string]*goalCacheBox // hash to list
 }
 
 func (gc *goalCache) hashKey(value, min, max float64) int {
 	x := (value - min) / (max - min)
 
-	d := int(x*10)
+	d := int(x * 10)
 	if d >= 10 {
 		d = 9
 	}
@@ -47,7 +47,7 @@ func (gc *goalCache) hash(p r3.Vector) string {
 }
 
 type smartSeedCache struct {
-	fs *referenceframe.FrameSystem
+	fs  *referenceframe.FrameSystem
 	lfs *linearizedFrameSystem
 
 	rawCache []smartSeedCacheEntry
@@ -55,27 +55,24 @@ type smartSeedCache struct {
 	geoCache map[string]*goalCache
 }
 
-func (scs *smartSeedCache) findBoxes(goalFrame string, goalPose spatialmath.Pose) []*goalCacheBox {
+func (ssc *smartSeedCache) findBoxes(goalFrame string, goalPose spatialmath.Pose) []*goalCacheBox {
 	type e struct {
 		b *goalCacheBox
 		d float64
 	}
 
-	if scs.geoCache[goalFrame] == nil {
-		err := scs.buildInverseCache(goalFrame)
-		if err != nil {
-			panic(err)
-		}
+	if ssc.geoCache[goalFrame] == nil {
+		ssc.buildInverseCache(goalFrame)
 	}
-	
+
 	best := []e{}
 
-	for _, b := range scs.geoCache[goalFrame].boxes {
+	for _, b := range ssc.geoCache[goalFrame].boxes {
 		d := goalPose.Point().Distance(b.center)
-		best = append(best, e{b,d})
+		best = append(best, e{b, d})
 	}
 
-	sort.Slice(best, func(a,b int) bool {
+	sort.Slice(best, func(a, b int) bool {
 		return best[a].d < best[b].d
 	})
 
@@ -84,37 +81,39 @@ func (scs *smartSeedCache) findBoxes(goalFrame string, goalPose spatialmath.Pose
 	for i := 0; i < 10 && i < len(best); i++ {
 		boxes = append(boxes, best[i].b)
 	}
-	
+
 	return boxes
 }
 
-func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses, start referenceframe.FrameSystemInputs, logger logging.Logger) (referenceframe.FrameSystemInputs, error) {
+func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses,
+	start referenceframe.FrameSystemInputs,
+	logger logging.Logger,
+) (referenceframe.FrameSystemInputs, error) {
 	if len(goal) > 1 {
 		return nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
 	}
-	
+
 	for _, p := range goal {
-		if p.Parent() != "world" {
+		if p.Parent() != referenceframe.World {
 			return nil, fmt.Errorf("goal has to be in world, not %s", p.Parent())
 		}
 	}
 
 	goalFrame := ""
 	var goalPose spatialmath.Pose
-	
+
 	for k, v := range goal {
 		goalFrame = k
 		goalPose = v.Pose()
 	}
 
 	type entry struct {
-		e *smartSeedCacheEntry 
+		e        *smartSeedCacheEntry
 		distance float64
-		cost float64
+		cost     float64
 	}
-	
-	best := []entry{}
 
+	best := []entry{}
 
 	startPoses, err := start.ComputePoses(ssc.fs)
 	if err != nil {
@@ -122,7 +121,7 @@ func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses, start 
 	}
 
 	startDistance := ssc.distance(startPoses, goal)
-	
+
 	bestDistance := startDistance * 2
 
 	boxes := ssc.findBoxes(goalFrame, goalPose)
@@ -133,16 +132,16 @@ func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses, start 
 			if distance > (bestDistance * 2) {
 				continue
 			}
-			
+
 			if distance < bestDistance {
 				bestDistance = distance
 			}
-			
+
 			cost := 0.0
 			for k, j := range start {
 				cost += referenceframe.InputsL2Distance(j, c.inputs[k])
 			}
-			
+
 			best = append(best, entry{&c, distance, cost})
 		}
 	}
@@ -151,8 +150,8 @@ func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses, start 
 		logger.Debugf("no best, returning start")
 		return start, nil
 	}
-	
-	sort.Slice(best, func(i,j int) bool {
+
+	sort.Slice(best, func(i, j int) bool {
 		return best[i].distance < best[j].distance
 	})
 
@@ -166,7 +165,7 @@ func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses, start 
 
 	best = best[0:cutIdx]
 
-	sort.Slice(best, func(i,j int) bool {
+	sort.Slice(best, func(i, j int) bool {
 		return best[i].cost < best[j].cost
 	})
 
@@ -176,15 +175,15 @@ func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses, start 
 			logger.Debugf("%v dist: %02.f cost: %0.2f", e.e.inputs, e.distance, e.cost)
 		}
 	}
-	
+
 	return best[0].e.inputs, nil
 }
 
 func (ssc *smartSeedCache) distance(a, b referenceframe.FrameSystemPoses) float64 {
 	dist := 0.0
-	
+
 	for k, p := range a {
-		if p.Parent() != "world" {
+		if p.Parent() != referenceframe.World {
 			panic(fmt.Errorf("eliot fucked up %s", p.Parent()))
 		}
 
@@ -192,8 +191,8 @@ func (ssc *smartSeedCache) distance(a, b referenceframe.FrameSystemPoses) float6
 		if !ok {
 			continue
 		}
-		
-		if pp == nil || pp.Parent() != "world" {
+
+		if pp == nil || pp.Parent() != referenceframe.World {
 			panic(fmt.Errorf("eliot fucked up %s", pp))
 		}
 
@@ -214,11 +213,11 @@ func (ssc *smartSeedCache) addToCache(values []float64) error {
 	}
 
 	for _, p := range poses {
-		if p.Parent() != "world" {
+		if p.Parent() != referenceframe.World {
 			return fmt.Errorf("why not in world, but %s", p.Parent())
 		}
 	}
-	
+
 	ssc.rawCache = append(ssc.rawCache, smartSeedCacheEntry{inputs, poses})
 	return nil
 }
@@ -234,10 +233,10 @@ func (ssc *smartSeedCache) buildRawCache(values []float64, joint int) error {
 
 	min, max, r := ssc.lfs.dof[joint].GoodLimits()
 	values[joint] = min
-	
+
 	jog := r / 10
 	for values[joint] <= max {
-		err := ssc.buildRawCache(values, joint + 1)
+		err := ssc.buildRawCache(values, joint+1)
 		if err != nil {
 			return err
 		}
@@ -255,17 +254,14 @@ func (ssc *smartSeedCache) buildCache() error {
 
 	ssc.geoCache = map[string]*goalCache{}
 	/*
-	for frame, _ := range ssc.rawCache[0].poses {
-		err = ssc.buildInverseCache(frame)
-		if err != nil {
-			return fmt.Errorf("cannot buildInverseCache for %s: %w", frame, err)
+		for frame := range ssc.rawCache[0].poses {
+			ssc.buildInverseCache(frame)
 		}
-	}
 	*/
 	return nil
 }
 
-func (ssc *smartSeedCache) buildInverseCache(frame string) error {
+func (ssc *smartSeedCache) buildInverseCache(frame string) {
 	gc := &goalCache{
 		boxes: map[string]*goalCacheBox{},
 	}
@@ -296,34 +292,31 @@ func (ssc *smartSeedCache) buildInverseCache(frame string) error {
 			v.center = v.center.Add(p)
 		}
 
-		v.center = v.center.Mul( 1.0 / float64(len(v.entries)) )
+		v.center = v.center.Mul(1.0 / float64(len(v.entries)))
 	}
-	
-	ssc.geoCache[frame] = gc
-	
-	return nil
 
+	ssc.geoCache[frame] = gc
 }
 
 var foooooo map[*referenceframe.FrameSystem]*smartSeedCache
 
-func smartSeed(fs *referenceframe.FrameSystem) (*smartSeedCache, error) {
+func smartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) (*smartSeedCache, error) {
 	if foooooo == nil {
 		foooooo = map[*referenceframe.FrameSystem]*smartSeedCache{}
 	}
 	c, ok := foooooo[fs]
-	fmt.Printf("ok: %v\n", ok)
+	logger.Warnf("ok: %v", ok)
 	if ok {
 		return c, nil
 	}
-	
+
 	lfs, err := newLinearizedFrameSystem(fs)
 	if err != nil {
 		return nil, err
 	}
 
 	c = &smartSeedCache{
-		fs: fs,
+		fs:  fs,
 		lfs: lfs,
 	}
 
@@ -332,7 +325,7 @@ func smartSeed(fs *referenceframe.FrameSystem) (*smartSeedCache, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("time to build: %v dof: %v\n", time.Since(start), len(lfs.dof))
+	logger.Warnf("time to build: %v dof: %v", time.Since(start), len(lfs.dof))
 	foooooo[fs] = c
 	return c, nil
 }
