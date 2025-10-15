@@ -172,3 +172,4 @@ func (lfs *linearizedFrameSystem) jog(idx int, val, percentJog float64) float64 
 
 	return val
 }
+

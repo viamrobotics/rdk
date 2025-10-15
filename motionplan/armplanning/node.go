@@ -142,7 +142,17 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 		sss.maxSolutions = defaultSolutionsToSeed
 	}
 
-	sss.linearSeed, err = psc.pc.lfs.mapToSlice(psc.start)
+	ssc, err := smartSeed(psc.pc.fs)
+	if err != nil {
+		return nil, err
+	}
+	
+	seed, err := ssc.findSeed(psc.goal, psc.start)
+	if err != nil {
+		return nil, err
+	}
+
+	sss.linearSeed, err = psc.pc.lfs.mapToSlice(seed)
 	if err != nil {
 		return nil, err
 	}
