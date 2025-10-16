@@ -3,6 +3,7 @@
 package baseplanning
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -20,6 +21,7 @@ const relativePlanOptsResolution = 30
 // detected, the interpolated position of the rover when a collision is detected is returned along
 // with an error with additional collision details.
 func CheckPlan(
+	ctx context.Context,
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
@@ -47,7 +49,7 @@ func CheckPlan(
 	if motionChains.useTPspace {
 		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
 	}
-	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
+	return checkPlanAbsolute(ctx, checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
 }
 
 func checkPlanRelative(
@@ -191,6 +193,7 @@ func checkPlanRelative(
 }
 
 func checkPlanAbsolute(
+	ctx context.Context,
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
@@ -262,10 +265,11 @@ func checkPlanAbsolute(
 		segments = append(segments, segment)
 	}
 
-	return checkSegmentsFS(segments, lookAheadDistanceMM, planOpts.Resolution, motionChains, constraintHandler, fs)
+	return checkSegmentsFS(ctx, segments, lookAheadDistanceMM, planOpts.Resolution, motionChains, constraintHandler, fs)
 }
 
 func checkSegmentsFS(
+	ctx context.Context,
 	segments []*motionplan.SegmentFS,
 	lookAheadDistanceMM float64,
 	resolution float64,
@@ -277,14 +281,14 @@ func checkSegmentsFS(
 	moving, _ := motionChains.framesFilteredByMovingAndNonmoving(fs)
 	dists := map[string]float64{}
 	for _, segment := range segments {
-		lastValid, err := constraintHandler.CheckSegmentAndStateValidityFS(segment, resolution)
+		lastValid, err := constraintHandler.CheckSegmentAndStateValidityFS(ctx, segment, resolution)
 		if err != nil {
 			checkConf := segment.StartConfiguration
 			if lastValid != nil {
 				checkConf = lastValid.EndConfiguration
 			}
 			var reason string
-			err := constraintHandler.CheckStateFSConstraints(&motionplan.StateFS{Configuration: checkConf, FS: fs})
+			err := constraintHandler.CheckStateFSConstraints(ctx, &motionplan.StateFS{Configuration: checkConf, FS: fs})
 			if err != nil {
 				reason = " reason: " + err.Error()
 			} else {

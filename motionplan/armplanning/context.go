@@ -145,6 +145,7 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end referen
 	_, span := trace.StartSpan(ctx, "checkPath")
 	defer span.End()
 	_, err := psc.checker.CheckSegmentAndStateValidityFS(
+		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: start,
 			EndConfiguration:   end,
@@ -155,11 +156,13 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end referen
 	return err
 }
 
-func (psc *planSegmentContext) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
-	return psc.checker.CheckStateFSConstraints(&motionplan.StateFS{
-		Configuration: inputs,
-		FS:            psc.pc.fs,
-	}) == nil
+func (psc *planSegmentContext) checkInputs(ctx context.Context, inputs referenceframe.FrameSystemInputs) bool {
+	return psc.checker.CheckStateFSConstraints(
+		ctx,
+		&motionplan.StateFS{
+			Configuration: inputs,
+			FS:            psc.pc.fs,
+		}) == nil
 }
 
 func translateGoalsToWorldPosition(

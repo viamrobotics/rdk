@@ -466,7 +466,7 @@ func testPlanner(t *testing.T, plannerFunc plannerConstructor, config planConfig
 	// test that path doesn't violate constraints
 	test.That(t, len(nodes), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(nodes)-1; j++ {
-		_, err := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(&motionplan.SegmentFS{
+		_, err := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(context.Background(), &motionplan.SegmentFS{
 			StartConfiguration: nodes[j].Q(),
 			EndConfiguration:   nodes[j+1].Q(),
 			FS:                 cfg.FS,
@@ -1307,6 +1307,7 @@ func TestValidatePlanRequest(t *testing.T) {
 }
 
 func TestArmGantryCheckPlan(t *testing.T) {
+	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("test")
 
@@ -1336,7 +1337,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 		PlannerOptions: NewBasicPlannerOptions(),
 	}
 
-	plan, err := PlanMotion(context.Background(), logger, &planReq)
+	plan, err := PlanMotion(ctx, logger, &planReq)
 	test.That(t, err, test.ShouldBeNil)
 
 	startPose := plan.Path()[0][f.Name()].Pose()
@@ -1350,7 +1351,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 				f.Name(): frame.NewPoseInFrame(frame.World, startPose),
 			},
 		}
-		err = CheckPlan(f, executionState, nil, fs, math.Inf(1))
+		err = CheckPlan(ctx, f, executionState, nil, fs, math.Inf(1))
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("check plan with obstacle", func(t *testing.T) {
@@ -1371,7 +1372,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 				f.Name(): frame.NewPoseInFrame(frame.World, startPose),
 			},
 		}
-		err = CheckPlan(f, executionState, worldState, fs, math.Inf(1))
+		err = CheckPlan(ctx, f, executionState, worldState, fs, math.Inf(1))
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
