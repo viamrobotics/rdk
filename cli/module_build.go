@@ -739,7 +739,7 @@ func (c *viamClient) inferOrgIDFromManifest(manifest moduleManifest) (string, er
 	return org.GetId(), nil
 }
 
-func (c *viamClient) triggerCloudReload(
+func (c *viamClient) triggerCloudReloadBuild(
 	ctx *cli.Context,
 	args reloadModuleArgs,
 	manifest moduleManifest,
@@ -871,7 +871,7 @@ func (c *viamClient) moduleCloudReload(
 	}
 
 	infof(c.c.App.Writer, "Creating a new cloud build and swapping it onto the requested machine part. This may take a few minutes...")
-	buildID, err := c.triggerCloudReload(ctx, args, manifest, archivePath, partID)
+	buildID, err := c.triggerCloudReloadBuild(ctx, args, manifest, archivePath, partID)
 	if err != nil {
 		return "", err
 	}
@@ -896,7 +896,7 @@ func (c *viamClient) moduleCloudReload(
 
 	downloadArgs := downloadModuleFlags{
 		ID:       id,
-		Version:  reloadVersionFormatted,
+		Version:  getReloadVersion(reloadVersionPrefix, partID),
 		Platform: platform,
 	}
 
