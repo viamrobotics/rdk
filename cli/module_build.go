@@ -799,7 +799,6 @@ func (c *viamClient) triggerCloudReloadBuild(
 		Version:        getReloadVersion(reloadSourceVersionPrefix, partID),
 		Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
 	}
-	// CR erodkin: the current logic has us using `reloadVersionPrefix` for module building and downloading but `source` prefix for the package. look into this.
 	reqInner := &v1.CreatePackageRequest{
 		Package: &v1.CreatePackageRequest_Info{
 			Info: &pkgInfo,
