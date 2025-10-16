@@ -1392,9 +1392,11 @@ var app = &cli.App{
 					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
-							Name:      "create",
-							Usage:     "create an index for a data collection",
-							UsageText: createUsageText("data index create", []string{generalFlagOrgID, dataFlagCollectionType, dataFlagIndexSpecFile}, true, false),
+							Name:  "create",
+							Usage: "create an index for a data collection",
+							UsageText: createUsageText(
+								"data index create", []string{generalFlagOrgID, dataFlagCollectionType, dataFlagIndexSpecFile}, true, false,
+							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,

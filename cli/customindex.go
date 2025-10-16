@@ -17,11 +17,19 @@ const (
 	hotStoreCollectionType     = pb.IndexableCollection_INDEXABLE_COLLECTION_HOT_STORE
 	pipelineSinkCollectionType = pb.IndexableCollection_INDEXABLE_COLLECTION_PIPELINE_SINK
 	unspecifiedCollectionType  = pb.IndexableCollection_INDEXABLE_COLLECTION_UNSPECIFIED
+
+	hotStoreCollectionTypeStr     = "hot_store"
+	pipelineSinkCollectionTypeStr = "pipeline_sink"
 )
 
 var (
-	ErrInvalidCollectionType  = errors.New("invalid collection type, must be one of: hot_store, pipeline_sink")
-	ErrPipelineNameRequired   = errors.New("--pipeline-name is required when --collection-type is 'pipeline_sink'")
+	// ErrInvalidCollectionType is returned when an invalid collection type is provided in the arguments.
+	ErrInvalidCollectionType = errors.New("invalid collection type, must be one of: hot_store, pipeline_sink")
+
+	// ErrPipelineNameRequired is returned when --pipeline-name is missing for pipeline_sink collection type.
+	ErrPipelineNameRequired = errors.New("--pipeline-name is required when --collection-type is 'pipeline_sink'")
+
+	// ErrPipelineNameNotAllowed is returned when --pipeline-name is provided for hot_store collection type.
 	ErrPipelineNameNotAllowed = errors.New("--pipeline-name can only be used when --collection-type is 'pipeline_sink'")
 )
 
@@ -32,6 +40,8 @@ type createCustomIndexArgs struct {
 	IndexSpecPath  string
 }
 
+// CreateCustomIndexAction creates a custom index for a specified organization and collection type
+// using the provided index specification file in the arguments.
 func CreateCustomIndexAction(c *cli.Context, args createCustomIndexArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -70,6 +80,7 @@ type deleteCustomIndexArgs struct {
 	IndexName      string
 }
 
+// DeleteCustomIndexAction deletes a custom index for a specified organization and collection type using the provided index name.
 func DeleteCustomIndexAction(c *cli.Context, args deleteCustomIndexArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -96,6 +107,7 @@ func DeleteCustomIndexAction(c *cli.Context, args deleteCustomIndexArgs) error {
 	return nil
 }
 
+// DeleteCustomIndexConfirmation prompts the user for confirmation before deleting a custom index.
 func DeleteCustomIndexConfirmation(c *cli.Context, args deleteCustomIndexArgs) error {
 	printf(c.App.Writer, "Are you sure you want to delete index (name: %s)? This action cannot be undone. (y/N): ", args.IndexName)
 	if err := c.Err(); err != nil {
@@ -119,6 +131,7 @@ type listCustomIndexesArgs struct {
 	PipelineName   string
 }
 
+// ListCustomIndexesAction lists all custom indexes for a specified organization and collection type.
 func ListCustomIndexesAction(c *cli.Context, args listCustomIndexesArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -148,7 +161,6 @@ func ListCustomIndexesAction(c *cli.Context, args listCustomIndexesArgs) error {
 	for _, index := range resp.Indexes {
 		printf(c.App.Writer, "- Name: %s\n", index.IndexName)
 		printf(c.App.Writer, "  Spec: %s\n", index.IndexSpec)
-
 	}
 
 	return nil
@@ -157,9 +169,9 @@ func ListCustomIndexesAction(c *cli.Context, args listCustomIndexesArgs) error {
 func validateCollectionTypeArgs(c *cli.Context, collectionType string) (pb.IndexableCollection, error) {
 	var collectionTypeProto pb.IndexableCollection
 	switch collectionType {
-	case "hot_store":
+	case hotStoreCollectionTypeStr:
 		collectionTypeProto = hotStoreCollectionType
-	case "pipeline_sink":
+	case pipelineSinkCollectionTypeStr:
 		collectionTypeProto = pipelineSinkCollectionType
 	default:
 		return unspecifiedCollectionType, ErrInvalidCollectionType
@@ -168,11 +180,11 @@ func validateCollectionTypeArgs(c *cli.Context, collectionType string) (pb.Index
 	collectionTypeFlag := c.String(dataFlagCollectionType)
 	pipelineName := c.String(dataFlagPipelineName)
 
-	if collectionTypeFlag == "pipeline_sink" && pipelineName == "" {
+	if collectionTypeFlag == pipelineSinkCollectionTypeStr && pipelineName == "" {
 		return unspecifiedCollectionType, ErrPipelineNameRequired
 	}
 
-	if collectionTypeFlag != "pipeline_sink" && pipelineName != "" {
+	if collectionTypeFlag != pipelineSinkCollectionTypeStr && pipelineName != "" {
 		return unspecifiedCollectionType, ErrPipelineNameNotAllowed
 	}
 
@@ -180,6 +192,7 @@ func validateCollectionTypeArgs(c *cli.Context, collectionType string) (pb.Index
 }
 
 func readJSONToByteSlices(filePath string) ([][]byte, error) {
+	//nolint:gosec // filePath is a user-provided path for a JSON file containing an index spec
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
