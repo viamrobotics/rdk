@@ -34,15 +34,15 @@ func Named(name string) resource.Name {
 // Properties defines properties of an audio in device.
 type Properties struct {
 	SupportedCodecs []string
-	SampleRate      int32
+	SampleRateHz    int32
 	NumChannels     int32
 }
 
 // AudioInfo defines information about audio data.
 type AudioInfo struct {
-	Codec       string
-	SampleRate  int32
-	NumChannels int32
+	Codec        string
+	SampleRateHz int32
+	NumChannels  int32
 }
 
 // AudioChunk defines a chunk of audio data.
@@ -87,15 +87,15 @@ func audioChunkToPb(chunk *AudioChunk) *pb.AudioChunk {
 	var info *commonpb.AudioInfo
 	if chunk.Info != nil {
 		info = &commonpb.AudioInfo{
-			Codec:       chunk.Info.Codec,
-			SampleRate:  chunk.Info.SampleRate,
-			NumChannels: chunk.Info.NumChannels,
+			Codec:        chunk.Info.Codec,
+			SampleRateHz: chunk.Info.SampleRateHz,
+			NumChannels:  chunk.Info.NumChannels,
 		}
 	}
 
 	return &pb.AudioChunk{
 		AudioData:                 chunk.AudioData,
-		Info:                      info,
+		AudioInfo:                 info,
 		StartTimestampNanoseconds: chunk.StartTimestampNanoseconds,
 		EndTimestampNanoseconds:   chunk.EndTimestampNanoseconds,
 		Sequence:                  chunk.Sequence,
@@ -104,8 +104,8 @@ func audioChunkToPb(chunk *AudioChunk) *pb.AudioChunk {
 
 func audioInfoPBToStruct(pb *commonpb.AudioInfo) *AudioInfo {
 	return &AudioInfo{
-		Codec:       pb.Codec,
-		SampleRate:  pb.SampleRate,
-		NumChannels: pb.NumChannels,
+		Codec:        pb.Codec,
+		SampleRateHz: pb.SampleRateHz,
+		NumChannels:  pb.NumChannels,
 	}
 }

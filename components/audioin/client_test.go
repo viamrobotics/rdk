@@ -128,7 +128,7 @@ func TestWorkingAudioInClient(t *testing.T) {
 		// Properties
 		expectedProperties := audioin.Properties{
 			SupportedCodecs: []string{"pcm16", "mp3"},
-			SampleRate:      44100,
+			SampleRateHz:    44100,
 			NumChannels:     2,
 		}
 
@@ -141,7 +141,7 @@ func TestWorkingAudioInClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		test.That(t, properties.SupportedCodecs, test.ShouldResemble, expectedProperties.SupportedCodecs)
-		test.That(t, properties.SampleRate, test.ShouldEqual, expectedProperties.SampleRate)
+		test.That(t, properties.SampleRateHz, test.ShouldEqual, expectedProperties.SampleRateHz)
 		test.That(t, properties.NumChannels, test.ShouldEqual, expectedProperties.NumChannels)
 
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
