@@ -49,7 +49,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	retChan chan<- *Solution,
 	seed []float64,
 	travelPercent []float64,
-	m func([]float64) float64,
+	m CostFunc,
 	rseed int,
 ) (int, error) {
 	randSeed := rand.New(rand.NewSource(int64(rseed))) //nolint: gosec
