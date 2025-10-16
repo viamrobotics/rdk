@@ -186,7 +186,8 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 // random configuration for the other. This function attempts to replace that random configuration with the seed configuration, if valid,
 // and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
 // configuration to the seed.
-func (sss *solutionSolvingState) nonchainMinimize(seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
+func (sss *solutionSolvingState) nonchainMinimize(ctx context.Context,
+	seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
 	// Create a map with nonmoving configurations replaced with their seed values
 	alteredStep := referenceframe.FrameSystemInputs{}
 	for _, frame := range sss.moving {
@@ -195,7 +196,7 @@ func (sss *solutionSolvingState) nonchainMinimize(seed, step referenceframe.Fram
 	for _, frame := range sss.nonmoving {
 		alteredStep[frame] = seed[frame]
 	}
-	if sss.psc.checkInputs(alteredStep) {
+	if sss.psc.checkInputs(ctx, alteredStep) {
 		return alteredStep
 	}
 
@@ -203,6 +204,7 @@ func (sss *solutionSolvingState) nonchainMinimize(seed, step referenceframe.Fram
 
 	//nolint:errcheck
 	lastGood, _ := sss.psc.checker.CheckStateConstraintsAcrossSegmentFS(
+		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: step,
 			EndConfiguration:   alteredStep,
@@ -228,13 +230,13 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		return false
 	}
 
-	alteredStep := sss.nonchainMinimize(sss.psc.start, step)
+	alteredStep := sss.nonchainMinimize(ctx, sss.psc.start, step)
 	if alteredStep != nil {
 		// if nil, step is guaranteed to fail the below check, but we want to do it anyway to capture the failure reason
 		step = alteredStep
 	}
 	// Ensure the end state is a valid one
-	err = sss.psc.checker.CheckStateFSConstraints(&motionplan.StateFS{
+	err = sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: step,
 		FS:            sss.psc.pc.fs,
 	})
