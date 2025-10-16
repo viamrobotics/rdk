@@ -23,14 +23,9 @@ const (
 )
 
 var (
-	// ErrInvalidCollectionType is returned when an invalid collection type is provided in the arguments.
-	ErrInvalidCollectionType = errors.New("invalid collection type, must be one of: hot_store, pipeline_sink")
-
-	// ErrPipelineNameRequired is returned when --pipeline-name is missing for pipeline_sink collection type.
-	ErrPipelineNameRequired = errors.New("--pipeline-name is required when --collection-type is 'pipeline_sink'")
-
-	// ErrPipelineNameNotAllowed is returned when --pipeline-name is provided for hot_store collection type.
-	ErrPipelineNameNotAllowed = errors.New("--pipeline-name can only be used when --collection-type is 'pipeline_sink'")
+	errInvalidCollectionType  = errors.New("invalid collection type, must be one of: hot_store, pipeline_sink")
+	errPipelineNameRequired   = errors.New("--pipeline-name is required when --collection-type is 'pipeline_sink'")
+	errPipelineNameNotAllowed = errors.New("--pipeline-name can only be used when --collection-type is 'pipeline_sink'")
 )
 
 type createCustomIndexArgs struct {
@@ -174,18 +169,18 @@ func validateCollectionTypeArgs(c *cli.Context, collectionType string) (pb.Index
 	case pipelineSinkCollectionTypeStr:
 		collectionTypeProto = pipelineSinkCollectionType
 	default:
-		return unspecifiedCollectionType, ErrInvalidCollectionType
+		return unspecifiedCollectionType, errInvalidCollectionType
 	}
 
 	collectionTypeFlag := c.String(dataFlagCollectionType)
 	pipelineName := c.String(dataFlagPipelineName)
 
 	if collectionTypeFlag == pipelineSinkCollectionTypeStr && pipelineName == "" {
-		return unspecifiedCollectionType, ErrPipelineNameRequired
+		return unspecifiedCollectionType, errPipelineNameRequired
 	}
 
 	if collectionTypeFlag != pipelineSinkCollectionTypeStr && pipelineName != "" {
-		return unspecifiedCollectionType, ErrPipelineNameNotAllowed
+		return unspecifiedCollectionType, errPipelineNameNotAllowed
 	}
 
 	return collectionTypeProto, nil

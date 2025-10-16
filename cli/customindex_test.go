@@ -35,37 +35,37 @@ func TestValidateCollectionTypeArgs(t *testing.T) {
 			collectionType: "pipeline_sink",
 			pipelineName:   "",
 			expectedType:   unspecifiedCollectionType,
-			expectedError:  ErrPipelineNameRequired,
+			expectedError:  errPipelineNameRequired,
 		},
 		"hot_store_with_pipeline": {
 			collectionType: "hot_store",
 			pipelineName:   "my-pipeline",
 			expectedType:   unspecifiedCollectionType,
-			expectedError:  ErrPipelineNameNotAllowed,
+			expectedError:  errPipelineNameNotAllowed,
 		},
 		"unknown_collection_type": {
 			collectionType: "unknown",
 			pipelineName:   "",
 			expectedType:   unspecifiedCollectionType,
-			expectedError:  ErrInvalidCollectionType,
+			expectedError:  errInvalidCollectionType,
 		},
 		"empty_collection_type": {
 			collectionType: "",
 			pipelineName:   "",
 			expectedType:   unspecifiedCollectionType,
-			expectedError:  ErrInvalidCollectionType,
+			expectedError:  errInvalidCollectionType,
 		},
 		"invalid_case_sensitivity": {
 			collectionType: "HOT_STORE",
 			pipelineName:   "",
 			expectedType:   unspecifiedCollectionType,
-			expectedError:  ErrInvalidCollectionType,
+			expectedError:  errInvalidCollectionType,
 		},
 		"pipeline_sink_invalid_case_with_pipeline": {
 			collectionType: "PIPELINE_SINK",
 			pipelineName:   "my-pipeline",
 			expectedType:   unspecifiedCollectionType,
-			expectedError:  ErrInvalidCollectionType,
+			expectedError:  errInvalidCollectionType,
 		},
 	}
 
