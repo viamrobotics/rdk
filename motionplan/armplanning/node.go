@@ -6,8 +6,10 @@ import (
 	"math"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/kr/pretty"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
@@ -49,6 +51,9 @@ func fixedStepInterpolation(start, target *node, qstep map[string][]float64) ref
 }
 
 type node struct {
+	name     int
+	goalNode bool
+
 	inputs referenceframe.FrameSystemInputs
 	// Dan: What is a corner?
 	corner bool
@@ -56,10 +61,15 @@ type node struct {
 	cost float64
 	// checkPath is true when the path has been checked and was determined to meet constraints
 	checkPath bool
+
+	liveSolution bool
 }
+
+var nodeNameCounter atomic.Int64
 
 func newConfigurationNode(q referenceframe.FrameSystemInputs) *node {
 	return &node{
+		name:   int(nodeNameCounter.Add(1)),
 		inputs: q,
 		corner: false,
 	}
@@ -99,9 +109,13 @@ func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []refer
 		// extract the path to the goal
 		for goalReached != nil {
 			path = append(path, goalReached.inputs)
+			if goalReached.goalNode {
+				fmt.Println("Solution node:", goalReached.name, "Live?", goalReached.liveSolution)
+			}
 			goalReached = goalMap[goalReached]
 		}
 	}
+
 	return path
 }
 
@@ -218,32 +232,19 @@ func (sss *solutionSolvingState) nonchainMinimize(ctx context.Context,
 	return nil
 }
 
-// return bool is if we should stop because we're done.
-func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution,
-) bool {
-	ctx, span := trace.StartSpan(ctx, "process")
+// processCorrectness returns a non-nil SegmentFS if the step satisfies all constraints.
+func (sss *solutionSolvingState) processCorrectness(ctx context.Context, step referenceframe.FrameSystemInputs) *motionplan.SegmentFS {
+	ctx, span := trace.StartSpan(ctx, "processCorrectness")
 	defer span.End()
-	sss.processCalls++
 
-	step, err := sss.psc.pc.lfs.sliceToMap(stepSolution.Configuration)
-	if err != nil {
-		sss.psc.pc.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
-		return false
-	}
-
-	alteredStep := sss.nonchainMinimize(ctx, sss.psc.start, step)
-	if alteredStep != nil {
-		// if nil, step is guaranteed to fail the below check, but we want to do it anyway to capture the failure reason
-		step = alteredStep
-	}
 	// Ensure the end state is a valid one
-	err = sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
+	err := sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: step,
 		FS:            sss.psc.pc.fs,
 	})
 	if err != nil {
 		sss.failures.add(step, err)
-		return false
+		return nil
 	}
 
 	stepArc := &motionplan.SegmentFS{
@@ -254,9 +255,18 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	err = sss.psc.checker.CheckSegmentFSConstraints(stepArc)
 	if err != nil {
 		sss.failures.add(step, err)
-		return false
+		return nil
 	}
 
+	return stepArc
+}
+
+// processSimilarity returns a non-nil *node object if the solution is unique amongst the existing solutions
+func (sss *solutionSolvingState) processSimilarity(
+	ctx context.Context,
+	step referenceframe.FrameSystemInputs,
+	stepArc *motionplan.SegmentFS,
+) *node {
 	for _, oldSol := range sss.solutions {
 		similarity := &motionplan.SegmentFS{
 			StartConfiguration: oldSol.inputs,
@@ -265,11 +275,52 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		}
 		simscore := sss.psc.pc.configurationDistanceFunc(similarity)
 		if simscore < defaultSimScore {
-			return false
+			return nil
 		}
 	}
 
-	myNode := &node{inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
+	return &node{name: int(nodeNameCounter.Add(1)), inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
+}
+
+func (sss *solutionSolvingState) toInputs(ctx context.Context, stepSolution *ik.Solution) referenceframe.FrameSystemInputs {
+	step, err := sss.psc.pc.lfs.sliceToMap(stepSolution.Configuration)
+	if err != nil {
+		sss.psc.pc.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
+		return nil
+	}
+
+	alteredStep := sss.nonchainMinimize(ctx, sss.psc.start, step)
+	if alteredStep != nil {
+		// if nil, step is guaranteed to fail later checks, but we want to do it anyway to capture the failure reason
+		return alteredStep
+	}
+
+	return step
+}
+
+// return bool is if we should stop because we're done.
+func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution,
+) bool {
+	ctx, span := trace.StartSpan(ctx, "process")
+	defer span.End()
+	sss.processCalls++
+
+	step := sss.toInputs(ctx, stepSolution)
+	if step == nil {
+		return false
+	}
+
+	stepArc := sss.processCorrectness(ctx, step)
+	if stepArc == nil {
+		return false
+	}
+
+	myNode := sss.processSimilarity(ctx, step, stepArc)
+	if myNode == nil {
+		return false
+	}
+
+	myNode.goalNode = true
 	sss.solutions = append(sss.solutions, myNode)
 
 	// TODO: Reevaluate this constant when better quality IK solutions are being generated.
@@ -320,6 +371,19 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	return false
 }
 
+type backgroundGenerator struct {
+	newSolutionsCh chan *node
+	cancel         func()
+	wg             sync.WaitGroup
+}
+
+func (bgGen *backgroundGenerator) StopAndWait() {
+	if bgGen != nil {
+		bgGen.cancel()
+		bgGen.wg.Wait()
+	}
+}
+
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and
 // score them by constraints.
 //
@@ -328,14 +392,14 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 //
 // If minScore is positive, if a solution scoring below that amount is found, the solver will
 // terminate and return that one solution.
-func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error) {
+func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, *backgroundGenerator, error) {
 	if len(psc.start) == 0 {
-		return nil, fmt.Errorf("getSolutions start can't be empty")
+		return nil, nil, fmt.Errorf("getSolutions start can't be empty")
 	}
 
 	solvingState, err := newSolutionSolvingState(psc)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Spawn the IK solver to generate solutions until done
@@ -343,26 +407,21 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 
 	psc.pc.logger.Debugf("seed: %v", psc.start)
 
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	solutionGen := make(chan *ik.Solution, psc.pc.planOpts.NumThreads*20)
-	defer func() {
-		// In lieu of creating a separate WaitGroup to wait on before returning, we simply wait to
-		// see the `solutionGen` channel get closed to know that the goroutine we spawned has
-		// finished.
-		for range solutionGen {
-		}
-	}()
-
 	solver, err := ik.CreateCombinedIKSolver(psc.pc.lfs.dof, psc.pc.logger, psc.pc.planOpts.NumThreads, psc.pc.planOpts.GoalThreshold)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var solveError error
 	var solveErrorLock sync.Mutex
 
+	ctxWithCancel, cancel := context.WithCancel(ctx)
+	goalNodeGenerator := &backgroundGenerator{
+		newSolutionsCh: make(chan *node, 5),
+		cancel:         cancel,
+	}
+
+	solutionGen := make(chan *ik.Solution, psc.pc.planOpts.NumThreads*20)
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		// This channel close doubles as signaling that the goroutine has exited.
@@ -375,16 +434,25 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		}
 	})
 
+	waitForWorkers := func() {
+		// In lieu of creating a separate WaitGroup to wait on before returning, we simply wait to
+		// see the `solutionGen` channel get closed to know that the goroutine we spawned has
+		// finished.
+		for range solutionGen {
+		}
+	}
+
 solutionLoop:
 	for {
 		select {
 		case <-ctx.Done():
 			// We've been canceled. So have our workers. Can just return.
-			return nil, ctx.Err()
+			waitForWorkers()
+			return nil, nil, ctx.Err()
 		case stepSolution, ok := <-solutionGen:
 			if !ok || solvingState.process(ctx, stepSolution) {
 				// No longer using the generated solutions. Cancel the workers.
-				cancel()
+				// cancel()
 				break solutionLoop
 			}
 		}
@@ -393,22 +461,71 @@ solutionLoop:
 	solveErrorLock.Lock()
 	defer solveErrorLock.Unlock()
 	if solveError != nil {
-		return nil, fmt.Errorf("solver had an error: %w", solveError)
+		waitForWorkers()
+		return nil, nil, fmt.Errorf("solver had an error: %w", solveError)
 	}
 
 	if len(solvingState.solutions) == 0 {
+		waitForWorkers()
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions
 		// were produced, or if non-zero solutions were produced, which constraints were violated.
 		if solvingState.failures.Count == 0 {
-			return nil, errIKSolve
+			return nil, nil, errIKSolve
 		}
 
-		return nil, solvingState.failures
+		return nil, nil, solvingState.failures
 	}
 
 	sort.Slice(solvingState.solutions, func(i, j int) bool {
 		return solvingState.solutions[i].cost < solvingState.solutions[j].cost
 	})
 
-	return solvingState.solutions, nil
+	pretty.Println("Returning solutions. Num:", len(solvingState.solutions))
+	pretty.Println(solvingState.solutions)
+
+	goalNodeGenerator.wg.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer goalNodeGenerator.wg.Done()
+		for {
+			solution, more := <-solutionGen
+			if !more {
+				fmt.Println("DBG. Generator exiting")
+				return
+			}
+
+			step := solvingState.toInputs(ctx, solution)
+			if step == nil {
+				continue
+			}
+
+			stepArc := solvingState.processCorrectness(ctx, step)
+			if stepArc == nil {
+				continue
+			}
+
+			myNode := solvingState.processSimilarity(ctx, step, stepArc)
+			if myNode == nil {
+				fmt.Println("DBG. New solution too similar")
+				continue
+			}
+
+			myNode.liveSolution = true
+			myNode.goalNode = true
+			select {
+			case goalNodeGenerator.newSolutionsCh <- myNode:
+				fmt.Println("DBG. Generator pushed new solution", myNode.name)
+				solvingState.solutions = append(solvingState.solutions, myNode)
+			case <-ctxWithCancel.Done():
+				waitForWorkers()
+				fmt.Println("DBG. Generator exiting:", ctxWithCancel.Err())
+				return
+			}
+		}
+	})
+
+	// We assume the caller will only ever read the `solutions` elements between index [0,
+	// len(solutions)). And it will never append to the `solutions` slice. Hence, we do not need to
+	// make a copy. It's safe for the background goal node generator to read/append to the slice for
+	// similarity checking.
+	return solvingState.solutions, goalNodeGenerator, nil
 }

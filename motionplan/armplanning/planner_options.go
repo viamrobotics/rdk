@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"runtime/debug"
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -16,7 +17,7 @@ const (
 	defaultCollisionBufferMM = 1e-8
 
 	// Number of IK solutions that should be generated before stopping.
-	defaultSolutionsToSeed = 100
+	defaultSolutionsToSeed = 1
 
 	// Check constraints are still met every this many mm/degrees of movement.
 	defaultResolution = 2.0
@@ -59,6 +60,7 @@ func init() {
 
 // NewBasicPlannerOptions specifies a set of basic options for the planner.
 func NewBasicPlannerOptions() *PlannerOptions {
+	debug.PrintStack()
 	opt := &PlannerOptions{}
 	opt.GoalMetricType = motionplan.SquaredNorm
 	opt.ConfigurationDistanceMetric = motionplan.FSConfigurationL2DistanceMetric
@@ -220,6 +222,8 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
 func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
+	fmt.Println("Setting:", maxSolutions)
+	debug.PrintStack()
 	p.MaxSolutions = maxSolutions
 }
 

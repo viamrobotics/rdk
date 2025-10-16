@@ -59,10 +59,11 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegme
 
 // only used for testin.
 func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]referenceframe.FrameSystemInputs, error) {
-	initMaps, err := initRRTSolutions(ctx, mp.psc)
+	initMaps, bgGen, err := initRRTSolutions(ctx, mp.psc)
 	if err != nil {
 		return nil, err
 	}
+	bgGen.StopAndWait() // Assume initial solutions are good enough.
 
 	x := []referenceframe.FrameSystemInputs{mp.psc.start}
 
@@ -71,7 +72,7 @@ func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]referencefram
 		return x, nil
 	}
 
-	solution, err := mp.rrtRunner(ctx, initMaps.maps)
+	solution, err := mp.rrtRunner(ctx, initMaps.maps, bgGen)
 	if err != nil {
 		return nil, err
 	}
@@ -84,21 +85,19 @@ func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]referencefram
 func (mp *cBiRRTMotionPlanner) rrtRunner(
 	ctx context.Context,
 	rrtMaps *rrtMaps,
+	bgSolutionGenerator *backgroundGenerator,
 ) (*rrtSolution, error) {
 	ctx, span := trace.StartSpan(ctx, "rrtRunner")
 	defer span.End()
 
-	mp.pc.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d\n", len(rrtMaps.startMap), len(rrtMaps.goalMap))
+	mp.pc.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d", len(rrtMaps.startMap), len(rrtMaps.goalMap))
 
 	// setup planner options
 	if mp.pc.planOpts == nil {
 		return nil, errNoPlannerOptions
 	}
 
-	_, cancel := context.WithCancel(ctx)
-	defer cancel()
 	startTime := time.Now()
-
 	var seed referenceframe.FrameSystemInputs
 
 	// initialize maps
@@ -109,8 +108,9 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 			break
 		}
 	}
-	mp.pc.logger.CDebugf(ctx, "goal node: %v\n", rrtMaps.optNode.inputs)
-	mp.pc.logger.CDebugf(ctx, "start node: %v\n", seed)
+
+	mp.pc.logger.CInfof(ctx, "goal node: %v Name: %v Goal? %v", rrtMaps.optNode.inputs, rrtMaps.optNode.name, rrtMaps.optNode.goalNode)
+	mp.pc.logger.CInfof(ctx, "start node: %v", seed)
 	mp.pc.logger.Debug("DOF", mp.pc.lfs.dof)
 
 	interpConfig, err := referenceframe.InterpolateFS(mp.pc.fs, seed, rrtMaps.optNode.inputs, 0.5)
@@ -119,13 +119,24 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	}
 
 	target := newConfigurationNode(interpConfig)
+	mp.pc.logger.CInfof(ctx, "initial target. Name: %v Goal? %v", target.name, target.goalNode)
 
 	map1, map2 := rrtMaps.startMap, rrtMaps.goalMap
 	for i := 0; i < mp.pc.planOpts.PlanIter; i++ {
-		mp.pc.logger.CDebugf(ctx, "iteration: %d target: %v\n", i, target.inputs)
-		if ctx.Err() != nil {
-			mp.pc.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
-			return &rrtSolution{maps: rrtMaps}, fmt.Errorf("cbirrt timeout %w", ctx.Err())
+		mp.pc.logger.CInfof(ctx, "iteration: %d target: %v target name: %v", i, target.inputs, target.name)
+
+	addNewGoals:
+		for {
+			select {
+			case <-ctx.Done():
+				mp.pc.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
+				return &rrtSolution{maps: rrtMaps}, fmt.Errorf("cbirrt timeout %w", ctx.Err())
+			case newGoal := <-bgSolutionGenerator.newSolutionsCh:
+				mp.pc.logger.CInfof(ctx, "Added new goal while birrting. Goal: %v GoalName: %v", newGoal.inputs, newGoal.name)
+				rrtMaps.goalMap[newGoal] = nil
+			default:
+				break addNewGoals
+			}
 		}
 
 		tryExtend := func(target *node) (*node, *node) {
@@ -169,8 +180,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 
 		// Solved!
 		if reachedDelta <= mp.pc.planOpts.InputIdentDist {
-			mp.pc.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations in %v", i, time.Since(startTime))
-			cancel()
+			mp.pc.logger.CInfof(ctx, "CBiRRT found solution after %d iterations in %v", i, time.Since(startTime))
 			path := extractPath(rrtMaps.startMap, rrtMaps.goalMap, &nodePair{map1reached, map2reached}, true)
 			return &rrtSolution{steps: path, maps: rrtMaps}, nil
 		}
@@ -254,7 +264,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			doubled = false
 		}
 		// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
-		near = &node{inputs: newNear}
+		near = &node{name: int(nodeNameCounter.Add(1)), inputs: newNear}
 		rrtMap[near] = oldNear
 	}
 	return oldNear
