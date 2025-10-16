@@ -338,7 +338,7 @@ func (mp *planner) getSolutions(
 	minFunc := mp.linearizeFSmetric(metric)
 	// Spawn the IK solver to generate solutions until done
 
-	approxCartesianDist := math.Sqrt(minFunc(linearSeed))
+	approxCartesianDist := math.Sqrt(minFunc(ctx, linearSeed))
 	ratios := []float64{}
 	for range linearSeed {
 		ratios = append(ratios, min(1, max(.15, approxCartesianDist/100)))
@@ -412,8 +412,8 @@ func (mp *planner) getSolutions(
 // linearize the goal metric for use with solvers.
 // Since our solvers operate on arrays of floats, there needs to be a way to map bidirectionally between the framesystem configuration
 // of FrameSystemInputs and the []float64 that the solver expects. This is that mapping.
-func (mp *planner) linearizeFSmetric(metric motionplan.StateFSMetric) func([]float64) float64 {
-	return func(query []float64) float64 {
+func (mp *planner) linearizeFSmetric(metric motionplan.StateFSMetric) ik.CostFunc {
+	return func(_ context.Context, query []float64) float64 {
 		inputs, err := mp.lfs.sliceToMap(query)
 		if err != nil {
 			return math.Inf(1)

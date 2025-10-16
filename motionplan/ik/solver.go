@@ -25,6 +25,9 @@ const (
 	defaultGoalThreshold = defaultEpsilon * defaultEpsilon
 )
 
+// CostFunc is the function to minimize.
+type CostFunc func(context.Context, []float64) float64
+
 // Solver defines an interface which, provided with seed inputs and a function to minimize to zero, will output all found
 // solutions to the provided channel until cancelled or otherwise completes.
 type Solver interface {
@@ -32,7 +35,7 @@ type Solver interface {
 	// Solve receives a context, a channel to which solutions will be provided, a function whose output should be minimized, and a
 	// number of iterations to run.
 	Solve(ctx context.Context, solutions chan<- *Solution, seed []float64,
-		travelPercent []float64, minFunc func([]float64) float64, rseed int) (int, error)
+		travelPercent []float64, minFunc CostFunc, rseed int) (int, error)
 }
 
 // Solution is the struct returned from an IK solver. It contains the solution configuration, the score of the solution, and a flag
@@ -74,8 +77,8 @@ func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
 }
 
 // NewMetricMinFunc takes a metric and a frame, and converts to a function able to be minimized with Solve().
-func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame, logger logging.Logger) func([]float64) float64 {
-	return func(x []float64) float64 {
+func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame, logger logging.Logger) CostFunc {
+	return func(_ context.Context, x []float64) float64 {
 		mInput := &motionplan.State{Frame: frame}
 		inputs := referenceframe.FloatsToInputs(x)
 		eePos, err := frame.Transform(inputs)
@@ -93,7 +96,7 @@ func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame,
 // rangeModifier is [0-1] - 0 means don't really look a lot, which is good for highly constrained things
 //
 //	but will fail if you have to move. 1 means search the entire range.
-func DoSolve(ctx context.Context, solver Solver, solveFunc func([]float64) float64,
+func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
 	seed []float64, rangeModifier float64,
 ) ([][]float64, error) {
 	travelPercent := []float64{}
