@@ -71,7 +71,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
 	seed []float64,
 	travelPercent []float64,
-	minFunc func([]float64) float64,
+	minFunc CostFunc,
 	rseed int,
 ) (int, error) {
 	if len(seed) != len(ik.limits) {
@@ -82,7 +82,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	var err error
 
 	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
-	jump := ik.calcJump(defaultJump, seed, minFunc)
+	jump := ik.calcJump(ctx, defaultJump, seed, minFunc)
 
 	iterations := 0
 	solutionsFound := 0
@@ -110,7 +110,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
 	nloptMinFunc := func(checkVals, gradient []float64) float64 {
 		iterations++
-		dist := minFunc(checkVals)
+		dist := minFunc(ctx, checkVals)
 		if len(gradient) > 0 {
 			// Yes, the for loop below is logically equivalent to not having this if statement. But CPU branch prediction means having the
 			// if statement is faster.
@@ -124,7 +124,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 					checkVals[i] -= 2 * jumpVal
 				}
 
-				dist2 := minFunc(checkVals)
+				dist2 := minFunc(ctx, checkVals)
 				gradient[i] = (dist2 - dist) / jumpVal
 				if flip {
 					checkVals[i] += jumpVal
@@ -198,11 +198,11 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	return solutionsFound, nil
 }
 
-func (ik *NloptIK) calcJump(testJump float64, seed []float64, minFunc func([]float64) float64) []float64 {
+func (ik *NloptIK) calcJump(ctx context.Context, testJump float64, seed []float64, minFunc CostFunc) []float64 {
 	jump := make([]float64, 0, len(seed))
 	lowerBound, upperBound := limitsToArrays(ik.limits)
 
-	seedDist := minFunc(seed)
+	seedDist := minFunc(ctx, seed)
 	for i, testVal := range seed {
 		seedTest := append(make([]float64, 0, len(seed)), seed...)
 		for jumpVal := testJump; jumpVal < 0.1; jumpVal *= 10 {
@@ -215,7 +215,7 @@ func (ik *NloptIK) calcJump(testJump float64, seed []float64, minFunc func([]flo
 				}
 			}
 
-			checkDist := minFunc(seed)
+			checkDist := minFunc(ctx, seed)
 
 			// Use the smallest value that yields a change in distance
 			if checkDist != seedDist {
