@@ -141,7 +141,7 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 		sss.maxSolutions = defaultSolutionsToSeed
 	}
 
-	if len(psc.pc.lfs.dof) <= 6 {
+	if len(psc.pc.lfs.dof) <= 0 {
 		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
 		if err != nil {
 			return nil, err
