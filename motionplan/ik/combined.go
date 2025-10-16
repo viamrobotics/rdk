@@ -30,7 +30,7 @@ func CreateCombinedIKSolver(
 ) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.limits = limits
-	nCPU = max(nCPU, 2)
+	nCPU = max(nCPU, 4)
 
 	for i := 1; i <= nCPU; i++ {
 		nloptSolver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
@@ -70,12 +70,12 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		seedFloats := seed
 
 		var myTravelPercent []float64
-		if i <= len(ik.solvers)/3 {
+		if bottomThird(i, len(ik.solvers)) {
 			// TODO: this is probably too conservative
 			for _, p := range travelPercent {
 				myTravelPercent = append(myTravelPercent, max(.1, p))
 			}
-		} else if i < (2 * len(ik.solvers) / 3) {
+		} else if middleThird(i, len(ik.solvers)) {
 			myTravelPercent = travelPercent
 		} else {
 			seedFloats = generateRandomPositions(randSeed, lowerBound, upperBound)
@@ -101,4 +101,12 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 // DoF returns the DoF of the solver.
 func (ik *CombinedIK) DoF() []referenceframe.Limit {
 	return ik.limits
+}
+
+func bottomThird(i, l int) bool {
+	return i <= l/3
+}
+
+func middleThird(i, l int) bool {
+	return i <= (2 * l / 3)
 }
