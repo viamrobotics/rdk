@@ -187,7 +187,8 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 // and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
 // configuration to the seed.
 func (sss *solutionSolvingState) nonchainMinimize(ctx context.Context,
-	seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
+	seed, step referenceframe.FrameSystemInputs,
+) referenceframe.FrameSystemInputs {
 	// Create a map with nonmoving configurations replaced with their seed values
 	alteredStep := referenceframe.FrameSystemInputs{}
 	for _, frame := range sss.moving {

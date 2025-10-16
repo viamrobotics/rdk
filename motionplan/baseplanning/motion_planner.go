@@ -222,7 +222,9 @@ type solutionSolvingState struct {
 }
 
 // return bool is if we should stop because we're done.
-func (mp *planner) process(ctx context.Context, sss *solutionSolvingState, seed referenceframe.FrameSystemInputs, stepSolution *ik.Solution) bool {
+func (mp *planner) process(
+	ctx context.Context, sss *solutionSolvingState, seed referenceframe.FrameSystemInputs, stepSolution *ik.Solution,
+) bool {
 	step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
 	if err != nil {
 		mp.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
