@@ -142,7 +142,7 @@ func (pm *planManager) planToDirectJoints(
 		return []referenceframe.FrameSystemInputs{fullConfig}, nil
 	}
 
-	err = psc.checker.CheckStateFSConstraints(&motionplan.StateFS{
+	err = psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: fullConfig,
 		FS:            psc.pc.fs,
 	})

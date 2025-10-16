@@ -49,7 +49,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	retChan chan<- *Solution,
 	seed []float64,
 	travelPercent []float64,
-	m CostFunc,
+	costFunc CostFunc,
 	rseed int,
 ) (int, error) {
 	randSeed := rand.New(rand.NewSource(int64(rseed))) //nolint: gosec
@@ -85,7 +85,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			n, err := thisSolver.Solve(ctx, retChan, seedFloats, myTravelPercent, m, parseed)
+			n, err := thisSolver.Solve(ctx, retChan, seedFloats, myTravelPercent, costFunc, parseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()
