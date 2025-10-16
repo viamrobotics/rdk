@@ -1401,7 +1401,7 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     generalFlagOrgID,
 									Required: true,
-									Usage:    "organization ID",
+									Usage:    "org ID of the data collection",
 								},
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
