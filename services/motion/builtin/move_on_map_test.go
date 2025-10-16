@@ -293,6 +293,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 
 		test.That(t, err, test.ShouldBeNil)
 		err = baseplanning.CheckPlan(
+			ctx,
 			wrapperFrame,
 			augmentedBaseExecutionState,
 			wrldSt,
