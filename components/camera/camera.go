@@ -166,7 +166,8 @@ func (ni *NamedImage) MimeType() string {
 
 // ImageMetadata contains useful information about returned image bytes such as its mimetype.
 type ImageMetadata struct {
-	MimeType string
+	MimeType    string
+	Annotations data.Annotations
 }
 
 // A Camera is a resource that can capture frames.
