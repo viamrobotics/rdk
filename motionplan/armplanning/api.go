@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
@@ -212,13 +213,21 @@ func PlanFrameMotion(ctx context.Context,
 	return plan.Trajectory().GetFrameInputs(f.Name())
 }
 
+// PlanMeta is meta data about plan generation.
+type PlanMeta struct {
+	Duration       time.Duration
+	Partial        bool
+	GoalsProcessed int
+}
+
 // PlanMotion plans a motion from a provided plan request.
 func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, *PlanMeta, error) {
 	start := time.Now()
-	meta := NewPlanMeta()
+	meta := &PlanMeta{}
+	ctx, span := trace.StartSpan(ctx, "PlanMotion")
 	defer func() {
 		meta.Duration = time.Since(start)
-		meta.AddTiming("PlanMotion", meta.Duration)
+		span.End()
 	}()
 
 	if err := request.validatePlanRequest(); err != nil {
@@ -239,7 +248,7 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 		return nil, meta, errors.New("must populate start state configuration")
 	}
 
-	sfPlanner, err := newPlanManager(logger, request, meta)
+	sfPlanner, err := newPlanManager(ctx, logger, request, meta)
 	if err != nil {
 		return nil, meta, err
 	}

@@ -1,9 +1,11 @@
 package armplanning
 
 import (
+	"context"
 	"math"
 	"math/rand"
-	"time"
+
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -27,7 +29,9 @@ type planContext struct {
 	logger   logging.Logger
 }
 
-func newPlanContext(logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planContext, error) {
+func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planContext, error) {
+	_, span := trace.StartSpan(ctx, "newPlanContext")
+	defer span.End()
 	pc := &planContext{
 		fs:                        request.FrameSystem,
 		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(request.PlannerOptions.ConfigurationDistanceMetric),
@@ -37,7 +41,6 @@ func newPlanContext(logger logging.Logger, request *PlanRequest, meta *PlanMeta)
 		planMeta:                  meta,
 		logger:                    logger,
 	}
-	defer meta.DeferTiming("newPlanContext", time.Now())
 
 	var err error
 	pc.lfs, err = newLinearizedFrameSystem(pc.fs)
@@ -79,10 +82,11 @@ type planSegmentContext struct {
 	checker      *motionplan.ConstraintChecker
 }
 
-func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInputs,
+func newPlanSegmentContext(ctx context.Context, pc *planContext, start referenceframe.FrameSystemInputs,
 	goal referenceframe.FrameSystemPoses,
 ) (*planSegmentContext, error) {
-	defer pc.planMeta.DeferTiming("newPlanSegmentContext", time.Now())
+	_, span := trace.StartSpan(ctx, "newPlanSegmentContext")
+	defer span.End()
 	psc := &planSegmentContext{
 		pc:       pc,
 		start:    start,
@@ -133,8 +137,9 @@ func newPlanSegmentContext(pc *planContext, start referenceframe.FrameSystemInpu
 	return psc, nil
 }
 
-func (psc *planSegmentContext) checkPath(start, end referenceframe.FrameSystemInputs) error {
-	defer psc.pc.planMeta.DeferTiming("checkPath", time.Now())
+func (psc *planSegmentContext) checkPath(ctx context.Context, start, end referenceframe.FrameSystemInputs) error {
+	_, span := trace.StartSpan(ctx, "checkPath")
+	defer span.End()
 	_, err := psc.checker.CheckSegmentAndStateValidityFS(
 		&motionplan.SegmentFS{
 			StartConfiguration: start,

@@ -743,7 +743,7 @@ func (c *viamClient) triggerCloudReload(
 	ctx *cli.Context,
 	args reloadModuleArgs,
 	manifest moduleManifest,
-	archivePath string,
+	archivePath, partID string,
 ) (string, error) {
 	stream, err := c.buildClient.StartReloadBuild(ctx.Context)
 	if err != nil {
@@ -789,12 +789,17 @@ func (c *viamClient) triggerCloudReload(
 		return "", err
 	}
 
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return "", err
+	}
 	pkgInfo := v1.PackageInfo{
 		OrganizationId: orgID,
-		Name:           reloadVersion,
-		Version:        reloadVersion,
+		Name:           moduleID.name,
+		Version:        getReloadVersion(reloadSourceVersionPrefix, partID),
 		Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
 	}
+	// CR erodkin: the current logic has us using `reloadVersionPrefix` for module building and downloading but `source` prefix for the package. look into this.
 	reqInner := &v1.CreatePackageRequest{
 		Package: &v1.CreatePackageRequest_Info{
 			Info: &pkgInfo,
@@ -837,7 +842,13 @@ func getNextReloadBuildUploadRequest(file *os.File) (*buildpb.StartReloadBuildRe
 }
 
 // moduleCloudReload triggers a cloud build and then reloads the specified module with that build.
-func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string, manifest moduleManifest) (string, error) {
+func (c *viamClient) moduleCloudReload(
+	ctx *cli.Context,
+	args reloadModuleArgs,
+	platform string,
+	manifest moduleManifest,
+	partID string,
+) (string, error) {
 	// ensure that the module has been registered in the cloud
 	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
@@ -860,7 +871,7 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	}
 
 	infof(c.c.App.Writer, "Creating a new cloud build and swapping it onto the requested machine part. This may take a few minutes...")
-	buildID, err := c.triggerCloudReload(ctx, args, manifest, archivePath)
+	buildID, err := c.triggerCloudReload(ctx, args, manifest, archivePath, partID)
 	if err != nil {
 		return "", err
 	}
@@ -885,7 +896,7 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 
 	downloadArgs := downloadModuleFlags{
 		ID:       id,
-		Version:  reloadVersion,
+		Version:  reloadVersionFormatted,
 		Platform: platform,
 	}
 
@@ -924,6 +935,10 @@ func reloadModuleAction(c *cli.Context, args reloadModuleArgs, cloudBuild bool) 
 	}
 
 	return reloadModuleActionInner(c, vc, args, logger, cloudBuild)
+}
+
+func getReloadVersion(versionPrefix, partID string) string {
+	return versionPrefix + "-" + partID
 }
 
 // reload with cloudbuild was supported starting in 0.90.0
@@ -1005,7 +1020,7 @@ func reloadModuleActionInner(
 			err = moduleBuildLocalAction(c, manifest, environment)
 			buildPath = manifest.Build.Path
 		} else {
-			buildPath, err = vc.moduleCloudReload(c, args, platform, *manifest)
+			buildPath, err = vc.moduleCloudReload(c, args, platform, *manifest, partID)
 		}
 		if err != nil {
 			return err
@@ -1036,7 +1051,7 @@ func reloadModuleActionInner(
 		dest := reloadingDestination(c, manifest)
 		err = vc.copyFilesToFqdn(
 			part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
-			dest, logging.NewLogger(reloadVersion), args.NoProgress)
+			dest, logging.NewLogger(reloadVersionPrefix), args.NoProgress)
 		if err != nil {
 			if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
 				warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
