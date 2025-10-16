@@ -321,12 +321,13 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	} else if sss.bestScoreNoProblem < sss.goodCost {
 		multiple = 50
 	} else if sss.bestScoreWithProblem < sss.goodCost {
-		multiple = 50
+		// we're going to have to do cbirrt, so look a little less, but still look
+		multiple = 75
 	}
 
 	if elapsed > max(sss.firstSolutionTime*time.Duration(multiple), 100*time.Millisecond) {
 		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f / %0.2f after: %v",
-			sss.bestScoreNoProblem/sss.bestScoreWithProblem, elapsed)
+			sss.bestScoreNoProblem, sss.bestScoreWithProblem, elapsed)
 		return true
 	}
 

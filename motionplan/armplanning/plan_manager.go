@@ -141,6 +141,7 @@ func (pm *planManager) planToDirectJoints(
 	if err == nil {
 		return []referenceframe.FrameSystemInputs{fullConfig}, nil
 	}
+	pm.logger.Debugf("want to go to specific joint positions, but path is blocked: %v", err)
 
 	err = psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: fullConfig,
@@ -149,8 +150,6 @@ func (pm *planManager) planToDirectJoints(
 	if err != nil {
 		return nil, fmt.Errorf("want to go to specific joint config but it is invalid: %w", err)
 	}
-
-	pm.logger.Debugf("want to go to specific joint positions, but path is blocked: %v", err)
 
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
 	if err != nil {
