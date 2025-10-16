@@ -148,7 +148,7 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestPirouette(t *testing.T) {
-	t.Skip()
+	//	t.Skip()
 
 	// get arm kinematics for forward kinematics
 	armName := "ur5e"
@@ -202,6 +202,7 @@ func TestPirouette(t *testing.T) {
 				logger := logging.NewTestLogger(t)
 				// construct req and get the plan
 				goalState := NewPlanState(map[string]*referenceframe.PoseInFrame{armName: p}, nil)
+
 				req := &PlanRequest{
 					FrameSystem: fs,
 					Goals:       []*PlanState{goalState},
