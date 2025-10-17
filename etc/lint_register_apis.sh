@@ -2,7 +2,7 @@
 # Ensures that all component and service APIs have a corresponding import line in 'rdk/[services|components]/register_apis/all.go'.
 
 pkgs=(components services)
-cgo_paths=(services/motion services/vision components/camera components/audio_input)
+cgo_paths=(services/motion services/vision components/camera components/audioinput)
 
 for p in "${pkgs[@]}"; do
   pushd $p > /dev/null
