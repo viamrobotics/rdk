@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// serviceServer implements the AudioInService
+// serviceServer implements the AudioInService.
 type serviceServer struct {
 	pb.UnimplementedAudioInServiceServer
 	coll   resource.APIResourceGetter[AudioIn]
