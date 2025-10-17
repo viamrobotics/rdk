@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/logging"
@@ -217,6 +219,15 @@ func (pm *planManager) planSingleGoal(
 		return planSeed.steps, nil
 	}
 
+	quickReroute, err := pm.quickReroute(ctx, psc, planSeed.maps.optNode.inputs)
+	if err != nil {
+		return nil, err
+	}
+	if quickReroute != nil {
+		pm.logger.Debugf("found a quickReroute")
+		return quickReroute, nil
+	}
+	
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
 	if err != nil {
 		return nil, err
@@ -345,6 +356,74 @@ func interp(start, end referenceframe.FrameSystemPoses, delta float64) reference
 		mid[k] = referenceframe.NewPoseInFrame(s.Parent(), m)
 	}
 	return mid
+}
+
+func (pm *planManager) quickReroute(ctx context.Context, psc *planSegmentContext, goal referenceframe.FrameSystemInputs) ([]referenceframe.FrameSystemInputs, error) {
+
+	goalPoses, err := goal.ComputePoses(pm.pc.fs)
+	if err != nil {
+		return nil, err
+	}
+	
+	mid := interp(psc.startPoses, goalPoses, .5)
+
+	offsetDistance := 100.0 // TODO
+	numPoints := 6
+
+	for f, s := range psc.startPoses {
+		m := mid[f]
+		pm.logger.Infof("%v -> %v", s, m)
+
+		// Compute vector from s to m
+		sPoint := s.Pose().Point()
+		mPoint := m.Pose().Point()
+		vec := mPoint.Sub(sPoint)
+
+		// Compute a perpendicular vector using cross product with a reference vector
+		// Use the Z-axis as reference (0, 0, 1) unless vec is parallel to it
+		var perpVec r3.Vector
+		if vec.X != 0 || vec.Y != 0 {
+			// Cross product with Z-axis: (vec.Y, -vec.X, 0)
+			perpVec = r3.Vector{X: vec.Y, Y: -vec.X, Z: 0}
+		} else {
+			// vec is parallel to Z-axis, use X-axis instead
+			perpVec = r3.Vector{X: 0, Y: vec.Z, Z: -vec.Y}
+		}
+
+		// Normalize the perpendicular vector
+		perpUnit := perpVec.Normalize()
+
+		// Create 8 points around a circle perpendicular to the vec
+		angleStep := 2 * math.Pi / float64(numPoints)
+		for i := 0; i < numPoints; i++ {
+			angle := float64(i) * angleStep
+
+			// Rotate perpUnit around vec axis by angle
+			// Using Rodrigues' rotation formula: v_rot = v*cos(θ) + (k × v)*sin(θ) + k*(k·v)*(1-cos(θ))
+			// where k is the unit vector along vec
+			k := vec.Normalize()
+			cosTheta := math.Cos(angle)
+			sinTheta := math.Sin(angle)
+
+			// k × perpUnit
+			kCrossPerpUnit := k.Cross(perpUnit)
+
+			// k · perpUnit (should be 0 since perpUnit is perpendicular to vec)
+			kDotPerpUnit := k.Dot(perpUnit)
+
+			// Rotated vector
+			rotated := perpUnit.Mul(cosTheta).
+				Add(kCrossPerpUnit.Mul(sinTheta)).
+				Add(k.Mul(kDotPerpUnit * (1 - cosTheta)))
+
+			// Offset from m
+			offsetPoint := mPoint.Add(rotated.Mul(offsetDistance))
+
+			pm.logger.Infof("circle point %d: %v", i, offsetPoint)
+		}
+	}
+	
+	return nil, fmt.Errorf("finish me %v", mid)
 }
 
 func (pm *planManager) foo(ctx context.Context, start referenceframe.FrameSystemInputs, goal referenceframe.FrameSystemPoses) error {
