@@ -89,7 +89,7 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 
 		ch <- &AudioChunk{
 			AudioData:                 resp.Audio.AudioData,
-			Info:                      info,
+			AudioInfo:                 info,
 			Sequence:                  resp.Audio.Sequence,
 			StartTimestampNanoseconds: resp.Audio.StartTimestampNanoseconds,
 			EndTimestampNanoseconds:   resp.Audio.EndTimestampNanoseconds,
@@ -120,7 +120,7 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 
 			ch <- &AudioChunk{
 				AudioData:                 resp.Audio.AudioData,
-				Info:                      info,
+				AudioInfo:                 info,
 				Sequence:                  resp.Audio.Sequence,
 				StartTimestampNanoseconds: resp.Audio.StartTimestampNanoseconds,
 				EndTimestampNanoseconds:   resp.Audio.EndTimestampNanoseconds,

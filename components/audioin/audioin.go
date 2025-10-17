@@ -48,7 +48,7 @@ type AudioInfo struct {
 // AudioChunk defines a chunk of audio data.
 type AudioChunk struct {
 	AudioData                 []byte
-	Info                      *AudioInfo
+	AudioInfo                 *AudioInfo
 	Sequence                  int32
 	StartTimestampNanoseconds int64
 	EndTimestampNanoseconds   int64
@@ -85,11 +85,11 @@ func audioChunkToPb(chunk *AudioChunk) *pb.AudioChunk {
 	}
 
 	var info *commonpb.AudioInfo
-	if chunk.Info != nil {
+	if chunk.AudioInfo != nil {
 		info = &commonpb.AudioInfo{
-			Codec:        chunk.Info.Codec,
-			SampleRateHz: chunk.Info.SampleRateHz,
-			NumChannels:  chunk.Info.NumChannels,
+			Codec:        chunk.AudioInfo.Codec,
+			SampleRateHz: chunk.AudioInfo.SampleRateHz,
+			NumChannels:  chunk.AudioInfo.NumChannels,
 		}
 	}
 
