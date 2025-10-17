@@ -141,6 +141,7 @@ func (pm *planManager) planToDirectJoints(
 	if err == nil {
 		return []referenceframe.FrameSystemInputs{fullConfig}, nil
 	}
+	pm.logger.Debugf("want to go to specific joint positions, but path is blocked: %v", err)
 
 	err = psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: fullConfig,
@@ -150,7 +151,26 @@ func (pm *planManager) planToDirectJoints(
 		return nil, fmt.Errorf("want to go to specific joint config but it is invalid: %w", err)
 	}
 
-	pm.logger.Debugf("want to go to specific joint positions, but path is blocked: %v", err)
+	if false { // true cartesian half
+		// TODO(eliot): finish me
+		startPoses, err := start.ComputePoses(pm.pc.fs)
+		if err != nil {
+			return nil, err
+		}
+
+		mid := interp(startPoses, goalPoses, .5)
+
+		pm.logger.Infof("foo things\n\t%v\n\t%v\n\t%v", startPoses, mid, goalPoses)
+
+		err = pm.foo(ctx, start, mid)
+		if err != nil {
+			pm.logger.Infof("foo failed: %v", err)
+		} else {
+			panic(2)
+		}
+
+		// panic(1)
+	}
 
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
 	if err != nil {
@@ -307,4 +327,49 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolutio
 	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil
 
 	return rrt, nil
+}
+
+func interp(start, end referenceframe.FrameSystemPoses, delta float64) referenceframe.FrameSystemPoses {
+	mid := referenceframe.FrameSystemPoses{}
+
+	for k, s := range start {
+		e, ok := end[k]
+		if !ok {
+			mid[k] = s
+			continue
+		}
+		if s.Parent() != e.Parent() {
+			panic("eliottttt")
+		}
+		m := spatialmath.Interpolate(s.Pose(), e.Pose(), delta)
+		mid[k] = referenceframe.NewPoseInFrame(s.Parent(), m)
+	}
+	return mid
+}
+
+func (pm *planManager) foo(ctx context.Context, start referenceframe.FrameSystemInputs, goal referenceframe.FrameSystemPoses) error {
+	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goal)
+	if err != nil {
+		return err
+	}
+
+	planSeed, err := initRRTSolutions(ctx, psc)
+	if err != nil {
+		return err
+	}
+
+	if planSeed.steps == nil {
+		return fmt.Errorf("no steps")
+	}
+
+	if len(planSeed.steps) != 1 {
+		return fmt.Errorf("steps odd %d", len(planSeed.steps))
+	}
+
+	err = psc.checkPath(ctx, start, planSeed.steps[0])
+	if err != nil {
+		return err
+	}
+
+	panic(5)
 }

@@ -119,11 +119,10 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				flip := false
 				checkVals[i] += jumpVal
 				ub := upperBound[i]
-				if checkVals[i] >= ub {
+				for checkVals[i] >= ub {
 					flip = true
-					checkVals[i] -= 2 * jumpVal
+					checkVals[i] -= 10 * jumpVal
 				}
-
 				dist2 := minFunc(ctx, checkVals)
 				gradient[i] = (dist2 - dist) / jumpVal
 				if flip {
