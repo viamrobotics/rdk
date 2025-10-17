@@ -109,26 +109,22 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 		}
 	}
 
-	mp.pc.logger.CInfof(ctx, "goal node: %v Name: %v Goal? %v", rrtMaps.optNode.inputs, rrtMaps.optNode.name, rrtMaps.optNode.goalNode)
-	mp.pc.logger.CInfof(ctx, "start node: %v", seed)
-	mp.pc.logger.Debug("DOF", mp.pc.lfs.dof)
-
+	mp.pc.logger.CDebug(ctx, "start node: %v goal node: %v DOF: %v",
+		seed, rrtMaps.optNode.inputs, rrtMaps.optNode.name, rrtMaps.optNode.goalNode, mp.pc.lfs.dof)
 	interpConfig, err := referenceframe.InterpolateFS(mp.pc.fs, seed, rrtMaps.optNode.inputs, 0.5)
 	if err != nil {
 		return nil, err
 	}
 
 	target := newConfigurationNode(interpConfig)
-	mp.pc.logger.CInfof(ctx, "initial target. Name: %v Goal? %v", target.name, target.goalNode)
 
 	map1, map2 := rrtMaps.startMap, rrtMaps.goalMap
 	for iterNum := 0; iterNum < mp.pc.planOpts.PlanIter; iterNum++ {
-		mp.pc.logger.CInfof(ctx, "iteration: %d target: %v target name: %v", iterNum, target.inputs, target.name)
-
 		if ctx.Err() != nil {
 			mp.pc.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", iterNum)
 			return &rrtSolution{maps: rrtMaps}, fmt.Errorf("cbirrt timeout %w", ctx.Err())
 		}
+		mp.pc.logger.CDebugf(ctx, "iteration: %d target: %v target name: %v", iterNum, target.inputs, target.name)
 
 		if iterNum%20 == 0 {
 			// We continue to generate IK solutions in the background. New candidates can only
@@ -185,7 +181,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 
 		// Solved!
 		if reachedDelta <= mp.pc.planOpts.InputIdentDist {
-			mp.pc.logger.CInfof(ctx, "CBiRRT found solution after %d iterations in %v", iterNum, time.Since(startTime))
+			mp.pc.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations in %v", iterNum, time.Since(startTime))
 			path := extractPath(rrtMaps.startMap, rrtMaps.goalMap, &nodePair{map1reached, map2reached}, true)
 			return &rrtSolution{steps: path, maps: rrtMaps}, nil
 		}
