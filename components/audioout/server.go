@@ -28,7 +28,7 @@ func (s *serviceServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.Play
 		return nil, err
 	}
 
-	info := rdkutils.AudioInfoPBToStruct(req.Info)
+	info := rdkutils.AudioInfoPBToStruct(req.AudioInfo)
 
 	err = a.Play(ctx, req.AudioData, info, req.Extra.AsMap())
 	if err != nil {
@@ -50,7 +50,7 @@ func (s *serviceServer) GetProperties(ctx context.Context, req *commonpb.GetProp
 	}
 	return &commonpb.GetPropertiesResponse{
 		SupportedCodecs: props.SupportedCodecs,
-		SampleRate:      props.SampleRate,
+		SampleRateHz:    props.SampleRateHz,
 		NumChannels:     props.NumChannels,
 	}, nil
 }

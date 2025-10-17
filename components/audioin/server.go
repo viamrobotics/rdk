@@ -6,6 +6,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioin/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -13,22 +14,24 @@ import (
 // serviceServer implements the AudioInService.
 type serviceServer struct {
 	pb.UnimplementedAudioInServiceServer
-	coll resource.APIResourceGetter[AudioIn]
+	coll   resource.APIResourceGetter[AudioIn]
+	logger logging.Logger
 }
 
 // NewRPCServiceServer constructs an audioin gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
 func NewRPCServiceServer(coll resource.APIResourceGetter[AudioIn]) interface{} {
-	return &serviceServer{coll: coll}
+	logger := logging.NewLogger("AudioInServer")
+	return &serviceServer{coll: coll, logger: logger}
 }
 
 func (s *serviceServer) GetAudio(req *pb.GetAudioRequest, stream pb.AudioInService_GetAudioServer) error {
-	a, err := s.coll.Resource(req.Name)
+	audio, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return err
 	}
 
-	chunkChan, err := a.GetAudio(stream.Context(), req.Codec, req.DurationSeconds, req.PreviousTimestamp, req.Extra.AsMap())
+	chunkChan, err := audio.GetAudio(stream.Context(), req.Codec, req.DurationSeconds, req.PreviousTimestampNanoseconds, req.Extra.AsMap())
 	if err != nil {
 		return err
 	}
@@ -37,6 +40,7 @@ func (s *serviceServer) GetAudio(req *pb.GetAudioRequest, stream pb.AudioInServi
 	for {
 		select {
 		case <-stream.Context().Done():
+			s.logger.Debugf("context done, returning from GetAudio: %v", stream.Context().Err())
 			return nil
 
 		case chunk, ok := <-chunkChan:
@@ -56,18 +60,18 @@ func (s *serviceServer) GetAudio(req *pb.GetAudioRequest, stream pb.AudioInServi
 }
 
 func (s *serviceServer) GetProperties(ctx context.Context, req *commonpb.GetPropertiesRequest) (*commonpb.GetPropertiesResponse, error) {
-	a, err := s.coll.Resource(req.Name)
+	audio, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	props, err := a.Properties(ctx, req.Extra.AsMap())
+	props, err := audio.Properties(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
 	return &commonpb.GetPropertiesResponse{
 		SupportedCodecs: props.SupportedCodecs,
-		SampleRate:      props.SampleRate,
+		SampleRateHz:    props.SampleRateHz,
 		NumChannels:     props.NumChannels,
 	}, nil
 }

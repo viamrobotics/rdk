@@ -46,9 +46,9 @@ func TestServer(t *testing.T) {
 
 	audioData := []byte{1, 2, 3, 4, 5, 6, 7, 8}
 	audioInfo := &commonpb.AudioInfo{
-		Codec:       "pcm16",
-		SampleRate:  44100,
-		NumChannels: 2,
+		Codec:        "pcm16",
+		SampleRateHz: 44100,
+		NumChannels:  2,
 	}
 
 	t.Run("Play", func(t *testing.T) {
@@ -64,7 +64,7 @@ func TestServer(t *testing.T) {
 		playReq := &pb.PlayRequest{
 			Name:      testAudioOutName,
 			AudioData: audioData,
-			Info:      audioInfo,
+			AudioInfo: audioInfo,
 		}
 
 		resp, err := audioOutServer.Play(context.Background(), playReq)
@@ -84,7 +84,7 @@ func TestServer(t *testing.T) {
 	t.Run("Properties", func(t *testing.T) {
 		expectedProperties := rdkutils.Properties{
 			SupportedCodecs: []string{"pcm16", "mp3"},
-			SampleRate:      44100,
+			SampleRateHz:    44100,
 			NumChannels:     2,
 		}
 
@@ -98,7 +98,7 @@ func TestServer(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.SupportedCodecs, test.ShouldResemble, expectedProperties.SupportedCodecs)
-		test.That(t, resp.SampleRate, test.ShouldEqual, expectedProperties.SampleRate)
+		test.That(t, resp.SampleRateHz, test.ShouldEqual, expectedProperties.SampleRateHz)
 		test.That(t, resp.NumChannels, test.ShouldEqual, expectedProperties.NumChannels)
 
 		// Test properties error

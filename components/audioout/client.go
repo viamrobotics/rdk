@@ -58,7 +58,7 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 		return rdkutils.Properties{}, err
 	}
 
-	return rdkutils.Properties{SupportedCodecs: resp.SupportedCodecs, SampleRate: resp.SampleRate, NumChannels: resp.NumChannels}, nil
+	return rdkutils.Properties{SupportedCodecs: resp.SupportedCodecs, SampleRateHz: resp.SampleRateHz, NumChannels: resp.NumChannels}, nil
 }
 
 func (c *client) Play(ctx context.Context, data []byte, info *rdkutils.AudioInfo, extra map[string]interface{}) error {
@@ -72,7 +72,7 @@ func (c *client) Play(ctx context.Context, data []byte, info *rdkutils.AudioInfo
 	_, err = c.client.Play(ctx, &pb.PlayRequest{
 		Name:      c.name,
 		AudioData: data,
-		Info:      pbInfo,
+		AudioInfo: pbInfo,
 		Extra:     ext,
 	})
 	if err != nil {

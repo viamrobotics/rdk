@@ -2,6 +2,8 @@ package audioin
 
 import (
 	"context"
+	"errors"
+	"io"
 
 	"github.com/google/uuid"
 	commonpb "go.viam.com/api/common/v1"
@@ -33,11 +35,11 @@ func NewClientFromConn(
 	name resource.Name,
 	logger logging.Logger,
 ) (AudioIn, error) {
-	c := pb.NewAudioInServiceClient(conn)
+	serviceClient := pb.NewAudioInServiceClient(conn)
 	return &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
 		name:   name.Name,
-		client: c,
+		client: serviceClient,
 		logger: logger,
 	}, nil
 }
@@ -55,40 +57,41 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 	}
 
 	stream, err := c.client.GetAudio(ctx, &pb.GetAudioRequest{
-		Name:              c.name,
-		DurationSeconds:   durationSeconds,
-		Codec:             codec,
-		PreviousTimestamp: previousTimestamp,
-		RequestId:         uuid.New().String(),
-		Extra:             ext,
+		Name:                         c.name,
+		DurationSeconds:              durationSeconds,
+		Codec:                        codec,
+		PreviousTimestampNanoseconds: previousTimestamp,
+		RequestId:                    uuid.New().String(),
+		Extra:                        ext,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	ch := make(chan *AudioChunk)
+	// small buffered channel prevents blocking when receiver is temporarily slow
+	ch := make(chan *AudioChunk, 8)
 
 	go func() {
 		defer close(ch)
 		for {
 			select {
 			case <-ctx.Done():
-				c.logger.Debug(ctx.Err())
+				c.logger.Debugf("context done, returning from GetAudio: %v", ctx.Err())
 				return
 			default:
 			}
 			resp, err := stream.Recv()
 			if err != nil {
 				// EOF error indicates stream was closed by server.
-				if err.Error() != "EOF" {
+				if !errors.Is(err, io.EOF) {
 					c.logger.Error(err)
 				}
 				return
 			}
 
 			var info *rdkutils.AudioInfo
-			if resp.Audio.Info != nil {
-				info = rdkutils.AudioInfoPBToStruct(resp.Audio.Info)
+			if resp.Audio.AudioInfo != nil {
+				info = rdkutils.AudioInfoPBToStruct(resp.Audio.AudioInfo)
 			}
 
 			ch <- &AudioChunk{
@@ -97,6 +100,7 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 				Sequence:                  resp.Audio.Sequence,
 				StartTimestampNanoseconds: resp.Audio.StartTimestampNanoseconds,
 				EndTimestampNanoseconds:   resp.Audio.EndTimestampNanoseconds,
+				RequestID:                 resp.RequestId,
 			}
 		}
 	}()
@@ -117,5 +121,5 @@ func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (
 		return rdkutils.Properties{}, err
 	}
 
-	return rdkutils.Properties{SupportedCodecs: resp.SupportedCodecs, SampleRate: resp.SampleRate, NumChannels: resp.NumChannels}, nil
+	return rdkutils.Properties{SupportedCodecs: resp.SupportedCodecs, SampleRateHz: resp.SampleRateHz, NumChannels: resp.NumChannels}, nil
 }
