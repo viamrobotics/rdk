@@ -442,6 +442,7 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 	return points
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (m *Mesh) UnmarshalJSON(data []byte) error {
 	var g commonpb.Geometry
 	if err := protojson.Unmarshal(data, &g); err != nil {
