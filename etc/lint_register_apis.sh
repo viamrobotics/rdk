@@ -2,7 +2,7 @@
 # Ensures that all component and service APIs have a corresponding import line in 'rdk/[services|components]/register_apis/all.go'.
 
 pkgs=(components services)
-cgo_paths=(services/motion services/vision components/camera components/audioinput)
+cgo_paths=(services/motion services/vision components/camera)
 
 for p in "${pkgs[@]}"; do
   pushd $p > /dev/null
@@ -10,7 +10,7 @@ for p in "${pkgs[@]}"; do
   for d in $relevantDirs; do
     expectedImport="_ \"go.viam.com/rdk/$p/$d\""
     regexp="\\s\\+$expectedImport"
-    if [[ ${cgo_paths[@]} == "$p/$d" ]]; then
+    if [[ ${cgo_paths[@]} =~ "$p/$d" ]]; then
       if grep -q "$regexp" register_apis/*; then
         echo "Detected restricted cgo import in 'rdk/$p/register_apis'"
         exit 1
