@@ -318,10 +318,10 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		multiple = 0
 		minMillis = 20
 	} else if sss.bestScoreNoProblem < sss.goodCost/5 {
-		multiple = 35
-		minMillis = 100
+		multiple = 40
+		minMillis = 125
 	} else if sss.bestScoreNoProblem < sss.goodCost/2 {
-		multiple = 35
+		multiple = 40
 		minMillis = 150
 	} else if sss.bestScoreNoProblem < sss.goodCost {
 		multiple = 50
