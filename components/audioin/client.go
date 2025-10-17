@@ -55,6 +55,8 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 		return nil, err
 	}
 
+	// This only sets up the stream,it doesn't send the request to the server yet
+	// The actual RPC call happens on first Recv()
 	stream, err := c.client.GetAudio(ctx, &pb.GetAudioRequest{
 		Name:                         c.name,
 		DurationSeconds:              durationSeconds,
@@ -67,11 +69,34 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 		return nil, err
 	}
 
+	// receive one chunk outside of the goroutine to catch any errors
+	resp, err := stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+
 	// small buffered channel prevents blocking when receiver is temporarily slow
 	ch := make(chan *AudioChunk, 8)
 
 	go func() {
 		defer close(ch)
+
+		// Send the first response we already received
+		var info *AudioInfo
+		if resp.Audio.AudioInfo != nil {
+			info = audioInfoPBToStruct(resp.Audio.AudioInfo)
+		}
+
+		ch <- &AudioChunk{
+			AudioData:                 resp.Audio.AudioData,
+			Info:                      info,
+			Sequence:                  resp.Audio.Sequence,
+			StartTimestampNanoseconds: resp.Audio.StartTimestampNanoseconds,
+			EndTimestampNanoseconds:   resp.Audio.EndTimestampNanoseconds,
+			RequestID:                 resp.RequestId,
+		}
+
+		// Continue receiving the rest of the stream
 		for {
 			select {
 			case <-ctx.Done():
