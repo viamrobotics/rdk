@@ -10,7 +10,7 @@ for p in "${pkgs[@]}"; do
   for d in $relevantDirs; do
     expectedImport="_ \"go.viam.com/rdk/$p/$d\""
     regexp="\\s\\+$expectedImport"
-    if [[ ${cgo_paths[@]} =~ "$p/$d" ]]; then
+    if [[ ${cgo_paths[@]} == "$p/$d" ]]; then
       if grep -q "$regexp" register_apis/*; then
         echo "Detected restricted cgo import in 'rdk/$p/register_apis'"
         exit 1
