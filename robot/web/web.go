@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
@@ -31,6 +32,8 @@ import (
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -262,6 +265,21 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
+
+	// Add recovery handler interceptors to avoid crashing the rdk when a module's gRPC
+	// request manages to cause an internal panic.
+	unaryInterceptors = append(unaryInterceptors, grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandler(
+		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
+			err := status.Errorf(codes.Internal, "%v", p)
+			svc.logger.Errorw("panicked while calling unary server method for module request", "error", errors.WithStack(err))
+			return err
+		}))))
+	streamInterceptors = append(streamInterceptors, grpc_recovery.StreamServerInterceptor(grpc_recovery.WithRecoveryHandler(
+		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
+			err := status.Errorf(codes.Internal, "%s", p)
+			svc.logger.Errorw("panicked while calling stream server method for module request", "error", errors.WithStack(err))
+			return err
+		}))))
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
