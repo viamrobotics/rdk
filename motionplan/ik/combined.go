@@ -32,6 +32,8 @@ func CreateCombinedIKSolver(
 	ik.limits = limits
 	nCPU = max(nCPU, 4)
 
+	logger.Debugf("CreateCombinedIKSolver nCPU: %d", nCPU)
+
 	for i := 1; i <= nCPU; i++ {
 		nloptSolver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
 		if err != nil {
@@ -71,9 +73,8 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 
 		var myTravelPercent []float64
 		if bottomThird(i, len(ik.solvers)) {
-			// TODO: this is probably too conservative
 			for _, p := range travelPercent {
-				myTravelPercent = append(myTravelPercent, max(.1, p))
+				myTravelPercent = append(myTravelPercent, max(.2, p))
 			}
 		} else if middleThird(i, len(ik.solvers)) {
 			myTravelPercent = travelPercent
@@ -108,5 +109,5 @@ func bottomThird(i, l int) bool {
 }
 
 func middleThird(i, l int) bool {
-	return i <= (2 * l / 3)
+	return i <= ((2 * l) / 3)
 }
