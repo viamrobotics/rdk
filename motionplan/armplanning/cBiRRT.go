@@ -109,8 +109,8 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 		}
 	}
 
-	mp.pc.logger.CDebug(ctx, "start node: %v goal node: %v DOF: %v",
-		seed, rrtMaps.optNode.inputs, rrtMaps.optNode.name, rrtMaps.optNode.goalNode, mp.pc.lfs.dof)
+	mp.pc.logger.CDebugf(ctx, "start node: %v goal node name: %v inputs: %v DOF: %v",
+		seed, rrtMaps.optNode.name, rrtMaps.optNode.inputs, mp.pc.lfs.dof)
 	interpConfig, err := referenceframe.InterpolateFS(mp.pc.fs, seed, rrtMaps.optNode.inputs, 0.5)
 	if err != nil {
 		return nil, err
