@@ -176,6 +176,9 @@ func (req *PlanRequest) validatePlanRequest() error {
 			}
 		}
 	}
+
+	req.PlannerOptions.NumThreads = max(req.PlannerOptions.NumThreads, 4)
+
 	return nil
 }
 
