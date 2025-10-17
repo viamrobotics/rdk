@@ -640,6 +640,9 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		deps[name] = c
 	}
 
+	// let modules access RobotFrameSystem (name $framesystem) without needing entire RobotClient
+	deps[framesystem.PublicServiceName] = NewFrameSystemClient(m.parent)
+
 	// it is assumed the caller robot has handled model differences
 	conf, err := config.ComponentConfigFromProto(req.Config, m.logger)
 	if err != nil {
