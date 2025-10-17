@@ -51,7 +51,7 @@ const (
 	defaultOptimalityMultiple = 3.0
 )
 
-var defaultNumThreads = max(4, utils.MinInt(runtime.NumCPU()/2, 10))
+var defaultNumThreads = utils.MinInt(runtime.NumCPU()/2, 10)
 
 func init() {
 	defaultNumThreads = utils.GetenvInt("MP_NUM_THREADS", defaultNumThreads)

@@ -30,7 +30,7 @@ func CreateCombinedIKSolver(
 ) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.limits = limits
-	nCPU = max(nCPU, 2)
+	nCPU = max(nCPU, 4)
 
 	for i := 1; i <= nCPU; i++ {
 		nloptSolver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
@@ -104,15 +104,9 @@ func (ik *CombinedIK) DoF() []referenceframe.Limit {
 }
 
 func bottomThird(i, l int) bool {
-	if l <= 2 {
-		return false
-	}
 	return i <= l/3
 }
 
 func middleThird(i, l int) bool {
-	if l == 2 {
-		return i == 0
-	}
 	return i <= (2 * l / 3)
 }

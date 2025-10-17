@@ -21,8 +21,4 @@ func TestThirds(t *testing.T) {
 	test.That(t, middleThird(5, 10), test.ShouldBeTrue)
 	test.That(t, middleThird(6, 10), test.ShouldBeTrue)
 	test.That(t, middleThird(7, 10), test.ShouldBeFalse)
-
-	test.That(t, bottomThird(0, 2), test.ShouldBeFalse)
-	test.That(t, middleThird(0, 2), test.ShouldBeTrue)
-	test.That(t, middleThird(1, 2), test.ShouldBeFalse)
 }
