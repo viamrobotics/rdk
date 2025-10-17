@@ -158,11 +158,11 @@ func (pm *planManager) planToDirectJoints(
 	}
 
 	maps := rrtMaps{}
-	maps.startMap = rrtMap{&node{inputs: start}: nil}
-	maps.goalMap = rrtMap{&node{inputs: fullConfig}: nil}
-	maps.optNode = &node{inputs: fullConfig}
+	maps.startMap = rrtMap{&node{name: -1, inputs: start}: nil}
+	maps.goalMap = rrtMap{&node{name: -2, inputs: fullConfig}: nil}
+	maps.optNode = &node{name: -3, inputs: fullConfig}
 
-	finalSteps, err := pathPlanner.rrtRunner(ctx, &maps)
+	finalSteps, err := pathPlanner.rrtRunner(ctx, &maps, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,8 @@ func (pm *planManager) planSingleGoal(
 		return nil, err
 	}
 
-	planSeed, err := initRRTSolutions(ctx, psc)
+	planSeed, bgGen, err := initRRTSolutions(ctx, psc)
+	defer bgGen.StopAndWait()
 	if err != nil {
 		return nil, err
 	}
@@ -202,10 +203,12 @@ func (pm *planManager) planSingleGoal(
 		return nil, err
 	}
 
-	finalSteps, err := pathPlanner.rrtRunner(ctx, planSeed.maps)
+	finalSteps, err := pathPlanner.rrtRunner(ctx, planSeed.maps, bgGen)
 	if err != nil {
 		return nil, err
 	}
+	bgGen.StopAndWait()
+
 	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
 	return finalSteps.steps, nil
 }
@@ -271,7 +274,7 @@ type rrtMaps struct {
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK
 // solutions to pre-populate the goal map, and will check if any of those goals are able to be
 // directly interpolated to.
-func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolution, error) {
+func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolution, *backgroundGenerator, error) {
 	ctx, span := trace.StartSpan(ctx, "initRRTSolutions")
 	defer span.End()
 	rrt := &rrtSolution{
@@ -283,9 +286,9 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolutio
 
 	seed := newConfigurationNode(psc.start)
 	// goalNodes are sorted from lowest cost to highest.
-	goalNodes, err := getSolutions(ctx, psc)
+	goalNodes, goalNodeGenerator, err := getSolutions(ctx, psc)
 	if err != nil {
-		return rrt, err
+		return rrt, nil, err
 	}
 
 	rrt.maps.optNode = goalNodes[0]
@@ -299,12 +302,12 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolutio
 			// If we've already checked the path of a solution that is "reasonable", we can just
 			// return now. Otherwise, continue to initialize goal map with keys.
 			rrt.steps = []referenceframe.FrameSystemInputs{solution.inputs}
-			return rrt, nil
+			return rrt, goalNodeGenerator, nil
 		}
 
-		rrt.maps.goalMap[&node{inputs: solution.inputs}] = nil
+		rrt.maps.goalMap[&node{name: solution.name, goalNode: solution.goalNode, inputs: solution.inputs}] = nil
 	}
-	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil
+	rrt.maps.startMap[&node{name: -5, inputs: seed.inputs}] = nil
 
-	return rrt, nil
+	return rrt, goalNodeGenerator, nil
 }

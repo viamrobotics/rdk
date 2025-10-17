@@ -84,6 +84,8 @@ type planSegmentContext struct {
 
 	motionChains *motionChains
 	checker      *motionplan.ConstraintChecker
+
+	continueGeneratingSolutions bool
 }
 
 func newPlanSegmentContext(ctx context.Context, pc *planContext, start referenceframe.FrameSystemInputs,
