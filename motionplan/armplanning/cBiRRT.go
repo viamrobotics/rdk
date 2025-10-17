@@ -122,20 +122,25 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	mp.pc.logger.CInfof(ctx, "initial target. Name: %v Goal? %v", target.name, target.goalNode)
 
 	map1, map2 := rrtMaps.startMap, rrtMaps.goalMap
-	for i := 0; i < mp.pc.planOpts.PlanIter; i++ {
-		mp.pc.logger.CInfof(ctx, "iteration: %d target: %v target name: %v", i, target.inputs, target.name)
+	for iterNum := 0; iterNum < mp.pc.planOpts.PlanIter; iterNum++ {
+		mp.pc.logger.CInfof(ctx, "iteration: %d target: %v target name: %v", iterNum, target.inputs, target.name)
 
-	addNewGoals:
-		for {
+		if ctx.Err() != nil {
+			mp.pc.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", iterNum)
+			return &rrtSolution{maps: rrtMaps}, fmt.Errorf("cbirrt timeout %w", ctx.Err())
+		}
+
+		if iterNum%20 == 0 {
+			// We continue to generate IK solutions in the background. New candidates can only
+			// succeed if given some time. Hence we will pull on a reduced cadence.
 			select {
-			case <-ctx.Done():
-				mp.pc.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
-				return &rrtSolution{maps: rrtMaps}, fmt.Errorf("cbirrt timeout %w", ctx.Err())
 			case newGoal := <-bgSolutionGenerator.newSolutionsCh:
-				mp.pc.logger.CInfof(ctx, "Added new goal while birrting. Goal: %v GoalName: %v", newGoal.inputs, newGoal.name)
+				mp.pc.logger.CDebugf(ctx, "Added new goal while birrting. Goal: %v GoalName: %v", newGoal.inputs, newGoal.name)
 				rrtMaps.goalMap[newGoal] = nil
+
+				// Readjust the target to give the new solution a chance to succeed.
+				target, err = mp.sample(newGoal, iterNum)
 			default:
-				break addNewGoals
 			}
 		}
 
@@ -145,8 +150,8 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 			nearest1 := nearestNeighbor(target, map1, nodeConfigurationDistanceFunc)
 			nearest2 := nearestNeighbor(target, map2, nodeConfigurationDistanceFunc)
 
-			map1reached := mp.constrainedExtend(ctx, i, map1, nearest1, target)
-			map2reached := mp.constrainedExtend(ctx, i, map2, nearest2, target)
+			map1reached := mp.constrainedExtend(ctx, iterNum, map1, nearest1, target)
+			map2reached := mp.constrainedExtend(ctx, iterNum, map2, nearest2, target)
 
 			map1reached.corner = true
 			map2reached.corner = true
@@ -180,13 +185,13 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 
 		// Solved!
 		if reachedDelta <= mp.pc.planOpts.InputIdentDist {
-			mp.pc.logger.CInfof(ctx, "CBiRRT found solution after %d iterations in %v", i, time.Since(startTime))
+			mp.pc.logger.CInfof(ctx, "CBiRRT found solution after %d iterations in %v", iterNum, time.Since(startTime))
 			path := extractPath(rrtMaps.startMap, rrtMaps.goalMap, &nodePair{map1reached, map2reached}, true)
 			return &rrtSolution{steps: path, maps: rrtMaps}, nil
 		}
 
 		// sample near map 1 and switch which map is which to keep adding to them even
-		target, err = mp.sample(map1reached, i)
+		target, err = mp.sample(map1reached, iterNum)
 		if err != nil {
 			return &rrtSolution{maps: rrtMaps}, err
 		}

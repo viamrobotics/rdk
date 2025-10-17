@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kr/pretty"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
@@ -417,7 +416,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, *backg
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	goalNodeGenerator := &backgroundGenerator{
-		newSolutionsCh: make(chan *node, 5),
+		newSolutionsCh: make(chan *node, 2),
 		cancel:         cancel,
 	}
 
@@ -434,6 +433,11 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, *backg
 		}
 	})
 
+	// When `getSolutions` exits, we may or may not continue to generate IK solutions. In cases
+	// where we are done generating solutions, `waitForWorkers` will be called before returning.
+	//
+	// Otherwise the background goroutine that hands off new solutions is responsible for cleaning
+	// up.
 	waitForWorkers := func() {
 		// In lieu of creating a separate WaitGroup to wait on before returning, we simply wait to
 		// see the `solutionGen` channel get closed to know that the goroutine we spawned has
@@ -451,8 +455,8 @@ solutionLoop:
 			return nil, nil, ctx.Err()
 		case stepSolution, ok := <-solutionGen:
 			if !ok || solvingState.process(ctx, stepSolution) {
-				// No longer using the generated solutions. Cancel the workers.
-				// cancel()
+				// We're done grabbing up-front solutions. But we'll continue to keep generating
+				// solutions in the background.
 				break solutionLoop
 			}
 		}
@@ -480,16 +484,12 @@ solutionLoop:
 		return solvingState.solutions[i].cost < solvingState.solutions[j].cost
 	})
 
-	pretty.Println("Returning solutions. Num:", len(solvingState.solutions))
-	pretty.Println(solvingState.solutions)
-
 	goalNodeGenerator.wg.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer goalNodeGenerator.wg.Done()
 		for {
 			solution, more := <-solutionGen
 			if !more {
-				fmt.Println("DBG. Generator exiting")
 				return
 			}
 
@@ -505,7 +505,6 @@ solutionLoop:
 
 			myNode := solvingState.processSimilarity(ctx, step, stepArc)
 			if myNode == nil {
-				fmt.Println("DBG. New solution too similar")
 				continue
 			}
 
@@ -513,11 +512,9 @@ solutionLoop:
 			myNode.goalNode = true
 			select {
 			case goalNodeGenerator.newSolutionsCh <- myNode:
-				fmt.Println("DBG. Generator pushed new solution", myNode.name)
 				solvingState.solutions = append(solvingState.solutions, myNode)
 			case <-ctxWithCancel.Done():
 				waitForWorkers()
-				fmt.Println("DBG. Generator exiting:", ctxWithCancel.Err())
 				return
 			}
 		}
