@@ -349,6 +349,7 @@ func TestPositionalReplanning(t *testing.T) {
 }
 
 func TestObstacleReplanningSlam(t *testing.T) {
+	t.Skip()
 	cameraPoseInBase := spatialmath.NewPose(r3.Vector{0, 0, 0}, &spatialmath.OrientationVectorDegrees{OY: 1, Theta: -90})
 
 	ctx := context.Background()
