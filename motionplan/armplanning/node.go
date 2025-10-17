@@ -308,16 +308,21 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		return true
 	}
 
-	if sss.bestScoreNoProblem < (sss.goodCost/10) && elapsed > 100*time.Millisecond {
-		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f (%0.2f) after: %v", sss.bestScoreNoProblem, sss.goodCost, elapsed)
-		return true
-	}
-
 	multiple := 100.0
-	if sss.bestScoreNoProblem < sss.goodCost/5 {
+	minMillis := 250
+
+	if sss.bestScoreNoProblem < sss.goodCost/20 {
+		multiple = 0
+		minMillis = 10
+	} else if sss.bestScoreNoProblem < sss.goodCost/10 {
+		multiple = 0
+		minMillis = 20
+	} else if sss.bestScoreNoProblem < sss.goodCost/5 {
 		multiple = 10
+		minMillis = 50
 	} else if sss.bestScoreNoProblem < sss.goodCost/2 {
 		multiple = 25
+		minMillis = 150
 	} else if sss.bestScoreNoProblem < sss.goodCost {
 		multiple = 50
 	} else if sss.bestScoreWithProblem < sss.goodCost {
@@ -325,7 +330,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		multiple = 75
 	}
 
-	if elapsed > max(sss.firstSolutionTime*time.Duration(multiple), 100*time.Millisecond) {
+	if elapsed > max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond) {
 		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f / %0.2f after: %v",
 			sss.bestScoreNoProblem, sss.bestScoreWithProblem, elapsed)
 		return true

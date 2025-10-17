@@ -150,8 +150,9 @@ func (pm *planManager) planToDirectJoints(
 	if err != nil {
 		return nil, fmt.Errorf("want to go to specific joint config but it is invalid: %w", err)
 	}
-	
-	{ // true cartesian half
+
+	if false { // true cartesian half
+		// TODO(eliot): finish me
 		startPoses, err := start.ComputePoses(pm.pc.fs)
 		if err != nil {
 			return nil, err
@@ -159,17 +160,18 @@ func (pm *planManager) planToDirectJoints(
 
 		mid := interp(startPoses, goalPoses, .5)
 
+		pm.logger.Infof("foo things\n\t%v\n\t%v\n\t%v", startPoses, mid, goalPoses)
+
 		err = pm.foo(ctx, start, mid)
 		if err != nil {
 			pm.logger.Infof("foo failed: %v", err)
 		} else {
 			panic(2)
 		}
-		
-		
-		panic(1)
+
+		// panic(1)
 	}
-	
+
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
 	if err != nil {
 		return nil, err
@@ -327,7 +329,6 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolutio
 	return rrt, nil
 }
 
-	
 func interp(start, end referenceframe.FrameSystemPoses, delta float64) referenceframe.FrameSystemPoses {
 	mid := referenceframe.FrameSystemPoses{}
 
@@ -340,7 +341,7 @@ func interp(start, end referenceframe.FrameSystemPoses, delta float64) reference
 		if s.Parent() != e.Parent() {
 			panic("eliottttt")
 		}
-		m := spatialmath.Interpolate(s.Pose(), e.Pose(), .5)
+		m := spatialmath.Interpolate(s.Pose(), e.Pose(), delta)
 		mid[k] = referenceframe.NewPoseInFrame(s.Parent(), m)
 	}
 	return mid
@@ -350,13 +351,13 @@ func (pm *planManager) foo(ctx context.Context, start referenceframe.FrameSystem
 	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goal)
 	if err != nil {
 		return err
-	}		
+	}
 
 	planSeed, err := initRRTSolutions(ctx, psc)
 	if err != nil {
 		return err
 	}
-	
+
 	if planSeed.steps == nil {
 		return fmt.Errorf("no steps")
 	}
