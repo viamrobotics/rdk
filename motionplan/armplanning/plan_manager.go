@@ -305,7 +305,7 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolutio
 	psc.pc.logger.Debugf("optNode cost: %v", rrt.maps.optNode.cost)
 
 	// `defaultOptimalityMultiple` is > 1.0
-	reasonableCost := goalNodes[0].cost * defaultOptimalityMultiple
+	reasonableCost := max(1, goalNodes[0].cost) * defaultOptimalityMultiple // sometimes cost is so low, that we need to raise it
 	for _, solution := range goalNodes {
 		if solution.checkPath && solution.cost < reasonableCost {
 			// If we've already checked the path of a solution that is "reasonable", we can just
@@ -352,90 +352,93 @@ func (pm *planManager) quickReroute(ctx context.Context,
 
 	pm.logger.Infof("quickReroute\n\tstart: %v\n\tmid: %v\n\tgoal: %v", psc.startPoses, mid, goalPoses)
 
-	offsetDistance := 250.0 // TODO
 	numPoints := 4
 
 	angleStep := 2 * math.Pi / float64(numPoints)
-	for i := 0; i < numPoints; i++ {
-		angle := float64(i) * angleStep
+	for j := .5; j <= 2; j += .5 {
+		for i := 0; i < numPoints; i++ {
+			angle := float64(i) * angleStep
+			attempt := referenceframe.FrameSystemPoses{}
 
-		attempt := referenceframe.FrameSystemPoses{}
+			offsetDistance := 0.0
 
-		for f, s := range psc.startPoses {
-			m := mid[f]
+			for f, s := range psc.startPoses {
+				m := mid[f]
 
-			sPoint := s.Pose().Point()
-			mPoint := m.Pose().Point()
-			vec := mPoint.Sub(sPoint)
+				sPoint := s.Pose().Point()
+				mPoint := m.Pose().Point()
+				vec := mPoint.Sub(sPoint)
 
-			// Compute a perpendicular vector using cross product with a reference vector
-			// Use the Z-axis as reference (0, 0, 1) unless vec is parallel to it
-			var perpVec r3.Vector
-			if vec.X != 0 || vec.Y != 0 {
-				// Cross product with Z-axis: (vec.Y, -vec.X, 0)
-				perpVec = r3.Vector{X: vec.Y, Y: -vec.X, Z: 0}
-			} else {
-				// vec is parallel to Z-axis, use X-axis instead
-				perpVec = r3.Vector{X: 0, Y: vec.Z, Z: -vec.Y}
+				// Compute a perpendicular vector using cross product with a reference vector
+				// Use the Z-axis as reference (0, 0, 1) unless vec is parallel to it
+				var perpVec r3.Vector
+				if vec.X != 0 || vec.Y != 0 {
+					// Cross product with Z-axis: (vec.Y, -vec.X, 0)
+					perpVec = r3.Vector{X: vec.Y, Y: -vec.X, Z: 0}
+				} else {
+					// vec is parallel to Z-axis, use X-axis instead
+					perpVec = r3.Vector{X: 0, Y: vec.Z, Z: -vec.Y}
+				}
+
+				perpUnit := perpVec.Normalize() // Normalize the perpendicular vector
+
+				// Rotate perpUnit around vec axis by angle
+				// Using Rodrigues' rotation formula: v_rot = v*cos(θ) + (k × v)*sin(θ) + k*(k·v)*(1-cos(θ))
+				// where k is the unit vector along vec
+				k := vec.Normalize()
+				cosTheta := math.Cos(angle)
+				sinTheta := math.Sin(angle)
+
+				// k × perpUnit
+				kCrossPerpUnit := k.Cross(perpUnit)
+
+				// k · perpUnit (should be 0 since perpUnit is perpendicular to vec)
+				kDotPerpUnit := k.Dot(perpUnit)
+
+				// Rotated vector
+				rotated := perpUnit.Mul(cosTheta).
+					Add(kCrossPerpUnit.Mul(sinTheta)).
+					Add(k.Mul(kDotPerpUnit * (1 - cosTheta)))
+
+				myDistance := j * sPoint.Distance(mPoint)
+				offsetDistance += myDistance
+				offsetPoint := mPoint.Add(rotated.Mul(myDistance))
+
+				attempt[f] = referenceframe.NewPoseInFrame(
+					s.Parent(),
+					spatialmath.NewPose(offsetPoint, s.Pose().Orientation())) // what to do with orientation
 			}
 
-			perpUnit := perpVec.Normalize() // Normalize the perpendicular vector
+			pm.logger.Infof("circle point %v", attempt)
 
-			// Rotate perpUnit around vec axis by angle
-			// Using Rodrigues' rotation formula: v_rot = v*cos(θ) + (k × v)*sin(θ) + k*(k·v)*(1-cos(θ))
-			// where k is the unit vector along vec
-			k := vec.Normalize()
-			cosTheta := math.Cos(angle)
-			sinTheta := math.Sin(angle)
+			psc2, err := newPlanSegmentContext(ctx, pm.pc, psc.start, attempt)
+			if err != nil {
+				return nil, err
+			}
 
-			// k × perpUnit
-			kCrossPerpUnit := k.Cross(perpUnit)
-
-			// k · perpUnit (should be 0 since perpUnit is perpendicular to vec)
-			kDotPerpUnit := k.Dot(perpUnit)
-
-			// Rotated vector
-			rotated := perpUnit.Mul(cosTheta).
-				Add(kCrossPerpUnit.Mul(sinTheta)).
-				Add(k.Mul(kDotPerpUnit * (1 - cosTheta)))
-
-			// Offset from m
-			offsetPoint := mPoint.Add(rotated.Mul(offsetDistance))
-
-			attempt[f] = referenceframe.NewPoseInFrame(
-				s.Parent(),
-				spatialmath.NewPose(offsetPoint, s.Pose().Orientation())) // what to do with orientation
-		}
-
-		pm.logger.Infof("circle point %v", attempt)
-
-		psc2, err := newPlanSegmentContext(ctx, pm.pc, psc.start, attempt)
-		if err != nil {
-			return nil, err
-		}
-
-		sol, err := getSolutions(ctx, psc2, psc.pc.linearizeFSmetric(quickRerouteGoalMetric(psc2.goal, offsetDistance/4)))
-		if err != nil {
-			pm.logger.Debugf("attempt failed: %v", err)
-			continue
-		}
-
-		for _, s := range sol {
-			pm.logger.Infof(" sol %v", s)
-
-			if !s.checkPath {
+			sol, err := getSolutions(ctx, psc2, psc.pc.linearizeFSmetric(quickRerouteGoalMetric(psc2.goal, offsetDistance/4)))
+			if err != nil {
+				pm.logger.Debugf("attempt failed: %v", err)
 				continue
 			}
 
-			err = psc2.checkPath(ctx, s.inputs, goal)
-			pm.logger.Infof(" sol %v -> %v", s, err)
-			if err == nil {
-				return []referenceframe.FrameSystemInputs{s.inputs, goal}, nil
+			for _, s := range sol {
+				pm.logger.Infof(" sol %v", s)
+
+				if !s.checkPath {
+					continue
+				}
+
+				err = psc2.checkPath(ctx, s.inputs, goal)
+				pm.logger.Infof(" sol %v -> %v", s, err)
+				if err == nil {
+					return []referenceframe.FrameSystemInputs{s.inputs, goal}, nil
+				}
 			}
 		}
 	}
 
-	return nil, fmt.Errorf("finish me %v", mid)
+	return nil, nil
 }
 
 func quickRerouteGoalMetric(goal referenceframe.FrameSystemPoses, delta float64) motionplan.StateFSMetric {
