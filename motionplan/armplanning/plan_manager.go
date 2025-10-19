@@ -153,27 +153,6 @@ func (pm *planManager) planToDirectJoints(
 		return nil, fmt.Errorf("want to go to specific joint config but it is invalid: %w", err)
 	}
 
-	if false { // true cartesian half
-		// TODO(eliot): finish me
-		startPoses, err := start.ComputePoses(pm.pc.fs)
-		if err != nil {
-			return nil, err
-		}
-
-		mid := interp(startPoses, goalPoses, .5)
-
-		pm.logger.Infof("foo things\n\t%v\n\t%v\n\t%v", startPoses, mid, goalPoses)
-
-		err = pm.foo(ctx, start, mid)
-		if err != nil {
-			pm.logger.Infof("foo failed: %v", err)
-		} else {
-			panic(2)
-		}
-
-		// panic(1)
-	}
-
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
 	if err != nil {
 		return nil, err
@@ -219,15 +198,17 @@ func (pm *planManager) planSingleGoal(
 		return planSeed.steps, nil
 	}
 
-	quickReroute, err := pm.quickReroute(ctx, psc, planSeed.maps.optNode.inputs)
-	if err != nil {
-		return nil, err
+	if true {
+		quickReroute, err := pm.quickReroute(ctx, psc, planSeed.maps.optNode.inputs)
+		if err != nil {
+			return nil, err
+		}
+		if quickReroute != nil {
+			pm.logger.Debugf("found a quickReroute")
+			return quickReroute, nil
+		}
 	}
-	if quickReroute != nil {
-		pm.logger.Debugf("found a quickReroute")
-		return quickReroute, nil
-	}
-	
+
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
 	if err != nil {
 		return nil, err
@@ -314,7 +295,7 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolutio
 
 	seed := newConfigurationNode(psc.start)
 	// goalNodes are sorted from lowest cost to highest.
-	goalNodes, err := getSolutions(ctx, psc)
+	goalNodes, err := getSolutions(ctx, psc, nil)
 	if err != nil {
 		return rrt, err
 	}
@@ -358,45 +339,47 @@ func interp(start, end referenceframe.FrameSystemPoses, delta float64) reference
 	return mid
 }
 
-func (pm *planManager) quickReroute(ctx context.Context, psc *planSegmentContext, goal referenceframe.FrameSystemInputs) ([]referenceframe.FrameSystemInputs, error) {
-
+func (pm *planManager) quickReroute(ctx context.Context,
+	psc *planSegmentContext,
+	goal referenceframe.FrameSystemInputs,
+) ([]referenceframe.FrameSystemInputs, error) {
 	goalPoses, err := goal.ComputePoses(pm.pc.fs)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	mid := interp(psc.startPoses, goalPoses, .5)
 
-	offsetDistance := 100.0 // TODO
-	numPoints := 6
+	pm.logger.Infof("quickReroute\n\tstart: %v\n\tmid: %v\n\tgoal: %v", psc.startPoses, mid, goalPoses)
 
-	for f, s := range psc.startPoses {
-		m := mid[f]
-		pm.logger.Infof("%v -> %v", s, m)
+	offsetDistance := 250.0 // TODO
+	numPoints := 4
 
-		// Compute vector from s to m
-		sPoint := s.Pose().Point()
-		mPoint := m.Pose().Point()
-		vec := mPoint.Sub(sPoint)
+	angleStep := 2 * math.Pi / float64(numPoints)
+	for i := 0; i < numPoints; i++ {
+		angle := float64(i) * angleStep
 
-		// Compute a perpendicular vector using cross product with a reference vector
-		// Use the Z-axis as reference (0, 0, 1) unless vec is parallel to it
-		var perpVec r3.Vector
-		if vec.X != 0 || vec.Y != 0 {
-			// Cross product with Z-axis: (vec.Y, -vec.X, 0)
-			perpVec = r3.Vector{X: vec.Y, Y: -vec.X, Z: 0}
-		} else {
-			// vec is parallel to Z-axis, use X-axis instead
-			perpVec = r3.Vector{X: 0, Y: vec.Z, Z: -vec.Y}
-		}
+		attempt := referenceframe.FrameSystemPoses{}
 
-		// Normalize the perpendicular vector
-		perpUnit := perpVec.Normalize()
+		for f, s := range psc.startPoses {
+			m := mid[f]
 
-		// Create 8 points around a circle perpendicular to the vec
-		angleStep := 2 * math.Pi / float64(numPoints)
-		for i := 0; i < numPoints; i++ {
-			angle := float64(i) * angleStep
+			sPoint := s.Pose().Point()
+			mPoint := m.Pose().Point()
+			vec := mPoint.Sub(sPoint)
+
+			// Compute a perpendicular vector using cross product with a reference vector
+			// Use the Z-axis as reference (0, 0, 1) unless vec is parallel to it
+			var perpVec r3.Vector
+			if vec.X != 0 || vec.Y != 0 {
+				// Cross product with Z-axis: (vec.Y, -vec.X, 0)
+				perpVec = r3.Vector{X: vec.Y, Y: -vec.X, Z: 0}
+			} else {
+				// vec is parallel to Z-axis, use X-axis instead
+				perpVec = r3.Vector{X: 0, Y: vec.Z, Z: -vec.Y}
+			}
+
+			perpUnit := perpVec.Normalize() // Normalize the perpendicular vector
 
 			// Rotate perpUnit around vec axis by angle
 			// Using Rodrigues' rotation formula: v_rot = v*cos(θ) + (k × v)*sin(θ) + k*(k·v)*(1-cos(θ))
@@ -419,36 +402,54 @@ func (pm *planManager) quickReroute(ctx context.Context, psc *planSegmentContext
 			// Offset from m
 			offsetPoint := mPoint.Add(rotated.Mul(offsetDistance))
 
-			pm.logger.Infof("circle point %d: %v", i, offsetPoint)
+			attempt[f] = referenceframe.NewPoseInFrame(
+				s.Parent(),
+				spatialmath.NewPose(offsetPoint, s.Pose().Orientation())) // what to do with orientation
+		}
+
+		pm.logger.Infof("circle point %v", attempt)
+
+		psc2, err := newPlanSegmentContext(ctx, pm.pc, psc.start, attempt)
+		if err != nil {
+			return nil, err
+		}
+
+		sol, err := getSolutions(ctx, psc2, psc.pc.linearizeFSmetric(quickRerouteGoalMetric(psc2.goal, offsetDistance/4)))
+		if err != nil {
+			pm.logger.Debugf("attempt failed: %v", err)
+			continue
+		}
+
+		for _, s := range sol {
+			pm.logger.Infof(" sol %v", s)
+
+			if !s.checkPath {
+				continue
+			}
+
+			err = psc2.checkPath(ctx, s.inputs, goal)
+			pm.logger.Infof(" sol %v -> %v", s, err)
+			if err == nil {
+				return []referenceframe.FrameSystemInputs{s.inputs, goal}, nil
+			}
 		}
 	}
-	
+
 	return nil, fmt.Errorf("finish me %v", mid)
 }
 
-func (pm *planManager) foo(ctx context.Context, start referenceframe.FrameSystemInputs, goal referenceframe.FrameSystemPoses) error {
-	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goal)
-	if err != nil {
-		return err
-	}
+func quickRerouteGoalMetric(goal referenceframe.FrameSystemPoses, delta float64) motionplan.StateFSMetric {
+	return func(state *motionplan.StateFS) float64 {
+		score := 0.
+		for frame, goalInFrame := range goal {
+			currPose, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goalInFrame.Parent())
+			if err != nil {
+				panic(fmt.Errorf("fs: %v err: %w frame: %s poseParent: %v", state.FS.FrameNames(), err, frame, goalInFrame.Parent()))
+			}
 
-	planSeed, err := initRRTSolutions(ctx, psc)
-	if err != nil {
-		return err
+			myScoore := currPose.(*referenceframe.PoseInFrame).Pose().Point().Distance(goal[frame].Pose().Point())
+			score += max(0, myScoore-delta)
+		}
+		return score
 	}
-
-	if planSeed.steps == nil {
-		return fmt.Errorf("no steps")
-	}
-
-	if len(planSeed.steps) != 1 {
-		return fmt.Errorf("steps odd %d", len(planSeed.steps))
-	}
-
-	err = psc.checkPath(ctx, start, planSeed.steps[0])
-	if err != nil {
-		return err
-	}
-
-	panic(5)
 }
