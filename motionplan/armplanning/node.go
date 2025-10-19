@@ -119,39 +119,31 @@ type solutionSolvingState struct {
 
 	solutions         []*node
 	startTime         time.Time
-	bestScore         float64
 	firstSolutionTime time.Duration
+
+	bestScoreWithProblem float64
+	bestScoreNoProblem   float64
 }
 
 func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, error) {
 	var err error
 
 	sss := &solutionSolvingState{
-		psc:               psc,
-		seed:              psc.start,
-		solutions:         []*node{},
-		failures:          newIkConstraintError(psc.pc.fs, psc.checker),
-		startTime:         time.Now(),
-		firstSolutionTime: time.Hour,
-		bestScore:         10000000,
-		maxSolutions:      psc.pc.planOpts.MaxSolutions,
+		psc:                  psc,
+		seed:                 psc.start,
+		solutions:            []*node{},
+		failures:             newIkConstraintError(psc.pc.fs, psc.checker),
+		startTime:            time.Now(),
+		firstSolutionTime:    time.Hour,
+		bestScoreNoProblem:   10000000,
+		bestScoreWithProblem: 10000000,
+		maxSolutions:         psc.pc.planOpts.MaxSolutions,
 	}
 
 	if sss.maxSolutions <= 0 {
 		sss.maxSolutions = defaultSolutionsToSeed
 	}
 
-	if len(psc.pc.lfs.dof) <= 0 {
-		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
-		if err != nil {
-			return nil, err
-		}
-
-		sss.seed, err = ssc.findSeed(psc.goal, psc.start, psc.pc.logger)
-		if err != nil {
-			return nil, err
-		}
-	}
 	psc.pc.logger.Debugf("psc.start -> seed: \n%v\n%v", psc.start, sss.seed)
 	sss.linearSeed, err = psc.pc.lfs.mapToSlice(sss.seed)
 	if err != nil {
@@ -229,8 +221,7 @@ func (sss *solutionSolvingState) nonchainMinimize(ctx context.Context,
 }
 
 // return bool is if we should stop because we're done.
-func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution,
-) bool {
+func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution) bool {
 	ctx, span := trace.StartSpan(ctx, "process")
 	defer span.End()
 	sss.processCalls++
@@ -286,14 +277,18 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	myNode := &node{inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
 	sss.solutions = append(sss.solutions, myNode)
 
-	if myNode.cost < sss.bestScore {
-		sss.bestScore = myNode.cost
+	if myNode.cost < sss.bestScoreWithProblem {
+		sss.bestScoreWithProblem = myNode.cost
 	}
 
-	if myNode.cost < min(sss.goodCost, sss.bestScore*defaultOptimalityMultiple) {
+	if myNode.cost < min(sss.goodCost, sss.bestScoreWithProblem*defaultOptimalityMultiple) {
 		whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
 		sss.psc.pc.logger.Debugf("got score %0.4f and goodCost: %0.2f - result: %v", myNode.cost, sss.goodCost, whyNot)
 		myNode.checkPath = whyNot == nil
+
+		if whyNot == nil && myNode.cost < sss.bestScoreNoProblem {
+			sss.bestScoreNoProblem = myNode.cost
+		}
 	}
 
 	return sss.shouldStopEarly()
@@ -308,23 +303,36 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		return true
 	}
 
-	if sss.bestScore < .2 {
-		sss.psc.pc.logger.Debugf("stopping early with amazing %0.2f after: %v", sss.bestScore, elapsed)
+	if sss.bestScoreNoProblem < .2 {
+		sss.psc.pc.logger.Debugf("stopping early with amazing %0.2f after: %v", sss.bestScoreNoProblem, elapsed)
 		return true
 	}
 
-	if sss.bestScore < (sss.goodCost/10) && elapsed > 100*time.Millisecond {
-		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f (%0.2f) after: %v", sss.bestScore, sss.goodCost, elapsed)
-		return true
+	multiple := 100.0
+	minMillis := 250
+
+	if sss.bestScoreNoProblem < sss.goodCost/20 {
+		multiple = 0
+		minMillis = 10
+	} else if sss.bestScoreNoProblem < sss.goodCost/10 {
+		multiple = 0
+		minMillis = 20
+	} else if sss.bestScoreNoProblem < sss.goodCost/5 {
+		multiple = 40
+		minMillis = 125
+	} else if sss.bestScoreNoProblem < sss.goodCost/2 {
+		multiple = 40
+		minMillis = 150
+	} else if sss.bestScoreNoProblem < sss.goodCost {
+		multiple = 50
+	} else if sss.bestScoreWithProblem < sss.goodCost {
+		// we're going to have to do cbirrt, so look a little less, but still look
+		multiple = 75
 	}
 
-	multiple := 50.0
-	if sss.bestScore < sss.goodCost {
-		multiple *= (sss.bestScore / sss.goodCost)
-	}
-
-	if elapsed > max(sss.firstSolutionTime*time.Duration(multiple), 100*time.Millisecond) {
-		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f after: %v", sss.bestScore, elapsed)
+	if elapsed > max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond) {
+		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f / %0.2f after: %v",
+			sss.bestScoreNoProblem, sss.bestScoreWithProblem, elapsed)
 		return true
 	}
 

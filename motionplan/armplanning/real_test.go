@@ -148,8 +148,6 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestPirouette(t *testing.T) {
-	//	t.Skip()
-
 	// get arm kinematics for forward kinematics
 	armName := "ur5e"
 	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
