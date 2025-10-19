@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
@@ -31,6 +32,8 @@ import (
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -262,6 +265,21 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
+
+	// Add recovery handler interceptors to avoid crashing the rdk when a module's gRPC
+	// request manages to cause an internal panic.
+	unaryInterceptors = append(unaryInterceptors, grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandler(
+		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
+			err := status.Errorf(codes.Internal, "%v", p)
+			svc.logger.Errorw("panicked while calling unary server method for module request", "error", errors.WithStack(err))
+			return err
+		}))))
+	streamInterceptors = append(streamInterceptors, grpc_recovery.StreamServerInterceptor(grpc_recovery.WithRecoveryHandler(
+		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
+			err := status.Errorf(codes.Internal, "%s", p)
+			svc.logger.Errorw("panicked while calling stream server method for module request", "error", errors.WithStack(err))
+			return err
+		}))))
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
@@ -971,14 +989,23 @@ func (svc *webService) Stats() any {
 // RestartStatusResponse is the JSON response of the `restart_status` HTTP
 // endpoint.
 type RestartStatusResponse struct {
-	// RestartAllowed represents whether this instance of the viam-server can be
+	// RestartAllowed represents whether this instance of the viamserver can be
 	// safely restarted.
 	RestartAllowed bool `json:"restart_allowed"`
+	// DoesNotHandleNeedsRestart represents whether this instance of the viamserver does
+	// not check for the need to restart against app itself and, thus, needs agent to do so.
+	// Newer versions of viamserver (>= v0.9x.0) will report true for this value, while
+	// older versions won't report it at all, and agent should let viamserver handle
+	// NeedsRestart logic.
+	DoesNotHandleNeedsRestart bool `json:"does_not_handle_needs_restart,omitempty"`
 }
 
 // Handles the `/restart_status` endpoint.
 func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Request) {
-	response := RestartStatusResponse{RestartAllowed: svc.r.RestartAllowed()}
+	response := RestartStatusResponse{
+		RestartAllowed:            svc.r.RestartAllowed(),
+		DoesNotHandleNeedsRestart: true,
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	// Only log errors from encoding here. A failure to encode should never
