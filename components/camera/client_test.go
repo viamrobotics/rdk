@@ -81,7 +81,7 @@ func TestClient(t *testing.T) {
 	expectedDepth := rimage.NewEmptyDepthMap(10, 20)
 
 	// color camera
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
 	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -134,7 +134,7 @@ func TestClient(t *testing.T) {
 	depthImg.Set(5, 6, rimage.Depth(190))
 	depthImg.Set(9, 12, rimage.Depth(3000))
 	depthImg.Set(5, 9, rimage.MaxDepth-rimage.Depth(1))
-	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
 	injectCameraDepth.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -157,7 +157,7 @@ func TestClient(t *testing.T) {
 	}
 	// bad camera
 	injectCamera2 := &inject.Camera{}
-	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCamera2.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return nil, errGeneratePointCloudFailed
 	}
 	injectCamera2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -209,7 +209,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "received empty bytes from Image method")
 
-		pcB, err := camera1Client.NextPointCloud(context.Background())
+		pcB, err := camera1Client.NextPointCloud(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		_, got := pcB.At(5, 5, 5)
 		test.That(t, got, test.ShouldBeTrue)
@@ -281,7 +281,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		_, err = client2.NextPointCloud(context.Background())
+		_, err = client2.NextPointCloud(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGeneratePointCloudFailed.Error())
 
@@ -738,7 +738,7 @@ func TestClientWithInterceptor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	k, v := "hello", "world"
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		var grpcMetadata metadata.MD = make(map[string][]string)
 		grpcMetadata.Set(k, v)
 		grpc.SendHeader(ctx, grpcMetadata)
@@ -775,7 +775,7 @@ func TestClientWithInterceptor(t *testing.T) {
 	// interceptor correctly injected the metadata from the gRPC response header into the
 	// context.
 	ctx, md := contextutils.ContextWithMetadata(context.Background())
-	pcB, err := camera1Client.NextPointCloud(ctx)
+	pcB, err := camera1Client.NextPointCloud(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pcB.At(5, 5, 5)
 	test.That(t, got, test.ShouldBeTrue)
