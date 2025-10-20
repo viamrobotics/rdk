@@ -23,10 +23,10 @@ func init() {
 // SubtypeName is a constant that identifies the audio out resource subtype string.
 const SubtypeName = "audio_out"
 
-// API is a variable that identifies the audio input resource API.
+// API is a variable that identifies the audio out's resource API.
 var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 
-// Named is a helper for getting the named audio inputs's typed resource name.
+// Named is a helper for getting the named audio output's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }

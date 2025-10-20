@@ -32,13 +32,6 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// Properties defines properties of an audio in device.
-type Properties struct {
-	SupportedCodecs []string
-	SampleRateHz    int32
-	NumChannels     int32
-}
-
 // AudioChunk defines a chunk of audio data.
 type AudioChunk struct {
 	AudioData                 []byte
