@@ -6,13 +6,18 @@ import (
 	"time"
 
 	// "go.viam.com/rdk/motionplan".
+	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/referenceframe"
 )
 
-func simpleSmoothStep(psc *planSegmentContext, steps []referenceframe.FrameSystemInputs, step int) []referenceframe.FrameSystemInputs {
+func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []referenceframe.FrameSystemInputs, step int,
+) []referenceframe.FrameSystemInputs {
+	ctx, span := trace.StartSpan(ctx, "simpleSmoothStep")
+	defer span.End()
 	// look at each triplet, see if we can remove the middle one
 	for i := step + 1; i < len(steps); i += step {
-		err := psc.checkPath(steps[i-step-1], steps[i])
+		err := psc.checkPath(ctx, steps[i-step-1], steps[i])
 		if err != nil {
 			continue
 		}
@@ -28,12 +33,14 @@ func simpleSmoothStep(psc *planSegmentContext, steps []referenceframe.FrameSyste
 func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
 	steps []referenceframe.FrameSystemInputs,
 ) []referenceframe.FrameSystemInputs {
+	ctx, span := trace.StartSpan(ctx, "smoothPathSimple")
+	defer span.End()
 	start := time.Now()
 
 	originalSize := len(steps)
-	steps = simpleSmoothStep(psc, steps, 10)
-	steps = simpleSmoothStep(psc, steps, 2)
-	steps = simpleSmoothStep(psc, steps, 1)
+	steps = simpleSmoothStep(ctx, psc, steps, 10)
+	steps = simpleSmoothStep(ctx, psc, steps, 2)
+	steps = simpleSmoothStep(ctx, psc, steps, 1)
 
 	if len(steps) != originalSize {
 		psc.pc.logger.Debugf("simpleSmooth %d -> %d in %v", originalSize, len(steps), time.Since(start))
@@ -43,6 +50,8 @@ func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
 }
 
 func smoothPath(ctx context.Context, psc *planSegmentContext, steps []referenceframe.FrameSystemInputs) []referenceframe.FrameSystemInputs {
+	ctx, span := trace.StartSpan(ctx, "smoothPlan")
+	defer span.End()
 	steps = smoothPathSimple(ctx, psc, steps)
 	/*
 		toIter := int(math.Min(float64(len(steps)*len(steps)), float64(psc.pc.planOpts.SmoothIter)))

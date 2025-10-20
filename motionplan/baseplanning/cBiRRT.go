@@ -353,7 +353,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		// Check if the arc of "seedInputs" to "target" is valid
-		_, err := mp.CheckSegmentAndStateValidityFS(newArc, mp.planOpts.Resolution)
+		_, err := mp.CheckSegmentAndStateValidityFS(ctx, newArc, mp.planOpts.Resolution)
 		if err == nil {
 			return target
 		}
@@ -382,6 +382,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		failpos, err := mp.CheckSegmentAndStateValidityFS(
+			ctx,
 			&motionplan.SegmentFS{
 				StartConfiguration: seedInputs,
 				EndConfiguration:   solutionMap,

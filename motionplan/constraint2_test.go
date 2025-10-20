@@ -1,6 +1,7 @@
 package motionplan
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/rand"
@@ -52,6 +53,7 @@ func TestConstraintPath(t *testing.T) {
 }
 
 func TestLineFollow(t *testing.T) {
+	ctx := context.Background()
 	p1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  440,
 		Y:  -447,
@@ -137,6 +139,7 @@ func TestLineFollow(t *testing.T) {
 	// This tests that we are able to advance partway, but not entirely, to the goal while keeping constraints, and return the last good
 	// partway position
 	lastGood, err := opt.CheckSegmentAndStateValidityFS(
+		ctx,
 		&SegmentFS{
 			StartConfiguration: map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mp1)},
 			EndConfiguration:   map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mp2)},
@@ -148,14 +151,14 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, lastGood, test.ShouldNotBeNil)
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints
 	stateCheck := &StateFS{Configuration: lastGood.StartConfiguration, FS: fs}
-	test.That(t, opt.CheckStateFSConstraints(stateCheck), test.ShouldBeNil)
+	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
 
 	stateCheck.Configuration = lastGood.EndConfiguration
-	test.That(t, opt.CheckStateFSConstraints(stateCheck), test.ShouldBeNil)
+	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
 
 	// Check that a deviating configuration will fail
 	stateCheck.Configuration = map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mpFail)}
-	err = opt.CheckStateFSConstraints(stateCheck)
+	err = opt.CheckStateFSConstraints(ctx, stateCheck)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldStartWith, "whiteboard")
 }

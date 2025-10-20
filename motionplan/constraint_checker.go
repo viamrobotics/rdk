@@ -1,10 +1,12 @@
 package motionplan
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -254,7 +256,9 @@ func (c *ConstraintChecker) CheckStateConstraints(state *State) error {
 }
 
 // CheckStateFSConstraints will check a given input against all FS state constraints.
-func (c *ConstraintChecker) CheckStateFSConstraints(state *StateFS) error {
+func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *StateFS) error {
+	_, span := trace.StartSpan(ctx, "CheckStateFSConstraints")
+	defer span.End()
 	for name, cFunc := range c.stateFSConstraints {
 		if err := cFunc(state); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -501,9 +505,13 @@ func (c *ConstraintChecker) SegmentFSConstraints() []string {
 // return `true, nil`. If any constraints fail, this will return false, and an SegmentFS representing the valid portion of the segment,
 // if any. If no part of the segment is valid, then `false, nil` is returned.
 func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
+	ctx context.Context,
 	ci *SegmentFS,
 	resolution float64,
 ) (*SegmentFS, error) {
+	_, span := trace.StartSpan(ctx, "CheckStateConstraintsAcrossSegmentFS")
+	defer span.End()
+
 	interpolatedConfigurations, err := InterpolateSegmentFS(ci, resolution)
 	if err != nil {
 		return nil, err
@@ -511,7 +519,7 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	var lastGood referenceframe.FrameSystemInputs
 	for i, interpConfig := range interpolatedConfigurations {
 		interpC := &StateFS{FS: ci.FS, Configuration: interpConfig}
-		err = c.CheckStateFSConstraints(interpC)
+		err = c.CheckStateFSConstraints(ctx, interpC)
 		if err != nil {
 			if i == 0 {
 				// fail on start pos
@@ -529,10 +537,13 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
 func (c *ConstraintChecker) CheckSegmentAndStateValidityFS(
+	ctx context.Context,
 	segment *SegmentFS,
 	resolution float64,
 ) (*SegmentFS, error) {
-	subSegment, err := c.CheckStateConstraintsAcrossSegmentFS(segment, resolution)
+	_, span := trace.StartSpan(ctx, "CheckSegmentAndStateValidityFS")
+	defer span.End()
+	subSegment, err := c.CheckStateConstraintsAcrossSegmentFS(ctx, segment, resolution)
 	if err != nil {
 		if subSegment != nil {
 			if c.CheckSegmentFSConstraints(subSegment) == nil {

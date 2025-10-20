@@ -297,13 +297,18 @@ func SquaredNormNoOrientSegmentMetric(segment *Segment) float64 {
 // This changes the magnitude of the position delta used to be smaller and avoid numeric instability issues that happens with large floats.
 // It also scales the orientation distance to give more weight to it.
 func WeightedSquaredNormSegmentMetric(segment *Segment) float64 {
+	return WeightedSquaredNormDistance(segment.StartPosition, segment.EndPosition)
+}
+
+// WeightedSquaredNormDistance is a distance function between two poses to be used for gradient descent.
+func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
 	// Increase weight for orientation since it's a small number
 	orientDelta := spatial.QuatToR3AA(spatial.OrientationBetween(
-		segment.EndPosition.Orientation(),
-		segment.StartPosition.Orientation(),
+		start.Orientation(),
+		end.Orientation(),
 	).Quaternion()).Mul(orientationDistanceScaling).Norm2()
 	// Also, we multiply delta.Point() by 0.1, effectively measuring in cm rather than mm.
-	ptDelta := segment.EndPosition.Point().Mul(0.1).Sub(segment.StartPosition.Point().Mul(0.1)).Norm2()
+	ptDelta := end.Point().Mul(0.1).Sub(start.Point().Mul(0.1)).Norm2()
 	return ptDelta + orientDelta
 }
 

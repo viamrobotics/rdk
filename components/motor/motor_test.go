@@ -30,15 +30,15 @@ func TestFromRobot(t *testing.T) {
 	expected := []string{"m1", "m2"}
 	testutils.VerifySameElements(t, motor.NamesFromRobot(r), expected)
 
-	_, err := motor.FromRobot(r, "m1")
+	_, err := motor.FromProvider(r, "m1")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = motor.FromRobot(r, "m2")
+	_, err = motor.FromProvider(r, "m2")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = motor.FromRobot(r, "m0")
+	_, err = motor.FromProvider(r, "m0")
 	test.That(t, err, test.ShouldNotBeNil)
 
-	_, err = motor.FromRobot(r, "g")
+	_, err = motor.FromProvider(r, "g")
 	test.That(t, err, test.ShouldNotBeNil)
 }
