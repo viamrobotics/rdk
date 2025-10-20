@@ -38,10 +38,9 @@ type AudioOut interface {
 	Properties(ctx context.Context, extra map[string]interface{}) (utils.Properties, error)
 }
 
-// FromDependencies is a helper for getting the named AudioOut from a collection of
-// dependencies.
-func FromDependencies(deps resource.Dependencies, name string) (AudioOut, error) {
-	return resource.FromDependencies[AudioOut](deps, Named(name))
+// FromProvider is a helper for getting the named Board from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (AudioOut, error) {
+	return resource.FromProvider[AudioOut](provider, Named(name))
 }
 
 // FromRobot is a helper for getting the named AudioOutfrom the given Robot.

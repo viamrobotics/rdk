@@ -88,7 +88,7 @@ func TestWorkingAudioInClient(t *testing.T) {
 			EndTimestampNanoseconds:   3000000,
 		}
 
-		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64,
+		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64,
 			extra map[string]interface{}) (chan *audioin.AudioChunk, error,
 		) {
 			ch := make(chan *audioin.AudioChunk, 2)
@@ -176,7 +176,7 @@ func TestAudioInClientGetAudioError(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test GetAudio error
-	injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64,
+	injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64,
 		extra map[string]interface{}) (chan *audioin.AudioChunk, error,
 	) {
 		return nil, errGetAudioFailed

@@ -56,7 +56,7 @@ func TestServer(t *testing.T) {
 		injectAudioOut.PlayFunc = func(ctx context.Context, data []byte, info *rdkutils.AudioInfo, extra map[string]interface{}) error {
 			test.That(t, data, test.ShouldResemble, audioData)
 			test.That(t, info.Codec, test.ShouldEqual, "pcm16")
-			test.That(t, info.SampleRate, test.ShouldEqual, 44100)
+			test.That(t, info.SampleRateHz, test.ShouldEqual, 44100)
 			test.That(t, info.NumChannels, test.ShouldEqual, 2)
 			return nil
 		}

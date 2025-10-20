@@ -48,7 +48,7 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
-func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64,
+func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64,
 	extra map[string]interface{}) (chan *AudioChunk, error,
 ) {
 	ext, err := utils.StructToStructPb(extra)
@@ -56,14 +56,22 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 		return nil, err
 	}
 
+	// This only sets up the stream,it doesn't send the request to the server yet
+	// The actual RPC call happens on first Recv()
 	stream, err := c.client.GetAudio(ctx, &pb.GetAudioRequest{
 		Name:                         c.name,
 		DurationSeconds:              durationSeconds,
 		Codec:                        codec,
-		PreviousTimestampNanoseconds: previousTimestamp,
+		PreviousTimestampNanoseconds: previousTimestampNs,
 		RequestId:                    uuid.New().String(),
 		Extra:                        ext,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	// receive one chunk outside of the goroutine to catch any errors
+	resp, err := stream.Recv()
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +81,23 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 
 	go func() {
 		defer close(ch)
+
+		// Send the first response we already received
+		var info *rdkutils.AudioInfo
+		if resp.Audio.AudioInfo != nil {
+			info = rdkutils.AudioInfoPBToStruct(resp.Audio.AudioInfo)
+		}
+
+		ch <- &AudioChunk{
+			AudioData:                 resp.Audio.AudioData,
+			AudioInfo:                 info,
+			Sequence:                  resp.Audio.Sequence,
+			StartTimestampNanoseconds: resp.Audio.StartTimestampNanoseconds,
+			EndTimestampNanoseconds:   resp.Audio.EndTimestampNanoseconds,
+			RequestID:                 resp.RequestId,
+		}
+
+		// Continue receiving the rest of the stream
 		for {
 			select {
 			case <-ctx.Done():
@@ -96,7 +121,7 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 
 			ch <- &AudioChunk{
 				AudioData:                 resp.Audio.AudioData,
-				Info:                      info,
+				AudioInfo:                 info,
 				Sequence:                  resp.Audio.Sequence,
 				StartTimestampNanoseconds: resp.Audio.StartTimestampNanoseconds,
 				EndTimestampNanoseconds:   resp.Audio.EndTimestampNanoseconds,

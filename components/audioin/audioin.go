@@ -39,17 +39,10 @@ type Properties struct {
 	NumChannels     int32
 }
 
-// AudioInfo defines information about audio data.
-type AudioInfo struct {
-	Codec        string
-	SampleRateHz int32
-	NumChannels  int32
-}
-
 // AudioChunk defines a chunk of audio data.
 type AudioChunk struct {
 	AudioData                 []byte
-	Info                      *utils.AudioInfo
+	AudioInfo                 *utils.AudioInfo
 	Sequence                  int32
 	StartTimestampNanoseconds int64
 	EndTimestampNanoseconds   int64
@@ -59,15 +52,14 @@ type AudioChunk struct {
 // AudioIn defines an audioin component.
 type AudioIn interface {
 	resource.Resource
-	GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64, extra map[string]interface{}) (
+	GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64, extra map[string]interface{}) (
 		chan *AudioChunk, error)
 	Properties(ctx context.Context, extra map[string]interface{}) (utils.Properties, error)
 }
 
-// FromDependencies is a helper for getting the named AudioIn from a collection of
-// dependencies.
-func FromDependencies(deps resource.Dependencies, name string) (AudioIn, error) {
-	return resource.FromDependencies[AudioIn](deps, Named(name))
+// FromProvider is a helper for getting the named Board from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (AudioIn, error) {
+	return resource.FromProvider[AudioIn](provider, Named(name))
 }
 
 // FromRobot is a helper for getting the named AudioIn from the given Robot.
@@ -86,11 +78,11 @@ func audioChunkToPb(chunk *AudioChunk) *pb.AudioChunk {
 	}
 
 	var info *commonpb.AudioInfo
-	if chunk.Info != nil {
+	if chunk.AudioInfo != nil {
 		info = &commonpb.AudioInfo{
-			Codec:        chunk.Info.Codec,
-			SampleRateHz: chunk.Info.SampleRateHz,
-			NumChannels:  chunk.Info.NumChannels,
+			Codec:        chunk.AudioInfo.Codec,
+			SampleRateHz: chunk.AudioInfo.SampleRateHz,
+			NumChannels:  chunk.AudioInfo.NumChannels,
 		}
 	}
 
@@ -100,13 +92,5 @@ func audioChunkToPb(chunk *AudioChunk) *pb.AudioChunk {
 		StartTimestampNanoseconds: chunk.StartTimestampNanoseconds,
 		EndTimestampNanoseconds:   chunk.EndTimestampNanoseconds,
 		Sequence:                  chunk.Sequence,
-	}
-}
-
-func audioInfoPBToStruct(pb *commonpb.AudioInfo) *AudioInfo {
-	return &AudioInfo{
-		Codec:        pb.Codec,
-		SampleRateHz: pb.SampleRateHz,
-		NumChannels:  pb.NumChannels,
 	}
 }

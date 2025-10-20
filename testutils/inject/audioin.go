@@ -13,7 +13,7 @@ type AudioIn struct {
 	audioin.AudioIn
 	name         resource.Name
 	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	GetAudioFunc func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64, extra map[string]interface{}) (
+	GetAudioFunc func(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64, extra map[string]interface{}) (
 		chan *audioin.AudioChunk, error)
 	PropertiesFunc func(ctx context.Context, extra map[string]interface{}) (utils.Properties, error)
 }
@@ -29,13 +29,13 @@ func (a *AudioIn) Name() resource.Name {
 }
 
 // GetAudio calls the injected GetAudio or the real version.
-func (a *AudioIn) GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64,
+func (a *AudioIn) GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64,
 	extra map[string]interface{}) (chan *audioin.AudioChunk, error,
 ) {
 	if a.GetAudioFunc == nil {
-		return a.AudioIn.GetAudio(ctx, codec, durationSeconds, previousTimestamp, extra)
+		return a.AudioIn.GetAudio(ctx, codec, durationSeconds, previousTimestampNs, extra)
 	}
-	return a.GetAudioFunc(ctx, codec, durationSeconds, previousTimestamp, extra)
+	return a.GetAudioFunc(ctx, codec, durationSeconds, previousTimestampNs, extra)
 }
 
 // Properties returns the injected Properties or the real version.
