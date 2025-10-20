@@ -144,7 +144,7 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 		sss.maxSolutions = defaultSolutionsToSeed
 	}
 
-	if len(psc.pc.lfs.dof) <= 0 {
+	if len(psc.pc.lfs.dof) <= 6 {
 		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
 		if err != nil {
 			return nil, err
@@ -326,6 +326,9 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	if sss.bestScoreNoProblem < sss.goodCost/20 {
 		multiple = 0
 		minMillis = 10
+	} else if sss.bestScoreNoProblem < sss.goodCost/15 {
+		multiple = 1
+		minMillis = 15
 	} else if sss.bestScoreNoProblem < sss.goodCost/10 {
 		multiple = 0
 		minMillis = 20

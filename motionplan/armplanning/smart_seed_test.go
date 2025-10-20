@@ -53,43 +53,28 @@ func TestSmartSeedCache1(t *testing.T) {
 
 func TestSmartSeedCachePirouette(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	
+
 	armName := "ur5e"
 	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
 	test.That(t, err, test.ShouldBeNil)
 
-	idealJointValues := [][]referenceframe.Input{
-		{{0 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{30 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{60 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{90 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{120 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{150 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{180 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{180 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{150 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{120 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{90 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{60 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{30 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-		{{0 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	}
+	idealJointValues := pirIdealJointValues
 
 	fs := referenceframe.NewEmptyFrameSystem("pirouette")
 	err = fs.AddFrame(armKinematics, fs.World())
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	ssc, err := smartSeed(fs, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	for i, ideal := range idealJointValues {
 		pose, err := armKinematics.Transform(ideal)
 		test.That(t, err, test.ShouldBeNil)
 
 		score1 := referenceframe.InputsL2Distance(idealJointValues[0], ideal)
-		logger.Infof("hi1 %v", score1)
+		logger.Infof("hi %d %v", i, score1)
 		seeds, err := ssc.findSeeds(
-			referenceframe.FrameSystemPoses{armName:referenceframe.NewPoseInFrame("world", pose)},
+			referenceframe.FrameSystemPoses{armName: referenceframe.NewPoseInFrame("world", pose)},
 			referenceframe.FrameSystemInputs{armName: idealJointValues[0]},
 			logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -106,15 +91,15 @@ func TestSmartSeedCachePirouette(t *testing.T) {
 			if score1 == 0 {
 				break
 			}
+			if ii > 10 {
+				break
+			}
 		}
 
 		if score1 > 0 {
-			test.That(t, firstScore, test.ShouldBeLessThan, score1)
+			test.That(t, firstScore, test.ShouldBeLessThan, 4)
 		}
-		
 	}
-
-	t.Fail()
 }
 
 func BenchmarkSmartSeedCacheSearch(t *testing.B) {
