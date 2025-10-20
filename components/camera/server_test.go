@@ -384,6 +384,7 @@ func TestServer(t *testing.T) {
 			Name: testCameraName,
 		})
 
+		test.That(t, err, test.ShouldBeNil)
 		pc, err := pointcloud.ReadPCD(bytes.NewReader(pcProto.GetPointCloud()), "")
 		test.That(t, err, test.ShouldBeNil)
 		_, got := pc.At(5, 5, 5)
