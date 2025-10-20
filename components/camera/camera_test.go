@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -635,17 +636,17 @@ func TestNamedImage(t *testing.T) {
 
 	t.Run("NamedImageFromBytes", func(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
-			ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG)
+			ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG, data.Annotations{})
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ni.SourceName, test.ShouldEqual, sourceName)
 			test.That(t, ni.MimeType(), test.ShouldEqual, rutils.MimeTypePNG)
 		})
 		t.Run("error on nil data", func(t *testing.T) {
-			_, err := camera.NamedImageFromBytes(nil, sourceName, rutils.MimeTypePNG)
+			_, err := camera.NamedImageFromBytes(nil, sourceName, rutils.MimeTypePNG, data.Annotations{})
 			test.That(t, err, test.ShouldBeError, errors.New("must provide image bytes to construct a named image from bytes"))
 		})
 		t.Run("error on empty mime type", func(t *testing.T) {
-			_, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, "")
+			_, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, "", data.Annotations{})
 			test.That(t, err, test.ShouldBeError, errors.New("must provide a mime type to construct a named image"))
 		})
 	})
@@ -685,7 +686,7 @@ func TestNamedImage(t *testing.T) {
 		})
 
 		t.Run("when only data is populated, it should decode the data and cache it", func(t *testing.T) {
-			ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG)
+			ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG, data.Annotations{})
 			test.That(t, err, test.ShouldBeNil)
 
 			// first call should decode
@@ -707,7 +708,7 @@ func TestNamedImage(t *testing.T) {
 		})
 
 		t.Run("error when data is invalid", func(t *testing.T) {
-			ni, err := camera.NamedImageFromBytes(badBytes, sourceName, rutils.MimeTypePNG)
+			ni, err := camera.NamedImageFromBytes(badBytes, sourceName, rutils.MimeTypePNG, data.Annotations{})
 			test.That(t, err, test.ShouldBeNil)
 			_, err = ni.Image(ctx)
 			test.That(t, err, test.ShouldBeError)
@@ -715,7 +716,7 @@ func TestNamedImage(t *testing.T) {
 		})
 
 		t.Run("error when mime type mismatches and decode fails", func(t *testing.T) {
-			ni, err := camera.NamedImageFromBytes(testImgJPEGBytes, sourceName, rutils.MimeTypePNG)
+			ni, err := camera.NamedImageFromBytes(testImgJPEGBytes, sourceName, rutils.MimeTypePNG, data.Annotations{})
 			test.That(t, err, test.ShouldBeNil)
 			_, err = ni.Image(ctx)
 			test.That(t, err, test.ShouldBeError)
@@ -726,7 +727,7 @@ func TestNamedImage(t *testing.T) {
 			corruptedPNGBytes := append([]byte(nil), testImgPNGBytes...)
 			corruptedPNGBytes[len(corruptedPNGBytes)-5] = 0 // corrupt it
 
-			ni, err := camera.NamedImageFromBytes(corruptedPNGBytes, sourceName, rutils.MimeTypePNG)
+			ni, err := camera.NamedImageFromBytes(corruptedPNGBytes, sourceName, rutils.MimeTypePNG, data.Annotations{})
 			test.That(t, err, test.ShouldBeNil)
 			_, err = ni.Image(ctx)
 			test.That(t, err, test.ShouldBeError)
@@ -736,7 +737,7 @@ func TestNamedImage(t *testing.T) {
 
 	t.Run("Bytes method", func(t *testing.T) {
 		t.Run("when data is already populated, it should return the data and cache it", func(t *testing.T) {
-			ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG)
+			ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG, data.Annotations{})
 			test.That(t, err, test.ShouldBeNil)
 			data, err := ni.Bytes(ctx)
 			test.That(t, err, test.ShouldBeNil)
@@ -781,7 +782,7 @@ func TestNamedImage(t *testing.T) {
 	})
 
 	t.Run("MimeType method", func(t *testing.T) {
-		ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG)
+		ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG, data.Annotations{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ni.MimeType(), test.ShouldEqual, rutils.MimeTypePNG)
 	})
