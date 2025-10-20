@@ -43,11 +43,6 @@ func FromProvider(provider resource.Provider, name string) (AudioOut, error) {
 	return resource.FromProvider[AudioOut](provider, Named(name))
 }
 
-// FromRobot is a helper for getting the named AudioOutfrom the given Robot.
-func FromRobot(r robot.Robot, name string) (AudioOut, error) {
-	return robot.ResourceFromRobot[AudioOut](r, Named(name))
-}
-
 // NamesFromRobot is a helper for getting all AudioIn names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
