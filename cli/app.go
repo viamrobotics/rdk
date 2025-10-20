@@ -1387,7 +1387,7 @@ var app = &cli.App{
 				},
 				{
 					Name:            "index",
-					Usage:           "manage indexes for hot data stores and pipeline sinks",
+					Usage:           "manage indexes for hot data and pipeline sink collections",
 					UsageText:       createUsageText("data index", nil, false, true),
 					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
@@ -1448,7 +1448,6 @@ var app = &cli.App{
 									Usage:    "name of the index to delete",
 								},
 							},
-							Before: createCommandWithT[deleteCustomIndexArgs](DeleteCustomIndexConfirmation),
 							Action: createCommandWithT[deleteCustomIndexArgs](DeleteCustomIndexAction),
 						},
 						{

@@ -1,13 +1,11 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/urfave/cli/v2"
 	pb "go.viam.com/api/app/data/v1"
@@ -102,24 +100,6 @@ func DeleteCustomIndexAction(c *cli.Context, args deleteCustomIndexArgs) error {
 	return nil
 }
 
-// DeleteCustomIndexConfirmation prompts the user for confirmation before deleting a custom index.
-func DeleteCustomIndexConfirmation(c *cli.Context, args deleteCustomIndexArgs) error {
-	printf(c.App.Writer, "Are you sure you want to delete index (name: %s)? This action cannot be undone. (y/N): ", args.IndexName)
-	if err := c.Err(); err != nil {
-		return err
-	}
-
-	rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
-	if err != nil {
-		return err
-	}
-
-	if input := strings.ToUpper(strings.TrimSpace(rawInput)); input != "Y" {
-		return errors.New("aborted")
-	}
-	return nil
-}
-
 type listCustomIndexesArgs struct {
 	OrgID          string
 	CollectionType string
@@ -193,14 +173,24 @@ func readJSONToByteSlices(filePath string) ([][]byte, error) {
 		return nil, err
 	}
 
-	var rawMessages []json.RawMessage
-	if err = json.Unmarshal(data, &rawMessages); err != nil {
-		return nil, err
+	var indexSpec struct {
+		Key     json.RawMessage `json:"key"`
+		Options json.RawMessage `json:"options,omitempty"`
 	}
 
-	result := make([][]byte, len(rawMessages))
-	for i, raw := range rawMessages {
-		result[i] = []byte(raw)
+	if err = json.Unmarshal(data, &indexSpec); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
+	}
+
+	if len(indexSpec.Key) == 0 {
+		return nil, fmt.Errorf("missing required 'key' field in index spec")
+	}
+
+	result := make([][]byte, 0, 2)
+	result = append(result, []byte(indexSpec.Key))
+
+	if len(indexSpec.Options) > 0 {
+		result = append(result, []byte(indexSpec.Options))
 	}
 
 	return result, nil

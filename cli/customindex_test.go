@@ -97,37 +97,55 @@ func TestReadJSONToByteSlices(t *testing.T) {
 		expectedResult [][]byte
 		expectedError  bool
 	}{
-		"valid_json_array": {
-			fileContent: `[
-				{"name": 1, "email": -1},
-				{"unique": true}
-			]`,
+		"valid_with_key_and_options": {
+			fileContent: `{
+				"key": {"resource_name": 1, "method_name": 1},
+				"options": {"sparse": true}
+			}`,
+			expectedResult: [][]byte{
+				[]byte(`{"resource_name": 1, "method_name": 1}`),
+				[]byte(`{"sparse": true}`),
+			},
+			expectedError: false,
+		},
+		"valid_with_key_only": {
+			fileContent: `{
+				"key": {"name": 1, "email": -1}
+			}`,
 			expectedResult: [][]byte{
 				[]byte(`{"name": 1, "email": -1}`),
-				[]byte(`{"unique": true}`),
 			},
 			expectedError: false,
 		},
-		"empty_array": {
-			fileContent:    `[]`,
-			expectedResult: [][]byte{},
-			expectedError:  false,
-		},
-		"single_element": {
-			fileContent: `[
-				{"name": 1}
-			]`,
+		"valid_with_empty_options": {
+			fileContent: `{
+				"key": {"timestamp": -1},
+				"options": {}
+			}`,
 			expectedResult: [][]byte{
-				[]byte(`{"name": 1}`),
+				[]byte(`{"timestamp": -1}`),
+				[]byte(`{}`),
 			},
 			expectedError: false,
 		},
-		"invalid_json": {
-			fileContent:   `{"name": 1}`,
+		"missing_key_field": {
+			fileContent: `{
+				"options": {"unique": true}
+			}`,
+			expectedError: true,
+		},
+		"invalid_json_structure": {
+			fileContent: `[
+				{"key": {"name": 1}}
+			]`,
 			expectedError: true,
 		},
 		"malformed_json": {
-			fileContent:   `[{"name": 1`,
+			fileContent:   `{"key": {"name": 1}`,
+			expectedError: true,
+		},
+		"empty_object": {
+			fileContent:   `{}`,
 			expectedError: true,
 		},
 	}
