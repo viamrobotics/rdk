@@ -357,6 +357,7 @@ func (mr *moveRequest) obstaclesIntersectPlan(
 				worldState.String(),
 			)
 			if err := baseplanning.CheckPlan(
+				ctx,
 				mr.localizingFS.Frame(k.Name()), // frame we wish to check for collisions
 				updatedBaseExecutionState,
 				worldState, // detected obstacles by this instance of camera + service

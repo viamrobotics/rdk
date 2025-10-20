@@ -19,6 +19,7 @@ import (
 
 	viz "github.com/viam-labs/motion-tools/client/client"
 	"go.viam.com/utils"
+	"go.viam.com/utils/perf"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -90,7 +91,13 @@ func realMain() error {
 	mylog := log.New(os.Stdout, "", 0)
 	start := time.Now()
 
+	exporter := perf.NewDevelopmentExporter()
+	if err := exporter.Start(); err != nil {
+		return err
+	}
+
 	plan, _, err := armplanning.PlanMotion(ctx, logger, req)
+	exporter.Stop()
 	if *interactive {
 		if interactiveErr := doInteractive(req, plan, err, mylog); interactiveErr != nil {
 			logger.Fatal("Interactive mode failed:", interactiveErr)
@@ -237,7 +244,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 func drawGoalPoses(req *armplanning.PlanRequest) error {
 	var goalPoses []spatialmath.Pose
 	for _, goalPlanState := range req.Goals {
-		poses, err := goalPlanState.ComputePoses(req.FrameSystem)
+		poses, err := goalPlanState.ComputePoses(context.Background(), req.FrameSystem)
 		if err != nil {
 			return err
 		}

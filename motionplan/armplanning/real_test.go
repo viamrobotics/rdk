@@ -127,6 +127,7 @@ func TestWineCrazyTouch2(t *testing.T) {
 
 func TestSandingLargeMove1(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
 
 	start := time.Now()
 	req, err := ReadRequestFromFile("data/sanding-large-move1.json")
@@ -134,10 +135,10 @@ func TestSandingLargeMove1(t *testing.T) {
 
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
 
-	pc, err := newPlanContext(logger, req)
+	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(pc, req.StartState.configuration, req.Goals[0].poses)
+	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.configuration, req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
 	solution, err := initRRTSolutions(context.Background(), psc)
@@ -147,8 +148,6 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestPirouette(t *testing.T) {
-	t.Skip()
-
 	// get arm kinematics for forward kinematics
 	armName := "ur5e"
 	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
@@ -201,6 +200,7 @@ func TestPirouette(t *testing.T) {
 				logger := logging.NewTestLogger(t)
 				// construct req and get the plan
 				goalState := NewPlanState(map[string]*referenceframe.PoseInFrame{armName: p}, nil)
+
 				req := &PlanRequest{
 					FrameSystem: fs,
 					Goals:       []*PlanState{goalState},

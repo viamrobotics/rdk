@@ -30,7 +30,9 @@ func CreateCombinedIKSolver(
 ) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.limits = limits
-	nCPU = max(nCPU, 2)
+	nCPU = max(nCPU, 4)
+
+	logger.Debugf("CreateCombinedIKSolver nCPU: %d", nCPU)
 
 	for i := 1; i <= nCPU; i++ {
 		nloptSolver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
@@ -49,7 +51,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	retChan chan<- *Solution,
 	seed []float64,
 	travelPercent []float64,
-	m func([]float64) float64,
+	costFunc CostFunc,
 	rseed int,
 ) (int, error) {
 	randSeed := rand.New(rand.NewSource(int64(rseed))) //nolint: gosec
@@ -68,21 +70,23 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		parseed := rseed
 		thisSolver := solver
 		seedFloats := seed
-		if i > 1 {
-			seedFloats = generateRandomPositions(randSeed, lowerBound, upperBound)
-		}
 
 		var myTravelPercent []float64
-		if i == 0 {
-			// TODO: this is probablytoo conservative
+		if bottomThird(i, len(ik.solvers)) {
+			for _, p := range travelPercent {
+				myTravelPercent = append(myTravelPercent, max(.2, p))
+			}
+		} else if middleThird(i, len(ik.solvers)) {
 			myTravelPercent = travelPercent
+		} else {
+			seedFloats = generateRandomPositions(randSeed, lowerBound, upperBound)
 		}
 
 		activeSolvers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			n, err := thisSolver.Solve(ctx, retChan, seedFloats, myTravelPercent, m, parseed)
+			n, err := thisSolver.Solve(ctx, retChan, seedFloats, myTravelPercent, costFunc, parseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()
@@ -98,4 +102,12 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 // DoF returns the DoF of the solver.
 func (ik *CombinedIK) DoF() []referenceframe.Limit {
 	return ik.limits
+}
+
+func bottomThird(i, l int) bool {
+	return i <= l/3
+}
+
+func middleThird(i, l int) bool {
+	return i <= ((2 * l) / 3)
 }

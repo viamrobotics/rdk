@@ -79,6 +79,7 @@ const (
 //	err := machine.Shutdown(context.Background())
 type Robot interface {
 	framesystem.RobotFrameSystem
+	resource.Provider
 
 	// GetModelsFromModules returns a list of models supported by the configured modules,
 	// and specifies whether the models are from a local or registry module.

@@ -7,6 +7,8 @@ import (
 	"slices"
 	"time"
 
+	"go.opencensus.io/trace"
+
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
@@ -36,7 +38,9 @@ type cBiRRTMotionPlanner struct {
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
-func newCBiRRTMotionPlanner(pc *planContext, psc *planSegmentContext) (*cBiRRTMotionPlanner, error) {
+func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegmentContext) (*cBiRRTMotionPlanner, error) {
+	_, span := trace.StartSpan(ctx, "newCBiRRTMotionPlanner")
+	defer span.End()
 	c := &cBiRRTMotionPlanner{
 		pc:  pc,
 		psc: psc,
@@ -81,6 +85,9 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	ctx context.Context,
 	rrtMaps *rrtMaps,
 ) (*rrtSolution, error) {
+	ctx, span := trace.StartSpan(ctx, "rrtRunner")
+	defer span.End()
+
 	mp.pc.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d\n", len(rrtMaps.startMap), len(rrtMaps.goalMap))
 
 	// setup planner options
@@ -187,6 +194,8 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	rrtMap map[*node]*node,
 	near, target *node,
 ) *node {
+	ctx, span := trace.StartSpan(ctx, "constrainedExtend")
+	defer span.End()
 	qstep := mp.getFrameSteps(defaultFrameStep, iterationNumber, false)
 
 	// Allow qstep to be doubled as a means to escape from configurations which gradient descend to their seed
@@ -273,7 +282,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		// Check if the arc of "seedInputs" to "target" is valid
-		_, err := mp.psc.checker.CheckSegmentAndStateValidityFS(newArc, mp.pc.planOpts.Resolution)
+		_, err := mp.psc.checker.CheckSegmentAndStateValidityFS(ctx, newArc, mp.pc.planOpts.Resolution)
 		if err == nil {
 			return target
 		}
@@ -301,6 +310,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		failpos, err := mp.psc.checker.CheckSegmentAndStateValidityFS(
+			ctx,
 			&motionplan.SegmentFS{
 				StartConfiguration: seedInputs,
 				EndConfiguration:   solutionMap,
@@ -347,17 +357,7 @@ func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, itera
 
 		pos := make([]float64, len(dof))
 		for i, lim := range dof {
-			l, u := lim.Min, lim.Max
-
-			// Default to [-999,999] as range if limits are infinite
-			if l == math.Inf(-1) {
-				l = -999
-			}
-			if u == math.Inf(1) {
-				u = 999
-			}
-
-			jRange := math.Abs(u - l)
+			_, _, jRange := lim.GoodLimits()
 			pos[i] = jRange * percentTotalMovement
 
 			if isMoving {

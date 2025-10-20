@@ -174,19 +174,19 @@ type ImageMetadata struct {
 //
 // Image example:
 //
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//	myCamera, err := camera.FromProvider(machine, "my_camera")
 //	imageBytes, mimeType, err := myCamera.Image(context.Background(), utils.MimeTypeJPEG, nil)
 //
 // Or try to directly decode as an image.Image:
 //
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//	myCamera, err := camera.FromProvider(machine, "my_camera")
 //	img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
 //
 // For more information, see the [Image method docs].
 //
 // Images example:
 //
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//	myCamera, err := camera.FromProvider(machine, "my_camera")
 //
 //	images, metadata, err := myCamera.Images(context.Background(), nil)
 //
@@ -194,7 +194,7 @@ type ImageMetadata struct {
 //
 // NextPointCloud example:
 //
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//	myCamera, err := camera.FromProvider(machine, "my_camera")
 //
 //	// gets the next point cloud from a camera
 //	pointCloud, err := myCamera.NextPointCloud(context.Background())
@@ -203,7 +203,7 @@ type ImageMetadata struct {
 //
 // Close example:
 //
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//	myCamera, err := camera.FromProvider(machine, "my_camera")
 //
 //	err = myCamera.Close(context.Background())
 //
@@ -380,15 +380,25 @@ func NewPropertiesError(cameraIdentifier string) error {
 	return errors.Errorf("failed to get properties from %s", cameraIdentifier)
 }
 
-// FromDependencies is a helper for getting the named camera from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named camera from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Camera, error) {
 	return resource.FromDependencies[Camera](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named Camera from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named Camera from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Camera, error) {
 	return robot.ResourceFromRobot[Camera](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Camera from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Camera, error) {
+	return resource.FromProvider[Camera](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all camera names from the given Robot.

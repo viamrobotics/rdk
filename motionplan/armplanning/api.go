@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
@@ -223,8 +224,10 @@ type PlanMeta struct {
 func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, *PlanMeta, error) {
 	start := time.Now()
 	meta := &PlanMeta{}
+	ctx, span := trace.StartSpan(ctx, "PlanMotion")
 	defer func() {
 		meta.Duration = time.Since(start)
+		span.End()
 	}()
 
 	if err := request.validatePlanRequest(); err != nil {
@@ -245,7 +248,7 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 		return nil, meta, errors.New("must populate start state configuration")
 	}
 
-	sfPlanner, err := newPlanManager(logger, request)
+	sfPlanner, err := newPlanManager(ctx, logger, request, meta)
 	if err != nil {
 		return nil, meta, err
 	}

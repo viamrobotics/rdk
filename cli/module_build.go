@@ -15,6 +15,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -499,13 +500,12 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 }
 
 type reloadModuleArgs struct {
-	PartID      string
-	Module      string
-	RestartOnly bool
-	NoBuild     bool
-	Local       bool
-	NoProgress  bool
-	CloudBuild  bool
+	PartID     string
+	Module     string
+	NoBuild    bool
+	Local      bool
+	NoProgress bool
+	CloudBuild bool
 
 	// CloudConfig is a path to the `viam.json`, or the config containing the robot ID.
 	CloudConfig  string
@@ -726,13 +726,128 @@ func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID mo
 	return nil
 }
 
-// moduleCloudReload triggers a cloud build and then reloads the specified module with that build.
-func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform string) (string, error) {
-	manifest, err := loadManifest(args.Module)
+func (c *viamClient) inferOrgIDFromManifest(manifest moduleManifest) (string, error) {
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return "", err
+	}
+	org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
 	if err != nil {
 		return "", err
 	}
 
+	return org.GetId(), nil
+}
+
+func (c *viamClient) triggerCloudReloadBuild(
+	ctx *cli.Context,
+	args reloadModuleArgs,
+	manifest moduleManifest,
+	archivePath, partID string,
+) (string, error) {
+	stream, err := c.buildClient.StartReloadBuild(ctx.Context)
+	if err != nil {
+		return "", err
+	}
+
+	//nolint:gosec
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return "", err
+	}
+
+	orgID, err := c.inferOrgIDFromManifest(manifest)
+	if err != nil {
+		return "", err
+	}
+
+	part, err := c.getRobotPart(args.PartID)
+	if err != nil {
+		return "", err
+	}
+
+	if part.Part == nil {
+		return "", fmt.Errorf("part with id=%s not found", args.PartID)
+	}
+
+	if part.Part.UserSuppliedInfo == nil {
+		return "", errors.New("unable to determine platform for part")
+	}
+
+	// App expects `BuildInfo` as the first request
+	platform := part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
+	req := &buildpb.StartReloadBuildRequest{
+		CloudBuild: &buildpb.StartReloadBuildRequest_BuildInfo{
+			BuildInfo: &buildpb.ReloadBuildInfo{
+				Platform: platform,
+				Workdir:  &args.Workdir,
+				ModuleId: manifest.ModuleID,
+			},
+		},
+	}
+	if err := stream.Send(req); err != nil {
+		return "", err
+	}
+
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return "", err
+	}
+	pkgInfo := v1.PackageInfo{
+		OrganizationId: orgID,
+		Name:           moduleID.name,
+		Version:        getReloadVersion(reloadSourceVersionPrefix, partID),
+		Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
+	}
+	reqInner := &v1.CreatePackageRequest{
+		Package: &v1.CreatePackageRequest_Info{
+			Info: &pkgInfo,
+		},
+	}
+	req = &buildpb.StartReloadBuildRequest{
+		CloudBuild: &buildpb.StartReloadBuildRequest_Package{
+			Package: reqInner,
+		},
+	}
+
+	if err := stream.Send(req); err != nil {
+		return "", err
+	}
+
+	var errs error
+	if err := sendUploadRequests(
+		ctx.Context, stream, file, c.c.App.Writer, getNextReloadBuildUploadRequest); err != nil && !errors.Is(err, io.EOF) {
+		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
+	}
+
+	resp, closeErr := stream.CloseAndRecv()
+	if closeErr != nil && !errors.Is(closeErr, io.EOF) {
+		errs = multierr.Combine(errs, closeErr)
+	}
+	return resp.GetBuildId(), errs
+}
+
+func getNextReloadBuildUploadRequest(file *os.File) (*buildpb.StartReloadBuildRequest, int, error) {
+	packagesRequest, byteLen, err := getNextPackageUploadRequest(file)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return &buildpb.StartReloadBuildRequest{
+		CloudBuild: &buildpb.StartReloadBuildRequest_Package{
+			Package: packagesRequest,
+		},
+	}, byteLen, nil
+}
+
+// moduleCloudReload triggers a cloud build and then reloads the specified module with that build.
+func (c *viamClient) moduleCloudReload(
+	ctx *cli.Context,
+	args reloadModuleArgs,
+	platform string,
+	manifest moduleManifest,
+	partID string,
+) (string, error) {
 	// ensure that the module has been registered in the cloud
 	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
@@ -753,47 +868,9 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	if err != nil {
 		return "", err
 	}
-	org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
-	if err != nil {
-		return "", err
-	}
 
-	// Upload a package with the bundled local dev code. Note that "reload" is a sentinel
-	// value for hot reloading modules. App expects it; don't change without making a
-	// complimentary update to the app repo
-	resp, err := c.uploadPackage(org.GetId(), reloadVersion, reloadVersion, "module", archivePath, nil)
-	if err != nil {
-		return "", err
-	}
-
-	// get package URL for downloading purposes
-	packageURL, err := c.getPackageDownloadURL(org.GetId(), reloadVersion, reloadVersion, "module")
-	if err != nil {
-		return "", err
-	}
-
-	// object ID stringifies as `ObjectID("{actual_id}")` but we only want the actual ID when
-	// passing back to app for package lookup.
-	versionParts := strings.Split(resp.Version, "\"")
-	if len(versionParts) != 3 {
-		return "", errors.Errorf("malformed ID %s", versionParts)
-	}
-	resp.Version = versionParts[1]
-
-	// (TODO RSDK-11531) It'd be nice to add some streaming logs for this so we can see how the progress is going. create a new build
-	// TODO (RSDK-11692) - passing org ID in the ref field and `resp.Version` (which is actually an object ID)
-	// in the token field is pretty hacky, let's fix it up
 	infof(c.c.App.Writer, "Creating a new cloud build and swapping it onto the requested machine part. This may take a few minutes...")
-	buildArgs := moduleBuildStartArgs{
-		Module:    args.Module,
-		Version:   reloadVersion,
-		Workdir:   args.Workdir,
-		Ref:       org.GetId(),
-		Platforms: []string{platform},
-		Token:     resp.Version,
-	}
-
-	buildID, err := c.moduleBuildStartForRepo(ctx, buildArgs, &manifest, packageURL)
+	buildID, err := c.triggerCloudReloadBuild(ctx, args, manifest, archivePath, partID)
 	if err != nil {
 		return "", err
 	}
@@ -818,17 +895,8 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 
 	downloadArgs := downloadModuleFlags{
 		ID:       id,
-		Version:  reloadVersion,
+		Version:  getReloadVersion(reloadVersionPrefix, partID),
 		Platform: platform,
-	}
-
-	// delete the package now that the build is complete
-	_, err = c.packageClient.DeletePackage(
-		ctx.Context,
-		&v1.DeletePackageRequest{Id: resp.GetId(), Version: reloadVersion, Type: v1.PackageType_PACKAGE_TYPE_MODULE},
-	)
-	if err != nil {
-		warningf(ctx.App.Writer, "failed to delete package: %s", err.Error())
 	}
 
 	// delete the archive we created
@@ -839,8 +907,17 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 	return c.downloadModuleAction(ctx, downloadArgs)
 }
 
+// ReloadModuleLocalAction builds a module locally, configures it on a robot, and starts or restarts it.
+func ReloadModuleLocalAction(c *cli.Context, args reloadModuleArgs) error {
+	return reloadModuleAction(c, args, false)
+}
+
 // ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
 func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
+	return reloadModuleAction(c, args, true)
+}
+
+func reloadModuleAction(c *cli.Context, args reloadModuleArgs, cloudBuild bool) error {
 	vc, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -856,11 +933,25 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 		logger = logging.NewDebugLogger("cli")
 	}
 
-	return reloadModuleAction(c, vc, args, logger)
+	return reloadModuleActionInner(c, vc, args, logger, cloudBuild)
 }
 
-// reloadModuleAction is the testable inner reload logic.
-func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, logger logging.Logger) error {
+func getReloadVersion(versionPrefix, partID string) string {
+	return versionPrefix + "-" + partID
+}
+
+// reload with cloudbuild was supported starting in 0.90.0
+// there are older versions of viam-servet that don't support ~/ file prefix, so lets avoid using them.
+var reloadVersionSupported = semver.MustParse("0.90.0")
+
+// reloadModuleActionInner is the testable inner reload logic.
+func reloadModuleActionInner(
+	c *cli.Context,
+	vc *viamClient,
+	args reloadModuleArgs,
+	logger logging.Logger,
+	cloudBuild bool,
+) error {
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	partID, err := resolvePartID(args.PartID, args.CloudConfig)
 	if err != nil {
@@ -882,6 +973,17 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	var partArch string
 	var platform string
 	if part.Part.UserSuppliedInfo != nil {
+		// Check if the viam-server version is supported for hot reloading
+		if part.Part.UserSuppliedInfo.Fields["version"] != nil {
+			// Note: developer instances of viam-server will not have a semver version (instead it is a git commit)
+			// so we can safely ignore the error here, assuming that all real instances of viam-server will have a semver version
+			version, err := semver.NewVersion(part.Part.UserSuppliedInfo.Fields["version"].GetStringValue())
+			if err == nil && version.LessThan(reloadVersionSupported) {
+				return fmt.Errorf("viam-server version %s is not supported for hot reloading,"+
+					"please update to at least %s", version.Original(), reloadVersionSupported.Original())
+			}
+		}
+
 		platform = part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
 		if partInfo := strings.SplitN(platform, "/", 2); len(partInfo) == 2 {
 			partOs = partInfo[0]
@@ -907,70 +1009,69 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	// CLI will see configuration changes before the robot, and skip to the needsRestart
 	// case on the second call. Because these are triggered by user actions, we're okay
 	// with this behavior, and the robot will eventually converge to what is in config.
-	needsRestart := true
+	var needsRestart bool
 	var buildPath string
-	if !args.RestartOnly {
-		if !args.NoBuild {
-			if manifest == nil {
-				return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
-			}
-			if !args.CloudBuild {
-				err = moduleBuildLocalAction(c, manifest, environment)
-				buildPath = manifest.Build.Path
-			} else {
-				buildPath, err = vc.moduleCloudReload(c, args, platform)
-			}
-			if err != nil {
-				return err
-			}
+	if !args.NoBuild {
+		if manifest == nil {
+			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
 		}
-		if !args.Local {
-			if manifest == nil || manifest.Build == nil || buildPath == "" {
-				return errors.New(
-					"remote reloading requires a meta.json with the 'build.path' field set. " +
-						"try --local if you are testing on the same machine.",
-				)
-			}
-			if err := validateReloadableArchive(c, manifest.Build); err != nil {
-				// if it is a cloud build then it makes sense that we might not have a reloadable
-				// archive locally, so we can safely ignore the error
-				if !args.CloudBuild {
-					return err
-				}
-			}
-			if err := addShellService(c, vc, part.Part, true); err != nil {
-				return err
-			}
-			infof(c.App.Writer, "Copying %s to part %s", buildPath, part.Part.Id)
-			globalArgs, err := getGlobalArgs(c)
-			if err != nil {
-				return err
-			}
-			dest := reloadingDestination(c, manifest)
-			err = vc.copyFilesToFqdn(
-				part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
-				dest, logging.NewLogger(reloadVersion), args.NoProgress)
-			if err != nil {
-				if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
-					warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
-						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
-						"Alternatively, run the RDK as root.")
-				}
-				return fmt.Errorf("failed copying to part (%v): %w", dest, err)
-			}
+		if !cloudBuild {
+			err = moduleBuildLocalAction(c, manifest, environment)
+			buildPath = manifest.Build.Path
+		} else {
+			buildPath, err = vc.moduleCloudReload(c, args, platform, *manifest, partID)
 		}
-		var newPart *apppb.RobotPart
-		newPart, needsRestart, err = configureModule(c, vc, manifest, part.Part, args.Local)
-		// if the module has been configured, the cached response we have may no longer accurately reflect
-		// the update, so we set the updated `part.Part`
-		if newPart != nil {
-			part.Part = newPart
-		}
-
 		if err != nil {
 			return err
 		}
 	}
+	if !args.Local {
+		if manifest == nil || manifest.Build == nil || buildPath == "" {
+			return errors.New(
+				"remote reloading requires a meta.json with the 'build.path' field set. " +
+					"try --local if you are testing on the same machine.",
+			)
+		}
+		if err := validateReloadableArchive(c, manifest.Build); err != nil {
+			// if it is a cloud build then it makes sense that we might not have a reloadable
+			// archive locally, so we can safely ignore the error
+			if cloudBuild {
+				return err
+			}
+		}
+		if err := addShellService(c, vc, part.Part, true); err != nil {
+			return err
+		}
+		infof(c.App.Writer, "Copying %s to part %s", buildPath, part.Part.Id)
+		globalArgs, err := getGlobalArgs(c)
+		if err != nil {
+			return err
+		}
+		dest := reloadingDestination(c, manifest)
+		err = vc.copyFilesToFqdn(
+			part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
+			dest, logging.NewLogger(reloadVersionPrefix), args.NoProgress)
+		if err != nil {
+			if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
+				warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
+					"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
+					"Alternatively, run the RDK as root.")
+			}
+			return fmt.Errorf("failed copying to part (%v): %w", dest, err)
+		}
+	}
+	var newPart *apppb.RobotPart
+	newPart, needsRestart, err = configureModule(c, vc, manifest, part.Part, args.Local)
+	// if the module has been configured, the cached response we have may no longer accurately reflect
+	// the update, so we set the updated `part.Part`
+	if newPart != nil {
+		part.Part = newPart
+	}
+
+	if err != nil {
+		return err
+	}
+
 	if needsRestart {
 		if err = restartModule(c, vc, part.Part, manifest, logger); err != nil {
 			return err
@@ -1075,6 +1176,33 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, generalFlagID)
 	}
 	return request, nil
+}
+
+type moduleRestartArgs struct {
+	PartID      string
+	Module      string
+	CloudConfig string
+}
+
+// ModuleRestartAction triggers a restart of the requested module.
+func ModuleRestartAction(c *cli.Context, args moduleRestartArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.getRobotPart(args.PartID)
+	if err != nil {
+		return err
+	}
+
+	manifest, err := loadManifestOrNil(args.Module)
+	if err != nil {
+		return err
+	}
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+
+	return restartModule(c, client, part.Part, manifest, logger)
 }
 
 // restartModule restarts a module on a robot.
