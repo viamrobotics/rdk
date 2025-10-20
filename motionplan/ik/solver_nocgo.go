@@ -29,7 +29,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
 	seed []float64,
 	travelPercent []float64,
-	minFunc func([]float64) float64,
+	minFunc CostFunc,
 	rseed int,
 ) (int, error) {
 	return 0, errors.New("Cannot solve without cgo")

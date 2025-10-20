@@ -45,5 +45,5 @@ go build -o /opt/homebrew/bin/viam cli/viam/main.go
 
 Then afterwards reset your homebrew installation with:
 ```sh
-brew link --overwrite viam
+brew unlink viam && brew link --overwrite viam
 ```

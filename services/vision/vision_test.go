@@ -32,7 +32,7 @@ func TestFromRobot(t *testing.T) {
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return svc1, nil
 	}
-	svc, err := vision.FromRobot(&r, testVisionServiceName)
+	svc, err := vision.FromProvider(&r, testVisionServiceName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 	result, err := svc.Detections(context.Background(), nil, nil)
