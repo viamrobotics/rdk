@@ -56,7 +56,7 @@ func (s *simpleSourceWithPCD) Read(ctx context.Context) (image.Image, func(), er
 	return img, func() {}, err
 }
 
-func (s *simpleSourceWithPCD) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (s *simpleSourceWithPCD) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	return nil, nil
 }
 
@@ -169,7 +169,7 @@ type cloudSource struct {
 	*simpleSource
 }
 
-func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (cs *cloudSource) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	p := pointcloud.NewBasicEmpty()
 	return p, p.Set(pointcloud.NewVector(0, 0, 0), nil)
 }

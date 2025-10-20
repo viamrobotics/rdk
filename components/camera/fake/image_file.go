@@ -197,7 +197,7 @@ func (fs *fileSource) Images(
 
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters,
 // or the pointcloud from file if set.
-func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (fs *fileSource) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	if fs.PointCloudFN != "" {
 		return pointcloud.NewFromFile(fs.PointCloudFN, "")
 	}
@@ -270,7 +270,7 @@ func (ss *StaticSource) Images(
 }
 
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters.
-func (ss *StaticSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (ss *StaticSource) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	if ss.Proj == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
 	}
