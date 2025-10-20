@@ -47,7 +47,7 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
-func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64,
+func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64,
 	extra map[string]interface{}) (chan *AudioChunk, error,
 ) {
 	ext, err := utils.StructToStructPb(extra)
@@ -61,7 +61,7 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 		Name:                         c.name,
 		DurationSeconds:              durationSeconds,
 		Codec:                        codec,
-		PreviousTimestampNanoseconds: previousTimestamp,
+		PreviousTimestampNanoseconds: previousTimestampNs,
 		RequestId:                    uuid.New().String(),
 		Extra:                        ext,
 	})

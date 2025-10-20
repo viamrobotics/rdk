@@ -58,7 +58,7 @@ type AudioChunk struct {
 // AudioIn defines an audioin component.
 type AudioIn interface {
 	resource.Resource
-	GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64, extra map[string]interface{}) (
+	GetAudio(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64, extra map[string]interface{}) (
 		chan *AudioChunk, error)
 	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
 }

@@ -86,7 +86,7 @@ func TestServer(t *testing.T) {
 			Sequence:  2,
 		}
 
-		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64,
+		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64,
 			extra map[string]interface{}) (chan *audioin.AudioChunk, error,
 		) {
 			ch := make(chan *audioin.AudioChunk, 2)
@@ -122,7 +122,7 @@ func TestServer(t *testing.T) {
 		workers.Stop()
 
 		// Test a failing getAudio request
-		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestamp int64,
+		injectAudioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64,
 			extra map[string]interface{}) (chan *audioin.AudioChunk, error,
 		) {
 			return nil, errGetAudioFailed
