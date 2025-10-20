@@ -375,12 +375,32 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+			if val, ok := extra["empty"].(bool); ok && val {
+				return pointcloud.NewBasicEmpty(), nil
+			}
 			return pcA, nil
 		}
-		_, err = cameraServer.GetPointCloud(context.Background(), &pb.GetPointCloudRequest{
+		pcProto, err := cameraServer.GetPointCloud(context.Background(), &pb.GetPointCloudRequest{
 			Name: testCameraName,
 		})
+
+		pc, err := pointcloud.ReadPCD(bytes.NewReader(pcProto.GetPointCloud()), "")
 		test.That(t, err, test.ShouldBeNil)
+		_, got := pc.At(5, 5, 5)
+		test.That(t, got, test.ShouldBeTrue)
+
+		ext, err := goprotoutils.StructToStructPb(map[string]any{"empty": "true"})
+		test.That(t, err, test.ShouldBeNil)
+		emptyPcProto, err := cameraServer.GetPointCloud(context.Background(), &pb.GetPointCloudRequest{
+			Name:  testCameraName,
+			Extra: ext,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		emptyPc, err := pointcloud.ReadPCD(bytes.NewReader(emptyPcProto.GetPointCloud()), "")
+		test.That(t, err, test.ShouldBeNil)
+		_, got = emptyPc.At(5, 5, 5)
+		test.That(t, got, test.ShouldBeTrue)
 
 		_, err = cameraServer.GetPointCloud(context.Background(), &pb.GetPointCloudRequest{
 			Name: failCameraName,

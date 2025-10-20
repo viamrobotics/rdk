@@ -82,6 +82,9 @@ func TestClient(t *testing.T) {
 
 	// color camera
 	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+		if val, ok := extra["empty"].(bool); ok && val {
+			return pointcloud.NewBasicEmpty(), nil
+		}
 		return pcA, nil
 	}
 	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -213,6 +216,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, got := pcB.At(5, 5, 5)
 		test.That(t, got, test.ShouldBeTrue)
+
+		emptyPc, err := camera1Client.NextPointCloud(context.Background(), map[string]interface{}{"empty": true})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, emptyPc.Size(), test.ShouldEqual, 0)
 
 		propsB, err := camera1Client.Properties(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -1018,7 +1025,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
-//nolint
+// nolint
 // NOTE: These tests fail when this condition occurs:
 //
 //	logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}
