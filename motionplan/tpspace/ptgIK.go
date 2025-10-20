@@ -115,7 +115,7 @@ func (ptg *ptgIK) Solve(
 		// If nlopt failed to gradient descend, it will return the seed. If the seed is what was returned, we want to use our precomputed
 		// grid check instead.
 		for i, v := range solved.Configuration {
-			if v != seed[i].Value {
+			if v != seed[i] {
 				seedOutput = false
 				break
 			}
@@ -231,7 +231,7 @@ func (ptg *ptgIK) DoF() []referenceframe.Limit {
 func (ptg *ptgIK) arcDist(inputs []referenceframe.Input) float64 {
 	dist := 0.
 	for i := 1; i < len(inputs); i += 2 {
-		dist += (inputs[i].Value - defaultMinPTGlen)
+		dist += (inputs[i] - defaultMinPTGlen)
 	}
 	return dist
 }

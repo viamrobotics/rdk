@@ -87,10 +87,10 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, restrictionPercent f
 		}
 
 		frameSpan := u - l
-		minVal := math.Max(l, reference[i].Value-restrictionPercent*frameSpan/2)
-		maxVal := math.Min(u, reference[i].Value+restrictionPercent*frameSpan/2)
+		minVal := math.Max(l, reference[i]-restrictionPercent*frameSpan/2)
+		maxVal := math.Min(u, reference[i]+restrictionPercent*frameSpan/2)
 		samplingSpan := maxVal - minVal
-		pos = append(pos, Input{samplingSpan*rSeed.Float64() + minVal})
+		pos = append(pos, samplingSpan*rSeed.Float64() + minVal)
 	}
 	return pos, nil
 }
@@ -113,7 +113,7 @@ func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 		if u == math.Inf(1) {
 			u = 999
 		}
-		pos = append(pos, Input{rSeed.Float64()*(u-l) + l})
+		pos = append(pos, rSeed.Float64()*(u-l) + l)
 	}
 	return pos
 }
@@ -188,10 +188,10 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 		return NewIncorrectDoFError(len(inputs), len(bf.limits))
 	}
 	for i := 0; i < len(bf.limits); i++ {
-		if inputs[i].Value < bf.limits[i].Min || inputs[i].Value > bf.limits[i].Max {
+		if inputs[i] < bf.limits[i].Min || inputs[i] > bf.limits[i].Max {
 			lim := []float64{bf.limits[i].Max, bf.limits[i].Min}
 			multierr.AppendInto(&errAll, fmt.Errorf("%s %s %s, %s %.5f %s %.5f", "joint", fmt.Sprint(i),
-				OOBErrString, "input", inputs[i].Value, "needs to be within range", lim))
+				OOBErrString, "input", inputs[i], "needs to be within range", lim))
 		}
 	}
 	return errAll
@@ -400,14 +400,14 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
 		return nil, err
 	}
-	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
+	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0])), err
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (pf *translationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Values))
 	for idx, d := range jp.Values {
-		n[idx] = Input{d}
+		n[idx] = d
 	}
 	return n
 }
@@ -416,7 +416,7 @@ func (pf *translationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 func (pf *translationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	n := make([]float64, len(input))
 	for idx, a := range input {
-		n[idx] = a.Value
+		n[idx] = a
 	}
 	return &pb.JointPositions{Values: n}
 }
@@ -497,14 +497,14 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 		return nil, err
 	}
 	// Create a copy of the r4aa for thread safety
-	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
+	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0], rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (rf *rotationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Values))
 	for idx, d := range jp.Values {
-		n[idx] = Input{utils.DegToRad(d)}
+		n[idx] = utils.DegToRad(d)
 	}
 	return n
 }
@@ -513,7 +513,7 @@ func (rf *rotationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	n := make([]float64, len(input))
 	for idx, a := range input {
-		n[idx] = utils.RadToDeg(a.Value)
+		n[idx] = utils.RadToDeg(a)
 	}
 	return &pb.JointPositions{Values: n}
 }
@@ -581,12 +581,12 @@ func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 		return nil, err
 	}
 	return spatial.NewPose(
-		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},
+		r3.Vector{X: inputs[0], Y: inputs[1], Z: inputs[2]},
 		&spatial.OrientationVector{
-			OX:    inputs[3].Value,
-			OY:    inputs[4].Value,
-			OZ:    inputs[5].Value,
-			Theta: inputs[6].Value,
+			OX:    inputs[3],
+			OY:    inputs[4],
+			OZ:    inputs[5],
+			Theta: inputs[6],
 		},
 	), nil
 }
@@ -646,9 +646,9 @@ func (pf *poseFrame) UnmarshalJSON(data []byte) error {
 func (pf *poseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Values))
 	for idx, d := range jp.Values[:len(jp.Values)-1] {
-		n[idx] = Input{d}
+		n[idx] = d
 	}
-	n[len(jp.Values)-1] = Input{utils.DegToRad(jp.Values[len(jp.Values)-1])}
+	n[len(jp.Values)-1] = utils.DegToRad(jp.Values[len(jp.Values)-1])
 	return n
 }
 
@@ -656,9 +656,9 @@ func (pf *poseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	n := make([]float64, len(input))
 	for idx, a := range input[:len(input)-1] {
-		n[idx] = a.Value
+		n[idx] = a
 	}
-	n[len(input)-1] = utils.RadToDeg(input[len(input)-1].Value)
+	n[len(input)-1] = utils.RadToDeg(input[len(input)-1])
 	return &pb.JointPositions{Values: n}
 }
 

@@ -78,7 +78,7 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{0, 0, 20}, defaultFloatPrecision), test.ShouldBeTrue)
 
 	// transform the model 90 degrees at the joint
-	inputs[0] = Input{math.Pi / 2}
+	inputs[0] = math.Pi / 2
 	geometries, _ = m.Geometries(inputs)
 	test.That(t, geometries, test.ShouldNotBeNil)
 	link1 = geometries.GeometryByName("test:link1").Pose().Point()

@@ -174,7 +174,7 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 		return nil, err
 	}
 
-	ptgIdx := int(math.Round(inputs[ptgIndex].Value))
+	ptgIdx := int(math.Round(inputs[ptgIndex]))
 
 	endPose, err := pf.solvers[ptgIdx].Transform([]referenceframe.Input{
 		inputs[trajectoryAlphaWithinPTG],
@@ -183,7 +183,7 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 	if err != nil {
 		return nil, err
 	}
-	if inputs[startDistanceAlongTrajectoryIndex].Value != 0 {
+	if inputs[startDistanceAlongTrajectoryIndex] != 0 {
 		startPose, err := pf.solvers[ptgIdx].Transform([]referenceframe.Input{
 			inputs[trajectoryAlphaWithinPTG],
 			inputs[startDistanceAlongTrajectoryIndex],
@@ -191,7 +191,7 @@ func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.P
 		if err != nil {
 			return nil, err
 		}
-		if inputs[endDistanceAlongTrajectoryIndex].Value < inputs[startDistanceAlongTrajectoryIndex].Value {
+		if inputs[endDistanceAlongTrajectoryIndex] < inputs[startDistanceAlongTrajectoryIndex] {
 			endPose = spatialmath.PoseBetween(spatialmath.Compose(endPose, flipPose), flipPose)
 			startPose = spatialmath.PoseBetween(spatialmath.Compose(startPose, flipPose), flipPose)
 			endPose = spatialmath.PoseBetweenInverse(endPose, startPose)
@@ -227,7 +227,7 @@ func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64
 
 	nonMatchIndex := endDistanceAlongTrajectoryIndex
 	for i, input := range from {
-		if input.Value != 0 {
+		if input != 0 {
 			zeroInputFrom = false
 		}
 
@@ -235,31 +235,31 @@ func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64
 			if i == nonMatchIndex {
 				continue
 			}
-			if input.Value != to[i].Value {
-				return nil, NewNonMatchingInputError(from[i].Value, to[i].Value)
+			if input != to[i] {
+				return nil, NewNonMatchingInputError(from[i], to[i])
 			}
 		}
 	}
 
-	startVal := from[endDistanceAlongTrajectoryIndex].Value
+	startVal := from[endDistanceAlongTrajectoryIndex]
 	if zeroInputFrom {
-		startVal = to[startDistanceAlongTrajectoryIndex].Value
+		startVal = to[startDistanceAlongTrajectoryIndex]
 	}
-	endVal := to[endDistanceAlongTrajectoryIndex].Value
+	endVal := to[endDistanceAlongTrajectoryIndex]
 
 	changeVal := (endVal - startVal) * by
 	return []referenceframe.Input{
 		to[ptgIndex],
 		to[trajectoryAlphaWithinPTG],
-		{startVal},
-		{startVal + changeVal},
+		startVal,
+		startVal + changeVal,
 	}, nil
 }
 
 func (pf *ptgGroupFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
 	n := make([]referenceframe.Input, len(jp.Values))
 	for idx, d := range jp.Values {
-		n[idx] = referenceframe.Input{d}
+		n[idx] = d
 	}
 	return n
 }
@@ -267,7 +267,7 @@ func (pf *ptgGroupFrame) InputFromProtobuf(jp *pb.JointPositions) []referencefra
 func (pf *ptgGroupFrame) ProtobufFromInput(input []referenceframe.Input) *pb.JointPositions {
 	n := make([]float64, len(input))
 	for idx, a := range input {
-		n[idx] = a.Value
+		n[idx] = a
 	}
 	return &pb.JointPositions{Values: n}
 }
@@ -303,10 +303,10 @@ func (pf *ptgGroupFrame) validInputs(inputs []referenceframe.Input) error {
 		return referenceframe.NewIncorrectDoFError(len(inputs), len(pf.limits))
 	}
 	for i := 0; i < len(pf.limits); i++ {
-		if inputs[i].Value < pf.limits[i].Min || inputs[i].Value > pf.limits[i].Max {
+		if inputs[i] < pf.limits[i].Min || inputs[i] > pf.limits[i].Max {
 			lim := []float64{pf.limits[i].Min, pf.limits[i].Max}
 			multierr.AppendInto(&errAll, fmt.Errorf("%s %s %s, %s %.5f %s %.5f", "input", fmt.Sprint(i),
-				referenceframe.OOBErrString, "input", inputs[i].Value, "needs to be within range", lim))
+				referenceframe.OOBErrString, "input", inputs[i], "needs to be within range", lim))
 		}
 	}
 	return errAll

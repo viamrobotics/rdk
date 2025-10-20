@@ -11,12 +11,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position.
+// Input represents the input to a mutable frame, e.g. a joint angle or a gantry position.
 //   - revolute inputs should be in radians.
 //   - prismatic inputs should be in mm.
-type Input struct {
-	Value float64
-}
+type Input = float64
 
 // JointPositionsFromInputs converts the given slice of Input to a JointPositions struct,
 // using the ProtobufFromInput function provided by the given Frame.
@@ -47,22 +45,14 @@ func InputsFromJointPositions(f Frame, jp *pb.JointPositions) ([]Input, error) {
 	return f.InputFromProtobuf(jp), nil
 }
 
-// FloatsToInputs wraps a slice of floats in Inputs.
+// FloatsToInputs converts a slice of floats to Inputs.
 func FloatsToInputs(floats []float64) []Input {
-	inputs := make([]Input, len(floats))
-	for i, f := range floats {
-		inputs[i] = Input{f}
-	}
-	return inputs
+	return floats
 }
 
-// InputsToFloats unwraps Inputs to raw floats.
+// InputsToFloats converts Inputs to raw floats.
 func InputsToFloats(inputs []Input) []float64 {
-	floats := make([]float64, len(inputs))
-	for i, f := range inputs {
-		floats[i] = f.Value
-	}
-	return floats
+	return inputs
 }
 
 // JointPositionsToRadians converts the given positions into a slice
@@ -91,7 +81,7 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 func interpolateInputs(from, to []Input, by float64) []Input {
 	var newVals []Input
 	for i, j1 := range from {
-		newVals = append(newVals, Input{j1.Value + ((to[i].Value - j1.Value) * by)})
+		newVals = append(newVals, j1 + ((to[i] - j1) * by))
 	}
 	return newVals
 }
@@ -133,7 +123,7 @@ func InputsL2Distance(from, to []Input) float64 {
 	}
 	diff := make([]float64, 0, len(from))
 	for i, f := range from {
-		diff = append(diff, f.Value-to[i].Value)
+		diff = append(diff, f-to[i])
 	}
 	// 2 is the L value returning a standard L2 Normalization
 	return floats.Norm(diff, 2)
@@ -146,7 +136,7 @@ func InputsLinfDistance(from, to []Input) float64 {
 	}
 	max := 0.
 	for index := range from {
-		norm := math.Abs(from[index].Value - to[index].Value)
+		norm := math.Abs(from[index] - to[index])
 		if norm > max {
 			max = norm
 		}

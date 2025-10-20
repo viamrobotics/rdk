@@ -42,8 +42,8 @@ func (ptg *ptgC) Transform(inputs []referenceframe.Input) (spatialmath.Pose, err
 	if len(inputs) != 2 {
 		return nil, fmt.Errorf("ptgC takes 2 inputs, but received %d", len(inputs))
 	}
-	alpha := inputs[0].Value
-	dist := inputs[1].Value
+	alpha := inputs[0]
+	dist := inputs[1]
 
 	// Check for OOB within FP error
 	if math.Pi-math.Abs(alpha) > math.Pi+floatEpsilon {

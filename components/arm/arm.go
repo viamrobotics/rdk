@@ -187,17 +187,17 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []refe
 		min := limits[i].Min
 		currPosition := currentJointPos[i]
 		// to make sure that val is a valid input it must either bring the joint closer inbounds or keep the joint inbounds.
-		if currPosition.Value > limits[i].Max {
-			max = currPosition.Value
-		} else if currPosition.Value < limits[i].Min {
-			min = currPosition.Value
+		if currPosition > limits[i].Max {
+			max = currPosition
+		} else if currPosition < limits[i].Min {
+			min = currPosition
 		}
-		if val.Value > max || val.Value < min {
+		if val > max || val < min {
 			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v",
 				i,
 				utils.RadToDeg(min),
 				utils.RadToDeg(max),
-				utils.RadToDeg(val.Value),
+				utils.RadToDeg(val),
 			)
 		}
 	}

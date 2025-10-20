@@ -33,7 +33,7 @@ var (
 	// errMovementTimeout is used for when a movement call times out after no movement for some time.
 	errMovementTimeout = errors.New("movement has timed out")
 	// Input representation of origin.
-	originInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}}
+	originInputs = []referenceframe.Input{0, 0, 0}
 )
 
 // wrapWithDifferentialDriveKinematics takes a wheeledBase component and adds a localizer to it
@@ -141,7 +141,7 @@ func (ddk *differentialDriveKinematics) CurrentInputs(ctx context.Context) ([]re
 	// We should not have a problem with Gimbal lock by looking at yaw in the domain that most bases will be moving.
 	// This could potentially be made more robust in the future, though.
 	theta := math.Mod(pif.Pose().Orientation().EulerAngles().Yaw, 2*math.Pi)
-	return []referenceframe.Input{{Value: pt.X}, {Value: pt.Y}, {Value: theta}}, nil
+	return []referenceframe.Input{pt.X, pt.Y, theta}, nil
 }
 
 func (ddk *differentialDriveKinematics) GoToInputs(ctx context.Context, desiredSteps ...[]referenceframe.Input) error {
@@ -191,7 +191,7 @@ func (ddk *differentialDriveKinematics) goToInputs(ctx context.Context, desired 
 		// when the base is within the positional threshold of the goal, exit the loop
 		for err := cancelContext.Err(); err == nil; err = cancelContext.Err() {
 			utils.SelectContextOrWait(ctx, 10*time.Millisecond)
-			point := spatialmath.NewPoint(r3.Vector{X: current[0].Value, Y: current[1].Value}, "")
+			point := spatialmath.NewPoint(r3.Vector{X: current[0], Y: current[1]}, "")
 			col, err := validRegion.CollidesWith(point, defaultCollisionBufferMM)
 			if err != nil {
 				movementErr <- err
@@ -203,8 +203,8 @@ func (ddk *differentialDriveKinematics) goToInputs(ctx context.Context, desired 
 			}
 
 			// get to the x, y location first - note that from the base's perspective +y is forward
-			desiredHeading := math.Atan2(desired[1].Value-current[1].Value, desired[0].Value-current[0].Value)
-			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], {Value: desiredHeading}})
+			desiredHeading := math.Atan2(desired[1]-current[1], desired[0]-current[0])
+			commanded, err := ddk.issueCommand(cancelContext, current, []referenceframe.Input{desired[0], desired[1], desiredHeading})
 			if err != nil {
 				movementErr <- err
 				return
@@ -290,7 +290,7 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 		if ddk.Localizer == nil {
 			ddk.mutex.Lock()
 			defer ddk.mutex.Unlock()
-			ddk.noLocalizerCacheInputs = []referenceframe.Input{{Value: 0}, {Value: 0}, desired[2]}
+			ddk.noLocalizerCacheInputs = []referenceframe.Input{0, 0, desired[2]}
 			time.Sleep(defaultNoLocalizerDelay)
 		}
 		return true, err
@@ -314,8 +314,8 @@ func (ddk *differentialDriveKinematics) issueCommand(ctx context.Context, curren
 func (ddk *differentialDriveKinematics) inputDiff(current, desired []referenceframe.Input) (float64, float64, error) {
 	// create a goal pose in the world frame
 	goal := spatialmath.NewPose(
-		r3.Vector{X: desired[0].Value, Y: desired[1].Value},
-		&spatialmath.OrientationVector{OZ: 1, Theta: desired[2].Value},
+		r3.Vector{X: desired[0], Y: desired[1]},
+		&spatialmath.OrientationVector{OZ: 1, Theta: desired[2]},
 	)
 
 	// transform the goal pose such that it is in the base frame
@@ -336,13 +336,13 @@ func (ddk *differentialDriveKinematics) inputDiff(current, desired []referencefr
 // starting and ending waypoints. This capsule is used to detect whether a base leaves this region and has thus deviated
 // too far from its path.
 func (ddk *differentialDriveKinematics) newValidRegionCapsule(starting, desired []referenceframe.Input) (spatialmath.Geometry, error) {
-	pt := r3.Vector{X: (desired[0].Value + starting[0].Value) / 2, Y: (desired[1].Value + starting[1].Value) / 2}
-	positionErr, _, err := ddk.inputDiff(starting, []referenceframe.Input{desired[0], desired[1], {Value: 0}})
+	pt := r3.Vector{X: (desired[0] + starting[0]) / 2, Y: (desired[1] + starting[1]) / 2}
+	positionErr, _, err := ddk.inputDiff(starting, []referenceframe.Input{desired[0], desired[1], 0})
 	if err != nil {
 		return nil, err
 	}
 
-	desiredHeading := math.Atan2(starting[0].Value-desired[0].Value, starting[1].Value-desired[1].Value)
+	desiredHeading := math.Atan2(starting[0]-desired[0], starting[1]-desired[1])
 
 	// rotate such that y is forward direction to match the frame for movement of a base
 	// rotate around the z-axis such that the capsule points in the direction of the end waypoint

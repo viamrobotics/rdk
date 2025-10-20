@@ -53,7 +53,7 @@ func (lfs *linearizedFrameSystem) mapToSlice(inputs referenceframe.FrameSystemIn
 			return nil, fmt.Errorf("frame %s missing from input map", frame.Name())
 		}
 		for _, i := range input {
-			floatSlice = append(floatSlice, i.Value)
+			floatSlice = append(floatSlice, i)
 		}
 	}
 	return floatSlice, nil
@@ -71,7 +71,7 @@ func (lfs *linearizedFrameSystem) sliceToMap(floatSlice []float64) (referencefra
 			if i >= len(floatSlice) {
 				return nil, fmt.Errorf("not enough values in float slice for frame %s", frame.Name())
 			}
-			frameInputs[j] = referenceframe.Input{Value: floatSlice[i]}
+			frameInputs[j] = floatSlice[i]
 			i++
 		}
 		inputs[frame.Name()] = frameInputs
@@ -124,10 +124,10 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 
 			// Compute the new input for a specific joint that's one "jog" away. E.g: ~5 degrees for
 			// a rotational joint.
-			y := lfs.jog(len(ratios), orig.Value, percentJog)
+			y := lfs.jog(len(ratios), orig, percentJog)
 
 			// Update the copied joint set in place. This is undone at the end of the loop.
-			start[frame.Name()][idx] = referenceframe.Input{y}
+			start[frame.Name()][idx] = y
 
 			myDistance := distanceFunc(&motionplan.StateFS{Configuration: start, FS: mc.fs})
 			// Compute how much effect the small change made. The bigger the difference, the smaller

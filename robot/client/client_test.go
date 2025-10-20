@@ -2020,8 +2020,8 @@ func TestCurrentInputs(t *testing.T) {
 	testName2 := resource.NewName(testAPI, "arm2")
 
 	expectedInputs := referenceframe.FrameSystemInputs{
-		testName.ShortName():  []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}},
-		testName2.ShortName(): []referenceframe.Input{{math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}, {0}},
+		testName.ShortName():  []referenceframe.Input{0, math.Pi, -math.Pi, 0, math.Pi, -math.Pi},
+		testName2.ShortName(): []referenceframe.Input{math.Pi, -math.Pi, 0, math.Pi, -math.Pi, 0},
 	}
 	injectArm := &inject.Arm{
 		JointPositionsFunc: func(ctx context.Context, extra map[string]any) ([]referenceframe.Input, error) {

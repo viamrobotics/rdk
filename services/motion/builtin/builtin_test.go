@@ -1037,7 +1037,7 @@ func TestBaseInputs(t *testing.T) {
 		t,
 	)
 	defer closeFunc(ctx)
-	err := kb.GoToInputs(ctx, []referenceframe.Input{{0}, {0.001 + math.Pi/2}, {0}, {91}})
+	err := kb.GoToInputs(ctx, []referenceframe.Input{0, 0.001 + math.Pi/2, 0, 91})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -1080,19 +1080,19 @@ func TestCheckPlan(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	currentInputs := referenceframe.FrameSystemInputs{
 		k.Name(): {
-			{Value: 0}, // ptg index
-			{Value: 0}, // trajectory alpha within ptg
-			{Value: 0}, // start distance along trajectory index
-			{Value: 0}, // end distace along trajectory index
+			0, // ptg index
+			0, // trajectory alpha within ptg
+			0, // start distance along trajectory index
+			0, // end distace along trajectory index
 		},
 		mr.kinematicBase.LocalizationFrame().Name(): {
-			{Value: 0}, // X
-			{Value: 0}, // Y
-			{Value: 0}, // Z
-			{Value: 0}, // OX
-			{Value: 0}, // OY
-			{Value: 1}, // OZ
-			{Value: 0}, // Theta
+			0, // X
+			0, // Y
+			0, // Z
+			0, // OX
+			0, // OY
+			1, // OZ
+			0, // Theta
 		},
 	}
 
@@ -1190,19 +1190,19 @@ func TestCheckPlan(t *testing.T) {
 
 	currentInputs = referenceframe.FrameSystemInputs{
 		k.Name(): {
-			{Value: 0}, // ptg index
-			{Value: 0}, // trajectory alpha within ptg
-			{Value: 0}, // start distance along trajectory index
-			{Value: 0}, // end distace along trajectory index
+			0, // ptg index
+			0, // trajectory alpha within ptg
+			0, // start distance along trajectory index
+			0, // end distace along trajectory index
 		},
 		mr.kinematicBase.LocalizationFrame().Name(): {
-			{Value: 2779.937}, // X
-			{Value: 0},        // Y
-			{Value: 0},        // Z
-			{Value: 0},        // OX
-			{Value: 0},        // OY
-			{Value: 1},        // OZ
-			{Value: -math.Pi}, // Theta
+			2779.937, // X
+			0,        // Y
+			0,        // Z
+			0,        // OX
+			0,        // OY
+			1,        // OZ
+			-math.Pi, // Theta
 		},
 		cameraFrame.Name(): referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF()))),
 	}

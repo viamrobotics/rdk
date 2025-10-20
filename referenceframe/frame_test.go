@@ -85,8 +85,8 @@ func TestPrismaticFrame(t *testing.T) {
 		restrictRandomInputs, err := RestrictedRandomFrameInputs(frame, nil, 0.001, FloatsToInputs([]float64{-10}))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(restrictRandomInputs), test.ShouldEqual, len(frame.DoF()))
-		test.That(t, restrictRandomInputs[0].Value, test.ShouldBeLessThan, -9.07)
-		test.That(t, restrictRandomInputs[0].Value, test.ShouldBeGreaterThan, -10.03)
+		test.That(t, restrictRandomInputs[0], test.ShouldBeLessThan, -9.07)
+		test.That(t, restrictRandomInputs[0], test.ShouldBeGreaterThan, -10.03)
 	}
 }
 

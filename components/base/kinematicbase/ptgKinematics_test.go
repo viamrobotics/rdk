@@ -411,11 +411,11 @@ func TestPTGKinematicsSimpleInputs(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, ptgBase, test.ShouldNotBeNil)
 
-	inputs := []referenceframe.Input{{0}, {1.9}, {1300}, {200}}
+	inputs := []referenceframe.Input{0, 1.9, 1300, 200}
 	err = ptgBase.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 
-	inputs = []referenceframe.Input{{0}, {1.9}, {1300}, {0}}
+	inputs = []referenceframe.Input{0, 1.9, 1300, 0}
 	err = ptgBase.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -428,8 +428,8 @@ func TestCopyArcStep(t *testing.T) {
 		arcSegment: motionplan.Segment{
 			StartPosition:      spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3}),
 			EndPosition:        spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}),
-			StartConfiguration: []referenceframe.Input{{1}, {2}, {3}},
-			EndConfiguration:   []referenceframe.Input{{4}, {5}, {6}},
+			StartConfiguration: []referenceframe.Input{1, 2, 3},
+			EndConfiguration:   []referenceframe.Input{4, 5, 6},
 			Frame:              referenceframe.NewZeroStaticFrame("test"),
 		},
 		subTraj: []*tpspace.TrajNode{

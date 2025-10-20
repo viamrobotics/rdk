@@ -26,9 +26,9 @@ func TestSimpleRotationalFrame(t *testing.T) {
 
 	positions := NewZeroInputs(fs) // zero position
 	testTransformPoint(t, fs, positions, pose, expected1)
-	positions["joint"] = []Input{{math.Pi / 2}} // Rotate 90 degrees one way
+	positions["joint"] = []Input{math.Pi / 2} // Rotate 90 degrees one way
 	testTransformPoint(t, fs, positions, pose, expected2)
-	positions["joint"] = []Input{{-math.Pi / 2}} // Rotate 90 degrees the other way
+	positions["joint"] = []Input{-math.Pi / 2} // Rotate 90 degrees the other way
 	testTransformPoint(t, fs, positions, pose, expected3)
 }
 
@@ -48,6 +48,6 @@ func TestSimpleTranslationalFrame(t *testing.T) {
 	// test transformations
 	positions := NewZeroInputs(fs)
 	testTransformPoint(t, fs, positions, poseStart, poseEnd1)
-	positions["gantry"] = []Input{{45.}}
+	positions["gantry"] = []Input{45.}
 	testTransformPoint(t, fs, positions, poseStart, poseEnd2)
 }
