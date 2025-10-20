@@ -282,7 +282,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		// Check if the arc of "seedInputs" to "target" is valid
-		_, err := mp.psc.checker.CheckSegmentAndStateValidityFS(newArc, mp.pc.planOpts.Resolution)
+		_, err := mp.psc.checker.CheckSegmentAndStateValidityFS(ctx, newArc, mp.pc.planOpts.Resolution)
 		if err == nil {
 			return target
 		}
@@ -310,6 +310,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		failpos, err := mp.psc.checker.CheckSegmentAndStateValidityFS(
+			ctx,
 			&motionplan.SegmentFS{
 				StartConfiguration: seedInputs,
 				EndConfiguration:   solutionMap,
@@ -356,17 +357,7 @@ func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, itera
 
 		pos := make([]float64, len(dof))
 		for i, lim := range dof {
-			l, u := lim.Min, lim.Max
-
-			// Default to [-999,999] as range if limits are infinite
-			if l == math.Inf(-1) {
-				l = -999
-			}
-			if u == math.Inf(1) {
-				u = 999
-			}
-
-			jRange := math.Abs(u - l)
+			_, _, jRange := lim.GoodLimits()
 			pos[i] = jRange * percentTotalMovement
 
 			if isMoving {

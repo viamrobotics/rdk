@@ -32,8 +32,8 @@ type motionPlanner interface {
 
 	// Everything below this point should be covered by anything that wraps the generic `planner`
 	smoothPath(context.Context, []node) []node
-	checkPath(referenceframe.FrameSystemInputs, referenceframe.FrameSystemInputs) bool
-	checkInputs(referenceframe.FrameSystemInputs) bool
+	checkPath(context.Context, referenceframe.FrameSystemInputs, referenceframe.FrameSystemInputs) bool
+	checkInputs(context.Context, referenceframe.FrameSystemInputs) bool
 	getSolutions(context.Context, referenceframe.FrameSystemInputs, motionplan.StateFSMetric) ([]node, error)
 	opt() *PlannerOptions
 	sample(node, int) (node, error)
@@ -156,15 +156,16 @@ func newPlanner(
 	return mp, nil
 }
 
-func (mp *planner) checkInputs(inputs referenceframe.FrameSystemInputs) bool {
-	return mp.CheckStateFSConstraints(&motionplan.StateFS{
+func (mp *planner) checkInputs(ctx context.Context, inputs referenceframe.FrameSystemInputs) bool {
+	return mp.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: inputs,
 		FS:            mp.fs,
 	}) == nil
 }
 
-func (mp *planner) checkPath(seedInputs, target referenceframe.FrameSystemInputs) bool {
+func (mp *planner) checkPath(ctx context.Context, seedInputs, target referenceframe.FrameSystemInputs) bool {
 	_, err := mp.CheckSegmentAndStateValidityFS(
+		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: seedInputs,
 			EndConfiguration:   target,
@@ -221,20 +222,22 @@ type solutionSolvingState struct {
 }
 
 // return bool is if we should stop because we're done.
-func (mp *planner) process(sss *solutionSolvingState, seed referenceframe.FrameSystemInputs, stepSolution *ik.Solution) bool {
+func (mp *planner) process(
+	ctx context.Context, sss *solutionSolvingState, seed referenceframe.FrameSystemInputs, stepSolution *ik.Solution,
+) bool {
 	step, err := mp.lfs.sliceToMap(stepSolution.Configuration)
 	if err != nil {
 		mp.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
 		return false
 	}
 
-	alteredStep := mp.nonchainMinimize(seed, step)
+	alteredStep := mp.nonchainMinimize(ctx, seed, step)
 	if alteredStep != nil {
 		// if nil, step is guaranteed to fail the below check, but we want to do it anyway to capture the failure reason
 		step = alteredStep
 	}
 	// Ensure the end state is a valid one
-	err = mp.CheckStateFSConstraints(&motionplan.StateFS{
+	err = mp.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: step,
 		FS:            mp.fs,
 	})
@@ -338,7 +341,7 @@ func (mp *planner) getSolutions(
 	minFunc := mp.linearizeFSmetric(metric)
 	// Spawn the IK solver to generate solutions until done
 
-	approxCartesianDist := math.Sqrt(minFunc(linearSeed))
+	approxCartesianDist := math.Sqrt(minFunc(ctx, linearSeed))
 	ratios := []float64{}
 	for range linearSeed {
 		ratios = append(ratios, min(1, max(.15, approxCartesianDist/100)))
@@ -372,7 +375,7 @@ func (mp *planner) getSolutions(
 			return nil, ctx.Err()
 
 		case stepSolution := <-solutionGen:
-			if mp.process(&solvingState, seed, stepSolution) {
+			if mp.process(ctx, &solvingState, seed, stepSolution) {
 				cancel()
 			}
 
@@ -412,8 +415,8 @@ func (mp *planner) getSolutions(
 // linearize the goal metric for use with solvers.
 // Since our solvers operate on arrays of floats, there needs to be a way to map bidirectionally between the framesystem configuration
 // of FrameSystemInputs and the []float64 that the solver expects. This is that mapping.
-func (mp *planner) linearizeFSmetric(metric motionplan.StateFSMetric) func([]float64) float64 {
-	return func(query []float64) float64 {
+func (mp *planner) linearizeFSmetric(metric motionplan.StateFSMetric) ik.CostFunc {
+	return func(_ context.Context, query []float64) float64 {
 		inputs, err := mp.lfs.sliceToMap(query)
 		if err != nil {
 			return math.Inf(1)
@@ -428,7 +431,7 @@ func (mp *planner) linearizeFSmetric(metric motionplan.StateFSMetric) func([]flo
 // random configuration for the other. This function attempts to replace that random configuration with the seed configuration, if valid,
 // and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
 // configuration to the seed.
-func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
+func (mp *planner) nonchainMinimize(ctx context.Context, seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
 	moving, nonmoving := mp.motionChains.framesFilteredByMovingAndNonmoving(mp.fs)
 	// Create a map with nonmoving configurations replaced with their seed values
 	alteredStep := referenceframe.FrameSystemInputs{}
@@ -438,13 +441,14 @@ func (mp *planner) nonchainMinimize(seed, step referenceframe.FrameSystemInputs)
 	for _, frame := range nonmoving {
 		alteredStep[frame] = seed[frame]
 	}
-	if mp.checkInputs(alteredStep) {
+	if mp.checkInputs(ctx, alteredStep) {
 		return alteredStep
 	}
 	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
 
 	//nolint:errcheck
 	lastGood, _ := mp.CheckStateConstraintsAcrossSegmentFS(
+		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: step,
 			EndConfiguration:   alteredStep,

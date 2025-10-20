@@ -55,7 +55,8 @@ func (o *Operation) HasLabel(label string) bool {
 func (o *Operation) CancelOtherWithLabel(label string) {
 	all := o.myManager.All()
 	for _, op := range all {
-		if op == o {
+		// TODO(RSDK-12330): Figure out how/when All can return a nil operation.
+		if op == nil || op == o {
 			continue
 		}
 		if op.HasLabel(label) {

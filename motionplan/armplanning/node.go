@@ -16,8 +16,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-const ikTimeMultipleStart = 70
-
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target.
 func fixedStepInterpolation(start, target *node, qstep map[string][]float64) referenceframe.FrameSystemInputs {
 	newNear := make(referenceframe.FrameSystemInputs)
@@ -109,6 +107,7 @@ type solutionSolvingState struct {
 	psc          *planSegmentContext
 	maxSolutions int
 
+	seed              referenceframe.FrameSystemInputs
 	linearSeed        []float64
 	moving, nonmoving []string
 
@@ -120,30 +119,33 @@ type solutionSolvingState struct {
 
 	solutions         []*node
 	startTime         time.Time
-	bestScore         float64
-	ikTimeMultiple    int
 	firstSolutionTime time.Duration
+
+	bestScoreWithProblem float64
+	bestScoreNoProblem   float64
 }
 
 func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, error) {
 	var err error
 
 	sss := &solutionSolvingState{
-		psc:               psc,
-		solutions:         []*node{},
-		failures:          newIkConstraintError(psc.pc.fs, psc.checker),
-		startTime:         time.Now(),
-		firstSolutionTime: time.Hour,
-		bestScore:         10000000,
-		maxSolutions:      psc.pc.planOpts.MaxSolutions,
-		ikTimeMultiple:    ikTimeMultipleStart, // look for a while, unless we find good things
+		psc:                  psc,
+		seed:                 psc.start,
+		solutions:            []*node{},
+		failures:             newIkConstraintError(psc.pc.fs, psc.checker),
+		startTime:            time.Now(),
+		firstSolutionTime:    time.Hour,
+		bestScoreNoProblem:   10000000,
+		bestScoreWithProblem: 10000000,
+		maxSolutions:         psc.pc.planOpts.MaxSolutions,
 	}
 
 	if sss.maxSolutions <= 0 {
 		sss.maxSolutions = defaultSolutionsToSeed
 	}
 
-	sss.linearSeed, err = psc.pc.lfs.mapToSlice(psc.start)
+	psc.pc.logger.Debugf("psc.start -> seed: \n%v\n%v", psc.start, sss.seed)
+	sss.linearSeed, err = psc.pc.lfs.mapToSlice(sss.seed)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +161,7 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 }
 
 func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) error {
-	sss.ratios = sss.psc.pc.lfs.inputChangeRatio(sss.psc.motionChains, sss.psc.start,
+	sss.ratios = sss.psc.pc.lfs.inputChangeRatio(sss.psc.motionChains, sss.seed,
 		sss.psc.pc.planOpts.getGoalMetric(goal), sss.psc.pc.logger)
 
 	adjusted := []float64{}
@@ -186,7 +188,9 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 // random configuration for the other. This function attempts to replace that random configuration with the seed configuration, if valid,
 // and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
 // configuration to the seed.
-func (sss *solutionSolvingState) nonchainMinimize(seed, step referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {
+func (sss *solutionSolvingState) nonchainMinimize(ctx context.Context,
+	seed, step referenceframe.FrameSystemInputs,
+) referenceframe.FrameSystemInputs {
 	// Create a map with nonmoving configurations replaced with their seed values
 	alteredStep := referenceframe.FrameSystemInputs{}
 	for _, frame := range sss.moving {
@@ -195,7 +199,7 @@ func (sss *solutionSolvingState) nonchainMinimize(seed, step referenceframe.Fram
 	for _, frame := range sss.nonmoving {
 		alteredStep[frame] = seed[frame]
 	}
-	if sss.psc.checkInputs(alteredStep) {
+	if sss.psc.checkInputs(ctx, alteredStep) {
 		return alteredStep
 	}
 
@@ -203,6 +207,7 @@ func (sss *solutionSolvingState) nonchainMinimize(seed, step referenceframe.Fram
 
 	//nolint:errcheck
 	lastGood, _ := sss.psc.checker.CheckStateConstraintsAcrossSegmentFS(
+		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: step,
 			EndConfiguration:   alteredStep,
@@ -216,8 +221,7 @@ func (sss *solutionSolvingState) nonchainMinimize(seed, step referenceframe.Fram
 }
 
 // return bool is if we should stop because we're done.
-func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution,
-) bool {
+func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution) bool {
 	ctx, span := trace.StartSpan(ctx, "process")
 	defer span.End()
 	sss.processCalls++
@@ -228,13 +232,13 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		return false
 	}
 
-	alteredStep := sss.nonchainMinimize(sss.psc.start, step)
+	alteredStep := sss.nonchainMinimize(ctx, sss.psc.start, step)
 	if alteredStep != nil {
 		// if nil, step is guaranteed to fail the below check, but we want to do it anyway to capture the failure reason
 		step = alteredStep
 	}
 	// Ensure the end state is a valid one
-	err = sss.psc.checker.CheckStateFSConstraints(&motionplan.StateFS{
+	err = sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: step,
 		FS:            sss.psc.pc.fs,
 	})
@@ -266,54 +270,72 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		}
 	}
 
+	if len(sss.solutions) == 0 {
+		sss.firstSolutionTime = time.Since(sss.startTime)
+	}
+
 	myNode := &node{inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
 	sss.solutions = append(sss.solutions, myNode)
 
-	// TODO: Reevaluate this constant when better quality IK solutions are being generated.
-	const goodCostStopDivider = 4.0
+	if myNode.cost < sss.bestScoreWithProblem {
+		sss.bestScoreWithProblem = myNode.cost
+	}
 
-	if myNode.cost < sss.goodCost || // this checks the absolute score of the plan
-		// if we've got something sane, and it's really good, let's check
-		myNode.cost < (sss.bestScore*defaultOptimalityMultiple) {
+	if myNode.cost < min(sss.goodCost, sss.bestScoreWithProblem*defaultOptimalityMultiple) {
 		whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
 		sss.psc.pc.logger.Debugf("got score %0.4f and goodCost: %0.2f - result: %v", myNode.cost, sss.goodCost, whyNot)
-		if whyNot == nil {
-			myNode.checkPath = true
-			if (myNode.cost < (sss.goodCost / goodCostStopDivider)) ||
-				(myNode.cost < sss.psc.pc.planOpts.MinScore && sss.psc.pc.planOpts.MinScore > 0) {
-				sss.psc.pc.logger.Debugf("\tscore %0.4f stopping early (%0.2f) processCalls: %d after %v",
-					myNode.cost, sss.goodCost/goodCostStopDivider, sss.processCalls, time.Since(sss.startTime))
-				return true // good solution, stopping early
-			}
+		myNode.checkPath = whyNot == nil
 
-			if myNode.cost < (sss.goodCost / (.5 * goodCostStopDivider)) {
-				// we find something very good, but not great
-				// so we look at lot
-				sss.ikTimeMultiple = min(sss.ikTimeMultiple, ikTimeMultipleStart/12)
-			} else if myNode.cost < sss.goodCost {
-				sss.ikTimeMultiple = min(sss.ikTimeMultiple, ikTimeMultipleStart/5)
-			}
+		if whyNot == nil && myNode.cost < sss.bestScoreNoProblem {
+			sss.bestScoreNoProblem = myNode.cost
 		}
 	}
 
+	return sss.shouldStopEarly()
+}
+
+// return bool is if we should stop because we're done.
+func (sss *solutionSolvingState) shouldStopEarly() bool {
+	elapsed := time.Since(sss.startTime)
+
 	if len(sss.solutions) >= sss.maxSolutions {
+		sss.psc.pc.logger.Debugf("stopping with %d solutions after: %v", len(sss.solutions), elapsed)
 		return true
 	}
 
-	if myNode.cost < sss.bestScore {
-		sss.bestScore = myNode.cost
+	if sss.bestScoreNoProblem < .2 {
+		sss.psc.pc.logger.Debugf("stopping early with amazing %0.2f after: %v", sss.bestScoreNoProblem, elapsed)
+		return true
 	}
 
-	if len(sss.solutions) == 1 {
-		sss.firstSolutionTime = time.Since(sss.startTime)
-	} else {
-		elapsed := time.Since(sss.startTime)
-		if elapsed > (time.Duration(sss.ikTimeMultiple) * sss.firstSolutionTime) {
-			sss.psc.pc.logger.Infof("ending early because of time elapsed: %v firstSolutionTime: %v processCalls: %d",
-				elapsed, sss.firstSolutionTime, sss.processCalls)
-			return true
-		}
+	multiple := 100.0
+	minMillis := 250
+
+	if sss.bestScoreNoProblem < sss.goodCost/20 {
+		multiple = 0
+		minMillis = 10
+	} else if sss.bestScoreNoProblem < sss.goodCost/10 {
+		multiple = 0
+		minMillis = 20
+	} else if sss.bestScoreNoProblem < sss.goodCost/5 {
+		multiple = 40
+		minMillis = 125
+	} else if sss.bestScoreNoProblem < sss.goodCost/2 {
+		multiple = 40
+		minMillis = 150
+	} else if sss.bestScoreNoProblem < sss.goodCost {
+		multiple = 50
+	} else if sss.bestScoreWithProblem < sss.goodCost {
+		// we're going to have to do cbirrt, so look a little less, but still look
+		multiple = 75
 	}
+
+	if elapsed > max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond) {
+		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f / %0.2f after: %v",
+			sss.bestScoreNoProblem, sss.bestScoreWithProblem, elapsed)
+		return true
+	}
+
 	return false
 }
 
@@ -337,8 +359,6 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 
 	// Spawn the IK solver to generate solutions until done
 	minFunc := psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
-
-	psc.pc.logger.Debugf("seed: %v", psc.start)
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()

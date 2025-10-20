@@ -3018,31 +3018,59 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					},
 				},
 				{
-					Name:      "reload",
+					Name:      "restart",
+					Usage:     "restart a currently-running module",
+					UsageText: createUsageText("module restart", nil, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:        generalFlagPartID,
+							Usage:       "part ID of machine. get from 'Live/Offline' dropdown in the web app",
+							DefaultText: "/etc/viam.json",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPath,
+							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
+							Value: "meta.json",
+						},
+						&cli.StringFlag{
+							Name:  generalFlagName,
+							Usage: "name of module to restart. pass at most one of --name, --id",
+						},
+						&cli.StringFlag{
+							Name:  generalFlagID,
+							Usage: "ID of module to restart, for example viam:wifi-sensor. pass at most one of --name, --id",
+						},
+						&cli.PathFlag{
+							Name:  moduleBuildFlagCloudConfig,
+							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Value: "/etc/viam.json",
+						},
+					},
+					Action: createCommandWithT[moduleRestartArgs](ModuleRestartAction),
+				},
+				{
+					Name:      "reload-local",
 					Usage:     "build a module locally and run it on a target device. rebuild & restart if already running",
-					UsageText: createUsageText("module reload", nil, true, false),
+					UsageText: createUsageText("module reload-local", nil, true, false),
 					Description: `Example invocations:
 
 	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
 	# and configure or restart it.
-	viam module reload --part-id UUID
+	viam module reload-local --part-id UUID
 
-	# Restart a module running on your local viam server, by name, without building or reconfiguring.
-	viam module reload --restart-only --id viam:python-example-module
-
-	# Use cloudbuild to build the tar.gz that will be copied to the part for hot reloading.
-	viam module reload --cloud-build
+	# Reload from an already-built module, without performing a new local build.
+	viam module reload-local --no-build
 
 	# Run viam module reload on a mac and use the downloaded viam.json file instead of --part-id
-	viam module reload --cloud-config ~/Downloads/viam-mac-main.json
+	viam module reload-local --cloud-config ~/Downloads/viam-mac-main.json
 
 	# Specify a component/service model (and optionally a name) to add to the config along with
 	# the module (the API is automatically looked up from meta.json)
 	# By default, no resources are added when a module is reloaded
-	viam module reload --model-name acme:module-name:mybase --name my-resource
+	viam module reload-local --model-name acme:module-name:mybase --name my-resource
 
-	# Build and configure a module on your local machine without shipping a tarball.
-	viam module reload --local`,
+	# Build and configure a module running on your local machine without shipping a tarball.
+	viam module reload-local --local`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagPartID,
@@ -3063,10 +3091,6 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "ID of module to restart, for example viam:wifi-sensor. pass at most one of --name, --id",
 						},
 						&cli.BoolFlag{
-							Name:  moduleBuildRestartOnly,
-							Usage: "just restart the module on the target system, don't do other reload steps",
-						},
-						&cli.BoolFlag{
 							Name:  moduleBuildFlagNoBuild,
 							Usage: "don't do build step",
 						},
@@ -3083,9 +3107,65 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
 							Value: "~",
 						},
+						&cli.PathFlag{
+							Name:  moduleBuildFlagCloudConfig,
+							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Value: "/etc/viam.json",
+						},
+						&cli.StringFlag{
+							Name:        moduleFlagModelName,
+							Usage:       "If passed, creates a resource in the part config with the given model triple",
+							DefaultText: "Don't create a new resource",
+						},
+						&cli.StringFlag{
+							Name:  moduleBuildFlagWorkdir,
+							Usage: "use this to indicate that your meta.json is in a subdirectory of your repo. --module flag should be relative to this",
+							Value: ".",
+						},
+						&cli.StringFlag{
+							Name:        dataFlagResourceName,
+							Usage:       "Use with model-name to name the newly added resource",
+							DefaultText: "resource type with a unique numerical suffix",
+						},
+					},
+					Action: createCommandWithT[reloadModuleArgs](ReloadModuleLocalAction),
+				},
+				{
+					Name:      "reload",
+					Usage:     "build a module in the cloud and run it on a target device. rebuild & restart if already running",
+					UsageText: createUsageText("module reload", nil, true, false),
+					Description: `Example invocations:
+
+	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
+	# and configure or restart it.
+	viam module reload --part-id UUID
+
+	# Run viam module reload on a mac and use the downloaded viam.json file instead of --part-id
+	viam module reload --cloud-config ~/Downloads/viam-mac-main.json
+
+	# Specify a component/service model (and optionally a name) to add to the config along with
+	# the module (the API is automatically looked up from meta.json)
+	# By default, no resources are added when a module is reloaded
+	viam module reload --model-name acme:module-name:mybase --name my-resource`,
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:        generalFlagPartID,
+							Usage:       "part ID of machine. get from 'Live/Offline' dropdown in the web app",
+							DefaultText: "/etc/viam.json",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPath,
+							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
+							Value: "meta.json",
+						},
 						&cli.BoolFlag{
-							Name:  moduleBuildFlagCloudBuild,
-							Usage: "Run the module's build script using cloud build instead of locally, downloading to the build.path field in meta.json",
+							Name:  generalFlagNoProgress,
+							Usage: "hide progress of the file transfer",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagHomeDir,
+							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
+							Value: "~",
 						},
 						&cli.PathFlag{
 							Name:  moduleBuildFlagCloudConfig,
