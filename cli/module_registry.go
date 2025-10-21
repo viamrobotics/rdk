@@ -377,7 +377,10 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 	}
 
 	pm := NewProgressManager()
-	defer pm.Stop()
+	defer func() {
+		pm.Stop()
+		pm.StopSignalHandler()
+	}()
 
 	// Add to context for sub-functions
 	c.Context = WithProgressManager(c.Context, pm)

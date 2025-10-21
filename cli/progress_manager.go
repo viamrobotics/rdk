@@ -47,7 +47,17 @@ func NewProgressManager() *ProgressManager {
 				errorf(os.Stderr, sm.cancellationMessage)
 			}
 			os.Exit(130) // Standard exit code for SIGINT (128 + 2)
-		case <-sm.stopChan:
+		case <-func() <-chan struct{} {
+			sm.mu.Lock()
+			defer sm.mu.Unlock()
+			if sm.stopChan != nil {
+				return sm.stopChan
+			}
+			// If stopChan is nil, create a closed channel to unblock immediately
+			closed := make(chan struct{})
+			close(closed)
+			return closed
+		}():
 			// Stop signal handler goroutine
 			return
 		}

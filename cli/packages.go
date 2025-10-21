@@ -207,7 +207,10 @@ func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
 
 	// Create and configure progress manager
 	pm := NewProgressManager()
-	defer pm.Stop()
+	defer func() {
+		pm.Stop()
+		pm.StopSignalHandler()
+	}()
 
 	s := pm.AddSpinner("Uploading package...")
 	pm.Start()

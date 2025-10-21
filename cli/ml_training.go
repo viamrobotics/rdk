@@ -79,7 +79,10 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 	}
 
 	pm := NewProgressManager()
-	defer pm.Stop()
+	defer func() {
+		pm.Stop()
+		pm.StopSignalHandler()
+	}()
 
 	// Add to context for sub-functions
 	c.Context = WithProgressManager(c.Context, pm)
@@ -386,7 +389,10 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 	}
 
 	pm := NewProgressManager()
-	defer pm.Stop()
+	defer func() {
+		pm.Stop()
+		pm.StopSignalHandler()
+	}()
 
 	// Add to context for sub-functions
 	c.Context = WithProgressManager(c.Context, pm)

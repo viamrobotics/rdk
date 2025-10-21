@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"go.uber.org/zap"
 	v1 "go.viam.com/api/app/build/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
@@ -13,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	rdkConfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -67,6 +69,8 @@ func mockFullAppServiceClient(robotConfig, userSuppliedInfo *structpb.Struct, up
 }
 
 func TestFullReloadFlow(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
 	manifestPath := createTestManifest(t, "", nil)
 	confStruct, err := structpb.NewStruct(map[string]any{
 		"modules": []any{},
@@ -85,7 +89,7 @@ func TestFullReloadFlow(t *testing.T) {
 		"token",
 	)
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	err = reloadModuleAction(cCtx, parseStructFromCtx[reloadModuleArgs](cCtx), false)
+	err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 
@@ -155,7 +159,7 @@ func TestFullReloadFlow(t *testing.T) {
 			})
 			test.That(t, err, test.ShouldBeNil)
 
-			cCtx, _, _, _ := setup(
+			cCtx, vc, _, _ := setup(
 				mockAppServiceClientWithRobotPart(confStruct, userInfo),
 				nil,
 				&inject.BuildServiceClient{},
@@ -166,7 +170,8 @@ func TestFullReloadFlow(t *testing.T) {
 				"token",
 			)
 
-			err = reloadModuleAction(cCtx, parseStructFromCtx[reloadModuleArgs](cCtx), false)
+			logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+			err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "not supported for hot reloading")
 		})
@@ -180,7 +185,7 @@ func TestFullReloadFlow(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			updateCount := 0
-			cCtx, _, _, _ := setup(
+			cCtx, vc, _, _ := setup(
 				mockFullAppServiceClient(confStruct, userInfo, &updateCount),
 				nil,
 				&inject.BuildServiceClient{},
@@ -191,7 +196,8 @@ func TestFullReloadFlow(t *testing.T) {
 				"token",
 			)
 
-			err = reloadModuleAction(cCtx, parseStructFromCtx[reloadModuleArgs](cCtx), false)
+			logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+			err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, updateCount, test.ShouldEqual, 1)
 		})

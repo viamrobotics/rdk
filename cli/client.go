@@ -1434,7 +1434,10 @@ func (c *viamClient) machinesPartCopyFilesAction(
 
 		// Create spinner for copy operation
 		pm := NewProgressManager()
-		defer pm.Stop()
+		defer func() {
+			pm.Stop()
+			pm.StopSignalHandler()
+		}()
 
 		// Add to context for sub-functions
 		c.c.Context = WithProgressManager(c.c.Context, pm)
