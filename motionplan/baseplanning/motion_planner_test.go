@@ -1244,7 +1244,7 @@ func TestValidatePlanRequest(t *testing.T) {
 				FrameSystem: fs,
 				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
-					"frame1": {}, "frame2": []frame.Input{0, 0, 0, 0, 0},
+					"frame1": {}, "frame2": {0, 0, 0, 0, 0},
 				}},
 				PlannerOptions: NewBasicPlannerOptions(),
 			},

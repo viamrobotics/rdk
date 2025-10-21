@@ -200,7 +200,7 @@ func PTGIKSeed(ptg PTGSolver) []referenceframe.Input {
 	for i := 0; i < len(ptgDof); i++ {
 		boundRange := ptgDof[i].Max - ptgDof[i].Min
 		minAdj := boundRange * defaultPTGSeedAdj
-		inputs = append(inputs, ptgDof[i].Min + minAdj)
+		inputs = append(inputs, ptgDof[i].Min+minAdj)
 	}
 
 	return inputs
