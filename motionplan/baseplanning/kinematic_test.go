@@ -34,7 +34,7 @@ func TestForwardKinematics(t *testing.T) {
 		r3.Vector{X: 248.55, Y: 0, Z: 115},
 		&spatial.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1},
 	)
-	pos, err := m.Transform([]frame.Input{5})
+	pos, err := m.Transform(make([]frame.Input, 5))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostEqual(expect, pos), test.ShouldBeTrue)
 
@@ -47,14 +47,14 @@ func TestForwardKinematics(t *testing.T) {
 		r3.Vector{X: 207, Y: 0, Z: 112},
 		&spatial.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: -1},
 	)
-	pos, err = m.Transform([]frame.Input{6})
+	pos, err = m.Transform(make([]frame.Input, 6))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostEqual(expect, pos), test.ShouldBeTrue)
 
 	// Test incorrect joints
-	_, err = m.Transform([]frame.Input{0})
+	_, err = m.Transform(make([]frame.Input, 0))
 	test.That(t, err, test.ShouldNotBeNil)
-	_, err = m.Transform([]frame.Input{7})
+	_, err = m.Transform(make([]frame.Input, 7))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	newPos := &pb.JointPositions{Values: []float64{45, -45, 0, 0, 0, 0}}

@@ -31,7 +31,7 @@ func TestIKTolerances(t *testing.T) {
 		frame.World,
 		spatial.NewPoseFromProtobuf(&commonpb.Pose{X: -46, Y: 0, Z: 372, OX: -1.78, OY: -3.3, OZ: -1.11}),
 	)}}
-	seed := &PlanState{configuration: map[string][]frame.Input{m.Name(): {6}}}
+	seed := &PlanState{configuration: map[string][]frame.Input{m.Name(): make([]frame.Input, 6)}}
 	_, err = mp.plan(context.Background(), seed, goal)
 	test.That(t, err, test.ShouldNotBeNil)
 

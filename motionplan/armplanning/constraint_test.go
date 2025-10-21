@@ -28,7 +28,7 @@ func TestIKTolerances(t *testing.T) {
 		spatial.NewPoseFromProtobuf(&commonpb.Pose{X: -46, Y: 0, Z: 372, OX: -1.78, OY: -3.3, OZ: -1.11}),
 	)}
 
-	seed := referenceframe.FrameSystemInputs{m.Name(): []referenceframe.Input{6}}
+	seed := referenceframe.FrameSystemInputs{m.Name(): make([]referenceframe.Input, 6)}
 
 	// Create PlanRequest to use the new API
 	request := &PlanRequest{
