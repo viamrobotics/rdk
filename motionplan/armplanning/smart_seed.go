@@ -19,7 +19,7 @@ type smartSeedCacheEntry struct {
 }
 
 type goalCacheBox struct {
-	hash    string
+	boxKey  string
 	center  r3.Vector
 	entries []smartSeedCacheEntry
 }
@@ -29,16 +29,16 @@ type goalCache struct {
 	boxes                      map[string]*goalCacheBox // hash to list
 }
 
-func (gc *goalCache) hashKey(value, min, max float64) int {
+func (gc *goalCache) boxKeyCompute(value, min, max float64) int {
 	x := (value - min) / (max - min)
 
 	return int(x * 100)
 }
 
-func (gc *goalCache) hash(p r3.Vector) string {
-	x := gc.hashKey(p.X, gc.minCartesian.X, gc.maxCartesian.X)
-	y := gc.hashKey(p.Y, gc.minCartesian.Y, gc.maxCartesian.Y)
-	z := gc.hashKey(p.Z, gc.minCartesian.Z, gc.maxCartesian.Z)
+func (gc *goalCache) boxKey(p r3.Vector) string {
+	x := gc.boxKeyCompute(p.X, gc.minCartesian.X, gc.maxCartesian.X)
+	y := gc.boxKeyCompute(p.Y, gc.minCartesian.Y, gc.maxCartesian.Y)
+	z := gc.boxKeyCompute(p.Z, gc.minCartesian.Z, gc.maxCartesian.Z)
 	return fmt.Sprintf("%0.3d%0.3d%0.3d", x, y, z)
 }
 
@@ -300,11 +300,11 @@ func (ssc *smartSeedCache) buildInverseCache(frame string) {
 	}
 
 	for _, e := range ssc.rawCache {
-		hash := gc.hash(e.poses[frame].Pose().Point())
-		box, ok := gc.boxes[hash]
+		key := gc.boxKey(e.poses[frame].Pose().Point())
+		box, ok := gc.boxes[key]
 		if !ok {
-			box = &goalCacheBox{hash: hash}
-			gc.boxes[hash] = box
+			box = &goalCacheBox{boxKey: key}
+			gc.boxes[key] = box
 		}
 		box.entries = append(box.entries, e)
 	}
