@@ -31,6 +31,8 @@ type ModuleInputs struct {
 	ModuleLowercase       string `json:"-"`
 	API                   string `json:"-"`
 	ResourceSubtypePascal string `json:"-"`
+	ResourceSubtypeAlias  string `json:"-"`
+	ResourceSubtypeSnake  string `json:"-"`
 	ResourceTypePascal    string `json:"-"`
 	ModelPascal           string `json:"-"`
 	ModelCamel            string `json:"-"`
@@ -46,6 +48,7 @@ var Resources = []string{
 	"audio_input component",
 	"base component",
 	"board component",
+	"button component",
 	"camera component",
 	"encoder component",
 	"gantry component",
@@ -58,12 +61,14 @@ var Resources = []string{
 	"power_sensor component",
 	"sensor component",
 	"servo component",
+	"switch component",
 	"generic_service service",
 	"mlmodel service",
 	"motion service",
 	"navigation service",
 	"slam service",
 	"vision service",
+	"world_state_store service",
 }
 
 // GoModuleTmpl contains necessary information to fill out the go method stubs.

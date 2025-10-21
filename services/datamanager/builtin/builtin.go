@@ -12,14 +12,13 @@ package builtin
 import (
 	"context"
 	"errors"
+	"image"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/sensor"
@@ -28,6 +27,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
+	"go.viam.com/rdk/services/datamanager/builtin/shared"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
@@ -38,7 +38,6 @@ var (
 	// ErrCaptureDirectoryConfigurationDisabled happens when the viam-server is run with
 	// `-untrusted-env` and the capture directory is not `~/.viam/capture`.
 	ErrCaptureDirectoryConfigurationDisabled = errors.New("changing the capture directory is prohibited in this environment")
-	viamCaptureDotDir                        = filepath.Join(os.Getenv("HOME"), ".viam", "capture")
 	// This clock only exists for tests.
 	// At time of writing only a single test depends on it.
 	// We should endevor to not add more tests that depend on it unless absolutiely necessary.
@@ -61,7 +60,6 @@ func init() {
 			deps,
 			conf,
 			v1.NewDataSyncServiceClient,
-			datasync.ConnToConnectivityState,
 			logger,
 		)
 	}
@@ -95,7 +93,6 @@ func New(
 	deps resource.Dependencies,
 	conf resource.Config,
 	cloudClientConstructor func(grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	connToConnectivityStateEnabled func(conn rpc.ClientConn) datasync.ConnectivityState,
 	logger logging.Logger,
 ) (datamanager.Service, error) {
 	logger.Info("New START")
@@ -108,7 +105,6 @@ func New(
 	// or manual sync call
 	sync := datasync.New(
 		cloudClientConstructor,
-		connToConnectivityStateEnabled,
 		capture.FlushCollectors,
 		clk,
 		logger.Sublogger("sync"),
@@ -180,12 +176,12 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		return err
 	}
 
-	if !utils.IsTrustedEnvironment(ctx) && c.CaptureDir != "" && c.CaptureDir != viamCaptureDotDir {
+	if !utils.IsTrustedEnvironment(ctx) && c.CaptureDir != "" && c.CaptureDir != shared.ViamCaptureDotDir {
 		// see comment above this error definition for when this happens
 		return ErrCaptureDirectoryConfigurationDisabled
 	}
 
-	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
+	cloudConnSvc, err := resource.FromProvider[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
 		// If this error occurs it's a resource graph error
 		return err
@@ -220,7 +216,7 @@ func syncSensorFromDeps(name string, deps resource.Dependencies, logger logging.
 	if name == "" {
 		return nil, false
 	}
-	syncSensor, err := sensor.FromDependencies(deps, name)
+	syncSensor, err := sensor.FromProvider(deps, name)
 	if err != nil {
 		// see sync.Config for how this affects whether or not scheduled sync will run
 		logger.Errorw(
@@ -259,4 +255,37 @@ func lookupCollectorConfigsByResource(
 		collectorConfigsByResource[res] = collectorConfigs
 	}
 	return collectorConfigsByResource, nil
+}
+
+// TODO (DATA-4528): Don't ignore the extra field in the UploadBinaryDataToDatasets request.
+func (b *builtIn) UploadBinaryDataToDatasets(ctx context.Context,
+	binaryData []byte,
+	datasetIDs, tags []string,
+	mimeType v1.MimeType,
+	_ map[string]interface{},
+) error {
+	b.logger.Debug("UploadBinaryDataToDatasets START")
+	defer b.logger.Debug("UploadBinaryDataToDatasets END")
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.sync.UploadBinaryDataToDatasets(ctx, binaryData, datasetIDs, tags, mimeType)
+}
+
+// TODO (DATA-4528): Don't ignore the extra field in the UploadImageToDatasets request.
+func (b *builtIn) UploadImageToDatasets(ctx context.Context,
+	image image.Image,
+	datasetIDs []string,
+	tags []string,
+	mimeType v1.MimeType,
+	_ map[string]interface{},
+) error {
+	b.logger.Debug("UploadImageToDataset START")
+	defer b.logger.Debug("UploadImageToDataset END")
+	imgBytes, err := datamanager.ConvertImageToBytes(image, mimeType)
+	if err != nil {
+		return err
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType)
 }

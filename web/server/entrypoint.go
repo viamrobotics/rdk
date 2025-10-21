@@ -60,10 +60,11 @@ type Arguments struct {
 }
 
 type robotServer struct {
-	args     Arguments
-	logger   logging.Logger
-	registry *logging.Registry
-	conn     rpc.ClientConn
+	args          Arguments
+	logger        logging.Logger
+	registry      *logging.Registry
+	conn          rpc.ClientConn
+	signalingConn rpc.ClientConn
 }
 
 func logViamEnvVariables(logger logging.Logger) {
@@ -76,6 +77,9 @@ func logViamEnvVariables(logger logging.Logger) {
 	}
 	if value, exists := os.LookupEnv("VIAM_MODULE_STARTUP_TIMEOUT"); exists {
 		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_STARTUP_TIMEOUT", value)
+	}
+	if value, exists := os.LookupEnv("VIAM_CONFIG_READ_TIMEOUT"); exists {
+		viamEnvVariables = append(viamEnvVariables, "VIAM_CONFIG_READ_TIMEOUT", value)
 	}
 	if value, exists := os.LookupEnv("CWD"); exists {
 		viamEnvVariables = append(viamEnvVariables, "CWD", value)
@@ -142,7 +146,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	logging.RegisterEventLogger(logger)
-	logging.ReplaceGlobal(logger)
 	config.InitLoggingSettings(logger, argsParsed.Debug)
 
 	if argsParsed.Version {
@@ -152,7 +155,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	} else if argsParsed.NetworkCheckOnly {
 		// Run network checks synchronously and immediately exit if `--network-check` flag was
 		// used. Otherwise run network checks asynchronously.
-		nc.RunNetworkChecks(ctx, logger)
+		nc.RunNetworkChecks(ctx, logger, false /* !continueRunningTestDNS */)
 		return
 	}
 
@@ -182,16 +185,13 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		defer pprof.StopCPUProfile()
 	}
 
-	var appConn rpc.ClientConn
+	var appConn, signalingConn rpc.ClientConn
 
 	// Read the config from disk and use it to initialize the remote logger.
-	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
-	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger.Sublogger("config"))
+	cfgFromDisk, err := config.ReadLocalConfig(argsParsed.ConfigFile, logger.Sublogger("config"))
 	if err != nil {
-		cancel()
 		return err
 	}
-	cancel()
 
 	if argsParsed.OutputTelemetry {
 		exporter := perf.NewDevelopmentExporter()
@@ -211,6 +211,18 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 			return err
 		}
 		defer utils.UncheckedErrorFunc(appConn.Close)
+
+		// if SignalingAddress is specified and different from AppAddress, create a new connection to it. Otherwise reuse appConn.
+		if cloud.SignalingAddress != "" && cloud.SignalingAddress != cloud.AppAddress {
+			signalingConnLogger := logger.Sublogger("networking").Sublogger("signaling_connection")
+			signalingConn, err = grpc.NewAppConn(ctx, cloud.SignalingAddress, cloud.Secret, cloud.ID, signalingConnLogger)
+			if err != nil {
+				return err
+			}
+			defer utils.UncheckedErrorFunc(signalingConn.Close)
+		} else {
+			signalingConn = appConn
+		}
 	}
 
 	// Start remote logging with config from disk.
@@ -222,7 +234,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				ID:         cfgFromDisk.Cloud.ID,
 				Secret:     cfgFromDisk.Cloud.Secret,
 			},
-			appConn, false, logger.Sublogger("networking").Sublogger("netlogger"),
+			appConn, false, logging.NewLogger("NetAppender-loggerWithoutNet"),
 		)
 		if err != nil {
 			return err
@@ -238,13 +250,14 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// Have goutils use the logger we've just configured.
 	golog.ReplaceGloabl(logger.AsZap())
 
-	go nc.RunNetworkChecks(ctx, logger)
+	go nc.RunNetworkChecks(ctx, logger, true /* continueRunningTestDNS */)
 
 	server := robotServer{
-		logger:   logger,
-		args:     argsParsed,
-		registry: registry,
-		conn:     appConn,
+		logger:        logger,
+		args:          argsParsed,
+		registry:      registry,
+		conn:          appConn,
+		signalingConn: signalingConn,
 	}
 
 	// Run the server with remote logging enabled.
@@ -259,13 +272,14 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 // runServer is an entry point to starting the web server after the local config is read. Once the local config
 // is read the logger may be initialized to remote log. This ensure we capture errors starting up the server and report to the cloud.
 func (s *robotServer) runServer(ctx context.Context) error {
-	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
-	cfg, err := config.Read(initialReadCtx, s.args.ConfigFile, s.logger, s.conn)
+	if s.conn != nil {
+		s.logger.CInfo(ctx, "Getting up-to-date config from cloud...")
+	}
+	// config.Read will add a timeout using contextutils.GetTimeoutCtx, so no need to add a separate timeout.
+	cfg, err := config.Read(ctx, s.args.ConfigFile, s.logger, s.conn)
 	if err != nil {
-		cancel()
 		return err
 	}
-	cancel()
 	config.UpdateFileConfigDebug(cfg.Debug)
 
 	err = s.serveWeb(ctx, cfg)
@@ -290,7 +304,9 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 	if cfg.Cloud != nil && s.args.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}
-	options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithSignalingConn(s.conn))
+	// options.SignalingAddress is set in config processing
+	// signalingConn is a separate connection if SignalingAddress and AppAddress differ, otherwise it points to s.conn
+	options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithSignalingConn(s.signalingConn))
 
 	if len(options.Auth.Handlers) == 0 {
 		host, _, err := net.SplitHostPort(cfg.Network.BindAddress)
@@ -389,16 +405,16 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 			// Update logger registry if log patterns may have changed.
 			//
 			// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
-			if !diff.LogEqual {
-				s.logger.Debug("Detected potential changes to log patterns; updating logger levels")
-
-				// TODO(RSDK-10723): Remove this WARN log, and mutate the config to reconfigure
-				// all appropriate modular resources at this point.
-				s.logger.Warn(
-					"Changes to 'log' field will not affect modular logs. " +
-						"Use 'log_level' in module config or 'log_configuration' in resource config instead",
-				)
-
+			if !diff.LogEqual || !diff.ResourcesEqual {
+				// Only display the warning when the user attempted to change the `log` field of
+				// the config.
+				if !diff.LogEqual {
+					s.logger.Debug("Detected potential changes to log patterns; updating logger levels")
+					s.logger.Warn(
+						"Changes to 'log' field may not affect modular logs. " +
+							"Use 'log_level' in module config or 'log_configuration' in resource config instead",
+					)
+				}
 				config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
 			}
 
@@ -446,6 +462,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		defer close(forceShutdown)
 
 		<-ctx.Done()
+		shutdownStarted := time.Now()
 
 		slowTicker := time.NewTicker(10 * time.Second)
 		defer slowTicker.Stop()
@@ -489,7 +506,8 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				if checkDone() {
 					return
 				}
-				s.logger.Warn("waiting for clean shutdown")
+				s.logger.Warnw("Waiting for clean shutdown", "time_elapsed",
+					time.Since(shutdownStarted).String())
 			}
 		}
 	})
@@ -499,7 +517,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		slowWatcherCancel()
 		<-slowWatcher
 	}()
-
+	s.logger.CInfo(ctx, "Processing initial robot config...")
 	fullProcessedConfig, err := s.processConfig(cfg)
 	if err != nil {
 		return err
@@ -511,7 +529,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
 	config.UpdateLoggerRegistryFromConfig(s.registry, fullProcessedConfig, s.logger)
 
-	if fullProcessedConfig.Cloud != nil {
+	// Only start cloud restart checker if cloud config is non-nil, and viam-agent is not
+	// handling restart checking for us (relevant environment variable is unset).
+	if fullProcessedConfig.Cloud != nil && os.Getenv(rutils.ViamAgentHandlesNeedsRestartChecking) == "" {
+		s.logger.CInfo(ctx, "Agent does not handle checking needs restart functionality; will handle in server")
 		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {
 			defer close(cloudRestartCheckerActive)
@@ -553,7 +574,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}
 
 	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove
-	// all components, services, remotes, modules, processes, and packages from
+	// all components, services, remotes, modules, processes, packages, and jobs from
 	// `minimalProcessedConfig`. Create new robot with `minimalProcessedConfig`
 	// and immediately start web service. We need the machine to be reachable
 	// through the web service ASAP, even if some resources take a long time to
@@ -565,6 +586,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	minimalProcessedConfig.Modules = nil
 	minimalProcessedConfig.Processes = nil
 	minimalProcessedConfig.Packages = nil
+	minimalProcessedConfig.Jobs = nil
 
 	// Mark minimalProcessedConfig as an initial config, so robot reports a
 	// state of initializing until reconfigured with full config.

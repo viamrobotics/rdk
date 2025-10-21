@@ -6,10 +6,10 @@ package discovery
 
 import (
 	"context"
-	"errors"
 
 	pb "go.viam.com/api/service/discovery/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -21,6 +21,10 @@ func init() {
 		RPCServiceDesc:              &pb.DiscoveryService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is the name of the type of service.
@@ -31,23 +35,31 @@ const (
 // API is a variable that identifies the discovery resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
-// ErrNilResponse is the error for when a nil response is returned from a discovery service.
-var ErrNilResponse = errors.New("discovery service returned a nil response")
-
 // Named is a helper for getting the named service's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named discovery service from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named discovery service from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
-// FromDependencies is a helper for getting the named discovery service from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named discovery service from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
 	return resource.FromDependencies[Service](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named Discovery service
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Service, error) {
+	return resource.FromProvider[Service](provider, Named(name))
 }
 
 // Service describes the functions that are available to the service.

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	"slices"
 	"time"
 
 	"go.viam.com/rdk/components/camera"
@@ -17,6 +18,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 )
 
 var fileModel = resource.DefaultModelFamily.WithModel("image_file")
@@ -43,6 +45,7 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 		PointCloudFN:   newConf.PointCloud,
 		Intrinsics:     newConf.CameraParameters,
 		PreloadedImage: newConf.PreloadedImage,
+		logger:         logger,
 	}
 
 	imgType := camera.ColorStream
@@ -59,7 +62,7 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 	if err != nil {
 		return nil, err
 	}
-	return camera.FromVideoSource(name, src, logger), nil
+	return camera.FromVideoSource(name, src), nil
 }
 
 // fileSource stores the paths to a color and depth image and a pointcloud.
@@ -69,6 +72,7 @@ type fileSource struct {
 	PointCloudFN   string
 	Intrinsics     *transform.PinholeCameraIntrinsics
 	PreloadedImage string
+	logger         logging.Logger
 }
 
 // fileSourceConfig is the attribute struct for fileSource.
@@ -129,55 +133,62 @@ func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 
-	// x264 only supports even resolutions. Not every call to this function will
-	// be in the context of an x264 stream, but we crop every image to even
-	// dimensions anyways.
-	oddWidth := img.Bounds().Dx()%2 != 0
-	oddHeight := img.Bounds().Dy()%2 != 0
-	if oddWidth || oddHeight {
-		rImg := rimage.ConvertImage(img)
-		newWidth := rImg.Width()
-		newHeight := rImg.Height()
-		if oddWidth {
-			newWidth--
-		}
-		if oddHeight {
-			newHeight--
-		}
-		img = rImg.SubImage(image.Rect(0, 0, newWidth, newHeight))
-	}
 	return img, func() {}, err
 }
 
 // Images returns the saved color and depth image if they are present.
-func (fs *fileSource) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (fs *fileSource) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if fs.ColorFN == "" && fs.DepthFN == "" && fs.PreloadedImage == "" {
 		return nil, resource.ResponseMetadata{}, errors.New("no image files to read, so not implemented")
 	}
 	imgs := []camera.NamedImage{}
 
-	if fs.PreloadedImage != "" {
+	validSourceNames := []string{"preloaded", "color", "depth"}
+	for _, name := range filterSourceNames {
+		if !slices.Contains(validSourceNames, name) {
+			return nil, resource.ResponseMetadata{}, fmt.Errorf("invalid source name: %s", name)
+		}
+	}
+
+	if fs.PreloadedImage != "" && (len(filterSourceNames) == 0 || slices.Contains(filterSourceNames, "preloaded")) {
 		img, err := getPreloadedImage(fs.PreloadedImage)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		imgs = append(imgs, camera.NamedImage{img, "preloaded"})
+		namedImg, err := camera.NamedImageFromImage(img, "preloaded", utils.MimeTypeJPEG)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, namedImg)
 	}
 
-	if fs.ColorFN != "" {
+	if fs.ColorFN != "" && (len(filterSourceNames) == 0 || slices.Contains(filterSourceNames, "color")) {
 		img, err := rimage.ReadImageFromFile(fs.ColorFN)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		imgs = append(imgs, camera.NamedImage{img, "color"})
+
+		namedImg, err := camera.NamedImageFromImage(img, "color", utils.MimeTypeJPEG)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, namedImg)
 	}
 
-	if fs.DepthFN != "" {
+	if fs.DepthFN != "" && (len(filterSourceNames) == 0 || slices.Contains(filterSourceNames, "depth")) {
 		dm, err := rimage.NewDepthMapFromFile(context.Background(), fs.DepthFN)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		imgs = append(imgs, camera.NamedImage{dm, "depth"})
+		namedImg, err := camera.NamedImageFromImage(dm, "depth", utils.MimeTypeRawDepth)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, namedImg)
 	}
 
 	ts := time.Now()
@@ -231,16 +242,28 @@ func (ss *StaticSource) Read(ctx context.Context) (image.Image, func(), error) {
 }
 
 // Images returns the saved color and depth image if they are present.
-func (ss *StaticSource) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (ss *StaticSource) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if ss.ColorImg == nil && ss.DepthImg == nil {
 		return nil, resource.ResponseMetadata{}, errors.New("no image files stored, so not implemented")
 	}
 	imgs := []camera.NamedImage{}
 	if ss.ColorImg != nil {
-		imgs = append(imgs, camera.NamedImage{ss.ColorImg, "color"})
+		namedImg, err := camera.NamedImageFromImage(ss.ColorImg, "color", utils.MimeTypeJPEG)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, namedImg)
 	}
 	if ss.DepthImg != nil {
-		imgs = append(imgs, camera.NamedImage{ss.DepthImg, "depth"})
+		namedImg, err := camera.NamedImageFromImage(ss.DepthImg, "depth", utils.MimeTypeRawDepth)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		imgs = append(imgs, namedImg)
 	}
 	ts := time.Now()
 	return imgs, resource.ResponseMetadata{CapturedAt: ts}, nil

@@ -18,6 +18,51 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const osDarwin = "darwin"
+
+// BuildViamServer will attempt to build the viam-server (server-static if on linux). If successful, this function will
+// return the path to the executable.
+func BuildViamServer(tb testing.TB) string {
+	tb.Helper()
+
+	buildOutputPath := tb.TempDir()
+	serverPath := filepath.Join(buildOutputPath, "viam-server")
+
+	var builder *exec.Cmd
+
+	if runtime.GOOS != "windows" {
+		command := "server-static"
+		if runtime.GOOS == osDarwin {
+			command = "server"
+		}
+		builder = exec.Command("make", command)
+		builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)
+	} else {
+		// we don't have access to make on Windows, so copy the build command from the Makefile.
+		serverPath += ".exe"
+		//nolint:gosec
+		builder = exec.Command(
+			"go", "build", "-tags", "no_cgo,osusergo,netgo",
+			"-ldflags=-extldflags=-static -s -w",
+			"-o", serverPath,
+			"./web/cmd/server",
+		)
+	}
+	// set Dir to root of repo
+	builder.Dir = utils.ResolveFile(".")
+	out, err := builder.CombinedOutput()
+	if len(out) > 0 {
+		tb.Logf("Build Output: %s", out)
+	}
+	if err != nil {
+		tb.Error(err)
+	}
+	if tb.Failed() {
+		tb.Fatal("failed to build viam-server executable")
+	}
+	return serverPath
+}
+
 // BuildTempModule will attempt to build the module in the provided directory and put the
 // resulting executable binary into a temporary directory. If successful, this function will
 // return the path to the executable binary.
@@ -25,6 +70,9 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 	tb.Helper()
 
 	exePath := filepath.Join(tb.TempDir(), filepath.Base(modDir))
+	if runtime.GOOS == "windows" {
+		exePath += ".exe"
+	}
 	//nolint:gosec
 	builder := exec.Command("go", "build", "-o", exePath, ".")
 	builder.Dir = utils.ResolveFile(modDir)
@@ -33,7 +81,7 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 	// https://viam.atlassian.net/browse/RSDK-7145
 	// https://viam.atlassian.net/browse/RSDK-7144
 	// Don't fail build if platform has known compile warnings (due to C deps)
-	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == "darwin"
+	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == osDarwin
 	hasCompilerWarnings := len(out) != 0
 	if hasCompilerWarnings && !isPlatformWithKnownCompileWarnings {
 		tb.Errorf(`output from "go build .": %s`, out)

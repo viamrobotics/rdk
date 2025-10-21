@@ -79,6 +79,38 @@ func (c *viamClient) renameDataset(datasetID, newDatasetName string) error {
 	return nil
 }
 
+type datasetMergeArgs struct {
+	OrgID      string
+	Name       string
+	DatasetIDs []string
+}
+
+// DatasetMergeAction is the corresponding action for 'dataset merge'.
+func DatasetMergeAction(c *cli.Context, args datasetMergeArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	return client.mergeDatasets(args.OrgID, args.Name, args.DatasetIDs)
+}
+
+// mergeDatasets merges multiple datasets into a new dataset with the specified name.
+func (c *viamClient) mergeDatasets(orgID, newDatasetName string, datasetIDs []string) error {
+	// Use the dataset service client to call MergeDatasets
+	// Note: This will fail until the MergeDatasetsRequest/Response types are implemented in the backend
+	resp, err := c.datasetClient.MergeDatasets(context.Background(), &datasetpb.MergeDatasetsRequest{
+		OrganizationId: orgID,
+		Name:           newDatasetName,
+		DatasetIds:     datasetIDs,
+	})
+	if err != nil {
+		return errors.Wrapf(err, "received error from server")
+	}
+	printf(c.c.App.Writer, "Successfully merged %d datasets into new dataset '%s' with ID: %s",
+		len(datasetIDs), newDatasetName, resp.GetDatasetId())
+	return nil
+}
+
 type datasetListArgs struct {
 	DatasetIDs []string
 	OrgID      string
@@ -170,7 +202,7 @@ type datasetDownloadArgs struct {
 	Timeout      uint
 }
 
-// DatasetDownloadAction is the corresponding action for 'dataset download'.
+// DatasetDownloadAction is the corresponding action for 'dataset export'.
 func DatasetDownloadAction(c *cli.Context, args datasetDownloadArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -240,6 +272,12 @@ type ImageMetadata struct {
 	ImagePath                 string           `json:"image_path"`
 	ClassificationAnnotations []Annotation     `json:"classification_annotations"`
 	BBoxAnnotations           []BBoxAnnotation `json:"bounding_box_annotations"`
+	Timestamp                 string           `json:"timestamp"`
+	BinaryDataID              string           `json:"binary_data_id,omitempty"`
+	OrganizationID            string           `json:"organization_id,omitempty"`
+	LocationID                string           `json:"location_id,omitempty"`
+	PartID                    string           `json:"part_id,omitempty"`
+	ComponentName             string           `json:"component_name,omitempty"`
 }
 
 // BBoxAnnotation holds the information associated with each bounding box.
@@ -282,6 +320,10 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 	for _, tag := range datum.GetMetadata().GetCaptureMetadata().GetTags() {
 		annotations = append(annotations, Annotation{AnnotationLabel: tag})
 	}
+	classificationsAnnotations := datum.GetMetadata().GetAnnotations().GetClassifications()
+	for _, classification := range classificationsAnnotations {
+		annotations = append(annotations, Annotation{AnnotationLabel: classification.GetLabel()})
+	}
 	bboxAnnotations := convertBoundingBoxes(datum.GetMetadata().GetAnnotations().GetBboxes())
 
 	fileName := filepath.Join(dst, dataDir, filenameForDownload(datum.GetMetadata()))
@@ -293,10 +335,17 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 		fileName += ext
 	}
 
+	captureMD := datum.GetMetadata().GetCaptureMetadata()
 	jsonl = ImageMetadata{
 		ImagePath:                 fileName,
 		ClassificationAnnotations: annotations,
 		BBoxAnnotations:           bboxAnnotations,
+		Timestamp:                 datum.GetMetadata().GetTimeRequested().AsTime().String(),
+		BinaryDataID:              datum.GetMetadata().GetBinaryDataId(),
+		OrganizationID:            captureMD.GetOrganizationId(),
+		LocationID:                captureMD.GetLocationId(),
+		PartID:                    captureMD.GetPartId(),
+		ComponentName:             captureMD.GetComponentName(),
 	}
 
 	line, err := json.Marshal(jsonl)

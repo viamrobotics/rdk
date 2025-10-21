@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -85,7 +86,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 func (ptg *ptgIK) Solve(
 	ctx context.Context,
 	seed []referenceframe.Input,
-	solveMetric ik.StateMetric,
+	solveMetric motionplan.StateMetric,
 ) (*ik.Solution, error) {
 	internalSolutionGen := make(chan *ik.Solution, 1)
 	defer close(internalSolutionGen)
@@ -95,10 +96,11 @@ func (ptg *ptgIK) Solve(
 	}
 
 	// Spawn the IK solver to generate a solution
-	err := ptg.fastGradDescent.Solve(
+	_, err := ptg.fastGradDescent.Solve(
 		ctx,
 		internalSolutionGen,
 		referenceframe.InputsToFloats(seed),
+		nil,
 		ptg.ptgMetricIkFunc(solveMetric),
 		defaultNloptSeed,
 	)
@@ -181,9 +183,6 @@ func (ptg *ptgIK) Trajectory(alpha, start, end, resolution float64) ([]*TrajNode
 	started := false
 	exactEnd := false
 	for _, wp := range trajPrecompute {
-		// gocritic prefers there be a switch statement here, but doing so makes this much messier, as the `break` would break the
-		// switch statement and we would require label loops to break the for loop.
-		//nolint: gocritic
 		if !started { // First, skip ahead to the start distance
 			if wp.Dist >= startPos { // Check if we have entered the trajectory
 				if wp.Dist != startPos {
@@ -237,12 +236,12 @@ func (ptg *ptgIK) arcDist(inputs []referenceframe.Input) float64 {
 	return dist
 }
 
-func (ptg *ptgIK) ptgMetricIkFunc(distMetric ik.StateMetric) func([]float64) float64 {
-	return func(vals []float64) float64 {
+func (ptg *ptgIK) ptgMetricIkFunc(distMetric motionplan.StateMetric) ik.CostFunc {
+	return func(_ context.Context, vals []float64) float64 {
 		queryPose, err := ptg.Transform(referenceframe.FloatsToInputs(vals))
 		if err != nil {
 			return math.Inf(1)
 		}
-		return distMetric(&ik.State{Position: queryPose})
+		return distMetric(&motionplan.State{Position: queryPose})
 	}
 }

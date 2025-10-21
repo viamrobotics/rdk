@@ -3,6 +3,7 @@ package toggleswitch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -20,12 +21,12 @@ var ErrInvalidPosition = func(switchName string, position, maxPosition int) erro
 // serviceServer implements the SwitchService from switch.proto.
 type serviceServer struct {
 	pb.UnimplementedSwitchServiceServer
-	coll resource.APIResourceCollection[Switch]
+	coll resource.APIResourceGetter[Switch]
 }
 
 // NewRPCServiceServer constructs a switch gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Switch]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Switch]) interface{} {
 	return &serviceServer{coll: coll}
 }
 
@@ -59,11 +60,14 @@ func (s *serviceServer) GetNumberOfPositions(
 	if err != nil {
 		return nil, err
 	}
-	count, err := sw.GetNumberOfPositions(ctx, req.Extra.AsMap())
+	count, labels, err := sw.GetNumberOfPositions(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetNumberOfPositionsResponse{NumberOfPositions: count}, nil
+	if len(labels) > 0 && len(labels) != int(count) {
+		return nil, errors.New("the number of labels does not match the number of positions")
+	}
+	return &pb.GetNumberOfPositionsResponse{NumberOfPositions: count, Labels: labels}, nil
 }
 
 // DoCommand receives arbitrary commands.

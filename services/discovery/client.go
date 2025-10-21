@@ -35,7 +35,7 @@ func NewClientFromConn(
 	grpcClient := pb.NewDiscoveryServiceClient(conn)
 	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		client: grpcClient,
 		logger: logger,
 	}
@@ -56,13 +56,10 @@ func (c *client) DiscoverResources(ctx context.Context, extra map[string]any) ([
 		return nil, err
 	}
 	protoConfigs := resp.GetDiscoveries()
-	if protoConfigs == nil {
-		return nil, ErrNilResponse
-	}
 
 	discoveredConfigs := []resource.Config{}
 	for _, proto := range protoConfigs {
-		config, err := config.ComponentConfigFromProto(proto)
+		config, err := config.ComponentConfigFromProto(proto, c.logger)
 		if err != nil {
 			return nil, err
 		}

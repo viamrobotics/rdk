@@ -18,6 +18,7 @@ type Encoder struct {
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error)
 	PropertiesFunc func(ctx context.Context, extra map[string]interface{}) (encoder.Properties, error)
+	CloseFunc      func(ctx context.Context) error
 }
 
 // NewEncoder returns a new injected Encoder.
@@ -64,4 +65,15 @@ func (e *Encoder) DoCommand(ctx context.Context, cmd map[string]interface{}) (ma
 		return e.Encoder.DoCommand(ctx, cmd)
 	}
 	return e.DoFunc(ctx, cmd)
+}
+
+// Close calls the injected Close or the real version.
+func (e *Encoder) Close(ctx context.Context) error {
+	if e.CloseFunc == nil {
+		if e.Encoder == nil {
+			return nil
+		}
+		return e.Encoder.Close(ctx)
+	}
+	return e.CloseFunc(ctx)
 }

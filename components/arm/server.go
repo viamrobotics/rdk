@@ -20,12 +20,12 @@ const unimplemented = "unimplemented"
 // serviceServer implements the ArmService from arm.proto.
 type serviceServer struct {
 	pb.UnimplementedArmServiceServer
-	coll resource.APIResourceCollection[Arm]
+	coll resource.APIResourceGetter[Arm]
 }
 
 // NewRPCServiceServer constructs an arm gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Arm]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Arm]) interface{} {
 	return &serviceServer{coll: coll}
 }
 
@@ -184,11 +184,12 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 			if err != nil {
 				return nil, err
 			}
-			return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(gifs.Geometries())}, nil
+			return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(
+				gifs.Geometries())}, nil
 		}
 		return nil, err
 	}
-	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
+	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }
 
 // GetKinematics returns the kinematics information associated with the arm.

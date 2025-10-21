@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/arm"
-	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -24,19 +23,30 @@ var errAttrCfgPopulation = errors.New("can only populate either ArmModel or Mode
 // Model is the name used to refer to the fake arm model.
 var Model = resource.DefaultModelFamily.WithModel("fake")
 
-var dofbotModel = "yahboom-dofbot"
-
-//go:embed fake_model.json
-var fakejson []byte
-
-//go:embed dofbot.json
-var dofbotjson []byte
-
 // Config is used for converting config attributes.
 type Config struct {
 	ArmModel      string `json:"arm-model,omitempty"`
 	ModelFilePath string `json:"model-path,omitempty"`
 }
+
+// Known values that can be provided for the ArmModel field.
+var (
+	ur5eModel  = "ur5e"
+	xArm6Model = "xarm6"
+	xArm7Model = "xarm7"
+)
+
+//go:embed kinematics/fake.json
+var fakejson []byte
+
+//go:embed kinematics/ur5e.json
+var ur5eJSON []byte
+
+//go:embed kinematics/xarm6.json
+var xarm6JSON []byte
+
+//go:embed kinematics/xarm7.json
+var xarm7JSON []byte
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
@@ -99,6 +109,8 @@ type Arm struct {
 	CloseCount int
 	logger     logging.Logger
 
+	// Writes to `joints` or `model` must hold the write-lock. And reads to `joints` or `model` must
+	// hold the read-lock.
 	mu     sync.RWMutex
 	joints []referenceframe.Input
 	model  referenceframe.Model
@@ -144,8 +156,8 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 
 // MoveToPosition sets the position.
 func (a *Arm) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra map[string]interface{}) error {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
+	a.mu.Lock()
+	defer a.mu.Unlock()
 
 	model := a.model
 	_, err := model.Transform(a.joints)
@@ -155,7 +167,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra m
 		return err
 	}
 
-	plan, err := motionplan.PlanFrameMotion(ctx, a.logger, pose, model, a.joints, nil, nil)
+	plan, err := motionplan.GetGlobal().PlanFrameMotion(ctx, a.logger, pose, model, a.joints, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -168,8 +180,8 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints []referenceframe.
 	if err := arm.CheckDesiredJointPositions(ctx, a, joints); err != nil {
 		return err
 	}
-	a.mu.RLock()
-	defer a.mu.RUnlock()
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	_, err := a.model.Transform(joints)
 	if err != nil {
 		return err
@@ -197,7 +209,10 @@ func (a *Arm) MoveThroughJointPositions(
 func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return a.joints, nil
+
+	ret := make([]referenceframe.Input, len(a.joints))
+	copy(ret, a.joints)
+	return ret, nil
 }
 
 // Stop doesn't do anything for a fake arm.
@@ -221,7 +236,11 @@ func (a *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return a.joints, nil
+
+	ret := make([]referenceframe.Input, len(a.joints))
+	copy(ret, a.joints)
+
+	return ret, nil
 }
 
 // GoToInputs moves the fake arm to the given inputs.
@@ -244,6 +263,8 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 	if err != nil {
 		return nil, err
 	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	gif, err := a.model.Geometries(inputs)
 	if err != nil {
 		return nil, err
@@ -253,10 +274,12 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
-	case ur.Model.Name:
-		return ur.MakeModelFrame(name)
-	case dofbotModel:
-		return referenceframe.UnmarshalModelJSON(dofbotjson, name)
+	case ur5eModel:
+		return referenceframe.UnmarshalModelJSON(ur5eJSON, name)
+	case xArm6Model:
+		return referenceframe.UnmarshalModelJSON(xarm6JSON, name)
+	case xArm7Model:
+		return referenceframe.UnmarshalModelJSON(xarm7JSON, name)
 	case Model.Name:
 		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:

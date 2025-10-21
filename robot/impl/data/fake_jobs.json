@@ -1,0 +1,97 @@
+{
+    "components": [
+        {
+            "name": "pieceGripper",
+            "type": "gripper",
+            "model": "fake",
+            "frame": {
+                "parent": "pieceArm"
+            }
+        },
+        {
+            "name": "mic1",
+            "type": "audio_input",
+            "model": "fake"
+        },
+        {
+            "name": "cameraOver",
+            "type": "camera",
+            "model": "image_file",
+            "attributes": {
+                "color": "artifact_data/vision/chess/board3.png",
+                "depth": "artifact_data/vision/chess/board3.dat.gz",
+                "aligned": true
+            },
+            "frame": {
+                "parent": "world",
+                "translation": {
+                    "x": 2000,
+                    "y": 500,
+                    "z": 1300
+                },
+                "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 1,
+                        "th": 180
+                    }
+                }
+            }
+        },
+        {
+           "name": "pieceArm",
+            "type": "arm",
+            "model": "fake",
+            "attributes": {
+                "model-path": "../../components/arm/fake/kinematics/fake.json"
+            },
+            "frame": {
+                "parent": "world",
+                "translation": {
+                    "x": 500,
+                    "y": 500,
+                    "z": 1000
+                }
+            }
+        },
+        {
+            "name": "movement_sensor1",
+            "type": "movement_sensor",
+            "model": "fake"
+        },
+        {
+            "name": "movement_sensor2",
+            "type": "movement_sensor",
+            "model": "fake",
+            "frame": {
+                "parent": "pieceArm"
+            },
+            "attributes": {
+                "relative": true
+            }
+        }
+    ],
+    "jobs" : [
+    {
+      "name" : "my_mic_job",
+      "schedule" : "4s",
+      "resource" : "mic1",
+      "method" : "Properties"
+    },
+    {
+      "name" : "my_arm_job",
+      "schedule" : "*/4 * * * * *",
+      "resource" : "pieceArm",
+      "method" : "IsMoving"
+    },
+    {
+      "name" : "my_sensor_job",
+      "schedule" : "5s",
+      "resource" : "movement_sensor1",
+      "method" : "GetReadings"
+    }
+  ]
+}
+

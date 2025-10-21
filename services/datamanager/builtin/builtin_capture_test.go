@@ -150,7 +150,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 			c.MaximumCaptureFileSizeBytes = 1
 
 			// Build and start data manager.
-			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer func() { test.That(t, b.Close(context.Background()), test.ShouldBeNil) }()
 
@@ -226,7 +226,7 @@ func TestReconfigureResource(t *testing.T) {
 	c.MaximumCaptureFileSizeBytes = 1
 
 	// Build and start data manager.
-	b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+	b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, b.Close(context.Background()), test.ShouldBeNil)

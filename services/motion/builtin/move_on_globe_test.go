@@ -12,14 +12,9 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/movementsensor"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	viz "go.viam.com/rdk/vision"
@@ -34,9 +29,8 @@ func TestMoveOnGlobe(t *testing.T) {
 	dst := geo.NewPoint(gpsPoint.Lat(), gpsPoint.Lng()+7e-5)
 	// create motion config
 	extra := map[string]interface{}{
-		"motion_profile": "position_only",
-		"timeout":        15.,
-		"smooth_iter":    5.,
+		"timeout":     15.,
+		"smooth_iter": 5.,
 	}
 
 	t.Run("Changes to executions show up in PlanHistory", func(t *testing.T) {
@@ -44,8 +38,8 @@ func TestMoveOnGlobe(t *testing.T) {
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      baseResource,
-			MovementSensorName: moveSensorResource,
+			ComponentName:      baseName,
+			MovementSensorName: moveSensorName,
 			Destination:        dst,
 		}
 		executionID, err := ms.MoveOnGlobe(ctx, req)
@@ -61,7 +55,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, ph[0].StatusHistory[0].State, test.ShouldEqual, motion.PlanStateInProgress)
 		test.That(t, len(ph[0].Plan.Path()), test.ShouldNotEqual, 0)
 
-		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseResource})
+		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseName})
 		test.That(t, err, test.ShouldBeNil)
 
 		ph2, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
@@ -74,7 +68,7 @@ func TestMoveOnGlobe(t *testing.T) {
 		test.That(t, len(ph2[0].Plan.Path()), test.ShouldNotEqual, 0)
 
 		// Proves that calling StopPlan after the plan has reached a terminal state is idempotent
-		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseResource})
+		err = ms.StopPlan(ctx, motion.StopPlanReq{ComponentName: baseName})
 		test.That(t, err, test.ShouldBeNil)
 		ph3, err := ms.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: req.ComponentName})
 		test.That(t, err, test.ShouldBeNil)
@@ -105,9 +99,9 @@ func TestMoveOnGlobe(t *testing.T) {
 		geoGeometry := spatialmath.NewGeoGeometry(gpsPoint, []spatialmath.Geometry{geometry1, geometry2, geometry3, geometry4})
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      baseResource,
+			ComponentName:      baseName,
 			Destination:        dst,
-			MovementSensorName: moveSensorResource,
+			MovementSensorName: moveSensorName,
 			Obstacles:          []*spatialmath.GeoGeometry{geoGeometry},
 			MotionCfg:          &motion.MotionConfiguration{},
 			Extra:              extra,
@@ -122,7 +116,7 @@ func TestMoveOnGlobe(t *testing.T) {
 	t.Run("check offset constructed correctly", func(t *testing.T) {
 		_, ms, closeFunc := CreateMoveOnGlobeTestEnvironment(ctx, t, gpsPoint, 80, nil)
 		defer closeFunc(ctx)
-		movementSensorInBase, err := ms.GetPose(ctx, resource.NewName(movementsensor.API, "test-gps"), "test-base", nil, nil)
+		movementSensorInBase, err := ms.GetPose(ctx, "test-gps", "test-base", nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, movementSensorInBase.Pose().Point(), test.ShouldResemble, movementSensorInBasePoint)
 	})
@@ -132,9 +126,9 @@ func TestMoveOnGlobe(t *testing.T) {
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      baseResource,
+			ComponentName:      baseName,
 			Destination:        gpsPoint,
-			MovementSensorName: moveSensorResource,
+			MovementSensorName: moveSensorName,
 			MotionCfg:          &motion.MotionConfiguration{},
 			Extra:              extra,
 		}
@@ -166,9 +160,8 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 	origin := geo.NewPoint(0, 0)
 	dst := geo.NewPoint(origin.Lat(), origin.Lng()+1e-5)
 	extra := map[string]interface{}{
-		"motion_profile": "position_only",
-		"timeout":        5.,
-		"smooth_iter":    5.,
+		"timeout":     5.,
+		"smooth_iter": 5.,
 	}
 	motionCfg := &motion.MotionConfiguration{
 		PlanDeviationMM: 10,
@@ -183,8 +176,8 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      baseResource,
-			MovementSensorName: moveSensorResource,
+			ComponentName:      baseName,
+			MovementSensorName: moveSensorName,
 			Destination:        dst,
 			BoundingRegions: []*spatialmath.GeoGeometry{
 				spatialmath.NewGeoGeometry(origin, []spatialmath.Geometry{box}),
@@ -204,8 +197,8 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      baseResource,
-			MovementSensorName: moveSensorResource,
+			ComponentName:      baseName,
+			MovementSensorName: moveSensorName,
 			Destination:        dst,
 			BoundingRegions: []*spatialmath.GeoGeometry{
 				spatialmath.NewGeoGeometry(geo.NewPoint(20, 20), []spatialmath.Geometry{box}),
@@ -224,8 +217,8 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 		defer closeFunc(ctx)
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      baseResource,
-			MovementSensorName: moveSensorResource,
+			ComponentName:      baseName,
+			MovementSensorName: moveSensorName,
 			Destination:        dst,
 			MotionCfg:          motionCfg,
 			Extra:              extra,
@@ -242,8 +235,8 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      baseResource,
-			MovementSensorName: moveSensorResource,
+			ComponentName:      baseName,
+			MovementSensorName: moveSensorName,
 			Destination:        dst,
 			MotionCfg:          motionCfg,
 			BoundingRegions: []*spatialmath.GeoGeometry{
@@ -271,8 +264,8 @@ func TestBoundingRegionsConstraint(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      baseResource,
-			MovementSensorName: moveSensorResource,
+			ComponentName:      baseName,
+			MovementSensorName: moveSensorName,
 			Destination:        dst,
 			MotionCfg:          motionCfg,
 			BoundingRegions: []*spatialmath.GeoGeometry{
@@ -304,7 +297,7 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 	}
 
 	obstacleDetectorSlice := []motion.ObstacleDetectorName{
-		{VisionServiceName: vision.Named("injectedVisionSvc"), CameraName: camera.Named("injectedCamera")},
+		{VisionServiceName: "injectedVisionSvc", CameraName: "injectedCamera"},
 	}
 
 	obstaclePollingFreq := 5.
@@ -318,7 +311,11 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 		AngularDegsPerSec:     60,
 	}
 
-	extra := map[string]interface{}{"max_replans": 10, "max_ik_solutions": 1, "smooth_iter": 1, "motion_profile": "position_only"}
+	extra := map[string]interface{}{
+		"max_replans":      10,
+		"max_ik_solutions": 1,
+		"smooth_iter":      1,
+	}
 	extraNoReplan := map[string]interface{}{"max_replans": 0, "max_ik_solutions": 1, "smooth_iter": 1}
 
 	// We set a flag here per test case so that detections are not returned the first time each vision service is called
@@ -407,9 +404,9 @@ func TestObstacleReplanningGlobe(t *testing.T) {
 		srvc.GetObjectPointCloudsFunc = pcFunc
 
 		req := motion.MoveOnGlobeReq{
-			ComponentName:      resource.NewName(base.API, baseName),
+			ComponentName:      baseName,
 			Destination:        dst,
-			MovementSensorName: resource.NewName(movementsensor.API, moveSensorName),
+			MovementSensorName: moveSensorName,
 			MotionCfg:          cfg,
 			Extra:              tc.extra,
 		}

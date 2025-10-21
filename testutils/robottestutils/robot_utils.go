@@ -101,14 +101,14 @@ type ServerProcessOption func(*pexec.ProcessConfig)
 // WithoutRestart disables the automatic restart of the pexec library for the server process.
 func WithoutRestart() ServerProcessOption {
 	return func(cfg *pexec.ProcessConfig) {
-		cfg.OnUnexpectedExit = func(int) bool { return false }
+		cfg.OnUnexpectedExit = func(context.Context, int) bool { return false }
 	}
 }
 
 // ServerAsSeparateProcess builds the viam server and returns an unstarted ManagedProcess for
 // the built binary.
 func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Logger, opts ...ServerProcessOption) pexec.ManagedProcess {
-	serverPath := rtestutils.BuildTempModule(t, "web/cmd/server/")
+	serverPath := rtestutils.BuildViamServer(t)
 
 	// use a temporary home directory so that it doesn't collide with
 	// the user's/other tests' viam home directory

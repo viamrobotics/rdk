@@ -74,11 +74,25 @@ type moduleID struct {
 	name   string
 }
 
+// MachinePickerCustomizations holds custom branding text for the machine picker UI.
+type MachinePickerCustomizations struct {
+	Heading    string `json:"heading,omitempty"`
+	Subheading string `json:"subheading,omitempty"`
+}
+
+// AppCustomizations holds customizations for different app UI components.
+type AppCustomizations struct {
+	MachinePicker *MachinePickerCustomizations `json:"machinePicker,omitempty"`
+}
+
 // AppComponent represents metadata used to distinguish and describe an app.
 type AppComponent struct {
-	Name       string `json:"name"`
-	Type       string `json:"type"`
-	Entrypoint string `json:"entrypoint"`
+	Name           string             `json:"name"`
+	Type           string             `json:"type"`
+	Entrypoint     string             `json:"entrypoint"`
+	FragmentIDs    []string           `json:"fragmentIds,omitempty"`
+	LogoPath       string             `json:"logoPath,omitempty"`
+	Customizations *AppCustomizations `json:"customizations,omitempty"`
 }
 
 // manifestBuildInfo is the "build" section of meta.json.
@@ -514,7 +528,7 @@ func (c *viamClient) uploadModuleFile(
 	var errs error
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
-	if err := sendUploadRequests(ctx, stream, nil, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendUploadRequests(ctx, stream, file, c.c.App.Writer, getNextModuleUploadRequest); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
@@ -680,9 +694,27 @@ func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 
 func appComponentToProto(appComponent AppComponent) *apppb.App {
 	app := &apppb.App{
-		Name:       appComponent.Name,
-		Type:       appComponent.Type,
-		Entrypoint: appComponent.Entrypoint,
+		Name:        appComponent.Name,
+		Type:        appComponent.Type,
+		Entrypoint:  appComponent.Entrypoint,
+		FragmentIds: appComponent.FragmentIDs,
+	}
+
+	if appComponent.LogoPath != "" {
+		app.LogoPath = &appComponent.LogoPath
+	}
+
+	if appComponent.Customizations != nil && appComponent.Customizations.MachinePicker != nil {
+		machinePicker := &apppb.MachinePickerCustomizations{}
+		if appComponent.Customizations.MachinePicker.Heading != "" {
+			machinePicker.Heading = &appComponent.Customizations.MachinePicker.Heading
+		}
+		if appComponent.Customizations.MachinePicker.Subheading != "" {
+			machinePicker.Subheading = &appComponent.Customizations.MachinePicker.Subheading
+		}
+		app.Customizations = &apppb.AppCustomizations{
+			MachinePicker: machinePicker,
+		}
 	}
 
 	return app
@@ -945,12 +977,18 @@ func sameModels(a, b []ModuleComponent) bool {
 	return true
 }
 
-func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_UploadModuleFileClient,
-	pkgStream packagespb.PackageService_CreatePackageClient, file *os.File, stdout io.Writer,
+type sender[RequestT any] interface {
+	Send(*RequestT) error
+	CloseSend() error
+}
+
+func sendUploadRequests[RequestT any, StreamT sender[RequestT]](
+	ctx context.Context,
+	stream StreamT,
+	file *os.File,
+	stdout io.Writer,
+	getRequest func(file *os.File) (*RequestT, int, error),
 ) error {
-	if moduleStream != nil && pkgStream != nil {
-		return errors.New("can use either module or package client, not both")
-	}
 	stat, err := file.Stat()
 	if err != nil {
 		return err
@@ -960,26 +998,14 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 	// Close the line with the progress reading
 	defer printf(stdout, "")
 
-	if moduleStream != nil {
-		defer vutils.UncheckedErrorFunc(moduleStream.CloseSend)
-	}
-	if pkgStream != nil {
-		defer vutils.UncheckedErrorFunc(pkgStream.CloseSend)
-	}
+	defer vutils.UncheckedErrorFunc(stream.CloseSend)
 	// Loop until there is no more content to be read from file or the context expires.
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		// Get the next UploadRequest from the file.
-		var moduleUploadReq *apppb.UploadModuleFileRequest
-		if moduleStream != nil {
-			moduleUploadReq, err = getNextModuleUploadRequest(file)
-		}
-		var pkgUploadReq *packagespb.CreatePackageRequest
-		if pkgStream != nil {
-			pkgUploadReq, err = getNextPackageUploadRequest(file)
-		}
+		uploadReq, bytesCount, err := getRequest(file)
 
 		// EOF means we've completed successfully.
 		if errors.Is(err, io.EOF) {
@@ -990,18 +1016,11 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 			return errors.Wrap(err, "could not read file")
 		}
 
-		if moduleUploadReq != nil {
-			if err = moduleStream.Send(moduleUploadReq); err != nil {
-				return err
-			}
-			uploadedBytes += len(moduleUploadReq.GetFile())
+		if err = stream.Send(uploadReq); err != nil {
+			return err
 		}
-		if pkgUploadReq != nil {
-			if err = pkgStream.Send(pkgUploadReq); err != nil {
-				return err
-			}
-			uploadedBytes += len(pkgUploadReq.GetContents())
-		}
+
+		uploadedBytes += bytesCount
 
 		// Simple progress reading until we have a proper tui library
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
@@ -1009,21 +1028,16 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 	}
 }
 
-func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, error) {
-	// get the next chunk of bytes from the file
-	byteArr := make([]byte, moduleUploadChunkSize)
-	numBytesRead, err := file.Read(byteArr)
+func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, int, error) {
+	byteArr, err := getBytesFromFile(file)
 	if err != nil {
-		return nil, err
-	}
-	if numBytesRead < moduleUploadChunkSize {
-		byteArr = byteArr[:numBytesRead]
+		return nil, 0, err
 	}
 	return &apppb.UploadModuleFileRequest{
 		ModuleFile: &apppb.UploadModuleFileRequest_File{
 			File: byteArr,
 		},
-	}, nil
+	}, len(byteArr), nil
 }
 
 type downloadModuleFlags struct {
@@ -1033,27 +1047,22 @@ type downloadModuleFlags struct {
 	Platform    string
 }
 
-// DownloadModuleAction downloads a module.
-func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
+func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModuleFlags) (string, error) {
 	moduleID := flags.ID
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
-			return errors.Wrap(err, "trying to get package ID from meta.json")
+			return "", errors.Wrap(err, "trying to get package ID from meta.json")
 		}
 		moduleID = manifest.ModuleID
 	}
-	client, err := newViamClient(c)
-	if err != nil {
-		return err
-	}
 	req := &apppb.GetModuleRequest{ModuleId: moduleID}
-	res, err := client.client.GetModule(c.Context, req)
+	res, err := c.client.GetModule(ctx.Context, req)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if len(res.Module.Versions) == 0 {
-		return errors.New("module has 0 uploaded versions, nothing to download")
+		return "", errors.New("module has 0 uploaded versions, nothing to download")
 	}
 	requestedVersion := flags.Version
 	var ver *apppb.VersionHistory
@@ -1067,40 +1076,50 @@ func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
 			}
 		}
 		if ver == nil {
-			return fmt.Errorf("version %s not found in versions for module", requestedVersion)
+			return "", fmt.Errorf("version %s not found in versions for module", requestedVersion)
 		}
 	}
-	infof(c.App.ErrWriter, "found version %s", ver.Version)
+	infof(ctx.App.ErrWriter, "found version %s", ver.Version)
 	if len(ver.Files) == 0 {
-		return fmt.Errorf("version %s has 0 files uploaded", ver.Version)
+		return "", fmt.Errorf("version %s has 0 files uploaded", ver.Version)
 	}
 	platform := flags.Platform
 	if platform == "" {
 		platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
-		infof(c.App.ErrWriter, "using default platform %s", platform)
+		infof(ctx.App.ErrWriter, "using default platform %s", platform)
 	}
 	if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
-		return fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
+		return "", fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
 	}
 	include := true
 	packageType := packagespb.PackageType_PACKAGE_TYPE_MODULE
 	// note: this is working around a GetPackage quirk where platform messes with version
 	fullVersion := fmt.Sprintf("%s-%s", ver.Version, strings.ReplaceAll(platform, "/", "-"))
-	pkg, err := client.packageClient.GetPackage(c.Context, &packagespb.GetPackageRequest{
+	pkg, err := c.packageClient.GetPackage(ctx.Context, &packagespb.GetPackageRequest{
 		Id:         strings.ReplaceAll(moduleID, ":", "/"),
 		Version:    fullVersion,
 		IncludeUrl: &include,
 		Type:       &packageType,
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	destName := strings.ReplaceAll(moduleID, ":", "-")
-	infof(c.App.ErrWriter, "saving to %s", path.Join(flags.Destination, fullVersion, destName+".tar.gz"))
-	return downloadPackageFromURL(c.Context, client.authFlow.httpClient,
+	infof(ctx.App.ErrWriter, "saving to %s", path.Join(flags.Destination, fullVersion, destName+".tar.gz"))
+	return downloadPackageFromURL(ctx.Context, c.authFlow.httpClient,
 		flags.Destination, destName,
-		fullVersion, pkg.Package.Url, client.conf.Auth,
+		fullVersion, pkg.Package.Url, c.conf.Auth,
 	)
+}
+
+// DownloadModuleAction downloads a module.
+func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	_, err = client.downloadModuleAction(c, flags)
+	return err
 }
 
 // getMarkdownContent reads and returns the content from a markdown file path.

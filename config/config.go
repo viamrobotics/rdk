@@ -10,11 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
 
-	"github.com/aptible/supercronic/cronexpr"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/jwks"
@@ -60,10 +60,6 @@ type Config struct {
 	// error messages that can indicate flags/config fields to use.
 	FromCommand bool
 
-	// DisablePartialStart ensures that a robot will only start when all the components,
-	// services, and remotes pass config validation. This value is false by default
-	DisablePartialStart bool
-
 	// PackagePath sets the directory used to store packages locally. Defaults to ~/.viam/packages
 	PackagePath string
 
@@ -108,7 +104,6 @@ type configData struct {
 	Network                 NetworkConfig                 `json:"network"`
 	Auth                    AuthConfig                    `json:"auth"`
 	Debug                   bool                          `json:"debug,omitempty"`
-	DisablePartialStart     bool                          `json:"disable_partial_start"`
 	EnableWebProfile        bool                          `json:"enable_web_profile"`
 	LogConfig               []logging.LoggerPatternConfig `json:"log,omitempty"`
 	Revision                string                        `json:"revision,omitempty"`
@@ -123,23 +118,13 @@ type AppValidationStatus struct {
 	Error string `json:"error"`
 }
 
-func (c *Config) validateUniqueResource(logger logging.Logger, seenResources map[string]bool, name string) error {
-	if _, exists := seenResources[name]; exists {
-		errString := errors.Errorf("duplicate resource %s in robot config", name)
-		if c.DisablePartialStart {
-			return errString
-		}
-		logger.Error(errString)
-	}
-	seenResources[name] = true
-	return nil
-}
-
-// Ensure ensures all parts of the config are valid, which may include updating it. Only returns an error
-// if c.DisablePartialStart is true (default: false).
+// Ensure calls respective Validate methods on many subconfigs of the larger config. These
+// Validate methods both cause side-effects and return validation errors. Those
+// side-effects fill in default values, and, in the case of component and service configs,
+// can fill in implicit dependencies. Some validation errors are "fatal" (such as
+// malformed cloud, network, or auth subbconfigs), and some will only result in a logged
+// error.
 func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
-	seenResources := make(map[string]bool)
-
 	if c.Cloud != nil {
 		// Adds default for RefreshInterval if not set.
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
@@ -147,7 +132,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		}
 	}
 
-	//  Adds default BindAddress and HeartbeatWindow if not set.
+	// Adds default BindAddress and HeartbeatWindow if not set.
 	if err := c.Network.Validate("network"); err != nil {
 		return err
 	}
@@ -157,124 +142,86 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		return err
 	}
 
-	// Validate the jobs and check the uniqueness of job names.
-	seenJobs := make(map[string]bool)
-	for idx := 0; idx < len(c.Jobs); idx++ {
-		jobName := fmt.Sprintf("jobs.%s", c.Jobs[idx].Name)
+	// Validate jobs, modules, remotes, packages, and processes, and log errors for lack of
+	// uniqueness within each category. Managers of each resource handle duplicates
+	// differently, and behavior is undefined.
+	seenJobs := make(map[string]struct{})
+	for idx := range len(c.Jobs) {
 		if err := c.Jobs[idx].Validate(fmt.Sprintf("%s.%d", "jobs", idx)); err != nil {
-			fullErr := errors.Errorf("error validating jobs config %s", err)
-			if c.DisablePartialStart {
-				return fullErr
-			}
-			logger.Errorw("jobs config error; starting robot without job", "name", jobName, "error", err)
+			logger.Errorw("Jobs config error; starting robot without job", "name", c.Jobs[idx].Name, "error", err.Error())
 		}
-		if _, exists := seenJobs[jobName]; exists {
-			errString := errors.Errorf("duplicate job %s in robot config", jobName)
-			if c.DisablePartialStart {
-				return errString
-			}
-			logger.Error(errString)
+		if _, exists := seenJobs[c.Jobs[idx].Name]; exists {
+			logger.Errorf("Duplicate job %s in robot config; behavior undefined", c.Jobs[idx].Name)
 		}
-		seenJobs[jobName] = true
+		seenJobs[c.Jobs[idx].Name] = struct{}{}
 	}
-
-	for idx := 0; idx < len(c.Modules); idx++ {
+	seenModules := make(map[string]struct{})
+	for idx := range len(c.Modules) {
 		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
-			if c.DisablePartialStart {
-				return err
-			}
-			logger.Errorw("module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err)
+			logger.Errorw("Module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err.Error())
 		}
-		if err := c.validateUniqueResource(logger, seenResources, c.Modules[idx].Name); err != nil {
-			return err
+		if _, exists := seenModules[c.Modules[idx].Name]; exists {
+			logger.Errorf("Duplicate module %s in robot config; behavior undefined", c.Modules[idx].Name)
 		}
+		seenModules[c.Modules[idx].Name] = struct{}{}
 	}
-
-	for idx := 0; idx < len(c.Remotes); idx++ {
+	seenRemotes := make(map[string]struct{})
+	for idx := range len(c.Remotes) {
 		if _, _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
-			if c.DisablePartialStart {
-				return err
-			}
-			logger.Errorw("remote config error; starting robot without remote", "name", c.Remotes[idx].Name, "error", err)
+			logger.Errorw("Remote config error; starting robot without remote", "name", c.Remotes[idx].Name, "error", err.Error())
 		}
-		// we need to figure out how to make it so that the remote is tied to the API
-		resourceRemoteName := resource.NewName(resource.APINamespaceRDK.WithType("remote").WithSubtype(""), c.Remotes[idx].Name)
-		if err := c.validateUniqueResource(logger, seenResources, resourceRemoteName.String()); err != nil {
-			return err
+		if _, exists := seenRemotes[c.Remotes[idx].Name]; exists {
+			logger.Errorf("Duplicate remote %s in robot config; behavior undefined", c.Remotes[idx].Name)
 		}
+		seenRemotes[c.Remotes[idx].Name] = struct{}{}
 	}
-
-	for idx := 0; idx < len(c.Components); idx++ {
-		component := &c.Components[idx]
-		// requiredDeps and optionalDeps will only be populated if attributes have been converted, which does not happen in this function.
-		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
-		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
-		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
-		// dependencies are gathered during robot reconfiguration itself.
-		requiredDeps, optionalDeps, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
-		if err != nil {
-			fullErr := errors.Wrapf(err, "error validating component %s: %s", component.Name, err)
-			if c.DisablePartialStart {
-				return fullErr
-			}
-			resLogger := logger.Sublogger(component.ResourceName().String())
-			resLogger.Errorw("component config error; starting robot without component", "name", component.Name, "error", err)
-		} else {
-			component.ImplicitDependsOn = requiredDeps
-			component.ImplicitOptionalDependsOn = optionalDeps
-		}
-		if err := c.validateUniqueResource(logger, seenResources, component.ResourceName().String()); err != nil {
-			return err
-		}
-	}
-
-	for idx := 0; idx < len(c.Processes); idx++ {
-		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
-			if c.DisablePartialStart {
-				return err
-			}
-			logger.Errorw("process config error; starting robot without process", "name", c.Processes[idx].Name, "error", err)
-		}
-
-		if err := c.validateUniqueResource(logger, seenResources, c.Processes[idx].ID); err != nil {
-			return err
-		}
-	}
-
-	for idx := 0; idx < len(c.Services); idx++ {
-		service := &c.Services[idx]
-		// requiredDeps and optionalDeps will only be populated if attributes have been converted, which does not happen in this function.
-		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
-		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
-		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
-		// dependencies are gathered during robot reconfiguration itself.
-		requiredDeps, optionalDeps, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
-		if err != nil {
-			if c.DisablePartialStart {
-				return err
-			}
-			resLogger := logger.Sublogger(service.ResourceName().String())
-			resLogger.Errorw("service config error; starting robot without service", "name", service.Name, "error", err)
-		} else {
-			service.ImplicitDependsOn = requiredDeps
-			service.ImplicitOptionalDependsOn = optionalDeps
-		}
-
-		if err := c.validateUniqueResource(logger, seenResources, service.ResourceName().String()); err != nil {
-			return err
-		}
-	}
-
-	for idx := 0; idx < len(c.Packages); idx++ {
+	seenPackages := make(map[string]struct{})
+	for idx := range len(c.Packages) {
 		if err := c.Packages[idx].Validate(fmt.Sprintf("%s.%d", "packages", idx)); err != nil {
-			fullErr := errors.Errorf("error validating package config %s", err)
-			if c.DisablePartialStart {
-				return fullErr
-			}
-			logger.Errorw("package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err)
+			logger.Errorw("Package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err.Error())
 		}
-		if err := c.validateUniqueResource(logger, seenResources, c.Packages[idx].Package); err != nil {
-			return err
+		if _, exists := seenPackages[c.Packages[idx].Name]; exists {
+			logger.Errorf("Duplicate package %s in robot config; behavior undefined", c.Packages[idx].Name)
+		}
+		seenPackages[c.Packages[idx].Name] = struct{}{}
+	}
+	seenProcesses := make(map[string]struct{})
+	for idx := range len(c.Processes) {
+		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
+			logger.Errorw("Process config error; starting robot without process", "name", c.Processes[idx].Name, "error", err.Error())
+		}
+		if _, exists := seenProcesses[c.Processes[idx].Name]; exists {
+			logger.Errorf("Duplicate process %s in robot config; behavior undefined", c.Processes[idx].Name)
+		}
+		seenProcesses[c.Processes[idx].Name] = struct{}{}
+	}
+
+	// Validate components and services as above but also populate implicit dependencies. Do
+	// not log any errors about duplicates. Duplicate components and services are caught by
+	// the resource manager.
+	for idx := range len(c.Components) {
+		// requiredDeps and optionalDeps will only be populated if attributes have been converted, which does not happen in this function.
+		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
+		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
+		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
+		// dependencies are gathered during robot reconfiguration itself.
+		requiredDeps, optionalDeps, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
+		if err != nil {
+			resLogger := logger.Sublogger(c.Components[idx].ResourceName().String())
+			resLogger.Errorw("Component config error; starting robot without component", "name", c.Components[idx].Name, "error", err.Error())
+		} else {
+			c.Components[idx].ImplicitDependsOn = requiredDeps
+			c.Components[idx].ImplicitOptionalDependsOn = optionalDeps
+		}
+	}
+	for idx := range len(c.Services) {
+		requiredDeps, optionalDeps, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
+		if err != nil {
+			resLogger := logger.Sublogger(c.Services[idx].ResourceName().String())
+			resLogger.Errorw("Service config error; starting robot without service", "name", c.Services[idx].Name, "error", err.Error())
+		} else {
+			c.Services[idx].ImplicitDependsOn = requiredDeps
+			c.Services[idx].ImplicitOptionalDependsOn = optionalDeps
 		}
 	}
 
@@ -341,7 +288,6 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.Network = conf.Network
 	c.Auth = conf.Auth
 	c.Debug = conf.Debug
-	c.DisablePartialStart = conf.DisablePartialStart
 	c.EnableWebProfile = conf.EnableWebProfile
 	c.LogConfig = conf.LogConfig
 	c.Revision = conf.Revision
@@ -376,7 +322,6 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		Network:                 c.Network,
 		Auth:                    c.Auth,
 		Debug:                   c.Debug,
-		DisablePartialStart:     c.DisablePartialStart,
 		EnableWebProfile:        c.EnableWebProfile,
 		LogConfig:               c.LogConfig,
 		Revision:                c.Revision,
@@ -421,6 +366,7 @@ type Remote struct {
 
 	// Secret is a helper for a robot location secret.
 	Secret string
+	Prefix string
 
 	alreadyValidated bool
 	cachedErr        error
@@ -440,6 +386,7 @@ type remoteData struct {
 
 	// Secret is a helper for a robot location secret.
 	Secret string `json:"secret"`
+	Prefix string `json:"prefix,omitempty"`
 }
 
 // Equals checks if the two configs are deeply equal to each other.
@@ -467,6 +414,7 @@ func (conf *Remote) UnmarshalJSON(data []byte) error {
 		Insecure:                  temp.Insecure,
 		AssociatedResourceConfigs: temp.AssociatedResourceConfigs,
 		Secret:                    temp.Secret,
+		Prefix:                    temp.Prefix,
 	}
 	if temp.ConnectionCheckInterval != "" {
 		dur, err := time.ParseDuration(temp.ConnectionCheckInterval)
@@ -490,12 +438,16 @@ func (conf Remote) MarshalJSON() ([]byte, error) {
 	temp := remoteData{
 		Name:                      conf.Name,
 		Address:                   conf.Address,
+		Prefix:                    conf.Prefix,
 		Frame:                     conf.Frame,
 		Auth:                      conf.Auth,
 		ManagedBy:                 conf.ManagedBy,
 		Insecure:                  conf.Insecure,
 		AssociatedResourceConfigs: conf.AssociatedResourceConfigs,
 		Secret:                    conf.Secret,
+	}
+	if conf.Prefix != "" {
+		temp.Prefix = conf.Prefix
 	}
 	if conf.ConnectionCheckInterval != 0 {
 		temp.ConnectionCheckInterval = conf.ConnectionCheckInterval.String()
@@ -1287,6 +1239,36 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 		registry.DeduplicateLogs.Store(!cfg.DisableLogDeduplication)
 		logger.Infof("Noisy log deduplication is now %s", state)
 	}
+
+	// If a user-specified log pattern regex-matches the name of a module, update that
+	// module's log level to be "debug." This will cause a restart of the module with
+	// `--log-level=debug`. Only do this if the global log level is not already debug.
+	//
+	// NOTE(benji): This is hacky and simply a best-effort to honor user-specified log
+	// patterns. We already emit a warning log in web/server/entrypoint.go#configWatcher
+	// that points users to the 'log_level' and 'log_configuration' fields instead of 'log'
+	// when trying to change levels of modular logs.
+	if globalLogger.logger != nil && globalLogger.logger.GetLevel() != logging.DEBUG {
+		for _, lpc := range cfg.LogConfig {
+			// Only examine log patterns that have an associated level of "debug."
+			if lpc.Level == moduleLogLevelDebug {
+				for i, module := range cfg.Modules {
+					// Only set a log level of "debug" if the pattern regex-matches the name of the
+					// module, and the module does not already have a log level set
+					r, err := regexp.Compile(logging.BuildRegexFromPattern(lpc.Pattern))
+					if err != nil {
+						// No need to log a warning here. The call to `registry.Update` above will
+						// have logged one already.
+						continue
+					}
+
+					if r.MatchString(module.Name) && module.LogLevel == "" {
+						cfg.Modules[i].LogLevel = moduleLogLevelDebug
+					}
+				}
+			}
+		}
+	}
 }
 
 // JobConfig describes regular job settings for the robot from the client.
@@ -1321,8 +1303,7 @@ func (jc *JobConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Validate checks every required field and ensures the schedule to be a
-// valid interval.
+// Validate checks that every required field is present.
 func (jc *JobConfig) Validate(path string) error {
 	if jc.Name == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "name")
@@ -1333,25 +1314,12 @@ func (jc *JobConfig) Validate(path string) error {
 	if jc.Resource == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "resource")
 	}
-
 	if jc.Schedule == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "schedule")
 	}
-	// Assuming the schedule is the harder part of the JobConfig to get right,
-	// it's parsed here as either Golang's time.Duration or a valid cron expression.
-	// If both cases fail, an error is returned right away, rather than waiting
-	// for the JobManager to report an error.
-	_, err := time.ParseDuration(jc.Schedule)
-	if err != nil {
-		_, err = cronexpr.ParseStrict(jc.Schedule)
-		if err != nil {
-			// If both parsing attempts fail, return an error.
-			return resource.NewConfigValidationError(path,
-				errors.New(
-					"Invalid schedule format, expected a golang duration string or a valid cron expression"))
-		}
-	}
-
+	// At this point, the schedule could still be invalid (not a golang duration string or a
+	// cron expression). Such errors will be caught later, when the job manager will try to
+	// schedule the job and parse this field. The error will be displayed to the user.
 	return nil
 }
 

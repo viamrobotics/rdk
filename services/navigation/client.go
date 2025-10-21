@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -38,7 +39,7 @@ func NewClientFromConn(
 	grpcClient := pb.NewNavigationServiceClient(conn)
 	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		client: grpcClient,
 		logger: logger,
 	}
@@ -181,7 +182,7 @@ func (c *client) Obstacles(ctx context.Context, extra map[string]interface{}) ([
 	protoObs := resp.GetObstacles()
 	geos := []*spatialmath.GeoGeometry{}
 	for _, o := range protoObs {
-		obstacle, err := spatialmath.GeoGeometryFromProtobuf(o)
+		obstacle, err := referenceframe.GeoGeometryFromProtobuf(o)
 		if err != nil {
 			return nil, err
 		}

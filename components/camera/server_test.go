@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -93,17 +94,40 @@ func TestServer(t *testing.T) {
 			FrameRate:       float32(10.0),
 		}, nil
 	}
-	injectCamera.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-		images := []camera.NamedImage{}
-		// one color image
+	injectCamera.ImagesFunc = func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		color := rimage.NewImage(40, 50)
-		images = append(images, camera.NamedImage{color, "color"})
-		// one depth image
+		colorImg, err := camera.NamedImageFromImage(color, "color", utils.MimeTypeJPEG)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
 		depth := rimage.NewEmptyDepthMap(10, 20)
-		images = append(images, camera.NamedImage{depth, "depth"})
-		// a timestamp of 12345
+		depthImg, err := camera.NamedImageFromImage(depth, "depth", utils.MimeTypeRawDepth)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+
+		if len(filterSourceNames) == 0 {
+			ts := time.UnixMilli(12345)
+			return []camera.NamedImage{colorImg, depthImg}, resource.ResponseMetadata{CapturedAt: ts}, nil
+		}
+
+		images := make([]camera.NamedImage, 0, len(filterSourceNames))
+		for _, src := range filterSourceNames {
+			switch src {
+			case "color":
+				images = append(images, colorImg)
+			case "depth":
+				images = append(images, depthImg)
+			default:
+				return nil, resource.ResponseMetadata{}, fmt.Errorf("unknown source name: %s", src)
+			}
+		}
 		ts := time.UnixMilli(12345)
-		return images, resource.ResponseMetadata{ts}, nil
+		return images, resource.ResponseMetadata{CapturedAt: ts}, nil
 	}
 	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
@@ -377,6 +401,93 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Images[0].SourceName, test.ShouldEqual, "color")
 		test.That(t, resp.Images[1].Format, test.ShouldEqual, pb.Format_FORMAT_RAW_DEPTH)
 		test.That(t, resp.Images[1].SourceName, test.ShouldEqual, "depth")
+
+		// filter only color
+		resp, err = cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{Name: testCameraName, FilterSourceNames: []string{"color"}})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.ResponseMetadata.CapturedAt.AsTime(), test.ShouldEqual, time.UnixMilli(12345))
+		test.That(t, len(resp.Images), test.ShouldEqual, 1)
+		test.That(t, resp.Images[0].SourceName, test.ShouldEqual, "color")
+		test.That(t, resp.Images[0].Format, test.ShouldEqual, pb.Format_FORMAT_JPEG)
+		// validate decoded image
+		decodedColor, err := rimage.DecodeImage(context.Background(), resp.Images[0].Image, utils.MimeTypeJPEG)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, decodedColor.Bounds().Dx(), test.ShouldEqual, 40)
+		test.That(t, decodedColor.Bounds().Dy(), test.ShouldEqual, 50)
+
+		// filter only depth
+		resp, err = cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{Name: testCameraName, FilterSourceNames: []string{"depth"}})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.ResponseMetadata.CapturedAt.AsTime(), test.ShouldEqual, time.UnixMilli(12345))
+		test.That(t, len(resp.Images), test.ShouldEqual, 1)
+		test.That(t, resp.Images[0].SourceName, test.ShouldEqual, "depth")
+		test.That(t, resp.Images[0].Format, test.ShouldEqual, pb.Format_FORMAT_RAW_DEPTH)
+		// validate decoded depth map
+		decodedDepthImg, err := rimage.DecodeImage(context.Background(), resp.Images[0].Image, utils.MimeTypeRawDepth)
+		test.That(t, err, test.ShouldBeNil)
+		dm, err := rimage.ConvertImageToDepthMap(context.Background(), decodedDepthImg)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dm.Width(), test.ShouldEqual, 10)
+		test.That(t, dm.Height(), test.ShouldEqual, 20)
+
+		// filter both
+		resp, err = cameraServer.GetImages(
+			context.Background(),
+			&pb.GetImagesRequest{
+				Name:              testCameraName,
+				FilterSourceNames: []string{"color", "depth"},
+			},
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.ResponseMetadata.CapturedAt.AsTime(), test.ShouldEqual, time.UnixMilli(12345))
+		test.That(t, len(resp.Images), test.ShouldEqual, 2)
+		seen := map[string]bool{}
+		for _, im := range resp.Images {
+			switch im.SourceName {
+			case "color":
+				test.That(t, im.Format, test.ShouldEqual, pb.Format_FORMAT_JPEG)
+				decoded, err := rimage.DecodeImage(context.Background(), im.Image, utils.MimeTypeJPEG)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, decoded.Bounds().Dx(), test.ShouldEqual, 40)
+				test.That(t, decoded.Bounds().Dy(), test.ShouldEqual, 50)
+				seen["color"] = true
+			case "depth":
+				test.That(t, im.Format, test.ShouldEqual, pb.Format_FORMAT_RAW_DEPTH)
+				decodedDepth, err := rimage.DecodeImage(context.Background(), im.Image, utils.MimeTypeRawDepth)
+				test.That(t, err, test.ShouldBeNil)
+				dm, err := rimage.ConvertImageToDepthMap(context.Background(), decodedDepth)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, dm.Width(), test.ShouldEqual, 10)
+				test.That(t, dm.Height(), test.ShouldEqual, 20)
+				seen["depth"] = true
+			default:
+				t.Fatalf("unexpected source name: %s", im.SourceName)
+			}
+		}
+		test.That(t, seen["color"], test.ShouldBeTrue)
+		test.That(t, seen["depth"], test.ShouldBeTrue)
+
+		// duplicate should error at server
+		_, err = cameraServer.GetImages(
+			context.Background(),
+			&pb.GetImagesRequest{
+				Name:              testCameraName,
+				FilterSourceNames: []string{"color", "color"},
+			},
+		)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "duplicate source name in filter: color")
+
+		// unknown source should error from mock
+		_, err = cameraServer.GetImages(
+			context.Background(),
+			&pb.GetImagesRequest{
+				Name:              testCameraName,
+				FilterSourceNames: []string{"unknown"},
+			},
+		)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown source name: unknown")
 	})
 
 	t.Run("GetProperties", func(t *testing.T) {
@@ -471,6 +582,96 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
+			Name:  testCameraName,
+			Extra: ext,
+		})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+	})
+
+	t.Run("GetImages with extra", func(t *testing.T) {
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, extra, test.ShouldBeEmpty)
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		_, err := cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{
+			Name: testCameraName,
+		})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, len(extra), test.ShouldEqual, 1)
+			test.That(t, extra["hello"], test.ShouldEqual, "world")
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		ext, err := goprotoutils.StructToStructPb(map[string]interface{}{"hello": "world"})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{
+			Name:  testCameraName,
+			Extra: ext,
+		})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, len(extra), test.ShouldEqual, 1)
+			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
+
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		// one kvp created with data.FromDMContextKey
+		ext, err = goprotoutils.StructToStructPb(map[string]interface{}{data.FromDMString: true})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{
+			Name:  testCameraName,
+			Extra: ext,
+		})
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, len(extra), test.ShouldEqual, 2)
+			test.That(t, extra["hello"], test.ShouldEqual, "world")
+			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		// use values from data and camera
+		ext, err = goprotoutils.StructToStructPb(
+			map[string]interface{}{
+				data.FromDMString: true,
+				"hello":           "world",
+			},
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = cameraServer.GetImages(context.Background(), &pb.GetImagesRequest{
 			Name:  testCameraName,
 			Extra: ext,
 		})

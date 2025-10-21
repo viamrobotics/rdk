@@ -13,7 +13,7 @@ type Switch struct {
 	name                     resource.Name
 	SetPositionFunc          func(ctx context.Context, position uint32, extra map[string]interface{}) error
 	GetPositionFunc          func(ctx context.Context, extra map[string]interface{}) (uint32, error)
-	GetNumberOfPositionsFunc func(ctx context.Context, extra map[string]interface{}) (uint32, error)
+	GetNumberOfPositionsFunc func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error)
 	DoFunc                   func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc                func(ctx context.Context) error
 }
@@ -45,7 +45,7 @@ func (s *Switch) GetPosition(ctx context.Context, extra map[string]interface{}) 
 }
 
 // GetNumberOfPositions gets the total number of positions for the switch.
-func (s *Switch) GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+func (s *Switch) GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
 	if s.GetNumberOfPositionsFunc == nil {
 		return s.Switch.GetNumberOfPositions(ctx, extra)
 	}

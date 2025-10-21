@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -400,4 +401,105 @@ func (e *FailedToReadError) Error() string {
 
 func (e *FailedToReadError) Unwrap() error {
 	return e.Err
+}
+
+// NewDoCommandCaptureFunc returns a capture function for DoCommand operations that can be used by any resource.
+// Components should assert their specific type and pass it to this function.
+func NewDoCommandCaptureFunc[T interface {
+	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+}](resource T, params CollectorParams) CaptureFunc {
+	return func(ctx context.Context, _ map[string]*anypb.Any) (CaptureResult, error) {
+		timeRequested := time.Now()
+		var result CaptureResult
+
+		var payload map[string]interface{}
+
+		if payloadAny, exists := params.MethodParams["docommand_input"]; exists && payloadAny != nil {
+			// Check if payloadAny is an empty map (empty *anypb.Any)
+			if payloadAny.TypeUrl == "" && len(payloadAny.Value) == 0 {
+				payload = make(map[string]interface{})
+			} else {
+				unmarshaledPayload, err := unmarshalToValueOrString(payloadAny)
+				if err != nil {
+					return result, err
+				}
+
+				if payloadMap, ok := unmarshaledPayload.(map[string]interface{}); ok {
+					payload = payloadMap
+				} else {
+					return result, fmt.Errorf("payload is not a map, got type: %T, value: %v", unmarshaledPayload, unmarshaledPayload)
+				}
+			}
+		} else {
+			// key does not exist
+			return result, errors.New("DoCommand missing payload with key: \"docommand_input\"")
+		}
+
+		values, err := resource.DoCommand(ctx, payload)
+		if err != nil {
+			if errors.Is(err, ErrNoCaptureToStore) {
+				return result, err
+			}
+			return result, NewFailedToReadError(params.ComponentName, "DoCommand", err)
+		}
+		ts := Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return NewTabularCaptureResultDoCommand(ts, values)
+	}
+}
+
+// unmarshalToValueOrString attempts to unmarshal a protobuf Any to either a structpb.Value
+// or extracts the string value if it's a string type.
+func unmarshalToValueOrString(v *anypb.Any) (interface{}, error) {
+	// Try to unmarshal to Struct first
+	structVal := &structpb.Struct{}
+	if err := v.UnmarshalTo(structVal); err == nil {
+		result := make(map[string]interface{})
+		for fieldName, fieldValue := range structVal.Fields {
+			result[fieldName] = flattenValue(fieldValue)
+		}
+		return result, nil
+	}
+
+	// Try to unmarshal to Value
+	val := &structpb.Value{}
+	if err := v.UnmarshalTo(val); err == nil {
+		return flattenValue(val), nil
+	}
+
+	// If unmarshaling fails, try to unmarshal to string
+	stringVal, err := v.UnmarshalNew()
+	if err != nil {
+		return nil, err
+	}
+	return stringVal, nil
+}
+
+// flattenValue extracts the actual value from a structpb.Value, removing protobuf metadata.
+func flattenValue(val *structpb.Value) interface{} {
+	switch v := val.Kind.(type) {
+	case *structpb.Value_NullValue:
+		return nil
+	case *structpb.Value_NumberValue:
+		return v.NumberValue
+	case *structpb.Value_StringValue:
+		return v.StringValue
+	case *structpb.Value_BoolValue:
+		return v.BoolValue
+	case *structpb.Value_StructValue:
+		// Flatten struct fields recursively
+		result := make(map[string]interface{})
+		for fieldName, fieldValue := range v.StructValue.Fields {
+			result[fieldName] = flattenValue(fieldValue)
+		}
+		return result
+	case *structpb.Value_ListValue:
+		// Flatten list values recursively
+		result := make([]interface{}, len(v.ListValue.Values))
+		for i, item := range v.ListValue.Values {
+			result[i] = flattenValue(item)
+		}
+		return result
+	default:
+		return val
+	}
 }

@@ -4,13 +4,14 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"math"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -23,6 +24,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -31,7 +33,6 @@ import (
 	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -52,8 +53,9 @@ func init() {
 
 // export keys to be used with DoCommand so they can be referenced by clients.
 const (
-	DoPlan    = "plan"
-	DoExecute = "execute"
+	DoPlan              = "plan"
+	DoExecute           = "execute"
+	DoExecuteCheckStart = "executeCheckStart"
 )
 
 const (
@@ -66,6 +68,7 @@ const (
 	defaultSlamPlanDeviationM          = 1.
 	defaultGlobePlanDeviationM         = 2.6
 	defaultCollisionBuffer             = 150. // mm
+	defaultExecuteEpsilon              = 0.01 // rad or mm
 )
 
 var (
@@ -90,6 +93,26 @@ type inputEnabledActuator interface {
 type Config struct {
 	LogFilePath string `json:"log_file_path"`
 	NumThreads  int    `json:"num_threads"`
+
+	PlanFilePath           string `json:"plan_file_path"`
+	LogPlannerErrors       bool   `json:"log_planner_errors"`
+	LogSlowPlanThresholdMS int    `json:"log_slow_plan_threshold_ms"`
+
+	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
+	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
+}
+
+func (c *Config) shouldWritePlan(start time.Time, err error) bool {
+	if err != nil && c.LogPlannerErrors {
+		return true
+	}
+
+	if c.LogSlowPlanThresholdMS != 0 &&
+		time.Since(start) > (time.Duration(c.LogSlowPlanThresholdMS)*time.Millisecond) {
+		return true
+	}
+
+	return false
 }
 
 // Validate here adds a dependency on the internal framesystem service.
@@ -97,17 +120,27 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.NumThreads < 0 {
 		return nil, nil, fmt.Errorf("cannot configure with %d number of threads, number must be positive", c.NumThreads)
 	}
+
+	if c.LogPlannerErrors && c.PlanFilePath == "" {
+		return nil, nil, fmt.Errorf("need a plan_file_path if you sent log_planner_errors to %v", c.LogPlannerErrors)
+	}
+
+	if c.LogSlowPlanThresholdMS != 0 && c.PlanFilePath == "" {
+		return nil, nil, fmt.Errorf("need a plan_file_path if you sent LogSlowPlanThresholdMS to %v", c.LogSlowPlanThresholdMS)
+	}
+
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
 }
 
 type builtIn struct {
 	resource.Named
+	conf                    *Config
 	mu                      sync.RWMutex
 	fsService               framesystem.Service
-	movementSensors         map[resource.Name]movementsensor.MovementSensor
-	slamServices            map[resource.Name]slam.Service
-	visionServices          map[resource.Name]vision.Service
-	components              map[resource.Name]resource.Resource
+	movementSensors         map[string]movementsensor.MovementSensor
+	slamServices            map[string]slam.Service
+	visionServices          map[string]vision.Service
+	components              map[string]resource.Resource
 	logger                  logging.Logger
 	state                   *state.State
 	configuredDefaultExtras map[string]any
@@ -142,6 +175,8 @@ func (ms *builtIn) Reconfigure(
 	if err != nil {
 		return err
 	}
+	ms.conf = config
+
 	if config.LogFilePath != "" {
 		fileAppender, _ := logging.NewFileAppender(config.LogFilePath)
 		ms.logger.AddAppender(fileAppender)
@@ -150,28 +185,28 @@ func (ms *builtIn) Reconfigure(
 		ms.configuredDefaultExtras["num_threads"] = config.NumThreads
 	}
 
-	movementSensors := make(map[resource.Name]movementsensor.MovementSensor)
-	slamServices := make(map[resource.Name]slam.Service)
-	visionServices := make(map[resource.Name]vision.Service)
-	components := make(map[resource.Name]resource.Resource)
+	movementSensors := make(map[string]movementsensor.MovementSensor)
+	slamServices := make(map[string]slam.Service)
+	visionServices := make(map[string]vision.Service)
+	componentMap := make(map[string]resource.Resource)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
 			ms.fsService = dep
 		case movementsensor.MovementSensor:
-			movementSensors[name] = dep
+			movementSensors[name.Name] = dep
 		case slam.Service:
-			slamServices[name] = dep
+			slamServices[name.Name] = dep
 		case vision.Service:
-			visionServices[name] = dep
+			visionServices[name.Name] = dep
 		default:
-			components[name] = dep
+			componentMap[name.Name] = dep
 		}
 	}
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
-	ms.components = components
+	ms.components = componentMap
 	if ms.state != nil {
 		ms.state.Stop()
 	}
@@ -203,7 +238,7 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = ms.execute(ctx, plan.Trajectory())
+	err = ms.execute(ctx, plan.Trajectory(), math.MaxFloat64)
 	return err == nil, err
 }
 
@@ -230,14 +265,12 @@ func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (moti
 type validatedExtra struct {
 	maxReplans       int
 	replanCostFactor float64
-	motionProfile    string
 	extra            map[string]interface{}
 }
 
 func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 	maxReplans := -1
 	replanCostFactor := defaultReplanCostFactor
-	motionProfile := ""
 	v := validatedExtra{}
 	if extra == nil {
 		v.extra = map[string]interface{}{"smooth_iter": defaultSmoothIter}
@@ -248,12 +281,7 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 			maxReplans = replans
 		}
 	}
-	if profile, ok := extra["motion_profile"]; ok {
-		motionProfile, ok = profile.(string)
-		if !ok {
-			return v, errors.New("could not interpret motion_profile field as string")
-		}
-	}
+
 	if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
 		costFactor, ok := costFactorRaw.(float64)
 		if !ok {
@@ -271,7 +299,6 @@ func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
 
 	return validatedExtra{
 		maxReplans:       maxReplans,
-		motionProfile:    motionProfile,
 		replanCostFactor: replanCostFactor,
 		extra:            extra,
 	}, nil
@@ -296,27 +323,18 @@ func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (
 	return id, nil
 }
 
+// GetPose is deprecated.
 func (ms *builtIn) GetPose(
 	ctx context.Context,
-	componentName resource.Name,
+	componentName string,
 	destinationFrame string,
 	supplementalTransforms []*referenceframe.LinkInFrame,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
+	ms.logger.Warn("GetPose is deprecated. Please switch to using the GetPose method defined on the FrameSystem service")
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	if destinationFrame == "" {
-		destinationFrame = referenceframe.World
-	}
-	return ms.fsService.TransformPose(
-		ctx,
-		referenceframe.NewPoseInFrame(
-			componentName.ShortName(),
-			spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 0}),
-		),
-		destinationFrame,
-		supplementalTransforms,
-	)
+	return ms.fsService.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 }
 
 func (ms *builtIn) StopPlan(
@@ -428,7 +446,20 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		if err := mapstructure.Decode(req, &trajectory); err != nil {
 			return nil, err
 		}
-		if err := ms.execute(ctx, trajectory); err != nil {
+		// if included and set to true
+		epsilon := math.MaxFloat64
+		if val, ok := cmd[DoExecuteCheckStart]; ok {
+			// we don't actually care if the value was set.
+			// just ensure we always use a non zero, non negative epsilon
+			epsilon, _ = val.(float64)
+			if epsilon <= 0 {
+				// use default allowable error in position for an input
+				epsilon = defaultExecuteEpsilon // rad OR mm
+			}
+
+			resp[DoExecuteCheckStart] = "resource at starting location"
+		}
+		if err := ms.execute(ctx, trajectory, epsilon); err != nil {
 			return nil, err
 		}
 		resp[DoExecute] = true
@@ -436,22 +467,81 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 	return resp, nil
 }
 
+func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referenceframe.LinkInFrame) (*referenceframe.FrameSystem, error) {
+	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, transforms)
+	if err != nil {
+		return nil, err
+	}
+
+	for fName, mods := range ms.conf.InputRangeOverride {
+		f := frameSys.Frame(fName)
+		if f == nil {
+			return nil, fmt.Errorf("frame (%s) in input_range_override doesn't exist", fName)
+		}
+
+		ms.logger.Debugf("limit override f: %v mods: %v", fName, mods, f)
+
+		sm, ok := f.(*referenceframe.SimpleModel)
+		if !ok {
+			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
+		}
+
+		smCloned, err := referenceframe.Clone(sm)
+		if err != nil {
+			return nil, err
+		}
+		smClonedTyped := smCloned.(*referenceframe.SimpleModel)
+
+		sub := smClonedTyped.OrdTransforms()
+
+		for modString, l := range mods {
+			idx := 0
+
+			found := false
+			for _, ss := range sub {
+				if len(ss.DoF()) > 0 && (modString == ss.Name() || modString == strconv.Itoa(idx)) {
+					found = true
+					ss.DoF()[0] = l
+					break
+				}
+
+				if len(ss.DoF()) > 0 {
+					idx++
+				}
+			}
+
+			if !found {
+				return nil, fmt.Errorf("can't find mod (%s)", modString)
+			}
+		}
+
+		smClonedTyped.SetOrdTransforms(sub)
+
+		err = frameSys.ReplaceFrame(smClonedTyped)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return frameSys, nil
+}
+
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
-	frameSys, err := ms.fsService.FrameSystem(ctx, req.WorldState.Transforms())
+	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
 	}
 
 	// build maps of relevant components and inputs from initial inputs
-	fsInputs, _, err := ms.fsService.CurrentInputs(ctx)
+	fsInputs, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
 	logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
 
-	movingFrame := frameSys.Frame(req.ComponentName.ShortName())
+	movingFrame := frameSys.Frame(req.ComponentName)
 	if movingFrame == nil {
-		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName.ShortName())
+		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
 	}
 
 	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
@@ -461,6 +551,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	if len(waypoints) == 0 {
 		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
 	}
+
 	// The contents of waypoints can be gigantic, and if so, making copies of `extra` becomes the majority of motion planning runtime.
 	// As the meaning from `waypoints` has already been extracted above into its proper data structure, there is no longer a need to
 	// keep it in `extra`.
@@ -473,7 +564,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	// multiple components. If we are moving component1, mounted on arm2, to a goal in frame of component2, which is mounted on arm2, then
 	// passing that raw poseInFrame will certainly result in a plan which moves arm1 and arm2. We cannot guarantee that this plan is
 	// collision-free until RSDK-8847 is complete. By transforming goals to world, only one arm should move for such a plan.
-	worldWaypoints := []*motionplan.PlanState{}
+	worldWaypoints := []*armplanning.PlanState{}
 	solvingFrame := referenceframe.World
 	for _, wp := range waypoints {
 		if wp.Poses() != nil {
@@ -486,31 +577,40 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 				goalPose, _ := tf.(*referenceframe.PoseInFrame)
 				step[fName] = goalPose
 			}
-			worldWaypoints = append(worldWaypoints, motionplan.NewPlanState(step, wp.Configuration()))
+			worldWaypoints = append(worldWaypoints, armplanning.NewPlanState(step, wp.Configuration()))
 		} else {
 			worldWaypoints = append(worldWaypoints, wp)
 		}
 	}
 
-	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	return motionplan.PlanMotion(ctx, &motionplan.PlanRequest{
-		Logger:      logger,
-		Goals:       worldWaypoints,
-		StartState:  startState,
-		FrameSystem: frameSys,
-		WorldState:  req.WorldState,
-		Constraints: req.Constraints,
-		Options:     req.Extra,
-	})
-}
-
-func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory) error {
-	// build maps of relevant components from initial inputs
-	_, resources, err := ms.fsService.CurrentInputs(ctx)
+	planOpts, err := armplanning.NewPlannerOptionsFromExtra(req.Extra)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
+
+	planRequest := &armplanning.PlanRequest{
+		FrameSystem:    frameSys,
+		Goals:          worldWaypoints,
+		StartState:     startState,
+		WorldState:     req.WorldState,
+		Constraints:    req.Constraints,
+		PlannerOptions: planOpts,
+	}
+
+	start := time.Now()
+	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
+	if ms.conf.shouldWritePlan(start, err) {
+		err := ms.writePlanRequest(planRequest, plan, start, err)
+		if err != nil {
+			ms.logger.Warnf("couldn't write plan: %v", err)
+		}
+	}
+	return plan, err
+}
+
+func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
@@ -519,6 +619,23 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			for name, inputs := range step {
 				if len(inputs) == 0 {
 					continue
+				}
+
+				r, ok := ms.components[name]
+				if !ok {
+					return fmt.Errorf("plan had step for resource %s but the motion service is not aware of a component of that name", name)
+				}
+				ie, err := utils.AssertType[framesystem.InputEnabled](r)
+				if err != nil {
+					return err
+				}
+				curr, err := ie.CurrentInputs(ctx)
+				if err != nil {
+					return err
+				}
+				if referenceframe.InputsLinfDistance(curr, inputs) > epsilon {
+					return fmt.Errorf("component %v is not within %v of the current position. Expected inputs %v current inputs %v",
+						name, epsilon, inputs, curr)
 				}
 				currStep[name] = append(currStep[name], inputs)
 			}
@@ -573,11 +690,15 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			if len(inputs) == 0 {
 				continue
 			}
-			r, ok := resources[name]
+			r, ok := ms.components[name]
 			if !ok {
-				return fmt.Errorf("plan had step for resource %s but no resource with that name found in framesystem", name)
+				return fmt.Errorf("plan had step for resource %s but it was not found in the motion", name)
 			}
-			if err := r.GoToInputs(ctx, inputs...); err != nil {
+			ie, err := utils.AssertType[framesystem.InputEnabled](r)
+			if err != nil {
+				return err
+			}
+			if err := ie.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if actuator, ok := r.(inputEnabledActuator); ok {
 					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
@@ -607,32 +728,32 @@ func (ms *builtIn) applyDefaultExtras(extras map[string]any) {
 func waypointsFromRequest(
 	req motion.MoveReq,
 	fsInputs referenceframe.FrameSystemInputs,
-) (*motionplan.PlanState, []*motionplan.PlanState, error) {
-	var startState *motionplan.PlanState
-	var waypoints []*motionplan.PlanState
+) (*armplanning.PlanState, []*armplanning.PlanState, error) {
+	var startState *armplanning.PlanState
+	var waypoints []*armplanning.PlanState
 	var err error
 
 	if startStateIface, ok := req.Extra["start_state"]; ok {
 		if startStateMap, ok := startStateIface.(map[string]interface{}); ok {
-			startState, err = motionplan.DeserializePlanState(startStateMap)
+			startState, err = armplanning.DeserializePlanState(startStateMap)
 			if err != nil {
 				return nil, nil, err
 			}
 		} else {
 			return nil, nil, errors.New("extras start_state could not be interpreted as map[string]interface{}")
 		}
-		if startState.Configuration() == nil {
-			startState = motionplan.NewPlanState(startState.Poses(), fsInputs)
+		if len(startState.Configuration()) == 0 {
+			return nil, nil, fmt.Errorf("can't specify start_state without joint configuration")
 		}
 	} else {
-		startState = motionplan.NewPlanState(nil, fsInputs)
+		startState = armplanning.NewPlanState(nil, fsInputs)
 	}
 
 	if waypointsIface, ok := req.Extra["waypoints"]; ok {
 		if waypointsIfaceList, ok := waypointsIface.([]interface{}); ok {
 			for _, wpIface := range waypointsIfaceList {
 				if wpMap, ok := wpIface.(map[string]interface{}); ok {
-					wp, err := motionplan.DeserializePlanState(wpMap)
+					wp, err := armplanning.DeserializePlanState(wpMap)
 					if err != nil {
 						return nil, nil, err
 					}
@@ -649,7 +770,7 @@ func waypointsFromRequest(
 	// If goal state is specified, it overrides the request goal
 	if goalStateIface, ok := req.Extra["goal_state"]; ok {
 		if goalStateMap, ok := goalStateIface.(map[string]interface{}); ok {
-			goalState, err := motionplan.DeserializePlanState(goalStateMap)
+			goalState, err := armplanning.DeserializePlanState(goalStateMap)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -658,8 +779,35 @@ func waypointsFromRequest(
 			return nil, nil, errors.New("extras goal_state could not be interpreted as map[string]interface{}")
 		}
 	} else if req.Destination != nil {
-		goalState := motionplan.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName.ShortName(): req.Destination}, nil)
+		goalState := armplanning.NewPlanState(referenceframe.FrameSystemPoses{req.ComponentName: req.Destination}, nil)
 		waypoints = append(waypoints, goalState)
 	}
 	return startState, waypoints, nil
+}
+
+func (ms *builtIn) writePlanRequest(req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, planError error) error {
+	planExtra := fmt.Sprintf("-goals-%d", len(req.Goals))
+
+	if planError != nil {
+		planExtra += "-err"
+	}
+
+	if plan != nil {
+		totalL2 := 0.0
+
+		t := plan.Trajectory()
+		for idx := 1; idx < len(t); idx++ {
+			for k := range t[idx] {
+				myl2n := referenceframe.InputsL2Distance(t[idx-1][k], t[idx][k])
+				totalL2 += myl2n
+			}
+		}
+
+		planExtra += fmt.Sprintf("-traj-%d-l2-%0.2f", len(t), totalL2)
+	}
+
+	fn := filepath.Join(ms.conf.PlanFilePath,
+		fmt.Sprintf("plan-%s-ms-%d-%s.json", time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra))
+	ms.logger.Infof("writing plan to %s", fn)
+	return req.WriteToFile(fn)
 }

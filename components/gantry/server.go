@@ -15,12 +15,12 @@ import (
 // serviceServer implements the GantryService from gantry.proto.
 type serviceServer struct {
 	pb.UnimplementedGantryServiceServer
-	coll resource.APIResourceCollection[Gantry]
+	coll resource.APIResourceGetter[Gantry]
 }
 
 // NewRPCServiceServer constructs an gantry gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Gantry]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Gantry]) interface{} {
 	return &serviceServer{coll: coll}
 }
 

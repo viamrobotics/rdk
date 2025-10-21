@@ -1,10 +1,12 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -29,6 +31,15 @@ const (
 	// be set to override DefaultModuleStartupTimeout as the duration
 	// that modules are allowed to startup.
 	ModuleStartupTimeoutEnvVar = "VIAM_MODULE_STARTUP_TIMEOUT"
+
+	// DefaultConfigReadTimeout is the default config read timeout. If there
+	// is a cached config on the machine, a shorter default timeout will be used.
+	DefaultConfigReadTimeout = 15 * time.Second
+
+	// ConfigReadTimeoutEnvVar is the environment variable that can
+	// be set to override DefaultConfigReadTimeout as the duration
+	// for config read.
+	ConfigReadTimeoutEnvVar = "VIAM_CONFIG_READ_TIMEOUT"
 
 	// AndroidFilesDir is hardcoded because golang inits before our android code can override HOME var.
 	AndroidFilesDir = "/data/user/0/com.viam.rdk.fgservice/cache"
@@ -60,6 +71,24 @@ const (
 
 	// PrimaryOrgIDEnvVar is the environment variable that contains the primary org ID of the machine.
 	PrimaryOrgIDEnvVar = "VIAM_PRIMARY_ORG_ID"
+
+	// ViamResourceRequestsLimitEnvVar is the environment that controls the
+	// per-resource gRPC request limit. If it is unset or invalid the limit
+	// defaults to 100.
+	ViamResourceRequestsLimitEnvVar = "VIAM_RESOURCE_REQUESTS_LIMIT"
+
+	// GetImagesInStreamServerEnvVar is the environment variable that enables the GetImages feature flag in stream server.
+	GetImagesInStreamServerEnvVar = "VIAM_GET_IMAGES_IN_STREAM_SERVER"
+
+	// ViamAgentHandlesNeedsRestartChecking is the environment variable that viam-agent will
+	// set before starting viam-server to indicate that agent is a new enough version to
+	// have its own background loop that runs NeedsRestart against app.viam.com to determine
+	// if the system needs a restart. MUST be kept in line with the equivalent value in the
+	// agent repo.
+	//
+	// TODO(RSDK-12057): Remove sensitivity to this environment variable once we fully
+	// remove all NeedsRestart checking logic from viam-server.
+	ViamAgentHandlesNeedsRestartChecking = "VIAM_AGENT_HANDLES_NEEDS_RESTART_CHECKING"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
@@ -71,30 +100,40 @@ var TCPRegex = regexp.MustCompile(`:\d+$`)
 // ViamDotDir is the directory for Viam's cached files.
 var ViamDotDir = filepath.Join(PlatformHomeDir(), ".viam")
 
+var windowsPathRegex = regexp.MustCompile(`^(\w:)?(.+)$`)
+
 // GetResourceConfigurationTimeout calculates the resource configuration
 // timeout (env variable value if set, DefaultResourceConfigurationTimeout
 // otherwise).
 func GetResourceConfigurationTimeout(logger logging.Logger) time.Duration {
-	return timeoutHelper(DefaultResourceConfigurationTimeout, ResourceConfigurationTimeoutEnvVar, logger)
+	timeout, _ := timeoutHelper(DefaultResourceConfigurationTimeout, ResourceConfigurationTimeoutEnvVar, logger)
+	return timeout
 }
 
 // GetModuleStartupTimeout calculates the module startup timeout
 // (env variable value if set, DefaultModuleStartupTimeout otherwise).
 func GetModuleStartupTimeout(logger logging.Logger) time.Duration {
-	return timeoutHelper(DefaultModuleStartupTimeout, ModuleStartupTimeoutEnvVar, logger)
+	timeout, _ := timeoutHelper(DefaultModuleStartupTimeout, ModuleStartupTimeoutEnvVar, logger)
+	return timeout
 }
 
-func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger logging.Logger) time.Duration {
+// GetConfigReadTimeout returns the config read timeout set by the env variable value,
+// DefaultConfigReadTimeout otherwise.
+func GetConfigReadTimeout(logger logging.Logger) (time.Duration, bool) {
+	return timeoutHelper(DefaultConfigReadTimeout, ConfigReadTimeoutEnvVar, logger)
+}
+
+func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger logging.Logger) (time.Duration, bool) {
 	if timeoutVal := os.Getenv(timeoutEnvVar); timeoutVal != "" {
 		timeout, err := time.ParseDuration(timeoutVal)
 		if err != nil {
 			logger.Warnf("Failed to parse %s env var, falling back to default %v timeout",
 				timeoutEnvVar, defaultTimeout)
-			return defaultTimeout
+			return defaultTimeout, true
 		}
-		return timeout
+		return timeout, false
 	}
-	return defaultTimeout
+	return defaultTimeout, true
 }
 
 // PlatformHomeDir wraps Getenv("HOME"), except on android, where it returns the app cache directory.
@@ -154,4 +193,28 @@ func GetenvInt(v string, def int) int {
 	}
 
 	return num
+}
+
+// GetImagesInStreamServer returns true iff an env bool was set to use the GetImages feature flag in stream server.
+func GetImagesInStreamServer() bool {
+	return slices.Contains(EnvTrueValues, os.Getenv(GetImagesInStreamServerEnvVar))
+}
+
+// CleanWindowsSocketPath mutates socket paths on windows only so they
+// work well with the GRPC library.
+// It converts e.g. C:\x\y.sock to /x/y.sock
+// If you don't do this, it will confuse grpc-go's url.Parse call and surrounding logic.
+// See https://github.com/grpc/grpc-go/blob/v1.71.0/clientconn.go#L1720-L1727
+func CleanWindowsSocketPath(goos, orig string) (string, error) {
+	if goos == "windows" {
+		match := windowsPathRegex.FindStringSubmatch(orig)
+		if match == nil {
+			return "", fmt.Errorf("error cleaning socket path %s", orig)
+		}
+		if match[1] != "" && strings.ToLower(match[1]) != "c:" {
+			return "", fmt.Errorf("we expect unix sockets on C: drive, not %s", match[1])
+		}
+		return strings.ReplaceAll(match[2], "\\", "/"), nil
+	}
+	return orig, nil
 }

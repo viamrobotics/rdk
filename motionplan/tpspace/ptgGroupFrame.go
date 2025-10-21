@@ -163,6 +163,10 @@ func (pf *ptgGroupFrame) MarshalJSON() ([]byte, error) {
 	return nil, nil
 }
 
+func (pf *ptgGroupFrame) UnmarshalJSON(data []byte) error {
+	return errors.New("unmarshal json not implemented for ptg IK frame")
+}
+
 // Inputs are: [0] index of PTG to use, [1] index of the trajectory within that PTG, [2] starting point on the trajectory, and [3] distance
 // to travel along that trajectory.
 func (pf *ptgGroupFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {

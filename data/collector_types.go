@@ -66,6 +66,27 @@ func NewTabularCaptureResultReadings(ts Timestamps, readings map[string]interfac
 	}, nil
 }
 
+// NewTabularCaptureResultDoCommand returns a tabular readings result.
+func NewTabularCaptureResultDoCommand(ts Timestamps, readings map[string]interface{}) (CaptureResult, error) {
+	var res CaptureResult
+	values, err := rprotoutils.ReadingGoToProto(readings)
+	if err != nil {
+		return res, err
+	}
+
+	return CaptureResult{
+		Timestamps: ts,
+		Type:       CaptureTypeTabular,
+		TabularData: TabularData{
+			Payload: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"docommand_output": structpb.NewStructValue(&structpb.Struct{Fields: values}),
+				},
+			},
+		},
+	}, nil
+}
+
 // NewTabularCaptureResult returns a tabular result.
 func NewTabularCaptureResult(ts Timestamps, i interface{}) (CaptureResult, error) {
 	var res CaptureResult
@@ -268,6 +289,24 @@ func CameraFormatToMimeType(f camerapb.Format) MimeType {
 		// TODO: https://viam.atlassian.net/browse/DATA-3497
 		fallthrough
 	case camerapb.Format_FORMAT_RAW_DEPTH:
+		// TODO: https://viam.atlassian.net/browse/DATA-3497
+		fallthrough
+	default:
+		return MimeTypeUnspecified
+	}
+}
+
+// MimeTypeStringToMimeType converts a string mime type to a MimeType.
+func MimeTypeStringToMimeType(mimeType string) MimeType {
+	switch mimeType {
+	case rutils.MimeTypeJPEG:
+		return MimeTypeImageJpeg
+	case rutils.MimeTypePNG:
+		return MimeTypeImagePng
+	case rutils.MimeTypeRawRGBA:
+		// TODO: https://viam.atlassian.net/browse/DATA-3497
+		fallthrough
+	case rutils.MimeTypeRawDepth:
 		// TODO: https://viam.atlassian.net/browse/DATA-3497
 		fallthrough
 	default:

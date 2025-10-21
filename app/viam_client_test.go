@@ -43,7 +43,8 @@ func (m *MockConn) Invoke(ctx context.Context, method string, args, reply any, o
 	return nil
 }
 func (m *MockConn) PeerConn() *webrtc.PeerConnection { return nil }
-func (m *MockConn) Close() error                     { return nil }
+
+func (m *MockConn) Close() error { return nil }
 func mockDialDirectGRPC(
 	ctx context.Context,
 	address string,

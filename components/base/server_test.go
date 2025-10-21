@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -210,7 +211,7 @@ func TestServer(t *testing.T) {
 		req := &pbcommon.GetGeometriesRequest{Name: testBaseName}
 		resp, err := server.GetGeometries(context.Background(), req) // TODO (rh) rename server to bServer after review
 		test.That(t, resp, test.ShouldResemble, &pbcommon.GetGeometriesResponse{
-			Geometries: spatialmath.NewGeometriesToProto([]spatialmath.Geometry{box}),
+			Geometries: referenceframe.NewGeometriesToProto([]spatialmath.Geometry{box}),
 		})
 		test.That(t, err, test.ShouldBeNil)
 

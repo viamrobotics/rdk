@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -21,6 +22,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/data"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager"
@@ -33,6 +35,9 @@ var CheckDeleteExcessFilesInterval = 30 * time.Second
 const (
 	// FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 	FailedDir = "failed"
+	// DatasetDir is a subdirectory of the capture directory that holds any files that are simultaneously uploaded
+	// and added to a dataset outside of the regularly scheduled sync.
+	DatasetDir = "datasetUpload"
 	// grpcConnectionTimeout defines the timeout for getting a connection with app.viam.com.
 	grpcConnectionTimeout = 10 * time.Second
 	// durationBetweenAcquireConnection defines how long to wait after a call to cloud.AcquireConnection fails
@@ -53,16 +58,15 @@ const (
 // - Close (once).
 type Sync struct {
 	// ScheduledTicker only exists for tests
-	ScheduledTicker         *clock.Ticker
-	connToConnectivityState func(conn rpc.ClientConn) ConnectivityState
-	logger                  logging.Logger
-	workersWg               sync.WaitGroup
-	flushCollectors         func()
-	fileTracker             *fileTracker
-	filesToSync             chan string
-	clientConstructor       func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
-	clock                   clock.Clock
-	atomicUploadStats       *atomicUploadStats
+	ScheduledTicker   *clock.Ticker
+	logger            logging.Logger
+	workersWg         sync.WaitGroup
+	flushCollectors   func()
+	fileTracker       *fileTracker
+	filesToSync       chan string
+	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
+	clock             clock.Clock
+	atomicUploadStats *atomicUploadStats
 
 	configMu sync.Mutex
 	config   Config
@@ -84,7 +88,6 @@ type Sync struct {
 // New creates a new Sync.
 func New(
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	connToConnectivityState func(conn rpc.ClientConn) ConnectivityState,
 	flushCollectors func(),
 	clock clock.Clock,
 	logger logging.Logger,
@@ -93,20 +96,19 @@ func New(
 	var atomicUploadStats atomicUploadStats
 	statsWorker := newStatsWorker(logger)
 	s := Sync{
-		connToConnectivityState: connToConnectivityState,
-		clock:                   clock,
-		configCtx:               configCtx,
-		configCancelFunc:        configCancelFunc,
-		clientConstructor:       clientConstructor,
-		logger:                  logger,
-		fileTracker:             newFileTracker(),
-		filesToSync:             make(chan string),
-		flushCollectors:         flushCollectors,
-		Scheduler:               goutils.NewBackgroundStoppableWorkers(),
-		cloudConn:               cloudConn{ready: make(chan struct{})},
-		FileDeletingWorkers:     goutils.NewBackgroundStoppableWorkers(),
-		statsWorker:             statsWorker,
-		atomicUploadStats:       &atomicUploadStats,
+		clock:               clock,
+		configCtx:           configCtx,
+		configCancelFunc:    configCancelFunc,
+		clientConstructor:   clientConstructor,
+		logger:              logger,
+		fileTracker:         newFileTracker(),
+		filesToSync:         make(chan string),
+		flushCollectors:     flushCollectors,
+		Scheduler:           goutils.NewBackgroundStoppableWorkers(),
+		cloudConn:           cloudConn{ready: make(chan struct{})},
+		FileDeletingWorkers: goutils.NewBackgroundStoppableWorkers(),
+		statsWorker:         statsWorker,
+		atomicUploadStats:   &atomicUploadStats,
 	}
 	return &s
 }
@@ -226,11 +228,10 @@ func (s *Sync) Sync(ctx context.Context, _ map[string]interface{}) error {
 
 type cloudConn struct {
 	// closed by cloud conn manager
-	ready                        chan struct{}
-	partID                       string
-	client                       v1.DataSyncServiceClient
-	conn                         rpc.ClientConn
-	connectivityStateEnabledConn ConnectivityState
+	ready  chan struct{}
+	partID string
+	client v1.DataSyncServiceClient
+	conn   rgrpc.ConnectivityState
 }
 
 // BEGIN connection management
@@ -280,8 +281,19 @@ func (s *Sync) runCloudConnManager(
 		// we have a working cloudConn,
 		// set the values & connunicate that it is ready
 		s.cloudConn.partID = partID
-		s.cloudConn.conn = conn
-		s.cloudConn.connectivityStateEnabledConn = s.connToConnectivityState(conn)
+		checker, ok := conn.(rgrpc.ConnectivityState)
+		if !ok {
+			// should never happen, as rgrpc.AppConn (which is the underlying type of the connection)
+			// implements GetState explicitly.
+			s.logger.Errorf("cloud connection does not expose connectivity state, "+
+				"will retry in %s", durationBetweenAcquireConnection)
+			if goutils.SelectContextOrWait(ctx, durationBetweenAcquireConnection) {
+				continue
+			}
+			// exit loop if context is cancelled
+			return
+		}
+		s.cloudConn.conn = checker
 		s.cloudConn.client = s.clientConstructor(conn)
 		s.logger.Info("cloud connection ready")
 		close(s.cloudConn.ready)
@@ -337,14 +349,14 @@ func (s *Sync) runWorker(config Config) {
 func (s *Sync) syncFile(config Config, filePath string) {
 	// don't sync in progress files
 	if filepath.Ext(filePath) == data.InProgressCaptureFileExt {
-		s.logger.Warnf("ignoreing request to sync in progress capture file: %s", filePath)
+		s.logger.Warnf("ignoring request to sync in progress capture file: %s", filePath)
 		return
 	}
 
 	// If the file is already being synced, do not kick off a new goroutine.
 	// The goroutine will again check and return early if sync is already in progress.
 	if !s.fileTracker.markInProgress(filePath) {
-		s.logger.Warnf("ignoreing request to sync file which sync is already working on %s", filePath)
+		s.logger.Warnf("ignoring request to sync file which sync is already working on %s", filePath)
 		return
 	}
 	defer s.fileTracker.unmarkInProgress(filePath)
@@ -362,7 +374,7 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	if data.IsDataCaptureFile(f) {
 		s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
 	} else {
-		s.syncArbitraryFile(f, config.Tags, config.FileLastModifiedMillis, s.logger)
+		s.syncArbitraryFile(f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger)
 	}
 }
 
@@ -434,10 +446,10 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	}
 }
 
-func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMillis int, logger logging.Logger) {
+func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int, logger logging.Logger) {
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
-		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock, logger)
+		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
@@ -474,6 +486,43 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 	}
 	s.atomicUploadStats.arbitrary.uploadedFileCount.Add(1)
 	s.atomicUploadStats.arbitrary.uploadedBytes.Add(bytesUploaded)
+}
+
+// UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.
+func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte, datasetIDs, tags []string, mimeType v1.MimeType) error {
+	errChan := make(chan error, 1)
+	go func() {
+		defer close(errChan)
+		// Create a new directory CaptureDir/DatasetDir
+		newDir := filepath.Join(s.config.CaptureDir, DatasetDir)
+		if err := os.MkdirAll(newDir, 0o700); err != nil {
+			errChan <- errors.Wrapf(err, "failed to create file in dataset directory: error making new dataset directory: %s", newDir)
+			return
+		}
+		filename := uuid.NewString()
+		fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
+		if fileExtensionFromMimeType != "" {
+			filename += fileExtensionFromMimeType
+		}
+		filename = filepath.Join(s.config.CaptureDir, DatasetDir, filepath.Clean(filename))
+		err := os.WriteFile(filename, binaryData, 0o600)
+		if err != nil {
+			s.logger.Errorw("error writing file", "err", err)
+			errChan <- err
+			return
+		}
+		f, err := os.Open(filename)
+		if err != nil {
+			s.logger.Errorw("error reading file", "err", err)
+			errChan <- err
+			return
+		}
+		// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
+		// before deciding this file is ready for upload and is not still being written to.
+		s.syncArbitraryFile(f, tags, datasetIDs, 0, s.logger)
+	}()
+
+	return <-errChan
 }
 
 // moveFailedData takes any data that could not be synced in the parentDir and
@@ -526,7 +575,7 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 			return
 		case <-tkr.C:
 			shouldSync := readyToSyncDirectories(ctx, config, s.logger)
-			state := s.cloudConn.connectivityStateEnabledConn.GetState()
+			state := s.cloudConn.conn.GetState()
 			online := state == connectivity.Ready
 			if !online {
 				s.logger.Infof("data manager: NOT syncing data to the cloud as it's cloud connection is in state: %s"+
@@ -570,8 +619,9 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 				return nil
 			}
 
-			// Do not sync the files in the corrupted data directory.
-			if info.IsDir() && info.Name() == FailedDir {
+			// Do not sync the files in the corrupted data directory or in the directory that holds files
+			// that are simultaneously uploaded and added to a dataset.
+			if info.IsDir() && (info.Name() == FailedDir || info.Name() == DatasetDir) {
 				return filepath.SkipDir
 			}
 

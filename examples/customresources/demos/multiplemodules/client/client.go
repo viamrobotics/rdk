@@ -27,7 +27,7 @@ func main() {
 	}()
 
 	logger.Info("---- Testing gizmo1 (gizmoapi) -----")
-	comp1, err := gizmoapi.FromRobot(robot, "gizmo1")
+	comp1, err := gizmoapi.FromProvider(robot, "gizmo1")
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func main() {
 	logger.Info(ret4)
 
 	logger.Info("---- Testing adder (summationapi) -----")
-	add, err := summationapi.FromRobot(robot, "adder")
+	add, err := summationapi.FromProvider(robot, "adder")
 	if err != nil {
 		logger.Fatal(err)
 	}

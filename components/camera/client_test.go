@@ -3,6 +3,7 @@ package camera_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -53,7 +54,7 @@ func TestClient(t *testing.T) {
 
 	injectCamera := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
-	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
+	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{X: 1, Y: 2, Z: 3}, "")}
 
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
@@ -75,6 +76,10 @@ func TestClient(t *testing.T) {
 	}
 	projA = intrinsics
 
+	// expected source images for reuse across subtests
+	expectedColor := rimage.NewImage(40, 50)
+	expectedDepth := rimage.NewEmptyDepthMap(10, 20)
+
 	// color camera
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
@@ -88,14 +93,24 @@ func TestClient(t *testing.T) {
 	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
-	injectCamera.ImagesFunc = func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	injectCamera.ImagesFunc = func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		images := []camera.NamedImage{}
 		// one color image
-		color := rimage.NewImage(40, 50)
-		images = append(images, camera.NamedImage{color, "color"})
+		namedImgColor, err := camera.NamedImageFromImage(expectedColor, "color", rutils.MimeTypeRawRGBA)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		images = append(images, namedImgColor)
 		// one depth image
-		depth := rimage.NewEmptyDepthMap(10, 20)
-		images = append(images, camera.NamedImage{depth, "depth"})
+		namedImgDepth, err := camera.NamedImageFromImage(expectedDepth, "depth", rutils.MimeTypeRawDepth)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		images = append(images, namedImgDepth)
 		// a timestamp of 12345
 		ts := time.UnixMilli(12345)
 		return images, resource.ResponseMetadata{CapturedAt: ts}, nil
@@ -204,20 +219,24 @@ func TestClient(t *testing.T) {
 		test.That(t, propsB.SupportsPCD, test.ShouldBeTrue)
 		test.That(t, propsB.IntrinsicParams, test.ShouldResemble, intrinsics)
 
-		images, meta, err := camera1Client.Images(context.Background())
+		images, meta, err := camera1Client.Images(context.Background(), nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, meta.CapturedAt, test.ShouldEqual, time.UnixMilli(12345))
 		test.That(t, len(images), test.ShouldEqual, 2)
 		test.That(t, images[0].SourceName, test.ShouldEqual, "color")
-		test.That(t, images[0].Image.Bounds().Dx(), test.ShouldEqual, 40)
-		test.That(t, images[0].Image.Bounds().Dy(), test.ShouldEqual, 50)
-		test.That(t, images[0].Image, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
-		test.That(t, images[0].Image.ColorModel(), test.ShouldHaveSameTypeAs, color.RGBAModel)
+		img, err := images[0].Image(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, img.Bounds().Dx(), test.ShouldEqual, 40)
+		test.That(t, img.Bounds().Dy(), test.ShouldEqual, 50)
+		test.That(t, img, test.ShouldHaveSameTypeAs, &image.NRGBA{})
+		test.That(t, img.ColorModel(), test.ShouldHaveSameTypeAs, color.RGBAModel)
 		test.That(t, images[1].SourceName, test.ShouldEqual, "depth")
-		test.That(t, images[1].Image.Bounds().Dx(), test.ShouldEqual, 10)
-		test.That(t, images[1].Image.Bounds().Dy(), test.ShouldEqual, 20)
-		test.That(t, images[1].Image, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
-		test.That(t, images[1].Image.ColorModel(), test.ShouldHaveSameTypeAs, color.Gray16Model)
+		img, err = images[1].Image(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, img.Bounds().Dx(), test.ShouldEqual, 10)
+		test.That(t, img.Bounds().Dy(), test.ShouldEqual, 20)
+		test.That(t, img, test.ShouldHaveSameTypeAs, &rimage.DepthMap{})
+		test.That(t, img.ColorModel(), test.ShouldHaveSameTypeAs, color.Gray16Model)
 
 		// Do
 		resp, err := camera1Client.DoCommand(context.Background(), testutils.TestCommand)
@@ -316,6 +335,195 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("camera client images extra", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		camClient, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, extra, test.ShouldBeEmpty)
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		ctx := context.Background()
+		_, _, err = camClient.Images(ctx, nil, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, len(extra), test.ShouldEqual, 1)
+			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
+
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		_, _, err = camClient.Images(context.Background(), nil, map[string]interface{}{data.FromDMString: true})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			test.That(t, len(extra), test.ShouldEqual, 2)
+			test.That(t, extra["hello"], test.ShouldEqual, "world")
+			test.That(t, extra[data.FromDMString], test.ShouldBeTrue)
+			return nil, resource.ResponseMetadata{}, errGetImageFailed
+		}
+
+		// merge values from data and camera
+		ext := data.FromDMExtraMap
+		ext["hello"] = "world"
+		ctx = context.Background()
+		_, _, err = camClient.Images(ctx, nil, ext)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
+
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("camera client images filter source names", func(t *testing.T) {
+		ctx := context.Background()
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, conn.Close(), test.ShouldBeNil)
+		}()
+
+		camClient, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		injectCamera.ImagesFunc = func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			namedImgColor, err := camera.NamedImageFromImage(expectedColor, "color", rutils.MimeTypeRawRGBA)
+			if err != nil {
+				return nil, resource.ResponseMetadata{}, err
+			}
+			namedImgDepth, err := camera.NamedImageFromImage(expectedDepth, "depth", rutils.MimeTypeRawDepth)
+			if err != nil {
+				return nil, resource.ResponseMetadata{}, err
+			}
+
+			if len(filterSourceNames) == 0 {
+				return []camera.NamedImage{namedImgColor, namedImgDepth}, resource.ResponseMetadata{}, nil
+			}
+
+			images := make([]camera.NamedImage, 0, len(filterSourceNames))
+			for _, src := range filterSourceNames {
+				switch src {
+				case "color":
+					images = append(images, namedImgColor)
+				case "depth":
+					images = append(images, namedImgDepth)
+				default:
+					return nil, resource.ResponseMetadata{}, fmt.Errorf("unknown source name: %s", src)
+				}
+			}
+			return images, resource.ResponseMetadata{}, nil
+		}
+
+		t.Run("successful filtering", func(t *testing.T) {
+			images, _, err := camClient.Images(ctx, []string{"color", "depth"}, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(images), test.ShouldEqual, 2)
+			test.That(t, images[0].SourceName, test.ShouldEqual, "color")
+			test.That(t, images[1].SourceName, test.ShouldEqual, "depth")
+
+			// Verify the actual image content
+			colorImg, err := images[0].Image(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, colorImg.Bounds().Dx(), test.ShouldEqual, 40)
+			test.That(t, colorImg.Bounds().Dy(), test.ShouldEqual, 50)
+			test.That(t, rimage.ImagesExactlyEqual(colorImg, expectedColor), test.ShouldBeTrue)
+
+			depthImg, err := images[1].Image(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 10)
+			test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 20)
+			test.That(t, rimage.ImagesExactlyEqual(depthImg, expectedDepth), test.ShouldBeTrue)
+		})
+
+		t.Run("empty and nil filters", func(t *testing.T) {
+			// Test empty slice filter
+			images, _, err := camClient.Images(ctx, []string{}, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(images), test.ShouldEqual, 2)
+			colorImg, err := images[0].Image(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, colorImg.Bounds().Dx(), test.ShouldEqual, 40)
+			test.That(t, colorImg.Bounds().Dy(), test.ShouldEqual, 50)
+			test.That(t, rimage.ImagesExactlyEqual(colorImg, expectedColor), test.ShouldBeTrue)
+			depthImg, err := images[1].Image(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 10)
+			test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 20)
+			test.That(t, rimage.ImagesExactlyEqual(depthImg, expectedDepth), test.ShouldBeTrue)
+
+			// Test nil filter
+			images, _, err = camClient.Images(ctx, nil, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(images), test.ShouldEqual, 2)
+			colorImg, err = images[0].Image(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, colorImg.Bounds().Dx(), test.ShouldEqual, 40)
+			test.That(t, colorImg.Bounds().Dy(), test.ShouldEqual, 50)
+			test.That(t, rimage.ImagesExactlyEqual(colorImg, expectedColor), test.ShouldBeTrue)
+			depthImg, err = images[1].Image(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 10)
+			test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 20)
+			test.That(t, rimage.ImagesExactlyEqual(depthImg, expectedDepth), test.ShouldBeTrue)
+		})
+
+		t.Run("invalid mime type", func(t *testing.T) {
+			_, _, err := camClient.Images(ctx, []string{"this_is_an_invalid_source_name"}, nil)
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "unknown source name: this_is_an_invalid_source_name")
+		})
+
+		t.Run("mixture of valid and invalid source names", func(t *testing.T) {
+			_, _, err := camClient.Images(ctx, []string{"color", "invalid_source"}, nil)
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "unknown source name: invalid_source")
+		})
+
+		t.Run("duplicate source names", func(t *testing.T) {
+			_, _, err := camClient.Images(ctx, []string{"color", "color"}, nil)
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "duplicate source name in filter: color")
+		})
+
+		t.Run("order should matter", func(t *testing.T) {
+			// NOTE: order matters bc of the way we set up our inject camera, order of images is not guaranteed.
+			// we're at the mercy of the camera implementation, but we should test that client/server do not mess up the order
+			images, _, err := camClient.Images(ctx, []string{"color", "depth"}, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(images), test.ShouldEqual, 2)
+			test.That(t, images[0].SourceName, test.ShouldEqual, "color")
+			test.That(t, images[1].SourceName, test.ShouldEqual, "depth")
+
+			images, _, err = camClient.Images(ctx, []string{"depth", "color"}, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(images), test.ShouldEqual, 2)
+			test.That(t, images[0].SourceName, test.ShouldEqual, "depth")
+			test.That(t, images[1].SourceName, test.ShouldEqual, "color")
+		})
 	})
 }
 
@@ -493,9 +701,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
 
 	test.That(t, frameLazy.MIMEType(), test.ShouldEqual, rutils.MimeTypePNG)
-	compVal, _, err := rimage.CompareImages(img, frame)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+	test.That(t, rimage.ImagesExactlyEqual(frame, img), test.ShouldBeTrue)
 
 	// when DecodeImageFromCamera is called without a mime type, defaults to JPEG
 	var called bool
@@ -511,9 +717,7 @@ func TestClientLazyImage(t *testing.T) {
 	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
 	frameLazy = frame.(*rimage.LazyEncodedImage)
 	test.That(t, frameLazy.MIMEType(), test.ShouldEqual, rutils.MimeTypeJPEG)
-	compVal, _, err = rimage.CompareImages(imgJpeg, frame)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+	test.That(t, rimage.ImagesExactlyEqual(frame, imgJpeg), test.ShouldBeTrue)
 	test.That(t, called, test.ShouldBeTrue)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
@@ -720,10 +924,10 @@ func TestMultiplexOverRemoteConnection(t *testing.T) {
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
-	cameraClient, err := camera.FromRobot(mainRobot, "remote:rtpPassthroughCamera")
+	cameraClient, err := camera.FromProvider(mainRobot, "remote:rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
-	image, _, err := cameraClient.Images(mainCtx)
+	image, _, err := cameraClient.Images(mainCtx, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, image, test.ShouldNotBeNil)
 	logger.Info("got images")
@@ -793,10 +997,10 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
-	cameraClient, err := camera.FromRobot(mainRobot, "remote-1:remote-2:rtpPassthroughCamera")
+	cameraClient, err := camera.FromProvider(mainRobot, "rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
-	image, _, err := cameraClient.Images(mainCtx)
+	image, _, err := cameraClient.Images(mainCtx, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, image, test.ShouldNotBeNil)
 	logger.Info("got images")
@@ -877,10 +1081,10 @@ func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
-	cameraClient, err := camera.FromRobot(mainRobot, "remote-1:remote-2:rtpPassthroughCamera")
+	cameraClient, err := camera.FromProvider(mainRobot, "rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
-	image, _, err := cameraClient.Images(mainCtx)
+	image, _, err := cameraClient.Images(mainCtx, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, image, test.ShouldNotBeNil)
 	logger.Info("got images")
@@ -1013,10 +1217,10 @@ func TestGrandRemoteRebooting(t *testing.T) {
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
-	mainCameraClient, err := camera.FromRobot(mainRobot, "remote-1:remote-2:rtpPassthroughCamera")
+	mainCameraClient, err := camera.FromProvider(mainRobot, "rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
-	image, _, err := mainCameraClient.Images(mainCtx)
+	image, _, err := mainCameraClient.Images(mainCtx, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, image, test.ShouldNotBeNil)
 	logger.Info("got images")

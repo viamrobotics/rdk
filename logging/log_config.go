@@ -10,7 +10,8 @@ type LoggerPatternConfig struct {
 	Level   string `json:"level"`
 }
 
-func buildRegexFromPattern(pattern string) string {
+// BuildRegexFromPattern creates a compilable regex from a log pattern.
+func BuildRegexFromPattern(pattern string) string {
 	var matcher strings.Builder
 	matcher.WriteRune('^')
 	for _, ch := range pattern {

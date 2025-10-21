@@ -234,7 +234,7 @@ type builtIn struct {
 	fsService            framesystem.Service
 	base                 base.Base
 	movementSensor       movementsensor.MovementSensor
-	visionServicesByName map[resource.Name]vision.Service
+	visionServicesByName map[string]vision.Service
 	motionService        motion.Service
 	obstacles            []*spatialmath.GeoGeometry
 	boundingRegions      []*spatialmath.GeoGeometry
@@ -328,37 +328,37 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// Parse base from the configuration
-	baseComponent, err := base.FromDependencies(deps, svcConfig.BaseName)
+	baseComponent, err := base.FromProvider(deps, svcConfig.BaseName)
 	if err != nil {
 		return err
 	}
 
 	// Parse motion services from the configuration
-	motionSvc, err := motion.FromDependencies(deps, motionServiceName)
+	motionSvc, err := motion.FromProvider(deps, motionServiceName)
 	if err != nil {
 		return err
 	}
 
 	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
-	visionServicesByName := make(map[resource.Name]vision.Service)
+	visionServicesByName := make(map[string]vision.Service)
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
-		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
+		visionSvc, err := vision.FromProvider(deps, pbObstacleDetectorPair.VisionServiceName)
 		if err != nil {
 			return err
 		}
-		camera, err := camera.FromDependencies(deps, pbObstacleDetectorPair.CameraName)
+		camera, err := camera.FromProvider(deps, pbObstacleDetectorPair.CameraName)
 		if err != nil {
 			return err
 		}
 		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
-			VisionServiceName: visionSvc.Name(), CameraName: camera.Name(),
+			VisionServiceName: visionSvc.Name().Name, CameraName: camera.Name().Name,
 		})
-		visionServicesByName[visionSvc.Name()] = visionSvc
+		visionServicesByName[visionSvc.Name().Name] = visionSvc
 	}
 
 	// Parse movement sensor from the configuration if map type is GPS
 	if mapType == navigation.GPSMap {
-		movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
+		movementSensor, err := movementsensor.FromProvider(deps, svcConfig.MovementSensorName)
 		if err != nil {
 			return err
 		}
@@ -544,10 +544,10 @@ func (svc *builtIn) Close(ctx context.Context) error {
 
 func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, extra map[string]interface{}) error {
 	req := motion.MoveOnGlobeReq{
-		ComponentName:      svc.base.Name(),
+		ComponentName:      svc.base.Name().Name,
 		Destination:        wp.ToPoint(),
 		Heading:            math.NaN(),
-		MovementSensorName: svc.movementSensor.Name(),
+		MovementSensorName: svc.movementSensor.Name().Name,
 		Obstacles:          svc.obstacles,
 		MotionCfg:          svc.motionCfg,
 		BoundingRegions:    svc.boundingRegions,
@@ -669,25 +669,25 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		svc.logger.CDebugf(
 			ctx,
 			"proceeding to get detections from vision service: %s with camera: %s",
-			detector.VisionServiceName.ShortName(),
-			detector.CameraName.ShortName(),
+			detector.VisionServiceName,
+			detector.CameraName,
 		)
 
 		// get the detections
-		detections, err := visSvc.GetObjectPointClouds(ctx, detector.CameraName.Name, nil)
+		detections, err := visSvc.GetObjectPointClouds(ctx, detector.CameraName, nil)
 		if err != nil {
 			return nil, err
 		}
 
 		// determine transform from camera to movement sensor
 		movementsensorOrigin := referenceframe.NewPoseInFrame(svc.movementSensor.Name().ShortName(), spatialmath.NewZeroPose())
-		cameraToMovementsensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, detector.CameraName.ShortName(), nil)
+		cameraToMovementsensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, detector.CameraName, nil)
 		if err != nil {
 			// here we make the assumption the movementsensor is coincident with the camera
 			svc.logger.CDebugf(
 				ctx,
 				"we assume the movementsensor named: %s is coincident with the camera named: %s due to err: %v",
-				svc.movementSensor.Name().ShortName(), detector.CameraName.ShortName(), err.Error(),
+				svc.movementSensor.Name().Name, detector.CameraName, err.Error(),
 			)
 			cameraToMovementsensor = movementsensorOrigin
 		}
@@ -707,14 +707,14 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		svc.logger.CDebugf(ctx, "baseToMovementSensor Pose: %v", baseToMovementSensor.Pose())
 
 		// determine transform from base to camera
-		cameraOrigin := referenceframe.NewPoseInFrame(detector.CameraName.ShortName(), spatialmath.NewZeroPose())
+		cameraOrigin := referenceframe.NewPoseInFrame(detector.CameraName, spatialmath.NewZeroPose())
 		baseToCamera, err := svc.fsService.TransformPose(ctx, cameraOrigin, svc.base.Name().ShortName(), nil)
 		if err != nil {
 			// here we make the assumption the base is coincident with the camera
 			svc.logger.CDebugf(
 				ctx,
 				"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
-				svc.base.Name().ShortName(), detector.CameraName.ShortName(), err.Error(),
+				svc.base.Name().ShortName(), detector.CameraName, err.Error(),
 			)
 			baseToCamera = cameraOrigin
 		}
@@ -779,7 +779,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			svc.logger.CDebugf(ctx, "obstacleGeoPose Location: %v, Heading: %v", *obstacleGeoPose.Location(), obstacleGeoPose.Heading())
 
 			// prefix the label of the geometry so we know it is transient and add extra info
-			label := "transient_" + strconv.Itoa(i) + "_" + detector.CameraName.Name
+			label := "transient_" + strconv.Itoa(i) + "_" + detector.CameraName
 			if detection.Geometry.Label() != "" {
 				label += "_" + detection.Geometry.Label()
 			}
@@ -822,7 +822,7 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 	}
 
 	ph, err := svc.motionService.PlanHistory(ctx, motion.PlanHistoryReq{
-		ComponentName: svc.base.Name(),
+		ComponentName: svc.base.Name().Name,
 		ExecutionID:   ewp.executionID,
 		LastPlanOnly:  true,
 	})

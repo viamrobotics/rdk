@@ -148,10 +148,10 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 			for _, name := range fromConfig {
 				select {
 				case <-ctx.Done():
-					return newMotors, rdkutils.NewBuildTimeoutError(wb.Name().String())
+					return newMotors, rdkutils.NewBuildTimeoutError(wb.Name().String(), wb.logger)
 				default:
 				}
-				m, err := motor.FromDependencies(deps, name)
+				m, err := motor.FromProvider(deps, name)
 				if err != nil {
 					return newMotors, errors.Wrapf(err, "no %s motor named (%s)", whichMotor, name)
 				}
@@ -162,12 +162,12 @@ func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependenci
 			for i := range curr {
 				select {
 				case <-ctx.Done():
-					return newMotors, rdkutils.NewBuildTimeoutError(wb.Name().String())
+					return newMotors, rdkutils.NewBuildTimeoutError(wb.Name().String(), wb.logger)
 				default:
 				}
 				if (curr)[i].Name().String() != (fromConfig)[i] {
 					for _, name := range fromConfig {
-						m, err := motor.FromDependencies(deps, name)
+						m, err := motor.FromProvider(deps, name)
 						if err != nil {
 							return newMotors, errors.Wrapf(err, "no %s motor named (%s)", whichMotor, name)
 						}

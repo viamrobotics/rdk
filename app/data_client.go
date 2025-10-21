@@ -2,9 +2,13 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -149,9 +153,16 @@ type BoundingBox struct {
 	YMaxNormalized float64
 }
 
+// Classification represents a labeled classification on an image.
+type Classification struct {
+	ID    string
+	Label string
+}
+
 // Annotations are data annotations used for machine learning.
 type Annotations struct {
-	Bboxes []*BoundingBox
+	Bboxes          []*BoundingBox
+	Classifications []*Classification
 }
 
 // TabularDataByFilterResponse represents the result of a TabularDataByFilter query.
@@ -256,6 +267,7 @@ type UploadMetadata struct {
 	MethodParameters map[string]interface{}
 	FileExtension    string
 	Tags             []string
+	DatasetIDs       []string
 }
 
 // FileData contains the contents of binary (image + file) data.
@@ -313,12 +325,18 @@ type CreateDataPipelineOptions struct {
 	TabularDataSourceType TabularDataSourceType
 }
 
+// TabularDataOptions contains optional parameters for GetLatestTabularData and ExportTabularData.
+type TabularDataOptions struct {
+	AdditionalParameters map[string]interface{}
+}
+
 // BinaryDataCaptureUploadOptions represents optional parameters for the BinaryDataCaptureUpload method.
 type BinaryDataCaptureUploadOptions struct {
 	Type             *DataType
 	FileName         *string
 	MethodParameters map[string]interface{}
 	Tags             []string
+	DatasetIDs       []string
 	DataRequestTimes *[2]time.Time
 }
 
@@ -340,6 +358,7 @@ type StreamingDataCaptureUploadOptions struct {
 	FileName         *string
 	MethodParameters map[string]interface{}
 	Tags             []string
+	DatasetIDs       []string
 	DataRequestTimes *[2]time.Time
 }
 
@@ -352,6 +371,7 @@ type FileUploadOptions struct {
 	MethodParameters map[string]interface{}
 	FileExtension    *string
 	Tags             []string
+	DatasetIDs       []string
 }
 
 // UpdateBoundingBoxOptions contains optional parameters for UpdateBoundingBox.
@@ -423,6 +443,8 @@ type DataPipelineRun struct {
 	DataEndTime time.Time
 	// Status is the run's current status.
 	Status DataPipelineRunStatus
+	// ErrorMessage is the error message of the data pipeline run. It is only set if the run failed.
+	ErrorMessage string
 }
 
 // ListDataPipelineRunsPage is a results page of data pipeline runs, used for pagination.
@@ -481,7 +503,7 @@ func (d *DataClient) TabularDataByFilter(ctx context.Context, opts *DataByFilter
 		countOnly = opts.CountOnly
 		includeInternalData = opts.IncludeInternalData
 	}
-	//nolint:deprecated,staticcheck
+	//nolint:staticcheck
 	resp, err := d.dataClient.TabularDataByFilter(ctx, &pb.TabularDataByFilterRequest{
 		DataRequest:         &dataReq,
 		CountOnly:           countOnly,
@@ -573,14 +595,21 @@ func (d *DataClient) TabularDataByMQL(
 
 // GetLatestTabularData gets the most recent tabular data captured from the specified data source, as well as the time that it was captured
 // and synced. If no data was synced to the data source within the last year, LatestTabularDataReturn will be empty.
-func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceName, resourceSubtype, methodName string) (
+func (d *DataClient) GetLatestTabularData(
+	ctx context.Context, partID, resourceName, resourceSubtype, methodName string, opts *TabularDataOptions) (
 	*GetLatestTabularDataResponse, error,
 ) {
+	additionalParameters, err := additionalParametersToProto(opts)
+	if err != nil {
+		return nil, err
+	}
+
 	resp, err := d.dataClient.GetLatestTabularData(ctx, &pb.GetLatestTabularDataRequest{
-		PartId:          partID,
-		ResourceName:    resourceName,
-		ResourceSubtype: resourceSubtype,
-		MethodName:      methodName,
+		PartId:               partID,
+		ResourceName:         resourceName,
+		ResourceSubtype:      resourceSubtype,
+		MethodName:           methodName,
+		AdditionalParameters: additionalParameters,
 	})
 	if err != nil {
 		return nil, err
@@ -595,14 +624,20 @@ func (d *DataClient) GetLatestTabularData(ctx context.Context, partID, resourceN
 
 // ExportTabularData returns a stream of ExportTabularDataResponses.
 func (d *DataClient) ExportTabularData(
-	ctx context.Context, partID, resourceName, resourceSubtype, method string, interval CaptureInterval,
+	ctx context.Context, partID, resourceName, resourceSubtype, method string, interval CaptureInterval, opts *TabularDataOptions,
 ) ([]*ExportTabularDataResponse, error) {
+	additionalParameters, err := additionalParametersToProto(opts)
+	if err != nil {
+		return nil, err
+	}
+
 	stream, err := d.dataClient.ExportTabularData(ctx, &pb.ExportTabularDataRequest{
-		PartId:          partID,
-		ResourceName:    resourceName,
-		ResourceSubtype: resourceSubtype,
-		MethodName:      method,
-		Interval:        captureIntervalToProto(interval),
+		PartId:               partID,
+		ResourceName:         resourceName,
+		ResourceSubtype:      resourceSubtype,
+		MethodName:           method,
+		Interval:             captureIntervalToProto(interval),
+		AdditionalParameters: additionalParameters,
 	})
 	if err != nil {
 		return nil, err
@@ -737,6 +772,7 @@ func (d *DataClient) AddTagsToBinaryDataByIDs(ctx context.Context, tags, binaryD
 // AddTagsToBinaryDataByFilter adds string tags, unless the tags are already present, to binary data based on the given filter.
 // If no filter is given, all data will be tagged.
 func (d *DataClient) AddTagsToBinaryDataByFilter(ctx context.Context, tags []string, filter *Filter) error {
+	//nolint:staticcheck
 	_, err := d.dataClient.AddTagsToBinaryDataByFilter(ctx, &pb.AddTagsToBinaryDataByFilterRequest{
 		Filter: filterToProto(filter),
 		Tags:   tags,
@@ -765,6 +801,7 @@ func (d *DataClient) RemoveTagsFromBinaryDataByIDs(ctx context.Context,
 func (d *DataClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
 	tags []string, filter *Filter,
 ) (int, error) {
+	//nolint:staticcheck
 	resp, err := d.dataClient.RemoveTagsFromBinaryDataByFilter(ctx, &pb.RemoveTagsFromBinaryDataByFilterRequest{
 		Filter: filterToProto(filter),
 		Tags:   tags,
@@ -817,6 +854,7 @@ func (d *DataClient) RemoveBoundingBoxFromImageByID(
 // BoundingBoxLabelsByFilter retrieves all unique string labels for bounding boxes that match the specified filter.
 // It returns a list of these labels. If no filter is given, all labels are returned.
 func (d *DataClient) BoundingBoxLabelsByFilter(ctx context.Context, filter *Filter) ([]string, error) {
+	//nolint:staticcheck
 	resp, err := d.dataClient.BoundingBoxLabelsByFilter(ctx, &pb.BoundingBoxLabelsByFilterRequest{
 		Filter: filterToProto(filter),
 	})
@@ -935,6 +973,9 @@ func (d *DataClient) BinaryDataCaptureUpload(
 		}
 		if options.Tags != nil {
 			metadata.Tags = options.Tags
+		}
+		if options.DatasetIDs != nil {
+			metadata.DatasetIDs = options.DatasetIDs
 		}
 		if options.DataRequestTimes != nil && len(options.DataRequestTimes) == 2 {
 			sensorMetadata = SensorMetadata{
@@ -1072,6 +1113,9 @@ func (d *DataClient) StreamingDataCaptureUpload(
 		if options.Tags != nil {
 			uploadMetadata.Tags = options.Tags
 		}
+		if options.DatasetIDs != nil {
+			uploadMetadata.DatasetIDs = options.DatasetIDs
+		}
 		if options.DataRequestTimes != nil && len(options.DataRequestTimes) == 2 {
 			sensorMetadata = SensorMetadata{
 				TimeRequested: options.DataRequestTimes[0],
@@ -1161,6 +1205,9 @@ func (d *DataClient) FileUploadFromBytes(
 		if opts.Tags != nil {
 			metadata.Tags = opts.Tags
 		}
+		if opts.DatasetIDs != nil {
+			metadata.DatasetIds = opts.DatasetIDs
+		}
 	}
 	return d.fileUploadStreamResp(metadata, data)
 }
@@ -1200,6 +1247,9 @@ func (d *DataClient) FileUploadFromPath(
 		if opts.Tags != nil {
 			metadata.Tags = opts.Tags
 		}
+		if opts.DatasetIDs != nil {
+			metadata.DatasetIds = opts.DatasetIDs
+		}
 		if opts.FileName != nil {
 			metadata.FileName = *opts.FileName
 		} else if filePath != "" {
@@ -1219,6 +1269,29 @@ func (d *DataClient) FileUploadFromPath(
 		data = fileData
 	}
 	return d.fileUploadStreamResp(metadata, data)
+}
+
+// UploadImageToDatasets uploads the contents and metadata for an image, adds it to a dataset,
+// and returns the file id of the uploaded data.
+func (d *DataClient) UploadImageToDatasets(
+	ctx context.Context,
+	partID string,
+	image image.Image,
+	datasetIDs, tags []string,
+	mimeType MimeType,
+	opts *FileUploadOptions,
+) (string, error) {
+	imgBytes, err := ConvertImageToBytes(image, mimeType)
+	if err != nil {
+		return "", err
+	}
+	if datasetIDs != nil {
+		opts.DatasetIDs = append(opts.DatasetIDs, datasetIDs...)
+	}
+	if tags != nil {
+		opts.Tags = append(opts.Tags, tags...)
+	}
+	return d.FileUploadFromBytes(ctx, partID, imgBytes, opts)
 }
 
 func (d *DataClient) fileUploadStreamResp(metadata *syncPb.UploadMetadata, data []byte) (string, error) {
@@ -1349,7 +1422,8 @@ func (d *DataClient) GetDataPipeline(ctx context.Context, id string) (*DataPipel
 
 // CreateDataPipeline creates a new data pipeline using the given query and schedule.
 func (d *DataClient) CreateDataPipeline(
-	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string, opts *CreateDataPipelineOptions,
+	ctx context.Context, organizationID, name string, query []map[string]interface{}, schedule string,
+	enableBackfill bool, opts *CreateDataPipelineOptions,
 ) (string, error) {
 	mqlBinary, err := queryBSONToBinary(query)
 	if err != nil {
@@ -1369,6 +1443,7 @@ func (d *DataClient) CreateDataPipeline(
 		MqlBinary:      mqlBinary,
 		Schedule:       schedule,
 		DataSourceType: &dataSourceType,
+		EnableBackfill: &enableBackfill,
 	})
 	if err != nil {
 		return "", err
@@ -1376,22 +1451,13 @@ func (d *DataClient) CreateDataPipeline(
 	return resp.Id, nil
 }
 
-// UpdateDataPipeline updates a data pipeline configuration by its ID.
-func (d *DataClient) UpdateDataPipeline(
-	ctx context.Context, id, name string, query []map[string]interface{}, schedule string, dataSourceType TabularDataSourceType,
+// RenameDataPipeline updates a data pipeline configuration by its ID.
+func (d *DataClient) RenameDataPipeline(
+	ctx context.Context, id, name string,
 ) error {
-	mqlBinary, err := queryBSONToBinary(query)
-	if err != nil {
-		return err
-	}
-
-	dataSourceTypeProto := dataSourceTypeToProto(dataSourceType)
-	_, err = d.datapipelinesClient.UpdateDataPipeline(ctx, &datapipelinesPb.UpdateDataPipelineRequest{
-		Id:             id,
-		Name:           name,
-		MqlBinary:      mqlBinary,
-		Schedule:       schedule,
-		DataSourceType: &dataSourceTypeProto,
+	_, err := d.datapipelinesClient.RenameDataPipeline(ctx, &datapipelinesPb.RenameDataPipelineRequest{
+		Id:   id,
+		Name: name,
 	})
 	return err
 }
@@ -1478,6 +1544,16 @@ func boundingBoxFromProto(proto *pb.BoundingBox) *BoundingBox {
 	}
 }
 
+func classificationFromProto(proto *pb.Classification) *Classification {
+	if proto == nil {
+		return nil
+	}
+	return &Classification{
+		ID:    proto.Id,
+		Label: proto.Label,
+	}
+}
+
 func exportTabularDataResponseFromProto(proto *pb.ExportTabularDataResponse) *ExportTabularDataResponse {
 	return &ExportTabularDataResponse{
 		OrganizationID:   proto.OrganizationId,
@@ -1500,12 +1576,17 @@ func annotationsFromProto(proto *pb.Annotations) *Annotations {
 	if proto == nil {
 		return nil
 	}
-	bboxes := make([]*BoundingBox, len(proto.Bboxes))
-	for i, bboxProto := range proto.Bboxes {
-		bboxes[i] = boundingBoxFromProto(bboxProto)
+	bboxes := make([]*BoundingBox, 0, len(proto.Bboxes))
+	for _, bboxProto := range proto.Bboxes {
+		bboxes = append(bboxes, boundingBoxFromProto(bboxProto))
+	}
+	classifications := make([]*Classification, 0, len(proto.Classifications))
+	for _, classificationProto := range proto.Classifications {
+		classifications = append(classifications, classificationFromProto(classificationProto))
 	}
 	return &Annotations{
-		Bboxes: bboxes,
+		Bboxes:          bboxes,
+		Classifications: classifications,
 	}
 }
 
@@ -1571,7 +1652,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) (*BinaryMetadata, error) 
 		return nil, err
 	}
 	return &BinaryMetadata{
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		ID:              proto.Id,
 		BinaryDataID:    proto.BinaryDataId,
 		CaptureMetadata: *captureMetadata,
@@ -1585,7 +1666,7 @@ func binaryMetadataFromProto(proto *pb.BinaryMetadata) (*BinaryMetadata, error) 
 	}, nil
 }
 
-//nolint:deprecated,staticcheck
+//nolint:staticcheck
 func tabularDataFromProto(proto *pb.TabularData, metadata *pb.CaptureMetadata) (*TabularData, error) {
 	if proto == nil {
 		return nil, nil
@@ -1719,6 +1800,7 @@ func uploadMetadataToProto(metadata UploadMetadata) *syncPb.UploadMetadata {
 		MethodParameters: methodParams,
 		FileExtension:    metadata.FileExtension,
 		Tags:             metadata.Tags,
+		DatasetIds:       metadata.DatasetIDs,
 	}
 }
 
@@ -1726,7 +1808,7 @@ func annotationsToProto(annotations *Annotations) *pb.Annotations {
 	if annotations == nil {
 		return nil
 	}
-	var protoBboxes []*pb.BoundingBox
+	protoBboxes := make([]*pb.BoundingBox, 0, len(annotations.Bboxes))
 	for _, bbox := range annotations.Bboxes {
 		protoBboxes = append(protoBboxes, &pb.BoundingBox{
 			Id:             bbox.ID,
@@ -1737,8 +1819,16 @@ func annotationsToProto(annotations *Annotations) *pb.Annotations {
 			YMaxNormalized: bbox.YMaxNormalized,
 		})
 	}
+	protoClassifications := make([]*pb.Classification, 0, len(annotations.Classifications))
+	for _, classification := range annotations.Classifications {
+		protoClassifications = append(protoClassifications, &pb.Classification{
+			Id:    classification.ID,
+			Label: classification.Label,
+		})
+	}
 	return &pb.Annotations{
-		Bboxes: protoBboxes,
+		Bboxes:          protoBboxes,
+		Classifications: protoClassifications,
 	}
 }
 
@@ -1858,6 +1948,7 @@ func dataPipelineRunFromProto(proto *datapipelinesPb.DataPipelineRun) *DataPipel
 		DataStartTime: proto.DataStartTime.AsTime(),
 		DataEndTime:   proto.DataEndTime.AsTime(),
 		Status:        dataPipelineRunStatusFromProto(proto.Status),
+		ErrorMessage:  proto.ErrorMessage,
 	}
 }
 
@@ -1876,4 +1967,51 @@ func dataPipelineRunStatusFromProto(proto datapipelinesPb.DataPipelineRunStatus)
 	default:
 		return DataPipelineRunStatusUnspecified
 	}
+}
+
+func additionalParametersToProto(opts *TabularDataOptions) (*structpb.Struct, error) {
+	if opts == nil || len(opts.AdditionalParameters) == 0 {
+		return &structpb.Struct{
+			Fields: make(map[string]*structpb.Value),
+		}, nil
+	}
+
+	fields := make(map[string]*structpb.Value)
+	for key, value := range opts.AdditionalParameters {
+		val, err := structpb.NewValue(value)
+		if err != nil {
+			return &structpb.Struct{
+				Fields: make(map[string]*structpb.Value),
+			}, err
+		}
+		fields[key] = val
+	}
+	return &structpb.Struct{
+		Fields: fields,
+	}, nil
+}
+
+// ConvertImageToBytes converts an image.Image to a byte slice based on the specified MIME type.
+func ConvertImageToBytes(image image.Image, mimeType MimeType) ([]byte, error) {
+	var buf bytes.Buffer
+	var imgBytes []byte
+	switch mimeType {
+	case MimeTypeJPEG:
+		err := jpeg.Encode(&buf, image, nil)
+		if err != nil {
+			return nil, err
+		}
+		imgBytes = buf.Bytes()
+	case MimeTypePNG:
+		err := png.Encode(&buf, image)
+		if err != nil {
+			return nil, err
+		}
+		imgBytes = buf.Bytes()
+	case MimeTypeUnspecified, MimeTypePCD:
+		fallthrough
+	default:
+		return nil, errors.New("mime type must be either png or jpeg for images")
+	}
+	return imgBytes, nil
 }

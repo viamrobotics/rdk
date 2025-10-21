@@ -258,9 +258,21 @@ func (octree *BasicOctree) Transform(pose spatialmath.Pose) spatialmath.Geometry
 }
 
 // ToProtobuf converts the octree to a Geometry proto message.
-// TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
-	return nil
+	bytes, err := ToBytes(octree)
+	if err != nil {
+		return nil
+	}
+
+	return &commonpb.Geometry{
+		Center: spatialmath.PoseToProtobuf(octree.Pose()),
+		GeometryType: &commonpb.Geometry_Pointcloud{
+			Pointcloud: &commonpb.PointCloud{
+				PointCloud: bytes,
+			},
+		},
+		Label: octree.Label(),
+	}
 }
 
 // CollidesWith checks if the given octree collides with the given geometry and returns true if it does.
@@ -388,6 +400,102 @@ func (octree *BasicOctree) FinalizeAfterReading() (PointCloud, error) {
 
 	octree.toStore = nil
 	return octree, nil
+}
+
+// PointsCollidingWith returns all points in the octree that collide with any of the given geometries.
+// A point is considered colliding if it meets the confidence threshold and is within the collision buffer distance.
+func (octree *BasicOctree) PointsCollidingWith(geometries []spatialmath.Geometry, collisionBufferMM float64) []r3.Vector {
+	// Finding these points in an octree involves recursing into each child node of the tree.
+	// Rather than returning a list of points from each recursive call and concatenating copies of
+	// them together, we pass an accumulator in, which greatly reduces the number of copies of data
+	// created.
+	results := []r3.Vector{}
+	octree.accumulatePointsCollidingWith(geometries, collisionBufferMM, &results)
+	return results
+}
+
+// accumulatePointsCollidingWith is a helper function internal to PointsCollidingWith. It takes an
+// extra argument, a pointer to where results should be stored, and stores additional points to it
+// as relevant.
+func (octree *BasicOctree) accumulatePointsCollidingWith(
+	geometries []spatialmath.Geometry,
+	collisionBufferMM float64,
+	accumulator *[]r3.Vector,
+) {
+	// Early exit if this octree region has no points above confidence threshold
+	if octree.MaxVal() < octree.confidenceThreshold {
+		return
+	}
+
+	switch octree.node.nodeType {
+	case internalNode:
+		// Create a bounding box for this octree region
+		ocbox, err := spatialmath.NewBox(
+			spatialmath.NewPoseFromPoint(octree.center),
+			r3.Vector{
+				X: octree.sideLength + collisionBufferMM,
+				Y: octree.sideLength + collisionBufferMM,
+				Z: octree.sideLength + collisionBufferMM,
+			},
+			"",
+		)
+		if err != nil {
+			return
+		}
+
+		// Check if any geometry intersects with this octree region
+		intersects := false
+		for _, geom := range geometries {
+			collides, err := geom.CollidesWith(ocbox, collisionBufferMM)
+			if err == nil && collides {
+				intersects = true
+				break
+			}
+		}
+
+		// If no geometry intersects this region, skip all children
+		if !intersects {
+			return
+		}
+
+		// Recursively check children and collect results
+		for _, child := range octree.node.children {
+			child.accumulatePointsCollidingWith(geometries, collisionBufferMM, accumulator)
+		}
+
+	case leafNodeEmpty:
+		// Empty leaf has no points
+		return
+
+	case leafNodeFilled:
+		// Check confidence threshold
+		if octree.node.point.D.HasValue() && octree.node.point.D.Value() < octree.confidenceThreshold {
+			return
+		}
+
+		// Create a point geometry for collision checking
+		pointGeom := spatialmath.NewPoint(octree.node.point.P, "")
+
+		// Check collision with each geometry
+		for _, geom := range geometries {
+			collides, err := geom.CollidesWith(pointGeom, collisionBufferMM)
+			if err == nil && collides {
+				*accumulator = append(*accumulator, octree.node.point.P)
+				break // Point collides with at least one geometry, no need to check others
+			}
+		}
+	}
+}
+
+// PointsWithinRadius returns all points in the octree that are within the specified radius of the given location.
+func (octree *BasicOctree) PointsWithinRadius(center r3.Vector, radius float64) ([]r3.Vector, error) {
+	// Create a sphere geometry at the center with the given radius
+	sphere, err := spatialmath.NewSphere(spatialmath.NewPoseFromPoint(center), radius, "")
+	if err != nil {
+		return nil, err
+	}
+
+	return octree.PointsCollidingWith([]spatialmath.Geometry{sphere}, floatEpsilon), nil
 }
 
 // CreateNewRecentered re-size and center.

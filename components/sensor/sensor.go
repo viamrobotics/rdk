@@ -23,6 +23,10 @@ func init() {
 		API:        API,
 		MethodName: readings.String(),
 	}, newReadingsCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "Sensor".
@@ -43,15 +47,25 @@ type Sensor interface {
 	resource.Sensor
 }
 
-// FromDependencies is a helper for getting the named sensor from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named sensor from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Sensor, error) {
 	return resource.FromDependencies[Sensor](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named Sensor from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named Sensor from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Sensor, error) {
 	return robot.ResourceFromRobot[Sensor](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Sensor from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Sensor, error) {
+	return resource.FromProvider[Sensor](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all sensor names from the given Robot.

@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/components/input"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -23,13 +24,26 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named base remote control service from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named base remote control service from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
+// FromProvider is a helper for getting the named Base Remote Control service
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Service, error) {
+	return resource.FromProvider[Service](provider, Named(name))
+}
+
 func init() {
 	resource.RegisterAPI(API, resource.APIRegistration[Service]{})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // A Service is the basis for the base remote control.

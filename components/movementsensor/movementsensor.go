@@ -54,6 +54,10 @@ func init() {
 		API:        API,
 		MethodName: readings.String(),
 	}, newReadingsCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "movement_sensor".
@@ -177,15 +181,25 @@ type MovementSensor interface {
 	Accuracy(ctx context.Context, extra map[string]interface{}) (*Accuracy, error)
 }
 
-// FromDependencies is a helper for getting the named movementsensor from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named movementsensor from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (MovementSensor, error) {
 	return resource.FromDependencies[MovementSensor](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named MovementSensor from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named MovementSensor from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (MovementSensor, error) {
 	return robot.ResourceFromRobot[MovementSensor](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named MovementSensor from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (MovementSensor, error) {
+	return resource.FromProvider[MovementSensor](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all MovementSensor names from the given Robot.

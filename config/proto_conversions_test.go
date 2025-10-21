@@ -85,6 +85,7 @@ var testRemote = Remote{
 		},
 	},
 	ManagedBy:               "managed-by",
+	Prefix:                  "some-prefix",
 	Insecure:                true,
 	ConnectionCheckInterval: 1000000000,
 	ReconnectInterval:       2000000000,
@@ -269,10 +270,11 @@ func validateModule(t *testing.T, actual, expected Module) {
 }
 
 func TestPackageConfigConversions(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	proto, err := PackageConfigToProto(&testPackageConfig)
 	test.That(t, err, test.ShouldBeNil)
 
-	out, err := PackageConfigFromProto(proto)
+	out, err := PackageConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, testPackageConfig, test.ShouldResemble, *out)
@@ -291,28 +293,30 @@ func TestPackageConfigConversions(t *testing.T) {
 	proto, err = PackageConfigToProto(pckWithErr)
 	test.That(t, err, test.ShouldBeNil)
 
-	out, err = PackageConfigFromProto(proto)
+	out, err = PackageConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, pckWithErr, test.ShouldResemble, out)
 }
 
 func TestLogConfigConversions(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	proto, err := LogConfigToProto(&testLogConfig)
 	test.That(t, err, test.ShouldBeNil)
 
-	out, err := LogConfigFromProto(proto)
+	out, err := LogConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, testLogConfig, test.ShouldResemble, *out)
 }
 
 func TestModuleConfigToProto(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	proto, err := ModuleConfigToProto(&testModule)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, proto.Status, test.ShouldBeNil)
 
-	out, err := ModuleConfigFromProto(proto)
+	out, err := ModuleConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
 
@@ -322,7 +326,7 @@ func TestModuleConfigToProto(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, protoWithErr.Status, test.ShouldNotBeNil)
 
-	out, err = ModuleConfigFromProto(protoWithErr)
+	out, err = ModuleConfigFromProto(protoWithErr, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
 
@@ -332,7 +336,7 @@ func TestModuleConfigToProto(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, protoWithTimeout.Status, test.ShouldBeNil)
 
-	out, err = ModuleConfigFromProto(protoWithTimeout)
+	out, err = ModuleConfigFromProto(protoWithTimeout, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
 
@@ -384,11 +388,12 @@ func rewriteTestComponentProto(conf *pb.ComponentConfig) {
 }
 
 func TestComponentConfigToProto(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	proto, err := ComponentConfigToProto(&testComponent)
 	test.That(t, err, test.ShouldBeNil)
 	rewriteTestComponentProto(proto)
 
-	out, err := ComponentConfigFromProto(proto)
+	out, err := ComponentConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
 	test.That(t, out.LogConfiguration.Level, test.ShouldEqual, logging.DEBUG)
@@ -433,7 +438,7 @@ func TestComponentConfigToProto(t *testing.T) {
 			test.That(t, proto.Model, test.ShouldEqual, tc.Conf.Model.String())
 			test.That(t, proto.Namespace, test.ShouldEqual, tc.Conf.API.Type.Namespace)
 			test.That(t, proto.Type, test.ShouldEqual, tc.Conf.API.SubtypeName)
-			out, err := ComponentConfigFromProto(proto)
+			out, err := ComponentConfigFromProto(proto, logger)
 			test.That(t, err, test.ShouldBeNil)
 			_, _, err = out.Validate("test", resource.APITypeComponentName)
 			test.That(t, err, test.ShouldBeNil)
@@ -558,7 +563,9 @@ func validateRemote(t *testing.T, actual, expected Remote) {
 	test.That(t, actual.Insecure, test.ShouldEqual, expected.Insecure)
 	test.That(t, actual.ReconnectInterval, test.ShouldEqual, expected.ReconnectInterval)
 	test.That(t, actual.ConnectionCheckInterval, test.ShouldEqual, expected.ConnectionCheckInterval)
+	test.That(t, actual.Prefix, test.ShouldEqual, expected.Prefix)
 	test.That(t, actual.Auth, test.ShouldResemble, expected.Auth)
+	test.That(t, actual.Prefix, test.ShouldEqual, expected.Prefix)
 	f1, err := actual.Frame.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
 	f2, err := testComponent.Frame.ParseConfig()
@@ -585,11 +592,12 @@ func validateRemote(t *testing.T, actual, expected Remote) {
 }
 
 func TestRemoteConfigToProto(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	t.Run("With RemoteAuth", func(t *testing.T) {
 		proto, err := RemoteConfigToProto(&testRemote)
 		test.That(t, err, test.ShouldBeNil)
 
-		out, err := RemoteConfigFromProto(proto)
+		out, err := RemoteConfigFromProto(proto, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		validateRemote(t, *out, testRemote)
@@ -599,13 +607,14 @@ func TestRemoteConfigToProto(t *testing.T) {
 		proto := pb.RemoteConfig{
 			Name:    "some-name",
 			Address: "localohst:8080",
+			Prefix:  "some-prefix",
 		}
 
-		out, err := RemoteConfigFromProto(&proto)
+		out, err := RemoteConfigFromProto(&proto, logger)
 		test.That(t, err, test.ShouldBeNil)
-
 		test.That(t, out.Name, test.ShouldEqual, proto.Name)
 		test.That(t, out.Address, test.ShouldEqual, proto.Address)
+		test.That(t, out.Prefix, test.ShouldEqual, proto.Prefix)
 		test.That(t, out.Auth, test.ShouldResemble, RemoteAuth{})
 	})
 }
@@ -621,10 +630,11 @@ func validateService(t *testing.T, actual, expected resource.Config) {
 }
 
 func TestServiceConfigToProto(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	proto, err := ServiceConfigToProto(&testService)
 	test.That(t, err, test.ShouldBeNil)
 
-	out, err := ServiceConfigFromProto(proto)
+	out, err := ServiceConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.LogConfiguration.Level, test.ShouldEqual, logging.DEBUG)
 
@@ -691,7 +701,7 @@ func TestServiceConfigToProto(t *testing.T) {
 			proto, err := ServiceConfigToProto(&tc.Conf)
 			test.That(t, err, test.ShouldBeNil)
 
-			out, err := ServiceConfigFromProto(proto)
+			out, err := ServiceConfigFromProto(proto, logger)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, out, test.ShouldNotBeNil)
 
@@ -703,6 +713,7 @@ func TestServiceConfigToProto(t *testing.T) {
 }
 
 func TestServiceConfigWithEmptyModelName(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	servicesConfigJSON := `
 	{
 		"type": "base_remote_control",
@@ -721,7 +732,7 @@ func TestServiceConfigWithEmptyModelName(t *testing.T) {
 	proto, err := ServiceConfigToProto(&fromJSON)
 	test.That(t, err, test.ShouldBeNil)
 
-	out, err := ServiceConfigFromProto(proto)
+	out, err := ServiceConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
 
@@ -733,18 +744,20 @@ func TestServiceConfigWithEmptyModelName(t *testing.T) {
 }
 
 func TestProcessConfigToProto(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	proto, err := ProcessConfigToProto(&testProcessConfig)
 	test.That(t, err, test.ShouldBeNil)
-	out, err := ProcessConfigFromProto(proto)
+	out, err := ProcessConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, *out, test.ShouldResemble, testProcessConfig)
 }
 
 func TestNetworkConfigToProto(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	proto, err := NetworkConfigToProto(&testNetworkConfig)
 	test.That(t, err, test.ShouldBeNil)
-	out, err := NetworkConfigFromProto(proto)
+	out, err := NetworkConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, *out, test.ShouldResemble, testNetworkConfig)
@@ -761,10 +774,11 @@ func validateAuthConfig(t *testing.T, actual, expected AuthConfig) {
 }
 
 func TestAuthConfigToProto(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	t.Run("api-key auth handler", func(t *testing.T) {
 		proto, err := AuthConfigToProto(&testAuthConfig)
 		test.That(t, err, test.ShouldBeNil)
-		out, err := AuthConfigFromProto(proto)
+		out, err := AuthConfigFromProto(proto, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		validateAuthConfig(t, *out, testAuthConfig)
@@ -788,7 +802,7 @@ func TestAuthConfigToProto(t *testing.T) {
 
 		proto, err := AuthConfigToProto(&authConfig)
 		test.That(t, err, test.ShouldBeNil)
-		out, err := AuthConfigFromProto(proto)
+		out, err := AuthConfigFromProto(proto, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, out.ExternalAuthConfig, test.ShouldResemble, authConfig.ExternalAuthConfig)
@@ -943,20 +957,18 @@ func TestPartialStart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	debug := true
-	disablePartialStart := false
 
 	input := &pb.RobotConfig{
-		Cloud:               cloudConfig,
-		Remotes:             []*pb.RemoteConfig{remoteConfig, remoteInvalidConfig},
-		Modules:             []*pb.ModuleConfig{moduleConfig, moduleInvalidConfig},
-		Components:          []*pb.ComponentConfig{componentConfig, componentInvalidConfig},
-		Processes:           []*pb.ProcessConfig{processConfig, processInvalidConfig},
-		Services:            []*pb.ServiceConfig{serviceConfig, serviceInvalidConfig},
-		Packages:            []*pb.PackageConfig{packageConfig, packageInvalidConfig},
-		Network:             networkConfig,
-		Auth:                authConfig,
-		Debug:               &debug,
-		DisablePartialStart: &disablePartialStart,
+		Cloud:      cloudConfig,
+		Remotes:    []*pb.RemoteConfig{remoteConfig, remoteInvalidConfig},
+		Modules:    []*pb.ModuleConfig{moduleConfig, moduleInvalidConfig},
+		Components: []*pb.ComponentConfig{componentConfig, componentInvalidConfig},
+		Processes:  []*pb.ProcessConfig{processConfig, processInvalidConfig},
+		Services:   []*pb.ServiceConfig{serviceConfig, serviceInvalidConfig},
+		Packages:   []*pb.PackageConfig{packageConfig, packageInvalidConfig},
+		Network:    networkConfig,
+		Auth:       authConfig,
+		Debug:      &debug,
 	}
 
 	out, err := FromProto(input, logger)
@@ -981,53 +993,6 @@ func TestPartialStart(t *testing.T) {
 	test.That(t, out.Packages[1], test.ShouldResemble, testInvalidPackage)
 }
 
-func TestDisablePartialStart(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
-	test.That(t, err, test.ShouldBeNil)
-
-	remoteConfig, err := RemoteConfigToProto(&testRemote)
-	test.That(t, err, test.ShouldBeNil)
-
-	moduleConfig, err := ModuleConfigToProto(&testModule)
-	test.That(t, err, test.ShouldBeNil)
-
-	componentInvalidConfig, err := ComponentConfigToProto(&testInvalidComponent)
-	test.That(t, err, test.ShouldBeNil)
-
-	processConfig, err := ProcessConfigToProto(&testProcessConfig)
-	test.That(t, err, test.ShouldBeNil)
-
-	serviceConfig, err := ServiceConfigToProto(&testService)
-	test.That(t, err, test.ShouldBeNil)
-
-	networkConfig, err := NetworkConfigToProto(&testNetworkConfig)
-	test.That(t, err, test.ShouldBeNil)
-
-	authConfig, err := AuthConfigToProto(&testAuthConfig)
-	test.That(t, err, test.ShouldBeNil)
-
-	debug := true
-	disablePartialStart := true
-
-	input := &pb.RobotConfig{
-		Cloud:               cloudConfig,
-		Remotes:             []*pb.RemoteConfig{remoteConfig},
-		Modules:             []*pb.ModuleConfig{moduleConfig},
-		Components:          []*pb.ComponentConfig{componentInvalidConfig},
-		Processes:           []*pb.ProcessConfig{processConfig},
-		Services:            []*pb.ServiceConfig{serviceConfig},
-		Network:             networkConfig,
-		Auth:                authConfig,
-		Debug:               &debug,
-		DisablePartialStart: &disablePartialStart,
-	}
-
-	out, err := FromProto(input, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, out, test.ShouldBeNil)
-}
-
 func TestPackageTypeConversion(t *testing.T) {
 	emptyType := PackageType("")
 	_, err := PackageTypeToProto(emptyType)
@@ -1046,6 +1011,7 @@ func TestPackageTypeConversion(t *testing.T) {
 }
 
 func TestMaintenanceConfigToProtoSuccess(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	testMaintenanceConfig := MaintenanceConfig{
 		SensorName:            "rdk:component:sensor/car",
 		MaintenanceAllowedKey: "honk",
@@ -1053,13 +1019,14 @@ func TestMaintenanceConfigToProtoSuccess(t *testing.T) {
 
 	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
 	test.That(t, err, test.ShouldBeNil)
-	out, err := MaintenanceConfigFromProto(proto)
+	out, err := MaintenanceConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
 }
 
 func TestMaintenanceConfigToProtoEmptyName(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	testMaintenanceConfig := MaintenanceConfig{
 		SensorName:            "",
 		MaintenanceAllowedKey: "honk",
@@ -1067,13 +1034,14 @@ func TestMaintenanceConfigToProtoEmptyName(t *testing.T) {
 
 	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
 	test.That(t, err, test.ShouldBeNil)
-	out, err := MaintenanceConfigFromProto(proto)
+	out, err := MaintenanceConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
 }
 
 func TestMaintenanceConfigToProtoMalformedName(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	testMaintenanceConfig := MaintenanceConfig{
 		SensorName:            "car:go",
 		MaintenanceAllowedKey: "honk",
@@ -1081,14 +1049,20 @@ func TestMaintenanceConfigToProtoMalformedName(t *testing.T) {
 
 	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
 	test.That(t, err, test.ShouldBeNil)
-	out, err := MaintenanceConfigFromProto(proto)
+	out, err := MaintenanceConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	// We strip the remote name during proto conversion as part of our migration
+	// to simple resource names.
+	modifiedMaintenanceConfig := testMaintenanceConfig
+	modifiedMaintenanceConfig.SensorName = "::/go"
+
 	testMaintenanceConfig.SensorName = resource.NewName(resource.API{}, testMaintenanceConfig.SensorName).String()
-	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+	test.That(t, *out, test.ShouldResemble, modifiedMaintenanceConfig)
 }
 
 func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	testMaintenanceConfig := MaintenanceConfig{
 		SensorName:            "rdk:component:sensor/go:store",
 		MaintenanceAllowedKey: "fast",
@@ -1096,13 +1070,19 @@ func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
 
 	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
 	test.That(t, err, test.ShouldBeNil)
-	out, err := MaintenanceConfigFromProto(proto)
+	out, err := MaintenanceConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+	// We strip the remote name during proto conversion as part of our migration
+	// to simple resource names.
+	modifiedMaintenanceConfig := testMaintenanceConfig
+	modifiedMaintenanceConfig.SensorName = "rdk:component:sensor/store"
+
+	test.That(t, *out, test.ShouldResemble, modifiedMaintenanceConfig)
 }
 
 func TestJobsConfigProtoConversions(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	testJobConfigNoCommand := JobConfig{
 		JobConfigData{
 			Name:     "test",
@@ -1113,7 +1093,7 @@ func TestJobsConfigProtoConversions(t *testing.T) {
 	}
 	proto, err := JobsConfigToProto(&testJobConfigNoCommand)
 	test.That(t, err, test.ShouldBeNil)
-	out, err := JobsConfigFromProto(proto)
+	out, err := JobsConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, *out, test.ShouldResemble, testJobConfigNoCommand)
 
@@ -1131,7 +1111,7 @@ func TestJobsConfigProtoConversions(t *testing.T) {
 
 	proto, err = JobsConfigToProto(&testJobConfigCommand)
 	test.That(t, err, test.ShouldBeNil)
-	out, err = JobsConfigFromProto(proto)
+	out, err = JobsConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, *out, test.ShouldResemble, testJobConfigCommand)
 }

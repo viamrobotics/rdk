@@ -3,12 +3,9 @@ package modmanager
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -27,8 +24,8 @@ import (
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
-	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -41,15 +38,14 @@ var (
 	// name of the folder under the viamHomeDir that holds all the folders for the module data
 	// ex: /home/walle/.viam/module-data/<cloud-robot-id>/<module-name>
 	parentModuleDataFolderName = "module-data"
-	windowsPathRegex           = regexp.MustCompile(`^(\w:)?(.+)$`)
 )
 
 // NewManager returns a Manager.
 func NewManager(
 	ctx context.Context, parentAddrs config.ParentSockAddrs, logger logging.Logger, options modmanageroptions.Options,
-) (modmaninterface.ModuleManager, error) {
+) (*Manager, error) {
 	var err error
-	parentAddrs.UnixAddr, err = cleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
+	parentAddrs.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +58,7 @@ func NewManager(
 		untrustedEnv:            options.UntrustedEnv,
 		viamHomeDir:             options.ViamHomeDir,
 		moduleDataParentDir:     getModuleDataParentDirectory(options),
-		removeOrphanedResources: options.RemoveOrphanedResources,
+		handleOrphanedResources: options.HandleOrphanedResources,
 		restartCtx:              restartCtx,
 		restartCtxCancel:        restartCtxCancel,
 		packagesDir:             options.PackagesDir,
@@ -146,7 +142,7 @@ type Manager struct {
 	// Ex: /home/walle/.viam/module-data/<cloud-robot-id>
 	// it is empty if the modmanageroptions.Options.viamHomeDir was empty
 	moduleDataParentDir     string
-	removeOrphanedResources func(ctx context.Context, rNames []resource.Name)
+	handleOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	restartCtx              context.Context
 	restartCtxCancel        context.CancelFunc
 	ftdc                    *ftdc.FTDC
@@ -200,10 +196,10 @@ func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	return res
 }
 
-// An allowed list of specific viam namespace modules. We want to allow running some of our official
-// modules even in an untrusted environment.
-var allowedModules = map[string]bool{
-	"viam:raspberry-pi": true,
+// An allowed list of specific namespaces that are allowed to run in an untrusted environment.
+// We want to allow running all of our official modules even in an untrusted environment.
+var allowedModulesNamespaces = map[string]bool{
+	"viam": true,
 }
 
 // Checks if the modules added in an untrusted environment are Viam modules
@@ -212,7 +208,12 @@ func checkIfAllowed(confs ...config.Module) (
 	allowed bool /*false*/, newConfs []config.Module,
 ) {
 	for _, conf := range confs {
-		if ok := allowedModules[conf.ModuleID]; ok {
+		parts := strings.Split(conf.ModuleID, ":")
+		if len(parts) == 0 {
+			continue
+		}
+		namespace := parts[0]
+		if ok := allowedModulesNamespaces[namespace]; ok {
 			allowed = true
 			newConfs = append(newConfs, conf)
 		}
@@ -251,7 +252,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		}
 		seen[conf.Name] = struct{}{}
 
-		// this is done in config validation but partial start rules require us to check again
+		// The config was already validated, but we must check again before attempting to add.
 		if err := conf.Validate(""); err != nil {
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
 			errs[i] = err
@@ -383,15 +384,15 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 
-	mod.registerResources(mgr)
+	mod.registerResourceModels(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
 	mod.logger.Infow("Module successfully added", "module", mod.cfg.Name)
 	success = true
 	return nil
 }
 
-// Reconfigure reconfigures an existing resource module and returns the names of
-// now orphaned resources.
+// Reconfigure reconfigures an existing resource module and returns the names of resources previously
+// handled by the module.
 func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
@@ -485,9 +486,13 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		context.Background(), "Waiting for module to complete shutdown", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
-	// need to actually close the resources within the module itself before stopping
+	// Remove all resources associated with the module. Only allow 20s across all removals.
+	// Stopping the module process can take up to 10s, and we want closure of a module to
+	// take <= 30s.
+	resourceRemovalCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
 	for res := range mod.resources {
-		_, err := mod.client.RemoveResource(context.Background(), &pb.RemoveResourceRequest{Name: res.String()})
+		_, err := mod.client.RemoveResource(resourceRemovalCtx, &pb.RemoveResourceRequest{Name: res.String()})
 		if err != nil {
 			mod.logger.Errorw("Error removing resource", "module", mod.cfg.Name, "resource", res.Name, "error", err)
 		} else {
@@ -506,7 +511,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		mod.logger.Warnw("Error closing connection to module", "error", err)
 	}
 
-	mod.deregisterResources()
+	mod.deregisterResourceModels()
 
 	for r, m := range mgr.rMap.Range {
 		if m == mod {
@@ -643,15 +648,15 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	mgr.rMap.Delete(name)
 	delete(mod.resources, name)
 	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
-	if err != nil {
+	if err != nil && !errors.Is(err, rdkgrpc.ErrNotConnected) {
 		return err
 	}
 
 	// if the module is marked for removal, actually remove it when the final resource is closed
 	if mod.pendingRemoval && len(mod.resources) == 0 {
-		err = multierr.Combine(err, mgr.closeModule(mod, false))
+		return multierr.Combine(err, mgr.closeModule(mod, false))
 	}
-	return err
+	return nil
 }
 
 // ValidateConfig determines whether the given config is valid and returns its implicit
@@ -683,82 +688,34 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	if err != nil {
 		return nil, nil, err
 	}
-	return resp.Dependencies, resp.OptionalDependencies, nil
+
+	// RSDK-12124: Ignore any dependency that looks like the user is trying to depend on the
+	// framesystem. That can be done through framesystem.FromDependencies in all golang
+	// modular resources, but users may think it's a required return-value from Validate.
+	var requiredImplicitDeps, optionalImplicitDeps []string
+	for _, dep := range resp.Dependencies {
+		switch dep {
+		case "framesystem", "$framesystem", framesystem.PublicServiceName.String():
+			continue
+		default:
+			requiredImplicitDeps = append(requiredImplicitDeps, dep)
+		}
+	}
+	for _, optionalDep := range resp.OptionalDependencies {
+		switch optionalDep {
+		case "framesystem", "$framesystem", framesystem.PublicServiceName.String():
+			continue
+		default:
+			optionalImplicitDeps = append(optionalImplicitDeps, optionalDep)
+		}
+	}
+
+	return requiredImplicitDeps, optionalImplicitDeps, nil
 }
 
 // ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
-// and modified resources. It also puts modular resources whose module has been modified or added in conf.Added if
-// they are not already there since the resources themselves are not necessarily new.
+// and modified resources.
 func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
-	// NOTE(benji): We could simplify some of the following `continue`
-	// conditional clauses to a single clause, but we split them for readability.
-	for _, c := range conf.Right.Components {
-		mod, ok := mgr.getModule(c)
-		if !ok {
-			// continue if this component is not being provided by a module.
-			continue
-		}
-
-		lenModified, lenAdded := len(conf.Modified.Modules), len(conf.Added.Modules)
-		deltaModules := make([]config.Module, lenModified, lenModified+lenAdded)
-		copy(deltaModules, conf.Modified.Modules)
-		deltaModules = append(deltaModules, conf.Added.Modules...)
-
-		if !slices.ContainsFunc(deltaModules, func(elem config.Module) bool {
-			return elem.Name == mod.cfg.Name
-		}) {
-			// continue if this modular component is not being handled by a modified
-			// or added module.
-			continue
-		}
-		if slices.ContainsFunc(conf.Added.Components, func(elem resource.Config) bool {
-			return elem.Name == c.Name
-		}) {
-			// continue if this modular component handled by a modified module is
-			// already in conf.Added.Components.
-			continue
-		}
-
-		// Add modular component to conf.Added.Components.
-		conf.Added.Components = append(conf.Added.Components, c)
-		// If component is in conf.Modified, the user modified a module and its
-		// component at the same time. Remove that resource from conf.Modified so
-		// the restarted module receives an AddResourceRequest and not a
-		// ReconfigureResourceRequest.
-		conf.Modified.Components = slices.DeleteFunc(
-			conf.Modified.Components, func(elem resource.Config) bool { return elem.Name == c.Name })
-	}
-	for _, s := range conf.Right.Services {
-		mod, ok := mgr.getModule(s)
-		if !ok {
-			// continue if this service is not being provided by a module.
-			continue
-		}
-		if !slices.ContainsFunc(conf.Modified.Modules, func(elem config.Module) bool {
-			return elem.Name == mod.cfg.Name
-		}) {
-			// continue if this modular service is not being handled by a modified
-			// module.
-			continue
-		}
-		if slices.ContainsFunc(conf.Added.Services, func(elem resource.Config) bool {
-			return elem.Name == s.Name
-		}) {
-			// continue if this modular service handled by a modified module is
-			// already in conf.Added.Services.
-			continue
-		}
-
-		// Add modular service to conf.Added.Services.
-		conf.Added.Services = append(conf.Added.Services, s)
-		//  If service is in conf.Modified, the user modified a module and its
-		//  service at the same time. Remove that resource from conf.Modified so
-		//  the restarted module receives an AddResourceRequest and not a
-		//  ReconfigureResourceRequest.
-		conf.Modified.Services = slices.DeleteFunc(
-			conf.Modified.Services, func(elem resource.Config) bool { return elem.Name == s.Name })
-	}
-
 	// If something was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
 	// and store implicit dependencies.
@@ -883,7 +840,7 @@ var oueRestartInterval = 5 * time.Second
 // newOnUnexpectedExitHandler returns the appropriate OnUnexpectedExit function
 // for the passed-in module to include in the pexec.ProcessConfig.
 func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module) pexec.UnexpectedExitHandler {
-	return func(exitCode int) (continueAttemptingRestart bool) {
+	return func(oueCtx context.Context, exitCode int) (continueAttemptingRestart bool) {
 		// Log error immediately, as this is unexpected behavior.
 		mod.logger.Errorw(
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
@@ -927,6 +884,10 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			// starting and/or leaking a module process.
 			if err := ctx.Err(); err != nil {
 				mod.logger.Infow("Restart context canceled, abandoning restart attempt", "err", err)
+				return
+			}
+			if err := oueCtx.Err(); err != nil {
+				mod.logger.Infow("pexec context canceled, abandoning restart attempt", "err", err)
 				return
 			}
 
@@ -973,20 +934,25 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 					err,
 				)
 				orphanedResourceNames = append(orphanedResourceNames, name)
+
+				// At this point, the modmanager is no longer managing this resource and should remove it
+				// from its state.
+				mgr.rMap.Delete(name)
+				delete(mod.resources, name)
 				continue
 			}
 			restoredResourceNamesStr = append(restoredResourceNamesStr, name.String())
 		}
-		if len(orphanedResourceNames) > 0 && mgr.removeOrphanedResources != nil {
+		if len(orphanedResourceNames) > 0 && mgr.handleOrphanedResources != nil {
 			orphanedResourceNamesStr := make([]string, len(orphanedResourceNames))
 			for _, n := range orphanedResourceNames {
 				orphanedResourceNamesStr = append(orphanedResourceNamesStr, n.String())
 			}
-			mod.logger.Warnw("Some modules failed to re-add after crashed module restart and will be removed",
+			mod.logger.Warnw("Some resources failed to re-add after crashed module restart and will be rebuilt",
 				"module", mod.cfg.Name,
-				"orphanedResources", orphanedResourceNamesStr)
+				"resources_to_be_rebuilt", orphanedResourceNamesStr)
 			unlock()
-			mgr.removeOrphanedResources(mgr.restartCtx, orphanedResourceNames)
+			mgr.handleOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		}
 
 		mod.logger.Infow("Module resources successfully re-added after module restart",
@@ -1032,12 +998,12 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	// continues with the normal OUE execution on success.
 	blockRestart := make(chan struct{})
 	defer close(blockRestart)
-	oue := func(exitCode int) bool {
+	oue := func(oueCtx context.Context, exitCode int) bool {
 		<-blockRestart
 		if !success {
 			return false
 		}
-		return mgr.newOnUnexpectedExitHandler(ctx, mod)(exitCode)
+		return mgr.newOnUnexpectedExitHandler(ctx, mod)(oueCtx, exitCode)
 	}
 
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
@@ -1062,7 +1028,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
-
+	mod.registerResourceModels(mgr)
 	success = true
 	return nil
 }
@@ -1081,31 +1047,14 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 			return err
 		}
 	}
-	env := getFullEnvironment(conf, dataDir, mgr.viamHomeDir)
+	env := getFullEnvironment(conf, pkgsDir, dataDir, mgr.viamHomeDir)
 
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
 
-// On windows only, this mutates socket paths so they work well with the GRPC library.
-// It converts e.g. C:\x\y.sock to /x/y.sock
-// If you don't do this, it will confuse grpc-go's url.Parse call and surrounding logic.
-// See https://github.com/grpc/grpc-go/blob/v1.71.0/clientconn.go#L1720-L1727
-func cleanWindowsSocketPath(goos, orig string) (string, error) {
-	if goos == "windows" {
-		match := windowsPathRegex.FindStringSubmatch(orig)
-		if match == nil {
-			return "", fmt.Errorf("error cleaning socket path %s", orig)
-		}
-		if match[1] != "" && strings.ToLower(match[1]) != "c:" {
-			return "", fmt.Errorf("we expect unix sockets on C: drive, not %s", match[1])
-		}
-		return strings.ReplaceAll(match[2], "\\", "/"), nil
-	}
-	return orig, nil
-}
-
 func getFullEnvironment(
 	cfg config.Module,
+	packagesDir string,
 	dataDir string,
 	viamHomeDir string,
 ) map[string]string {
@@ -1117,8 +1066,18 @@ func getFullEnvironment(
 	if cfg.Type == config.ModuleTypeRegistry {
 		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
-	// Overwrite the base environment variables with the module's environment variables (if specified)
+
+	// For local modules, we set VIAM_MODULE_ROOT to the parent directory of the unpacked module.
 	// VIAM_MODULE_ROOT is filled out by app.viam.com in cloud robots.
+	if cfg.Type == config.ModuleTypeLocal {
+		moduleRoot, err := cfg.ExeDir(packages.LocalPackagesDir(packagesDir))
+		// err should never not be nil since we are working with local modules
+		if err == nil {
+			environment["VIAM_MODULE_ROOT"] = moduleRoot
+		}
+	}
+
+	// Overwrite the base environment variables with the module's environment variables (if specified)
 	for key, value := range cfg.Environment {
 		environment[key] = value
 	}
@@ -1129,7 +1088,7 @@ func getFullEnvironment(
 func DepsToNames(deps resource.Dependencies) []string {
 	var depStrings []string
 	for dep := range deps {
-		depStrings = append(depStrings, dep.String())
+		depStrings = append(depStrings, resource.RemoveRemoteName(dep).String())
 	}
 	return depStrings
 }

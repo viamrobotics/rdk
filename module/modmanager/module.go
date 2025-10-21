@@ -29,7 +29,6 @@ import (
 	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
-	"go.viam.com/rdk/module/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/packages"
@@ -67,7 +66,8 @@ func (m *module) dial() error {
 	if !rutils.TCPRegex.MatchString(addrToDial) {
 		addrToDial = "unix:" + addrToDial
 	}
-	conn, err := grpc.Dial( //nolint:staticcheck
+	//nolint:staticcheck
+	conn, err := grpc.Dial(
 		addrToDial,
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(rpc.MaxMessageSize)),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -158,7 +158,7 @@ func (m *module) tcpMode() bool {
 func (m *module) startProcess(
 	ctx context.Context,
 	parentAddr string,
-	oue func(int) bool,
+	oue pexec.UnexpectedExitHandler,
 	viamHomeDir string,
 	packagesDir string,
 ) error {
@@ -178,7 +178,7 @@ func (m *module) startProcess(
 			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
 			return err
 		}
-		m.addr, err = cleanWindowsSocketPath(runtime.GOOS, m.addr)
+		m.addr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, m.addr)
 		if err != nil {
 			return err
 		}
@@ -190,7 +190,7 @@ func (m *module) startProcess(
 	if err != nil {
 		return err
 	}
-	moduleEnvironment := m.getFullEnvironment(viamHomeDir)
+	moduleEnvironment := m.getFullEnvironment(viamHomeDir, packagesDir)
 	// Prefer VIAM_MODULE_ROOT as the current working directory if present but fallback to the directory of the exepath
 	moduleWorkingDirectory, ok := moduleEnvironment["VIAM_MODULE_ROOT"]
 	if !ok {
@@ -254,7 +254,7 @@ func (m *module) startProcess(
 		select {
 		case <-ctxTimeout.Done():
 			if errors.Is(ctxTimeout.Err(), context.DeadlineExceeded) {
-				return rutils.NewModuleStartUpTimeoutError(m.cfg.Name)
+				return rutils.NewModuleStartUpTimeoutError(m.cfg.Name, m.logger)
 			}
 			return ctxTimeout.Err()
 		case <-checkTicker.C:
@@ -309,7 +309,8 @@ func (m *module) stopProcess() error {
 	// SIGTERM correctly.
 	// Also ignore if error is that the process no longer exists.
 	if err := m.process.Stop(); err != nil {
-		if strings.Contains(err.Error(), errMessageExitStatus143) || strings.Contains(err.Error(), "no such process") {
+		var processNotExistsErr *pexec.ProcessNotExistsError
+		if strings.Contains(err.Error(), errMessageExitStatus143) || errors.As(err, &processNotExistsErr) {
 			return nil
 		}
 		return err
@@ -326,7 +327,7 @@ func (m *module) killProcessGroup() {
 	m.process.KillGroup()
 }
 
-func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
+func (m *module) registerResourceModels(mgr *Manager) {
 	for api, models := range m.handles {
 		if _, ok := resource.LookupGenericAPIRegistration(api.API); !ok {
 			resource.RegisterAPI(
@@ -370,7 +371,7 @@ func (m *module) registerResources(mgr modmaninterface.ModuleManager) {
 	}
 }
 
-func (m *module) deregisterResources() {
+func (m *module) deregisterResourceModels() {
 	for api, models := range m.handles {
 		for _, model := range models {
 			resource.Deregister(api.API, model)
@@ -388,7 +389,7 @@ func (m *module) cleanupAfterStartupFailure() {
 }
 
 func (m *module) cleanupAfterCrash(mgr *Manager) {
-	m.deregisterResources()
+	m.deregisterResourceModels()
 	if err := m.sharedConn.Close(); err != nil {
 		m.logger.Warnw("Error closing connection to crashed module", "error", err)
 	}
@@ -398,8 +399,8 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 	}
 }
 
-func (m *module) getFullEnvironment(viamHomeDir string) map[string]string {
-	return getFullEnvironment(m.cfg, m.dataDir, viamHomeDir)
+func (m *module) getFullEnvironment(viamHomeDir, packagesDir string) map[string]string {
+	return getFullEnvironment(m.cfg, packagesDir, m.dataDir, viamHomeDir)
 }
 
 func (m *module) getFTDCName() string {
@@ -417,9 +418,9 @@ func (m *module) registerProcessWithFTDC() {
 		return
 	}
 
-	statser, err := sys.NewPidSysUsageStatser(pid)
+	statser, err := sys.NewSysUsageStatser(pid)
 	if err != nil {
-		m.logger.Warnw("Cannot find /proc files", "err", err)
+		m.logger.Warnw("Cannot start a system statser for module with pid", "pid", pid, "err", err)
 		return
 	}
 

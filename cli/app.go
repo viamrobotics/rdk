@@ -88,16 +88,19 @@ const (
 	moduleFlagDryRun          = "dry-run"
 	moduleFlagUpload          = "upload"
 
-	moduleBuildFlagRef       = "ref"
-	moduleBuildFlagWait      = "wait"
-	moduleBuildFlagToken     = "token"
-	moduleBuildFlagWorkdir   = "workdir"
-	moduleBuildFlagPlatforms = "platforms"
-	moduleBuildFlagGroupLogs = "group-logs"
-	moduleBuildRestartOnly   = "restart-only"
-	moduleBuildFlagNoBuild   = "no-build"
-	moduleBuildFlagOAuthLink = "oauth-link"
-	moduleBuildFlagRepo      = "repo"
+	moduleBuildFlagRef         = "ref"
+	moduleBuildFlagWait        = "wait"
+	moduleBuildFlagToken       = "token"
+	moduleBuildFlagWorkdir     = "workdir"
+	moduleBuildFlagPlatforms   = "platforms"
+	moduleBuildFlagGroupLogs   = "group-logs"
+	moduleBuildRestartOnly     = "restart-only"
+	moduleBuildFlagNoBuild     = "no-build"
+	moduleBuildFlagCloudBuild  = "cloud-build"
+	moduleBuildFlagCloudConfig = "cloud-config"
+	moduleBuildFlagID          = "build-id"
+	moduleBuildFlagOAuthLink   = "oauth-link"
+	moduleBuildFlagRepo        = "repo"
 
 	mlTrainingFlagName        = "script-name"
 	mlTrainingFlagFramework   = "framework"
@@ -126,8 +129,10 @@ const (
 	datapipelineFlagMQL            = "mql"
 	datapipelineFlagMQLFile        = "mql-path"
 	datapipelineFlagDataSourceType = "data-source-type"
+	datapipelineFlagEnableBackfill = "enable-backfill"
 
 	packageFlagFramework = "model-framework"
+	packageFlagModelType = "model-type"
 
 	oauthAppFlagClientID             = "client-id"
 	oauthAppFlagClientName           = "client-name"
@@ -1175,6 +1180,10 @@ var app = &cli.App{
 									Name:  "end",
 									Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval",
 								},
+								&cli.StringFlag{
+									Name:  "additional-params",
+									Usage: "additional parameters to pass to the tabular data export query. accepts a JSON string of key-value pairs",
+								},
 							},
 							Action: createCommandWithT[dataExportTabularArgs](DataExportTabularAction),
 						},
@@ -1335,7 +1344,7 @@ var app = &cli.App{
 										"data tag ids add", []string{generalFlagTags, dataFlagBinaryDataIDs}, false, false,
 									),
 									Flags:  dataTagByIDsFlags,
-									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
+									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIDs),
 								},
 								{
 									Name:  "remove",
@@ -1344,7 +1353,7 @@ var app = &cli.App{
 										"data tag ids remove", []string{generalFlagTags, dataFlagBinaryDataIDs}, false, false,
 									),
 									Flags:  dataTagByIDsFlags,
-									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIds),
+									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIDs),
 								},
 							},
 						},
@@ -1480,6 +1489,29 @@ var app = &cli.App{
 						},
 					},
 					Action: createCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
+				},
+				{
+					Name:      "merge",
+					Usage:     "merge multiple datasets into a new dataset",
+					UsageText: createUsageText("dataset merge", []string{generalFlagOrgID, datasetFlagName, datasetFlagDatasetIDs}, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagOrgID,
+							Required: true,
+							Usage:    "organization ID where the merged dataset will be created",
+						},
+						&cli.StringFlag{
+							Name:     datasetFlagName,
+							Required: true,
+							Usage:    "name of the new merged dataset",
+						},
+						&cli.StringSliceFlag{
+							Name:     datasetFlagDatasetIDs,
+							Required: true,
+							Usage:    "dataset IDs to merge (comma-separated list)",
+						},
+					},
+					Action: createCommandWithT[datasetMergeArgs](DatasetMergeAction),
 				},
 				{
 					Name:            "data",
@@ -1657,7 +1689,7 @@ var app = &cli.App{
 					Name:  "create",
 					Usage: "create a new data pipeline",
 					UsageText: createUsageText("datapipelines create",
-						[]string{generalFlagOrgID, generalFlagName, datapipelineFlagSchedule}, false, false,
+						[]string{generalFlagOrgID, generalFlagName, datapipelineFlagSchedule, datapipelineFlagEnableBackfill}, false, false,
 						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
 							datapipelineFlagMQL, datapipelineFlagMQL,
 							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
@@ -1686,6 +1718,11 @@ var app = &cli.App{
 							Name:  datapipelineFlagMQLFile,
 							Usage: "path to JSON file containing MQL query for the new data pipeline",
 						},
+						&cli.BoolFlag{
+							Name:     datapipelineFlagEnableBackfill,
+							Usage:    "enable data pipeline to run over organization's historical data",
+							Required: true,
+						},
 						&cli.StringFlag{
 							Name: datapipelineFlagDataSourceType,
 							Usage: formatAcceptedValues(
@@ -1698,46 +1735,22 @@ var app = &cli.App{
 					Action: createCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
 				},
 				{
-					Name:  "update",
-					Usage: "update a data pipeline",
-					UsageText: createUsageText("datapipelines update",
-						[]string{generalFlagID, generalFlagName, datapipelineFlagSchedule}, false, false,
-						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
-							datapipelineFlagMQL, datapipelineFlagMQL,
-							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
-					),
+					Name:      "rename",
+					Usage:     "rename a data pipeline",
+					UsageText: createUsageText("datapipelines rename", []string{generalFlagID, generalFlagName}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     generalFlagID,
-							Usage:    "ID of the data pipeline to update",
+							Usage:    "ID of the data pipeline to rename",
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:  generalFlagName,
-							Usage: "name of the data pipeline to update",
-						},
-						&cli.StringFlag{
-							Name:  datapipelineFlagSchedule,
-							Usage: "schedule of the data pipeline to update (cron expression)",
-						},
-						&cli.StringFlag{
-							Name:  datapipelineFlagMQL,
-							Usage: "MQL query for the data pipeline to update",
-						},
-						&cli.StringFlag{
-							Name:  datapipelineFlagMQLFile,
-							Usage: "path to JSON file containing MQL query for the data pipeline to update",
-						},
-						&cli.StringFlag{
-							Name: datapipelineFlagDataSourceType,
-							Usage: formatAcceptedValues(
-								"data source type for the data pipeline to update",
-								StandardDataSourceType,
-								HotStorageDataSourceType,
-							),
+							Name:     generalFlagName,
+							Usage:    "new name for the data pipeline",
+							Required: true,
 						},
 					},
-					Action: createCommandWithT[datapipelineUpdateArgs](DatapipelineUpdateAction),
+					Action: createCommandWithT[datapipelineRenameArgs](DatapipelineRenameAction),
 				},
 				{
 					Name:      "delete",
@@ -2522,11 +2535,77 @@ Note: There is no progress meter while copying is in progress.
 			},
 		},
 		{
+			Name:            "metadata",
+			Usage:           "manage the metadata attached to your orgs, locations, machines, and/or machine parts",
+			UsageText:       createUsageText("metadata", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:      "read",
+					Usage:     "read metadata attached to your orgs, locations, machines, and/or machine parts",
+					UsageText: "Provide at least one of the identifiers using CLI arguments to fetch the corresponding metadata.",
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagOrgID,
+								Aliases: []string{generalFlagAliasOrg, generalFlagOrganization},
+								Usage:   "ID of the organization you want to read the metadata from",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagLocationID,
+								Aliases: []string{generalFlagLocation},
+								Usage:   "ID of the location you want to read the metadata from",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagMachineID,
+								Aliases: []string{generalFlagMachine, generalFlagAliasRobotID, generalFlagAliasRobot},
+								Usage:   "ID of the machine you want to read the metadata from",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagPartID,
+								Aliases: []string{generalFlagPart},
+								Usage:   "ID of the machine part you want to read the metadata from",
+							},
+						},
+					},
+					Action: createCommandWithT[metadataReadArgs](MetadataReadAction),
+				},
+			},
+		},
+		{
 			Name:            "module",
 			Usage:           "manage your modules in Viam's registry",
 			UsageText:       createUsageText("module", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
+				{
+					Name: "local-app-testing",
+					Usage: "Test your viam application locally. This will stand up a local proxy at http://localhost:8012 to simulate " +
+						"the Viam app server. If testing a single-machine app you MUST provide the machine-id parameter, " +
+						"omit it to test a multi-machine app.",
+					UsageText: createUsageText("module local-app-testing",
+						[]string{"app-url", "machine-id"}, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     "app-url",
+							Usage:    "url where local app is running (including port number), e.g http://localhost:5000",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name: "machine-id",
+							Usage: "For single-machine Viam apps: machine ID of the machine you want to test with, you can get it at " +
+								"https://app.viam.com/fleet/machines",
+							Required: false,
+						},
+					},
+					Action: createCommandWithT[localAppTestingArgs](LocalAppTestingAction),
+				},
 				{
 					Name:  "create",
 					Usage: "create & register a module on app.viam.com",
@@ -2827,10 +2906,13 @@ Example:
 							Usage:     "get the logs from one of your cloud builds",
 							UsageText: createUsageText("module build logs", []string{generalFlagID}, true, false),
 							Flags: []cli.Flag{
-								&cli.StringFlag{
-									Name:     generalFlagID,
-									Usage:    "build that you want to get the logs for",
-									Required: true,
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     moduleBuildFlagID,
+										Usage:    "build that you want to get the logs for",
+										Aliases:  []string{generalFlagID},
+										Required: true,
+									},
 								},
 								&cli.StringFlag{
 									Name:        moduleFlagPlatform,
@@ -2878,22 +2960,59 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					},
 				},
 				{
-					Name:      "reload",
+					Name:      "restart",
+					Usage:     "restart a currently-running module",
+					UsageText: createUsageText("module restart", nil, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:        generalFlagPartID,
+							Usage:       "part ID of machine. get from 'Live/Offline' dropdown in the web app",
+							DefaultText: "/etc/viam.json",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPath,
+							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
+							Value: "meta.json",
+						},
+						&cli.StringFlag{
+							Name:  generalFlagName,
+							Usage: "name of module to restart. pass at most one of --name, --id",
+						},
+						&cli.StringFlag{
+							Name:  generalFlagID,
+							Usage: "ID of module to restart, for example viam:wifi-sensor. pass at most one of --name, --id",
+						},
+						&cli.PathFlag{
+							Name:  moduleBuildFlagCloudConfig,
+							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Value: "/etc/viam.json",
+						},
+					},
+					Action: createCommandWithT[moduleRestartArgs](ModuleRestartAction),
+				},
+				{
+					Name:      "reload-local",
 					Usage:     "build a module locally and run it on a target device. rebuild & restart if already running",
-					UsageText: createUsageText("module reload", nil, true, false),
+					UsageText: createUsageText("module reload-local", nil, true, false),
 					Description: `Example invocations:
 
 	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
 	# and configure or restart it.
-	# The GOARCH env in this case would get passed to an underlying go build (assuming you're targeting an arm device).
-	# Note that you'll still need to add the components for your models after your module is installed.
-	GOARCH=arm64 viam module reload --part-id UUID
+	viam module reload-local --part-id UUID
 
-	# Restart a module running on your local viam server, by name, without building or reconfiguring.
-	viam module reload --restart-only --id viam:python-example-module
+	# Reload from an already-built module, without performing a new local build.
+	viam module reload-local --no-build
 
-	# Build and configure a module on your local machine without shipping a tarball.
-	viam module reload --local`,
+	# Run viam module reload on a mac and use the downloaded viam.json file instead of --part-id
+	viam module reload-local --cloud-config ~/Downloads/viam-mac-main.json
+
+	# Specify a component/service model (and optionally a name) to add to the config along with
+	# the module (the API is automatically looked up from meta.json)
+	# By default, no resources are added when a module is reloaded
+	viam module reload-local --model-name acme:module-name:mybase --name my-resource
+
+	# Build and configure a module running on your local machine without shipping a tarball.
+	viam module reload-local --local`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagPartID,
@@ -2914,10 +3033,6 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "ID of module to restart, for example viam:wifi-sensor. pass at most one of --name, --id",
 						},
 						&cli.BoolFlag{
-							Name:  moduleBuildRestartOnly,
-							Usage: "just restart the module on the target system, don't do other reload steps",
-						},
-						&cli.BoolFlag{
 							Name:  moduleBuildFlagNoBuild,
 							Usage: "don't do build step",
 						},
@@ -2933,6 +3048,91 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  moduleFlagHomeDir,
 							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
 							Value: "~",
+						},
+						&cli.PathFlag{
+							Name:  moduleBuildFlagCloudConfig,
+							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Value: "/etc/viam.json",
+						},
+						&cli.StringFlag{
+							Name:        moduleFlagModelName,
+							Usage:       "If passed, creates a resource in the part config with the given model triple",
+							DefaultText: "Don't create a new resource",
+						},
+						&cli.StringFlag{
+							Name:  moduleBuildFlagWorkdir,
+							Usage: "use this to indicate that your meta.json is in a subdirectory of your repo. --module flag should be relative to this",
+							Value: ".",
+						},
+						&cli.StringFlag{
+							Name:        dataFlagResourceName,
+							Usage:       "Use with model-name to name the newly added resource",
+							DefaultText: "resource type with a unique numerical suffix",
+						},
+					},
+					Action: createCommandWithT[reloadModuleArgs](ReloadModuleLocalAction),
+				},
+				{
+					Name:      "reload",
+					Usage:     "build a module in the cloud and run it on a target device. rebuild & restart if already running",
+					UsageText: createUsageText("module reload", nil, true, false),
+					Description: `Example invocations:
+
+	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
+	# and configure or restart it.
+	viam module reload --part-id UUID
+
+	# Run viam module reload on a mac and use the downloaded viam.json file instead of --part-id
+	viam module reload --cloud-config ~/Downloads/viam-mac-main.json
+
+	# Specify a component/service model (and optionally a name) to add to the config along with
+	# the module (the API is automatically looked up from meta.json)
+	# By default, no resources are added when a module is reloaded
+	viam module reload --model-name acme:module-name:mybase --name my-resource`,
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:        generalFlagPartID,
+							Usage:       "part ID of machine. get from 'Live/Offline' dropdown in the web app",
+							DefaultText: "/etc/viam.json",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagPath,
+							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
+							Value: "meta.json",
+						},
+						&cli.BoolFlag{
+							Name:  generalFlagNoProgress,
+							Usage: "hide progress of the file transfer",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagHomeDir,
+							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
+							Value: "~",
+						},
+						&cli.PathFlag{
+							Name:  moduleBuildFlagCloudConfig,
+							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Value: "/etc/viam.json",
+						},
+						&cli.StringFlag{
+							Name:        moduleFlagModelName,
+							Usage:       "If passed, creates a resource in the part config with the given model triple",
+							DefaultText: "Don't create a new resource",
+						},
+						&cli.StringFlag{
+							Name:  moduleBuildFlagWorkdir,
+							Usage: "use this to indicate that your meta.json is in a subdirectory of your repo. --module flag should be relative to this",
+							Value: ".",
+						},
+						&cli.StringFlag{
+							Name:        dataFlagResourceName,
+							Usage:       "Use with model-name to name the newly added resource",
+							DefaultText: "resource type with a unique numerical suffix",
+						},
+						&cli.StringFlag{
+							Name:        generalFlagPath,
+							Usage:       "Use this with --cloud-build to indicate the path to the root of the git repo to build",
+							DefaultText: ".",
 						},
 					},
 					Action: createCommandWithT[reloadModuleArgs](ReloadModuleAction),
@@ -3042,6 +3242,12 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name: packageFlagFramework,
 							Usage: formatAcceptedValues(
 								"framework for an ml_model being uploaded. Required if packages is of type 'ml_model'", modelFrameworks...,
+							),
+						},
+						&cli.StringFlag{
+							Name: packageFlagModelType,
+							Usage: formatAcceptedValues(
+								"type of the model for an ml_model being uploaded. Required if packages is of type 'ml_model'", modelTypes...,
 							),
 						},
 					},
@@ -3173,6 +3379,21 @@ This won't work unless you have an existing installation of our GitHub app on yo
 			Usage:     "print version info for this program",
 			UsageText: createUsageText("version", nil, false, false),
 			Action:    createCommandWithT[emptyArgs](VersionAction),
+		},
+		{
+			Name:  "parse-ftdc",
+			Usage: "parse an ftdc file and open a REPL with extra options",
+			UsageText: createUsageText(
+				"ftdc-parse", []string{generalFlagPath}, false, false,
+			),
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:     generalFlagPath,
+					Required: true,
+					Usage:    "absolute file path to the ftdc file",
+				},
+			},
+			Action: createCommandWithT[ftdcArgs](FTDCParseAction),
 		},
 	},
 }

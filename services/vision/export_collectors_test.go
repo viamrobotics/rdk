@@ -4,4 +4,5 @@ package vision
 // Exported variables for testing collectors, see unexported collectors for implementation details.
 var (
 	NewCaptureAllFromCameraCollector = newCaptureAllFromCameraCollector
+	NewDoCommandCollector            = newDoCommandCollector
 )

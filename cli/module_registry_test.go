@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -322,6 +323,98 @@ func TestGenerateAnchor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := generateAnchor(tt.header)
 			test.That(t, result, test.ShouldEqual, tt.expected)
+		})
+	}
+}
+
+func TestParseMetaJSONWithBrandingFields(t *testing.T) {
+	testCases := []struct {
+		name         string
+		appComponent AppComponent
+		expect       func(t *testing.T, app AppComponent)
+	}{
+		{
+			name: "all fields set",
+			appComponent: AppComponent{
+				Name:        "test-app",
+				Type:        "single-machine",
+				Entrypoint:  "dist/index.html",
+				FragmentIDs: []string{"frag1", "frag2"},
+				LogoPath:    "assets/logo.png",
+				Customizations: &AppCustomizations{
+					MachinePicker: &MachinePickerCustomizations{
+						Heading:    "Welcome to My Brand",
+						Subheading: "Select your machine below.",
+					},
+				},
+			},
+			expect: func(t *testing.T, app AppComponent) {
+				test.That(t, app.FragmentIDs, test.ShouldResemble, []string{"frag1", "frag2"})
+				test.That(t, app.LogoPath, test.ShouldEqual, "assets/logo.png")
+				test.That(t, app.Customizations, test.ShouldNotBeNil)
+				test.That(t, app.Customizations.MachinePicker, test.ShouldNotBeNil)
+				test.That(t, app.Customizations.MachinePicker.Heading, test.ShouldEqual, "Welcome to My Brand")
+				test.That(t, app.Customizations.MachinePicker.Subheading, test.ShouldEqual, "Select your machine below.")
+			},
+		},
+		{
+			name: "missing customizations",
+			appComponent: AppComponent{
+				Name:           "test-app",
+				Type:           "single-machine",
+				Entrypoint:     "dist/index.html",
+				FragmentIDs:    []string{},
+				LogoPath:       "",
+				Customizations: nil,
+			},
+			expect: func(t *testing.T, app AppComponent) {
+				test.That(t, len(app.FragmentIDs), test.ShouldEqual, 0)
+				test.That(t, app.LogoPath, test.ShouldEqual, "")
+				test.That(t, app.Customizations, test.ShouldBeNil)
+			},
+		},
+		{
+			name: "only heading set",
+			appComponent: AppComponent{
+				Name:       "test-app",
+				Type:       "single-machine",
+				Entrypoint: "dist/index.html",
+				Customizations: &AppCustomizations{
+					MachinePicker: &MachinePickerCustomizations{
+						Heading: "Only Heading",
+					},
+				},
+			},
+			expect: func(t *testing.T, app AppComponent) {
+				test.That(t, app.Customizations, test.ShouldNotBeNil)
+				test.That(t, app.Customizations.MachinePicker, test.ShouldNotBeNil)
+				test.That(t, app.Customizations.MachinePicker.Heading, test.ShouldEqual, "Only Heading")
+				test.That(t, app.Customizations.MachinePicker.Subheading, test.ShouldEqual, "")
+			},
+		},
+	}
+	for _, testCase := range testCases {
+		tc := testCase
+		t.Run(tc.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			metaPath := filepath.Join(tempDir, "meta.json")
+			meta := moduleManifest{
+				Schema:      "https://dl.viam.dev/module.schema.json",
+				ModuleID:    "test-namespace:test-module",
+				Visibility:  moduleVisibilityPublic,
+				URL:         "https://github.com/test-org/test-repo",
+				Description: "Test module description",
+				Apps:        []AppComponent{tc.appComponent},
+			}
+			data, err := json.MarshalIndent(meta, "", "  ")
+			test.That(t, err, test.ShouldBeNil)
+			err = os.WriteFile(metaPath, data, 0o644)
+			test.That(t, err, test.ShouldBeNil)
+
+			parsed, err := loadManifest(metaPath)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(parsed.Apps), test.ShouldEqual, 1)
+			tc.expect(t, parsed.Apps[0])
 		})
 	}
 }

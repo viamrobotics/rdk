@@ -16,9 +16,9 @@ type Options struct {
 	ViamHomeDir string
 	// RobotCloudID is the ID of the robot in app.viam.com. Empty if this is a local-only robot
 	RobotCloudID string
-	// RemoveOrphanedResources is a function that the module manager can call to
-	// remove orphaned resources from the resource graph.
-	RemoveOrphanedResources func(ctx context.Context, rNames []resource.Name)
+	// HandleOrphanedResources is a function that the module manager can call to
+	// handle orphaned resources the module manager no longer manages.
+	HandleOrphanedResources func(ctx context.Context, rNames []resource.Name)
 	// PackagesDir is from Config.PackagesPath. It's used for resolving local tarball module paths.
 	PackagesDir string
 	// Passing in an FTDC object will let the mod manager add and remove pieces to track diagnostics

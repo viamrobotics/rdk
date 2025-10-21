@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/rimage"
 	visionservice "go.viam.com/rdk/services/vision"
@@ -31,7 +32,7 @@ import (
 )
 
 //nolint:lll
-var viamLogoJpegB64 = []byte("/9j/4QD4RXhpZgAATU0AKgAAAAgABwESAAMAAAABAAEAAAEaAAUAAAABAAAAYgEbAAUAAAABAAAAagEoAAMAAAABAAIAAAExAAIAAAAhAAAAcgITAAMAAAABAAEAAIdpAAQAAAABAAAAlAAAAAAAAABIAAAAAQAAAEgAAAABQWRvYmUgUGhvdG9zaG9wIDIzLjQgKE1hY2ludG9zaCkAAAAHkAAABwAAAAQwMjIxkQEABwAAAAQBAgMAoAAABwAAAAQwMTAwoAEAAwAAAAEAAQAAoAIABAAAAAEAAAAgoAMABAAAAAEAAAAgpAYAAwAAAAEAAAAAAAAAAAAA/9sAhAAcHBwcHBwwHBwwRDAwMERcRERERFx0XFxcXFx0jHR0dHR0dIyMjIyMjIyMqKioqKioxMTExMTc3Nzc3Nzc3NzcASIkJDg0OGA0NGDmnICc5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ub/3QAEAAL/wAARCAAgACADASIAAhEBAxEB/8QBogAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoLEAACAQMDAgQDBQUEBAAAAX0BAgMABBEFEiExQQYTUWEHInEUMoGRoQgjQrHBFVLR8CQzYnKCCQoWFxgZGiUmJygpKjQ1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4eLj5OXm5+jp6vHy8/T19vf4+foBAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKCxEAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDm6K0dNu1tZsSgGNuDx0961NX09WT7ZbgcD5gPT1oA5qiul0fT1VPtlwByPlB7D1rL1K7W5mxEAI04GBjPvQB//9Dm66TRr/I+xTf8A/wrm6ASpBXgjpQB0ms34UfYof8AgWP5VzdBJY5PJNFAH//Z")
+var viamLogoJpegB64 = []byte("/9j/4QD4RXhpZgAATU0AKgAAAAgABwESAAMAAAABAAEAAAEaAAUAAAABAAAAYgEbAAUAAAABAAAAagEoAAMAAAABAAIAAAExAAIAAAAhAAAAcgITAAMAAAABAAEAAIdpAAQAAAABAAAAlAAAAAAAAABIAAAAAQAAAEgAAAABQWRvYmUgUGhvdG9zaG9wIDIzLjQgKE1hY2ludG9zaCkAAAAHkAAABwAAAAQwMjIxkQEABwAAAAQBAgMAoAAABwAAAAQwMTAwoAEAAwAAAAEAAQAAoAIABAAAAAEAAAAgoAMABAAAAAEAAAAgpAYAAwAAAAEAAAAAAAAAAAAA/9sAhAAcHBwcHBwwHBwwRDAwMERcRERERFx0XFxcXFx0jHR0dHR0dIyMjIyMjIyMqKioqKioxMTExMTc3Nzc3Nzc3Nzc3NzcASIkJDg0OGA0NGDmnICc5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ub/3QAEAAL/wAARCAAgACADASIAAhEBAxEB/8QBogAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoLEAACAQMDAgQDBQUEBAAAAX0BAgMABBEFEiExQQYTUWEHInEUMoGRoQgjQrHBFVLR8CQzYnKCCQoWFxgZGiUmJygpKjQ1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4eLj5OXm5+jp6vHy8/T19vf4+foBAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKCxEAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDm6K0dNu1tZsSgGNuDx0961NX09WT7ZbgcD5gPT1oA5qiul0fT1VPtlwByPlB7D1rL1K7W5mxEAI04GBjPvQB//9Dm66TRr/I+xTf8A/wrm6ASpBXgjpQB0ms34UfYof8AgWP5VzdBJY5PJNFAH//Z")
 
 type fakeDetection struct {
 	boundingBox   *image.Rectangle
@@ -57,19 +58,7 @@ var fakeDetections = []objectdetection.Detection{
 			Max: image.Point{X: 110, Y: 120},
 		},
 		normalizedBox: []float64{0.01, 0.02, 0.11, 0.12},
-		score:         0.95,
-		label:         "cat",
-	},
-}
-
-var fakeDetections2 = []objectdetection.Detection{
-	&fakeDetection{
-		boundingBox: &image.Rectangle{
-			Min: image.Point{X: 10, Y: 20},
-			Max: image.Point{X: 110, Y: 120},
-		},
-		normalizedBox: []float64{0.01, 0.02, 0.11, 0.12},
-		score:         0.3,
+		score:         0.45,
 		label:         "cat",
 	},
 }
@@ -81,12 +70,7 @@ var fakeClassifications = []classification.Classification{
 	},
 }
 
-var fakeClassifications2 = []classification.Classification{
-	&fakeClassification{
-		score: 0.49,
-		label: "cat",
-	},
-}
+var doCommandMap = map[string]any{"readings": "random-test"}
 
 func (fc *fakeClassification) Score() float64 {
 	return fc.score
@@ -153,7 +137,7 @@ func TestCollectors(t *testing.T) {
 	// 32 x 32 image
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 32)
 	test.That(t, img.Bounds().Dy(), test.ShouldEqual, 32)
-	bboxConf := 0.95
+	bboxConf := 0.45
 	classConf := 0.85
 	tests := []struct {
 		name      string
@@ -188,17 +172,6 @@ func TestCollectors(t *testing.T) {
 			}},
 			vision: newVisionService(img),
 		},
-		{
-			name:      "CaptureAllFromCameraCollector w/ Classifications & Detections < 0.5 returns empty CaptureAllFromCameraResp",
-			collector: visionservice.NewCaptureAllFromCameraCollector,
-			expected: []*datasyncpb.SensorData{{
-				Metadata: &datasyncpb.SensorMetadata{
-					MimeType: datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
-				},
-				Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
-			}},
-			vision: newVisionService2(img),
-		},
 	}
 
 	for _, tc := range tests {
@@ -229,6 +202,19 @@ func TestCollectors(t *testing.T) {
 	}
 }
 
+func TestDoCommandCollector(t *testing.T) {
+	viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
+	test.That(t, err, test.ShouldBeNil)
+	img := rimage.NewLazyEncodedImage(viamLogoJpeg, utils.MimeTypeJPEG)
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
+		ComponentName:   serviceName,
+		CaptureInterval: captureInterval,
+		DoCommandMap:    doCommandMap,
+		Collector:       visionservice.NewDoCommandCollector,
+		ResourceFactory: func() interface{} { return newVisionService(img) },
+	})
+}
+
 func newVisionService(img image.Image) visionservice.Service {
 	v := &inject.VisionService{}
 	v.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions,
@@ -240,20 +226,8 @@ func newVisionService(img image.Image) visionservice.Service {
 			Classifications: fakeClassifications,
 		}, nil
 	}
-
-	return v
-}
-
-func newVisionService2(img image.Image) visionservice.Service {
-	v := &inject.VisionService{}
-	v.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions,
-		extra map[string]interface{},
-	) (viscapture.VisCapture, error) {
-		return viscapture.VisCapture{
-			Image:           img,
-			Detections:      fakeDetections2,
-			Classifications: fakeClassifications2,
-		}, nil
+	v.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
 	}
 
 	return v

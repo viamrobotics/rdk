@@ -407,7 +407,7 @@ func (replay *replayMovementSensor) Reconfigure(ctx context.Context, deps resour
 	replay.APIKey = replayMovementSensorConfig.APIKey
 	replay.APIKeyID = replayMovementSensorConfig.APIKeyID
 
-	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
+	cloudConnSvc, err := resource.FromProvider[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
 		return err
 	}
@@ -485,7 +485,7 @@ func (replay *replayMovementSensor) updateCache(ctx context.Context, method meth
 	filter.Method = string(method)
 
 	// Retrieve data from the cloud
-	//nolint:deprecated,staticcheck
+	//nolint:staticcheck
 	resp, err := replay.dataClient.TabularDataByFilter(ctx, &datapb.TabularDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{
 			Filter:    filter,

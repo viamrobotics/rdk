@@ -37,3 +37,13 @@ Building (you must [install go](https://go.dev/doc/install) first):
 ```sh
 go build -o ~/go/bin/viam cli/viam/main.go
 ```
+
+Or if you have installed the CLI through homebrew:
+```sh
+go build -o /opt/homebrew/bin/viam cli/viam/main.go
+```
+
+Then afterwards reset your homebrew installation with:
+```sh
+brew unlink viam && brew link --overwrite viam
+```

@@ -16,12 +16,12 @@ import (
 // serviceServer implements the DiscoveryService from the discovery proto.
 type serviceServer struct {
 	pb.UnimplementedDiscoveryServiceServer
-	coll resource.APIResourceCollection[Service]
+	coll resource.APIResourceGetter[Service]
 }
 
 // NewRPCServiceServer constructs a the discovery gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service]) interface{} {
 	return &serviceServer{coll: coll}
 }
 
@@ -40,9 +40,6 @@ func (server *serviceServer) DiscoverResources(ctx context.Context, req *pb.Disc
 	configs, err := svc.DiscoverResources(ctx, req.GetExtra().AsMap())
 	if err != nil {
 		return nil, err
-	}
-	if configs == nil {
-		return nil, ErrNilResponse
 	}
 
 	protoConfigs := []*apppb.ComponentConfig{}

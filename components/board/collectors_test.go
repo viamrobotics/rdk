@@ -2,19 +2,20 @@ package board_test
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/pkg/errors"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -24,6 +25,8 @@ const (
 	componentName   = "board"
 	captureInterval = time.Millisecond
 )
+
+var doCommandMap = map[string]any{"readings": "random-test"}
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -40,7 +43,7 @@ func TestCollectors(t *testing.T) {
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
 				MethodParams: map[string]*anypb.Any{
-					"reader_name": convertInterfaceToAny("analog"),
+					"reader_name": convertStringToAny("analog"),
 				},
 			},
 			collector: board.NewAnalogCollector,
@@ -62,7 +65,7 @@ func TestCollectors(t *testing.T) {
 				Interval:      captureInterval,
 				Logger:        logging.NewTestLogger(t),
 				MethodParams: map[string]*anypb.Any{
-					"pin_name": convertInterfaceToAny("gpio"),
+					"pin_name": convertStringToAny("gpio"),
 				},
 			},
 			collector: board.NewGPIOCollector,
@@ -97,6 +100,16 @@ func TestCollectors(t *testing.T) {
 	}
 }
 
+func TestDoCommandCollector(t *testing.T) {
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		DoCommandMap:    doCommandMap,
+		Collector:       board.NewDoCommandCollector,
+		ResourceFactory: func() interface{} { return newBoard() },
+	})
+}
+
 func newBoard() board.Board {
 	b := &inject.Board{}
 	analog := &inject.Analog{}
@@ -104,29 +117,38 @@ func newBoard() board.Board {
 		return board.AnalogValue{Value: 1, Min: 0, Max: 10, StepSize: 0.1}, nil
 	}
 	b.AnalogByNameFunc = func(name string) (board.Analog, error) {
-		return analog, nil
+		if name == "analog" {
+			return analog, nil
+		}
+		return nil, errors.New("analog not found")
 	}
 	gpioPin := &inject.GPIOPin{}
 	gpioPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return true, nil
 	}
 	b.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
-		return gpioPin, nil
+		if name == "gpio" {
+			return gpioPin, nil
+		}
+		return nil, errors.New("gpio pin not found")
+	}
+	b.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
 	}
 	return b
 }
 
-func convertInterfaceToAny(v interface{}) *anypb.Any {
+func convertStringToAny(str string) *anypb.Any {
 	anyValue := &anypb.Any{}
 
-	bytes, err := json.Marshal(v)
-	if err != nil {
-		return nil
-	}
-	bytesValue := &wrappers.BytesValue{
-		Value: bytes,
+	// Handle string values as structpb.Value with StringValue
+	structValue := &structpb.Value{
+		Kind: &structpb.Value_StringValue{
+			StringValue: str,
+		},
 	}
 
-	anypb.MarshalFrom(anyValue, bytesValue, proto.MarshalOptions{})
+	anypb.MarshalFrom(anyValue, structValue, proto.MarshalOptions{})
+
 	return anyValue
 }

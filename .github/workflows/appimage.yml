@@ -119,7 +119,7 @@ jobs:
     - name: build server
       run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-cache sh -c "cd /rdk && make server-static"
     - name: build aix
-      run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-cache sh -c 'cd /rdk && GOBIN=`pwd`/bin/`uname -s`-`uname -m` go install -ldflags "-s -w" -tags osusergo,netgo github.com/Otterverse/aix@latest'
+      run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-cache sh -c 'cd /rdk && GOBIN=`pwd`/bin/`uname -s`-`uname -m` go install -ldflags "-s -w" -tags osusergo,netgo github.com/viamrobotics/aix@latest'
     - name: permissions
       run: sudo chown -R $USER bin
     # note: we do this because uname sees the arm64 kernel underneath the armhf container
@@ -149,7 +149,7 @@ jobs:
       with:
         python-version: '3.11'
     - name: deps
-      run: pip install git+https://github.com/AppImageCrafters/appimage-builder.git@42d32f11496de43a9f6a9ada7882a11296e357ca
+      run: pip install git+https://github.com/viamrobotics/appimage-builder.git@viam-2025-07-22
     - name: build
       env:
         RELEASE_TYPE: ${{ inputs.release_type }}

@@ -329,7 +329,11 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 }
 
 // Images is a part of the camera interface but is not implemented for replay.
-func (replay *pcdCamera) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (replay *pcdCamera) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	return nil, resource.ResponseMetadata{}, errors.New("Images is unimplemented")
 }
 
@@ -382,7 +386,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	replay.APIKey = replayCamConfig.APIKey
 	replay.APIKeyID = replayCamConfig.APIKeyID
 
-	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
+	cloudConnSvc, err := resource.FromProvider[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
 		return err
 	}

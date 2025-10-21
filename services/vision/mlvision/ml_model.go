@@ -110,7 +110,7 @@ func registerMLModelVisionService(
 	_, span := trace.StartSpan(ctx, "service::vision::registerMLModelVisionService")
 	defer span.End()
 
-	mlm, err := mlmodel.FromRobot(r, params.ModelName)
+	mlm, err := mlmodel.FromProvider(r, params.ModelName)
 	if err != nil {
 		return nil, err
 	}
@@ -214,14 +214,14 @@ func registerMLModelVisionService(
 	}
 
 	if params.DefaultCamera != "" {
-		_, err = camera.FromRobot(r, params.DefaultCamera)
+		_, err = camera.FromProvider(r, params.DefaultCamera)
 		if err != nil {
 			return nil, errors.Errorf("could not find camera %q", params.DefaultCamera)
 		}
 	}
 
 	// Don't return a close function, because you don't want to close the underlying ML service
-	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc, params.DefaultCamera)
+	return vision.DeprecatedNewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc, params.DefaultCamera)
 }
 
 func getLabelsFromFile(labelPath string) []string {

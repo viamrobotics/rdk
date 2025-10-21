@@ -30,8 +30,8 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -89,7 +89,7 @@ func NewClientFromConn(
 	return &client{
 		remoteName:     remoteName,
 		Named:          name.PrependRemote(remoteName).AsNamed(),
-		name:           name.ShortName(),
+		name:           name.Name,
 		conn:           conn,
 		streamClient:   streamClient,
 		client:         c,
@@ -208,12 +208,22 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
 }
 
-func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
+func (c *client) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]NamedImage, resource.ResponseMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Images")
 	defer span.End()
 
+	convertedExtra, err := goprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
 	resp, err := c.client.GetImages(ctx, &pb.GetImagesRequest{
-		Name: c.name,
+		Name:              c.name,
+		FilterSourceNames: filterSourceNames,
+		Extra:             convertedExtra,
 	})
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not gets images from the camera %w", err)
@@ -222,23 +232,16 @@ func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMet
 	images := make([]NamedImage, 0, len(resp.Images))
 	// keep everything lazy encoded by default, if type is unknown, attempt to decode it
 	for _, img := range resp.Images {
-		var rdkImage image.Image
-		switch img.Format {
-		case pb.Format_FORMAT_RAW_RGBA:
-			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeRawRGBA)
-		case pb.Format_FORMAT_RAW_DEPTH:
-			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeRawDepth)
-		case pb.Format_FORMAT_JPEG:
-			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeJPEG)
-		case pb.Format_FORMAT_PNG:
-			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypePNG)
-		case pb.Format_FORMAT_UNSPECIFIED:
-			rdkImage, _, err = image.Decode(bytes.NewReader(img.Image))
-			if err != nil {
-				return nil, resource.ResponseMetadata{}, err
-			}
+		if img.MimeType == "" {
+			// TODO(RSDK-11733): This is a temporary fix to allow the client to pass both the format and mime type
+			// format. We will remove this once we remove the format field from the proto.
+			img.MimeType = utils.FormatToMimeType[img.Format]
 		}
-		images = append(images, NamedImage{rdkImage, img.SourceName})
+		namedImg, err := NamedImageFromBytes(img.Image, img.SourceName, img.MimeType)
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		images = append(images, namedImg)
 	}
 	return images, resource.ResponseMetadataFromProto(resp.ResponseMetadata), nil
 }
@@ -338,7 +341,7 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 	if err != nil {
 		return nil, err
 	}
-	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
+	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
 }
 
 // TODO(RSDK-6433): This method can be called more than once during a client's lifecycle.
@@ -695,11 +698,11 @@ func (c *client) trackName() string {
 	if c.remoteName != "" {
 		// if c.remoteName != "" it indicates that we are talking to a remote part & we need to pop the remote name
 		// as the remote doesn't know it's own name from the perspective of the main part
-		return c.Name().PopRemote().SDPTrackName()
+		return c.Name().PopRemote().Name
 	}
 
 	// in this case we are talking to a main part & the remote name (if it exists) needs to be preserved
-	return c.Name().SDPTrackName()
+	return c.Name().Name
 }
 
 func (c *client) unsubscribeAll() {

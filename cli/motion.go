@@ -7,7 +7,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -95,7 +94,7 @@ func motionPrintStatusAction(c *cli.Context, args motionPrintArgs) error {
 		return err
 	}
 
-	myMotion, err := motion.FromRobot(robotClient, "builtin")
+	myMotion, err := motion.FromProvider(robotClient, "builtin")
 	if err != nil || myMotion == nil {
 		return fmt.Errorf("no motion: %w", err)
 	}
@@ -103,18 +102,12 @@ func motionPrintStatusAction(c *cli.Context, args motionPrintArgs) error {
 	for _, p := range frameSystem.Parts {
 		n := p.FrameConfig.Name()
 
-		theComponent, err := robot.ResourceByName(robotClient, n)
-		if err != nil {
-			logger.Debugf("no component for %v", n)
-			continue
-		}
-
-		pif, err := myMotion.GetPose(ctx, theComponent.Name(), "world", nil, nil)
+		pif, err := myMotion.GetPose(ctx, n, "world", nil, nil)
 		if err != nil {
 			return err
 		}
 
-		printf(c.App.Writer, "%20s : %v", theComponent.Name().ShortName(), prettyString(pif.Pose()))
+		printf(c.App.Writer, "%20s : %v", n, prettyString(pif.Pose()))
 	}
 
 	return nil
@@ -155,17 +148,12 @@ func motionGetPoseAction(c *cli.Context, args motionGetPoseArgs) error {
 		utils.UncheckedError(robotClient.Close(ctx))
 	}()
 
-	theComponent, err := robot.ResourceByName(robotClient, args.Component)
-	if err != nil {
-		return err
-	}
-
-	myMotion, err := motion.FromRobot(robotClient, "builtin")
+	myMotion, err := motion.FromProvider(robotClient, "builtin")
 	if err != nil || myMotion == nil {
 		return fmt.Errorf("no motion: %w", err)
 	}
 
-	pif, err := myMotion.GetPose(ctx, theComponent.Name(), "world", nil, nil)
+	pif, err := myMotion.GetPose(ctx, args.Component, "world", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -212,17 +200,12 @@ func motionSetPoseAction(c *cli.Context, args motionSetPoseArgs) error {
 		utils.UncheckedError(robotClient.Close(ctx))
 	}()
 
-	theComponent, err := robot.ResourceByName(robotClient, args.Component)
-	if err != nil {
-		return err
-	}
-
-	myMotion, err := motion.FromRobot(robotClient, "builtin")
+	myMotion, err := motion.FromProvider(robotClient, "builtin")
 	if err != nil || myMotion == nil {
 		return fmt.Errorf("no motion: %w", err)
 	}
 
-	pose, err := myMotion.GetPose(ctx, theComponent.Name(), "world", nil, nil)
+	pose, err := myMotion.GetPose(ctx, args.Component, "world", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -260,7 +243,7 @@ func motionSetPoseAction(c *cli.Context, args motionSetPoseArgs) error {
 	printf(c.App.Writer, "going to pose %v", pose)
 
 	req := motion.MoveReq{
-		ComponentName: theComponent.Name(),
+		ComponentName: args.Component,
 		Destination:   pose,
 	}
 	_, err = myMotion.Move(ctx, req)

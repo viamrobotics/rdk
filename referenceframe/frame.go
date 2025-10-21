@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"reflect"
 	"strings"
 
 	"github.com/golang/geo/r3"
@@ -27,6 +28,38 @@ const OOBErrString = "input out of bounds"
 type Limit struct {
 	Min float64
 	Max float64
+}
+
+// Range gives the range of the limit.
+func (l *Limit) Range() float64 {
+	return l.Max - l.Min
+}
+
+const rangeLimit = 999
+
+// GoodLimits gives min, max, range, but capped to -999,999.
+func (l *Limit) GoodLimits() (float64, float64, float64) {
+	a := l.Min
+	b := l.Max
+	if a < -1*rangeLimit {
+		a = -1 * rangeLimit
+	}
+	if b > rangeLimit {
+		b = rangeLimit
+	}
+	return a, b, b - a
+}
+
+func limitsAlmostEqual(limits1, limits2 []Limit, epsilon float64) bool {
+	if len(limits1) != len(limits2) {
+		return false
+	}
+	for i := range limits1 {
+		if math.Abs(limits1[i].Max-limits2[i].Max) > epsilon || math.Abs(limits1[i].Min-limits2[i].Min) > epsilon {
+			return false
+		}
+	}
+	return true
 }
 
 // RestrictedRandomFrameInputs will produce a list of valid, in-bounds inputs for the frame.
@@ -116,6 +149,7 @@ type Frame interface {
 	ProtobufFromInput([]Input) *pb.JointPositions
 
 	json.Marshaler
+	json.Unmarshaler
 }
 
 // baseFrame contains all the data and methods common to all frames, notably it does not implement the Frame interface itself.
@@ -190,6 +224,17 @@ func (sf *tailGeometryStaticFrame) Geometries(input []Input) (*GeometriesInFrame
 
 	// Create the new geometry at a pose of `transform` from the frame
 	return NewGeometriesInFrame(sf.name, []spatial.Geometry{newGeom}), nil
+}
+
+func (sf *tailGeometryStaticFrame) UnmarshalJSON(data []byte) error {
+	var inner staticFrame
+
+	err := json.Unmarshal(data, &inner)
+	if err != nil {
+		return err
+	}
+	sf.staticFrame = &inner
+	return nil
 }
 
 // namedFrame is used to change the name of a frame.
@@ -293,6 +338,36 @@ func (sf staticFrame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
+func (sf *staticFrame) UnmarshalJSON(data []byte) error {
+	var lc LinkConfig
+	if err := json.Unmarshal(data, &lc); err != nil {
+		return err
+	}
+
+	var transform spatial.Pose
+	var geometry spatial.Geometry
+	if lc.Orientation != nil {
+		orientation, err := lc.Orientation.ParseConfig()
+		if err != nil {
+			return err
+		}
+		transform = spatial.NewPose(lc.Translation, orientation)
+	} else {
+		transform = spatial.NewPose(lc.Translation, nil)
+	}
+	if lc.Geometry != nil {
+		geo, err := lc.Geometry.ParseConfig()
+		if err != nil {
+			return err
+		}
+		geometry = geo
+	}
+	sf.baseFrame = &baseFrame{name: lc.ID, limits: []Limit{}}
+	sf.transform = transform
+	sf.geometry = geometry
+	return nil
+}
+
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions.
 type translationalFrame struct {
 	*baseFrame
@@ -380,6 +455,24 @@ func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(temp)
 }
 
+func (pf *translationalFrame) UnmarshalJSON(data []byte) error {
+	var cfg JointConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return err
+	}
+
+	pf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{{Min: cfg.Min, Max: cfg.Max}}}
+	pf.transAxis = r3.Vector(cfg.Axis).Normalize()
+	if cfg.Geometry != nil {
+		geometry, err := cfg.Geometry.ParseConfig()
+		if err != nil {
+			return err
+		}
+		pf.geometry = geometry
+	}
+	return nil
+}
+
 type rotationalFrame struct {
 	*baseFrame
 	rotAxis r3.Vector
@@ -444,6 +537,18 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(temp)
+}
+
+func (rf *rotationalFrame) UnmarshalJSON(data []byte) error {
+	var cfg JointConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return err
+	}
+
+	rf.baseFrame = &baseFrame{name: cfg.ID, limits: []Limit{{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)}}}
+	rotAxis := cfg.Axis.ParseConfig()
+	rf.rotAxis = r3.Vector{X: rotAxis.RX, Y: rotAxis.RY, Z: rotAxis.RZ}
+	return nil
 }
 
 type poseFrame struct {
@@ -532,6 +637,11 @@ func (pf *poseFrame) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("serializing a poseFrame is currently not supported")
 }
 
+// UnmarshalJSON parses a poseFrame.
+func (pf *poseFrame) UnmarshalJSON(data []byte) error {
+	return errors.New("deserializing a poseFrame is currently not supported")
+}
+
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (pf *poseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Values))
@@ -563,4 +673,109 @@ func PoseToInputs(p spatial.Pose) []Input {
 		p.Orientation().OrientationVectorRadians().OZ,
 		p.Orientation().OrientationVectorRadians().Theta,
 	})
+}
+
+// framesAlmostEqual is a helper used in testing that determines whether two Frame instances are (nearly) identical.
+// For now, we only support implementers of the Frame interface that are registered (see register.go).
+// Future implementations within this package should extend this function and add support.
+func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
+	if frame1 == nil {
+		return frame2 == nil, nil
+	} else if frame2 == nil {
+		return false, nil
+	}
+
+	switch {
+	case reflect.TypeOf(frame1) != reflect.TypeOf(frame2):
+		return false, nil
+	case frame1.Name() != frame2.Name():
+		return false, nil
+	case !limitsAlmostEqual(frame1.DoF(), frame2.DoF(), epsilon):
+		return false, nil
+	default:
+	}
+
+	switch f1 := frame1.(type) {
+	case *staticFrame:
+		f2 := frame2.(*staticFrame)
+		switch {
+		case !spatial.PoseAlmostEqual(f1.transform, f2.transform):
+			return false, nil
+		case !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry):
+			return false, nil
+		default:
+		}
+	case *rotationalFrame:
+		f2 := frame2.(*rotationalFrame)
+		if !spatial.R3VectorAlmostEqual(f1.rotAxis, f2.rotAxis, epsilon) {
+			return false, nil
+		}
+	case *translationalFrame:
+		f2 := frame2.(*translationalFrame)
+		switch {
+		case !spatial.R3VectorAlmostEqual(f1.transAxis, f2.transAxis, epsilon):
+			return false, nil
+		case !spatial.GeometriesAlmostEqual(f1.geometry, f2.geometry):
+			return false, nil
+		default:
+		}
+	case *tailGeometryStaticFrame:
+		f2 := frame2.(*tailGeometryStaticFrame)
+		switch {
+		case f1.staticFrame == nil:
+			return f2.staticFrame == nil, nil
+		case f2.staticFrame == nil:
+			return f1.staticFrame == nil, nil
+		default:
+			return framesAlmostEqual(f1.staticFrame, f2.staticFrame, epsilon)
+		}
+	case *SimpleModel:
+		f2 := frame2.(*SimpleModel)
+		ordTransforms1 := f1.OrdTransforms()
+		ordTransforms2 := f2.OrdTransforms()
+		if len(ordTransforms1) != len(ordTransforms2) {
+			return false, nil
+		} else {
+			for i, f := range ordTransforms1 {
+				frameEquality, err := framesAlmostEqual(f, ordTransforms2[i], epsilon)
+				if err != nil {
+					return false, err
+				}
+				if !frameEquality {
+					return false, nil
+				}
+			}
+		}
+	default:
+		return false, fmt.Errorf("equality conditions not defined for %t", frame1)
+	}
+	return true, nil
+}
+
+// Clone makes a copy of a Frame.
+func Clone(f Frame) (Frame, error) {
+	t := reflect.TypeOf(f)
+	var newFrame Frame
+
+	// If f is already a pointer type, we need to create a new instance of the underlying type
+	if t.Kind() == reflect.Ptr {
+		newValue := reflect.New(t.Elem())
+		newFrame = newValue.Interface().(Frame)
+	} else {
+		newValue := reflect.New(t)
+		newFramePointer := newValue.Interface().(*Frame)
+		newFrame = *newFramePointer
+	}
+
+	data, err := f.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	err = newFrame.UnmarshalJSON(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return newFrame, nil
 }

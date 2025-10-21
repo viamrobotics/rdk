@@ -48,6 +48,8 @@ var (
 	templatesPath = filepath.Join(basePath, "_templates")
 )
 
+var unauthenticatedMode = false
+
 type generateModuleArgs struct {
 	Name            string
 	Language        string
@@ -64,9 +66,39 @@ type generateModuleArgs struct {
 func GenerateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
-		return err
+		shouldContinueGeneration := promptUnauthenticated()
+		if !shouldContinueGeneration {
+			return err
+		}
 	}
 	return c.generateModuleAction(cCtx, args)
+}
+
+func promptUnauthenticated() bool {
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Unable to authenticate"),
+			huh.NewConfirm().
+				Title("Continue without authenticating?").
+				Description("In order to register a module with Viam, you must be authenticated.\n"+
+					"You can continue to generate a module, but you will be unable to\n"+
+					"register the module with Viam.\n\n"+
+					"Would you like to conitnue without authenticating?").
+				Value(&unauthenticatedMode).
+				Affirmative("Contiue without authentication").
+				Negative("Do not continue"),
+		),
+	).WithHeight(15).WithWidth(77)
+	err := form.Run()
+	if err != nil {
+		return false
+	}
+	if !unauthenticatedMode {
+		return false
+	}
+
+	return true
 }
 
 func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
@@ -217,6 +249,26 @@ func promptUser(module *modulegen.ModuleInputs) error {
 		}
 		resourceOptions = append(resourceOptions, huh.NewOption(resType, resource))
 	}
+
+	var registerWidget huh.Field
+	if unauthenticatedMode {
+		registerWidget = huh.NewSelect[bool]().
+			Title("Register module").
+			Description("You are unauthenticated and cannot register this module with Viam.\n\nThis module will be a local-only module.").
+			Options(
+				huh.NewOption("Continue", false),
+			).
+			Value(&module.RegisterOnApp)
+	} else {
+		registerWidget = huh.NewConfirm().
+			Title("Register module").
+			Description("Register this module with Viam.\nIf selected, " +
+				"this will associate the module with your organization.\n" +
+				"Otherwise, this will be a local-only module.",
+			).
+			Value(&module.RegisterOnApp)
+	}
+
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().
@@ -232,9 +284,9 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					if s == "" {
 						return errors.New("module name must not be empty")
 					}
-					match, err := regexp.MatchString("^[a-z0-9]+(?:[_-][a-z0-9]+)*$", s)
+					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_\\-a-zA-Z0-9]+)*$", s)
 					if !match || err != nil {
-						return errors.New("module names can only contain alphanumeric characters, dashes, and underscores")
+						return errors.New("module names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter")
 					}
 					if _, err := os.Stat(s); err == nil {
 						return errors.New("this module directory already exists")
@@ -277,9 +329,9 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					if s == "" {
 						return errors.New("model name must not be empty")
 					}
-					match, err := regexp.MatchString("^[a-zA-Z0-9]+(?:[_-][a-zA-Z0-9]+)*$", s)
+					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_\\-a-zA-Z0-9]+)*$", s)
 					if !match || err != nil {
-						return errors.New("module names can only contain alphanumeric characters, dashes, and underscores")
+						return errors.New("model names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter")
 					}
 					return nil
 				}),
@@ -287,11 +339,7 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Title("Enable cloud build").
 				Description("If enabled, this will generate GitHub workflows to build your module.").
 				Value(&module.EnableCloudBuild),
-			huh.NewConfirm().
-				Title("Register module").
-				Description("Register this module with Viam.\nIf selected, "+
-					"this will associate the module with your organization.\nOtherwise, this will be a local-only module.").
-				Value(&module.RegisterOnApp),
+			registerWidget,
 		),
 	).WithHeight(25).WithWidth(88)
 	err := form.Run()
@@ -303,8 +351,17 @@ func promptUser(module *modulegen.ModuleInputs) error {
 }
 
 func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *modulegen.ModuleInputs) error {
-	match, err := regexp.MatchString("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", newModule.Namespace)
-	if !match || err != nil {
+	// If we're not registering on app, we don't need to resolve the org
+	if !newModule.RegisterOnApp {
+		nonAlphanumericRegex := regexp.MustCompile(`[^a-zA-Z0-9]+`)
+		cleanNamespace := nonAlphanumericRegex.ReplaceAllString(newModule.Namespace, "")
+		newModule.Namespace = cleanNamespace
+		newModule.OrgID = newModule.Namespace
+		return nil
+	}
+
+	uuidMatch, err := regexp.MatchString("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", newModule.Namespace)
+	if !uuidMatch || err != nil {
 		// If newModule.Namespace is NOT a UUID
 		org, err := resolveOrg(c, newModule.Namespace, "")
 		if err != nil {
@@ -360,6 +417,7 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	// due to cases where a user didn't pass a `ResourceSubtype`, and so it was set in the `promptUser`
 	// call. We should look into simplifying though, such that all these values are only ever set once.
 	newModule.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
+	newModule.ResourceSubtypeSnake = strings.Split(newModule.Resource, " ")[0]
 	newModule.ResourceType = strings.Split(newModule.Resource, " ")[1]
 
 	titleCaser := cases.Title(language.Und)
@@ -378,6 +436,11 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.ModelPascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ModelName)))
 	newModule.ModelCamel = strings.ToLower(string(newModule.ModelPascal[0])) + newModule.ModelPascal[1:]
 	newModule.ModelSnake = snakeReplacer.Replace(newModule.ModelName)
+	if newModule.ResourceSubtype == "switch" {
+		newModule.ResourceSubtypeAlias = "sw"
+	} else {
+		newModule.ResourceSubtypeAlias = newModule.ResourceSubtype
+	}
 
 	modelTriple := fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
 	newModule.ModelTriple = modelTriple

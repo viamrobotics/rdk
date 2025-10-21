@@ -149,6 +149,7 @@ var (
 				YMaxNormalized: 0.85,
 			},
 		},
+		Classifications: []*Classification{},
 	}
 
 	dataPipelineID = "data_pipeline_id"
@@ -187,6 +188,15 @@ var (
 			DataStartTime: timestamppb.New(time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC)),
 			DataEndTime:   timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
 		},
+		{
+			Id:            "run2",
+			Status:        datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_FAILED,
+			StartTime:     timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
+			EndTime:       timestamppb.New(time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC)),
+			DataStartTime: timestamppb.New(time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC)),
+			DataEndTime:   timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
+			ErrorMessage:  "error message",
+		},
 	}
 	dataPipelineRuns = []*DataPipelineRun{
 		{
@@ -196,6 +206,15 @@ var (
 			EndTime:       time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC),
 			DataStartTime: time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
 			DataEndTime:   time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+		},
+		{
+			ID:            "run2",
+			Status:        DataPipelineRunStatusFailed,
+			StartTime:     time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			EndTime:       time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC),
+			DataStartTime: time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
+			DataEndTime:   time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+			ErrorMessage:  "error message",
 		},
 	}
 )
@@ -328,24 +347,24 @@ func TestDataClient(t *testing.T) {
 
 	t.Run("TabularDataByFilter", func(t *testing.T) {
 		dataStruct, _ := utils.StructToStructPb(data)
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
 			MetadataIndex: 0,
 			TimeRequested: timestamppb.New(start),
 			TimeReceived:  timestamppb.New(end),
 		}
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		grpcClient.TabularDataByFilterFunc = func(ctx context.Context, in *pb.TabularDataByFilterRequest,
 			opts ...grpc.CallOption,
-			//nolint:deprecated,staticcheck
+			//nolint:staticcheck
 		) (*pb.TabularDataByFilterResponse, error) {
 			test.That(t, in.DataRequest, test.ShouldResemble, dataRequestToProto(dataRequest))
 			test.That(t, in.CountOnly, test.ShouldBeTrue)
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
-			//nolint:deprecated,staticcheck
+			//nolint:staticcheck
 			return &pb.TabularDataByFilterResponse{
-				//nolint:deprecated,staticcheck
+				//nolint:staticcheck
 				Data:     []*pb.TabularData{tabularDataPb},
 				Count:    pbCount,
 				Last:     last,
@@ -452,7 +471,7 @@ func TestDataClient(t *testing.T) {
 			}, nil
 		}
 
-		resp, err := client.GetLatestTabularData(context.Background(), partID, componentName, componentType, method)
+		resp, err := client.GetLatestTabularData(context.Background(), partID, componentName, componentType, method, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &latestTabularData)
 	})
@@ -481,7 +500,7 @@ func TestDataClient(t *testing.T) {
 			return mockStream, nil
 		}
 
-		responses, err := client.ExportTabularData(context.Background(), partID, componentName, componentType, method, captureInterval)
+		responses, err := client.ExportTabularData(context.Background(), partID, componentName, componentType, method, captureInterval, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, responses[0], test.ShouldResemble, exportTabularDataResponseFromProto(exportTabularResponse))
 	})
@@ -587,13 +606,17 @@ func TestDataClient(t *testing.T) {
 	})
 
 	t.Run("AddTagsToBinaryDataByFilter", func(t *testing.T) {
+		//nolint:staticcheck
 		grpcClient.AddTagsToBinaryDataByFilterFunc = func(ctx context.Context, in *pb.AddTagsToBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
+			//nolint:staticcheck
 		) (*pb.AddTagsToBinaryDataByFilterResponse, error) {
 			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.Tags, test.ShouldResemble, tags)
+			//nolint:staticcheck
 			return &pb.AddTagsToBinaryDataByFilterResponse{}, nil
 		}
+
 		err := client.AddTagsToBinaryDataByFilter(context.Background(), tags, &filter)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -614,15 +637,19 @@ func TestDataClient(t *testing.T) {
 	})
 
 	t.Run("RemoveTagsFromBinaryDataByFilter", func(t *testing.T) {
+		//nolint:staticcheck
 		grpcClient.RemoveTagsFromBinaryDataByFilterFunc = func(ctx context.Context, in *pb.RemoveTagsFromBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
+			//nolint:staticcheck
 		) (*pb.RemoveTagsFromBinaryDataByFilterResponse, error) {
 			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.Tags, test.ShouldResemble, tags)
+			//nolint:staticcheck
 			return &pb.RemoveTagsFromBinaryDataByFilterResponse{
 				DeletedCount: pbCount,
 			}, nil
 		}
+
 		resp, err := client.RemoveTagsFromBinaryDataByFilter(context.Background(), tags, &filter)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, count)
@@ -673,10 +700,13 @@ func TestDataClient(t *testing.T) {
 			annotationsToProto(&annotations).Bboxes[0].Label,
 			annotationsToProto(&annotations).Bboxes[1].Label,
 		}
+		//nolint:staticcheck
 		grpcClient.BoundingBoxLabelsByFilterFunc = func(ctx context.Context, in *pb.BoundingBoxLabelsByFilterRequest,
 			opts ...grpc.CallOption,
+			//nolint:staticcheck
 		) (*pb.BoundingBoxLabelsByFilterResponse, error) {
 			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
+			//nolint:staticcheck
 			return &pb.BoundingBoxLabelsByFilterResponse{
 				Labels: expectedBBoxLabelsPb,
 			}, nil
@@ -823,7 +853,7 @@ func TestDataSyncClient(t *testing.T) {
 	t.Run("TabularDataCaptureUpload", func(t *testing.T) {
 		uploadMetadata.Type = DataTypeTabularSensor
 		dataStruct, _ := utils.StructToStructPb(data)
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
 			MetadataIndex: 0,
@@ -1144,6 +1174,7 @@ func TestDataPipelineClient(t *testing.T) {
 			test.That(t, in.Name, test.ShouldEqual, name)
 			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
 			test.That(t, in.Schedule, test.ShouldEqual, "0 9 * * *")
+			test.That(t, *in.EnableBackfill, test.ShouldBeTrue)
 			test.That(t, *in.DataSourceType, test.ShouldEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD)
 			return &datapipelinesPb.CreateDataPipelineResponse{
 				Id: "new-data-pipeline-id",
@@ -1152,23 +1183,20 @@ func TestDataPipelineClient(t *testing.T) {
 		options := &CreateDataPipelineOptions{
 			TabularDataSourceType: TabularDataSourceTypeStandard,
 		}
-		resp, err := client.CreateDataPipeline(context.Background(), organizationID, name, mqlQueries, "0 9 * * *", options)
+		resp, err := client.CreateDataPipeline(context.Background(), organizationID, name, mqlQueries, "0 9 * * *", true, options)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, "new-data-pipeline-id")
 	})
 
-	t.Run("UpdateDataPipeline", func(t *testing.T) {
-		grpcClient.UpdateDataPipelineFunc = func(
-			ctx context.Context, in *datapipelinesPb.UpdateDataPipelineRequest, opts ...grpc.CallOption,
-		) (*datapipelinesPb.UpdateDataPipelineResponse, error) {
+	t.Run("RenameDataPipeline", func(t *testing.T) {
+		grpcClient.RenameDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.RenameDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.RenameDataPipelineResponse, error) {
 			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
 			test.That(t, in.Name, test.ShouldEqual, name)
-			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
-			test.That(t, in.Schedule, test.ShouldEqual, "0 7 * * *")
-			test.That(t, *in.DataSourceType, test.ShouldEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD)
-			return &datapipelinesPb.UpdateDataPipelineResponse{}, nil
+			return &datapipelinesPb.RenameDataPipelineResponse{}, nil
 		}
-		err := client.UpdateDataPipeline(context.Background(), dataPipelineID, name, mqlQueries, "0 7 * * *", TabularDataSourceTypeStandard)
+		err := client.RenameDataPipeline(context.Background(), dataPipelineID, name)
 		test.That(t, err, test.ShouldBeNil)
 	})
 

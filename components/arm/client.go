@@ -41,7 +41,7 @@ func NewClientFromConn(
 	pbClient := pb.NewArmServiceClient(conn)
 	return &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		client: pbClient,
 		logger: logger,
 	}, nil
@@ -218,7 +218,7 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 	if err != nil {
 		return nil, err
 	}
-	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
+	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
 }
 
 // warnKinematicsUnsafe is a helper function to warn the user that no kinematics have been supplied for the conversion between
