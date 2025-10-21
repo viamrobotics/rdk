@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +12,11 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+
+	appClient "go.viam.com/rdk/app"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/robot"
+	robotClient "go.viam.com/rdk/robot/client"
 )
 
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
@@ -154,4 +160,43 @@ func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
 		return nil, err
 	}
 	return append(opts, conf.Auth.dialOpts()), nil
+}
+
+// ConnectToHost connects to a Viam host using the cached CLI token.
+func ConnectToHost(ctx context.Context, host string, logger logging.Logger) (robot.Robot, error) {
+	if host == "" {
+		return nil, errors.New("host is required")
+	}
+
+	c, err := ConfigFromCache(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	dopts, err := c.DialOptions()
+	if err != nil {
+		return nil, err
+	}
+
+	return robotClient.New(
+		ctx,
+		host,
+		logger,
+		robotClient.WithDialOptions(dopts...),
+	)
+}
+
+// ConnectToApp connects to the Viam app using the cached CLI token.
+func ConnectToApp(ctx context.Context, logger logging.Logger) (*appClient.ViamClient, error) {
+	c, err := ConfigFromCache(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	dopts, err := c.DialOptions()
+	if err != nil {
+		return nil, err
+	}
+
+	return appClient.CreateViamClientWithOptions(ctx, appClient.WithDialOptions(dopts...), logger)
 }
