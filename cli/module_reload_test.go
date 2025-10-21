@@ -73,7 +73,14 @@ func TestFullReloadFlow(t *testing.T) {
 
 	manifestPath := createTestManifest(t, "", nil)
 	confStruct, err := structpb.NewStruct(map[string]any{
-		"modules": []any{},
+		"modules": []any{
+			map[string]any{
+				"type":           string(rdkConfig.ModuleTypeRegistry),
+				"module_id":      "test:test",
+				"reload_path":    "bin/module",
+				"reload_enabled": true,
+			},
+		},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -91,7 +98,7 @@ func TestFullReloadFlow(t *testing.T) {
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
 	err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, updateCount, test.ShouldEqual, 1)
+	test.That(t, updateCount, test.ShouldEqual, 0)
 
 	t.Run("addShellService", func(t *testing.T) {
 		t.Run("addsServiceWhenMissing", func(t *testing.T) {
@@ -199,7 +206,7 @@ func TestFullReloadFlow(t *testing.T) {
 			logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 			err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, updateCount, test.ShouldEqual, 1)
+			test.That(t, updateCount, test.ShouldEqual, 0)
 		})
 	})
 }

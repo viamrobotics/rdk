@@ -1186,7 +1186,6 @@ func reloadingDestination(c *cli.Context, manifest *moduleManifest) string {
 		rutils.SanitizePath(localizeModuleID(manifest.ModuleID)+"-"+manifest.Build.Path))
 }
 
-
 // validateReloadableArchive returns an error if there is a fatal issue (for now just file not found).
 // It also logs warnings for likely problems.
 func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
