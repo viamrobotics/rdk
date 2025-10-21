@@ -59,13 +59,13 @@ func (lfs *linearizedFrameSystem) mapToSlice(inputs referenceframe.FrameSystemIn
 		if len(frame.DoF()) == 0 {
 			continue
 		}
+
 		input, ok := inputs[frame.Name()]
 		if !ok {
 			return nil, fmt.Errorf("frame %s missing from input map", frame.Name())
 		}
-		for _, i := range input {
-			floatSlice = append(floatSlice, i)
-		}
+
+		floatSlice = append(floatSlice, input...)
 	}
 	return floatSlice, nil
 }

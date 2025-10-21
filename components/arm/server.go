@@ -180,7 +180,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 			}
 			jointPositionsPb := jointPbResp.GetPositions()
 
-			gifs, err := model.Geometries(model.InputFromProtobuf(jointPositionsPb))
+			gifs, err := model.Geometries(jointPositionsPb.Values)
 			if err != nil {
 				return nil, err
 			}

@@ -405,20 +405,12 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (pf *translationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	n := make([]Input, len(jp.Values))
-	for idx, d := range jp.Values {
-		n[idx] = d
-	}
-	return n
+	return jp.Values
 }
 
 // ProtobufFromInput converts inputs to pb.JointPosition.
 func (pf *translationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
-	n := make([]float64, len(input))
-	for idx, a := range input {
-		n[idx] = a
-	}
-	return &pb.JointPositions{Values: n}
+	return &pb.JointPositions{Values: input}
 }
 
 // Geometries returns an object representing the 3D space associeted with the translationalFrame.

@@ -257,19 +257,11 @@ func (pf *ptgGroupFrame) Interpolate(from, to []referenceframe.Input, by float64
 }
 
 func (pf *ptgGroupFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
-	n := make([]referenceframe.Input, len(jp.Values))
-	for idx, d := range jp.Values {
-		n[idx] = d
-	}
-	return n
+	return jp.Values
 }
 
 func (pf *ptgGroupFrame) ProtobufFromInput(input []referenceframe.Input) *pb.JointPositions {
-	n := make([]float64, len(input))
-	for idx, a := range input {
-		n[idx] = a
-	}
-	return &pb.JointPositions{Values: n}
+	return &pb.JointPositions{Values: input}
 }
 
 func (pf *ptgGroupFrame) Geometries(inputs []referenceframe.Input) (*referenceframe.GeometriesInFrame, error) {
