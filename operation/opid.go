@@ -54,9 +54,14 @@ func (o *Operation) HasLabel(label string) bool {
 // CancelOtherWithLabel will cancel all operations besides this one with this label.
 func (o *Operation) CancelOtherWithLabel(label string) {
 	all := o.myManager.All()
-	for _, op := range all {
-		// TODO(RSDK-12330): Figure out how/when All can return a nil operation.
-		if op == nil || op == o {
+	for id, op := range all {
+		if op == nil {
+			// TODO(RSDK-12330): Remove this log once we've found how a nil operation can be
+			// encountered here.
+			o.myManager.logger.Errorw("nil operation encountered within CancelOtherWithLabel method", "id", id)
+			continue
+		}
+		if op == o {
 			continue
 		}
 		if op.HasLabel(label) {
@@ -101,7 +106,13 @@ func (m *Manager) All() []*Operation {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	a := make([]*Operation, 0, len(m.ops))
-	for _, o := range m.ops {
+	for id, o := range m.ops {
+		// TODO(RSDK-12330): Remove this log once we've found how a nil operation can be
+		// encountered here.
+		if o == nil {
+			m.logger.Errorw("nil operation encountered within All method", "id", id)
+		}
+
 		a = append(a, o)
 	}
 	return a
