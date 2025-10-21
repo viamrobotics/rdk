@@ -1121,7 +1121,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				if args.ModelName != "" {
 					sResource := pm.AddSpinner(fmt.Sprintf("Adding resource/component %s...", args.ModelName))
 					sResource.UpdatePrefix("  → ")
-					if err = vc.addResourceFromModule(c, part.Part, manifest, args.ModelName, args.ResourceName); err != nil {
+					if err = vc.addResourceFromModule(part.Part, manifest, args.ModelName, args.ResourceName); err != nil {
 						sResource.ErrorWithMessage(fmt.Sprintf("Resource %s not added to part config", args.ModelName))
 						warningf(c.App.ErrWriter, "unable to add requested resource to robot config: %s", err)
 					} else {
@@ -1214,7 +1214,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 			if args.ModelName != "" {
 				sResource := pm.AddSpinner(fmt.Sprintf("Adding resource %s...", args.ModelName))
 				sResource.UpdatePrefix("  → ")
-				if err = vc.addResourceFromModule(c, part.Part, manifest, args.ModelName, args.ResourceName); err != nil {
+				if err = vc.addResourceFromModule(part.Part, manifest, args.ModelName, args.ResourceName); err != nil {
 					sResource.ErrorWithMessage(fmt.Sprintf("Resource %s not added to part config", args.ModelName))
 					warningf(c.App.ErrWriter, "unable to add requested resource to robot config: %s", err)
 				} else {

@@ -31,7 +31,7 @@ type ResourceMap map[string]any
 // addResourceFromModule adds a resource to the components or services slice if missing. Mutates part.RobotConfig.
 // Returns an error if the modelName isn't in the manifest, or if the specified resourceName already exists.
 func (c *viamClient) addResourceFromModule(
-	ctx *cli.Context, part *apppb.RobotPart, manifest *moduleManifest, modelName, resourceName string,
+	part *apppb.RobotPart, manifest *moduleManifest, modelName, resourceName string,
 ) error {
 	if manifest == nil {
 		return errors.New("unable to add resource from config without a meta.json")
