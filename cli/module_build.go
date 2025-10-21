@@ -25,14 +25,16 @@ import (
 	buildpb "go.viam.com/api/app/build/v1"
 	v1 "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
-	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	rdkConfig "go.viam.com/rdk/config"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -976,6 +978,33 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 	return reloadModuleAction(c, args, true)
 }
 
+func reloadModuleAction(c *cli.Context, args reloadModuleArgs, cloudBuild bool) error {
+	vc, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	// Create logger based on presence of debugFlag.
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
+	if globalArgs.Debug {
+		logger = logging.NewDebugLogger("cli")
+	}
+
+	return reloadModuleActionInner(c, vc, args, logger, cloudBuild)
+}
+
+func getReloadVersion(versionPrefix, partID string) string {
+	return versionPrefix + "-" + partID
+}
+
+// reload with cloudbuild was supported starting in 0.90.0
+// there are older versions of viam-servet that don't support ~/ file prefix, so lets avoid using them.
+var reloadVersionSupported = semver.MustParse("0.90.0")
+
 // reloadModuleActionInner is the testable inner reload logic.
 func reloadModuleActionInner(
 	c *cli.Context,
@@ -1089,7 +1118,7 @@ func reloadModuleActionInner(
 					"try --local if you are testing on the same machine.",
 			)
 		}
-		if err := validateReloadableArchive(c, manifest); err != nil {
+		if err := validateReloadableArchive(c, manifest.Build); err != nil {
 			// if it is a cloud build then it makes sense that we might not have a reloadable
 			// archive locally, so we can safely ignore the error
 			if cloudBuild {
@@ -1145,33 +1174,6 @@ func reloadModuleActionInner(
 	return nil
 }
 
-func reloadModuleAction(c *cli.Context, args reloadModuleArgs, cloudBuild bool) error {
-	vc, err := newViamClient(c)
-	if err != nil {
-		return err
-	}
-
-	// Create logger based on presence of debugFlag.
-	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
-	globalArgs, err := getGlobalArgs(c)
-	if err != nil {
-		return err
-	}
-	if globalArgs.Debug {
-		logger = logging.NewDebugLogger("cli")
-	}
-
-	return reloadModuleActionInner(c, vc, args, logger, cloudBuild)
-}
-
-func getReloadVersion(versionPrefix, partID string) string {
-	return versionPrefix + "-" + partID
-}
-
-// reload with cloudbuild was supported starting in 0.90.0
-// there are older versions of viam-servet that don't support ~/ file prefix, so lets avoid using them.
-var reloadVersionSupported = semver.MustParse("0.90.0")
-
 type reloadingDestinationArgs struct {
 	Home string
 }
@@ -1180,63 +1182,87 @@ type reloadingDestinationArgs struct {
 func reloadingDestination(c *cli.Context, manifest *moduleManifest) string {
 	args := parseStructFromCtx[reloadingDestinationArgs](c)
 	return filepath.Join(args.Home,
-		".viam", rdkConfig.PackagesDirName+rdkConfig.LocalPackagesSuffix,
+		".viam", config.PackagesDirName+config.LocalPackagesSuffix,
 		rutils.SanitizePath(localizeModuleID(manifest.ModuleID)+"-"+manifest.Build.Path))
 }
 
+
 // validateReloadableArchive returns an error if there is a fatal issue (for now just file not found).
-func validateReloadableArchive(c *cli.Context, build *moduleManifest) error {
-	if build == nil {
-		return fmt.Errorf("build is nil")
-	}
-	if build.Build == nil || build.Build.Path == "" {
-		return fmt.Errorf("build path is empty")
-	}
-	// Check if the archive exists
-	if _, err := os.Stat(build.Build.Path); os.IsNotExist(err) {
-		return fmt.Errorf("archive not found at %s", build.Build.Path)
-	}
-	// Check if it's a valid archive by trying to open it
-	file, err := os.Open(build.Build.Path)
+// It also logs warnings for likely problems.
+func validateReloadableArchive(c *cli.Context, build *manifestBuildInfo) error {
+	reader, err := os.Open(build.Path)
 	if err != nil {
-		return fmt.Errorf("failed to open archive: %w", err)
+		return errors.Wrap(err, "error opening the build.path field in your meta.json")
 	}
-	defer func() {
-		utils.UncheckedError(file.Close())
-	}()
-	// Try to read the archive to see if it's valid
-	_, err = file.Seek(0, 0)
+	decompressed, err := gzip.NewReader(reader)
 	if err != nil {
-		return fmt.Errorf("failed to seek in archive: %w", err)
+		return err
 	}
-	// Check if it contains a meta.json
+	archive := tar.NewReader(decompressed)
 	metaFound := false
-	// This is a simple check - in a real implementation you'd want to actually parse the archive
-	if strings.Contains(build.Build.Path, "meta.json") {
-		metaFound = true
+	for {
+		header, err := archive.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return errors.Wrapf(err, "reading tar at %s", build.Path)
+		}
+		if header.Name == "meta.json" {
+			metaFound = true
+			break
+		}
 	}
 	if !metaFound {
-		warningf(c.App.ErrWriter, "archive at %s doesn't contain a meta.json, your module will probably fail to start", build.Build.Path)
+		warningf(c.App.ErrWriter, "archive at %s doesn't contain a meta.json, your module will probably fail to start", build.Path)
 	}
 	return nil
 }
 
 // resolvePartID takes an optional provided part ID (from partFlag), and an optional default viam.json, and returns a part ID to use.
-func resolvePartID(partID, cloudJSON string) (string, error) {
-	if partID != "" {
-		return partID, nil
+func resolvePartID(partIDFromFlag, cloudJSON string) (string, error) {
+	if len(partIDFromFlag) > 0 {
+		return partIDFromFlag, nil
 	}
-	if cloudJSON == "" {
-		return "", fmt.Errorf("no part ID provided and no cloud config found")
+	if len(cloudJSON) == 0 {
+		return "", errors.New("no --part and no default json")
 	}
-	conf, err := rdkConfig.ReadLocalConfig(cloudJSON, logging.NewLogger("cli"))
+	conf, err := config.ReadLocalConfig(cloudJSON, logging.NewLogger("config"))
 	if err != nil {
-		return "", fmt.Errorf("unknown failure opening viam.json at: %s", cloudJSON)
+		return "", err
 	}
 	if conf.Cloud == nil {
 		return "", fmt.Errorf("unknown failure opening viam.json at: %s", cloudJSON)
 	}
 	return conf.Cloud.ID, nil
+}
+
+type resolveTargetModuleArgs struct {
+	Name string
+	ID   string
+}
+
+// resolveTargetModule looks at name / id flags and packs a RestartModuleRequest.
+func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.RestartModuleRequest, error) {
+	args := parseStructFromCtx[resolveTargetModuleArgs](c)
+	modName := args.Name
+	modID := args.ID
+	// todo: use MutuallyExclusiveFlags for this when urfave/cli 3.x is stable
+	if (len(modName) > 0) && (len(modID) > 0) {
+		return nil, fmt.Errorf("provide at most one of --%s and --%s", generalFlagName, generalFlagID)
+	}
+	request := &robot.RestartModuleRequest{}
+
+	if len(modName) > 0 {
+		request.ModuleName = modName
+	} else if len(modID) > 0 {
+		request.ModuleID = modID
+	} else if manifest != nil {
+		request.ModuleID = manifest.ModuleID
+	} else {
+		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, generalFlagID)
+	}
+	return request, nil
 }
 
 type moduleRestartArgs struct {
@@ -1251,10 +1277,12 @@ func ModuleRestartAction(c *cli.Context, args moduleRestartArgs) error {
 	if err != nil {
 		return err
 	}
+
 	part, err := client.getRobotPart(args.PartID)
 	if err != nil {
 		return err
 	}
+
 	manifest, err := loadManifestOrNil(args.Module)
 	if err != nil {
 		return err
@@ -1265,8 +1293,45 @@ func ModuleRestartAction(c *cli.Context, args moduleRestartArgs) error {
 }
 
 // restartModule restarts a module on a robot.
-func restartModule(c *cli.Context, client *viamClient, part *apppb.RobotPart, manifest *moduleManifest, logger logging.Logger) error {
-	// TODO: Implement restart functionality
-	// For now, just return nil to allow tests to pass
-	return nil
+func restartModule(
+	c *cli.Context,
+	vc *viamClient,
+	part *apppb.RobotPart,
+	manifest *moduleManifest,
+	logger logging.Logger,
+) error {
+	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
+	restartReq, err := resolveTargetModule(c, manifest)
+	if err != nil {
+		return err
+	}
+	apiRes, err := vc.client.GetRobotAPIKeys(c.Context, &apppb.GetRobotAPIKeysRequest{RobotId: part.Robot})
+	if err != nil {
+		return err
+	}
+	if len(apiRes.ApiKeys) == 0 {
+		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
+	}
+	key := apiRes.ApiKeys[0]
+	args, err := getGlobalArgs(c)
+	if err != nil {
+		return err
+	}
+	debugf(c.App.Writer, args.Debug, "using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
+	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
+		Type:    rpc.CredentialsTypeAPIKey,
+		Payload: key.ApiKey.Key,
+	})
+	robotClient, err := client.New(c.Context, part.Fqdn, logger, client.WithDialOptions(creds))
+	if err != nil {
+		return err
+	}
+	defer robotClient.Close(c.Context) //nolint: errcheck
+	debugf(c.App.Writer, args.Debug, "restarting module %v", restartReq)
+	// todo: make this a stream so '--wait' can tell user what's happening
+	err = robotClient.RestartModule(c.Context, *restartReq)
+	if err == nil {
+		infof(c.App.Writer, "restarted module.")
+	}
+	return err
 }
