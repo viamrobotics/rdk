@@ -204,8 +204,8 @@ func TestNewValidRegionCapsule(t *testing.T) {
 	ddk, err := buildTestDDK(ctx, testConfig(), true, defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	starting := referenceframe.FloatsToInputs([]float64{400, 0, 0})
-	desired := referenceframe.FloatsToInputs([]float64{0, 400, 0})
+	starting := []referenceframe.Input{400, 0, 0}
+	desired := []referenceframe.Input{0, 400, 0}
 	c, err := ddk.newValidRegionCapsule(starting, desired)
 	test.That(t, err, test.ShouldBeNil)
 

@@ -1148,7 +1148,7 @@ func TestCheckPlan(t *testing.T) {
 	err = mr.localizingFS.AddFrame(cameraFrame, cameraOriginFrame)
 	test.That(t, err, test.ShouldBeNil)
 	inputs := augmentedBaseExecutionState.CurrentInputs()
-	inputs[cameraFrame.Name()] = referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF())))
+	inputs[cameraFrame.Name()] = make([]referenceframe.Input, len(cameraFrame.DoF()))
 	executionStateWithCamera, err := baseplanning.NewExecutionState(
 		augmentedBaseExecutionState.Plan(), augmentedBaseExecutionState.Index(),
 		inputs, augmentedBaseExecutionState.CurrentPoses(),
@@ -1204,7 +1204,7 @@ func TestCheckPlan(t *testing.T) {
 			1,        // OZ
 			-math.Pi, // Theta
 		},
-		cameraFrame.Name(): referenceframe.FloatsToInputs(make([]float64, len(cameraFrame.DoF()))),
+		cameraFrame.Name(): make([]referenceframe.Input, len(cameraFrame.DoF())),
 	}
 	currentPoses := map[string]*referenceframe.PoseInFrame{
 		mr.kinematicBase.LocalizationFrame().Name(): referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPose(
@@ -1427,7 +1427,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		// Define specific arm configuration for first waypoint
 		armConfig := []float64{0.2, 0.3, 0.4, 0.5, 0.6, 0.7}
 		wp1State := armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{
-			"pieceArm": referenceframe.FloatsToInputs(armConfig),
+			"pieceArm": armConfig,
 		})
 
 		// Define pose for second waypoint
@@ -1458,7 +1458,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 				// Check if this configuration matches our waypoint within some epsilon
 				matches := true
 				for i, val := range armInputs {
-					if math.Abs(val.Value-armConfig[i]) > 1e-3 {
+					if math.Abs(val-armConfig[i]) > 1e-3 {
 						matches = false
 						break
 					}
@@ -1487,7 +1487,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	t.Run("plan with custom start state", func(t *testing.T) {
 		startConfig := []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6}
 		startState := armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{
-			"pieceArm": referenceframe.FloatsToInputs(startConfig),
+			"pieceArm": startConfig,
 		})
 
 		finalPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -180, Z: 34}))
@@ -1506,7 +1506,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 
 		// Verify start configuration matches specified start state
 		startArmConfig := plan[0]["pieceArm"]
-		test.That(t, startArmConfig, test.ShouldResemble, referenceframe.FloatsToInputs(startConfig))
+		test.That(t, startArmConfig, test.ShouldResemble, startConfig)
 
 		// Verify final pose
 		frameSys, err := framesystem.NewFromService(ctx, ms.(*builtIn).fsService, nil)
@@ -1524,7 +1524,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	t.Run("plan with explicit goal state configuration", func(t *testing.T) {
 		goalConfig := []float64{0.7, 0.6, 0.5, 0.4, 0.3, 0.2}
 
-		goalState := armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{"pieceArm": referenceframe.FloatsToInputs(goalConfig)})
+		goalState := armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{"pieceArm": goalConfig})
 
 		moveReq := motion.MoveReq{
 			ComponentName: "pieceGripper",
@@ -1539,7 +1539,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 
 		// Verify final configuration matches goal state
 		finalArmConfig := plan[len(plan)-1]["pieceArm"]
-		test.That(t, finalArmConfig, test.ShouldResemble, referenceframe.FloatsToInputs(goalConfig))
+		test.That(t, finalArmConfig, test.ShouldResemble, goalConfig)
 	})
 }
 

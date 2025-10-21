@@ -90,7 +90,7 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, restrictionPercent f
 		minVal := math.Max(l, reference[i]-restrictionPercent*frameSpan/2)
 		maxVal := math.Min(u, reference[i]+restrictionPercent*frameSpan/2)
 		samplingSpan := maxVal - minVal
-		pos = append(pos, samplingSpan*rSeed.Float64() + minVal)
+		pos = append(pos, samplingSpan*rSeed.Float64()+minVal)
 	}
 	return pos, nil
 }
@@ -113,7 +113,7 @@ func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 		if u == math.Inf(1) {
 			u = 999
 		}
-		pos = append(pos, rSeed.Float64()*(u-l) + l)
+		pos = append(pos, rSeed.Float64()*(u-l)+l)
 	}
 	return pos
 }
@@ -666,13 +666,13 @@ func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // in the form [X, Y, Z, OX, OY, OZ, Theta (in radians)]
 // This is the format that is expected by the poseFrame type and should not be used with other frames.
 func PoseToInputs(p spatial.Pose) []Input {
-	return FloatsToInputs([]float64{
+	return []Input{
 		p.Point().X, p.Point().Y, p.Point().Z,
 		p.Orientation().OrientationVectorRadians().OX,
 		p.Orientation().OrientationVectorRadians().OY,
 		p.Orientation().OrientationVectorRadians().OZ,
 		p.Orientation().OrientationVectorRadians().Theta,
-	})
+	}
 }
 
 // framesAlmostEqual is a helper used in testing that determines whether two Frame instances are (nearly) identical.

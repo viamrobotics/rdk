@@ -117,7 +117,7 @@ func newArm() arm.Arm {
 		return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
 	}
 	a.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
-		return referenceframe.FloatsToInputs(referenceframe.JointPositionsToRadians(floatList)), nil
+		return referenceframe.JointPositionsToRadians(floatList), nil
 	}
 	a.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
 		return nil, nil

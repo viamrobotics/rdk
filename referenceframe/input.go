@@ -21,7 +21,7 @@ type Input = float64
 func JointPositionsFromInputs(f Frame, inputs []Input) (*pb.JointPositions, error) {
 	if f == nil {
 		// if a frame is not provided, we will assume all inputs are specified in degrees and need to be converted to radians
-		return JointPositionsFromRadians(InputsToFloats(inputs)), nil
+		return JointPositionsFromRadians(inputs), nil
 	}
 	if len(f.DoF()) != len(inputs) {
 		return nil, NewIncorrectDoFError(len(inputs), len(f.DoF()))
@@ -34,7 +34,7 @@ func JointPositionsFromInputs(f Frame, inputs []Input) (*pb.JointPositions, erro
 func InputsFromJointPositions(f Frame, jp *pb.JointPositions) ([]Input, error) {
 	if f == nil {
 		// if a frame is not provided, we will assume all inputs are specified in degrees and need to be converted to radians
-		return FloatsToInputs(JointPositionsToRadians(jp)), nil
+		return JointPositionsToRadians(jp), nil
 	}
 	if jp == nil {
 		return nil, errors.New("jointPositions cannot be nil")
@@ -71,7 +71,7 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 func interpolateInputs(from, to []Input, by float64) []Input {
 	var newVals []Input
 	for i, j1 := range from {
-		newVals = append(newVals, j1 + ((to[i] - j1) * by))
+		newVals = append(newVals, j1+((to[i]-j1)*by))
 	}
 	return newVals
 }

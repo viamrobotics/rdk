@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -28,7 +29,7 @@ func TestIKTolerances(t *testing.T) {
 		spatial.NewPoseFromProtobuf(&commonpb.Pose{X: -46, Y: 0, Z: 372, OX: -1.78, OY: -3.3, OZ: -1.11}),
 	)}
 
-	seed := frame.FrameSystemInputs{m.Name(): frame.FloatsToInputs(make([]float64, 6))}
+	seed := frame.FrameSystemInputs{m.Name(): []referenceframe.Input{6}}
 
 	// Create PlanRequest to use the new API
 	request := &PlanRequest{

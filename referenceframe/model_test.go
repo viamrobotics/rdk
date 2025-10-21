@@ -21,9 +21,9 @@ func TestModelLoading(t *testing.T) {
 
 	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
-	err = simpleM.validInputs(FloatsToInputs([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}))
+	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
 	test.That(t, err, test.ShouldBeNil)
-	err = simpleM.validInputs(FloatsToInputs([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1}))
+	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
@@ -31,7 +31,7 @@ func TestModelLoading(t *testing.T) {
 	orig[4] -= math.Pi * 4
 
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
-	test.That(t, simpleM.validInputs(FloatsToInputs(randpos)), test.ShouldBeNil)
+	test.That(t, simpleM.validInputs(randpos), test.ShouldBeNil)
 
 	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
@@ -96,17 +96,17 @@ func Test2DMobileModelFrame(t *testing.T) {
 	// expected output
 	expPose := spatial.NewPose(r3.Vector{3, 5, 0}, &spatial.OrientationVector{OZ: 1, Theta: math.Pi / 2})
 	// get expected transform back
-	pose, err := frame.Transform(FloatsToInputs([]float64{3, 5, math.Pi / 2}))
+	pose, err := frame.Transform([]Input{3, 5, math.Pi / 2})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in too many inputs, should get error back
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 5, 0, 10}))
+	_, err = frame.Transform([]Input{3, 5, 0, 10})
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you feed in too few inputs, should get errr back
-	_, err = frame.Transform(FloatsToInputs([]float64{3}))
+	_, err = frame.Transform([]Input{3})
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you try to move beyond set limits, should get an error
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 100}))
+	_, err = frame.Transform([]Input{3, 100})
 	test.That(t, err, test.ShouldNotBeNil)
 	// gets the correct limits back
 	limit := frame.DoF()

@@ -541,7 +541,7 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	// We may produce more than one consecutive arc. Reduce the one configuration to several 2dof arcs
 	for i := 0; i < len(solution.Configuration); i += 2 {
 		subConfig := referenceframe.FrameSystemInputs{
-			mp.tpFrame.Name(): referenceframe.FloatsToInputs(solution.Configuration[i : i+2]),
+			mp.tpFrame.Name(): solution.Configuration[i : i+2],
 		}
 		subNode := newConfigurationNode(subConfig)
 
@@ -829,7 +829,7 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				// add the last node in trajectory
 				addedNode = &basicNode{
 					q: referenceframe.FrameSystemInputs{
-						mp.tpFrame.Name(): referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, 0, trajPt.Dist}),
+						mp.tpFrame.Name(): []float64{float64(ptgNum), randAlpha, 0, trajPt.Dist},
 					},
 					cost:   trajPt.Dist,
 					poses:  mp.tpFramePoseToFrameSystemPoses(trajState.Position),

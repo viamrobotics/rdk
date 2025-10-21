@@ -35,7 +35,7 @@ func TestCreateNloptSolver(t *testing.T) {
 	)
 
 	// Check unpacking from proto
-	seed = referenceframe.InputsToFloats(m.InputFromProtobuf(&pb.JointPositions{Values: []float64{49, 28, -101, 0, -73, 0}}))
+	seed = m.InputFromProtobuf(&pb.JointPositions{Values: []float64{49, 28, -101, 0, -73, 0}})
 	solveFunc = NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
 
 	_, err = DoSolve(context.Background(), ik, solveFunc, seed, 1)

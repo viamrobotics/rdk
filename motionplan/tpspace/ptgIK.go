@@ -99,7 +99,7 @@ func (ptg *ptgIK) Solve(
 	_, err := ptg.fastGradDescent.Solve(
 		ctx,
 		internalSolutionGen,
-		referenceframe.InputsToFloats(seed),
+		seed,
 		nil,
 		ptg.ptgMetricIkFunc(solveMetric),
 		defaultNloptSeed,
@@ -121,7 +121,7 @@ func (ptg *ptgIK) Solve(
 			}
 		}
 	}
-	if err != nil || solved == nil || ptg.arcDist(referenceframe.FloatsToInputs(solved.Configuration)) < defaultZeroDist || seedOutput {
+	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
 		return ptg.gridSim.Solve(ctx, seed, solveMetric)
 	}
@@ -238,7 +238,7 @@ func (ptg *ptgIK) arcDist(inputs []referenceframe.Input) float64 {
 
 func (ptg *ptgIK) ptgMetricIkFunc(distMetric motionplan.StateMetric) ik.CostFunc {
 	return func(_ context.Context, vals []float64) float64 {
-		queryPose, err := ptg.Transform(referenceframe.FloatsToInputs(vals))
+		queryPose, err := ptg.Transform(vals)
 		if err != nil {
 			return math.Inf(1)
 		}

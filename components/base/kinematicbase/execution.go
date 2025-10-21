@@ -515,7 +515,7 @@ func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals 
 		}
 		ptgk.logger.Debug("solution", solution)
 		if solution.Score < courseCorrectionMaxScore {
-			goal.Solution = referenceframe.FloatsToInputs(solution.Configuration)
+			goal.Solution = solution.Configuration
 			return goal, nil
 		}
 	}

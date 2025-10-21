@@ -169,7 +169,7 @@ func (g *multiAxis) GoToInputs(ctx context.Context, inputSteps ...[]referencefra
 
 		// MoveToPosition will use the default gantry speed when an empty float is passed in
 		speeds := []float64{}
-		err := g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
+		err := g.MoveToPosition(ctx, goal, speeds, nil)
 		if err != nil {
 			return err
 		}
@@ -254,5 +254,5 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 		return nil, err
 	}
 
-	return referenceframe.FloatsToInputs(positions), nil
+	return positions, nil
 }

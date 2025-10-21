@@ -303,7 +303,7 @@ func TestFileDeletion(t *testing.T) {
 				ctx context.Context,
 				extra map[string]interface{},
 			) ([]referenceframe.Input, error) {
-				return referenceframe.FloatsToInputs([]float64{1.0, 2.0, 3.0, 4.0}), nil
+				return []referenceframe.Input{1.0, 2.0, 3.0, 4.0}, nil
 			},
 			KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
 				return nil, errors.New("KinematicsFunc unimplemented")

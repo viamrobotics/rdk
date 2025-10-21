@@ -239,7 +239,7 @@ func (p PlanState) Serialize() map[string]interface{} {
 		poseMap[fName] = pifProto
 	}
 	for fName, conf := range p.configuration {
-		confMap[fName] = referenceframe.InputsToFloats(conf)
+		confMap[fName] = conf
 	}
 	if p.poses != nil {
 		m["poses"] = poseMap
@@ -289,7 +289,7 @@ func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 							return nil, errors.New("configuration input array did not contain floats")
 						}
 					}
-					ps.configuration[fName] = referenceframe.FloatsToInputs(floats)
+					ps.configuration[fName] = floats
 				} else {
 					return nil, errors.New("configuration did not contain array of inputs")
 				}

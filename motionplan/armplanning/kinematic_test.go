@@ -18,7 +18,7 @@ func BenchmarkFK(b *testing.B) {
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
 	test.That(b, err, test.ShouldBeNil)
 	for n := 0; n < b.N; n++ {
-		_, err := m.Transform(frame.FloatsToInputs(make([]float64, 7)))
+		_, err := m.Transform([]frame.Input{7})
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
@@ -34,7 +34,7 @@ func TestForwardKinematics(t *testing.T) {
 		r3.Vector{X: 248.55, Y: 0, Z: 115},
 		&spatial.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1},
 	)
-	pos, err := m.Transform(frame.FloatsToInputs(make([]float64, 5)))
+	pos, err := m.Transform([]frame.Input{5})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostEqual(expect, pos), test.ShouldBeTrue)
 
@@ -47,14 +47,14 @@ func TestForwardKinematics(t *testing.T) {
 		r3.Vector{X: 207, Y: 0, Z: 112},
 		&spatial.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: -1},
 	)
-	pos, err = m.Transform(frame.FloatsToInputs(make([]float64, 6)))
+	pos, err = m.Transform([]frame.Input{6})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostEqual(expect, pos), test.ShouldBeTrue)
 
 	// Test incorrect joints
-	_, err = m.Transform(frame.FloatsToInputs(make([]float64, 0)))
+	_, err = m.Transform([]frame.Input{0})
 	test.That(t, err, test.ShouldNotBeNil)
-	_, err = m.Transform(frame.FloatsToInputs(make([]float64, 7)))
+	_, err = m.Transform([]frame.Input{7})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	newPos := &pb.JointPositions{Values: []float64{45, -45, 0, 0, 0, 0}}
@@ -172,7 +172,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	test.That(t, spatial.PoseAlmostCoincident(transformPoint4.(*frame.PoseInFrame).Pose(), poseXarmFromCam), test.ShouldBeTrue)
 
 	// Move the UR5e so its local Z axis is pointing approximately towards the xArm (at positive X)
-	positions["UR5e"] = frame.FloatsToInputs([]float64{0, 0, 0, 0, -math.Pi / 2, -math.Pi / 2})
+	positions["UR5e"] = []frame.Input{0, 0, 0, 0, -math.Pi / 2, -math.Pi / 2}
 
 	// A point that is 813.6, -50, 200 from the camera
 	// This puts the point in the Z plane of the xArm6
@@ -183,8 +183,8 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	worldPointLoc := spatial.NewPoseFromPoint(tf.(*frame.PoseInFrame).Pose().Point())
 
 	// Move the XY gantry such that the xArm6 is now at the point specified
-	positions["gantryX"] = frame.FloatsToInputs([]float64{worldPointLoc.Point().X - poseXarm.Point().X})
-	positions["gantryY"] = frame.FloatsToInputs([]float64{worldPointLoc.Point().Y - poseXarm.Point().Y})
+	positions["gantryX"] = []frame.Input{worldPointLoc.Point().X - poseXarm.Point().X}
+	positions["gantryY"] = []frame.Input{worldPointLoc.Point().Y - poseXarm.Point().Y}
 
 	// Confirm the xArm6 is now at the same location as the point
 	newPointXarm, err := fs.Transform(positions, frame.NewPoseInFrame("xArm6", spatial.NewZeroPose()), frame.World)
@@ -227,7 +227,7 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 
 	seed := rand.New(rand.NewSource(50))
 	for i := 0; i < numTests; i++ {
-		joints := frame.FloatsToInputs(frame.GenerateRandomConfiguration(mURDF, seed))
+		joints := frame.GenerateRandomConfiguration(mURDF, seed)
 		posJSON, err := mJSON.Transform(joints)
 		test.That(t, err, test.ShouldBeNil)
 		posURDF, err := mURDF.Transform(joints)
@@ -241,7 +241,7 @@ func TestComputeOOBPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, model.Name(), test.ShouldEqual, "foo")
 
-	jointPositions := frame.FloatsToInputs([]float64{1.1, 2.2, 3.3, 1.1, 2.2, 3.3})
+	jointPositions := []frame.Input{1.1, 2.2, 3.3, 1.1, 2.2, 3.3}
 
 	t.Run("succeed", func(t *testing.T) {
 		pose, err := frame.ComputeOOBPosition(model, jointPositions)
