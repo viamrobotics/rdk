@@ -308,20 +308,15 @@ func getBytesFromFile(file *os.File) ([]byte, error) {
 }
 
 func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageRequest, int, error) {
-	// get the next chunk of bytes from the file
-	byteArr := make([]byte, moduleUploadChunkSize)
-	numBytesRead, err := file.Read(byteArr)
+	byteArr, err := getBytesFromFile(file)
 	if err != nil {
 		return nil, 0, err
-	}
-	if numBytesRead < moduleUploadChunkSize {
-		byteArr = byteArr[:numBytesRead]
 	}
 	return &packagespb.CreatePackageRequest{
 		Package: &packagespb.CreatePackageRequest_Contents{
 			Contents: byteArr,
 		},
-	}, numBytesRead, nil
+	}, len(byteArr), nil
 }
 
 func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
