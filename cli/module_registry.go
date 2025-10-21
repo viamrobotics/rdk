@@ -1016,7 +1016,6 @@ func sendUploadRequests[RequestT any, StreamT sender[RequestT]](
 	uploadedBytes := 0
 
 	defer vutils.UncheckedErrorFunc(stream.CloseSend)
-
 	// Loop until there is no more content to be read from file or the context expires.
 	for {
 		if ctx.Err() != nil {

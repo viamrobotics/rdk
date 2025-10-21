@@ -34,7 +34,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		&spatial.OrientationVectorDegrees{OX: 1.79, OY: -1.32, OZ: -1.11},
 	)
 	solveFunc := NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
-	solution, err := DoSolve(context.Background(), ik, solveFunc, home)
+	solution, err := DoSolve(context.Background(), ik, solveFunc, home, 1)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test moving forward 20 in X direction from previous position
@@ -43,7 +43,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		&spatial.OrientationVectorDegrees{OX: 1.78, OY: -3.3, OZ: -1.11},
 	)
 	solveFunc = NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
-	_, err = DoSolve(context.Background(), ik, solveFunc, solution[0])
+	_, err = DoSolve(context.Background(), ik, solveFunc, solution[0], 1)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -59,15 +59,6 @@ func TestUR5NloptIKinematics(t *testing.T) {
 	goal, err := m.Transform(m.InputFromProtobuf(goalJP))
 	test.That(t, err, test.ShouldBeNil)
 	solveFunc := NewMetricMinFunc(motionplan.NewSquaredNormMetric(goal), m, logger)
-	_, err = DoSolve(context.Background(), ik, solveFunc, home)
+	_, err = DoSolve(context.Background(), ik, solveFunc, home, 1)
 	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestCombinedCPUs(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKSolver(m.DoF(), logger, runtime.NumCPU()/400000, defaultGoalThreshold)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(ik.solvers), test.ShouldEqual, 2)
 }

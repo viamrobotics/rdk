@@ -22,6 +22,7 @@ type ProgressManager struct {
 	stopped             bool
 	mu                  sync.Mutex
 	sigChan             chan os.Signal
+	stopChan            chan struct{}
 	cancellationMessage string
 }
 
@@ -29,21 +30,27 @@ type ProgressManager struct {
 // The manager will gracefully stop spinners on SIGINT/SIGTERM and restore terminal state.
 func NewProgressManager() *ProgressManager {
 	sm := &ProgressManager{
-		sm:      ysmrr.NewSpinnerManager(),
-		stopped: false,
-		sigChan: make(chan os.Signal, 1),
+		sm:       ysmrr.NewSpinnerManager(),
+		stopped:  false,
+		sigChan:  make(chan os.Signal, 1),
+		stopChan: make(chan struct{}),
 	}
 
 	// Set up signal handler for graceful shutdown on Ctrl+C
 	signal.Notify(sm.sigChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-sm.sigChan
-		sm.Stop()
-		// Print cancellation message if set
-		if sm.cancellationMessage != "" {
-			errorf(os.Stderr, sm.cancellationMessage)
+		select {
+		case <-sm.sigChan:
+			sm.Stop()
+			// Print cancellation message if set
+			if sm.cancellationMessage != "" {
+				errorf(os.Stderr, sm.cancellationMessage)
+			}
+			os.Exit(130) // Standard exit code for SIGINT (128 + 2)
+		case <-sm.stopChan:
+			// Stop signal handler goroutine
+			return
 		}
-		os.Exit(130) // Standard exit code for SIGINT (128 + 2)
 	}()
 
 	return sm
@@ -78,6 +85,16 @@ func (s *ProgressManager) Stop() {
 		s.stopped = true
 		s.started = false
 		s.sm.Stop()
+	}
+}
+
+// StopSignalHandler stops the signal handler goroutine. This is useful for testing.
+func (s *ProgressManager) StopSignalHandler() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.stopChan != nil {
+		close(s.stopChan)
+		s.stopChan = nil
 	}
 }
 

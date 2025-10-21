@@ -15,6 +15,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
+	"github.com/chelnak/ysmrr"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -142,7 +144,10 @@ func (c *viamClient) moduleBuildStartAction(args moduleBuildStartArgs) (string, 
 
 	// Create progress manager for build progress (but don't start yet)
 	pm := NewProgressManager()
-	defer pm.Stop()
+	defer func() {
+		pm.Stop()
+		pm.StopSignalHandler()
+	}()
 
 	// Add to context for sub-functions
 	c.c.Context = WithProgressManager(c.c.Context, pm)
@@ -520,13 +525,12 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 }
 
 type reloadModuleArgs struct {
-	PartID      string
-	Module      string
-	RestartOnly bool
-	NoBuild     bool
-	Local       bool
-	NoProgress  bool
-	CloudBuild  bool
+	PartID     string
+	Module     string
+	NoBuild    bool
+	Local      bool
+	NoProgress bool
+	CloudBuild bool
 
 	// CloudConfig is a path to the `viam.json`, or the config containing the robot ID.
 	CloudConfig  string
@@ -756,11 +760,132 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 	return nil
 }
 
-// moduleCloudReload triggers a cloud build and then returns the download info for the built module.
+func (c *viamClient) inferOrgIDFromManifest(manifest moduleManifest) (string, error) {
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return "", err
+	}
+	org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
+	if err != nil {
+		return "", err
+	}
+
+	return org.GetId(), nil
+}
+
+func (c *viamClient) triggerCloudReloadBuild(
+	ctx *cli.Context,
+	args reloadModuleArgs,
+	manifest moduleManifest,
+	archivePath, partID string,
+	spinner *ysmrr.Spinner,
+) (string, error) {
+	stream, err := c.buildClient.StartReloadBuild(ctx.Context)
+	if err != nil {
+		return "", err
+	}
+
+	//nolint:gosec
+	file, err := os.Open(archivePath)
+	if err != nil {
+		return "", err
+	}
+
+	orgID, err := c.inferOrgIDFromManifest(manifest)
+	if err != nil {
+		return "", err
+	}
+
+	part, err := c.getRobotPart(args.PartID)
+	if err != nil {
+		return "", err
+	}
+
+	if part.Part == nil {
+		return "", fmt.Errorf("part with id=%s not found", args.PartID)
+	}
+
+	if part.Part.UserSuppliedInfo == nil {
+		return "", errors.New("unable to determine platform for part")
+	}
+
+	// App expects `BuildInfo` as the first request
+	platform := part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
+	req := &buildpb.StartReloadBuildRequest{
+		CloudBuild: &buildpb.StartReloadBuildRequest_BuildInfo{
+			BuildInfo: &buildpb.ReloadBuildInfo{
+				Platform: platform,
+				Workdir:  &args.Workdir,
+				ModuleId: manifest.ModuleID,
+			},
+		},
+	}
+	if err := stream.Send(req); err != nil {
+		return "", err
+	}
+
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return "", err
+	}
+	pkgInfo := v1.PackageInfo{
+		OrganizationId: orgID,
+		Name:           moduleID.name,
+		Version:        getReloadVersion(reloadSourceVersionPrefix, partID),
+		Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
+	}
+	reqInner := &v1.CreatePackageRequest{
+		Package: &v1.CreatePackageRequest_Info{
+			Info: &pkgInfo,
+		},
+	}
+	req = &buildpb.StartReloadBuildRequest{
+		CloudBuild: &buildpb.StartReloadBuildRequest_Package{
+			Package: reqInner,
+		},
+	}
+
+	if err := stream.Send(req); err != nil {
+		return "", err
+	}
+
+	var errs error
+	// Upload is handled by the calling function's spinner
+	if err := sendUploadRequests(
+		ctx.Context, stream, file, spinner, getNextReloadBuildUploadRequest); err != nil && !errors.Is(err, io.EOF) {
+		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
+	}
+
+	resp, closeErr := stream.CloseAndRecv()
+	if closeErr != nil && !errors.Is(closeErr, io.EOF) {
+		errs = multierr.Combine(errs, closeErr)
+	}
+	return resp.GetBuildId(), errs
+}
+
+func getNextReloadBuildUploadRequest(file *os.File) (*buildpb.StartReloadBuildRequest, int, error) {
+	packagesRequest, byteLen, err := getNextPackageUploadRequest(file)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return &buildpb.StartReloadBuildRequest{
+		CloudBuild: &buildpb.StartReloadBuildRequest_Package{
+			Package: packagesRequest,
+		},
+	}, byteLen, nil
+}
+
+// moduleCloudReload triggers a cloud build and returns the download info for the built module.
 func (c *viamClient) moduleCloudReload(
-	ctx *cli.Context, args reloadModuleArgs, manifest *moduleManifest, platform string,
+	ctx *cli.Context,
+	args reloadModuleArgs,
+	platform string,
+	manifest moduleManifest,
+	partID string,
 ) (*moduleDownloadInfo, error) {
 	pm := GetProgressManager(ctx.Context)
+
 	// ensure that the module has been registered in the cloud
 	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
@@ -769,104 +894,57 @@ func (c *viamClient) moduleCloudReload(
 
 	// Preparing for Build (parent spinner)
 	sPrepare := pm.AddSpinner("Preparing for build...")
-
-	childSpinner1 := pm.AddSpinner("Ensuring module is registered...")
-	childSpinner1.UpdatePrefix("  → ")
-	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, manifest)
+	s1 := pm.AddSpinner("Ensuring module is registered...")
+	s1.UpdatePrefix("  → ")
+	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, &manifest)
 	if err != nil {
-		childSpinner1.ErrorWithMessage(fmt.Sprintf("Registration failed: %s", err.Error()))
+		s1.ErrorWithMessage(fmt.Sprintf("Registration failed: %s", err.Error()))
 		sPrepare.Error()
 		return nil, err
 	}
-	childSpinner1.Complete()
+	s1.Complete()
 
 	id := ctx.String(generalFlagID)
 	if id == "" {
 		id = manifest.ModuleID
 	}
 
-	childSpinner2 := pm.AddSpinner("Creating source code archive...")
-	childSpinner2.UpdatePrefix("  → ")
+	s2 := pm.AddSpinner("Creating source code archive...")
+	s2.UpdatePrefix("  → ")
 	archivePath, err := c.createGitArchive(args.Path)
 	if err != nil {
-		childSpinner2.ErrorWithMessage(fmt.Sprintf("Archive creation failed: %s", err.Error()))
+		s2.ErrorWithMessage(fmt.Sprintf("Archive creation failed: %s", err.Error()))
 		sPrepare.Error()
 		return nil, err
 	}
-	childSpinner2.CompleteWithMessage(fmt.Sprintf("Source code archive created at %s", archivePath))
+	s2.CompleteWithMessage(fmt.Sprintf("Source code archive created at %s", archivePath))
 
-	org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
+	infof(c.c.App.Writer, "Creating a new cloud build and swapping it onto the requested machine part. This may take a few minutes...")
+
+	s3 := pm.AddSpinner("Triggering cloud reload build...")
+	s3.UpdatePrefix("  → ")
+	buildID, err := c.triggerCloudReloadBuild(ctx, args, manifest, archivePath, partID, s3)
 	if err != nil {
+		s3.ErrorWithMessage(fmt.Sprintf("Build trigger failed: %s", err.Error()))
 		sPrepare.Error()
 		return nil, err
 	}
-
-	// Upload a package with the bundled local dev code. Note that "reload" is a sentinel
-	// value for hot reloading modules. App expects it; don't change without making a
-	// complimentary update to the app repo
-	childSpinner3 := pm.AddSpinner("Uploading package...")
-	childSpinner3.UpdatePrefix("  → ")
-	resp, err := c.uploadPackage(org.GetId(), reloadVersion, reloadVersion, "module", archivePath, nil, childSpinner3)
-	if err != nil {
-		childSpinner3.ErrorWithMessage(fmt.Sprintf("Upload failed: %s", err.Error()))
-		sPrepare.Error()
-		return nil, err
-	}
-	childSpinner3.CompleteWithMessage("Source code uploaded")
-	sPrepare.Complete()
-
-	// get package URL for downloading purposes
-	packageURL, err := c.getPackageDownloadURL(org.GetId(), reloadVersion, reloadVersion, "module")
-	if err != nil {
-		return nil, err
-	}
-
-	// object ID stringifies as `ObjectID("{actual_id}")` but we only want the actual ID when
-	// passing back to app for package lookup.
-	versionParts := strings.Split(resp.Version, "\"")
-	if len(versionParts) != 3 {
-		return nil, errors.Errorf("malformed ID %s", versionParts)
-	}
-	resp.Version = versionParts[1]
-
-	// Building (parent spinner)
-	sBuild := pm.AddSpinner("Building...")
-
-	// (TODO RSDK-11531) It'd be nice to add some streaming logs for this so we can see how the progress is going. create a new build
-	// TODO (RSDK-11692) - passing org ID in the ref field and `resp.Version` (which is actually an object ID)
-	// in the token field is pretty hacky, let's fix it up
-	buildArgs := moduleBuildStartArgs{
-		Module:    args.Module,
-		Version:   reloadVersion,
-		Workdir:   args.Workdir,
-		Ref:       org.GetId(),
-		Platforms: []string{platform},
-		Token:     resp.Version,
-	}
-
-	buildID, err := c.moduleBuildStartForRepo(buildArgs, manifest, packageURL)
-	if err != nil {
-		sBuild.Error()
-		return nil, err
-	}
+	s3.CompleteWithMessage(fmt.Sprintf("Cloud build %s started", buildID))
 
 	// ensure the build completes before we try to dowload and use it
-	childSpinner4 := pm.AddSpinner(fmt.Sprintf("Waiting for build %s to finish...", buildID))
-	childSpinner4.UpdatePrefix("  → ")
+	s4 := pm.AddSpinner(fmt.Sprintf("Waiting for build %s to finish...", buildID))
+	s4.UpdatePrefix("  → ")
 	statuses, err := c.waitForBuildToFinish(buildID, platform)
 	if err != nil {
-		childSpinner4.ErrorWithMessage(fmt.Sprintf("Build wait failed: %s", err.Error()))
-		sBuild.Error()
+		s4.ErrorWithMessage(fmt.Sprintf("Build wait failed: %s", err.Error()))
+		sPrepare.Error()
 		return nil, err
 	}
 
 	// if the build failed, print the logs and return an error
 	if statuses[platform] == jobStatusFailed {
-		childSpinner4.ErrorWithMessage(fmt.Sprintf("Build %s failed", buildID))
-		sBuild.Error()
-
-		// Stop spinners before printing logs to avoid output conflicts
-		pm.Stop()
+		s4.ErrorWithMessage(fmt.Sprintf("Build %s failed", buildID))
+		sPrepare.Error()
 
 		// Print error message without exiting (don't use Errorf since it calls os.Exit(1))
 		errorf(c.c.App.Writer, "Build %q failed to complete. Please check the logs below for more information.", buildID)
@@ -877,17 +955,8 @@ func (c *viamClient) moduleCloudReload(
 
 		return nil, ErrReloadFailed
 	}
-	childSpinner4.CompleteWithMessage(fmt.Sprintf("Build %s completed successfully", buildID))
-	sBuild.Complete()
-
-	// delete the package now that the build is complete
-	_, err = c.packageClient.DeletePackage(
-		ctx.Context,
-		&v1.DeletePackageRequest{Id: resp.GetId(), Version: reloadVersion, Type: v1.PackageType_PACKAGE_TYPE_MODULE},
-	)
-	if err != nil {
-		warningf(ctx.App.Writer, "failed to delete package: %s", err.Error())
-	}
+	s4.CompleteWithMessage(fmt.Sprintf("Build %s completed successfully", buildID))
+	sPrepare.Complete()
 
 	// delete the archive we created
 	if err := os.Remove(archivePath); err != nil {
@@ -898,13 +967,23 @@ func (c *viamClient) moduleCloudReload(
 	// This allows us to structure the download under "Reloading to Part..."
 	return &moduleDownloadInfo{
 		ID:       id,
-		Version:  reloadVersion,
+		Version:  getReloadVersion(reloadVersionPrefix, partID),
 		Platform: platform,
 	}, nil
 }
 
+// ReloadModuleLocalAction builds a module locally, configures it on a robot, and starts or restarts it.
+func ReloadModuleLocalAction(c *cli.Context, args reloadModuleArgs) error {
+	return reloadModuleAction(c, args, false)
+}
+
 // ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
 func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
+	return reloadModuleAction(c, args, true)
+}
+
+// reloadModuleAction is the testable inner reload logic.
+func reloadModuleAction(c *cli.Context, args reloadModuleArgs, cloudBuild bool) error {
 	vc, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -920,11 +999,6 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 		logger = logging.NewDebugLogger("cli")
 	}
 
-	return reloadModuleAction(c, vc, args, logger)
-}
-
-// reloadModuleAction is the testable inner reload logic.
-func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, logger logging.Logger) error {
 	// Initialize progress manager (but don't start yet)
 	pm := NewProgressManager()
 	defer pm.Stop()
@@ -949,67 +1023,74 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	if err != nil {
 		return err
 	}
-	if !args.RestartOnly {
-		if !args.NoBuild {
-			if manifest == nil {
-				if args.Module != "meta.json" {
-					s2.ErrorWithMessage(fmt.Sprintf("Failed to load meta.json: file not found at %s.", args.Module))
-					return ErrReloadFailed
-				}
-				s2.ErrorWithMessage(fmt.Sprintf("Failed to load meta.json:" +
-					"file not found in current directory. Please ensure you are within the directory of a module."))
+	if !args.NoBuild {
+		if manifest == nil {
+			if args.Module != "meta.json" {
+				s2.ErrorWithMessage(fmt.Sprintf("Failed to load meta.json: file not found at %s.", args.Module))
 				return ErrReloadFailed
 			}
+			s2.ErrorWithMessage(fmt.Sprintf("Failed to load meta.json:" +
+				"file not found in current directory. Please ensure you are within the directory of a module."))
+			return ErrReloadFailed
 		}
-	}
-	s2.Complete()
+		s2.Complete()
 
-	// Get robot part
-	s3 := pm.AddSpinner("Fetching robot part...")
-	part, err := vc.getRobotPart(partID)
-	if err != nil {
-		s3.ErrorWithMessage(fmt.Sprintf("Failed to fetch robot part: %s", err.Error()))
-		return err
-	}
-	if part.Part == nil {
-		s3.ErrorWithMessage(fmt.Sprintf("Part with id=%s not found", partID))
-		return fmt.Errorf("part with id=%s not found", partID)
-	}
-	s3.Complete()
-
-	var partOs string
-	var partArch string
-	var platform string
-	if part.Part.UserSuppliedInfo != nil {
-		platform = part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
-		if partInfo := strings.SplitN(platform, "/", 2); len(partInfo) == 2 {
-			partOs = partInfo[0]
-			partArch = partInfo[1]
+		// Get robot part
+		s3 := pm.AddSpinner("Fetching robot part...")
+		part, err := vc.getRobotPart(partID)
+		if err != nil {
+			s3.ErrorWithMessage(fmt.Sprintf("Failed to fetch robot part: %s", err.Error()))
+			return err
 		}
-	}
-
-	// Create environment map with platform info
-	environment := map[string]string{
-		"VIAM_BUILD_OS":   partOs,
-		"VIAM_BUILD_ARCH": partArch,
-	}
-
-	// Add all environment variables with VIAM_ prefix
-	for _, envVar := range os.Environ() {
-		if parts := strings.SplitN(envVar, "=", 2); len(parts) == 2 && strings.HasPrefix(parts[0], "VIAM_") {
-			environment[parts[0]] = parts[1]
+		if part.Part == nil {
+			s3.ErrorWithMessage(fmt.Sprintf("Part with id=%s not found", partID))
+			return fmt.Errorf("part with id=%s not found", partID)
 		}
-	}
+		s3.Complete()
 
-	// note: configureModule and restartModule signal the robot via different channels.
-	// Running this command in rapid succession can cause an extra restart because the
-	// CLI will see configuration changes before the robot, and skip to the needsRestart
-	// case on the second call. Because these are triggered by user actions, we're okay
-	// with this behavior, and the robot will eventually converge to what is in config.
-	var buildPath string
-	if !args.RestartOnly {
+		var partOs string
+		var partArch string
+		var platform string
+		if part.Part.UserSuppliedInfo != nil {
+			// Check if the viam-server version is supported for hot reloading
+			if part.Part.UserSuppliedInfo.Fields["version"] != nil {
+				// Note: developer instances of viam-server will not have a semver version (instead it is a git commit)
+				// so we can safely ignore the error here, assuming that all real instances of viam-server will have a semver version
+				version, err := semver.NewVersion(part.Part.UserSuppliedInfo.Fields["version"].GetStringValue())
+				if err == nil && version.LessThan(reloadVersionSupported) {
+					return fmt.Errorf("viam-server version %s is not supported for hot reloading,"+
+						"please update to at least %s", version.Original(), reloadVersionSupported.Original())
+				}
+			}
+
+			platform = part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
+			if partInfo := strings.SplitN(platform, "/", 2); len(partInfo) == 2 {
+				partOs = partInfo[0]
+				partArch = partInfo[1]
+			}
+		}
+
+		// Create environment map with platform info
+		environment := map[string]string{
+			"VIAM_BUILD_OS":   partOs,
+			"VIAM_BUILD_ARCH": partArch,
+		}
+
+		// Add all environment variables with VIAM_ prefix
+		for _, envVar := range os.Environ() {
+			if parts := strings.SplitN(envVar, "=", 2); len(parts) == 2 && strings.HasPrefix(parts[0], "VIAM_") {
+				environment[parts[0]] = parts[1]
+			}
+		}
+
+		// note: configureModule and restartModule signal the robot via different channels.
+		// Running this command in rapid succession can cause an extra restart because the
+		// CLI will see configuration changes before the robot, and skip to the needsRestart
+		// case on the second call. Because these are triggered by user actions, we're okay
+		// with this behavior, and the robot will eventually converge to what is in config.
+		var buildPath string
 		if !args.NoBuild {
-			if !args.CloudBuild {
+			if !cloudBuild {
 				// Local build - stop spinner to show build logs cleanly
 				sBuild := pm.AddSpinner("Building module locally...")
 				sBuild.Complete()
@@ -1029,7 +1110,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				sBuildResult.CompleteWithMessage("Build complete")
 			} else {
 				// Cloud build - structured with parent spinners
-				downloadInfo, err := vc.moduleCloudReload(c, args, manifest, platform)
+				downloadInfo, err := vc.moduleCloudReload(c, args, platform, *manifest, partID)
 				if err != nil {
 					return err
 				}
@@ -1044,7 +1125,7 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 					Version:  downloadInfo.Version,
 					Platform: downloadInfo.Platform,
 				}
-				buildPath, err = vc.downloadModuleAction(c, downloadArgs)
+				buildPath, err := vc.downloadModuleAction(c, downloadArgs)
 				if err != nil {
 					sDownload.ErrorWithMessage(fmt.Sprintf("Download failed: %s", err.Error()))
 					sReload.Error()
@@ -1131,8 +1212,8 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 				sReload.Complete()
 			}
 		}
-		if !args.Local && !args.CloudBuild {
-			if manifest == nil || manifest.Build == nil || buildPath == "" {
+		if !args.Local && !cloudBuild {
+			if manifest.Build == nil || buildPath == "" {
 				return errors.New(
 					"remote reloading requires a meta.json with the 'build.path' field set. " +
 						"try --local if you are testing on the same machine.",
@@ -1230,6 +1311,14 @@ func reloadModuleAction(c *cli.Context, vc *viamClient, args reloadModuleArgs, l
 	return nil
 }
 
+func getReloadVersion(versionPrefix, partID string) string {
+	return versionPrefix + "-" + partID
+}
+
+// reload with cloudbuild was supported starting in 0.90.0
+// there are older versions of viam-servet that don't support ~/ file prefix, so lets avoid using them.
+var reloadVersionSupported = semver.MustParse("0.90.0")
+
 type reloadingDestinationArgs struct {
 	Home string
 }
@@ -1318,6 +1407,33 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, generalFlagID)
 	}
 	return request, nil
+}
+
+type moduleRestartArgs struct {
+	PartID      string
+	Module      string
+	CloudConfig string
+}
+
+// ModuleRestartAction triggers a restart of the requested module.
+func ModuleRestartAction(c *cli.Context, args moduleRestartArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.getRobotPart(args.PartID)
+	if err != nil {
+		return err
+	}
+
+	manifest, err := loadManifestOrNil(args.Module)
+	if err != nil {
+		return err
+	}
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+
+	return restartModule(c, client, part.Part, manifest, logger)
 }
 
 // restartModule restarts a module on a robot.

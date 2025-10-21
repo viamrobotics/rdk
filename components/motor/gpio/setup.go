@@ -168,7 +168,7 @@ func getBoardFromRobotConfig(deps resource.Dependencies, conf resource.Config) (
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")
 	}
-	b, err := board.FromDependencies(deps, motorConfig.BoardName)
+	b, err := board.FromProvider(deps, motorConfig.BoardName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -189,7 +189,7 @@ func createNewMotor(
 	}
 
 	if motorConfig.Encoder != "" {
-		e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
+		e, err := encoder.FromProvider(deps, motorConfig.Encoder)
 		if err != nil {
 			return nil, err
 		}

@@ -3,11 +3,17 @@ package armplanning
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -192,7 +198,7 @@ func PlanFrameMotion(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	plan, err := PlanMotion(ctx, logger, &PlanRequest{
+	plan, _, err := PlanMotion(ctx, logger, &PlanRequest{
 		FrameSystem: fs,
 		Goals: []*PlanState{
 			{poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
@@ -207,11 +213,25 @@ func PlanFrameMotion(ctx context.Context,
 	return plan.Trajectory().GetFrameInputs(f.Name())
 }
 
+// PlanMeta is meta data about plan generation.
+type PlanMeta struct {
+	Duration       time.Duration
+	Partial        bool
+	GoalsProcessed int
+}
+
 // PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, error) {
-	// Make sure request is well formed and not missing vital information
+func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, *PlanMeta, error) {
+	start := time.Now()
+	meta := &PlanMeta{}
+	ctx, span := trace.StartSpan(ctx, "PlanMotion")
+	defer func() {
+		meta.Duration = time.Since(start)
+		span.End()
+	}()
+
 	if err := request.validatePlanRequest(); err != nil {
-		return nil, err
+		return nil, meta, err
 	}
 	logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	logger.CDebugf(ctx, "motion config for this step: %v", request.PlannerOptions)
@@ -225,20 +245,32 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
 	if request.StartState.configuration == nil {
-		return nil, errors.New("must populate start state configuration")
+		return nil, meta, errors.New("must populate start state configuration")
 	}
 
-	sfPlanner, err := newPlanManager(logger, request)
+	sfPlanner, err := newPlanManager(ctx, logger, request, meta)
 	if err != nil {
-		return nil, err
+		return nil, meta, err
 	}
 
-	newPlan, err := sfPlanner.planMultiWaypoint(ctx)
+	traj, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
 	if err != nil {
-		return nil, err
+		if request.PlannerOptions.ReturnPartialPlan {
+			meta.Partial = true
+			logger.Infof("returning partial plan")
+		} else {
+			return nil, meta, err
+		}
 	}
 
-	return newPlan, nil
+	meta.GoalsProcessed = goalsProcessed
+
+	t, err := motionplan.NewSimplePlanFromTrajectory(traj, request.FrameSystem)
+	if err != nil {
+		return nil, meta, err
+	}
+
+	return t, meta, nil
 }
 
 var defaultArmPlannerOptions = &motionplan.Constraints{
@@ -268,4 +300,42 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 		return err
 	}
 	return a.MoveThroughJointPositions(ctx, plan, nil, nil)
+}
+
+// ReadRequestFromFile reads a PlanRequest from a json file.
+func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
+	f, err := os.Open(fileName) //nolint:gosec
+	if err != nil {
+		return nil, err
+	}
+	defer utils.UncheckedErrorFunc(f.Close)
+
+	decoder := json.NewDecoder(f)
+
+	req := &PlanRequest{}
+
+	err = decoder.Decode(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// WriteToFile write a request to a .json file.
+func (req *PlanRequest) WriteToFile(fileName string) error {
+	data, err := json.MarshalIndent(req, "", "  ")
+	if err != nil {
+		return err
+	}
+	file, err := os.OpenFile(filepath.Clean(fileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(file.Close)
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
 }

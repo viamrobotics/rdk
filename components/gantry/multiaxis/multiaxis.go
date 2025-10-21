@@ -74,7 +74,7 @@ func newMultiAxis(
 	}
 
 	for _, s := range newConf.SubAxes {
-		subAx, err := gantry.FromDependencies(deps, s)
+		subAx, err := gantry.FromProvider(deps, s)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no axes named [%s]", s)
 		}

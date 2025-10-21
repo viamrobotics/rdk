@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"errors"
+	"fmt"
 	"math"
 
 	pb "go.viam.com/api/component/arm/v1"
@@ -105,7 +106,7 @@ func (inputs FrameSystemInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 		var ok bool
 		toReturn, ok = inputs[frame.Name()]
 		if !ok {
-			return nil, NewFrameMissingError(frame.Name())
+			return nil, fmt.Errorf("no inputs for frame %s with dof: %d", frame.Name(), len(frame.DoF()))
 		}
 	}
 	return toReturn, nil

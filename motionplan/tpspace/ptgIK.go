@@ -100,7 +100,7 @@ func (ptg *ptgIK) Solve(
 		ctx,
 		internalSolutionGen,
 		referenceframe.InputsToFloats(seed),
-		0, 0,
+		nil,
 		ptg.ptgMetricIkFunc(solveMetric),
 		defaultNloptSeed,
 	)
@@ -236,8 +236,8 @@ func (ptg *ptgIK) arcDist(inputs []referenceframe.Input) float64 {
 	return dist
 }
 
-func (ptg *ptgIK) ptgMetricIkFunc(distMetric motionplan.StateMetric) func([]float64) float64 {
-	return func(vals []float64) float64 {
+func (ptg *ptgIK) ptgMetricIkFunc(distMetric motionplan.StateMetric) ik.CostFunc {
+	return func(_ context.Context, vals []float64) float64 {
 		queryPose, err := ptg.Transform(referenceframe.FloatsToInputs(vals))
 		if err != nil {
 			return math.Inf(1)

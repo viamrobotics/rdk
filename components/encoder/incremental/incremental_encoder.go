@@ -130,7 +130,7 @@ func (e *Encoder) Reconfigure(
 		existingEncAName != newConf.Pins.A ||
 		existingEncBName != newConf.Pins.B
 
-	board, err := board.FromDependencies(deps, newConf.BoardName)
+	board, err := board.FromProvider(deps, newConf.BoardName)
 	if err != nil {
 		return err
 	}

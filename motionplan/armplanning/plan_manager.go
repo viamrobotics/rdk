@@ -4,11 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
-	"sync"
 	"time"
 
-	"go.viam.com/utils"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -18,79 +16,35 @@ import (
 
 // planManager is intended to be the single entry point to motion planners.
 type planManager struct {
-	checker      *motionplan.ConstraintChecker
-	motionChains *motionChains
-	randseed     *rand.Rand
-
-	logger logging.Logger
-
-	// We store the request because we want to be able to inspect the original state of the plan
-	// that was requested at any point during the process of creating multiple planners
-	// for waypoints and such.
-	request                 *PlanRequest
-	activeBackgroundWorkers sync.WaitGroup
+	pc      *planContext
+	request *PlanRequest
+	logger  logging.Logger
 }
 
-func newPlanManager(logger logging.Logger, request *PlanRequest) (*planManager, error) {
-	mChains, err := motionChainsFromPlanState(request.FrameSystem, request.Goals[0])
+func newPlanManager(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planManager, error) {
+	pc, err := newPlanContext(ctx, logger, request, meta)
 	if err != nil {
 		return nil, err
 	}
-
-	boundingRegions, err := referenceframe.NewGeometriesFromProto(request.BoundingRegions)
-	if err != nil {
-		return nil, err
-	}
-
-	checker, err := newConstraintChecker(
-		request.PlannerOptions,
-		request.Constraints,
-		request.StartState,
-		request.Goals[0],
-		request.FrameSystem,
-		mChains,
-		request.StartState.configuration,
-		request.WorldState,
-		boundingRegions,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	return &planManager{
-		checker:      checker,
-		motionChains: mChains,
-		randseed:     rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
-		logger:       logger,
-		request:      request,
+		pc:      pc,
+		logger:  logger,
+		request: request,
 	}, nil
-}
-
-type atomicWaypoint struct {
-	// this is unique to each (Dan: each what?) right now because it embeds the checker, which has
-	// the start/goal
-	motionPlanner *cBiRRTMotionPlanner
-
-	// A list of starting states, any of which would be valid to start from
-	startState *PlanState
-	// A list of goal states, any of which would be valid to arrive at
-	goalState *PlanState
-
-	// If partial plans are requested, we return up to the last explicit waypoint solved.  We want
-	// to distinguish between actual user-requested waypoints and automatically-generated
-	// intermediate waypoints, and only consider the former when returning partial plans.
-	origWaypoints int
 }
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
-func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Plan, error) {
+// return trajector (always, even with error), which goal we got to, error.
+func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajectory, int, error) {
+	ctx, span := trace.StartSpan(ctx, "planMultiWaypoint")
+	defer span.End()
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and
 	// end poses to create sets of seed and goal configurations. However, the blocker here is the
 	// lack of a "known good" configuration used to determine which obstacles are allowed to collide
 	// with one another.
 	if pm.request.StartState.configuration == nil {
-		return nil, errors.New("must populate start state configuration if not planning for 2d base/tpspace")
+		return nil, 0, errors.New("must populate start state configuration if not planning for 2d base/tpspace")
 	}
 
 	// set timeout for entire planning process if specified
@@ -102,297 +56,194 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Plan, 
 		defer cancel()
 	}
 
-	waypoints := []atomicWaypoint{}
-
-	for i := range pm.request.Goals {
-		// Solving highly constrained motions by breaking apart into small pieces is much more
-		// performant.
-		goalWaypoints, err := pm.generateWaypoints(i)
-		if err != nil {
-			return nil, err
-		}
-		waypoints = append(waypoints, goalWaypoints...)
+	traj := motionplan.Trajectory{pm.request.StartState.Configuration()}
+	start, err := pm.request.StartState.ComputePoses(ctx, pm.request.FrameSystem)
+	if err != nil {
+		return nil, 0, err
 	}
 
-	pm.logger.Debugf("planMultiWaypoint goals:%v waypoints:%v\n", len(pm.request.Goals), len(waypoints))
-
-	plan, err := pm.planAtomicWaypoints(ctx, waypoints)
-	pm.activeBackgroundWorkers.Wait()
-	if err != nil {
-		if len(waypoints) > 1 {
-			err = fmt.Errorf("failed to plan path for valid goal: %w", err)
+	for i, g := range pm.request.Goals {
+		if ctx.Err() != nil {
+			return traj, i, err // note: here and below, we return traj because of ReturnPartialPlan
 		}
+
+		to, err := g.ComputePoses(ctx, pm.request.FrameSystem)
+		if err != nil {
+			return traj, i, err
+		}
+
+		pm.logger.Info("planning step", i, "of", len(pm.request.Goals))
+		for k, v := range to {
+			pm.logger.Debug(k, v)
+		}
+
+		if len(g.configuration) > 0 {
+			newTraj, err := pm.planToDirectJoints(ctx, traj[len(traj)-1], g)
+			if err != nil {
+				return traj, i, err
+			}
+			traj = append(traj, newTraj...)
+		} else {
+			subGoals, err := pm.generateWaypoints(ctx, start, to)
+			if err != nil {
+				return traj, i, err
+			}
+
+			if len(subGoals) > 1 {
+				pm.logger.Infof("\t generateWaypoint turned into %d subGoals", len(subGoals))
+			}
+
+			for subGoalIdx, sg := range subGoals {
+				singleGoalStart := time.Now()
+				newTraj, err := pm.planSingleGoal(ctx, traj[len(traj)-1], sg)
+				if err != nil {
+					return traj, i, err
+				}
+				pm.logger.Debugf("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
+				traj = append(traj, newTraj...)
+			}
+		}
+		start = to
+	}
+
+	return traj, len(pm.request.Goals), nil
+}
+
+func (pm *planManager) planToDirectJoints(
+	ctx context.Context,
+	start referenceframe.FrameSystemInputs,
+	goal *PlanState,
+) ([]referenceframe.FrameSystemInputs, error) {
+	ctx, span := trace.StartSpan(ctx, "planToDirectJoints")
+	defer span.End()
+	fullConfig := referenceframe.FrameSystemInputs{}
+	for k, v := range goal.configuration {
+		fullConfig[k] = v
+	}
+
+	for k, v := range start {
+		if len(fullConfig[k]) == 0 {
+			fullConfig[k] = v
+		}
+	}
+
+	goalPoses, err := goal.ComputePoses(ctx, pm.pc.fs)
+	if err != nil {
 		return nil, err
 	}
-	return plan, nil
-}
 
-// planAtomicWaypoints will plan a single motion, which may be composed of one or more waypoints. Waypoints are here used to begin planning
-// the next motion as soon as its starting point is known. This is responsible for repeatedly calling planSingleAtomicWaypoint for each
-// intermediate waypoint. Waypoints here refer to points that the software has generated to.
-func (pm *planManager) planAtomicWaypoints(ctx context.Context, waypoints []atomicWaypoint) (motionplan.Plan, error) {
-	// A resultPromise can be queried in the future and will eventually yield either a set of planner waypoints, or an error.
-	// Each atomic waypoint produces one result promise, all of which are resolved at the end, allowing multiple to be solved in parallel.
-	resultPromises := []*resultPromise{}
-
-	var seed referenceframe.FrameSystemInputs
-	var returnPartial bool
-
-	// try to solve each goal, one at a time
-	for i, wp := range waypoints {
-		if ctx.Err() != nil {
-			if wp.motionPlanner.planOpts.ReturnPartialPlan {
-				returnPartial = true
-				break
-			}
-			return nil, ctx.Err()
-		}
-
-		pm.logger.Info("planning step", i, "of", len(waypoints), ":", wp.goalState)
-		for k, v := range wp.goalState.Poses() {
-			pm.logger.Info(k, v)
-		}
-
-		// Initialize and seed with IK solutions here
-		if seed != nil {
-			// If we have a seed, we are linking multiple waypoints, so the next one MUST start at the ending configuration of the last
-			wp.startState = &PlanState{configuration: seed}
-		}
-		planSeed, err := initRRTSolutions(ctx, wp)
-		if err != nil {
-			if wp.motionPlanner.planOpts.ReturnPartialPlan {
-				returnPartial = true
-				break
-			}
-			return nil, err
-		}
-
-		pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
-
-		if planSeed.steps != nil {
-			// this means we found an ideal solution (weird API)
-			resultPromises = append(resultPromises, &resultPromise{steps: planSeed.steps})
-			seed = planSeed.steps[len(planSeed.steps)-1].inputs
-			continue
-		}
-
-		// Plan the single waypoint, and accumulate objects which will be used to constrauct the plan after all planning has finished
-		newseed, future, err := pm.planSingleAtomicWaypoint(ctx, wp, planSeed.maps)
-		if err != nil {
-			// Error getting the next seed. If we can, return the partial path if requested.
-			if wp.motionPlanner.planOpts.ReturnPartialPlan {
-				returnPartial = true
-				break
-			}
-			return nil, err
-		}
-		seed = newseed
-		resultPromises = append(resultPromises, future)
-	}
-
-	// All goals have been submitted for solving. Reconstruct in order
-	resultSlices := []*node{}
-	partialSlices := []*node{}
-
-	// Keep track of which user-requested waypoints were solved for
-	lastOrig := 0
-
-	for i, future := range resultPromises {
-		steps, err := future.result()
-		if err != nil {
-			if pm.request.PlannerOptions.ReturnPartialPlan && lastOrig > 0 {
-				returnPartial = true
-				break
-			}
-			return nil, err
-		}
-		pm.logger.Debugf("completed planning for subwaypoint %d", i)
-		if i > 0 {
-			// Prevent doubled steps. The first step of each plan is the last step of the prior plan.
-			partialSlices = append(partialSlices, steps[1:]...)
-		} else {
-			partialSlices = append(partialSlices, steps...)
-		}
-		if waypoints[i].origWaypoints >= 0 {
-			lastOrig = waypoints[i].origWaypoints
-			resultSlices = append(resultSlices, partialSlices...)
-			partialSlices = []*node{}
-		}
-	}
-	if !waypoints[len(waypoints)-1].motionPlanner.planOpts.ReturnPartialPlan && len(partialSlices) > 0 {
-		resultSlices = append(resultSlices, partialSlices...)
-	}
-	if returnPartial {
-		pm.logger.Infof("returning partial plan up to waypoint %d", lastOrig)
-	}
-
-	return newRRTPlan(resultSlices, pm.request.FrameSystem)
-}
-
-// planSingleAtomicWaypoint attempts to plan a single waypoint. It may optionally be pre-seeded with rrt maps; these will be passed to the
-// planner if supported, or ignored if not.
-func (pm *planManager) planSingleAtomicWaypoint(
-	ctx context.Context,
-	wp atomicWaypoint,
-	maps *rrtMaps,
-) (referenceframe.FrameSystemInputs, *resultPromise, error) {
-	fromPoses, err := wp.startState.ComputePoses(pm.request.FrameSystem)
+	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goalPoses)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	toPoses, err := wp.goalState.ComputePoses(pm.request.FrameSystem)
-	if err != nil {
-		return nil, nil, err
+
+	err = psc.checkPath(ctx, start, fullConfig)
+	if err == nil {
+		return []referenceframe.FrameSystemInputs{fullConfig}, nil
 	}
-	pm.logger.Debug("start configuration", wp.startState.Configuration())
-	pm.logger.Debug("start planning from\n", fromPoses, "\nto\n", toPoses)
+	pm.logger.Debugf("want to go to specific joint positions, but path is blocked: %v", err)
 
-	// rrtParallelPlanner supports solution look-ahead for parallel waypoint solving
-	// This will set that up, and if we get a result on `endpointPreview`, then the next iteration will be started, and the steps
-	// for this solve will be rectified at the end.
-
-	endpointPreview := make(chan *node, 1)
-	solutionChan := make(chan *rrtSolution, 1)
-	pm.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer pm.activeBackgroundWorkers.Done()
-		pm.planRRTMotion(ctx, wp, endpointPreview, solutionChan, maps)
+	err = psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
+		Configuration: fullConfig,
+		FS:            psc.pc.fs,
 	})
-
-	// We don't want to check context here; context cancellation will be handled by planParallelRRTMotion.
-	// Instead, if a timeout occurs while we are smoothing, we want to return the best plan we have so far, rather than nothing at all.
-	// This matches the behavior of a non-rrtParallelPlanner
-	select {
-	case nextSeed := <-endpointPreview:
-		return nextSeed.inputs, &resultPromise{future: solutionChan}, nil
-	case planReturn := <-solutionChan:
-		if planReturn.err != nil {
-			return nil, nil, planReturn.err
-		}
-		seed := planReturn.steps[len(planReturn.steps)-1].inputs
-		return seed, &resultPromise{steps: planReturn.steps}, nil
+	if err != nil {
+		return nil, fmt.Errorf("want to go to specific joint config but it is invalid: %w", err)
 	}
+
+	if false { // true cartesian half
+		// TODO(eliot): finish me
+		startPoses, err := start.ComputePoses(pm.pc.fs)
+		if err != nil {
+			return nil, err
+		}
+
+		mid := interp(startPoses, goalPoses, .5)
+
+		pm.logger.Infof("foo things\n\t%v\n\t%v\n\t%v", startPoses, mid, goalPoses)
+
+		err = pm.foo(ctx, start, mid)
+		if err != nil {
+			pm.logger.Infof("foo failed: %v", err)
+		} else {
+			panic(2)
+		}
+
+		// panic(1)
+	}
+
+	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
+	if err != nil {
+		return nil, err
+	}
+
+	maps := rrtMaps{}
+	maps.startMap = rrtMap{&node{inputs: start}: nil}
+	maps.goalMap = rrtMap{&node{inputs: fullConfig}: nil}
+	maps.optNode = &node{inputs: fullConfig}
+
+	finalSteps, err := pathPlanner.rrtRunner(ctx, &maps)
+	if err != nil {
+		return nil, err
+	}
+	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
+	return finalSteps.steps, nil
 }
 
-// planParallelRRTMotion will handle planning a single atomic waypoint using a parallel-enabled RRT solver.
-func (pm *planManager) planRRTMotion(
+func (pm *planManager) planSingleGoal(
 	ctx context.Context,
-	wp atomicWaypoint,
-	endpointPreview chan *node,
-	solutionChan chan *rrtSolution,
-	maps *rrtMaps,
-) {
-	// publish endpoint of plan if it is known
-	if len(maps.goalMap) == 1 {
-		for key := range maps.goalMap {
-			endpointPreview <- key
-			// Dan: I think the caller, upon observing `endpointPreview`, will never check
-			// `solutionChan`. But preserving existing behavior for now.
-		}
+	start referenceframe.FrameSystemInputs,
+	goal referenceframe.FrameSystemPoses,
+) ([]referenceframe.FrameSystemInputs, error) {
+	ctx, span := trace.StartSpan(ctx, "planSingleGoal")
+	defer span.End()
+	pm.logger.Debug("start configuration", start)
+	pm.logger.Debug("going to", goal)
+
+	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goal)
+	if err != nil {
+		return nil, err
 	}
 
-	// This ctx is used exclusively for the running of the new planner and timing it out.
-	plannerctx, cancel := context.WithTimeout(ctx, time.Duration(wp.motionPlanner.planOpts.Timeout*float64(time.Second)))
-	defer cancel()
+	planSeed, err := initRRTSolutions(ctx, psc)
+	if err != nil {
+		return nil, err
+	}
 
-	// Dan: This is preserving original behavior. Where we'll return whatever steps we have in
-	// addition to an error.
-	finalSteps, err := wp.motionPlanner.rrtRunner(plannerctx, maps)
-	finalSteps.steps = wp.motionPlanner.smoothPath(ctx, finalSteps.steps)
-	finalSteps.err = err
-	solutionChan <- finalSteps
+	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
+
+	if planSeed.steps != nil {
+		pm.logger.Debugf("found an ideal ik solution")
+		return planSeed.steps, nil
+	}
+
+	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
+	if err != nil {
+		return nil, err
+	}
+
+	finalSteps, err := pathPlanner.rrtRunner(ctx, planSeed.maps)
+	if err != nil {
+		return nil, err
+	}
+	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
+	return finalSteps.steps, nil
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
-func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
-	wpGoals := pm.request.Goals[wpi]
-	startState := pm.request.StartState
-	if wpi > 0 {
-		startState = pm.request.Goals[wpi-1]
-	}
-
-	startPoses, err := startState.ComputePoses(pm.request.FrameSystem)
-	if err != nil {
-		return nil, err
-	}
-	goalPoses, err := wpGoals.ComputePoses(pm.request.FrameSystem)
-	if err != nil {
-		return nil, err
-	}
-
-	motionChains, err := motionChainsFromPlanState(pm.request.FrameSystem, wpGoals)
-	if err != nil {
-		return nil, err
-	}
-
-	constraintHandler, err := newConstraintChecker(
-		pm.request.PlannerOptions,
-		pm.request.Constraints,
-		startState,
-		wpGoals,
-		pm.request.FrameSystem,
-		motionChains,
-		pm.request.StartState.configuration,
-		pm.request.WorldState,
-		pm.checker.BoundingRegions(),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if wpGoals.poses != nil {
-		// TODO - should this be done earlier?
-		// Transform goal poses into world frame if needed. This is used for e.g. when a component's goal is given in terms of itself.
-		alteredGoals, err := motionChains.translateGoalsToWorldPosition(pm.request.FrameSystem, pm.request.StartState.configuration, wpGoals)
-		if err != nil {
-			return nil, err
-		}
-		wpGoals = alteredGoals
-
-		motionChains, err = motionChainsFromPlanState(pm.request.FrameSystem, wpGoals)
-		if err != nil {
-			return nil, err
-		}
-
-		constraintHandler, err = newConstraintChecker(
-			pm.request.PlannerOptions,
-			pm.request.Constraints,
-			startState,
-			wpGoals,
-			pm.request.FrameSystem,
-			motionChains,
-			pm.request.StartState.configuration,
-			pm.request.WorldState,
-			pm.checker.BoundingRegions(),
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		pm.motionChains = motionChains
-	}
-	pm.checker = constraintHandler
-
-	if !pm.useSubWaypoints(wpi) {
-		pathPlanner, err := newCBiRRTMotionPlanner(
-			pm.request.FrameSystem,
-			rand.New(rand.NewSource(int64(pm.randseed.Int()))), //nolint: gosec
-			pm.logger,
-			pm.request.PlannerOptions,
-			constraintHandler,
-			pm.motionChains,
-		)
-		if err != nil {
-			return nil, err
-		}
-		return []atomicWaypoint{{motionPlanner: pathPlanner, startState: pm.request.StartState, goalState: wpGoals, origWaypoints: wpi}}, nil
+func (pm *planManager) generateWaypoints(ctx context.Context, start, goal referenceframe.FrameSystemPoses,
+) ([]referenceframe.FrameSystemPoses, error) {
+	_, span := trace.StartSpan(ctx, "generateWaypoints")
+	defer span.End()
+	if len(pm.request.Constraints.GetLinearConstraint()) == 0 {
+		return []referenceframe.FrameSystemPoses{goal}, nil
 	}
 
 	stepSize := pm.request.PlannerOptions.PathStepSize
 
 	numSteps := 0
-	for frame, pif := range goalPoses {
-		steps := motionplan.CalculateStepCount(startPoses[frame].Pose(), pif.Pose(), stepSize)
+	for frame, pif := range goal {
+		steps := motionplan.CalculateStepCount(start[frame].Pose(), pif.Pose(), stepSize)
 		if steps > numSteps {
 			numSteps = steps
 		}
@@ -400,103 +251,125 @@ func (pm *planManager) generateWaypoints(wpi int) ([]atomicWaypoint, error) {
 
 	pm.logger.Debugf("numSteps: %d", numSteps)
 
-	from := startState
-	waypoints := []atomicWaypoint{}
+	waypoints := []referenceframe.FrameSystemPoses{}
+
+	from := start
+
 	for i := 1; i <= numSteps; i++ {
 		by := float64(i) / float64(numSteps)
-		to := &PlanState{referenceframe.FrameSystemPoses{}, referenceframe.FrameSystemInputs{}}
-		if wpGoals.poses != nil {
-			for frameName, pif := range wpGoals.poses {
-				toPose := spatialmath.Interpolate(startPoses[frameName].Pose(), pif.Pose(), by)
-				to.poses[frameName] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
+		to := referenceframe.FrameSystemPoses{}
+
+		for frameName, pif := range goal {
+			if from[frameName].Parent() != pif.Parent() {
+				return nil, fmt.Errorf("frame mismatch %v %v", from[frameName].Parent(), pif.Parent())
 			}
-		}
-		if wpGoals.configuration != nil {
-			for frameName, inputs := range wpGoals.configuration {
-				frame := pm.request.FrameSystem.Frame(frameName)
-				// If subWaypoints was true, then StartState had a configuration, and if our goal does, so will `from`
-				toInputs, err := frame.Interpolate(from.configuration[frameName], inputs, by)
-				if err != nil {
-					return nil, err
-				}
-				to.configuration[frameName] = toInputs
-			}
-		}
-		wpChains, err := motionChainsFromPlanState(pm.request.FrameSystem, to)
-		if err != nil {
-			return nil, err
+			toPose := spatialmath.Interpolate(from[frameName].Pose(), pif.Pose(), by)
+			to[frameName] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
 		}
 
-		wpConstraintChecker, err := newConstraintChecker(
-			pm.request.PlannerOptions,
-			pm.request.Constraints,
-			from,
-			to,
-			pm.request.FrameSystem,
-			wpChains,
-			pm.request.StartState.configuration,
-			pm.request.WorldState,
-			pm.checker.BoundingRegions(),
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		pathPlanner, err := newCBiRRTMotionPlanner(
-			pm.request.FrameSystem,
-			rand.New(rand.NewSource(int64(pm.randseed.Int()))), //nolint: gosec
-			pm.logger,
-			pm.request.PlannerOptions,
-			wpConstraintChecker,
-			pm.motionChains,
-		)
-		if err != nil {
-			return nil, err
-		}
-		waypoints = append(waypoints, atomicWaypoint{motionPlanner: pathPlanner, startState: from, goalState: to, origWaypoints: -1})
+		waypoints = append(waypoints, to)
 
 		from = to
 	}
-	waypoints[len(waypoints)-1].origWaypoints = wpi
 
 	return waypoints, nil
 }
 
-// Determines whether to break a motion down into sub-waypoints if all intermediate points are known.
-func (pm *planManager) useSubWaypoints(wpi int) bool {
-	// If goal has a configuration, do not use subwaypoints *unless* the start state is also a configuration.
-	// We can interpolate from a pose or configuration to a pose, or a configuration to a configuration, but not from a pose to a
-	// configuration.
-	// TODO: If we run planning backwards, we could remove this restriction.
-	if pm.request.Goals[wpi].configuration != nil {
-		startState := pm.request.StartState
-		if wpi > 0 {
-			startState = pm.request.Goals[wpi-1]
-		}
-		if startState.configuration == nil {
-			return false
-		}
-	}
+type rrtMap map[*node]*node
 
-	if len(pm.request.Constraints.GetLinearConstraint()) > 0 {
-		return true
-	}
-	return false
+type rrtSolution struct {
+	steps []referenceframe.FrameSystemInputs
+	maps  *rrtMaps
 }
 
-type resultPromise struct {
-	steps  []*node
-	future chan *rrtSolution
+type rrtMaps struct {
+	startMap rrtMap
+	goalMap  rrtMap
+	optNode  *node // The highest quality IK solution
 }
 
-func (r *resultPromise) result() ([]*node, error) {
-	if r.steps != nil && len(r.steps) > 0 { //nolint:gosimple
-		return r.steps, nil
+// initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK
+// solutions to pre-populate the goal map, and will check if any of those goals are able to be
+// directly interpolated to.
+func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolution, error) {
+	ctx, span := trace.StartSpan(ctx, "initRRTSolutions")
+	defer span.End()
+	rrt := &rrtSolution{
+		maps: &rrtMaps{
+			startMap: rrtMap{},
+			goalMap:  rrtMap{},
+		},
 	}
-	// wait for a context cancel or a valid channel result
-	planReturn := <-r.future
-	if planReturn.err != nil {
-		return nil, planReturn.err
+
+	seed := newConfigurationNode(psc.start)
+	// goalNodes are sorted from lowest cost to highest.
+	goalNodes, err := getSolutions(ctx, psc)
+	if err != nil {
+		return rrt, err
 	}
-	return planReturn.steps, nil
+
+	rrt.maps.optNode = goalNodes[0]
+
+	psc.pc.logger.Debugf("optNode cost: %v", rrt.maps.optNode.cost)
+
+	// `defaultOptimalityMultiple` is > 1.0
+	reasonableCost := goalNodes[0].cost * defaultOptimalityMultiple
+	for _, solution := range goalNodes {
+		if solution.checkPath && solution.cost < reasonableCost {
+			// If we've already checked the path of a solution that is "reasonable", we can just
+			// return now. Otherwise, continue to initialize goal map with keys.
+			rrt.steps = []referenceframe.FrameSystemInputs{solution.inputs}
+			return rrt, nil
+		}
+
+		rrt.maps.goalMap[&node{inputs: solution.inputs}] = nil
+	}
+	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil
+
+	return rrt, nil
+}
+
+func interp(start, end referenceframe.FrameSystemPoses, delta float64) referenceframe.FrameSystemPoses {
+	mid := referenceframe.FrameSystemPoses{}
+
+	for k, s := range start {
+		e, ok := end[k]
+		if !ok {
+			mid[k] = s
+			continue
+		}
+		if s.Parent() != e.Parent() {
+			panic("eliottttt")
+		}
+		m := spatialmath.Interpolate(s.Pose(), e.Pose(), delta)
+		mid[k] = referenceframe.NewPoseInFrame(s.Parent(), m)
+	}
+	return mid
+}
+
+func (pm *planManager) foo(ctx context.Context, start referenceframe.FrameSystemInputs, goal referenceframe.FrameSystemPoses) error {
+	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goal)
+	if err != nil {
+		return err
+	}
+
+	planSeed, err := initRRTSolutions(ctx, psc)
+	if err != nil {
+		return err
+	}
+
+	if planSeed.steps == nil {
+		return fmt.Errorf("no steps")
+	}
+
+	if len(planSeed.steps) != 1 {
+		return fmt.Errorf("steps odd %d", len(planSeed.steps))
+	}
+
+	err = psc.checkPath(ctx, start, planSeed.steps[0])
+	if err != nil {
+		return err
+	}
+
+	panic(5)
 }

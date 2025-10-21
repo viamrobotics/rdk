@@ -17,15 +17,17 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	genericservice "go.viam.com/rdk/services/generic"
 )
 
 var (
-	helperModel    = resource.NewModel("rdk", "test", "helper")
-	otherModel     = resource.NewModel("rdk", "test", "other")
-	testMotorModel = resource.NewModel("rdk", "test", "motor")
-	testSlowModel  = resource.NewModel("rdk", "test", "slow")
-	myMod          *module.Module
+	helperModel          = resource.NewModel("rdk", "test", "helper")
+	otherModel           = resource.NewModel("rdk", "test", "other")
+	testMotorModel       = resource.NewModel("rdk", "test", "motor")
+	testSlowModel        = resource.NewModel("rdk", "test", "slow")
+	testFSDependentModel = resource.NewModel("rdk", "test", "fsdep")
+	myMod                *module.Module
 )
 
 func main() {
@@ -82,6 +84,15 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		return err
 	}
 
+	resource.RegisterComponent(
+		generic.API,
+		testFSDependentModel,
+		resource.Registration[resource.Resource, *fsDepConfig]{Constructor: newFSDependent})
+	err = myMod.AddModelFromRegistry(ctx, generic.API, testFSDependentModel)
+	if err != nil {
+		return err
+	}
+
 	err = myMod.Start(ctx)
 	defer myMod.Close(ctx)
 	if err != nil {
@@ -116,7 +127,7 @@ func newHelper(
 	var dependsOnSensor sensor.Sensor
 	var err error
 	if len(conf.DependsOn) > 0 {
-		dependsOnSensor, err = sensor.FromDependencies(deps, conf.DependsOn[0])
+		dependsOnSensor, err = sensor.FromProvider(deps, conf.DependsOn[0])
 		if err != nil {
 			return nil, err
 		}
@@ -386,4 +397,66 @@ func (s *slow) Reconfigure(ctx context.Context, deps resource.Dependencies, conf
 func (s *slow) Close(ctx context.Context) error {
 	time.Sleep(s.configDuration)
 	return nil
+}
+
+func newFSDependent(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
+	fs, err := framesystem.FromDependencies(deps)
+	if err != nil {
+		return nil, err
+	}
+	return &fsDependent{
+		Named: conf.ResourceName().AsNamed(),
+		fs:    fs,
+	}, nil
+}
+
+type fsDepConfig struct{}
+
+// Validate INCORRECTLY returns $framesystem, framesystem, and
+// framesystem.PublicServiceName.String() as implicit dependencies (both required and
+// optional). Validate methods do NOT need to do this, as the framesystem is always
+// available in constructors and Reconfigure methods through framesystem.FromDependencies.
+// The incorrect Validate method here is only used for testing that these specific string
+// values are ignored in dependency calculation (resource can construct and reconfigure).
+func (fsc *fsDepConfig) Validate(_ string) ([]string, []string, error) {
+	return []string{"$framesystem", "framesystem"}, []string{framesystem.PublicServiceName.String()}, nil
+}
+
+type fsDependent struct {
+	resource.Named
+	resource.TriviallyCloseable
+	resource.TriviallyReconfigurable
+	fs framesystem.Service
+}
+
+// Reconfigure ensures that the framesystem is available in the dependencies passed to
+// reconfigure (not just the constructor).
+func (fd *fsDependent) Reconfigure(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+) error {
+	fs, err := framesystem.FromDependencies(deps)
+	if err != nil {
+		return err
+	}
+	fsCfg, err := fs.FrameSystemConfig(ctx)
+	if err != nil {
+		return err
+	}
+	if fsCfg == nil {
+		return errors.New("received an empty framesystem config in Reconfigure")
+	}
+	return nil
+}
+
+// DoCommand always returns a stringified version of the frame system config as "fsCfg".
+func (fd *fsDependent) DoCommand(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	fsCfg, err := fd.fs.FrameSystemConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{"fsCfg": fsCfg.String()}, nil
 }

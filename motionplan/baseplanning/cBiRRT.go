@@ -353,7 +353,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		// Check if the arc of "seedInputs" to "target" is valid
-		_, err := mp.CheckSegmentAndStateValidityFS(newArc, mp.planOpts.Resolution)
+		_, err := mp.CheckSegmentAndStateValidityFS(ctx, newArc, mp.planOpts.Resolution)
 		if err == nil {
 			return target
 		}
@@ -364,7 +364,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		// Spawn the IK solver to generate solutions until done
-		_, err = mp.fastGradDescent.Solve(ctx, solutionGen, linearSeed, 0, 0,
+		_, err = mp.fastGradDescent.Solve(ctx, solutionGen, linearSeed, nil,
 			mp.linearizeFSmetric(mp.ConstraintChecker.PathMetric()), randseed.Int())
 		// We should have zero or one solutions
 		var solved *ik.Solution
@@ -382,6 +382,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		failpos, err := mp.CheckSegmentAndStateValidityFS(
+			ctx,
 			&motionplan.SegmentFS{
 				StartConfiguration: seedInputs,
 				EndConfiguration:   solutionMap,

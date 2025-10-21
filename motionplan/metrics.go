@@ -213,20 +213,19 @@ func OrientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Or
 
 // NewSquaredNormMetric is the default distance function between two poses to be used for gradient descent.
 func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
-	weightedSqNormDist := func(query *State) float64 {
-		delta := spatial.PoseDelta(goal, query.Position)
-		// Increase weight for orientation since it's a small number
-		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScaling).Norm2()
-	}
-	return weightedSqNormDist
+	return NewScaledSquaredNormMetric(goal, orientationDistanceScaling)
 }
 
 // NewScaledSquaredNormMetric is a distance function between two poses. It allows the user to scale the contribution of orientation.
+// Increase weight for orientation since it's a small number.
 func NewScaledSquaredNormMetric(goal spatial.Pose, orientationDistanceScale float64) StateMetric {
 	weightedSqNormDist := func(query *State) float64 {
-		delta := spatial.PoseDelta(goal, query.Position)
-		// Increase weight for orientation since it's a small number
-		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationDistanceScale).Norm2()
+		deltaCartesian := spatial.PoseDelta(goal, query.Position)
+		deltaOrientation := spatial.QuatToR3AA(deltaCartesian.Orientation().Quaternion()).Mul(orientationDistanceScale)
+
+		// fmt.Printf("delta cart: %0.4f orient: %0.4f\n", deltaCartesian.Point().Norm2(), deltaOrientation.Norm2())
+
+		return deltaCartesian.Point().Norm2() + deltaOrientation.Norm2()
 	}
 	return weightedSqNormDist
 }
@@ -298,13 +297,18 @@ func SquaredNormNoOrientSegmentMetric(segment *Segment) float64 {
 // This changes the magnitude of the position delta used to be smaller and avoid numeric instability issues that happens with large floats.
 // It also scales the orientation distance to give more weight to it.
 func WeightedSquaredNormSegmentMetric(segment *Segment) float64 {
+	return WeightedSquaredNormDistance(segment.StartPosition, segment.EndPosition)
+}
+
+// WeightedSquaredNormDistance is a distance function between two poses to be used for gradient descent.
+func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
 	// Increase weight for orientation since it's a small number
 	orientDelta := spatial.QuatToR3AA(spatial.OrientationBetween(
-		segment.EndPosition.Orientation(),
-		segment.StartPosition.Orientation(),
+		start.Orientation(),
+		end.Orientation(),
 	).Quaternion()).Mul(orientationDistanceScaling).Norm2()
 	// Also, we multiply delta.Point() by 0.1, effectively measuring in cm rather than mm.
-	ptDelta := segment.EndPosition.Point().Mul(0.1).Sub(segment.StartPosition.Point().Mul(0.1)).Norm2()
+	ptDelta := end.Point().Mul(0.1).Sub(start.Point().Mul(0.1)).Norm2()
 	return ptDelta + orientDelta
 }
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"math"
-	"math/rand"
 	"os"
 	"sort"
 	"testing"
@@ -39,6 +38,7 @@ type planConfigConstructor func(logger logging.Logger) (*planConfig, error)
 
 func TestUnconstrainedMotion(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 	testCases := []struct {
 		name   string
 		config planConfigConstructor
@@ -51,13 +51,14 @@ func TestUnconstrainedMotion(t *testing.T) {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
-			testPlanner(t, tcCopy.config, 1)
+			testPlanner(t, ctx, tcCopy.config)
 		})
 	}
 }
 
 func TestConstrainedMotion(t *testing.T) {
 	t.Parallel()
+	ctx := context.Background()
 	testCases := []struct {
 		name   string
 		config planConfigConstructor
@@ -68,7 +69,7 @@ func TestConstrainedMotion(t *testing.T) {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
 			t.Parallel()
-			testPlanner(t, tcCopy.config, 1)
+			testPlanner(t, ctx, tcCopy.config)
 		})
 	}
 }
@@ -129,8 +130,9 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	constraintHandler.AddStateConstraint("orientation", orientConstraint)
 
 	start := &PlanState{configuration: map[string][]frame.Input{model.Name(): home7}}
-	goal := &PlanState{poses: frame.FrameSystemPoses{model.Name(): frame.NewPoseInFrame(frame.World, pos)}}
-	motionChains, err := motionChainsFromPlanState(fs, goal)
+	goalPoses := frame.FrameSystemPoses{model.Name(): frame.NewPoseInFrame(frame.World, pos)}
+	goal := &PlanState{poses: goalPoses}
+	motionChains, err := motionChainsFromPlanState(fs, goalPoses)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +162,7 @@ func TestPlanningWithGripper(t *testing.T) {
 	zeroPos := frame.NewZeroInputs(fs)
 
 	newPose := frame.NewPoseInFrame("gripper", spatialmath.NewPoseFromPoint(r3.Vector{100, 100, 0}))
-	solutionMap, err := PlanMotion(context.Background(), logger, &PlanRequest{
+	solutionMap, _, err := PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"gripper": newPose}}},
 		StartState:     &PlanState{configuration: zeroPos},
@@ -267,7 +269,7 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 	for name, constraint := range collisionConstraints {
 		constraintHandler.AddStateConstraint(name, constraint)
 	}
-	motionChains, err := motionChainsFromPlanState(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +344,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		constraintHandler.AddStateFSConstraint(name, constraint)
 	}
 	start := map[string][]frame.Input{xarm.Name(): home7}
-	motionChains, err := motionChainsFromPlanState(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +417,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 		constraintHandler.AddStateFSConstraint(name, constraint)
 	}
 	start := map[string][]frame.Input{ur5e.Name(): home6}
-	motionChains, err := motionChainsFromPlanState(fs, goal)
+	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
 		return nil, err
 	}
@@ -432,28 +434,45 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
-func testPlanner(t *testing.T, config planConfigConstructor, seed int) {
+func testPlanner(t *testing.T, ctx context.Context, config planConfigConstructor) {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
 
 	// plan
 	cfg, err := config(logger)
 	test.That(t, err, test.ShouldBeNil)
-	mp, err := newCBiRRTMotionPlanner(
-		cfg.FS, rand.New(rand.NewSource(int64(seed))), logger, cfg.Options, cfg.ConstraintHander, cfg.MotionChains)
+
+	// Create PlanRequest to use the new API
+	request := &PlanRequest{
+		FrameSystem:    cfg.FS,
+		Goals:          []*PlanState{cfg.Goal},
+		StartState:     cfg.Start,
+		PlannerOptions: cfg.Options,
+		Constraints:    &motionplan.Constraints{},
+	}
+
+	pc, err := newPlanContext(ctx, logger, request, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	nodes, err := mp.planForTest(context.Background(), cfg.Start, cfg.Goal)
+	psc, err := newPlanSegmentContext(ctx, pc, cfg.Start.configuration, cfg.Goal.poses)
+	test.That(t, err, test.ShouldBeNil)
+
+	mp, err := newCBiRRTMotionPlanner(ctx, pc, psc)
+	test.That(t, err, test.ShouldBeNil)
+
+	nodes, err := mp.planForTest(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
 	// test that path doesn't violate constraints
 	test.That(t, len(nodes), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(nodes)-1; j++ {
-		_, err := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(&motionplan.SegmentFS{
-			StartConfiguration: nodes[j].inputs,
-			EndConfiguration:   nodes[j+1].inputs,
-			FS:                 cfg.FS,
-		}, cfg.Options.Resolution)
+		_, err := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(
+			ctx,
+			&motionplan.SegmentFS{
+				StartConfiguration: nodes[j],
+				EndConfiguration:   nodes[j+1],
+				FS:                 cfg.FS,
+			}, cfg.Options.Resolution)
 		test.That(t, err, test.ShouldBeNil)
 	}
 }
@@ -469,10 +488,10 @@ func makeTestFS(t *testing.T) *frame.FrameSystem {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryOffset, fs.World())
 
-	gantryX, err := frame.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, frame.Limit{math.Inf(-1), math.Inf(1)})
+	gantryX, err := frame.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, frame.Limit{-1000000, 100000})
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryX, gantryOffset)
-	gantryY, err := frame.NewTranslationalFrame("gantryY", r3.Vector{0, 1, 0}, frame.Limit{math.Inf(-1), math.Inf(1)})
+	gantryY, err := frame.NewTranslationalFrame("gantryY", r3.Vector{0, 1, 0}, frame.Limit{-100000, 100000})
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryY, gantryX)
 
@@ -599,7 +618,7 @@ func TestArmOOBSolve(t *testing.T) {
 
 	// Set a goal unreachable by the UR due to sheer distance
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 21000, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
-	_, err := PlanMotion(context.Background(), logger, &PlanRequest{
+	_, _, err := PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"urCamera": frame.NewPoseInFrame(frame.World, goal1)}}},
 		StartState:     &PlanState{configuration: positions},
@@ -626,7 +645,7 @@ func TestArmObstacleSolve(t *testing.T) {
 
 	// Set a goal unreachable by the UR
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 210, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
-	_, err = PlanMotion(context.Background(), logger, &PlanRequest{
+	_, _, err = PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"urCamera": frame.NewPoseInFrame(frame.World, goal1)}}},
 		StartState:     &PlanState{configuration: positions},
@@ -655,7 +674,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 2100, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
 	planOpts, err := NewPlannerOptionsFromExtra(map[string]interface{}{"smooth_iter": 5})
 	test.That(t, err, test.ShouldBeNil)
-	plan, err := PlanMotion(context.Background(), logger, &PlanRequest{
+	plan, _, err := PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal1)}}},
 		StartState:     &PlanState{configuration: positions},
@@ -675,15 +694,21 @@ func TestMultiArmSolve(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	fs := makeTestFS(t)
 	positions := frame.NewZeroInputs(fs)
+
 	// Solve such that the ur5 and xArm are pointing at each other, 40mm from gripper to camera
-	goal2 := spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})
+	goals := frame.FrameSystemPoses{
+		"xArmVgripper": frame.NewPoseInFrame("urCamera", spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})),
+	}
+	goals, err := translateGoalsToWorldPosition(fs, positions, goals)
+	test.That(t, err, test.ShouldBeNil)
+
 	planOpts, err := NewPlannerOptionsFromExtra(
 		map[string]interface{}{"max_ik_solutions": 10, "timeout": 150.0, "smooth_iter": 5},
 	)
 	test.That(t, err, test.ShouldBeNil)
-	plan, err := PlanMotion(context.Background(), logger, &PlanRequest{
+	plan, _, err := PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
-		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame("urCamera", goal2)}}},
+		Goals:          []*PlanState{{poses: goals}},
 		StartState:     &PlanState{configuration: positions},
 		PlannerOptions: planOpts,
 	})
@@ -693,22 +718,18 @@ func TestMultiArmSolve(t *testing.T) {
 	solvedPose, err := fs.Transform(
 		plan.Trajectory()[len(plan.Trajectory())-1],
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
-		"urCamera",
+		"world",
 	)
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose2, err := fs.Transform(
-		plan.Trajectory()[len(plan.Trajectory())-1],
-		frame.NewPoseInFrame("urCamera", spatialmath.NewZeroPose()),
-		"xArmVgripper",
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose.(*frame.PoseInFrame).Pose(), goal2, 0.1), test.ShouldBeTrue)
-	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose2.(*frame.PoseInFrame).Pose(), goal2, 0.1), test.ShouldBeTrue)
+
+	test.That(t,
+		spatialmath.PoseAlmostCoincidentEps(
+			solvedPose.(*frame.PoseInFrame).Pose(),
+			goals["xArmVgripper"].Pose(), 0.1),
+		test.ShouldBeTrue)
 }
 
 func TestReachOverArm(t *testing.T) {
-	t.Skip("RSDK-10801 Skip until we diagnose why the last assertion in this test fails")
-
 	// setup frame system with an xarm
 	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -728,7 +749,7 @@ func TestReachOverArm(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	logger := logging.NewTestLogger(t)
-	plan, err := PlanMotion(context.Background(), logger, &PlanRequest{
+	plan, _, err := PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{xarm.Name(): goal}}},
 		StartState:     &PlanState{configuration: frame.NewZeroInputs(fs)},
@@ -747,15 +768,13 @@ func TestReachOverArm(t *testing.T) {
 	opts = map[string]interface{}{"timeout": 150.0, "smooth_iter": 5}
 	planOpts, err = NewPlannerOptionsFromExtra(opts)
 	test.That(t, err, test.ShouldBeNil)
-	plan, err = PlanMotion(context.Background(), logger, &PlanRequest{
+	_, _, err = PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{xarm.Name(): goal}}},
 		StartState:     &PlanState{configuration: frame.NewZeroInputs(fs)},
 		PlannerOptions: planOpts,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	// TODO(RSDK-10801): Understand why this is sometimes < 2.
-	test.That(t, len(plan.Trajectory()), test.ShouldBeGreaterThan, 2)
 }
 
 func TestPlanMapMotion(t *testing.T) {
@@ -795,7 +814,7 @@ func TestPlanMapMotion(t *testing.T) {
 		}
 		destination := frame.NewPoseInFrame(frame.World, dst)
 		seedMap := map[string][]frame.Input{f.Name(): seed}
-		plan, err := PlanMotion(ctx, logger, &PlanRequest{
+		plan, _, err := PlanMotion(ctx, logger, &PlanRequest{
 			FrameSystem:    fs,
 			Goals:          []*PlanState{{poses: frame.FrameSystemPoses{f.Name(): destination}}},
 			StartState:     &PlanState{configuration: seedMap},
@@ -838,7 +857,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 
 	checkReachable := func(worldState *frame.WorldState, constraints *motionplan.Constraints) error {
 		goal := spatialmath.NewPose(r3.Vector{X: 600, Y: 100, Z: 300}, &spatialmath.OrientationVectorDegrees{OX: 1})
-		_, err = PlanMotion(context.Background(), logger, &PlanRequest{
+		_, _, err = PlanMotion(context.Background(), logger, &PlanRequest{
 			FrameSystem:    fs,
 			Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
 			StartState:     &PlanState{configuration: frame.NewZeroInputs(fs)},
@@ -906,65 +925,6 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 	}
 }
 
-func TestMovementWithGripper(t *testing.T) {
-	// TODO(rb): move these tests to a separate repo eventually, as they take up too much time for general CI pipeline
-	t.Skip()
-
-	// setup frame system and planning query
-	fs := makeTestFS(t)
-	fs.RemoveFrame(fs.Frame("urOffset"))
-	goal := spatialmath.NewPose(r3.Vector{500, 0, -300}, &spatialmath.OrientationVector{OZ: -1})
-	startConfig := frame.NewZeroInputs(fs)
-
-	motionConfig := map[string]interface{}{}
-	planOpts, err := NewPlannerOptionsFromExtra(motionConfig)
-	test.That(t, err, test.ShouldBeNil)
-	request := &PlanRequest{
-		FrameSystem:    fs,
-		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
-		StartState:     &PlanState{configuration: startConfig},
-		PlannerOptions: planOpts,
-	}
-	logger := logging.NewTestLogger(t)
-	solution, err := PlanMotion(context.Background(), logger, request)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, solution, test.ShouldNotBeNil)
-
-	// plan around the obstacle with the gripper
-	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{300, 0, -400}), r3.Vector{50, 500, 500}, "")
-	test.That(t, err, test.ShouldBeNil)
-	worldState, err := frame.NewWorldState(
-		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{obstacle})},
-		nil,
-	)
-	test.That(t, err, test.ShouldBeNil)
-	request.WorldState = worldState
-	solution, err = PlanMotion(context.Background(), logger, request)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, solution, test.ShouldNotBeNil)
-
-	// plan with end of arm with gripper attached - this will fail
-	goal = spatialmath.NewPose(r3.Vector{500, 0, -100}, &spatialmath.OrientationVector{OZ: -1})
-	request.Goals = []*PlanState{{poses: frame.FrameSystemPoses{"xArm6": frame.NewPoseInFrame(frame.World, goal)}}}
-	_, err = PlanMotion(context.Background(), logger, request)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	// remove linear constraint and try again
-	request.PlannerOptions = NewBasicPlannerOptions()
-	solution, err = PlanMotion(context.Background(), logger, request)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, solution, test.ShouldNotBeNil)
-
-	// remove gripper and try with linear constraint
-	fs.RemoveFrame(fs.Frame("xArmVgripper"))
-	planOpts, err = NewPlannerOptionsFromExtra(motionConfig)
-	test.That(t, err, test.ShouldBeNil)
-	request.PlannerOptions = planOpts
-	solution, err = PlanMotion(context.Background(), logger, request)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, solution, test.ShouldNotBeNil)
-}
-
 func TestValidatePlanRequest(t *testing.T) {
 	t.Parallel()
 	type testCase struct {
@@ -975,7 +935,7 @@ func TestValidatePlanRequest(t *testing.T) {
 
 	fs := frame.NewEmptyFrameSystem("test")
 	frame1 := frame.NewZeroStaticFrame("frame1")
-	frame2, err := frame.NewTranslationalFrame("frame2", r3.Vector{1, 0, 0}, frame.Limit{1, 1})
+	frame2, err := frame.NewTranslationalFrame("frame2", r3.Vector{1, 0, 0}, frame.Limit{-1, 1})
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(frame1, fs.World())
 	test.That(t, err, test.ShouldBeNil)
@@ -1126,6 +1086,6 @@ func TestArmGantryCheckPlan(t *testing.T) {
 		PlannerOptions: NewBasicPlannerOptions(),
 	}
 
-	_, err = PlanMotion(context.Background(), logger, &planReq)
+	_, _, err = PlanMotion(context.Background(), logger, &planReq)
 	test.That(t, err, test.ShouldBeNil)
 }

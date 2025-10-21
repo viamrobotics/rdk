@@ -169,8 +169,8 @@ func additionalParamExtraction(methodParams map[string]*anypb.Any) (methodParams
 
 	minConfidenceParam := methodParams["min_confidence_score"]
 
-	// Default min_confidence_score is 0.5
-	minConfidenceScore := 0.5
+	// Default min_confidence_score is 0.0
+	minConfidenceScore := 0.0
 
 	if minConfidenceParam != nil {
 		minConfidenceScoreWrapper := new(wrapperspb.DoubleValue)

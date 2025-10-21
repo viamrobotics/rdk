@@ -88,7 +88,7 @@ func KinematicModelFromFile(modelPath, name string) (Model, error) {
 
 // SimpleModel is a model that serially concatenates a list of Frames.
 type SimpleModel struct {
-	*baseFrame
+	baseFrame
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	ordTransforms []Frame
 	modelConfig   *ModelConfigJSON
@@ -98,7 +98,7 @@ type SimpleModel struct {
 // NewSimpleModel constructs a new model.
 func NewSimpleModel(name string) *SimpleModel {
 	return &SimpleModel{
-		baseFrame: &baseFrame{name: name},
+		baseFrame: baseFrame{name: name},
 	}
 }
 
@@ -274,9 +274,6 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		frameName = ser.Model.Name
 	}
 
-	m.baseFrame = &baseFrame{name: frameName, limits: ser.Limits}
-	m.modelConfig = ser.Model
-
 	if ser.Model != nil {
 		parsed, err := ser.Model.ParseConfig(ser.Model.Name)
 		if err != nil {
@@ -288,6 +285,9 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		}
 		m.SetOrdTransforms(newModel.OrdTransforms())
 	}
+	m.baseFrame = baseFrame{name: frameName, limits: ser.Limits}
+	m.modelConfig = ser.Model
+
 	return nil
 }
 

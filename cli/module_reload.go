@@ -18,7 +18,10 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-const reloadVersion = "reload"
+const (
+	reloadVersionPrefix       = "reload"
+	reloadSourceVersionPrefix = "reload-source"
+)
 
 // ModuleMap is a type alias to indicate where a map represents a module config.
 // We don't convert to rdkConfig.Module because it can get out of date with what's in the db.
@@ -118,11 +121,13 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 	services, _ := rutils.MapOver(partMap["services"].([]any), //nolint:errcheck
 		func(raw any) (ResourceMap, error) { return ResourceMap(raw.(map[string]any)), nil },
 	)
-	if slices.ContainsFunc(services, func(service ResourceMap) bool { return service["type"] == "shell" }) {
+	if slices.ContainsFunc(services, func(service ResourceMap) bool {
+		return service["type"] == "shell" || service["api"] == "rdk:service:shell"
+	}) {
 		debugf(c.App.Writer, args.Debug, "shell service found on target machine, not installing")
 		return false, nil
 	}
-	services = append(services, ResourceMap{"name": "shell", "type": "shell"})
+	services = append(services, ResourceMap{"name": "shell", "api": "rdk:service:shell"})
 	asAny, _ := rutils.MapOver(services, func(service ResourceMap) (any, error) { //nolint:errcheck
 		return map[string]any(service), nil
 	})

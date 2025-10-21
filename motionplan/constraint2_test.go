@@ -1,6 +1,7 @@
 package motionplan
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/rand"
@@ -10,16 +11,16 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
-	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
 func TestConstraintPath(t *testing.T) {
-	homePos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
-	toPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
+	homePos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	toPos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
 
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	modelXarm, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 
 	test.That(t, err, test.ShouldBeNil)
 	ci := &Segment{StartConfiguration: homePos, EndConfiguration: toPos, Frame: modelXarm}
@@ -42,7 +43,7 @@ func TestConstraintPath(t *testing.T) {
 
 	test.That(t, len(handler.StateConstraints()), test.ShouldEqual, 1)
 
-	badInterpPos := frame.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
+	badInterpPos := referenceframe.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
 	ciBad := &Segment{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
 	err = resolveSegmentsToPositions(ciBad)
 	test.That(t, err, test.ShouldBeNil)
@@ -52,6 +53,7 @@ func TestConstraintPath(t *testing.T) {
 }
 
 func TestLineFollow(t *testing.T) {
+	ctx := context.Background()
 	p1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  440,
 		Y:  -447,
@@ -64,7 +66,7 @@ func TestLineFollow(t *testing.T) {
 		Z:  550,
 		OY: -1,
 	})
-	mp1 := frame.JointPositionsFromRadians([]float64{
+	mp1 := referenceframe.JointPositionsFromRadians([]float64{
 		3.75646398939225,
 		-1.0162453766159272,
 		1.2142890600914453,
@@ -73,7 +75,7 @@ func TestLineFollow(t *testing.T) {
 		-0.006502311329196852,
 		-4.3822913510408945,
 	})
-	mp2 := frame.JointPositionsFromRadians([]float64{
+	mp2 := referenceframe.JointPositionsFromRadians([]float64{
 		3.896845654143853,
 		-0.8353398707254642,
 		1.1306783805718412,
@@ -82,7 +84,7 @@ func TestLineFollow(t *testing.T) {
 		-0.2260694386799326,
 		-4.383397470889424,
 	})
-	mpFail := frame.JointPositionsFromRadians([]float64{
+	mpFail := referenceframe.JointPositionsFromRadians([]float64{
 		3.896845654143853,
 		-1.8353398707254642,
 		1.1306783805718412,
@@ -99,24 +101,24 @@ func TestLineFollow(t *testing.T) {
 		OY: -1,
 	})
 
-	fs := frame.NewEmptyFrameSystem("test")
+	fs := referenceframe.NewEmptyFrameSystem("test")
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	markerFrame, err := frame.NewStaticFrame("marker", spatial.NewPoseFromPoint(r3.Vector{0, 0, 105}))
+	markerFrame, err := referenceframe.NewStaticFrame("marker", spatial.NewPoseFromPoint(r3.Vector{0, 0, 105}))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(markerFrame, m)
 	test.That(t, err, test.ShouldBeNil)
 	goalFrame := fs.World()
 
 	opt := NewEmptyConstraintChecker()
-	startCfg := map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mp1)}
-	from := frame.FrameSystemPoses{markerFrame.Name(): frame.NewPoseInFrame(markerFrame.Name(), p1)}
-	to := frame.FrameSystemPoses{markerFrame.Name(): frame.NewPoseInFrame(goalFrame.Name(), p2)}
+	startCfg := map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mp1)}
+	from := referenceframe.FrameSystemPoses{markerFrame.Name(): referenceframe.NewPoseInFrame(markerFrame.Name(), p1)}
+	to := referenceframe.FrameSystemPoses{markerFrame.Name(): referenceframe.NewPoseInFrame(goalFrame.Name(), p2)}
 
 	constructor := func(fromPose, toPose spatial.Pose, tolerance float64) (StateConstraint, StateMetric) {
 		return NewLineConstraint(fromPose.Point(), toPose.Point(), .001)
@@ -137,9 +139,10 @@ func TestLineFollow(t *testing.T) {
 	// This tests that we are able to advance partway, but not entirely, to the goal while keeping constraints, and return the last good
 	// partway position
 	lastGood, err := opt.CheckSegmentAndStateValidityFS(
+		ctx,
 		&SegmentFS{
-			StartConfiguration: map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mp1)},
-			EndConfiguration:   map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mp2)},
+			StartConfiguration: map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mp1)},
+			EndConfiguration:   map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mp2)},
 			FS:                 fs,
 		},
 		0.001,
@@ -148,29 +151,29 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, lastGood, test.ShouldNotBeNil)
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints
 	stateCheck := &StateFS{Configuration: lastGood.StartConfiguration, FS: fs}
-	test.That(t, opt.CheckStateFSConstraints(stateCheck), test.ShouldBeNil)
+	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
 
 	stateCheck.Configuration = lastGood.EndConfiguration
-	test.That(t, opt.CheckStateFSConstraints(stateCheck), test.ShouldBeNil)
+	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
 
 	// Check that a deviating configuration will fail
-	stateCheck.Configuration = map[string][]frame.Input{m.Name(): m.InputFromProtobuf(mpFail)}
-	err = opt.CheckStateFSConstraints(stateCheck)
+	stateCheck.Configuration = map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mpFail)}
+	err = opt.CheckStateFSConstraints(ctx, stateCheck)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldStartWith, "whiteboard")
 }
 
 func TestCollisionConstraints(t *testing.T) {
-	zeroPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	zeroPos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	cases := []struct {
-		input    []frame.Input
+		input    []referenceframe.Input
 		expected bool
 		failName string
 	}{
 		{zeroPos, true, ""},
-		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true, ""},
-		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false, obstacleConstraintDescription},
-		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false, selfCollisionConstraintDescription},
+		{referenceframe.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true, ""},
+		{referenceframe.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false, obstacleConstraintDescription},
+		{referenceframe.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false, selfCollisionConstraintDescription},
 	}
 
 	// define external obstacles
@@ -179,16 +182,18 @@ func TestCollisionConstraints(t *testing.T) {
 	obstacles := []spatial.Geometry{}
 	obstacles = append(obstacles, bc.Transform(spatial.NewZeroPose()))
 	obstacles = append(obstacles, bc.Transform(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300})))
-	worldState, err := frame.NewWorldState([]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, obstacles)}, nil)
+	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{
+		referenceframe.NewGeometriesInFrame(referenceframe.World, obstacles),
+	}, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// setup zero position as reference CollisionGraph and use it in handler
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	fs := frame.NewEmptyFrameSystem("test")
-	err = fs.AddFrame(model, fs.Frame(frame.World))
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	err = fs.AddFrame(model, fs.Frame(referenceframe.World))
 	test.That(t, err, test.ShouldBeNil)
-	seedMap := frame.NewZeroInputs(fs)
+	seedMap := referenceframe.NewZeroInputs(fs)
 	handler := &ConstraintChecker{}
 
 	// create robot collision entities
@@ -198,7 +203,7 @@ func TestCollisionConstraints(t *testing.T) {
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatial.Geometry, 0)
-	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, seedMap)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, seedMap)
 	test.That(t, err, test.ShouldBeNil)
 	for name, geometries := range frameSystemGeometries {
 		if name != model.Name() {
@@ -243,16 +248,18 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	obstacles := []spatial.Geometry{}
 	obstacles = append(obstacles, bc.Transform(spatial.NewZeroPose()))
 	obstacles = append(obstacles, bc.Transform(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300})))
-	worldState, err := frame.NewWorldState([]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, obstacles)}, nil)
+	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{
+		referenceframe.NewGeometriesInFrame(referenceframe.World, obstacles),
+	}, nil)
 	test.That(b, err, test.ShouldBeNil)
 
 	// setup zero position as reference CollisionGraph and use it in handler
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(b, err, test.ShouldBeNil)
-	fs := frame.NewEmptyFrameSystem("test")
-	err = fs.AddFrame(model, fs.Frame(frame.World))
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	err = fs.AddFrame(model, fs.Frame(referenceframe.World))
 	test.That(b, err, test.ShouldBeNil)
-	seedMap := frame.NewZeroInputs(fs)
+	seedMap := referenceframe.NewZeroInputs(fs)
 	handler := &ConstraintChecker{}
 
 	// create robot collision entities
@@ -262,7 +269,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatial.Geometry, 0)
-	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, seedMap)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, seedMap)
 	test.That(b, err, test.ShouldBeNil)
 	for name, geometries := range frameSystemGeometries {
 		if name != model.Name() {
@@ -291,8 +298,8 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 
 	// loop through cases and check constraint handler processes them correctly
 	for n := 0; n < b.N; n++ {
-		rfloats := frame.GenerateRandomConfiguration(model, rseed)
-		err = handler.CheckStateConstraints(&State{Configuration: frame.FloatsToInputs(rfloats), Frame: model})
+		rfloats := referenceframe.GenerateRandomConfiguration(model, rseed)
+		err = handler.CheckStateConstraints(&State{Configuration: referenceframe.FloatsToInputs(rfloats), Frame: model})
 		test.That(b, err, test.ShouldBeNil)
 	}
 }

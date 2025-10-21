@@ -3,10 +3,8 @@ package builtin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -20,7 +18,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/service/motion/v1"
-	vutils "go.viam.com/utils"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -100,6 +97,9 @@ type Config struct {
 	PlanFilePath           string `json:"plan_file_path"`
 	LogPlannerErrors       bool   `json:"log_planner_errors"`
 	LogSlowPlanThresholdMS int    `json:"log_slow_plan_threshold_ms"`
+
+	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
+	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {
@@ -467,8 +467,67 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 	return resp, nil
 }
 
+func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referenceframe.LinkInFrame) (*referenceframe.FrameSystem, error) {
+	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, transforms)
+	if err != nil {
+		return nil, err
+	}
+
+	for fName, mods := range ms.conf.InputRangeOverride {
+		f := frameSys.Frame(fName)
+		if f == nil {
+			return nil, fmt.Errorf("frame (%s) in input_range_override doesn't exist", fName)
+		}
+
+		ms.logger.Debugf("limit override f: %v mods: %v", fName, mods, f)
+
+		sm, ok := f.(*referenceframe.SimpleModel)
+		if !ok {
+			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
+		}
+
+		smCloned, err := referenceframe.Clone(sm)
+		if err != nil {
+			return nil, err
+		}
+		smClonedTyped := smCloned.(*referenceframe.SimpleModel)
+
+		sub := smClonedTyped.OrdTransforms()
+
+		for modString, l := range mods {
+			idx := 0
+
+			found := false
+			for _, ss := range sub {
+				if len(ss.DoF()) > 0 && (modString == ss.Name() || modString == strconv.Itoa(idx)) {
+					found = true
+					ss.DoF()[0] = l
+					break
+				}
+
+				if len(ss.DoF()) > 0 {
+					idx++
+				}
+			}
+
+			if !found {
+				return nil, fmt.Errorf("can't find mod (%s)", modString)
+			}
+		}
+
+		smClonedTyped.SetOrdTransforms(sub)
+
+		err = frameSys.ReplaceFrame(smClonedTyped)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return frameSys, nil
+}
+
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
-	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, req.WorldState.Transforms())
+	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err
 	}
@@ -541,9 +600,9 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	}
 
 	start := time.Now()
-	plan, err := armplanning.PlanMotion(ctx, logger, planRequest)
+	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
 	if ms.conf.shouldWritePlan(start, err) {
-		err := ms.writePlanRequest(planRequest)
+		err := ms.writePlanRequest(planRequest, plan, start, err)
 		if err != nil {
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
@@ -726,22 +785,29 @@ func waypointsFromRequest(
 	return startState, waypoints, nil
 }
 
-func (ms *builtIn) writePlanRequest(req *armplanning.PlanRequest) error {
-	fn := filepath.Join(ms.conf.PlanFilePath, fmt.Sprintf("plan-%s.json", time.Now().Format(time.RFC3339)))
-	ms.logger.Infof("writing plan to %s", fn)
+func (ms *builtIn) writePlanRequest(req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, planError error) error {
+	planExtra := fmt.Sprintf("-goals-%d", len(req.Goals))
 
-	data, err := json.MarshalIndent(req, "", "  ")
-	if err != nil {
-		return err
+	if planError != nil {
+		planExtra += "-err"
 	}
-	file, err := os.OpenFile(filepath.Clean(fn), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return err
+
+	if plan != nil {
+		totalL2 := 0.0
+
+		t := plan.Trajectory()
+		for idx := 1; idx < len(t); idx++ {
+			for k := range t[idx] {
+				myl2n := referenceframe.InputsL2Distance(t[idx-1][k], t[idx][k])
+				totalL2 += myl2n
+			}
+		}
+
+		planExtra += fmt.Sprintf("-traj-%d-l2-%0.2f", len(t), totalL2)
 	}
-	defer vutils.UncheckedErrorFunc(file.Close)
-	_, err = file.Write(data)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	fn := filepath.Join(ms.conf.PlanFilePath,
+		fmt.Sprintf("plan-%s-ms-%d-%s.json", time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra))
+	ms.logger.Infof("writing plan to %s", fn)
+	return req.WriteToFile(fn)
 }
