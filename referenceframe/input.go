@@ -45,16 +45,6 @@ func InputsFromJointPositions(f Frame, jp *pb.JointPositions) ([]Input, error) {
 	return f.InputFromProtobuf(jp), nil
 }
 
-// FloatsToInputs converts a slice of floats to Inputs.
-func FloatsToInputs(floats []float64) []Input {
-	return floats
-}
-
-// InputsToFloats converts Inputs to raw floats.
-func InputsToFloats(inputs []Input) []float64 {
-	return inputs
-}
-
 // JointPositionsToRadians converts the given positions into a slice
 // of radians.
 func JointPositionsToRadians(jp *pb.JointPositions) []float64 {
