@@ -16,7 +16,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
@@ -297,7 +296,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		googlegrpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
 		googlegrpc.UnknownServiceHandler(svc.foreignServiceHandler),
 		googlegrpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime:             time.Second * 5, // keep this in sync with goutils' rpc/dialer & server. see PR #309
+			MinTime:             rpc.KeepAliveTime / 2, // keep this in sync with goutils' rpc/dialer & server.
 			PermitWithoutStream: true,
 		}),
 	}
