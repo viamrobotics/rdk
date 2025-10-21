@@ -294,6 +294,19 @@ func (c *viamClient) uploadPackage(
 	return resp, errs
 }
 
+func getBytesFromFile(file *os.File) ([]byte, error) {
+	byteArr := make([]byte, moduleUploadChunkSize)
+	numBytesRead, err := file.Read(byteArr)
+	if err != nil {
+		return nil, err
+	}
+	if numBytesRead < moduleUploadChunkSize {
+		byteArr = byteArr[:numBytesRead]
+	}
+
+	return byteArr, nil
+}
+
 func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageRequest, int, error) {
 	// get the next chunk of bytes from the file
 	byteArr := make([]byte, moduleUploadChunkSize)
@@ -309,19 +322,6 @@ func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageReques
 			Contents: byteArr,
 		},
 	}, numBytesRead, nil
-}
-
-func getBytesFromFile(file *os.File) ([]byte, error) {
-	byteArr := make([]byte, moduleUploadChunkSize)
-	numBytesRead, err := file.Read(byteArr)
-	if err != nil {
-		return nil, err
-	}
-	if numBytesRead < moduleUploadChunkSize {
-		byteArr = byteArr[:numBytesRead]
-	}
-
-	return byteArr, nil
 }
 
 func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
