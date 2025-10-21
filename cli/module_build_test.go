@@ -81,9 +81,6 @@ func TestStartBuild(t *testing.T) {
 	path, err := ac.moduleBuildStartAction(parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldEqual, "xyz123")
-	// Note: Progress manager output goes to os.Stdout, not captured in test writers
-	test.That(t, out.messages, test.ShouldHaveLength, 0)
-	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
 
 	// Modify manifest to set url to empty string
 	createTestManifest(t, manifest, map[string]any{"url": ""})

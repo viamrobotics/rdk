@@ -713,9 +713,6 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 		// Stop spinners before showing interactive prompt
 		pm.Stop()
 
-		// Ensure we restart spinner on any exit path
-		defer pm.Start()
-
 		red := "\033[1;31m%s\033[0m"
 		printf(ctx.App.Writer, red, "Error: module not registered in cloud or you lack permissions to edit it.")
 
@@ -851,8 +848,7 @@ func (c *viamClient) triggerCloudReloadBuild(
 
 	var errs error
 	// Upload is handled by the calling function's spinner
-	if err := sendUploadRequests(
-		ctx.Context, stream, file, spinner, getNextReloadBuildUploadRequest); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendUploadRequests(ctx.Context, stream, file, spinner, getNextReloadBuildUploadRequest); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 

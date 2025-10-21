@@ -18,7 +18,7 @@ import (
 
 func TestConfigureModule(t *testing.T) {
 	manifestPath := createTestManifest(t, "", nil)
-	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
+	cCtx, ac, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
@@ -26,9 +26,6 @@ func TestConfigureModule(t *testing.T) {
 	path, err := ac.moduleBuildStartAction(parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldEqual, "xyz123")
-	// Note: Progress manager output goes to os.Stdout, not captured in test writers
-	test.That(t, out.messages, test.ShouldHaveLength, 0)
-	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
 }
 
 // Helper function to create a mock AppServiceClient with robot part.

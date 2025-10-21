@@ -311,6 +311,19 @@ func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageReques
 	}, numBytesRead, nil
 }
 
+func getBytesFromFile(file *os.File) ([]byte, error) {
+	byteArr := make([]byte, moduleUploadChunkSize)
+	numBytesRead, err := file.Read(byteArr)
+	if err != nil {
+		return nil, err
+	}
+	if numBytesRead < moduleUploadChunkSize {
+		byteArr = byteArr[:numBytesRead]
+	}
+
+	return byteArr, nil
+}
+
 func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
 	return fmt.Sprintf("https://%s/%s/%s/%s", baseURL, strings.ReplaceAll(string(packageType), "_", "-"), m.prefix, m.name)
 }

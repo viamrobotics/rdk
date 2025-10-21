@@ -1021,9 +1021,8 @@ func sendUploadRequests[RequestT any, StreamT sender[RequestT]](
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-
 		// Get the next UploadRequest from the file.
-		req, bytesRead, err := getRequest(file)
+		uploadReq, bytesCount, err := getRequest(file)
 
 		// EOF means we've completed successfully.
 		if errors.Is(err, io.EOF) {
@@ -1034,32 +1033,28 @@ func sendUploadRequests[RequestT any, StreamT sender[RequestT]](
 			return errors.Wrap(err, "could not read file")
 		}
 
-		if err = stream.Send(req); err != nil {
+		if err = stream.Send(uploadReq); err != nil {
 			return err
 		}
-		uploadedBytes += bytesRead
 
-		// Update spinner with progress
+		uploadedBytes += bytesCount
+
+		// Simple progress reading until we have a proper tui library
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
 		spinner.UpdateMessage(fmt.Sprintf("Uploading... %d%% (%d/%d bytes)", uploadPercent, uploadedBytes, fileSize))
 	}
 }
 
 func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, int, error) {
-	// get the next chunk of bytes from the file
-	byteArr := make([]byte, moduleUploadChunkSize)
-	numBytesRead, err := file.Read(byteArr)
+	byteArr, err := getBytesFromFile(file)
 	if err != nil {
 		return nil, 0, err
-	}
-	if numBytesRead < moduleUploadChunkSize {
-		byteArr = byteArr[:numBytesRead]
 	}
 	return &apppb.UploadModuleFileRequest{
 		ModuleFile: &apppb.UploadModuleFileRequest_File{
 			File: byteArr,
 		},
-	}, numBytesRead, nil
+	}, len(byteArr), nil
 }
 
 type downloadModuleFlags struct {
