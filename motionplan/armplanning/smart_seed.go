@@ -229,7 +229,7 @@ func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses,
 		return nil, err
 	}
 	if len(ss) == 0 {
-		return nil, fmt.Errorf("no findSeeds results")
+		return start, nil
 	}
 	return ss[0], nil
 }
@@ -325,8 +325,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	}
 
 	if len(best) == 0 {
-		logger.Debugf("no best, returning start")
-		return [][]referenceframe.Input{start}, nil
+		return nil, nil
 	}
 
 	sort.Slice(best, func(i, j int) bool {

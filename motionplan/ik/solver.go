@@ -34,7 +34,7 @@ type Solver interface {
 	referenceframe.Limited
 	// Solve receives a context, a channel to which solutions will be provided, a function whose output should be minimized, and a
 	// number of iterations to run.
-	Solve(ctx context.Context, solutions chan<- *Solution, seed []float64,
+	Solve(ctx context.Context, solutions chan<- *Solution, seeds [][]float64,
 		travelPercent []float64, minFunc CostFunc, rseed int) (int, error)
 }
 
@@ -96,11 +96,13 @@ func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame,
 //
 //	but will fail if you have to move. 1 means search the entire range.
 func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
-	seed []float64, rangeModifier float64,
+	seeds [][]float64, rangeModifier float64,
 ) ([][]float64, error) {
 	travelPercent := []float64{}
-	for range seed {
-		travelPercent = append(travelPercent, rangeModifier)
+	if len(seeds) > 0 {
+		for range seeds[0] {
+			travelPercent = append(travelPercent, rangeModifier)
+		}
 	}
 
 	solutionGen := make(chan *Solution)
@@ -109,7 +111,7 @@ func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
 
 	go func() {
 		defer close(solutionGen)
-		_, err := solver.Solve(ctx, solutionGen, seed, travelPercent, solveFunc, 1)
+		_, err := solver.Solve(ctx, solutionGen, seeds, travelPercent, solveFunc, 1)
 		solveErrors = err
 	}()
 
