@@ -1525,6 +1525,70 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "resource",
+			c: config.Config{
+				Components: []resource.Config{
+					{
+						Name: "foo",
+						API:  resource.APINamespaceRDK.WithComponentType("arm"),
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name: "foo",
+						API:  resource.APINamespaceRDK.WithComponentType("motion"),
+					},
+				},
+			},
+			expected: config.Config{
+				Components: []resource.Config{
+					{
+						Name: "foo",
+						API:  resource.APINamespaceRDK.WithComponentType("arm"),
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name: "foo",
+						API:  resource.APINamespaceRDK.WithComponentType("motion"),
+					},
+				},
+			},
+		},
+		{
+			name: "resource with log config",
+			c: config.Config{
+				Components: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("arm"),
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("motion"),
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
+					},
+				},
+			},
+			expected: config.Config{
+				Components: []resource.Config{
+					{
+						Name: "foo",
+						API:  resource.APINamespaceRDK.WithComponentType("arm"),
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name: "foo",
+						API:  resource.APINamespaceRDK.WithComponentType("motion"),
+					},
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := tc.c
