@@ -213,8 +213,13 @@ func ConvertImageSafe(img image.Image) (*Image, error) {
 	case *image.NRGBA:
 		fastConvertNRGBA(ii, orig)
 	default:
+<<<<<<< Updated upstream
 		for y := 0; y < ii.height; y++ {
 			for x := 0; x < ii.width; x++ {
+=======
+		for y := range ii.height {
+			for x := range ii.width {
+>>>>>>> Stashed changes
 				ii.SetXY(x, y, NewColorFromColor(img.At(x, y)))
 			}
 		}
