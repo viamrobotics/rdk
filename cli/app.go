@@ -1406,12 +1406,12 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
 									Required: true,
-									Usage:    formatAcceptedValues("collection type", "hot_store", "pipeline_sink"),
+									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
 								},
 								&cli.StringFlag{
 									Name:     dataFlagPipelineName,
 									Required: false,
-									Usage:    "name of the pipeline associated with the index when collection type is 'pipeline_sink'",
+									Usage:    "name of the pipeline associated with the index when collection type is 'pipeline-sink'",
 								},
 								&cli.PathFlag{
 									Name:      dataFlagIndexSpecFile,
@@ -1435,12 +1435,12 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
 									Required: true,
-									Usage:    formatAcceptedValues("collection type", "hot_store", "pipeline_sink"),
+									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
 								},
 								&cli.StringFlag{
 									Name:     dataFlagPipelineName,
 									Required: false,
-									Usage:    "name of the pipeline associated with the index when collection type is 'pipeline_sink'",
+									Usage:    "name of the pipeline associated with the index when collection type is 'pipeline-sink'",
 								},
 								&cli.StringFlag{
 									Name:     dataFlagIndexName,
@@ -1463,7 +1463,7 @@ var app = &cli.App{
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
 									Required: true,
-									Usage:    formatAcceptedValues("collection type", "hot_store", "pipeline_sink"),
+									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
 								},
 							},
 							Action: createCommandWithT[listCustomIndexesArgs](ListCustomIndexesAction),
