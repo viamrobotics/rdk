@@ -22,6 +22,7 @@ type Motor struct {
 	StopFunc              func(ctx context.Context, extra map[string]interface{}) error
 	IsPoweredFunc         func(ctx context.Context, extra map[string]interface{}) (bool, float64, error)
 	IsMovingFunc          func(context.Context) (bool, error)
+	ReconfigureFunc       func(ctx context.Context, deps resource.Dependencies, conf resource.Config) error
 	CloseFunc             func(ctx context.Context) error
 }
 
@@ -121,6 +122,17 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 		return m.Motor.IsMoving(ctx)
 	}
 	return m.IsMovingFunc(ctx)
+}
+
+// Reconfigure calls the injected Reconfigure or the real variant.
+func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	if m.ReconfigureFunc == nil {
+		if m.Motor == nil {
+			return resource.NewMustRebuildError(conf.ResourceName())
+		}
+		return m.Motor.Reconfigure(ctx, deps, conf)
+	}
+	return m.ReconfigureFunc(ctx, deps, conf)
 }
 
 // Close calls the injected Close or the real version.

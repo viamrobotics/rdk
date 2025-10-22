@@ -1020,3 +1020,9 @@ func validateRegistered(api resource.API, model resource.Model) error {
 
 	return errors.Errorf("resource with API %s and model %s not yet registered", api, model)
 }
+
+// GetResourceLoggers returns the value of resLoggers. Only to be used for internal
+// testing.
+func (m *Module) GetResourceLoggers() map[resource.Resource]logging.Logger {
+	return m.resLoggers
+}
