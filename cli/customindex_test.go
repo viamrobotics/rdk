@@ -56,7 +56,7 @@ func TestValidateCollectionTypeArgs(t *testing.T) {
 			expectedError:  errInvalidCollectionType,
 		},
 		"invalid_case_sensitivity": {
-			collectionType: "hot-storage",
+			collectionType: "HOT-STORAGE",
 			pipelineName:   "",
 			expectedType:   unspecifiedCollectionType,
 			expectedError:  errInvalidCollectionType,
