@@ -25,6 +25,21 @@ type goalCacheBox struct {
 	entries []smartSeedCacheEntry
 }
 
+func newCacheForFrame(f referenceframe.Frame) (*cacheForFrame, error) {
+	ccf := &cacheForFrame{}
+
+	values := make([]float64, len(f.DoF()))
+
+	err := ccf.buildCacheHelper(f, values, 0)
+	if err != nil {
+		return nil, fmt.Errorf("cannot buildCache for: %s: %w", f.Name(), err)
+	}
+
+	ccf.buildInverseCache()
+
+	return ccf, nil
+}
+
 type cacheForFrame struct {
 	entries []smartSeedCacheEntry
 
@@ -45,8 +60,43 @@ func (cff *cacheForFrame) boxKey(p r3.Vector) string {
 	return fmt.Sprintf("%0.3d%0.3d%0.3d", x, y, z)
 }
 
-func (cff *cacheForFrame) add(e smartSeedCacheEntry) {
-	cff.entries = append(cff.entries, e)
+func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []float64, joint int) error {
+	limits := f.DoF()
+
+	if joint > len(limits) {
+		panic(fmt.Errorf("joint: %d > len(limits): %d", joint, len(limits)))
+	}
+
+	if joint == len(limits) {
+		return cff.addToCache(f, values)
+	}
+
+	min, max, r := limits[joint].GoodLimits()
+	values[joint] = min
+
+	jog := r / 10
+	for values[joint] <= max {
+		err := cff.buildCacheHelper(f, values, joint+1)
+		if err != nil {
+			return err
+		}
+
+		values[joint] += jog
+	}
+
+	return nil
+}
+
+func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine []float64) error {
+	inputs := append([]float64{}, inputsNotMine...)
+	p, err := frame.Transform(inputs)
+	if err != nil {
+		return err
+	}
+
+	cff.entries = append(cff.entries, smartSeedCacheEntry{inputs, p})
+
+	return nil
 }
 
 func (cff *cacheForFrame) buildInverseCache() {
@@ -109,8 +159,7 @@ func (cff *cacheForFrame) findBoxes(goalPose spatialmath.Pose) []*goalCacheBox {
 }
 
 type smartSeedCache struct {
-	fs  *referenceframe.FrameSystem
-	lfs *linearizedFrameSystem
+	fs *referenceframe.FrameSystem
 
 	rawCache map[string]*cacheForFrame
 }
@@ -311,46 +360,14 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	return ret, nil
 }
 
-func (ssc *smartSeedCache) addToCache(frameName string, frame referenceframe.Frame, inputsNotMine []float64) error {
-	inputs := append([]float64{}, inputsNotMine...)
-	p, err := frame.Transform(inputs)
-	if err != nil {
-		return err
-	}
+var (
+	sscCache     = map[int]*cacheForFrame{}
+	sscCacheLock sync.Mutex
+)
 
-	ssc.rawCache[frameName].add(smartSeedCacheEntry{inputs, p})
+func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.Logger) error {
+	var err error
 
-	return nil
-}
-
-func (ssc *smartSeedCache) buildRawCache(frameName string, f referenceframe.Frame, values []float64, joint int) error {
-	limits := f.DoF()
-
-	if joint > len(limits) {
-		panic(fmt.Errorf("joint: %d > len(limits): %d", joint, len(limits)))
-	}
-
-	if joint == len(limits) {
-		return ssc.addToCache(frameName, f, values)
-	}
-
-	min, max, r := limits[joint].GoodLimits()
-	values[joint] = min
-
-	jog := r / 10
-	for values[joint] <= max {
-		err := ssc.buildRawCache(frameName, f, values, joint+1)
-		if err != nil {
-			return err
-		}
-
-		values[joint] += jog
-	}
-
-	return nil
-}
-
-func (ssc *smartSeedCache) buildCacheForFrame(frameName string) error {
 	f := ssc.fs.Frame(frameName)
 	if f == nil {
 		return fmt.Errorf("no frame: %s", f)
@@ -360,27 +377,38 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string) error {
 		return nil
 	}
 
-	ssc.rawCache[frameName] = &cacheForFrame{}
+	hash := f.Hash()
 
-	values := make([]float64, len(f.DoF()))
+	sscCacheLock.Lock()
+	ccf, ok := sscCache[hash]
+	sscCacheLock.Unlock()
 
-	err := ssc.buildRawCache(frameName, f, values, 0)
-	if err != nil {
-		return fmt.Errorf("cannot buildCache for: %s: %w", frameName, err)
+	if !ok {
+		start := time.Now()
+		ccf, err = newCacheForFrame(f)
+		if err != nil {
+			return err
+		}
+
+		logger.Infof("time to build: %v for: %v", time.Since(start), frameName)
+
+		sscCacheLock.Lock()
+		sscCache[hash] = ccf
+		sscCacheLock.Unlock()
 	}
 
-	ssc.rawCache[frameName].buildInverseCache()
+	ssc.rawCache[frameName] = ccf
 
 	return nil
 }
 
 func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
-	logger.Debugf("buildCache %d %v", len(ssc.fs.FrameNames()), ssc.lfs.dof)
+	logger.Debugf("buildCache # of frames: %d", len(ssc.fs.FrameNames()))
 
 	ssc.rawCache = map[string]*cacheForFrame{}
 
 	for _, frameName := range ssc.fs.FrameNames() {
-		err := ssc.buildCacheForFrame(frameName)
+		err := ssc.buildCacheForFrame(frameName, logger)
 		if err != nil {
 			return fmt.Errorf("cannot build cache for frame: %s", frameName)
 		}
@@ -389,43 +417,15 @@ func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
 	return nil
 }
 
-var (
-	sscCache     = map[int]*smartSeedCache{}
-	sscCacheLock sync.Mutex
-)
-
 func smartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) (*smartSeedCache, error) {
-	hash := fs.Hash()
-	var c *smartSeedCache
-
-	sscCacheLock.Lock()
-	c, ok := sscCache[hash]
-	sscCacheLock.Unlock()
-
-	if ok {
-		return c, nil
+	c := &smartSeedCache{
+		fs: fs,
 	}
 
-	lfs, err := newLinearizedFrameSystem(fs)
+	err := c.buildCache(logger)
 	if err != nil {
 		return nil, err
 	}
-
-	c = &smartSeedCache{
-		fs:  fs,
-		lfs: lfs,
-	}
-
-	start := time.Now()
-	err = c.buildCache(logger)
-	if err != nil {
-		return nil, err
-	}
-	logger.Warnf("time to build: %v dof: %v rawCache size: %d hash: %v", time.Since(start), len(lfs.dof), len(c.rawCache), hash)
-
-	sscCacheLock.Lock()
-	sscCache[hash] = c
-	sscCacheLock.Unlock()
 
 	return c, nil
 }

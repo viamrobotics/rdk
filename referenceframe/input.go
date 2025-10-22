@@ -16,13 +16,6 @@ import (
 //   - prismatic inputs should be in mm.
 type Input = float64
 
-/*
-// Hash returns a hash value for this input.
-func (i *Input) Hash() int {
-	return (5 * (int(i.Value*100) + 1000)) * 2
-}
-*/
-
 // JointPositionsFromInputs converts the given slice of Input to a JointPositions struct,
 // using the ProtobufFromInput function provided by the given Frame.
 func JointPositionsFromInputs(f Frame, inputs []Input) (*pb.JointPositions, error) {
