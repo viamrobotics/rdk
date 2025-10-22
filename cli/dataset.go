@@ -216,7 +216,7 @@ func DatasetDownloadAction(c *cli.Context, args datasetDownloadArgs) error {
 }
 
 // downloadDataset downloads a dataset with the specified ID.
-func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONl bool, parallelDownloads, timeout uint) error {
+func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines bool, parallelDownloads, timeout uint) error {
 	var datasetFile *os.File
 	var err error
 	datasetPath := filepath.Join(dst, "dataset.jsonl")
@@ -246,7 +246,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONl bool, para
 	return c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
 			var downloadErr error
-			if !onlyJSONl {
+			if !onlyJSONLines {
 				downloadErr = c.downloadBinary(dst, timeout, id)
 			}
 			datasetErr := binaryDataToJSONLines(c.c.Context, c.dataClient, dst, datasetFile, id)
