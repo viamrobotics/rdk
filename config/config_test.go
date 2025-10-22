@@ -1525,6 +1525,80 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "resource",
+			c: config.Config{
+				Components: []resource.Config{
+					{
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("arm"),
+						Model: resource.DefaultServiceModel,
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("motion"),
+						Model: resource.DefaultServiceModel,
+					},
+				},
+			},
+			expected: config.Config{
+				Components: []resource.Config{
+					{
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("arm"),
+						Model: resource.DefaultServiceModel,
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("motion"),
+						Model: resource.DefaultServiceModel,
+					},
+				},
+			},
+		},
+		{
+			name: "resource with log config",
+			c: config.Config{
+				Components: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("arm"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("motion"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
+					},
+				},
+			},
+			expected: config.Config{
+				Components: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("arm"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("motion"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
+					},
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := tc.c
