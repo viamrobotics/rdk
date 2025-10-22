@@ -1013,3 +1013,73 @@ func TestFrameSystemFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, th.constructCount, test.ShouldEqual, 1)
 }
+
+func TestResLoggersCleanup(t *testing.T) {
+	// Primarily a regression test for RSDK-XXXXX. Asserts values of resLoggers is as
+	// expected with no resources (empty), an added resource (one entry), a reconfigured
+	// resource (still one entry, but a different one given a must rebuild error), and a
+	// removed resource (empty).
+	ctx := t.Context()
+	logger := logging.NewTestLogger(t)
+
+	cfg := &v1.ComponentConfig{
+		Name:  "foo",
+		Api:   motor.API.String(),
+		Model: "fake",
+	}
+	resName := motor.Named("foo")
+
+	modelName := utils.RandomAlphaString(5)
+	model := resource.DefaultModelFamily.WithModel(modelName)
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
+		) (motor.Motor, error) {
+			injectedMotor := &inject.Motor{
+				ReconfigureFunc: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config) error {
+					return resource.NewMustRebuildError(resName)
+				},
+			}
+			return injectedMotor, nil
+		},
+	})
+	t.Cleanup(func() {
+		resource.Deregister(shell.API, model)
+	})
+
+	m := setupLocalModule(t, ctx, logger)
+	err := m.AddModelFromRegistry(ctx, motor.API, resource.DefaultModelFamily.WithModel("fake"))
+	test.That(t, err, test.ShouldBeNil)
+
+	resLoggers := m.GetResourceLoggers()
+	test.That(t, resLoggers, test.ShouldBeEmpty)
+
+	_, err = m.AddResource(ctx, &pb.AddResourceRequest{Config: cfg})
+	test.That(t, err, test.ShouldBeNil)
+
+	resLoggers = m.GetResourceLoggers()
+	test.That(t, resLoggers, test.ShouldNotBeNil)
+	test.That(t, len(resLoggers), test.ShouldEqual, 1)
+	var resourceAfterAddition resource.Resource
+	for res := range resLoggers {
+		resourceAfterAddition = res
+		test.That(t, res.Name(), test.ShouldResemble, resName)
+	}
+
+	_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: cfg})
+	test.That(t, err, test.ShouldBeNil)
+
+	resLoggers = m.GetResourceLoggers()
+	test.That(t, resLoggers, test.ShouldNotBeNil)
+	test.That(t, len(resLoggers), test.ShouldEqual, 1)
+	for res := range resLoggers {
+		test.That(t, res, test.ShouldNotEqual, resourceAfterAddition)
+		test.That(t, res.Name(), test.ShouldResemble, resName)
+	}
+
+	_, err = m.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: resName.String()})
+	test.That(t, err, test.ShouldBeNil)
+
+	resLoggers = m.GetResourceLoggers()
+	test.That(t, resLoggers, test.ShouldBeEmpty)
+}
