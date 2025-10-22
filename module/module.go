@@ -356,7 +356,7 @@ func (m *Module) GetLocalResource(ctx context.Context, name resource.Name) (reso
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for res, _ := range m.resLoggers {
+	for res := range m.resLoggers {
 		if res.Name() == name {
 			return res, nil
 		}
