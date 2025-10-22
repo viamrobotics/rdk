@@ -25,7 +25,7 @@ type Camera struct {
 		filterSourceNames []string,
 		extra map[string]interface{},
 	) ([]camera.NamedImage, resource.ResponseMetadata, error)
-	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
+	NextPointCloudFunc func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error)
 	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
 	PropertiesFunc     func(ctx context.Context) (camera.Properties, error)
 	CloseFunc          func(ctx context.Context) error
@@ -43,12 +43,12 @@ func (c *Camera) Name() resource.Name {
 }
 
 // NextPointCloud calls the injected NextPointCloud or the real version.
-func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (c *Camera) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	if c.NextPointCloudFunc != nil {
-		return c.NextPointCloudFunc(ctx)
+		return c.NextPointCloudFunc(ctx, extra)
 	}
 	if c.Camera != nil {
-		return c.Camera.NextPointCloud(ctx)
+		return c.Camera.NextPointCloud(ctx, extra)
 	}
 	return nil, errors.New("NextPointCloud unimplemented")
 }
