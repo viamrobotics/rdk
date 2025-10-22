@@ -201,6 +201,11 @@ func (d *distancePose) Orientation() Orientation {
 	return (*Quaternion)(&d.orientation)
 }
 
+// Hash returns a hash value for this distance pose.
+func (d *distancePose) Hash() int {
+	return HashPose(d)
+}
+
 // ResetPoseDQTranslation takes a Pose that must be a dualQuaternion and reset's it's translation.
 func ResetPoseDQTranslation(p Pose, v r3.Vector) {
 	q, ok := p.(*dualQuaternion)
@@ -231,4 +236,22 @@ func ProjectOrientationTo2dRotation(pose Pose) (Pose, error) {
 	// This is the vector across the ground of the above hypothetical vector, projected onto the X-Y plane.
 	theta := -math.Atan2(newAdjPt.Y, -newAdjPt.X)
 	return NewPose(pose.Point(), &OrientationVector{OZ: 1, Theta: theta}), nil
+}
+
+func HashPose(p Pose) int {
+	hash := 0
+
+	pp := p.Point()
+
+	hash += (5 * (int(pp.X*10) + 100)) * 2
+	hash += (6 * (int(pp.Y*10) + 10221)) * 3
+	hash += (7 * (int(pp.Z*10) + 2124)) * 4
+
+	o := p.Orientation().OrientationVectorDegrees()
+	hash += (8 * (int(o.OX*100) + 2313)) * 5
+	hash += (9 * (int(o.OY*100) + 3133)) * 6
+	hash += (10 * (int(o.OZ*100) + 2931)) * 7
+	hash += (11 * (int(o.Theta*10) + 6315)) * 8
+
+	return hash
 }

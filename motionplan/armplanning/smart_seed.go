@@ -3,6 +3,7 @@ package armplanning
 import (
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/golang/geo/r3"
@@ -258,29 +259,17 @@ func (ssc *smartSeedCache) buildRawCache(values []float64, joint int) error {
 	return nil
 }
 
-func (ssc *smartSeedCache) buildCache() error {
+func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
+	logger.Debugf("buildCache %v", ssc.lfs.dof)
+
 	values := make([]float64, len(ssc.lfs.dof))
 	err := ssc.buildRawCache(values, 0)
 	if err != nil {
 		return fmt.Errorf("cannot buildCache: %w", err)
 	}
 
-	/*
-		comps := 0
-		for i1, _ := range ssc.rawCache {
-			for i2 := i1 + 1; i2 < len(ssc.rawCache); i2++ {
-				comps++
-			}
-		}
-
-		fmt.Printf("comps: %v\n", comps)
-	*/
 	ssc.geoCache = map[string]*goalCache{}
-	/*
-		for frame := range ssc.rawCache[0].poses {
-			ssc.buildInverseCache(frame)
-		}
-	*/
+
 	return nil
 }
 
@@ -321,14 +310,19 @@ func (ssc *smartSeedCache) buildInverseCache(frame string) {
 	ssc.geoCache[frame] = gc
 }
 
-var foooooo map[*referenceframe.FrameSystem]*smartSeedCache
+var (
+	sscCache     map[int]*smartSeedCache = map[int]*smartSeedCache{}
+	sscCacheLock sync.Mutex
+)
 
 func smartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) (*smartSeedCache, error) {
-	if foooooo == nil {
-		foooooo = map[*referenceframe.FrameSystem]*smartSeedCache{}
-	}
-	c, ok := foooooo[fs]
-	logger.Warnf("ok: %v", ok)
+	hash := fs.Hash()
+	var c *smartSeedCache
+
+	sscCacheLock.Lock()
+	c, ok := sscCache[hash]
+	sscCacheLock.Unlock()
+
 	if ok {
 		return c, nil
 	}
@@ -344,11 +338,15 @@ func smartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) (*smartSee
 	}
 
 	start := time.Now()
-	err = c.buildCache()
+	err = c.buildCache(logger)
 	if err != nil {
 		return nil, err
 	}
-	logger.Warnf("time to build: %v dof: %v rawCache size: %d", time.Since(start), len(lfs.dof), len(c.rawCache))
-	foooooo[fs] = c
+	logger.Warnf("time to build: %v dof: %v rawCache size: %d hash: %v", time.Since(start), len(lfs.dof), len(c.rawCache), hash)
+
+	sscCacheLock.Lock()
+	sscCache[hash] = c
+	sscCacheLock.Unlock()
+
 	return c, nil
 }

@@ -39,6 +39,10 @@ func (s sphere) MarshalJSON() ([]byte, error) {
 	return json.Marshal(config)
 }
 
+func (s *sphere) Hash() int {
+	return HashPose(s.pose) + int((117 * s.radius))
+}
+
 // String returns a human readable string that represents the sphere.
 func (s *sphere) String() string {
 	return fmt.Sprintf("Type: Sphere | Position: X:%.1f, Y:%.1f, Z:%.1f | Radius: %.0f",

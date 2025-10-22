@@ -312,6 +312,37 @@ func (pf *ptgGroupFrame) validInputs(inputs []referenceframe.Input) error {
 	return errAll
 }
 
+// Hash returns a hash value for this PTG group frame.
+func (pf *ptgGroupFrame) Hash() int {
+	hash := 0
+	hash += hashString(pf.name) * 11
+	hash += (5 * (int(pf.turnRadMillimeters*10) + 1000)) * 2
+	hash += (6 * pf.trajCount) * 3
+	hash += (7 * pf.correctionIdx) * 4
+
+	// Hash the limits
+	for i, limit := range pf.limits {
+		hash += ((i + 8) * (int(limit.Min*100) + 2000)) * (i + 5)
+		hash += ((i + 9) * (int(limit.Max*100) + 3000)) * (i + 6)
+	}
+
+	// Hash geometries count (not the full geometry to avoid expensive computation)
+	hash += (10 * len(pf.geometries)) * 7
+
+	// Hash solvers count
+	hash += (11 * len(pf.solvers)) * 8
+
+	return hash
+}
+
+func hashString(s string) int {
+	hash := 0
+	for idx, c := range s {
+		hash += ((idx + 1) * 7) + ((int(c) + 12) * 12)
+	}
+	return hash
+}
+
 func initializePTGs(turnRadius float64, constructors []ptgFactory) []PTG {
 	ptgs := []PTG{}
 	for _, ptg := range constructors {
