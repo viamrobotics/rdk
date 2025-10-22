@@ -177,7 +177,7 @@ do_brew(){
 	fi
 
 	# replace default go with pinned
-	brew link --overwrite go@1.23
+	brew link --overwrite go@1.25.1
 
 	# due to a missing bottle in homebrew, this has to be installed on its own
 	brew install upx
