@@ -15,12 +15,12 @@ import (
 )
 
 const (
-	datasetFlagName             = "name"
-	datasetFlagDatasetID        = "dataset-id"
-	datasetFlagDatasetIDs       = "dataset-ids"
-	dataFlagLocationID          = "location-id"
-	dataFlagBinaryDataIDs       = "binary-data-ids"
-	datasetFlagIncludeJSONLines = "include-jsonl"
+	datasetFlagName          = "name"
+	datasetFlagDatasetID     = "dataset-id"
+	datasetFlagDatasetIDs    = "dataset-ids"
+	dataFlagLocationID       = "location-id"
+	dataFlagBinaryDataIDs    = "binary-data-ids"
+	datasetFlagOnlyJSONLines = "only-jsonl"
 )
 
 type datasetCreateArgs struct {
@@ -195,11 +195,11 @@ func (c *viamClient) deleteDataset(datasetID string) error {
 }
 
 type datasetDownloadArgs struct {
-	Destination  string
-	DatasetID    string
-	IncludeJSONl bool
-	Parallel     uint
-	Timeout      uint
+	Destination string
+	DatasetID   string
+	OnlyJSONl   bool
+	Parallel    uint
+	Timeout     uint
 }
 
 // DatasetDownloadAction is the corresponding action for 'dataset export'.
@@ -209,32 +209,31 @@ func DatasetDownloadAction(c *cli.Context, args datasetDownloadArgs) error {
 		return err
 	}
 	if err := client.downloadDataset(args.Destination, args.DatasetID,
-		args.IncludeJSONl, args.Parallel, args.Timeout); err != nil {
+		args.OnlyJSONl, args.Parallel, args.Timeout); err != nil {
 		return err
 	}
 	return nil
 }
 
 // downloadDataset downloads a dataset with the specified ID.
-func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines bool, parallelDownloads, timeout uint) error {
+func (c *viamClient) downloadDataset(dst, datasetID string, OnlyJSONl bool, parallelDownloads, timeout uint) error {
 	var datasetFile *os.File
 	var err error
-	if includeJSONLines {
-		datasetPath := filepath.Join(dst, "dataset.jsonl")
-		if err := os.MkdirAll(filepath.Dir(datasetPath), 0o700); err != nil {
-			return errors.Wrapf(err, "could not create dataset directory %s", filepath.Dir(datasetPath))
-		}
-		//nolint:gosec
-		datasetFile, err = os.Create(datasetPath)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := datasetFile.Close(); err != nil {
-				Errorf(c.c.App.ErrWriter, "failed to close dataset file %q", datasetFile.Name())
-			}
-		}()
+	datasetPath := filepath.Join(dst, "dataset.jsonl")
+	if err := os.MkdirAll(filepath.Dir(datasetPath), 0o700); err != nil {
+		return errors.Wrapf(err, "could not create dataset directory %s", filepath.Dir(datasetPath))
 	}
+	//nolint:gosec
+	datasetFile, err = os.Create(datasetPath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := datasetFile.Close(); err != nil {
+			Errorf(c.c.App.ErrWriter, "failed to close dataset file %q", datasetFile.Name())
+		}
+	}()
+
 	resp, err := c.datasetClient.ListDatasetsByIDs(context.Background(),
 		&datasetpb.ListDatasetsByIDsRequest{Ids: []string{datasetID}})
 	if err != nil {
@@ -246,11 +245,12 @@ func (c *viamClient) downloadDataset(dst, datasetID string, includeJSONLines boo
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
-			downloadErr := c.downloadBinary(dst, timeout, id)
-			var datasetErr error
-			if includeJSONLines {
-				datasetErr = binaryDataToJSONLines(c.c.Context, c.dataClient, dst, datasetFile, id)
+			var downloadErr error
+			if !OnlyJSONl {
+				downloadErr = c.downloadBinary(dst, timeout, id)
 			}
+			datasetErr := binaryDataToJSONLines(c.c.Context, c.dataClient, dst, datasetFile, id)
+
 			return multierr.Combine(downloadErr, datasetErr)
 		},
 		&datapb.Filter{
