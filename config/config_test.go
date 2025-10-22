@@ -1530,28 +1530,32 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 			c: config.Config{
 				Components: []resource.Config{
 					{
-						Name: "foo",
-						API:  resource.APINamespaceRDK.WithComponentType("arm"),
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("arm"),
+						Model: resource.DefaultServiceModel,
 					},
 				},
 				Services: []resource.Config{
 					{
-						Name: "foo",
-						API:  resource.APINamespaceRDK.WithComponentType("motion"),
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("motion"),
+						Model: resource.DefaultServiceModel,
 					},
 				},
 			},
 			expected: config.Config{
 				Components: []resource.Config{
 					{
-						Name: "foo",
-						API:  resource.APINamespaceRDK.WithComponentType("arm"),
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("arm"),
+						Model: resource.DefaultServiceModel,
 					},
 				},
 				Services: []resource.Config{
 					{
-						Name: "foo",
-						API:  resource.APINamespaceRDK.WithComponentType("motion"),
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("motion"),
+						Model: resource.DefaultServiceModel,
 					},
 				},
 			},
@@ -1563,6 +1567,7 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 					{
 						Name:             "foo",
 						API:              resource.APINamespaceRDK.WithComponentType("arm"),
+						Model:            resource.DefaultServiceModel,
 						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 					},
 				},
@@ -1570,6 +1575,7 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 					{
 						Name:             "foo",
 						API:              resource.APINamespaceRDK.WithComponentType("motion"),
+						Model:            resource.DefaultServiceModel,
 						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 					},
 				},
@@ -1577,14 +1583,18 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 			expected: config.Config{
 				Components: []resource.Config{
 					{
-						Name: "foo",
-						API:  resource.APINamespaceRDK.WithComponentType("arm"),
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("arm"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 					},
 				},
 				Services: []resource.Config{
 					{
-						Name: "foo",
-						API:  resource.APINamespaceRDK.WithComponentType("motion"),
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("motion"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 					},
 				},
 			},
