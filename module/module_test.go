@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/module/v1"
@@ -1015,16 +1016,17 @@ func TestFrameSystemFromDependencies(t *testing.T) {
 }
 
 func TestResLoggersCleanup(t *testing.T) {
-	// Primarily a regression test for RSDK-XXXXX. Asserts values of resLoggers is as
+	// Primarily a regression test for RSDK-12383. Asserts values of resLoggers is as
 	// expected with no resources (empty), an added resource (one entry), a reconfigured
-	// resource (still one entry), and a removed resource (empty).
+	// resource (one entry with new level), and a removed resource (empty).
 	ctx := t.Context()
 	logger := logging.NewTestLogger(t)
 
 	cfg := &v1.ComponentConfig{
-		Name:  "foo",
-		Api:   motor.API.String(),
-		Model: "fake",
+		Name:             "foo",
+		Api:              motor.API.String(),
+		Model:            "fake",
+		LogConfiguration: &v1.LogConfiguration{Level: "debug"},
 	}
 	expectedResName := motor.Named("foo")
 
@@ -1040,20 +1042,17 @@ func TestResLoggersCleanup(t *testing.T) {
 
 	resLoggers = m.GetResourceLoggers()
 	test.That(t, resLoggers, test.ShouldNotBeNil)
-	test.That(t, len(resLoggers), test.ShouldEqual, 1)
-	for name := range resLoggers {
-		test.That(t, name, test.ShouldResemble, expectedResName)
-	}
+	test.That(t, resLoggers[expectedResName], test.ShouldNotBeNil)
+	test.That(t, resLoggers[expectedResName].Level(), test.ShouldEqual, zapcore.DebugLevel)
 
+	cfg.LogConfiguration.Level = "info"
 	_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: cfg})
 	test.That(t, err, test.ShouldBeNil)
 
 	resLoggers = m.GetResourceLoggers()
 	test.That(t, resLoggers, test.ShouldNotBeNil)
-	test.That(t, len(resLoggers), test.ShouldEqual, 1)
-	for name := range resLoggers {
-		test.That(t, name, test.ShouldResemble, expectedResName)
-	}
+	test.That(t, resLoggers[expectedResName], test.ShouldNotBeNil)
+	test.That(t, resLoggers[expectedResName].Level(), test.ShouldEqual, zapcore.InfoLevel)
 
 	_, err = m.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: expectedResName.String()})
 	test.That(t, err, test.ShouldBeNil)
