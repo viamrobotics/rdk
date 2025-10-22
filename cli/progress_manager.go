@@ -98,10 +98,18 @@ func (s *ProgressManager) Stop() {
 	}
 }
 
-// StopSignalHandler stops the signal handler goroutine. This is useful for testing.
+// StopSignalHandler stops the signal handler goroutine and unregisters signal notifications.
+// This should be called to properly clean up and restore terminal state.
 func (s *ProgressManager) StopSignalHandler() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Unregister signal notifications to restore terminal state
+	if s.sigChan != nil {
+		signal.Stop(s.sigChan)
+	}
+
+	// Close the stop channel to terminate the signal handler goroutine
 	if s.stopChan != nil {
 		close(s.stopChan)
 		s.stopChan = nil
