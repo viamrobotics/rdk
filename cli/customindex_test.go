@@ -20,25 +20,25 @@ func TestValidateCollectionTypeArgs(t *testing.T) {
 		expectedError  error
 	}{
 		"hot_store_without_pipeline": {
-			collectionType: "hot_store",
+			collectionType: "hot-storage",
 			pipelineName:   "",
 			expectedType:   hotStoreCollectionType,
 			expectedError:  nil,
 		},
 		"pipeline_sink_with_pipeline": {
-			collectionType: "pipeline_sink",
+			collectionType: "pipeline-sink",
 			pipelineName:   "my-pipeline",
 			expectedType:   pipelineSinkCollectionType,
 			expectedError:  nil,
 		},
 		"pipeline_sink_without_pipeline": {
-			collectionType: "pipeline_sink",
+			collectionType: "pipeline-sink",
 			pipelineName:   "",
 			expectedType:   unspecifiedCollectionType,
 			expectedError:  errPipelineNameRequired,
 		},
 		"hot_store_with_pipeline": {
-			collectionType: "hot_store",
+			collectionType: "hot-storage",
 			pipelineName:   "my-pipeline",
 			expectedType:   unspecifiedCollectionType,
 			expectedError:  errPipelineNameNotAllowed,
@@ -56,13 +56,13 @@ func TestValidateCollectionTypeArgs(t *testing.T) {
 			expectedError:  errInvalidCollectionType,
 		},
 		"invalid_case_sensitivity": {
-			collectionType: "HOT_STORE",
+			collectionType: "hot-storage",
 			pipelineName:   "",
 			expectedType:   unspecifiedCollectionType,
 			expectedError:  errInvalidCollectionType,
 		},
 		"pipeline_sink_invalid_case_with_pipeline": {
-			collectionType: "PIPELINE_SINK",
+			collectionType: "PIPELINE-SINK",
 			pipelineName:   "my-pipeline",
 			expectedType:   unspecifiedCollectionType,
 			expectedError:  errInvalidCollectionType,

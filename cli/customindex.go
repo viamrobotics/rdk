@@ -16,14 +16,14 @@ const (
 	pipelineSinkCollectionType = pb.IndexableCollection_INDEXABLE_COLLECTION_PIPELINE_SINK
 	unspecifiedCollectionType  = pb.IndexableCollection_INDEXABLE_COLLECTION_UNSPECIFIED
 
-	hotStoreCollectionTypeStr     = "hot_store"
-	pipelineSinkCollectionTypeStr = "pipeline_sink"
+	hotStoreCollectionTypeStr     = "hot-storage"
+	pipelineSinkCollectionTypeStr = "pipeline-sink"
 )
 
 var (
-	errInvalidCollectionType  = errors.New("invalid collection type, must be one of: hot_store, pipeline_sink")
-	errPipelineNameRequired   = errors.New("--pipeline-name is required when --collection-type is 'pipeline_sink'")
-	errPipelineNameNotAllowed = errors.New("--pipeline-name can only be used when --collection-type is 'pipeline_sink'")
+	errInvalidCollectionType  = errors.New("invalid collection type, must be one of: hot-storage, pipeline-sink")
+	errPipelineNameRequired   = errors.New("--pipeline-name is required when --collection-type is 'pipeline-sink'")
+	errPipelineNameNotAllowed = errors.New("--pipeline-name can only be used when --collection-type is 'pipeline-sink'")
 )
 
 type createCustomIndexArgs struct {
