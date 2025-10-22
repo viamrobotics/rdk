@@ -352,7 +352,7 @@ func (m *Module) Close(ctx context.Context) {
 	})
 }
 
-func (m *Module) GetLocalResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
+func (m *Module) getLocalResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -561,7 +561,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 			return nil, err
 		}
 
-		c, err := m.GetLocalResource(ctx, name)
+		c, err := m.getLocalResource(ctx, name)
 		if err == nil {
 			deps[name] = c
 			continue
