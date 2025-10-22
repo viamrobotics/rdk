@@ -229,6 +229,15 @@ func (c *capsule) ToPoints(resolution float64) []r3.Vector {
 	return transformPointsToPose(vecList, c.Pose())
 }
 
+// Hash returns a hash value for this capsule.
+func (c *capsule) Hash() int {
+	hash := HashPose(c.pose)
+	hash += (8 * (int(c.radius*100) + 3000)) * 9
+	hash += (9 * (int(c.length*100) + 4000)) * 10
+	hash += hashString(c.label) * 11
+	return hash
+}
+
 // rotationMatrix returns the cached matrix if it exists, and generates it if not.
 func (c *capsule) rotationMatrix() *RotationMatrix {
 	c.once.Do(func() { c.rotMatrix = c.pose.Orientation().RotationMatrix() })

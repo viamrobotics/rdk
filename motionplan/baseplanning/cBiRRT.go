@@ -364,7 +364,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		// Spawn the IK solver to generate solutions until done
-		_, err = mp.fastGradDescent.Solve(ctx, solutionGen, linearSeed, nil,
+		_, err = mp.fastGradDescent.Solve(ctx, solutionGen, [][]float64{linearSeed}, nil,
 			mp.linearizeFSmetric(mp.ConstraintChecker.PathMetric()), randseed.Int())
 		// We should have zero or one solutions
 		var solved *ik.Solution

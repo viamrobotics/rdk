@@ -354,7 +354,7 @@ func (mp *planner) getSolutions(
 	utils.PanicCapturingGo(func() {
 		defer activeSolvers.Done()
 		defer solverFinished.Store(true)
-		_, err := mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, ratios, minFunc, mp.randseed.Int())
+		_, err := mp.solver.Solve(ctxWithCancel, solutionGen, [][]float64{linearSeed}, ratios, minFunc, mp.randseed.Int())
 		if err != nil {
 			if ctxWithCancel.Err() == nil {
 				mp.logger.Warnf("solver had an error: %v", err)

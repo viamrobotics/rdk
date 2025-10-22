@@ -293,7 +293,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return nil
 		}
 
-		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent, mp.pc.linearizeFSmetric(mp.psc.checker.PathMetric()), linearSeed, .25)
+		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent, mp.pc.linearizeFSmetric(mp.psc.checker.PathMetric()), [][]float64{linearSeed}, .25)
 		if err != nil {
 			mp.pc.logger.Debugf("constrainNear fail (DoSolve): %v", err)
 			return nil

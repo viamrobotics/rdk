@@ -49,7 +49,7 @@ func CreateCombinedIKSolver(
 // positions. If unable to solve, the returned error will be non-nil.
 func (ik *CombinedIK) Solve(ctx context.Context,
 	retChan chan<- *Solution,
-	seed []float64,
+	seeds [][]float64,
 	travelPercent []float64,
 	costFunc CostFunc,
 	rseed int,
@@ -69,7 +69,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		rseed += 1500
 		parseed := rseed
 		thisSolver := solver
-		seedFloats := seed
+		seedFloats := seeds
 
 		var myTravelPercent []float64
 		if bottomThird(i, len(ik.solvers)) {
@@ -79,7 +79,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		} else if middleThird(i, len(ik.solvers)) {
 			myTravelPercent = travelPercent
 		} else {
-			seedFloats = generateRandomPositions(randSeed, lowerBound, upperBound)
+			seedFloats = [][]float64{generateRandomPositions(randSeed, lowerBound, upperBound)}
 		}
 
 		activeSolvers.Add(1)

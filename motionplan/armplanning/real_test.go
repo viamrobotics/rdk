@@ -153,22 +153,8 @@ func TestPirouette(t *testing.T) {
 	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
 	test.That(t, err, test.ShouldBeNil)
 
-	idealJointValues := [][]referenceframe.Input{
-		{0 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{30 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{60 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{90 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{120 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{150 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{180 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{180 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{150 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{120 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{90 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{60 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{30 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-		{0 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
-	}
+	idealJointValues := pirIdealJointValues
+
 	// the only change here is in joint 0 in increments of 30, while all the other joints are kept at a constant value
 	// below is change in joint 0 in degrees:
 	// 0 -> 30 -> 60 -> 90 -> 120 -> 150 -> 180 -> 180 -> 150 -> 120 -> 90 -> 60 -> 30 -> 0

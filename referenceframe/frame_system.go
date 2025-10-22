@@ -350,7 +350,8 @@ func (sfs *FrameSystem) DivideFrameSystem(newRoot Frame) (*FrameSystem, error) {
 	return newFS, nil
 }
 
-func (sfs *FrameSystem) getFrameToWorldTransform(inputMap FrameSystemInputs, src Frame) (spatial.Pose, error) {
+// GetFrameToWorldTransform computes the position of src in the world frame based on inputMap.
+func (sfs *FrameSystem) GetFrameToWorldTransform(inputMap FrameSystemInputs, src Frame) (spatial.Pose, error) {
 	if !sfs.frameExists(src.Name()) {
 		return nil, NewFrameMissingError(src.Name())
 	}
@@ -402,11 +403,11 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 
 // Returns the relative pose between the parent and the destination frame.
 func (sfs *FrameSystem) transformFromParent(inputMap FrameSystemInputs, src, dst Frame) (*PoseInFrame, error) {
-	dstToWorld, err := sfs.getFrameToWorldTransform(inputMap, dst)
+	dstToWorld, err := sfs.GetFrameToWorldTransform(inputMap, dst)
 	if err != nil {
 		return nil, err
 	}
-	srcToWorld, err := sfs.getFrameToWorldTransform(inputMap, src)
+	srcToWorld, err := sfs.GetFrameToWorldTransform(inputMap, src)
 	if err != nil {
 		return nil, err
 	}

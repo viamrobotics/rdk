@@ -107,8 +107,9 @@ type solutionSolvingState struct {
 	psc          *planSegmentContext
 	maxSolutions int
 
-	seed              referenceframe.FrameSystemInputs
-	linearSeed        []float64
+	seeds       []referenceframe.FrameSystemInputs
+	linearSeeds [][]float64
+
 	moving, nonmoving []string
 
 	ratios   []float64
@@ -130,7 +131,7 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 
 	sss := &solutionSolvingState{
 		psc:                  psc,
-		seed:                 psc.start,
+		seeds:                []referenceframe.FrameSystemInputs{psc.start},
 		solutions:            []*node{},
 		failures:             newIkConstraintError(psc.pc.fs, psc.checker),
 		startTime:            time.Now(),
@@ -144,10 +145,31 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 		sss.maxSolutions = defaultSolutionsToSeed
 	}
 
-	psc.pc.logger.Debugf("psc.start -> seed: \n%v\n%v", psc.start, sss.seed)
-	sss.linearSeed, err = psc.pc.lfs.mapToSlice(sss.seed)
+	ls, err := psc.pc.lfs.mapToSlice(psc.start)
 	if err != nil {
 		return nil, err
+	}
+	sss.linearSeeds = [][]float64{ls}
+
+	if len(psc.pc.lfs.dof) <= 6 { // TODO - remove the limit
+		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
+		if err != nil {
+			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
+		}
+
+		altSeeds, err := ssc.findSeeds(psc.goal, psc.start, psc.pc.logger)
+		if err != nil {
+			psc.pc.logger.Warnf("findSeeds failed, ignoring: %v", err)
+		}
+		for _, s := range altSeeds {
+			ls, err := psc.pc.lfs.mapToSlice(s)
+			if err != nil {
+				psc.pc.logger.Warnf("mapToSlice failed? %v", err)
+				continue
+			}
+			sss.seeds = append(sss.seeds, s)
+			sss.linearSeeds = append(sss.linearSeeds, ls)
+		}
 	}
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
@@ -161,12 +183,12 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 }
 
 func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) error {
-	sss.ratios = sss.psc.pc.lfs.inputChangeRatio(sss.psc.motionChains, sss.seed,
+	sss.ratios = sss.psc.pc.lfs.inputChangeRatio(sss.psc.motionChains, sss.seeds[0], /* maybe use the best one? */
 		sss.psc.pc.planOpts.getGoalMetric(goal), sss.psc.pc.logger)
 
 	adjusted := []float64{}
 	for idx, r := range sss.ratios {
-		adjusted = append(adjusted, sss.psc.pc.lfs.jog(idx, sss.linearSeed[idx], r))
+		adjusted = append(adjusted, sss.psc.pc.lfs.jog(idx, sss.linearSeeds[0][idx] /* match above when we change */, r))
 	}
 	step, err := sss.psc.pc.lfs.sliceToMap(adjusted)
 	if err != nil {
@@ -314,6 +336,9 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	if sss.bestScoreNoProblem < sss.goodCost/20 {
 		multiple = 0
 		minMillis = 10
+	} else if sss.bestScoreNoProblem < sss.goodCost/15 {
+		multiple = 1
+		minMillis = 15
 	} else if sss.bestScoreNoProblem < sss.goodCost/10 {
 		multiple = 0
 		minMillis = 20
@@ -384,7 +409,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 	utils.PanicCapturingGo(func() {
 		// This channel close doubles as signaling that the goroutine has exited.
 		defer close(solutionGen)
-		_, err := solver.Solve(ctxWithCancel, solutionGen, solvingState.linearSeed, solvingState.ratios, minFunc, psc.pc.randseed.Int())
+		_, err := solver.Solve(ctxWithCancel, solutionGen, solvingState.linearSeeds, solvingState.ratios, minFunc, psc.pc.randseed.Int())
 		if err != nil {
 			solveErrorLock.Lock()
 			solveError = err

@@ -36,6 +36,10 @@ func (wf *wrapperFrame) Name() string {
 	return wf.name
 }
 
+func (wf *wrapperFrame) Hash() int {
+	return (17 * wf.localizationFrame.Hash()) + (31 * wf.executionFrame.Hash())
+}
+
 // Transform returns the associated pose given a list of inputs.
 func (wf *wrapperFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	if len(inputs) != len(wf.DoF()) {

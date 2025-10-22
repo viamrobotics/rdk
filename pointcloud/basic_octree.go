@@ -351,6 +351,27 @@ func (octree *BasicOctree) Label() string {
 	return octree.label
 }
 
+// Hash returns a hash value for this octree.
+func (octree *BasicOctree) Hash() int {
+	hash := 0
+	hash += (5 * (int(octree.center.X*10) + 1000)) * 2
+	hash += (6 * (int(octree.center.Y*10) + 2000)) * 3
+	hash += (7 * (int(octree.center.Z*10) + 3000)) * 4
+	hash += (8 * (int(octree.sideLength*10) + 4000)) * 5
+	hash += (9 * octree.size) * 6
+	hash += (10 * octree.confidenceThreshold) * 7
+	hash += hashString(octree.label) * 11
+	return hash
+}
+
+func hashString(s string) int {
+	hash := 0
+	for idx, c := range s {
+		hash += ((idx + 1) * 7) + ((int(c) + 12) * 12)
+	}
+	return hash
+}
+
 // String returns a human readable string that represents this octree.
 // octree's children will not be represented in the string.
 func (octree *BasicOctree) String() string {

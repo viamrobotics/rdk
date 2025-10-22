@@ -232,3 +232,8 @@ func OffsetBy(a, b *commonpb.Pose) *commonpb.Pose {
 
 	return q3.ToProtobuf()
 }
+
+// Hash returns a hash value for this dual quaternion.
+func (q *dualQuaternion) Hash() int {
+	return HashPose(q)
+}
