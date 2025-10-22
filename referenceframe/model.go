@@ -360,7 +360,7 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 func floatsToString(inputs []Input) string {
 	b := make([]byte, len(inputs)*8)
 	for i, input := range inputs {
-		binary.BigEndian.PutUint64(b[8*i:8*i+8], math.Float64bits(input.Value))
+		binary.BigEndian.PutUint64(b[8*i:8*i+8], math.Float64bits(input))
 	}
 	return string(b)
 }

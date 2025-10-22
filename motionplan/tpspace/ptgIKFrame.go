@@ -39,19 +39,11 @@ func (pf *ptgIKFrame) UnmarshalJSON(data []byte) error {
 }
 
 func (pf *ptgIKFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
-	n := make([]referenceframe.Input, len(jp.Values))
-	for idx, d := range jp.Values {
-		n[idx] = referenceframe.Input{d}
-	}
-	return n
+	return jp.Values
 }
 
 func (pf *ptgIKFrame) ProtobufFromInput(input []referenceframe.Input) *pb.JointPositions {
-	n := make([]float64, len(input))
-	for idx, a := range input {
-		n[idx] = a.Value
-	}
-	return &pb.JointPositions{Values: n}
+	return &pb.JointPositions{Values: input}
 }
 
 func (pf *ptgIKFrame) Geometries(inputs []referenceframe.Input) (*referenceframe.GeometriesInFrame, error) {
@@ -65,8 +57,8 @@ func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose
 	}
 	p1 := spatialmath.NewZeroPose()
 	for i := 0; i < len(inputs); i += 2 {
-		dist := math.Abs(inputs[i+1].Value)
-		p2, err := pf.PTG.Transform([]referenceframe.Input{inputs[i], {dist}})
+		dist := math.Abs(inputs[i+1])
+		p2, err := pf.PTG.Transform([]referenceframe.Input{inputs[i], dist})
 		if err != nil {
 			return nil, err
 		}

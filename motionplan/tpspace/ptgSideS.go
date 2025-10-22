@@ -62,14 +62,14 @@ func (ptg *ptgSideS) Velocities(alpha, dist float64) (float64, float64, error) {
 }
 
 func (ptg *ptgSideS) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	alpha := inputs[0].Value
-	dist := inputs[1].Value
+	alpha := inputs[0]
+	dist := inputs[1]
 
 	flip := math.Copysign(1., alpha)     // left or right
 	direction := math.Copysign(1., dist) // forwards or backwards
 	arcLength := math.Abs(alpha) * 0.5 * ptg.turnRadius
 
-	revPose, err := ptg.circle.Transform([]referenceframe.Input{{flip * math.Pi}, {direction * math.Min(dist, arcLength)}})
+	revPose, err := ptg.circle.Transform([]referenceframe.Input{flip * math.Pi, direction * math.Min(dist, arcLength)})
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +78,8 @@ func (ptg *ptgSideS) Transform(inputs []referenceframe.Input) (spatialmath.Pose,
 	}
 	fwdPose, err := ptg.circle.Transform(
 		[]referenceframe.Input{
-			{-1 * flip * math.Pi},
-			{direction * (math.Min(dist, arcLength+arcLength*ptg.countersteer) - arcLength)},
+			-1 * flip * math.Pi,
+			direction * (math.Min(dist, arcLength+arcLength*ptg.countersteer) - arcLength),
 		},
 	)
 	if err != nil {
@@ -90,7 +90,7 @@ func (ptg *ptgSideS) Transform(inputs []referenceframe.Input) (spatialmath.Pose,
 		return arcPose, nil
 	}
 
-	finalPose, err := ptg.circle.Transform([]referenceframe.Input{{0}, {direction * (dist - (arcLength + arcLength*ptg.countersteer))}})
+	finalPose, err := ptg.circle.Transform([]referenceframe.Input{0, direction * (dist - (arcLength + arcLength*ptg.countersteer))})
 	if err != nil {
 		return nil, err
 	}

@@ -78,9 +78,8 @@ func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
 
 // NewMetricMinFunc takes a metric and a frame, and converts to a function able to be minimized with Solve().
 func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame, logger logging.Logger) CostFunc {
-	return func(_ context.Context, x []float64) float64 {
+	return func(_ context.Context, inputs []referenceframe.Input) float64 {
 		mInput := &motionplan.State{Frame: frame}
-		inputs := referenceframe.FloatsToInputs(x)
 		eePos, err := frame.Transform(inputs)
 		if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
 			logger.Errorw("error calculating frame Transform in IK", "error", err)
