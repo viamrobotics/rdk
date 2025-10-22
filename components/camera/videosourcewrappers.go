@@ -263,11 +263,14 @@ func (vs *videoSource) Images(
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
-func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (vs *videoSource) NextPointCloud(
+	ctx context.Context,
+	extra map[string]interface{},
+) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::videoSource::NextPointCloud")
 	defer span.End()
 	if c, ok := vs.actualSource.(PointCloudSource); ok {
-		return c.NextPointCloud(ctx)
+		return c.NextPointCloud(ctx, extra)
 	}
 	if vs.system == nil || vs.system.PinholeCameraIntrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")

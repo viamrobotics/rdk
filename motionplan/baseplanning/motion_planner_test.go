@@ -24,8 +24,8 @@ import (
 )
 
 var (
-	home7 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
-	home6 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	home7 = []frame.Input{0, 0, 0, 0, 0, 0, 0}
+	home6 = []frame.Input{0, 0, 0, 0, 0, 0}
 )
 
 var logger = logging.FromZapCompatible(zap.Must(zap.Config{
@@ -239,7 +239,7 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 	opt := NewBasicPlannerOptions()
 	constraintHandler := motionplan.NewEmptyConstraintChecker()
 	startInput := frame.NewZeroInputs(fs)
-	startInput[modelName] = frame.FloatsToInputs([]float64{-90., 90., 0})
+	startInput[modelName] = []frame.Input{-90., 90., 0}
 	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
 	goal := &PlanState{poses: frame.FrameSystemPoses{modelName: frame.NewPoseInFrame(frame.World, goalPose)}}
 
@@ -1212,7 +1212,7 @@ func TestValidatePlanRequest(t *testing.T) {
 			request: &PlanRequest{
 				FrameSystem: fs,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
-					"frame1": {}, "frame2": {{0}},
+					"frame1": {}, "frame2": {0},
 				}},
 			},
 			expectedErr: errors.New("PlanRequest must have at least one goal"),
@@ -1223,7 +1223,7 @@ func TestValidatePlanRequest(t *testing.T) {
 				FrameSystem: fs,
 				Goals:       badGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
-					"frame1": {}, "frame2": {{0}},
+					"frame1": {}, "frame2": {0},
 				}},
 				PlannerOptions: NewBasicPlannerOptions(),
 			},
@@ -1244,7 +1244,7 @@ func TestValidatePlanRequest(t *testing.T) {
 				FrameSystem: fs,
 				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
-					"frame1": {}, "frame2": frame.FloatsToInputs([]float64{0, 0, 0, 0, 0}),
+					"frame1": {}, "frame2": {0, 0, 0, 0, 0},
 				}},
 				PlannerOptions: NewBasicPlannerOptions(),
 			},
@@ -1257,7 +1257,7 @@ func TestValidatePlanRequest(t *testing.T) {
 				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
 					"frame1": {},
-					"frame2": {{0}},
+					"frame2": {0},
 				}},
 				PlannerOptions: NewBasicPlannerOptions(),
 			},
@@ -1280,7 +1280,7 @@ func TestValidatePlanRequest(t *testing.T) {
 				Goals:       validGoal,
 				StartState: &PlanState{configuration: map[string][]frame.Input{
 					"frame1": {},
-					"frame2": {{0}},
+					"frame2": {0},
 				}},
 				PlannerOptions: nil,
 			},

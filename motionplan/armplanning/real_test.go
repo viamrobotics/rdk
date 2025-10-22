@@ -148,20 +148,20 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 var pirIdealJointValues = [][]referenceframe.Input{
-	{{0 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{30 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{60 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{90 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{120 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{150 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{180 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{180 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{150 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{120 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{90 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{60 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{30 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
-	{{0 * 3.1415 / 180.0}, {0}, {-90 * 3.1415 / 180.0}, {0}, {0}, {0}},
+		{0 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{30 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{60 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{90 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{120 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{150 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{180 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{180 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{150 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{120 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{90 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{60 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{30 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
+		{0 * 3.1415 / 180.0, 0, -90 * 3.1415 / 180.0, 0, 0, 0},
 }
 
 func TestPirouette(t *testing.T) {
@@ -219,13 +219,13 @@ func TestPirouette(t *testing.T) {
 				// determine how much joint 0 has changed in degrees from this trajectory
 				allArmInputs, err := traj.GetFrameInputs(armName)
 				test.That(t, err, test.ShouldBeNil)
-				j0TrajStart := allArmInputs[0][0].Value
-				j0TrajEnd := allArmInputs[len(allArmInputs)-1][0].Value
+				j0TrajStart := allArmInputs[0][0]
+				j0TrajEnd := allArmInputs[len(allArmInputs)-1][0]
 				j0Change := math.Abs(j0TrajEnd - j0TrajStart)
 
 				// figure out expected change given what the ideal change in joint 0 would be
-				idealJ0Value := idealJointValues[i][0].Value
-				idealPreviousJ0Value := idealJointValues[prevIndex][0].Value
+				idealJ0Value := idealJointValues[i][0]
+				idealPreviousJ0Value := idealJointValues[prevIndex][0]
 				expectedJ0Change := math.Abs(idealJ0Value-idealPreviousJ0Value) + 2e-2 // add buffer of 1.15 degrees
 
 				logger.Infof("motionplan's trajectory: %v", traj)

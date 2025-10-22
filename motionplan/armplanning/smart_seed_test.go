@@ -28,12 +28,12 @@ func TestSmartSeedCache1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	start := referenceframe.FrameSystemInputs{"ur5e": {
-		{1.0471667423817},
-		{0.011108350341463286},
-		{-1.0899013011625651},
-		{-3.0938870331059594},
-		{-1.767558957758243e-05},
-		{-3.681258507284093},
+		1.0471667423817,
+		0.011108350341463286,
+		-1.0899013011625651,
+		-3.0938870331059594,
+		-1.767558957758243e-05,
+		-3.681258507284093,
 	}}
 
 	goal := spatialmath.NewPose(
@@ -92,7 +92,7 @@ func TestSmartSeedCacheFrames(t *testing.T) {
 
 		f, p, err := c.findMovingInfo(
 			referenceframe.FrameSystemInputs{
-				"arm": []referenceframe.Input{{0}, {0}, {0}, {0}, {0}, {0}},
+				"arm": []referenceframe.Input{0, 0, 0, 0, 0, 0},
 			},
 			"gripper",
 			referenceframe.NewPoseInFrame("world", spatialmath.NewPose(r3.Vector{}, &spatialmath.OrientationVectorDegrees{})),
@@ -171,12 +171,12 @@ func BenchmarkSmartSeedCacheSearch(t *testing.B) {
 	test.That(t, err, test.ShouldBeNil)
 
 	start := referenceframe.FrameSystemInputs{"ur5e": {
-		{1.0471667423817},
-		{0.011108350341463286},
-		{-1.0899013011625651},
-		{-3.0938870331059594},
-		{-1.767558957758243e-05},
-		{-3.681258507284093},
+		1.0471667423817,
+		0.011108350341463286,
+		-1.0899013011625651,
+		-3.0938870331059594,
+		-1.767558957758243e-05,
+		-3.681258507284093,
 	}}
 
 	t.ResetTimer()

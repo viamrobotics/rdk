@@ -193,7 +193,7 @@ func newCamera(
 		return viamLogoJpegBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 	}
 
-	v.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	v.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pcd, nil
 	}
 

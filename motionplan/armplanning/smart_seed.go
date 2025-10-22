@@ -311,8 +311,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	return ret, nil
 }
 
-func (ssc *smartSeedCache) addToCache(frameName string, frame referenceframe.Frame, values []float64) error {
-	inputs := referenceframe.FloatsToInputs(values)
+func (ssc *smartSeedCache) addToCache(frameName string, frame referenceframe.Frame, inputs []float64) error {
 	p, err := frame.Transform(inputs)
 	if err != nil {
 		return err

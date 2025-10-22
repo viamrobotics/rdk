@@ -999,7 +999,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	r0Arm, ok := r0arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	err = r0Arm.MoveToJointPositions(context.Background(), []referenceframe.Input{{math.Pi}}, nil)
+	err = r0Arm.MoveToJointPositions(context.Background(), []referenceframe.Input{math.Pi}, nil)
 	test.That(t, err, test.ShouldBeNil)
 	p0Arm1, err := r0Arm.JointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)

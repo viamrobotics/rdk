@@ -447,7 +447,7 @@ func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]in
 	return imgBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 }
 
-func (c *webcam) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (c *webcam) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
