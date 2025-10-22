@@ -43,6 +43,7 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/discovery"
+
 	// Register service APIs.
 	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"
@@ -351,6 +352,19 @@ func (m *Module) Close(ctx context.Context) {
 	})
 }
 
+func (m *Module) GetLocalResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for res, _ := range m.resLoggers {
+		if res.Name() == name {
+			return res, nil
+		}
+	}
+
+	return nil, resource.NewNotFoundError(name)
+}
+
 // GetParentResource returns a resource from the parent robot by name.
 func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
 	// Refresh parent to ensure it has the most up-to-date resources before calling
@@ -546,7 +560,14 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		if err != nil {
 			return nil, err
 		}
-		c, err := m.GetParentResource(ctx, name)
+
+		c, err := m.GetLocalResource(ctx, name)
+		if err == nil {
+			deps[name] = c
+			continue
+		}
+
+		c, err = m.GetParentResource(ctx, name)
 		if err != nil {
 			return nil, err
 		}
