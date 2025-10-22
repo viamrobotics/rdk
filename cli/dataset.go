@@ -246,10 +246,12 @@ func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines bool, 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
 			var downloadErr error
+			var datasetFilePath string
 			if !onlyJSONLines {
 				downloadErr = c.downloadBinary(dst, timeout, id)
+				datasetFilePath = filepath.Join(dst, dataDir)
 			}
-			datasetErr := binaryDataToJSONLines(c.c.Context, c.dataClient, dst, datasetFile, id)
+			datasetErr := binaryDataToJSONLines(c.c.Context, c.dataClient, datasetFilePath, datasetFile, id)
 
 			return multierr.Combine(downloadErr, datasetErr)
 		},
@@ -326,7 +328,7 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 	}
 	bboxAnnotations := convertBoundingBoxes(datum.GetMetadata().GetAnnotations().GetBboxes())
 
-	fileName := filepath.Join(dst, dataDir, filenameForDownload(datum.GetMetadata()))
+	fileName := filepath.Join(dst, filenameForDownload(datum.GetMetadata()))
 	ext := datum.GetMetadata().GetFileExt()
 	// If the file is gzipped, unzip.
 	if ext != gzFileExt && filepath.Ext(fileName) != ext {
