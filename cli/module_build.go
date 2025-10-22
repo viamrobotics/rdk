@@ -1121,7 +1121,7 @@ func reloadModuleActionInner(
 		if err := validateReloadableArchive(c, manifest.Build); err != nil {
 			// if it is a cloud build then it makes sense that we might not have a reloadable
 			// archive locally, so we can safely ignore the error
-			if !cloudBuild {
+			if cloudBuild {
 				return err
 			}
 		}
