@@ -1,5 +1,6 @@
 package referenceframe
 
+// Hash returns a hash value for this frame system.
 func (sfs *FrameSystem) Hash() int {
 	hash := len(sfs.frames) * 1000
 

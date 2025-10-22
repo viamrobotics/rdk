@@ -122,6 +122,7 @@ func (m *SimpleModel) ModelConfig() *ModelConfigJSON {
 	return m.modelConfig
 }
 
+// Hash returns a hash value for this simple model.
 func (m *SimpleModel) Hash() int {
 	h := m.hash()
 	for _, f := range m.ordTransforms {

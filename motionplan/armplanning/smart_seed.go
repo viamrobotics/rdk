@@ -260,7 +260,7 @@ func (ssc *smartSeedCache) buildRawCache(values []float64, joint int) error {
 }
 
 func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
-	logger.Debugf("buildCache %v", ssc.lfs.dof)
+	logger.Debugf("buildCache %d %v", len(ssc.fs.FrameNames()), ssc.lfs.dof)
 
 	values := make([]float64, len(ssc.lfs.dof))
 	err := ssc.buildRawCache(values, 0)
@@ -311,7 +311,7 @@ func (ssc *smartSeedCache) buildInverseCache(frame string) {
 }
 
 var (
-	sscCache     map[int]*smartSeedCache = map[int]*smartSeedCache{}
+	sscCache     = map[int]*smartSeedCache{}
 	sscCacheLock sync.Mutex
 )
 

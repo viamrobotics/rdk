@@ -238,6 +238,7 @@ func ProjectOrientationTo2dRotation(pose Pose) (Pose, error) {
 	return NewPose(pose.Point(), &OrientationVector{OZ: 1, Theta: theta}), nil
 }
 
+// HashPose returns a hash value for the given pose.
 func HashPose(p Pose) int {
 	hash := 0
 
