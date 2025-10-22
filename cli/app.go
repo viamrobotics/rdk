@@ -1475,7 +1475,7 @@ var app = &cli.App{
 						},
 						&cli.BoolFlag{
 							Name:  datasetFlagOnlyJSONLines,
-							Usage: "option to include JSON Lines files for local testing",
+							Usage: "option to include only the JSON Lines files for local testing; no binary data will be downloaded",
 						},
 						&cli.UintFlag{
 							Name:  dataFlagParallelDownloads,
