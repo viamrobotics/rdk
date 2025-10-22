@@ -15,8 +15,8 @@ import (
 )
 
 type smartSeedCacheEntry struct {
-	inputs referenceframe.FrameSystemInputs
-	poses  referenceframe.FrameSystemPoses
+	inputs []referenceframe.Input
+	pose   spatialmath.Pose // this is in the frame's frame, NOT world
 }
 
 type goalCacheBox struct {
@@ -25,46 +25,72 @@ type goalCacheBox struct {
 	entries []smartSeedCacheEntry
 }
 
-type goalCache struct {
+type cacheForFrame struct {
+	entries []smartSeedCacheEntry
+
 	minCartesian, maxCartesian r3.Vector
-	boxes                      map[string]*goalCacheBox // hash to list
+
+	boxes map[string]*goalCacheBox // hash to list
 }
 
-func (gc *goalCache) boxKeyCompute(value, min, max float64) int {
+func (cff *cacheForFrame) boxKeyCompute(value, min, max float64) int {
 	x := (value - min) / (max - min)
-
 	return int(x * 100)
 }
 
-func (gc *goalCache) boxKey(p r3.Vector) string {
-	x := gc.boxKeyCompute(p.X, gc.minCartesian.X, gc.maxCartesian.X)
-	y := gc.boxKeyCompute(p.Y, gc.minCartesian.Y, gc.maxCartesian.Y)
-	z := gc.boxKeyCompute(p.Z, gc.minCartesian.Z, gc.maxCartesian.Z)
+func (cff *cacheForFrame) boxKey(p r3.Vector) string {
+	x := cff.boxKeyCompute(p.X, cff.minCartesian.X, cff.maxCartesian.X)
+	y := cff.boxKeyCompute(p.Y, cff.minCartesian.Y, cff.maxCartesian.Y)
+	z := cff.boxKeyCompute(p.Z, cff.minCartesian.Z, cff.maxCartesian.Z)
 	return fmt.Sprintf("%0.3d%0.3d%0.3d", x, y, z)
 }
 
-type smartSeedCache struct {
-	fs  *referenceframe.FrameSystem
-	lfs *linearizedFrameSystem
-
-	rawCache []smartSeedCacheEntry
-
-	geoCache map[string]*goalCache
+func (cff *cacheForFrame) add(e smartSeedCacheEntry) {
+	cff.entries = append(cff.entries, e)
 }
 
-func (ssc *smartSeedCache) findBoxes(goalFrame string, goalPose spatialmath.Pose) []*goalCacheBox {
+func (cff *cacheForFrame) buildInverseCache() {
+	cff.boxes = map[string]*goalCacheBox{}
+
+	for _, e := range cff.entries {
+		cff.minCartesian.X = min(cff.minCartesian.X, e.pose.Point().X)
+		cff.minCartesian.Y = min(cff.minCartesian.X, e.pose.Point().Y)
+		cff.minCartesian.Z = min(cff.minCartesian.X, e.pose.Point().X)
+
+		cff.maxCartesian.X = max(cff.maxCartesian.X, e.pose.Point().X)
+		cff.maxCartesian.Y = max(cff.maxCartesian.X, e.pose.Point().Y)
+		cff.maxCartesian.Z = max(cff.maxCartesian.X, e.pose.Point().X)
+	}
+
+	for _, e := range cff.entries {
+		key := cff.boxKey(e.pose.Point())
+		box, ok := cff.boxes[key]
+		if !ok {
+			box = &goalCacheBox{boxKey: key}
+			cff.boxes[key] = box
+		}
+		box.entries = append(box.entries, e)
+	}
+
+	for _, v := range cff.boxes {
+		for _, e := range v.entries {
+			p := e.pose.Point()
+			v.center = v.center.Add(p)
+		}
+
+		v.center = v.center.Mul(1.0 / float64(len(v.entries)))
+	}
+}
+
+func (cff *cacheForFrame) findBoxes(goalPose spatialmath.Pose) []*goalCacheBox {
 	type e struct {
 		b *goalCacheBox
 		d float64
 	}
 
-	if ssc.geoCache[goalFrame] == nil {
-		ssc.buildInverseCache(goalFrame)
-	}
-
 	best := []e{}
 
-	for _, b := range ssc.geoCache[goalFrame].boxes {
+	for _, b := range cff.boxes {
 		d := goalPose.Point().Distance(b.center)
 		best = append(best, e{b, d})
 	}
@@ -80,6 +106,42 @@ func (ssc *smartSeedCache) findBoxes(goalFrame string, goalPose spatialmath.Pose
 	}
 
 	return boxes
+}
+
+type smartSeedCache struct {
+	fs  *referenceframe.FrameSystem
+	lfs *linearizedFrameSystem
+
+	rawCache map[string]*cacheForFrame
+}
+
+func (ssc *smartSeedCache) findMovingInfo(inputs referenceframe.FrameSystemInputs,
+	goalFrame string, goalPIF *referenceframe.PoseInFrame,
+) (string, spatialmath.Pose, error) {
+	var err error
+	frame := ssc.fs.Frame(goalFrame)
+	if frame == nil {
+		return "", nil, fmt.Errorf("no frame for %v", goalFrame)
+	}
+	for {
+		if len(frame.DoF()) > 0 {
+			break
+		}
+		if frame == ssc.fs.World() {
+			return "", nil, fmt.Errorf("hit world, and no moving parts when looking to move %s", goalFrame)
+		}
+		frame, err = ssc.fs.Parent(frame)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
+	newPif, err := ssc.fs.Transform(inputs, goalPIF, frame.Name())
+	if err != nil {
+		return "", nil, fmt.Errorf("cannot transform %s to %s: %w", goalPIF.Parent(), frame.Name(), err)
+	}
+
+	return frame.Name(), newPif.(*referenceframe.PoseInFrame).Pose(), nil
 }
 
 func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses,
@@ -104,19 +166,49 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 		return nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
 	}
 
-	for _, p := range goal {
-		if p.Parent() != referenceframe.World {
-			return nil, fmt.Errorf("goal has to be in world, not %s", p.Parent())
-		}
-	}
-
 	goalFrame := ""
-	var goalPose spatialmath.Pose
+	var goalPIF *referenceframe.PoseInFrame
 
 	for k, v := range goal {
 		goalFrame = k
-		goalPose = v.Pose()
+		goalPIF = v
 	}
+
+	movingFrame, movingPose, err := ssc.findMovingInfo(start, goalFrame, goalPIF)
+	if err != nil {
+		return nil, err
+	}
+
+	seeds, err := ssc.findSeedsForFrame(movingFrame, start[movingFrame], movingPose, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	fullSeeds := []referenceframe.FrameSystemInputs{}
+	for _, s := range seeds {
+		i := referenceframe.FrameSystemInputs{}
+		for k, v := range start {
+			i[k] = v
+		}
+		i[goalFrame] = s
+		fullSeeds = append(fullSeeds, i)
+	}
+
+	return fullSeeds, nil
+}
+
+func (ssc *smartSeedCache) findSeedsForFrame(
+	frameName string,
+	start []referenceframe.Input,
+	goalPose spatialmath.Pose,
+	logger logging.Logger,
+) ([][]referenceframe.Input, error) {
+	frame := ssc.fs.Frame(frameName)
+	if frame == nil {
+		return nil, fmt.Errorf("no frame %s", frameName)
+	}
+
+	logger.Debugf("findSeedsForFrame: %s goalPose: %v", frameName, goalPose)
 
 	type entry struct {
 		e        *smartSeedCacheEntry
@@ -124,22 +216,24 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 		cost     float64
 	}
 
-	best := []entry{}
-
-	startPoses, err := start.ComputePoses(ssc.fs)
+	startPose, err := frame.Transform(start)
 	if err != nil {
 		return nil, err
 	}
 
-	startDistance := max(1, ssc.distance(startPoses, goal))
-	logger.Debugf("startDistance: %v", startDistance)
+	startDistance := max(1, motionplan.WeightedSquaredNormDistance(startPose, goalPose))
+
+	best := []entry{}
+
 	bestDistance := startDistance * 2
 
-	boxes := ssc.findBoxes(goalFrame, goalPose)
+	boxes := ssc.rawCache[frameName].findBoxes(goalPose)
+
+	logger.Debugf("startDistance: %v num boxes: %d", startDistance, len(boxes))
 
 	for _, b := range boxes {
 		for _, c := range b.entries {
-			distance := ssc.distance(goal, c.poses)
+			distance := motionplan.WeightedSquaredNormDistance(goalPose, c.pose)
 			if distance > (bestDistance * 2) {
 				continue
 			}
@@ -148,10 +242,7 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 				bestDistance = distance
 			}
 
-			cost := 0.0
-			for k, j := range start {
-				cost += referenceframe.InputsL2Distance(j, c.inputs[k])
-			}
+			cost := referenceframe.InputsL2Distance(start, c.inputs)
 
 			best = append(best, entry{&c, distance, cost})
 		}
@@ -159,7 +250,7 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 
 	if len(best) == 0 {
 		logger.Debugf("no best, returning start")
-		return []referenceframe.FrameSystemInputs{start}, nil
+		return [][]referenceframe.Input{start}, nil
 	}
 
 	sort.Slice(best, func(i, j int) bool {
@@ -174,81 +265,54 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 		cutIdx++
 	}
 
+	logger.Debugf("\t len(best): %d cutIdx: %d", len(best), cutIdx)
+
 	best = best[0:cutIdx]
 
 	sort.Slice(best, func(i, j int) bool {
 		return best[i].cost < best[j].cost
 	})
 
-	ret := []referenceframe.FrameSystemInputs{}
+	ret := [][]referenceframe.Input{}
 
 	for i := 0; i < len(best) && i < 5; i++ {
 		e := best[i]
 		ret = append(ret, e.e.inputs)
-		// logger.Debugf("%v dist: %02.f cost: %0.2f", e.e.inputs, e.distance, e.cost)
+		// logger.Debugf("dist: %02.f cost: %0.2f %v", e.distance, e.cost, e.e.inputs)
 	}
 
 	return ret, nil
 }
 
-func (ssc *smartSeedCache) distance(a, b referenceframe.FrameSystemPoses) float64 {
-	dist := 0.0
-
-	for k, p := range a {
-		if p.Parent() != referenceframe.World {
-			panic(fmt.Errorf("eliot fucked up %s", p.Parent()))
-		}
-
-		pp, ok := b[k]
-		if !ok {
-			continue
-		}
-
-		if pp == nil || pp.Parent() != referenceframe.World {
-			panic(fmt.Errorf("eliot fucked up %s", pp))
-		}
-
-		dist += motionplan.WeightedSquaredNormDistance(p.Pose(), pp.Pose())
-	}
-
-	return dist
-}
-
-func (ssc *smartSeedCache) addToCache(values []float64) error {
-	inputs, err := ssc.lfs.sliceToMap(values)
-	if err != nil {
-		return err
-	}
-	poses, err := inputs.ComputePoses(ssc.fs)
+func (ssc *smartSeedCache) addToCache(frameName string, frame referenceframe.Frame, values []float64) error {
+	inputs := referenceframe.FloatsToInputs(values)
+	p, err := frame.Transform(inputs)
 	if err != nil {
 		return err
 	}
 
-	for _, p := range poses {
-		if p.Parent() != referenceframe.World {
-			return fmt.Errorf("why not in world, but %s", p.Parent())
-		}
-	}
+	ssc.rawCache[frameName].add(smartSeedCacheEntry{inputs, p})
 
-	ssc.rawCache = append(ssc.rawCache, smartSeedCacheEntry{inputs, poses})
 	return nil
 }
 
-func (ssc *smartSeedCache) buildRawCache(values []float64, joint int) error {
-	if joint > len(ssc.lfs.dof) {
-		panic(fmt.Errorf("joint: %d > len(ssc.lfs.dof): %d", joint, len(ssc.lfs.dof)))
+func (ssc *smartSeedCache) buildRawCache(frameName string, f referenceframe.Frame, values []float64, joint int) error {
+	limits := f.DoF()
+
+	if joint > len(limits) {
+		panic(fmt.Errorf("joint: %d > len(limits): %d", joint, len(limits)))
 	}
 
-	if joint == len(ssc.lfs.dof) {
-		return ssc.addToCache(values)
+	if joint == len(limits) {
+		return ssc.addToCache(frameName, f, values)
 	}
 
-	min, max, r := ssc.lfs.dof[joint].GoodLimits()
+	min, max, r := limits[joint].GoodLimits()
 	values[joint] = min
 
 	jog := r / 10
 	for values[joint] <= max {
-		err := ssc.buildRawCache(values, joint+1)
+		err := ssc.buildRawCache(frameName, f, values, joint+1)
 		if err != nil {
 			return err
 		}
@@ -259,55 +323,43 @@ func (ssc *smartSeedCache) buildRawCache(values []float64, joint int) error {
 	return nil
 }
 
-func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
-	logger.Debugf("buildCache %d %v", len(ssc.fs.FrameNames()), ssc.lfs.dof)
-
-	values := make([]float64, len(ssc.lfs.dof))
-	err := ssc.buildRawCache(values, 0)
-	if err != nil {
-		return fmt.Errorf("cannot buildCache: %w", err)
+func (ssc *smartSeedCache) buildCacheForFrame(frameName string) error {
+	f := ssc.fs.Frame(frameName)
+	if f == nil {
+		return fmt.Errorf("no frame: %s", f)
 	}
 
-	ssc.geoCache = map[string]*goalCache{}
+	if len(f.DoF()) == 0 {
+		return nil
+	}
+
+	ssc.rawCache[frameName] = &cacheForFrame{}
+
+	values := make([]float64, len(f.DoF()))
+
+	err := ssc.buildRawCache(frameName, f, values, 0)
+	if err != nil {
+		return fmt.Errorf("cannot buildCache for: %s: %w", frameName, err)
+	}
+
+	ssc.rawCache[frameName].buildInverseCache()
 
 	return nil
 }
 
-func (ssc *smartSeedCache) buildInverseCache(frame string) {
-	gc := &goalCache{
-		boxes: map[string]*goalCacheBox{},
-	}
+func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
+	logger.Debugf("buildCache %d %v", len(ssc.fs.FrameNames()), ssc.lfs.dof)
 
-	for _, e := range ssc.rawCache {
-		gc.minCartesian.X = min(gc.minCartesian.X, e.poses[frame].Pose().Point().X)
-		gc.minCartesian.Y = min(gc.minCartesian.X, e.poses[frame].Pose().Point().Y)
-		gc.minCartesian.Z = min(gc.minCartesian.X, e.poses[frame].Pose().Point().X)
+	ssc.rawCache = map[string]*cacheForFrame{}
 
-		gc.maxCartesian.X = max(gc.maxCartesian.X, e.poses[frame].Pose().Point().X)
-		gc.maxCartesian.Y = max(gc.maxCartesian.X, e.poses[frame].Pose().Point().Y)
-		gc.maxCartesian.Z = max(gc.maxCartesian.X, e.poses[frame].Pose().Point().X)
-	}
-
-	for _, e := range ssc.rawCache {
-		key := gc.boxKey(e.poses[frame].Pose().Point())
-		box, ok := gc.boxes[key]
-		if !ok {
-			box = &goalCacheBox{boxKey: key}
-			gc.boxes[key] = box
+	for _, frameName := range ssc.fs.FrameNames() {
+		err := ssc.buildCacheForFrame(frameName)
+		if err != nil {
+			return fmt.Errorf("cannot build cache for frame: %s", frameName)
 		}
-		box.entries = append(box.entries, e)
 	}
 
-	for _, v := range gc.boxes {
-		for _, e := range v.entries {
-			p := e.poses[frame].Pose().Point()
-			v.center = v.center.Add(p)
-		}
-
-		v.center = v.center.Mul(1.0 / float64(len(v.entries)))
-	}
-
-	ssc.geoCache[frame] = gc
+	return nil
 }
 
 var (

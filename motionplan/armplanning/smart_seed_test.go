@@ -36,19 +36,68 @@ func TestSmartSeedCache1(t *testing.T) {
 		{-3.681258507284093},
 	}}
 
-	startTime := time.Now()
-	seed, err := c.findSeed(
-		referenceframe.FrameSystemPoses{"ur5e": referenceframe.NewPoseInFrame("world",
-			spatialmath.NewPose(
-				r3.Vector{X: -337.976430, Y: -464.051182, Z: 554.695381},
-				&spatialmath.OrientationVectorDegrees{OX: 0.499987, OY: -0.866033, OZ: -0.000000, Theta: 0.000000},
-			))},
-		start, logger)
-	test.That(t, err, test.ShouldBeNil)
-	logger.Infof("time to run findSeed: %v", time.Since(startTime))
+	goal := spatialmath.NewPose(
+		r3.Vector{X: -337.976430, Y: -464.051182, Z: 554.695381},
+		&spatialmath.OrientationVectorDegrees{OX: 0.499987, OY: -0.866033, OZ: -0.000000, Theta: 0.000000},
+	)
 
-	cost := referenceframe.InputsL2Distance(start["ur5e"], seed["ur5e"])
-	test.That(t, cost, test.ShouldBeLessThan, 1.25)
+	t.Run("partial", func(t *testing.T) {
+		startTime := time.Now()
+		seeds, err := c.findSeedsForFrame(
+			"ur5e",
+			start["ur5e"],
+			goal,
+			logger)
+		test.That(t, err, test.ShouldBeNil)
+		logger.Infof("time to run findSeedsForFrame: %v", time.Since(startTime))
+
+		cost := referenceframe.InputsL2Distance(start["ur5e"], seeds[0])
+		test.That(t, cost, test.ShouldBeLessThan, 1.25)
+	})
+
+	t.Run("real", func(t *testing.T) {
+		startTime := time.Now()
+		seed, err := c.findSeed(
+			referenceframe.FrameSystemPoses{"ur5e": referenceframe.NewPoseInFrame("world", goal)},
+			start,
+			logger)
+		test.That(t, err, test.ShouldBeNil)
+		logger.Infof("time to run findSeed: %v", time.Since(startTime))
+
+		cost := referenceframe.InputsL2Distance(start["ur5e"], seed["ur5e"])
+		test.That(t, cost, test.ShouldBeLessThan, 1.25)
+	})
+}
+
+func TestSmartSeedCacheFrames(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	armName := "arm"
+	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	test.That(t, err, test.ShouldBeNil)
+
+	gripperFrame, err := referenceframe.NewStaticFrame("gripper", spatialmath.NewPoseFromPoint(r3.Vector{10, 10, 10}))
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("gripper", func(t *testing.T) {
+		fs := referenceframe.NewEmptyFrameSystem("pirouette")
+
+		err = fs.AddFrame(armKinematics, fs.World())
+		test.That(t, err, test.ShouldBeNil)
+		err = fs.AddFrame(gripperFrame, fs.Frame("arm"))
+		test.That(t, err, test.ShouldBeNil)
+
+		c, err := smartSeed(fs, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		f, p, err := c.findMovingInfo(referenceframe.FrameSystemInputs{
+			"arm": []referenceframe.Input{{0}, {0}, {0}, {0}, {0}, {0}},
+		},
+			"gripper", referenceframe.NewPoseInFrame("world", spatialmath.NewPose(r3.Vector{}, &spatialmath.OrientationVectorDegrees{})))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, f, test.ShouldEqual, "arm")
+		test.That(t, p.Point(), test.ShouldResemble, r3.Vector{100, 100, 100})
+	})
 }
 
 func TestSmartSeedCachePirouette(t *testing.T) {
