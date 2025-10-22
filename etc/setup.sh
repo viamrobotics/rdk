@@ -157,7 +157,7 @@ do_brew(){
 	tap  "viamrobotics/brews"
 
 	# pinned
-	brew "go@1.23", link: true, conflicts_with: ["go"]
+	brew "go@1.25.1", link: true, conflicts_with: ["go"]
 	brew "node@18", link: true, conflicts_with: ["node"]
 
 	# unpinned
