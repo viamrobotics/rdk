@@ -33,6 +33,7 @@ import (
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
@@ -294,6 +295,10 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		googlegrpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)),
 		googlegrpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
 		googlegrpc.UnknownServiceHandler(svc.foreignServiceHandler),
+		googlegrpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             rpc.KeepAliveTime / 2, // keep this in sync with goutils' rpc/dialer & server.
+			PermitWithoutStream: true,
+		}),
 	}
 	server := module.NewServer(opts...)
 	if tcpMode {
