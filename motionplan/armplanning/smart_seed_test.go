@@ -90,13 +90,18 @@ func TestSmartSeedCacheFrames(t *testing.T) {
 		c, err := smartSeed(fs, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		f, p, err := c.findMovingInfo(referenceframe.FrameSystemInputs{
-			"arm": []referenceframe.Input{{0}, {0}, {0}, {0}, {0}, {0}},
-		},
-			"gripper", referenceframe.NewPoseInFrame("world", spatialmath.NewPose(r3.Vector{}, &spatialmath.OrientationVectorDegrees{})))
+		f, p, err := c.findMovingInfo(
+			referenceframe.FrameSystemInputs{
+				"arm": []referenceframe.Input{{0}, {0}, {0}, {0}, {0}, {0}},
+			},
+			"gripper",
+			referenceframe.NewPoseInFrame("world", spatialmath.NewPose(r3.Vector{}, &spatialmath.OrientationVectorDegrees{})),
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f, test.ShouldEqual, "arm")
-		test.That(t, p.Point(), test.ShouldResemble, r3.Vector{100, 100, 100})
+		test.That(t, p.Point().X, test.ShouldAlmostEqual, 10)
+		test.That(t, p.Point().Y, test.ShouldAlmostEqual, -10)
+		test.That(t, p.Point().Z, test.ShouldAlmostEqual, 10)
 	})
 }
 

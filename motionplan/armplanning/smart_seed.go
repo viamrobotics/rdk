@@ -136,12 +136,39 @@ func (ssc *smartSeedCache) findMovingInfo(inputs referenceframe.FrameSystemInput
 		}
 	}
 
-	newPif, err := ssc.fs.Transform(inputs, goalPIF, frame.Name())
+	// there are 3 frames at play here
+	// 1) the frame the goal is specified in
+	// 2) the frame of the thing we want to move
+	// 3) the frame of the actuating component
+
+	f2w1, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalPIF.Parent()))
 	if err != nil {
-		return "", nil, fmt.Errorf("cannot transform %s to %s: %w", goalPIF.Parent(), frame.Name(), err)
+		return "", nil, err
+	}
+	f2w2, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalFrame))
+	if err != nil {
+		return "", nil, err
+	}
+	f2w3, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(frame.Name()))
+	if err != nil {
+		return "", nil, err
 	}
 
-	return frame.Name(), newPif.(*referenceframe.PoseInFrame).Pose(), nil
+	goalInWorld := spatialmath.Compose(goalPIF.Pose(), f2w1)
+	delta := spatialmath.Compose(f2w2, spatialmath.PoseInverse(f2w3))
+
+	newPose := spatialmath.Compose(goalInWorld, delta)
+
+	/*
+		fmt.Printf("f2w1: %v\n", f2w1)
+		fmt.Printf("f2w2: %v\n", f2w2)
+		fmt.Printf("f2w3: %v\n", f2w3)
+		fmt.Printf("goalInWorld: %v\n", goalInWorld)
+		fmt.Printf("delta: %v\n", delta)
+		fmt.Printf("eliot: %v -> %v\n", goalPIF, newPose)
+	*/
+
+	return frame.Name(), newPose, nil
 }
 
 func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses,
