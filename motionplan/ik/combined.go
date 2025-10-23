@@ -61,13 +61,14 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 
 	for _, solver := range ik.solvers {
 		thisSolver := solver
+		myseed := rseed
 		rseed++
 
 		activeSolvers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			n, err := thisSolver.Solve(ctx, retChan, seeds, travelPercent, costFunc, rseed)
+			n, err := thisSolver.Solve(ctx, retChan, seeds, travelPercent, costFunc, myseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()
