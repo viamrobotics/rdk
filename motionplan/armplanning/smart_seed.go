@@ -379,6 +379,7 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.L
 	hash := f.Hash()
 
 	sscCacheLock.Lock()
+	logger.Info("DBG. sscCache size:", len(sscCache))
 	ccf, ok := sscCache[hash]
 	sscCacheLock.Unlock()
 
