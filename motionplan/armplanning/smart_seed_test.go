@@ -143,7 +143,6 @@ func TestSmartSeedCachePirouette(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		score1 := referenceframe.InputsL2Distance(idealJointValues[0], ideal)
-		logger.Infof("hi %d %v", i, score1)
 		seeds, err := ssc.findSeeds(
 			referenceframe.FrameSystemPoses{armName: referenceframe.NewPoseInFrame("world", pose)},
 			referenceframe.FrameSystemInputs{armName: idealJointValues[0]},

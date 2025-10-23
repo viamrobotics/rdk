@@ -430,3 +430,9 @@ func smartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) (*smartSee
 
 	return c, nil
 }
+
+// PrepSmartSeed preps the cache for a FrameSystem.
+func PrepSmartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) error {
+	_, err := smartSeed(fs, logger)
+	return err
+}
