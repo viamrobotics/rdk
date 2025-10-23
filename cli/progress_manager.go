@@ -42,6 +42,9 @@ func NewProgressManager() *ProgressManager {
 		select {
 		case <-sm.sigChan:
 			sm.Stop()
+			// Unregister signal notifications to restore terminal state
+			// Must be done before exit to ensure cursor is restored
+			signal.Stop(sm.sigChan)
 			// Print cancellation message if set
 			if sm.cancellationMessage != "" {
 				errorf(os.Stderr, sm.cancellationMessage)

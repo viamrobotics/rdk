@@ -221,12 +221,12 @@ func configureModule(
 	// to get the most up-to-date version, and return it for further use.
 	partResponse, err := vc.getRobotPart(part.Id)
 	if err != nil {
-		return part, dirty, err
+		return part, !dirty, err
 	}
-	// Return dirty to indicate if config was modified.
-	// If config was modified (dirty=true), RDK will auto-restart the module.
-	// If config was unchanged (dirty=false), caller needs to manually restart the module.
-	return partResponse.Part, dirty, nil
+	// Return !dirty as needsRestart to indicate if manual restart is needed.
+	// If config was modified (dirty=true), RDK will auto-restart the module, so needsRestart=false.
+	// If config was unchanged (dirty=false), caller needs to manually restart the module, so needsRestart=true.
+	return partResponse.Part, !dirty, nil
 }
 
 // localizeModuleID converts a module ID to its 'local mode' name.
