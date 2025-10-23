@@ -85,8 +85,8 @@ func (s *ProgressManager) Start() {
 
 	// Only start if not already started (prevents re-rendering on multiple Start() calls)
 	if !s.started {
-		s.sm.Start()
 		s.started = true
+		s.sm.Start()
 	}
 }
 
@@ -128,6 +128,8 @@ func (s *ProgressManager) IsStopped() bool {
 
 // AddSpinner creates and adds a new spinner with the given message.
 func (s *ProgressManager) AddSpinner(message string) *ysmrr.Spinner {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.sm.AddSpinner(message)
 }
 
