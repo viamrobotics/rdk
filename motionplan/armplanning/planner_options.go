@@ -78,8 +78,6 @@ func NewBasicPlannerOptions() *PlannerOptions {
 
 	opt.SmoothIter = defaultSmoothIter
 
-	opt.NumThreads = defaultNumThreads
-
 	opt.PathStepSize = defaultStepSizeMM
 	opt.CollisionBufferMM = defaultCollisionBufferMM
 	opt.RandomSeed = defaultRandomSeed
@@ -112,9 +110,6 @@ type PlannerOptions struct {
 
 	// Number of times to try to smooth the path
 	SmoothIter int `json:"smooth_iter"`
-
-	// Number of cpu cores to use
-	NumThreads int `json:"num_threads"`
 
 	// How close to get to the goal
 	GoalThreshold float64 `json:"goal_threshold"`

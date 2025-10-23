@@ -389,7 +389,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	solutionGen := make(chan *ik.Solution, psc.pc.planOpts.NumThreads*20)
+	solutionGen := make(chan *ik.Solution, defaultNumThreads*20)
 	defer func() {
 		// In lieu of creating a separate WaitGroup to wait on before returning, we simply wait to
 		// see the `solutionGen` channel get closed to know that the goroutine we spawned has
@@ -398,7 +398,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		}
 	}()
 
-	solver, err := ik.CreateCombinedIKSolver(psc.pc.lfs.dof, psc.pc.logger, psc.pc.planOpts.NumThreads, psc.pc.planOpts.GoalThreshold)
+	solver, err := ik.CreateCombinedIKSolver(psc.pc.lfs.dof, psc.pc.logger, defaultNumThreads, psc.pc.planOpts.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
