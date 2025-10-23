@@ -74,7 +74,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		var myTravelPercent []float64
 		if bottomThird(i, len(ik.solvers)) {
 			for _, p := range travelPercent {
-				myTravelPercent = append(myTravelPercent, max(.2, p))
+				myTravelPercent = append(myTravelPercent, max(.1, p))
 			}
 		} else if middleThird(i, len(ik.solvers)) {
 			myTravelPercent = travelPercent
