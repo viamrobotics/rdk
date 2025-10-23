@@ -41,7 +41,7 @@ func newCacheForFrame(f referenceframe.Frame) (*cacheForFrame, error) {
 }
 
 type cacheForFrame struct {
-	entriesForCacheBuilding []smartSeedCacheEntry
+	entries []smartSeedCacheEntry
 
 	minCartesian, maxCartesian r3.Vector
 
@@ -94,7 +94,7 @@ func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine [
 		return err
 	}
 
-	cff.entriesForCacheBuilding = append(cff.entriesForCacheBuilding, smartSeedCacheEntry{inputs, p})
+	cff.entries = append(cff.entries, smartSeedCacheEntry{inputs, p})
 
 	return nil
 }
@@ -102,7 +102,7 @@ func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine [
 func (cff *cacheForFrame) buildInverseCache() {
 	cff.boxes = map[string]*goalCacheBox{}
 
-	for _, e := range cff.entriesForCacheBuilding {
+	for _, e := range cff.entries {
 		cff.minCartesian.X = min(cff.minCartesian.X, e.pose.Point().X)
 		cff.minCartesian.Y = min(cff.minCartesian.X, e.pose.Point().Y)
 		cff.minCartesian.Z = min(cff.minCartesian.X, e.pose.Point().X)
@@ -112,7 +112,7 @@ func (cff *cacheForFrame) buildInverseCache() {
 		cff.maxCartesian.Z = max(cff.maxCartesian.X, e.pose.Point().X)
 	}
 
-	for _, e := range cff.entriesForCacheBuilding {
+	for _, e := range cff.entries {
 		key := cff.boxKey(e.pose.Point())
 		box, ok := cff.boxes[key]
 		if !ok {
@@ -130,8 +130,6 @@ func (cff *cacheForFrame) buildInverseCache() {
 
 		v.center = v.center.Mul(1.0 / float64(len(v.entries)))
 	}
-
-	cff.entriesForCacheBuilding = nil
 }
 
 func (cff *cacheForFrame) findBoxes(goalPose spatialmath.Pose) []*goalCacheBox {
