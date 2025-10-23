@@ -100,7 +100,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
-	input[0] = referenceframe.Input{Value: 1}
+	input[0] = 1
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	cg, err := newCollisionGraph(
@@ -114,7 +114,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, len(cg.collisions(defaultCollisionBufferMM)), test.ShouldEqual, 0)
 
 	// case 2: self collision - check only new collisions are returned
-	input[4] = referenceframe.Input{Value: 2}
+	input[4] = 2
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	cg, err = newCollisionGraph(

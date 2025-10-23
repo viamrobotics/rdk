@@ -26,9 +26,9 @@ func TestPtgNegativePartialTransform(t *testing.T) {
 	pf, ok := pFrame.(*ptgGroupFrame)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	partialPose1, err := pf.Transform([]referenceframe.Input{{0}, {math.Pi / 2}, {200}, {30}})
+	partialPose1, err := pf.Transform([]referenceframe.Input{0, math.Pi / 2, 200, 30})
 	test.That(t, err, test.ShouldBeNil)
-	partialPose2, err := pf.Transform([]referenceframe.Input{{0}, {math.Pi / 2}, {200}, {40}})
+	partialPose2, err := pf.Transform([]referenceframe.Input{0, math.Pi / 2, 200, 40})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(
@@ -69,71 +69,71 @@ func TestInterpolate(t *testing.T) {
 		{
 			name:      "Simple interpolation 1",
 			inputFrom: zeroInput,
-			inputTo:   []referenceframe.Input{{0}, {math.Pi / 2}, {0}, {200}},
-			expected:  []referenceframe.Input{{0}, {math.Pi / 2}, {0}, {80}},
+			inputTo:   []referenceframe.Input{0, math.Pi / 2, 0, 200},
+			expected:  []referenceframe.Input{0, math.Pi / 2, 0, 80},
 			amount:    0.4,
 		},
 		{
 			name:      "Simple interpolation 2",
 			inputFrom: zeroInput,
-			inputTo:   []referenceframe.Input{{0}, {math.Pi / 2}, {0}, {200}},
-			expected:  []referenceframe.Input{{0}, {math.Pi / 2}, {0}, {120}},
+			inputTo:   []referenceframe.Input{0, math.Pi / 2, 0, 200},
+			expected:  []referenceframe.Input{0, math.Pi / 2, 0, 120},
 			amount:    0.6,
 		},
 		{
 			name:      "Simple interpolation 3",
-			inputFrom: []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {100}},
-			inputTo:   []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {200}},
-			expected:  []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {140}},
+			inputFrom: []referenceframe.Input{0, math.Pi / 2, 100, 100},
+			inputTo:   []referenceframe.Input{0, math.Pi / 2, 100, 200},
+			expected:  []referenceframe.Input{0, math.Pi / 2, 100, 140},
 			amount:    0.4,
 		},
 		{
 			name:      "Simple interpolation 4",
 			inputFrom: zeroInput,
-			inputTo:   []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {200}},
-			expected:  []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {140}},
+			inputTo:   []referenceframe.Input{0, math.Pi / 2, 100, 200},
+			expected:  []referenceframe.Input{0, math.Pi / 2, 100, 140},
 			amount:    0.4,
 		},
 		{
 			name:      "Nonzero starting point",
-			inputFrom: []referenceframe.Input{{0}, {math.Pi / 2}, {0}, {100}},
-			inputTo:   []referenceframe.Input{{0}, {math.Pi / 2}, {0}, {200}},
-			expected:  []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {140}},
+			inputFrom: []referenceframe.Input{0, math.Pi / 2, 0, 100},
+			inputTo:   []referenceframe.Input{0, math.Pi / 2, 0, 200},
+			expected:  []referenceframe.Input{0, math.Pi / 2, 100, 140},
 			amount:    0.4,
 		},
 		{
 			name:      "Zero interpolation",
-			inputFrom: []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {100}},
-			inputTo:   []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {200}},
-			expected:  []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {100}},
+			inputFrom: []referenceframe.Input{0, math.Pi / 2, 100, 100},
+			inputTo:   []referenceframe.Input{0, math.Pi / 2, 100, 200},
+			expected:  []referenceframe.Input{0, math.Pi / 2, 100, 100},
 			amount:    0,
 		},
 		{
 			name:      "Zero interpolation with zero input",
 			inputFrom: zeroInput,
-			inputTo:   []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {200}},
-			expected:  []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {100}},
+			inputTo:   []referenceframe.Input{0, math.Pi / 2, 100, 200},
+			expected:  []referenceframe.Input{0, math.Pi / 2, 100, 100},
 			amount:    0,
 		},
 		{
 			name:      "Reverse interpolation 1",
 			inputFrom: zeroInput,
-			inputTo:   []referenceframe.Input{{0}, {math.Pi / 2}, {200}, {0}},
-			expected:  []referenceframe.Input{{0}, {math.Pi / 2}, {200}, {120}},
+			inputTo:   []referenceframe.Input{0, math.Pi / 2, 200, 0},
+			expected:  []referenceframe.Input{0, math.Pi / 2, 200, 120},
 			amount:    0.4,
 		},
 		{
 			name:      "Reverse interpolation 2",
-			inputFrom: []referenceframe.Input{{0}, {math.Pi / 2}, {200}, {200}},
-			inputTo:   []referenceframe.Input{{0}, {math.Pi / 2}, {200}, {0}},
-			expected:  []referenceframe.Input{{0}, {math.Pi / 2}, {200}, {120}},
+			inputFrom: []referenceframe.Input{0, math.Pi / 2, 200, 200},
+			inputTo:   []referenceframe.Input{0, math.Pi / 2, 200, 0},
+			expected:  []referenceframe.Input{0, math.Pi / 2, 200, 120},
 			amount:    0.4,
 		},
 		{
 			name:      "Reverse interpolation nonzero starting point",
-			inputFrom: []referenceframe.Input{{0}, {math.Pi / 2}, {200}, {100}},
-			inputTo:   []referenceframe.Input{{0}, {math.Pi / 2}, {200}, {0}},
-			expected:  []referenceframe.Input{{0}, {math.Pi / 2}, {100}, {60}},
+			inputFrom: []referenceframe.Input{0, math.Pi / 2, 200, 100},
+			inputTo:   []referenceframe.Input{0, math.Pi / 2, 200, 0},
+			expected:  []referenceframe.Input{0, math.Pi / 2, 100, 60},
 			amount:    0.4,
 		},
 	}

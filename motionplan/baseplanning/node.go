@@ -20,14 +20,14 @@ func fixedStepInterpolation(start, target node, qstep map[string][]float64) refe
 		frameSteps := make([]referenceframe.Input, len(startInputs))
 
 		for j, nearInput := range startInputs {
-			if nearInput.Value == targetInputs[j].Value {
+			if nearInput == targetInputs[j] {
 				frameSteps[j] = nearInput
 			} else {
-				v1, v2 := nearInput.Value, targetInputs[j].Value
+				v1, v2 := nearInput, targetInputs[j]
 				newVal := math.Min(qstep[frameName][j], math.Abs(v2-v1))
 				// get correct sign
 				newVal *= (v2 - v1) / math.Abs(v2-v1)
-				frameSteps[j] = referenceframe.Input{Value: nearInput.Value + newVal}
+				frameSteps[j] = nearInput + newVal
 			}
 		}
 		newNear[frameName] = frameSteps

@@ -35,6 +35,14 @@ func (l *Limit) Range() float64 {
 	return l.Max - l.Min
 }
 
+// Hash returns a hash value for this limit.
+func (l *Limit) Hash() int {
+	hash := 0
+	hash += (5 * (int(l.Min*100) + 1000)) * 2
+	hash += (6 * (int(l.Max*100) + 2000)) * 3
+	return hash
+}
+
 const rangeLimit = 999
 
 // GoodLimits gives min, max, range, but capped to -999,999.
@@ -87,10 +95,10 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, restrictionPercent f
 		}
 
 		frameSpan := u - l
-		minVal := math.Max(l, reference[i].Value-restrictionPercent*frameSpan/2)
-		maxVal := math.Min(u, reference[i].Value+restrictionPercent*frameSpan/2)
+		minVal := math.Max(l, reference[i]-restrictionPercent*frameSpan/2)
+		maxVal := math.Min(u, reference[i]+restrictionPercent*frameSpan/2)
 		samplingSpan := maxVal - minVal
-		pos = append(pos, Input{samplingSpan*rSeed.Float64() + minVal})
+		pos = append(pos, samplingSpan*rSeed.Float64()+minVal)
 	}
 	return pos, nil
 }
@@ -113,7 +121,7 @@ func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 		if u == math.Inf(1) {
 			u = 999
 		}
-		pos = append(pos, Input{rSeed.Float64()*(u-l) + l})
+		pos = append(pos, rSeed.Float64()*(u-l)+l)
 	}
 	return pos
 }
@@ -131,6 +139,8 @@ type Frame interface {
 	Limited
 	// Name returns the name of the Frame
 	Name() string
+
+	Hash() int
 
 	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's reference frame
 	Transform([]Input) (spatial.Pose, error)
@@ -156,6 +166,10 @@ type Frame interface {
 type baseFrame struct {
 	name   string
 	limits []Limit
+}
+
+func (bf *baseFrame) hash() int {
+	return hashString(bf.name) + 10*len(bf.limits)
 }
 
 // Name returns the name of the Frame.
@@ -188,10 +202,10 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 		return NewIncorrectDoFError(len(inputs), len(bf.limits))
 	}
 	for i := 0; i < len(bf.limits); i++ {
-		if inputs[i].Value < bf.limits[i].Min || inputs[i].Value > bf.limits[i].Max {
+		if inputs[i] < bf.limits[i].Min || inputs[i] > bf.limits[i].Max {
 			lim := []float64{bf.limits[i].Max, bf.limits[i].Min}
 			multierr.AppendInto(&errAll, fmt.Errorf("%s %s %s, %s %.5f %s %.5f", "joint", fmt.Sprint(i),
-				OOBErrString, "input", inputs[i].Value, "needs to be within range", lim))
+				OOBErrString, "input", inputs[i], "needs to be within range", lim))
 		}
 	}
 	return errAll
@@ -237,6 +251,11 @@ func (sf *tailGeometryStaticFrame) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Hash returns a hash value for this tail geometry static frame.
+func (sf *tailGeometryStaticFrame) Hash() int {
+	return sf.staticFrame.Hash() + 7 // Add distinguishing factor for tail geometry placement
+}
+
 // namedFrame is used to change the name of a frame.
 type namedFrame struct {
 	Frame
@@ -254,6 +273,11 @@ func (nf *namedFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 		return nil, err
 	}
 	return NewGeometriesInFrame(nf.name, gif.geometries), nil
+}
+
+// Hash returns a hash value for this named frame.
+func (nf *namedFrame) Hash() int {
+	return nf.Frame.Hash() + hashString(nf.name)
 }
 
 // NewNamedFrame will return a frame which has a new name but otherwise passes through all functions of the original frame.
@@ -282,6 +306,17 @@ func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial
 		return nil, errors.New("pose is not allowed to be nil")
 	}
 	return &staticFrame{&baseFrame{name, []Limit{}}, pose, geometry}, nil
+}
+
+func (sf *staticFrame) Hash() int {
+	h := sf.hash()
+	if sf.transform != nil {
+		h += (123 * spatial.HashPose(sf.transform))
+	}
+	if sf.geometry != nil {
+		h += +(111 * sf.geometry.Hash())
+	}
+	return h
 }
 
 // Transform returns the pose associated with this static Frame.
@@ -393,6 +428,15 @@ func NewTranslationalFrameWithGeometry(name string, axis r3.Vector, limit Limit,
 	}, nil
 }
 
+func (pf *translationalFrame) Hash() int {
+	h := pf.hash()
+	h += int(10000 * pf.transAxis.Norm())
+	if pf.geometry != nil {
+		h += pf.geometry.Hash()
+	}
+	return h
+}
+
 // Transform returns a pose translated by the amount specified in the inputs.
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	err := pf.validInputs(input)
@@ -400,25 +444,17 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
 		return nil, err
 	}
-	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
+	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0])), err
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (pf *translationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	n := make([]Input, len(jp.Values))
-	for idx, d := range jp.Values {
-		n[idx] = Input{d}
-	}
-	return n
+	return jp.Values
 }
 
 // ProtobufFromInput converts inputs to pb.JointPosition.
 func (pf *translationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
-	n := make([]float64, len(input))
-	for idx, a := range input {
-		n[idx] = a.Value
-	}
-	return &pb.JointPositions{Values: n}
+	return &pb.JointPositions{Values: input}
 }
 
 // Geometries returns an object representing the 3D space associeted with the translationalFrame.
@@ -488,6 +524,10 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 	}, nil
 }
 
+func (rf *rotationalFrame) Hash() int {
+	return rf.hash() + int(1000*rf.rotAxis.Norm())
+}
+
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
 // of inputs that has length equal to the degrees of freedom of the Frame.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
@@ -497,14 +537,14 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 		return nil, err
 	}
 	// Create a copy of the r4aa for thread safety
-	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
+	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0], rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (rf *rotationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Values))
 	for idx, d := range jp.Values {
-		n[idx] = Input{utils.DegToRad(d)}
+		n[idx] = utils.DegToRad(d)
 	}
 	return n
 }
@@ -513,7 +553,7 @@ func (rf *rotationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	n := make([]float64, len(input))
 	for idx, a := range input {
-		n[idx] = utils.RadToDeg(a.Value)
+		n[idx] = utils.RadToDeg(a)
 	}
 	return &pb.JointPositions{Values: n}
 }
@@ -574,6 +614,14 @@ func NewPoseFrame(name string, geometry []spatial.Geometry) (Frame, error) {
 	}, nil
 }
 
+func (pf *poseFrame) Hash() int {
+	h := pf.hash() + (111 * len(pf.geometries))
+	for _, g := range pf.geometries {
+		h += g.Hash()
+	}
+	return h
+}
+
 // Transform on the poseFrame acts as the identity function. Whatever inputs are given are directly translated
 // in a 7DoF pose. We note that theta should be in radians.
 func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
@@ -581,12 +629,12 @@ func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 		return nil, err
 	}
 	return spatial.NewPose(
-		r3.Vector{X: inputs[0].Value, Y: inputs[1].Value, Z: inputs[2].Value},
+		r3.Vector{X: inputs[0], Y: inputs[1], Z: inputs[2]},
 		&spatial.OrientationVector{
-			OX:    inputs[3].Value,
-			OY:    inputs[4].Value,
-			OZ:    inputs[5].Value,
-			Theta: inputs[6].Value,
+			OX:    inputs[3],
+			OY:    inputs[4],
+			OZ:    inputs[5],
+			Theta: inputs[6],
 		},
 	), nil
 }
@@ -646,9 +694,9 @@ func (pf *poseFrame) UnmarshalJSON(data []byte) error {
 func (pf *poseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Values))
 	for idx, d := range jp.Values[:len(jp.Values)-1] {
-		n[idx] = Input{d}
+		n[idx] = d
 	}
-	n[len(jp.Values)-1] = Input{utils.DegToRad(jp.Values[len(jp.Values)-1])}
+	n[len(jp.Values)-1] = utils.DegToRad(jp.Values[len(jp.Values)-1])
 	return n
 }
 
@@ -656,9 +704,9 @@ func (pf *poseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 	n := make([]float64, len(input))
 	for idx, a := range input[:len(input)-1] {
-		n[idx] = a.Value
+		n[idx] = a
 	}
-	n[len(input)-1] = utils.RadToDeg(input[len(input)-1].Value)
+	n[len(input)-1] = utils.RadToDeg(input[len(input)-1])
 	return &pb.JointPositions{Values: n}
 }
 
@@ -666,13 +714,13 @@ func (pf *poseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // in the form [X, Y, Z, OX, OY, OZ, Theta (in radians)]
 // This is the format that is expected by the poseFrame type and should not be used with other frames.
 func PoseToInputs(p spatial.Pose) []Input {
-	return FloatsToInputs([]float64{
+	return []Input{
 		p.Point().X, p.Point().Y, p.Point().Z,
 		p.Orientation().OrientationVectorRadians().OX,
 		p.Orientation().OrientationVectorRadians().OY,
 		p.Orientation().OrientationVectorRadians().OZ,
 		p.Orientation().OrientationVectorRadians().Theta,
-	})
+	}
 }
 
 // framesAlmostEqual is a helper used in testing that determines whether two Frame instances are (nearly) identical.

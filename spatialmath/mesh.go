@@ -642,3 +642,18 @@ func (m *Mesh) TrianglesToPLYBytes(convertToWorldFrame bool) []byte {
 
 	return buf.Bytes()
 }
+
+// Hash returns a hash value for this mesh.
+func (m *Mesh) Hash() int {
+	hash := HashPose(m.pose)
+	hash += hashString(m.label) * 11
+	hash += len(m.triangles) * 12
+	// Include a sample of triangle hashes for efficiency
+	for i, tri := range m.triangles {
+		if i >= 10 { // Only hash first 10 triangles for performance
+			break
+		}
+		hash += tri.Hash() * (13 + i)
+	}
+	return hash
+}

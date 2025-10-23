@@ -66,31 +66,8 @@ func (ik *NloptIK) DoF() []referenceframe.Limit {
 	return ik.limits
 }
 
-// Solve runs the actual solver and sends any solutions found to the given channel.
-func (ik *NloptIK) Solve(ctx context.Context,
-	solutionChan chan<- *Solution,
-	seed []float64,
-	travelPercent []float64,
-	minFunc CostFunc,
-	rseed int,
-) (int, error) {
-	if len(seed) != len(ik.limits) {
-		return 0, fmt.Errorf("nlopt initialized with %d dof but seed was length %d", len(ik.limits), len(seed))
-	}
-	//nolint: gosec
-	randSeed := rand.New(rand.NewSource(int64(rseed)))
-	var err error
-
-	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
-	jump := ik.calcJump(ctx, defaultJump, seed, minFunc)
-
-	iterations := 0
-	solutionsFound := 0
-
+func (ik *NloptIK) computeLimits(seed, travelPercent []float64) ([]float64, []float64) {
 	lowerBound, upperBound := limitsToArrays(ik.limits)
-	if len(lowerBound) == 0 || len(upperBound) == 0 {
-		return 0, errBadBounds
-	}
 
 	if len(travelPercent) == len(lowerBound) {
 		for i := 0; i < len(lowerBound); i++ {
@@ -99,12 +76,45 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 	}
 
+	return lowerBound, upperBound
+}
+
+// Solve runs the actual solver and sends any solutions found to the given channel.
+func (ik *NloptIK) Solve(ctx context.Context,
+	solutionChan chan<- *Solution,
+	seeds [][]float64,
+	travelPercent []float64,
+	minFunc CostFunc,
+	rseed int,
+) (int, error) {
+	if len(seeds) == 0 {
+		return 0, fmt.Errorf("no seeds")
+	}
+
+	if len(seeds[0]) != len(ik.limits) {
+		return 0, fmt.Errorf("nlopt initialized with %d dof but seed was length %d", len(ik.limits), len(seeds[0]))
+	}
+	//nolint: gosec
+	randSeed := rand.New(rand.NewSource(int64(rseed)))
+	var err error
+
+	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
+	jump := ik.calcJump(ctx, defaultJump, seeds[0], minFunc)
+
+	lowerBound, upperBound := ik.computeLimits(seeds[0], travelPercent)
+	if len(lowerBound) == 0 || len(upperBound) == 0 {
+		return 0, errBadBounds
+	}
+
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(lowerBound)))
 	defer opt.Destroy()
 	if err != nil {
 		return 0, errors.Wrap(err, "nlopt creation error")
 	}
 	jumpVal := 0.
+
+	iterations := 0
+	solutionsFound := 0
 
 	// checkVals is our set of inputs that we evaluate for distance
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
@@ -158,6 +168,8 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 	}
 
+	seedNumber := 0
+	seed := seeds[0]
 	for iterations < ik.maxIterations {
 		if ctx.Err() != nil {
 			break
@@ -191,7 +203,29 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			}
 		}
 
-		seed = generateRandomPositions(randSeed, lowerBound, upperBound)
+		changedBounds := false
+		seedNumber++
+		if seedNumber < len(seeds) {
+			seed = seeds[seedNumber]
+			lowerBound, upperBound = ik.computeLimits(seed, travelPercent)
+			changedBounds = true
+		} else if seedNumber == len(seeds) {
+			lowerBound, upperBound = ik.computeLimits(seeds[0], travelPercent)
+			seed = generateRandomPositions(randSeed, lowerBound, upperBound)
+			changedBounds = true
+		} else {
+			seed = generateRandomPositions(randSeed, lowerBound, upperBound)
+		}
+
+		if changedBounds {
+			err = multierr.Combine(
+				opt.SetLowerBounds(lowerBound),
+				opt.SetUpperBounds(upperBound),
+			)
+			if err != nil {
+				return 0, err
+			}
+		}
 	}
 
 	return solutionsFound, nil

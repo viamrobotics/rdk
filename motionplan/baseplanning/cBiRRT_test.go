@@ -16,7 +16,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var interp = referenceframe.FloatsToInputs([]float64{
+var interp = []referenceframe.Input{
 	0.22034293025523666,
 	0.023301860367034785,
 	0.0035938741832804775,
@@ -24,7 +24,7 @@ var interp = referenceframe.FloatsToInputs([]float64{
 	-0.006010542176591475,
 	0.013764993693680328,
 	0.22994099248696265,
-})
+}
 
 // This should test a simple linear motion.
 // This test will step through the different stages of cbirrt and test each one in turn.

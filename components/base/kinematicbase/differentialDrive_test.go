@@ -124,7 +124,7 @@ func TestCurrentInputs(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			input, err := ddk.CurrentInputs(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, input, test.ShouldResemble, []referenceframe.Input{{Value: 0}, {Value: 0}, {Value: 0}})
+			test.That(t, input, test.ShouldResemble, []referenceframe.Input{0, 0, 0})
 		}
 	})
 }
@@ -145,10 +145,10 @@ func TestInputDiff(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ddk.Localizer = motion.NewSLAMLocalizer(slam)
 
-	desiredInput := []referenceframe.Input{{Value: 3}, {Value: 4}, {Value: utils.DegToRad(30)}}
+	desiredInput := []referenceframe.Input{3, 4, utils.DegToRad(30)}
 	distErr, headingErr, err := ddk.inputDiff(make([]referenceframe.Input, 3), desiredInput)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, distErr, test.ShouldAlmostEqual, r3.Vector{X: desiredInput[0].Value, Y: desiredInput[1].Value, Z: 0}.Norm())
+	test.That(t, distErr, test.ShouldAlmostEqual, r3.Vector{X: desiredInput[0], Y: desiredInput[1], Z: 0}.Norm())
 	test.That(t, headingErr, test.ShouldAlmostEqual, 30)
 }
 
@@ -204,8 +204,8 @@ func TestNewValidRegionCapsule(t *testing.T) {
 	ddk, err := buildTestDDK(ctx, testConfig(), true, defaultLinearVelocityMMPerSec, defaultAngularVelocityDegsPerSec, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	starting := referenceframe.FloatsToInputs([]float64{400, 0, 0})
-	desired := referenceframe.FloatsToInputs([]float64{0, 400, 0})
+	starting := []referenceframe.Input{400, 0, 0}
+	desired := []referenceframe.Input{0, 400, 0}
 	c, err := ddk.newValidRegionCapsule(starting, desired)
 	test.That(t, err, test.ShouldBeNil)
 

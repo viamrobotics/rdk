@@ -70,7 +70,7 @@ func TestServer(t *testing.T) {
 	}
 	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 		extraOptions = extra
-		return referenceframe.FloatsToInputs(positions), nil
+		return positions, nil
 	}
 	injectArm.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
 		capArmPos = ap
