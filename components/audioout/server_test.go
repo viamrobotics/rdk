@@ -46,7 +46,7 @@ func TestServer(t *testing.T) {
 
 	audioData := []byte{1, 2, 3, 4, 5, 6, 7, 8}
 	audioInfo := &commonpb.AudioInfo{
-		Codec:        "pcm16",
+		Codec:        rdkutils.CodecPCM16,
 		SampleRateHz: 44100,
 		NumChannels:  2,
 	}
@@ -55,7 +55,7 @@ func TestServer(t *testing.T) {
 		// Test successful play
 		injectAudioOut.PlayFunc = func(ctx context.Context, data []byte, info *rdkutils.AudioInfo, extra map[string]interface{}) error {
 			test.That(t, data, test.ShouldResemble, audioData)
-			test.That(t, info.Codec, test.ShouldEqual, "pcm16")
+			test.That(t, info.Codec, test.ShouldEqual, rdkutils.CodecPCM16)
 			test.That(t, info.SampleRateHz, test.ShouldEqual, 44100)
 			test.That(t, info.NumChannels, test.ShouldEqual, 2)
 			return nil
@@ -83,7 +83,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("Properties", func(t *testing.T) {
 		expectedProperties := rdkutils.Properties{
-			SupportedCodecs: []string{"pcm16", "mp3"},
+			SupportedCodecs: []string{rdkutils.CodecPCM16, rdkutils.CodecMP3},
 			SampleRateHz:    44100,
 			NumChannels:     2,
 		}

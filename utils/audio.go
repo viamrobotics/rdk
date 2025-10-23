@@ -2,6 +2,17 @@ package utils
 
 import commonpb "go.viam.com/api/common/v1"
 
+// Common audio codec constants.
+const (
+	CodecPCM16      = "pcm16"
+	CodecPCM32      = "pcm32"
+	CodecPCM32Float = "pcm32float"
+	CodecOpus       = "opus"
+	CodecAAC        = "aac"
+	CodecMP3        = "mp3"
+	CodecFLAC       = "flac"
+)
+
 // Properties defines properties of an audio device.
 type Properties struct {
 	SupportedCodecs []string

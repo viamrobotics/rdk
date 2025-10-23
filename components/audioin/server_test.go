@@ -72,7 +72,7 @@ func TestServer(t *testing.T) {
 
 	getAudioRequest := &pb.GetAudioRequest{
 		Name:            testAudioInName,
-		Codec:           "pcm16",
+		Codec:           rdkutils.CodecPCM16,
 		DurationSeconds: 5.0,
 	}
 

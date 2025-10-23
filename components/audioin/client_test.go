@@ -101,7 +101,7 @@ func TestWorkingAudioInClient(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		audioCh, err := client.GetAudio(ctx, "pcm16", 5.0, 0, expectedExtra)
+		audioCh, err := client.GetAudio(ctx, rdkutils.CodecPCM16, 5.0, 0, expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Read first chunk
@@ -128,7 +128,7 @@ func TestWorkingAudioInClient(t *testing.T) {
 
 		// Properties
 		expectedProperties := rdkutils.Properties{
-			SupportedCodecs: []string{"pcm16", "mp3"},
+			SupportedCodecs: []string{rdkutils.CodecPCM16, rdkutils.CodecMP3},
 			SampleRateHz:    44100,
 			NumChannels:     2,
 		}
@@ -182,7 +182,7 @@ func TestAudioInClientGetAudioError(t *testing.T) {
 		return nil, errGetAudioFailed
 	}
 
-	_, err = client.GetAudio(ctx, "pcm16", 5.0, 0, nil)
+	_, err = client.GetAudio(ctx, rdkutils.CodecPCM16, 5.0, 0, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, errGetAudioFailed.Error())
 }
