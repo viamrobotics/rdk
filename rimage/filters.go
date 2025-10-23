@@ -259,13 +259,8 @@ func savitskyGolayFilter(radius, polyOrder int) (func(p image.Point, dm *DepthMa
 // e.g. image.Point{0,2} -> a4*y^2, image.Point{1,1} -> a5*x*y.
 func polyExponents(order int) []image.Point {
 	exps := make([]image.Point, 0, (order+1)*(order+2)/2)
-<<<<<<< Updated upstream
 	for k := 0; k < order+1; k++ {
 		for n := 0; n < k+1; n++ {
-=======
-	for k := range order + 1 {
-		for n := range k + 1 {
->>>>>>> Stashed changes
 			exps = append(exps, image.Point{k - n, n})
 		}
 	}
