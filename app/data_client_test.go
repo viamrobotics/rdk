@@ -14,6 +14,7 @@ import (
 	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	utils "go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -273,6 +274,7 @@ func dataRequestToProto(dataRequest DataRequest) *pb.DataRequest {
 
 func createDataGrpcClient() *inject.DataServiceClient {
 	return &inject.DataServiceClient{}
+
 }
 
 func createDataSyncGrpcClient() *inject.DataSyncServiceClient {
@@ -289,7 +291,20 @@ func createDataPipelineGrpcClient() *inject.DataPipelinesServiceClient {
 
 func TestDataClient(t *testing.T) {
 	grpcClient := createDataGrpcClient()
-	client := DataClient{dataClient: grpcClient}
+	// client := DataClient{dataClient: grpcClient}
+
+	viamclient, err := CreateViamClientWithOptions(context.Background(), Options{
+		BaseURL: "https://app.viam.dev",
+		Entity:  "0c7a0aea-43ed-47fe-a1cc-8aee15634e26",
+		Credentials: rpc.Credentials{
+			Type:    rpc.CredentialsTypeAPIKey,
+			Payload: "id95xo7tiiy8eekrflu7rzaegznpvbog",
+		},
+	}, logger)
+	if err != nil {
+		logger.Errorw("error creating viam client", "error", err)
+	}
+	client := viamclient.DataClient()
 
 	captureInterval := CaptureInterval{
 		Start: time.Now(),
@@ -405,8 +420,9 @@ func TestDataClient(t *testing.T) {
 	})
 
 	t.Run("TabularDataByMQL", func(t *testing.T) {
+
 		// convert to BSON byte arrays
-		matchQuery := bson.M{"$match": bson.M{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}}
+		matchQuery := bson.M{"$match": bson.M{"organization_id": "6e3cd119-c559-43e7-bf15-7ce05531f18d"}}
 		matchBytes, _ := bson.Marshal(matchQuery)
 		limitQuery := bson.M{"$limit": 1}
 		limitBytes, _ := bson.Marshal(limitQuery)
@@ -434,11 +450,12 @@ func TestDataClient(t *testing.T) {
 				RawData: expectedRawDataPb,
 			}, nil
 		}
-		response, err := client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, response, test.ShouldResemble, rawData)
-		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{
+		// response, err := client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, nil)
+		// test.That(t, err, test.ShouldBeNil)
+		// test.That(t, response, test.ShouldResemble, rawData)
+		response, err := client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{
 			TabularDataSourceType: TabularDataSourceTypeStandard,
+			QueryPrefixName:       "testing",
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)

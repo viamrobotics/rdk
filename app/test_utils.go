@@ -29,7 +29,7 @@ const (
 
 // Variables used throughout testing in app.
 var (
-	organizationID = "organization_id"
+	organizationID = "6e3cd119-c559-43e7-bf15-7ce05531f18d"
 	start          = time.Now().UTC().Round(time.Millisecond)
 	pbStart        = timestamppb.New(start)
 	end            = time.Now().UTC().Round(time.Millisecond)

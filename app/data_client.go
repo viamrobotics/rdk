@@ -318,6 +318,8 @@ type TabularDataByMQLOptions struct {
 	// PipelineID is the ID of the pipeline to query. Required if TabularDataSourceType
 	// is TabularDataSourceTypePipelineSink.
 	PipelineID string
+	// QueryPrefixName specifies the name of the saved query to prepend the provided MQL query.
+	QueryPrefixName string
 }
 
 // CreateDataPipelineOptions contains optional parameters for CreateDataPipeline.
@@ -577,11 +579,17 @@ func (d *DataClient) TabularDataByMQL(
 		}
 	}
 
-	resp, err := d.dataClient.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
+	req := &pb.TabularDataByMQLRequest{
 		OrganizationId: organizationID,
 		MqlBinary:      mqlBinary,
 		DataSource:     dataSource,
-	})
+	}
+
+	if opts.QueryPrefixName != "" {
+		req.QueryPrefixName = &opts.QueryPrefixName
+	}
+
+	resp, err := d.dataClient.TabularDataByMQL(ctx, req)
 	if err != nil {
 		return nil, err
 	}
