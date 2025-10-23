@@ -162,10 +162,10 @@ func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
 	return append(opts, conf.Auth.dialOpts()), nil
 }
 
-// ConnectToHost connects to a Viam host using the cached CLI token.
-func ConnectToHost(ctx context.Context, host string, logger logging.Logger) (robot.Robot, error) {
-	if host == "" {
-		return nil, errors.New("host is required")
+// ConnectToMachine connects to a Viam machine using the cached CLI token.
+func ConnectToMachine(ctx context.Context, hostname string, logger logging.Logger) (robot.Robot, error) {
+	if hostname == "" {
+		return nil, errors.New("hostname is required")
 	}
 
 	c, err := ConfigFromCache(nil)
@@ -180,7 +180,7 @@ func ConnectToHost(ctx context.Context, host string, logger logging.Logger) (rob
 
 	return robotClient.New(
 		ctx,
-		host,
+		hostname,
 		logger,
 		robotClient.WithDialOptions(dopts...),
 	)
