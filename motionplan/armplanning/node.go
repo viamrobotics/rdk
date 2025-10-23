@@ -134,7 +134,6 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 		seeds:                []referenceframe.FrameSystemInputs{psc.start},
 		solutions:            []*node{},
 		failures:             newIkConstraintError(psc.pc.fs, psc.checker),
-		startTime:            time.Now(),
 		firstSolutionTime:    time.Hour,
 		bestScoreNoProblem:   10000000,
 		bestScoreWithProblem: 10000000,
@@ -178,6 +177,8 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 	if err != nil {
 		return nil, err
 	}
+
+	sss.startTime = time.Now() // do this after we check the cache, etc.
 
 	return sss, nil
 }
@@ -300,10 +301,10 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	sss.solutions = append(sss.solutions, myNode)
 
 	if myNode.cost < sss.bestScoreWithProblem {
-		sss.bestScoreWithProblem = myNode.cost
+		sss.bestScoreWithProblem = max(1, myNode.cost)
 	}
 
-	if myNode.cost < min(sss.goodCost, sss.bestScoreWithProblem*defaultOptimalityMultiple) {
+	if myNode.cost <= min(sss.goodCost, sss.bestScoreWithProblem*defaultOptimalityMultiple) {
 		whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
 		sss.psc.pc.logger.Debugf("got score %0.4f and goodCost: %0.2f - result: %v", myNode.cost, sss.goodCost, whyNot)
 		myNode.checkPath = whyNot == nil
