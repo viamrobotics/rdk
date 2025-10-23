@@ -266,7 +266,7 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 		for k, v := range start {
 			i[k] = v
 		}
-		i[goalFrame] = s
+		i[movingFrame] = s
 		fullSeeds = append(fullSeeds, i)
 	}
 
