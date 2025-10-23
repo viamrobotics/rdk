@@ -239,6 +239,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			// I (Eliot) think this is caused by a bug in how we compute the gradient
 			// When the absolute value of the gradient is too high, it blows up
 			if nloptErr.Error() != "nlopt: FAILURE" {
+				ik.logger.Warnf("issuedebug ss: %#v", ss)
 				return solutionsFound, nloptErr
 			}
 		} else if solutionRaw == nil {
