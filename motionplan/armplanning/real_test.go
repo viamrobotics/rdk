@@ -6,10 +6,7 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"os"
 	"path/filepath"
-	"runtime"
-	"runtime/pprof"
 	"testing"
 	"time"
 
@@ -128,36 +125,13 @@ func TestWineCrazyTouch2(t *testing.T) {
 	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
 }
 
-func dumpMem(meta string) {
-	preGC := runtime.MemStats{}
-	runtime.ReadMemStats(&preGC)
-	fmt.Printf("MEMDUMP: %v: %+v\n", meta, preGC)
-
-	f, err := os.Create(meta + ".prof")
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	err = pprof.WriteHeapProfile(f)
-	if err != nil {
-		panic(err)
-	}
-}
-
 func TestSandingLargeMove1(t *testing.T) {
-	dumpMem("PreGC")
-	runtime.GC()
-	dumpMem("PostGC")
-
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
 	start := time.Now()
 	req, err := ReadRequestFromFile("data/sanding-large-move1.json")
 	test.That(t, err, test.ShouldBeNil)
-	runtime.GC()
-	dumpMem("PostReadFile")
 
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
 
@@ -171,7 +145,6 @@ func TestSandingLargeMove1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(solution.steps), test.ShouldEqual, 1)
-	dumpMem("PostTest")
 }
 
 func TestPirouette(t *testing.T) {
