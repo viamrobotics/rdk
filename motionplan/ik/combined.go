@@ -2,7 +2,6 @@ package ik
 
 import (
 	"context"
-	"math/rand"
 	"sync"
 
 	"go.uber.org/multierr"
@@ -30,7 +29,6 @@ func CreateCombinedIKSolver(
 ) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.limits = limits
-	nCPU = max(nCPU, 4)
 
 	logger.Debugf("CreateCombinedIKSolver nCPU: %d", nCPU)
 
@@ -54,39 +52,22 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	costFunc CostFunc,
 	rseed int,
 ) (int, error) {
-	randSeed := rand.New(rand.NewSource(int64(rseed))) //nolint: gosec
-
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
-
-	lowerBound, upperBound := limitsToArrays(ik.limits)
 
 	var solveErrors error
 	totalSolutionsFound := 0
 	var solveResultLock sync.Mutex
 
-	for i, solver := range ik.solvers {
-		rseed += 1500
-		parseed := rseed
+	for _, solver := range ik.solvers {
 		thisSolver := solver
-		seedFloats := seeds
-
-		var myTravelPercent []float64
-		if bottomThird(i, len(ik.solvers)) {
-			for _, p := range travelPercent {
-				myTravelPercent = append(myTravelPercent, max(.1, p))
-			}
-		} else if middleThird(i, len(ik.solvers)) {
-			myTravelPercent = travelPercent
-		} else {
-			seedFloats = [][]float64{generateRandomPositions(randSeed, lowerBound, upperBound)}
-		}
+		rseed++
 
 		activeSolvers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			n, err := thisSolver.Solve(ctx, retChan, seedFloats, myTravelPercent, costFunc, parseed)
+			n, err := thisSolver.Solve(ctx, retChan, seeds, travelPercent, costFunc, rseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()
