@@ -150,7 +150,7 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 	}
 	sss.linearSeeds = [][]float64{ls}
 
-	if len(psc.pc.lfs.dof) <= 6 { // TODO - remove the limit
+	{
 		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
