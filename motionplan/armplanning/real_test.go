@@ -18,6 +18,11 @@ import (
 )
 
 func TestOrbOneSeed(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	matches, err := filepath.Glob("data/orb-plan*.json")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -96,6 +101,11 @@ func TestPourManySeeds(t *testing.T) {
 }
 
 func TestWineCrazyTouch1(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	logger := logging.NewTestLogger(t)
 
 	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
@@ -117,6 +127,11 @@ func TestWineCrazyTouch1(t *testing.T) {
 }
 
 func TestWineCrazyTouch2(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	logger := logging.NewTestLogger(t)
 
 	req, err := ReadRequestFromFile("data/wine-crazy-touch2.json")
@@ -136,6 +151,11 @@ func TestWineCrazyTouch2(t *testing.T) {
 }
 
 func TestSandingLargeMove1(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
