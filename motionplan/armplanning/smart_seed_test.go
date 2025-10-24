@@ -67,11 +67,14 @@ func TestSmartSeedCache1(t *testing.T) {
 			start["ur5e"],
 			goal,
 			logger)
-		test.That(t, err, test.ShouldBeNil)
 		logger.Infof("time to run findSeedsForFrame: %v", time.Since(startTime))
-
-		cost := referenceframe.InputsL2Distance(start["ur5e"], seeds[0])
-		test.That(t, cost, test.ShouldBeLessThan, 1.25)
+		test.That(t, err, test.ShouldBeNil)
+		if Is32Bit() {
+			test.That(t, seeds, test.ShouldBeNil)
+		} else {
+			cost := referenceframe.InputsL2Distance(start["ur5e"], seeds[0])
+			test.That(t, cost, test.ShouldBeLessThan, 1.25)
+		}
 	})
 
 	t.Run("real", func(t *testing.T) {
@@ -82,9 +85,12 @@ func TestSmartSeedCache1(t *testing.T) {
 			logger)
 		test.That(t, err, test.ShouldBeNil)
 		logger.Infof("time to run findSeed: %v", time.Since(startTime))
-
-		cost := referenceframe.InputsL2Distance(start["ur5e"], seed["ur5e"])
-		test.That(t, cost, test.ShouldBeLessThan, 1.25)
+		if Is32Bit() {
+			test.That(t, seed, test.ShouldBeNil)
+		} else {
+			cost := referenceframe.InputsL2Distance(start["ur5e"], seed["ur5e"])
+			test.That(t, cost, test.ShouldBeLessThan, 1.25)
+		}
 	})
 }
 
