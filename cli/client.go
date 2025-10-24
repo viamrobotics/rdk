@@ -2686,7 +2686,6 @@ func (c *viamClient) copyFilesToMachineInner(
 			//nolint:errcheck // progress display is non-critical
 			_, _ = os.Stdout.WriteString(fmt.Sprintf("Copying %s...\n", file))
 		}
-
 		uploadPercent := int(math.Ceil(100 * float64(bytes) / float64(fileSize)))
 		//nolint:errcheck // progress display is non-critical
 		_, _ = os.Stdout.WriteString(fmt.Sprintf("\rProgress: %d%% (%d/%d bytes)", uploadPercent, bytes, fileSize))
