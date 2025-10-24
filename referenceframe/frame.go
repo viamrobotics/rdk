@@ -169,7 +169,14 @@ type baseFrame struct {
 }
 
 func (bf *baseFrame) hash() int {
-	return hashString(bf.name) + 10*len(bf.limits)
+	h := hashString(bf.name)
+	h += 10 * len(bf.limits)
+
+	for i, l := range bf.limits {
+		h += (i + 7) + (((i + 9) * 11) * l.Hash())
+	}
+
+	return h
 }
 
 // Name returns the name of the Frame.

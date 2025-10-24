@@ -150,7 +150,7 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 	}
 	sss.linearSeeds = [][]float64{ls}
 
-	if len(psc.pc.lfs.dof) <= 6 { // TODO - remove the limit
+	{
 		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
@@ -306,7 +306,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 
 	if myNode.cost <= min(sss.goodCost, sss.bestScoreWithProblem*defaultOptimalityMultiple) {
 		whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
-		sss.psc.pc.logger.Debugf("got score %0.4f and goodCost: %0.2f - result: %v", myNode.cost, sss.goodCost, whyNot)
+		sss.psc.pc.logger.Debugf("got score %0.4f @ %v - result: %v", myNode.cost, time.Since(sss.startTime), whyNot)
 		myNode.checkPath = whyNot == nil
 
 		if whyNot == nil && myNode.cost < sss.bestScoreNoProblem {
@@ -344,11 +344,11 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		multiple = 0
 		minMillis = 20
 	} else if sss.bestScoreNoProblem < sss.goodCost/5 {
-		multiple = 40
-		minMillis = 125
+		multiple = 2
+		minMillis = 20
 	} else if sss.bestScoreNoProblem < sss.goodCost/2 {
-		multiple = 40
-		minMillis = 150
+		multiple = 20
+		minMillis = 100
 	} else if sss.bestScoreNoProblem < sss.goodCost {
 		multiple = 50
 	} else if sss.bestScoreWithProblem < sss.goodCost {
@@ -357,8 +357,10 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	}
 
 	if elapsed > max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond) {
-		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f / %0.2f after: %v",
-			sss.bestScoreNoProblem, sss.bestScoreWithProblem, elapsed)
+		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v",
+			sss.bestScoreNoProblem, sss.bestScoreNoProblem/sss.goodCost,
+			sss.bestScoreWithProblem, sss.bestScoreWithProblem/sss.goodCost,
+			elapsed)
 		return true
 	}
 

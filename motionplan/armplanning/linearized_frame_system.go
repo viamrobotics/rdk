@@ -160,12 +160,11 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 }
 
 func (lfs *linearizedFrameSystem) jog(idx int, val, percentJog float64) float64 {
-	r := lfs.dof[idx]
-
-	x := r.Range() * percentJog
+	_, max, r := lfs.dof[idx].GoodLimits()
+	x := r * percentJog
 
 	val += x
-	if val > r.Max {
+	if val > max {
 		val -= (2 * x)
 	}
 

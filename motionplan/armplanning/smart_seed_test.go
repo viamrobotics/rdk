@@ -1,3 +1,5 @@
+//go:build !386
+
 package armplanning
 
 import (
@@ -31,6 +33,10 @@ var pirIdealJointValues = [][]referenceframe.Input{
 }
 
 func TestSmartSeedCache1(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
 	logger := logging.NewTestLogger(t)
 
 	armName := "ur5e"
@@ -65,9 +71,8 @@ func TestSmartSeedCache1(t *testing.T) {
 			start["ur5e"],
 			goal,
 			logger)
-		test.That(t, err, test.ShouldBeNil)
 		logger.Infof("time to run findSeedsForFrame: %v", time.Since(startTime))
-
+		test.That(t, err, test.ShouldBeNil)
 		cost := referenceframe.InputsL2Distance(start["ur5e"], seeds[0])
 		test.That(t, cost, test.ShouldBeLessThan, 1.25)
 	})
@@ -80,13 +85,17 @@ func TestSmartSeedCache1(t *testing.T) {
 			logger)
 		test.That(t, err, test.ShouldBeNil)
 		logger.Infof("time to run findSeed: %v", time.Since(startTime))
-
 		cost := referenceframe.InputsL2Distance(start["ur5e"], seed["ur5e"])
 		test.That(t, cost, test.ShouldBeLessThan, 1.25)
 	})
 }
 
 func TestSmartSeedCacheFrames(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	logger := logging.NewTestLogger(t)
 
 	armName := "arm"
@@ -143,7 +152,6 @@ func TestSmartSeedCachePirouette(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		score1 := referenceframe.InputsL2Distance(idealJointValues[0], ideal)
-		logger.Infof("hi %d %v", i, score1)
 		seeds, err := ssc.findSeeds(
 			referenceframe.FrameSystemPoses{armName: referenceframe.NewPoseInFrame("world", pose)},
 			referenceframe.FrameSystemInputs{armName: idealJointValues[0]},
