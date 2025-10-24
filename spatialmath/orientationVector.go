@@ -207,3 +207,23 @@ func (ovd *OrientationVectorDegrees) AxisAngles() *R4AA {
 func (ovd *OrientationVectorDegrees) RotationMatrix() *RotationMatrix {
 	return QuatToRotationMatrix(ovd.Quaternion())
 }
+
+// Hash returns a hash value for this orientation vector.
+func (ov *OrientationVector) Hash() int {
+	hash := 0
+	hash += (5 * (int(ov.Theta*1000) + 1000)) * 2
+	hash += (6 * (int(ov.OX*1000) + 2000)) * 3
+	hash += (7 * (int(ov.OY*1000) + 3000)) * 4
+	hash += (8 * (int(ov.OZ*1000) + 4000)) * 5
+	return hash
+}
+
+// Hash returns a hash value for this orientation vector.
+func (ovd *OrientationVectorDegrees) Hash() int {
+	hash := 0
+	hash += (5 * (int(ovd.Theta*100) + 1000)) * 2
+	hash += (6 * (int(ovd.OX*1000) + 2000)) * 3
+	hash += (7 * (int(ovd.OY*1000) + 3000)) * 4
+	hash += (8 * (int(ovd.OZ*1000) + 4000)) * 5
+	return hash
+}

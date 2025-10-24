@@ -99,7 +99,7 @@ func (ptg *ptgIK) Solve(
 	_, err := ptg.fastGradDescent.Solve(
 		ctx,
 		internalSolutionGen,
-		seed,
+		[][]float64{seed},
 		nil,
 		ptg.ptgMetricIkFunc(solveMetric),
 		defaultNloptSeed,

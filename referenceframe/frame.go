@@ -35,6 +35,14 @@ func (l *Limit) Range() float64 {
 	return l.Max - l.Min
 }
 
+// Hash returns a hash value for this limit.
+func (l *Limit) Hash() int {
+	hash := 0
+	hash += (5 * (int(l.Min*100) + 1000)) * 2
+	hash += (6 * (int(l.Max*100) + 2000)) * 3
+	return hash
+}
+
 const rangeLimit = 999
 
 // GoodLimits gives min, max, range, but capped to -999,999.
@@ -132,6 +140,8 @@ type Frame interface {
 	// Name returns the name of the Frame
 	Name() string
 
+	Hash() int
+
 	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's reference frame
 	Transform([]Input) (spatial.Pose, error)
 
@@ -156,6 +166,17 @@ type Frame interface {
 type baseFrame struct {
 	name   string
 	limits []Limit
+}
+
+func (bf *baseFrame) hash() int {
+	h := hashString(bf.name)
+	h += 10 * len(bf.limits)
+
+	for i, l := range bf.limits {
+		h += (i + 7) + (((i + 9) * 11) * l.Hash())
+	}
+
+	return h
 }
 
 // Name returns the name of the Frame.
@@ -237,6 +258,11 @@ func (sf *tailGeometryStaticFrame) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Hash returns a hash value for this tail geometry static frame.
+func (sf *tailGeometryStaticFrame) Hash() int {
+	return sf.staticFrame.Hash() + 7 // Add distinguishing factor for tail geometry placement
+}
+
 // namedFrame is used to change the name of a frame.
 type namedFrame struct {
 	Frame
@@ -254,6 +280,11 @@ func (nf *namedFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 		return nil, err
 	}
 	return NewGeometriesInFrame(nf.name, gif.geometries), nil
+}
+
+// Hash returns a hash value for this named frame.
+func (nf *namedFrame) Hash() int {
+	return nf.Frame.Hash() + hashString(nf.name)
 }
 
 // NewNamedFrame will return a frame which has a new name but otherwise passes through all functions of the original frame.
@@ -282,6 +313,17 @@ func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometry spatial
 		return nil, errors.New("pose is not allowed to be nil")
 	}
 	return &staticFrame{&baseFrame{name, []Limit{}}, pose, geometry}, nil
+}
+
+func (sf *staticFrame) Hash() int {
+	h := sf.hash()
+	if sf.transform != nil {
+		h += (123 * spatial.HashPose(sf.transform))
+	}
+	if sf.geometry != nil {
+		h += +(111 * sf.geometry.Hash())
+	}
+	return h
 }
 
 // Transform returns the pose associated with this static Frame.
@@ -393,6 +435,15 @@ func NewTranslationalFrameWithGeometry(name string, axis r3.Vector, limit Limit,
 	}, nil
 }
 
+func (pf *translationalFrame) Hash() int {
+	h := pf.hash()
+	h += int(10000 * pf.transAxis.Norm())
+	if pf.geometry != nil {
+		h += pf.geometry.Hash()
+	}
+	return h
+}
+
 // Transform returns a pose translated by the amount specified in the inputs.
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	err := pf.validInputs(input)
@@ -480,6 +531,10 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 	}, nil
 }
 
+func (rf *rotationalFrame) Hash() int {
+	return rf.hash() + int(1000*rf.rotAxis.Norm())
+}
+
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
 // of inputs that has length equal to the degrees of freedom of the Frame.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
@@ -564,6 +619,14 @@ func NewPoseFrame(name string, geometry []spatial.Geometry) (Frame, error) {
 		&baseFrame{name, limits},
 		geometry,
 	}, nil
+}
+
+func (pf *poseFrame) Hash() int {
+	h := pf.hash() + (111 * len(pf.geometries))
+	for _, g := range pf.geometries {
+		h += g.Hash()
+	}
+	return h
 }
 
 // Transform on the poseFrame acts as the identity function. Whatever inputs are given are directly translated

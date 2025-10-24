@@ -122,6 +122,15 @@ func (m *SimpleModel) ModelConfig() *ModelConfigJSON {
 	return m.modelConfig
 }
 
+// Hash returns a hash value for this simple model.
+func (m *SimpleModel) Hash() int {
+	h := m.hash()
+	for _, f := range m.ordTransforms {
+		h += f.Hash()
+	}
+	return h
+}
+
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
