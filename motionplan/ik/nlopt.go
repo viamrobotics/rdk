@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"slices"
+	"time"
 
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
@@ -85,16 +86,19 @@ type nloptSeedState struct {
 	lowerBound, upperBound []float64
 	jump                   []float64
 
+	meta string
+
 	opt *nlopt.NLopt
 }
 
-func (ik *NloptIK) newSeedState(ctx context.Context, minFunc CostFunc,
+func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc CostFunc,
 	s []float64, travelPercentMultiplier float64, travelPercentIn []float64, iterations *int,
 ) (*nloptSeedState, error) {
 	var err error
 
 	ss := &nloptSeedState{
 		seed: s,
+		meta: fmt.Sprintf("s:%d-travel:%0.1f", seedNumber, travelPercentMultiplier),
 	}
 
 	var travelPercent []float64
@@ -105,7 +109,7 @@ func (ik *NloptIK) newSeedState(ctx context.Context, minFunc CostFunc,
 	} else {
 		travelPercent = make([]float64, len(travelPercentIn))
 		for i, in := range travelPercentIn {
-			travelPercent[i] = max(travelPercentMultiplier, in)
+			travelPercent[i] = min(.5, max(travelPercentMultiplier, in))
 		}
 	}
 
@@ -209,8 +213,8 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	iterations := 0
 
 	for _, x := range []float64{.1, 1, 0} {
-		for _, s := range seeds {
-			ss, err := ik.newSeedState(ctx, minFunc, s, x, travelPercent, &iterations)
+		for i, s := range seeds {
+			ss, err := ik.newSeedState(ctx, i, minFunc, s, x, travelPercent, &iterations)
 			if err != nil {
 				return 0, err
 			}
@@ -226,7 +230,8 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	solutionsFound := 0
 	seedNumber := 0
 
-	for iterations < ik.maxIterations && ctx.Err() == nil {
+	itStart := time.Now()
+	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < time.Second)) && ctx.Err() == nil {
 		iterations++
 
 		ss := seedStates[seedNumber%len(seedStates)]
@@ -248,6 +253,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				Configuration: solutionRaw,
 				Score:         result,
 				Exact:         result < defaultGoalThreshold,
+				Meta:          ss.meta,
 			}
 			select {
 			case <-ctx.Done():

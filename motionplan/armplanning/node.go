@@ -160,6 +160,7 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 		if err != nil {
 			psc.pc.logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
+		psc.pc.logger.Debugf("got %d altSeeds", len(altSeeds))
 		for _, s := range altSeeds {
 			ls, err := psc.pc.lfs.mapToSlice(s)
 			if err != nil {
@@ -306,7 +307,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 
 	if myNode.cost <= min(sss.goodCost, sss.bestScoreWithProblem*defaultOptimalityMultiple) {
 		whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
-		sss.psc.pc.logger.Debugf("got score %0.4f @ %v - result: %v", myNode.cost, time.Since(sss.startTime), whyNot)
+		sss.psc.pc.logger.Debugf("got score %0.4f @ %v - %s - result: %v", myNode.cost, time.Since(sss.startTime), stepSolution.Meta, whyNot)
 		myNode.checkPath = whyNot == nil
 
 		if whyNot == nil && myNode.cost < sss.bestScoreNoProblem {
