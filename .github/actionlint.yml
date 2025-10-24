@@ -21,3 +21,5 @@ self-hosted-runner:
     # old, that it's unaware this runner label exists. See
     # https://viam.atlassian.net/browse/RSDK-11699.
     - windows-2025
+    - ubuntu-16-core
+    - ubuntu-arm-16-core
