@@ -105,7 +105,7 @@ func (ik *NloptIK) newSeedState(ctx context.Context, minFunc CostFunc,
 	} else {
 		travelPercent = make([]float64, len(travelPercentIn))
 		for i, in := range travelPercentIn {
-			travelPercent[i] = max(travelPercentMultiplier, in)
+			travelPercent[i] = min(travelPercentMultiplier, in)
 		}
 	}
 
