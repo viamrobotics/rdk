@@ -15,6 +15,11 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// Is32Bit returns true if we're on a 32-bit system.
+func Is32Bit() bool {
+	return strconv.IntSize < 64
+}
+
 type smartSeedCacheEntry struct {
 	inputs []referenceframe.Input
 	pose   spatialmath.Pose // this is in the frame's frame, NOT world
@@ -29,7 +34,7 @@ type goalCacheBox struct {
 func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForFrame, error) {
 	ccf := &cacheForFrame{}
 
-	if strconv.IntSize < 64 {
+	if Is32Bit() {
 		logger.Warnf("not building cache because on 32-bit system")
 		return ccf, nil
 	}

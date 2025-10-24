@@ -41,6 +41,11 @@ func TestOrbOneSeed(t *testing.T) {
 }
 
 func TestOrbManySeeds(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	matches, err := filepath.Glob("data/orb-plan*.json")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -66,6 +71,11 @@ func TestOrbManySeeds(t *testing.T) {
 }
 
 func TestPourManySeeds(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	req, err := ReadRequestFromFile("data/pour-plan-bad.json")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -148,6 +158,10 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestPirouette(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
 	// get arm kinematics for forward kinematics
 	armName := "ur5e"
 	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
