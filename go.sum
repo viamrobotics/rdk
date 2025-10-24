@@ -327,6 +327,8 @@ github.com/denis-tingaikin/go-header v0.5.0/go.mod h1:mMenU5bWrok6Wl2UsZjy+1okeg
 github.com/denis-tingajkin/go-header v0.4.2/go.mod h1:eLRHAVXzE5atsKAnNRDB90WHCFFnBUn4RN0nRcs1LJA=
 github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f h1:U5y3Y5UE0w7amNe7Z5G/twsBW0KEalRQXZzf8ufSh9I=
 github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f/go.mod h1:xH/i4TFMt8koVQZ6WFms69WAsDWr2XsYL3Hkl7jkoLE=
+github.com/dgottlieb/nlopt v0.0.1 h1:d8VpQ2MpTtOpWVBPWZpELhL1Ea0V4t2NVM2zBJx2qbg=
+github.com/dgottlieb/nlopt v0.0.1/go.mod h1:crLzNxWuUkZODn9zme0coCcBvPQrM3hnbQWR3uolF8o=
 github.com/dgottlieb/smarty-assertions v1.2.6 h1:YAXgSslRBbVtd54iTqM4yGT2k1a2qS6cffNQo0SDxDY=
 github.com/dgottlieb/smarty-assertions v1.2.6/go.mod h1:x1wpV/RTxYWtN+vgrcRuCF4hjUmonK5NR59ZzQSym2k=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
@@ -470,8 +472,6 @@ github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=
 github.com/go-logr/logr v1.4.3/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
 github.com/go-logr/stdr v1.2.2 h1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=
 github.com/go-logr/stdr v1.2.2/go.mod h1:mMo/vtBO5dYbehREoey6XUKy/eSumjCCveDpRre4VKE=
-github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5 h1:JlR5qQ/dy4NPpeKld/CJR6cIcL0ll4OQ7ieylY5kJ20=
-github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5/go.mod h1:crLzNxWuUkZODn9zme0coCcBvPQrM3hnbQWR3uolF8o=
 github.com/go-ole/go-ole v1.2.4/go.mod h1:XCwSNxSkXRo4vlyPy93sltvi/qJq0jqQhjqQNIwKuxM=
 github.com/go-ole/go-ole v1.2.6 h1:/Fpf6oFPoeFik9ty7siob0G6Ke8QvQEuVcuChpwXzpY=
 github.com/go-ole/go-ole v1.2.6/go.mod h1:pprOEPIfldk/42T2oK7lQ4v4JSDwmV0As9GaiUsvbm0=

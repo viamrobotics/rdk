@@ -41,3 +41,18 @@ func TestCreateNloptSolver(t *testing.T) {
 	_, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, 1)
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestNLOptError(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	ik, err := CreateNloptSolver(m.DoF(), logger, -1, false, true)
+	test.That(t, err, test.ShouldBeNil)
+
+	// matches xarm home end effector position
+	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
+	badStartSeed := []float64{100000, 1000000, -1000000, 1000000, 1000000, 0}
+	solveFunc := NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
+	_, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{badStartSeed}, 1)
+	test.That(t, err, test.ShouldNotBeNil)
+}

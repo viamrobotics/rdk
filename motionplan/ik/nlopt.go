@@ -233,14 +233,15 @@ func (ik *NloptIK) Solve(ctx context.Context,
 
 		solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
 		if nloptErr != nil {
+			errMsg := ss.opt.GetErrMsg()
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
 			// Above was previous comment.
 			// I (Eliot) think this is caused by a bug in how we compute the gradient
 			// When the absolute value of the gradient is too high, it blows up
 			if nloptErr.Error() != "nlopt: FAILURE" {
-				ik.logger.Warnf("issuedebug ss: %#v", ss)
-				return solutionsFound, nloptErr
+				ik.logger.Warnf("issuedebug ss. details: %v seedState %#v", errMsg, ss)
+				return solutionsFound, fmt.Errorf("nlopt error. Code: %w Extra: %v", nloptErr, errMsg)
 			}
 		} else if solutionRaw == nil {
 			panic("why is solutionRaw nil")
