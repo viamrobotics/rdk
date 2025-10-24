@@ -26,8 +26,13 @@ type goalCacheBox struct {
 	entries []smartSeedCacheEntry
 }
 
-func newCacheForFrame(f referenceframe.Frame) (*cacheForFrame, error) {
+func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForFrame, error) {
 	ccf := &cacheForFrame{}
+
+	if strconv.IntSize < 64 {
+		logger.Warnf("not building cache because on 32-bit system")
+		return ccf, nil
+	}
 
 	values := make([]float64, len(f.DoF()))
 
@@ -387,7 +392,7 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.L
 
 	if !ok {
 		start := time.Now()
-		ccf, err = newCacheForFrame(f)
+		ccf, err = newCacheForFrame(f, logger)
 		if err != nil {
 			return err
 		}
@@ -405,11 +410,6 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.L
 }
 
 func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
-	if strconv.IntSize < 64 {
-		logger.Warnf("not building cache because on 32-bit system")
-		return nil
-	}
-
 	logger.Debugf("buildCache # of frames: %d", len(ssc.fs.FrameNames()))
 
 	ssc.rawCache = map[string]*cacheForFrame{}
