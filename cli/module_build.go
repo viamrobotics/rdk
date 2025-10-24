@@ -1183,7 +1183,7 @@ func reloadModuleActionInner(
 		if err := pm.Start("shell"); err != nil {
 			return err
 		}
-		shellAdded, err := addShellService(c, vc, part.Part, true)
+		shellAdded, err := addShellService(c, vc, logger, part.Part, true)
 		if err != nil {
 			_ = pm.Fail("shell", err)                                //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck

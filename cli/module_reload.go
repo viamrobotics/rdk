@@ -111,7 +111,7 @@ func (c *viamClient) addResourceFromModule(
 
 // addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
 // Returns (wasAdded, error) where wasAdded indicates if the shell service was newly added.
-func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait bool) (bool, error) {
+func addShellService(c *cli.Context, vc *viamClient, logger logging.Logger, part *apppb.RobotPart, wait bool) (bool, error) {
 	args, err := getGlobalArgs(c)
 	if err != nil {
 		return false, err
@@ -137,7 +137,6 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 	if err := writeBackConfig(part, partMap); err != nil {
 		return false, err
 	}
-	infof(c.App.Writer, "installing shell service on target machine for file transfer")
 	if err := vc.updateRobotPart(part, partMap); err != nil {
 		return false, err
 	}
@@ -148,7 +147,7 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 	// If we don't wait, the reload command will usually fail on first run.
 	for i := 0; i < 11; i++ {
 		time.Sleep(time.Second)
-		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, args.Debug, logging.NewLogger("shellsvc"))
+		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, args.Debug, logger)
 		if err == nil {
 			goutils.UncheckedError(closeClient(c.Context))
 			return true, nil
