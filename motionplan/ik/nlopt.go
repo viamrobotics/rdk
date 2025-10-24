@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"slices"
+	"time"
 
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
@@ -229,7 +230,8 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	solutionsFound := 0
 	seedNumber := 0
 
-	for iterations < ik.maxIterations && ctx.Err() == nil {
+	itStart := time.Now()
+	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < time.Second)) && ctx.Err() == nil {
 		iterations++
 
 		ss := seedStates[seedNumber%len(seedStates)]

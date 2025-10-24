@@ -177,6 +177,24 @@ func TestSandingLargeMove1(t *testing.T) {
 	test.That(t, len(solution.steps), test.ShouldEqual, 1)
 }
 
+func TestBadSpray1(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
+	logger := logging.NewTestLogger(t)
+
+	start := time.Now()
+	req, err := ReadRequestFromFile("data/spray-bad1.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
+
+	_, _, err = PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestPirouette(t *testing.T) {
 	if Is32Bit() {
 		t.Skip()
