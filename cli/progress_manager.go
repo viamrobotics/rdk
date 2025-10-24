@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -12,9 +13,13 @@ import (
 type StepStatus int
 
 const (
+	// StepPending indicates a step has not yet started.
 	StepPending StepStatus = iota
+	// StepRunning indicates a step is currently in progress.
 	StepRunning
+	// StepCompleted indicates a step finished successfully.
 	StepCompleted
+	// StepFailed indicates a step encountered an error.
 	StepFailed
 )
 
@@ -99,13 +104,13 @@ func (pm *ProgressManager) Start(stepID string) error {
 	// If this is a parent step (IndentLevel == 0), print it as a static "in progress" indicator
 	if step.IndentLevel == 0 {
 		// Use ellipsis to indicate parent is in progress (with extra space for alignment)
-		fmt.Printf(" …  %s\n", step.Message)
+		_, _ = os.Stdout.WriteString(fmt.Sprintf(" …  %s\n", step.Message)) //nolint:errcheck
 		return nil
 	}
 
 	// For child steps, stop the previous child spinner if one is active
 	if pm.currentSpinner != nil {
-		pm.currentSpinner.Stop()
+		_ = pm.currentSpinner.Stop() //nolint:errcheck
 	}
 
 	// Create and start a new spinner for this child step
@@ -123,7 +128,6 @@ func (pm *ProgressManager) Start(stepID string) error {
 		WithRemoveWhenDone(false).
 		WithText(adjustedPrefix + step.Message).
 		Start()
-
 	if err != nil {
 		return fmt.Errorf("failed to start child spinner: %w", err)
 	}
@@ -176,14 +180,14 @@ func (pm *ProgressManager) Complete(stepID string) error {
 
 		// Move cursor up to the parent line, clear it, and print success
 		if linesToMoveUp > 0 {
-			fmt.Printf("\033[%dA", linesToMoveUp+1) // Move up
+			_, _ = os.Stdout.WriteString(fmt.Sprintf("\033[%dA", linesToMoveUp+1)) //nolint:errcheck // Move up
 		}
-		fmt.Printf("\r\033[K") // Clear line
+		_, _ = os.Stdout.WriteString("\r\033[K") //nolint:errcheck // Clear line
 		pterm.Success.Println(prefix + msg + elapsed)
 
 		// Move cursor back down
 		if linesToMoveUp > 0 {
-			fmt.Printf("\033[%dB", linesToMoveUp) // Move down
+			_, _ = os.Stdout.WriteString(fmt.Sprintf("\033[%dB", linesToMoveUp)) //nolint:errcheck // Move down
 		}
 		return nil
 	}
@@ -201,7 +205,7 @@ func (pm *ProgressManager) Complete(stepID string) error {
 }
 
 // CompleteWithMessage marks a step as completed with a custom message.
-func (pm *ProgressManager) CompleteWithMessage(stepID string, message string) error {
+func (pm *ProgressManager) CompleteWithMessage(stepID, message string) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
@@ -265,7 +269,7 @@ func (pm *ProgressManager) Fail(stepID string, err error) error {
 }
 
 // FailWithMessage marks a step as failed with a custom message.
-func (pm *ProgressManager) FailWithMessage(stepID string, message string) error {
+func (pm *ProgressManager) FailWithMessage(stepID, message string) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
@@ -306,7 +310,7 @@ func (pm *ProgressManager) Stop() {
 	defer pm.mu.Unlock()
 
 	if pm.currentSpinner != nil {
-		pm.currentSpinner.Stop()
+		_ = pm.currentSpinner.Stop() //nolint:errcheck
 		pm.currentSpinner = nil
 	}
 }

@@ -65,6 +65,7 @@ require (
 	github.com/pion/rtp v1.8.21
 	github.com/pion/stun v0.6.1
 	github.com/prometheus/procfs v0.15.1
+	github.com/pterm/pterm v0.12.82
 	github.com/rhysd/actionlint v1.6.24
 	github.com/rs/cors v1.11.1
 	github.com/samber/lo v1.51.0
@@ -360,7 +361,6 @@ require (
 	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.64.0 // indirect
-	github.com/pterm/pterm v0.12.82 // indirect
 	github.com/quasilyte/go-ruleguard v0.4.3-0.20240823090925-0fe6f58b47b1 // indirect
 	github.com/quasilyte/go-ruleguard/dsl v0.3.22 // indirect
 	github.com/quasilyte/gogrep v0.5.0 // indirect
