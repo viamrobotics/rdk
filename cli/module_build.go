@@ -678,10 +678,16 @@ func (c *viamClient) shouldIgnoreFile(relPath string, matcher gitignore.Matcher)
 	return matcher.Match(strings.Split(normalizedPath, "/"), false)
 }
 
-func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID moduleID, manifest *moduleManifest) error {
+func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID moduleID, manifest *moduleManifest, pm *ProgressManager) error {
 	_, err := c.getModule(moduleID)
 	if err != nil {
 		// Module is not registered in the cloud, prompt user for confirmation
+		// Stop the spinner before prompting for user input to avoid interference
+		// with the interactive prompt.
+		if pm != nil {
+			pm.Stop()
+		}
+
 		red := "\033[1;31m%s\033[0m"
 		printf(ctx.App.Writer, red, "Error: module not registered in cloud or you lack permissions to edit it.")
 
@@ -705,6 +711,10 @@ func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID mo
 
 		// If user confirmed, we'll proceed with the reload which will register the module
 		// The registration happens implicitly through the cloud build process
+		// Restart the spinner after user input
+		if pm != nil {
+			pm.Start("register")
+		}
 
 		org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
 		if err != nil {
@@ -868,7 +878,7 @@ func (c *viamClient) moduleCloudReload(
 	}
 
 	pm.Start("register")
-	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, &manifest)
+	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, &manifest, pm)
 	if err != nil {
 		pm.FailWithMessage("register", "Registration failed")
 		pm.FailWithMessage("prepare", "Preparing for build...")
@@ -1152,7 +1162,7 @@ func reloadModuleActionInner(
 		pm.Start("upload")
 		err = vc.copyFilesToFqdn(
 			part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
-			dest, logger, args.NoProgress, pm, "upload")
+			dest, logger, true)
 		if err != nil {
 			if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
 				warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
@@ -1163,7 +1173,7 @@ func reloadModuleActionInner(
 			pm.FailWithMessage("reload", "Reloading to part...")
 			return fmt.Errorf("failed copying to part (%v): %w", dest, err)
 		}
-		pm.CompleteWithMessage("upload", fmt.Sprintf("Copied to %s", dest))
+		pm.Complete("upload")
 	} else {
 		// For local builds, start the "Reloading to part..." parent step right before configure
 		pm.Start("reload")
@@ -1374,9 +1384,5 @@ func restartModule(
 	defer robotClient.Close(c.Context) //nolint: errcheck
 	debugf(c.App.Writer, args.Debug, "restarting module %v", restartReq)
 	// todo: make this a stream so '--wait' can tell user what's happening
-	err = robotClient.RestartModule(c.Context, *restartReq)
-	if err == nil {
-		infof(c.App.Writer, "restarted module.")
-	}
-	return err
+	return robotClient.RestartModule(c.Context, *restartReq)
 }
