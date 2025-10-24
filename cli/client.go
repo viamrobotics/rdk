@@ -2595,7 +2595,7 @@ func (c *viamClient) copyFilesToMachine(
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress, nil, "")
 }
 
 // copyFilesToFqdn is a copyFilesToMachine variant that makes use of pre-fetched part FQDN.
@@ -2608,12 +2608,14 @@ func (c *viamClient) copyFilesToFqdn(
 	destination string,
 	logger logging.Logger,
 	noProgress bool,
+	pm *ProgressManager,
+	progressStepID string,
 ) error {
 	shellSvc, closeClient, err := c.connectToShellServiceFqdn(fqdn, debug, logger)
 	if err != nil {
 		return err
 	}
-	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress)
+	return c.copyFilesToMachineInner(shellSvc, closeClient, allowRecursion, preserve, paths, destination, noProgress, pm, progressStepID)
 }
 
 // copyFilesToMachineInner is the common logic for both copyFiles variants.
@@ -2625,6 +2627,8 @@ func (c *viamClient) copyFilesToMachineInner(
 	paths []string,
 	destination string,
 	noProgress bool,
+	pm *ProgressManager,
+	progressStepID string,
 ) error {
 	defer func() {
 		utils.UncheckedError(closeClient(c.c.Context))
@@ -2678,17 +2682,20 @@ func (c *viamClient) copyFilesToMachineInner(
 	var currentFile string
 	progressFunc := func(bytes int64, file string, fileSize int64) {
 		if file != currentFile {
-			if currentFile != "" {
-				//nolint:errcheck // progress display is non-critical
-				_, _ = os.Stdout.WriteString("\n")
-			}
 			currentFile = file
-			//nolint:errcheck // progress display is non-critical
-			_, _ = os.Stdout.WriteString(fmt.Sprintf("Copying %s...\n", file))
 		}
-		uploadPercent := int(math.Ceil(100 * float64(bytes) / float64(fileSize)))
-		//nolint:errcheck // progress display is non-critical
-		_, _ = os.Stdout.WriteString(fmt.Sprintf("\rProgress: %d%% (%d/%d bytes)", uploadPercent, bytes, fileSize))
+
+		// If a ProgressManager is provided, update the spinner text with percentage
+		if pm != nil && progressStepID != "" {
+			uploadPercent := int(math.Ceil(100 * float64(bytes) / float64(fileSize)))
+			// Update the spinner text to show progress
+			pm.UpdateText(fmt.Sprintf("  → Uploading package... %d%% (%d/%d bytes)", uploadPercent, bytes, totalSize))
+		} else {
+			// Fallback to stdout printing if no ProgressManager
+			uploadPercent := int(math.Ceil(100 * float64(bytes) / float64(fileSize)))
+			//nolint:errcheck // progress display is non-critical
+			_, _ = os.Stdout.WriteString(fmt.Sprintf("\rProgress: %d%% (%d/%d bytes)", uploadPercent, bytes, fileSize))
+		}
 	}
 
 	// Wrap the copy factory to track progress
