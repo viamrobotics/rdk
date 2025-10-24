@@ -3,6 +3,7 @@ package armplanning
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -404,6 +405,11 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.L
 }
 
 func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
+	if strconv.IntSize < 64 {
+		logger.Warnf("not building cache because on 32-bit system")
+		return nil
+	}
+
 	logger.Debugf("buildCache # of frames: %d", len(ssc.fs.FrameNames()))
 
 	ssc.rawCache = map[string]*cacheForFrame{}
