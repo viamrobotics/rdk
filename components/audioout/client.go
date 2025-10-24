@@ -67,14 +67,18 @@ func (c *client) Play(ctx context.Context, data []byte, info *rdkutils.AudioInfo
 		return err
 	}
 
-	pbInfo := rdkutils.AudioInfoStructToPb(info)
-
-	_, err = c.client.Play(ctx, &pb.PlayRequest{
+	req := &pb.PlayRequest{
 		Name:      c.name,
 		AudioData: data,
-		AudioInfo: pbInfo,
 		Extra:     ext,
-	})
+	}
+
+	if info != nil {
+		pbInfo := rdkutils.AudioInfoStructToPb(info)
+		req.AudioInfo = pbInfo
+	}
+
+	_, err = c.client.Play(ctx, req)
 	if err != nil {
 		return err
 	}

@@ -28,7 +28,10 @@ func (s *serviceServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.Play
 		return nil, err
 	}
 
-	info := rdkutils.AudioInfoPBToStruct(req.AudioInfo)
+	var info *rdkutils.AudioInfo
+	if req.AudioInfo != nil {
+		info = rdkutils.AudioInfoPBToStruct(req.AudioInfo)
+	}
 
 	err = a.Play(ctx, req.AudioData, info, req.Extra.AsMap())
 	if err != nil {
