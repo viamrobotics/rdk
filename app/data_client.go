@@ -318,7 +318,7 @@ type TabularDataByMQLOptions struct {
 	// PipelineID is the ID of the pipeline to query. Required if TabularDataSourceType
 	// is TabularDataSourceTypePipelineSink.
 	PipelineID string
-	// QueryPrefixName specifies the name of the saved query to prepend the provided MQL query.
+	// QueryPrefixName specifies the name of the saved query to prepend to the provided MQL query.
 	QueryPrefixName string
 }
 
