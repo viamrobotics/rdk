@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/components/audioout"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	rdkutils "go.viam.com/rdk/utils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -46,16 +46,16 @@ func TestServer(t *testing.T) {
 
 	audioData := []byte{1, 2, 3, 4, 5, 6, 7, 8}
 	audioInfo := &commonpb.AudioInfo{
-		Codec:        rdkutils.CodecPCM16,
+		Codec:        rutils.CodecPCM16,
 		SampleRateHz: 44100,
 		NumChannels:  2,
 	}
 
 	t.Run("Play", func(t *testing.T) {
 		// Test successful play
-		injectAudioOut.PlayFunc = func(ctx context.Context, data []byte, info *rdkutils.AudioInfo, extra map[string]interface{}) error {
+		injectAudioOut.PlayFunc = func(ctx context.Context, data []byte, info *rutils.AudioInfo, extra map[string]interface{}) error {
 			test.That(t, data, test.ShouldResemble, audioData)
-			test.That(t, info.Codec, test.ShouldEqual, rdkutils.CodecPCM16)
+			test.That(t, info.Codec, test.ShouldEqual, rutils.CodecPCM16)
 			test.That(t, info.SampleRateHz, test.ShouldEqual, 44100)
 			test.That(t, info.NumChannels, test.ShouldEqual, 2)
 			return nil
@@ -72,7 +72,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldNotBeNil)
 
 		// Test play error
-		injectAudioOut.PlayFunc = func(ctx context.Context, data []byte, info *rdkutils.AudioInfo, extra map[string]interface{}) error {
+		injectAudioOut.PlayFunc = func(ctx context.Context, data []byte, info *rutils.AudioInfo, extra map[string]interface{}) error {
 			return errPlayFailed
 		}
 
@@ -82,13 +82,13 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("Properties", func(t *testing.T) {
-		expectedProperties := rdkutils.Properties{
-			SupportedCodecs: []string{rdkutils.CodecPCM16, rdkutils.CodecMP3},
+		expectedProperties := rutils.Properties{
+			SupportedCodecs: []string{rutils.CodecPCM16, rutils.CodecMP3},
 			SampleRateHz:    44100,
 			NumChannels:     2,
 		}
 
-		injectAudioOut.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rdkutils.Properties, error) {
+		injectAudioOut.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
 			return expectedProperties, nil
 		}
 
@@ -102,8 +102,8 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.NumChannels, test.ShouldEqual, expectedProperties.NumChannels)
 
 		// Test properties error
-		injectAudioOut.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rdkutils.Properties, error) {
-			return rdkutils.Properties{}, errPropertiesFailed
+		injectAudioOut.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
+			return rutils.Properties{}, errPropertiesFailed
 		}
 		_, err = audioOutServer.GetProperties(
 			context.Background(),

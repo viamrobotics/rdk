@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // serviceServer implements the AudioOutService.
@@ -28,9 +28,9 @@ func (s *serviceServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.Play
 		return nil, err
 	}
 
-	var info *rdkutils.AudioInfo
+	var info *rutils.AudioInfo
 	if req.AudioInfo != nil {
-		info = rdkutils.AudioInfoPBToStruct(req.AudioInfo)
+		info = rutils.AudioInfoPBToStruct(req.AudioInfo)
 	}
 
 	err = a.Play(ctx, req.AudioData, info, req.Extra.AsMap())
@@ -62,9 +62,9 @@ func (s *serviceServer) GetProperties(ctx context.Context, req *commonpb.GetProp
 func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
-	audioIn, err := s.coll.Resource(req.GetName())
+	audioOut, err := s.coll.Resource(req.GetName())
 	if err != nil {
 		return nil, err
 	}
-	return protoutils.DoFromResourceServer(ctx, audioIn, req)
+	return protoutils.DoFromResourceServer(ctx, audioOut, req)
 }

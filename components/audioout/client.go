@@ -2,6 +2,7 @@ package audioout
 
 import (
 	"context"
+	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioout/v1"
@@ -11,7 +12,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	rdkutils "go.viam.com/rdk/utils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // client implements AudioOutServiceClient.
@@ -45,23 +46,23 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
-func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (rdkutils.Properties, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
 	ext, err := utils.StructToStructPb(extra)
 	if err != nil {
-		return rdkutils.Properties{}, err
+		return rutils.Properties{}, err
 	}
 	resp, err := c.client.GetProperties(ctx, &commonpb.GetPropertiesRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return rdkutils.Properties{}, err
+		return rutils.Properties{}, fmt.Errorf("audioout client: could not get properties %w", err)
 	}
 
-	return rdkutils.Properties{SupportedCodecs: resp.SupportedCodecs, SampleRateHz: resp.SampleRateHz, NumChannels: resp.NumChannels}, nil
+	return rutils.Properties{SupportedCodecs: resp.SupportedCodecs, SampleRateHz: resp.SampleRateHz, NumChannels: resp.NumChannels}, nil
 }
 
-func (c *client) Play(ctx context.Context, data []byte, info *rdkutils.AudioInfo, extra map[string]interface{}) error {
+func (c *client) Play(ctx context.Context, data []byte, info *rutils.AudioInfo, extra map[string]interface{}) error {
 	ext, err := utils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -74,14 +75,13 @@ func (c *client) Play(ctx context.Context, data []byte, info *rdkutils.AudioInfo
 	}
 
 	if info != nil {
-		pbInfo := rdkutils.AudioInfoStructToPb(info)
+		pbInfo := rutils.AudioInfoStructToPb(info)
 		req.AudioInfo = pbInfo
 	}
 
 	_, err = c.client.Play(ctx, req)
 	if err != nil {
-		return err
+		return fmt.Errorf("audioout client: could not play audio: %w", err)
 	}
-
 	return nil
 }

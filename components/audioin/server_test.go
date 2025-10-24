@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/components/audioin"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	rdkutils "go.viam.com/rdk/utils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -72,7 +72,7 @@ func TestServer(t *testing.T) {
 
 	getAudioRequest := &pb.GetAudioRequest{
 		Name:            testAudioInName,
-		Codec:           rdkutils.CodecPCM16,
+		Codec:           rutils.CodecPCM16,
 		DurationSeconds: 5.0,
 	}
 
@@ -140,8 +140,8 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("Properties", func(t *testing.T) {
-		injectAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rdkutils.Properties, error) {
-			return rdkutils.Properties{}, nil
+		injectAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
+			return rutils.Properties{}, nil
 		}
 
 		resp, err := audioInServer.GetProperties(
@@ -151,8 +151,8 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldNotBeNil)
 
-		injectAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rdkutils.Properties, error) {
-			return rdkutils.Properties{}, errPropertiesFailed
+		injectAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
+			return rutils.Properties{}, errPropertiesFailed
 		}
 		_, err = audioInServer.GetProperties(
 			context.Background(),
