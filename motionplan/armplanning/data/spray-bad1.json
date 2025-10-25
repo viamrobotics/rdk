@@ -525,8 +525,8 @@
   "constraints": {
     "linear_constraints": [
       {
-        "LineToleranceMm": 1,
-        "OrientationToleranceDegs": 1
+        "LineToleranceMm": 2,
+        "OrientationToleranceDegs": 2 
       }
     ],
     "pseudolinear_constraints": null,
