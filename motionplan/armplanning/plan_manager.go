@@ -239,7 +239,17 @@ func (pm *planManager) generateWaypoints(ctx context.Context, start, goal refere
 		return []referenceframe.FrameSystemPoses{goal}, nil
 	}
 
-	stepSize := pm.request.PlannerOptions.PathStepSize
+	tighestConstraint := 10.0
+
+	for _, lc := range pm.request.Constraints.GetLinearConstraint() {
+		tighestConstraint = min(tighestConstraint, lc.LineToleranceMm)
+		tighestConstraint = min(tighestConstraint, lc.OrientationToleranceDegs)
+	}
+
+	tighestConstraint = max(tighestConstraint, 0)
+
+	stepSize := defaultStepSizeMM / max(1, ((10-tighestConstraint)/2))
+	pm.logger.Debugf("stepSize: %0.2f", stepSize)
 
 	numSteps := 0
 	for frame, pif := range goal {
