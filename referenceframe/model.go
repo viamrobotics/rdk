@@ -14,6 +14,8 @@ import (
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 
 	"go.viam.com/rdk/spatialmath"
 )
@@ -134,11 +136,7 @@ func (m *SimpleModel) Hash() int {
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
-	frames, err := m.inputsToFrames(inputs, false)
-	if err != nil && frames == nil {
-		return nil, err
-	}
-	return frames[0].transform, err
+	return m.InputsToTransformOpt(inputs)
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.
@@ -321,47 +319,119 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 	if len(m.DoF()) != len(inputs) {
 		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
-	var err error
+
+	// var err error
 	poses := make([]*staticFrame, 0, len(m.OrdTransforms()))
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	composedTransformation := spatialmath.NewZeroPose()
 	posIdx := 0
+
 	// get quaternions from the base outwards.
-	for _, transform := range m.OrdTransforms() {
+	for _, transform := range m.ordTransforms {
 		dof := len(transform.DoF()) + posIdx
 		input := inputs[posIdx:dof]
 		posIdx = dof
 
-		pose, errNew := transform.Transform(input)
+		// fmt.Printf("Lower transform. Name: %v Type: %T\n", transform.Name(), transform)
+		pose, err := transform.Transform(input)
 		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
-		if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+		if pose == nil || err != nil {
 			return nil, err
 		}
-		multierr.AppendInto(&err, errNew)
+
 		if collectAll {
 			var geometry spatialmath.Geometry
 			gf, err := transform.Geometries(input)
 			if err != nil {
 				return nil, err
 			}
-			geometries := gf.Geometries()
+
+			geometries := gf.geometries
 			if len(geometries) == 0 {
 				geometry = nil
 			} else {
 				geometry = geometries[0]
 			}
+
 			// TODO(pl): Part of the implementation for GetGeometries will require removing the single geometry restriction
 			fixedFrame, err := NewStaticFrameWithGeometry(transform.Name(), composedTransformation, geometry)
 			if err != nil {
 				return nil, err
 			}
+
 			poses = append(poses, fixedFrame.(*staticFrame))
 		}
+
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 	}
+
 	// TODO(rb) as written this will return one too many frames, no need to return zeroth frame
 	poses = append(poses, &staticFrame{&baseFrame{"", []Limit{}}, composedTransformation, nil})
-	return poses, err
+	return poses, nil
+}
+
+// InputsToTransformOpt is like `inputsToFrames` but only returns the end effector pose. That allows
+// us to optimize away the recording of intermediate computations.
+func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, error) {
+	if len(m.DoF()) != len(inputs) {
+		return nil, fmt.Errorf("wrong dimensions. DoF: %v Inputs: %v", len(m.DoF()), len(inputs))
+	}
+
+	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
+	// composedTransformation := spatialmath.NewZeroPose()
+	composedTransformation := spatialmath.DualQuaternion{dualquat.Number{
+		Real: quat.Number{Real: 1},
+		Dual: quat.Number{},
+	}}
+	posIdx := 0
+
+	// get quaternions from the base outwards.
+	for _, transformI := range m.ordTransforms {
+		var pose spatialmath.Pose
+
+		switch transform := transformI.(type) {
+		case *staticFrame:
+			if len(transformI.DoF()) != 0 {
+				return nil, fmt.Errorf("unexpected DoF for staticFrame. DoF: %v", len(transformI.DoF()))
+			}
+
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(transform.transform.(*spatialmath.DualQuaternion).Number),
+			}
+		case *rotationalFrame:
+			if len(transformI.DoF()) != 1 {
+				return nil, fmt.Errorf("unexpected DoF for rotationalFrame. DoF: %v", len(transformI.DoF()))
+			}
+
+			orientation := transform.InputToOrientation(inputs[posIdx])
+			pose = &spatialmath.DualQuaternion{
+				Number: dualquat.Number{
+					Real: orientation.Quaternion(),
+				},
+			}
+
+			posIdx++
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
+			}
+		default:
+			dof := len(transformI.DoF()) + posIdx
+			input := inputs[posIdx:dof]
+			posIdx = dof
+
+			var err error
+			pose, err = transform.Transform(input)
+			if pose == nil || err != nil {
+				return nil, err
+			}
+
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
+			}
+		}
+	}
+
+	return &composedTransformation, nil
 }
 
 // floatsToString turns a float array into a serializable binary representation

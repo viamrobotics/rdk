@@ -166,8 +166,7 @@ func BenchmarkDanGoalMetric(b *testing.B) {
 	goalFrame.SetName("xarm6")
 
 	options := &PlannerOptions{
-		// GoalMetricType: motionplan.SquaredNorm,
-		GoalMetricType: motionplan.SquaredNormOpt,
+		GoalMetricType: motionplan.SquaredNorm,
 	}
 
 	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
@@ -285,8 +284,11 @@ func BenchmarkDanArmOptTransform(b *testing.B) {
 	}
 
 	// Not useful if we don't get the right answer.
-	test.That(b, fmt.Sprintf("%v", armModel.InputsToTransformOpt(inps)), test.ShouldEqual,
+	pose, err := armModel.InputsToTransformOpt(inps)
+	test.That(b, err, test.ShouldBeNil)
+	test.That(b, fmt.Sprintf("%v", pose), test.ShouldEqual,
 		"{X:53.425180 Y:243.992738 Z:692.082423 OX:0.898026 OY:0.314087 OZ:0.308055 Theta:130.963386°}")
+
 	for b.Loop() {
 		armModel.InputsToTransformOpt(inps)
 	}
