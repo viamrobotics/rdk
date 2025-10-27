@@ -208,6 +208,7 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 	if len(inputs) != len(bf.limits) {
 		return NewIncorrectDoFError(len(inputs), len(bf.limits))
 	}
+
 	for i := 0; i < len(bf.limits); i++ {
 		if inputs[i] < bf.limits[i].Min || inputs[i] > bf.limits[i].Max {
 			lim := []float64{bf.limits[i].Max, bf.limits[i].Min}
@@ -215,6 +216,7 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 				OOBErrString, "input", inputs[i], "needs to be within range", lim))
 		}
 	}
+
 	return errAll
 }
 
