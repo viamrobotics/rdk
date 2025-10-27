@@ -485,7 +485,8 @@ func (sfs *FrameSystem) transformFromParentLinear(inputs []float64, src, dst Fra
 	return NewPoseInFrame(dst.Name(), &result), nil
 }
 
-// composeTransforms computes the transformation of the provide Frame to the World Frame, using the provided FrameSystemInputs.
+// composeTransforms computes the transformation of the provide Frame to the World Frame, using the
+// provided FrameSystemInputs.
 func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInputs) (spatial.Pose, error) {
 	q := spatial.NewZeroPose()            // empty initial dualquat
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
@@ -507,24 +508,43 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInput
 	return q, nil
 }
 
-// composeTransformsLinear assumes the inpu.
+// composeTransformsLinear assumes there is one moveable frame and its DoF is equal to the `inputs`
+// length.
 func (sfs *FrameSystem) composeTransformsLinear(frame Frame, inputs []float64) (spatial.Pose, error) {
-	q := spatial.NewZeroPose()            // empty initial dualquat
+	ret := spatial.NewZeroPose() // empty initial dualquat
+
+	numMoveableFrames := 0
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
-		if len(frame.DoF()) != len(inputs) {
-			return nil, fmt.Errorf("wrong input size for composeTransformsLinear. Expected: %v Actual: %v",
-				len(frame.DoF()), len(inputs))
+		var pose spatial.Pose
+		var err error
+
+		if len(frame.DoF()) == 0 {
+			pose, err = frame.Transform([]Input{})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			if numMoveableFrames > 0 {
+				//nolint
+				return nil, fmt.Errorf("More than one movable frame. GoalMetricType.SquaredNormOpt is ineligible to be used.")
+			}
+
+			numMoveableFrames++
+			if len(frame.DoF()) != len(inputs) {
+				return nil, fmt.Errorf("wrong input size for composeTransformsLinear. Expected: %v Actual: %v",
+					len(frame.DoF()), len(inputs))
+			}
+
+			pose, err = frame.Transform(inputs)
+			if err != nil {
+				return nil, err
+			}
 		}
 
-		pose, err := frame.Transform(inputs)
-		if err != nil {
-			return nil, err
-		}
-
-		q = spatial.Compose(pose, q)
+		ret = spatial.Compose(pose, ret)
 		frame = sfs.Frame(sfs.parents[frame.Name()])
 	}
-	return q, nil
+	return ret, nil
 }
 
 // MarshalJSON serializes a FrameSystem into JSON format.
