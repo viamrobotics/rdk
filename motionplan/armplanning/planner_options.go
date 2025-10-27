@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -185,7 +186,10 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 		switch p.GoalMetricType {
 		case motionplan.PositionOnly:
 			metrics[frame] = motionplan.NewPositionOnlyMetric(goalInFrame.Pose())
-		case motionplan.SquaredNorm:
+		case motionplan.SquaredNorm, motionplan.SquaredNormOpt:
+			// `SquaredNormOpt` will work here, but there's no special
+			// optimization. `getGoalMetricLinear` must be called for heap allocation optimizations
+			// at the cost of limited frame system inputs.
 			metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
 		case motionplan.ArcLengthConvergence:
 			metrics[frame] = motionplan.NewPoseFlexOVMetricConstructor(p.ArcLengthTolerance)(goalInFrame.Pose())
@@ -198,19 +202,64 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 		score := 0.
 		for frame, goalMetric := range metrics {
 			poseParent := frames[frame]
-			currPose, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
+			var currPose spatialmath.Pose
+
+			currTrans, err := state.FS.Transform(
+				state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
 			if err != nil {
-				panic(fmt.Errorf("fs: %v err: %w frame: %s poseParent: %v", state.FS.FrameNames(), err, frame, poseParent))
+				panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",
+					state.FS.FrameNames(), frame, poseParent, err))
 			}
 
+			currPose = currTrans.(*referenceframe.PoseInFrame).Pose()
+
 			score += goalMetric(&motionplan.State{
-				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
+				Position:      currPose,
 				Configuration: state.Configuration[frame],
 				Frame:         state.FS.Frame(frame),
 			})
 		}
 		return score
 	}
+}
+
+func (p *PlannerOptions) getGoalMetricLinear(goal referenceframe.FrameSystemPoses) (motionplan.LinearFSMetric, error) {
+	if p.GoalMetricType != motionplan.SquaredNormOpt {
+		return nil, fmt.Errorf("May only call `getGoalMetricLinear` with a planner type of `SquaredNormOpt`")
+	}
+
+	metrics := map[string]motionplan.StateMetric{}
+	frames := map[string]string{}
+
+	for frame, goalInFrame := range goal {
+		frames[frame] = goalInFrame.Parent()
+		metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
+	}
+
+	return func(state *motionplan.LinearFS) float64 {
+		score := 0.
+		for frame, goalMetric := range metrics {
+			poseParent := frames[frame]
+			var currPose spatialmath.Pose
+
+			if p.GoalMetricType == motionplan.SquaredNormOpt {
+				dq, err := state.FS.TransformOptLinear(state.Configuration, frame, poseParent)
+				if err != nil {
+					panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",
+						state.FS.FrameNames(), frame, poseParent, err))
+				}
+
+				currPose = &dq
+			} else {
+				panic("non comprenez")
+			}
+
+			score += goalMetric(&motionplan.State{
+				Position: currPose,
+			})
+		}
+		return score
+	}, nil
 }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.

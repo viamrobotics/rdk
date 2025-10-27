@@ -69,6 +69,15 @@ func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) func(c
 	}
 }
 
+func (pc *planContext) linearizeFSmetricOpt(metric motionplan.LinearFSMetric) func(context.Context, []float64) float64 {
+	return func(ctx context.Context, query []float64) float64 {
+		return metric(&motionplan.LinearFS{
+			Configuration: query,
+			FS:            pc.fs,
+		})
+	}
+}
+
 type planSegmentContext struct {
 	pc *planContext
 

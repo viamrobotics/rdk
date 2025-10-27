@@ -44,6 +44,8 @@ const (
 	PositionOnly GoalMetricType = "position_only"
 	// SquaredNorm indicates the use of the norm between two poses.
 	SquaredNorm GoalMetricType = "squared_norm"
+	// SquaredNormOpt indicates the use of the norm between two poses.
+	SquaredNormOpt GoalMetricType = "squared_norm_opt"
 	// ArcLengthConvergence indicates the use of an algorithm that converges on a pose
 	// that lies within an arc length of a goal pose.
 	ArcLengthConvergence GoalMetricType = "pose_flex_ov"
@@ -130,6 +132,16 @@ type StateMetric func(*State) float64
 // StateFSMetric are functions which, given a StateFS, produces some score. Lower is better.
 // This is used for gradient descent to converge upon a goal pose, for example.
 type StateFSMetric func(*StateFS) float64
+
+// LinearFS is like a StateFS but passes a linearized configuration. This can only be used when
+// there's one movable frame. That movable frame may have multiple degrees of freedom.
+type LinearFS struct {
+	Configuration []float64
+	FS            *referenceframe.FrameSystem
+}
+
+// LinearFSMetric is like StateFSMetric but takes a linearized configuration.
+type LinearFSMetric func(*LinearFS) float64
 
 // SegmentMetric are functions which produce some score given an Segment. Lower is better.
 // This is used to sort produced IK solutions by goodness, for example.

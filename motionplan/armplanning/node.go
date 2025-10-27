@@ -386,8 +386,18 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		return nil, err
 	}
 
+	var minFunc ik.CostFunc
 	// Spawn the IK solver to generate solutions until done
-	minFunc := psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
+	if psc.pc.planOpts.GoalMetricType == motionplan.SquaredNormOpt {
+		linearMinFunc, err := psc.pc.planOpts.getGoalMetricLinear(psc.goal)
+		if err != nil {
+			return nil, err
+		}
+
+		minFunc = psc.pc.linearizeFSmetricOpt(linearMinFunc)
+	} else {
+		minFunc = psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
+	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
