@@ -61,14 +61,10 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 // of FrameSystemInputs and the []float64 that the solver expects. This is that mapping.
 func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) func(context.Context, []float64) float64 {
 	return func(ctx context.Context, query []float64) float64 {
-		_, span := trace.StartSpan(ctx, "linearizeFSmetric::func")
-		defer span.End()
 		inputs, err := pc.lfs.sliceToMap(query)
 		if err != nil {
 			return math.Inf(1)
 		}
-		_, span2 := trace.StartSpan(ctx, "linearizeFSmetric::metric")
-		defer span2.End()
 		return metric(&motionplan.StateFS{Configuration: inputs, FS: pc.fs})
 	}
 }
