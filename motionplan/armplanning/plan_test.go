@@ -1,6 +1,7 @@
 package armplanning
 
 import (
+	"fmt"
 	"math"
 	"testing"
 
@@ -8,11 +9,16 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func TestEvaluateTrajectory(t *testing.T) {
@@ -132,4 +138,239 @@ func TestPlanStep(t *testing.T) {
 			})
 		}
 	})
+}
+
+// BenchmarkDanGoalMetric
+//
+// Old:
+// - BenchmarkDanGoalMetric-16                 	  532743	      3448 ns/op	    2416 B/op	      42 allocs/op
+// New:
+// - BenchmarkDanGoalMetric-16                 	  801975	      1247 ns/op	     800 B/op	      14 allocs/op
+// - BenchmarkDanGoalMetric-16                 	  940275	      1145 ns/op	     640 B/op	      11 allocs/op.
+func BenchmarkDanGoalMetric(b *testing.B) {
+	ctx := b.Context()
+	_ = ctx
+	goalFrame := referenceframe.NewPoseInFrame(
+		"world",
+		&spatialmath.DualQuaternion{
+			Number: dualquat.Number{
+				Real: quat.Number{
+					Real: 0.0051161120465661614, Imag: 0, Jmag: 0.9999869126131237, Kmag: 0,
+				},
+				Dual: quat.Number{
+					Real: -798.2045339836992, Imag: 241.2609122119685, Jmag: 4.083757277649134, Kmag: -822.820958100296,
+				},
+			},
+		},
+	)
+	goalFrame.SetName("xarm6")
+
+	options := &PlannerOptions{
+		// GoalMetricType: motionplan.SquaredNorm,
+		GoalMetricType: motionplan.SquaredNormOpt,
+	}
+
+	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
+	test.That(b, err, test.ShouldBeNil)
+
+	// Create a temporary frame system for the transformation
+	fs := referenceframe.NewEmptyFrameSystem("")
+	err = fs.AddFrame(armModel, fs.World())
+	test.That(b, err, test.ShouldBeNil)
+
+	metricFn := options.getGoalMetric(referenceframe.FrameSystemPoses{"xarm6": goalFrame})
+	inps := referenceframe.FrameSystemInputs{"xarm6": []referenceframe.Input{
+		-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
+	}}
+	ans := metricFn(&motionplan.StateFS{
+		Configuration: inps,
+		FS:            fs,
+	})
+	test.That(b, ans, test.ShouldEqual, 6.1075976675485745e+06)
+
+	for b.Loop() {
+		metricFn(&motionplan.StateFS{
+			Configuration: inps,
+			FS:            fs,
+		})
+	}
+}
+
+// BenchmarkDanScaledSquaredNormMetric measures the distance evaluation between the goal state and
+// the state computed from the inputs. This is the same as the above `BenchmarkDanGoalMetric`,
+// except the above is also measuring the computational part of arriving at the sampled pose.
+//
+// Old:
+// - BenchmarkDanScaledSquaredNormMetric-16    	 6429082	       205.4 ns/op	      64 B/op	       1 allocs/op
+//
+// New:
+// - BenchmarkDanScaledSquaredNormMetric-16    	 8371084	       148.3 ns/op	       0 B/op	       0 allocs/op.
+func BenchmarkDanScaledSquaredNormMetric(b *testing.B) {
+	ctx := b.Context()
+	_ = ctx
+	goalFrame := referenceframe.NewPoseInFrame(
+		"world",
+		&spatialmath.DualQuaternion{
+			Number: dualquat.Number{
+				Real: quat.Number{
+					Real: 0.0051161120465661614, Imag: 0, Jmag: 0.9999869126131237, Kmag: 0,
+				},
+				Dual: quat.Number{
+					Real: -798.2045339836992, Imag: 241.2609122119685, Jmag: 4.083757277649134, Kmag: -822.820958100296,
+				},
+			},
+		},
+	)
+	goalFrame.SetName("xarm6")
+
+	metricFn := motionplan.NewScaledSquaredNormMetric(goalFrame.Pose(), 10.0)
+	state := motionplan.State{
+		Position: spatialmath.NewZeroPose(),
+		Configuration: []referenceframe.Input{
+			-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
+		},
+	}
+
+	for b.Loop() {
+		metricFn(&state)
+	}
+}
+
+// Old:
+// - BenchmarkDanArmTransform-16               	  554766	      2817 ns/op	    1680 B/op	      29 allocs/op.
+func BenchmarkDanArmTransform(b *testing.B) {
+	ctx := b.Context()
+	_ = ctx
+
+	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
+	test.That(b, err, test.ShouldBeNil)
+	armModel := armModelI.(*referenceframe.SimpleModel)
+
+	inps := []referenceframe.Input{
+		-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
+	}
+
+	_, err = armModel.Transform(inps)
+	test.That(b, err, test.ShouldBeNil)
+
+	for b.Loop() {
+		armModel.Transform(inps)
+	}
+}
+
+// Metric checking compares the above `Transform` result to the goal pose.
+//
+// This optimization inclues:
+// - Don't allocate array when not capturing all sub-arm pose information.
+// - Call optimized version of `*staticFrame.Transform`.
+// - Call optimized version of `*rotationalFrame.Transform`.
+//
+// New:
+// Avoid array slicing when frame input size is 0 (static) or 1 (rotational).
+// - BenchmarkDanArmOptTransform-16            	  563020	      2060 ns/op	    1472 B/op	      26 allocs/op
+// One unroll of `*rotationalFrame.Transform`
+// - BenchmarkDanArmOptTransform-16            	 1000000	      1880 ns/op	    1280 B/op	      20 allocs/op
+// Inline `composedTransformation`
+// - BenchmarkDanArmOptTransform-16            	 1830990	       653.5 ns/op	      64 B/op	       1 allocs/op.
+func BenchmarkDanArmOptTransform(b *testing.B) {
+	ctx := b.Context()
+	_ = ctx
+
+	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
+	test.That(b, err, test.ShouldBeNil)
+	armModel := armModelI.(*referenceframe.SimpleModel)
+
+	inps := []referenceframe.Input{
+		-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
+	}
+
+	// Not useful if we don't get the right answer.
+	test.That(b, fmt.Sprintf("%v", armModel.InputsToTransformOpt(inps)), test.ShouldEqual,
+		"{X:53.425180 Y:243.992738 Z:692.082423 OX:0.898026 OY:0.314087 OZ:0.308055 Theta:130.963386°}")
+	for b.Loop() {
+		armModel.InputsToTransformOpt(inps)
+	}
+}
+
+func BenchmarkDanRotTransform(b *testing.B) {
+	ctx := b.Context()
+	_ = ctx
+
+	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
+	test.That(b, err, test.ShouldBeNil)
+	armModel := armModelI.(*referenceframe.SimpleModel)
+
+	rotFrame := armModel.OrdTransforms()[0]
+	// inp creation in `Loop`:
+	//   BenchmarkDanRotTransform-16               	 1630050	       886.8 ns/op	     376 B/op	       5 allocs/op
+	// outside of `Loop`:
+	//   BenchmarkDanRotTransform-16               	 1206386	      1006 ns/op	     368 B/op	       4 allocs/op
+	inp := []referenceframe.Input{-1.335}
+	for b.Loop() {
+		// Optimized code uses `(*rotationalFrame).InputToOrientation` under the hood. This avoids
+		// creating a pose/DQ on the heap when we can create a DQ on the stack directly.
+		rotFrame.Transform(inp)
+	}
+}
+
+// Old:
+// - BenchmarkDanLinearizeFSMetric-16          	 2150169	       531.7 ns/op	     864 B/op	      11 allocs/op
+// Old + No Spans:
+// - BenchmarkDanLinearizeFSMetric-16          	 7035686	       174.6 ns/op	     448 B/op	       3 allocs/op
+// New:
+// - BenchmarkDanLinearizeFSMetric-16          	 3936822	       305.3 ns/op	     416 B/op	       8 allocs/op
+// New + No Spans:
+// - BenchmarkDanLinearizeFSMetric-16          	556656800	         2.154 ns/op	       0 B/op	       0 allocs/op.
+func BenchmarkDanLinearizeFSMetric(b *testing.B) {
+	ctx := b.Context()
+	logger := logging.NewTestLogger(b)
+
+	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
+	test.That(b, err, test.ShouldBeNil)
+
+	// Create a temporary frame system for the transformation
+	fs := referenceframe.NewEmptyFrameSystem("")
+	err = fs.AddFrame(armModel, fs.World())
+	test.That(b, err, test.ShouldBeNil)
+
+	pc, err := newPlanContext(ctx, logger,
+		&PlanRequest{
+			FrameSystem:    fs,
+			PlannerOptions: &PlannerOptions{},
+		},
+		&PlanMeta{},
+	)
+	test.That(b, err, test.ShouldBeNil)
+
+	inps := []float64{
+		-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
+	}
+
+	fsInps, err := pc.lfs.sliceToMap(inps)
+	test.That(b, err, test.ShouldBeNil)
+
+	// Not useful if the code gets the wrong answer.
+	test.That(b, fsInps, test.ShouldResemble, referenceframe.FrameSystemInputs(
+		map[string][]referenceframe.Input{
+			"xarm6": {
+				-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
+			},
+		},
+	))
+
+	const newCode = false
+	var minFunc ik.CostFunc
+	if newCode {
+		minFunc = pc.linearizeFSmetricOpt(func(_ *motionplan.LinearFS) float64 {
+			return 0.0
+		})
+	} else {
+		minFunc = pc.linearizeFSmetric(func(_ *motionplan.StateFS) float64 {
+			return 0.0
+		})
+	}
+
+	for b.Loop() {
+		minFunc(ctx, inps)
+	}
 }

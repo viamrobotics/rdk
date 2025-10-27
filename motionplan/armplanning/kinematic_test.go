@@ -18,7 +18,7 @@ func BenchmarkFK(b *testing.B) {
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
 	test.That(b, err, test.ShouldBeNil)
 	for n := 0; n < b.N; n++ {
-		_, err := m.Transform([]frame.Input{7})
+		_, err := m.Transform(make([]frame.Input, 7))
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
