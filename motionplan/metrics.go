@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 
+	"gonum.org/v1/gonum/num/quat"
+
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -220,13 +222,16 @@ func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 // Increase weight for orientation since it's a small number.
 func NewScaledSquaredNormMetric(goal spatial.Pose, orientationDistanceScale float64) StateMetric {
 	weightedSqNormDist := func(query *State) float64 {
-		deltaCartesian := spatial.PoseDelta(goal, query.Position)
-		deltaOrientation := spatial.QuatToR3AA(deltaCartesian.Orientation().Quaternion()).Mul(orientationDistanceScale)
+		deltaCartesianPoint := query.Position.Point().Sub(
+			goal.(*spatial.DualQuaternion).Point())
+		deltaCartesianOrientation := quat.Mul(
+			query.Position.Orientation().Quaternion(),
+			quat.Conj(goal.Orientation().Quaternion()))
+		deltaOrientation := spatial.QuatToR3AA(deltaCartesianOrientation).Mul(orientationDistanceScale)
 
-		// fmt.Printf("delta cart: %0.4f orient: %0.4f\n", deltaCartesian.Point().Norm2(), deltaOrientation.Norm2())
-
-		return deltaCartesian.Point().Norm2() + deltaOrientation.Norm2()
+		return deltaCartesianPoint.Norm2() + deltaOrientation.Norm2()
 	}
+
 	return weightedSqNormDist
 }
 
