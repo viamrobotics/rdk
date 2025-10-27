@@ -549,6 +549,10 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0], rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
 }
 
+func (rf *rotationalFrame) InputToOrientation(input Input) spatial.R4AA {
+	return spatial.R4AA{input, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}
+}
+
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (rf *rotationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	n := make([]Input, len(jp.Values))

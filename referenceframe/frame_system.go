@@ -11,6 +11,8 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 
 	"go.viam.com/rdk/logging"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -235,6 +237,33 @@ func (sfs *FrameSystem) Transform(inputs FrameSystemInputs, object Transformable
 	return object.Transform(tfParent), nil
 }
 
+// TransformOptLinear is like TransformOpt, except:
+// - The input object cannot be a `GeometriesInFrame`.
+// - Requires the caller to pass in the exact slice of inputs for `frame`.
+// - Probably some other unknown assumptions.
+func (sfs *FrameSystem) TransformOptLinear(inputs []float64, frame, parent string) (
+	spatial.DualQuaternion, error,
+) {
+	if !sfs.frameExists(frame) {
+		return spatial.DualQuaternion{}, NewFrameMissingError(frame)
+	}
+
+	if !sfs.frameExists(parent) {
+		return spatial.DualQuaternion{}, NewFrameMissingError(parent)
+	}
+
+	tfParent, err := sfs.transformFromParentLinear(inputs, sfs.Frame(frame), sfs.Frame(parent))
+	if err != nil {
+		return spatial.DualQuaternion{}, err
+	}
+
+	ret := tfParent.pose.(*spatial.DualQuaternion).Transformation(dualquat.Number{
+		Real: quat.Number{Real: 1},
+		Dual: quat.Number{},
+	})
+	return spatial.DualQuaternion{Number: ret}, nil
+}
+
 // Name returns the name of the simpleFrameSystem.
 func (sfs *FrameSystem) Name() string {
 	return sfs.name
@@ -368,6 +397,25 @@ func (sfs *FrameSystem) GetFrameToWorldTransform(inputMap FrameSystemInputs, src
 	return srcToWorld, err
 }
 
+// GetFrameToWorldTransformLinear is like GetFrameToWorldTransform but where the inputs slice is
+// exactly for the `src` frame.
+func (sfs *FrameSystem) GetFrameToWorldTransformLinear(inputs []float64, src Frame) (spatial.Pose, error) {
+	if !sfs.frameExists(src.Name()) {
+		return nil, NewFrameMissingError(src.Name())
+	}
+
+	// If src is nil it is interpreted as the world frame
+	var err error
+	srcToWorld := spatial.NewZeroPose()
+	if src != nil {
+		srcToWorld, err = sfs.composeTransformsLinear(src, inputs)
+		if err != nil && srcToWorld == nil {
+			return nil, err
+		}
+	}
+	return srcToWorld, err
+}
+
 // ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
 // frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
 // replacementFrame is not allowed to exist within the frame system at the time of the call.
@@ -415,7 +463,26 @@ func (sfs *FrameSystem) transformFromParent(inputMap FrameSystemInputs, src, dst
 	}
 
 	// transform from source to world, world to target parent
-	return NewPoseInFrame(dst.Name(), spatial.PoseBetween(dstToWorld, srcToWorld)), nil
+	invA := spatial.DualQuaternion{dualquat.ConjQuat(dstToWorld.(*spatial.DualQuaternion).Number)}
+	result := spatial.DualQuaternion{invA.Transformation(srcToWorld.(*spatial.DualQuaternion).Number)}
+	return NewPoseInFrame(dst.Name(), &result), nil
+}
+
+func (sfs *FrameSystem) transformFromParentLinear(inputs []float64, src, dst Frame) (*PoseInFrame, error) {
+	dstToWorld, err := sfs.GetFrameToWorldTransformLinear(inputs, dst)
+	if err != nil {
+		return nil, err
+	}
+
+	srcToWorld, err := sfs.GetFrameToWorldTransformLinear(inputs, src)
+	if err != nil {
+		return nil, err
+	}
+
+	// transform from source to world, world to target parent
+	invA := spatial.DualQuaternion{dualquat.ConjQuat(dstToWorld.(*spatial.DualQuaternion).Number)}
+	result := spatial.DualQuaternion{invA.Transformation(srcToWorld.(*spatial.DualQuaternion).Number)}
+	return NewPoseInFrame(dst.Name(), &result), nil
 }
 
 // composeTransforms computes the transformation of the provide Frame to the World Frame, using the provided FrameSystemInputs.
@@ -436,7 +503,28 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInput
 		q = spatial.Compose(pose, q)
 		frame = sfs.Frame(sfs.parents[frame.Name()])
 	}
-	return q, errAll
+
+	return q, nil
+}
+
+// composeTransformsLinear assumes the inpu.
+func (sfs *FrameSystem) composeTransformsLinear(frame Frame, inputs []float64) (spatial.Pose, error) {
+	q := spatial.NewZeroPose()            // empty initial dualquat
+	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
+		if len(frame.DoF()) != len(inputs) {
+			return nil, fmt.Errorf("wrong input size for composeTransformsLinear. Expected: %v Actual: %v",
+				len(frame.DoF()), len(inputs))
+		}
+
+		pose, err := frame.Transform(inputs)
+		if err != nil {
+			return nil, err
+		}
+
+		q = spatial.Compose(pose, q)
+		frame = sfs.Frame(sfs.parents[frame.Name()])
+	}
+	return q, nil
 }
 
 // MarshalJSON serializes a FrameSystem into JSON format.
