@@ -225,6 +225,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 
 func (p *PlannerOptions) getGoalMetricLinear(goal referenceframe.FrameSystemPoses) (motionplan.LinearFSMetric, error) {
 	if p.GoalMetricType != motionplan.SquaredNormOpt {
+		//nolint
 		return nil, fmt.Errorf("May only call `getGoalMetricLinear` with a planner type of `SquaredNormOpt`")
 	}
 
