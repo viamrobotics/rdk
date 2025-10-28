@@ -126,7 +126,10 @@ type solutionSolvingState struct {
 	bestScoreNoProblem   float64
 }
 
-func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, error) {
+func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*solutionSolvingState, error) {
+	_, span := trace.StartSpan(ctx, "newSolutionSolvingState")
+	defer span.End()
+
 	var err error
 
 	sss := &solutionSolvingState{
@@ -150,7 +153,12 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 	}
 	sss.linearSeeds = [][]float64{ls}
 
-	if len(psc.pc.lfs.dof) <= 6 { // TODO - remove the limit
+	err = sss.computeGoodCost(psc.goal)
+	if err != nil {
+		return nil, err
+	}
+
+	if sss.goodCost > 1 {
 		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
@@ -160,6 +168,7 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 		if err != nil {
 			psc.pc.logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
+		psc.pc.logger.Debugf("got %d altSeeds", len(altSeeds))
 		for _, s := range altSeeds {
 			ls, err := psc.pc.lfs.mapToSlice(s)
 			if err != nil {
@@ -173,23 +182,18 @@ func newSolutionSolvingState(psc *planSegmentContext) (*solutionSolvingState, er
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
 
-	err = sss.computeGoodCost(psc.goal)
-	if err != nil {
-		return nil, err
-	}
-
 	sss.startTime = time.Now() // do this after we check the cache, etc.
 
 	return sss, nil
 }
 
 func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) error {
-	sss.ratios = sss.psc.pc.lfs.inputChangeRatio(sss.psc.motionChains, sss.seeds[0], /* maybe use the best one? */
+	sss.ratios = sss.psc.pc.lfs.inputChangeRatio(sss.psc.motionChains, sss.seeds[0],
 		sss.psc.pc.planOpts.getGoalMetric(goal), sss.psc.pc.logger)
 
 	adjusted := []float64{}
 	for idx, r := range sss.ratios {
-		adjusted = append(adjusted, sss.psc.pc.lfs.jog(idx, sss.linearSeeds[0][idx] /* match above when we change */, r))
+		adjusted = append(adjusted, sss.psc.pc.lfs.jog(idx, sss.linearSeeds[0][idx], r))
 	}
 	step, err := sss.psc.pc.lfs.sliceToMap(adjusted)
 	if err != nil {
@@ -306,7 +310,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 
 	if myNode.cost <= min(sss.goodCost, sss.bestScoreWithProblem*defaultOptimalityMultiple) {
 		whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
-		sss.psc.pc.logger.Debugf("got score %0.4f and goodCost: %0.2f - result: %v", myNode.cost, sss.goodCost, whyNot)
+		sss.psc.pc.logger.Debugf("got score %0.4f @ %v - %s - result: %v", myNode.cost, time.Since(sss.startTime), stepSolution.Meta, whyNot)
 		myNode.checkPath = whyNot == nil
 
 		if whyNot == nil && myNode.cost < sss.bestScoreNoProblem {
@@ -344,21 +348,23 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		multiple = 0
 		minMillis = 20
 	} else if sss.bestScoreNoProblem < sss.goodCost/5 {
-		multiple = 40
-		minMillis = 125
+		multiple = 2
+		minMillis = 20
 	} else if sss.bestScoreNoProblem < sss.goodCost/2 {
-		multiple = 40
-		minMillis = 150
+		multiple = 20
+		minMillis = 100
 	} else if sss.bestScoreNoProblem < sss.goodCost {
 		multiple = 50
 	} else if sss.bestScoreWithProblem < sss.goodCost {
 		// we're going to have to do cbirrt, so look a little less, but still look
-		multiple = 75
+		multiple = 100
 	}
 
 	if elapsed > max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond) {
-		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f / %0.2f after: %v",
-			sss.bestScoreNoProblem, sss.bestScoreWithProblem, elapsed)
+		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v",
+			sss.bestScoreNoProblem, sss.bestScoreNoProblem/sss.goodCost,
+			sss.bestScoreWithProblem, sss.bestScoreWithProblem/sss.goodCost,
+			elapsed)
 		return true
 	}
 
@@ -378,7 +384,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		return nil, fmt.Errorf("getSolutions start can't be empty")
 	}
 
-	solvingState, err := newSolutionSolvingState(psc)
+	solvingState, err := newSolutionSolvingState(ctx, psc)
 	if err != nil {
 		return nil, err
 	}

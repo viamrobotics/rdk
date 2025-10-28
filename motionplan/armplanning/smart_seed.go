@@ -3,6 +3,7 @@ package armplanning
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -13,6 +14,11 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
+
+// Is32Bit returns true if we're on a 32-bit system.
+func Is32Bit() bool {
+	return strconv.IntSize < 64
+}
 
 type smartSeedCacheEntry struct {
 	inputs []referenceframe.Input
@@ -25,8 +31,13 @@ type goalCacheBox struct {
 	entries []smartSeedCacheEntry
 }
 
-func newCacheForFrame(f referenceframe.Frame) (*cacheForFrame, error) {
+func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForFrame, error) {
 	ccf := &cacheForFrame{}
+
+	if Is32Bit() {
+		logger.Warnf("not building cache because on 32-bit system")
+		return ccf, nil
+	}
 
 	values := make([]float64, len(f.DoF()))
 
@@ -386,7 +397,7 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.L
 
 	if !ok {
 		start := time.Now()
-		ccf, err = newCacheForFrame(f)
+		ccf, err = newCacheForFrame(f, logger)
 		if err != nil {
 			return err
 		}
@@ -429,4 +440,10 @@ func smartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) (*smartSee
 	}
 
 	return c, nil
+}
+
+// PrepSmartSeed preps the cache for a FrameSystem.
+func PrepSmartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) error {
+	_, err := smartSeed(fs, logger)
+	return err
 }
