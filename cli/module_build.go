@@ -1108,7 +1108,7 @@ func reloadModuleActionInner(
 		{ID: "resource", Message: "Adding resource...", CompletedMsg: "Resource added", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(allSteps)
+	pm := NewProgressManager(allSteps, WithProgressOutput(!args.NoProgress))
 	defer pm.Stop()
 
 	var needsRestart bool

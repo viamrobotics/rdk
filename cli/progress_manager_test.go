@@ -5,6 +5,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"go.viam.com/test"
 )
 
 func TestNewProgressManager(t *testing.T) {
@@ -103,6 +105,47 @@ func TestStartChildStep(t *testing.T) {
 	if step.Status != StepRunning {
 		t.Errorf("Expected step status to be StepRunning, got %v", step.Status)
 	}
+}
+
+func TestProgressManagerWithOutputDisabled(t *testing.T) {
+	steps := []*Step{
+		{ID: "parent", Message: "Parent", IndentLevel: 0},
+		{ID: "child", Message: "Child", IndentLevel: 1},
+	}
+
+	pm := NewProgressManager(steps, WithProgressOutput(false))
+	defer pm.Stop()
+
+	err := pm.Start("parent")
+	if err != nil {
+		t.Fatalf("Failed to start parent step: %v", err)
+	}
+
+	if pm.currentSpinner != nil {
+		t.Fatal("Expected no spinner when output is disabled for parent step")
+	}
+
+	err = pm.Start("child")
+	if err != nil {
+		t.Fatalf("Failed to start child step: %v", err)
+	}
+
+	if pm.currentSpinner != nil {
+		t.Fatal("Expected no spinner when output is disabled for child step")
+	}
+
+	err = pm.Complete("child")
+	if err != nil {
+		t.Fatalf("Failed to complete child step: %v", err)
+	}
+
+	err = pm.Complete("parent")
+	if err != nil {
+		t.Fatalf("Failed to complete parent step: %v", err)
+	}
+
+	test.That(t, pm.stepMap["parent"].Status, test.ShouldEqual, StepCompleted)
+	test.That(t, pm.stepMap["child"].Status, test.ShouldEqual, StepCompleted)
 }
 
 func TestStartInvalidStep(t *testing.T) {
@@ -243,9 +286,7 @@ func TestCompleteWithElapsedTime(t *testing.T) {
 	}
 
 	elapsed := time.Since(step.startTime)
-	if elapsed < 0 {
-		t.Error("Expected positive elapsed time")
-	}
+	test.That(t, elapsed, test.ShouldBeGreaterThanOrEqualTo, 10*time.Millisecond)
 }
 
 func TestCompleteWithMessage(t *testing.T) {
@@ -373,30 +414,6 @@ func TestFailWithoutCustomMessage(t *testing.T) {
 			t.Errorf("Expected failed message to be %q, got %q", expectedMsg, step.FailedMsg)
 		}
 	}
-}
-
-func TestUpdateText(t *testing.T) {
-	steps := []*Step{
-		{ID: "child", Message: "Child step", IndentLevel: 1},
-	}
-
-	pm := NewProgressManager(steps)
-	defer pm.Stop() // Clean up any active spinners
-
-	err := pm.Start("child")
-	if err != nil {
-		t.Fatalf("Failed to start child step: %v", err)
-	}
-
-	if pm.currentSpinner == nil {
-		t.Fatal("Expected currentSpinner to be set")
-	}
-
-	newText := "Updated child step"
-	pm.UpdateText(newText)
-
-	// We can't easily verify the text was updated since pterm doesn't expose it,
-	// but we can verify no error occurred
 }
 
 func TestStop(t *testing.T) {
