@@ -78,7 +78,7 @@ func newDualQuaternionFromPose(p Pose) *DualQuaternion {
 
 // newDualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
 // new one.
-func dualQuaternionFromPose(p Pose) *DualQuaternion {
+func DualQuaternionFromPose(p Pose) *DualQuaternion {
 	if q, ok := p.(*DualQuaternion); ok {
 		return q
 	}

@@ -204,7 +204,7 @@ func BenchmarkDanGoalMetric(b *testing.B) {
 		Configuration: inps,
 		FS:            fs,
 	})
-	test.That(b, ans, test.ShouldEqual, 6.1075976675485745e+06)
+	test.That(b, ans, test.ShouldAlmostEqual, 6.1075976675485745e+06)
 
 	for b.Loop() {
 		metricFn(&motionplan.LinearFS{

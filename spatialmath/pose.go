@@ -87,14 +87,14 @@ func NewPoseFromDH(a, d, alpha float64) Pose {
 // It converts the poses to dual quaternions and multiplies them together, normalizes the transform and returns a new Pose.
 // Composition does not commute in general, i.e. you cannot guarantee ABx == BAx.
 func Compose(a, b Pose) Pose {
-	return &DualQuaternion{dualQuaternionFromPose(a).Transformation(dualQuaternionFromPose(b).Number)}
+	return &DualQuaternion{DualQuaternionFromPose(a).Transformation(DualQuaternionFromPose(b).Number)}
 }
 
 // PoseBetween returns the difference between two dualQuaternions, that is, the dq which if multiplied by one will give the other.
 // Example: if PoseBetween(a, b) = c, then Compose(a, c) = b.
 func PoseBetween(a, b Pose) Pose {
-	invA := &DualQuaternion{dualquat.ConjQuat(dualQuaternionFromPose(a).Number)}
-	result := &DualQuaternion{invA.Transformation(dualQuaternionFromPose(b).Number)}
+	invA := &DualQuaternion{dualquat.ConjQuat(DualQuaternionFromPose(a).Number)}
+	result := &DualQuaternion{invA.Transformation(DualQuaternionFromPose(b).Number)}
 	return result
 }
 
@@ -102,7 +102,7 @@ func PoseBetween(a, b Pose) Pose {
 // Example: if PoseBetweenInverse(a, b) = c, then Compose(c, a) = b
 // PoseBetweenInverse(a, b) is equivalent to Compose(b, PoseInverse(a)).
 func PoseBetweenInverse(a, b Pose) Pose {
-	result := &DualQuaternion{dualQuaternionFromPose(b).Transformation(dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
+	result := &DualQuaternion{DualQuaternionFromPose(b).Transformation(dualquat.ConjQuat(DualQuaternionFromPose(a).Number))}
 	return result
 }
 

@@ -73,8 +73,10 @@ func (pF *PoseInFrame) Transform(tf *PoseInFrame) Transformable {
 
 // TransformOpt transforms the `pF` as a DualQuaternion in place.
 func (pF *PoseInFrame) TransformOpt(tf *PoseInFrame) {
-	pF.pose = &spatialmath.DualQuaternion{tf.pose.(*spatialmath.DualQuaternion).Transformation(
-		pF.pose.(*spatialmath.DualQuaternion).Number)}
+	pF.pose = &spatialmath.DualQuaternion{
+		Number: spatialmath.DualQuaternionFromPose(tf.pose).
+			Transformation(spatialmath.DualQuaternionFromPose(pF.pose).Number),
+	}
 }
 
 // String returns the string representation of the PoseInFrame.
