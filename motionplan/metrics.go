@@ -267,7 +267,7 @@ func NewPositionOnlyMetric(goal spatial.Pose) StateMetric {
 func JointMetric(segment *Segment) float64 {
 	jScore := 0.
 	for i, f := range segment.StartConfiguration {
-		jScore += math.Abs(f.Value - segment.EndConfiguration[i].Value)
+		jScore += math.Abs(f - segment.EndConfiguration[i])
 	}
 	return jScore
 }
@@ -321,7 +321,7 @@ func FSConfigurationDistance(segment *SegmentFS) float64 {
 	for frame, cfg := range segment.StartConfiguration {
 		if endCfg, ok := segment.EndConfiguration[frame]; ok && len(cfg) == len(endCfg) {
 			for i, val := range cfg {
-				score += math.Abs(val.Value - endCfg[i].Value)
+				score += math.Abs(val - endCfg[i])
 			}
 		}
 	}

@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	home = []float64{0, 0, 0, 0, 0, 0}
+	home = [][]float64{{0, 0, 0, 0, 0, 0}}
 	nCPU = int(math.Max(1.0, float64(runtime.NumCPU()/4)))
 )
 
@@ -43,7 +43,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		&spatial.OrientationVectorDegrees{OX: 1.78, OY: -3.3, OZ: -1.11},
 	)
 	solveFunc = NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
-	_, err = DoSolve(context.Background(), ik, solveFunc, solution[0], 1)
+	_, err = DoSolve(context.Background(), ik, solveFunc, solution, 1)
 	test.That(t, err, test.ShouldBeNil)
 }
 

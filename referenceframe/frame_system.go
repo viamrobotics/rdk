@@ -350,21 +350,18 @@ func (sfs *FrameSystem) DivideFrameSystem(newRoot Frame) (*FrameSystem, error) {
 	return newFS, nil
 }
 
-func (sfs *FrameSystem) getFrameToWorldTransform(inputMap FrameSystemInputs, src Frame) (spatial.Pose, error) {
+// GetFrameToWorldTransform computes the position of src in the world frame based on inputMap.
+func (sfs *FrameSystem) GetFrameToWorldTransform(inputMap FrameSystemInputs, src Frame) (spatial.Pose, error) {
 	if !sfs.frameExists(src.Name()) {
 		return nil, NewFrameMissingError(src.Name())
 	}
 
 	// If src is nil it is interpreted as the world frame
-	var err error
-	srcToWorld := spatial.NewZeroPose()
-	if src != nil {
-		srcToWorld, err = sfs.composeTransforms(src, inputMap)
-		if err != nil && srcToWorld == nil {
-			return nil, err
-		}
+	if src == nil {
+		return spatial.NewZeroPose(), nil
 	}
-	return srcToWorld, err
+
+	return sfs.composeTransforms(src, inputMap)
 }
 
 // ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
@@ -402,11 +399,11 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 
 // Returns the relative pose between the parent and the destination frame.
 func (sfs *FrameSystem) transformFromParent(inputMap FrameSystemInputs, src, dst Frame) (*PoseInFrame, error) {
-	dstToWorld, err := sfs.getFrameToWorldTransform(inputMap, dst)
+	dstToWorld, err := sfs.GetFrameToWorldTransform(inputMap, dst)
 	if err != nil {
 		return nil, err
 	}
-	srcToWorld, err := sfs.getFrameToWorldTransform(inputMap, src)
+	srcToWorld, err := sfs.GetFrameToWorldTransform(inputMap, src)
 	if err != nil {
 		return nil, err
 	}
@@ -417,8 +414,7 @@ func (sfs *FrameSystem) transformFromParent(inputMap FrameSystemInputs, src, dst
 
 // composeTransforms computes the transformation of the provide Frame to the World Frame, using the provided FrameSystemInputs.
 func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInputs) (spatial.Pose, error) {
-	q := spatial.NewZeroPose() // empty initial dualquat
-	var errAll error
+	var q spatial.Pose
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
 		// Transform() gives FROM q TO parent. Add new transforms to the left.
 		inputs, err := inputMap.GetFrameInputs(frame)
@@ -426,14 +422,20 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInput
 			return nil, err
 		}
 		pose, err := frame.Transform(inputs)
-		if err != nil && pose == nil {
+		if err != nil {
 			return nil, err
 		}
-		multierr.AppendInto(&errAll, err)
-		q = spatial.Compose(pose, q)
+		if q == nil {
+			q = pose
+		} else {
+			q = spatial.Compose(pose, q)
+		}
 		frame = sfs.Frame(sfs.parents[frame.Name()])
 	}
-	return q, errAll
+	if q == nil {
+		return spatial.NewZeroPose(), nil
+	}
+	return q, nil
 }
 
 // MarshalJSON serializes a FrameSystem into JSON format.

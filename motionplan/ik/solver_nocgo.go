@@ -27,7 +27,7 @@ type NloptIK struct{}
 // Solve refuses to solve problems without cgo.
 func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
-	seed []float64,
+	seeds [][]float64,
 	travelPercent []float64,
 	minFunc CostFunc,
 	rseed int,

@@ -24,7 +24,6 @@ import (
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
-	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -246,16 +245,12 @@ func (c *client) Images(
 	return images, resource.ResponseMetadataFromProto(resp.ResponseMetadata), nil
 }
 
-func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (c *client) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::NextPointCloud")
 	defer span.End()
 
 	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::NextPointCloud::GetPointCloud")
 
-	extra := make(map[string]interface{})
-	if ctx.Value(data.FromDMContextKey{}) == true {
-		extra[data.FromDMString] = true
-	}
 	extraStructPb, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err

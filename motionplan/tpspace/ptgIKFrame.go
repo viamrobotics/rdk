@@ -39,19 +39,11 @@ func (pf *ptgIKFrame) UnmarshalJSON(data []byte) error {
 }
 
 func (pf *ptgIKFrame) InputFromProtobuf(jp *pb.JointPositions) []referenceframe.Input {
-	n := make([]referenceframe.Input, len(jp.Values))
-	for idx, d := range jp.Values {
-		n[idx] = referenceframe.Input{d}
-	}
-	return n
+	return jp.Values
 }
 
 func (pf *ptgIKFrame) ProtobufFromInput(input []referenceframe.Input) *pb.JointPositions {
-	n := make([]float64, len(input))
-	for idx, a := range input {
-		n[idx] = a.Value
-	}
-	return &pb.JointPositions{Values: n}
+	return &pb.JointPositions{Values: input}
 }
 
 func (pf *ptgIKFrame) Geometries(inputs []referenceframe.Input) (*referenceframe.GeometriesInFrame, error) {
@@ -65,8 +57,8 @@ func (pf *ptgIKFrame) Transform(inputs []referenceframe.Input) (spatialmath.Pose
 	}
 	p1 := spatialmath.NewZeroPose()
 	for i := 0; i < len(inputs); i += 2 {
-		dist := math.Abs(inputs[i+1].Value)
-		p2, err := pf.PTG.Transform([]referenceframe.Input{inputs[i], {dist}})
+		dist := math.Abs(inputs[i+1])
+		p2, err := pf.PTG.Transform([]referenceframe.Input{inputs[i], dist})
 		if err != nil {
 			return nil, err
 		}
@@ -81,4 +73,19 @@ func (pf *ptgIKFrame) Interpolate(from, to []referenceframe.Input, by float64) (
 	// Furthermore, the multi-trajectory nature of these frames makes correct interpolation difficult. To avoid bad data, this should
 	// not be implemented until/unless it is guided by a specific need.
 	return nil, errors.New("cannot interpolate ptg IK frames")
+}
+
+// Hash returns a hash value for this PTG IK frame.
+func (pf *ptgIKFrame) Hash() int {
+	hash := 0
+	// Hash the limits
+	for i, limit := range pf.limits {
+		hash += ((i + 5) * (int(limit.Min*100) + 1000)) * (i + 2)
+		hash += ((i + 6) * (int(limit.Max*100) + 2000)) * (i + 3)
+	}
+	// Hash the PTG interface - we use a simple marker since we can't access specific fields
+	if pf.PTG != nil {
+		hash += 12345 * 11 // Simple constant to indicate PTG presence
+	}
+	return hash
 }

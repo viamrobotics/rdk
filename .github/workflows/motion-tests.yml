@@ -32,7 +32,7 @@ jobs:
   motion-tests-extended:
     name:  Motion Extended Tests
     needs: check-files
-    runs-on: ubuntu-large
+    runs-on: ubuntu-16-core
     container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
     if: ${{ needs.check-files.outputs.EXTENDED_MOTION_TEST == 'true' }}
     timeout-minutes: 30
@@ -40,12 +40,12 @@ jobs:
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Check out code in motion-testing repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: viamrobotics/motion-testing
         path: motion-testing

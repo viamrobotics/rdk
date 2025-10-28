@@ -78,9 +78,6 @@ func NewBasicPlannerOptions() *PlannerOptions {
 
 	opt.SmoothIter = defaultSmoothIter
 
-	opt.NumThreads = defaultNumThreads
-
-	opt.PathStepSize = defaultStepSizeMM
 	opt.CollisionBufferMM = defaultCollisionBufferMM
 	opt.RandomSeed = defaultRandomSeed
 
@@ -112,9 +109,6 @@ type PlannerOptions struct {
 
 	// Number of times to try to smooth the path
 	SmoothIter int `json:"smooth_iter"`
-
-	// Number of cpu cores to use
-	NumThreads int `json:"num_threads"`
 
 	// How close to get to the goal
 	GoalThreshold float64 `json:"goal_threshold"`
@@ -149,10 +143,6 @@ type PlannerOptions struct {
 	// The random seed used by motion algorithms during planning. This parameter guarantees deterministic
 	// outputs for a given set of identical inputs
 	RandomSeed int `json:"rseed"`
-
-	// The max movement allowed for each step on the path from the initial random seed for a solution
-	// to the goal.
-	PathStepSize float64 `json:"path_step_size"`
 
 	// Setting indicating that all mesh geometries should be converted into octrees.
 	MeshesAsOctrees bool `json:"meshes_as_octrees"`

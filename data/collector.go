@@ -26,10 +26,6 @@ import (
 // The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
 var sleepCaptureCutoff = 2 * time.Millisecond
 
-// FromDMContextKey is used to check whether the context is from data management.
-// Deprecated: use a camera.Extra with camera.NewContext instead.
-type FromDMContextKey struct{}
-
 // FromDMString is used to access the 'fromDataManagement' value from a request's Extra struct.
 const FromDMString = "fromDataManagement"
 

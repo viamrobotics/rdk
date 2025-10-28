@@ -17,8 +17,8 @@ import (
 )
 
 func TestConstraintPath(t *testing.T) {
-	homePos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
-	toPos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
+	homePos := []referenceframe.Input{0, 0, 0, 0, 0, 0}
+	toPos := []referenceframe.Input{0, 0, 0, 0, 0, 1}
 
 	modelXarm, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 
@@ -43,7 +43,7 @@ func TestConstraintPath(t *testing.T) {
 
 	test.That(t, len(handler.StateConstraints()), test.ShouldEqual, 1)
 
-	badInterpPos := referenceframe.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
+	badInterpPos := []referenceframe.Input{6.2, 0, 0, 0, 0, 0}
 	ciBad := &Segment{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
 	err = resolveSegmentsToPositions(ciBad)
 	test.That(t, err, test.ShouldBeNil)
@@ -164,16 +164,16 @@ func TestLineFollow(t *testing.T) {
 }
 
 func TestCollisionConstraints(t *testing.T) {
-	zeroPos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	zeroPos := []referenceframe.Input{0, 0, 0, 0, 0, 0}
 	cases := []struct {
 		input    []referenceframe.Input
 		expected bool
 		failName string
 	}{
 		{zeroPos, true, ""},
-		{referenceframe.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true, ""},
-		{referenceframe.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false, obstacleConstraintDescription},
-		{referenceframe.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false, selfCollisionConstraintDescription},
+		{[]referenceframe.Input{math.Pi / 2, 0, 0, 0, 0, 0}, true, ""},
+		{[]referenceframe.Input{math.Pi, 0, 0, 0, 0, 0}, false, obstacleConstraintDescription},
+		{[]referenceframe.Input{math.Pi / 2, 0, 0, 0, 2, 0}, false, selfCollisionConstraintDescription},
 	}
 
 	// define external obstacles
@@ -299,7 +299,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	// loop through cases and check constraint handler processes them correctly
 	for n := 0; n < b.N; n++ {
 		rfloats := referenceframe.GenerateRandomConfiguration(model, rseed)
-		err = handler.CheckStateConstraints(&State{Configuration: referenceframe.FloatsToInputs(rfloats), Frame: model})
+		err = handler.CheckStateConstraints(&State{Configuration: rfloats, Frame: model})
 		test.That(b, err, test.ShouldBeNil)
 	}
 }

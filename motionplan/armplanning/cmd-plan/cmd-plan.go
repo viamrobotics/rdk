@@ -87,6 +87,11 @@ func realMain() error {
 		req.PlannerOptions.RandomSeed = *seed
 	}
 
+	err = armplanning.PrepSmartSeed(req.FrameSystem, logger)
+	if err != nil {
+		return err
+	}
+
 	logger.Infof("starting motion planning for %d goals", len(req.Goals))
 	mylog := log.New(os.Stdout, "", 0)
 	start := time.Now()

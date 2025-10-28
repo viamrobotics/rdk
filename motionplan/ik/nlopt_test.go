@@ -26,7 +26,7 @@ func TestCreateNloptSolver(t *testing.T) {
 	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
 	seed := []float64{1, 1, -1, 1, 1, 0}
 	solveFunc := NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
-	_, err = DoSolve(context.Background(), ik, solveFunc, seed, 1)
+	_, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, 1)
 	test.That(t, err, test.ShouldBeNil)
 
 	pos = spatialmath.NewPose(
@@ -35,9 +35,9 @@ func TestCreateNloptSolver(t *testing.T) {
 	)
 
 	// Check unpacking from proto
-	seed = referenceframe.InputsToFloats(m.InputFromProtobuf(&pb.JointPositions{Values: []float64{49, 28, -101, 0, -73, 0}}))
+	seed = m.InputFromProtobuf(&pb.JointPositions{Values: []float64{49, 28, -101, 0, -73, 0}})
 	solveFunc = NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
 
-	_, err = DoSolve(context.Background(), ik, solveFunc, seed, 1)
+	_, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, 1)
 	test.That(t, err, test.ShouldBeNil)
 }

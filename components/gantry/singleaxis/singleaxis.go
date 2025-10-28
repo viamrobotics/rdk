@@ -629,7 +629,7 @@ func (g *singleAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input,
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.FloatsToInputs(res), nil
+	return res, nil
 }
 
 // GoToInputs moves the gantry to a goal position in the Gantry frame.
@@ -638,7 +638,7 @@ func (g *singleAxis) GoToInputs(ctx context.Context, inputSteps ...[]referencefr
 	defer g.mu.Unlock()
 	for _, goal := range inputSteps {
 		speed := []float64{}
-		err := g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speed, nil)
+		err := g.MoveToPosition(ctx, goal, speed, nil)
 		if err != nil {
 			return err
 		}

@@ -164,14 +164,14 @@ func (ptgk *ptgBaseKinematics) GoToInputs(ctx context.Context, inputSteps ...[]r
 					return tryStop(ctx.Err())
 				}
 			}
-			inputValDiff := step.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -
-				step.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value
+			inputValDiff := step.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex] -
+				step.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex]
 			elapsedPct := math.Min(1.0, timeElapsedSeconds/step.durationSeconds)
 			currentInputs := []referenceframe.Input{
 				step.arcSegment.StartConfiguration[ptgIndex],
 				step.arcSegment.StartConfiguration[trajectoryAlphaWithinPTG],
 				step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
-				{step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value + inputValDiff*elapsedPct},
+				step.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex] + inputValDiff*elapsedPct,
 			}
 			ptgk.inputLock.Lock()
 			ptgk.currentState.currentInputs = currentInputs
@@ -231,12 +231,12 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 	startPose spatialmath.Pose,
 	inputs []referenceframe.Input,
 ) ([]arcStep, error) {
-	selectedPTG := int(math.Round(inputs[ptgIndex].Value))
+	selectedPTG := int(math.Round(inputs[ptgIndex]))
 
 	traj, err := ptgk.ptgs[selectedPTG].Trajectory(
-		inputs[trajectoryAlphaWithinPTG].Value,
-		inputs[startDistanceAlongTrajectoryIndex].Value,
-		inputs[endDistanceAlongTrajectoryIndex].Value,
+		inputs[trajectoryAlphaWithinPTG],
+		inputs[startDistanceAlongTrajectoryIndex],
+		inputs[endDistanceAlongTrajectoryIndex],
 		stepDistResolution,
 	)
 	if err != nil {
@@ -245,7 +245,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 
 	finalSteps := []arcStep{}
 	timeStep := 0.
-	curDist := inputs[startDistanceAlongTrajectoryIndex].Value
+	curDist := inputs[startDistanceAlongTrajectoryIndex]
 	startInputs := []referenceframe.Input{
 		inputs[ptgIndex],
 		inputs[trajectoryAlphaWithinPTG],
@@ -289,7 +289,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 				inputs[ptgIndex],
 				inputs[trajectoryAlphaWithinPTG],
 				nextStep.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
-				{curDist},
+				curDist,
 			}
 			nextStep.arcSegment.EndConfiguration = stepEndInputs
 
@@ -304,8 +304,8 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 			stepStartInputs := []referenceframe.Input{
 				inputs[ptgIndex],
 				inputs[trajectoryAlphaWithinPTG],
-				{curDist},
-				{curDist},
+				curDist,
+				curDist,
 			}
 			segment = motionplan.Segment{
 				StartConfiguration: stepStartInputs,
@@ -328,7 +328,7 @@ func (ptgk *ptgBaseKinematics) trajectoryArcSteps(
 		inputs[ptgIndex],
 		inputs[trajectoryAlphaWithinPTG],
 		nextStep.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
-		{curDist},
+		curDist,
 	}
 	nextStep.arcSegment.EndConfiguration = finalInputs
 	arcPose, err := ptgk.planningModel.Transform(finalInputs)
@@ -399,7 +399,7 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 				// We've got a course correction solution. Swap out the relevant arcsteps.
 				newArcSteps, err := ptgk.trajectoryArcSteps(
 					actualPoseTracked,
-					[]referenceframe.Input{{float64(ptgk.courseCorrectionIdx)}, solution.Solution[i], {0}, solution.Solution[i+1]},
+					[]referenceframe.Input{float64(ptgk.courseCorrectionIdx), solution.Solution[i], 0, solution.Solution[i+1]},
 				)
 				if err != nil {
 					return nil, err
@@ -422,8 +422,8 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 			connectionPointDeepCopy := copyArcStep(connectionPoint)
 
 			arcOriginalLength := math.Abs(
-				connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value -
-					connectionPointDeepCopy.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value,
+				connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex] -
+					connectionPointDeepCopy.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex],
 			)
 
 			// Use distances to calculate the % completion of the arc, used to update the time remaining.
@@ -444,24 +444,24 @@ func (ptgk *ptgBaseKinematics) courseCorrect(
 				connectionPointDeepCopy.arcSegment.EndConfiguration[ptgIndex],
 				connectionPointDeepCopy.arcSegment.EndConfiguration[trajectoryAlphaWithinPTG],
 				connectionPointDeepCopy.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex],
-				{startVal},
+				startVal,
 			}
 			skippedPose, err := ptgk.planningModel.Transform(skippedSegment)
 			if err != nil {
 				return nil, err
 			}
 
-			isReverse := connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value < 0
+			isReverse := connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex] < 0
 			if isReverse {
-				startVal += connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value
+				startVal += connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex]
 			}
 
-			connectionPointDeepCopy.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex].Value = startVal
-			connectionPointDeepCopy.arcSegment.StartConfiguration[endDistanceAlongTrajectoryIndex].Value = startVal
+			connectionPointDeepCopy.arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex] = startVal
+			connectionPointDeepCopy.arcSegment.StartConfiguration[endDistanceAlongTrajectoryIndex] = startVal
 			if isReverse {
-				connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex].Value = startVal
+				connectionPointDeepCopy.arcSegment.EndConfiguration[endDistanceAlongTrajectoryIndex] = startVal
 			} else {
-				connectionPointDeepCopy.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex].Value = startVal
+				connectionPointDeepCopy.arcSegment.EndConfiguration[startDistanceAlongTrajectoryIndex] = startVal
 			}
 			// The start position should be where the connection tried to get to.
 			// This needs to be the Goal, as that is the point along the original path, not the solved point, which is just somewhere near
@@ -497,11 +497,11 @@ func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals 
 	for _, goal := range goals {
 		solveMetric := motionplan.NewScaledSquaredNormMetric(goal.Goal, 50)
 		ptgk.logger.Debug("attempting goal", goal.Goal)
-		seed := []referenceframe.Input{{math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}, {math.Pi / 2}, {ptgk.linVelocityMMPerSecond / 2}}
+		seed := []referenceframe.Input{math.Pi / 2, ptgk.linVelocityMMPerSecond / 2, math.Pi / 2, ptgk.linVelocityMMPerSecond / 2}
 		if goal.Goal.Point().X > 0 {
-			seed[0].Value *= -1
+			seed[0] *= -1
 		} else {
-			seed[2].Value *= -1
+			seed[2] *= -1
 		}
 		// Attempt to use our course correction solver to solve for a new set of trajectories which will get us from our current position
 		// to our goal point along our original trajectory.
@@ -515,7 +515,7 @@ func (ptgk *ptgBaseKinematics) getCorrectionSolution(ctx context.Context, goals 
 		}
 		ptgk.logger.Debug("solution", solution)
 		if solution.Score < courseCorrectionMaxScore {
-			goal.Solution = referenceframe.FloatsToInputs(solution.Configuration)
+			goal.Solution = solution.Configuration
 			return goal, nil
 		}
 	}
@@ -531,7 +531,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 	currentInputs []referenceframe.Input,
 ) []courseCorrectionGoal {
 	goals := []courseCorrectionGoal{}
-	currDist := currentInputs[endDistanceAlongTrajectoryIndex].Value
+	currDist := currentInputs[endDistanceAlongTrajectoryIndex]
 	stepsPerGoal := int((ptgk.nonzeroBaseTurningRadiusMeters*lookaheadDistMult*1000)/stepDistResolution) / nGoals
 
 	if stepsPerGoal < 1 {
@@ -568,7 +568,7 @@ func (ptgk *ptgBaseKinematics) makeCourseCorrectionGoals(
 				steps[i].arcSegment.StartConfiguration[ptgIndex],
 				steps[i].arcSegment.StartConfiguration[trajectoryAlphaWithinPTG],
 				steps[i].arcSegment.StartConfiguration[startDistanceAlongTrajectoryIndex],
-				{steps[i].subTraj[goalTrajPtIdx].Dist},
+				steps[i].subTraj[goalTrajPtIdx].Dist,
 			}
 
 			arcPose, err := ptgk.planningModel.Transform(arcTrajInputs)
