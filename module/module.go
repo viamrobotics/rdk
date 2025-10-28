@@ -273,7 +273,6 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	// attempt to configure PeerConnection
 	pcReady, pcClosed, err := rpc.ConfigureForRenegotiation(pc, rpc.PeerRoleServer, logger)
 	if err != nil {
-		msg := ""
 		logger.Debugw("Error creating renegotiation channel for module. Unable to create optional peer connection "+
 			"for module. Skipping WebRTC for module.", "err", err)
 		return m, nil
