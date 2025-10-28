@@ -2,7 +2,6 @@ package audioin
 
 import (
 	"context"
-	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioin/v1"
@@ -41,13 +40,11 @@ func (s *serviceServer) GetAudio(req *pb.GetAudioRequest, stream pb.AudioInServi
 	for {
 		select {
 		case <-stream.Context().Done():
-			fmt.Println("STREAM CONTEXT DONE")
 			s.logger.Debugf("context done, returning from GetAudio: %v", stream.Context().Err())
 			return nil
 
 		case chunk, ok := <-chunkChan:
 			if !ok {
-				fmt.Println("chunkChan closed")
 				return nil
 			}
 
@@ -56,10 +53,8 @@ func (s *serviceServer) GetAudio(req *pb.GetAudioRequest, stream pb.AudioInServi
 			resp := &pb.GetAudioResponse{Audio: pbChunk, RequestId: req.RequestId}
 
 			if err := stream.Send(resp); err != nil {
-				fmt.Printf("stream.Send() failed: %v\n", err)
 				return err
 			}
-			fmt.Println("Successfully sent chunk")
 		}
 	}
 }
