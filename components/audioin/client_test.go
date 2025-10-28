@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	rutils"go.viam.com/rdk/utils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func setupAudioInService(t *testing.T, injectAudioIn *inject.AudioIn) (net.Listener, func()) {
