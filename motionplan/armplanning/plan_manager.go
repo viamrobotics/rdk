@@ -355,6 +355,20 @@ func (pm *planManager) quickReroute(ctx context.Context,
 	numPoints := 4
 
 	angleStep := 2 * math.Pi / float64(numPoints)
+
+	// In the event a straight line path is not achievable due to an obstacle, we want to assume
+	// there's a _single_ (convex hull of an) obstacle. Such that we can aim for the side of our
+	// goal to work our way around.
+	//
+	// This algorithm takes the midpoint(s) between each start position and goal. And for each start
+	// position <-> goal pair:
+	//
+	// 1. Identifies the midpoint and creates a vector from the start to the midpoint.
+	// 2. Computes a vector normal/perpendicular to the above one.
+	// 3. Create new "side-quest" goal candidates by:
+	// 4.  Creating four points (`i` -> `angle`) in a circle by rotating the normal vector around.
+	// 5.  Creating a larger normal vector/radius (`j` -> `myDistance`) and repeating the above
+	//     rotation.
 	for j := .5; j <= 2; j += .5 {
 		for i := 0; i < numPoints; i++ {
 			angle := float64(i) * angleStep
@@ -411,6 +425,8 @@ func (pm *planManager) quickReroute(ctx context.Context,
 
 			pm.logger.Infof("circle point %v", attempt)
 
+			// Now that we've generated a bunch of new goal candidates (`attempt`), run IK and see
+			// if anything shakes out.
 			psc2, err := newPlanSegmentContext(ctx, pm.pc, psc.start, attempt)
 			if err != nil {
 				return nil, err
