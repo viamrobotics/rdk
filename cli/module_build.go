@@ -18,6 +18,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/pkg/errors"
+	"github.com/pterm/pterm"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -273,7 +274,7 @@ func ModuleBuildLogsAction(c *cli.Context, args moduleBuildLogsArgs) error {
 
 	var statuses map[string]jobStatus
 	if shouldWait {
-		statuses, err = client.waitForBuildToFinish(buildID, platform)
+		statuses, err = client.waitForBuildToFinish(buildID, platform, nil)
 		if err != nil {
 			return err
 		}
@@ -424,7 +425,8 @@ func (c *viamClient) listModuleBuildJobs(moduleIDFilter string, count *int32, bu
 // waitForBuildToFinish calls listModuleBuildJobs every moduleBuildPollingInterval
 // Will wait until the status of the specified job is DONE or FAILED
 // if platform is empty, it waits for all jobs associated with the ID.
-func (c *viamClient) waitForBuildToFinish(buildID, platform string) (map[string]jobStatus, error) {
+// If pm is not nil, it will show progress spinners for each build step.
+func (c *viamClient) waitForBuildToFinish(buildID, platform string, pm *ProgressManager) (map[string]jobStatus, error) {
 	// If the platform is not empty, we should check that the platform is actually present on the build
 	// this is mostly to protect against users misspelling the platform
 	if platform != "" {
@@ -436,9 +438,21 @@ func (c *viamClient) waitForBuildToFinish(buildID, platform string) (map[string]
 			return nil, fmt.Errorf("platform %q is not present on build %q", platform, buildID)
 		}
 	}
+
+	// Print "Waiting for build to finish..." as a static indicator (not animated)
+	waitStartTime := time.Now()
+	if pm != nil {
+		// Print with "..." instead of animated spinner to avoid conflicts with nested spinners
+		_, _ = os.Stdout.WriteString(" ...     → Waiting for build to finish...\n") //nolint:errcheck
+	}
+
 	statuses := make(map[string]jobStatus)
 	ticker := time.NewTicker(moduleBuildPollingInterval)
 	defer ticker.Stop()
+
+	// Track the last build step to detect changes
+	var lastBuildStep string
+	var currentStepID string
 
 	for {
 		select {
@@ -458,14 +472,65 @@ func (c *viamClient) waitForBuildToFinish(buildID, platform string) (map[string]
 				if platform == "" || job.Platform == platform {
 					status := jobStatusFromProto(job.Status)
 					statuses[job.Platform] = status
+
+					// Handle progress spinner for build steps
+					if pm != nil && job.BuildStep != "" && job.BuildStep != lastBuildStep {
+						// Complete the previous step if it exists
+						if currentStepID != "" {
+							_ = pm.Complete(currentStepID) //nolint:errcheck
+						}
+
+						// Start a new step with IndentLevel = 2 (nested under "Waiting for build to finish")
+						currentStepID = "build-step-" + job.BuildStep
+						newStep := &Step{
+							ID:          currentStepID,
+							Message:     job.BuildStep,
+							Status:      StepPending,
+							IndentLevel: 2,
+						}
+						pm.steps = append(pm.steps, newStep)
+						pm.stepMap[currentStepID] = newStep
+
+						_ = pm.Start(currentStepID) //nolint:errcheck
+						lastBuildStep = job.BuildStep
+					}
+
 					if status != jobStatusDone && status != jobStatusFailed {
 						allDone = false
 						break
 					}
 				}
 			}
-			// If all jobs are done, return
+			// If all jobs are done, complete the last step and return
 			if allDone {
+				if pm != nil {
+					// Complete the last build step
+					if currentStepID != "" {
+						_ = pm.Complete(currentStepID) //nolint:errcheck
+					}
+
+					// Update "Waiting for build to finish..." line with completion status
+					// Count how many child lines were printed
+					linesToMoveUp := 0
+					if lastBuildStep != "" {
+						linesToMoveUp = 1 // The last build step line
+					}
+
+					// Move cursor up to the "Waiting for build to finish..." line
+					if linesToMoveUp > 0 {
+						_, _ = os.Stdout.WriteString(fmt.Sprintf("\033[%dA", linesToMoveUp+1)) //nolint:errcheck
+					}
+
+					// Clear the line and print success with total elapsed time
+					elapsed := time.Since(waitStartTime)
+					_, _ = os.Stdout.WriteString("\r\033[K") //nolint:errcheck
+					pterm.Success.Println(fmt.Sprintf("     → Build completed successfully (%s)", elapsed.Round(time.Second)))
+
+					// Move cursor back down
+					if linesToMoveUp > 0 {
+						_, _ = os.Stdout.WriteString(fmt.Sprintf("\033[%dB", linesToMoveUp)) //nolint:errcheck
+					}
+				}
 				return statuses, nil
 			}
 		}
@@ -944,22 +1009,17 @@ func (c *viamClient) moduleCloudReload(
 		return nil, err
 	}
 
-	if err := pm.Start("build-wait"); err != nil {
-		return nil, err
-	}
-
 	// ensure the build completes before we try to download and use it
-	statuses, err := c.waitForBuildToFinish(buildID, platform)
+	// Note: waitForBuildToFinish will handle the "build-wait" step internally
+	statuses, err := c.waitForBuildToFinish(buildID, platform, pm)
 	if err != nil {
-		_ = pm.FailWithMessage("build-wait", "Build wait failed") //nolint:errcheck
-		_ = pm.FailWithMessage("build", "Building...")            //nolint:errcheck
+		_ = pm.FailWithMessage("build", "Building...") //nolint:errcheck
 		return nil, err
 	}
 
 	// if the build failed, print the logs and return an error
 	if statuses[platform] == jobStatusFailed {
-		_ = pm.FailWithMessage("build-wait", fmt.Sprintf("Build %s failed", buildID)) //nolint:errcheck
-		_ = pm.FailWithMessage("build", "Building...")                                //nolint:errcheck
+		_ = pm.FailWithMessage("build", "Building...") //nolint:errcheck
 
 		// Print error message without exiting (don't use Errorf since it calls os.Exit(1))
 		errorf(c.c.App.Writer, "Build %q failed to complete. Please check the logs below for more information.", buildID)
@@ -969,10 +1029,6 @@ func (c *viamClient) moduleCloudReload(
 		}
 
 		return nil, errors.Errorf("Reloading module failed")
-	}
-
-	if err := pm.Complete("build-wait"); err != nil {
-		return nil, err
 	}
 	if err := pm.Complete("build"); err != nil {
 		return nil, err

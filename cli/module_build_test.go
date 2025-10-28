@@ -147,7 +147,7 @@ func TestModuleBuildWait(t *testing.T) {
 		},
 	}, map[string]any{}, "token")
 	startWaitTime := time.Now()
-	statuses, err := ac.waitForBuildToFinish("xyz123", "")
+	statuses, err := ac.waitForBuildToFinish("xyz123", "", nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, statuses, test.ShouldResemble, map[string]jobStatus{"linux/amd64": "Done"})
 	// ensure that we had to wait for at least 2, but no more than 5 polling intervals
