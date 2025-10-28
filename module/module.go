@@ -11,12 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"errors"
+
 	"github.com/fullstorydev/grpcurl"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pion/rtp"
-	"github.com/pkg/errors"
 	"github.com/viamrobotics/webrtc/v3"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -81,7 +82,7 @@ func CreateSocketAddress(parentDir, desiredName string) (string, error) {
 		len(socketSuffix) -
 		1 // `/` between baseAddr and name
 	if numRemainingChars < len(desiredName) && numRemainingChars < socketHashSuffixLength+1 {
-		return "", errors.Errorf("module socket base path would result in a path greater than the OS limit of %d characters: %s",
+		return "", fmt.Errorf("module socket base path would result in a path greater than the OS limit of %d characters: %s",
 			socketMaxAddressLength, baseAddr)
 	}
 	// If possible, early-exit with a non-truncated socket path
@@ -92,12 +93,12 @@ func CreateSocketAddress(parentDir, desiredName string) (string, error) {
 	desiredNameHashCreator := sha256.New()
 	_, err := desiredNameHashCreator.Write([]byte(desiredName))
 	if err != nil {
-		return "", errors.Errorf("failed to calculate a hash for %q while creating a truncated socket address", desiredName)
+		return "", fmt.Errorf("failed to calculate a hash for %q while creating a truncated socket address", desiredName)
 	}
 	desiredNameHash := base32.StdEncoding.EncodeToString(desiredNameHashCreator.Sum(nil))
 	if len(desiredNameHash) < socketHashSuffixLength {
 		// sha256.Sum() should return 32 bytes so this shouldn't occur, but good to check instead of panicing
-		return "", errors.Errorf("the encoded hash %q for %q is shorter than the minimum socket suffix length %v",
+		return "", fmt.Errorf("the encoded hash %q for %q is shorter than the minimum socket suffix length %v",
 			desiredNameHash, desiredName, socketHashSuffixLength)
 	}
 	// Assemble the truncated socket address
@@ -158,7 +159,7 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
 			if !ok {
-				return nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+				return nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
 			}
 			rpcAPI.Desc = svcDesc
 		}
@@ -265,16 +266,16 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	// attempt to construct a PeerConnection
 	pc, err := rgrpc.NewLocalPeerConnection(logger)
 	if err != nil {
-		logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
+		logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module.", "err", err)
 		return m, nil
 	}
 
 	// attempt to configure PeerConnection
 	pcReady, pcClosed, err := rpc.ConfigureForRenegotiation(pc, rpc.PeerRoleServer, logger)
 	if err != nil {
-		msg := "Error creating renegotiation channel for module. Unable to " +
-			"create optional peer connection for module. Skipping WebRTC for module..."
-		logger.Debugw(msg, "err", err)
+		msg := ""
+		logger.Debugw("Error creating renegotiation channel for module. Unable to create optional peer connection "+
+			"for module. Skipping WebRTC for module.", "err", err)
 		return m, nil
 	}
 
@@ -307,7 +308,7 @@ func (m *Module) Start(ctx context.Context) error {
 		var err error
 		lis, err = net.Listen(prot, m.addr)
 		if err != nil {
-			return errors.WithMessage(err, "failed to listen")
+			return fmt.Errorf("failed to listen: %w", err)
 		}
 		return nil
 	}); err != nil {
@@ -435,6 +436,11 @@ func (m *Module) PeerConnect(encodedOffer string) (string, error) {
 		return "", errors.New("no PeerConnection object")
 	}
 
+	if encodedOffer == "" {
+		//nolint
+		return "", errors.New("Server not running with WebRTC enabled.")
+	}
+
 	offer := webrtc.SessionDescription{}
 	if err := rpc.DecodeSDP(encodedOffer, &offer); err != nil {
 		return "", err
@@ -464,7 +470,7 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	if err == nil {
 		resp.WebrtcAnswer = encodedAnswer
 	} else {
-		m.logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module...", "err", err)
+		m.logger.Debugw("Unable to create optional peer connection for module. Skipping WebRTC for module.", "err", err)
 		pcFailed := make(chan struct{})
 		close(pcFailed)
 		m.pcFailed = pcFailed
@@ -583,15 +589,15 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	}
 
 	if err := addConvertedAttributes(conf); err != nil {
-		return nil, errors.Wrapf(err, "unable to convert attributes when adding resource")
+		return nil, fmt.Errorf("unable to convert attributes when adding resource: %w", err)
 	}
 
 	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
 	if !ok {
-		return nil, errors.Errorf("do not know how to construct %q", conf.API)
+		return nil, fmt.Errorf("do not know how to construct %q", conf.API)
 	}
 	if resInfo.Constructor == nil {
-		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
+		return nil, fmt.Errorf("invariant: no constructor for %q", conf.API)
 	}
 	resLogger := m.logger.Sublogger(conf.ResourceName().String())
 	levelStr := req.Config.GetLogConfiguration().GetLevel()
@@ -627,7 +633,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	defer m.mu.Unlock()
 	coll, ok := m.collections[conf.API]
 	if !ok {
-		return nil, errors.Errorf("module cannot service api: %s", conf.API)
+		return nil, fmt.Errorf("module cannot service api: %s", conf.API)
 	}
 
 	// If adding the resource name to the collection fails, close the resource
@@ -671,7 +677,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	}
 
 	if err := addConvertedAttributes(conf); err != nil {
-		return nil, errors.Wrapf(err, "unable to convert attributes when reconfiguring resource")
+		return nil, fmt.Errorf("unable to convert attributes when reconfiguring resource: %w", err)
 	}
 
 	m.mu.Lock()
@@ -679,7 +685,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 
 	coll, ok := m.collections[conf.API]
 	if !ok {
-		return nil, errors.Errorf("no rpc service for %+v", conf)
+		return nil, fmt.Errorf("no rpc service for %+v", conf)
 	}
 	res, err = coll.Resource(conf.ResourceName().Name)
 	if err != nil {
@@ -715,10 +721,10 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	delete(m.activeResourceStreams, res.Name())
 	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
 	if !ok {
-		return nil, errors.Errorf("do not know how to construct %q", conf.API)
+		return nil, fmt.Errorf("do not know how to construct %q", conf.API)
 	}
 	if resInfo.Constructor == nil {
-		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
+		return nil, fmt.Errorf("invariant: no constructor for %q", conf.API)
 	}
 
 	newRes, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
@@ -746,13 +752,13 @@ func (m *Module) ValidateConfig(ctx context.Context,
 	}
 
 	if err := addConvertedAttributes(c); err != nil {
-		return nil, errors.Wrapf(err, "unable to convert attributes for validation")
+		return nil, fmt.Errorf("unable to convert attributes for validation: %w", err)
 	}
 
 	if c.ConvertedAttributes != nil {
 		implicitRequiredDeps, implicitOptionalDeps, err := c.ConvertedAttributes.Validate(c.Name)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error validating resource")
+			return nil, fmt.Errorf("error validating resource: %w", err)
 		}
 		resp := &pb.ValidateConfigResponse{
 			Dependencies:         implicitRequiredDeps,
@@ -784,7 +790,7 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 
 	coll, ok := m.collections[name.API]
 	if !ok {
-		return nil, errors.Errorf("no grpc service for %+v", name)
+		return nil, fmt.Errorf("no grpc service for %+v", name)
 	}
 	res, err := coll.Resource(name.Name)
 	if err != nil {
@@ -812,7 +818,7 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(api)
 	if !ok {
-		return errors.Errorf("invariant: registration does not exist for %q", api)
+		return fmt.Errorf("invariant: registration does not exist for %q", api)
 	}
 
 	newColl := apiInfo.MakeEmptyCollection()
@@ -842,7 +848,7 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, mod
 
 	apiInfo, ok := resource.LookupGenericAPIRegistration(api)
 	if !ok {
-		return errors.Errorf("invariant: registration does not exist for %q", api)
+		return fmt.Errorf("invariant: registration does not exist for %q", api)
 	}
 	if apiInfo.ReflectRPCServiceDesc == nil {
 		m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", api)
@@ -914,7 +920,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 
 	tlsRTP, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/H264"}, "video", name.String())
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating a new TrackLocalStaticRTP")
+		return nil, fmt.Errorf("error creating a new TrackLocalStaticRTP: %w", err)
 	}
 
 	sub, err := vcss.SubscribeRTP(ctx, rtpBufferSize, func(pkts []*rtp.Packet) {
@@ -925,13 +931,13 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		}
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "error setting up stream subscription")
+		return nil, fmt.Errorf("error setting up stream subscription: %w", err)
 	}
 
 	m.logger.CDebugw(ctx, "AddStream calling AddTrack", "name", name.String(), "subID", sub.ID.String())
 	sender, err := m.pc.AddTrack(tlsRTP)
 	if err != nil {
-		err = errors.Wrap(err, "error adding track")
+		err = fmt.Errorf("error adding track: %w", err)
 		if unsubErr := vcss.Unsubscribe(ctx, sub.ID); unsubErr != nil {
 			return nil, multierr.Combine(err, unsubErr)
 		}
@@ -979,12 +985,12 @@ func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamReq
 	}
 	vcss, ok := m.streamSourceByName[name]
 	if !ok {
-		return nil, errors.Errorf("unknown stream for resource %s", name)
+		return nil, fmt.Errorf("unknown stream for resource %s", name)
 	}
 
 	prs, ok := m.activeResourceStreams[name]
 	if !ok {
-		return nil, errors.Errorf("stream %s is not active", name)
+		return nil, fmt.Errorf("stream %s is not active", name)
 	}
 
 	if err := vcss.Unsubscribe(ctx, prs.subID); err != nil {
@@ -1004,7 +1010,7 @@ func addConvertedAttributes(cfg *resource.Config) error {
 	if ok && reg.AttributeMapConverter != nil {
 		converted, err := reg.AttributeMapConverter(cfg.Attributes)
 		if err != nil {
-			return errors.Wrapf(err, "error converting attributes for resource")
+			return fmt.Errorf("error converting attributes for resource")
 		}
 		cfg.ConvertedAttributes = converted
 	}
@@ -1018,7 +1024,7 @@ func addConvertedAttributes(cfg *resource.Config) error {
 		if conv.AttributeMapConverter != nil {
 			converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
 			if err != nil {
-				return errors.Wrap(err, "error converting associated resource config attributes")
+				return fmt.Errorf("error converting associated resource config attributes: %w", err)
 			}
 			// associated resource configs for resources might be missing a resource name
 			// which can be inferred from its resource config.
@@ -1039,5 +1045,5 @@ func validateRegistered(api resource.API, model resource.Model) error {
 		return nil
 	}
 
-	return errors.Errorf("resource with API %s and model %s not yet registered", api, model)
+	return fmt.Errorf("resource with API %s and model %s not yet registered", api, model)
 }
