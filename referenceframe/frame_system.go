@@ -399,21 +399,25 @@ func (sfs *FrameSystem) GetFrameToWorldTransform(inputMap FrameSystemInputs, src
 
 // GetFrameToWorldTransformLinear is like GetFrameToWorldTransform but where the inputs slice is
 // exactly for the `src` frame.
-func (sfs *FrameSystem) GetFrameToWorldTransformLinear(inputs []float64, src Frame) (spatial.Pose, error) {
+func (sfs *FrameSystem) GetFrameToWorldTransformLinear(inputs []float64, src Frame) (dualquat.Number, error) {
+	ret := dualquat.Number{
+		Real: quat.Number{Real: 1},
+		Dual: quat.Number{},
+	}
+
 	if !sfs.frameExists(src.Name()) {
-		return nil, NewFrameMissingError(src.Name())
+		return ret, NewFrameMissingError(src.Name())
 	}
 
 	// If src is nil it is interpreted as the world frame
 	var err error
-	srcToWorld := spatial.NewZeroPose()
 	if src != nil {
-		srcToWorld, err = sfs.composeTransformsLinear(src, inputs)
-		if err != nil && srcToWorld == nil {
-			return nil, err
+		ret, err = sfs.composeTransformsLinear(src, inputs)
+		if err != nil {
+			return ret, err
 		}
 	}
-	return srcToWorld, err
+	return ret, err
 }
 
 // ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
@@ -480,8 +484,8 @@ func (sfs *FrameSystem) transformFromParentLinear(inputs []float64, src, dst Fra
 	}
 
 	// transform from source to world, world to target parent
-	invA := spatial.DualQuaternion{dualquat.ConjQuat(dstToWorld.(*spatial.DualQuaternion).Number)}
-	result := spatial.DualQuaternion{invA.Transformation(srcToWorld.(*spatial.DualQuaternion).Number)}
+	invA := spatial.DualQuaternion{dualquat.ConjQuat(dstToWorld)}
+	result := spatial.DualQuaternion{invA.Transformation(srcToWorld)}
 	return NewPoseInFrame(dst.Name(), &result), nil
 }
 
@@ -510,8 +514,11 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInput
 
 // composeTransformsLinear assumes there is one moveable frame and its DoF is equal to the `inputs`
 // length.
-func (sfs *FrameSystem) composeTransformsLinear(frame Frame, inputs []float64) (spatial.Pose, error) {
-	ret := spatial.NewZeroPose() // empty initial dualquat
+func (sfs *FrameSystem) composeTransformsLinear(frame Frame, inputs []float64) (dualquat.Number, error) {
+	ret := dualquat.Number{
+		Real: quat.Number{Real: 1},
+		Dual: quat.Number{},
+	}
 
 	numMoveableFrames := 0
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
@@ -521,29 +528,30 @@ func (sfs *FrameSystem) composeTransformsLinear(frame Frame, inputs []float64) (
 		if len(frame.DoF()) == 0 {
 			pose, err = frame.Transform([]Input{})
 			if err != nil {
-				return nil, err
+				return ret, err
 			}
 		} else {
 			if numMoveableFrames > 0 {
 				//nolint
-				return nil, fmt.Errorf("More than one movable frame. GoalMetricType.SquaredNormOpt is ineligible to be used.")
+				return ret, fmt.Errorf("More than one movable frame. GoalMetricType.SquaredNormOpt is ineligible to be used.")
 			}
 
 			numMoveableFrames++
 			if len(frame.DoF()) != len(inputs) {
-				return nil, fmt.Errorf("wrong input size for composeTransformsLinear. Expected: %v Actual: %v",
+				return ret, fmt.Errorf("wrong input size for composeTransformsLinear. Expected: %v Actual: %v",
 					len(frame.DoF()), len(inputs))
 			}
 
 			pose, err = frame.Transform(inputs)
 			if err != nil {
-				return nil, err
+				return ret, err
 			}
 		}
 
-		ret = spatial.Compose(pose, ret)
+		ret = pose.(*spatial.DualQuaternion).Transformation(ret)
 		frame = sfs.Frame(sfs.parents[frame.Name()])
 	}
+
 	return ret, nil
 }
 

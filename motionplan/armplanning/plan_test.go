@@ -166,7 +166,7 @@ func BenchmarkDanGoalMetric(b *testing.B) {
 	goalFrame.SetName("xarm6")
 
 	options := &PlannerOptions{
-		GoalMetricType: motionplan.SquaredNorm,
+		GoalMetricType: motionplan.SquaredNormOpt,
 	}
 
 	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
@@ -177,18 +177,37 @@ func BenchmarkDanGoalMetric(b *testing.B) {
 	err = fs.AddFrame(armModel, fs.World())
 	test.That(b, err, test.ShouldBeNil)
 
-	metricFn := options.getGoalMetric(referenceframe.FrameSystemPoses{"xarm6": goalFrame})
-	inps := referenceframe.FrameSystemInputs{"xarm6": []referenceframe.Input{
+	// metricFn := options.getGoalMetric(referenceframe.FrameSystemPoses{"xarm6": goalFrame})
+	// inps := referenceframe.FrameSystemInputs{"xarm6": []referenceframe.Input{
+	//  	-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
+	// }}
+	// ans := metricFn(&motionplan.StateFS{
+	//  	Configuration: inps,
+	//  	FS:            fs,
+	// })
+	// test.That(b, ans, test.ShouldEqual, 6.1075976675485745e+06)
+	//
+	// for b.Loop() {
+	//  	metricFn(&motionplan.StateFS{
+	//  		Configuration: inps,
+	//  		FS:            fs,
+	//  	})
+	// }
+
+	metricFn, err := options.getGoalMetricLinear(referenceframe.FrameSystemPoses{"xarm6": goalFrame})
+	test.That(b, err, test.ShouldBeNil)
+
+	inps := []referenceframe.Input{
 		-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
-	}}
-	ans := metricFn(&motionplan.StateFS{
+	}
+	ans := metricFn(&motionplan.LinearFS{
 		Configuration: inps,
 		FS:            fs,
 	})
 	test.That(b, ans, test.ShouldEqual, 6.1075976675485745e+06)
 
 	for b.Loop() {
-		metricFn(&motionplan.StateFS{
+		metricFn(&motionplan.LinearFS{
 			Configuration: inps,
 			FS:            fs,
 		})
