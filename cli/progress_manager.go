@@ -9,6 +9,26 @@ import (
 	"github.com/pterm/pterm"
 )
 
+type progressSpinner interface {
+	Stop() error
+	Success(...any)
+	Fail(...any)
+	UpdateText(string)
+}
+
+type progressSpinnerFactory func(string) (progressSpinner, error)
+
+var defaultSpinnerFactory progressSpinnerFactory = func(text string) (progressSpinner, error) {
+	spinner, err := pterm.DefaultSpinner.
+		WithRemoveWhenDone(false).
+		WithText(text).
+		Start()
+	if err != nil {
+		return nil, err
+	}
+	return spinner, nil
+}
+
 // StepStatus represents the state of a progress step.
 type StepStatus int
 
@@ -38,12 +58,30 @@ type Step struct {
 type ProgressManager struct {
 	steps          []*Step
 	stepMap        map[string]*Step
-	currentSpinner *pterm.SpinnerPrinter // Active child spinner (IndentLevel > 0)
+	currentSpinner progressSpinner // Active child spinner (IndentLevel > 0)
+	spinnerFactory progressSpinnerFactory
 	mu             sync.Mutex
+	disabled       bool
+}
+
+// ProgressManagerOption allows customizing ProgressManager behavior at creation time.
+type ProgressManagerOption func(*ProgressManager)
+
+// WithProgressOutput enables or disables terminal output for a ProgressManager.
+func WithProgressOutput(enabled bool) ProgressManagerOption {
+	return func(pm *ProgressManager) {
+		pm.disabled = !enabled
+	}
+}
+
+func withProgressSpinnerFactory(factory progressSpinnerFactory) ProgressManagerOption {
+	return func(pm *ProgressManager) {
+		pm.spinnerFactory = factory
+	}
 }
 
 // NewProgressManager creates a new ProgressManager with all steps registered upfront.
-func NewProgressManager(steps []*Step) *ProgressManager {
+func NewProgressManager(steps []*Step, opts ...ProgressManagerOption) *ProgressManager {
 	// Customize spinner style globally
 	pterm.Success.Prefix = pterm.Prefix{
 		Text:  "✓",
@@ -71,6 +109,11 @@ func NewProgressManager(steps []*Step) *ProgressManager {
 		steps:          steps,
 		stepMap:        stepMap,
 		currentSpinner: nil,
+		spinnerFactory: defaultSpinnerFactory,
+	}
+
+	for _, opt := range opts {
+		opt(pm)
 	}
 
 	return pm
@@ -101,6 +144,10 @@ func (pm *ProgressManager) Start(stepID string) error {
 	step.Status = StepRunning
 	step.startTime = time.Now() // Record start time
 
+	if pm.disabled {
+		return nil
+	}
+
 	// If this is a parent step (IndentLevel == 0), print "…" indicator
 	if step.IndentLevel == 0 {
 		_, _ = os.Stdout.WriteString(fmt.Sprintf(" …  %s\n", step.Message)) //nolint:errcheck
@@ -123,10 +170,11 @@ func (pm *ProgressManager) Start(stepID string) error {
 		adjustedPrefix += "  → " // Three spaces before arrow to match completed format
 	}
 
-	spinner, err := pterm.DefaultSpinner.
-		WithRemoveWhenDone(false).
-		WithText(adjustedPrefix + step.Message).
-		Start()
+	if pm.spinnerFactory == nil {
+		pm.spinnerFactory = defaultSpinnerFactory
+	}
+
+	spinner, err := pm.spinnerFactory(adjustedPrefix + step.Message)
 	if err != nil {
 		return fmt.Errorf("failed to start child spinner: %w", err)
 	}
@@ -161,6 +209,10 @@ func (pm *ProgressManager) Complete(stepID string) error {
 	}
 
 	prefix := getPrefix(step)
+
+	if pm.disabled {
+		return nil
+	}
 
 	// For both parent and child steps: if this is the currently active spinner, stop it and mark success
 	if pm.currentSpinner != nil {
@@ -206,6 +258,10 @@ func (pm *ProgressManager) CompleteWithMessage(stepID, message string) error {
 
 	prefix := getPrefix(step)
 
+	if pm.disabled {
+		return nil
+	}
+
 	// If this is the currently active spinner, stop it and mark success
 	if pm.currentSpinner != nil {
 		pm.currentSpinner.Success(" " + prefix + message + elapsed)
@@ -233,29 +289,12 @@ func (pm *ProgressManager) Fail(stepID string, err error) error {
 		return fmt.Errorf("step %q not found", stepID)
 	}
 
-	step.Status = StepFailed
-
 	msg := step.FailedMsg
 	if msg == "" {
 		msg = fmt.Sprintf("%s: %v", step.Message, err)
 	}
 
-	prefix := getPrefix(step)
-
-	// If this is the currently active spinner, stop it and mark failure
-	if pm.currentSpinner != nil {
-		pm.currentSpinner.Fail(" " + prefix + msg)
-		pm.currentSpinner = nil
-	} else {
-		// If no spinner is active, just print the error message
-		// Parent steps (IndentLevel 0) don't need extra leading space since pterm adds it
-		if step.IndentLevel == 0 {
-			pterm.Error.Println(msg)
-		} else {
-			pterm.Error.Println(" " + prefix + msg)
-		}
-	}
-
+	pm.failWithMessageLocked(step, msg)
 	return nil
 }
 
@@ -269,7 +308,18 @@ func (pm *ProgressManager) FailWithMessage(stepID, message string) error {
 		return fmt.Errorf("step %q not found", stepID)
 	}
 
+	pm.failWithMessageLocked(step, message)
+	return nil
+}
+
+// failWithMessageLocked is the shared implementation for failing a step.
+// It assumes the lock is already held by the caller.
+func (pm *ProgressManager) failWithMessageLocked(step *Step, message string) {
 	step.Status = StepFailed
+
+	if pm.disabled {
+		return
+	}
 
 	prefix := getPrefix(step)
 
@@ -286,14 +336,16 @@ func (pm *ProgressManager) FailWithMessage(stepID, message string) error {
 			pterm.Error.Println(" " + prefix + message)
 		}
 	}
-
-	return nil
 }
 
 // UpdateText updates the text of the currently active spinner (for progress updates).
 func (pm *ProgressManager) UpdateText(text string) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
+
+	if pm.disabled {
+		return
+	}
 
 	if pm.currentSpinner != nil {
 		pm.currentSpinner.UpdateText(text)
@@ -304,6 +356,10 @@ func (pm *ProgressManager) UpdateText(text string) {
 func (pm *ProgressManager) Stop() {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
+
+	if pm.disabled {
+		return
+	}
 
 	if pm.currentSpinner != nil {
 		_ = pm.currentSpinner.Stop() //nolint:errcheck

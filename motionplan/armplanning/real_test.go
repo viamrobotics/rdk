@@ -1,4 +1,4 @@
-//go:build !386 && !arm
+//go:build !386
 
 package armplanning
 
@@ -18,6 +18,11 @@ import (
 )
 
 func TestOrbOneSeed(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	matches, err := filepath.Glob("data/orb-plan*.json")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -41,6 +46,11 @@ func TestOrbOneSeed(t *testing.T) {
 }
 
 func TestOrbManySeeds(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	matches, err := filepath.Glob("data/orb-plan*.json")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -66,6 +76,11 @@ func TestOrbManySeeds(t *testing.T) {
 }
 
 func TestPourManySeeds(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	req, err := ReadRequestFromFile("data/pour-plan-bad.json")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -86,6 +101,11 @@ func TestPourManySeeds(t *testing.T) {
 }
 
 func TestWineCrazyTouch1(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	logger := logging.NewTestLogger(t)
 
 	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
@@ -107,6 +127,11 @@ func TestWineCrazyTouch1(t *testing.T) {
 }
 
 func TestWineCrazyTouch2(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	logger := logging.NewTestLogger(t)
 
 	req, err := ReadRequestFromFile("data/wine-crazy-touch2.json")
@@ -126,6 +151,11 @@ func TestWineCrazyTouch2(t *testing.T) {
 }
 
 func TestSandingLargeMove1(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
@@ -147,7 +177,29 @@ func TestSandingLargeMove1(t *testing.T) {
 	test.That(t, len(solution.steps), test.ShouldEqual, 1)
 }
 
+func TestBadSpray1(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
+	logger := logging.NewTestLogger(t)
+
+	start := time.Now()
+	req, err := ReadRequestFromFile("data/spray-bad1.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
+
+	_, _, err = PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestPirouette(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
 	// get arm kinematics for forward kinematics
 	armName := "ur5e"
 	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
@@ -171,6 +223,9 @@ func TestPirouette(t *testing.T) {
 	// construct framesystem
 	fs := referenceframe.NewEmptyFrameSystem("pirouette")
 	err = fs.AddFrame(armKinematics, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	err = PrepSmartSeed(fs, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	for iter := 0; iter < 10; iter++ {
