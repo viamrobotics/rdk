@@ -44,6 +44,7 @@ type Solution struct {
 	Configuration []float64
 	Score         float64
 	Exact         bool
+	Meta          string
 }
 
 // generateRandomPositions generates a random set of positions within the limits of this solver.

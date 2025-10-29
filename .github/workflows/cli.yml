@@ -23,10 +23,10 @@ jobs:
     steps:
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
@@ -57,7 +57,7 @@ jobs:
 
     - name: Authorize GCP Upload
       if: inputs.release_type != 'pr'
-      uses: google-github-actions/auth@v1.1.1
+      uses: google-github-actions/auth@v2
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
     - name: upload
