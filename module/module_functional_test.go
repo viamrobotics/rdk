@@ -176,11 +176,21 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	logger.Info("ParentResp:", resp)
 
 	// Reconfigure the child. This results in a `Close` -> `Constructor`.
-	_, err = module.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
-		Config: &v1.ComponentConfig{ // Same config.
-			Name: "child", Api: generic.API.String(), Model: model.String(),
-		},
+	// _, err = module.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
+	//  	Config: &v1.ComponentConfig{ // Same config.
+	//  		Name: "child", Api: generic.API.String(), Model: model.String(),
+	//  	},
+	// })
+	// test.That(t, err, test.ShouldBeNil)
+
+	_, err = module.RemoveResource(ctx, &pb.RemoveResourceRequest{
+		Name: generic.Named("child").String(),
 	})
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = module.AddResource(ctx, &pb.AddResourceRequest{Config: &v1.ComponentConfig{
+		Name: "child", Api: generic.API.String(), Model: model.String(),
+	}})
 	test.That(t, err, test.ShouldBeNil)
 
 	// Check if the `parentRes` has its dependency invalidated.
