@@ -61,8 +61,8 @@ func newFakeSpinnerFactory() progressSpinnerFactory {
 }
 
 func newTestProgressManager(steps []*Step, opts ...ProgressManagerOption) *ProgressManager {
-	allOpts := append(opts, withProgressSpinnerFactory(newFakeSpinnerFactory()))
-	return NewProgressManager(steps, allOpts...)
+	opts = append(opts, withProgressSpinnerFactory(newFakeSpinnerFactory()))
+	return NewProgressManager(steps, opts...)
 }
 
 func TestNewProgressManager(t *testing.T) {
