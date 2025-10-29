@@ -9,6 +9,26 @@ import (
 	"github.com/pterm/pterm"
 )
 
+type progressSpinner interface {
+	Stop() error
+	Success(...any)
+	Fail(...any)
+	UpdateText(string)
+}
+
+type progressSpinnerFactory func(string) (progressSpinner, error)
+
+var defaultSpinnerFactory progressSpinnerFactory = func(text string) (progressSpinner, error) {
+	spinner, err := pterm.DefaultSpinner.
+		WithRemoveWhenDone(false).
+		WithText(text).
+		Start()
+	if err != nil {
+		return nil, err
+	}
+	return spinner, nil
+}
+
 // StepStatus represents the state of a progress step.
 type StepStatus int
 
@@ -38,7 +58,8 @@ type Step struct {
 type ProgressManager struct {
 	steps          []*Step
 	stepMap        map[string]*Step
-	currentSpinner *pterm.SpinnerPrinter // Active child spinner (IndentLevel > 0)
+	currentSpinner progressSpinner // Active child spinner (IndentLevel > 0)
+	spinnerFactory progressSpinnerFactory
 	mu             sync.Mutex
 	disabled       bool
 }
@@ -50,6 +71,12 @@ type ProgressManagerOption func(*ProgressManager)
 func WithProgressOutput(enabled bool) ProgressManagerOption {
 	return func(pm *ProgressManager) {
 		pm.disabled = !enabled
+	}
+}
+
+func withProgressSpinnerFactory(factory progressSpinnerFactory) ProgressManagerOption {
+	return func(pm *ProgressManager) {
+		pm.spinnerFactory = factory
 	}
 }
 
@@ -82,6 +109,7 @@ func NewProgressManager(steps []*Step, opts ...ProgressManagerOption) *ProgressM
 		steps:          steps,
 		stepMap:        stepMap,
 		currentSpinner: nil,
+		spinnerFactory: defaultSpinnerFactory,
 	}
 
 	for _, opt := range opts {
@@ -143,10 +171,11 @@ func (pm *ProgressManager) Start(stepID string) error {
 		adjustedPrefix += "  → " // Three spaces before arrow to match completed format
 	}
 
-	spinner, err := pterm.DefaultSpinner.
-		WithRemoveWhenDone(false).
-		WithText(adjustedPrefix + step.Message).
-		Start()
+	if pm.spinnerFactory == nil {
+		pm.spinnerFactory = defaultSpinnerFactory
+	}
+
+	spinner, err := pm.spinnerFactory(adjustedPrefix + step.Message)
 	if err != nil {
 		return fmt.Errorf("failed to start child spinner: %w", err)
 	}

@@ -9,6 +9,62 @@ import (
 	"go.viam.com/test"
 )
 
+type fakeSpinner struct {
+	mu        sync.Mutex
+	text      string
+	stopped   bool
+	successes []string
+	failures  []string
+}
+
+func (f *fakeSpinner) Stop() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.stopped = true
+	return nil
+}
+
+func (f *fakeSpinner) Success(message ...any) {
+	f.mu.Lock()
+	if len(message) > 0 {
+		f.successes = append(f.successes, fmt.Sprint(message...))
+	} else {
+		f.successes = append(f.successes, "")
+	}
+	f.mu.Unlock()
+	_ = f.Stop()
+}
+
+func (f *fakeSpinner) Fail(message ...any) {
+	f.mu.Lock()
+	if len(message) > 0 {
+		f.failures = append(f.failures, fmt.Sprint(message...))
+	} else {
+		f.failures = append(f.failures, "")
+	}
+	f.mu.Unlock()
+	_ = f.Stop()
+}
+
+func (f *fakeSpinner) UpdateText(text string) {
+	f.mu.Lock()
+	f.text = text
+	f.mu.Unlock()
+}
+
+func newFakeSpinnerFactory() progressSpinnerFactory {
+	return func(text string) (progressSpinner, error) {
+		fs := &fakeSpinner{}
+		fs.UpdateText(text)
+		return fs, nil
+	}
+}
+
+func newTestProgressManager(steps []*Step, opts ...ProgressManagerOption) *ProgressManager {
+	allOpts := append(opts, withProgressSpinnerFactory(newFakeSpinnerFactory()))
+	return NewProgressManager(steps, allOpts...)
+}
+
 func TestNewProgressManager(t *testing.T) {
 	steps := []*Step{
 		{ID: "parent1", Message: "Parent step", IndentLevel: 0},
@@ -16,7 +72,7 @@ func TestNewProgressManager(t *testing.T) {
 		{ID: "child2", Message: "Another child", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 	defer pm.Stop() // Clean up any active spinners
 
 	if pm == nil {
@@ -67,7 +123,7 @@ func TestStartParentStep(t *testing.T) {
 		{ID: "parent", Message: "Parent step", IndentLevel: 0},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 
 	err := pm.Start("parent")
 	if err != nil {
@@ -89,7 +145,7 @@ func TestStartChildStep(t *testing.T) {
 		{ID: "child", Message: "Child step", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 	defer pm.Stop() // Clean up any active spinners
 
 	err := pm.Start("child")
@@ -113,7 +169,7 @@ func TestProgressManagerWithOutputDisabled(t *testing.T) {
 		{ID: "child", Message: "Child", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps, WithProgressOutput(false))
+	pm := newTestProgressManager(steps, WithProgressOutput(false))
 	defer pm.Stop()
 
 	err := pm.Start("parent")
@@ -153,7 +209,7 @@ func TestStartInvalidStep(t *testing.T) {
 		{ID: "valid", Message: "Valid step", IndentLevel: 0},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 
 	err := pm.Start("invalid")
 	if err == nil {
@@ -172,7 +228,7 @@ func TestStartReplacesPreviousSpinner(t *testing.T) {
 		{ID: "child2", Message: "Second child", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 	defer pm.Stop() // Clean up any active spinners
 
 	// Start first child
@@ -202,7 +258,7 @@ func TestCompleteParentStep(t *testing.T) {
 		{ID: "child2", Message: "Child 2", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 
 	// Complete some child steps first
 	pm.stepMap["child1"].Status = StepCompleted
@@ -233,7 +289,7 @@ func TestCompleteChildStep(t *testing.T) {
 		{ID: "child", Message: "Child step", CompletedMsg: "Child completed", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 	defer pm.Stop() // Clean up any active spinners
 
 	err := pm.Start("child")
@@ -261,7 +317,7 @@ func TestCompleteWithElapsedTime(t *testing.T) {
 		{ID: "child", Message: "Child step", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 	defer pm.Stop() // Clean up any active spinners
 
 	err := pm.Start("child")
@@ -294,7 +350,7 @@ func TestCompleteWithMessage(t *testing.T) {
 		{ID: "child", Message: "Child step", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 
 	err := pm.Start("child")
 	if err != nil {
@@ -317,7 +373,7 @@ func TestFailParentStep(t *testing.T) {
 		{ID: "parent", Message: "Parent step", FailedMsg: "Parent failed", IndentLevel: 0},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 
 	err := pm.Start("parent")
 	if err != nil {
@@ -341,7 +397,7 @@ func TestFailChildStep(t *testing.T) {
 		{ID: "child", Message: "Child step", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 
 	err := pm.Start("child")
 	if err != nil {
@@ -369,7 +425,7 @@ func TestFailWithMessage(t *testing.T) {
 		{ID: "child", Message: "Child step", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 
 	err := pm.Start("child")
 	if err != nil {
@@ -392,7 +448,7 @@ func TestFailWithoutCustomMessage(t *testing.T) {
 		{ID: "child", Message: "Child step", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 
 	err := pm.Start("child")
 	if err != nil {
@@ -421,7 +477,7 @@ func TestStop(t *testing.T) {
 		{ID: "child", Message: "Child step", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 	defer pm.Stop() // Clean up any active spinners
 
 	err := pm.Start("child")
@@ -446,7 +502,7 @@ func TestConcurrentAccess(t *testing.T) {
 		{ID: "child2", Message: "Child 2", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 	defer pm.Stop() // Clean up any active spinners
 
 	var wg sync.WaitGroup
@@ -496,7 +552,7 @@ func TestStepStatusTransitions(t *testing.T) {
 		{ID: "step2", Message: "Step 2", IndentLevel: 0},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 	defer pm.Stop() // Clean up any active spinners
 
 	// Test initial status
@@ -544,7 +600,7 @@ func TestStepStatusTransitions(t *testing.T) {
 }
 
 func TestEmptySteps(t *testing.T) {
-	pm := NewProgressManager([]*Step{})
+	pm := newTestProgressManager([]*Step{})
 
 	if len(pm.steps) != 0 {
 		t.Errorf("Expected 0 steps, got %d", len(pm.steps))
@@ -560,7 +616,7 @@ func TestMultipleOperationsOnSameStep(t *testing.T) {
 		{ID: "step", Message: "Test step", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 	defer pm.Stop() // Clean up any active spinners
 
 	// Start the step
@@ -600,7 +656,7 @@ func TestStopAndRestartSpinner(t *testing.T) {
 		{ID: "step", Message: "Test step", IndentLevel: 1},
 	}
 
-	pm := NewProgressManager(steps)
+	pm := newTestProgressManager(steps)
 	defer pm.Stop() // Clean up any active spinners
 
 	// Start the step
