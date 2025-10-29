@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func setupAudioInService(t *testing.T, injectAudioIn *inject.AudioIn) (net.Listener, func()) {
@@ -100,7 +101,7 @@ func TestWorkingAudioInClient(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		audioCh, err := client.GetAudio(ctx, "pcm16", 5.0, 0, expectedExtra)
+		audioCh, err := client.GetAudio(ctx, rutils.CodecPCM16, 5.0, 0, expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Read first chunk
@@ -126,13 +127,13 @@ func TestWorkingAudioInClient(t *testing.T) {
 		actualExtra = nil
 
 		// Properties
-		expectedProperties := audioin.Properties{
-			SupportedCodecs: []string{"pcm16", "mp3"},
+		expectedProperties := rutils.Properties{
+			SupportedCodecs: []string{rutils.CodecPCM16, rutils.CodecMP3},
 			SampleRateHz:    44100,
 			NumChannels:     2,
 		}
 
-		injectAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (audioin.Properties, error) {
+		injectAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
 			actualExtra = extra
 			return expectedProperties, nil
 		}
@@ -181,7 +182,7 @@ func TestAudioInClientGetAudioError(t *testing.T) {
 		return nil, errGetAudioFailed
 	}
 
-	_, err = client.GetAudio(ctx, "pcm16", 5.0, 0, nil)
+	_, err = client.GetAudio(ctx, rutils.CodecPCM16, 5.0, 0, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, errGetAudioFailed.Error())
 }
@@ -202,8 +203,8 @@ func TestAudioInClientPropertiesError(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test Properties error
-	injectAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (audioin.Properties, error) {
-		return audioin.Properties{}, errPropertiesFailed
+	injectAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
+		return rutils.Properties{}, errPropertiesFailed
 	}
 
 	_, err = client.Properties(ctx, nil)
