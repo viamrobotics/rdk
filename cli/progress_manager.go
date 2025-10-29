@@ -101,9 +101,8 @@ func (pm *ProgressManager) Start(stepID string) error {
 	step.Status = StepRunning
 	step.startTime = time.Now() // Record start time
 
-	// If this is a parent step (IndentLevel == 0), print it as a static "in progress" indicator
+	// If this is a parent step (IndentLevel == 0), print "…" indicator
 	if step.IndentLevel == 0 {
-		// Use ellipsis to indicate parent is in progress (with extra space for alignment)
 		_, _ = os.Stdout.WriteString(fmt.Sprintf(" …  %s\n", step.Message)) //nolint:errcheck
 		return nil
 	}
@@ -163,42 +162,24 @@ func (pm *ProgressManager) Complete(stepID string) error {
 
 	prefix := getPrefix(step)
 
-	// If this is a parent step (IndentLevel == 0), update the static header
-	if step.IndentLevel == 0 {
-		// Count how many child lines were printed after the parent
-		linesToMoveUp := 0
-		foundParent := false
-		for _, s := range pm.steps {
-			if s.ID == stepID {
-				foundParent = true
-				continue
-			}
-			if foundParent && s.IndentLevel > 0 && (s.Status == StepCompleted || s.Status == StepRunning) {
-				linesToMoveUp++
-			}
-		}
-
-		// Move cursor up to the parent line, clear it, and print success
-		if linesToMoveUp > 0 {
-			_, _ = os.Stdout.WriteString(fmt.Sprintf("\033[%dA", linesToMoveUp+1)) //nolint:errcheck // Move up
-		}
-		_, _ = os.Stdout.WriteString("\r\033[K") //nolint:errcheck // Clear line
-		pterm.Success.Println(prefix + msg + elapsed)
-
-		// Move cursor back down
-		if linesToMoveUp > 0 {
-			_, _ = os.Stdout.WriteString(fmt.Sprintf("\033[%dB", linesToMoveUp)) //nolint:errcheck // Move down
-		}
-		return nil
-	}
-
-	// For child steps: if this is the currently active spinner, stop it and mark success
+	// For both parent and child steps: if this is the currently active spinner, stop it and mark success
 	if pm.currentSpinner != nil {
-		pm.currentSpinner.Success(" " + prefix + msg + elapsed)
+		if step.IndentLevel == 0 {
+			// Parent steps don't need extra leading space since pterm adds it
+			pm.currentSpinner.Success(msg + elapsed)
+		} else {
+			pm.currentSpinner.Success(" " + prefix + msg + elapsed)
+		}
 		pm.currentSpinner = nil
 	} else {
 		// If no spinner is active, just print the success message
-		pterm.Success.Println(" " + prefix + msg + elapsed)
+		if step.IndentLevel == 0 {
+			// Parent steps don't need extra leading space since pterm adds it
+			pterm.Success.Println(msg + elapsed)
+		} else {
+			// Child steps need extra leading space and prefix
+			pterm.Success.Println(" " + prefix + msg + elapsed)
+		}
 	}
 
 	return nil
@@ -231,7 +212,12 @@ func (pm *ProgressManager) CompleteWithMessage(stepID, message string) error {
 		pm.currentSpinner = nil
 	} else {
 		// If no spinner is active, just print the success message
-		pterm.Success.Println(" " + prefix + message + elapsed)
+		// Parent steps (IndentLevel 0) don't need extra leading space since pterm adds it
+		if step.IndentLevel == 0 {
+			pterm.Success.Println(message + elapsed)
+		} else {
+			pterm.Success.Println(" " + prefix + message + elapsed)
+		}
 	}
 
 	return nil
@@ -262,7 +248,12 @@ func (pm *ProgressManager) Fail(stepID string, err error) error {
 		pm.currentSpinner = nil
 	} else {
 		// If no spinner is active, just print the error message
-		pterm.Error.Println(" " + prefix + msg)
+		// Parent steps (IndentLevel 0) don't need extra leading space since pterm adds it
+		if step.IndentLevel == 0 {
+			pterm.Error.Println(msg)
+		} else {
+			pterm.Error.Println(" " + prefix + msg)
+		}
 	}
 
 	return nil
@@ -288,7 +279,12 @@ func (pm *ProgressManager) FailWithMessage(stepID, message string) error {
 		pm.currentSpinner = nil
 	} else {
 		// If no spinner is active, just print the error message
-		pterm.Error.Println(" " + prefix + message)
+		// Parent steps (IndentLevel 0) don't need extra leading space since pterm adds it
+		if step.IndentLevel == 0 {
+			pterm.Error.Println(message)
+		} else {
+			pterm.Error.Println(" " + prefix + message)
+		}
 	}
 
 	return nil
