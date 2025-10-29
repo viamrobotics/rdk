@@ -320,7 +320,6 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
 
-	// var err error
 	poses := make([]*staticFrame, 0, len(m.OrdTransforms()))
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	composedTransformation := spatialmath.NewZeroPose()
@@ -332,7 +331,6 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 		input := inputs[posIdx:dof]
 		posIdx = dof
 
-		// fmt.Printf("Lower transform. Name: %v Type: %T\n", transform.Name(), transform)
 		pose, err := transform.Transform(input)
 		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
 		if pose == nil || err != nil {

@@ -150,7 +150,7 @@ func TestPlanStep(t *testing.T) {
 func BenchmarkDanGoalMetric(b *testing.B) {
 	ctx := b.Context()
 	_ = ctx
-	goalFrame := referenceframe.NewPoseInFrame(
+	goalInFrame := referenceframe.NewPoseInFrame(
 		"world",
 		&spatialmath.DualQuaternion{
 			Number: dualquat.Number{
@@ -163,7 +163,7 @@ func BenchmarkDanGoalMetric(b *testing.B) {
 			},
 		},
 	)
-	goalFrame.SetName("xarm6")
+	goalInFrame.SetName("xarm6")
 
 	options := &PlannerOptions{
 		GoalMetricType: motionplan.SquaredNormOpt,
@@ -177,24 +177,7 @@ func BenchmarkDanGoalMetric(b *testing.B) {
 	err = fs.AddFrame(armModel, fs.World())
 	test.That(b, err, test.ShouldBeNil)
 
-	// metricFn := options.getGoalMetric(referenceframe.FrameSystemPoses{"xarm6": goalFrame})
-	// inps := referenceframe.FrameSystemInputs{"xarm6": []referenceframe.Input{
-	//  	-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
-	// }}
-	// ans := metricFn(&motionplan.StateFS{
-	//  	Configuration: inps,
-	//  	FS:            fs,
-	// })
-	// test.That(b, ans, test.ShouldEqual, 6.1075976675485745e+06)
-	//
-	// for b.Loop() {
-	//  	metricFn(&motionplan.StateFS{
-	//  		Configuration: inps,
-	//  		FS:            fs,
-	//  	})
-	// }
-
-	metricFn, err := options.getGoalMetricLinear(referenceframe.FrameSystemPoses{"xarm6": goalFrame})
+	metricFn, err := options.getGoalMetricLinear(referenceframe.FrameSystemPoses{"xarm6": goalInFrame})
 	test.That(b, err, test.ShouldBeNil)
 
 	inps := []referenceframe.Input{
@@ -313,6 +296,8 @@ func BenchmarkDanArmOptTransform(b *testing.B) {
 	}
 }
 
+// New:
+// - BenchmarkDanRotTransform-16    	 2631051	       458.9 ns/op	     368 B/op	       4 allocs/op
 func BenchmarkDanRotTransform(b *testing.B) {
 	ctx := b.Context()
 	_ = ctx
@@ -322,10 +307,6 @@ func BenchmarkDanRotTransform(b *testing.B) {
 	armModel := armModelI.(*referenceframe.SimpleModel)
 
 	rotFrame := armModel.OrdTransforms()[0]
-	// inp creation in `Loop`:
-	//   BenchmarkDanRotTransform-16               	 1630050	       886.8 ns/op	     376 B/op	       5 allocs/op
-	// outside of `Loop`:
-	//   BenchmarkDanRotTransform-16               	 1206386	      1006 ns/op	     368 B/op	       4 allocs/op
 	inp := []referenceframe.Input{-1.335}
 	for b.Loop() {
 		// Optimized code uses `(*rotationalFrame).InputToOrientation` under the hood. This avoids
