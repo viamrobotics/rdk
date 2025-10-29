@@ -180,6 +180,10 @@ func (s *serviceServer) GetPointCloud(
 		return nil, err
 	}
 
+	if camClient, ok := camera.(*client); ok {
+		return camClient.client.GetPointCloud(ctx, req)
+	}
+
 	pc, err := camera.NextPointCloud(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
