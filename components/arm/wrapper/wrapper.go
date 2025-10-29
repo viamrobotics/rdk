@@ -5,6 +5,8 @@ import (
 	"context"
 	"sync"
 
+	commonpb "go.viam.com/api/common/v1"
+
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/armplanning"
@@ -203,4 +205,11 @@ func (wrapper *Arm) Geometries(ctx context.Context, extra map[string]interface{}
 	return gif.Geometries(), nil
 }
 
-// modelFromPath returns a Model from a given path.
+// Get3DModels returns the 3D models of the arm.
+func (wrapper *Arm) Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]commonpb.Mesh, error) {
+	models, err := wrapper.actual.Get3DModels(ctx, extra)
+	if err != nil {
+		return nil, err
+	}
+	return models, nil
+}
