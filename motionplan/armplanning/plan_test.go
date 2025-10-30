@@ -140,15 +140,15 @@ func TestPlanStep(t *testing.T) {
 	})
 }
 
-// BenchmarkDanGoalMetric
+// BenchmarkGoalMetric
 //
 // Old:
-// - BenchmarkDanGoalMetric-16                 	  532743	      3448 ns/op	    2416 B/op	      42 allocs/op
+// - BenchmarkGoalMetric-16                 	  532743	      3448 ns/op	    2416 B/op	      42 allocs/op
 // New:
-// - BenchmarkDanGoalMetric-16                 	  801975	      1247 ns/op	     800 B/op	      14 allocs/op
-// - BenchmarkDanGoalMetric-16                 	  940275	      1145 ns/op	     640 B/op	      11 allocs/op
-// - BenchmarkDanGoalMetric-24              	  312554	      3740 ns/op	     336 B/op	       6 allocs/op
-func BenchmarkDanGoalMetric(b *testing.B) {
+// - BenchmarkGoalMetric-16                 	  801975	      1247 ns/op	     800 B/op	      14 allocs/op
+// - BenchmarkGoalMetric-16                 	  940275	      1145 ns/op	     640 B/op	      11 allocs/op
+// - BenchmarkGoalMetric-24              	  312554	      3740 ns/op	     336 B/op	       6 allocs/op
+func BenchmarkGoalMetric(b *testing.B) {
 	goalInFrame := referenceframe.NewPoseInFrame(
 		"world",
 		&spatialmath.DualQuaternion{
@@ -196,16 +196,16 @@ func BenchmarkDanGoalMetric(b *testing.B) {
 	}
 }
 
-// BenchmarkDanScaledSquaredNormMetric measures the distance evaluation between the goal state and
-// the state computed from the inputs. This is the same as the above `BenchmarkDanGoalMetric`,
+// BenchmarkScaledSquaredNormMetric measures the distance evaluation between the goal state and
+// the state computed from the inputs. This is the same as the above `BenchmarkGoalMetric`,
 // except the above is also measuring the computational part of arriving at the sampled pose.
 //
 // Old:
-// - BenchmarkDanScaledSquaredNormMetric-16    	 6429082	       205.4 ns/op	      64 B/op	       1 allocs/op
+// - BenchmarkScaledSquaredNormMetric-16    	 6429082	       205.4 ns/op	      64 B/op	       1 allocs/op
 //
 // New:
-// - BenchmarkDanScaledSquaredNormMetric-16    	 8371084	       148.3 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkDanScaledSquaredNormMetric(b *testing.B) {
+// - BenchmarkScaledSquaredNormMetric-16    	 8371084	       148.3 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkScaledSquaredNormMetric(b *testing.B) {
 	goalFrame := referenceframe.NewPoseInFrame(
 		"world",
 		&spatialmath.DualQuaternion{
@@ -240,15 +240,15 @@ func BenchmarkDanScaledSquaredNormMetric(b *testing.B) {
 // - Call optimized version of `*rotationalFrame.Transform`.
 //
 // Old:
-// - BenchmarkDanArmTransform-16               	  554766	      2817 ns/op	    1680 B/op	      29 allocs/op
+// - BenchmarkArmTransform-16               	  554766	      2817 ns/op	    1680 B/op	      29 allocs/op
 // New:
 // Avoid array slicing when frame input size is 0 (static) or 1 (rotational).
-// - BenchmarkDanArmTransform-16            	  563020	      2060 ns/op	    1472 B/op	      26 allocs/op
+// - BenchmarkArmTransform-16            	  563020	      2060 ns/op	    1472 B/op	      26 allocs/op
 // One unroll of `*rotationalFrame.Transform`
-// - BenchmarkDanArmTransform-16            	 1000000	      1880 ns/op	    1280 B/op	      20 allocs/op
+// - BenchmarkArmTransform-16            	 1000000	      1880 ns/op	    1280 B/op	      20 allocs/op
 // Inline `composedTransformation`
-// - BenchmarkDanArmTransform-16            	 1830990	       653.5 ns/op	      64 B/op	       1 allocs/op
-func BenchmarkDanArmTransform(b *testing.B) {
+// - BenchmarkArmTransform-16            	 1830990	       653.5 ns/op	      64 B/op	       1 allocs/op
+func BenchmarkArmTransform(b *testing.B) {
 	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
 	test.That(b, err, test.ShouldBeNil)
 	armModel := armModelI.(*referenceframe.SimpleModel)
@@ -269,8 +269,8 @@ func BenchmarkDanArmTransform(b *testing.B) {
 }
 
 // New:
-// - BenchmarkDanRotTransform-16    	 2631051	       458.9 ns/op	     368 B/op	       4 allocs/op
-func BenchmarkDanRotTransform(b *testing.B) {
+// - BenchmarkRotTransform-16    	 2631051	       458.9 ns/op	     368 B/op	       4 allocs/op
+func BenchmarkRotTransform(b *testing.B) {
 	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
 	test.That(b, err, test.ShouldBeNil)
 	armModel := armModelI.(*referenceframe.SimpleModel)
@@ -285,14 +285,14 @@ func BenchmarkDanRotTransform(b *testing.B) {
 }
 
 // Old:
-// - BenchmarkDanLinearizeFSMetric-16          	 2150169	       531.7 ns/op	     864 B/op	      11 allocs/op
+// - BenchmarkLinearizeFSMetric-16          	 2150169	       531.7 ns/op	     864 B/op	      11 allocs/op
 // Old + No Spans:
-// - BenchmarkDanLinearizeFSMetric-16          	 7035686	       174.6 ns/op	     448 B/op	       3 allocs/op
+// - BenchmarkLinearizeFSMetric-16          	 7035686	       174.6 ns/op	     448 B/op	       3 allocs/op
 // New:
-// - BenchmarkDanLinearizeFSMetric-16          	 3936822	       305.3 ns/op	     416 B/op	       8 allocs/op
+// - BenchmarkLinearizeFSMetric-16          	 3936822	       305.3 ns/op	     416 B/op	       8 allocs/op
 // New + No Spans:
-// - BenchmarkDanLinearizeFSMetric-16          	556656800	       2.154 ns/op	       0 B/op	       0 allocs/op
-func BenchmarkDanLinearizeFSMetric(b *testing.B) {
+// - BenchmarkLinearizeFSMetric-16          	556656800	       2.154 ns/op	       0 B/op	       0 allocs/op
+func BenchmarkLinearizeFSMetric(b *testing.B) {
 	ctx := b.Context()
 	logger := logging.NewTestLogger(b)
 
