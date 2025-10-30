@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 
+	"gonum.org/v1/gonum/num/quat"
+
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -42,6 +44,8 @@ const (
 	PositionOnly GoalMetricType = "position_only"
 	// SquaredNorm indicates the use of the norm between two poses.
 	SquaredNorm GoalMetricType = "squared_norm"
+	// SquaredNormOptimized indicates the use of the norm between two poses.
+	SquaredNormOptimized GoalMetricType = "squared_norm_optimized"
 	// ArcLengthConvergence indicates the use of an algorithm that converges on a pose
 	// that lies within an arc length of a goal pose.
 	ArcLengthConvergence GoalMetricType = "pose_flex_ov"
@@ -128,6 +132,16 @@ type StateMetric func(*State) float64
 // StateFSMetric are functions which, given a StateFS, produces some score. Lower is better.
 // This is used for gradient descent to converge upon a goal pose, for example.
 type StateFSMetric func(*StateFS) float64
+
+// LinearFS is like a StateFS but passes a linearized configuration. This can only be used when
+// there's one movable frame. That movable frame may have multiple degrees of freedom.
+type LinearFS struct {
+	Configuration []float64
+	FS            *referenceframe.FrameSystem
+}
+
+// LinearFSMetric is like StateFSMetric but takes a linearized configuration.
+type LinearFSMetric func(*LinearFS) float64
 
 // SegmentMetric are functions which produce some score given an Segment. Lower is better.
 // This is used to sort produced IK solutions by goodness, for example.
@@ -220,13 +234,16 @@ func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 // Increase weight for orientation since it's a small number.
 func NewScaledSquaredNormMetric(goal spatial.Pose, orientationDistanceScale float64) StateMetric {
 	weightedSqNormDist := func(query *State) float64 {
-		deltaCartesian := spatial.PoseDelta(goal, query.Position)
-		deltaOrientation := spatial.QuatToR3AA(deltaCartesian.Orientation().Quaternion()).Mul(orientationDistanceScale)
+		deltaCartesianPoint := query.Position.Point().Sub(
+			goal.(*spatial.DualQuaternion).Point())
+		deltaCartesianOrientation := quat.Mul(
+			query.Position.Orientation().Quaternion(),
+			quat.Conj(goal.Orientation().Quaternion()))
+		deltaOrientation := spatial.QuatToR3AA(deltaCartesianOrientation).Mul(orientationDistanceScale)
 
-		// fmt.Printf("delta cart: %0.4f orient: %0.4f\n", deltaCartesian.Point().Norm2(), deltaOrientation.Norm2())
-
-		return deltaCartesian.Point().Norm2() + deltaOrientation.Norm2()
+		return deltaCartesianPoint.Norm2() + deltaOrientation.Norm2()
 	}
+
 	return weightedSqNormDist
 }
 

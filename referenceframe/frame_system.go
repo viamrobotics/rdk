@@ -11,6 +11,8 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 
 	"go.viam.com/rdk/logging"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -235,6 +237,33 @@ func (sfs *FrameSystem) Transform(inputs FrameSystemInputs, object Transformable
 	return object.Transform(tfParent), nil
 }
 
+// TransformOptLinear is like TransformOpt, except:
+// - The input object cannot be a `GeometriesInFrame`.
+// - Requires the caller to pass in the exact slice of inputs for `frame`.
+// - Probably some other unknown assumptions.
+func (sfs *FrameSystem) TransformOptLinear(inputs []float64, frame, parent string) (
+	spatial.DualQuaternion, error,
+) {
+	if !sfs.frameExists(frame) {
+		return spatial.DualQuaternion{}, NewFrameMissingError(frame)
+	}
+
+	if !sfs.frameExists(parent) {
+		return spatial.DualQuaternion{}, NewFrameMissingError(parent)
+	}
+
+	tfParent, err := sfs.transformFromParentLinear(inputs, sfs.Frame(frame), sfs.Frame(parent))
+	if err != nil {
+		return spatial.DualQuaternion{}, err
+	}
+
+	ret := tfParent.pose.(*spatial.DualQuaternion).Transformation(dualquat.Number{
+		Real: quat.Number{Real: 1},
+		Dual: quat.Number{},
+	})
+	return spatial.DualQuaternion{Number: ret}, nil
+}
+
 // Name returns the name of the simpleFrameSystem.
 func (sfs *FrameSystem) Name() string {
 	return sfs.name
@@ -364,6 +393,29 @@ func (sfs *FrameSystem) GetFrameToWorldTransform(inputMap FrameSystemInputs, src
 	return sfs.composeTransforms(src, inputMap)
 }
 
+// GetFrameToWorldTransformLinear is like GetFrameToWorldTransform but where the inputs slice is
+// exactly for the `src` frame.
+func (sfs *FrameSystem) GetFrameToWorldTransformLinear(inputs []float64, src Frame) (dualquat.Number, error) {
+	ret := dualquat.Number{
+		Real: quat.Number{Real: 1},
+		Dual: quat.Number{},
+	}
+
+	if !sfs.frameExists(src.Name()) {
+		return ret, NewFrameMissingError(src.Name())
+	}
+
+	// If src is nil it is interpreted as the world frame
+	var err error
+	if src != nil {
+		ret, err = sfs.composeTransformsLinear(src, inputs)
+		if err != nil {
+			return ret, err
+		}
+	}
+	return ret, err
+}
+
 // ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
 // frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
 // replacementFrame is not allowed to exist within the frame system at the time of the call.
@@ -393,6 +445,7 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 			sfs.parents[frameName] = replacementFrame.Name()
 		}
 	}
+
 	// add replacementFrame to frame system with parent of replaceMe
 	return sfs.AddFrame(replacementFrame, replaceMeParent)
 }
@@ -403,16 +456,37 @@ func (sfs *FrameSystem) transformFromParent(inputMap FrameSystemInputs, src, dst
 	if err != nil {
 		return nil, err
 	}
+
 	srcToWorld, err := sfs.GetFrameToWorldTransform(inputMap, src)
 	if err != nil {
 		return nil, err
 	}
 
 	// transform from source to world, world to target parent
-	return NewPoseInFrame(dst.Name(), spatial.PoseBetween(dstToWorld, srcToWorld)), nil
+	invA := spatial.DualQuaternion{dualquat.ConjQuat(dstToWorld.(*spatial.DualQuaternion).Number)}
+	result := spatial.DualQuaternion{invA.Transformation(srcToWorld.(*spatial.DualQuaternion).Number)}
+	return NewPoseInFrame(dst.Name(), &result), nil
 }
 
-// composeTransforms computes the transformation of the provide Frame to the World Frame, using the provided FrameSystemInputs.
+func (sfs *FrameSystem) transformFromParentLinear(inputs []float64, src, dst Frame) (*PoseInFrame, error) {
+	dstToWorld, err := sfs.GetFrameToWorldTransformLinear(inputs, dst)
+	if err != nil {
+		return nil, err
+	}
+
+	srcToWorld, err := sfs.GetFrameToWorldTransformLinear(inputs, src)
+	if err != nil {
+		return nil, err
+	}
+
+	// transform from source to world, world to target parent
+	invA := spatial.DualQuaternion{dualquat.ConjQuat(dstToWorld)}
+	result := spatial.DualQuaternion{invA.Transformation(srcToWorld)}
+	return NewPoseInFrame(dst.Name(), &result), nil
+}
+
+// composeTransforms computes the transformation of the provide Frame to the World Frame, using the
+// provided FrameSystemInputs.
 func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInputs) (spatial.Pose, error) {
 	var q spatial.Pose
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
@@ -421,10 +495,12 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInput
 		if err != nil {
 			return nil, err
 		}
+
 		pose, err := frame.Transform(inputs)
 		if err != nil {
 			return nil, err
 		}
+
 		if q == nil {
 			q = pose
 		} else {
@@ -436,6 +512,48 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInput
 		return spatial.NewZeroPose(), nil
 	}
 	return q, nil
+}
+
+// composeTransformsLinear assumes there is one moveable frame and its DoF is equal to the `inputs`
+// length.
+func (sfs *FrameSystem) composeTransformsLinear(frame Frame, inputs []float64) (dualquat.Number, error) {
+	ret := dualquat.Number{
+		Real: quat.Number{Real: 1},
+		Dual: quat.Number{},
+	}
+
+	numMoveableFrames := 0
+	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
+		var pose spatial.Pose
+		var err error
+
+		if len(frame.DoF()) == 0 {
+			pose, err = frame.Transform([]Input{})
+			if err != nil {
+				return ret, err
+			}
+		} else {
+			if numMoveableFrames > 0 {
+				//nolint
+				return ret, fmt.Errorf("More than one movable frame. GoalMetricType.SquaredNormOpt is ineligible to be used.")
+			}
+
+			numMoveableFrames++
+			if len(frame.DoF()) != len(inputs) {
+				return ret, NewIncorrectDoFError(len(inputs), len(frame.DoF()))
+			}
+
+			pose, err = frame.Transform(inputs)
+			if err != nil {
+				return ret, err
+			}
+		}
+
+		ret = pose.(*spatial.DualQuaternion).Transformation(ret)
+		frame = sfs.Frame(sfs.parents[frame.Name()])
+	}
+
+	return ret, nil
 }
 
 // MarshalJSON serializes a FrameSystem into JSON format.

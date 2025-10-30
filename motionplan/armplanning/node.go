@@ -169,7 +169,8 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 			psc.pc.logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
 		psc.pc.logger.Debugf("got %d altSeeds", len(altSeeds))
-		for _, s := range altSeeds {
+		for idx, s := range altSeeds {
+			psc.pc.logger.Debugf("  Idx: %d Seed: %v", idx, s)
 			ls, err := psc.pc.lfs.mapToSlice(s)
 			if err != nil {
 				psc.pc.logger.Warnf("mapToSlice failed? %v", err)
@@ -318,6 +319,8 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		}
 	}
 
+	sss.psc.pc.logger.Debugf("`process` added a node. Node: %v Num answers: %v Best score: %v stop early? %v",
+		myNode, len(sss.solutions), sss.bestScoreNoProblem, sss.shouldStopEarly())
 	return sss.shouldStopEarly()
 }
 
@@ -389,8 +392,18 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		return nil, err
 	}
 
+	var minFunc ik.CostFunc
 	// Spawn the IK solver to generate solutions until done
-	minFunc := psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
+	if psc.pc.planOpts.GoalMetricType == motionplan.SquaredNormOptimized {
+		linearMinFunc, err := psc.pc.planOpts.getGoalMetricLinear(psc.goal)
+		if err != nil {
+			return nil, err
+		}
+
+		minFunc = psc.pc.linearizeFSmetricOpt(linearMinFunc)
+	} else {
+		minFunc = psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
+	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -416,7 +429,8 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 	utils.PanicCapturingGo(func() {
 		// This channel close doubles as signaling that the goroutine has exited.
 		defer close(solutionGen)
-		_, err := solver.Solve(ctxWithCancel, solutionGen, solvingState.linearSeeds, solvingState.ratios, minFunc, psc.pc.randseed.Int())
+		nSol, err := solver.Solve(ctxWithCancel, solutionGen, solvingState.linearSeeds, solvingState.ratios, minFunc, psc.pc.randseed.Int())
+		solvingState.psc.pc.logger.Debugf("Solver stopping. Solutions: %v Err? %v", nSol, err)
 		if err != nil {
 			solveErrorLock.Lock()
 			solveError = err
@@ -432,6 +446,11 @@ solutionLoop:
 			return nil, ctx.Err()
 		case stepSolution, ok := <-solutionGen:
 			if !ok || solvingState.process(ctx, stepSolution) {
+				if !ok {
+					solvingState.psc.pc.logger.Debugf(
+						"Stopping because input channel is closed. Best score: %v With problem: %v",
+						solvingState.bestScoreNoProblem, solvingState.bestScoreWithProblem)
+				}
 				// No longer using the generated solutions. Cancel the workers.
 				cancel()
 				break solutionLoop
