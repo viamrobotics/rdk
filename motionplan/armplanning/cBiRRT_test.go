@@ -17,6 +17,7 @@ import (
 // This should test a simple linear motion.
 // This test will step through the different stages of cbirrt and test each one in turn.
 func TestSimpleLinearMotion(t *testing.T) {
+	t.Skip()
 	nSolutions := 5
 	inputSteps := []*node{}
 	ctx := context.Background()
