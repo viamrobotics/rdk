@@ -51,9 +51,11 @@ func (o *Operation) HasLabel(label string) bool {
 	return false
 }
 
-// CancelOtherWithLabel will cancel all operations besides this one with this label.
+// CancelOtherWithLabel will cancel all operations (known to its Manager) besides this one with this label.
 func (o *Operation) CancelOtherWithLabel(label string) {
-	all := o.myManager.All()
+	o.myManager.lock.Lock()
+	defer o.myManager.lock.Unlock()
+	all := o.myManager.AllWithoutLock()
 	for id, op := range all {
 		if op == nil {
 			// TODO(RSDK-12330): Remove this log once we've found how a nil operation can be
@@ -101,21 +103,32 @@ func (m *Manager) add(op *Operation) {
 	m.ops[op.ID.String()] = op
 }
 
-// All returns all running operations.
-func (m *Manager) All() []*Operation {
+// Lock acquires the Manager's mutex.
+func (m *Manager) Lock() {
 	m.lock.Lock()
-	defer m.lock.Unlock()
-	a := make([]*Operation, 0, len(m.ops))
-	for id, o := range m.ops {
-		// TODO(RSDK-12330): Remove this log once we've found how a nil operation can be
-		// encountered here.
-		if o == nil {
-			m.logger.Errorw("nil operation encountered within All method", "id", id)
-		}
+}
 
+// Unlock unlocks the Manager's mutex.
+func (m *Manager) Unlock() {
+	m.lock.Unlock()
+}
+
+// AllWithoutLock returns a []*Operation of all running operations known to the Manager.
+// Use with Lock and defer Unlock before calling if you expect to process the result.
+func (m *Manager) AllWithoutLock() []*Operation {
+	a := make([]*Operation, 0, len(m.ops))
+	for _, o := range m.ops {
 		a = append(a, o)
 	}
 	return a
+}
+
+// All returns a []*Operation of all running operations known to the Manager.
+// Note, there is no guarantee that an Operation will still be valid if you process it later. For this use case, use AllWithoutLock.
+func (m *Manager) All() []*Operation {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return m.AllWithoutLock()
 }
 
 // Find an Operation.
@@ -185,6 +198,15 @@ func (m *Manager) createWithID(ctx context.Context, id uuid.UUID, method string,
 	return ctx, func() { op.cleanup() }
 }
 
+// CancelAll cancels all operations known to the Manager.
+func (m *Manager) CancelAll() {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	for _, op := range m.AllWithoutLock() {
+		op.Cancel()
+	}
+}
+
 // Get returns the current Operation. This can be nil.
 func Get(ctx context.Context) *Operation {
 	o := ctx.Value(opidKey)
@@ -194,7 +216,7 @@ func Get(ctx context.Context) *Operation {
 	return o.(*Operation)
 }
 
-// CancelOtherWithLabel will cancel all operations besides this one with this label.
+// CancelOtherWithLabel will cancel all operations (known to its Manager) besides this one with this label.
 // if no Operation is set, will do nothing.
 func CancelOtherWithLabel(ctx context.Context, label string) {
 	if o := Get(ctx); o != nil {

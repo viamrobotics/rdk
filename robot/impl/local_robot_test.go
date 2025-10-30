@@ -837,11 +837,15 @@ func TestStopAll(t *testing.T) {
 	stopAllErrCh := make(chan error, 1)
 	go func() {
 		<-channel
-		for _, opid := range r.OperationManager().All() {
+		r.OperationManager().Lock()
+		for _, opid := range r.OperationManager().AllWithoutLock() {
 			if opid.Method == "/viam.component.arm.v1.ArmService/DoCommand" {
 				foundOPID = true
-				stopAllErrCh <- r.StopAll(ctx, nil)
 			}
+		}
+		r.OperationManager().Unlock()
+		if foundOPID {
+			stopAllErrCh <- r.StopAll(ctx, nil)
 		}
 	}()
 	_, err = arm1.DoCommand(ctx, map[string]interface{}{})

@@ -109,11 +109,13 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		return nil, nil
 	case "get_ops":
 		// For testing the module's operation manager
-		ops := myMod.OperationManager().All()
+		myMod.OperationManager().Lock()
+		ops := myMod.OperationManager().AllWithoutLock()
 		var opsOut []string
 		for _, op := range ops {
 			opsOut = append(opsOut, op.ID.String())
 		}
+		myMod.OperationManager().Unlock()
 		return map[string]interface{}{"ops": opsOut}, nil
 	case "echo":
 		// For testing module liveliness

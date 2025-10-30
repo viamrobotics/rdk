@@ -225,9 +225,7 @@ func (r *localRobot) Kill() {
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
 func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	// Stop all operations
-	for _, op := range r.OperationManager().All() {
-		op.Cancel()
-	}
+	r.OperationManager().CancelAll()
 
 	// Stop all stoppable resources
 	resourceErrs := make(map[string]error)
