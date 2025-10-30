@@ -224,7 +224,13 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 			return err
 		}
 		if _, err := io.Copy(localFile, file.Data); err != nil {
-			return multierr.Combine(err, localFile.Close())
+			closeErr := localFile.Close()
+			// Remove partially downloaded file if possible. Don't error if it does not exist.
+			cleanupErr := os.Remove(fullPathTmp)
+			if errors.Is(cleanupErr, fs.ErrNotExist) {
+				cleanupErr = nil
+			}
+			return multierr.Combine(err, closeErr, cleanupErr)
 		}
 		if err := os.Rename(fullPathTmp, fullPath); err != nil {
 			return err
