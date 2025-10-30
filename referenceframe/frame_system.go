@@ -386,15 +386,11 @@ func (sfs *FrameSystem) GetFrameToWorldTransform(inputMap FrameSystemInputs, src
 	}
 
 	// If src is nil it is interpreted as the world frame
-	var err error
-	srcToWorld := spatial.NewZeroPose()
-	if src != nil {
-		srcToWorld, err = sfs.composeTransforms(src, inputMap)
-		if err != nil && srcToWorld == nil {
-			return nil, err
-		}
+	if src == nil {
+		return spatial.NewZeroPose(), nil
 	}
-	return srcToWorld, err
+
+	return sfs.composeTransforms(src, inputMap)
 }
 
 // GetFrameToWorldTransformLinear is like GetFrameToWorldTransform but where the inputs slice is
@@ -492,7 +488,7 @@ func (sfs *FrameSystem) transformFromParentLinear(inputs []float64, src, dst Fra
 // composeTransforms computes the transformation of the provide Frame to the World Frame, using the
 // provided FrameSystemInputs.
 func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInputs) (spatial.Pose, error) {
-	q := spatial.NewZeroPose()            // empty initial dualquat
+	var q spatial.Pose
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
 		// Transform() gives FROM q TO parent. Add new transforms to the left.
 		inputs, err := inputMap.GetFrameInputs(frame)
@@ -505,10 +501,16 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInput
 			return nil, err
 		}
 
-		q = spatial.Compose(pose, q)
+		if q == nil {
+			q = pose
+		} else {
+			q = spatial.Compose(pose, q)
+		}
 		frame = sfs.Frame(sfs.parents[frame.Name()])
 	}
-
+	if q == nil {
+		return spatial.NewZeroPose(), nil
+	}
 	return q, nil
 }
 
