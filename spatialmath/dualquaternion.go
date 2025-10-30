@@ -78,6 +78,9 @@ func newDualQuaternionFromPose(p Pose) *DualQuaternion {
 
 // DualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so,
 // otherwise creates a new one.
+//
+// Dan: What's the difference between this and the above? It's not clear that
+// `OrientationVectorRadians` is meaningful.
 func DualQuaternionFromPose(p Pose) *DualQuaternion {
 	if q, ok := p.(*DualQuaternion); ok {
 		return q
