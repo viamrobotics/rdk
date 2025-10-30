@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"time"
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -266,4 +267,8 @@ func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
 // SetMinScore specifies the IK stopping score for the planner.
 func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
+}
+
+func (p *PlannerOptions) timeoutDuration() time.Duration {
+	return time.Duration(p.Timeout * float64(time.Second))
 }

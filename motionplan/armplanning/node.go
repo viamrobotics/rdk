@@ -363,7 +363,13 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		multiple = 100
 	}
 
-	if elapsed > max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond) {
+	timeToSearch := max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond)
+
+	if sss.psc.pc.planOpts.Timeout > 0 && len(sss.solutions) > 0 {
+		timeToSearch = min(timeToSearch, sss.psc.pc.planOpts.timeoutDuration()/2)
+	}
+
+	if elapsed > timeToSearch {
 		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v",
 			sss.bestScoreNoProblem, sss.bestScoreNoProblem/sss.goodCost,
 			sss.bestScoreWithProblem, sss.bestScoreWithProblem/sss.goodCost,

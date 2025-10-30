@@ -50,7 +50,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 	// set timeout for entire planning process if specified
 	var cancel func()
 	if pm.request.PlannerOptions.Timeout != 0 {
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(pm.request.PlannerOptions.Timeout*float64(time.Second)))
+		ctx, cancel = context.WithTimeout(ctx, pm.request.PlannerOptions.timeoutDuration())
 	}
 	if cancel != nil {
 		defer cancel()
