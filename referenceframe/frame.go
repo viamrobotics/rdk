@@ -128,9 +128,9 @@ func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 
 // Limited represents anything that has Limits.
 type Limited interface {
-	// DoF will return a slice with length equal to the number of degrees of freedom.
-	// Each element describes the min and max movement limit of that degree of freedom.
-	// For robot parts that don't move, it returns an empty slice.
+	// DoF will return a slice with length equal to the number of degrees of freedom.  Each element
+	// describes the min and max movement limit of that degree of freedom.  For robot parts that
+	// don't move, it returns an empty slice.
 	DoF() []Limit
 }
 
@@ -142,27 +142,41 @@ type Frame interface {
 
 	Hash() int
 
-	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's reference frame
+	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's
+	// reference frame.
+	//
+	// If the transform cannot be computed, the returned pose will be nil and the error will not be
+	// nil.
+	//
+	// If the transform _can_ be computed, but one or more of the inputs is outside of the
+	// prescribed frame limits, both a pose _and_ an "out of bounds" error will be returned. Callers
+	// that need to avoid propagating out of bounds (OOB) inputs errors can simply error
+	// check. Callers that do not want to terminate on OOB errors must check if the pose is
+	// returned.
 	Transform([]Input) (spatial.Pose, error)
 
 	// Interpolate interpolates the given amount between the two sets of inputs.
 	Interpolate([]Input, []Input, float64) ([]Input, error)
 
-	// Geometries returns a map between names and geometries for the reference frame and any intermediate frames that
-	// may be defined for it, e.g. links in an arm. If a frame does not have a geometry it will not be added into the map
+	// Geometries returns a map between names and geometries for the reference frame and any
+	// intermediate frames that may be defined for it, e.g. links in an arm. If a frame does not
+	// have a geometry it will not be added into the map
 	Geometries([]Input) (*GeometriesInFrame, error)
 
-	// InputFromProtobuf does there correct thing for this frame to convert protobuf units (degrees/mm) to input units (radians/mm)
+	// InputFromProtobuf does there correct thing for this frame to convert protobuf units
+	// (degrees/mm) to input units (radians/mm)
 	InputFromProtobuf(*pb.JointPositions) []Input
 
-	// ProtobufFromInput does there correct thing for this frame to convert input units (radians/mm) to protobuf units (degrees/mm)
+	// ProtobufFromInput does there correct thing for this frame to convert input units (radians/mm)
+	// to protobuf units (degrees/mm)
 	ProtobufFromInput([]Input) *pb.JointPositions
 
 	json.Marshaler
 	json.Unmarshaler
 }
 
-// baseFrame contains all the data and methods common to all frames, notably it does not implement the Frame interface itself.
+// baseFrame contains all the data and methods common to all frames, notably it does not implement
+// the Frame interface itself.
 type baseFrame struct {
 	name   string
 	limits []Limit

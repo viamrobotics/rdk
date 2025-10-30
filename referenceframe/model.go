@@ -372,7 +372,7 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 // us to optimize away the recording of intermediate computations.
 func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, error) {
 	if len(m.DoF()) != len(inputs) {
-		return nil, fmt.Errorf("wrong dimensions. DoF: %v Inputs: %v", len(m.DoF()), len(inputs))
+		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
 
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
@@ -385,6 +385,19 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 	}
 	posIdx := 0
 
+	// We split up errors into two cases:
+	//
+	// - There are the right number of inputs, but some inputs are outside of the legal limit
+	//   (either physical, or prescribed by the caller)
+	// - Everything else.
+	//
+	// For general errors, we refuse to return a `Pose`. Because we can't assume it's calculated
+	// correctly. When limits are exceeded, we will return the resulting end effector pose in
+	// addition to an out of bounds error. The caller is expected to check if it's interested in OOB
+	// information.
+	//
+	// Dan: My take is that this method should _not_ return an error when an input is out of
+	// bounds. The caller ought to verify that when applicable.
 	var invalidInputsErr error
 	// get quaternions from the base outwards.
 	for _, transformI := range m.ordTransforms {
@@ -393,7 +406,7 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 		switch transform := transformI.(type) {
 		case *staticFrame:
 			if len(transformI.DoF()) != 0 {
-				return nil, fmt.Errorf("unexpected DoF for staticFrame. DoF: %v", len(transformI.DoF()))
+				return nil, NewIncorrectDoFError(len(transformI.DoF()), 0)
 			}
 
 			composedTransformation = spatialmath.DualQuaternion{
@@ -401,7 +414,7 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 			}
 		case *rotationalFrame:
 			if len(transformI.DoF()) != 1 {
-				return nil, fmt.Errorf("unexpected DoF for rotationalFrame. DoF: %v", len(transformI.DoF()))
+				return nil, NewIncorrectDoFError(len(transformI.DoF()), 1)
 			}
 
 			if err := transform.validInputs(inputs[posIdx : posIdx+1]); err != nil {

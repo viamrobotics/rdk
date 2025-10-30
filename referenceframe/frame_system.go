@@ -538,8 +538,7 @@ func (sfs *FrameSystem) composeTransformsLinear(frame Frame, inputs []float64) (
 
 			numMoveableFrames++
 			if len(frame.DoF()) != len(inputs) {
-				return ret, fmt.Errorf("wrong input size for composeTransformsLinear. Expected: %v Actual: %v",
-					len(frame.DoF()), len(inputs))
+				return ret, NewIncorrectDoFError(len(inputs), len(frame.DoF()))
 			}
 
 			pose, err = frame.Transform(inputs)
