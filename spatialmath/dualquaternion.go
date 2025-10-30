@@ -57,16 +57,16 @@ func newDualQuaternionFromDH(a, d, alpha float64) *DualQuaternion {
 	return q
 }
 
-// newDualQuaternionFromProtobuf returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
-// protobuf pose.
+// newDualQuaternionFromProtobuf returns a pointer to a new dualQuaternion object whose rotation
+// quaternion is set from a provided protobuf pose.
 func newDualQuaternionFromProtobuf(pos *commonpb.Pose) *DualQuaternion {
 	q := newDualQuaternionFromRotation(&OrientationVectorDegrees{pos.Theta, pos.OX, pos.OY, pos.OZ})
 	q.SetTranslation(r3.Vector{pos.X, pos.Y, pos.Z})
 	return q
 }
 
-// newDualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
-// new one.
+// newDualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so,
+// otherwise creates a new one.
 func newDualQuaternionFromPose(p Pose) *DualQuaternion {
 	if q, ok := p.(*DualQuaternion); ok {
 		return &DualQuaternion{q.Number}
@@ -76,8 +76,8 @@ func newDualQuaternionFromPose(p Pose) *DualQuaternion {
 	return q
 }
 
-// newDualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
-// new one.
+// DualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so,
+// otherwise creates a new one.
 func DualQuaternionFromPose(p Pose) *DualQuaternion {
 	if q, ok := p.(*DualQuaternion); ok {
 		return q

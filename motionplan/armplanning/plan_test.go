@@ -147,7 +147,7 @@ func TestPlanStep(t *testing.T) {
 // New:
 // - BenchmarkDanGoalMetric-16                 	  801975	      1247 ns/op	     800 B/op	      14 allocs/op
 // - BenchmarkDanGoalMetric-16                 	  940275	      1145 ns/op	     640 B/op	      11 allocs/op
-// - BenchmarkDanGoalMetric-24              	  312554	      3740 ns/op	     336 B/op	       6 allocs/op
+// - BenchmarkDanGoalMetric-24              	  312554	      3740 ns/op	     336 B/op	       6 allocs/op.
 func BenchmarkDanGoalMetric(b *testing.B) {
 	ctx := b.Context()
 	_ = ctx
