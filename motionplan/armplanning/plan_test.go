@@ -165,7 +165,7 @@ func BenchmarkDanGoalMetric(b *testing.B) {
 	goalInFrame.SetName("xarm6")
 
 	options := &PlannerOptions{
-		GoalMetricType: motionplan.SquaredNormOpt,
+		GoalMetricType: motionplan.SquaredNormOptimized,
 	}
 
 	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
@@ -234,8 +234,20 @@ func BenchmarkDanScaledSquaredNormMetric(b *testing.B) {
 	}
 }
 
+// This optimization inclues:
+// - Don't allocate array when not capturing all sub-arm pose information.
+// - Call optimized version of `*staticFrame.Transform`.
+// - Call optimized version of `*rotationalFrame.Transform`.
+//
 // Old:
 // - BenchmarkDanArmTransform-16               	  554766	      2817 ns/op	    1680 B/op	      29 allocs/op
+// New:
+// Avoid array slicing when frame input size is 0 (static) or 1 (rotational).
+// - BenchmarkDanArmTransform-16            	  563020	      2060 ns/op	    1472 B/op	      26 allocs/op
+// One unroll of `*rotationalFrame.Transform`
+// - BenchmarkDanArmTransform-16            	 1000000	      1880 ns/op	    1280 B/op	      20 allocs/op
+// Inline `composedTransformation`
+// - BenchmarkDanArmTransform-16            	 1830990	       653.5 ns/op	      64 B/op	       1 allocs/op
 func BenchmarkDanArmTransform(b *testing.B) {
 	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
 	test.That(b, err, test.ShouldBeNil)
@@ -245,45 +257,14 @@ func BenchmarkDanArmTransform(b *testing.B) {
 		-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
 	}
 
-	_, err = armModel.Transform(inps)
-	test.That(b, err, test.ShouldBeNil)
-
-	for b.Loop() {
-		armModel.Transform(inps)
-	}
-}
-
-// Metric checking compares the above `Transform` result to the goal pose.
-//
-// This optimization inclues:
-// - Don't allocate array when not capturing all sub-arm pose information.
-// - Call optimized version of `*staticFrame.Transform`.
-// - Call optimized version of `*rotationalFrame.Transform`.
-//
-// New:
-// Avoid array slicing when frame input size is 0 (static) or 1 (rotational).
-// - BenchmarkDanArmOptTransform-16            	  563020	      2060 ns/op	    1472 B/op	      26 allocs/op
-// One unroll of `*rotationalFrame.Transform`
-// - BenchmarkDanArmOptTransform-16            	 1000000	      1880 ns/op	    1280 B/op	      20 allocs/op
-// Inline `composedTransformation`
-// - BenchmarkDanArmOptTransform-16            	 1830990	       653.5 ns/op	      64 B/op	       1 allocs/op
-func BenchmarkDanArmOptTransform(b *testing.B) {
-	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
-	test.That(b, err, test.ShouldBeNil)
-	armModel := armModelI.(*referenceframe.SimpleModel)
-
-	inps := []referenceframe.Input{
-		-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
-	}
-
 	// Not useful if we don't get the right answer.
-	pose, err := armModel.InputsToTransformOpt(inps)
+	pose, err := armModel.Transform(inps)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, fmt.Sprintf("%v", pose), test.ShouldEqual,
 		"{X:53.425180 Y:243.992738 Z:692.082423 OX:0.898026 OY:0.314087 OZ:0.308055 Theta:130.963386°}")
 
 	for b.Loop() {
-		armModel.InputsToTransformOpt(inps)
+		armModel.Transform(inps)
 	}
 }
 

@@ -181,7 +181,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 		switch p.GoalMetricType {
 		case motionplan.PositionOnly:
 			metrics[frame] = motionplan.NewPositionOnlyMetric(goalInFrame.Pose())
-		case motionplan.SquaredNorm, motionplan.SquaredNormOpt:
+		case motionplan.SquaredNorm, motionplan.SquaredNormOptimized:
 			// `SquaredNormOpt` will work here, but there's no special
 			// optimization. `getGoalMetricLinear` must be called for heap allocation optimizations
 			// at the cost of limited frame system inputs.
@@ -219,7 +219,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 }
 
 func (p *PlannerOptions) getGoalMetricLinear(goal referenceframe.FrameSystemPoses) (motionplan.LinearFSMetric, error) {
-	if p.GoalMetricType != motionplan.SquaredNormOpt {
+	if p.GoalMetricType != motionplan.SquaredNormOptimized {
 		//nolint
 		return nil, fmt.Errorf("May only call `getGoalMetricLinear` with a planner type of `SquaredNormOpt`")
 	}
@@ -238,7 +238,7 @@ func (p *PlannerOptions) getGoalMetricLinear(goal referenceframe.FrameSystemPose
 			poseParent := frames[frame]
 			var currPose spatialmath.Pose
 
-			if p.GoalMetricType == motionplan.SquaredNormOpt {
+			if p.GoalMetricType == motionplan.SquaredNormOptimized {
 				dq, err := state.FS.TransformOptLinear(state.Configuration, frame, poseParent)
 				if err != nil {
 					panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",

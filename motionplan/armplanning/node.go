@@ -394,7 +394,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 
 	var minFunc ik.CostFunc
 	// Spawn the IK solver to generate solutions until done
-	if psc.pc.planOpts.GoalMetricType == motionplan.SquaredNormOpt {
+	if psc.pc.planOpts.GoalMetricType == motionplan.SquaredNormOptimized {
 		linearMinFunc, err := psc.pc.planOpts.getGoalMetricLinear(psc.goal)
 		if err != nil {
 			return nil, err

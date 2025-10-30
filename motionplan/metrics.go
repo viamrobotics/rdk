@@ -44,8 +44,8 @@ const (
 	PositionOnly GoalMetricType = "position_only"
 	// SquaredNorm indicates the use of the norm between two poses.
 	SquaredNorm GoalMetricType = "squared_norm"
-	// SquaredNormOpt indicates the use of the norm between two poses.
-	SquaredNormOpt GoalMetricType = "squared_norm_opt"
+	// SquaredNormOptimized indicates the use of the norm between two poses.
+	SquaredNormOptimized GoalMetricType = "squared_norm_optimized"
 	// ArcLengthConvergence indicates the use of an algorithm that converges on a pose
 	// that lies within an arc length of a goal pose.
 	ArcLengthConvergence GoalMetricType = "pose_flex_ov"
