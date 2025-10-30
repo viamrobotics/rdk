@@ -379,12 +379,15 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	// composedTransformation := spatialmath.NewZeroPose()
-	composedTransformation := spatialmath.DualQuaternion{dualquat.Number{
-		Real: quat.Number{Real: 1},
-		Dual: quat.Number{},
-	}}
+	composedTransformation := spatialmath.DualQuaternion{
+		Number: dualquat.Number{
+			Real: quat.Number{Real: 1},
+			Dual: quat.Number{},
+		},
+	}
 	posIdx := 0
 
+	var invalidInputsErr error
 	// get quaternions from the base outwards.
 	for _, transformI := range m.ordTransforms {
 		var pose spatialmath.Pose
@@ -401,6 +404,10 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 		case *rotationalFrame:
 			if len(transformI.DoF()) != 1 {
 				return nil, fmt.Errorf("unexpected DoF for rotationalFrame. DoF: %v", len(transformI.DoF()))
+			}
+
+			if err := transform.validInputs(inputs[posIdx : posIdx+1]); err != nil {
+				multierr.AppendInto(&invalidInputsErr, err)
 			}
 
 			orientation := transform.InputToOrientation(inputs[posIdx])
@@ -421,8 +428,12 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 
 			var err error
 			pose, err = transform.Transform(input)
-			if pose == nil || err != nil {
-				return nil, err
+			if err != nil {
+				if strings.Contains(err.Error(), OOBErrString) {
+					multierr.AppendInto(&invalidInputsErr, err)
+				} else {
+					return nil, err
+				}
 			}
 
 			composedTransformation = spatialmath.DualQuaternion{
@@ -431,7 +442,7 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 		}
 	}
 
-	return &composedTransformation, nil
+	return &composedTransformation, invalidInputsErr
 }
 
 // floatsToString turns a float array into a serializable binary representation

@@ -146,7 +146,8 @@ func TestPlanStep(t *testing.T) {
 // - BenchmarkDanGoalMetric-16                 	  532743	      3448 ns/op	    2416 B/op	      42 allocs/op
 // New:
 // - BenchmarkDanGoalMetric-16                 	  801975	      1247 ns/op	     800 B/op	      14 allocs/op
-// - BenchmarkDanGoalMetric-16                 	  940275	      1145 ns/op	     640 B/op	      11 allocs/op.
+// - BenchmarkDanGoalMetric-16                 	  940275	      1145 ns/op	     640 B/op	      11 allocs/op
+// - BenchmarkDanGoalMetric-24              	  312554	      3740 ns/op	     336 B/op	       6 allocs/op
 func BenchmarkDanGoalMetric(b *testing.B) {
 	ctx := b.Context()
 	_ = ctx
@@ -176,23 +177,6 @@ func BenchmarkDanGoalMetric(b *testing.B) {
 	fs := referenceframe.NewEmptyFrameSystem("")
 	err = fs.AddFrame(armModel, fs.World())
 	test.That(b, err, test.ShouldBeNil)
-
-	// metricFn := options.getGoalMetric(referenceframe.FrameSystemPoses{"xarm6": goalFrame})
-	// inps := referenceframe.FrameSystemInputs{"xarm6": []referenceframe.Input{
-	//  	-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
-	// }}
-	// ans := metricFn(&motionplan.StateFS{
-	//  	Configuration: inps,
-	//  	FS:            fs,
-	// })
-	// test.That(b, ans, test.ShouldEqual, 6.1075976675485745e+06)
-	//
-	// for b.Loop() {
-	//  	metricFn(&motionplan.StateFS{
-	//  		Configuration: inps,
-	//  		FS:            fs,
-	//  	})
-	// }
 
 	metricFn, err := options.getGoalMetricLinear(referenceframe.FrameSystemPoses{"xarm6": goalFrame})
 	test.That(b, err, test.ShouldBeNil)
