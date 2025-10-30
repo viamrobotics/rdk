@@ -147,10 +147,8 @@ func TestPlanStep(t *testing.T) {
 // New:
 // - BenchmarkDanGoalMetric-16                 	  801975	      1247 ns/op	     800 B/op	      14 allocs/op
 // - BenchmarkDanGoalMetric-16                 	  940275	      1145 ns/op	     640 B/op	      11 allocs/op
-// - BenchmarkDanGoalMetric-24              	  312554	      3740 ns/op	     336 B/op	       6 allocs/op.
+// - BenchmarkDanGoalMetric-24              	  312554	      3740 ns/op	     336 B/op	       6 allocs/op
 func BenchmarkDanGoalMetric(b *testing.B) {
-	ctx := b.Context()
-	_ = ctx
 	goalInFrame := referenceframe.NewPoseInFrame(
 		"world",
 		&spatialmath.DualQuaternion{
@@ -206,10 +204,8 @@ func BenchmarkDanGoalMetric(b *testing.B) {
 // - BenchmarkDanScaledSquaredNormMetric-16    	 6429082	       205.4 ns/op	      64 B/op	       1 allocs/op
 //
 // New:
-// - BenchmarkDanScaledSquaredNormMetric-16    	 8371084	       148.3 ns/op	       0 B/op	       0 allocs/op.
+// - BenchmarkDanScaledSquaredNormMetric-16    	 8371084	       148.3 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkDanScaledSquaredNormMetric(b *testing.B) {
-	ctx := b.Context()
-	_ = ctx
 	goalFrame := referenceframe.NewPoseInFrame(
 		"world",
 		&spatialmath.DualQuaternion{
@@ -239,11 +235,8 @@ func BenchmarkDanScaledSquaredNormMetric(b *testing.B) {
 }
 
 // Old:
-// - BenchmarkDanArmTransform-16               	  554766	      2817 ns/op	    1680 B/op	      29 allocs/op.
+// - BenchmarkDanArmTransform-16               	  554766	      2817 ns/op	    1680 B/op	      29 allocs/op
 func BenchmarkDanArmTransform(b *testing.B) {
-	ctx := b.Context()
-	_ = ctx
-
 	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
 	test.That(b, err, test.ShouldBeNil)
 	armModel := armModelI.(*referenceframe.SimpleModel)
@@ -273,11 +266,8 @@ func BenchmarkDanArmTransform(b *testing.B) {
 // One unroll of `*rotationalFrame.Transform`
 // - BenchmarkDanArmOptTransform-16            	 1000000	      1880 ns/op	    1280 B/op	      20 allocs/op
 // Inline `composedTransformation`
-// - BenchmarkDanArmOptTransform-16            	 1830990	       653.5 ns/op	      64 B/op	       1 allocs/op.
+// - BenchmarkDanArmOptTransform-16            	 1830990	       653.5 ns/op	      64 B/op	       1 allocs/op
 func BenchmarkDanArmOptTransform(b *testing.B) {
-	ctx := b.Context()
-	_ = ctx
-
 	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
 	test.That(b, err, test.ShouldBeNil)
 	armModel := armModelI.(*referenceframe.SimpleModel)
@@ -300,9 +290,6 @@ func BenchmarkDanArmOptTransform(b *testing.B) {
 // New:
 // - BenchmarkDanRotTransform-16    	 2631051	       458.9 ns/op	     368 B/op	       4 allocs/op
 func BenchmarkDanRotTransform(b *testing.B) {
-	ctx := b.Context()
-	_ = ctx
-
 	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
 	test.That(b, err, test.ShouldBeNil)
 	armModel := armModelI.(*referenceframe.SimpleModel)
@@ -323,7 +310,7 @@ func BenchmarkDanRotTransform(b *testing.B) {
 // New:
 // - BenchmarkDanLinearizeFSMetric-16          	 3936822	       305.3 ns/op	     416 B/op	       8 allocs/op
 // New + No Spans:
-// - BenchmarkDanLinearizeFSMetric-16          	556656800	         2.154 ns/op	       0 B/op	       0 allocs/op.
+// - BenchmarkDanLinearizeFSMetric-16          	556656800	       2.154 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkDanLinearizeFSMetric(b *testing.B) {
 	ctx := b.Context()
 	logger := logging.NewTestLogger(b)

@@ -27,6 +27,7 @@ linters:
     - gochecknoglobals
     - gochecknoinits
     - gocyclo
+    - godot # A comment included a table. This added a period to the end of the table.
     - gofmt
     - goimports
     - gomnd
