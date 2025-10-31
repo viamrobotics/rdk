@@ -118,6 +118,10 @@ func (li *LinearInputs) Len() int {
 }
 
 func (li *LinearInputs) GetLinearizedInputs() []Input {
+	if li == nil {
+		return []Input{}
+	}
+
 	return li.inputs
 }
 
@@ -150,6 +154,10 @@ func (li *LinearInputs) Put(frameName string, inputs []Input) {
 }
 
 func (li *LinearInputs) Get(frameName string) []Input {
+	if li == nil {
+		return []Input{}
+	}
+
 	for _, meta := range li.schema.metas {
 		if meta.frameName == frameName {
 			return li.inputs[meta.offset : meta.offset+meta.dof]
