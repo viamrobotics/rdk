@@ -517,9 +517,9 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 		return nil, err
 	}
 
-	var lastGood referenceframe.LinearInputs = ci.StartConfiguration
+	var lastGood *referenceframe.LinearInputs
 	for i, interpConfig := range interpolatedConfigurations {
-		interpC := &StateFS{FS: ci.FS, Configuration: *interpConfig}
+		interpC := &StateFS{FS: ci.FS, Configuration: interpConfig}
 		err = c.CheckStateFSConstraints(ctx, interpC)
 		if err != nil {
 			if i == 0 {

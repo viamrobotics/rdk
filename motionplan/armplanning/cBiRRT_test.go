@@ -84,7 +84,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	goalReached := mp.constrainedExtend(ctx, 1, goalMap, near2, seedReached)
 
 	dist := pc.configurationDistanceFunc(
-		&motionplan.SegmentFS{StartConfiguration: *seedReached.inputs, EndConfiguration: *goalReached.inputs},
+		&motionplan.SegmentFS{StartConfiguration: seedReached.inputs, EndConfiguration: goalReached.inputs},
 	)
 	test.That(t, dist, test.ShouldBeLessThan, pc.planOpts.InputIdentDist)
 

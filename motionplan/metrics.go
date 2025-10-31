@@ -63,8 +63,8 @@ type Segment struct {
 // SegmentFS is a referenceframe.FrameSystem-specific contains all the information a constraint needs to determine validity for a movement.
 // It contains the starting inputs, the ending inputs, and the framesystem it refers to.
 type SegmentFS struct {
-	StartConfiguration referenceframe.LinearInputs
-	EndConfiguration   referenceframe.LinearInputs
+	StartConfiguration *referenceframe.LinearInputs
+	EndConfiguration   *referenceframe.LinearInputs
 	FS                 *referenceframe.FrameSystem
 }
 
@@ -119,7 +119,7 @@ func (state *State) ResolveStateAndUpdatePositions() error {
 // framesystem. It contains inputs, the corresponding poses, and the frame it refers to.
 // Pose field may be empty, and may be filled in by a constraint that needs it.
 type StateFS struct {
-	Configuration referenceframe.LinearInputs
+	Configuration *referenceframe.LinearInputs
 	FS            *referenceframe.FrameSystem
 }
 

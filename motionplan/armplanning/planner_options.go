@@ -198,7 +198,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 			var currPose spatialmath.Pose
 
 			currTrans, err := state.FS.Transform(
-				&state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
+				state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
 			if err != nil {
 				panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",
 					state.FS.FrameNames(), frame, poseParent, err))

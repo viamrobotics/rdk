@@ -70,7 +70,7 @@ func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) ik.Cos
 		}
 
 		return metric(&motionplan.StateFS{
-			Configuration: conf,
+			Configuration: &conf,
 			FS:            pc.fs,
 		})
 	}
@@ -149,8 +149,8 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *refere
 	_, err := psc.checker.CheckSegmentAndStateValidityFS(
 		ctx,
 		&motionplan.SegmentFS{
-			StartConfiguration: *start,
-			EndConfiguration:   *end,
+			StartConfiguration: start,
+			EndConfiguration:   end,
 			FS:                 psc.pc.fs,
 		},
 		psc.pc.planOpts.Resolution,
@@ -162,7 +162,7 @@ func (psc *planSegmentContext) checkInputs(ctx context.Context, inputs *referenc
 	return psc.checker.CheckStateFSConstraints(
 		ctx,
 		&motionplan.StateFS{
-			Configuration: *inputs,
+			Configuration: inputs,
 			FS:            psc.pc.fs,
 		}) == nil
 }

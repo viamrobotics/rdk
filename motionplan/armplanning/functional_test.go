@@ -103,7 +103,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 
 		// Transform the current state to get the pose
 		currPose, err := fs.Transform(
-			&from.Configuration,
+			from.Configuration,
 			frame.NewZeroPoseInFrame(model.Name()),
 			frame.World,
 		)
@@ -469,8 +469,8 @@ func testPlanner(t *testing.T, ctx context.Context, config planConfigConstructor
 		_, err := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(
 			ctx,
 			&motionplan.SegmentFS{
-				StartConfiguration: *nodes[j],
-				EndConfiguration:   *nodes[j+1],
+				StartConfiguration: nodes[j],
+				EndConfiguration:   nodes[j+1],
 				FS:                 cfg.FS,
 			}, cfg.Options.Resolution)
 		test.That(t, err, test.ShouldBeNil)

@@ -55,7 +55,7 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 	// Sorry for the hacky copy.
 	start := startNotMine.ToFrameSystemInputs().ToLinearInputs()
 	_, nonmoving := mc.framesFilteredByMovingAndNonmoving()
-	startDistance := distanceFunc(&motionplan.StateFS{Configuration: *startNotMine, FS: mc.fs})
+	startDistance := distanceFunc(&motionplan.StateFS{Configuration: startNotMine, FS: mc.fs})
 	for _, frame := range lfs.frames {
 		if len(frame.DoF()) == 0 {
 			// Frames without degrees of freedom can't move.
@@ -85,7 +85,7 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 			// Update the copied joint set in place. This is undone at the end of the loop.
 			start.Get(frame.Name())[idx] = y
 
-			myDistance := distanceFunc(&motionplan.StateFS{Configuration: *start, FS: mc.fs})
+			myDistance := distanceFunc(&motionplan.StateFS{Configuration: start, FS: mc.fs})
 			// Compute how much effect the small change made. The bigger the difference, the smaller
 			// the ratio.
 			//

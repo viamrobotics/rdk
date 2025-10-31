@@ -181,7 +181,7 @@ func BenchmarkGoalMetric(b *testing.B) {
 	metricFn := options.getGoalMetric(referenceframe.FrameSystemPoses{"xarm6": goalInFrame})
 	test.That(b, err, test.ShouldBeNil)
 
-	inps := *referenceframe.NewLinearInputs()
+	inps := referenceframe.NewLinearInputs()
 	inps.Put("xarm6", []referenceframe.Input{
 		-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
 	})

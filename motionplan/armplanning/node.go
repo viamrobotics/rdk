@@ -194,8 +194,8 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 	}
 
 	stepArc := &motionplan.SegmentFS{
-		StartConfiguration: *sss.psc.start,
-		EndConfiguration:   *step,
+		StartConfiguration: sss.psc.start,
+		EndConfiguration:   step,
 		FS:                 sss.psc.pc.fs,
 	}
 
@@ -231,13 +231,13 @@ func (sss *solutionSolvingState) nonchainMinimize(ctx context.Context,
 	lastGood, _ := sss.psc.checker.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&motionplan.SegmentFS{
-			StartConfiguration: *step,
-			EndConfiguration:   *alteredStep,
+			StartConfiguration: step,
+			EndConfiguration:   alteredStep,
 			FS:                 sss.psc.pc.fs,
 		}, sss.psc.pc.planOpts.Resolution,
 	)
 	if lastGood != nil {
-		return &lastGood.EndConfiguration
+		return lastGood.EndConfiguration
 	}
 	return nil
 }
@@ -261,7 +261,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	}
 	// Ensure the end state is a valid one
 	err = sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
-		Configuration: *step,
+		Configuration: step,
 		FS:            sss.psc.pc.fs,
 	})
 	if err != nil {
@@ -270,8 +270,8 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	}
 
 	stepArc := &motionplan.SegmentFS{
-		StartConfiguration: *sss.psc.start,
-		EndConfiguration:   *step,
+		StartConfiguration: sss.psc.start,
+		EndConfiguration:   step,
 		FS:                 sss.psc.pc.fs,
 	}
 	err = sss.psc.checker.CheckSegmentFSConstraints(stepArc)
@@ -282,8 +282,8 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 
 	for _, oldSol := range sss.solutions {
 		similarity := &motionplan.SegmentFS{
-			StartConfiguration: *oldSol.inputs,
-			EndConfiguration:   *step,
+			StartConfiguration: oldSol.inputs,
+			EndConfiguration:   step,
 			FS:                 sss.psc.pc.fs,
 		}
 		simscore := sss.psc.pc.configurationDistanceFunc(similarity)

@@ -146,8 +146,8 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 
 		reachedDelta := mp.pc.configurationDistanceFunc(
 			&motionplan.SegmentFS{
-				StartConfiguration: *map1reached.inputs,
-				EndConfiguration:   *map2reached.inputs,
+				StartConfiguration: map1reached.inputs,
+				EndConfiguration:   map2reached.inputs,
 			},
 		)
 
@@ -161,8 +161,8 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 			map1reached, map2reached = tryExtend(target)
 
 			reachedDelta = mp.pc.configurationDistanceFunc(&motionplan.SegmentFS{
-				StartConfiguration: *map1reached.inputs,
-				EndConfiguration:   *map2reached.inputs,
+				StartConfiguration: map1reached.inputs,
+				EndConfiguration:   map2reached.inputs,
 			})
 		}
 
@@ -210,9 +210,9 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	for i := 0; i < maxExtendIter; i++ {
 		configDistMetric := mp.pc.configurationDistanceFunc
 		dist := configDistMetric(
-			&motionplan.SegmentFS{StartConfiguration: *near.inputs, EndConfiguration: *target.inputs})
+			&motionplan.SegmentFS{StartConfiguration: near.inputs, EndConfiguration: target.inputs})
 		oldDist := configDistMetric(
-			&motionplan.SegmentFS{StartConfiguration: *oldNear.inputs, EndConfiguration: *target.inputs})
+			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: target.inputs})
 
 		switch {
 		case dist < mp.pc.planOpts.InputIdentDist:
@@ -232,7 +232,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		}
 
 		nearDist := mp.pc.configurationDistanceFunc(
-			&motionplan.SegmentFS{StartConfiguration: *oldNear.inputs, EndConfiguration: *newNear})
+			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: newNear})
 
 		if nearDist < math.Pow(mp.pc.planOpts.InputIdentDist, 3) {
 			if !doubled {
@@ -275,8 +275,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		newArc := &motionplan.SegmentFS{
-			StartConfiguration: *seedInputs,
-			EndConfiguration:   *target,
+			StartConfiguration: seedInputs,
+			EndConfiguration:   target,
 			FS:                 mp.pc.fs,
 		}
 
@@ -308,8 +308,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		failpos, err := mp.psc.checker.CheckSegmentAndStateValidityFS(
 			ctx,
 			&motionplan.SegmentFS{
-				StartConfiguration: *seedInputs,
-				EndConfiguration:   *solutionMap,
+				StartConfiguration: seedInputs,
+				EndConfiguration:   solutionMap,
 				FS:                 mp.pc.fs,
 			},
 			mp.pc.planOpts.Resolution,
@@ -319,13 +319,13 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 		if failpos != nil {
 			dist := mp.pc.configurationDistanceFunc(&motionplan.SegmentFS{
-				StartConfiguration: *target,
+				StartConfiguration: target,
 				EndConfiguration:   failpos.EndConfiguration,
 			})
 			if dist > mp.pc.planOpts.InputIdentDist {
 				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
-				seedInputs = &failpos.StartConfiguration
-				target = &failpos.EndConfiguration
+				seedInputs = failpos.StartConfiguration
+				target = failpos.EndConfiguration
 			}
 		} else {
 			return nil
