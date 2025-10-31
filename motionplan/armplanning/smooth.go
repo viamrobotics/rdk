@@ -11,8 +11,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []referenceframe.FrameSystemInputs, step int,
-) []referenceframe.FrameSystemInputs {
+func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs, step int,
+) []*referenceframe.LinearInputs {
 	ctx, span := trace.StartSpan(ctx, "simpleSmoothStep")
 	defer span.End()
 	// look at each triplet, see if we can remove the middle one
@@ -31,8 +31,8 @@ func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []refe
 // smoothPath will pick two points at random along the path and attempt to do a fast gradient descent directly between
 // them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
 func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
-	steps []referenceframe.FrameSystemInputs,
-) []referenceframe.FrameSystemInputs {
+	steps []*referenceframe.LinearInputs,
+) []*referenceframe.LinearInputs {
 	ctx, span := trace.StartSpan(ctx, "smoothPathSimple")
 	defer span.End()
 	start := time.Now()
@@ -49,7 +49,9 @@ func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
 	return steps
 }
 
-func smoothPath(ctx context.Context, psc *planSegmentContext, steps []referenceframe.FrameSystemInputs) []referenceframe.FrameSystemInputs {
+func smoothPath(
+	ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs,
+) []*referenceframe.LinearInputs {
 	ctx, span := trace.StartSpan(ctx, "smoothPlan")
 	defer span.End()
 	steps = smoothPathSimple(ctx, psc, steps)

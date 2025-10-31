@@ -16,6 +16,7 @@ import (
 type PlanState struct {
 	poses                   referenceframe.FrameSystemPoses
 	structuredConfiguration referenceframe.FrameSystemInputs
+	linearizedConfiguration *referenceframe.LinearInputs
 }
 
 type planStateJSON struct {
@@ -59,7 +60,12 @@ func (p *PlanState) Configuration() referenceframe.FrameSystemInputs {
 }
 
 func (p *PlanState) LinearConfiguration() *referenceframe.LinearInputs {
-	return nil
+	if p.linearizedConfiguration != nil {
+		return p.linearizedConfiguration
+	}
+
+	p.linearizedConfiguration = p.structuredConfiguration.ToLinearInputs()
+	return p.linearizedConfiguration
 }
 
 // ComputePoses returns the poses of a PlanState if they are populated, or computes them using the given FrameSystem if not.

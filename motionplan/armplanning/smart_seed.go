@@ -177,7 +177,7 @@ type smartSeedCache struct {
 	rawCache map[string]*cacheForFrame
 }
 
-func (ssc *smartSeedCache) findMovingInfo(inputs referenceframe.FrameSystemInputs,
+func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	goalFrame string, goalPIF *referenceframe.PoseInFrame,
 ) (string, spatialmath.Pose, error) {
 	var err error
@@ -234,9 +234,9 @@ func (ssc *smartSeedCache) findMovingInfo(inputs referenceframe.FrameSystemInput
 }
 
 func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses,
-	start referenceframe.FrameSystemInputs,
+	start *referenceframe.LinearInputs,
 	logger logging.Logger,
-) (referenceframe.FrameSystemInputs, error) {
+) (*referenceframe.LinearInputs, error) {
 	ss, err := ssc.findSeeds(goal, start, logger)
 	if err != nil {
 		return nil, err
@@ -248,9 +248,9 @@ func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses,
 }
 
 func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
-	start referenceframe.FrameSystemInputs,
+	start *referenceframe.LinearInputs,
 	logger logging.Logger,
-) ([]referenceframe.FrameSystemInputs, error) {
+) ([]*referenceframe.LinearInputs, error) {
 	if len(goal) > 1 {
 		return nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
 	}
@@ -268,18 +268,18 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 		return nil, err
 	}
 
-	seeds, err := ssc.findSeedsForFrame(movingFrame, start[movingFrame], movingPose, logger)
+	seeds, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	fullSeeds := []referenceframe.FrameSystemInputs{}
+	fullSeeds := []*referenceframe.LinearInputs{}
 	for _, s := range seeds {
-		i := referenceframe.FrameSystemInputs{}
-		for k, v := range start {
-			i[k] = v
+		i := referenceframe.NewLinearInputs()
+		for k, v := range start.Items() {
+			i.Put(k, v)
 		}
-		i[movingFrame] = s
+		i.Put(movingFrame, s)
 		fullSeeds = append(fullSeeds, i)
 	}
 

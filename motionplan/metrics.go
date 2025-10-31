@@ -44,8 +44,6 @@ const (
 	PositionOnly GoalMetricType = "position_only"
 	// SquaredNorm indicates the use of the norm between two poses.
 	SquaredNorm GoalMetricType = "squared_norm"
-	// SquaredNormOptimized indicates the use of the norm between two poses.
-	SquaredNormOptimized GoalMetricType = "squared_norm_optimized"
 	// ArcLengthConvergence indicates the use of an algorithm that converges on a pose
 	// that lies within an arc length of a goal pose.
 	ArcLengthConvergence GoalMetricType = "pose_flex_ov"
@@ -65,8 +63,8 @@ type Segment struct {
 // SegmentFS is a referenceframe.FrameSystem-specific contains all the information a constraint needs to determine validity for a movement.
 // It contains the starting inputs, the ending inputs, and the framesystem it refers to.
 type SegmentFS struct {
-	StartConfiguration referenceframe.FrameSystemInputs
-	EndConfiguration   referenceframe.FrameSystemInputs
+	StartConfiguration referenceframe.LinearInputs
+	EndConfiguration   referenceframe.LinearInputs
 	FS                 *referenceframe.FrameSystem
 }
 
@@ -121,7 +119,7 @@ func (state *State) ResolveStateAndUpdatePositions() error {
 // framesystem. It contains inputs, the corresponding poses, and the frame it refers to.
 // Pose field may be empty, and may be filled in by a constraint that needs it.
 type StateFS struct {
-	Configuration referenceframe.FrameSystemInputs
+	Configuration referenceframe.LinearInputs
 	FS            *referenceframe.FrameSystem
 }
 
@@ -132,16 +130,6 @@ type StateMetric func(*State) float64
 // StateFSMetric are functions which, given a StateFS, produces some score. Lower is better.
 // This is used for gradient descent to converge upon a goal pose, for example.
 type StateFSMetric func(*StateFS) float64
-
-// LinearFS is like a StateFS but passes a linearized configuration. This can only be used when
-// there's one movable frame. That movable frame may have multiple degrees of freedom.
-type LinearFS struct {
-	Configuration []float64
-	FS            *referenceframe.FrameSystem
-}
-
-// LinearFSMetric is like StateFSMetric but takes a linearized configuration.
-type LinearFSMetric func(*LinearFS) float64
 
 // SegmentMetric are functions which produce some score given an Segment. Lower is better.
 // This is used to sort produced IK solutions by goodness, for example.
@@ -335,8 +323,8 @@ func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
 // FSConfigurationDistance is a fs metric which will sum the abs differences in each input from start to end.
 func FSConfigurationDistance(segment *SegmentFS) float64 {
 	score := 0.
-	for frame, cfg := range segment.StartConfiguration {
-		if endCfg, ok := segment.EndConfiguration[frame]; ok && len(cfg) == len(endCfg) {
+	for frame, cfg := range segment.StartConfiguration.Items() {
+		if endCfg := segment.EndConfiguration.Get(frame); endCfg != nil && len(cfg) == len(endCfg) {
 			for i, val := range cfg {
 				score += math.Abs(val - endCfg[i])
 			}
@@ -348,8 +336,8 @@ func FSConfigurationDistance(segment *SegmentFS) float64 {
 // FSConfigurationL2Distance is a fs metric which will sum the L2 norm differences in each input from start to end.
 func FSConfigurationL2Distance(segment *SegmentFS) float64 {
 	score := 0.
-	for frame, cfg := range segment.StartConfiguration {
-		if endCfg, ok := segment.EndConfiguration[frame]; ok && len(cfg) == len(endCfg) {
+	for frame, cfg := range segment.StartConfiguration.Items() {
+		if endCfg := segment.EndConfiguration.Get(frame); endCfg != nil && len(cfg) == len(endCfg) {
 			score += referenceframe.InputsL2Distance(cfg, endCfg)
 		}
 	}

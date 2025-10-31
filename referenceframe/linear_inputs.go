@@ -3,47 +3,97 @@ package referenceframe
 import (
 	"fmt"
 	"iter"
+	"sort"
 )
 
-type FrameInputsMeta struct {
+// LinearInputsMeta
+type LinearInputsSchema struct {
+	metas []linearInputMeta
+}
+
+func InputSchemaFromFrameSystem(fs *FrameSystem) (*LinearInputsSchema, error) {
+	metas := []linearInputMeta{}
+
+	offset := 0
+	frameNames := fs.FrameNames()
+	sort.Strings(frameNames)
+	for _, fName := range frameNames {
+		frame := fs.Frame(fName)
+		if frame == nil {
+			return nil, fmt.Errorf("frame %s was returned in list of frame names, but was not found in frame system", fName)
+		}
+
+		metas = append(metas, linearInputMeta{
+			frameName: fName,
+			offset:    offset,
+			dof:       len(frame.DoF()),
+		})
+		offset += len(frame.DoF())
+	}
+
+	return &LinearInputsSchema{
+		metas: metas,
+	}, nil
+}
+
+func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, error) {
+	totDoF := 0
+	for idx := range lis.metas {
+		totDoF += lis.metas[idx].dof
+	}
+	if totDoF != len(inps) {
+		return nil, fmt.Errorf("wrong number of inputs. Expected: %v Received: %v", totDoF, len(inps))
+	}
+
+	return &LinearInputs{
+		schema: lis,
+		inputs: inps,
+	}, nil
+}
+
+func (lis *LinearInputsSchema) FloatsToInputsStack(inps []float64) (LinearInputs, error) {
+	totDoF := 0
+	for idx := range lis.metas {
+		totDoF += lis.metas[idx].dof
+	}
+	if totDoF != len(inps) {
+		return LinearInputs{}, fmt.Errorf("wrong number of inputs. Expected: %v Received: %v", totDoF, len(inps))
+	}
+
+	return LinearInputs{
+		schema: lis,
+		inputs: inps,
+	}, nil
+}
+
+type linearInputMeta struct {
 	frameName string
 
-	// Having both Offset and DoF is merely a convenience. Only having one would suffice.
+	// Having both Offset and DoF is merely a convenience to keep information local. Only having one
+	// would suffice. But then we'd need to compare adjacent `linearInputMeta` in the schema array
+	// of `metas`.
 	offset int
 	dof    int
 }
 
-// FrameSystemInputs is an alias for a mapping of frame names to slices of Inputs.
+// LinearInputs is a memory optimized representation of FrameSystemInputs. The type is expected to
+// only be used by direct consumers of the frame system library.
 type LinearInputs struct {
-	// Cache map[string][]Input
-	meta   []FrameInputsMeta
+	// Cache map[string][]Input ?
+	schema *LinearInputsSchema
 	inputs []Input
 }
 
+// NewLinearInputs initializes a LinearInputs.
 func NewLinearInputs() *LinearInputs {
 	return &LinearInputs{
-		meta:   make([]FrameInputsMeta, 0, 8),
+		schema: &LinearInputsSchema{},
 		inputs: make([]Input, 0, 8),
 	}
 }
 
-func LinearInputsFromMetaAndData(meta []FrameInputsMeta, inputs []Input) (*LinearInputs, error) {
-	totalDoF := 0
-	for _, fMeta := range meta {
-		totalDoF += fMeta.dof
-	}
-	if totalDoF != len(inputs) {
-		return nil, fmt.Errorf("wrong number of inputs. expected: %v received: %v", totalDoF, len(inputs))
-	}
-
-	return &LinearInputs{
-		meta:   meta,
-		inputs: inputs,
-	}, nil
-}
-
-func FrameInputMetaFromFramesystem(fs *FrameSystem) []FrameInputsMeta {
-	ret := make([]FrameInputsMeta, 0, 8)
+func LinearInputsSchemaFromFrameSystem(fs *FrameSystem) *LinearInputsSchema {
+	metas := make([]linearInputMeta, 0, 8)
 	offsetAcc := 0
 	for name, frame := range fs.frames {
 		numDof := len(frame.DoF())
@@ -51,7 +101,7 @@ func FrameInputMetaFromFramesystem(fs *FrameSystem) []FrameInputsMeta {
 			continue
 		}
 
-		ret = append(ret, FrameInputsMeta{
+		metas = append(metas, linearInputMeta{
 			frameName: name,
 			offset:    offsetAcc,
 			dof:       numDof,
@@ -60,34 +110,23 @@ func FrameInputMetaFromFramesystem(fs *FrameSystem) []FrameInputsMeta {
 		offsetAcc += numDof
 	}
 
-	return ret
-}
-
-func FrameInputMetaToSlice(meta []FrameInputsMeta, fs *LinearInputs) ([]float64, error) {
-	ret := make([]float64, 0, 8)
-	for _, fMeta := range meta {
-		if fMeta.dof == 0 {
-			continue
-		}
-
-		fInputs := fs.Get(fMeta.frameName)
-		if len(fInputs) != fMeta.dof {
-			return nil, fmt.Errorf("frame has wrong number of inputs. frame: %v expected %v received: %v",
-				fMeta.frameName, fMeta.dof, len(fInputs))
-		}
-
-		ret = append(ret, fInputs...)
-	}
-
-	return ret, nil
+	return &LinearInputsSchema{metas}
 }
 
 func (li *LinearInputs) Len() int {
 	return len(li.inputs)
 }
 
+func (li *LinearInputs) GetLinearizedInputs() []Input {
+	return li.inputs
+}
+
+func (li *LinearInputs) GetSchema() *LinearInputsSchema {
+	return li.schema
+}
+
 func (li *LinearInputs) Put(frameName string, inputs []Input) {
-	for _, meta := range li.meta {
+	for _, meta := range li.schema.metas {
 		if meta.frameName != frameName {
 			continue
 		}
@@ -102,7 +141,7 @@ func (li *LinearInputs) Put(frameName string, inputs []Input) {
 		return
 	}
 
-	li.meta = append(li.meta, FrameInputsMeta{
+	li.schema.metas = append(li.schema.metas, linearInputMeta{
 		frameName: frameName,
 		offset:    len(li.inputs),
 		dof:       len(inputs),
@@ -111,7 +150,7 @@ func (li *LinearInputs) Put(frameName string, inputs []Input) {
 }
 
 func (li *LinearInputs) Get(frameName string) []Input {
-	for _, meta := range li.meta {
+	for _, meta := range li.schema.metas {
 		if meta.frameName == frameName {
 			return li.inputs[meta.offset : meta.offset+meta.dof]
 		}
@@ -122,7 +161,7 @@ func (li *LinearInputs) Get(frameName string) []Input {
 
 func (li *LinearInputs) Keys() iter.Seq[string] {
 	return func(yield func(string) bool) {
-		for _, meta := range li.meta {
+		for _, meta := range li.schema.metas {
 			if !yield(meta.frameName) {
 				return
 			}
@@ -132,7 +171,7 @@ func (li *LinearInputs) Keys() iter.Seq[string] {
 
 func (li *LinearInputs) Items() iter.Seq2[string, []Input] {
 	return func(yield func(string, []Input) bool) {
-		for _, meta := range li.meta {
+		for _, meta := range li.schema.metas {
 			if !yield(meta.frameName, li.inputs[meta.offset:meta.offset+meta.dof]) {
 				return
 			}
@@ -156,25 +195,13 @@ func (li *LinearInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 
 // ComputePoses computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
 func (li *LinearInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) {
-	// Compute poses from configuration using the FrameSystem
-	// computedPoses := make(FrameSystemPoses)
-	// for _, frameName := range fs.FrameNames() {
-	//  	pif, err := fs.Transform(li, NewZeroPoseInFrame(frameName), World)
-	//  	if err != nil {
-	//  		return nil, err
-	//  	}
-	//  	computedPoses[frameName] = pif.(*PoseInFrame)
-	// }
-
-	// return computedPoses, nil
-
-	return nil, nil
+	return li.ToFrameSystemInputs().ComputePoses(fs)
 }
 
-func FromOldLinearInputs(li map[string][]Input) *LinearInputs {
-	ret := NewLinearInputs()
-	for frameName, inputs := range li {
-		ret.Put(frameName, inputs)
+func (li *LinearInputs) ToFrameSystemInputs() FrameSystemInputs {
+	ret := make(FrameSystemInputs)
+	for frameName, inputs := range li.Items() {
+		ret[frameName] = inputs
 	}
 
 	return ret

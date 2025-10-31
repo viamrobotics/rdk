@@ -47,7 +47,7 @@ func NewConstraintChecker(
 	startPoses, goalPoses referenceframe.FrameSystemPoses,
 	fs *referenceframe.FrameSystem,
 	movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry,
-	seedMap referenceframe.FrameSystemInputs,
+	seedMap *referenceframe.LinearInputs,
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
 	useTPspace bool,
@@ -65,7 +65,7 @@ func NewConstraintChecker(
 		return nil, err
 	}
 
-	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
+	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(fs, seedMap.ToFrameSystemInputs())
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func NewConstraintChecker(
 // constraints. It will return a bool indicating whether there are any to add.
 func (c *ConstraintChecker) addTopoConstraints(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	constraints *Constraints,
 ) (bool, error) {
@@ -175,7 +175,7 @@ func (c *ConstraintChecker) addTopoConstraints(
 
 func (c *ConstraintChecker) addLinearConstraints(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	linConstraint LinearConstraint,
 ) error {
@@ -201,7 +201,7 @@ func (c *ConstraintChecker) addLinearConstraints(
 
 func (c *ConstraintChecker) addPseudolinearConstraints(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	plinConstraint PseudolinearConstraint,
 ) error {
@@ -227,7 +227,7 @@ func (c *ConstraintChecker) addPseudolinearConstraints(
 
 func (c *ConstraintChecker) addOrientationConstraints(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	orientConstraint OrientationConstraint,
 ) error {
@@ -346,16 +346,16 @@ func InterpolateSegment(ci *Segment, resolution float64) ([][]referenceframe.Inp
 
 // InterpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
 // configuration of a segment at a given resolution value.
-func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]referenceframe.FrameSystemInputs, error) {
+func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.LinearInputs, error) {
 	// Find the frame with the most steps by calculating steps for each frame
 	maxSteps := defaultMinStepCount
-	for frameName, startConfig := range ci.StartConfiguration {
+	for frameName, startConfig := range ci.StartConfiguration.Items() {
 		if len(startConfig) == 0 {
 			// No need to interpolate 0dof frames
 			continue
 		}
-		endConfig, exists := ci.EndConfiguration[frameName]
-		if !exists {
+		endConfig := ci.EndConfiguration.Get(frameName)
+		if endConfig == nil {
 			return nil, fmt.Errorf("frame %s exists in start config but not in end config", frameName)
 		}
 
@@ -383,21 +383,21 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]referenceframe.F
 	}
 
 	// Create interpolated configurations for all frames
-	var interpolatedConfigurations []referenceframe.FrameSystemInputs
+	var interpolatedConfigurations []*referenceframe.LinearInputs
 	for i := 0; i <= maxSteps; i++ {
 		interp := float64(i) / float64(maxSteps)
-		frameConfigs := make(referenceframe.FrameSystemInputs)
+		frameConfigs := referenceframe.NewLinearInputs()
 
 		// Interpolate each frame's configuration
-		for frameName, startConfig := range ci.StartConfiguration {
-			endConfig := ci.EndConfiguration[frameName]
+		for frameName, startConfig := range ci.StartConfiguration.Items() {
+			endConfig := ci.EndConfiguration.Get(frameName)
 			frame := ci.FS.Frame(frameName)
 
 			interpConfig, err := frame.Interpolate(startConfig, endConfig, interp)
 			if err != nil {
 				return nil, err
 			}
-			frameConfigs[frameName] = interpConfig
+			frameConfigs.Put(frameName, interpConfig)
 		}
 
 		interpolatedConfigurations = append(interpolatedConfigurations, frameConfigs)
@@ -516,9 +516,10 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	if err != nil {
 		return nil, err
 	}
-	var lastGood referenceframe.FrameSystemInputs
+
+	var lastGood referenceframe.LinearInputs = ci.StartConfiguration
 	for i, interpConfig := range interpolatedConfigurations {
-		interpC := &StateFS{FS: ci.FS, Configuration: interpConfig}
+		interpC := &StateFS{FS: ci.FS, Configuration: *interpConfig}
 		err = c.CheckStateFSConstraints(ctx, interpC)
 		if err != nil {
 			if i == 0 {

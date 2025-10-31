@@ -202,7 +202,7 @@ func (sfs *FrameSystem) AddFrame(frame, parent Frame) error {
 
 // Transform takes in a Transformable object and destination frame, and returns the pose from the first to the second. Positions
 // is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
-func (sfs *FrameSystem) Transform(inputs FrameSystemInputs, object Transformable, dst string) (Transformable, error) {
+func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, dst string) (Transformable, error) {
 	src := object.Parent()
 	if src == dst {
 		return object, nil
@@ -380,7 +380,7 @@ func (sfs *FrameSystem) DivideFrameSystem(newRoot Frame) (*FrameSystem, error) {
 }
 
 // GetFrameToWorldTransform computes the position of src in the world frame based on inputMap.
-func (sfs *FrameSystem) GetFrameToWorldTransform(inputMap FrameSystemInputs, src Frame) (spatial.Pose, error) {
+func (sfs *FrameSystem) GetFrameToWorldTransform(inputMap *LinearInputs, src Frame) (spatial.Pose, error) {
 	if !sfs.frameExists(src.Name()) {
 		return nil, NewFrameMissingError(src.Name())
 	}
@@ -451,7 +451,7 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 }
 
 // Returns the relative pose between the parent and the destination frame.
-func (sfs *FrameSystem) transformFromParent(inputMap FrameSystemInputs, src, dst Frame) (*PoseInFrame, error) {
+func (sfs *FrameSystem) transformFromParent(inputMap *LinearInputs, src, dst Frame) (*PoseInFrame, error) {
 	dstToWorld, err := sfs.GetFrameToWorldTransform(inputMap, dst)
 	if err != nil {
 		return nil, err
@@ -486,8 +486,8 @@ func (sfs *FrameSystem) transformFromParentLinear(inputs []float64, src, dst Fra
 }
 
 // composeTransforms computes the transformation of the provide Frame to the World Frame, using the
-// provided FrameSystemInputs.
-func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInputs) (spatial.Pose, error) {
+// provided LinearInputs.
+func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap *LinearInputs) (spatial.Pose, error) {
 	var q spatial.Pose
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
 		// Transform() gives FROM q TO parent. Add new transforms to the left.
@@ -620,7 +620,7 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// NewZeroInputs returns a zeroed input map ensuring all frames have inputs.
+// NewZeroInputs returns a zeroed LinearInputs ensuring all frames have inputs.
 func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	positions := make(FrameSystemInputs)
 	for _, fn := range fs.FrameNames() {
@@ -632,33 +632,49 @@ func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	return positions
 }
 
+func NewZeroLinearInputs(fs *FrameSystem) *LinearInputs {
+	positions := NewLinearInputs()
+	for _, fn := range fs.FrameNames() {
+		frame := fs.Frame(fn)
+		if frame != nil {
+			positions.Put(fn, make([]Input, len(frame.DoF())))
+		}
+	}
+	return positions
+}
+
 // InterpolateFS interpolates.
-func InterpolateFS(fs *FrameSystem, from, to FrameSystemInputs, by float64) (FrameSystemInputs, error) {
-	interp := make(FrameSystemInputs)
-	for fn, fromInputs := range from {
+func InterpolateFS(fs *FrameSystem, from, to *LinearInputs, by float64) (*LinearInputs, error) {
+	interp := NewLinearInputs()
+	for fn, fromInputs := range from.Items() {
 		if len(fromInputs) == 0 {
 			continue
 		}
+
 		frame := fs.Frame(fn)
 		if frame == nil {
 			return nil, NewFrameMissingError(fn)
 		}
-		toInputs, ok := to[fn]
-		if !ok {
+
+		toInputs := to.Get(fn)
+		if toInputs == nil {
 			return nil, fmt.Errorf("frame with name %s not found in `to` interpolation inputs", fn)
 		}
+
 		interpInputs, err := frame.Interpolate(fromInputs, toInputs, by)
 		if err != nil {
 			return nil, err
 		}
-		interp[fn] = interpInputs
+
+		interp.Put(fn, interpInputs)
 	}
+
 	return interp, nil
 }
 
 // FrameSystemToPCD takes in a framesystem and returns a map where all elements are
 // the point representation of their geometry type with respect to the world.
-func FrameSystemToPCD(system *FrameSystem, inputs FrameSystemInputs, logger logging.Logger) (map[string][]r3.Vector, error) {
+func FrameSystemToPCD(system *FrameSystem, inputs *LinearInputs, logger logging.Logger) (map[string][]r3.Vector, error) {
 	vectorMap := make(map[string][]r3.Vector)
 	geometriesInWorldFrame, err := FrameSystemGeometries(system, inputs)
 	if err != nil {
@@ -673,7 +689,7 @@ func FrameSystemToPCD(system *FrameSystem, inputs FrameSystemInputs, logger logg
 }
 
 // FrameSystemGeometries takes in a framesystem and returns a map where all elements are GeometriesInFrames with a World reference frame.
-func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[string]*GeometriesInFrame, error) {
+func FrameSystemGeometries(fs *FrameSystem, inputMap *LinearInputs) (map[string]*GeometriesInFrame, error) {
 	var errAll error
 	allGeometries := make(map[string]*GeometriesInFrame, 0)
 	for _, name := range fs.FrameNames() {

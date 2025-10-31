@@ -103,7 +103,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 
 		// Transform the current state to get the pose
 		currPose, err := fs.Transform(
-			from.Configuration,
+			&from.Configuration,
 			frame.NewZeroPoseInFrame(model.Name()),
 			frame.World,
 		)
@@ -238,7 +238,7 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
-	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, seedMap)
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, seedMap.ToLinearInputs())
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +314,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
-	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewZeroInputs(fs))
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewZeroLinearInputs(fs))
 	if err != nil {
 		return nil, err
 	}
@@ -388,7 +388,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
-	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewZeroInputs(fs))
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewZeroLinearInputs(fs))
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +454,7 @@ func testPlanner(t *testing.T, ctx context.Context, config planConfigConstructor
 	pc, err := newPlanContext(ctx, logger, request, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(ctx, pc, cfg.Start.structuredConfiguration, cfg.Goal.poses)
+	psc, err := newPlanSegmentContext(ctx, pc, cfg.Start.LinearConfiguration(), cfg.Goal.poses)
 	test.That(t, err, test.ShouldBeNil)
 
 	mp, err := newCBiRRTMotionPlanner(ctx, pc, psc)
@@ -469,8 +469,8 @@ func testPlanner(t *testing.T, ctx context.Context, config planConfigConstructor
 		_, err := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(
 			ctx,
 			&motionplan.SegmentFS{
-				StartConfiguration: nodes[j],
-				EndConfiguration:   nodes[j+1],
+				StartConfiguration: *nodes[j],
+				EndConfiguration:   *nodes[j+1],
 				FS:                 cfg.FS,
 			}, cfg.Options.Resolution)
 		test.That(t, err, test.ShouldBeNil)
@@ -660,7 +660,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	t.Parallel()
 	fs := makeTestFS(t)
-	positions := frame.NewZeroInputs(fs)
+	positions := frame.NewZeroLinearInputs(fs)
 	pointXarmGripper := spatialmath.NewPoseFromPoint(r3.Vector{157., -50, -288})
 	transformPoint, err := fs.Transform(
 		positions,
@@ -677,12 +677,12 @@ func TestArmAndGantrySolve(t *testing.T) {
 	plan, _, err := PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal1)}}},
-		StartState:     &PlanState{structuredConfiguration: positions},
+		StartState:     &PlanState{structuredConfiguration: positions.ToFrameSystemInputs()},
 		PlannerOptions: planOpts,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := fs.Transform(
-		plan.Trajectory()[len(plan.Trajectory())-1],
+		plan.Trajectory()[len(plan.Trajectory())-1].ToLinearInputs(),
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
 		frame.World,
 	)
@@ -699,7 +699,7 @@ func TestMultiArmSolve(t *testing.T) {
 	goals := frame.FrameSystemPoses{
 		"xArmVgripper": frame.NewPoseInFrame("urCamera", spatialmath.NewPose(r3.Vector{Z: 60}, &spatialmath.OrientationVectorDegrees{OZ: -1})),
 	}
-	goals, err := translateGoalsToWorldPosition(fs, positions, goals)
+	goals, err := translateGoalsToWorldPosition(fs, positions.ToLinearInputs(), goals)
 	test.That(t, err, test.ShouldBeNil)
 
 	planOpts, err := NewPlannerOptionsFromExtra(
@@ -716,7 +716,7 @@ func TestMultiArmSolve(t *testing.T) {
 
 	// Both frames should wind up at the goal relative to one another
 	solvedPose, err := fs.Transform(
-		plan.Trajectory()[len(plan.Trajectory())-1],
+		plan.Trajectory()[len(plan.Trajectory())-1].ToLinearInputs(),
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
 		"world",
 	)

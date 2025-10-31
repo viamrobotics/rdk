@@ -182,10 +182,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 		switch p.GoalMetricType {
 		case motionplan.PositionOnly:
 			metrics[frame] = motionplan.NewPositionOnlyMetric(goalInFrame.Pose())
-		case motionplan.SquaredNorm, motionplan.SquaredNormOptimized:
-			// `SquaredNormOpt` will work here, but there's no special
-			// optimization. `getGoalMetricLinear` must be called for heap allocation optimizations
-			// at the cost of limited frame system inputs.
+		case motionplan.SquaredNorm:
 			metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
 		case motionplan.ArcLengthConvergence:
 			metrics[frame] = motionplan.NewPoseFlexOVMetricConstructor(p.ArcLengthTolerance)(goalInFrame.Pose())
@@ -201,7 +198,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 			var currPose spatialmath.Pose
 
 			currTrans, err := state.FS.Transform(
-				state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
+				&state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
 			if err != nil {
 				panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",
 					state.FS.FrameNames(), frame, poseParent, err))
@@ -211,7 +208,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 
 			score += goalMetric(&motionplan.State{
 				Position:      currPose,
-				Configuration: state.Configuration[frame],
+				Configuration: state.Configuration.Get(frame),
 				Frame:         state.FS.Frame(frame),
 			})
 		}
@@ -219,45 +216,47 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 	}
 }
 
-func (p *PlannerOptions) getGoalMetricLinear(goal referenceframe.FrameSystemPoses) (motionplan.LinearFSMetric, error) {
-	if p.GoalMetricType != motionplan.SquaredNormOptimized {
-		//nolint
-		return nil, fmt.Errorf("May only call `getGoalMetricLinear` with a planner type of `SquaredNormOpt`")
-	}
-
-	metrics := map[string]motionplan.StateMetric{}
-	frames := map[string]string{}
-
-	for frame, goalInFrame := range goal {
-		frames[frame] = goalInFrame.Parent()
-		metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
-	}
-
-	return func(state *motionplan.LinearFS) float64 {
-		score := 0.
-		for frame, goalMetric := range metrics {
-			poseParent := frames[frame]
-			var currPose spatialmath.Pose
-
-			if p.GoalMetricType == motionplan.SquaredNormOptimized {
-				dq, err := state.FS.TransformOptLinear(state.Configuration, frame, poseParent)
-				if err != nil {
-					panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",
-						state.FS.FrameNames(), frame, poseParent, err))
-				}
-
-				currPose = &dq
-			} else {
-				panic("non comprenez")
-			}
-
-			score += goalMetric(&motionplan.State{
-				Position: currPose,
-			})
-		}
-		return score
-	}, nil
-}
+// TODO: Hopefully can remove?
+//
+// func (p *PlannerOptions) getGoalMetricLinear(goal referenceframe.FrameSystemPoses) (motionplan.LinearFSMetric, error) {
+//  	if p.GoalMetricType != motionplan.SquaredNormOptimized {
+//  		//nolint
+//  		return nil, fmt.Errorf("May only call `getGoalMetricLinear` with a planner type of `SquaredNormOpt`")
+//  	}
+//
+//  	metrics := map[string]motionplan.StateMetric{}
+//  	frames := map[string]string{}
+//
+//  	for frame, goalInFrame := range goal {
+//  		frames[frame] = goalInFrame.Parent()
+//  		metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
+//  	}
+//
+//  	return func(state *motionplan.LinearFS) float64 {
+//  		score := 0.
+//  		for frame, goalMetric := range metrics {
+//  			poseParent := frames[frame]
+//  			var currPose spatialmath.Pose
+//
+//  			if p.GoalMetricType == motionplan.SquaredNormOptimized {
+//  				dq, err := state.FS.TransformOptLinear(state.Configuration, frame, poseParent)
+//  				if err != nil {
+//  					panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",
+//  						state.FS.FrameNames(), frame, poseParent, err))
+//  				}
+//
+//  				currPose = &dq
+//  			} else {
+//  				panic("non comprenez")
+//  			}
+//
+//  			score += goalMetric(&motionplan.State{
+//  				Position: currPose,
+//  			})
+//  		}
+//  		return score
+//  	}, nil
+// }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
 func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {

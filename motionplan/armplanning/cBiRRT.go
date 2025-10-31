@@ -58,13 +58,13 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegme
 }
 
 // only used for testin.
-func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]referenceframe.FrameSystemInputs, error) {
+func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]*referenceframe.LinearInputs, error) {
 	initMaps, err := initRRTSolutions(ctx, mp.psc)
 	if err != nil {
 		return nil, err
 	}
 
-	x := []referenceframe.FrameSystemInputs{mp.psc.start}
+	x := []*referenceframe.LinearInputs{mp.psc.start}
 
 	if initMaps.steps != nil {
 		x = append(x, initMaps.steps...)
@@ -99,10 +99,9 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	defer cancel()
 	startTime := time.Now()
 
-	var seed referenceframe.FrameSystemInputs
-
 	// initialize maps
 	// Pick a random (first in map) seed node to create the first interp node
+	var seed *referenceframe.LinearInputs
 	for sNode, parent := range rrtMaps.startMap {
 		if parent == nil {
 			seed = sNode.inputs
@@ -147,8 +146,8 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 
 		reachedDelta := mp.pc.configurationDistanceFunc(
 			&motionplan.SegmentFS{
-				StartConfiguration: map1reached.inputs,
-				EndConfiguration:   map2reached.inputs,
+				StartConfiguration: *map1reached.inputs,
+				EndConfiguration:   *map2reached.inputs,
 			},
 		)
 
@@ -162,8 +161,8 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 			map1reached, map2reached = tryExtend(target)
 
 			reachedDelta = mp.pc.configurationDistanceFunc(&motionplan.SegmentFS{
-				StartConfiguration: map1reached.inputs,
-				EndConfiguration:   map2reached.inputs,
+				StartConfiguration: *map1reached.inputs,
+				EndConfiguration:   *map2reached.inputs,
 			})
 		}
 
@@ -211,9 +210,9 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	for i := 0; i < maxExtendIter; i++ {
 		configDistMetric := mp.pc.configurationDistanceFunc
 		dist := configDistMetric(
-			&motionplan.SegmentFS{StartConfiguration: near.inputs, EndConfiguration: target.inputs})
+			&motionplan.SegmentFS{StartConfiguration: *near.inputs, EndConfiguration: *target.inputs})
 		oldDist := configDistMetric(
-			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: target.inputs})
+			&motionplan.SegmentFS{StartConfiguration: *oldNear.inputs, EndConfiguration: *target.inputs})
 
 		switch {
 		case dist < mp.pc.planOpts.InputIdentDist:
@@ -233,7 +232,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 		}
 
 		nearDist := mp.pc.configurationDistanceFunc(
-			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: newNear})
+			&motionplan.SegmentFS{StartConfiguration: *oldNear.inputs, EndConfiguration: *newNear})
 
 		if nearDist < math.Pow(mp.pc.planOpts.InputIdentDist, 3) {
 			if !doubled {
@@ -266,8 +265,8 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 func (mp *cBiRRTMotionPlanner) constrainNear(
 	ctx context.Context,
 	seedInputs,
-	target referenceframe.FrameSystemInputs,
-) referenceframe.FrameSystemInputs {
+	target *referenceframe.LinearInputs,
+) *referenceframe.LinearInputs {
 	for i := 0; i < maxNearIter; i++ {
 		select {
 		case <-ctx.Done():
@@ -276,8 +275,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		newArc := &motionplan.SegmentFS{
-			StartConfiguration: seedInputs,
-			EndConfiguration:   target,
+			StartConfiguration: *seedInputs,
+			EndConfiguration:   *target,
 			FS:                 mp.pc.fs,
 		}
 
@@ -287,13 +286,10 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return target
 		}
 
-		linearSeed, err := mp.pc.lfs.mapToSlice(target)
-		if err != nil {
-			mp.pc.logger.Infof("constrainNear fail (mapToSlice): %v", err)
-			return nil
-		}
-
-		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent, mp.pc.linearizeFSmetric(mp.psc.checker.PathMetric()), [][]float64{linearSeed}, .25)
+		linearSeed := target.GetLinearizedInputs()
+		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent,
+			mp.psc.pc.linearizeFSmetric(mp.psc.checker.PathMetric()),
+			[][]float64{linearSeed}, .25)
 		if err != nil {
 			mp.pc.logger.Debugf("constrainNear fail (DoSolve): %v", err)
 			return nil
@@ -303,17 +299,17 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return nil
 		}
 
-		solutionMap, err := mp.pc.lfs.sliceToMap(solutions[0])
+		solutionMap, err := mp.psc.pc.lis.FloatsToInputs(solutions[0])
 		if err != nil {
-			mp.pc.logger.Infof("constrainNear fail (sliceToMap): %v", err)
+			mp.pc.logger.Infof("constrainNear fail (FloatsToInputs): %v", err)
 			return nil
 		}
 
 		failpos, err := mp.psc.checker.CheckSegmentAndStateValidityFS(
 			ctx,
 			&motionplan.SegmentFS{
-				StartConfiguration: seedInputs,
-				EndConfiguration:   solutionMap,
+				StartConfiguration: *seedInputs,
+				EndConfiguration:   *solutionMap,
 				FS:                 mp.pc.fs,
 			},
 			mp.pc.planOpts.Resolution,
@@ -323,13 +319,13 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 		if failpos != nil {
 			dist := mp.pc.configurationDistanceFunc(&motionplan.SegmentFS{
-				StartConfiguration: target,
+				StartConfiguration: *target,
 				EndConfiguration:   failpos.EndConfiguration,
 			})
 			if dist > mp.pc.planOpts.InputIdentDist {
 				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
-				seedInputs = failpos.StartConfiguration
-				target = failpos.EndConfiguration
+				seedInputs = &failpos.StartConfiguration
+				target = &failpos.EndConfiguration
 			}
 		} else {
 			return nil
@@ -390,15 +386,15 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 
 	percent := min(1, float64(sampleNum)/1000.0)
 
-	newInputs := make(referenceframe.FrameSystemInputs)
-	for name, inputs := range rSeed.inputs {
+	newInputs := referenceframe.NewLinearInputs()
+	for name, inputs := range rSeed.inputs.Items() {
 		f := mp.pc.fs.Frame(name)
 		if f != nil && len(f.DoF()) > 0 {
 			q, err := referenceframe.RestrictedRandomFrameInputs(f, mp.pc.randseed, percent, inputs)
 			if err != nil {
 				return nil, err
 			}
-			newInputs[name] = q
+			newInputs.Put(name, q)
 		}
 	}
 	return newConfigurationNode(newInputs), nil

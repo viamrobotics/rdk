@@ -25,7 +25,7 @@ func TestLinearFrameSystemGoalThing(t *testing.T) {
 
 	toChange := lfs.inputChangeRatio(
 		mc,
-		req.StartState.structuredConfiguration,
+		req.StartState.LinearConfiguration(),
 		req.PlannerOptions.getGoalMetric(req.Goals[0].poses),
 		logger)
 

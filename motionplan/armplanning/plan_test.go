@@ -147,7 +147,9 @@ func TestPlanStep(t *testing.T) {
 // New:
 // - BenchmarkGoalMetric-16                 	  801975	      1247 ns/op	     800 B/op	      14 allocs/op
 // - BenchmarkGoalMetric-16                 	  940275	      1145 ns/op	     640 B/op	      11 allocs/op
-// - BenchmarkGoalMetric-24              	  312554	      3740 ns/op	     336 B/op	       6 allocs/op
+// - BenchmarkGoalMetric-24                 	  312554	      3740 ns/op	     336 B/op	       6 allocs/op
+// API Cleanup:
+// - BenchmarkGoalMetric-16                  	 1151996	      1039 ns/op	     544 B/op	      10 allocs/op
 func BenchmarkGoalMetric(b *testing.B) {
 	goalInFrame := referenceframe.NewPoseInFrame(
 		"world",
@@ -165,7 +167,7 @@ func BenchmarkGoalMetric(b *testing.B) {
 	goalInFrame.SetName("xarm6")
 
 	options := &PlannerOptions{
-		GoalMetricType: motionplan.SquaredNormOptimized,
+		GoalMetricType: motionplan.SquaredNorm,
 	}
 
 	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
@@ -176,20 +178,23 @@ func BenchmarkGoalMetric(b *testing.B) {
 	err = fs.AddFrame(armModel, fs.World())
 	test.That(b, err, test.ShouldBeNil)
 
-	metricFn, err := options.getGoalMetricLinear(referenceframe.FrameSystemPoses{"xarm6": goalInFrame})
+	metricFn := options.getGoalMetric(referenceframe.FrameSystemPoses{"xarm6": goalInFrame})
 	test.That(b, err, test.ShouldBeNil)
 
-	inps := []referenceframe.Input{
+	inps := *referenceframe.NewLinearInputs()
+	inps.Put("xarm6", []referenceframe.Input{
 		-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
-	}
-	ans := metricFn(&motionplan.LinearFS{
+	})
+
+	// TODO: create a single `StateFS` object for all calls?
+	ans := metricFn(&motionplan.StateFS{
 		Configuration: inps,
 		FS:            fs,
 	})
 	test.That(b, ans, test.ShouldAlmostEqual, 6.1075976675485745e+06)
 
 	for b.Loop() {
-		metricFn(&motionplan.LinearFS{
+		metricFn(&motionplan.StateFS{
 			Configuration: inps,
 			FS:            fs,
 		})
@@ -268,22 +273,6 @@ func BenchmarkArmTransform(b *testing.B) {
 	}
 }
 
-// New:
-// - BenchmarkRotTransform-16    	 2631051	       458.9 ns/op	     368 B/op	       4 allocs/op
-func BenchmarkRotTransform(b *testing.B) {
-	armModelI, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
-	test.That(b, err, test.ShouldBeNil)
-	armModel := armModelI.(*referenceframe.SimpleModel)
-
-	rotFrame := armModel.OrdTransforms()[0]
-	inp := []referenceframe.Input{-1.335}
-	for b.Loop() {
-		// Optimized code uses `(*rotationalFrame).InputToOrientation` under the hood. This avoids
-		// creating a pose/DQ on the heap when we can create a DQ on the stack directly.
-		rotFrame.Transform(inp)
-	}
-}
-
 // Old:
 // - BenchmarkLinearizeFSMetric-16          	 2150169	       531.7 ns/op	     864 B/op	      11 allocs/op
 // Old + No Spans:
@@ -317,11 +306,11 @@ func BenchmarkLinearizeFSMetric(b *testing.B) {
 		-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
 	}
 
-	fsInps, err := pc.lfs.sliceToMap(inps)
+	fsInps, err := pc.lis.FloatsToInputs(inps)
 	test.That(b, err, test.ShouldBeNil)
 
 	// Not useful if the code gets the wrong answer.
-	test.That(b, fsInps, test.ShouldResemble, referenceframe.FrameSystemInputs(
+	test.That(b, fsInps.ToFrameSystemInputs(), test.ShouldResemble, referenceframe.FrameSystemInputs(
 		map[string][]referenceframe.Input{
 			"xarm6": {
 				-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
@@ -329,17 +318,10 @@ func BenchmarkLinearizeFSMetric(b *testing.B) {
 		},
 	))
 
-	const newCode = false
 	var minFunc ik.CostFunc
-	if newCode {
-		minFunc = pc.linearizeFSmetricOpt(func(_ *motionplan.LinearFS) float64 {
-			return 0.0
-		})
-	} else {
-		minFunc = pc.linearizeFSmetric(func(_ *motionplan.StateFS) float64 {
-			return 0.0
-		})
-	}
+	minFunc = pc.linearizeFSmetric(func(_ *motionplan.StateFS) float64 {
+		return 0.0
+	})
 
 	for b.Loop() {
 		minFunc(ctx, inps)

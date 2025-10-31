@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -16,6 +17,7 @@ import (
 type planContext struct {
 	fs  *referenceframe.FrameSystem
 	lfs *linearizedFrameSystem
+	lis *referenceframe.LinearInputsSchema
 
 	boundingRegions []spatialmath.Geometry
 
@@ -47,6 +49,10 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 	if err != nil {
 		return nil, err
 	}
+	pc.lis, err = referenceframe.InputSchemaFromFrameSystem(pc.fs)
+	if err != nil {
+		return nil, err
+	}
 
 	pc.boundingRegions, err = referenceframe.NewGeometriesFromProto(request.BoundingRegions)
 	if err != nil {
@@ -56,23 +62,15 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 	return pc, nil
 }
 
-// linearize the goal metric for use with solvers.
-// Since our solvers operate on arrays of floats, there needs to be a way to map bidirectionally between the framesystem configuration
-// of FrameSystemInputs and the []float64 that the solver expects. This is that mapping.
-func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) func(context.Context, []float64) float64 {
-	return func(ctx context.Context, query []float64) float64 {
-		inputs, err := pc.lfs.sliceToMap(query)
+func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) ik.CostFunc {
+	return func(ctx context.Context, linearizedInputs []float64) float64 {
+		conf, err := pc.lis.FloatsToInputsStack(linearizedInputs)
 		if err != nil {
 			return math.Inf(1)
 		}
-		return metric(&motionplan.StateFS{Configuration: inputs, FS: pc.fs})
-	}
-}
 
-func (pc *planContext) linearizeFSmetricOpt(metric motionplan.LinearFSMetric) func(context.Context, []float64) float64 {
-	return func(ctx context.Context, query []float64) float64 {
-		return metric(&motionplan.LinearFS{
-			Configuration: query,
+		return metric(&motionplan.StateFS{
+			Configuration: conf,
 			FS:            pc.fs,
 		})
 	}
@@ -81,7 +79,7 @@ func (pc *planContext) linearizeFSmetricOpt(metric motionplan.LinearFSMetric) fu
 type planSegmentContext struct {
 	pc *planContext
 
-	start    referenceframe.FrameSystemInputs
+	start    *referenceframe.LinearInputs
 	origGoal referenceframe.FrameSystemPoses // goals are defined in frames willy nilly
 	goal     referenceframe.FrameSystemPoses // all in world
 
@@ -91,7 +89,7 @@ type planSegmentContext struct {
 	checker      *motionplan.ConstraintChecker
 }
 
-func newPlanSegmentContext(ctx context.Context, pc *planContext, start referenceframe.FrameSystemInputs,
+func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenceframe.LinearInputs,
 	goal referenceframe.FrameSystemPoses,
 ) (*planSegmentContext, error) {
 	_, span := trace.StartSpan(ctx, "newPlanSegmentContext")
@@ -103,7 +101,6 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start reference
 	}
 
 	var err error
-
 	psc.goal, err = translateGoalsToWorldPosition(pc.fs, psc.start, psc.origGoal)
 	if err != nil {
 		return nil, err
@@ -146,14 +143,14 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start reference
 	return psc, nil
 }
 
-func (psc *planSegmentContext) checkPath(ctx context.Context, start, end referenceframe.FrameSystemInputs) error {
+func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs) error {
 	_, span := trace.StartSpan(ctx, "checkPath")
 	defer span.End()
 	_, err := psc.checker.CheckSegmentAndStateValidityFS(
 		ctx,
 		&motionplan.SegmentFS{
-			StartConfiguration: start,
-			EndConfiguration:   end,
+			StartConfiguration: *start,
+			EndConfiguration:   *end,
 			FS:                 psc.pc.fs,
 		},
 		psc.pc.planOpts.Resolution,
@@ -161,18 +158,18 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end referen
 	return err
 }
 
-func (psc *planSegmentContext) checkInputs(ctx context.Context, inputs referenceframe.FrameSystemInputs) bool {
+func (psc *planSegmentContext) checkInputs(ctx context.Context, inputs *referenceframe.LinearInputs) bool {
 	return psc.checker.CheckStateFSConstraints(
 		ctx,
 		&motionplan.StateFS{
-			Configuration: inputs,
+			Configuration: *inputs,
 			FS:            psc.pc.fs,
 		}) == nil
 }
 
 func translateGoalsToWorldPosition(
 	fs *referenceframe.FrameSystem,
-	start referenceframe.FrameSystemInputs,
+	start *referenceframe.LinearInputs,
 	goal referenceframe.FrameSystemPoses,
 ) (referenceframe.FrameSystemPoses, error) {
 	alteredGoals := referenceframe.FrameSystemPoses{}

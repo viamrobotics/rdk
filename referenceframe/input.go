@@ -97,13 +97,22 @@ func (inputs FrameSystemInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses,
 	// Compute poses from configuration using the FrameSystem
 	computedPoses := make(FrameSystemPoses)
 	for _, frameName := range fs.FrameNames() {
-		pif, err := fs.Transform(inputs, NewZeroPoseInFrame(frameName), World)
+		pif, err := fs.Transform(inputs.ToLinearInputs(), NewZeroPoseInFrame(frameName), World)
 		if err != nil {
 			return nil, err
 		}
 		computedPoses[frameName] = pif.(*PoseInFrame)
 	}
 	return computedPoses, nil
+}
+
+func (inputs FrameSystemInputs) ToLinearInputs() *LinearInputs {
+	ret := NewLinearInputs()
+	for frameName, inputs := range inputs {
+		ret.Put(frameName, inputs)
+	}
+
+	return ret
 }
 
 // InputsL2Distance returns the square of the two-norm (the sqrt of the sum of the squares) between two Input sets.

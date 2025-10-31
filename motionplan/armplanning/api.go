@@ -77,6 +77,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 			return err
 		}
 	}
+
 	// if we have start poses, check we have valid frames
 	for fName, pif := range req.StartState.poses {
 		if req.FrameSystem.Frame(fName) == nil {
@@ -253,7 +254,7 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 		return nil, meta, err
 	}
 
-	traj, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
+	trajAsInps, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
 	if err != nil {
 		if request.PlannerOptions.ReturnPartialPlan {
 			meta.Partial = true
@@ -265,7 +266,7 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 
 	meta.GoalsProcessed = goalsProcessed
 
-	t, err := motionplan.NewSimplePlanFromTrajectory(traj, request.FrameSystem)
+	t, err := motionplan.NewSimplePlanFromTrajectory(trajAsInps, request.FrameSystem)
 	if err != nil {
 		return nil, meta, err
 	}
