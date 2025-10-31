@@ -188,7 +188,7 @@ type ImageMetadata struct {
 //
 //	myCamera, err := camera.FromProvider(machine, "my_camera")
 //
-//	images, metadata, err := myCamera.Images(context.Background(), nil)
+//	images, metadata, err := myCamera.Images(context.Background(), nil, nil)
 //
 // For more information, see the [Images method docs].
 //
