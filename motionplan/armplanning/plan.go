@@ -14,8 +14,8 @@ import (
 // PlanState is a struct which holds both a referenceframe.FrameSystemPoses and a configuration.
 // This is intended to be used as start or goal states for plans. Either field may be nil.
 type PlanState struct {
-	poses         referenceframe.FrameSystemPoses
-	configuration referenceframe.FrameSystemInputs
+	poses                   referenceframe.FrameSystemPoses
+	structuredConfiguration referenceframe.FrameSystemInputs
 }
 
 type planStateJSON struct {
@@ -56,6 +56,10 @@ func (p *PlanState) Poses() referenceframe.FrameSystemPoses {
 // Configuration returns the configuration of the PlanState.
 func (p *PlanState) Configuration() referenceframe.FrameSystemInputs {
 	return p.configuration
+}
+
+func (p *PlanState) LinearConfiguration() *referenceframe.LinearInputs {
+	return nil
 }
 
 // ComputePoses returns the poses of a PlanState if they are populated, or computes them using the given FrameSystem if not.
