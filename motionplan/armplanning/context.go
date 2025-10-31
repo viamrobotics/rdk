@@ -117,7 +117,7 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 	}
 
 	// TODO: this is duplicated work as it's also done in motionplan.NewConstraintChecker
-	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pc.fs, start)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pc.fs, start.ToFrameSystemInputs())
 	if err != nil {
 		return nil, err
 	}

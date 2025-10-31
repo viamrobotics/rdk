@@ -616,7 +616,7 @@ func InterpolateFS(fs *FrameSystem, from, to *LinearInputs, by float64) (*Linear
 
 // FrameSystemToPCD takes in a framesystem and returns a map where all elements are
 // the point representation of their geometry type with respect to the world.
-func FrameSystemToPCD(system *FrameSystem, inputs *LinearInputs, logger logging.Logger) (map[string][]r3.Vector, error) {
+func FrameSystemToPCD(system *FrameSystem, inputs FrameSystemInputs, logger logging.Logger) (map[string][]r3.Vector, error) {
 	vectorMap := make(map[string][]r3.Vector)
 	geometriesInWorldFrame, err := FrameSystemGeometries(system, inputs)
 	if err != nil {
@@ -631,8 +631,10 @@ func FrameSystemToPCD(system *FrameSystem, inputs *LinearInputs, logger logging.
 }
 
 // FrameSystemGeometries takes in a framesystem and returns a map where all elements are GeometriesInFrames with a World reference frame.
-func FrameSystemGeometries(fs *FrameSystem, inputMap *LinearInputs) (map[string]*GeometriesInFrame, error) {
+func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[string]*GeometriesInFrame, error) {
 	var errAll error
+	linearInputs := inputMap.ToLinearInputs()
+
 	allGeometries := make(map[string]*GeometriesInFrame, 0)
 	for _, name := range fs.FrameNames() {
 		frame := fs.Frame(name)
@@ -641,13 +643,15 @@ func FrameSystemGeometries(fs *FrameSystem, inputMap *LinearInputs) (map[string]
 			errAll = multierr.Append(errAll, err)
 			continue
 		}
+
 		geosInFrame, err := frame.Geometries(inputs)
 		if err != nil {
 			errAll = multierr.Append(errAll, err)
 			continue
 		}
+
 		if len(geosInFrame.Geometries()) > 0 {
-			transformed, err := fs.Transform(inputMap, geosInFrame, World)
+			transformed, err := fs.Transform(linearInputs, geosInFrame, World)
 			if err != nil {
 				errAll = multierr.Append(errAll, err)
 				continue
