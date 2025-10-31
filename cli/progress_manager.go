@@ -266,6 +266,8 @@ func (pm *ProgressManager) CompleteWithMessage(stepID, message string) error {
 	if pm.currentSpinner != nil {
 		pm.currentSpinner.Success(" " + prefix + message + elapsed)
 		pm.currentSpinner = nil
+		// Give the spinner goroutine time to finish to avoid race conditions
+		time.Sleep(10 * time.Millisecond)
 	} else {
 		// If no spinner is active, just print the success message
 		// Parent steps (IndentLevel 0) don't need extra leading space since pterm adds it
@@ -327,6 +329,8 @@ func (pm *ProgressManager) failWithMessageLocked(step *Step, message string) {
 	if pm.currentSpinner != nil {
 		pm.currentSpinner.Fail(" " + prefix + message)
 		pm.currentSpinner = nil
+		// Give the spinner goroutine time to finish to avoid race conditions
+		time.Sleep(10 * time.Millisecond)
 	} else {
 		// If no spinner is active, just print the error message
 		// Parent steps (IndentLevel 0) don't need extra leading space since pterm adds it
@@ -364,5 +368,7 @@ func (pm *ProgressManager) Stop() {
 	if pm.currentSpinner != nil {
 		_ = pm.currentSpinner.Stop() //nolint:errcheck
 		pm.currentSpinner = nil
+		// Give the spinner goroutine time to finish to avoid race conditions
+		time.Sleep(10 * time.Millisecond)
 	}
 }
