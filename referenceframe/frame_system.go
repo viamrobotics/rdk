@@ -215,7 +215,7 @@ func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, ds
 		return nil, NewFrameMissingError(dst)
 	}
 
-	var tfParent *PoseInFrame
+	var tfParentDQ spatial.DualQuaternion
 	var err error
 	if _, ok := object.(*GeometriesInFrame); ok && src != World {
 		// We don't want to apply the final transformation when that is taken care of by the geometries
@@ -227,14 +227,14 @@ func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, ds
 		if !exists {
 			return nil, NewParentFrameNilError(srcFrame.Name())
 		}
-		tfParent, err = sfs.transformFromParent(inputs, sfs.Frame(parentName), sfs.Frame(dst))
+		tfParentDQ, err = sfs.transformFromParent(inputs, sfs.Frame(parentName), sfs.Frame(dst))
 	} else {
-		tfParent, err = sfs.transformFromParent(inputs, srcFrame, sfs.Frame(dst))
+		tfParentDQ, err = sfs.transformFromParent(inputs, srcFrame, sfs.Frame(dst))
 	}
 	if err != nil {
 		return nil, err
 	}
-	return object.Transform(tfParent), nil
+	return object.Transform(&PoseInFrame{dst, &tfParentDQ, src}), nil
 }
 
 // TransformToDQ is like `Transform` except it outputs a `DualQuaternion` that can be converted into
@@ -260,7 +260,7 @@ func (sfs *FrameSystem) TransformToDQ(inputs *LinearInputs, frame, parent string
 		return spatial.DualQuaternion{}, err
 	}
 
-	ret := tfParent.pose.(*spatial.DualQuaternion).Transformation(dualquat.Number{
+	ret := tfParent.Transformation(dualquat.Number{
 		Real: quat.Number{Real: 1},
 		Dual: quat.Number{},
 	})
@@ -439,21 +439,21 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 }
 
 // Returns the relative pose between the parent and the destination frame.
-func (sfs *FrameSystem) transformFromParent(inputs *LinearInputs, src, dst Frame) (*PoseInFrame, error) {
+func (sfs *FrameSystem) transformFromParent(inputs *LinearInputs, src, dst Frame) (spatial.DualQuaternion, error) {
 	dstToWorld, err := sfs.GetFrameToWorldTransform(inputs, dst)
 	if err != nil {
-		return nil, err
+		return spatial.DualQuaternion{}, err
 	}
 
 	srcToWorld, err := sfs.GetFrameToWorldTransform(inputs, src)
 	if err != nil {
-		return nil, err
+		return spatial.DualQuaternion{}, err
 	}
 
 	// transform from source to world, world to target parent
-	invA := spatial.DualQuaternion{dualquat.ConjQuat(dstToWorld)}
-	result := spatial.DualQuaternion{invA.Transformation(srcToWorld)}
-	return NewPoseInFrame(dst.Name(), &result), nil
+	invA := spatial.DualQuaternion{Number: dualquat.ConjQuat(dstToWorld)}
+	result := spatial.DualQuaternion{Number: invA.Transformation(srcToWorld)}
+	return result, nil
 }
 
 // composeTransforms assumes there is one moveable frame and its DoF is equal to the `inputs`

@@ -148,6 +148,7 @@ func TestPlanStep(t *testing.T) {
 // - BenchmarkGoalMetric-16                 	  801975	      1247 ns/op	     800 B/op	      14 allocs/op
 // - BenchmarkGoalMetric-16                 	  940275	      1145 ns/op	     640 B/op	      11 allocs/op
 // - BenchmarkGoalMetric-24                 	  312554	      3740 ns/op	     336 B/op	       6 allocs/op
+// - BenchmarkGoalMetric-16                    	 1214918         980.4 ns/op	     208 B/op	       4 allocs/op
 func BenchmarkGoalMetric(b *testing.B) {
 	goalInFrame := referenceframe.NewPoseInFrame(
 		"world",
