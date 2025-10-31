@@ -43,7 +43,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 	// end poses to create sets of seed and goal configurations. However, the blocker here is the
 	// lack of a "known good" configuration used to determine which obstacles are allowed to collide
 	// with one another.
-	if pm.request.StartState.configuration == nil {
+	if pm.request.StartState.structuredConfiguration == nil {
 		return nil, 0, errors.New("must populate start state configuration if not planning for 2d base/tpspace")
 	}
 
@@ -77,7 +77,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) (motionplan.Trajec
 			pm.logger.Debug(k, v)
 		}
 
-		if len(g.configuration) > 0 {
+		if len(g.structuredConfiguration) > 0 {
 			newTraj, err := pm.planToDirectJoints(ctx, traj[len(traj)-1], g)
 			if err != nil {
 				return traj, i, err
