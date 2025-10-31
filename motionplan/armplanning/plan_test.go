@@ -148,8 +148,6 @@ func TestPlanStep(t *testing.T) {
 // - BenchmarkGoalMetric-16                 	  801975	      1247 ns/op	     800 B/op	      14 allocs/op
 // - BenchmarkGoalMetric-16                 	  940275	      1145 ns/op	     640 B/op	      11 allocs/op
 // - BenchmarkGoalMetric-24                 	  312554	      3740 ns/op	     336 B/op	       6 allocs/op
-// API Cleanup:
-// - BenchmarkGoalMetric-16                  	 1151996	      1039 ns/op	     544 B/op	      10 allocs/op
 func BenchmarkGoalMetric(b *testing.B) {
 	goalInFrame := referenceframe.NewPoseInFrame(
 		"world",
@@ -198,6 +196,34 @@ func BenchmarkGoalMetric(b *testing.B) {
 			Configuration: inps,
 			FS:            fs,
 		})
+	}
+}
+
+// Not exactly an `armplanning` benchmark, but it's an important part of calling the scoring
+// metric. This can help isolate if scoring is slow because armplan scores are slow, or if its
+// because framesystem transformations are slow.
+func BenchmarkFSTransform(b *testing.B) {
+	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
+	test.That(b, err, test.ShouldBeNil)
+
+	// Create a temporary frame system for the transformation
+	fs := referenceframe.NewEmptyFrameSystem("")
+	err = fs.AddFrame(armModel, fs.World())
+	test.That(b, err, test.ShouldBeNil)
+
+	inputs := referenceframe.NewLinearInputs()
+	inputs.Put("xarm6", []referenceframe.Input{
+		-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
+	})
+
+	outputPose, err := fs.Transform(inputs, referenceframe.NewZeroPoseInFrame("xarm6"), "world")
+	test.That(b, err, test.ShouldBeNil)
+	test.That(b, fmt.Sprintf("%v", outputPose), test.ShouldEqual,
+		"parent: world, pose: {X:53.425180 Y:243.992738 Z:692.082423 OX:0.898026 OY:0.314087 OZ:0.308055 Theta:130.963386°}")
+
+	accumulator := referenceframe.NewZeroPoseInFrame("xarm6")
+	for b.Loop() {
+		fs.Transform(inputs, accumulator, "world")
 	}
 }
 

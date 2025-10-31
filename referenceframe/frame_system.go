@@ -237,11 +237,14 @@ func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, ds
 	return object.Transform(tfParent), nil
 }
 
-// TransformOptLinear is like TransformOpt, except:
-// - The input object cannot be a `GeometriesInFrame`.
-// - Requires the caller to pass in the exact slice of inputs for `frame`.
-// - Probably some other unknown assumptions.
-func (sfs *FrameSystem) TransformOptLinear(inputs []float64, frame, parent string) (
+// TransformToDQ is like `Transform` except it outputs a `DualQuaternion` that can be converted into
+// a `Pose`. The advantage of being more manual is to avoid memory allocations when unnecessary. As
+// only a pointer to a `DualQuaternion` satisfies the `Pose` interface.
+//
+// This also avoids an allocation by accepting a frame name as the input rather than a
+// `Transformable`. Saving the caller from making an allocation if the resulting pose is the only
+// desired output.
+func (sfs *FrameSystem) TransformToDQ(inputs *LinearInputs, frame, parent string) (
 	spatial.DualQuaternion, error,
 ) {
 	if !sfs.frameExists(frame) {
@@ -252,7 +255,7 @@ func (sfs *FrameSystem) TransformOptLinear(inputs []float64, frame, parent strin
 		return spatial.DualQuaternion{}, NewFrameMissingError(parent)
 	}
 
-	tfParent, err := sfs.transformFromParentLinear(inputs, sfs.Frame(frame), sfs.Frame(parent))
+	tfParent, err := sfs.transformFromParent(inputs, sfs.Frame(frame), sfs.Frame(parent))
 	if err != nil {
 		return spatial.DualQuaternion{}, err
 	}
@@ -380,22 +383,7 @@ func (sfs *FrameSystem) DivideFrameSystem(newRoot Frame) (*FrameSystem, error) {
 }
 
 // GetFrameToWorldTransform computes the position of src in the world frame based on inputMap.
-func (sfs *FrameSystem) GetFrameToWorldTransform(inputMap *LinearInputs, src Frame) (spatial.Pose, error) {
-	if !sfs.frameExists(src.Name()) {
-		return nil, NewFrameMissingError(src.Name())
-	}
-
-	// If src is nil it is interpreted as the world frame
-	if src == nil {
-		return spatial.NewZeroPose(), nil
-	}
-
-	return sfs.composeTransforms(src, inputMap)
-}
-
-// GetFrameToWorldTransformLinear is like GetFrameToWorldTransform but where the inputs slice is
-// exactly for the `src` frame.
-func (sfs *FrameSystem) GetFrameToWorldTransformLinear(inputs []float64, src Frame) (dualquat.Number, error) {
+func (sfs *FrameSystem) GetFrameToWorldTransform(inputs *LinearInputs, src Frame) (dualquat.Number, error) {
 	ret := dualquat.Number{
 		Real: quat.Number{Real: 1},
 		Dual: quat.Number{},
@@ -408,7 +396,7 @@ func (sfs *FrameSystem) GetFrameToWorldTransformLinear(inputs []float64, src Fra
 	// If src is nil it is interpreted as the world frame
 	var err error
 	if src != nil {
-		ret, err = sfs.composeTransformsLinear(src, inputs)
+		ret, err = sfs.composeTransforms(src, inputs.GetLinearizedInputs())
 		if err != nil {
 			return ret, err
 		}
@@ -451,30 +439,13 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 }
 
 // Returns the relative pose between the parent and the destination frame.
-func (sfs *FrameSystem) transformFromParent(inputMap *LinearInputs, src, dst Frame) (*PoseInFrame, error) {
-	dstToWorld, err := sfs.GetFrameToWorldTransform(inputMap, dst)
+func (sfs *FrameSystem) transformFromParent(inputs *LinearInputs, src, dst Frame) (*PoseInFrame, error) {
+	dstToWorld, err := sfs.GetFrameToWorldTransform(inputs, dst)
 	if err != nil {
 		return nil, err
 	}
 
-	srcToWorld, err := sfs.GetFrameToWorldTransform(inputMap, src)
-	if err != nil {
-		return nil, err
-	}
-
-	// transform from source to world, world to target parent
-	invA := spatial.DualQuaternion{dualquat.ConjQuat(dstToWorld.(*spatial.DualQuaternion).Number)}
-	result := spatial.DualQuaternion{invA.Transformation(srcToWorld.(*spatial.DualQuaternion).Number)}
-	return NewPoseInFrame(dst.Name(), &result), nil
-}
-
-func (sfs *FrameSystem) transformFromParentLinear(inputs []float64, src, dst Frame) (*PoseInFrame, error) {
-	dstToWorld, err := sfs.GetFrameToWorldTransformLinear(inputs, dst)
-	if err != nil {
-		return nil, err
-	}
-
-	srcToWorld, err := sfs.GetFrameToWorldTransformLinear(inputs, src)
+	srcToWorld, err := sfs.GetFrameToWorldTransform(inputs, src)
 	if err != nil {
 		return nil, err
 	}
@@ -485,38 +456,9 @@ func (sfs *FrameSystem) transformFromParentLinear(inputs []float64, src, dst Fra
 	return NewPoseInFrame(dst.Name(), &result), nil
 }
 
-// composeTransforms computes the transformation of the provide Frame to the World Frame, using the
-// provided LinearInputs.
-func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap *LinearInputs) (spatial.Pose, error) {
-	var q spatial.Pose
-	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
-		// Transform() gives FROM q TO parent. Add new transforms to the left.
-		inputs, err := inputMap.GetFrameInputs(frame)
-		if err != nil {
-			return nil, err
-		}
-
-		pose, err := frame.Transform(inputs)
-		if err != nil {
-			return nil, err
-		}
-
-		if q == nil {
-			q = pose
-		} else {
-			q = spatial.Compose(pose, q)
-		}
-		frame = sfs.Frame(sfs.parents[frame.Name()])
-	}
-	if q == nil {
-		return spatial.NewZeroPose(), nil
-	}
-	return q, nil
-}
-
-// composeTransformsLinear assumes there is one moveable frame and its DoF is equal to the `inputs`
+// composeTransforms assumes there is one moveable frame and its DoF is equal to the `inputs`
 // length.
-func (sfs *FrameSystem) composeTransformsLinear(frame Frame, inputs []float64) (dualquat.Number, error) {
+func (sfs *FrameSystem) composeTransforms(frame Frame, inputs []float64) (dualquat.Number, error) {
 	ret := dualquat.Number{
 		Real: quat.Number{Real: 1},
 		Dual: quat.Number{},

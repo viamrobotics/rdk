@@ -197,14 +197,13 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 			poseParent := frames[frame]
 			var currPose spatialmath.Pose
 
-			currTrans, err := state.FS.Transform(
-				state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
+			dq, err := state.FS.TransformToDQ(state.Configuration, frame, poseParent)
 			if err != nil {
 				panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",
 					state.FS.FrameNames(), frame, poseParent, err))
 			}
 
-			currPose = currTrans.(*referenceframe.PoseInFrame).Pose()
+			currPose = &dq
 
 			score += goalMetric(&motionplan.State{
 				Position:      currPose,

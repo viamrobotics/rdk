@@ -203,21 +203,22 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	// 2) the frame of the thing we want to move
 	// 3) the frame of the actuating component
 
-	f2w1, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalPIF.Parent()))
+	f2w1DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalPIF.Parent()))
 	if err != nil {
 		return "", nil, err
 	}
-	f2w2, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalFrame))
+	f2w2DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalFrame))
 	if err != nil {
 		return "", nil, err
 	}
-	f2w3, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(frame.Name()))
+	f2w3DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(frame.Name()))
 	if err != nil {
 		return "", nil, err
 	}
 
-	goalInWorld := spatialmath.Compose(goalPIF.Pose(), f2w1)
-	delta := spatialmath.Compose(f2w2, spatialmath.PoseInverse(f2w3))
+	goalInWorld := spatialmath.Compose(goalPIF.Pose(), &spatialmath.DualQuaternion{f2w1DQ})
+	delta := spatialmath.Compose(&spatialmath.DualQuaternion{f2w2DQ},
+		spatialmath.PoseInverse(&spatialmath.DualQuaternion{f2w3DQ}))
 
 	newPose := spatialmath.Compose(goalInWorld, delta)
 
