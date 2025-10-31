@@ -273,7 +273,7 @@ func ModuleBuildLogsAction(c *cli.Context, args moduleBuildLogsArgs) error {
 
 	var statuses map[string]jobStatus
 	if shouldWait {
-		statuses, err = client.waitForBuildToFinish(buildID, platform, nil, buildID)
+		statuses, err = client.waitForBuildToFinish(buildID, platform, nil)
 		if err != nil {
 			return err
 		}
@@ -429,7 +429,6 @@ func (c *viamClient) waitForBuildToFinish(
 	buildID string,
 	platform string,
 	pm *ProgressManager,
-	displayBuildID string,
 ) (map[string]jobStatus, error) {
 	// If the platform is not empty, we should check that the platform is actually present on the build
 	// this is mostly to protect against users misspelling the platform
@@ -472,10 +471,10 @@ func (c *viamClient) waitForBuildToFinish(
 					statuses[job.Platform] = status
 
 					// Handle progress spinner for build steps
-					if pm != nil && job.BuildStep != nil && job.GetBuildStep() != "" && job.GetBuildStep() != lastBuildStep {
+					if pm != nil && job.GetBuildStep() != "" && job.GetBuildStep() != lastBuildStep {
 						// On first build step, complete "build-start" with the build ID message
 						if !buildStartCompleted {
-							_ = pm.CompleteWithMessage("build-start", fmt.Sprintf("Build started (ID: %s)", displayBuildID)) //nolint:errcheck
+							_ = pm.CompleteWithMessage("build-start", fmt.Sprintf("Build started (ID: %s)", buildID)) //nolint:errcheck
 							buildStartCompleted = true
 						}
 
@@ -510,7 +509,7 @@ func (c *viamClient) waitForBuildToFinish(
 				if pm != nil {
 					// If build-start was never completed (no build steps received), complete it now
 					if !buildStartCompleted {
-						_ = pm.CompleteWithMessage("build-start", fmt.Sprintf("Build started (ID: %s)", displayBuildID)) //nolint:errcheck
+						_ = pm.CompleteWithMessage("build-start", fmt.Sprintf("Build started (ID: %s)", buildID)) //nolint:errcheck
 					}
 					// Complete the last build step
 					if currentStepID != "" {
@@ -995,7 +994,7 @@ func (c *viamClient) moduleCloudReload(
 
 	// ensure the build completes before we try to download and use it
 	// waitForBuildToFinish will complete "build-start" when first build step is received
-	statuses, err := c.waitForBuildToFinish(buildID, platform, pm, buildID)
+	statuses, err := c.waitForBuildToFinish(buildID, platform, pm)
 	if err != nil {
 		_ = pm.FailWithMessage("build", "Building...") //nolint:errcheck
 		return nil, err
