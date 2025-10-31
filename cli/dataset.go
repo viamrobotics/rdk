@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
+	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 )
 
 const (
@@ -251,7 +251,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines bool, 
 				downloadErr = c.downloadBinary(dst, timeout, id)
 				datasetFilePath = filepath.Join(dst, dataDir)
 			}
-			datasetErr := binaryDataToJSONLines(c.c.Context, c.dataClient, datasetFilePath, datasetFile, id)
+			datasetErr := binaryDataToJSONLines(c.c.Context, c.dataClient, c.mlTrainingClient, datasetFilePath, datasetFile, id)
 
 			return multierr.Combine(downloadErr, datasetErr)
 		},
@@ -291,13 +291,14 @@ type BBoxAnnotation struct {
 	YMaxNormalized  float64 `json:"y_max_normalized"`
 }
 
-func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient, dst string, file *os.File,
+func binaryDataToJSONLines(ctx context.Context, dataClient datapb.DataServiceClient,
+	mlTrainingClient mltrainingpb.MLTrainingServiceClient, dst string, file *os.File,
 	id string,
 ) error {
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
 	for count := 0; count < maxRetryCount; count++ {
-		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+		resp, err = dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
 			BinaryDataIds: []string{id},
 			IncludeBinary: false,
 		})
@@ -315,64 +316,36 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 	}
 	datum := data[0]
 
-	// Make JSONLines
-	var jsonl interface{}
+	fmt.Println("Binary metadata: %v", datum.GetMetadata())
+	fmt.Println("Binary metadata file name: %v", datum.GetMetadata().GetFileName())
 
-	annotations := []Annotation{}
-	for _, tag := range datum.GetMetadata().GetCaptureMetadata().GetTags() {
-		annotations = append(annotations, Annotation{AnnotationLabel: tag})
-	}
-	classificationsAnnotations := datum.GetMetadata().GetAnnotations().GetClassifications()
-	for _, classification := range classificationsAnnotations {
-		annotations = append(annotations, Annotation{AnnotationLabel: classification.GetLabel()})
-	}
-	bboxAnnotations := convertBoundingBoxes(datum.GetMetadata().GetAnnotations().GetBboxes())
-
-	fileName := filepath.Join(dst, filenameForDownload(datum.GetMetadata()))
-	ext := datum.GetMetadata().GetFileExt()
-	// If the file is gzipped, unzip.
-	if ext != gzFileExt && filepath.Ext(fileName) != ext {
-		// If the file name did not already include the extension (e.g. for data capture files), add it.
-		// Don't do this for files that we're unzipping.
-		fileName += ext
-	}
-
-	captureMD := datum.GetMetadata().GetCaptureMetadata()
-	jsonl = ImageMetadata{
-		ImagePath:                 fileName,
-		ClassificationAnnotations: annotations,
-		BBoxAnnotations:           bboxAnnotations,
-		Timestamp:                 datum.GetMetadata().GetTimeRequested().AsTime().String(),
-		BinaryDataID:              datum.GetMetadata().GetBinaryDataId(),
-		OrganizationID:            captureMD.GetOrganizationId(),
-		LocationID:                captureMD.GetLocationId(),
-		PartID:                    captureMD.GetPartId(),
-		ComponentName:             captureMD.GetComponentName(),
-	}
-
-	line, err := json.Marshal(jsonl)
+	jsonLines, err := mlTrainingClient.BinaryMetadataToJSONLines(ctx, &mltrainingpb.BinaryMetadataToJSONLinesRequest{
+		BinaryMetadata: []*datapb.BinaryMetadata{datum.GetMetadata()},
+		Path:           dst,
+	})
 	if err != nil {
-		return errors.Wrap(err, "error formatting JSON")
+		return errors.Wrapf(err, "error converting binary metadata to JSON lines")
 	}
-	line = append(line, "\n"...)
-	_, err = file.Write(line)
-	if err != nil {
-		return errors.Wrap(err, "error writing to file")
+	for _, jsonLine := range jsonLines.GetJsonLines() {
+		_, err = file.WriteString(jsonLine + "\n")
+		if err != nil {
+			return errors.Wrapf(err, "error writing to file")
+		}
 	}
 
 	return nil
 }
 
-func convertBoundingBoxes(protoBBoxes []*datapb.BoundingBox) []BBoxAnnotation {
-	bboxes := make([]BBoxAnnotation, len(protoBBoxes))
-	for i, box := range protoBBoxes {
-		bboxes[i] = BBoxAnnotation{
-			AnnotationLabel: box.GetLabel(),
-			XMinNormalized:  box.GetXMinNormalized(),
-			XMaxNormalized:  box.GetXMaxNormalized(),
-			YMinNormalized:  box.GetYMinNormalized(),
-			YMaxNormalized:  box.GetYMaxNormalized(),
-		}
-	}
-	return bboxes
-}
+// func convertBoundingBoxes(protoBBoxes []*datapb.BoundingBox) []BBoxAnnotation {
+// 	bboxes := make([]BBoxAnnotation, len(protoBBoxes))
+// 	for i, box := range protoBBoxes {
+// 		bboxes[i] = BBoxAnnotation{
+// 			AnnotationLabel: box.GetLabel(),
+// 			XMinNormalized:  box.GetXMinNormalized(),
+// 			XMaxNormalized:  box.GetXMaxNormalized(),
+// 			YMinNormalized:  box.GetYMinNormalized(),
+// 			YMaxNormalized:  box.GetYMaxNormalized(),
+// 		}
+// 	}
+// 	return bboxes
+// }
