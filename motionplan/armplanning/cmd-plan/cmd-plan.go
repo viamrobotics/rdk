@@ -406,7 +406,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					logger.Println("Rendering failed solution")
 					logger.Println("  Err:", errStr)
 					logger.Println("  Inputs:", configuration)
-					if err := viz.DrawFrameSystem(req.FrameSystem, configuration); err != nil {
+					if err := viz.DrawFrameSystem(req.FrameSystem, configuration.ToFrameSystemInputs()); err != nil {
 						return err
 					}
 					break searchLoop

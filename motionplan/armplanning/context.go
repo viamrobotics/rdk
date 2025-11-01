@@ -45,11 +45,8 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 	}
 
 	var err error
-	pc.lfs, err = newLinearizedFrameSystem(pc.fs)
-	if err != nil {
-		return nil, err
-	}
-	pc.lis, err = referenceframe.InputSchemaFromFrameSystem(pc.fs)
+	pc.lis = request.StartState.LinearConfiguration().GetSchema()
+	pc.lfs, err = newLinearizedFrameSystem(pc.fs, pc.lis.FrameNamesInOrder())
 	if err != nil {
 		return nil, err
 	}

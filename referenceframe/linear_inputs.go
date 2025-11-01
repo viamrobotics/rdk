@@ -66,6 +66,15 @@ func (lis *LinearInputsSchema) FloatsToInputsStack(inps []float64) (LinearInputs
 	}, nil
 }
 
+func (lis *LinearInputsSchema) FrameNamesInOrder() []string {
+	ret := make([]string, len(lis.metas))
+	for idx, meta := range lis.metas {
+		ret[idx] = meta.frameName
+	}
+
+	return ret
+}
+
 type linearInputMeta struct {
 	frameName string
 

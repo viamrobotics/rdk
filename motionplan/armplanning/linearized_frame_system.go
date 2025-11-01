@@ -20,13 +20,16 @@ type linearizedFrameSystem struct {
 	dof    []referenceframe.Limit
 }
 
-func newLinearizedFrameSystem(fs *referenceframe.FrameSystem) (*linearizedFrameSystem, error) {
+func newLinearizedFrameSystem(fs *referenceframe.FrameSystem, frameOrder []string) (*linearizedFrameSystem, error) {
 	frames := []referenceframe.Frame{}
 	dof := []referenceframe.Limit{}
 
-	frameNames := fs.FrameNames()
-	sort.Strings(frameNames)
-	for _, fName := range frameNames {
+	if frameOrder == nil {
+		frameOrder = fs.FrameNames()
+		sort.Strings(frameOrder)
+	}
+
+	for _, fName := range frameOrder {
 		frame := fs.Frame(fName)
 		if frame == nil {
 			return nil, fmt.Errorf("frame %s was returned in list of frame names, but was not found in frame system", fName)
@@ -34,6 +37,7 @@ func newLinearizedFrameSystem(fs *referenceframe.FrameSystem) (*linearizedFrameS
 		frames = append(frames, frame)
 		dof = append(dof, frame.DoF()...)
 	}
+
 	return &linearizedFrameSystem{
 		frames: frames,
 		dof:    dof,

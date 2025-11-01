@@ -313,8 +313,6 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		}
 	}
 
-	sss.psc.pc.logger.Debugf("`process` added a node. Node: %v Num answers: %v Best score: %v stop early? %v",
-		myNode, len(sss.solutions), sss.bestScoreNoProblem, sss.shouldStopEarly())
 	return sss.shouldStopEarly()
 }
 
@@ -393,17 +391,6 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 	}
 
 	var minFunc ik.CostFunc
-
-	// TODO: Hope to delete.
-	//
-	// if psc.pc.planOpts.GoalMetricType == motionplan.SquaredNormOptimized {
-	//  	linearMinFunc, err := psc.pc.planOpts.getGoalMetricLinear(psc.goal)
-	//  	if err != nil {
-	//  		return nil, err
-	//  	}
-	//
-	//  	minFunc = psc.pc.linearizeFSmetricOpt(linearMinFunc)
-	// } else {
 
 	// Spawn the IK solver to generate solutions until done
 	minFunc = psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))

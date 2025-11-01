@@ -48,7 +48,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 		defer cancel()
 	}
 
-	linearTraj := make([]*referenceframe.LinearInputs, 0)
+	linearTraj := []*referenceframe.LinearInputs{pm.request.StartState.LinearConfiguration()}
 	start, err := pm.request.StartState.ComputePoses(ctx, pm.request.FrameSystem)
 	if err != nil {
 		return nil, 0, err
