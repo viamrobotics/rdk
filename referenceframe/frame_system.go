@@ -396,7 +396,7 @@ func (sfs *FrameSystem) GetFrameToWorldTransform(inputs *LinearInputs, src Frame
 	// If src is nil it is interpreted as the world frame
 	var err error
 	if src != nil {
-		ret, err = sfs.composeTransforms(src, inputs.GetLinearizedInputs())
+		ret, err = sfs.composeTransforms(src, inputs)
 		if err != nil {
 			return ret, err
 		}
@@ -458,7 +458,7 @@ func (sfs *FrameSystem) transformFromParent(inputs *LinearInputs, src, dst Frame
 
 // composeTransforms assumes there is one moveable frame and its DoF is equal to the `inputs`
 // length.
-func (sfs *FrameSystem) composeTransforms(frame Frame, inputs []float64) (dualquat.Number, error) {
+func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInputs) (dualquat.Number, error) {
 	ret := dualquat.Number{
 		Real: quat.Number{Real: 1},
 		Dual: quat.Number{},
@@ -475,17 +475,13 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, inputs []float64) (dualqu
 				return ret, err
 			}
 		} else {
-			if numMoveableFrames > 0 {
-				//nolint
-				return ret, fmt.Errorf("More than one movable frame. GoalMetricType.SquaredNormOpt is ineligible to be used.")
-			}
-
+			frameInputs := linearInputs.Get(frame.Name())
 			numMoveableFrames++
-			if len(frame.DoF()) != len(inputs) {
-				return ret, NewIncorrectDoFError(len(inputs), len(frame.DoF()))
+			if len(frame.DoF()) != len(frameInputs) {
+				return ret, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
 			}
 
-			pose, err = frame.Transform(inputs)
+			pose, err = frame.Transform(frameInputs)
 			if err != nil {
 				return ret, err
 			}
