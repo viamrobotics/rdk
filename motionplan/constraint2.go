@@ -282,7 +282,7 @@ func NewCollisionConstraintFS(
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) error {
 		// Use FrameSystemGeometries to get all geometries in the frame system
-		internalGeometries, err := referenceframe.FrameSystemGeometries(state.FS, state.Configuration)
+		internalGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(state.FS, state.Configuration)
 		if err != nil {
 			return err
 		}

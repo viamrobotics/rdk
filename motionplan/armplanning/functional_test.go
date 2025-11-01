@@ -238,7 +238,7 @@ func simple2DMap(logger logging.Logger) (*planConfig, error) {
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
-	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, seedMap.ToLinearInputs())
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, seedMap)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +314,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
-	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewZeroLinearInputs(fs))
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewZeroInputs(fs))
 	if err != nil {
 		return nil, err
 	}
@@ -388,7 +388,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
-	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewZeroLinearInputs(fs))
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewZeroInputs(fs))
 	if err != nil {
 		return nil, err
 	}
