@@ -558,7 +558,7 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// NewZeroInputs returns a zeroed LinearInputs ensuring all frames have inputs.
+// NewZeroInputs returns a zeroed FrameSystemInputs ensuring all frames have inputs.
 func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	positions := make(FrameSystemInputs)
 	for _, fn := range fs.FrameNames() {
@@ -570,6 +570,7 @@ func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	return positions
 }
 
+// NewZeroLinearInputs returns a zeroed LinearInputs ensuring all frames have inputs.
 func NewZeroLinearInputs(fs *FrameSystem) *LinearInputs {
 	positions := NewLinearInputs()
 	for _, fn := range fs.FrameNames() {
@@ -633,6 +634,9 @@ func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[str
 	return FrameSystemGeometriesLinearInputs(fs, inputMap.ToLinearInputs())
 }
 
+// FrameSystemGeometriesLinearInputs takes in a framesystem and returns a LinearInputs where all
+// elements are GeometriesInFrames with a World reference frame. This is preferred for hot
+// paths. But requires the caller to manage a `LinearInputs`.
 func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInputs) (map[string]*GeometriesInFrame, error) {
 	var errAll error
 	allGeometries := make(map[string]*GeometriesInFrame, 0)

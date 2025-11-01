@@ -3,39 +3,16 @@ package referenceframe
 import (
 	"fmt"
 	"iter"
-	"sort"
 )
 
-// LinearInputsMeta
+// LinearInputsSchema describes the order of frame names and their degrees of freedom in a set of
+// Inputs. This is important for communicating consistently with IK/nlopt.
 type LinearInputsSchema struct {
 	metas []linearInputMeta
 }
 
-func InputSchemaFromFrameSystem(fs *FrameSystem) (*LinearInputsSchema, error) {
-	metas := []linearInputMeta{}
-
-	offset := 0
-	frameNames := fs.FrameNames()
-	sort.Strings(frameNames)
-	for _, fName := range frameNames {
-		frame := fs.Frame(fName)
-		if frame == nil {
-			return nil, fmt.Errorf("frame %s was returned in list of frame names, but was not found in frame system", fName)
-		}
-
-		metas = append(metas, linearInputMeta{
-			frameName: fName,
-			offset:    offset,
-			dof:       len(frame.DoF()),
-		})
-		offset += len(frame.DoF())
-	}
-
-	return &LinearInputsSchema{
-		metas: metas,
-	}, nil
-}
-
+// FloatsToInputs applies the given schema to a new set of linearized floats. This returns an error
+// if the wrong number of floats are provided.
 func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, error) {
 	totDoF := 0
 	for idx := range lis.metas {
@@ -51,6 +28,7 @@ func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, er
 	}, nil
 }
 
+// FrameNamesInOrder returns the frame names in schema order.
 func (lis *LinearInputsSchema) FrameNamesInOrder() []string {
 	ret := make([]string, len(lis.metas))
 	for idx, meta := range lis.metas {
@@ -86,31 +64,12 @@ func NewLinearInputs() *LinearInputs {
 	}
 }
 
-func LinearInputsSchemaFromFrameSystem(fs *FrameSystem) *LinearInputsSchema {
-	metas := make([]linearInputMeta, 0, 8)
-	offsetAcc := 0
-	for name, frame := range fs.frames {
-		numDof := len(frame.DoF())
-		if numDof == 0 {
-			continue
-		}
-
-		metas = append(metas, linearInputMeta{
-			frameName: name,
-			offset:    offsetAcc,
-			dof:       numDof,
-		})
-
-		offsetAcc += numDof
-	}
-
-	return &LinearInputsSchema{metas}
-}
-
+// Len returns how many frames (included 0-DoF frames) are in the LinearInputs.
 func (li *LinearInputs) Len() int {
-	return len(li.inputs)
+	return len(li.schema.metas)
 }
 
+// GetLinearizedInputs returns the flat array of floats. Used for communicating with IK/nlopt.
 func (li *LinearInputs) GetLinearizedInputs() []Input {
 	if li == nil {
 		return []Input{}
@@ -119,10 +78,17 @@ func (li *LinearInputs) GetLinearizedInputs() []Input {
 	return li.inputs
 }
 
+// GetSchema returns the underlying `LinearInputsSchema` associated with this LinearInputs. When
+// using this LinearInputs to create inputs for IK/nlopt, this returned `LinearInputsSchema` is how
+// to turn the IK/nlopt output back into frames inputs.
 func (li *LinearInputs) GetSchema() *LinearInputsSchema {
 	return li.schema
 }
 
+// Put adds a new frameName -> inputs mapping. Put will overwrite an existing mapping when the frame
+// name matches and the input value is of the same DoF as the prior mapping. Put will silently
+// ignore the request if an overwrite has a different DoF than the original. That is considered
+// programmer error.
 func (li *LinearInputs) Put(frameName string, inputs []Input) {
 	for _, meta := range li.schema.metas {
 		if meta.frameName != frameName {
@@ -147,6 +113,7 @@ func (li *LinearInputs) Put(frameName string, inputs []Input) {
 	li.inputs = append(li.inputs, inputs...)
 }
 
+// Get returns the inputs associated with a frame name.
 func (li *LinearInputs) Get(frameName string) []Input {
 	if li == nil {
 		return []Input{}
@@ -161,6 +128,7 @@ func (li *LinearInputs) Get(frameName string) []Input {
 	return nil
 }
 
+// Keys returns an iterator over the keys. This is analogous to ranging over the keys of a map.
 func (li *LinearInputs) Keys() iter.Seq[string] {
 	return func(yield func(string) bool) {
 		for _, meta := range li.schema.metas {
@@ -171,6 +139,8 @@ func (li *LinearInputs) Keys() iter.Seq[string] {
 	}
 }
 
+// Items returns an iterator over the key-value pairs in this `LinearInputs`. This is analogous to
+// the key/value ranging over a map.
 func (li *LinearInputs) Items() iter.Seq2[string, []Input] {
 	return func(yield func(string, []Input) bool) {
 		for _, meta := range li.schema.metas {
@@ -181,7 +151,9 @@ func (li *LinearInputs) Items() iter.Seq2[string, []Input] {
 	}
 }
 
-// GetFrameInputs returns the inputs corresponding to the given frame within the LinearInputs object.
+// GetFrameInputs returns the inputs corresponding to the given frame within the LinearInputs
+// object. This method returns an error if the frame has non-zero DoF and the frame name does not
+// exist.
 func (li *LinearInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 	if len(frame.DoF()) == 0 {
 		return nil, nil
@@ -195,11 +167,17 @@ func (li *LinearInputs) GetFrameInputs(frame Frame) ([]Input, error) {
 	return ret, nil
 }
 
-// ComputePoses computes the poses for each frame in a framesystem in frame of World, using the provided configuration.
+// ComputePoses computes the poses for each frame in a framesystem in frame of World, using the
+// provided configuration.
 func (li *LinearInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses, error) {
+	// This method is not expected to be called in hot paths. Reuse the
+	// `FrameSystemPoses.ComputePoses` method.
 	return li.ToFrameSystemInputs().ComputePoses(fs)
 }
 
+// ToFrameSystemInputs creates a `FrameSystemInputs` with the same keys and values. This is a
+// convenience method for interfacing with higher level public APIs that don't need to be as
+// efficient.
 func (li *LinearInputs) ToFrameSystemInputs() FrameSystemInputs {
 	ret := make(FrameSystemInputs)
 	for frameName, inputs := range li.Items() {

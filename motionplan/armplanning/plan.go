@@ -59,6 +59,7 @@ func (p *PlanState) Configuration() referenceframe.FrameSystemInputs {
 	return p.structuredConfiguration
 }
 
+// LinearConfiguration returns a `LinearInputs` version of the `Configuration`.
 func (p *PlanState) LinearConfiguration() *referenceframe.LinearInputs {
 	if p.linearizedConfiguration != nil {
 		return p.linearizedConfiguration
