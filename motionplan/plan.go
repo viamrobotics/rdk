@@ -164,7 +164,7 @@ func (traj Trajectory) String() string {
 // EvaluateCost calculates a cost to a trajectory as measured by the given distFunc Metric.
 func (traj Trajectory) EvaluateCost(distFunc SegmentFSMetric) float64 {
 	var totalCost float64
-	var last *referenceframe.LinearInputs
+	last := referenceframe.NewLinearInputs()
 	for i, stepFSI := range traj {
 		step := stepFSI.ToLinearInputs()
 		if i != 0 {

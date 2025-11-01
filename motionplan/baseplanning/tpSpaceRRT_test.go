@@ -267,7 +267,7 @@ func TestTPsmoothing(t *testing.T) {
 	plan := []node{}
 	for _, inp := range planInputs {
 		thisNode := &basicNode{
-			q:    referenceframe.FrameSystemInputs{ackermanFrame.Name(): inp},
+			q:    referenceframe.FrameSystemInputs{ackermanFrame.Name(): inp}.ToLinearInputs(),
 			cost: inp[3] - inp[2],
 		}
 		plan = append(plan, thisNode)
@@ -294,7 +294,7 @@ func planToTpspaceRec(plan motionplan.Plan, f referenceframe.Frame) ([]node, err
 	nodes := []node{}
 	for _, inp := range plan.Trajectory() {
 		thisNode := &basicNode{
-			q:    inp,
+			q:    inp.ToLinearInputs(),
 			cost: math.Abs(inp[f.Name()][3] - inp[f.Name()][2]),
 		}
 		nodes = append(nodes, thisNode)
