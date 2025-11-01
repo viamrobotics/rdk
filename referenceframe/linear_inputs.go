@@ -51,21 +51,6 @@ func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, er
 	}, nil
 }
 
-func (lis *LinearInputsSchema) FloatsToInputsStack(inps []float64) (LinearInputs, error) {
-	totDoF := 0
-	for idx := range lis.metas {
-		totDoF += lis.metas[idx].dof
-	}
-	if totDoF != len(inps) {
-		return LinearInputs{}, fmt.Errorf("wrong number of inputs. Expected: %v Received: %v", totDoF, len(inps))
-	}
-
-	return LinearInputs{
-		schema: lis,
-		inputs: inps,
-	}, nil
-}
-
 func (lis *LinearInputsSchema) FrameNamesInOrder() []string {
 	ret := make([]string, len(lis.metas))
 	for idx, meta := range lis.metas {
