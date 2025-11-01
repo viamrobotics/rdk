@@ -20,6 +20,7 @@ type Path []referenceframe.FrameSystemPoses
 // Each item in this slice maps a Frame's name (found by calling frame.Name()) to the Inputs that Frame should be modified by.
 type Trajectory []referenceframe.FrameSystemInputs
 
+// TrajectoryFromLinearInputs converts a series of linear inputs into a Trajectory.
 func TrajectoryFromLinearInputs(inps []*referenceframe.LinearInputs) Trajectory {
 	ret := make(Trajectory, len(inps))
 	for idx, inp := range inps {

@@ -390,10 +390,8 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		return nil, err
 	}
 
-	var minFunc ik.CostFunc
-
 	// Spawn the IK solver to generate solutions until done
-	minFunc = psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
+	minFunc := psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()

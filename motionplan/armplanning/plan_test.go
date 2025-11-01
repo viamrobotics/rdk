@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -345,8 +344,7 @@ func BenchmarkLinearizeFSMetric(b *testing.B) {
 		},
 	))
 
-	var minFunc ik.CostFunc
-	minFunc = pc.linearizeFSmetric(func(_ *motionplan.StateFS) float64 {
+	minFunc := pc.linearizeFSmetric(func(_ *motionplan.StateFS) float64 {
 		return 0.0
 	})
 
