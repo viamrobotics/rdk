@@ -58,13 +58,13 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegme
 }
 
 // only used for testin.
-func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]referenceframe.FrameSystemInputs, error) {
+func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]*referenceframe.LinearInputs, error) {
 	initMaps, err := initRRTSolutions(ctx, mp.psc)
 	if err != nil {
 		return nil, err
 	}
 
-	x := []referenceframe.FrameSystemInputs{mp.psc.start}
+	x := []*referenceframe.LinearInputs{mp.psc.start}
 
 	if initMaps.steps != nil {
 		x = append(x, initMaps.steps...)
@@ -99,10 +99,9 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	defer cancel()
 	startTime := time.Now()
 
-	var seed referenceframe.FrameSystemInputs
-
 	// initialize maps
 	// Pick a random (first in map) seed node to create the first interp node
+	var seed *referenceframe.LinearInputs
 	for sNode, parent := range rrtMaps.startMap {
 		if parent == nil {
 			seed = sNode.inputs
@@ -266,8 +265,8 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 func (mp *cBiRRTMotionPlanner) constrainNear(
 	ctx context.Context,
 	seedInputs,
-	target referenceframe.FrameSystemInputs,
-) referenceframe.FrameSystemInputs {
+	target *referenceframe.LinearInputs,
+) *referenceframe.LinearInputs {
 	for i := 0; i < maxNearIter; i++ {
 		select {
 		case <-ctx.Done():
@@ -287,13 +286,10 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return target
 		}
 
-		linearSeed, err := mp.pc.lfs.mapToSlice(target)
-		if err != nil {
-			mp.pc.logger.Infof("constrainNear fail (mapToSlice): %v", err)
-			return nil
-		}
-
-		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent, mp.pc.linearizeFSmetric(mp.psc.checker.PathMetric()), [][]float64{linearSeed}, .25)
+		linearSeed := target.GetLinearizedInputs()
+		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent,
+			mp.psc.pc.linearizeFSmetric(mp.psc.checker.PathMetric()),
+			[][]float64{linearSeed}, .25)
 		if err != nil {
 			mp.pc.logger.Debugf("constrainNear fail (DoSolve): %v", err)
 			return nil
@@ -303,9 +299,9 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return nil
 		}
 
-		solutionMap, err := mp.pc.lfs.sliceToMap(solutions[0])
+		solutionMap, err := mp.psc.pc.lis.FloatsToInputs(solutions[0])
 		if err != nil {
-			mp.pc.logger.Infof("constrainNear fail (sliceToMap): %v", err)
+			mp.pc.logger.Infof("constrainNear fail (FloatsToInputs): %v", err)
 			return nil
 		}
 
@@ -390,15 +386,15 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 
 	percent := min(1, float64(sampleNum)/1000.0)
 
-	newInputs := make(referenceframe.FrameSystemInputs)
-	for name, inputs := range rSeed.inputs {
+	newInputs := referenceframe.NewLinearInputs()
+	for name, inputs := range rSeed.inputs.Items() {
 		f := mp.pc.fs.Frame(name)
 		if f != nil && len(f.DoF()) > 0 {
 			q, err := referenceframe.RestrictedRandomFrameInputs(f, mp.pc.randseed, percent, inputs)
 			if err != nil {
 				return nil, err
 			}
-			newInputs[name] = q
+			newInputs.Put(name, q)
 		}
 	}
 	return newConfigurationNode(newInputs), nil

@@ -282,7 +282,7 @@ func NewCollisionConstraintFS(
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) error {
 		// Use FrameSystemGeometries to get all geometries in the frame system
-		internalGeometries, err := referenceframe.FrameSystemGeometries(state.FS, state.Configuration)
+		internalGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(state.FS, state.Configuration)
 		if err != nil {
 			return err
 		}
@@ -444,7 +444,7 @@ func (fpc *fsPathConstraint) constraint(state *StateFS) error {
 				return err
 			}
 			if err := constraint(&State{
-				Configuration: state.Configuration[frame],
+				Configuration: state.Configuration.Get(frame),
 				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
 				Frame:         fpc.fs.Frame(frame),
 			}); err != nil {
@@ -465,7 +465,7 @@ func (fpc *fsPathConstraint) metric(state *StateFS) float64 {
 				break
 			}
 			score += metric(&State{
-				Configuration: state.Configuration[frame],
+				Configuration: state.Configuration.Get(frame),
 				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
 				Frame:         fpc.fs.Frame(frame),
 			})
@@ -476,7 +476,7 @@ func (fpc *fsPathConstraint) metric(state *StateFS) float64 {
 
 func newFsPathConstraintSeparatedLinOrientTol(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	constructor func(spatial.Pose, spatial.Pose, float64, float64) (StateConstraint, StateMetric),
 	linTol, orientTol float64,
@@ -508,7 +508,7 @@ func newFsPathConstraintSeparatedLinOrientTol(
 
 func newFsPathConstraintTol(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	constructor func(spatial.Pose, spatial.Pose, float64) (StateConstraint, StateMetric),
 	tolerance float64,
@@ -543,7 +543,7 @@ func newFsPathConstraintTol(
 // their respective orientations, as well as a metric which returns the distance to that valid region.
 func createSlerpOrientationConstraintFS(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	tolerance float64,
 ) (StateFSConstraint, StateFSMetric, error) {
@@ -559,7 +559,7 @@ func createSlerpOrientationConstraintFS(
 // orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
 func createAbsoluteLinearInterpolatingConstraintFS(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	linTol, orientTol float64,
 ) (StateFSConstraint, StateFSMetric, error) {
@@ -583,7 +583,7 @@ func createAbsoluteLinearInterpolatingConstraintFS(
 // from start to goal.
 func createProportionalLinearInterpolatingConstraintFS(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	linTol, orientTol float64,
 ) (StateFSConstraint, StateFSMetric, error) {

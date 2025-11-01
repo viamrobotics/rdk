@@ -674,7 +674,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	positions := frame.NewZeroInputs(fs)
 	pointXarmGripper := spatialmath.NewPoseFromPoint(r3.Vector{157., -50, -288})
 	transformPoint, err := fs.Transform(
-		positions,
+		positions.ToLinearInputs(),
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
 		frame.World,
 	)
@@ -693,7 +693,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := fs.Transform(
-		plan.Trajectory()[len(plan.Trajectory())-1],
+		plan.Trajectory()[len(plan.Trajectory())-1].ToLinearInputs(),
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
 		frame.World,
 	)
@@ -720,13 +720,13 @@ func TestMultiArmSolve(t *testing.T) {
 
 	// Both frames should wind up at the goal relative to one another
 	solvedPose, err := fs.Transform(
-		plan.Trajectory()[len(plan.Trajectory())-1],
+		plan.Trajectory()[len(plan.Trajectory())-1].ToLinearInputs(),
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
 		"urCamera",
 	)
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose2, err := fs.Transform(
-		plan.Trajectory()[len(plan.Trajectory())-1],
+		plan.Trajectory()[len(plan.Trajectory())-1].ToLinearInputs(),
 		frame.NewPoseInFrame("urCamera", spatialmath.NewZeroPose()),
 		"xArmVgripper",
 	)

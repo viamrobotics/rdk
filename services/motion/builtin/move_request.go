@@ -274,7 +274,7 @@ func (mr *moveRequest) getTransientDetections(
 		// here we use a framesystem which has the wrapper frame to position the geometry
 		// in the world frame
 		tf, err := mr.localizingFS.Transform(
-			inputMap,
+			inputMap.ToLinearInputs(),
 			referenceframe.NewGeometriesInFrame(camName, []spatialmath.Geometry{geometry}),
 			referenceframe.World,
 		)

@@ -570,7 +570,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		if wp.Poses() != nil {
 			step := referenceframe.FrameSystemPoses{}
 			for fName, destination := range wp.Poses() {
-				tf, err := frameSys.Transform(fsInputs, destination, solvingFrame)
+				tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, solvingFrame)
 				if err != nil {
 					return nil, err
 				}

@@ -217,14 +217,17 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 	for idx := range plan.Path() {
 		if idx > 0 {
 			midPoints, err := motionplan.InterpolateSegmentFS(
-				&motionplan.SegmentFS{plan.Trajectory()[idx-1], plan.Trajectory()[idx], req.FrameSystem},
-				2)
+				&motionplan.SegmentFS{
+					StartConfiguration: plan.Trajectory()[idx-1].ToLinearInputs(),
+					EndConfiguration:   plan.Trajectory()[idx].ToLinearInputs(),
+					FS:                 req.FrameSystem,
+				}, 2)
 			if err != nil {
 				return err
 			}
 
 			for _, mp := range midPoints {
-				if err := viz.DrawFrameSystem(req.FrameSystem, mp); err != nil {
+				if err := viz.DrawFrameSystem(req.FrameSystem, mp.ToFrameSystemInputs()); err != nil {
 					return err
 				}
 
@@ -403,7 +406,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					logger.Println("Rendering failed solution")
 					logger.Println("  Err:", errStr)
 					logger.Println("  Inputs:", configuration)
-					if err := viz.DrawFrameSystem(req.FrameSystem, configuration); err != nil {
+					if err := viz.DrawFrameSystem(req.FrameSystem, configuration.ToFrameSystemInputs()); err != nil {
 						return err
 					}
 					break searchLoop

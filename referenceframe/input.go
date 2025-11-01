@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 
 	pb "go.viam.com/api/component/arm/v1"
 	"gonum.org/v1/gonum/floats"
@@ -97,13 +98,38 @@ func (inputs FrameSystemInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses,
 	// Compute poses from configuration using the FrameSystem
 	computedPoses := make(FrameSystemPoses)
 	for _, frameName := range fs.FrameNames() {
-		pif, err := fs.Transform(inputs, NewZeroPoseInFrame(frameName), World)
+		pif, err := fs.Transform(inputs.ToLinearInputs(), NewZeroPoseInFrame(frameName), World)
 		if err != nil {
 			return nil, err
 		}
 		computedPoses[frameName] = pif.(*PoseInFrame)
 	}
 	return computedPoses, nil
+}
+
+// ToLinearInputs turns this structured map into a flat map of `LinearInputs`. The flat map will
+// internally be in frame name order.
+func (inputs FrameSystemInputs) ToLinearInputs() *LinearInputs {
+	// Using this API can be fragile. "Equivalent" `LinearInputs` must be used for
+	// IK. `LinearInputs` are equivalent if their internal key order is the same. Hence we sort the
+	// frame names here such that multiple calls `ToLinearInputs` on the same `FrameSystemInputs`
+	// will create "equivalent" values that will work when writing out and reading in the values
+	// sent to IK/nlopt.
+	//
+	// Note that "not equivalent" `LinearInputs` are perfectly fine for the `FrameSystem` API. As
+	// that always uses the map access methods.
+	sortedFrameNames := make([]string, 0, len(inputs))
+	for name := range inputs {
+		sortedFrameNames = append(sortedFrameNames, name)
+	}
+	slices.Sort(sortedFrameNames)
+
+	ret := NewLinearInputs()
+	for _, frameName := range sortedFrameNames {
+		ret.Put(frameName, inputs[frameName])
+	}
+
+	return ret
 }
 
 // InputsL2Distance returns the square of the two-norm (the sqrt of the sum of the squares) between two Input sets.

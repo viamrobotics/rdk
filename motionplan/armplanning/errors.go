@@ -30,7 +30,7 @@ func NewAlgAndConstraintMismatchErr(planAlg string) error {
 // data can be used to visualize the constraint thats being violated.
 type IkConstraintError struct {
 	// A map keeping track of which constraints fail
-	FailuresByType map[string][]referenceframe.FrameSystemInputs
+	FailuresByType map[string][]*referenceframe.LinearInputs
 	// Count is the total number of failures. Equivalent to summing the size of the value slices in
 	// `FailuresByType`.
 	Count int
@@ -41,13 +41,13 @@ type IkConstraintError struct {
 
 func newIkConstraintError(fs *referenceframe.FrameSystem, checker *motionplan.ConstraintChecker) *IkConstraintError {
 	return &IkConstraintError{
-		FailuresByType: make(map[string][]referenceframe.FrameSystemInputs),
+		FailuresByType: make(map[string][]*referenceframe.LinearInputs),
 		Fs:             fs,
 		Checker:        checker,
 	}
 }
 
-func (fail *IkConstraintError) add(solution referenceframe.FrameSystemInputs, err error) {
+func (fail *IkConstraintError) add(solution *referenceframe.LinearInputs, err error) {
 	fail.FailuresByType[err.Error()] = append(fail.FailuresByType[err.Error()], solution)
 	fail.Count++
 }

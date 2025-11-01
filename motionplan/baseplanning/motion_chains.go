@@ -106,7 +106,7 @@ func (mC *motionChains) translateGoalsToWorldPosition(
 			// chain solve frame may only be in the goal configuration, in which case we skip as the configuration will be passed through
 			if goalPif, ok := goal.poses[chain.solveFrameName]; ok {
 				if chain.worldRooted {
-					tf, err := fs.Transform(start, goalPif, referenceframe.World)
+					tf, err := fs.Transform(start.ToLinearInputs(), goalPif, referenceframe.World)
 					if err != nil {
 						return nil, err
 					}

@@ -246,7 +246,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 		switch p.GoalMetricType {
 		case motionplan.PositionOnly:
 			metrics[frame] = motionplan.NewPositionOnlyMetric(goalInFrame.Pose())
-		case motionplan.SquaredNorm, motionplan.SquaredNormOptimized:
+		case motionplan.SquaredNorm:
 			metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
 		case motionplan.ArcLengthConvergence:
 			metrics[frame] = motionplan.NewPoseFlexOVMetricConstructor(p.ArcLengthTolerance)(goalInFrame.Pose())
@@ -264,7 +264,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 			}
 			score += goalMetric(&motionplan.State{
 				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
-				Configuration: state.Configuration[frame],
+				Configuration: state.Configuration.Get(frame),
 				Frame:         state.FS.Frame(frame),
 			})
 		}

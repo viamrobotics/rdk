@@ -28,13 +28,14 @@ func TestIKTolerances(t *testing.T) {
 		spatial.NewPoseFromProtobuf(&commonpb.Pose{X: -46, Y: 0, Z: 372, OX: -1.78, OY: -3.3, OZ: -1.11}),
 	)}
 
-	seed := referenceframe.FrameSystemInputs{m.Name(): make([]referenceframe.Input, 6)}
+	seed := referenceframe.NewLinearInputs()
+	seed.Put(m.Name(), make([]referenceframe.Input, 6))
 
 	// Create PlanRequest to use the new API
 	request := &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{NewPlanState(goal, nil)},
-		StartState:     NewPlanState(nil, seed),
+		StartState:     NewPlanState(nil, seed.ToFrameSystemInputs()),
 		PlannerOptions: NewBasicPlannerOptions(),
 		Constraints:    &motionplan.Constraints{},
 	}
@@ -60,7 +61,7 @@ func TestIKTolerances(t *testing.T) {
 	request2 := &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{NewPlanState(goal, nil)},
-		StartState:     NewPlanState(nil, seed),
+		StartState:     NewPlanState(nil, seed.ToFrameSystemInputs()),
 		PlannerOptions: opt,
 		Constraints:    &motionplan.Constraints{},
 	}

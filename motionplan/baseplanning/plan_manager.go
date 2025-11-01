@@ -174,7 +174,7 @@ func (pm *planManager) planAtomicWaypoints(
 			}
 			if planSeed.steps != nil {
 				resultPromises = append(resultPromises, &resultPromise{steps: planSeed.steps})
-				seed = planSeed.steps[len(planSeed.steps)-1].Q()
+				seed = planSeed.steps[len(planSeed.steps)-1].Q().ToFrameSystemInputs()
 				continue
 			}
 			maps = planSeed.maps
@@ -268,13 +268,13 @@ func (pm *planManager) planSingleAtomicWaypoint(
 		// This matches the behavior of a non-rrtParallelPlanner
 		select {
 		case nextSeed := <-endpointPreview:
-			return nextSeed.Q(), &resultPromise{future: solutionChan}, nil
+			return nextSeed.Q().ToFrameSystemInputs(), &resultPromise{future: solutionChan}, nil
 		case planReturn := <-solutionChan:
 			if planReturn.err != nil {
 				return nil, nil, planReturn.err
 			}
 			seed := planReturn.steps[len(planReturn.steps)-1].Q()
-			return seed, &resultPromise{steps: planReturn.steps}, nil
+			return seed.ToFrameSystemInputs(), &resultPromise{steps: planReturn.steps}, nil
 		}
 	} else {
 		// This ctx is used exclusively for the running of the new planner and timing it out.
@@ -289,7 +289,7 @@ func (pm *planManager) planSingleAtomicWaypoint(
 
 		// Update seed for the next waypoint to be the final configuration of this waypoint
 		seed := smoothedPath[len(smoothedPath)-1].Q()
-		return seed, &resultPromise{steps: smoothedPath}, nil
+		return seed.ToFrameSystemInputs(), &resultPromise{steps: smoothedPath}, nil
 	}
 }
 
@@ -551,7 +551,7 @@ func (pm *planManager) planToRRTGoalMap(plan motionplan.Plan, goal atomicWaypoin
 	}
 	planNodes := make([]node, 0, len(traj))
 	for i, tConf := range traj {
-		planNodes = append(planNodes, &basicNode{q: tConf, poses: path[i]})
+		planNodes = append(planNodes, &basicNode{q: tConf.ToLinearInputs(), poses: path[i]})
 	}
 
 	if pm.motionChains.useTPspace {
@@ -657,8 +657,9 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan motion
 	}
 	wp := wps[0]
 
-	zeroInputs := referenceframe.FrameSystemInputs{}
-	zeroInputs[pm.motionChains.ptgFrameName] = make([]referenceframe.Input, len(pm.fs.Frame(pm.motionChains.ptgFrameName).DoF()))
+	zeroInputs := referenceframe.NewLinearInputs()
+	zeroInputs.Put(pm.motionChains.ptgFrameName, make([]referenceframe.Input,
+		len(pm.fs.Frame(pm.motionChains.ptgFrameName).DoF())))
 	maps := &rrtMaps{}
 	if seedPlan != nil {
 		// TODO: This probably needs to be flipped? Check if these paths are ever used.
@@ -693,7 +694,7 @@ func (pm *planManager) planRelativeWaypoint(ctx context.Context, seedPlan motion
 func nodesToTrajectory(nodes []node) motionplan.Trajectory {
 	traj := make(motionplan.Trajectory, 0, len(nodes))
 	for _, n := range nodes {
-		traj = append(traj, n.Q())
+		traj = append(traj, n.Q().ToFrameSystemInputs())
 	}
 	return traj
 }

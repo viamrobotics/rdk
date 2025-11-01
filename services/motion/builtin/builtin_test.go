@@ -919,7 +919,7 @@ func TestGetTransientDetectionsMath(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		tf, err := mr.localizingFS.Transform(
-			inputMap,
+			inputMap.ToLinearInputs(),
 			referenceframe.NewGeometriesInFrame(
 				cam.Name().ShortName(), []spatialmath.Geometry{fakeDetectionGeometry},
 			),
@@ -1415,7 +1415,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		finalConfig := plan[len(plan)-1]
-		finalPoseInWorld, err := frameSys.Transform(finalConfig,
+		finalPoseInWorld, err := frameSys.Transform(finalConfig.ToLinearInputs(),
 			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
 			"world")
 		test.That(t, err, test.ShouldBeNil)
@@ -1476,7 +1476,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		finalConfig := plan[len(plan)-1]
-		finalPoseInWorld, err := frameSys.Transform(finalConfig,
+		finalPoseInWorld, err := frameSys.Transform(finalConfig.ToLinearInputs(),
 			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
 			"world")
 		test.That(t, err, test.ShouldBeNil)
@@ -1513,7 +1513,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		finalConfig := plan[len(plan)-1]
-		finalPoseInWorld, err := frameSys.Transform(finalConfig,
+		finalPoseInWorld, err := frameSys.Transform(finalConfig.ToLinearInputs(),
 			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
 			"world")
 		test.That(t, err, test.ShouldBeNil)

@@ -14,7 +14,7 @@ func TestLinearFrameSystemGoalThing(t *testing.T) {
 	req, err := ReadRequestFromFile("data/orb-plan1.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	lfs, err := newLinearizedFrameSystem(req.FrameSystem)
+	lfs, err := newLinearizedFrameSystem(req.FrameSystem, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(lfs.frames), test.ShouldEqual, 8)
@@ -25,7 +25,7 @@ func TestLinearFrameSystemGoalThing(t *testing.T) {
 
 	toChange := lfs.inputChangeRatio(
 		mc,
-		req.StartState.configuration,
+		req.StartState.LinearConfiguration(),
 		req.PlannerOptions.getGoalMetric(req.Goals[0].poses),
 		logger)
 
