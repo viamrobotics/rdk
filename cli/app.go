@@ -3189,7 +3189,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:        generalFlagPath,
-							Usage:       "Use this with --cloud-build to indicate the path to the root of the git repo to build",
+							Usage:       "The path to the root of the git repo to build",
 							DefaultText: ".",
 						},
 					},
