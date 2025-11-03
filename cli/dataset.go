@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -327,7 +328,29 @@ func binaryDataToJSONLines(ctx context.Context, dataClient datapb.DataServiceCli
 		return errors.Wrapf(err, "error converting binary metadata to JSON lines")
 	}
 	for _, jsonLine := range jsonLines.GetJsonLines() {
-		_, err = file.WriteString(jsonLine + "\n")
+		var data map[string]interface{}
+		if err := json.Unmarshal([]byte(jsonLine), &data); err != nil {
+			return errors.Wrap(err, "error parsing JSON line")
+		}
+
+		// Modify the image_path
+		fileName := filepath.Join(dst, filenameForDownload(datum.GetMetadata()))
+		ext := datum.GetMetadata().GetFileExt()
+		// If the file is gzipped, unzip.
+		if ext != gzFileExt && filepath.Ext(fileName) != ext {
+			// If the file name did not already include the extension (e.g. for data capture files), add it.
+			// Don't do this for files that we're unzipping.
+			fileName += ext
+		}
+
+		data["image_path"] = fileName
+
+		// Marshal back and write
+		modifiedLine, err := json.Marshal(data)
+		if err != nil {
+			return errors.Wrap(err, "error marshaling JSON")
+		}
+		_, err = file.WriteString(string(modifiedLine) + "\n")
 		if err != nil {
 			return errors.Wrapf(err, "error writing to file")
 		}
