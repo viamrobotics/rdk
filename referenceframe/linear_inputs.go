@@ -11,6 +11,55 @@ type LinearInputsSchema struct {
 	metas []linearInputMeta
 }
 
+// GetSchema returns the underlying `LinearInputsSchema` associated with this LinearInputs. When
+// using this LinearInputs to create inputs for IK/nlopt, this returned `LinearInputsSchema` is how
+// to turn the IK/nlopt output back into frames inputs. The `FrameSystem` is an additional input
+// such that we can ensure the proper joint limits are assigned.
+func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) {
+	for idx, meta := range li.schema.metas {
+		frame := fs.Frame(meta.frameName)
+		if frame == nil {
+			return nil, NewFrameMissingError(meta.frameName)
+		}
+
+		limits := frame.DoF()
+		if len(limits) != meta.dof {
+			return nil, fmt.Errorf("incorrect dof for frame %s %w",
+				meta.frameName, NewIncorrectDoFError(len(limits), meta.dof))
+		}
+
+		li.schema.metas[idx].limits = limits
+	}
+
+	// We also walk the framesystem and add any missing frames to the LinearInputs (with 0 value
+	// inputs) and schema.
+	//
+	// Dan: I'm unsure if this is the right behavior. Perhaps we should error if we've been given
+	// _some_ before `GetSchema` was called, and now we're learning about more? Certainly in the
+	// motion planning case, we expect to have all of the current inputs before going into
+	// nlopt. Lest we risk changing inputs for frames that we don't have a known start position
+	// for. We cannot properly do collision detection for those frames.
+	for _, frameName := range fs.FrameNames() {
+		if li.Get(frameName) != nil {
+			continue
+		}
+
+		frame := fs.Frame(frameName)
+		offset := len(li.inputs)
+
+		newMeta := linearInputMeta{
+			frameName: frameName,
+			offset:    offset,
+			dof:       len(frame.DoF()),
+			limits:    frame.DoF(),
+		}
+		li.schema.metas = append(li.schema.metas, newMeta)
+		li.inputs = append(li.inputs, make([]Input, newMeta.dof)...)
+	}
+
+	return li.schema, nil
+}
+
 // FloatsToInputs applies the given schema to a new set of linearized floats. This returns an error
 // if the wrong number of floats are provided.
 func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, error) {
@@ -46,6 +95,10 @@ type linearInputMeta struct {
 	// of `metas`.
 	offset int
 	dof    int
+
+	// limits is initialized when calling `LinearInputs.GetSchema`. limits are not necessary when
+	// doing transformations. But they are necessary when working with IK/nlopt.
+	limits []Limit
 }
 
 // LinearInputs is a memory optimized representation of FrameSystemInputs. The type is expected to
@@ -76,13 +129,6 @@ func (li *LinearInputs) GetLinearizedInputs() []Input {
 	}
 
 	return li.inputs
-}
-
-// GetSchema returns the underlying `LinearInputsSchema` associated with this LinearInputs. When
-// using this LinearInputs to create inputs for IK/nlopt, this returned `LinearInputsSchema` is how
-// to turn the IK/nlopt output back into frames inputs.
-func (li *LinearInputs) GetSchema() *LinearInputsSchema {
-	return li.schema
 }
 
 // Put adds a new frameName -> inputs mapping. Put will overwrite an existing mapping when the frame

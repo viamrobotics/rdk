@@ -1,8 +1,10 @@
 package referenceframe
 
 import (
+	"fmt"
 	"testing"
 
+	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 )
 
@@ -44,4 +46,76 @@ func TestLinearInputs(t *testing.T) {
 	test.That(t, li.Get("0dof"), test.ShouldBeNil)
 	li.Put("0dof", []Input{})
 	test.That(t, li.Get("0dof"), test.ShouldResemble, []Input{})
+}
+
+func TestLinearInputsLimits(t *testing.T) {
+	// Set up a frame system with three "top-level" frames. A 0dof static frame, a 1dof rotational
+	// frame and a 2dof simple model. We envision the 2dof simple model as an arm with 2 joints and
+	// 3 links.
+	fs := NewEmptyFrameSystem("fs")
+	fs.AddFrame(NewZeroStaticFrame("0dof"), fs.World())
+
+	rotFrame, err := NewRotationalFrame("1dof", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(rotFrame, fs.World())
+
+	// Dan: It's unclear my by-hand construction of an arm and adding it to the frame system is
+	// completely kosher. For the purpose of this test though, I see it behaving as I need it to.
+	baseArmFrame := NewZeroStaticFrame("base")
+	shoulderArmFrame, err := NewRotationalFrame("shoulder", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
+	test.That(t, err, test.ShouldBeNil)
+	upperArmFrame := NewZeroStaticFrame("upperArm")
+	elbowArmFrame, err := NewRotationalFrame("shoulder", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
+	test.That(t, err, test.ShouldBeNil)
+	handArmFrame := NewZeroStaticFrame("hand")
+	armFrame := NewSimpleModel("arm")
+	armFrame.SetOrdTransforms([]Frame{
+		baseArmFrame, shoulderArmFrame, upperArmFrame, elbowArmFrame, handArmFrame,
+	})
+	fs.AddFrame(armFrame, fs.World())
+	fs.AddFrame(baseArmFrame, armFrame)
+	fs.AddFrame(shoulderArmFrame, baseArmFrame)
+	fs.AddFrame(upperArmFrame, shoulderArmFrame)
+	fs.AddFrame(elbowArmFrame, upperArmFrame)
+	fs.AddFrame(handArmFrame, elbowArmFrame)
+
+	// Create inputs, do a transform call that succeeds.
+	li := NewLinearInputs()
+	li.Put("arm", []Input{-1, -2})
+
+	dq, err := fs.TransformToDQ(li, "arm", "world")
+	test.That(t, fmt.Sprintf("%v", spatial.Pose(&dq)), test.ShouldResemble,
+		"{X:0.000000 Y:0.000000 Z:0.000000 OX:0.000000 OY:0.141120 OZ:-0.989992 Theta:-90.000000°}")
+
+	// Change inputs to be out of bounds. Assert transforming fails.
+	li.Put("arm", []Input{-15, 5})
+	dq, err = fs.TransformToDQ(li, "arm", "world")
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Testing the internal state. We have not called `GetSchema`, hence we expect the limits to be
+	// all nil.
+	for _, meta := range li.schema.metas {
+		test.That(t, meta.limits, test.ShouldBeNil)
+	}
+
+	// Getting the schema will apply frame limits to the underlying metas.
+	schema, err := li.GetSchema(fs)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Walk all of the underlying meta objects test the internal state has changed.
+	for _, meta := range li.schema.metas {
+		// Assert that limits is no longer nil.
+		test.That(t, meta.limits, test.ShouldNotBeNil)
+		test.That(t, meta.limits, test.ShouldHaveLength, meta.dof)
+
+		// We've constructed every limit to be in the range of [-10, 10]. Assert that we see that
+		// here.
+		//
+		// Dan: Perhaps this is a bit too simple and missing an obvious bug that a more intentional
+		// test would catch.
+		for _, limit := range meta.limits {
+			test.That(t, limit.Min, test.ShouldEqual, -10)
+			test.That(t, limit.Max, test.ShouldEqual, 10)
+		}
+	}
 }
