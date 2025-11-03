@@ -153,7 +153,7 @@ func TestShellRPCFileReadCopier(t *testing.T) {
 // TestShellLocalFileCopierTempFile tests that a failed shell.LocalFileCopier copy leaves neither
 // the destination file nor the temporary .download file.
 func TestShellLocalFileCopierTempFile(t *testing.T) {
-	tfs := shelltestutils.SetupTestFileSystem(t, strings.Repeat("a", 1<<8))
+	tfs := shelltestutils.SetupTestFileSystem(t, "a")
 	file, err := os.Open(tfs.SingleFileNested)
 	test.That(t, err, test.ShouldBeNil)
 	tmpDir := t.TempDir()
