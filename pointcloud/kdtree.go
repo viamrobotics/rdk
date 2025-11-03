@@ -53,6 +53,7 @@ func (v treeComparableR3Vector) Distance(c kdtree.Comparable) float64 {
 		panic("treeComparableR3Vector Distance got wrong data")
 	}
 	// The contract of a class that implements kdtree.Comparable is that the distance method returns the squared distance.
+	// See https://pkg.go.dev/gonum.org/v1/gonum/spatial/kdtree#Comparable
 	dist := v.vec.Distance(v2.vec)
 	return dist * dist
 }
@@ -81,7 +82,6 @@ func (kdv kdValuesSlicer) Len() int { return len(kdv.vs) }
 
 func (kdv kdValuesSlicer) Less(i, j int) bool {
 	// Compare by distance from origin (norm)
-	// Note: This is used by MedianOfMedians for finding pivot points
 	return kdv.vs[i].vec.Norm() < kdv.vs[j].vec.Norm()
 }
 
