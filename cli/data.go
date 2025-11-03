@@ -428,7 +428,7 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 		}
 	}()
 
-	// In parallel, read from ids and perform the action on the binary data for each id in batches of parallelActions.
+	// Read from ids and perform the action on the binary data for each id.
 	var downloadWG sync.WaitGroup
 	var numFilesProcessed atomic.Int32
 
@@ -436,21 +436,23 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 		downloadWG.Add(1)
 		go func() {
 			defer downloadWG.Done()
-			for id := range ids {
-				// Check if context was cancelled (error in another goroutine)
-				if err := ctx.Err(); err != nil {
-					break
-				}
-
-				// Perform the desired action on the binary data
-				err := actionOnBinaryData(id)
-				if err != nil {
-					errs <- err
-					cancel()
-				}
-				numFilesProcessed.Add(1)
-				if numFilesProcessed.Load()%logEveryN == 0 {
-					printStatement(numFilesProcessed.Load())
+			for {
+				select {
+				case id, ok := <-ids:
+					if !ok {
+						return
+					}
+					err := actionOnBinaryData(id)
+					if err != nil {
+						errs <- err
+						cancel()
+					}
+					numFilesProcessed.Add(1)
+					if numFilesProcessed.Load()%logEveryN == 0 {
+						printStatement(numFilesProcessed.Load())
+					}
+				case <-ctx.Done():
+					return
 				}
 			}
 		}()
