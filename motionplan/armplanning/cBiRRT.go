@@ -49,7 +49,7 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegme
 	var err error
 
 	// nlopt should try only once
-	c.fastGradDescent, err = ik.CreateNloptSolver(pc.lfs.dof, pc.logger, 1, true, true)
+	c.fastGradDescent, err = ik.CreateNloptSolver(pc.lis.GetLimits(), pc.logger, 1, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	}
 	mp.pc.logger.CDebugf(ctx, "goal node: %v\n", rrtMaps.optNode.inputs)
 	mp.pc.logger.CDebugf(ctx, "start node: %v\n", seed)
-	mp.pc.logger.Debug("DOF", mp.pc.lfs.dof)
+	mp.pc.logger.Debug("DOF", mp.pc.lis.GetLimits())
 
 	interpConfig, err := referenceframe.InterpolateFS(mp.pc.fs, seed, rrtMaps.optNode.inputs, 0.5)
 	if err != nil {
@@ -340,7 +340,12 @@ func (mp *cBiRRTMotionPlanner) getFrameSteps(percentTotalMovement float64, itera
 	moving, _ := mp.psc.motionChains.framesFilteredByMovingAndNonmoving()
 
 	frameQstep := map[string][]float64{}
-	for _, f := range mp.pc.lfs.frames {
+	for _, fName := range mp.pc.lis.FrameNamesInOrder() {
+		f := mp.pc.fs.Frame(fName)
+		if f == nil {
+			continue
+		}
+
 		isMoving := slices.Contains(moving, f.Name())
 		if !isMoving && !double {
 			continue

@@ -180,12 +180,16 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 }
 
 func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) error {
-	sss.ratios = sss.psc.pc.lfs.inputChangeRatio(sss.psc.motionChains, sss.seeds[0],
+	var err error
+	sss.ratios, err = inputChangeRatio(sss.psc.motionChains, sss.seeds[0], sss.psc.pc.fs,
 		sss.psc.pc.planOpts.getGoalMetric(goal), sss.psc.pc.logger)
+	if err != nil {
+		return err
+	}
 
 	adjusted := []float64{}
 	for idx, r := range sss.ratios {
-		adjusted = append(adjusted, sss.psc.pc.lfs.jog(idx, sss.linearSeeds[0][idx], r))
+		adjusted = append(adjusted, sss.psc.pc.lis.Jog(idx, sss.linearSeeds[0][idx], r))
 	}
 
 	step, err := sss.psc.pc.lis.FloatsToInputs(adjusted)
@@ -405,7 +409,8 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		}
 	}()
 
-	solver, err := ik.CreateCombinedIKSolver(psc.pc.lfs.dof, psc.pc.logger, defaultNumThreads, psc.pc.planOpts.GoalThreshold)
+	solver, err := ik.CreateCombinedIKSolver(
+		psc.pc.lis.GetLimits(), psc.pc.logger, defaultNumThreads, psc.pc.planOpts.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}

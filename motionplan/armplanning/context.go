@@ -16,7 +16,6 @@ import (
 
 type planContext struct {
 	fs  *referenceframe.FrameSystem
-	lfs *linearizedFrameSystem
 	lis *referenceframe.LinearInputsSchema
 
 	boundingRegions []spatialmath.Geometry
@@ -45,11 +44,15 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 	}
 
 	var err error
-	pc.lis = request.StartState.LinearConfiguration().GetSchema()
-	pc.lfs, err = newLinearizedFrameSystem(pc.fs, pc.lis.FrameNamesInOrder())
+	pc.lis, err = request.StartState.LinearConfiguration().GetSchema(pc.fs)
 	if err != nil {
 		return nil, err
 	}
+
+	// pc.lfs, err = newLinearizedFrameSystem(pc.fs, pc.lis.FrameNamesInOrder())
+	// if err != nil {
+	//  	return nil, err
+	// }
 
 	pc.boundingRegions, err = referenceframe.NewGeometriesFromProto(request.BoundingRegions)
 	if err != nil {

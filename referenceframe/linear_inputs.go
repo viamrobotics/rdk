@@ -28,7 +28,7 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 				meta.frameName, NewIncorrectDoFError(len(limits), meta.dof))
 		}
 
-		li.schema.metas[idx].limits = limits
+		li.schema.metas[idx].frame = frame
 	}
 
 	// We also walk the framesystem and add any missing frames to the LinearInputs (with 0 value
@@ -51,7 +51,7 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 			frameName: frameName,
 			offset:    offset,
 			dof:       len(frame.DoF()),
-			limits:    frame.DoF(),
+			frame:     frame,
 		}
 		li.schema.metas = append(li.schema.metas, newMeta)
 		li.inputs = append(li.inputs, make([]Input, newMeta.dof)...)
@@ -87,6 +87,43 @@ func (lis *LinearInputsSchema) FrameNamesInOrder() []string {
 	return ret
 }
 
+// GetLimits returns the limits associated with the frames in the linearized order expected by
+// nlopt.
+func (lis *LinearInputsSchema) GetLimits() []Limit {
+	ret := make([]Limit, 0, len(lis.metas))
+	for _, meta := range lis.metas {
+		ret = append(ret, meta.frame.DoF()...)
+	}
+
+	return ret
+}
+
+// Jog returns a value that's one "jog" away from its current value. Where a jog is a fraction
+// (`percentJog`) of the total range of the input.
+func (lis *LinearInputsSchema) Jog(linearizedInputIdx int, val, percentJog float64) float64 {
+	// This function is expected to be called infrequently, hence this linear scan ought to be
+	// performant enough. This saves us from (the cognitive load) of having to keep around a
+	// separate structure.
+	metas := lis.metas
+	for linearizedInputIdx >= len(metas[0].frame.DoF()) {
+		// While the linearizedInputIdx does not belong to the "current frame", pull off the current
+		// frame and subtract our target.
+		linearizedInputIdx -= len(metas[0].frame.DoF())
+		metas = metas[1:]
+	}
+
+	_, max, r := metas[0].frame.DoF()[linearizedInputIdx].GoodLimits()
+	x := r * percentJog
+
+	val += x
+	if val > max {
+		// If we've gone too far, wrap around. This assumes the input is a rotational joint.
+		val -= (2 * x)
+	}
+
+	return val
+}
+
 type linearInputMeta struct {
 	frameName string
 
@@ -96,9 +133,9 @@ type linearInputMeta struct {
 	offset int
 	dof    int
 
-	// limits is initialized when calling `LinearInputs.GetSchema`. limits are not necessary when
+	// frame is initialized when calling `LinearInputs.GetSchema`. Frames are not necessary when
 	// doing transformations. But they are necessary when working with IK/nlopt.
-	limits []Limit
+	frame Frame
 }
 
 // LinearInputs is a memory optimized representation of FrameSystemInputs. The type is expected to

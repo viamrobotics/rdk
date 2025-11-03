@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
+
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 func TestLinearInputs(t *testing.T) {
@@ -84,6 +85,7 @@ func TestLinearInputsLimits(t *testing.T) {
 	li.Put("arm", []Input{-1, -2})
 
 	dq, err := fs.TransformToDQ(li, "arm", "world")
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fmt.Sprintf("%v", spatial.Pose(&dq)), test.ShouldResemble,
 		"{X:0.000000 Y:0.000000 Z:0.000000 OX:0.000000 OY:0.141120 OZ:-0.989992 Theta:-90.000000°}")
 
@@ -95,7 +97,7 @@ func TestLinearInputsLimits(t *testing.T) {
 	// Testing the internal state. We have not called `GetSchema`, hence we expect the limits to be
 	// all nil.
 	for _, meta := range li.schema.metas {
-		test.That(t, meta.limits, test.ShouldBeNil)
+		test.That(t, meta.frame, test.ShouldBeNil)
 	}
 
 	// Getting the schema will apply frame limits to the underlying metas.
@@ -103,17 +105,16 @@ func TestLinearInputsLimits(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Walk all of the underlying meta objects test the internal state has changed.
-	for _, meta := range li.schema.metas {
+	for _, meta := range schema.metas {
 		// Assert that limits is no longer nil.
-		test.That(t, meta.limits, test.ShouldNotBeNil)
-		test.That(t, meta.limits, test.ShouldHaveLength, meta.dof)
+		test.That(t, meta.frame, test.ShouldNotBeNil)
 
 		// We've constructed every limit to be in the range of [-10, 10]. Assert that we see that
 		// here.
 		//
 		// Dan: Perhaps this is a bit too simple and missing an obvious bug that a more intentional
 		// test would catch.
-		for _, limit := range meta.limits {
+		for _, limit := range meta.frame.DoF() {
 			test.That(t, limit.Min, test.ShouldEqual, -10)
 			test.That(t, limit.Max, test.ShouldEqual, 10)
 		}

@@ -1,66 +1,38 @@
 package armplanning
 
 import (
-	"fmt"
 	"math"
 	"slices"
-	"sort"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 )
 
-const minJogPercent = .03
-
-// linearizedFrameSystem wraps a framesystem, allowing conversion in a known order between a FrameConfiguratinos and a flat array of floats,
-// useful for being able to call IK solvers against framesystems.
-type linearizedFrameSystem struct {
-	frames []referenceframe.Frame // cached ordering of frames. Order is unimportant but cannot change once set.
-	dof    []referenceframe.Limit
-}
-
-func newLinearizedFrameSystem(fs *referenceframe.FrameSystem, frameOrder []string) (*linearizedFrameSystem, error) {
-	frames := []referenceframe.Frame{}
-	dof := []referenceframe.Limit{}
-
-	if frameOrder == nil {
-		frameOrder = fs.FrameNames()
-		sort.Strings(frameOrder)
-	}
-
-	for _, fName := range frameOrder {
-		frame := fs.Frame(fName)
-		if frame == nil {
-			return nil, fmt.Errorf("frame %s was returned in list of frame names, but was not found in frame system", fName)
-		}
-		frames = append(frames, frame)
-		dof = append(dof, frame.DoF()...)
-	}
-
-	return &linearizedFrameSystem{
-		frames: frames,
-		dof:    dof,
-	}, nil
-}
-
 // return is floats from [0-1] given a percentage of their input range that should be searched
 // for example, if the frame system has 2 arms, and only is moving, the inputs for the non-moving arm will all be 0
 // the other arm will be scaled 0-1 based on the expected joint distance
 // there is a chacne it's not enough and will need be moved more.
-func (lfs *linearizedFrameSystem) inputChangeRatio(
+func inputChangeRatio(
 	mc *motionChains,
 	startNotMine *referenceframe.LinearInputs,
+	frameSystem *referenceframe.FrameSystem,
 	distanceFunc motionplan.StateFSMetric,
 	logger logging.Logger,
-) []float64 {
+) ([]float64, error) {
+	inputsSchema, err := startNotMine.GetSchema(frameSystem)
+	if err != nil {
+		return nil, err
+	}
+
 	ratios := []float64{}
 
 	// Sorry for the hacky copy.
 	start := startNotMine.ToFrameSystemInputs().ToLinearInputs()
 	_, nonmoving := mc.framesFilteredByMovingAndNonmoving()
 	startDistance := distanceFunc(&motionplan.StateFS{Configuration: startNotMine, FS: mc.fs})
-	for _, frame := range lfs.frames {
+	for _, frameName := range inputsSchema.FrameNamesInOrder() {
+		frame := frameSystem.Frame(frameName)
 		if len(frame.DoF()) == 0 {
 			// Frames without degrees of freedom can't move.
 			continue
@@ -84,7 +56,7 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 
 			// Compute the new input for a specific joint that's one "jog" away. E.g: ~5 degrees for
 			// a rotational joint.
-			y := lfs.jog(len(ratios), orig, percentJog)
+			y := inputsSchema.Jog(len(ratios), orig, percentJog)
 
 			// Update the copied joint set in place. This is undone at the end of the loop.
 			start.Get(frame.Name())[idx] = y
@@ -117,17 +89,5 @@ func (lfs *linearizedFrameSystem) inputChangeRatio(
 
 	logger.Debugf("inputChangeRatio result: %v", ratios)
 
-	return ratios
-}
-
-func (lfs *linearizedFrameSystem) jog(idx int, val, percentJog float64) float64 {
-	_, max, r := lfs.dof[idx].GoodLimits()
-	x := r * percentJog
-
-	val += x
-	if val > max {
-		val -= (2 * x)
-	}
-
-	return val
+	return ratios, nil
 }
