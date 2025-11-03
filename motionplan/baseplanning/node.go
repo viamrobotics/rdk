@@ -10,13 +10,13 @@ import (
 
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target
 // if start and target have the same Input value, then no step increment is made.
-func fixedStepInterpolation(start, target node, qstep map[string][]float64) referenceframe.FrameSystemInputs {
-	newNear := make(referenceframe.FrameSystemInputs)
+func fixedStepInterpolation(start, target node, qstep map[string][]float64) *referenceframe.LinearInputs {
+	newNear := referenceframe.NewLinearInputs()
 
 	// Iterate through each frame's inputs
-	for frameName, startInputs := range start.Q() {
+	for frameName, startInputs := range start.Q().Items() {
 		// As this is constructed in-algorithm from already-near nodes, this is guaranteed to always exist
-		targetInputs := target.Q()[frameName]
+		targetInputs := target.Q().Get(frameName)
 		frameSteps := make([]referenceframe.Input, len(startInputs))
 
 		for j, nearInput := range startInputs {
@@ -30,7 +30,7 @@ func fixedStepInterpolation(start, target node, qstep map[string][]float64) refe
 				frameSteps[j] = nearInput + newVal
 			}
 		}
-		newNear[frameName] = frameSteps
+		newNear.Put(frameName, frameSteps)
 	}
 	return newNear
 }
@@ -39,7 +39,7 @@ func fixedStepInterpolation(start, target node, qstep map[string][]float64) refe
 // TODO: This is somewhat redundant with a State.
 type node interface {
 	// return the configuration associated with the node
-	Q() referenceframe.FrameSystemInputs
+	Q() *referenceframe.LinearInputs
 	Cost() float64
 	SetCost(float64)
 	Poses() referenceframe.FrameSystemPoses
@@ -48,14 +48,14 @@ type node interface {
 }
 
 type basicNode struct {
-	q      referenceframe.FrameSystemInputs
+	q      *referenceframe.LinearInputs
 	cost   float64
 	poses  referenceframe.FrameSystemPoses
 	corner bool
 }
 
 // Special case constructors for nodes without costs to return NaN.
-func newConfigurationNode(q referenceframe.FrameSystemInputs) node {
+func newConfigurationNode(q *referenceframe.LinearInputs) node {
 	return &basicNode{
 		q:      q,
 		cost:   math.NaN(),
@@ -63,7 +63,7 @@ func newConfigurationNode(q referenceframe.FrameSystemInputs) node {
 	}
 }
 
-func (n *basicNode) Q() referenceframe.FrameSystemInputs {
+func (n *basicNode) Q() *referenceframe.LinearInputs {
 	return n.q
 }
 
@@ -155,7 +155,7 @@ func generateNodeListForPlanState(
 		nodes = append(nodes, solutions...)
 	}
 	if len(state.configuration) > 0 {
-		nodes = append(nodes, newConfigurationNode(state.configuration))
+		nodes = append(nodes, newConfigurationNode(state.configuration.ToLinearInputs()))
 	}
 	if len(nodes) == 0 {
 		return nil, fmt.Errorf("could not create any nodes for state %v", state)

@@ -177,7 +177,7 @@ type smartSeedCache struct {
 	rawCache map[string]*cacheForFrame
 }
 
-func (ssc *smartSeedCache) findMovingInfo(inputs referenceframe.FrameSystemInputs,
+func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	goalFrame string, goalPIF *referenceframe.PoseInFrame,
 ) (string, spatialmath.Pose, error) {
 	var err error
@@ -203,21 +203,22 @@ func (ssc *smartSeedCache) findMovingInfo(inputs referenceframe.FrameSystemInput
 	// 2) the frame of the thing we want to move
 	// 3) the frame of the actuating component
 
-	f2w1, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalPIF.Parent()))
+	f2w1DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalPIF.Parent()))
 	if err != nil {
 		return "", nil, err
 	}
-	f2w2, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalFrame))
+	f2w2DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalFrame))
 	if err != nil {
 		return "", nil, err
 	}
-	f2w3, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(frame.Name()))
+	f2w3DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(frame.Name()))
 	if err != nil {
 		return "", nil, err
 	}
 
-	goalInWorld := spatialmath.Compose(goalPIF.Pose(), f2w1)
-	delta := spatialmath.Compose(f2w2, spatialmath.PoseInverse(f2w3))
+	goalInWorld := spatialmath.Compose(goalPIF.Pose(), &spatialmath.DualQuaternion{f2w1DQ})
+	delta := spatialmath.Compose(&spatialmath.DualQuaternion{f2w2DQ},
+		spatialmath.PoseInverse(&spatialmath.DualQuaternion{f2w3DQ}))
 
 	newPose := spatialmath.Compose(goalInWorld, delta)
 
@@ -234,9 +235,9 @@ func (ssc *smartSeedCache) findMovingInfo(inputs referenceframe.FrameSystemInput
 }
 
 func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses,
-	start referenceframe.FrameSystemInputs,
+	start *referenceframe.LinearInputs,
 	logger logging.Logger,
-) (referenceframe.FrameSystemInputs, error) {
+) (*referenceframe.LinearInputs, error) {
 	ss, err := ssc.findSeeds(goal, start, logger)
 	if err != nil {
 		return nil, err
@@ -248,9 +249,9 @@ func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses,
 }
 
 func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
-	start referenceframe.FrameSystemInputs,
+	start *referenceframe.LinearInputs,
 	logger logging.Logger,
-) ([]referenceframe.FrameSystemInputs, error) {
+) ([]*referenceframe.LinearInputs, error) {
 	if len(goal) > 1 {
 		return nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
 	}
@@ -268,18 +269,18 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 		return nil, err
 	}
 
-	seeds, err := ssc.findSeedsForFrame(movingFrame, start[movingFrame], movingPose, logger)
+	seeds, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	fullSeeds := []referenceframe.FrameSystemInputs{}
+	fullSeeds := []*referenceframe.LinearInputs{}
 	for _, s := range seeds {
-		i := referenceframe.FrameSystemInputs{}
-		for k, v := range start {
-			i[k] = v
+		i := referenceframe.NewLinearInputs()
+		for k, v := range start.Items() {
+			i.Put(k, v)
 		}
-		i[movingFrame] = s
+		i.Put(movingFrame, s)
 		fullSeeds = append(fullSeeds, i)
 	}
 

@@ -57,7 +57,7 @@ func TestSmartSeedCache1(t *testing.T) {
 		-3.0938870331059594,
 		-1.767558957758243e-05,
 		-3.681258507284093,
-	}}
+	}}.ToLinearInputs()
 
 	goal := spatialmath.NewPose(
 		r3.Vector{X: -337.976430, Y: -464.051182, Z: 554.695381},
@@ -68,12 +68,12 @@ func TestSmartSeedCache1(t *testing.T) {
 		startTime := time.Now()
 		seeds, err := c.findSeedsForFrame(
 			"ur5e",
-			start["ur5e"],
+			start.Get("ur5e"),
 			goal,
 			logger)
 		logger.Infof("time to run findSeedsForFrame: %v", time.Since(startTime))
 		test.That(t, err, test.ShouldBeNil)
-		cost := referenceframe.InputsL2Distance(start["ur5e"], seeds[0])
+		cost := referenceframe.InputsL2Distance(start.Get("ur5e"), seeds[0])
 		test.That(t, cost, test.ShouldBeLessThan, 1.25)
 	})
 
@@ -85,7 +85,7 @@ func TestSmartSeedCache1(t *testing.T) {
 			logger)
 		test.That(t, err, test.ShouldBeNil)
 		logger.Infof("time to run findSeed: %v", time.Since(startTime))
-		cost := referenceframe.InputsL2Distance(start["ur5e"], seed["ur5e"])
+		cost := referenceframe.InputsL2Distance(start.Get("ur5e"), seed.Get("ur5e"))
 		test.That(t, cost, test.ShouldBeLessThan, 1.25)
 	})
 }
@@ -119,7 +119,7 @@ func TestSmartSeedCacheFrames(t *testing.T) {
 		f, p, err := c.findMovingInfo(
 			referenceframe.FrameSystemInputs{
 				"arm": []referenceframe.Input{0, 0, 0, 0, 0, 0},
-			},
+			}.ToLinearInputs(),
 			"gripper",
 			referenceframe.NewPoseInFrame("world", spatialmath.NewPose(r3.Vector{}, &spatialmath.OrientationVectorDegrees{})),
 		)
@@ -154,12 +154,12 @@ func TestSmartSeedCachePirouette(t *testing.T) {
 		score1 := referenceframe.InputsL2Distance(idealJointValues[0], ideal)
 		seeds, err := ssc.findSeeds(
 			referenceframe.FrameSystemPoses{armName: referenceframe.NewPoseInFrame("world", pose)},
-			referenceframe.FrameSystemInputs{armName: idealJointValues[0]},
+			referenceframe.FrameSystemInputs{armName: idealJointValues[0]}.ToLinearInputs(),
 			logger)
 		test.That(t, err, test.ShouldBeNil)
 		firstScore := 0.0
 		for ii, seed := range seeds {
-			score2 := referenceframe.InputsL2Distance(seed[armName], idealJointValues[i])
+			score2 := referenceframe.InputsL2Distance(seed.Get(armName), idealJointValues[i])
 			if ii == 0 {
 				firstScore = score2
 			}
@@ -202,7 +202,7 @@ func BenchmarkSmartSeedCacheSearch(t *testing.B) {
 		-3.0938870331059594,
 		-1.767558957758243e-05,
 		-3.681258507284093,
-	}}
+	}}.ToLinearInputs()
 
 	t.ResetTimer()
 
