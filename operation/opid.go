@@ -32,8 +32,10 @@ type Operation struct {
 	Started   time.Time
 
 	myManager *Manager
-	cancel    context.CancelFunc
-	labels    []string
+	// If providing a custom context.CancelFunc, do not lock Manager's lock, as it will
+	// conflict with other batch-cancel methods: CancelOtherWithLabel, Manager.CancelAll
+	cancel context.CancelFunc
+	labels []string
 }
 
 // Cancel cancel the context associated with an operation.
