@@ -3050,7 +3050,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				},
 				{
 					Name:      "reload-local",
-					Usage:     "build a module locally and run it on a target device. rebuild & restart if already running",
+					Usage:     "build a module locally and run it on a target machine. rebuild & restart if already running",
 					UsageText: createUsageText("module reload-local", nil, true, false),
 					Description: `Example invocations:
 
@@ -3132,7 +3132,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				},
 				{
 					Name:      "reload",
-					Usage:     "build a module in the cloud and run it on a target device. rebuild & restart if already running",
+					Usage:     "build a module in the cloud and run it on a target machine. rebuild & restart if already running",
 					UsageText: createUsageText("module reload", nil, true, false),
 					Description: `Example invocations:
 
