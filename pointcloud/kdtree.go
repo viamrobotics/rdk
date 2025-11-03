@@ -52,7 +52,7 @@ func (v treeComparableR3Vector) Distance(c kdtree.Comparable) float64 {
 	if !ok {
 		panic("treeComparableR3Vector Distance got wrong data")
 	}
-	// Return squared distance (gonum kdtree uses squared distance internally)
+	// The contract of a class that implements kdtree.Comparable is that the distance method returns the squared distance.
 	dist := v.vec.Distance(v2.vec)
 	return dist * dist
 }
