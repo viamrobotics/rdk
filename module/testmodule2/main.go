@@ -28,7 +28,7 @@ var (
 )
 
 func main() {
-	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("TestModule2"))
+	utils.ContextualMainWithSIGPIPE(mainWithArgs, module.NewLoggerFromArgs("TestModule2"))
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
