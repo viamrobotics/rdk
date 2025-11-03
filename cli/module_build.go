@@ -273,7 +273,7 @@ func ModuleBuildLogsAction(c *cli.Context, args moduleBuildLogsArgs) error {
 
 	var statuses map[string]jobStatus
 	if shouldWait {
-		statuses, err = client.waitForBuildToFinish(buildID, platform)
+		statuses, err = client.waitForBuildToFinish(buildID, platform, nil)
 		if err != nil {
 			return err
 		}
@@ -424,7 +424,12 @@ func (c *viamClient) listModuleBuildJobs(moduleIDFilter string, count *int32, bu
 // waitForBuildToFinish calls listModuleBuildJobs every moduleBuildPollingInterval
 // Will wait until the status of the specified job is DONE or FAILED
 // if platform is empty, it waits for all jobs associated with the ID.
-func (c *viamClient) waitForBuildToFinish(buildID, platform string) (map[string]jobStatus, error) {
+// If pm is not nil, it will show progress spinners for each build step.
+func (c *viamClient) waitForBuildToFinish(
+	buildID string,
+	platform string,
+	pm *ProgressManager,
+) (map[string]jobStatus, error) {
 	// If the platform is not empty, we should check that the platform is actually present on the build
 	// this is mostly to protect against users misspelling the platform
 	if platform != "" {
@@ -436,9 +441,15 @@ func (c *viamClient) waitForBuildToFinish(buildID, platform string) (map[string]
 			return nil, fmt.Errorf("platform %q is not present on build %q", platform, buildID)
 		}
 	}
+
 	statuses := make(map[string]jobStatus)
 	ticker := time.NewTicker(moduleBuildPollingInterval)
 	defer ticker.Stop()
+
+	// Track the last build step to detect changes
+	var lastBuildStep string
+	var currentStepID string
+	var buildStartCompleted bool
 
 	for {
 		select {
@@ -458,14 +469,53 @@ func (c *viamClient) waitForBuildToFinish(buildID, platform string) (map[string]
 				if platform == "" || job.Platform == platform {
 					status := jobStatusFromProto(job.Status)
 					statuses[job.Platform] = status
+
+					// Handle progress spinner for build steps
+					if pm != nil && job.GetBuildStep() != "" && job.GetBuildStep() != lastBuildStep {
+						// On first build step, complete "build-start" with the build ID message
+						if !buildStartCompleted {
+							_ = pm.CompleteWithMessage("build-start", fmt.Sprintf("Build started (ID: %s)", buildID)) //nolint:errcheck
+							buildStartCompleted = true
+						}
+
+						// Complete the previous step if it exists
+						if currentStepID != "" {
+							_ = pm.Complete(currentStepID) //nolint:errcheck
+						}
+
+						// Start a new step with IndentLevel = 1 (child of "Building...")
+						currentStepID = "build-step-" + job.GetBuildStep()
+						newStep := &Step{
+							ID:          currentStepID,
+							Message:     job.GetBuildStep(),
+							Status:      StepPending,
+							IndentLevel: 1,
+						}
+						pm.steps = append(pm.steps, newStep)
+						pm.stepMap[currentStepID] = newStep
+
+						_ = pm.Start(currentStepID) //nolint:errcheck
+						lastBuildStep = job.GetBuildStep()
+					}
+
 					if status != jobStatusDone && status != jobStatusFailed {
 						allDone = false
 						break
 					}
 				}
 			}
-			// If all jobs are done, return
+			// If all jobs are done, complete the last step and return
 			if allDone {
+				if pm != nil {
+					// If build-start was never completed (no build steps received), complete it now
+					if !buildStartCompleted {
+						_ = pm.CompleteWithMessage("build-start", fmt.Sprintf("Build started (ID: %s)", buildID)) //nolint:errcheck
+					}
+					// Complete the last build step
+					if currentStepID != "" {
+						_ = pm.Complete(currentStepID) //nolint:errcheck
+					}
+				}
 				return statuses, nil
 			}
 		}
@@ -937,29 +987,22 @@ func (c *viamClient) moduleCloudReload(
 		return nil, err
 	}
 
+	// Start "Starting build..." and keep it active until first actual build step
 	if err := pm.Start("build-start"); err != nil {
-		return nil, err
-	}
-	if err := pm.CompleteWithMessage("build-start", fmt.Sprintf("Build started (ID: %s)", buildID)); err != nil {
-		return nil, err
-	}
-
-	if err := pm.Start("build-wait"); err != nil {
 		return nil, err
 	}
 
 	// ensure the build completes before we try to download and use it
-	statuses, err := c.waitForBuildToFinish(buildID, platform)
+	// waitForBuildToFinish will complete "build-start" when first build step is received
+	statuses, err := c.waitForBuildToFinish(buildID, platform, pm)
 	if err != nil {
-		_ = pm.FailWithMessage("build-wait", "Build wait failed") //nolint:errcheck
-		_ = pm.FailWithMessage("build", "Building...")            //nolint:errcheck
+		_ = pm.FailWithMessage("build", "Building...") //nolint:errcheck
 		return nil, err
 	}
 
 	// if the build failed, print the logs and return an error
 	if statuses[platform] == jobStatusFailed {
-		_ = pm.FailWithMessage("build-wait", fmt.Sprintf("Build %s failed", buildID)) //nolint:errcheck
-		_ = pm.FailWithMessage("build", "Building...")                                //nolint:errcheck
+		_ = pm.FailWithMessage("build", "Building...") //nolint:errcheck
 
 		// Print error message without exiting (don't use Errorf since it calls os.Exit(1))
 		errorf(c.c.App.Writer, "Build %q failed to complete. Please check the logs below for more information.", buildID)
@@ -970,13 +1013,7 @@ func (c *viamClient) moduleCloudReload(
 
 		return nil, errors.Errorf("Reloading module failed")
 	}
-
-	if err := pm.Complete("build-wait"); err != nil {
-		return nil, err
-	}
-	if err := pm.Complete("build"); err != nil {
-		return nil, err
-	}
+	// Note: The "build" parent step will be completed by the caller after downloading artifacts
 
 	// Return build info so the caller can download the artifact with a spinner
 	return &moduleCloudBuildInfo{
@@ -1092,14 +1129,14 @@ func reloadModuleActionInner(
 
 	// Define all steps upfront (build + reload) with clear parent/child relationships
 	allSteps := []*Step{
-		{ID: "prepare", Message: "Preparing for build...", IndentLevel: 0},
+		{ID: "prepare", Message: "Preparing for build...", CompletedMsg: "Prepared for build", IndentLevel: 0},
 		{ID: "register", Message: "Ensuring module is registered...", CompletedMsg: "Module is registered", IndentLevel: 1},
 		{ID: "archive", Message: "Creating source code archive...", CompletedMsg: "Source code archive created", IndentLevel: 1},
 		{ID: "upload-source", Message: "Uploading source code...", CompletedMsg: "Source code uploaded", IndentLevel: 1},
-		{ID: "build", Message: "Building...", IndentLevel: 0},
+		{ID: "build", Message: "Building...", CompletedMsg: "Built", IndentLevel: 0},
 		{ID: "build-start", Message: "Starting build...", IndentLevel: 1},
-		{ID: "build-wait", Message: "Waiting for build to finish...", CompletedMsg: "Build completed successfully", IndentLevel: 1},
-		{ID: "reload", Message: "Reloading to part...", IndentLevel: 0},
+		// Dynamic build steps (e.g., "Spin up environment", "Install dependencies") are added at runtime with IndentLevel: 1
+		{ID: "reload", Message: "Reloading to part...", CompletedMsg: "Reloaded to part", IndentLevel: 0},
 		{ID: "download", Message: "Downloading build artifact...", CompletedMsg: "Build artifact downloaded", IndentLevel: 1},
 		{ID: "shell", Message: "Setting up shell service...", CompletedMsg: "Shell service ready", IndentLevel: 1},
 		{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 1},
@@ -1124,6 +1161,11 @@ func reloadModuleActionInner(
 		} else {
 			buildInfo, err = vc.moduleCloudReload(c, args, platform, *manifest, partID, pm)
 			if err != nil {
+				return err
+			}
+
+			// Complete the build phase before starting reload
+			if err := pm.Complete("build"); err != nil {
 				return err
 			}
 
