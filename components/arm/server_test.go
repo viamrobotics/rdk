@@ -2,7 +2,6 @@ package arm_test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 
@@ -307,8 +306,6 @@ func TestServer(t *testing.T) {
 }
 
 func AssertPosesClose(expected, actual *commonpb.Pose) bool {
-	fmt.Println("expected", expected)
-	fmt.Println("actual", actual)
 	return spatialmath.PoseAlmostEqual(
 		spatialmath.NewPoseFromProtobuf(expected),
 		spatialmath.NewPoseFromProtobuf(actual),

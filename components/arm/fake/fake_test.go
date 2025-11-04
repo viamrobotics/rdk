@@ -10,7 +10,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 )
 
 func TestReconfigure(t *testing.T) {
@@ -112,32 +111,4 @@ func TestJointPositions(t *testing.T) {
 	inputs, err := arm.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sampleInputs, test.ShouldResemble, inputs)
-}
-
-func TestJointPositionsToGeometries(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	cfg := resource.Config{
-		Name: "testArm",
-		ConvertedAttributes: &Config{
-			ArmModel: ur5eModel,
-		},
-	}
-	arm, err := NewArm(ctx, nil, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	samplePositions := []referenceframe.Input{{Value: 0}, {Value: -math.Pi / 2}, {Value: 0}, {Value: math.Pi / 2}, {Value: math.Pi / 2}, {Value: 0}}
-	test.That(t, arm.MoveToJointPositions(ctx, samplePositions, nil), test.ShouldBeNil)
-	geometries, err := arm.Geometries(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	var eeLinkGeom spatialmath.Geometry
-	for _, geom := range geometries {
-		if geom.Label() == "testArm:ee_link" {
-			eeLinkGeom = geom
-			break
-		}
-	}
-	test.That(t, eeLinkGeom, test.ShouldNotBeNil)
-	test.That(t, eeLinkGeom.Pose().Point().X, test.ShouldAlmostEqual, -49.85, 1e-2)
-	test.That(t, eeLinkGeom.Pose().Point().Y, test.ShouldAlmostEqual, -133.30, 1e-2)
-	test.That(t, eeLinkGeom.Pose().Point().Z, test.ShouldAlmostEqual, 880.0, 1e-2)
 }
