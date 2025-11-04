@@ -370,6 +370,7 @@ func (m *Module) getLocalResource(ctx context.Context, name resource.Name) (reso
 	defer m.mu.Unlock()
 
 	for res := range m.resLoggers {
+		m.logger.Infof("DBG. Res in loggers: %p %v", res, res.Name())
 		if res.Name() == name {
 			return res, nil
 		}
@@ -668,6 +669,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, multierr.Combine(err, res.Close(ctx))
 	}
 
+	m.logger.Infof("DBG. Added res to loggers: %p %v", res, res.Name())
 	m.resLoggers[res] = resLogger
 
 	// add the video stream resources upon creation
@@ -758,6 +760,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	if err != nil {
 		return nil, err
 	}
+	m.logger.Infof("DBG. Added res to loggers: %p %v", res, res.Name())
 	m.resLoggers[newRes] = resLogger
 
 	var passthroughSource rtppassthrough.Source
@@ -770,18 +773,23 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	}
 
 	for _, toRebuild := range m.internalDeps[res] {
-		fmt.Println("Rebuilding:", toRebuild.toReconfig.Name())
 		toRebuild.toReconfig.Close(ctx)
+		m.logger.Infof("DBG. Deleting res from loggers: %p %v", toRebuild.toReconfig, toRebuild.toReconfig.Name())
 		delete(m.resLoggers, toRebuild.toReconfig)
 
 		logger := m.resLoggers[toRebuild.toReconfig]
-		rebuilt, err := toRebuild.cons(ctx, deps, *conf, logger)
+		deps := toRebuild.deps
+		deps[newRes.Name()] = newRes
+		rebuilt, err := toRebuild.cons(ctx, deps, *toRebuild.conf, logger)
+		m.logger.Infof("DBG. Rebuilding %p %v", rebuilt, toRebuild.toReconfig.Name())
 		if err != nil {
 			m.logger.Info("Err rebuilding:", err)
 		}
+		m.logger.Infof("DBG. Added res to loggers: %p %v", rebuilt, rebuilt.Name())
 		m.resLoggers[rebuilt] = logger
 	}
 
+	m.logger.Infof("DBG. Deleting res from loggers: %p %v", res, res.Name())
 	delete(m.resLoggers, res)
 
 	return &pb.ReconfigureResourceResponse{}, coll.ReplaceOne(conf.ResourceName(), newRes)
