@@ -180,7 +180,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 			}
 			jointPositionsPb := jointPbResp.GetPositions()
 
-			// Convert degrees to radians before passing to model.Geometries
+			// Joint positions are in degrees but model.Geometries expects radians, so we convert them here.
 			jointPositionsRads, err := referenceframe.InputsFromJointPositions(nil, jointPositionsPb)
 			if err != nil {
 				return nil, err
