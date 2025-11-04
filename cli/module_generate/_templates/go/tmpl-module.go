@@ -41,7 +41,7 @@ type Config struct {
 //   3. An error if any Config fields are missing or invalid.
 //
 // The `path` parameter indicates
-// where this resource appears in the robot's JSON configuration
+// where this resource appears in the machine's JSON configuration
 // (for example, "components.0"). You can use it in error messages 
 // to indicate which resource has a problem.
 func (cfg *Config) Validate(path string) ([]string, []string, error) {
