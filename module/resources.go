@@ -29,32 +29,14 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	case <-m.pcFailed:
 	}
 
-	deps := make(resource.Dependencies)
-	for _, c := range req.Dependencies {
-		name, err := resource.NewFromString(c)
-		if err != nil {
-			return nil, err
-		}
-
-		c, err := m.getLocalResource(ctx, name)
-		if err == nil {
-			deps[name] = c
-			continue
-		}
-
-		c, err = m.GetParentResource(ctx, name)
-		if err != nil {
-			return nil, err
-		}
-		deps[name] = c
-	}
-
-	// let modules access RobotFrameSystem (name $framesystem) without needing entire RobotClient
-	deps[framesystem.PublicServiceName] = NewFrameSystemClient(m.parent)
-
 	conf, err := config.ComponentConfigFromProto(req.Config, m.logger)
 	if err != nil {
 		return nil, err
+	}
+
+	coll, ok := m.collections[conf.API]
+	if !ok {
+		return nil, fmt.Errorf("module cannot service api: %s", conf.API)
 	}
 
 	if err := addConvertedAttributes(conf); err != nil {
@@ -66,8 +48,9 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, fmt.Errorf("do not know how to construct %q", conf.API)
 	}
 	if resInfo.Constructor == nil {
-		return nil, fmt.Errorf("invariant: no constructor for %q", conf.API)
+		return nil, fmt.Errorf("invariant: no constructor for %q", conf.Model)
 	}
+
 	resLogger := m.logger.Sublogger(conf.ResourceName().String())
 	levelStr := req.Config.GetLogConfiguration().GetLevel()
 	// An unset LogConfiguration will materialize as an empty string.
@@ -75,9 +58,36 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		if level, err := logging.LevelFromString(levelStr); err == nil {
 			resLogger.SetLevel(level)
 		} else {
-			m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", conf.ResourceName().Name, "level", levelStr)
+			m.logger.Warnw("LogConfiguration does not contain a valid level.",
+				"resource", conf.ResourceName().Name, "level", levelStr)
 		}
 	}
+
+	deps := make(resource.Dependencies)
+	for _, c := range req.Dependencies {
+		name, err := resource.NewFromString(c)
+		if err != nil {
+			return nil, err
+		}
+
+		// If the dependency is local to this module, add the resource object directly, rather than
+		// a client object that talks with the viam-server.
+		localRes, err := m.getLocalResource(ctx, name)
+		if err == nil {
+			deps[name] = localRes
+			continue
+		}
+
+		// Get a viam-server client object that can access the dependency.
+		clientRes, err := m.GetParentResource(ctx, name)
+		if err != nil {
+			return nil, err
+		}
+		deps[name] = clientRes
+	}
+
+	// let modules access RobotFrameSystem (name $framesystem) without needing entire RobotClient
+	deps[framesystem.PublicServiceName] = NewFrameSystemClient(m.parent)
 
 	res, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
 	if err != nil {
@@ -89,7 +99,8 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	// The deadline associated with the context passed in to this function is rutils.GetResourceConfigurationTimeout,
 	// which is propagated to AddResource through gRPC.
 	if ctx.Err() != nil {
-		m.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource", "err", ctx.Err().Error())
+		m.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource",
+			"err", ctx.Err().Error())
 		return nil, multierr.Combine(ctx.Err(), res.Close(m.shutdownCtx))
 	}
 
@@ -100,11 +111,6 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
-	coll, ok := m.collections[conf.API]
-	if !ok {
-		return nil, fmt.Errorf("module cannot service api: %s", conf.API)
-	}
 
 	// If adding the resource name to the collection fails, close the resource
 	// and return an error
@@ -182,6 +188,8 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		// An unset LogConfiguration will materialize as an empty string.
 		if levelStr != "" {
 			if level, err := logging.LevelFromString(levelStr); err == nil {
+				// Dan: If `Reconfigure` fails, we do not undo this change. I feel it's reasonable
+				// to partially reconfigure in this way.
 				resLogger.SetLevel(level)
 			} else {
 				m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", res.Name().Name, "level", levelStr)
@@ -209,7 +217,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		return nil, fmt.Errorf("do not know how to construct %q", conf.API)
 	}
 	if resInfo.Constructor == nil {
-		return nil, fmt.Errorf("invariant: no constructor for %q", conf.API)
+		return nil, fmt.Errorf("invariant: no constructor for %q", conf.Model)
 	}
 
 	newRes, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
@@ -224,6 +232,8 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		passthroughSource = p
 	}
 
+	// We're modifying internal module maps now. We must not error out at this point without rolling
+	// back module state mutations.
 	if passthroughSource != nil {
 		m.streamSourceByName[res.Name()] = passthroughSource
 	}
@@ -401,8 +411,11 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error
 // AddModelFromRegistry adds a preregistered component or service model to the module's services.
 func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, model resource.Model) error {
 	resInfo, ok := resource.LookupRegistration(api, model)
-	if !ok || resInfo.Constructor == nil {
-		return fmt.Errorf("resource with API %s and model %s not yet registered", api, model)
+	if !ok {
+		return fmt.Errorf("do not know how to construct %q", api)
+	}
+	if resInfo.Constructor == nil {
+		return fmt.Errorf("invariant: no constructor for %q", model)
 	}
 
 	m.mu.Lock()
