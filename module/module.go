@@ -180,6 +180,13 @@ type peerResourceState struct {
 	subID rtppassthrough.SubscriptionID
 }
 
+type cachedReconfigure struct {
+	toReconfig resource.Resource
+	cons       resource.Create[resource.Resource]
+	conf       *resource.Config
+	deps       resource.Dependencies
+}
+
 // Module represents an external resource module that services components/services.
 type Module struct {
 	// The name of the module as per the robot config. This value is communicated via the
@@ -202,11 +209,16 @@ type Module struct {
 	handlers                HandlerMap
 	collections             map[resource.API]resource.APIResourceCollection[resource.Resource]
 	resLoggers              map[resource.Resource]logging.Logger
-	closeOnce               sync.Once
-	pc                      *webrtc.PeerConnection
-	pcReady                 <-chan struct{}
-	pcClosed                <-chan struct{}
-	pcFailed                <-chan struct{}
+
+	// internalDeps is keyed by a "child" resource and its values are "internal" resources that
+	// depend on the child.
+	internalDeps map[resource.Resource][]cachedReconfigure
+
+	closeOnce sync.Once
+	pc        *webrtc.PeerConnection
+	pcReady   <-chan struct{}
+	pcClosed  <-chan struct{}
+	pcFailed  <-chan struct{}
 	pb.UnimplementedModuleServiceServer
 	streampb.UnimplementedStreamServiceServer
 	robotpb.UnimplementedRobotServiceServer
@@ -251,6 +263,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		handlers:              HandlerMap{},
 		collections:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
 		resLoggers:            map[resource.Resource]logging.Logger{},
+		internalDeps:          map[resource.Resource][]cachedReconfigure{},
 	}
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
@@ -614,6 +627,20 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, err
 	}
 
+	m.mu.Lock()
+	for _, dep := range deps {
+		// If the dependency is a "local resource":
+		if _, exists := m.resLoggers[dep]; exists {
+			m.internalDeps[dep] = append(m.internalDeps[dep], cachedReconfigure{
+				toReconfig: res,
+				cons:       resInfo.Constructor,
+				conf:       conf,
+				deps:       deps,
+			})
+		}
+	}
+	m.mu.Unlock()
+
 	// If context has errored, even if construction succeeded we should close the resource and return the context error.
 	// Use shutdownCtx because otherwise any Close operations that rely on the context will immediately fail.
 	// The deadline associated with the context passed in to this function is rutils.GetResourceConfigurationTimeout,
@@ -691,12 +718,13 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		return nil, err
 	}
 
-	if logger, ok := m.resLoggers[res]; ok {
+	resLogger, hasLogger := m.resLoggers[res]
+	if hasLogger {
 		levelStr := req.GetConfig().GetLogConfiguration().GetLevel()
 		// An unset LogConfiguration will materialize as an empty string.
 		if levelStr != "" {
 			if level, err := logging.LevelFromString(levelStr); err == nil {
-				logger.SetLevel(level)
+				resLogger.SetLevel(level)
 			} else {
 				m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", res.Name().Name, "level", levelStr)
 			}
@@ -730,6 +758,8 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	if err != nil {
 		return nil, err
 	}
+	m.resLoggers[newRes] = resLogger
+
 	var passthroughSource rtppassthrough.Source
 	if p, ok := newRes.(rtppassthrough.Source); ok {
 		passthroughSource = p
@@ -738,6 +768,22 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	if passthroughSource != nil {
 		m.streamSourceByName[res.Name()] = passthroughSource
 	}
+
+	for _, toRebuild := range m.internalDeps[res] {
+		fmt.Println("Rebuilding:", toRebuild.toReconfig.Name())
+		toRebuild.toReconfig.Close(ctx)
+		delete(m.resLoggers, toRebuild.toReconfig)
+
+		logger := m.resLoggers[toRebuild.toReconfig]
+		rebuilt, err := toRebuild.cons(ctx, deps, *conf, logger)
+		if err != nil {
+			m.logger.Info("Err rebuilding:", err)
+		}
+		m.resLoggers[rebuilt] = logger
+	}
+
+	delete(m.resLoggers, res)
+
 	return &pb.ReconfigureResourceResponse{}, coll.ReplaceOne(conf.ResourceName(), newRes)
 }
 

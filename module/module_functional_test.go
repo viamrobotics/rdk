@@ -3,6 +3,7 @@ package module
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -65,6 +66,7 @@ type doCommandDepender struct {
 }
 
 func (dcd *doCommandDepender) Close(ctx context.Context) error {
+	fmt.Printf("Closing %p, depends: %p\n", dcd, dcd.dependsOn)
 	dcd.closed = true
 	return nil
 }
@@ -124,6 +126,7 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 
 			if len(cfg.DependsOn) > 0 {
 				ret.dependsOn, err = generic.FromProvider(deps, cfg.DependsOn)
+				fmt.Printf("I (%p) depend on %p\n", ret, ret.dependsOn)
 				if err != nil {
 					return nil, err
 				}
@@ -176,25 +179,31 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	logger.Info("ParentResp:", resp)
 
 	// Reconfigure the child. This results in a `Close` -> `Constructor`.
-	// _, err = module.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
-	//  	Config: &v1.ComponentConfig{ // Same config.
-	//  		Name: "child", Api: generic.API.String(), Model: model.String(),
-	//  	},
-	// })
-	// test.That(t, err, test.ShouldBeNil)
-
-	_, err = module.RemoveResource(ctx, &pb.RemoveResourceRequest{
-		Name: generic.Named("child").String(),
+	_, err = module.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
+		Config: &v1.ComponentConfig{ // Same config.
+			Name: "child", Api: generic.API.String(), Model: model.String(),
+		},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = module.AddResource(ctx, &pb.AddResourceRequest{Config: &v1.ComponentConfig{
-		Name: "child", Api: generic.API.String(), Model: model.String(),
-	}})
+	// _, err = module.RemoveResource(ctx, &pb.RemoveResourceRequest{
+	//  	Name: generic.Named("child").String(),
+	// })
+	// test.That(t, err, test.ShouldBeNil)
+	//
+	// _, err = module.AddResource(ctx, &pb.AddResourceRequest{Config: &v1.ComponentConfig{
+	//  	Name: "child", Api: generic.API.String(), Model: model.String(),
+	// }})
+	// test.That(t, err, test.ShouldBeNil)
+
+	// Assert that the original `parentRes` has its dependency invalidated.
+	resp, err = parentRes.DoCommand(ctx, map[string]any{})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Get a fresh value for the `parentRes`.
+	parentRes, err = module.getLocalResource(ctx, generic.Named("parent"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// Check if the `parentRes` has its dependency invalidated.
 	resp, err = parentRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
-	logger.Info("ParentResp:", resp)
 }
