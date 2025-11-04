@@ -45,7 +45,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
 	if !ok {
-		return nil, fmt.Errorf("do not know how to construct %q", conf.API)
+		return nil, fmt.Errorf("resource with API %q and model %q not yet registered", conf.API, conf.Model)
 	}
 	if resInfo.Constructor == nil {
 		return nil, fmt.Errorf("invariant: no constructor for %q", conf.Model)
@@ -109,8 +109,8 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		passthroughSource = p
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.registerMu.Lock()
+	defer m.registerMu.Unlock()
 
 	// If adding the resource name to the collection fails, close the resource
 	// and return an error
@@ -173,16 +173,20 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	m.registerMu.Lock()
 	coll, ok := m.collections[conf.API]
 	if !ok {
+		m.registerMu.Unlock()
 		return nil, fmt.Errorf("no rpc service for %+v", conf)
 	}
 	res, err = coll.Resource(conf.ResourceName().Name)
 	if err != nil {
+		m.registerMu.Unlock()
 		return nil, err
 	}
 
 	resLogger, hasLogger := m.resLoggers[res]
+	m.registerMu.Unlock()
 	if hasLogger {
 		levelStr := req.GetConfig().GetLogConfiguration().GetLevel()
 		// An unset LogConfiguration will materialize as an empty string.
@@ -211,10 +215,13 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		m.logger.Error(err)
 	}
 
+	m.registerMu.Lock()
 	delete(m.activeResourceStreams, res.Name())
+	m.registerMu.Unlock()
+
 	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
 	if !ok {
-		return nil, fmt.Errorf("do not know how to construct %q", conf.API)
+		return nil, fmt.Errorf("resource with API %q and model %q not yet registered", conf.API, conf.Model)
 	}
 	if resInfo.Constructor == nil {
 		return nil, fmt.Errorf("invariant: no constructor for %q", conf.Model)
@@ -224,6 +231,9 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	if err != nil {
 		return nil, err
 	}
+
+	m.registerMu.Lock()
+	defer m.registerMu.Unlock()
 	m.logger.Infof("DBG. Added res to loggers: %p %v", res, res.Name())
 	m.resLoggers[newRes] = resLogger
 
@@ -307,21 +317,27 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 		return nil, err
 	}
 
+	m.registerMu.Lock()
 	coll, ok := m.collections[name.API]
 	if !ok {
+		m.registerMu.Unlock()
 		return nil, fmt.Errorf("no grpc service for %+v", name)
 	}
 	res, err := coll.Resource(name.Name)
 	if err != nil {
+		m.registerMu.Unlock()
 		return nil, err
 	}
+	m.registerMu.Unlock()
 
 	if err := res.Close(ctx); err != nil {
 		m.logger.Error(err)
 	}
 
+	m.registerMu.Lock()
 	delete(m.streamSourceByName, res.Name())
 	delete(m.activeResourceStreams, res.Name())
+	defer m.registerMu.Unlock()
 
 	return &pb.RemoveResourceResponse{}, coll.Remove(name)
 }
@@ -337,8 +353,8 @@ func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (res
 }
 
 func (m *Module) getLocalResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.registerMu.Lock()
+	defer m.registerMu.Unlock()
 
 	for res := range m.resLoggers {
 		m.logger.Infof("DBG. Res in loggers: %p %v", res, res.Name())
@@ -387,8 +403,8 @@ func addConvertedAttributes(cfg *resource.Config) error {
 
 // addAPIFromRegistry adds a preregistered API (rpc API) to the module's services.
 func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.registerMu.Lock()
+	defer m.registerMu.Unlock()
 	_, ok := m.collections[api]
 	if ok {
 		return nil
@@ -412,15 +428,15 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error
 func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, model resource.Model) error {
 	resInfo, ok := resource.LookupRegistration(api, model)
 	if !ok {
-		return fmt.Errorf("do not know how to construct %q", api)
+		return fmt.Errorf("resource with API %q and model %q not yet registered", api, model)
 	}
 	if resInfo.Constructor == nil {
 		return fmt.Errorf("invariant: no constructor for %q", model)
 	}
 
-	m.mu.Lock()
+	m.registerMu.Lock()
 	_, ok = m.collections[api]
-	m.mu.Unlock()
+	m.registerMu.Unlock()
 	if !ok {
 		if err := m.addAPIFromRegistry(ctx, api); err != nil {
 			return err
@@ -440,8 +456,8 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, mod
 		Desc:         apiInfo.ReflectRPCServiceDesc,
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.registerMu.Lock()
 	m.handlers[rpcAPI] = append(m.handlers[rpcAPI], model)
+	m.registerMu.Unlock()
 	return nil
 }

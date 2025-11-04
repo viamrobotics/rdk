@@ -21,6 +21,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 )
 
 // NewServer returns a new (module specific) rpc.Server.

@@ -98,7 +98,7 @@ type Module struct {
 	mu sync.Mutex
 
 	// registerMu protects the maps immediately below as resources/streams come in and out of existence
-	// registerMu  sync.Mutex
+	registerMu  sync.Mutex
 	collections map[resource.API]resource.APIResourceCollection[resource.Resource]
 	// internalDeps is keyed by a "child" resource and its values are "internal" resources that
 	// depend on the child.

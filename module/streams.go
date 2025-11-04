@@ -54,8 +54,8 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 	if err != nil {
 		return nil, err
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.registerMu.Lock()
+	defer m.registerMu.Unlock()
 	if m.pc == nil {
 		return nil, errors.New("module has no peer connection")
 	}
@@ -112,8 +112,8 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 			msg = "module closing calling RemoveTrack"
 		}
 		// remove the track from the peer connection so that viam-server clients know that the stream has terminated
-		m.mu.Lock()
-		defer m.mu.Unlock()
+		m.registerMu.Lock()
+		defer m.registerMu.Unlock()
 		m.logger.Debugw(msg, "name", name.String(), "subID", sub.ID.String())
 		delete(m.activeResourceStreams, name)
 		if err := m.pc.RemoveTrack(sender); err != nil {
@@ -135,8 +135,8 @@ func (m *Module) RemoveStream(ctx context.Context, req *streampb.RemoveStreamReq
 	if err != nil {
 		return nil, err
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.registerMu.Lock()
+	defer m.registerMu.Unlock()
 	if m.pc == nil {
 		return nil, errors.New("module has no peer connection")
 	}
