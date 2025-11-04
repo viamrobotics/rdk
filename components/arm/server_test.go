@@ -66,7 +66,7 @@ func TestServer(t *testing.T) {
 		return model, nil
 	}
 
-	goodKinematicsJson := func(ctx context.Context) (referenceframe.Model, error) {
+	goodKinematicsJSON := func(ctx context.Context) (referenceframe.Model, error) {
 		model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/ur5e.json"), "foo")
 		if err != nil {
 			return nil, err
@@ -271,7 +271,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("get geometries", func(t *testing.T) {
 		positions = []float64{0.0, -math.Pi / 2.0, 0.0, 0.0, math.Pi / 2.0, 0.0}
-		injectArm.KinematicsFunc = goodKinematicsJson
+		injectArm.KinematicsFunc = goodKinematicsJSON
 		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 			extraOptions = extra
 			return positions, nil
@@ -279,13 +279,104 @@ func TestServer(t *testing.T) {
 		geometries, err := armServer.GetGeometries(context.Background(), &commonpb.GetGeometriesRequest{Name: testArmName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(geometries.Geometries), test.ShouldEqual, 6)
-		// NOTE: these pose values were taken from a working fake Ur5e arm given the input joint positions, represnting a ground truth value for the geometries.
-		test.That(t, AssertPosesClose(geometries.Geometries[0].Center, &commonpb.Pose{X: 0.0, Y: 0.0, Z: 130.0, OX: 0.0, OY: 0.0, OZ: 1.0, Theta: 0.0}), test.ShouldBeTrue)
-		test.That(t, AssertPosesClose(geometries.Geometries[1].Center, &commonpb.Pose{X: 0.0, Y: -130.0, Z: 375.0, OX: 0.0, OY: 0.0, OZ: 1.0, Theta: 180}), test.ShouldBeTrue)
-		test.That(t, AssertPosesClose(geometries.Geometries[2].Center, &commonpb.Pose{X: 0.0, Y: 0.0, Z: 783.6, OX: 0.0, OY: 0.0, OZ: 1.0, Theta: 180}), test.ShouldBeTrue)
-		test.That(t, AssertPosesClose(geometries.Geometries[3].Center, &commonpb.Pose{X: 0.0, Y: -80.65, Z: 979.70, OX: 0.0, OY: -1.0, OZ: 0.0, Theta: -90}), test.ShouldBeTrue)
-		test.That(t, AssertPosesClose(geometries.Geometries[4].Center, &commonpb.Pose{X: 0.0, Y: -133.30, Z: 979.70, OX: -1.0, OY: 0.0, OZ: 0.0, Theta: -90}), test.ShouldBeTrue)
-		test.That(t, AssertPosesClose(geometries.Geometries[5].Center, &commonpb.Pose{X: -99.70, Y: -133.30, Z: 1029.55, OX: 0.0, OY: 0.0, OZ: 1.0, Theta: -180}), test.ShouldBeTrue)
+		// NOTE: these pose values were taken from a working fake Ur5e arm given the input joint positions,
+		// represnting a ground truth value for the geometries.
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[0].Center,
+				&commonpb.Pose{
+					X:     0.0,
+					Y:     0.0,
+					Z:     130.0,
+					OX:    0.0,
+					OY:    0.0,
+					OZ:    1.0,
+					Theta: 0.0,
+				},
+			),
+			test.ShouldBeTrue,
+		)
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[1].Center,
+				&commonpb.Pose{
+					X:     0.0,
+					Y:     -130.0,
+					Z:     375.0,
+					OX:    0.0,
+					OY:    0.0,
+					OZ:    1.0,
+					Theta: 180,
+				},
+			),
+			test.ShouldBeTrue,
+		)
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[2].Center,
+				&commonpb.Pose{
+					X:     0.0,
+					Y:     0.0,
+					Z:     783.6,
+					OX:    0.0,
+					OY:    0.0,
+					OZ:    1.0,
+					Theta: 180,
+				},
+			),
+			test.ShouldBeTrue,
+		)
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[3].Center,
+				&commonpb.Pose{
+					X:     0.0,
+					Y:     -80.65,
+					Z:     979.70,
+					OX:    0.0,
+					OY:    -1.0,
+					OZ:    0.0,
+					Theta: -90,
+				},
+			),
+			test.ShouldBeTrue,
+		)
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[4].Center,
+				&commonpb.Pose{
+					X:     0.0,
+					Y:     -133.30,
+					Z:     979.70,
+					OX:    -1.0,
+					OY:    0.0,
+					OZ:    0.0,
+					Theta: -90,
+				},
+			),
+			test.ShouldBeTrue,
+		)
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[5].Center,
+				&commonpb.Pose{
+					X:     -99.70,
+					Y:     -133.30,
+					Z:     1029.55,
+					OX:    0.0,
+					OY:    0.0,
+					OZ:    1.0,
+					Theta: -180,
+				},
+			),
+			test.ShouldBeTrue,
+		)
 	})
 
 	t.Run("stop", func(t *testing.T) {
