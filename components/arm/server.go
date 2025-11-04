@@ -3,6 +3,7 @@ package arm
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -167,22 +168,27 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 		if strings.Contains(err.Error(), unimplemented) {
 			kinematicsPbResp, err := s.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: req.GetName()})
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error getting kinematics: %w", err)
 			}
 			model, err := referenceframe.KinematicModelFromProtobuf(req.GetName(), kinematicsPbResp)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error getting model from kinematics: %w", err)
 			}
 
 			jointPbResp, err := s.GetJointPositions(ctx, &pb.GetJointPositionsRequest{Name: req.GetName()})
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error getting joint positions: %w", err)
 			}
 			jointPositionsPb := jointPbResp.GetPositions()
 
-			gifs, err := model.Geometries(jointPositionsPb.Values)
+			// Convert degrees to radians before passing to model.Geometries
+			jointPositionsRads, err := referenceframe.InputsFromJointPositions(nil, jointPositionsPb)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error converting joint positions to radians: %w", err)
+			}
+			gifs, err := model.Geometries(jointPositionsRads)
+			if err != nil {
+				return nil, fmt.Errorf("error getting geometries: %w", err)
 			}
 			return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(
 				gifs.Geometries())}, nil
