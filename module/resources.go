@@ -1,0 +1,434 @@
+package module
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"go.uber.org/multierr"
+	pb "go.viam.com/api/module/v1"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/utils"
+)
+
+type cachedReconfigure struct {
+	toReconfig resource.Resource
+	cons       resource.Create[resource.Resource]
+	conf       *resource.Config
+	deps       resource.Dependencies
+}
+
+// AddResource receives the component/service configuration from the parent.
+func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
+	select {
+	case <-m.pcReady:
+	case <-m.pcFailed:
+	}
+
+	deps := make(resource.Dependencies)
+	for _, c := range req.Dependencies {
+		name, err := resource.NewFromString(c)
+		if err != nil {
+			return nil, err
+		}
+
+		c, err := m.getLocalResource(ctx, name)
+		if err == nil {
+			deps[name] = c
+			continue
+		}
+
+		c, err = m.GetParentResource(ctx, name)
+		if err != nil {
+			return nil, err
+		}
+		deps[name] = c
+	}
+
+	// let modules access RobotFrameSystem (name $framesystem) without needing entire RobotClient
+	deps[framesystem.PublicServiceName] = NewFrameSystemClient(m.parent)
+
+	conf, err := config.ComponentConfigFromProto(req.Config, m.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := addConvertedAttributes(conf); err != nil {
+		return nil, fmt.Errorf("unable to convert attributes when adding resource: %w", err)
+	}
+
+	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
+	if !ok {
+		return nil, fmt.Errorf("do not know how to construct %q", conf.API)
+	}
+	if resInfo.Constructor == nil {
+		return nil, fmt.Errorf("invariant: no constructor for %q", conf.API)
+	}
+	resLogger := m.logger.Sublogger(conf.ResourceName().String())
+	levelStr := req.Config.GetLogConfiguration().GetLevel()
+	// An unset LogConfiguration will materialize as an empty string.
+	if levelStr != "" {
+		if level, err := logging.LevelFromString(levelStr); err == nil {
+			resLogger.SetLevel(level)
+		} else {
+			m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", conf.ResourceName().Name, "level", levelStr)
+		}
+	}
+
+	res, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
+	if err != nil {
+		return nil, err
+	}
+
+	// If context has errored, even if construction succeeded we should close the resource and return the context error.
+	// Use shutdownCtx because otherwise any Close operations that rely on the context will immediately fail.
+	// The deadline associated with the context passed in to this function is rutils.GetResourceConfigurationTimeout,
+	// which is propagated to AddResource through gRPC.
+	if ctx.Err() != nil {
+		m.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource", "err", ctx.Err().Error())
+		return nil, multierr.Combine(ctx.Err(), res.Close(m.shutdownCtx))
+	}
+
+	var passthroughSource rtppassthrough.Source
+	if p, ok := res.(rtppassthrough.Source); ok {
+		passthroughSource = p
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	coll, ok := m.collections[conf.API]
+	if !ok {
+		return nil, fmt.Errorf("module cannot service api: %s", conf.API)
+	}
+
+	// If adding the resource name to the collection fails, close the resource
+	// and return an error
+	if err := coll.Add(conf.ResourceName(), res); err != nil {
+		return nil, multierr.Combine(err, res.Close(ctx))
+	}
+
+	m.logger.Infof("DBG. Added res to loggers: %p %v", res, res.Name())
+	m.resLoggers[res] = resLogger
+
+	// add the video stream resources upon creation
+	if passthroughSource != nil {
+		m.streamSourceByName[res.Name()] = passthroughSource
+	}
+
+	for _, dep := range deps {
+		// If the dependency is a "local resource":
+		if _, exists := m.resLoggers[dep]; exists {
+			m.internalDeps[dep] = append(m.internalDeps[dep], cachedReconfigure{
+				toReconfig: res,
+				cons:       resInfo.Constructor,
+				conf:       conf,
+				deps:       deps,
+			})
+		}
+	}
+
+	return &pb.AddResourceResponse{}, nil
+}
+
+// ReconfigureResource receives the component/service configuration from the parent.
+func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureResourceRequest) (*pb.ReconfigureResourceResponse, error) {
+	var res resource.Resource
+	deps := make(resource.Dependencies)
+	for _, c := range req.Dependencies {
+		name, err := resource.NewFromString(c)
+		if err != nil {
+			return nil, err
+		}
+		c, err := m.GetParentResource(ctx, name)
+		if err != nil {
+			return nil, err
+		}
+		deps[name] = c
+	}
+
+	// let modules access RobotFrameSystem (name $framesystem) without needing entire RobotClient
+	deps[framesystem.PublicServiceName] = NewFrameSystemClient(m.parent)
+
+	// it is assumed the caller robot has handled model differences
+	conf, err := config.ComponentConfigFromProto(req.Config, m.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := addConvertedAttributes(conf); err != nil {
+		return nil, fmt.Errorf("unable to convert attributes when reconfiguring resource: %w", err)
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	coll, ok := m.collections[conf.API]
+	if !ok {
+		return nil, fmt.Errorf("no rpc service for %+v", conf)
+	}
+	res, err = coll.Resource(conf.ResourceName().Name)
+	if err != nil {
+		return nil, err
+	}
+
+	resLogger, hasLogger := m.resLoggers[res]
+	if hasLogger {
+		levelStr := req.GetConfig().GetLogConfiguration().GetLevel()
+		// An unset LogConfiguration will materialize as an empty string.
+		if levelStr != "" {
+			if level, err := logging.LevelFromString(levelStr); err == nil {
+				resLogger.SetLevel(level)
+			} else {
+				m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", res.Name().Name, "level", levelStr)
+			}
+		}
+	}
+
+	err = res.Reconfigure(ctx, deps, *conf)
+	if err == nil {
+		return &pb.ReconfigureResourceResponse{}, nil
+	}
+
+	if !resource.IsMustRebuildError(err) {
+		return nil, err
+	}
+
+	m.logger.Debugw("rebuilding", "name", conf.ResourceName().String())
+	if err := res.Close(ctx); err != nil {
+		m.logger.Error(err)
+	}
+
+	delete(m.activeResourceStreams, res.Name())
+	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
+	if !ok {
+		return nil, fmt.Errorf("do not know how to construct %q", conf.API)
+	}
+	if resInfo.Constructor == nil {
+		return nil, fmt.Errorf("invariant: no constructor for %q", conf.API)
+	}
+
+	newRes, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
+	if err != nil {
+		return nil, err
+	}
+	m.logger.Infof("DBG. Added res to loggers: %p %v", res, res.Name())
+	m.resLoggers[newRes] = resLogger
+
+	var passthroughSource rtppassthrough.Source
+	if p, ok := newRes.(rtppassthrough.Source); ok {
+		passthroughSource = p
+	}
+
+	if passthroughSource != nil {
+		m.streamSourceByName[res.Name()] = passthroughSource
+	}
+
+	for _, toRebuild := range m.internalDeps[res] {
+		toRebuild.toReconfig.Close(ctx)
+		m.logger.Infof("DBG. Deleting res from loggers: %p %v", toRebuild.toReconfig, toRebuild.toReconfig.Name())
+		delete(m.resLoggers, toRebuild.toReconfig)
+
+		logger := m.resLoggers[toRebuild.toReconfig]
+		deps := toRebuild.deps
+		deps[newRes.Name()] = newRes
+		rebuilt, err := toRebuild.cons(ctx, deps, *toRebuild.conf, logger)
+		m.logger.Infof("DBG. Rebuilding %p %v", rebuilt, toRebuild.toReconfig.Name())
+		if err != nil {
+			m.logger.Info("Err rebuilding:", err)
+		}
+		m.logger.Infof("DBG. Added res to loggers: %p %v", rebuilt, rebuilt.Name())
+		m.resLoggers[rebuilt] = logger
+	}
+
+	m.logger.Infof("DBG. Deleting res from loggers: %p %v", res, res.Name())
+	delete(m.resLoggers, res)
+
+	return &pb.ReconfigureResourceResponse{}, coll.ReplaceOne(conf.ResourceName(), newRes)
+}
+
+// ValidateConfig receives the validation request for a resource from the parent.
+func (m *Module) ValidateConfig(ctx context.Context,
+	req *pb.ValidateConfigRequest,
+) (*pb.ValidateConfigResponse, error) {
+	c, err := config.ComponentConfigFromProto(req.Config, m.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := addConvertedAttributes(c); err != nil {
+		return nil, fmt.Errorf("unable to convert attributes for validation: %w", err)
+	}
+
+	if c.ConvertedAttributes != nil {
+		implicitRequiredDeps, implicitOptionalDeps, err := c.ConvertedAttributes.Validate(c.Name)
+		if err != nil {
+			return nil, fmt.Errorf("error validating resource: %w", err)
+		}
+		resp := &pb.ValidateConfigResponse{
+			Dependencies:         implicitRequiredDeps,
+			OptionalDependencies: implicitOptionalDeps,
+		}
+		return resp, nil
+	}
+
+	// Resource configuration object does not implement Validate, but return an
+	// empty response and no error to maintain backward compatibility.
+	return &pb.ValidateConfigResponse{}, nil
+}
+
+// RemoveResource receives the request for resource removal.
+func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
+	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
+		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger)
+	defer func() {
+		slowWatcherCancel()
+		<-slowWatcher
+	}()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	name, err := resource.NewFromString(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	coll, ok := m.collections[name.API]
+	if !ok {
+		return nil, fmt.Errorf("no grpc service for %+v", name)
+	}
+	res, err := coll.Resource(name.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := res.Close(ctx); err != nil {
+		m.logger.Error(err)
+	}
+
+	delete(m.streamSourceByName, res.Name())
+	delete(m.activeResourceStreams, res.Name())
+
+	return &pb.RemoveResourceResponse{}, coll.Remove(name)
+}
+
+// GetParentResource returns a resource from the parent robot by name.
+func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
+	// Refresh parent to ensure it has the most up-to-date resources before calling
+	// ResourceByName.
+	if err := m.parent.Refresh(ctx); err != nil {
+		return nil, err
+	}
+	return m.parent.ResourceByName(name)
+}
+
+func (m *Module) getLocalResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for res := range m.resLoggers {
+		m.logger.Infof("DBG. Res in loggers: %p %v", res, res.Name())
+		if res.Name() == name {
+			return res, nil
+		}
+	}
+
+	return nil, resource.NewNotFoundError(name)
+}
+
+// addConvertedAttributesToConfig uses the MapAttributeConverter to fill in the
+// ConvertedAttributes field from the Attributes and AssociatedResourceConfigs.
+func addConvertedAttributes(cfg *resource.Config) error {
+	// Try to find map converter for a resource.
+	reg, ok := resource.LookupRegistration(cfg.API, cfg.Model)
+	if ok && reg.AttributeMapConverter != nil {
+		converted, err := reg.AttributeMapConverter(cfg.Attributes)
+		if err != nil {
+			return fmt.Errorf("error converting attributes for resource")
+		}
+		cfg.ConvertedAttributes = converted
+	}
+
+	// Also try for associated configs (will only succeed if module itself registers the associated config API).
+	for subIdx, associatedConf := range cfg.AssociatedResourceConfigs {
+		conv, ok := resource.LookupAssociatedConfigRegistration(associatedConf.API)
+		if !ok {
+			continue
+		}
+		if conv.AttributeMapConverter != nil {
+			converted, err := conv.AttributeMapConverter(associatedConf.Attributes)
+			if err != nil {
+				return fmt.Errorf("error converting associated resource config attributes: %w", err)
+			}
+			// associated resource configs for resources might be missing a resource name
+			// which can be inferred from its resource config.
+			converted.UpdateResourceNames(func(oldName resource.Name) resource.Name {
+				return cfg.ResourceName()
+			})
+			cfg.AssociatedResourceConfigs[subIdx].ConvertedAttributes = converted
+		}
+	}
+	return nil
+}
+
+// addAPIFromRegistry adds a preregistered API (rpc API) to the module's services.
+func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.collections[api]
+	if ok {
+		return nil
+	}
+
+	apiInfo, ok := resource.LookupGenericAPIRegistration(api)
+	if !ok {
+		return fmt.Errorf("invariant: registration does not exist for %q", api)
+	}
+
+	newColl := apiInfo.MakeEmptyCollection()
+	m.collections[api] = newColl
+
+	if !ok {
+		return nil
+	}
+	return apiInfo.RegisterRPCService(ctx, m.server, newColl)
+}
+
+// AddModelFromRegistry adds a preregistered component or service model to the module's services.
+func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, model resource.Model) error {
+	resInfo, ok := resource.LookupRegistration(api, model)
+	if !ok || resInfo.Constructor == nil {
+		return fmt.Errorf("resource with API %s and model %s not yet registered", api, model)
+	}
+
+	m.mu.Lock()
+	_, ok = m.collections[api]
+	m.mu.Unlock()
+	if !ok {
+		if err := m.addAPIFromRegistry(ctx, api); err != nil {
+			return err
+		}
+	}
+
+	apiInfo, ok := resource.LookupGenericAPIRegistration(api)
+	if !ok {
+		return fmt.Errorf("invariant: registration does not exist for %q", api)
+	}
+	if apiInfo.ReflectRPCServiceDesc == nil {
+		m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", api)
+	}
+	rpcAPI := resource.RPCAPI{
+		API:          api,
+		ProtoSvcName: apiInfo.RPCServiceDesc.ServiceName,
+		Desc:         apiInfo.ReflectRPCServiceDesc,
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.handlers[rpcAPI] = append(m.handlers[rpcAPI], model)
+	return nil
+}
