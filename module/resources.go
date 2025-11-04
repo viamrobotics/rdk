@@ -461,3 +461,12 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, mod
 	m.registerMu.Unlock()
 	return nil
 }
+
+func addResource() {
+}
+
+func removeResource() {
+}
+
+func reconfigureResource() {
+}
