@@ -239,7 +239,7 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	_, err = parentRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = module.getLocalResource(ctx, generic.Named("grandParent"))
+	gpRes, err = module.getLocalResource(ctx, generic.Named("grandParent"))
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = gpRes.DoCommand(ctx, map[string]any{})
