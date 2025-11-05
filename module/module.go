@@ -4,13 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base32"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"sync"
-
-	"errors"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/viamrobotics/webrtc/v3"
@@ -29,7 +28,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
-
 	// Register service APIs.
 	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"

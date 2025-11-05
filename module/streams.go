@@ -10,10 +10,11 @@ import (
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	streampb "go.viam.com/api/stream/v1"
-	"go.viam.com/rdk/components/camera/rtppassthrough"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/utils"
 	"golang.org/x/exp/maps"
+
+	"go.viam.com/rdk/components/camera/rtppassthrough"
+	"go.viam.com/rdk/resource"
 )
 
 // errMaxSupportedWebRTCTrackLimit is the error returned when the MaxSupportedWebRTCTRacks limit is

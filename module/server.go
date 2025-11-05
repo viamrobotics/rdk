@@ -15,13 +15,14 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
-	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/discovery"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/discovery"
 )
 
 // NewServer returns a new (module specific) rpc.Server.

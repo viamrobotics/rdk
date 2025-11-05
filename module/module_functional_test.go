@@ -3,20 +3,20 @@ package module
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	v1 "go.viam.com/api/app/v1"
 	pb "go.viam.com/api/module/v1"
+	"go.viam.com/test"
+	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
+
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
-	"go.viam.com/test"
-	"go.viam.com/utils"
-	"go.viam.com/utils/protoutils"
 )
 
 // setupLocalModule sets up a module without a parent connection.
@@ -66,7 +66,7 @@ type doCommandDepender struct {
 }
 
 func (dcd *doCommandDepender) Close(ctx context.Context) error {
-	fmt.Printf("Closing %v %p, depends: %p\n", dcd.Name(), dcd, dcd.dependsOn)
+	dcd.logger.Infof("Closing %v %p, depends: %p\n", dcd.Name(), dcd, dcd.dependsOn)
 	dcd.closed = true
 	return nil
 }
@@ -126,7 +126,7 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 
 			if len(cfg.DependsOn) > 0 {
 				ret.dependsOn, err = generic.FromProvider(deps, cfg.DependsOn)
-				fmt.Printf("I %v (%p) depend on %p Config: %v\n",
+				logger.Infof("I %v (%p) depend on %p Config: %v\n",
 					rcfg.ResourceName().Name, ret, ret.dependsOn, cfg.DependsOn)
 				if err != nil {
 					return nil, err
@@ -180,6 +180,7 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	logger.Info("ParentResp:", resp)
 
 	// Reconfigure the child. This results in a `Close` -> `Constructor`.
+	logger.Info("Reconfiguring child first time")
 	_, err = module.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
 		Config: &v1.ComponentConfig{ // Same config.
 			Name: "child", Api: generic.API.String(), Model: model.String(),
@@ -188,14 +189,14 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Assert that the original `parentRes` has its dependency invalidated.
-	resp, err = parentRes.DoCommand(ctx, map[string]any{})
+	_, err = parentRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Get a fresh value for the `parentRes`.
 	parentRes, err = module.getLocalResource(ctx, generic.Named("parent"))
 	test.That(t, err, test.ShouldBeNil)
 
-	resp, err = parentRes.DoCommand(ctx, map[string]any{})
+	_, err = parentRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// Build up and add a parent resource that depends on the child resource.
@@ -217,10 +218,10 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	gpRes, err := module.getLocalResource(ctx, generic.Named("grandParent"))
 	test.That(t, err, test.ShouldBeNil)
 
-	resp, err = gpRes.DoCommand(ctx, map[string]any{})
+	_, err = gpRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 
-	logger.Info("Reconfiguring child again")
+	logger.Info("Reconfiguring child second time")
 	// Reconfigure the child again. This results in a `Close` -> `Constructor` on both the child
 	// _and_ the parent _and_ the grandparent. Refetch the parent and grandparent and assert they
 	// both grandparent can continue respond to `DoCommand`s that require dependencies to be valid.
@@ -235,12 +236,12 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	parentRes, err = module.getLocalResource(ctx, generic.Named("parent"))
 	test.That(t, err, test.ShouldBeNil)
 
-	resp, err = parentRes.DoCommand(ctx, map[string]any{})
+	_, err = parentRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 
-	gpRes, err = module.getLocalResource(ctx, generic.Named("grandParent"))
+	_, err = module.getLocalResource(ctx, generic.Named("grandParent"))
 	test.That(t, err, test.ShouldBeNil)
 
-	resp, err = gpRes.DoCommand(ctx, map[string]any{})
+	_, err = gpRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 }

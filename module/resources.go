@@ -7,12 +7,13 @@ import (
 
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
-	"go.viam.com/utils"
 )
 
 type resConfigureArgs struct {
@@ -167,9 +168,8 @@ func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (res
 }
 
 // getLocalResource must be called while holding the `registerMu`.
-func (m *Module) getLocalResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
+func (m *Module) getLocalResource(_ context.Context, name resource.Name) (resource.Resource, error) {
 	for res := range m.resLoggers {
-		m.logger.Infof("DBG. Res in loggers: %p %v", res, res.Name())
 		if res.Name() == name {
 			return res, nil
 		}
