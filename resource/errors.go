@@ -2,6 +2,7 @@ package resource
 
 import (
 	"fmt"
+	"runtime/debug"
 
 	"github.com/pkg/errors"
 
@@ -72,6 +73,7 @@ func (e *mustRebuildError) Error() string {
 // DependencyNotFoundError is used when a resource is not found in a dependencies.
 func DependencyNotFoundError(name Name) error {
 	// This error represents a logical configuration error. No need to include a stack trace.
+	debug.PrintStack()
 	return fmt.Errorf("Resource missing from dependencies. Resource: %v", name)
 }
 

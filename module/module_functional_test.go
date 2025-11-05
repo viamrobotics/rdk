@@ -66,7 +66,7 @@ type doCommandDepender struct {
 }
 
 func (dcd *doCommandDepender) Close(ctx context.Context) error {
-	fmt.Printf("Closing %p, depends: %p\n", dcd, dcd.dependsOn)
+	fmt.Printf("Closing %v %p, depends: %p\n", dcd.Name(), dcd, dcd.dependsOn)
 	dcd.closed = true
 	return nil
 }
@@ -126,7 +126,8 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 
 			if len(cfg.DependsOn) > 0 {
 				ret.dependsOn, err = generic.FromProvider(deps, cfg.DependsOn)
-				fmt.Printf("I (%p) depend on %p\n", ret, ret.dependsOn)
+				fmt.Printf("I %v (%p) depend on %p Config: %v\n",
+					rcfg.ResourceName().Name, ret, ret.dependsOn, cfg.DependsOn)
 				if err != nil {
 					return nil, err
 				}
@@ -186,16 +187,6 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	// _, err = module.RemoveResource(ctx, &pb.RemoveResourceRequest{
-	//  	Name: generic.Named("child").String(),
-	// })
-	// test.That(t, err, test.ShouldBeNil)
-	//
-	// _, err = module.AddResource(ctx, &pb.AddResourceRequest{Config: &v1.ComponentConfig{
-	//  	Name: "child", Api: generic.API.String(), Model: model.String(),
-	// }})
-	// test.That(t, err, test.ShouldBeNil)
-
 	// Assert that the original `parentRes` has its dependency invalidated.
 	resp, err = parentRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -205,5 +196,51 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	resp, err = parentRes.DoCommand(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Build up and add a parent resource that depends on the child resource.
+	gpAttrsBuf, err := protoutils.StructToStructPb(&doCommandDependerConfig{
+		DependsOn: "parent",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// Add a grandparent that depends on the parent resource.
+	_, err = module.AddResource(ctx, &pb.AddResourceRequest{
+		Dependencies: []string{generic.Named("parent").String()},
+		Config: &v1.ComponentConfig{
+			Name: "grandParent", Api: generic.API.String(), Model: model.String(),
+			DependsOn:  []string{"parent"}, // unnecessary but mimics reality?
+			Attributes: gpAttrsBuf,
+		},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	gpRes, err := module.getLocalResource(ctx, generic.Named("grandParent"))
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err = gpRes.DoCommand(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+
+	logger.Info("Reconfiguring child again")
+	// Reconfigure the child again. This results in a `Close` -> `Constructor` on both the child
+	// _and_ the parent _and_ the grandparent. Refetch the parent and grandparent and assert they
+	// both grandparent can continue respond to `DoCommand`s that require dependencies to be valid.
+	_, err = module.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
+		Config: &v1.ComponentConfig{ // Same config.
+			Name: "child", Api: generic.API.String(), Model: model.String(),
+		},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Get a fresh value for the `parentRes`.
+	parentRes, err = module.getLocalResource(ctx, generic.Named("parent"))
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err = parentRes.DoCommand(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+
+	gpRes, err = module.getLocalResource(ctx, generic.Named("grandParent"))
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err = gpRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 }

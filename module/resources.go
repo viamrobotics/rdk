@@ -15,11 +15,13 @@ import (
 	"go.viam.com/utils"
 )
 
-type cachedReconfigure struct {
+type resConfigureArgs struct {
+	// Keep the resource object around in case we can simply reconfigure.
 	toReconfig resource.Resource
-	cons       resource.Create[resource.Resource]
+
+	// Otherwise keep the configuration and its dependencies around to close -> reconstruct.
 	conf       *resource.Config
-	deps       resource.Dependencies
+	depStrings []string
 }
 
 // AddResource receives the component/service configuration from the parent.
@@ -32,11 +34,6 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	conf, err := config.ComponentConfigFromProto(req.Config, m.logger)
 	if err != nil {
 		return nil, err
-	}
-
-	coll, ok := m.collections[conf.API]
-	if !ok {
-		return nil, fmt.Errorf("module cannot service api: %s", conf.API)
 	}
 
 	if err := addConvertedAttributes(conf); err != nil {
@@ -63,79 +60,9 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		}
 	}
 
-	deps := make(resource.Dependencies)
-	for _, c := range req.Dependencies {
-		name, err := resource.NewFromString(c)
-		if err != nil {
-			return nil, err
-		}
-
-		// If the dependency is local to this module, add the resource object directly, rather than
-		// a client object that talks with the viam-server.
-		localRes, err := m.getLocalResource(ctx, name)
-		if err == nil {
-			deps[name] = localRes
-			continue
-		}
-
-		// Get a viam-server client object that can access the dependency.
-		clientRes, err := m.GetParentResource(ctx, name)
-		if err != nil {
-			return nil, err
-		}
-		deps[name] = clientRes
-	}
-
-	// let modules access RobotFrameSystem (name $framesystem) without needing entire RobotClient
-	deps[framesystem.PublicServiceName] = NewFrameSystemClient(m.parent)
-
-	res, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
+	err = m.addResource(ctx, req.Dependencies, conf, resLogger)
 	if err != nil {
 		return nil, err
-	}
-
-	// If context has errored, even if construction succeeded we should close the resource and return the context error.
-	// Use shutdownCtx because otherwise any Close operations that rely on the context will immediately fail.
-	// The deadline associated with the context passed in to this function is rutils.GetResourceConfigurationTimeout,
-	// which is propagated to AddResource through gRPC.
-	if ctx.Err() != nil {
-		m.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource",
-			"err", ctx.Err().Error())
-		return nil, multierr.Combine(ctx.Err(), res.Close(m.shutdownCtx))
-	}
-
-	var passthroughSource rtppassthrough.Source
-	if p, ok := res.(rtppassthrough.Source); ok {
-		passthroughSource = p
-	}
-
-	m.registerMu.Lock()
-	defer m.registerMu.Unlock()
-
-	// If adding the resource name to the collection fails, close the resource
-	// and return an error
-	if err := coll.Add(conf.ResourceName(), res); err != nil {
-		return nil, multierr.Combine(err, res.Close(ctx))
-	}
-
-	m.logger.Infof("DBG. Added res to loggers: %p %v", res, res.Name())
-	m.resLoggers[res] = resLogger
-
-	// add the video stream resources upon creation
-	if passthroughSource != nil {
-		m.streamSourceByName[res.Name()] = passthroughSource
-	}
-
-	for _, dep := range deps {
-		// If the dependency is a "local resource":
-		if _, exists := m.resLoggers[dep]; exists {
-			m.internalDeps[dep] = append(m.internalDeps[dep], cachedReconfigure{
-				toReconfig: res,
-				cons:       resInfo.Constructor,
-				conf:       conf,
-				deps:       deps,
-			})
-		}
 	}
 
 	return &pb.AddResourceResponse{}, nil
@@ -143,23 +70,6 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 
 // ReconfigureResource receives the component/service configuration from the parent.
 func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureResourceRequest) (*pb.ReconfigureResourceResponse, error) {
-	var res resource.Resource
-	deps := make(resource.Dependencies)
-	for _, c := range req.Dependencies {
-		name, err := resource.NewFromString(c)
-		if err != nil {
-			return nil, err
-		}
-		c, err := m.GetParentResource(ctx, name)
-		if err != nil {
-			return nil, err
-		}
-		deps[name] = c
-	}
-
-	// let modules access RobotFrameSystem (name $framesystem) without needing entire RobotClient
-	deps[framesystem.PublicServiceName] = NewFrameSystemClient(m.parent)
-
 	// it is assumed the caller robot has handled model differences
 	conf, err := config.ComponentConfigFromProto(req.Config, m.logger)
 	if err != nil {
@@ -174,101 +84,28 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	defer m.mu.Unlock()
 
 	m.registerMu.Lock()
-	coll, ok := m.collections[conf.API]
-	if !ok {
-		m.registerMu.Unlock()
-		return nil, fmt.Errorf("no rpc service for %+v", conf)
-	}
-	res, err = coll.Resource(conf.ResourceName().Name)
-	if err != nil {
-		m.registerMu.Unlock()
-		return nil, err
-	}
-
-	resLogger, hasLogger := m.resLoggers[res]
+	deps, err := m.getDependenciesForConstruction(ctx, req.Dependencies)
 	m.registerMu.Unlock()
-	if hasLogger {
-		levelStr := req.GetConfig().GetLogConfiguration().GetLevel()
-		// An unset LogConfiguration will materialize as an empty string.
-		if levelStr != "" {
-			if level, err := logging.LevelFromString(levelStr); err == nil {
-				// Dan: If `Reconfigure` fails, we do not undo this change. I feel it's reasonable
-				// to partially reconfigure in this way.
-				resLogger.SetLevel(level)
-			} else {
-				m.logger.Warnw("LogConfiguration does not contain a valid level.", "resource", res.Name().Name, "level", levelStr)
-			}
-		}
-	}
-
-	err = res.Reconfigure(ctx, deps, *conf)
-	if err == nil {
-		return &pb.ReconfigureResourceResponse{}, nil
-	}
-
-	if !resource.IsMustRebuildError(err) {
-		return nil, err
-	}
-
-	m.logger.Debugw("rebuilding", "name", conf.ResourceName().String())
-	if err := res.Close(ctx); err != nil {
-		m.logger.Error(err)
-	}
-
-	m.registerMu.Lock()
-	delete(m.activeResourceStreams, res.Name())
-	m.registerMu.Unlock()
-
-	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
-	if !ok {
-		return nil, fmt.Errorf("resource with API %q and model %q not yet registered", conf.API, conf.Model)
-	}
-	if resInfo.Constructor == nil {
-		return nil, fmt.Errorf("invariant: no constructor for %q", conf.Model)
-	}
-
-	newRes, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
 	if err != nil {
 		return nil, err
 	}
 
-	m.registerMu.Lock()
-	defer m.registerMu.Unlock()
-	m.logger.Infof("DBG. Added res to loggers: %p %v", res, res.Name())
-	m.resLoggers[newRes] = resLogger
-
-	var passthroughSource rtppassthrough.Source
-	if p, ok := newRes.(rtppassthrough.Source); ok {
-		passthroughSource = p
+	var logLevel *logging.Level
+	logLevelStr := req.GetConfig().GetLogConfiguration().GetLevel()
+	if level, err := logging.LevelFromString(logLevelStr); err == nil {
+		// Dan: If `Reconfigure` fails, we do not undo this change. I feel it's reasonable
+		// to partially reconfigure in this way.
+		logLevel = &level
+	} else if logLevelStr != "" {
+		m.logger.Warnw("LogConfiguration does not contain a valid level",
+			"resource", conf.ResourceName().Name, "level", logLevelStr)
 	}
 
-	// We're modifying internal module maps now. We must not error out at this point without rolling
-	// back module state mutations.
-	if passthroughSource != nil {
-		m.streamSourceByName[res.Name()] = passthroughSource
+	if _, err = m.reconfigureResource(ctx, deps, conf, logLevel); err != nil {
+		return nil, err
 	}
 
-	for _, toRebuild := range m.internalDeps[res] {
-		toRebuild.toReconfig.Close(ctx)
-		m.logger.Infof("DBG. Deleting res from loggers: %p %v", toRebuild.toReconfig, toRebuild.toReconfig.Name())
-		delete(m.resLoggers, toRebuild.toReconfig)
-
-		logger := m.resLoggers[toRebuild.toReconfig]
-		deps := toRebuild.deps
-		deps[newRes.Name()] = newRes
-		rebuilt, err := toRebuild.cons(ctx, deps, *toRebuild.conf, logger)
-		m.logger.Infof("DBG. Rebuilding %p %v", rebuilt, toRebuild.toReconfig.Name())
-		if err != nil {
-			m.logger.Info("Err rebuilding:", err)
-		}
-		m.logger.Infof("DBG. Added res to loggers: %p %v", rebuilt, rebuilt.Name())
-		m.resLoggers[rebuilt] = logger
-	}
-
-	m.logger.Infof("DBG. Deleting res from loggers: %p %v", res, res.Name())
-	delete(m.resLoggers, res)
-
-	return &pb.ReconfigureResourceResponse{}, coll.ReplaceOne(conf.ResourceName(), newRes)
+	return &pb.ReconfigureResourceResponse{}, nil
 }
 
 // ValidateConfig receives the validation request for a resource from the parent.
@@ -303,12 +140,6 @@ func (m *Module) ValidateConfig(ctx context.Context,
 
 // RemoveResource receives the request for resource removal.
 func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceRequest) (*pb.RemoveResourceResponse, error) {
-	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
-		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", req.Name), m.logger)
-	defer func() {
-		slowWatcherCancel()
-		<-slowWatcher
-	}()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -317,29 +148,12 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 		return nil, err
 	}
 
-	m.registerMu.Lock()
-	coll, ok := m.collections[name.API]
-	if !ok {
-		m.registerMu.Unlock()
-		return nil, fmt.Errorf("no grpc service for %+v", name)
-	}
-	res, err := coll.Resource(name.Name)
+	err = m.removeResource(ctx, name)
 	if err != nil {
-		m.registerMu.Unlock()
 		return nil, err
 	}
-	m.registerMu.Unlock()
 
-	if err := res.Close(ctx); err != nil {
-		m.logger.Error(err)
-	}
-
-	m.registerMu.Lock()
-	delete(m.streamSourceByName, res.Name())
-	delete(m.activeResourceStreams, res.Name())
-	defer m.registerMu.Unlock()
-
-	return &pb.RemoveResourceResponse{}, coll.Remove(name)
+	return &pb.RemoveResourceResponse{}, nil
 }
 
 // GetParentResource returns a resource from the parent robot by name.
@@ -352,10 +166,8 @@ func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (res
 	return m.parent.ResourceByName(name)
 }
 
+// getLocalResource must be called while holding the `registerMu`.
 func (m *Module) getLocalResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
-	m.registerMu.Lock()
-	defer m.registerMu.Unlock()
-
 	for res := range m.resLoggers {
 		m.logger.Infof("DBG. Res in loggers: %p %v", res, res.Name())
 		if res.Name() == name {
@@ -462,11 +274,274 @@ func (m *Module) AddModelFromRegistry(ctx context.Context, api resource.API, mod
 	return nil
 }
 
-func addResource() {
+// getDependenciesForConstruction must be called while holding the `registerMu`.
+func (m *Module) getDependenciesForConstruction(ctx context.Context, depStrings []string,
+) (resource.Dependencies, error) {
+	deps := resource.Dependencies{framesystem.PublicServiceName: NewFrameSystemClient(m.parent)}
+	for _, c := range depStrings {
+		depName, err := resource.NewFromString(c)
+		if err != nil {
+			return nil, err
+		}
+
+		// If the dependency is local to this module, add the resource object directly, rather than
+		// a client object that talks with the viam-server.
+		localRes, err := m.getLocalResource(ctx, depName)
+		if err == nil {
+			deps[depName] = localRes
+			continue
+		}
+
+		// Get a viam-server client object that can access the dependency.
+		clientRes, err := m.GetParentResource(ctx, depName)
+		if err != nil {
+			return nil, err
+		}
+		deps[depName] = clientRes
+	}
+
+	// let modules access RobotFrameSystem (name $framesystem) without needing entire RobotClient
+	return deps, nil
 }
 
-func removeResource() {
+func (m *Module) addResource(
+	ctx context.Context, depStrings []string, conf *resource.Config, resLogger logging.Logger,
+) error {
+	m.registerMu.Lock()
+	deps, err := m.getDependenciesForConstruction(ctx, depStrings)
+	m.registerMu.Unlock()
+	if err != nil {
+		return err
+	}
+
+	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
+	if !ok {
+		return fmt.Errorf("resource with API %q and model %q not yet registered", conf.API, conf.Model)
+	}
+	if resInfo.Constructor == nil {
+		return fmt.Errorf("invariant: no constructor for %q", conf.Model)
+	}
+
+	res, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
+	if err != nil {
+		return err
+	}
+
+	// If context has errored, even if construction succeeded we should close the resource and
+	// return the context error.  Use shutdownCtx because otherwise any Close operations that rely
+	// on the context will immediately fail.  The deadline associated with the context passed in to
+	// this function is rutils.GetResourceConfigurationTimeout, which is propagated to AddResource
+	// through gRPC.
+	if ctx.Err() != nil {
+		m.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource",
+			"err", ctx.Err().Error())
+		return multierr.Combine(ctx.Err(), res.Close(m.shutdownCtx))
+	}
+
+	var passthroughSource rtppassthrough.Source
+	if p, ok := res.(rtppassthrough.Source); ok {
+		passthroughSource = p
+	}
+
+	m.registerMu.Lock()
+	defer m.registerMu.Unlock()
+
+	coll, ok := m.collections[conf.API]
+	if !ok {
+		return fmt.Errorf("module cannot service api: %s", conf.API)
+	}
+
+	// If adding the resource name to the collection fails, close the resource and return an error.
+	if err := coll.Add(conf.ResourceName(), res); err != nil {
+		return multierr.Combine(err, res.Close(ctx))
+	}
+
+	m.logger.Infof("DBG. Added res to loggers: %p %v", res, res.Name())
+	m.resLoggers[res] = resLogger
+
+	// add the video stream resources upon creation
+	if passthroughSource != nil {
+		m.streamSourceByName[res.Name()] = passthroughSource
+	}
+
+	for _, dep := range deps {
+		// If the dependency is in the `resLogger` it is a "local resource". And we must track
+		// reconfigures on our dependencies as that invalidates resource handles.
+		if _, exists := m.resLoggers[dep]; exists {
+			m.internalDeps[dep] = append(m.internalDeps[dep], resConfigureArgs{
+				toReconfig: res,
+				conf:       conf,
+				depStrings: depStrings,
+			})
+		}
+	}
+
+	return nil
 }
 
-func reconfigureResource() {
+func (m *Module) removeResource(ctx context.Context, resName resource.Name) error {
+	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcher(
+		30*time.Second, fmt.Sprintf("module resource %q is taking a while to remove", resName), m.logger)
+	defer func() {
+		slowWatcherCancel()
+		<-slowWatcher
+	}()
+
+	m.registerMu.Lock()
+	coll, ok := m.collections[resName.API]
+	if !ok {
+		m.registerMu.Unlock()
+		return fmt.Errorf("no grpc service for %+v", resName)
+	}
+
+	res, err := coll.Resource(resName.Name)
+	if err != nil {
+		m.registerMu.Unlock()
+		return err
+	}
+	m.registerMu.Unlock()
+
+	if err := res.Close(ctx); err != nil {
+		m.logger.Error(err)
+	}
+
+	m.registerMu.Lock()
+	defer m.registerMu.Unlock()
+	delete(m.streamSourceByName, res.Name())
+	delete(m.activeResourceStreams, res.Name())
+
+	// Dan: Log if there are still resources that depend on us? We assume the viam-server forbids
+	// removing a resource until dependents are first closed/removed.
+	delete(m.internalDeps, res)
+
+	for dep, chainReconfigures := range m.internalDeps {
+		for idx, chainRes := range chainReconfigures {
+			if res == chainRes.toReconfig {
+				// Clear the removed resource from any chain of reconfigures it appears in.
+				m.internalDeps[dep] = append(chainReconfigures[:idx], chainReconfigures[idx+1:]...)
+			}
+		}
+	}
+
+	return coll.Remove(resName)
+}
+
+// reconfigureResource will return a resource iff the targeted resource is successfully destroyed
+// and reconstructed. If a resource is successfully reconfigured in place, (nil, nil) will be
+// returned.
+func (m *Module) reconfigureResource(
+	ctx context.Context, deps resource.Dependencies, conf *resource.Config, logLevel *logging.Level,
+) (resource.Resource, error) {
+	m.registerMu.Lock()
+	coll, ok := m.collections[conf.API]
+	if !ok {
+		m.registerMu.Unlock()
+		return nil, fmt.Errorf("no rpc service for %+v", conf)
+	}
+
+	var res resource.Resource
+	res, err := coll.Resource(conf.ResourceName().Name)
+	if err != nil {
+		m.registerMu.Unlock()
+		return nil, err
+	}
+
+	resLogger, hasLogger := m.resLoggers[res]
+	m.registerMu.Unlock()
+	if hasLogger && logLevel != nil {
+		resLogger.SetLevel(*logLevel)
+	}
+
+	m.logger.Debugw("rebuilding", "name", conf.ResourceName().String())
+	err = res.Reconfigure(ctx, deps, *conf)
+	if err == nil {
+		return nil, nil
+	}
+
+	if !resource.IsMustRebuildError(err) {
+		return nil, err
+	}
+
+	if err := res.Close(ctx); err != nil {
+		m.logger.Error(err)
+	}
+
+	m.registerMu.Lock()
+	delete(m.activeResourceStreams, res.Name())
+	m.registerMu.Unlock()
+
+	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
+	if !ok {
+		return nil, fmt.Errorf("resource with API %q and model %q not yet registered", conf.API, conf.Model)
+	}
+	if resInfo.Constructor == nil {
+		return nil, fmt.Errorf("invariant: no constructor for %q", conf.Model)
+	}
+
+	newRes, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := coll.ReplaceOne(conf.ResourceName(), newRes); err != nil {
+		m.registerMu.Unlock()
+		return nil, err
+	}
+
+	m.registerMu.Lock()
+	// We're modifying internal module maps now. We must not error out at this point without rolling
+	// back module state mutations.
+	m.logger.Infof("DBG. Deleting res from loggers: %p %v", res, res.Name())
+	m.logger.Infof("DBG. Added res to loggers: %p %v", newRes, newRes.Name())
+	delete(m.resLoggers, res)
+	m.resLoggers[newRes] = resLogger
+
+	var passthroughSource rtppassthrough.Source
+	if p, ok := newRes.(rtppassthrough.Source); ok {
+		passthroughSource = p
+	}
+
+	if passthroughSource != nil {
+		m.streamSourceByName[res.Name()] = passthroughSource
+	}
+
+	for _, resConfigureArgs := range m.internalDeps[res] {
+		m.logger.Infof("DBG. Chain reconfiguring. Initial: %v (%p -> %p) Dep: %v (%p)",
+			conf.ResourceName().Name, res, newRes, resConfigureArgs.toReconfig.Name().Name, resConfigureArgs.toReconfig)
+		deps, err := m.getDependenciesForConstruction(ctx, resConfigureArgs.depStrings)
+		if err != nil {
+			m.logger.Warn("Failed to get dependencies for reconfiguring dependent on parent rebuild",
+				"parent", resConfigureArgs.conf.ResourceName().Name,
+				"child", conf.ResourceName().Name,
+				"deps", resConfigureArgs.depStrings,
+				"err", err)
+			continue
+		}
+
+		m.registerMu.Unlock()
+		var nilLogLevel *logging.Level // pass in nil to avoid changing the log level
+		rebuiltRes, err := m.reconfigureResource(ctx, deps, resConfigureArgs.conf, nilLogLevel)
+		if err != nil {
+			m.logger.Warn("Failed to reconfigure parent on child rebuild",
+				"parent", resConfigureArgs.conf.ResourceName().Name,
+				"child", conf.ResourceName().Name,
+				"err", err)
+		}
+		m.registerMu.Lock()
+
+		// Nil here implies the underlying resource was rebuilt in place. No need to amend the
+		// `internalDeps` map.
+		if rebuiltRes == nil {
+			continue
+		}
+
+		resConfigureArgs.toReconfig = rebuiltRes
+	}
+
+	chainReconfigures := m.internalDeps[res]
+	m.internalDeps[newRes] = chainReconfigures
+	delete(m.internalDeps, res)
+	m.registerMu.Unlock()
+
+	return newRes, nil
 }
