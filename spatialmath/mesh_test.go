@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"encoding/json"
 	"math"
 	"testing"
 
@@ -49,6 +50,19 @@ func assertMeshesNearlyEqual(t *testing.T, mesh1, mesh2 *Mesh) {
 			test.That(t, R3VectorAlmostEqual(p1, p2, 1e-3), test.ShouldBeTrue)
 		}
 	}
+	test.That(t, PoseAlmostEqual(mesh1.pose, mesh2.pose), test.ShouldBeTrue)
+	test.That(t, mesh1.label, test.ShouldResemble, mesh2.label)
+}
+
+func TestMeshJsonConversion(t *testing.T) {
+	mesh1 := makeSimpleTriangleMesh().(*Mesh)
+	mesh1.label = "my label"
+	mesh1.pose = NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &OrientationVector{OX: 4, OY: 5, OZ: 6, Theta: 7})
+	b, err := json.Marshal(mesh1)
+	test.That(t, err, test.ShouldBeNil)
+	var mesh2 Mesh
+	test.That(t, json.Unmarshal(b, &mesh2), test.ShouldBeNil)
+	assertMeshesNearlyEqual(t, mesh1, &mesh2)
 }
 
 func TestProtoConversion(t *testing.T) {
