@@ -88,7 +88,6 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 
 	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
 	ss.jump = ik.calcJump(ctx, defaultJump, s, limits, minFunc)
-
 	ss.opt, err = nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ss.lowerBound)))
 	if err != nil {
 		return nil, errors.Wrap(err, "nlopt creation error")

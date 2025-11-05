@@ -149,7 +149,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()}
 	sss.seedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
 
-	ratios, err := sss.computeGoodCost(psc.goal)
+	ratios, minRatio, err := sss.computeGoodCost(psc.goal)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,18 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
 	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
 
-	if sss.goodCost > 1 {
+	psc.pc.logger.Debugf("minRatio: %v", minRatio)
+	{
+		myRatios := []float64{}
+		for _, r := range ratios {
+			myRatios = append(myRatios, min(r, minRatio*1.5))
+		}
+		psc.pc.logger.Debugf("myRatios: %v", myRatios)
+		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+		sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], myRatios))
+	}
+
+	if sss.goodCost > 1 && minRatio > .05 {
 		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
@@ -170,10 +181,16 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 		psc.pc.logger.Debugf("got %d altSeeds", len(altSeeds))
 		for _, s := range altSeeds {
 			si := s.GetLinearizedInputs()
-			psc.pc.logger.Debugf("\t ss: %v", si)
 			sss.linearSeeds = append(sss.linearSeeds, si)
-			sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(si, sss.seedLimits[0], .1))
+			ll := ik.ComputeAdjustLimits(si, sss.seedLimits[0], .1)
+			sss.seedLimits = append(sss.seedLimits, ll)
+			psc.pc.logger.Debugf("\t ss: %v", si)
+
 		}
+	} else {
+		// if we're really close, look really close
+		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+		sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .1))
 	}
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
@@ -183,21 +200,24 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 	return sss, nil
 }
 
-func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) ([]float64, error) {
+func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) ([]float64, float64, error) {
 	ratios, err := inputChangeRatio(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
 		sss.psc.pc.planOpts.getGoalMetric(goal), sss.psc.pc.logger)
 	if err != nil {
-		return nil, err
+		return nil, 1, err
 	}
+
+	minRatio := 1.0
 
 	adjusted := []float64{}
 	for idx, r := range ratios {
 		adjusted = append(adjusted, sss.psc.pc.lis.Jog(idx, sss.linearSeeds[0][idx], r))
+		minRatio = min(minRatio, r)
 	}
 
 	step, err := sss.psc.pc.lis.FloatsToInputs(adjusted)
 	if err != nil {
-		return nil, err
+		return nil, minRatio, err
 	}
 
 	stepArc := &motionplan.SegmentFS{
@@ -208,7 +228,7 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 
 	sss.goodCost = sss.psc.pc.configurationDistanceFunc(stepArc)
 	sss.psc.pc.logger.Debugf("goodCost: %v", sss.goodCost)
-	return ratios, nil
+	return ratios, minRatio, nil
 }
 
 // The purpose of this function is to allow solves that require the movement of components not in a motion chain, while preventing wild or
@@ -272,6 +292,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		FS:            sss.psc.pc.fs,
 	})
 	if err != nil {
+		// sss.psc.pc.logger.Debugf("bad solution a: %v %v", stepSolution, err)
 		sss.failures.add(step, err)
 		return false
 	}
@@ -283,6 +304,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	}
 	err = sss.psc.checker.CheckSegmentFSConstraints(stepArc)
 	if err != nil {
+		// sss.psc.pc.logger.Debugf("bad solution b: %v %v", stepSolution, err)
 		sss.failures.add(step, err)
 		return false
 	}
@@ -299,8 +321,9 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		}
 	}
 
+	now := time.Since(sss.startTime)
 	if len(sss.solutions) == 0 {
-		sss.firstSolutionTime = time.Since(sss.startTime)
+		sss.firstSolutionTime = now
 	}
 
 	myNode := &node{inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
@@ -310,15 +333,17 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		sss.bestScoreWithProblem = max(1, myNode.cost)
 	}
 
-	if myNode.cost <= min(sss.goodCost, sss.bestScoreWithProblem*defaultOptimalityMultiple) {
-		whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
-		sss.psc.pc.logger.Debugf("got score %0.4f @ %v - %s - result: %v", myNode.cost, time.Since(sss.startTime), stepSolution.Meta, whyNot)
-		myNode.checkPath = whyNot == nil
+	//	if myNode.cost <= min(sss.goodCost, sss.bestScoreWithProblem*defaultOptimalityMultiple) {
+	whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
+	sss.psc.pc.logger.Debugf("got score %0.4f @ %v - %s - result: %v", myNode.cost, now, stepSolution.Meta, whyNot)
+	myNode.checkPath = whyNot == nil
 
-		if whyNot == nil && myNode.cost < sss.bestScoreNoProblem {
-			sss.bestScoreNoProblem = myNode.cost
-		}
+	if whyNot == nil && myNode.cost < sss.bestScoreNoProblem {
+		sss.bestScoreNoProblem = myNode.cost
 	}
+	//	} else {
+	//sss.psc.pc.logger.Debugf("got shitty score %0.4f @ %v - %s", myNode.cost, time.Since(sss.startTime), stepSolution.Meta)
+	//	}
 
 	return sss.shouldStopEarly()
 }
@@ -338,7 +363,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	}
 
 	multiple := 100.0
-	minMillis := 250
+	minMillis := 10000
 
 	if sss.bestScoreNoProblem < sss.goodCost/20 {
 		multiple = 0
@@ -357,6 +382,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		minMillis = 100
 	} else if sss.bestScoreNoProblem < sss.goodCost {
 		multiple = 50
+		minMillis = 250
 	} else if sss.bestScoreWithProblem < sss.goodCost {
 		// we're going to have to do cbirrt, so look a little less, but still look
 		multiple = 100
@@ -369,10 +395,10 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	}
 
 	if elapsed > timeToSearch {
-		sss.psc.pc.logger.Debugf("stopping early with bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v",
+		sss.psc.pc.logger.Debugf("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n\t timeToSearch: %v firstSolutionTime: %v",
 			sss.bestScoreNoProblem, sss.bestScoreNoProblem/sss.goodCost,
 			sss.bestScoreWithProblem, sss.bestScoreWithProblem/sss.goodCost,
-			elapsed)
+			elapsed, timeToSearch, sss.firstSolutionTime)
 		return true
 	}
 

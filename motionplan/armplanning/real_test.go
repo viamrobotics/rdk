@@ -151,6 +151,8 @@ func TestWineCrazyTouch2(t *testing.T) {
 }
 
 func TestSandingLargeMove1(t *testing.T) {
+	name := "ur20-modular"
+
 	if Is32Bit() {
 		t.Skip()
 		return
@@ -164,6 +166,31 @@ func TestSandingLargeMove1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
+	if false {
+		// we don't generate enough seeds for this to work yet
+
+		ss, err := smartSeed(req.FrameSystem, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		seeds, err := ss.findSeeds(req.Goals[0].poses, req.StartState.LinearConfiguration(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(seeds), test.ShouldBeGreaterThan, 1)
+
+		hasPos := false
+		hasNeg := false
+
+		for _, s := range seeds {
+			v := s.Get(name)[0]
+			if v > 0 {
+				hasPos = true
+			} else if v < 0 && v > -1 {
+				hasNeg = true
+			}
+			logger.Debugf("seed %v", s)
+		}
+		test.That(t, hasPos, test.ShouldBeTrue)
+		test.That(t, hasNeg, test.ShouldBeTrue)
+	}
 
 	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
@@ -175,6 +202,17 @@ func TestSandingLargeMove1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(solution.steps), test.ShouldEqual, 1)
+
+	sta := req.StartState.LinearConfiguration().Get(name)
+	res := solution.steps[0].Get(name)
+	lim := req.FrameSystem.Frame(name).DoF()
+
+	for j, startPosition := range sta {
+		_, _, r := lim[j].GoodLimits()
+		delta := math.Abs(startPosition - res[j])
+		logger.Infof("j: %d start: %0.2f end: %0.2f delta: %0.2f ratio: %0.2f", j, startPosition, res[j], delta, delta/r)
+	}
+
 }
 
 func TestBadSpray1(t *testing.T) {

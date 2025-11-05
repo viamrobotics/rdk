@@ -2,6 +2,7 @@ package armplanning
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"sync"
@@ -287,6 +288,55 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 	return fullSeeds, nil
 }
 
+// selectMostVariableEntries selects n entries from the given slice with maximum variability in joint positions
+func selectMostVariableEntries(entries []entry, n int) []entry {
+	if len(entries) <= n {
+		return entries
+	}
+
+	selected := make([]entry, 0, n)
+	remaining := make([]entry, len(entries))
+	copy(remaining, entries)
+
+	// Start with the first entry (best by distance/cost)
+	selected = append(selected, remaining[0])
+	remaining = remaining[1:]
+
+	// For each subsequent selection, pick the entry that maximizes total variability
+	for len(selected) < n && len(remaining) > 0 {
+		bestIdx := 0
+		bestVariability := -1.0
+
+		for i, candidate := range remaining {
+			// Calculate minimum distance to any already selected entry
+			minDist := math.MaxFloat64
+			for _, sel := range selected {
+				dist := referenceframe.InputsL2Distance(candidate.e.inputs, sel.e.inputs)
+				if dist < minDist {
+					minDist = dist
+				}
+			}
+			// Select the candidate with the maximum minimum distance (most diverse)
+			if minDist > bestVariability {
+				bestVariability = minDist
+				bestIdx = i
+			}
+		}
+
+		selected = append(selected, remaining[bestIdx])
+		// Remove selected entry from remaining
+		remaining = append(remaining[:bestIdx], remaining[bestIdx+1:]...)
+	}
+
+	return selected
+}
+
+type entry struct {
+	e        *smartSeedCacheEntry
+	distance float64
+	cost     float64
+}
+
 func (ssc *smartSeedCache) findSeedsForFrame(
 	frameName string,
 	start []referenceframe.Input,
@@ -298,24 +348,18 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		return nil, fmt.Errorf("no frame %s", frameName)
 	}
 
-	logger.Debugf("findSeedsForFrame: %s goalPose: %v", frameName, goalPose)
-
-	type entry struct {
-		e        *smartSeedCacheEntry
-		distance float64
-		cost     float64
-	}
+	logger.Debugf("findSeedsForFrame: %s goalPose: %v start: %v", frameName, goalPose, start)
 
 	startPose, err := frame.Transform(start)
 	if err != nil {
 		return nil, err
 	}
 
-	startDistance := max(1, motionplan.WeightedSquaredNormDistance(startPose, goalPose))
+	startDistance := min(5000, max(1, motionplan.WeightedSquaredNormDistance(startPose, goalPose)))
 
 	best := []entry{}
 
-	bestDistance := startDistance * 2
+	bestDistance := startDistance * .75
 
 	boxes := ssc.rawCache[frameName].findBoxes(goalPose)
 
@@ -324,13 +368,12 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	for _, b := range boxes {
 		for _, c := range b.entries {
 			distance := motionplan.WeightedSquaredNormDistance(goalPose, c.pose)
+
 			if distance > (bestDistance * 2) {
 				continue
 			}
 
-			if distance < bestDistance {
-				bestDistance = distance
-			}
+			bestDistance = min(bestDistance, distance)
 
 			cost := referenceframe.InputsL2Distance(start, c.inputs)
 
@@ -341,6 +384,8 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	if len(best) == 0 {
 		return nil, nil
 	}
+
+	// sort by distance then cut
 
 	sort.Slice(best, func(i, j int) bool {
 		return best[i].distance < best[j].distance
@@ -358,16 +403,32 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	best = best[0:cutIdx]
 
+	// sort by cst then cut
+
 	sort.Slice(best, func(i, j int) bool {
 		return best[i].cost < best[j].cost
 	})
 
-	ret := [][]referenceframe.Input{}
+	cutIdx = 0
+	for cutIdx < len(best) {
+		if best[cutIdx].cost > (4 * best[0].cost) {
+			break
+		}
+		cutIdx++
+	}
 
-	for i := 0; i < len(best) && i < 5; i++ {
-		e := best[i]
+	logger.Debugf("\t len(best): %d cutIdx: %d", len(best), cutIdx)
+
+	best = best[0:cutIdx]
+
+	// now randomize a bit to get a good set to work with
+
+	selected := selectMostVariableEntries(best, 5)
+
+	ret := [][]referenceframe.Input{}
+	for _, e := range selected {
 		ret = append(ret, e.e.inputs)
-		// logger.Debugf("dist: %02.f cost: %0.2f %v", e.distance, e.cost, e.e.inputs)
+		logger.Debugf("dist: %02.f cost: %0.2f %v", e.distance, e.cost, e.e.inputs)
 	}
 
 	return ret, nil
