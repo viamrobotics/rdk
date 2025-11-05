@@ -338,11 +338,6 @@ func (m *Module) addResource(
 		return multierr.Combine(ctx.Err(), res.Close(m.shutdownCtx))
 	}
 
-	var passthroughSource rtppassthrough.Source
-	if p, ok := res.(rtppassthrough.Source); ok {
-		passthroughSource = p
-	}
-
 	m.registerMu.Lock()
 	defer m.registerMu.Unlock()
 
@@ -356,17 +351,18 @@ func (m *Module) addResource(
 		return multierr.Combine(err, res.Close(ctx))
 	}
 
-	m.logger.Infof("DBG. Added res to loggers: %p %v", res, res.Name())
 	m.resLoggers[res] = resLogger
-
 	// add the video stream resources upon creation
-	if passthroughSource != nil {
-		m.streamSourceByName[res.Name()] = passthroughSource
+	if p, ok := res.(rtppassthrough.Source); ok {
+		m.streamSourceByName[res.Name()] = p
 	}
 
 	for _, dep := range deps {
 		// If the dependency is in the `resLogger` it is a "local resource". And we must track
 		// reconfigures on our dependencies as that invalidates resource handles.
+		//
+		// Dan: We could call `m.getLocalResource(dep.Name())` but that's just a linear scan over
+		// resLoggers.
 		if _, exists := m.resLoggers[dep]; exists {
 			m.internalDeps[dep] = append(m.internalDeps[dep], resConfigureArgs{
 				toReconfig: res,
@@ -439,7 +435,6 @@ func (m *Module) reconfigureResource(
 		return nil, fmt.Errorf("no rpc service for %+v", conf)
 	}
 
-	var res resource.Resource
 	res, err := coll.Resource(conf.ResourceName().Name)
 	if err != nil {
 		m.registerMu.Unlock()
@@ -496,13 +491,8 @@ func (m *Module) reconfigureResource(
 	delete(m.resLoggers, res)
 	m.resLoggers[newRes] = resLogger
 
-	var passthroughSource rtppassthrough.Source
 	if p, ok := newRes.(rtppassthrough.Source); ok {
-		passthroughSource = p
-	}
-
-	if passthroughSource != nil {
-		m.streamSourceByName[res.Name()] = passthroughSource
+		m.streamSourceByName[res.Name()] = p
 	}
 
 	for _, resConfigureArgs := range m.internalDeps[res] {
