@@ -123,8 +123,10 @@ func (c *client) MoveThroughJointPositions(
 		warnKinematicsUnsafe(ctx, c.logger, err)
 	}
 	for _, position := range positions {
-		if hasKinematics && (CheckDesiredJointPositions(ctx, c, position) != nil) {
-			return err
+		if hasKinematics {
+			if err := CheckDesiredJointPositions(ctx, c, position); err != nil {
+				return err
+			}
 		}
 		jp, err := referenceframe.JointPositionsFromInputs(m, position)
 		if err != nil {
