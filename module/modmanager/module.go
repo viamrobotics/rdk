@@ -119,8 +119,29 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 		m.logger.CWarnw(ctx, "Unable to generate offer for module PeerConnection. Ignoring.", "err", err)
 	}
 
+	// Use a background watcher to short circuit this check if the process has already exited. We could get here if process exits
+	// before module can set up the Ready server. This is most likely in TCP mode, where the .sock presence check is skipped, but
+	// also possible in UNIX mode if the process exits in between.
+	// (OUE is waiting on the same modmanager lock, so it can't try to restart).
+	checkTicker := time.NewTicker(1 * time.Second)
+	defer checkTicker.Stop()
+	go func() {
+		for {
+			select {
+			case <-ctxTimeout.Done():
+				return
+			case <-checkTicker.C:
+				if errors.Is(m.process.Status(), os.ErrProcessDone) {
+					m.logger.Info("Module process exited unexpectedly while waiting for ready.")
+					cancelFunc()
+				}
+			}
+		}
+	}()
+
 	for {
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
+		// If module is not yet ready, grpc (not the loop) internally retries the call with backoff of 1s * 1.6 multiplier up to max 120s
 		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
 			return err
@@ -153,6 +174,12 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 // (based on either global setting or per-module setting).
 func (m *module) tcpMode() bool {
 	return rutils.ViamTCPSockets() || m.cfg.TCPMode
+}
+
+// returns true if this module is running in TCP mode.
+func (m *module) isRunningInTCPMode() bool {
+	// addr is ip:port in TCP mode, or a path to .sock in unix socket mode.
+	return rutils.TCPRegex.MatchString(m.addr)
 }
 
 func (m *module) startProcess(
@@ -265,7 +292,7 @@ func (m *module) startProcess(
 				)
 			}
 		}
-		if !rutils.TCPRegex.MatchString(m.addr) {
+		if !m.isRunningInTCPMode() {
 			// note: we don't do this check in TCP mode because TCP addresses are not file paths and will fail check.
 			err = modlib.CheckSocketOwner(m.addr)
 			if errors.Is(err, fs.ErrNotExist) {
