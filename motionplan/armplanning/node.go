@@ -185,7 +185,6 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 			ll := ik.ComputeAdjustLimits(si, sss.seedLimits[0], .1)
 			sss.seedLimits = append(sss.seedLimits, ll)
 			psc.pc.logger.Debugf("\t ss: %v", si)
-
 		}
 	} else {
 		// if we're really close, look really close
@@ -342,7 +341,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		sss.bestScoreNoProblem = myNode.cost
 	}
 	//	} else {
-	//sss.psc.pc.logger.Debugf("got shitty score %0.4f @ %v - %s", myNode.cost, time.Since(sss.startTime), stepSolution.Meta)
+	// sss.psc.pc.logger.Debugf("got shitty score %0.4f @ %v - %s", myNode.cost, time.Since(sss.startTime), stepSolution.Meta)
 	//	}
 
 	return sss.shouldStopEarly()

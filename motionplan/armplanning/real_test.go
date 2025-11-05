@@ -212,7 +212,6 @@ func TestSandingLargeMove1(t *testing.T) {
 		delta := math.Abs(startPosition - res[j])
 		logger.Infof("j: %d start: %0.2f end: %0.2f delta: %0.2f ratio: %0.2f", j, startPosition, res[j], delta, delta/r)
 	}
-
 }
 
 func TestBadSpray1(t *testing.T) {
