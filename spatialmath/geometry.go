@@ -47,6 +47,8 @@ type Geometry interface {
 	// ToProtobuf converts a Geometry to its protobuf representation.
 	ToProtobuf() *commonpb.Geometry
 
+	Hash() int
+
 	json.Marshaler
 }
 

@@ -124,6 +124,10 @@ const (
 	dataFlagDatabasePassword               = "password"
 	dataFlagFilterTags                     = "filter-tags"
 	dataFlagTimeout                        = "timeout"
+	dataFlagCollectionType                 = "collection-type"
+	dataFlagPipelineName                   = "pipeline-name"
+	dataFlagIndexName                      = "index-name"
+	dataFlagIndexSpecFile                  = "index-path"
 
 	datapipelineFlagSchedule       = "schedule"
 	datapipelineFlagMQL            = "mql"
@@ -1378,6 +1382,91 @@ var app = &cli.App{
 									Action:    createCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
 								},
 							},
+						},
+					},
+				},
+				{
+					Name:            "index",
+					Usage:           "manage indexes for hot data and pipeline sink collections",
+					UsageText:       createUsageText("data index", nil, false, true),
+					HideHelpCommand: true,
+					Subcommands: []*cli.Command{
+						{
+							Name:  "create",
+							Usage: "create an index for a data collection",
+							UsageText: createUsageText(
+								"data index create", []string{generalFlagOrgID, dataFlagCollectionType, dataFlagIndexSpecFile}, true, false,
+							),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "org ID of the data collection",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagCollectionType,
+									Required: true,
+									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
+								},
+								&cli.StringFlag{
+									Name:     dataFlagPipelineName,
+									Required: false,
+									Usage:    "name of the pipeline associated with the index when collection type is 'pipeline-sink'",
+								},
+								&cli.PathFlag{
+									Name:      dataFlagIndexSpecFile,
+									Required:  true,
+									Usage:     "path to index specification JSON file",
+									TakesFile: true,
+								},
+							},
+							Action: createCommandWithT[createCustomIndexArgs](CreateCustomIndexAction),
+						},
+						{
+							Name:      "delete",
+							Usage:     "delete an index from a data collection",
+							UsageText: createUsageText("data index delete", []string{generalFlagOrgID, dataFlagCollectionType, dataFlagIndexName}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "org ID of the data collection",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagCollectionType,
+									Required: true,
+									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
+								},
+								&cli.StringFlag{
+									Name:     dataFlagPipelineName,
+									Required: false,
+									Usage:    "name of the pipeline associated with the index when collection type is 'pipeline-sink'",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagIndexName,
+									Required: true,
+									Usage:    "name of the index to delete",
+								},
+							},
+							Action: createCommandWithT[deleteCustomIndexArgs](DeleteCustomIndexAction),
+						},
+						{
+							Name:      "list",
+							Usage:     "list indexes for a data collection",
+							UsageText: createUsageText("data index list", []string{generalFlagOrgID, dataFlagCollectionType}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "org ID of the data collection",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagCollectionType,
+									Required: true,
+									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
+								},
+							},
+							Action: createCommandWithT[listCustomIndexesArgs](ListCustomIndexesAction),
 						},
 					},
 				},

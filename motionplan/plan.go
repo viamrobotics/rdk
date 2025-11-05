@@ -20,6 +20,16 @@ type Path []referenceframe.FrameSystemPoses
 // Each item in this slice maps a Frame's name (found by calling frame.Name()) to the Inputs that Frame should be modified by.
 type Trajectory []referenceframe.FrameSystemInputs
 
+// TrajectoryFromLinearInputs converts a series of linear inputs into a Trajectory.
+func TrajectoryFromLinearInputs(inps []*referenceframe.LinearInputs) Trajectory {
+	ret := make(Trajectory, len(inps))
+	for idx, inp := range inps {
+		ret[idx] = inp.ToFrameSystemInputs()
+	}
+
+	return ret
+}
+
 // Plan is an interface that describes plans returned by this package.  There are two key components to a Plan:
 // Its Trajectory contains information pertaining to the commands required to actuate the robot to realize the Plan.
 // Its Path contains information describing the Pose of the robot as it travels the Plan.
@@ -46,11 +56,13 @@ func NewSimplePlan(path Path, traj Trajectory) *SimplePlan {
 }
 
 // NewSimplePlanFromTrajectory instantiates a new Plan from a Trajectory, making the poses.
-func NewSimplePlanFromTrajectory(traj Trajectory, fs *referenceframe.FrameSystem) (*SimplePlan, error) {
+func NewSimplePlanFromTrajectory(
+	trajAsInputs []*referenceframe.LinearInputs, fs *referenceframe.FrameSystem,
+) (*SimplePlan, error) {
 	path := Path{}
-	for _, inputNode := range traj {
+	for _, inputNode := range trajAsInputs {
 		poseMap := make(map[string]*referenceframe.PoseInFrame)
-		for frame := range inputNode {
+		for frame := range inputNode.Keys() {
 			tf, err := fs.Transform(inputNode, referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World)
 			if err != nil {
 				return nil, err
@@ -64,7 +76,7 @@ func NewSimplePlanFromTrajectory(traj Trajectory, fs *referenceframe.FrameSystem
 		path = append(path, poseMap)
 	}
 
-	return &SimplePlan{path: path, traj: traj}, nil
+	return &SimplePlan{path: path, traj: TrajectoryFromLinearInputs(trajAsInputs)}, nil
 }
 
 // NewGeoPlan returns a Plan containing a Path with GPS coordinates smuggled into the Pose struct. Each GPS point is created using:
@@ -153,8 +165,9 @@ func (traj Trajectory) String() string {
 // EvaluateCost calculates a cost to a trajectory as measured by the given distFunc Metric.
 func (traj Trajectory) EvaluateCost(distFunc SegmentFSMetric) float64 {
 	var totalCost float64
-	last := referenceframe.FrameSystemInputs{}
-	for i, step := range traj {
+	last := referenceframe.NewLinearInputs()
+	for i, stepFSI := range traj {
+		step := stepFSI.ToLinearInputs()
 		if i != 0 {
 			cost := distFunc(&SegmentFS{
 				StartConfiguration: last,
@@ -162,8 +175,9 @@ func (traj Trajectory) EvaluateCost(distFunc SegmentFSMetric) float64 {
 			})
 			totalCost += cost
 		}
-		for k, v := range step {
-			last[k] = v
+
+		for k, v := range step.Items() {
+			last.Put(k, v)
 		}
 	}
 	return totalCost

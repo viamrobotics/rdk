@@ -39,7 +39,7 @@ func newConstraintChecker(
 		startPoses, goalPoses,
 		fs,
 		movingRobotGeometries, staticRobotGeometries,
-		seedMap,
+		seedMap.ToLinearInputs(),
 		worldState,
 		boundingRegions,
 		motionChains.useTPspace,

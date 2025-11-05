@@ -87,14 +87,14 @@ func NewPoseFromDH(a, d, alpha float64) Pose {
 // It converts the poses to dual quaternions and multiplies them together, normalizes the transform and returns a new Pose.
 // Composition does not commute in general, i.e. you cannot guarantee ABx == BAx.
 func Compose(a, b Pose) Pose {
-	return &dualQuaternion{dualQuaternionFromPose(a).Transformation(dualQuaternionFromPose(b).Number)}
+	return &DualQuaternion{DualQuaternionFromPose(a).Transformation(DualQuaternionFromPose(b).Number)}
 }
 
 // PoseBetween returns the difference between two dualQuaternions, that is, the dq which if multiplied by one will give the other.
 // Example: if PoseBetween(a, b) = c, then Compose(a, c) = b.
 func PoseBetween(a, b Pose) Pose {
-	invA := &dualQuaternion{dualquat.ConjQuat(dualQuaternionFromPose(a).Number)}
-	result := &dualQuaternion{invA.Transformation(dualQuaternionFromPose(b).Number)}
+	invA := &DualQuaternion{dualquat.ConjQuat(DualQuaternionFromPose(a).Number)}
+	result := &DualQuaternion{invA.Transformation(DualQuaternionFromPose(b).Number)}
 	return result
 }
 
@@ -102,7 +102,7 @@ func PoseBetween(a, b Pose) Pose {
 // Example: if PoseBetweenInverse(a, b) = c, then Compose(c, a) = b
 // PoseBetweenInverse(a, b) is equivalent to Compose(b, PoseInverse(a)).
 func PoseBetweenInverse(a, b Pose) Pose {
-	result := &dualQuaternion{dualQuaternionFromPose(b).Transformation(dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
+	result := &DualQuaternion{DualQuaternionFromPose(b).Transformation(dualquat.ConjQuat(DualQuaternionFromPose(a).Number))}
 	return result
 }
 
@@ -201,9 +201,14 @@ func (d *distancePose) Orientation() Orientation {
 	return (*Quaternion)(&d.orientation)
 }
 
+// Hash returns a hash value for this distance pose.
+func (d *distancePose) Hash() int {
+	return HashPose(d)
+}
+
 // ResetPoseDQTranslation takes a Pose that must be a dualQuaternion and reset's it's translation.
 func ResetPoseDQTranslation(p Pose, v r3.Vector) {
-	q, ok := p.(*dualQuaternion)
+	q, ok := p.(*DualQuaternion)
 	if !ok {
 		panic("ResetPoseDQTranslation has to be passed a dual quaternion")
 	}
@@ -231,4 +236,23 @@ func ProjectOrientationTo2dRotation(pose Pose) (Pose, error) {
 	// This is the vector across the ground of the above hypothetical vector, projected onto the X-Y plane.
 	theta := -math.Atan2(newAdjPt.Y, -newAdjPt.X)
 	return NewPose(pose.Point(), &OrientationVector{OZ: 1, Theta: theta}), nil
+}
+
+// HashPose returns a hash value for the given pose.
+func HashPose(p Pose) int {
+	hash := 0
+
+	pp := p.Point()
+
+	hash += (5 * (int(pp.X*10) + 100)) * 2
+	hash += (6 * (int(pp.Y*10) + 10221)) * 3
+	hash += (7 * (int(pp.Z*10) + 2124)) * 4
+
+	o := p.Orientation().OrientationVectorDegrees()
+	hash += (8 * (int(o.OX*100) + 2313)) * 5
+	hash += (9 * (int(o.OY*100) + 3133)) * 6
+	hash += (10 * (int(o.OZ*100) + 2931)) * 7
+	hash += (11 * (int(o.Theta*10) + 6315)) * 8
+
+	return hash
 }

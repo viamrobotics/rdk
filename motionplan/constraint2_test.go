@@ -116,7 +116,7 @@ func TestLineFollow(t *testing.T) {
 	goalFrame := fs.World()
 
 	opt := NewEmptyConstraintChecker()
-	startCfg := map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mp1)}
+	startCfg := referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mp1)}.ToLinearInputs()
 	from := referenceframe.FrameSystemPoses{markerFrame.Name(): referenceframe.NewPoseInFrame(markerFrame.Name(), p1)}
 	to := referenceframe.FrameSystemPoses{markerFrame.Name(): referenceframe.NewPoseInFrame(goalFrame.Name(), p2)}
 
@@ -141,8 +141,8 @@ func TestLineFollow(t *testing.T) {
 	lastGood, err := opt.CheckSegmentAndStateValidityFS(
 		ctx,
 		&SegmentFS{
-			StartConfiguration: map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mp1)},
-			EndConfiguration:   map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mp2)},
+			StartConfiguration: referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mp1)}.ToLinearInputs(),
+			EndConfiguration:   referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mp2)}.ToLinearInputs(),
 			FS:                 fs,
 		},
 		0.001,
@@ -157,7 +157,7 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
 
 	// Check that a deviating configuration will fail
-	stateCheck.Configuration = map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mpFail)}
+	stateCheck.Configuration = referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mpFail)}.ToLinearInputs()
 	err = opt.CheckStateFSConstraints(ctx, stateCheck)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldStartWith, "whiteboard")

@@ -181,10 +181,11 @@ func NewPTGDistanceMetric(ptgFrames []string) motionplan.SegmentFSMetric {
 	return func(segment *motionplan.SegmentFS) float64 {
 		score := 0.
 		for _, ptgFrame := range ptgFrames {
-			if frameCfg, ok := segment.EndConfiguration[ptgFrame]; ok {
+			if frameCfg := segment.EndConfiguration.Get(ptgFrame); frameCfg != nil {
 				score += frameCfg[len(frameCfg)-1]
 			}
 		}
+
 		// If there's no matching configuration in the end, then the frame does not move
 		return score
 	}

@@ -109,3 +109,18 @@ func ClosestPointTrianglePoint(t *Triangle, point r3.Vector) r3.Vector {
 	}
 	return closestPt
 }
+
+// Hash returns a hash value for this triangle.
+func (t *Triangle) Hash() int {
+	hash := 0
+	hash += (5 * (int(t.p0.X*10) + 1000)) * 2
+	hash += (6 * (int(t.p0.Y*10) + 10221)) * 3
+	hash += (7 * (int(t.p0.Z*10) + 2124)) * 4
+	hash += (8 * (int(t.p1.X*10) + 5000)) * 5
+	hash += (9 * (int(t.p1.Y*10) + 6000)) * 6
+	hash += (10 * (int(t.p1.Z*10) + 7000)) * 7
+	hash += (11 * (int(t.p2.X*10) + 8000)) * 8
+	hash += (12 * (int(t.p2.Y*10) + 9000)) * 9
+	hash += (13 * (int(t.p2.Z*10) + 10000)) * 10
+	return hash
+}

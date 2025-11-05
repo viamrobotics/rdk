@@ -74,3 +74,18 @@ func (pf *ptgIKFrame) Interpolate(from, to []referenceframe.Input, by float64) (
 	// not be implemented until/unless it is guided by a specific need.
 	return nil, errors.New("cannot interpolate ptg IK frames")
 }
+
+// Hash returns a hash value for this PTG IK frame.
+func (pf *ptgIKFrame) Hash() int {
+	hash := 0
+	// Hash the limits
+	for i, limit := range pf.limits {
+		hash += ((i + 5) * (int(limit.Min*100) + 1000)) * (i + 2)
+		hash += ((i + 6) * (int(limit.Max*100) + 2000)) * (i + 3)
+	}
+	// Hash the PTG interface - we use a simple marker since we can't access specific fields
+	if pf.PTG != nil {
+		hash += 12345 * 11 // Simple constant to indicate PTG presence
+	}
+	return hash
+}
