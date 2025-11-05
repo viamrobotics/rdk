@@ -108,12 +108,11 @@ type solutionSolvingState struct {
 	psc          *planSegmentContext
 	maxSolutions int
 
-	seeds       []*referenceframe.LinearInputs
 	linearSeeds [][]float64
+	seedLimits  [][]referenceframe.Limit
 
 	moving, nonmoving []string
 
-	ratios   []float64
 	goodCost float64
 
 	processCalls int
@@ -135,7 +134,6 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 
 	sss := &solutionSolvingState{
 		psc:                  psc,
-		seeds:                []*referenceframe.LinearInputs{psc.start},
 		solutions:            []*node{},
 		failures:             newIkConstraintError(psc.pc.fs, psc.checker),
 		firstSolutionTime:    time.Hour,
@@ -149,10 +147,15 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 	}
 
 	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()}
-	err = sss.computeGoodCost(psc.goal)
+	sss.seedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
+
+	ratios, err := sss.computeGoodCost(psc.goal)
 	if err != nil {
 		return nil, err
 	}
+
+	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
 
 	if sss.goodCost > 1 {
 		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
@@ -165,10 +168,11 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 			psc.pc.logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
 		psc.pc.logger.Debugf("got %d altSeeds", len(altSeeds))
-		for idx, s := range altSeeds {
-			psc.pc.logger.Debugf("  Idx: %d Seed: %v", idx, s)
-			sss.seeds = append(sss.seeds, s)
-			sss.linearSeeds = append(sss.linearSeeds, s.GetLinearizedInputs())
+		for _, s := range altSeeds {
+			si := s.GetLinearizedInputs()
+			psc.pc.logger.Debugf("\t ss: %v", si)
+			sss.linearSeeds = append(sss.linearSeeds, si)
+			sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(si, sss.seedLimits[0], .1))
 		}
 	}
 
@@ -179,22 +183,21 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 	return sss, nil
 }
 
-func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) error {
-	var err error
-	sss.ratios, err = inputChangeRatio(sss.psc.motionChains, sss.seeds[0], sss.psc.pc.fs,
+func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) ([]float64, error) {
+	ratios, err := inputChangeRatio(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
 		sss.psc.pc.planOpts.getGoalMetric(goal), sss.psc.pc.logger)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	adjusted := []float64{}
-	for idx, r := range sss.ratios {
+	for idx, r := range ratios {
 		adjusted = append(adjusted, sss.psc.pc.lis.Jog(idx, sss.linearSeeds[0][idx], r))
 	}
 
 	step, err := sss.psc.pc.lis.FloatsToInputs(adjusted)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	stepArc := &motionplan.SegmentFS{
@@ -205,7 +208,7 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 
 	sss.goodCost = sss.psc.pc.configurationDistanceFunc(stepArc)
 	sss.psc.pc.logger.Debugf("goodCost: %v", sss.goodCost)
-	return nil
+	return ratios, nil
 }
 
 // The purpose of this function is to allow solves that require the movement of components not in a motion chain, while preventing wild or
@@ -409,8 +412,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		}
 	}()
 
-	solver, err := ik.CreateCombinedIKSolver(
-		psc.pc.lis.GetLimits(), psc.pc.logger, defaultNumThreads, psc.pc.planOpts.GoalThreshold)
+	solver, err := ik.CreateCombinedIKSolver(psc.pc.logger, defaultNumThreads, psc.pc.planOpts.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +424,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 	utils.PanicCapturingGo(func() {
 		// This channel close doubles as signaling that the goroutine has exited.
 		defer close(solutionGen)
-		nSol, err := solver.Solve(ctxWithCancel, solutionGen, solvingState.linearSeeds, solvingState.ratios, minFunc, psc.pc.randseed.Int())
+		nSol, err := solver.Solve(ctxWithCancel, solutionGen, solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
 		solvingState.psc.pc.logger.Debugf("Solver stopping. Solutions: %v Err? %v", nSol, err)
 		if err != nil {
 			solveErrorLock.Lock()

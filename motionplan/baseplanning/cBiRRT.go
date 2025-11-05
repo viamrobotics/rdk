@@ -52,7 +52,7 @@ func newCBiRRTMotionPlanner(
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := ik.CreateNloptSolver(mp.lfs.dof, logger, 1, true, true)
+	nlopt, err := ik.CreateNloptSolver(logger, 1, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +364,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		// Spawn the IK solver to generate solutions until done
-		_, err = mp.fastGradDescent.Solve(ctx, solutionGen, [][]float64{linearSeed}, nil,
+		_, err = mp.fastGradDescent.Solve(ctx, solutionGen, [][]float64{linearSeed}, [][]referenceframe.Limit{mp.lfs.dof},
 			mp.linearizeFSmetric(mp.ConstraintChecker.PathMetric()), randseed.Int())
 		// We should have zero or one solutions
 		var solved *ik.Solution
