@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/session"
 )
 
@@ -154,8 +153,7 @@ func (rc *RobotClient) safetyMonitorFromHeaders(ctx context.Context, hdr metadat
 }
 
 func (rc *RobotClient) useSessionInRequest(ctx context.Context, method string) bool {
-	return true
-	return !rc.sessionsDisabled && ctx.Value(ctxKeyInSessionMDReq) == nil && robot.IsSafetyHeartbeatMonitored(method)
+	return !rc.sessionsDisabled && ctx.Value(ctxKeyInSessionMDReq) == nil
 }
 
 func (rc *RobotClient) sessionUnaryClientInterceptor(
