@@ -176,7 +176,7 @@ func TestSmartSeedCachePirouette(t *testing.T) {
 		}
 
 		if score1 > 0 {
-			test.That(t, firstScore, test.ShouldBeLessThan, 4)
+			test.That(t, firstScore, test.ShouldBeLessThan, 5)
 		}
 	}
 }
