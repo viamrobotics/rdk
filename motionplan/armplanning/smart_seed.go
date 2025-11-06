@@ -11,7 +11,6 @@ import (
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -72,6 +71,17 @@ func (cff *cacheForFrame) boxKey(p r3.Vector) string {
 	return fmt.Sprintf("%0.3d%0.3d%0.3d", x, y, z)
 }
 
+var jogRatios = []float64{360,32,8,8,4,2}
+
+func init() {
+	x := 1.0
+	for _, r := range jogRatios {
+		x *= r
+	}
+	old := math.Pow(10,6)
+	fmt.Printf("total positions: %0.2f more: %0.2f\n", x, x / old)
+}
+
 func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []float64, joint int) error {
 	limits := f.DoF()
 
@@ -86,7 +96,7 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 	min, max, r := limits[joint].GoodLimits()
 	values[joint] = min
 
-	jog := r / 10
+	jog := r / jogRatios[joint]
 	for values[joint] <= max {
 		err := cff.buildCacheHelper(f, values, joint+1)
 		if err != nil {
@@ -99,11 +109,21 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 	return nil
 }
 
+var xxx = []float64{1.55, -2.87, -1.72, -3.29, -1.57, 0}//-0.02}
+
 func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine []float64) error {
+
+	
 	inputs := append([]float64{}, inputsNotMine...)
 	p, err := frame.Transform(inputs)
 	if err != nil {
 		return err
+	}
+	{
+		c := myCost(xxx, inputsNotMine)
+		if c < .3 {
+			fmt.Printf("hi %v %v %v\n", c, inputsNotMine, p)
+		}
 	}
 
 	cff.entriesForCacheBuilding = append(cff.entriesForCacheBuilding, smartSeedCacheEntry{inputs, p})
@@ -218,19 +238,23 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	}
 
 	goalInWorld := spatialmath.Compose(goalPIF.Pose(), &spatialmath.DualQuaternion{f2w1DQ})
-	delta := spatialmath.Compose(&spatialmath.DualQuaternion{f2w2DQ},
-		spatialmath.PoseInverse(&spatialmath.DualQuaternion{f2w3DQ}))
+	f2w3DQInverse := spatialmath.PoseInverse(&spatialmath.DualQuaternion{f2w3DQ})
+	delta := spatialmath.Compose(&spatialmath.DualQuaternion{f2w2DQ}, f2w3DQInverse)
+		
 
+
+
+	fmt.Println(ssc.fs)
+	fmt.Printf("f2w1DQ: %v\n", &spatialmath.DualQuaternion{f2w1DQ})
+	fmt.Printf("f2w2DQ: %v\n", &spatialmath.DualQuaternion{f2w2DQ})
+	fmt.Printf("f2w3DQ: %v\n", &spatialmath.DualQuaternion{f2w3DQ})
+	fmt.Printf("f2w3DQInverse: %v\n", f2w3DQInverse)
+	fmt.Printf("goalFrame: %v\n", goalFrame)
+	fmt.Printf("goalInWorld: %v\n", goalInWorld)
+	fmt.Printf("delta: %v\n", delta)
 	newPose := spatialmath.Compose(goalInWorld, delta)
+	fmt.Printf("eliot: %v -> %v\n", goalPIF, newPose)
 
-	/*
-		fmt.Printf("f2w1: %v\n", f2w1)
-		fmt.Printf("f2w2: %v\n", f2w2)
-		fmt.Printf("f2w3: %v\n", f2w3)
-		fmt.Printf("goalInWorld: %v\n", goalInWorld)
-		fmt.Printf("delta: %v\n", delta)
-		fmt.Printf("eliot: %v -> %v\n", goalPIF, newPose)
-	*/
 
 	return frame.Name(), newPose, nil
 }
@@ -265,6 +289,8 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 		goalPIF = v
 	}
 
+	logger.Infof("goalPIF: %v", goalPIF)
+	
 	movingFrame, movingPose, err := ssc.findMovingInfo(start, goalFrame, goalPIF)
 	if err != nil {
 		return nil, err
@@ -311,7 +337,7 @@ func selectMostVariableEntries(entries []entry, n int) []entry {
 			// Calculate minimum distance to any already selected entry
 			minDist := math.MaxFloat64
 			for _, sel := range selected {
-				dist := referenceframe.InputsL2Distance(candidate.e.inputs, sel.e.inputs)
+				dist := myCost(candidate.e.inputs, sel.e.inputs)
 				if dist < minDist {
 					minDist = dist
 				}
@@ -337,6 +363,28 @@ type entry struct {
 	cost     float64
 }
 
+func myDistance(start, end spatialmath.Pose) float64 {
+	/*
+	orientDelta := spatialmath.QuatToR3AA(spatialmath.OrientationBetween(
+		start.Orientation(),
+		end.Orientation(),
+	).Quaternion()).Mul(1).Norm2()
+	*/
+	ptDelta := end.Point().Sub(start.Point()).Norm2()
+	return ptDelta// + orientDelta
+}
+
+func myCost(start, end []float64) float64 {
+	cost := 0.0
+	m := 1.0
+	for i, s := range start {
+		d := math.Abs(end[i]-s)
+		cost += (d*m)
+		m *= .5
+	}
+	return cost
+}
+
 func (ssc *smartSeedCache) findSeedsForFrame(
 	frameName string,
 	start []referenceframe.Input,
@@ -355,7 +403,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		return nil, err
 	}
 
-	startDistance := min(5000, max(1, motionplan.WeightedSquaredNormDistance(startPose, goalPose)))
+	startDistance := max(1, myDistance(startPose, goalPose))
 
 	best := []entry{}
 
@@ -367,7 +415,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	for _, b := range boxes {
 		for _, c := range b.entries {
-			distance := motionplan.WeightedSquaredNormDistance(goalPose, c.pose)
+			distance := myDistance(goalPose, c.pose)
 
 			if distance > (bestDistance * 2) {
 				continue
@@ -375,8 +423,14 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 			bestDistance = min(bestDistance, distance)
 
-			cost := referenceframe.InputsL2Distance(start, c.inputs)
+			cost := myCost(start, c.inputs)
 
+			cc := myCost(xxx, c.inputs)
+			if cc < .6 {
+				logger.Infof("c: %v cost: %v distance: %v joints: %v p: %v", cc, cost, distance, c.inputs, c.pose)
+			}
+				
+			
 			best = append(best, entry{&c, distance, cost})
 		}
 	}
@@ -393,13 +447,13 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	cutIdx := 0
 	for cutIdx < len(best) {
-		if best[cutIdx].distance > (2 * best[0].distance) {
+		if best[cutIdx].distance > (5 * best[0].distance) {
 			break
 		}
 		cutIdx++
 	}
 
-	logger.Debugf("\t len(best): %d cutIdx: %d", len(best), cutIdx)
+	logger.Debugf("\t len(best): %d cutIdx: %d best distance: %0.2f", len(best), cutIdx, best[0].distance)
 
 	best = best[0:cutIdx]
 
@@ -421,12 +475,12 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	best = best[0:cutIdx]
 
-	// now randomize a bit to get a good set to work with
-
-	selected := selectMostVariableEntries(best, 5)
+	
+	best = selectMostVariableEntries(best, 5) // now randomize a bit to get a good set to work with
 
 	ret := [][]referenceframe.Input{}
-	for _, e := range selected {
+	for i := 0; i < len(best) && i < 5; i++ {
+		e := best[i]
 		ret = append(ret, e.e.inputs)
 		logger.Debugf("dist: %02.f cost: %0.2f %v", e.distance, e.cost, e.e.inputs)
 	}
