@@ -118,8 +118,10 @@ func TestJointPositions(t *testing.T) {
 func TestGet3DModels(t *testing.T) {
 	ctx := context.Background()
 	confNo3DModels := resource.Config{
-		Name:                "testArm",
-		ConvertedAttributes: &Config{},
+		Name: "testArm",
+		ConvertedAttributes: &Config{
+			ArmModel: xArm6Model,
+		},
 	}
 	a, err := NewArm(ctx, nil, confNo3DModels, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)

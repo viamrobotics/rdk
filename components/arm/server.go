@@ -207,14 +207,7 @@ func (s *serviceServer) Get3DModels(ctx context.Context, req *commonpb.Get3DMode
 	if err != nil {
 		return nil, err
 	}
-	modelsMap := make(map[string]*commonpb.Mesh)
-	for name, mesh := range models {
-		modelsMap[name] = &commonpb.Mesh{
-			Mesh:        mesh.Mesh,
-			ContentType: mesh.ContentType,
-		}
-	}
-	return &commonpb.Get3DModelsResponse{Models: modelsMap}, nil
+	return &commonpb.Get3DModelsResponse{Models: models}, nil
 }
 
 // GetKinematics returns the kinematics information associated with the arm.
