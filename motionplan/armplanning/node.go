@@ -208,44 +208,6 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 	return nil
 }
 
-// The purpose of this function is to allow solves that require the movement of components not in a motion chain, while preventing wild or
-// random motion of these components unnecessarily. A classic example would be a scene with two arms. One arm is given a goal in World
-// which it could reach, but the other arm is in the way. Randomly seeded IK will produce a valid configuration for the moving arm, and a
-// random configuration for the other. This function attempts to replace that random configuration with the seed configuration, if valid,
-// and if invalid will interpolate the solved random configuration towards the seed and set its configuration to the closest valid
-// configuration to the seed.
-func (sss *solutionSolvingState) nonchainMinimize(ctx context.Context,
-	seed, step *referenceframe.LinearInputs,
-) *referenceframe.LinearInputs {
-	// Create a map with nonmoving configurations replaced with their seed values
-	alteredStep := referenceframe.NewLinearInputs()
-	for _, frame := range sss.moving {
-		alteredStep.Put(frame, step.Get(frame))
-	}
-	for _, frame := range sss.nonmoving {
-		alteredStep.Put(frame, seed.Get(frame))
-	}
-	if sss.psc.checkInputs(ctx, alteredStep) {
-		return alteredStep
-	}
-
-	// Failing constraints with nonmoving frames at seed. Find the closest passing configuration to seed.
-
-	//nolint:errcheck
-	lastGood, _ := sss.psc.checker.CheckStateConstraintsAcrossSegmentFS(
-		ctx,
-		&motionplan.SegmentFS{
-			StartConfiguration: step,
-			EndConfiguration:   alteredStep,
-			FS:                 sss.psc.pc.fs,
-		}, sss.psc.pc.planOpts.Resolution,
-	)
-	if lastGood != nil {
-		return lastGood.EndConfiguration
-	}
-	return nil
-}
-
 // return bool is if we should stop because we're done.
 func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution) bool {
 	ctx, span := trace.StartSpan(ctx, "process")
@@ -258,11 +220,6 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		return false
 	}
 
-	alteredStep := sss.nonchainMinimize(ctx, sss.psc.start, step)
-	if alteredStep != nil {
-		// if nil, step is guaranteed to fail the below check, but we want to do it anyway to capture the failure reason
-		step = alteredStep
-	}
 	// Ensure the end state is a valid one
 	err = sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: step,
