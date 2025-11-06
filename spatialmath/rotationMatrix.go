@@ -151,3 +151,12 @@ func (rm *RotationMatrix) RightMatMul(rmm RotationMatrix) *RotationMatrix {
 	}
 	return &RotationMatrix{mat: mat}
 }
+
+// Hash returns a hash value for this rotation matrix.
+func (rm *RotationMatrix) Hash() int {
+	hash := 0
+	for i, val := range rm.mat {
+		hash += ((i + 5) * (int(val*1000) + 1000)) * (i + 2)
+	}
+	return hash
+}

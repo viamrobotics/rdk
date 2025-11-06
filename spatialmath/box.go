@@ -76,6 +76,10 @@ func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
 	}, nil
 }
 
+func (b *box) Hash() int {
+	return HashPose(b.pose) + int((111*b.halfSize[0])+(222*b.halfSize[1])+(333*b.halfSize[2]))
+}
+
 // String returns a human readable string that represents the box.
 func (b *box) String() string {
 	return fmt.Sprintf("Type: Box | Position: X:%.1f, Y:%.1f, Z:%.1f | Dims: X:%.0f, Y:%.0f, Z:%.0f",

@@ -259,19 +259,19 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		currentInputs := referenceframe.FrameSystemInputs{
 			k.Name(): {
-				{Value: 0}, // ptg index
-				{Value: 0}, // trajectory alpha within ptg
-				{Value: 0}, // start distance along trajectory index
-				{Value: 0}, // end distace along trajectory index
+				0, // ptg index
+				0, // trajectory alpha within ptg
+				0, // start distance along trajectory index
+				0, // end distace along trajectory index
 			},
 			mr.kinematicBase.LocalizationFrame().Name(): {
-				{Value: 587},  // X
-				{Value: -808}, // Y
-				{Value: 0},    // Z
-				{Value: 0},    // OX
-				{Value: 0},    // OY
-				{Value: 1},    // OZ
-				{Value: 0},    // Theta
+				587,  // X
+				-808, // Y
+				0,    // Z
+				0,    // OX
+				0,    // OY
+				1,    // OZ
+				0,    // Theta
 			},
 		}
 
@@ -293,6 +293,7 @@ func TestMoveOnMapStaticObs(t *testing.T) {
 
 		test.That(t, err, test.ShouldBeNil)
 		err = baseplanning.CheckPlan(
+			ctx,
 			wrapperFrame,
 			augmentedBaseExecutionState,
 			wrldSt,

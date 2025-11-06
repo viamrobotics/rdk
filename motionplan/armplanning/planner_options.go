@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"time"
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -78,9 +80,6 @@ func NewBasicPlannerOptions() *PlannerOptions {
 
 	opt.SmoothIter = defaultSmoothIter
 
-	opt.NumThreads = defaultNumThreads
-
-	opt.PathStepSize = defaultStepSizeMM
 	opt.CollisionBufferMM = defaultCollisionBufferMM
 	opt.RandomSeed = defaultRandomSeed
 
@@ -112,9 +111,6 @@ type PlannerOptions struct {
 
 	// Number of times to try to smooth the path
 	SmoothIter int `json:"smooth_iter"`
-
-	// Number of cpu cores to use
-	NumThreads int `json:"num_threads"`
 
 	// How close to get to the goal
 	GoalThreshold float64 `json:"goal_threshold"`
@@ -149,10 +145,6 @@ type PlannerOptions struct {
 	// The random seed used by motion algorithms during planning. This parameter guarantees deterministic
 	// outputs for a given set of identical inputs
 	RandomSeed int `json:"rseed"`
-
-	// The max movement allowed for each step on the path from the initial random seed for a solution
-	// to the goal.
-	PathStepSize float64 `json:"path_step_size"`
 
 	// Setting indicating that all mesh geometries should be converted into octrees.
 	MeshesAsOctrees bool `json:"meshes_as_octrees"`
@@ -203,20 +195,67 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 		score := 0.
 		for frame, goalMetric := range metrics {
 			poseParent := frames[frame]
-			currPose, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
+			var currPose spatialmath.Pose
+
+			dq, err := state.FS.TransformToDQ(state.Configuration, frame, poseParent)
 			if err != nil {
-				panic(fmt.Errorf("fs: %v err: %w frame: %s poseParent: %v", state.FS.FrameNames(), err, frame, poseParent))
+				panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",
+					state.FS.FrameNames(), frame, poseParent, err))
 			}
 
+			currPose = &dq
+
 			score += goalMetric(&motionplan.State{
-				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
-				Configuration: state.Configuration[frame],
+				Position:      currPose,
+				Configuration: state.Configuration.Get(frame),
 				Frame:         state.FS.Frame(frame),
 			})
 		}
 		return score
 	}
 }
+
+// TODO: Hopefully can remove?
+//
+// func (p *PlannerOptions) getGoalMetricLinear(goal referenceframe.FrameSystemPoses) (motionplan.LinearFSMetric, error) {
+//  	if p.GoalMetricType != motionplan.SquaredNormOptimized {
+//  		//nolint
+//  		return nil, fmt.Errorf("May only call `getGoalMetricLinear` with a planner type of `SquaredNormOpt`")
+//  	}
+//
+//  	metrics := map[string]motionplan.StateMetric{}
+//  	frames := map[string]string{}
+//
+//  	for frame, goalInFrame := range goal {
+//  		frames[frame] = goalInFrame.Parent()
+//  		metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
+//  	}
+//
+//  	return func(state *motionplan.LinearFS) float64 {
+//  		score := 0.
+//  		for frame, goalMetric := range metrics {
+//  			poseParent := frames[frame]
+//  			var currPose spatialmath.Pose
+//
+//  			if p.GoalMetricType == motionplan.SquaredNormOptimized {
+//  				dq, err := state.FS.TransformOptLinear(state.Configuration, frame, poseParent)
+//  				if err != nil {
+//  					panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",
+//  						state.FS.FrameNames(), frame, poseParent, err))
+//  				}
+//
+//  				currPose = &dq
+//  			} else {
+//  				panic("non comprenez")
+//  			}
+//
+//  			score += goalMetric(&motionplan.State{
+//  				Position: currPose,
+//  			})
+//  		}
+//  		return score
+//  	}, nil
+// }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
 func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
@@ -226,4 +265,8 @@ func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
 // SetMinScore specifies the IK stopping score for the planner.
 func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
+}
+
+func (p *PlannerOptions) timeoutDuration() time.Duration {
+	return time.Duration(p.Timeout * float64(time.Second))
 }

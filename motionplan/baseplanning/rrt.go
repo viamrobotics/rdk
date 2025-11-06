@@ -90,7 +90,7 @@ func initRRTSolutions(ctx context.Context, wp atomicWaypoint) *rrtSolution {
 					&motionplan.SegmentFS{StartConfiguration: seed.Q(), EndConfiguration: solution.Q()},
 				)
 				if cost < optimalCost*defaultOptimalityMultiple {
-					if wp.mp.checkPath(seed.Q(), solution.Q()) {
+					if wp.mp.checkPath(ctx, seed.Q().ToFrameSystemInputs(), solution.Q().ToFrameSystemInputs()) {
 						rrt.steps = []node{seed, solution}
 						return rrt
 					}

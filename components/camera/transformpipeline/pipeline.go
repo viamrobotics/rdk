@@ -196,11 +196,11 @@ func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), erro
 	return img, func() {}, nil
 }
 
-func (tp transformPipeline) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (tp transformPipeline) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::NextPointCloud")
 	defer span.End()
 	if lastElem, ok := tp.pipeline[len(tp.pipeline)-1].(camera.PointCloudSource); ok {
-		pc, err := lastElem.NextPointCloud(ctx)
+		pc, err := lastElem.NextPointCloud(ctx, extra)
 		if err != nil {
 			return nil, errors.Wrap(err, "function NextPointCloud not defined for last videosource in transform pipeline")
 		}

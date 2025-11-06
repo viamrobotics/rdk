@@ -3,6 +3,7 @@
 package baseplanning
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -20,6 +21,7 @@ const relativePlanOptsResolution = 30
 // detected, the interpolated position of the rover when a collision is detected is returned along
 // with an error with additional collision details.
 func CheckPlan(
+	ctx context.Context,
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
@@ -47,7 +49,7 @@ func CheckPlan(
 	if motionChains.useTPspace {
 		return checkPlanRelative(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
 	}
-	return checkPlanAbsolute(checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
+	return checkPlanAbsolute(ctx, checkFrame, executionState, worldState, fs, lookAheadDistanceMM)
 }
 
 func checkPlanRelative(
@@ -59,7 +61,7 @@ func checkPlanRelative(
 ) error {
 	var err error
 	toWorld := func(pif *referenceframe.PoseInFrame, inputs referenceframe.FrameSystemInputs) (*referenceframe.PoseInFrame, error) {
-		transformable, err := fs.Transform(inputs, pif, referenceframe.World)
+		transformable, err := fs.Transform(inputs.ToLinearInputs(), pif, referenceframe.World)
 		if err != nil {
 			return nil, err
 		}
@@ -191,6 +193,7 @@ func checkPlanRelative(
 }
 
 func checkPlanAbsolute(
+	ctx context.Context,
 	checkFrame referenceframe.Frame, // TODO(RSDK-7421): remove this
 	executionState ExecutionState,
 	worldState *referenceframe.WorldState,
@@ -204,7 +207,7 @@ func checkPlanAbsolute(
 	wayPointIdx := executionState.Index()
 
 	checkFramePiF := referenceframe.NewPoseInFrame(checkFrame.Name(), spatialmath.NewZeroPose())
-	expectedPoseTf, err := fs.Transform(currentInputs, checkFramePiF, currentPoseIF.Parent())
+	expectedPoseTf, err := fs.Transform(currentInputs.ToLinearInputs(), checkFramePiF, currentPoseIF.Parent())
 	if err != nil {
 		return err
 	}
@@ -255,17 +258,18 @@ func checkPlanAbsolute(
 	// iterate through remaining plan and append remaining segments to check
 	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
 		segment := &motionplan.SegmentFS{
-			StartConfiguration: offsetPlan.Trajectory()[i],
-			EndConfiguration:   offsetPlan.Trajectory()[i+1],
+			StartConfiguration: offsetPlan.Trajectory()[i].ToLinearInputs(),
+			EndConfiguration:   offsetPlan.Trajectory()[i+1].ToLinearInputs(),
 			FS:                 fs,
 		}
 		segments = append(segments, segment)
 	}
 
-	return checkSegmentsFS(segments, lookAheadDistanceMM, planOpts.Resolution, motionChains, constraintHandler, fs)
+	return checkSegmentsFS(ctx, segments, lookAheadDistanceMM, planOpts.Resolution, motionChains, constraintHandler, fs)
 }
 
 func checkSegmentsFS(
+	ctx context.Context,
 	segments []*motionplan.SegmentFS,
 	lookAheadDistanceMM float64,
 	resolution float64,
@@ -277,14 +281,14 @@ func checkSegmentsFS(
 	moving, _ := motionChains.framesFilteredByMovingAndNonmoving(fs)
 	dists := map[string]float64{}
 	for _, segment := range segments {
-		lastValid, err := constraintHandler.CheckSegmentAndStateValidityFS(segment, resolution)
+		lastValid, err := constraintHandler.CheckSegmentAndStateValidityFS(ctx, segment, resolution)
 		if err != nil {
 			checkConf := segment.StartConfiguration
 			if lastValid != nil {
 				checkConf = lastValid.EndConfiguration
 			}
 			var reason string
-			err := constraintHandler.CheckStateFSConstraints(&motionplan.StateFS{Configuration: checkConf, FS: fs})
+			err := constraintHandler.CheckStateFSConstraints(ctx, &motionplan.StateFS{Configuration: checkConf, FS: fs})
 			if err != nil {
 				reason = " reason: " + err.Error()
 			} else {
@@ -352,7 +356,7 @@ func checkSegments(
 		}
 		for _, interpConfig := range interpolatedConfigurations {
 			poseInPathTf, err := fs.Transform(
-				referenceframe.FrameSystemInputs{checkFrame.Name(): interpConfig},
+				referenceframe.FrameSystemInputs{checkFrame.Name(): interpConfig}.ToLinearInputs(),
 				referenceframe.NewZeroPoseInFrame(checkFrame.Name()),
 				parent.Name(),
 			)

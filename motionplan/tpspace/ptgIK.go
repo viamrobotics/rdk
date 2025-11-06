@@ -99,7 +99,7 @@ func (ptg *ptgIK) Solve(
 	_, err := ptg.fastGradDescent.Solve(
 		ctx,
 		internalSolutionGen,
-		referenceframe.InputsToFloats(seed),
+		[][]float64{seed},
 		nil,
 		ptg.ptgMetricIkFunc(solveMetric),
 		defaultNloptSeed,
@@ -115,13 +115,13 @@ func (ptg *ptgIK) Solve(
 		// If nlopt failed to gradient descend, it will return the seed. If the seed is what was returned, we want to use our precomputed
 		// grid check instead.
 		for i, v := range solved.Configuration {
-			if v != seed[i].Value {
+			if v != seed[i] {
 				seedOutput = false
 				break
 			}
 		}
 	}
-	if err != nil || solved == nil || ptg.arcDist(referenceframe.FloatsToInputs(solved.Configuration)) < defaultZeroDist || seedOutput {
+	if err != nil || solved == nil || ptg.arcDist(solved.Configuration) < defaultZeroDist || seedOutput {
 		// nlopt did not return a valid solution or otherwise errored. Fall back fully to the grid check.
 		return ptg.gridSim.Solve(ctx, seed, solveMetric)
 	}
@@ -231,14 +231,14 @@ func (ptg *ptgIK) DoF() []referenceframe.Limit {
 func (ptg *ptgIK) arcDist(inputs []referenceframe.Input) float64 {
 	dist := 0.
 	for i := 1; i < len(inputs); i += 2 {
-		dist += (inputs[i].Value - defaultMinPTGlen)
+		dist += (inputs[i] - defaultMinPTGlen)
 	}
 	return dist
 }
 
-func (ptg *ptgIK) ptgMetricIkFunc(distMetric motionplan.StateMetric) func([]float64) float64 {
-	return func(vals []float64) float64 {
-		queryPose, err := ptg.Transform(referenceframe.FloatsToInputs(vals))
+func (ptg *ptgIK) ptgMetricIkFunc(distMetric motionplan.StateMetric) ik.CostFunc {
+	return func(_ context.Context, vals []float64) float64 {
+		queryPose, err := ptg.Transform(vals)
 		if err != nil {
 			return math.Inf(1)
 		}

@@ -923,7 +923,7 @@ func TestNewFrameSystemClient(t *testing.T) {
 	testName := resource.NewName(testAPI, "arm1")
 
 	expectedInputs := referenceframe.FrameSystemInputs{
-		testName.ShortName(): []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}},
+		testName.ShortName(): []referenceframe.Input{0, math.Pi, -math.Pi, 0, math.Pi, -math.Pi},
 	}
 	injectArm := &inject.Arm{
 		JointPositionsFunc: func(ctx context.Context, extra map[string]any) ([]referenceframe.Input, error) {

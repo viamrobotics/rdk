@@ -137,7 +137,7 @@ func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.joints = referenceframe.FloatsToInputs(make([]float64, dof))
+	a.joints = make([]referenceframe.Input, dof)
 	a.model = model
 
 	return nil

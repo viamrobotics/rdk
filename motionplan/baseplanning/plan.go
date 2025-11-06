@@ -38,7 +38,7 @@ func newPath(solution []node, fs *referenceframe.FrameSystem) (motionplan.Path, 
 	path := make(motionplan.Path, 0, len(solution))
 	for _, inputNode := range solution {
 		poseMap := make(map[string]*referenceframe.PoseInFrame)
-		for frame := range inputNode.Q() {
+		for frame := range inputNode.Q().Keys() {
 			tf, err := fs.Transform(inputNode.Q(), referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World)
 			if err != nil {
 				return nil, err
@@ -239,7 +239,7 @@ func (p PlanState) Serialize() map[string]interface{} {
 		poseMap[fName] = pifProto
 	}
 	for fName, conf := range p.configuration {
-		confMap[fName] = referenceframe.InputsToFloats(conf)
+		confMap[fName] = conf
 	}
 	if p.poses != nil {
 		m["poses"] = poseMap
@@ -289,7 +289,7 @@ func DeserializePlanState(iface map[string]interface{}) (*PlanState, error) {
 							return nil, errors.New("configuration input array did not contain floats")
 						}
 					}
-					ps.configuration[fName] = referenceframe.FloatsToInputs(floats)
+					ps.configuration[fName] = floats
 				} else {
 					return nil, errors.New("configuration did not contain array of inputs")
 				}

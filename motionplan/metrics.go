@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 
+	"gonum.org/v1/gonum/num/quat"
+
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -61,8 +63,8 @@ type Segment struct {
 // SegmentFS is a referenceframe.FrameSystem-specific contains all the information a constraint needs to determine validity for a movement.
 // It contains the starting inputs, the ending inputs, and the framesystem it refers to.
 type SegmentFS struct {
-	StartConfiguration referenceframe.FrameSystemInputs
-	EndConfiguration   referenceframe.FrameSystemInputs
+	StartConfiguration *referenceframe.LinearInputs
+	EndConfiguration   *referenceframe.LinearInputs
 	FS                 *referenceframe.FrameSystem
 }
 
@@ -117,7 +119,7 @@ func (state *State) ResolveStateAndUpdatePositions() error {
 // framesystem. It contains inputs, the corresponding poses, and the frame it refers to.
 // Pose field may be empty, and may be filled in by a constraint that needs it.
 type StateFS struct {
-	Configuration referenceframe.FrameSystemInputs
+	Configuration *referenceframe.LinearInputs
 	FS            *referenceframe.FrameSystem
 }
 
@@ -220,13 +222,16 @@ func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
 // Increase weight for orientation since it's a small number.
 func NewScaledSquaredNormMetric(goal spatial.Pose, orientationDistanceScale float64) StateMetric {
 	weightedSqNormDist := func(query *State) float64 {
-		deltaCartesian := spatial.PoseDelta(goal, query.Position)
-		deltaOrientation := spatial.QuatToR3AA(deltaCartesian.Orientation().Quaternion()).Mul(orientationDistanceScale)
+		deltaCartesianPoint := query.Position.Point().Sub(
+			goal.(*spatial.DualQuaternion).Point())
+		deltaCartesianOrientation := quat.Mul(
+			query.Position.Orientation().Quaternion(),
+			quat.Conj(goal.Orientation().Quaternion()))
+		deltaOrientation := spatial.QuatToR3AA(deltaCartesianOrientation).Mul(orientationDistanceScale)
 
-		// fmt.Printf("delta cart: %0.4f orient: %0.4f\n", deltaCartesian.Point().Norm2(), deltaOrientation.Norm2())
-
-		return deltaCartesian.Point().Norm2() + deltaOrientation.Norm2()
+		return deltaCartesianPoint.Norm2() + deltaOrientation.Norm2()
 	}
+
 	return weightedSqNormDist
 }
 
@@ -267,7 +272,7 @@ func NewPositionOnlyMetric(goal spatial.Pose) StateMetric {
 func JointMetric(segment *Segment) float64 {
 	jScore := 0.
 	for i, f := range segment.StartConfiguration {
-		jScore += math.Abs(f.Value - segment.EndConfiguration[i].Value)
+		jScore += math.Abs(f - segment.EndConfiguration[i])
 	}
 	return jScore
 }
@@ -297,13 +302,18 @@ func SquaredNormNoOrientSegmentMetric(segment *Segment) float64 {
 // This changes the magnitude of the position delta used to be smaller and avoid numeric instability issues that happens with large floats.
 // It also scales the orientation distance to give more weight to it.
 func WeightedSquaredNormSegmentMetric(segment *Segment) float64 {
+	return WeightedSquaredNormDistance(segment.StartPosition, segment.EndPosition)
+}
+
+// WeightedSquaredNormDistance is a distance function between two poses to be used for gradient descent.
+func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
 	// Increase weight for orientation since it's a small number
 	orientDelta := spatial.QuatToR3AA(spatial.OrientationBetween(
-		segment.EndPosition.Orientation(),
-		segment.StartPosition.Orientation(),
+		start.Orientation(),
+		end.Orientation(),
 	).Quaternion()).Mul(orientationDistanceScaling).Norm2()
 	// Also, we multiply delta.Point() by 0.1, effectively measuring in cm rather than mm.
-	ptDelta := segment.EndPosition.Point().Mul(0.1).Sub(segment.StartPosition.Point().Mul(0.1)).Norm2()
+	ptDelta := end.Point().Mul(0.1).Sub(start.Point().Mul(0.1)).Norm2()
 	return ptDelta + orientDelta
 }
 
@@ -313,10 +323,10 @@ func WeightedSquaredNormSegmentMetric(segment *Segment) float64 {
 // FSConfigurationDistance is a fs metric which will sum the abs differences in each input from start to end.
 func FSConfigurationDistance(segment *SegmentFS) float64 {
 	score := 0.
-	for frame, cfg := range segment.StartConfiguration {
-		if endCfg, ok := segment.EndConfiguration[frame]; ok && len(cfg) == len(endCfg) {
+	for frame, cfg := range segment.StartConfiguration.Items() {
+		if endCfg := segment.EndConfiguration.Get(frame); endCfg != nil && len(cfg) == len(endCfg) {
 			for i, val := range cfg {
-				score += math.Abs(val.Value - endCfg[i].Value)
+				score += math.Abs(val - endCfg[i])
 			}
 		}
 	}
@@ -326,8 +336,8 @@ func FSConfigurationDistance(segment *SegmentFS) float64 {
 // FSConfigurationL2Distance is a fs metric which will sum the L2 norm differences in each input from start to end.
 func FSConfigurationL2Distance(segment *SegmentFS) float64 {
 	score := 0.
-	for frame, cfg := range segment.StartConfiguration {
-		if endCfg, ok := segment.EndConfiguration[frame]; ok && len(cfg) == len(endCfg) {
+	for frame, cfg := range segment.StartConfiguration.Items() {
+		if endCfg := segment.EndConfiguration.Get(frame); endCfg != nil && len(cfg) == len(endCfg) {
 			score += referenceframe.InputsL2Distance(cfg, endCfg)
 		}
 	}

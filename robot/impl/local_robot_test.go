@@ -999,7 +999,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	r0Arm, ok := r0arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	err = r0Arm.MoveToJointPositions(context.Background(), []referenceframe.Input{{math.Pi}}, nil)
+	err = r0Arm.MoveToJointPositions(context.Background(), []referenceframe.Input{math.Pi}, nil)
 	test.That(t, err, test.ShouldBeNil)
 	p0Arm1, err := r0Arm.JointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -5056,4 +5056,64 @@ func TestListTunnels(t *testing.T) {
 	ttes, err := r.ListTunnels(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ttes, test.ShouldResemble, trafficTunnelEndpoints)
+}
+
+func TestInternalPanicFromModuleDoesNotCrash(t *testing.T) {
+	// Primarily a regression test for one of the issues described in RSDK-11230.
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	panickingSensorModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		panickingSensorModel,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return &inject.Sensor{
+				ReadingsFunc: func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+					panic("oh no")
+				},
+			}, nil
+		}})
+
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	helperModel := resource.NewModel("rdk", "test", "helper")
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "s",
+				Model: panickingSensorModel,
+				API:   sensor.API,
+			},
+			{
+				Name:      "h",
+				Model:     helperModel,
+				API:       generic.API,
+				DependsOn: []string{"s"},
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	helper, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = helper.DoCommand(ctx, map[string]interface{}{"command": "do_readings_on_dep"})
+	s, isGRPCErr := status.FromError(err)
+	test.That(t, isGRPCErr, test.ShouldBeTrue)
+	test.That(t, s.Code(), test.ShouldEqual, codes.Internal)
+	test.That(t, s.Message(), test.ShouldContainSubstring, "oh no")
+
+	test.That(t, logs.FilterMessageSnippet("panicked while calling unary server method for module request").Len(),
+		test.ShouldEqual, 1)
 }

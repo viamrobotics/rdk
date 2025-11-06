@@ -94,7 +94,7 @@ func TestJointPositions(t *testing.T) {
 	// Round trip test for MoveToJointPositions -> JointPositions
 	arm, err := NewArm(ctx, nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	samplePositions := []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}}
+	samplePositions := []referenceframe.Input{0, math.Pi, -math.Pi, 0, math.Pi, -math.Pi}
 	test.That(t, arm.MoveToJointPositions(ctx, samplePositions, nil), test.ShouldBeNil)
 	positions, err := arm.JointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
