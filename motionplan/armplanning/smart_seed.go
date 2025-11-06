@@ -110,15 +110,25 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 }
 
 var xxx = []float64{1.55, -2.87, -1.72, -3.29, -1.57, 0}//-0.02}
+var xxFirst = true
 
 func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine []float64) error {
 
+	if xxFirst {
+		p, err := frame.Transform(xxx)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("xxxx p %v\n", p)
+		xxFirst = false
+	}
 	
 	inputs := append([]float64{}, inputsNotMine...)
 	p, err := frame.Transform(inputs)
 	if err != nil {
 		return err
 	}
+
 	{
 		c := myCost(xxx, inputsNotMine)
 		if c < .3 {
@@ -238,17 +248,15 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	}
 
 	goalInWorld := spatialmath.Compose(goalPIF.Pose(), &spatialmath.DualQuaternion{f2w1DQ})
-	f2w3DQInverse := spatialmath.PoseInverse(&spatialmath.DualQuaternion{f2w3DQ})
-	delta := spatialmath.Compose(&spatialmath.DualQuaternion{f2w2DQ}, f2w3DQInverse)
-		
-
-
+	delta := spatialmath.PoseDelta(
+		&spatialmath.DualQuaternion{f2w3DQ}, 
+		&spatialmath.DualQuaternion{f2w2DQ},
+	)
 
 	fmt.Println(ssc.fs)
 	fmt.Printf("f2w1DQ: %v\n", &spatialmath.DualQuaternion{f2w1DQ})
 	fmt.Printf("f2w2DQ: %v\n", &spatialmath.DualQuaternion{f2w2DQ})
 	fmt.Printf("f2w3DQ: %v\n", &spatialmath.DualQuaternion{f2w3DQ})
-	fmt.Printf("f2w3DQInverse: %v\n", f2w3DQInverse)
 	fmt.Printf("goalFrame: %v\n", goalFrame)
 	fmt.Printf("goalInWorld: %v\n", goalInWorld)
 	fmt.Printf("delta: %v\n", delta)

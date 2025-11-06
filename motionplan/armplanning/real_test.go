@@ -207,10 +207,20 @@ func TestSandingLargeMove1(t *testing.T) {
 	res := solution.steps[0].Get(name)
 	lim := req.FrameSystem.Frame(name).DoF()
 
+ 	p, err := req.FrameSystem.Frame(name).Transform(res)
+	test.That(t, err, test.ShouldBeNil)
+	logger.Infof("final arm pose: %v", p)
+
+	{
+		p2, err := req.FrameSystem.Frame(name).Transform(xxx)
+		test.That(t, err, test.ShouldBeNil)
+		logger.Infof("xxxxx arm pose: %v", p2)
+	}
+
 	for j, startPosition := range sta {
 		_, _, r := lim[j].GoodLimits()
 		delta := math.Abs(startPosition - res[j])
-		logger.Infof("j: %d start: %0.2f end: %0.2f delta: %0.2f ratio: %0.2f", j, startPosition, res[j], delta, delta/r)
+		logger.Infof("j: %d start: %0.2f end: %0.2f delta: %0.2f ratio: %0.2f xxx: %0.2f", j, startPosition, res[j], delta, delta/r, xxx[j])
 	}
 }
 
