@@ -157,16 +157,8 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
 	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
 
-	psc.pc.logger.Debugf("minRatio: %v", minRatio)
-	{
-		myRatios := []float64{}
-		for _, r := range ratios {
-			myRatios = append(myRatios, min(r, minRatio*1.5))
-		}
-		psc.pc.logger.Debugf("myRatios: %v", myRatios)
-		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-		sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], myRatios))
-	}
+	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .1))
 
 	if sss.goodCost > 1 && minRatio > .05 {
 		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
@@ -186,10 +178,6 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 			sss.seedLimits = append(sss.seedLimits, ll)
 			psc.pc.logger.Debugf("\t ss (%d): %v", len(sss.linearSeeds)-1, si)
 		}
-	} else {
-		// if we're really close, look really close
-		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-		sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .1))
 	}
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
@@ -333,6 +321,9 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	} else if sss.bestScoreNoProblem < sss.goodCost/5 {
 		multiple = 2
 		minMillis = 20
+	} else if sss.bestScoreNoProblem < sss.goodCost/3.5 {
+		multiple = 4
+		minMillis = 30
 	} else if sss.bestScoreNoProblem < sss.goodCost/2 {
 		multiple = 20
 		minMillis = 100

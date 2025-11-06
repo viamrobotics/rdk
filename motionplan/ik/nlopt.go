@@ -193,7 +193,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	}
 
 	solutionsFound := 0
-	seedNumber := 0
+	seedNumber := rseed // start randomly in the list
 
 	itStart := time.Now()
 	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < time.Second)) && ctx.Err() == nil {
