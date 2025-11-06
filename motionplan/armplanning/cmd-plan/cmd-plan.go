@@ -18,7 +18,6 @@ import (
 	"time"
 
 	viz "github.com/viam-labs/motion-tools/client/client"
-	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 
 	"go.viam.com/rdk/logging"
@@ -59,13 +58,18 @@ func realMain() error {
 		if err != nil {
 			return fmt.Errorf("couldn't create %s %w", *cpu, err)
 		}
-		defer utils.UncheckedError(f.Close())
 
 		err = pprof.StartCPUProfile(f)
 		if err != nil {
 			return fmt.Errorf("could not start CPU profile: %w", err)
 		}
-		defer pprof.StopCPUProfile()
+		defer func() {
+			pprof.StopCPUProfile()
+			err = f.Close()
+			if err != nil {
+				logger.Errorf("couldn't write profiling file: %v", err)
+			}
+		}()
 	}
 
 	if *verbose {

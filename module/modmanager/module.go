@@ -245,7 +245,7 @@ func (m *module) startProcess(
 	checkTicker := time.NewTicker(100 * time.Millisecond)
 	defer checkTicker.Stop()
 
-	m.logger.CInfow(ctx, "Starting up module", "module", m.cfg.Name)
+	m.logger.CInfow(ctx, "Starting up module", "module", m.cfg.Name, "tcp_mode", tcpMode)
 	rutils.LogViamEnvVariables("Starting module with following Viam environment variables", moduleEnvironment, m.logger)
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(m.logger))
