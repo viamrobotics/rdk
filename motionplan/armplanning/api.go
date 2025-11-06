@@ -258,7 +258,7 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 	if err != nil {
 		if request.PlannerOptions.ReturnPartialPlan {
 			meta.Partial = true
-			logger.Infof("returning partial plan")
+			logger.Infof("returning partial plan, error: %v", err)
 		} else {
 			return nil, meta, err
 		}
