@@ -174,7 +174,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
 		}
 
-		altSeeds, err := ssc.findSeeds(psc.goal, psc.start, psc.pc.logger)
+		altSeeds, altLimitDivisors, err := ssc.findSeeds(psc.goal, psc.start, psc.pc.logger)
 		if err != nil {
 			psc.pc.logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
@@ -182,9 +182,9 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 		for _, s := range altSeeds {
 			si := s.GetLinearizedInputs()
 			sss.linearSeeds = append(sss.linearSeeds, si)
-			ll := ik.ComputeAdjustLimits(si, sss.seedLimits[0], .1)
+			ll := ik.ComputeAdjustLimitsArray(si, sss.seedLimits[0], altLimitDivisors)
 			sss.seedLimits = append(sss.seedLimits, ll)
-			psc.pc.logger.Debugf("\t ss: %v", si)
+			psc.pc.logger.Debugf("\t ss (%d): %v", len(sss.linearSeeds) - 1, si)
 		}
 	} else {
 		// if we're really close, look really close

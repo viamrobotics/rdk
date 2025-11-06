@@ -71,16 +71,9 @@ func (cff *cacheForFrame) boxKey(p r3.Vector) string {
 	return fmt.Sprintf("%0.3d%0.3d%0.3d", x, y, z)
 }
 
-var jogRatios = []float64{360,32,8,8,4,2}
-
-func init() {
-	x := 1.0
-	for _, r := range jogRatios {
-		x *= r
-	}
-	old := math.Pow(10,6)
-	fmt.Printf("total positions: %0.2f more: %0.2f\n", x, x / old)
-}
+var arm6JogRatios = []float64{360,32,8,8,4,2}
+var arm6JogDivisors = []float64{.1,.1,.2,1,1,1}
+var defaultDivisor = 10.0
 
 func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []float64, joint int) error {
 	limits := f.DoF()
@@ -96,7 +89,12 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 	min, max, r := limits[joint].GoodLimits()
 	values[joint] = min
 
-	jog := r / jogRatios[joint]
+	jogDivisor := defaultDivisor
+	if len(limits) == 6 {
+		// assum it's an arm
+		jogDivisor = arm6JogRatios[joint]
+	}
+	jog := r / jogDivisor
 	for values[joint] <= max {
 		err := cff.buildCacheHelper(f, values, joint+1)
 		if err != nil {
@@ -109,31 +107,12 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 	return nil
 }
 
-var xxx = []float64{1.55, -2.87, -1.72, -3.29, -1.57, 0}//-0.02}
-var xxFirst = true
-
 func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine []float64) error {
 
-	if xxFirst {
-		p, err := frame.Transform(xxx)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("xxxx p %v\n", p)
-		xxFirst = false
-	}
-	
 	inputs := append([]float64{}, inputsNotMine...)
 	p, err := frame.Transform(inputs)
 	if err != nil {
 		return err
-	}
-
-	{
-		c := myCost(xxx, inputsNotMine)
-		if c < .3 {
-			fmt.Printf("hi %v %v %v\n", c, inputsNotMine, p)
-		}
 	}
 
 	cff.entriesForCacheBuilding = append(cff.entriesForCacheBuilding, smartSeedCacheEntry{inputs, p})
@@ -271,7 +250,7 @@ func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses,
 	start *referenceframe.LinearInputs,
 	logger logging.Logger,
 ) (*referenceframe.LinearInputs, error) {
-	ss, err := ssc.findSeeds(goal, start, logger)
+	ss, _, err := ssc.findSeeds(goal, start, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -284,9 +263,9 @@ func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses,
 func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 	start *referenceframe.LinearInputs,
 	logger logging.Logger,
-) ([]*referenceframe.LinearInputs, error) {
+) ([]*referenceframe.LinearInputs, []float64, error) {
 	if len(goal) > 1 {
-		return nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
+		return nil, nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
 	}
 
 	goalFrame := ""
@@ -301,12 +280,12 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 	
 	movingFrame, movingPose, err := ssc.findMovingInfo(start, goalFrame, goalPIF)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	seeds, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, logger)
+	seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, logger)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	fullSeeds := []*referenceframe.LinearInputs{}
@@ -319,7 +298,10 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 		fullSeeds = append(fullSeeds, i)
 	}
 
-	return fullSeeds, nil
+	fullDivisors := referenceframe.NewLinearInputs()
+	fullDivisors.Put(movingFrame, divisors)
+	
+	return fullSeeds, fullDivisors.GetLinearizedInputs(), nil
 }
 
 // selectMostVariableEntries selects n entries from the given slice with maximum variability in joint positions
@@ -378,7 +360,7 @@ func myDistance(start, end spatialmath.Pose) float64 {
 		end.Orientation(),
 	).Quaternion()).Mul(1).Norm2()
 	*/
-	ptDelta := end.Point().Sub(start.Point()).Norm2()
+	ptDelta := end.Point().Distance(start.Point())
 	return ptDelta// + orientDelta
 }
 
@@ -398,24 +380,22 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	start []referenceframe.Input,
 	goalPose spatialmath.Pose,
 	logger logging.Logger,
-) ([][]referenceframe.Input, error) {
+) ([][]referenceframe.Input, []float64, error) {
 	frame := ssc.fs.Frame(frameName)
 	if frame == nil {
-		return nil, fmt.Errorf("no frame %s", frameName)
+		return nil, nil, fmt.Errorf("no frame %s", frameName)
 	}
 
 	logger.Debugf("findSeedsForFrame: %s goalPose: %v start: %v", frameName, goalPose, start)
 
 	startPose, err := frame.Transform(start)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	startDistance := max(1, myDistance(startPose, goalPose))
+	startDistance := myDistance(startPose, goalPose)
 
 	best := []entry{}
-
-	bestDistance := startDistance * .75
 
 	boxes := ssc.rawCache[frameName].findBoxes(goalPose)
 
@@ -425,26 +405,18 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		for _, c := range b.entries {
 			distance := myDistance(goalPose, c.pose)
 
-			if distance > (bestDistance * 2) {
+			if distance > startDistance  {
+				// we're further than we started, so don't bother
 				continue
 			}
 
-			bestDistance = min(bestDistance, distance)
-
 			cost := myCost(start, c.inputs)
-
-			cc := myCost(xxx, c.inputs)
-			if cc < .6 {
-				logger.Infof("c: %v cost: %v distance: %v joints: %v p: %v", cc, cost, distance, c.inputs, c.pose)
-			}
-				
-			
 			best = append(best, entry{&c, distance, cost})
 		}
 	}
 
 	if len(best) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// sort by distance then cut
@@ -454,14 +426,15 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx := 0
+	cutDistance := max(500,5 * best[0].distance)
 	for cutIdx < len(best) {
-		if best[cutIdx].distance > (5 * best[0].distance) {
+		if best[cutIdx].distance > cutDistance {
 			break
 		}
 		cutIdx++
 	}
 
-	logger.Debugf("\t len(best): %d cutIdx: %d best distance: %0.2f", len(best), cutIdx, best[0].distance)
+	logger.Debugf("\t len(best): %d cutIdx: %d best distance: %0.2f cutDistance: %0.2f", len(best), cutIdx, best[0].distance, cutDistance)
 
 	best = best[0:cutIdx]
 
@@ -472,17 +445,17 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx = 0
+	costCut := 4 * best[0].cost
 	for cutIdx < len(best) {
-		if best[cutIdx].cost > (4 * best[0].cost) {
+		if best[cutIdx].cost > costCut {
 			break
 		}
 		cutIdx++
 	}
 
-	logger.Debugf("\t len(best): %d cutIdx: %d", len(best), cutIdx)
+	logger.Debugf("\t len(best): %d cutIdx: %d best cost: %0.2f costCut: %0.2f", len(best), cutIdx, best[0].cost, costCut)
 
 	best = best[0:cutIdx]
-
 	
 	best = selectMostVariableEntries(best, 5) // now randomize a bit to get a good set to work with
 
@@ -493,7 +466,16 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		logger.Debugf("dist: %02.f cost: %0.2f %v", e.distance, e.cost, e.e.inputs)
 	}
 
-	return ret, nil
+	var divisors []float64
+	if len(frame.DoF()) == 6 {
+		divisors = arm6JogDivisors
+	} else {
+		for range len(frame.DoF()) {
+			divisors = append(divisors, 1 / defaultDivisor)
+		}
+	}
+	
+	return ret, divisors, nil
 }
 
 var (

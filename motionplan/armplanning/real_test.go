@@ -166,13 +166,11 @@ func TestSandingLargeMove1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
-	if false {
-		// we don't generate enough seeds for this to work yet
-
+	{
 		ss, err := smartSeed(req.FrameSystem, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		seeds, err := ss.findSeeds(req.Goals[0].poses, req.StartState.LinearConfiguration(), logger)
+		seeds, _, err := ss.findSeeds(req.Goals[0].poses, req.StartState.LinearConfiguration(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(seeds), test.ShouldBeGreaterThan, 1)
 
@@ -211,16 +209,10 @@ func TestSandingLargeMove1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	logger.Infof("final arm pose: %v", p)
 
-	{
-		p2, err := req.FrameSystem.Frame(name).Transform(xxx)
-		test.That(t, err, test.ShouldBeNil)
-		logger.Infof("xxxxx arm pose: %v", p2)
-	}
-
 	for j, startPosition := range sta {
 		_, _, r := lim[j].GoodLimits()
 		delta := math.Abs(startPosition - res[j])
-		logger.Infof("j: %d start: %0.2f end: %0.2f delta: %0.2f ratio: %0.2f xxx: %0.2f", j, startPosition, res[j], delta, delta/r, xxx[j])
+		logger.Infof("j: %d start: %0.2f end: %0.2f delta: %0.2f ratio: %0.2f", j, startPosition, res[j], delta, delta/r)
 	}
 }
 

@@ -66,7 +66,7 @@ func TestSmartSeedCache1(t *testing.T) {
 
 	t.Run("partial", func(t *testing.T) {
 		startTime := time.Now()
-		seeds, err := c.findSeedsForFrame(
+		seeds, _, err := c.findSeedsForFrame(
 			"ur5e",
 			start.Get("ur5e"),
 			goal,
@@ -152,7 +152,7 @@ func TestSmartSeedCachePirouette(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		score1 := referenceframe.InputsL2Distance(idealJointValues[0], ideal)
-		seeds, err := ssc.findSeeds(
+		seeds, _, err := ssc.findSeeds(
 			referenceframe.FrameSystemPoses{armName: referenceframe.NewPoseInFrame("world", pose)},
 			referenceframe.FrameSystemInputs{armName: idealJointValues[0]}.ToLinearInputs(),
 			logger)
