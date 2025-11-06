@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/data"
@@ -142,6 +143,9 @@ type Arm interface {
 
 	// JointPositions returns the current joint positions of the arm.
 	JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error)
+
+	// Get3DModels returns the 3D models of the arm.
+	Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error)
 }
 
 // Deprecated: FromDependencies is a helper for getting the named arm from a collection of

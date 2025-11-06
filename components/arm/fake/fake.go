@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -47,6 +48,35 @@ var xarm6JSON []byte
 
 //go:embed kinematics/xarm7.json
 var xarm7JSON []byte
+
+//go:embed 3d_models/ur5e/base_link.glb
+var ur5eBaseLinkGLB []byte
+
+//go:embed 3d_models/ur5e/ee_link.glb
+var ur5eEELinkGLB []byte
+
+//go:embed 3d_models/ur5e/forearm_link.glb
+var ur5eForearmLinkGLB []byte
+
+//go:embed 3d_models/ur5e/upper_arm_link.glb
+var ur5eUpperArmLinkGLB []byte
+
+//go:embed 3d_models/ur5e/wrist_1_link.glb
+var ur5eWrist1LinkGLB []byte
+
+//go:embed 3d_models/ur5e/wrist_2_link.glb
+var ur5eWrist2LinkGLB []byte
+
+var armTo3DModelParts = map[string][]string{
+	"ur5e": {
+		"ee_link",
+		"forearm_link",
+		"upper_arm_link",
+		"wrist_1_link",
+		"wrist_2_link",
+		"base_link",
+	},
+}
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
@@ -111,9 +141,10 @@ type Arm struct {
 
 	// Writes to `joints` or `model` must hold the write-lock. And reads to `joints` or `model` must
 	// hold the read-lock.
-	mu     sync.RWMutex
-	joints []referenceframe.Input
-	model  referenceframe.Model
+	mu       sync.RWMutex
+	joints   []referenceframe.Input
+	model    referenceframe.Model
+	armModel string
 }
 
 // Reconfigure atomically reconfigures this arm in place based on the new config.
@@ -139,7 +170,7 @@ func (a *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 	defer a.mu.Unlock()
 	a.joints = make([]referenceframe.Input, dof)
 	a.model = model
-
+	a.armModel = newConf.ArmModel
 	return nil
 }
 
@@ -272,6 +303,26 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 	return gif.Geometries(), nil
 }
 
+// Get3DModels returns the 3D models of the fake arm.
+func (a *Arm) Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	models := make(map[string]*commonpb.Mesh)
+	if a.armModel != "" {
+		armModelParts := armTo3DModelParts[a.armModel]
+		for _, modelPart := range armModelParts {
+			modelPartMesh := threeDMeshFromName(a.armModel, modelPart)
+			if len(modelPartMesh.Mesh) > 0 {
+				// len > 0 indicates we actually have a 3D model for thus armModel and part Name
+				models[modelPart] = &modelPartMesh
+			}
+		}
+	}
+
+	return models, nil
+}
+
 func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
 	case ur5eModel:
@@ -285,4 +336,42 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	default:
 		return nil, errors.Errorf("fake arm cannot be created, unsupported arm-model: %s", model)
 	}
+}
+
+func threeDMeshFromName(model, name string) commonpb.Mesh {
+	if model == ur5eModel {
+		switch name {
+		case "base_link":
+			return commonpb.Mesh{
+				Mesh:        ur5eBaseLinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "ee_link":
+			return commonpb.Mesh{
+				Mesh:        ur5eEELinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "forearm_link":
+			return commonpb.Mesh{
+				Mesh:        ur5eForearmLinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "upper_arm_link":
+			return commonpb.Mesh{
+				Mesh:        ur5eUpperArmLinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "wrist_1_link":
+			return commonpb.Mesh{
+				Mesh:        ur5eWrist1LinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "wrist_2_link":
+			return commonpb.Mesh{
+				Mesh:        ur5eWrist2LinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		}
+	}
+	return commonpb.Mesh{}
 }
