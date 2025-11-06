@@ -158,15 +158,6 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *refere
 	return err
 }
 
-func (psc *planSegmentContext) checkInputs(ctx context.Context, inputs *referenceframe.LinearInputs) bool {
-	return psc.checker.CheckStateFSConstraints(
-		ctx,
-		&motionplan.StateFS{
-			Configuration: inputs,
-			FS:            psc.pc.fs,
-		}) == nil
-}
-
 func translateGoalsToWorldPosition(
 	fs *referenceframe.FrameSystem,
 	start *referenceframe.LinearInputs,
