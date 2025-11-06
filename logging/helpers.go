@@ -12,12 +12,16 @@ type FloatArrayFormat struct {
 
 // String makes a string
 func (a FloatArrayFormat) String() string {
+	f := a.Fmt
+	if f == "" {
+		f = "% 0.2f"
+	}
 	s := "["
 	for idx, v := range a.Data {
 		if idx > 0 {
 			s += ", "
 		}
-		s += fmt.Sprintf(a.Fmt, v)
+		s += fmt.Sprintf(f, v)
 	}
 	return s + "]"
 }
