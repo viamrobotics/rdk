@@ -269,3 +269,11 @@ func (li *LinearInputs) ToFrameSystemInputs() FrameSystemInputs {
 
 	return ret
 }
+
+// CopyWithZeros makes a new copy with everything zero
+func (li *LinearInputs) CopyWithZeros() *LinearInputs {
+	return &LinearInputs{
+		schema: li.schema,
+		inputs: make([]Input, len(li.inputs)),
+	}
+}

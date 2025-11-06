@@ -171,6 +171,9 @@ func ComputeAdjustLimits(seed []float64, limits []referenceframe.Limit, delta fl
 
 // ComputeAdjustLimitsArray adjusts limits by deltas for each limit
 func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, deltas []float64) []referenceframe.Limit {
+	if len(limits) != len(seed) || len(deltas) != len(seed) {
+		panic(fmt.Errorf("bad args seed: %d limits: %d deltas: %d", len(seed), len(limits), len(deltas)))
+	}
 	newLimits := []referenceframe.Limit{}
 
 	for i, s := range seed {

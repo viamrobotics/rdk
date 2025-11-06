@@ -300,7 +300,7 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 		fullSeeds = append(fullSeeds, i)
 	}
 
-	fullDivisors := referenceframe.NewLinearInputs()
+	fullDivisors := start.CopyWithZeros()
 	fullDivisors.Put(movingFrame, divisors)
 
 	return fullSeeds, fullDivisors.GetLinearizedInputs(), nil
