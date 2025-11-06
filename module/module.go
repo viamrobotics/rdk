@@ -220,7 +220,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
 		rgrpc.EnsureTimeoutUnaryServerInterceptor,
-		// rgrpc.SessionUnaryServerInterceptor,
+		rgrpc.SessionUnaryServerInterceptor,
 		opMgr.UnaryServerInterceptor,
 	}
 	streams := []grpc.StreamServerInterceptor{

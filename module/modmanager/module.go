@@ -73,7 +73,7 @@ func (m *module) dial() error {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithChainUnaryInterceptor(
 			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
-			// rdkgrpc.SessionUnaryClientInterceptor,
+			rdkgrpc.SessionUnaryClientInterceptor,
 			grpc_retry.UnaryClientInterceptor(),
 			operation.UnaryClientInterceptor,
 		),

@@ -267,13 +267,13 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
-	// sessManagerInts := svc.r.SessionManager().ServerInterceptors()
-	// newLogger := logging.NewLogger("startProtocolModuleParentServer")
-	// if sessManagerInts.UnaryServerInterceptor != nil {
-	// 	newLogger.Warnw("sessManagerInts", "sessManagerInts", sessManagerInts)
+	sessManagerInts := svc.r.SessionManager().ServerInterceptors()
+	newLogger := logging.NewLogger("startProtocolModuleParentServer")
+	if sessManagerInts.UnaryServerInterceptor != nil {
+		newLogger.Warnw("sessManagerInts", "sessManagerInts", sessManagerInts)
 
-	// 	unaryInterceptors = append(unaryInterceptors, sessManagerInts.UnaryServerInterceptor)
-	// }
+		unaryInterceptors = append(unaryInterceptors, sessManagerInts.UnaryServerInterceptor)
+	}
 
 	// Add recovery handler interceptors to avoid crashing the rdk when a module's gRPC
 	// request manages to cause an internal panic.
