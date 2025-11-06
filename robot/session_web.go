@@ -17,16 +17,19 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/session"
 )
 
 func (m *SessionManager) safetyMonitoredTypeAndMethod(method string) (*resource.RPCAPI, *desc.MethodDescriptor, bool) {
+
 	subType, methodDesc, err := TypeAndMethodDescFromMethod(m.robot, method)
 	if err != nil {
 		return nil, nil, false
 	}
+	return subType, methodDesc, true
 	var safetyHeartbeatMonitored bool
 	if methodDesc != nil {
 		unwrapped := methodDesc.UnwrapMethod()
@@ -37,6 +40,7 @@ func (m *SessionManager) safetyMonitoredTypeAndMethod(method string) (*resource.
 
 // isSafetyHeartbeatMonitored looks for an RPC method's safety_heartbeat_monitored option and returns its value, or false if unspecified.
 func isSafetyHeartbeatMonitored(descriptor *protoreflect.MethodDescriptor) bool {
+	return true
 	if descriptor == nil {
 		return false
 	}
@@ -49,6 +53,7 @@ func isSafetyHeartbeatMonitored(descriptor *protoreflect.MethodDescriptor) bool 
 
 // IsSafetyHeartbeatMonitored looks for an RPC method's safety_heartbeat_monitored option and returns its value, or false if unspecified.
 func IsSafetyHeartbeatMonitored(method string) bool {
+	return true
 	// reformat "/viam.component.base.v1.BaseService/MoveStraight" -> "viam.component.base.v1.BaseService.MoveStraight"
 	method = strings.TrimPrefix(method, "/")
 	method = strings.ReplaceAll(method, "/", ".")
@@ -153,9 +158,21 @@ func (m *SessionManager) UnaryServerInterceptor(
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (interface{}, error) {
-	if _, _, isMonitored := m.safetyMonitoredTypeAndMethod(info.FullMethod); !isMonitored {
-		return handler(ctx, req)
+	// if _, _, isMonitored := m.safetyMonitoredTypeAndMethod(info.FullMethod); !isMonitored {
+	// 	return handler(ctx, req)
+	// }
+	logger := logging.NewLogger("vijays unaryServerInterceptor")
+	meta, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		logger.Warnw("metadata not found in context", "ctx", ctx)
+	} else {
+		logger.Warnw("metadata found in context", "meta", meta)
 	}
+	// if !ok {
+	// 	logger.Warnw("session not found in context", "ctx", ctx)
+	// } else {
+	// 	logger.Warnw("session found in context", "session", session)
+	// }
 	safetyMonitoredResourceName := m.safetyMonitoredResourceFromUnary(req, info.FullMethod)
 	ctx, err := associateSession(ctx, m, safetyMonitoredResourceName, info.FullMethod)
 	if err != nil {

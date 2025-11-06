@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/viamrobotics/webrtc/v3"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/session"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -30,6 +32,14 @@ func EnsureTimeoutUnaryServerInterceptor(ctx context.Context, req interface{},
 	return handler(ctx, req)
 }
 
+func SessionUnaryServerInterceptor(ctx context.Context, req interface{},
+	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
+) (interface{}, error) {
+	logger := logging.NewLogger("vijays classy interceptor")
+	logger.Warnw("SessionUnaryServerInterceptor", "ctx", ctx)
+	return handler(ctx, req)
+}
+
 // EnsureTimeoutUnaryClientInterceptor sets a default timeout on the context if one is
 // not already set. To be called as the first unary client interceptor.
 func EnsureTimeoutUnaryClientInterceptor(
@@ -45,6 +55,53 @@ func EnsureTimeoutUnaryClientInterceptor(
 		defer cancel()
 	}
 
+	return invoker(ctx, method, req, reply, cc, opts...)
+}
+
+// func SessionUnaryClientInterceptor(
+// 	ctx context.Context,
+// 	method string, req, reply interface{},
+// 	cc *grpc.ClientConn,
+// 	invoker grpc.UnaryInvoker,
+// 	opts ...grpc.CallOption,
+// ) error {
+// 	logger := logging.NewLogger("vijays classy interceptor")
+
+// 	// Extract session ID from outgoing metadata if it exists
+// 	if meta, ok := metadata.FromIncomingContext(ctx); ok {
+// 		sessionIDs := meta.Get(session.IDMetadataKey)
+// 		if len(sessionIDs) > 0 {
+// 			logger.Warnw("SessionUnaryClientInterceptor", "method", method, "session_id", sessionIDs[0])
+// 		} else {
+// 			logger.Warnw("SessionUnaryClientInterceptor", "method", method, "session_id", "none")
+// 		}
+// 	} else {
+// 		logger.Warnw("SessionUnaryClientInterceptor", "method", method, "session_id", "no metadata")
+// 	}
+
+// 	return invoker(ctx, method, req, reply, cc, opts...)
+// }
+
+func sessionMetadataInner(ctx context.Context, logger logging.Logger) context.Context {
+	sessionID := ctx.Value(session.IDMetadataKey)
+	logger.Warnw("sessionMetadataInner", "sessionID", sessionID)
+	if sessionID != nil {
+		ctx = metadata.AppendToOutgoingContext(ctx, session.IDMetadataKey, sessionID.(string))
+	}
+	return ctx
+}
+
+func SessionUnaryClientInterceptor(
+	ctx context.Context,
+	method string,
+	req, reply interface{},
+	cc *grpc.ClientConn,
+	invoker grpc.UnaryInvoker,
+	opts ...grpc.CallOption,
+) error {
+	logger := logging.NewLogger("vijays classy interceptor")
+	logger.Info("imsode session unary client interceptor")
+	ctx = sessionMetadataInner(ctx, logger)
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
 

@@ -43,6 +43,7 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/discovery"
+
 	// Register service APIs.
 	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"
@@ -213,10 +214,13 @@ type Module struct {
 // NewModule returns the basic module framework/structure. Use ModularMain and NewModuleFromArgs unless
 // you really know what you're doing.
 func NewModule(ctx context.Context, address string, logger logging.Logger) (*Module, error) {
+	// newLogger := logging.NewLogger("NewModule")
+	// newLogger.Infof("NewModule", "address", address)
 	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
 		rgrpc.EnsureTimeoutUnaryServerInterceptor,
+		// rgrpc.SessionUnaryServerInterceptor,
 		opMgr.UnaryServerInterceptor,
 	}
 	streams := []grpc.StreamServerInterceptor{
@@ -386,9 +390,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 	clientLogger.SetLevel(m.logger.GetLevel())
 	// TODO(PRODUCT-343): add session support to modules
 
-	connectOptions := []client.RobotClientOption{
-		client.WithDisableSessions(),
-	}
+	connectOptions := []client.RobotClientOption{}
 
 	// Modules compiled against newer SDKs may be running against older `viam-server`s that do not
 	// provide the module name as an env variable.

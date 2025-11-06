@@ -90,10 +90,12 @@ func (m *Manager) StreamServerInterceptor(
 // CreateFromIncomingContext creates a new operation from an incoming context.
 func (m *Manager) CreateFromIncomingContext(ctx context.Context, method string) (context.Context, func()) {
 	meta, ok := metadata.FromIncomingContext(ctx)
+	// logger := logging.NewLogger("web")
 	if !ok {
 		m.logger.CWarnw(ctx, "failed to pull metadata from context", "method", method)
 		return m.Create(ctx, method, nil)
 	}
+	// logger.Warnw("CreateFromIncomingContext", "method", meta)
 	opid, err := GetOrCreateFromMetadata(meta)
 	if err != nil {
 		m.logger.CWarnw(ctx, "failed to create operation id from metadata", "error", err)

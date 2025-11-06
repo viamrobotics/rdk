@@ -154,6 +154,7 @@ func (rc *RobotClient) safetyMonitorFromHeaders(ctx context.Context, hdr metadat
 }
 
 func (rc *RobotClient) useSessionInRequest(ctx context.Context, method string) bool {
+	return true
 	return !rc.sessionsDisabled && ctx.Value(ctxKeyInSessionMDReq) == nil && robot.IsSafetyHeartbeatMonitored(method)
 }
 
