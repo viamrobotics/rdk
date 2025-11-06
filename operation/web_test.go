@@ -32,8 +32,10 @@ func TestCreateFromIncomingContextWithOpid(t *testing.T) {
 	_, done := m.CreateFromIncomingContext(ctx, "fake")
 	defer done()
 
-	ops := m.All()
+	m.Lock()
+	ops := m.AllWithoutLock()
 
 	test.That(t, ops, test.ShouldHaveLength, 1)
 	test.That(t, ops[0].ID.String(), test.ShouldEqual, opid.String())
+	m.Unlock()
 }

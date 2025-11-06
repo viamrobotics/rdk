@@ -158,7 +158,9 @@ func (s *Server) ListTunnels(ctx context.Context, req *pb.ListTunnelsRequest) (*
 func (s *Server) GetOperations(ctx context.Context, req *pb.GetOperationsRequest) (*pb.GetOperationsResponse, error) {
 	me := operation.Get(ctx)
 
-	all := s.robot.OperationManager().All()
+	s.robot.OperationManager().Lock()
+	defer s.robot.OperationManager().Unlock()
+	all := s.robot.OperationManager().AllWithoutLock()
 
 	res := &pb.GetOperationsResponse{}
 	for _, o := range all {
