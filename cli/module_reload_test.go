@@ -87,6 +87,7 @@ func TestFullReloadFlow(t *testing.T) {
 		map[string]any{
 			moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 			moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+			generalFlagNoProgress: true, // Disable progress spinner to avoid race conditions in tests
 		},
 		"token",
 	)
@@ -166,6 +167,7 @@ func TestFullReloadFlow(t *testing.T) {
 				map[string]any{
 					moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 					moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+					generalFlagNoProgress: true, // Disable progress spinner to avoid race conditions in tests
 				},
 				"token",
 			)
@@ -191,6 +193,7 @@ func TestFullReloadFlow(t *testing.T) {
 				map[string]any{
 					moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 					moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+					generalFlagNoProgress: true, // Disable progress spinner to avoid race conditions in tests
 				},
 				"token",
 			)
