@@ -179,7 +179,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
 
 		// download package from a http endpoint
-		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p,
+		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p, true,
 			func(ctx context.Context, url, dstPath string) (string, string, error) {
 				statusFile := packageSyncFile{
 					PackageID:       p.Package,

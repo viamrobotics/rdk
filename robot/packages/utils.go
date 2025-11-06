@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,6 +23,23 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+// create a partials folder for this URL and return a destination path for the file.
+func preparePartialDownload(parentDir, rawURL string) (string, error) {
+	// func CreatePartialPath(rawURL string) string {
+	var filename string
+	if parsed, err := url.Parse(rawURL); err != nil {
+		filename = "UNPARSED"
+	} else {
+		filename = rutils.RIndex(strings.Split(parsed.Path, "/"), -1, "UNPARSED")
+	}
+
+	partialsDir := filepath.Join(parentDir, "part", rutils.HashString(rawURL, 7))
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
+		return "", err
+	}
+	return filepath.Join(partialsDir, filename+".part"), nil
+}
+
 // installCallback is the function signature that gets passed to installPackage.
 type installCallback func(ctx context.Context, url, dstPath string) (checksum, contentType string, err error)
 
@@ -31,6 +49,7 @@ func installPackage(
 	packagesDir string,
 	url string,
 	p config.PackageConfig,
+	supportsPartial bool,
 	installFn installCallback,
 ) error {
 	// Create the parent directory for the package type if it doesn't exist
@@ -63,10 +82,17 @@ func installPackage(
 		return fmt.Errorf("unknown content-type for package %s", contentType)
 	}
 
-	// unpack to temp directory to ensure we do an atomic rename once finished.
-	tmpDataPath, err := os.MkdirTemp(p.LocalDataParentDirectory(packagesDir), "*.tmp")
+	parentDir := p.LocalDataParentDirectory(packagesDir)
+	var tmpDataPath string
+	switch supportsPartial {
+	case true:
+		tmpDataPath, err = preparePartialDownload(parentDir, url)
+	case false:
+		// unpack to temp directory to ensure we do an atomic rename once finished.
+		tmpDataPath, err = os.MkdirTemp(parentDir, "*.tmp")
+	}
 	if err != nil {
-		return fmt.Errorf("failed to create temp data dir path %w", err)
+		return err
 	}
 
 	defer func() {
@@ -362,6 +388,8 @@ func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger loggin
 		logger.Debugf("Package already downloaded at %s, skipping.", pkg.LocalDataDirectory(packagesDir))
 		return true
 	case syncFile.PackageID == pkg.Package && syncFile.Version == pkg.Version && syncFile.Status == syncStatusFailed:
+		// packageIsSynced returns true here because we don't want to infinitely retry. This will fail
+		// later in reconfigure + get cleaned up when you upgrade the package. See PR 5260 for more info.
 		logger.Debugf("Package failed to unzip at %s.", pkg.LocalDataDirectory(packagesDir))
 		return true
 	default:
