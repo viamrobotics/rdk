@@ -3,6 +3,7 @@ package pointcloud
 import (
 	"fmt"
 	"math"
+	"sync/atomic"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -60,7 +61,7 @@ type BasicOctree struct {
 
 	toStore PointCloud // this is temporary when building when sideLength == -1
 
-	boxCache spatialmath.Geometry
+	boxCache atomic.Pointer[spatialmath.Geometry]
 }
 
 // basicOctreeNode is a struct comprised of the type of node, children nodes (should they exist) and the pointcloud's
@@ -143,7 +144,7 @@ func (octree *BasicOctree) MaxVal() int {
 // Set recursively iterates through a basic octree, attempting to add a given point and data to the tree after
 // ensuring it falls within the bounds of the given basic octree.
 func (octree *BasicOctree) Set(p r3.Vector, d Data) error {
-	octree.boxCache = nil
+	octree.boxCache.Store(nil)
 	if octree.sideLength == octreeMagicSideLength {
 		if octree.toStore == nil {
 			octree.toStore = NewBasicPointCloud(0)
@@ -287,8 +288,9 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 	}
 	switch octree.node.nodeType {
 	case internalNode:
-		if octree.boxCache == nil {
-			octree.boxCache, err = spatialmath.NewBox(
+		var box spatialmath.Geometry
+		if boxPtr := octree.boxCache.Load(); boxPtr == nil {
+			box, err = spatialmath.NewBox(
 				spatialmath.NewPoseFromPoint(octree.center),
 				r3.Vector{
 					X: octree.sideLength + collisionBufferMM,
@@ -300,10 +302,14 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 			if err != nil {
 				return false, err
 			}
+
+			octree.boxCache.Store(&box)
+		} else {
+			box = *boxPtr
 		}
 
 		// Check whether our geom collides with the area represented by the octree. If false, we can skip
-		collide, err := geom.CollidesWith(octree.boxCache, collisionBufferMM)
+		collide, err := geom.CollidesWith(box, collisionBufferMM)
 		if err != nil {
 			return false, err
 		}
