@@ -9,9 +9,12 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -95,7 +98,9 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 		printf(ctx.App.Writer, "Warning: Could not open browser: %v", err)
 	}
 
-	<-ctx.Context.Done()
+	notifyCtx, _ := signal.NotifyContext(ctx.Context, os.Interrupt, syscall.SIGTERM)
+
+	<-notifyCtx.Done()
 
 	if err := httpServer.Shutdown(context.Background()); err != nil {
 		return fmt.Errorf("error shutting down server: %w", err)
