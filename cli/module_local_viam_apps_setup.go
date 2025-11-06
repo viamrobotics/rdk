@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -277,11 +278,9 @@ func (l *localAppTestingServer) addBaseTagToHTMLResponse() func(resp *http.Respo
 			if err != nil {
 				return fmt.Errorf("error reading response body: %w", err)
 			}
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					printf(l.logger, "Error closing response body: %v", err)
-				}
-			}()
+			if err := resp.Body.Close(); err != nil {
+				printf(l.logger, "Error closing response body: %v", err)
+			}
 
 			if strings.Contains(originalPath, "/machine") {
 				// take first 3 components if available ([1 empty]/[2 machine]/[3 machine ID]/....)
@@ -304,6 +303,8 @@ func (l *localAppTestingServer) addBaseTagToHTMLResponse() func(resp *http.Respo
 				resp.Body = io.NopCloser(strings.NewReader(newBody))
 				resp.ContentLength = int64(len(newBody))
 				resp.Header.Set("Content-Length", strconv.Itoa(len(newBody)))
+			} else {
+				resp.Body = io.NopCloser(bytes.NewReader(body))
 			}
 		}
 		return nil
