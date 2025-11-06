@@ -205,7 +205,7 @@ func TestSandingLargeMove1(t *testing.T) {
 	res := solution.steps[0].Get(name)
 	lim := req.FrameSystem.Frame(name).DoF()
 
- 	p, err := req.FrameSystem.Frame(name).Transform(res)
+	p, err := req.FrameSystem.Frame(name).Transform(res)
 	test.That(t, err, test.ShouldBeNil)
 	logger.Infof("final arm pose: %v", p)
 

@@ -184,7 +184,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 			sss.linearSeeds = append(sss.linearSeeds, si)
 			ll := ik.ComputeAdjustLimitsArray(si, sss.seedLimits[0], altLimitDivisors)
 			sss.seedLimits = append(sss.seedLimits, ll)
-			psc.pc.logger.Debugf("\t ss (%d): %v", len(sss.linearSeeds) - 1, si)
+			psc.pc.logger.Debugf("\t ss (%d): %v", len(sss.linearSeeds)-1, si)
 		}
 	} else {
 		// if we're really close, look really close
