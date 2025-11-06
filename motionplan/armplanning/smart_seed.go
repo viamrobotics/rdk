@@ -465,7 +465,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	for i := 0; i < len(best) && i < 5; i++ {
 		e := best[i]
 		ret = append(ret, e.e.inputs)
-		logger.Debugf("dist: %02.f cost: %0.2f %v", e.distance, e.cost, e.e.inputs)
+		logger.Debugf("dist: %02.f cost: %0.2f %v", e.distance, e.cost, logging.FloatArrayFormat{"%0.2f", e.e.inputs})
 	}
 
 	var divisors []float64

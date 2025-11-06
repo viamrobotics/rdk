@@ -11,6 +11,7 @@ import (
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
@@ -176,7 +177,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 			sss.linearSeeds = append(sss.linearSeeds, si)
 			ll := ik.ComputeAdjustLimitsArray(si, sss.seedLimits[0], altLimitDivisors)
 			sss.seedLimits = append(sss.seedLimits, ll)
-			psc.pc.logger.Debugf("\t ss (%d): %v", len(sss.linearSeeds)-1, si)
+			psc.pc.logger.Debugf("\t ss (%d): %v", len(sss.linearSeeds)-1, logging.FloatArrayFormat{"", si})
 		}
 	}
 
