@@ -164,7 +164,7 @@ func realMain() error {
 			}
 			mylog.Printf("\t\t %s", c)
 			mylog.Printf("\t\t\t %v", pp)
-			mylog.Printf("\t\t\t %v", t[c])
+			mylog.Printf("\t\t\t joints: %v", logging.FloatArrayFormat{"%0.2f", t[c]})
 			if idx > 0 {
 				p := plan.Trajectory()[idx-1][c]
 
