@@ -1,6 +1,7 @@
 package armplanning
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sort"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -248,11 +250,12 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	return frame.Name(), newPose, nil
 }
 
-func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses,
+func (ssc *smartSeedCache) findSeed(ctx context.Context,
+	goal referenceframe.FrameSystemPoses,
 	start *referenceframe.LinearInputs,
 	logger logging.Logger,
 ) (*referenceframe.LinearInputs, error) {
-	ss, _, err := ssc.findSeeds(goal, start, logger)
+	ss, _, err := ssc.findSeeds(ctx, goal, start, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -262,10 +265,14 @@ func (ssc *smartSeedCache) findSeed(goal referenceframe.FrameSystemPoses,
 	return ss[0], nil
 }
 
-func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
+func (ssc *smartSeedCache) findSeeds(ctx context.Context,
+	goal referenceframe.FrameSystemPoses,
 	start *referenceframe.LinearInputs,
 	logger logging.Logger,
 ) ([]*referenceframe.LinearInputs, []float64, error) {
+	_, span := trace.StartSpan(ctx, "smartSeedCache::findSeeds")
+	defer span.End()
+
 	if len(goal) > 1 {
 		return nil, nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
 	}
@@ -278,7 +285,7 @@ func (ssc *smartSeedCache) findSeeds(goal referenceframe.FrameSystemPoses,
 		goalPIF = v
 	}
 
-	logger.Infof("goalPIF: %v", goalPIF)
+	logger.Debugf("goalPIF: %v", goalPIF)
 
 	movingFrame, movingPose, err := ssc.findMovingInfo(start, goalFrame, goalPIF)
 	if err != nil {

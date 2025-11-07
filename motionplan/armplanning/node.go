@@ -128,7 +128,7 @@ type solutionSolvingState struct {
 }
 
 func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*solutionSolvingState, error) {
-	_, span := trace.StartSpan(ctx, "newSolutionSolvingState")
+	ctx, span := trace.StartSpan(ctx, "newSolutionSolvingState")
 	defer span.End()
 
 	var err error
@@ -167,7 +167,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
 		}
 
-		altSeeds, altLimitDivisors, err := ssc.findSeeds(psc.goal, psc.start, psc.pc.logger)
+		altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, psc.pc.logger)
 		if err != nil {
 			psc.pc.logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
@@ -220,7 +220,7 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 }
 
 // return bool is if we should stop because we're done.
-func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution) bool {
+func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution) {
 	ctx, span := trace.StartSpan(ctx, "process")
 	defer span.End()
 	sss.processCalls++
@@ -228,7 +228,19 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	step, err := sss.psc.pc.lis.FloatsToInputs(stepSolution.Configuration)
 	if err != nil {
 		sss.psc.pc.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
-		return false
+		return
+	}
+
+	stepArc := &motionplan.SegmentFS{
+		StartConfiguration: sss.psc.start,
+		EndConfiguration:   step,
+		FS:                 sss.psc.pc.fs,
+	}
+	myCost := sss.psc.pc.configurationDistanceFunc(stepArc)
+
+	if myCost > sss.bestScoreNoProblem {
+		sss.psc.pc.logger.Debugf("got score %0.4f worse than bestScoreNoProblem")
+		return
 	}
 
 	// Ensure the end state is a valid one
@@ -239,19 +251,14 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	if err != nil {
 		// sss.psc.pc.logger.Debugf("bad solution a: %v %v", stepSolution, err)
 		sss.failures.add(step, err)
-		return false
+		return
 	}
 
-	stepArc := &motionplan.SegmentFS{
-		StartConfiguration: sss.psc.start,
-		EndConfiguration:   step,
-		FS:                 sss.psc.pc.fs,
-	}
 	err = sss.psc.checker.CheckSegmentFSConstraints(stepArc)
 	if err != nil {
 		// sss.psc.pc.logger.Debugf("bad solution b: %v %v", stepSolution, err)
 		sss.failures.add(step, err)
-		return false
+		return
 	}
 
 	for _, oldSol := range sss.solutions {
@@ -262,7 +269,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		}
 		simscore := sss.psc.pc.configurationDistanceFunc(similarity)
 		if simscore < defaultSimScore {
-			return false
+			return
 		}
 	}
 
@@ -271,7 +278,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		sss.firstSolutionTime = now
 	}
 
-	myNode := &node{inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
+	myNode := &node{inputs: step, cost: myCost}
 	sss.solutions = append(sss.solutions, myNode)
 
 	if myNode.cost < sss.bestScoreWithProblem {
@@ -289,8 +296,6 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	//	} else {
 	// sss.psc.pc.logger.Debugf("got shitty score %0.4f @ %v - %s", myNode.cost, time.Since(sss.startTime), stepSolution.Meta)
 	//	}
-
-	return sss.shouldStopEarly()
 }
 
 // return bool is if we should stop because we're done.
@@ -414,13 +419,16 @@ solutionLoop:
 			// We've been canceled. So have our workers. Can just return.
 			return nil, ctx.Err()
 		case stepSolution, ok := <-solutionGen:
-			if !ok || solvingState.process(ctx, stepSolution) {
-				if !ok {
-					solvingState.psc.pc.logger.Debugf(
-						"Stopping because input channel is closed. Best score: %v With problem: %v",
-						solvingState.bestScoreNoProblem, solvingState.bestScoreWithProblem)
-				}
+			if !ok {
+				solvingState.psc.pc.logger.Debugf(
+					"Stopping because input channel is closed. Best score: %v With problem: %v",
+					solvingState.bestScoreNoProblem, solvingState.bestScoreWithProblem)
 				// No longer using the generated solutions. Cancel the workers.
+				cancel()
+				break solutionLoop
+			}
+			solvingState.process(ctx, stepSolution)
+			if solvingState.shouldStopEarly() {
 				cancel()
 				break solutionLoop
 			}

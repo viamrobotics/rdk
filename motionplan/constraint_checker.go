@@ -509,7 +509,7 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	ci *SegmentFS,
 	resolution float64,
 ) (*SegmentFS, error) {
-	_, span := trace.StartSpan(ctx, "CheckStateConstraintsAcrossSegmentFS")
+	ctx, span := trace.StartSpan(ctx, "CheckStateConstraintsAcrossSegmentFS")
 	defer span.End()
 
 	interpolatedConfigurations, err := InterpolateSegmentFS(ci, resolution)
@@ -542,7 +542,7 @@ func (c *ConstraintChecker) CheckSegmentAndStateValidityFS(
 	segment *SegmentFS,
 	resolution float64,
 ) (*SegmentFS, error) {
-	_, span := trace.StartSpan(ctx, "CheckSegmentAndStateValidityFS")
+	ctx, span := trace.StartSpan(ctx, "CheckSegmentAndStateValidityFS")
 	defer span.End()
 	subSegment, err := c.CheckStateConstraintsAcrossSegmentFS(ctx, segment, resolution)
 	if err != nil {

@@ -144,7 +144,7 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 }
 
 func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs) error {
-	_, span := trace.StartSpan(ctx, "checkPath")
+	ctx, span := trace.StartSpan(ctx, "checkPath")
 	defer span.End()
 	_, err := psc.checker.CheckSegmentAndStateValidityFS(
 		ctx,

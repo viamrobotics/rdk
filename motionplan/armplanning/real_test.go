@@ -170,7 +170,7 @@ func TestSandingLargeMove1(t *testing.T) {
 		ss, err := smartSeed(req.FrameSystem, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		seeds, _, err := ss.findSeeds(req.Goals[0].poses, req.StartState.LinearConfiguration(), logger)
+		seeds, _, err := ss.findSeeds(ctx, req.Goals[0].poses, req.StartState.LinearConfiguration(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(seeds), test.ShouldBeGreaterThan, 1)
 
