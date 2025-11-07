@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -125,6 +126,8 @@ type solutionSolvingState struct {
 
 	bestScoreWithProblem float64
 	bestScoreNoProblem   float64
+
+	fatal error
 }
 
 func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*solutionSolvingState, error) {
@@ -271,6 +274,9 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	})
 	if err != nil {
 		// sss.psc.pc.logger.Debugf("bad solution a: %v %v", stepSolution, err)
+		if len(sss.solutions) == 0 && isFatalCollision(err) {
+			sss.fatal = fmt.Errorf("fatal early collision: %w", err)
+		}
 		sss.failures.add(step, err)
 		return
 	}
@@ -318,6 +324,11 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 // return bool is if we should stop because we're done.
 func (sss *solutionSolvingState) shouldStopEarly() bool {
 	elapsed := time.Since(sss.startTime)
+
+	if sss.fatal != nil {
+		sss.psc.pc.logger.Debugf("stopping with fatal %v", sss.fatal)
+		return true
+	}
 
 	if len(sss.solutions) >= sss.maxSolutions {
 		sss.psc.pc.logger.Debugf("stopping with %d solutions after: %v", len(sss.solutions), elapsed)
@@ -372,7 +383,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		return true
 	}
 
-	if len(sss.solutions) == 0 && elapsed > (500*time.Millisecond) {
+	if len(sss.solutions) == 0 && elapsed > (1000*time.Millisecond) {
 		// if we found any solution, we want to look for better for a while
 		// but if we've found 0, then probably never going to
 		sss.psc.pc.logger.Debugf("stopping early after: %v because nothing has been found, probably won't", elapsed)
@@ -466,6 +477,10 @@ solutionLoop:
 	}
 
 	if len(solvingState.solutions) == 0 {
+		if solvingState.fatal != nil {
+			return nil, solvingState.fatal
+		}
+
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions
 		// were produced, or if non-zero solutions were produced, which constraints were violated.
 		if solvingState.failures.Count == 0 {
@@ -480,4 +495,9 @@ solutionLoop:
 	})
 
 	return solvingState.solutions, nil
+}
+
+func isFatalCollision(err error) bool {
+	s := err.Error()
+	return strings.Contains(s, "obstacle constraint: violation")
 }

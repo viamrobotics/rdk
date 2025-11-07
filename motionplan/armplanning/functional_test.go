@@ -653,7 +653,7 @@ func TestArmObstacleSolve(t *testing.T) {
 		PlannerOptions: NewBasicPlannerOptions(),
 	})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, errIKConstraint)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "constraint")
 }
 
 func TestArmAndGantrySolve(t *testing.T) {
