@@ -33,6 +33,9 @@ linters:
     - gomnd
     - importas
     - inamedparam
+    # ineffassign creates subtle bugs. See
+    # https://github.com/viamrobotics/rdk/pull/5445/commits/c1f67c54e350e4581ff694290db478b87a75a050#r2503703401
+    - ineffassign
     - interfacebloat
     - intrange # TODO(go1.23): reenable in follow-up
     - ireturn

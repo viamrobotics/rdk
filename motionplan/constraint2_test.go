@@ -17,6 +17,7 @@ import (
 )
 
 func TestConstraintPath(t *testing.T) {
+	ctx := context.Background()
 	homePos := []referenceframe.Input{0, 0, 0, 0, 0, 0}
 	toPos := []referenceframe.Input{0, 0, 0, 0, 0, 1}
 
@@ -30,14 +31,14 @@ func TestConstraintPath(t *testing.T) {
 	handler := &ConstraintChecker{}
 
 	// No constraints, should pass
-	ok, failCI := handler.CheckSegmentAndStateValidity(ci, 0.5)
+	ok, failCI := handler.CheckSegmentAndStateValidity(ctx, ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Test interpolating with a proportional constraint, should pass
 	constraint, _ := newProportionalLinearInterpolatingConstraint(ci.StartPosition, ci.EndPosition, 0.01, 0.01)
 	handler.AddStateConstraint("interp", constraint)
-	ok, failCI = handler.CheckSegmentAndStateValidity(ci, 0.5)
+	ok, failCI = handler.CheckSegmentAndStateValidity(ctx, ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -47,7 +48,7 @@ func TestConstraintPath(t *testing.T) {
 	ciBad := &Segment{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
 	err = resolveSegmentsToPositions(ciBad)
 	test.That(t, err, test.ShouldBeNil)
-	ok, failCI = handler.CheckSegmentAndStateValidity(ciBad, 0.5)
+	ok, failCI = handler.CheckSegmentAndStateValidity(ctx, ciBad, 0.5)
 	test.That(t, failCI, test.ShouldNotBeNil) // With linear constraint, should be valid at the first step
 	test.That(t, ok, test.ShouldBeFalse)
 }

@@ -31,6 +31,8 @@ func inputChangeRatio(
 	start := startNotMine.ToFrameSystemInputs().ToLinearInputs()
 	_, nonmoving := mc.framesFilteredByMovingAndNonmoving()
 	startDistance := distanceFunc(&motionplan.StateFS{Configuration: startNotMine, FS: mc.fs})
+	logger.Debugf("startDistance: %0.2f", startDistance)
+
 	for _, frameName := range inputsSchema.FrameNamesInOrder() {
 		frame := frameSystem.Frame(frameName)
 		if len(frame.DoF()) == 0 {
@@ -77,8 +79,8 @@ func inputChangeRatio(
 				adjustedJogRatio = 1
 			}
 
-			logger.Debugf("idx: %d startDistance: %0.2f myDistance: %0.2f thisRatio: %0.4f myJogRatio: %0.4f adjustJogRatio: %0.4f",
-				idx, startDistance, myDistance, thisRatio, myJogRatio, adjustedJogRatio)
+			logger.Debugf("idx: %d myDistance: %0.2f thisRatio: %0.3f myJogRatio: %0.3f adjustJogRatio: %0.3f",
+				idx, myDistance, thisRatio, myJogRatio, adjustedJogRatio)
 
 			ratios = append(ratios, adjustedJogRatio)
 

@@ -136,7 +136,7 @@ func newPlanner(
 		chains = &motionChains{}
 	}
 
-	solver, err := ik.CreateCombinedIKSolver(lfs.dof, logger, opt.NumThreads, opt.GoalThreshold)
+	solver, err := ik.CreateCombinedIKSolver(logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func (mp *planner) process(
 		EndConfiguration:   step.ToLinearInputs(),
 		FS:                 mp.fs,
 	}
-	err = mp.CheckSegmentFSConstraints(stepArc)
+	err = mp.CheckSegmentFSConstraints(ctx, stepArc)
 	if err != nil {
 		sss.constraintFailCnt++
 		sss.failures[err.Error()]++
@@ -339,13 +339,6 @@ func (mp *planner) getSolutions(
 	}
 
 	minFunc := mp.linearizeFSmetric(metric)
-	// Spawn the IK solver to generate solutions until done
-
-	approxCartesianDist := math.Sqrt(minFunc(ctx, linearSeed))
-	ratios := []float64{}
-	for range linearSeed {
-		ratios = append(ratios, min(1, max(.15, approxCartesianDist/100)))
-	}
 
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
@@ -354,7 +347,10 @@ func (mp *planner) getSolutions(
 	utils.PanicCapturingGo(func() {
 		defer activeSolvers.Done()
 		defer solverFinished.Store(true)
-		_, err := mp.solver.Solve(ctxWithCancel, solutionGen, [][]float64{linearSeed}, ratios, minFunc, mp.randseed.Int())
+		_, err := mp.solver.Solve(ctxWithCancel, solutionGen,
+			[][]float64{linearSeed, linearSeed},
+			[][]referenceframe.Limit{mp.lfs.dof, ik.ComputeAdjustLimits(linearSeed, mp.lfs.dof, .15)},
+			minFunc, mp.randseed.Int())
 		if err != nil {
 			if ctxWithCancel.Err() == nil {
 				mp.logger.Warnf("solver had an error: %v", err)

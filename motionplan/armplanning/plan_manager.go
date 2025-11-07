@@ -315,15 +315,19 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolutio
 	psc.pc.logger.Debugf("optNode cost: %v", rrt.maps.optNode.cost)
 
 	// `defaultOptimalityMultiple` is > 1.0
-	reasonableCost := goalNodes[0].cost * defaultOptimalityMultiple
+	reasonableCost := max(.01, goalNodes[0].cost) * defaultOptimalityMultiple
 	for _, solution := range goalNodes {
-		if solution.checkPath && solution.cost < reasonableCost {
+		if solution.cost > reasonableCost {
+			// if it's this bad, we don't want for cbirrt or going straight
+			continue
+		}
+
+		if solution.checkPath {
 			// If we've already checked the path of a solution that is "reasonable", we can just
 			// return now. Otherwise, continue to initialize goal map with keys.
 			rrt.steps = []*referenceframe.LinearInputs{solution.inputs}
 			return rrt, nil
 		}
-
 		rrt.maps.goalMap[&node{inputs: solution.inputs}] = nil
 	}
 	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil

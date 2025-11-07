@@ -49,7 +49,7 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegme
 	var err error
 
 	// nlopt should try only once
-	c.fastGradDescent, err = ik.CreateNloptSolver(pc.lis.GetLimits(), pc.logger, 1, true, true)
+	c.fastGradDescent, err = ik.CreateNloptSolver(pc.logger, 1, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +289,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		linearSeed := target.GetLinearizedInputs()
 		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent,
 			mp.psc.pc.linearizeFSmetric(mp.psc.checker.PathMetric()),
-			[][]float64{linearSeed}, .25)
+			[][]float64{linearSeed}, [][]referenceframe.Limit{ik.ComputeAdjustLimits(linearSeed, mp.pc.lis.GetLimits(), .25)})
 		if err != nil {
 			mp.pc.logger.Debugf("constrainNear fail (DoSolve): %v", err)
 			return nil

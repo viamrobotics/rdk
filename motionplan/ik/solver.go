@@ -31,11 +31,11 @@ type CostFunc func(context.Context, []float64) float64
 // Solver defines an interface which, provided with seed inputs and a function to minimize to zero, will output all found
 // solutions to the provided channel until cancelled or otherwise completes.
 type Solver interface {
-	referenceframe.Limited
 	// Solve receives a context, a channel to which solutions will be provided, a function whose output should be minimized, and a
 	// number of iterations to run.
-	Solve(ctx context.Context, solutions chan<- *Solution, seeds [][]float64,
-		travelPercent []float64, minFunc CostFunc, rseed int) (int, error)
+	Solve(ctx context.Context, solutions chan<- *Solution,
+		seeds [][]float64, limits [][]referenceframe.Limit,
+		minFunc CostFunc, rseed int) (int, error)
 }
 
 // Solution is the struct returned from an IK solver. It contains the solution configuration, the score of the solution, and a flag
@@ -97,13 +97,11 @@ func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame,
 //
 //	but will fail if you have to move. 1 means search the entire range.
 func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
-	seeds [][]float64, rangeModifier float64,
+	seeds [][]float64, limits [][]referenceframe.Limit,
 ) ([][]float64, error) {
-	travelPercent := []float64{}
-	if len(seeds) > 0 {
-		for range seeds[0] {
-			travelPercent = append(travelPercent, rangeModifier)
-		}
+	limits, err := fixLimits(len(seeds), limits)
+	if err != nil {
+		return nil, err
 	}
 
 	solutionGen := make(chan *Solution)
@@ -112,7 +110,7 @@ func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
 
 	go func() {
 		defer close(solutionGen)
-		_, err := solver.Solve(ctx, solutionGen, seeds, travelPercent, solveFunc, 1)
+		_, err := solver.Solve(ctx, solutionGen, seeds, limits, solveFunc, 1)
 		solveErrors = err
 	}()
 
@@ -130,4 +128,59 @@ func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
 	}
 
 	return solutions, nil
+}
+
+func fixLimits(numSeeds int, limits [][]referenceframe.Limit) ([][]referenceframe.Limit, error) {
+	if numSeeds == len(limits) {
+		return limits, nil
+	}
+
+	if len(limits) == 0 {
+		return nil, fmt.Errorf("have no limits")
+	}
+
+	if len(limits) > 1 {
+		return nil, fmt.Errorf("if not specifying limit for every seed, can only specify 1, not %d", len(limits))
+	}
+
+	newLimits := [][]referenceframe.Limit{}
+
+	for range numSeeds {
+		newLimits = append(newLimits, limits[0])
+	}
+
+	return newLimits, nil
+}
+
+// ComputeAdjustLimits adjusts limits by delta.
+func ComputeAdjustLimits(seed []float64, limits []referenceframe.Limit, delta float64) []referenceframe.Limit {
+	if delta <= 0 || delta >= 1 {
+		return limits
+	}
+
+	newLimits := []referenceframe.Limit{}
+
+	for i, s := range seed {
+		lmin, lmax, r := limits[i].GoodLimits()
+		d := r * delta * .5
+
+		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
+	}
+	return newLimits
+}
+
+// ComputeAdjustLimitsArray adjusts limits by deltas for each limit
+func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, deltas []float64) []referenceframe.Limit {
+	if len(limits) != len(seed) || len(deltas) != len(seed) {
+		panic(fmt.Errorf("bad args seed: %d limits: %d deltas: %d", len(seed), len(limits), len(deltas)))
+	}
+	newLimits := []referenceframe.Limit{}
+
+	for i, s := range seed {
+		lmin, lmax, r := limits[i].GoodLimits()
+		d := r * deltas[i] * .5
+
+		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
+	}
+	return newLimits
 }

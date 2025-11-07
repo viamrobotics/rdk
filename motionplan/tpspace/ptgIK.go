@@ -59,7 +59,7 @@ func NewPTGIK(simPTG PTG, logger logging.Logger, refDistLong, refDistShort float
 
 	ptgFrame := newPTGIKFrame(simPTG, limits)
 
-	nlopt, err := ik.CreateNloptSolver(ptgFrame.DoF(), logger, 1, false, false)
+	nlopt, err := ik.CreateNloptSolver(logger, 1, false, false)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (ptg *ptgIK) Solve(
 		ctx,
 		internalSolutionGen,
 		[][]float64{seed},
-		nil,
+		[][]referenceframe.Limit{ptg.ptgFrame.DoF()},
 		ptg.ptgMetricIkFunc(solveMetric),
 		defaultNloptSeed,
 	)
