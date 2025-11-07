@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"math/rand"
+	"strings"
 
 	"go.opencensus.io/trace"
 
@@ -18,6 +19,7 @@ type planContext struct {
 	fs  *referenceframe.FrameSystem
 	lis *referenceframe.LinearInputsSchema
 
+	movableFrames   []string
 	boundingRegions []spatialmath.Geometry
 
 	configurationDistanceFunc motionplan.SegmentFSMetric
@@ -49,10 +51,12 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 		return nil, err
 	}
 
-	// pc.lfs, err = newLinearizedFrameSystem(pc.fs, pc.lis.FrameNamesInOrder())
-	// if err != nil {
-	//  	return nil, err
-	// }
+	for _, fn := range pc.fs.FrameNames() {
+		f := pc.fs.Frame(fn)
+		if len(f.DoF()) > 0 {
+			pc.movableFrames = append(pc.movableFrames, fn)
+		}
+	}
 
 	pc.boundingRegions, err = referenceframe.NewGeometriesFromProto(request.BoundingRegions)
 	if err != nil {
@@ -173,4 +177,19 @@ func translateGoalsToWorldPosition(
 		alteredGoals[f] = tf.(*referenceframe.PoseInFrame)
 	}
 	return alteredGoals, nil
+}
+
+func (pc *planContext) isFatalCollision(err error) bool {
+	s := err.Error()
+	if strings.Contains(s, "obstacle constraint: violation") {
+		hasMovingFrame := false
+		for _, f := range pc.movableFrames {
+			if strings.Contains(s, f) {
+				hasMovingFrame = true
+				break
+			}
+		}
+		return !hasMovingFrame
+	}
+	return false
 }

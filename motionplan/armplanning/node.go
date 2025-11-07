@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -274,7 +273,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	})
 	if err != nil {
 		// sss.psc.pc.logger.Debugf("bad solution a: %v %v", stepSolution, err)
-		if len(sss.solutions) == 0 && isFatalCollision(err) {
+		if len(sss.solutions) == 0 && sss.psc.pc.isFatalCollision(err) {
 			sss.fatal = fmt.Errorf("fatal early collision: %w", err)
 		}
 		sss.failures.add(step, err)
@@ -495,9 +494,4 @@ solutionLoop:
 	})
 
 	return solvingState.solutions, nil
-}
-
-func isFatalCollision(err error) bool {
-	s := err.Error()
-	return strings.Contains(s, "obstacle constraint: violation")
 }
