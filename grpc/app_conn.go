@@ -94,7 +94,7 @@ func NewAppConn(ctx context.Context, appAddress, secret, id string, logger loggi
 			conn, err := rpc.DialDirectGRPC(ctxWithTimeout, grpcURL.Host, logger, dialOpts...)
 			ctxWithTimeoutCancel()
 			if err != nil {
-				logger.Debugw("error while dialing app. Could not establish global, unified connection", "error", err)
+				logger.Debugw("error while dialing app. Could not establish global, unified connection; Check network connection", "error", err)
 
 				continue
 			}
