@@ -249,9 +249,9 @@ func (c *client) Images(
 func (c *client) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	sess, ok := session.FromContext(ctx)
 	if ok {
-		c.logger.Warnw("camera client session", "name", c.Name(), "session", sess.ID().String())
+		c.logger.Warnw("camera client session", "name", c.Name().Name, "session", sess.ID().String())
 	} else {
-		c.logger.Warnw("camera client session not found", "name", c.Name())
+		c.logger.Warnw("camera client session not found", "name", c.Name().Name)
 	}
 	ctx, span := trace.StartSpan(ctx, "camera::client::NextPointCloud")
 	defer span.End()

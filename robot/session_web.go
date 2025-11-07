@@ -178,12 +178,14 @@ func (m *SessionManager) UnaryServerInterceptor(
 	if err != nil {
 		return nil, err
 	}
-	myLogger := logging.NewLogger("vijays unaryServerInterceptor")
-	sess, ok := session.FromContext(ctx)
-	if ok {
-		myLogger.Warnw("session in unaryServerInterceptor", "session", sess.ID().String())
-	} else {
-		myLogger.Warnw("session in unaryServerInterceptor not found")
+	if info.FullMethod == "/viam.component.camera.v1.CameraService/GetPointCloud" {
+		myLogger := logging.NewLogger("vijays unaryServerInterceptor")
+		sess, ok := session.FromContext(ctx)
+		if ok {
+			myLogger.Warnw("session in rdk unaryServerInterceptor", "session", sess.ID().String())
+		} else {
+			myLogger.Warnw("session in unaryServerInterceptor not found")
+		}
 	}
 	return handler(ctx, req)
 }
@@ -236,14 +238,18 @@ func associateSession(
 		m.logger.CWarnw(ctx, "failed to pull metadata from context", "method", method)
 		return ctx, nil
 	}
-	myLogger.Warnw("meta in session web", "meta", meta)
+	if strings.Contains(method, "PointCloud") {
+		myLogger.Warnw("meta in session web", "meta", meta)
+	}
 
 	sessID, err = sessionFromMetadata(meta)
 	if err != nil {
 		m.logger.CWarnw(ctx, "failed to get session id from metadata", "error", err)
 		return ctx, err
 	}
-	myLogger.Warnw("sessID in session web", "sessID", sessID)
+	if strings.Contains(method, "PointCloud") {
+		myLogger.Warnw("sessID in session web", "sessID", sessID)
+	}
 	if sessID == uuid.Nil {
 		return ctx, nil
 	}

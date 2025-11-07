@@ -2,10 +2,14 @@ package grpc
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/viamrobotics/webrtc/v3"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/session"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -34,18 +38,47 @@ func EnsureTimeoutUnaryServerInterceptor(ctx context.Context, req interface{},
 func SessionUnaryServerInterceptor(ctx context.Context, req interface{},
 	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 ) (interface{}, error) {
-	// md, _ := metadata.FromIncomingContext(ctx)
-	// sess, ok := session.FromContext(ctx)
-	// logger := logging.NewLogger("vijays SessionUnaryServerInterceptor")
+	if strings.Contains(info.FullMethod, "PointCloud") {
+		md, _ := metadata.FromIncomingContext(ctx)
+		// sess, ok := session.FromContext(ctx)
+		id, err := sessionFromMetadata(md)
+		if err != nil {
+			return nil, err
+		}
+		// if id == uuid.Nil {
+		// 	return nil, errors.New("session id not found in metadata")
+		// }
+		logger := logging.NewLogger("vijays SessionUnaryServerInterceptor")
+		logger.Warnw("id in unary server interceptor", "id", id)
 
-	// if ok {
-	// 	logger.Warnw("session in unary server interceptor", "session", sess.ID().String())
-	// } else {
-	// 	logger.Warnw("session in unary server interceptor not found")
-	// }
-	// logger := logging.NewLogger("vijays classy interceptor")
-	// logger.Warnw("SessionUnaryServerInterceptor", "ctx", ctx)
+		// if ok {
+		// 	logger.Warnw("session in unary server interceptor", "session", sess.ID().String(), "request", req, "method", info.FullMethod)
+		// } else {
+		// 	logger.Warnw("session in unary server interceptor not found")
+		// }
+		logger.Warnw("md in unary server interceptor", "md", md)
+		// logger := logging.NewLogger("vijays classy interceptor")
+		// logger.Warnw("SessionUnaryServerInterceptor", "ctx", ctx)
+	}
+	sess := session.New(ctx, "", 10*time.Second, nil)
+	ctx = session.ToContext(ctx, sess)
 	return handler(ctx, req)
+}
+
+func sessionFromMetadata(meta metadata.MD) (uuid.UUID, error) {
+	values := meta.Get(session.IDMetadataKey)
+	switch len(values) {
+	case 0:
+		return uuid.UUID{}, nil
+	case 1:
+		sessID, err := uuid.Parse(values[0])
+		if err != nil {
+			return uuid.UUID{}, err
+		}
+		return sessID, nil
+	default:
+		return uuid.UUID{}, errors.New("found more than one session id in metadata")
+	}
 }
 
 // EnsureTimeoutUnaryClientInterceptor sets a default timeout on the context if one is
@@ -90,12 +123,33 @@ func EnsureTimeoutUnaryClientInterceptor(
 // 	return invoker(ctx, method, req, reply, cc, opts...)
 // }
 
-func sessionMetadataInner(ctx context.Context) context.Context {
-	sessionID := ctx.Value(session.IDMetadataKey)
-	// logger.Warnw("sessionMetadataInner", "sessionID", sessionID)
-	if sessionID != nil {
-		ctx = metadata.AppendToOutgoingContext(ctx, session.IDMetadataKey, sessionID.(string))
+func sessionMetadataInner(ctx context.Context, shouldLog bool) context.Context {
+	// sessionID := ctx.Value(session.IDMetadataKey)
+	sess, ok := session.FromContext(ctx)
+	if !ok {
+		logger := logging.NewLogger("vijays sessionMetadataInner")
+		logger.Warnw("session not found in context")
+		return ctx
+	} else {
+		logger := logging.NewLogger("vijays sessionMetadataInner")
+		logger.Warnw("session found in context, adding", "session", sess.ID().String())
+		ctx = metadata.AppendToOutgoingContext(ctx, session.IDMetadataKey, sess.ID().String())
+		return ctx
 	}
+	// logger := logging.NewLogger("vijays sessionMetadataInner")
+	// logger.Warnw("sessionMetadataInner", "sessionID", sessionID)
+	// if sessionID != nil {
+	// 	if shouldLog {
+	// 		logger.Warnw("added session id to outgoing context", "sessionID", sessionID)
+	// 	}
+	// 	ctx = metadata.AppendToOutgoingContext(ctx, session.IDMetadataKey, sessionID.(string))
+	// } else {
+	// 	// newSession := session.New(ctx, "vijays", 10*time.Second, nil)
+	// 	// ctx = session.ToContext(ctx, newSession)
+	// 	if shouldLog {
+	// 		logger.Warnw("session id not found in context")
+	// 	}
+	// }
 	return ctx
 }
 
@@ -107,7 +161,15 @@ func SessionUnaryClientInterceptor(
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
 ) error {
-	ctx = sessionMetadataInner(ctx)
+	myLogger := logging.NewLogger("vijays SessionUnaryClientInterceptor")
+	// session
+	sess, ok := session.FromContext(ctx)
+	if ok {
+		myLogger.Warnw("session in unary client interceptor from rdk to module", "session", sess.ID().String())
+	} else {
+		myLogger.Warnw("session in unary client interceptor from rdk to module not found")
+	}
+	ctx = sessionMetadataInner(ctx, false)
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
 
