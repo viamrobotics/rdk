@@ -47,6 +47,8 @@ func inputChangeRatio(
 		}
 		const percentJog = 0.01
 
+		logger.Debugf("startDistance: %0.2f", startDistance)
+
 		// For each degree of freedom, we want to determine how much impact a small change
 		// makes. For cases where a small movement results in a big change in distance, we want to
 		// walk in smaller steps. For cases where a small change has a small effect, we want to
@@ -77,8 +79,8 @@ func inputChangeRatio(
 				adjustedJogRatio = 1
 			}
 
-			logger.Debugf("idx: %d startDistance: %0.2f myDistance: %0.2f thisRatio: %0.4f myJogRatio: %0.4f adjustJogRatio: %0.4f",
-				idx, startDistance, myDistance, thisRatio, myJogRatio, adjustedJogRatio)
+			logger.Debugf("idx: %d myDistance: %0.2f thisRatio: %0.3f myJogRatio: %0.3f adjustJogRatio: %0.3f",
+				idx, myDistance, thisRatio, myJogRatio, adjustedJogRatio)
 
 			ratios = append(ratios, adjustedJogRatio)
 

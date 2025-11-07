@@ -239,7 +239,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	myCost := sss.psc.pc.configurationDistanceFunc(stepArc)
 
 	if myCost > sss.bestScoreNoProblem {
-		sss.psc.pc.logger.Debugf("got score %0.4f worse than bestScoreNoProblem")
+		sss.psc.pc.logger.Debugf("got score %0.4f worse than bestScoreNoProblem", myCost)
 		return
 	}
 
