@@ -36,6 +36,36 @@ func Named(name string) resource.Name {
 }
 
 // A Switch represents a physical multi-position switch.
+// For more information, see the [Switch component docs].
+//
+// SetPosition example:
+//
+//	mySwitch, err := switch.FromRobot(machine, "my_switch")
+//
+//	err := mySwitch.SetPosition(context.Background(), 0 , nil)
+//
+// For more information, see the [SetPosition method docs].
+//
+// GetPosition example:
+//
+//	mySwitch, err := switch.FromRobot(machine, "my_switch")
+//
+//	position, err := mySwitch.GetPosition(context.Background(), nil)
+//
+// For more information, see the [GetPosition method docs].
+//
+// GetNumberOfPositions example:
+//
+//	mySwitch, err := switch.FromRobot(machine, "my_switch")
+//
+//	positions, err := mySwitch.GetNumberOfPositions(context.Background(), nil)
+//
+// For more information, see the [GetNumberOfPositions method docs].
+//
+// [Switch component docs]: https://docs.viam.com/dev/reference/apis/components/switch/
+// [SetPosition method docs]: https://docs.viam.com/dev/reference/apis/components/switch/#setposition
+// [GetPosition method docs]: https://docs.viam.com/dev/reference/apis/components/switch/#getposition
+// [GetNumberOfPositions method docs]: https://docs.viam.com/dev/reference/apis/components/switch/#getnumberofpositions
 type Switch interface {
 	resource.Resource
 
