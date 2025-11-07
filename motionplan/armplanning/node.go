@@ -376,6 +376,13 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		return true
 	}
 
+	if len(sss.solutions) == 0 && elapsed > (250*time.Millisecond) {
+		// if we found any solution, we want to look for better for a while
+		// but if we've found 0, then probably never going to
+		sss.psc.pc.logger.Debugf("stopping early after: %v because nothing has been found, probably won't", elapsed)
+		return true
+	}
+
 	return false
 }
 
