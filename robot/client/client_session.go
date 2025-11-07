@@ -166,16 +166,6 @@ func (rc *RobotClient) sessionUnaryClientInterceptor(
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
 ) error {
-	sess, ok := session.FromContext(ctx)
-	logger := logging.NewLogger("vijays sessionUnaryClientInterceptor")
-
-	if strings.Contains(method, "PointCloud") {
-		if ok {
-			logger.Warnw("session in unary client interceptor", "session", sess.ID().String())
-		} else {
-			logger.Warnw("session in unary client interceptor not found")
-		}
-	}
 	var hdr metadata.MD
 	if rc.remoteName != "" {
 		defer func() {
@@ -195,10 +185,6 @@ func (rc *RobotClient) sessionUnaryClientInterceptor(
 		ctx, err := rc.sessionMetadata(ctx, method)
 		if err != nil {
 			return err
-		}
-		meta, _ := metadata.FromOutgoingContext(ctx)
-		if strings.Contains(method, "PointCloud") {
-			logger.Warnw("meta", "meta", meta)
 		}
 		return invoker(ctx, method, req, reply, cc, append(opts, grpc.Header(&hdr))...)
 	}

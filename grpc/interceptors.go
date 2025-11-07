@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 	"errors"
-	"strings"
 	"sync"
 	"time"
 
@@ -38,29 +37,15 @@ func EnsureTimeoutUnaryServerInterceptor(ctx context.Context, req interface{},
 func SessionUnaryServerInterceptor(ctx context.Context, req interface{},
 	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 ) (interface{}, error) {
-	if strings.Contains(info.FullMethod, "PointCloud") {
-		md, _ := metadata.FromIncomingContext(ctx)
-		// sess, ok := session.FromContext(ctx)
-		id, err := sessionFromMetadata(md)
-		if err != nil {
-			return nil, err
-		}
-		// if id == uuid.Nil {
-		// 	return nil, errors.New("session id not found in metadata")
-		// }
-		logger := logging.NewLogger("vijays SessionUnaryServerInterceptor")
-		logger.Warnw("id in unary server interceptor", "id", id)
-
-		// if ok {
-		// 	logger.Warnw("session in unary server interceptor", "session", sess.ID().String(), "request", req, "method", info.FullMethod)
-		// } else {
-		// 	logger.Warnw("session in unary server interceptor not found")
-		// }
-		logger.Warnw("md in unary server interceptor", "md", md)
-		// logger := logging.NewLogger("vijays classy interceptor")
-		// logger.Warnw("SessionUnaryServerInterceptor", "ctx", ctx)
+	md, _ := metadata.FromIncomingContext(ctx)
+	id, err := sessionFromMetadata(md)
+	if err != nil {
+		return nil, err
 	}
-	sess := session.New(ctx, "", 10*time.Second, nil)
+	if id == uuid.Nil {
+		return handler(ctx, req)
+	}
+	sess := session.NewWithID(ctx, id, "", 10*time.Second, nil)
 	ctx = session.ToContext(ctx, sess)
 	return handler(ctx, req)
 }
@@ -103,15 +88,11 @@ func sessionMetadataInner(ctx context.Context, shouldLog bool) context.Context {
 	// sessionID := ctx.Value(session.IDMetadataKey)
 	sess, ok := session.FromContext(ctx)
 	if !ok {
-		logger := logging.NewLogger("vijays sessionMetadataInner")
-		logger.Warnw("session not found in context")
-		return ctx
-	} else {
-		logger := logging.NewLogger("vijays sessionMetadataInner")
-		logger.Warnw("session found in context, adding", "session", sess.ID().String())
-		ctx = metadata.AppendToOutgoingContext(ctx, session.IDMetadataKey, sess.ID().String())
 		return ctx
 	}
+	logger := logging.NewLogger("vijays sessionMetadataInner")
+	logger.Warnw("session found in context, adding", "session", sess.ID().String())
+	ctx = metadata.AppendToOutgoingContext(ctx, session.IDMetadataKey, sess.ID().String())
 	return ctx
 }
 
