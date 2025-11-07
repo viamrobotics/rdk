@@ -294,9 +294,6 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		heartbeatCtxCancel:  heartbeatCtxCancel,
 	}
 
-	newLogger := logging.NewLogger("vijays new client")
-	newLogger.Warnw("dialOptions", "address", address, "dialOptions", rc.dialOptions)
-
 	// interceptors are applied in order from first to last
 	rc.dialOptions = append(
 		rc.dialOptions,

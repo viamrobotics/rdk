@@ -99,30 +99,6 @@ func EnsureTimeoutUnaryClientInterceptor(
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
 
-// func SessionUnaryClientInterceptor(
-// 	ctx context.Context,
-// 	method string, req, reply interface{},
-// 	cc *grpc.ClientConn,
-// 	invoker grpc.UnaryInvoker,
-// 	opts ...grpc.CallOption,
-// ) error {
-// 	logger := logging.NewLogger("vijays classy interceptor")
-
-// 	// Extract session ID from outgoing metadata if it exists
-// 	if meta, ok := metadata.FromIncomingContext(ctx); ok {
-// 		sessionIDs := meta.Get(session.IDMetadataKey)
-// 		if len(sessionIDs) > 0 {
-// 			logger.Warnw("SessionUnaryClientInterceptor", "method", method, "session_id", sessionIDs[0])
-// 		} else {
-// 			logger.Warnw("SessionUnaryClientInterceptor", "method", method, "session_id", "none")
-// 		}
-// 	} else {
-// 		logger.Warnw("SessionUnaryClientInterceptor", "method", method, "session_id", "no metadata")
-// 	}
-
-// 	return invoker(ctx, method, req, reply, cc, opts...)
-// }
-
 func sessionMetadataInner(ctx context.Context, shouldLog bool) context.Context {
 	// sessionID := ctx.Value(session.IDMetadataKey)
 	sess, ok := session.FromContext(ctx)
@@ -136,20 +112,6 @@ func sessionMetadataInner(ctx context.Context, shouldLog bool) context.Context {
 		ctx = metadata.AppendToOutgoingContext(ctx, session.IDMetadataKey, sess.ID().String())
 		return ctx
 	}
-	// logger := logging.NewLogger("vijays sessionMetadataInner")
-	// logger.Warnw("sessionMetadataInner", "sessionID", sessionID)
-	// if sessionID != nil {
-	// 	if shouldLog {
-	// 		logger.Warnw("added session id to outgoing context", "sessionID", sessionID)
-	// 	}
-	// 	ctx = metadata.AppendToOutgoingContext(ctx, session.IDMetadataKey, sessionID.(string))
-	// } else {
-	// 	// newSession := session.New(ctx, "vijays", 10*time.Second, nil)
-	// 	// ctx = session.ToContext(ctx, newSession)
-	// 	if shouldLog {
-	// 		logger.Warnw("session id not found in context")
-	// 	}
-	// }
 	return ctx
 }
 

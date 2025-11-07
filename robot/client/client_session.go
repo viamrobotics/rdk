@@ -155,11 +155,6 @@ func (rc *RobotClient) safetyMonitorFromHeaders(ctx context.Context, hdr metadat
 }
 
 func (rc *RobotClient) useSessionInRequest(ctx context.Context, method string) bool {
-	// logger := logging.NewLogger("vijays useSessionInRequest")
-	// if strings.Contains(method, "PointCloud") {
-	// 	logger.Warnw("sessions disabled", "sessionsDisabled", rc.sessionsDisabled, "method", method, "ctxKeyInSessionMDReq", ctx.Value(ctxKeyInSessionMDReq))
-
-	// }
 	return !rc.sessionsDisabled && ctx.Value(ctxKeyInSessionMDReq) == nil
 }
 

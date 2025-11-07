@@ -158,21 +158,6 @@ func (m *SessionManager) UnaryServerInterceptor(
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (interface{}, error) {
-	// if _, _, isMonitored := m.safetyMonitoredTypeAndMethod(info.FullMethod); !isMonitored {
-	// 	return handler(ctx, req)
-	// }
-	// logger := logging.NewLogger("vijays unaryServerInterceptor")
-	// meta, ok := metadata.FromIncomingContext(ctx)
-	// if !ok {
-	// 	logger.Warnw("metadata not found in context", "ctx", ctx)
-	// } else {
-	// 	logger.Warnw("metadata found in context", "meta", meta)
-	// }
-	// if !ok {
-	// 	logger.Warnw("session not found in context", "ctx", ctx)
-	// } else {
-	// 	logger.Warnw("session found in context", "session", session)
-	// }
 	safetyMonitoredResourceName := m.safetyMonitoredResourceFromUnary(req, info.FullMethod)
 	ctx, err := associateSession(ctx, m, safetyMonitoredResourceName, info.FullMethod)
 	if err != nil {
@@ -223,7 +208,6 @@ func associateSession(
 	method string,
 ) (nextCtx context.Context, err error) {
 	var sessID uuid.UUID
-	myLogger := logging.NewLogger("vijays associateSession")
 	if safetyMonitoredResourceName != (resource.Name{}) {
 		// defer this because no matter what we want to know that someone was using
 		// a resource with a monitored method as long as no error happened.
@@ -238,18 +222,13 @@ func associateSession(
 		m.logger.CWarnw(ctx, "failed to pull metadata from context", "method", method)
 		return ctx, nil
 	}
-	if strings.Contains(method, "PointCloud") {
-		myLogger.Warnw("meta in session web", "meta", meta)
-	}
 
 	sessID, err = sessionFromMetadata(meta)
 	if err != nil {
 		m.logger.CWarnw(ctx, "failed to get session id from metadata", "error", err)
 		return ctx, err
 	}
-	if strings.Contains(method, "PointCloud") {
-		myLogger.Warnw("sessID in session web", "sessID", sessID)
-	}
+
 	if sessID == uuid.Nil {
 		return ctx, nil
 	}

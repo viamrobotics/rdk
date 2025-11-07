@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
 
@@ -179,12 +178,6 @@ func (s *serviceServer) GetPointCloud(
 	camera, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
-	}
-	sess, ok := session.FromContext(ctx)
-	if ok {
-		s.logger.Warnw("session in get point cloud", "session", sess.ID().String())
-	} else {
-		s.logger.Warnw("session in get point cloud not found")
 	}
 
 	pc, err := camera.NextPointCloud(ctx, req.Extra.AsMap())

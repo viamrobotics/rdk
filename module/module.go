@@ -214,9 +214,6 @@ type Module struct {
 // NewModule returns the basic module framework/structure. Use ModularMain and NewModuleFromArgs unless
 // you really know what you're doing.
 func NewModule(ctx context.Context, address string, logger logging.Logger) (*Module, error) {
-	// newLogger := logging.NewLogger("NewModule")
-	// newLogger.Infof("NewModule", "address", address)
-	// TODO(PRODUCT-343): session support likely means interceptors here
 	opMgr := operation.NewManager(logger)
 	unaries := []grpc.UnaryServerInterceptor{
 		rgrpc.EnsureTimeoutUnaryServerInterceptor,
@@ -397,8 +394,6 @@ func (m *Module) connectParent(ctx context.Context) error {
 	if m.name != "" {
 		connectOptions = append(connectOptions, client.WithModName(m.name))
 	}
-	logger := logging.NewLogger("vijays connectParent")
-	logger.Warnw("connectOptions", "address", fullAddr, "name", m.name, "connectOptions", client.ExtractDialOptions(connectOptions...))
 
 	rc, err := client.New(ctx, fullAddr, m.logger, connectOptions...)
 	if err != nil {
