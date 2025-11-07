@@ -155,11 +155,11 @@ func (rc *RobotClient) safetyMonitorFromHeaders(ctx context.Context, hdr metadat
 }
 
 func (rc *RobotClient) useSessionInRequest(ctx context.Context, method string) bool {
-	logger := logging.NewLogger("vijays useSessionInRequest")
-	if strings.Contains(method, "PointCloud") {
-		logger.Warnw("sessions disabled", "sessionsDisabled", rc.sessionsDisabled, "method", method, "ctxKeyInSessionMDReq", ctx.Value(ctxKeyInSessionMDReq))
+	// logger := logging.NewLogger("vijays useSessionInRequest")
+	// if strings.Contains(method, "PointCloud") {
+	// 	logger.Warnw("sessions disabled", "sessionsDisabled", rc.sessionsDisabled, "method", method, "ctxKeyInSessionMDReq", ctx.Value(ctxKeyInSessionMDReq))
 
-	}
+	// }
 	return !rc.sessionsDisabled && ctx.Value(ctxKeyInSessionMDReq) == nil
 }
 
@@ -174,10 +174,12 @@ func (rc *RobotClient) sessionUnaryClientInterceptor(
 	sess, ok := session.FromContext(ctx)
 	logger := logging.NewLogger("vijays sessionUnaryClientInterceptor")
 
-	if ok {
-		logger.Warnw("session in unary client interceptor", "session", sess.ID().String())
-	} else {
-		logger.Warnw("session in unary client interceptor not found")
+	if strings.Contains(method, "PointCloud") {
+		if ok {
+			logger.Warnw("session in unary client interceptor", "session", sess.ID().String())
+		} else {
+			logger.Warnw("session in unary client interceptor not found")
+		}
 	}
 	var hdr metadata.MD
 	if rc.remoteName != "" {
@@ -188,11 +190,12 @@ func (rc *RobotClient) sessionUnaryClientInterceptor(
 	invoke := func() error {
 		sess, ok := session.FromContext(ctx)
 		logger := logging.NewLogger("vijays sessionUnaryClientInterceptor")
-
-		if ok {
-			logger.Warnw("session in unary client interceptor invoke", "session", sess.ID().String())
-		} else {
-			logger.Warnw("session in unary client interceptor invoke not found")
+		if strings.Contains(method, "PointCloud") {
+			if ok {
+				logger.Warnw("session in unary client interceptor invoke", "session", sess.ID().String())
+			} else {
+				logger.Warnw("session in unary client interceptor invoke not found")
+			}
 		}
 		ctx, err := rc.sessionMetadata(ctx, method)
 		if err != nil {

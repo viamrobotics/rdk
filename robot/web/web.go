@@ -268,10 +268,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
 	sessManagerInts := svc.r.SessionManager().ServerInterceptors()
-	newLogger := logging.NewLogger("startProtocolModuleParentServer")
 	if sessManagerInts.UnaryServerInterceptor != nil {
-		newLogger.Warnw("sessManagerInts", "sessManagerInts", sessManagerInts)
-
 		unaryInterceptors = append(unaryInterceptors, sessManagerInts.UnaryServerInterceptor)
 	}
 
