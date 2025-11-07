@@ -1626,7 +1626,7 @@ func testResourceLimitsAndFTDC(
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
 	test.That(t, err.Error(), test.ShouldEndWith,
-		fmt.Sprintf("exceeded request limit 1 on resource %v", keyPrefix))
+		fmt.Sprintf("exceeded request limit 1 on resource %v, See https://docs.viam.com/dev/tools/common-errors/#exceeded-request-limit-on-resource for troubleshooting steps", keyPrefix))
 
 	// In flight requests counter should still only be 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)

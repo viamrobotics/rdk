@@ -30,7 +30,7 @@ type RequestLimitExceededError struct {
 }
 
 func (e RequestLimitExceededError) Error() string {
-	return fmt.Sprintf("exceeded request limit %v on resource %v", e.limit, e.resource)
+	return fmt.Sprintf("exceeded request limit %v on resource %v, See https://docs.viam.com/dev/tools/common-errors/#exceeded-request-limit-on-resource for troubleshooting steps", e.limit, e.resource)
 }
 
 // GRPCStatus allows this error to be converted to a [status.Status].
