@@ -269,7 +269,9 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 }
 
 // CheckSegmentConstraints will check a given input against all segment constraints.
-func (c *ConstraintChecker) CheckSegmentConstraints(segment *Segment) error {
+func (c *ConstraintChecker) CheckSegmentConstraints(ctx context.Context, segment *Segment) error {
+	_, span := trace.StartSpan(ctx, "CheckSegmentConstraints")
+	defer span.End()
 	for name, cFunc := range c.segmentConstraints {
 		if err := cFunc(segment); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -280,7 +282,9 @@ func (c *ConstraintChecker) CheckSegmentConstraints(segment *Segment) error {
 }
 
 // CheckSegmentFSConstraints will check a given input against all FS segment constraints.
-func (c *ConstraintChecker) CheckSegmentFSConstraints(segment *SegmentFS) error {
+func (c *ConstraintChecker) CheckSegmentFSConstraints(ctx context.Context, segment *SegmentFS) error {
+	_, span := trace.StartSpan(ctx, "CheckSegmentFSConstraints")
+	defer span.End()
 	for name, cFunc := range c.segmentFSConstraints {
 		if err := cFunc(segment); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -409,18 +413,18 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 // CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
-func (c *ConstraintChecker) CheckSegmentAndStateValidity(segment *Segment, resolution float64) (bool, *Segment) {
+func (c *ConstraintChecker) CheckSegmentAndStateValidity(ctx context.Context, segment *Segment, resolution float64) (bool, *Segment) {
 	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution)
 	if !valid {
 		if subSegment != nil {
-			if c.CheckSegmentConstraints(subSegment) == nil {
+			if c.CheckSegmentConstraints(ctx, subSegment) == nil {
 				return false, subSegment
 			}
 		}
 		return false, nil
 	}
 	// all states are valid
-	return c.CheckSegmentConstraints(segment) == nil, nil
+	return c.CheckSegmentConstraints(ctx, segment) == nil, nil
 }
 
 // AddStateConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
@@ -547,14 +551,14 @@ func (c *ConstraintChecker) CheckSegmentAndStateValidityFS(
 	subSegment, err := c.CheckStateConstraintsAcrossSegmentFS(ctx, segment, resolution)
 	if err != nil {
 		if subSegment != nil {
-			if c.CheckSegmentFSConstraints(subSegment) == nil {
+			if c.CheckSegmentFSConstraints(ctx, subSegment) == nil {
 				return subSegment, err
 			}
 		}
 		return nil, err
 	}
 
-	return nil, c.CheckSegmentFSConstraints(segment)
+	return nil, c.CheckSegmentFSConstraints(ctx, segment)
 }
 
 // BoundingRegions returns the bounding regions - TODO what does this mean??

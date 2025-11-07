@@ -252,7 +252,7 @@ func (mp *planner) process(
 		EndConfiguration:   step.ToLinearInputs(),
 		FS:                 mp.fs,
 	}
-	err = mp.CheckSegmentFSConstraints(stepArc)
+	err = mp.CheckSegmentFSConstraints(ctx, stepArc)
 	if err != nil {
 		sss.constraintFailCnt++
 		sss.failures[err.Error()]++

@@ -172,7 +172,28 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 			psc.pc.logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
 		psc.pc.logger.Debugf("got %d altSeeds", len(altSeeds))
-		for _, s := range altSeeds {
+
+		passed := []bool{}
+		anyPassed := false
+		for idx, s := range altSeeds {
+			err = psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
+				Configuration: s,
+				FS:            psc.pc.fs,
+			})
+			if err == nil {
+				passed = append(passed, true)
+				anyPassed = true
+			} else {
+				psc.pc.logger.Debugf("seed %d invalid %v", idx, err)
+				passed = append(passed, false)
+			}
+		}
+
+		for idx, s := range altSeeds {
+			if anyPassed && !passed[idx] {
+				psc.pc.logger.Debugf("skipping smart seed %d", idx)
+				continue
+			}
 			si := s.GetLinearizedInputs()
 			sss.linearSeeds = append(sss.linearSeeds, si)
 			ll := ik.ComputeAdjustLimitsArray(si, sss.seedLimits[0], altLimitDivisors)
@@ -254,7 +275,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		return
 	}
 
-	err = sss.psc.checker.CheckSegmentFSConstraints(stepArc)
+	err = sss.psc.checker.CheckSegmentFSConstraints(ctx, stepArc)
 	if err != nil {
 		// sss.psc.pc.logger.Debugf("bad solution b: %v %v", stepSolution, err)
 		sss.failures.add(step, err)
