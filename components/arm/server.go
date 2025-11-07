@@ -197,6 +197,19 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }
 
+// Get3DModels returns the 3D models of the arm.
+func (s *serviceServer) Get3DModels(ctx context.Context, req *commonpb.Get3DModelsRequest) (*commonpb.Get3DModelsResponse, error) {
+	arm, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	models, err := arm.Get3DModels(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.Get3DModelsResponse{Models: models}, nil
+}
+
 // GetKinematics returns the kinematics information associated with the arm.
 func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
 	arm, err := s.coll.Resource(req.GetName())
