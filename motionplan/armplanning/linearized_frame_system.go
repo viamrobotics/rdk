@@ -31,6 +31,8 @@ func inputChangeRatio(
 	start := startNotMine.ToFrameSystemInputs().ToLinearInputs()
 	_, nonmoving := mc.framesFilteredByMovingAndNonmoving()
 	startDistance := distanceFunc(&motionplan.StateFS{Configuration: startNotMine, FS: mc.fs})
+	logger.Debugf("startDistance: %0.2f", startDistance)
+
 	for _, frameName := range inputsSchema.FrameNamesInOrder() {
 		frame := frameSystem.Frame(frameName)
 		if len(frame.DoF()) == 0 {
@@ -46,8 +48,6 @@ func inputChangeRatio(
 			continue
 		}
 		const percentJog = 0.01
-
-		logger.Debugf("startDistance: %0.2f", startDistance)
 
 		// For each degree of freedom, we want to determine how much impact a small change
 		// makes. For cases where a small movement results in a big change in distance, we want to

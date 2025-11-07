@@ -306,7 +306,6 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		sss.bestScoreWithProblem = max(1, myNode.cost)
 	}
 
-	//	if myNode.cost <= min(sss.goodCost, sss.bestScoreWithProblem*defaultOptimalityMultiple) {
 	whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
 	sss.psc.pc.logger.Debugf("got score %0.4f @ %v - %s - result: %v", myNode.cost, now, stepSolution.Meta, whyNot)
 	myNode.checkPath = whyNot == nil
@@ -314,9 +313,6 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	if whyNot == nil && myNode.cost < sss.bestScoreNoProblem {
 		sss.bestScoreNoProblem = myNode.cost
 	}
-	//	} else {
-	// sss.psc.pc.logger.Debugf("got shitty score %0.4f @ %v - %s", myNode.cost, time.Since(sss.startTime), stepSolution.Meta)
-	//	}
 }
 
 // return bool is if we should stop because we're done.
