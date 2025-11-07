@@ -303,20 +303,24 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 	return gif.Geometries(), nil
 }
 
-// Get3DModels returns the 3D models of the fake arm.
+// Get3DModels returns the 3D models of the fake arm. Unknown arm models should return an empty map.
 func (a *Arm) Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
 	models := make(map[string]*commonpb.Mesh)
-	if a.armModel != "" {
-		armModelParts := armTo3DModelParts[a.armModel]
-		for _, modelPart := range armModelParts {
-			modelPartMesh := threeDMeshFromName(a.armModel, modelPart)
-			if len(modelPartMesh.Mesh) > 0 {
-				// len > 0 indicates we actually have a 3D model for thus armModel and part Name
-				models[modelPart] = &modelPartMesh
-			}
+	armModelParts := armTo3DModelParts[a.armModel]
+	if armModelParts == nil {
+		return models, nil
+	}
+
+	for _, modelPart := range armModelParts {
+		modelPartMesh := threeDMeshFromName(a.armModel, modelPart)
+		if len(modelPartMesh.Mesh) > 0 {
+			// len > 0 indicates we actually have a 3D model for thus armModel and part Name
+			models[modelPart] = &modelPartMesh
+		} else {
+			a.logger.CWarnw(ctx, "No 3D model found for arm model and part", "armModel", a.armModel, "modelPart", modelPart)
 		}
 	}
 
