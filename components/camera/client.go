@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -246,6 +247,12 @@ func (c *client) Images(
 }
 
 func (c *client) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+	sess, ok := session.FromContext(ctx)
+	if ok {
+		c.logger.Warnw("camera client session", "name", c.Name(), "session", sess.ID().String())
+	} else {
+		c.logger.Warnw("camera client session not found", "name", c.Name())
+	}
 	ctx, span := trace.StartSpan(ctx, "camera::client::NextPointCloud")
 	defer span.End()
 
@@ -256,6 +263,12 @@ func (c *client) NextPointCloud(ctx context.Context, extra map[string]interface{
 		return nil, err
 	}
 
+	sess1, ok := session.FromContext(ctx)
+	if ok {
+		c.logger.Warnw("camera client session2", "session", sess1.ID().String())
+	} else {
+		c.logger.Warnw("camera client session2 not found")
+	}
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,

@@ -397,6 +397,8 @@ func (m *Module) connectParent(ctx context.Context) error {
 	if m.name != "" {
 		connectOptions = append(connectOptions, client.WithModName(m.name))
 	}
+	logger := logging.NewLogger("vijays connectParent")
+	logger.Warnw("connectOptions", "address", fullAddr, "name", m.name, "connectOptions", client.ExtractDialOptions(connectOptions...))
 
 	rc, err := client.New(ctx, fullAddr, m.logger, connectOptions...)
 	if err != nil {

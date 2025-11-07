@@ -161,13 +161,13 @@ func (m *SessionManager) UnaryServerInterceptor(
 	// if _, _, isMonitored := m.safetyMonitoredTypeAndMethod(info.FullMethod); !isMonitored {
 	// 	return handler(ctx, req)
 	// }
-	logger := logging.NewLogger("vijays unaryServerInterceptor")
-	meta, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		logger.Warnw("metadata not found in context", "ctx", ctx)
-	} else {
-		logger.Warnw("metadata found in context", "meta", meta)
-	}
+	// logger := logging.NewLogger("vijays unaryServerInterceptor")
+	// meta, ok := metadata.FromIncomingContext(ctx)
+	// if !ok {
+	// 	logger.Warnw("metadata not found in context", "ctx", ctx)
+	// } else {
+	// 	logger.Warnw("metadata found in context", "meta", meta)
+	// }
 	// if !ok {
 	// 	logger.Warnw("session not found in context", "ctx", ctx)
 	// } else {
@@ -177,6 +177,13 @@ func (m *SessionManager) UnaryServerInterceptor(
 	ctx, err := associateSession(ctx, m, safetyMonitoredResourceName, info.FullMethod)
 	if err != nil {
 		return nil, err
+	}
+	myLogger := logging.NewLogger("vijays unaryServerInterceptor")
+	sess, ok := session.FromContext(ctx)
+	if ok {
+		myLogger.Warnw("session in unaryServerInterceptor", "session", sess.ID().String())
+	} else {
+		myLogger.Warnw("session in unaryServerInterceptor not found")
 	}
 	return handler(ctx, req)
 }
@@ -214,6 +221,7 @@ func associateSession(
 	method string,
 ) (nextCtx context.Context, err error) {
 	var sessID uuid.UUID
+	myLogger := logging.NewLogger("vijays associateSession")
 	if safetyMonitoredResourceName != (resource.Name{}) {
 		// defer this because no matter what we want to know that someone was using
 		// a resource with a monitored method as long as no error happened.
@@ -228,11 +236,14 @@ func associateSession(
 		m.logger.CWarnw(ctx, "failed to pull metadata from context", "method", method)
 		return ctx, nil
 	}
+	myLogger.Warnw("meta in session web", "meta", meta)
+
 	sessID, err = sessionFromMetadata(meta)
 	if err != nil {
 		m.logger.CWarnw(ctx, "failed to get session id from metadata", "error", err)
 		return ctx, err
 	}
+	myLogger.Warnw("sessID in session web", "sessID", sessID)
 	if sessID == uuid.Nil {
 		return ctx, nil
 	}
