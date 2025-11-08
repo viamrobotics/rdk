@@ -282,7 +282,7 @@ func NewCollisionConstraintFS(
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) error {
 		// Use FrameSystemGeometries to get all geometries in the frame system
-		internalGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(state.FS, state.Configuration)
+		internalGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(state.FS, state.Configuration, state.cache())
 		if err != nil {
 			return err
 		}
@@ -439,7 +439,7 @@ type fsPathConstraint struct {
 func (fpc *fsPathConstraint) constraint(state *StateFS) error {
 	for frame, goal := range fpc.goalMap {
 		if constraint, ok := fpc.constraintMap[frame]; ok {
-			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent(), nil)
+			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent(), state.cache())
 			if err != nil {
 				return err
 			}
@@ -459,7 +459,7 @@ func (fpc *fsPathConstraint) metric(state *StateFS) float64 {
 	score := 0.
 	for frame, goal := range fpc.goalMap {
 		if metric, ok := fpc.metricMap[frame]; ok {
-			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent(), nil)
+			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent(), state.cache())
 			if err != nil {
 				score = math.Inf(1)
 				break

@@ -60,7 +60,7 @@ func NewConstraintChecker(
 	handler := NewEmptyConstraintChecker()
 	handler.boundingRegions = boundingRegions
 
-	frameSystemGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(fs, seedMap)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(fs, seedMap, nil)
 	if err != nil {
 		return nil, err
 	}

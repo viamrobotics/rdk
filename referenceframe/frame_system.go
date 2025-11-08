@@ -646,14 +646,17 @@ func FrameSystemToPCD(system *FrameSystem, inputs FrameSystemInputs, logger logg
 // GeometriesInFrames with a World reference frame. `FrameSystemGeometriesLinearInputs` is preferred
 // for hot paths. This function is otherwise kept around for backwards compatibility.
 func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[string]*GeometriesInFrame, error) {
-	return FrameSystemGeometriesLinearInputs(fs, inputMap.ToLinearInputs())
+	return FrameSystemGeometriesLinearInputs(fs, inputMap.ToLinearInputs(), nil)
 }
 
 // FrameSystemGeometriesLinearInputs takes in a framesystem and returns a LinearInputs where all
 // elements are GeometriesInFrames with a World reference frame. This is preferred for hot
 // paths. But requires the caller to manage a `LinearInputs`.
-func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInputs) (map[string]*GeometriesInFrame, error) {
-	cache := map[string]spatial.Pose{}
+func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInputs,
+	cache map[string]spatial.Pose) (map[string]*GeometriesInFrame, error) {
+	if cache == nil {
+		cache = map[string]spatial.Pose{}
+	}
 	var errAll error
 	allGeometries := make(map[string]*GeometriesInFrame, 0)
 	for _, name := range fs.FrameNames() {

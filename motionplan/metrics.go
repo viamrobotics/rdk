@@ -121,6 +121,14 @@ func (state *State) ResolveStateAndUpdatePositions() error {
 type StateFS struct {
 	Configuration *referenceframe.LinearInputs
 	FS            *referenceframe.FrameSystem
+	Cache         map[string]spatial.Pose
+}
+
+func (s *StateFS) cache() map[string]spatial.Pose {
+	if s.Cache == nil {
+		s.Cache = map[string]spatial.Pose{}
+	}
+	return s.Cache
 }
 
 // StateMetric are functions which, given a State, produces some score. Lower is better.
