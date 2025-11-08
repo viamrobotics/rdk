@@ -276,7 +276,7 @@ func (mr *moveRequest) getTransientDetections(
 		tf, err := mr.localizingFS.Transform(
 			inputMap.ToLinearInputs(),
 			referenceframe.NewGeometriesInFrame(camName, []spatialmath.Geometry{geometry}),
-			referenceframe.World,
+			referenceframe.World, nil,
 		)
 		if err != nil {
 			return nil, err

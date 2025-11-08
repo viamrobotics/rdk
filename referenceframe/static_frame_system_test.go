@@ -253,14 +253,14 @@ func TestGeomtriesTransform(t *testing.T) {
 	objectFromFrame2 := spatial.NewPoseFromPoint(r3.Vector{6., 0., 0.}) // the point from PoV of frame 2
 	geometries, err := object.Geometries([]Input{})
 	test.That(t, err, test.ShouldBeNil)
-	tf, err := fs.Transform(NewLinearInputs(), geometries, "frame2")
+	tf, err := fs.Transform(NewLinearInputs(), geometries, "frame2", nil)
 	test.That(t, err, test.ShouldBeNil)
 	framedGeometries, _ := tf.(*GeometriesInFrame)
 	test.That(t, framedGeometries.Parent(), test.ShouldResemble, "frame2")
 	test.That(t, spatial.PoseAlmostCoincident(framedGeometries.GeometryByName("object").Pose(), objectFromFrame2), test.ShouldBeTrue)
 
 	gf := NewGeometriesInFrame(World, geometries.Geometries())
-	tf, err = fs.Transform(NewLinearInputs(), gf, "frame3")
+	tf, err = fs.Transform(NewLinearInputs(), gf, "frame3", nil)
 	test.That(t, err, test.ShouldBeNil)
 	framedGeometries, _ = tf.(*GeometriesInFrame)
 	test.That(t, framedGeometries.Parent(), test.ShouldResemble, "frame3")
@@ -359,7 +359,7 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	f1 = fs2.Frame("frame1")
 	test.That(t, f1, test.ShouldBeNil)
 
-	_, err = fs.Transform(NewLinearInputs(), NewPoseInFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{2, 0, 0})), "frame2")
+	_, err = fs.Transform(NewLinearInputs(), NewPoseInFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{2, 0, 0})), "frame2", nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Put frame3 back where it was
@@ -378,7 +378,7 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 
 func testTransformPoint(t *testing.T, fs *FrameSystem, positions *LinearInputs, start, end *PoseInFrame) {
 	t.Helper()
-	tf, err := fs.Transform(positions, start, end.Parent())
+	tf, err := fs.Transform(positions, start, end.Parent(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	pf, ok := tf.(*PoseInFrame)
 	test.That(t, ok, test.ShouldBeTrue)

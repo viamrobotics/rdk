@@ -39,7 +39,7 @@ func newPath(solution []node, fs *referenceframe.FrameSystem) (motionplan.Path, 
 	for _, inputNode := range solution {
 		poseMap := make(map[string]*referenceframe.PoseInFrame)
 		for frame := range inputNode.Q().Keys() {
-			tf, err := fs.Transform(inputNode.Q(), referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World)
+			tf, err := fs.Transform(inputNode.Q(), referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World, nil)
 			if err != nil {
 				return nil, err
 			}

@@ -197,7 +197,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 			poseParent := frames[frame]
 			var currPose spatialmath.Pose
 
-			dq, err := state.FS.TransformToDQ(state.Configuration, frame, poseParent)
+			dq, err := state.FS.TransformToDQ(state.Configuration, frame, poseParent, nil)
 			if err != nil {
 				panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",
 					state.FS.FrameNames(), frame, poseParent, err))

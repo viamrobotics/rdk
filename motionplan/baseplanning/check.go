@@ -61,7 +61,7 @@ func checkPlanRelative(
 ) error {
 	var err error
 	toWorld := func(pif *referenceframe.PoseInFrame, inputs referenceframe.FrameSystemInputs) (*referenceframe.PoseInFrame, error) {
-		transformable, err := fs.Transform(inputs.ToLinearInputs(), pif, referenceframe.World)
+		transformable, err := fs.Transform(inputs.ToLinearInputs(), pif, referenceframe.World, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -207,7 +207,7 @@ func checkPlanAbsolute(
 	wayPointIdx := executionState.Index()
 
 	checkFramePiF := referenceframe.NewPoseInFrame(checkFrame.Name(), spatialmath.NewZeroPose())
-	expectedPoseTf, err := fs.Transform(currentInputs.ToLinearInputs(), checkFramePiF, currentPoseIF.Parent())
+	expectedPoseTf, err := fs.Transform(currentInputs.ToLinearInputs(), checkFramePiF, currentPoseIF.Parent(), nil)
 	if err != nil {
 		return err
 	}
@@ -306,7 +306,7 @@ func checkSegmentsFS(
 			poseInPathStart, err := fs.Transform(
 				segment.EndConfiguration,
 				referenceframe.NewZeroPoseInFrame(checkFrame),
-				referenceframe.World,
+				referenceframe.World, nil,
 			)
 			if err != nil {
 				return err
@@ -314,7 +314,7 @@ func checkSegmentsFS(
 			poseInPathEnd, err := fs.Transform(
 				segment.StartConfiguration,
 				referenceframe.NewZeroPoseInFrame(checkFrame),
-				referenceframe.World,
+				referenceframe.World, nil,
 			)
 			if err != nil {
 				return err
@@ -358,7 +358,7 @@ func checkSegments(
 			poseInPathTf, err := fs.Transform(
 				referenceframe.FrameSystemInputs{checkFrame.Name(): interpConfig}.ToLinearInputs(),
 				referenceframe.NewZeroPoseInFrame(checkFrame.Name()),
-				parent.Name(),
+				parent.Name(), nil,
 			)
 			if err != nil {
 				return err

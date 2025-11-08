@@ -439,7 +439,7 @@ type fsPathConstraint struct {
 func (fpc *fsPathConstraint) constraint(state *StateFS) error {
 	for frame, goal := range fpc.goalMap {
 		if constraint, ok := fpc.constraintMap[frame]; ok {
-			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent(), nil)
 			if err != nil {
 				return err
 			}
@@ -459,7 +459,7 @@ func (fpc *fsPathConstraint) metric(state *StateFS) float64 {
 	score := 0.
 	for frame, goal := range fpc.goalMap {
 		if metric, ok := fpc.metricMap[frame]; ok {
-			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			currPose, err := fpc.fs.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), goal.Parent(), nil)
 			if err != nil {
 				score = math.Inf(1)
 				break
@@ -487,7 +487,7 @@ func newFsPathConstraintSeparatedLinOrientTol(
 	for frame, goal := range to {
 		startPiF, ok := from[frame]
 		if !ok {
-			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent(), nil)
 			if err != nil {
 				return nil, err
 			}
@@ -519,7 +519,7 @@ func newFsPathConstraintTol(
 	for frame, goal := range to {
 		startPiF, ok := from[frame]
 		if !ok {
-			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent())
+			startPiFTf, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(frame), goal.Parent(), nil)
 			if err != nil {
 				return nil, err
 			}

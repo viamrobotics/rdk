@@ -258,7 +258,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 		score := 0.
 		for frame, goalMetric := range metrics {
 			poseParent := goal[frame].Parent()
-			currPose, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
+			currPose, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent, nil)
 			if err != nil {
 				score += math.Inf(1)
 			}
