@@ -141,7 +141,7 @@ func computePTGNode(simPTG PTG, alpha, dist float64) (*TrajNode, error) {
 	}
 
 	// ptgIK caches these, so this should be fast. If cacheing is removed or a different simPTG used, this could be slow.
-	pose, err := simPTG.Transform([]referenceframe.Input{{alpha}, {dist}})
+	pose, err := simPTG.Transform([]referenceframe.Input{alpha, dist})
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func invertComputedPTG(forwardsPTG []*TrajNode) []*TrajNode {
 // PTGSegmentMetric is a metric which returns the TP-space distance traversed in a segment. Since PTG inputs are relative, the distance
 // travelled is the distance field of the ending configuration.
 func PTGSegmentMetric(segment *motionplan.Segment) float64 {
-	return segment.EndConfiguration[len(segment.EndConfiguration)-1].Value
+	return segment.EndConfiguration[len(segment.EndConfiguration)-1]
 }
 
 // NewPTGDistanceMetric creates a metric which returns the TP-space distance traversed in a segment for a frame. Since PTG inputs are
@@ -181,10 +181,11 @@ func NewPTGDistanceMetric(ptgFrames []string) motionplan.SegmentFSMetric {
 	return func(segment *motionplan.SegmentFS) float64 {
 		score := 0.
 		for _, ptgFrame := range ptgFrames {
-			if frameCfg, ok := segment.EndConfiguration[ptgFrame]; ok {
-				score += frameCfg[len(frameCfg)-1].Value
+			if frameCfg := segment.EndConfiguration.Get(ptgFrame); frameCfg != nil {
+				score += frameCfg[len(frameCfg)-1]
 			}
 		}
+
 		// If there's no matching configuration in the end, then the frame does not move
 		return score
 	}
@@ -200,9 +201,7 @@ func PTGIKSeed(ptg PTGSolver) []referenceframe.Input {
 	for i := 0; i < len(ptgDof); i++ {
 		boundRange := ptgDof[i].Max - ptgDof[i].Min
 		minAdj := boundRange * defaultPTGSeedAdj
-		inputs = append(inputs,
-			referenceframe.Input{ptgDof[i].Min + minAdj},
-		)
+		inputs = append(inputs, ptgDof[i].Min+minAdj)
 	}
 
 	return inputs

@@ -20,11 +20,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: ubuntu-large
+          - arch: ubuntu-16-core
             image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             platform_name: linux-amd64
-          - arch: ubuntu-large-arm
+          - arch: ubuntu-arm-16-core
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
             platform_name: linux-arm64
@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
 
@@ -117,15 +117,15 @@ jobs:
 
   test32:
     name: Go 32-bit Unit Tests
-    runs-on: ubuntu-large-arm
+    runs-on: ubuntu-arm-16-core
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
 
-      - uses: docker/login-action@v2
+      - uses: docker/login-action@v3
         with:
           username: viambuild
           password: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}

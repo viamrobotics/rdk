@@ -12,7 +12,6 @@ import (
 	"math"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -1079,7 +1078,6 @@ func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModule
 			return "", fmt.Errorf("version %s not found in versions for module", requestedVersion)
 		}
 	}
-	infof(ctx.App.ErrWriter, "found version %s", ver.Version)
 	if len(ver.Files) == 0 {
 		return "", fmt.Errorf("version %s has 0 files uploaded", ver.Version)
 	}
@@ -1105,7 +1103,6 @@ func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModule
 		return "", err
 	}
 	destName := strings.ReplaceAll(moduleID, ":", "-")
-	infof(ctx.App.ErrWriter, "saving to %s", path.Join(flags.Destination, fullVersion, destName+".tar.gz"))
 	return downloadPackageFromURL(ctx.Context, c.authFlow.httpClient,
 		flags.Destination, destName,
 		fullVersion, pkg.Package.Url, c.conf.Auth,

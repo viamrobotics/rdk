@@ -16,7 +16,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var interp = referenceframe.FloatsToInputs([]float64{
+var interp = []referenceframe.Input{
 	0.22034293025523666,
 	0.023301860367034785,
 	0.0035938741832804775,
@@ -24,7 +24,7 @@ var interp = referenceframe.FloatsToInputs([]float64{
 	-0.006010542176591475,
 	0.013764993693680328,
 	0.22994099248696265,
-})
+}
 
 // This should test a simple linear motion.
 // This test will step through the different stages of cbirrt and test each one in turn.
@@ -52,7 +52,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	solutions, err := mp.getSolutions(ctx, referenceframe.FrameSystemInputs{m.Name(): home7}, goalMetric)
 	test.That(t, err, test.ShouldBeNil)
 
-	near1 := &basicNode{q: referenceframe.FrameSystemInputs{m.Name(): home7}}
+	near1 := &basicNode{q: referenceframe.FrameSystemInputs{m.Name(): home7}.ToLinearInputs()}
 	seedMap := make(map[node]node)
 	seedMap[near1] = nil
 	target := referenceframe.FrameSystemInputs{m.Name(): interp}
@@ -72,7 +72,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
 	utils.PanicCapturingGo(func() {
-		cbirrt.constrainedExtend(ctx, cbirrt.randseed, seedMap, near1, &basicNode{q: target}, m1chan)
+		cbirrt.constrainedExtend(ctx, cbirrt.randseed, seedMap, near1, &basicNode{q: target.ToLinearInputs()}, m1chan)
 	})
 	seedReached := <-m1chan
 	// Find the nearest point in goalMap to the furthest point reached in seedMap

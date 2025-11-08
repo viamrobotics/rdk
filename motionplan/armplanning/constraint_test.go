@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -18,23 +18,24 @@ func TestIKTolerances(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/ur5eDH.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/ur5eDH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	fs := frame.NewEmptyFrameSystem("")
+	fs := referenceframe.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())
 
-	goal := frame.FrameSystemPoses{m.Name(): frame.NewPoseInFrame(
-		frame.World,
+	goal := referenceframe.FrameSystemPoses{m.Name(): referenceframe.NewPoseInFrame(
+		referenceframe.World,
 		spatial.NewPoseFromProtobuf(&commonpb.Pose{X: -46, Y: 0, Z: 372, OX: -1.78, OY: -3.3, OZ: -1.11}),
 	)}
 
-	seed := frame.FrameSystemInputs{m.Name(): frame.FloatsToInputs(make([]float64, 6))}
+	seed := referenceframe.NewLinearInputs()
+	seed.Put(m.Name(), make([]referenceframe.Input, 6))
 
 	// Create PlanRequest to use the new API
 	request := &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{NewPlanState(goal, nil)},
-		StartState:     NewPlanState(nil, seed),
+		StartState:     NewPlanState(nil, seed.ToFrameSystemInputs()),
 		PlannerOptions: NewBasicPlannerOptions(),
 		Constraints:    &motionplan.Constraints{},
 	}
@@ -60,7 +61,7 @@ func TestIKTolerances(t *testing.T) {
 	request2 := &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{NewPlanState(goal, nil)},
-		StartState:     NewPlanState(nil, seed),
+		StartState:     NewPlanState(nil, seed.ToFrameSystemInputs()),
 		PlannerOptions: opt,
 		Constraints:    &motionplan.Constraints{},
 	}

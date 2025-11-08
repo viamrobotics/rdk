@@ -63,7 +63,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req.StartState == nil {
 		return errors.New("PlanRequest cannot have nil StartState")
 	}
-	if req.StartState.configuration == nil {
+	if req.StartState.structuredConfiguration == nil {
 		return errors.New("PlanRequest cannot have nil StartState configuration")
 	}
 	if req.PlannerOptions == nil {
@@ -71,12 +71,13 @@ func (req *PlanRequest) validatePlanRequest() error {
 	}
 
 	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
-	if len(req.StartState.configuration) > 0 {
-		_, err := req.StartState.configuration.ComputePoses(req.FrameSystem)
+	if len(req.StartState.structuredConfiguration) > 0 {
+		_, err := req.StartState.structuredConfiguration.ComputePoses(req.FrameSystem)
 		if err != nil {
 			return err
 		}
 	}
+
 	// if we have start poses, check we have valid frames
 	for fName, pif := range req.StartState.poses {
 		if req.FrameSystem.Frame(fName) == nil {
@@ -127,7 +128,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 	// Validate the goals. Each goal with a pose must not also have a configuration specified. The parent frame of the pose must exist.
 	for i, goalState := range req.Goals {
 		for fName, pif := range goalState.poses {
-			if len(goalState.configuration) > 0 {
+			if len(goalState.structuredConfiguration) > 0 {
 				return errors.New("individual goals cannot have both configuration and poses populated")
 			}
 
@@ -203,7 +204,7 @@ func PlanFrameMotion(ctx context.Context,
 		Goals: []*PlanState{
 			{poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
 		},
-		StartState:     &PlanState{configuration: referenceframe.FrameSystemInputs{f.Name(): seed}},
+		StartState:     &PlanState{structuredConfiguration: referenceframe.FrameSystemInputs{f.Name(): seed}},
 		Constraints:    constraints,
 		PlannerOptions: planOpts,
 	})
@@ -235,7 +236,7 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 	}
 	logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	logger.CDebugf(ctx, "motion config for this step: %v", request.PlannerOptions)
-	logger.CDebugf(ctx, "start position: %v", request.StartState.configuration)
+	logger.CDebugf(ctx, "start position: %v", request.StartState.structuredConfiguration)
 
 	if request.PlannerOptions == nil {
 		request.PlannerOptions = NewBasicPlannerOptions()
@@ -244,7 +245,7 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
-	if request.StartState.configuration == nil {
+	if request.StartState.structuredConfiguration == nil {
 		return nil, meta, errors.New("must populate start state configuration")
 	}
 
@@ -253,11 +254,11 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 		return nil, meta, err
 	}
 
-	traj, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
+	trajAsInps, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
 	if err != nil {
 		if request.PlannerOptions.ReturnPartialPlan {
 			meta.Partial = true
-			logger.Infof("returning partial plan")
+			logger.Infof("returning partial plan, error: %v", err)
 		} else {
 			return nil, meta, err
 		}
@@ -265,7 +266,7 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 
 	meta.GoalsProcessed = goalsProcessed
 
-	t, err := motionplan.NewSimplePlanFromTrajectory(traj, request.FrameSystem)
+	t, err := motionplan.NewSimplePlanFromTrajectory(trajAsInps, request.FrameSystem)
 	if err != nil {
 		return nil, meta, err
 	}

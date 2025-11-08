@@ -83,7 +83,7 @@ func TestServer(t *testing.T) {
 	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
 	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -170,7 +170,7 @@ func TestServer(t *testing.T) {
 	depthImage.Set(5, 9, rimage.MaxDepth-rimage.Depth(1))
 	var depthBuf bytes.Buffer
 	test.That(t, png.Encode(&depthBuf, depthImage), test.ShouldBeNil)
-	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
 	// no frame rate camera
@@ -196,7 +196,7 @@ func TestServer(t *testing.T) {
 		return resBytes, camera.ImageMetadata{MimeType: mimeType}, nil
 	}
 	// bad camera
-	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCamera2.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return nil, errGeneratePointCloudFailed
 	}
 	injectCamera2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -374,13 +374,34 @@ func TestServer(t *testing.T) {
 		err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+			if val, ok := extra["empty"].(bool); ok && val {
+				return pointcloud.NewBasicEmpty(), nil
+			}
 			return pcA, nil
 		}
-		_, err = cameraServer.GetPointCloud(context.Background(), &pb.GetPointCloudRequest{
+		pcProto, err := cameraServer.GetPointCloud(context.Background(), &pb.GetPointCloudRequest{
 			Name: testCameraName,
 		})
+
 		test.That(t, err, test.ShouldBeNil)
+		pc, err := pointcloud.ReadPCD(bytes.NewReader(pcProto.GetPointCloud()), "")
+		test.That(t, err, test.ShouldBeNil)
+		_, got := pc.At(5, 5, 5)
+		test.That(t, got, test.ShouldBeTrue)
+
+		ext, err := goprotoutils.StructToStructPb(map[string]any{"empty": "true"})
+		test.That(t, err, test.ShouldBeNil)
+		emptyPcProto, err := cameraServer.GetPointCloud(context.Background(), &pb.GetPointCloudRequest{
+			Name:  testCameraName,
+			Extra: ext,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		emptyPc, err := pointcloud.ReadPCD(bytes.NewReader(emptyPcProto.GetPointCloud()), "")
+		test.That(t, err, test.ShouldBeNil)
+		_, got = emptyPc.At(5, 5, 5)
+		test.That(t, got, test.ShouldBeTrue)
 
 		_, err = cameraServer.GetPointCloud(context.Background(), &pb.GetPointCloudRequest{
 			Name: failCameraName,

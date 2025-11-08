@@ -188,8 +188,8 @@ func newTPSpaceMotionPlanner(
 }
 
 func (mp *tpSpaceRRTMotionPlanner) plan(ctx context.Context, seed, goal *PlanState) ([]node, error) {
-	zeroInputs := referenceframe.FrameSystemInputs{}
-	zeroInputs[mp.tpFrame.Name()] = make([]referenceframe.Input, len(mp.tpFrame.DoF()))
+	zeroInputs := referenceframe.NewLinearInputs()
+	zeroInputs.Put(mp.tpFrame.Name(), make([]referenceframe.Input, len(mp.tpFrame.DoF())))
 	solutionChan := make(chan *rrtSolution, 1)
 
 	maps := &rrtMaps{startMap: map[node]node{}, goalMap: map[node]node{}}
@@ -301,10 +301,10 @@ func (mp *tpSpaceRRTMotionPlanner) rrtBackgroundRunner(
 			allPtgs := mp.solvers
 			lastPose := startPose
 			for _, mynode := range correctedPath {
-				trajPts, err := allPtgs[int(mynode.Q()[mp.tpFrame.Name()][0].Value)].Trajectory(
-					mynode.Q()[mp.tpFrame.Name()][1].Value,
-					mynode.Q()[mp.tpFrame.Name()][2].Value,
-					mynode.Q()[mp.tpFrame.Name()][3].Value,
+				trajPts, err := allPtgs[int(mynode.Q().Get(mp.tpFrame.Name())[0])].Trajectory(
+					mynode.Q().Get(mp.tpFrame.Name())[1],
+					mynode.Q().Get(mp.tpFrame.Name())[2],
+					mynode.Q().Get(mp.tpFrame.Name())[3],
 					mp.planOpts.Resolution,
 				)
 				if err != nil {
@@ -541,15 +541,15 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 	// We may produce more than one consecutive arc. Reduce the one configuration to several 2dof arcs
 	for i := 0; i < len(solution.Configuration); i += 2 {
 		subConfig := referenceframe.FrameSystemInputs{
-			mp.tpFrame.Name(): referenceframe.FloatsToInputs(solution.Configuration[i : i+2]),
+			mp.tpFrame.Name(): solution.Configuration[i : i+2],
 		}
-		subNode := newConfigurationNode(subConfig)
+		subNode := newConfigurationNode(subConfig.ToLinearInputs())
 
 		// Check collisions along this traj and get the longest distance viable
 		trajK, err := curPtg.Trajectory(
-			subNode.Q()[mp.tpFrame.Name()][0].Value,
+			subNode.Q().Get(mp.tpFrame.Name())[0],
 			0,
-			subNode.Q()[mp.tpFrame.Name()][1].Value,
+			subNode.Q().Get(mp.tpFrame.Name())[1],
 			mp.planOpts.Resolution,
 		)
 		if err != nil {
@@ -562,8 +562,8 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 		}
 
 		partialExtend := false
-		for i, val := range subNode.Q()[mp.tpFrame.Name()] {
-			if goodNode.Q()[mp.tpFrame.Name()][i] != val {
+		for i, val := range subNode.Q().Get(mp.tpFrame.Name()) {
+			if goodNode.Q().Get(mp.tpFrame.Name())[i] != val {
 				partialExtend = true
 			}
 		}
@@ -575,8 +575,13 @@ func (mp *tpSpaceRRTMotionPlanner) getExtensionCandidate(
 
 		successNode = &basicNode{
 			q: referenceframe.FrameSystemInputs{
-				mp.tpFrame.Name(): {{float64(ptgNum)}, goodNode.Q()[mp.tpFrame.Name()][0], {0}, goodNode.Q()[mp.tpFrame.Name()][1]},
-			},
+				mp.tpFrame.Name(): {
+					float64(ptgNum),
+					goodNode.Q().Get(mp.tpFrame.Name())[0],
+					0,
+					goodNode.Q().Get(mp.tpFrame.Name())[1],
+				},
+			}.ToLinearInputs(),
 			cost:   goodNode.Cost(),
 			poses:  mp.tpFramePoseToFrameSystemPoses(arcStartPose),
 			corner: false,
@@ -642,8 +647,8 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStart
 
 		okNode := &basicNode{
 			q: referenceframe.FrameSystemInputs{
-				mp.tpFrame.Name(): {{trajPt.Alpha}, {trajPt.Dist}},
-			},
+				mp.tpFrame.Name(): {trajPt.Alpha, trajPt.Dist},
+			}.ToLinearInputs(),
 			cost:   trajPt.Dist,
 			poses:  mp.tpFramePoseToFrameSystemPoses(trajPt.Pose),
 			corner: false,
@@ -654,8 +659,8 @@ func (mp *tpSpaceRRTMotionPlanner) checkTraj(trajK []*tpspace.TrajNode, arcStart
 	lastTrajPt := trajK[len(trajK)-1]
 	return &basicNode{
 		q: referenceframe.FrameSystemInputs{
-			mp.tpFrame.Name(): {{lastTrajPt.Alpha}, {lastTrajPt.Dist}},
-		},
+			mp.tpFrame.Name(): {lastTrajPt.Alpha, lastTrajPt.Dist},
+		}.ToLinearInputs(),
 		cost:   lastTrajPt.Dist,
 		poses:  passed[len(passed)-1].Poses(),
 		corner: false,
@@ -734,7 +739,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptExtension(
 		endNode := reseedCandidate.newNodes[len(reseedCandidate.newNodes)-1]
 		distTravelledByCandidate := 0.
 		for _, newNode := range reseedCandidate.newNodes {
-			distTravelledByCandidate += math.Abs(newNode.Q()[mp.tpFrame.Name()][3].Value - newNode.Q()[mp.tpFrame.Name()][2].Value)
+			distTravelledByCandidate += math.Abs(newNode.Q().Get(mp.tpFrame.Name())[3] - newNode.Q().Get(mp.tpFrame.Name())[2])
 		}
 		distToGoal := mp.tpFramePose(endNode.Poses()).Point().Distance(mp.tpFramePose(goalNode.Poses()).Point())
 		if distToGoal < mp.planOpts.GoalThreshold || lastIteration {
@@ -793,9 +798,9 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 	treeNode := bestCand.treeNode // The node already in the tree to which we are parenting
 	newNodes := bestCand.newNodes // The node we are adding because it was the best extending PTG
 	for _, newNode := range newNodes {
-		ptgNum := int(newNode.Q()[mp.tpFrame.Name()][0].Value)
-		randAlpha := newNode.Q()[mp.tpFrame.Name()][1].Value
-		randDist := newNode.Q()[mp.tpFrame.Name()][3].Value - newNode.Q()[mp.tpFrame.Name()][2].Value
+		ptgNum := int(newNode.Q().Get(mp.tpFrame.Name())[0])
+		randAlpha := newNode.Q().Get(mp.tpFrame.Name())[1]
+		randDist := newNode.Q().Get(mp.tpFrame.Name())[3] - newNode.Q().Get(mp.tpFrame.Name())[2]
 
 		trajK, err := mp.solvers[ptgNum].Trajectory(randAlpha, 0, randDist, mp.planOpts.Resolution)
 		if err != nil {
@@ -829,8 +834,8 @@ func (mp *tpSpaceRRTMotionPlanner) extendMap(
 				// add the last node in trajectory
 				addedNode = &basicNode{
 					q: referenceframe.FrameSystemInputs{
-						mp.tpFrame.Name(): referenceframe.FloatsToInputs([]float64{float64(ptgNum), randAlpha, 0, trajPt.Dist}),
-					},
+						mp.tpFrame.Name(): []float64{float64(ptgNum), randAlpha, 0, trajPt.Dist},
+					}.ToLinearInputs(),
 					cost:   trajPt.Dist,
 					poses:  mp.tpFramePoseToFrameSystemPoses(trajState.Position),
 					corner: false,
@@ -876,10 +881,10 @@ func ptgSolution(ptg tpspace.PTGSolver,
 	seed := tpspace.PTGIKSeed(ptg)
 	dof := ptg.DoF()
 	if seedDist < dof[1].Max {
-		seed[1].Value = seedDist
+		seed[1] = seedDist
 	}
 	if relPose.Point().X < 0 {
-		seed[0].Value *= -1
+		seed[0] *= -1
 	}
 
 	solution, err := ptg.Solve(context.Background(), seed, targetFunc)
@@ -944,10 +949,10 @@ func (mp *tpSpaceRRTMotionPlanner) smoothPath(ctx context.Context, path []node) 
 		allPtgs := mp.solvers
 		lastPose := mp.tpFramePose(path[0].Poses())
 		for _, mynode := range path {
-			trajPts, err := allPtgs[int(mynode.Q()[mp.tpFrame.Name()][0].Value)].Trajectory(
-				mynode.Q()[mp.tpFrame.Name()][1].Value,
-				mynode.Q()[mp.tpFrame.Name()][2].Value,
-				mynode.Q()[mp.tpFrame.Name()][3].Value,
+			trajPts, err := allPtgs[int(mynode.Q().Get(mp.tpFrame.Name())[0])].Trajectory(
+				mynode.Q().Get(mp.tpFrame.Name())[1],
+				mynode.Q().Get(mp.tpFrame.Name())[2],
+				mynode.Q().Get(mp.tpFrame.Name())[3],
 				mp.planOpts.Resolution,
 			)
 			if err != nil {
@@ -985,15 +990,15 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 		pathNode := path[j]
 		startMap[pathNode] = parent
 		for adjNum := defaultSmoothChunkCount - 1; adjNum > 0; adjNum-- {
-			fullQ := pathNode.Q()[mp.tpFrame.Name()]
-			adj := (fullQ[3].Value - fullQ[2].Value) * (float64(adjNum) / float64(defaultSmoothChunkCount))
+			fullQ := pathNode.Q().Get(mp.tpFrame.Name())
+			adj := (fullQ[3] - fullQ[2]) * (float64(adjNum) / float64(defaultSmoothChunkCount))
 			newQ := referenceframe.FrameSystemInputs{
-				mp.tpFrame.Name(): {fullQ[0], fullQ[1], fullQ[2], {fullQ[3].Value - adj}},
+				mp.tpFrame.Name(): {fullQ[0], fullQ[1], fullQ[2], fullQ[3] - adj},
 			}
-			trajK, err := smoother.solvers[int(math.Round(newQ[mp.tpFrame.Name()][0].Value))].Trajectory(
-				newQ[mp.tpFrame.Name()][1].Value,
-				newQ[mp.tpFrame.Name()][2].Value,
-				newQ[mp.tpFrame.Name()][3].Value,
+			trajK, err := smoother.solvers[int(math.Round(newQ[mp.tpFrame.Name()][0]))].Trajectory(
+				newQ[mp.tpFrame.Name()][1],
+				newQ[mp.tpFrame.Name()][2],
+				newQ[mp.tpFrame.Name()][3],
 				mp.planOpts.Resolution,
 			)
 			if err != nil {
@@ -1001,7 +1006,7 @@ func (mp *tpSpaceRRTMotionPlanner) attemptSmooth(
 			}
 
 			intNode := &basicNode{
-				q:      newQ,
+				q:      newQ.ToLinearInputs(),
 				cost:   pathNode.Cost() - math.Abs(adj),
 				poses:  mp.tpFramePoseToFrameSystemPoses(spatialmath.Compose(parentPose, trajK[len(trajK)-1].Pose)),
 				corner: false,
@@ -1075,7 +1080,7 @@ func rectifyTPspacePath(path []node, frame referenceframe.Frame, startPose spati
 	correctedPath := []node{}
 	runningPose := startPose
 	for _, wp := range path {
-		wpPose, err := frame.Transform(wp.Q()[frame.Name()])
+		wpPose, err := frame.Transform(wp.Q().Get(frame.Name()))
 		if err != nil {
 			return nil, err
 		}
@@ -1108,8 +1113,8 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 			path = append(path,
 				&basicNode{
 					q: referenceframe.FrameSystemInputs{
-						fName: {{0}, {0}, {0}, {0}},
-					},
+						fName: {0, 0, 0, 0},
+					}.ToLinearInputs(),
 					cost:   startReached.Cost(),
 					poses:  startReached.Poses(),
 					corner: startReached.Corner(),
@@ -1133,8 +1138,8 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 			// Add the final node
 			goalReachedReversed = &basicNode{
 				q: referenceframe.FrameSystemInputs{
-					fName: {{0}, {0}, {0}, {0}},
-				},
+					fName: {0, 0, 0, 0},
+				}.ToLinearInputs(),
 				cost: goalReached.Cost(),
 				poses: referenceframe.FrameSystemPoses{fName: referenceframe.NewPoseInFrame(
 					goalPiF.Parent(),
@@ -1146,12 +1151,12 @@ func extractTPspacePath(fName string, startMap, goalMap map[node]node, pair *nod
 			goalReachedReversed = &basicNode{
 				q: referenceframe.FrameSystemInputs{
 					fName: {
-						goalReached.Q()[fName][0],
-						goalReached.Q()[fName][1],
-						goalReached.Q()[fName][3],
-						goalReached.Q()[fName][2],
+						goalReached.Q().Get(fName)[0],
+						goalReached.Q().Get(fName)[1],
+						goalReached.Q().Get(fName)[3],
+						goalReached.Q().Get(fName)[2],
 					},
-				},
+				}.ToLinearInputs(),
 				cost: goalReached.Cost(),
 				poses: referenceframe.FrameSystemPoses{fName: referenceframe.NewPoseInFrame(
 					goalPiF.Parent(),

@@ -61,7 +61,7 @@ func checkPlanRelative(
 ) error {
 	var err error
 	toWorld := func(pif *referenceframe.PoseInFrame, inputs referenceframe.FrameSystemInputs) (*referenceframe.PoseInFrame, error) {
-		transformable, err := fs.Transform(inputs, pif, referenceframe.World)
+		transformable, err := fs.Transform(inputs.ToLinearInputs(), pif, referenceframe.World)
 		if err != nil {
 			return nil, err
 		}
@@ -207,7 +207,7 @@ func checkPlanAbsolute(
 	wayPointIdx := executionState.Index()
 
 	checkFramePiF := referenceframe.NewPoseInFrame(checkFrame.Name(), spatialmath.NewZeroPose())
-	expectedPoseTf, err := fs.Transform(currentInputs, checkFramePiF, currentPoseIF.Parent())
+	expectedPoseTf, err := fs.Transform(currentInputs.ToLinearInputs(), checkFramePiF, currentPoseIF.Parent())
 	if err != nil {
 		return err
 	}
@@ -258,8 +258,8 @@ func checkPlanAbsolute(
 	// iterate through remaining plan and append remaining segments to check
 	for i := wayPointIdx; i < len(offsetPlan.Path())-1; i++ {
 		segment := &motionplan.SegmentFS{
-			StartConfiguration: offsetPlan.Trajectory()[i],
-			EndConfiguration:   offsetPlan.Trajectory()[i+1],
+			StartConfiguration: offsetPlan.Trajectory()[i].ToLinearInputs(),
+			EndConfiguration:   offsetPlan.Trajectory()[i+1].ToLinearInputs(),
 			FS:                 fs,
 		}
 		segments = append(segments, segment)
@@ -356,7 +356,7 @@ func checkSegments(
 		}
 		for _, interpConfig := range interpolatedConfigurations {
 			poseInPathTf, err := fs.Transform(
-				referenceframe.FrameSystemInputs{checkFrame.Name(): interpConfig},
+				referenceframe.FrameSystemInputs{checkFrame.Name(): interpConfig}.ToLinearInputs(),
 				referenceframe.NewZeroPoseInFrame(checkFrame.Name()),
 				parent.Name(),
 			)

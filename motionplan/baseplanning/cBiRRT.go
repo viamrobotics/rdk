@@ -52,7 +52,7 @@ func newCBiRRTMotionPlanner(
 		return nil, err
 	}
 	// nlopt should try only once
-	nlopt, err := ik.CreateNloptSolver(mp.lfs.dof, logger, 1, true, true)
+	nlopt, err := ik.CreateNloptSolver(logger, 1, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (mp *cBiRRTMotionPlanner) rrtBackgroundRunner(
 	defer cancel()
 	mp.start = time.Now()
 
-	var seed referenceframe.FrameSystemInputs
+	var seed *referenceframe.LinearInputs
 	// Pick a random (first in map) seed node to create the first interp node
 	for sNode, parent := range rrt.maps.startMap {
 		if parent == nil {
@@ -337,8 +337,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	ctx context.Context,
 	randseed *rand.Rand,
 	seedInputs,
-	target referenceframe.FrameSystemInputs,
-) referenceframe.FrameSystemInputs {
+	target *referenceframe.LinearInputs,
+) *referenceframe.LinearInputs {
 	for i := 0; i < maxNearIter; i++ {
 		select {
 		case <-ctx.Done():
@@ -358,13 +358,13 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			return target
 		}
 		solutionGen := make(chan *ik.Solution, 1)
-		linearSeed, err := mp.lfs.mapToSlice(target)
+		linearSeed, err := mp.lfs.mapToSlice(target.ToFrameSystemInputs())
 		if err != nil {
 			return nil
 		}
 
 		// Spawn the IK solver to generate solutions until done
-		_, err = mp.fastGradDescent.Solve(ctx, solutionGen, linearSeed, nil,
+		_, err = mp.fastGradDescent.Solve(ctx, solutionGen, [][]float64{linearSeed}, [][]referenceframe.Limit{mp.lfs.dof},
 			mp.linearizeFSmetric(mp.ConstraintChecker.PathMetric()), randseed.Int())
 		// We should have zero or one solutions
 		var solved *ik.Solution
@@ -385,13 +385,13 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			ctx,
 			&motionplan.SegmentFS{
 				StartConfiguration: seedInputs,
-				EndConfiguration:   solutionMap,
+				EndConfiguration:   solutionMap.ToLinearInputs(),
 				FS:                 mp.fs,
 			},
 			mp.planOpts.Resolution,
 		)
 		if err == nil {
-			return solutionMap
+			return solutionMap.ToLinearInputs()
 		}
 		if failpos != nil {
 			dist := mp.configurationDistanceFunc(&motionplan.SegmentFS{

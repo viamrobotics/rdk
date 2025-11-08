@@ -17,8 +17,9 @@ import (
 )
 
 func TestConstraintPath(t *testing.T) {
-	homePos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
-	toPos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
+	ctx := context.Background()
+	homePos := []referenceframe.Input{0, 0, 0, 0, 0, 0}
+	toPos := []referenceframe.Input{0, 0, 0, 0, 0, 1}
 
 	modelXarm, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 
@@ -30,24 +31,24 @@ func TestConstraintPath(t *testing.T) {
 	handler := &ConstraintChecker{}
 
 	// No constraints, should pass
-	ok, failCI := handler.CheckSegmentAndStateValidity(ci, 0.5)
+	ok, failCI := handler.CheckSegmentAndStateValidity(ctx, ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Test interpolating with a proportional constraint, should pass
 	constraint, _ := newProportionalLinearInterpolatingConstraint(ci.StartPosition, ci.EndPosition, 0.01, 0.01)
 	handler.AddStateConstraint("interp", constraint)
-	ok, failCI = handler.CheckSegmentAndStateValidity(ci, 0.5)
+	ok, failCI = handler.CheckSegmentAndStateValidity(ctx, ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	test.That(t, len(handler.StateConstraints()), test.ShouldEqual, 1)
 
-	badInterpPos := referenceframe.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
+	badInterpPos := []referenceframe.Input{6.2, 0, 0, 0, 0, 0}
 	ciBad := &Segment{StartConfiguration: homePos, EndConfiguration: badInterpPos, Frame: modelXarm}
 	err = resolveSegmentsToPositions(ciBad)
 	test.That(t, err, test.ShouldBeNil)
-	ok, failCI = handler.CheckSegmentAndStateValidity(ciBad, 0.5)
+	ok, failCI = handler.CheckSegmentAndStateValidity(ctx, ciBad, 0.5)
 	test.That(t, failCI, test.ShouldNotBeNil) // With linear constraint, should be valid at the first step
 	test.That(t, ok, test.ShouldBeFalse)
 }
@@ -116,7 +117,7 @@ func TestLineFollow(t *testing.T) {
 	goalFrame := fs.World()
 
 	opt := NewEmptyConstraintChecker()
-	startCfg := map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mp1)}
+	startCfg := referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mp1)}.ToLinearInputs()
 	from := referenceframe.FrameSystemPoses{markerFrame.Name(): referenceframe.NewPoseInFrame(markerFrame.Name(), p1)}
 	to := referenceframe.FrameSystemPoses{markerFrame.Name(): referenceframe.NewPoseInFrame(goalFrame.Name(), p2)}
 
@@ -141,8 +142,8 @@ func TestLineFollow(t *testing.T) {
 	lastGood, err := opt.CheckSegmentAndStateValidityFS(
 		ctx,
 		&SegmentFS{
-			StartConfiguration: map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mp1)},
-			EndConfiguration:   map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mp2)},
+			StartConfiguration: referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mp1)}.ToLinearInputs(),
+			EndConfiguration:   referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mp2)}.ToLinearInputs(),
 			FS:                 fs,
 		},
 		0.001,
@@ -157,23 +158,23 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
 
 	// Check that a deviating configuration will fail
-	stateCheck.Configuration = map[string][]referenceframe.Input{m.Name(): m.InputFromProtobuf(mpFail)}
+	stateCheck.Configuration = referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mpFail)}.ToLinearInputs()
 	err = opt.CheckStateFSConstraints(ctx, stateCheck)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldStartWith, "whiteboard")
 }
 
 func TestCollisionConstraints(t *testing.T) {
-	zeroPos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	zeroPos := []referenceframe.Input{0, 0, 0, 0, 0, 0}
 	cases := []struct {
 		input    []referenceframe.Input
 		expected bool
 		failName string
 	}{
 		{zeroPos, true, ""},
-		{referenceframe.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true, ""},
-		{referenceframe.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false, obstacleConstraintDescription},
-		{referenceframe.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false, selfCollisionConstraintDescription},
+		{[]referenceframe.Input{math.Pi / 2, 0, 0, 0, 0, 0}, true, ""},
+		{[]referenceframe.Input{math.Pi, 0, 0, 0, 0, 0}, false, obstacleConstraintDescription},
+		{[]referenceframe.Input{math.Pi / 2, 0, 0, 0, 2, 0}, false, selfCollisionConstraintDescription},
 	}
 
 	// define external obstacles
@@ -299,7 +300,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	// loop through cases and check constraint handler processes them correctly
 	for n := 0; n < b.N; n++ {
 		rfloats := referenceframe.GenerateRandomConfiguration(model, rseed)
-		err = handler.CheckStateConstraints(&State{Configuration: referenceframe.FloatsToInputs(rfloats), Frame: model})
+		err = handler.CheckStateConstraints(&State{Configuration: rfloats, Frame: model})
 		test.That(b, err, test.ShouldBeNil)
 	}
 }

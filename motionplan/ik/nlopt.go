@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"slices"
+	"time"
 
 	"github.com/go-nlopt/nlopt"
 	"github.com/pkg/errors"
@@ -25,7 +27,6 @@ const (
 
 // NloptIK can solve IK problems with nlopt.
 type NloptIK struct {
-	limits        []referenceframe.Limit
 	maxIterations int
 	logger        logging.Logger
 
@@ -43,12 +44,11 @@ type NloptIK struct {
 // of the solver, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
 func CreateNloptSolver(
-	limits []referenceframe.Limit,
 	logger logging.Logger,
 	iter int,
 	exact, useRelTol bool,
 ) (*NloptIK, error) {
-	ik := &NloptIK{logger: logger, limits: limits}
+	ik := &NloptIK{logger: logger}
 
 	if iter < 1 {
 		// default value
@@ -61,64 +61,77 @@ func CreateNloptSolver(
 	return ik, nil
 }
 
-// DoF returns the DoF of the solver.
-func (ik *NloptIK) DoF() []referenceframe.Limit {
-	return ik.limits
+type nloptSeedState struct {
+	seed                   []float64
+	lowerBound, upperBound []float64
+	jump                   []float64
+
+	meta string
+
+	opt *nlopt.NLopt
 }
 
-// Solve runs the actual solver and sends any solutions found to the given channel.
-func (ik *NloptIK) Solve(ctx context.Context,
-	solutionChan chan<- *Solution,
-	seed []float64,
-	travelPercent []float64,
-	minFunc CostFunc,
-	rseed int,
-) (int, error) {
-	if len(seed) != len(ik.limits) {
-		return 0, fmt.Errorf("nlopt initialized with %d dof but seed was length %d", len(ik.limits), len(seed))
-	}
-	//nolint: gosec
-	randSeed := rand.New(rand.NewSource(int64(rseed)))
+func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc CostFunc,
+	s []float64, limits []referenceframe.Limit, iterations *int,
+) (*nloptSeedState, error) {
 	var err error
 
-	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
-	jump := ik.calcJump(ctx, defaultJump, seed, minFunc)
-
-	iterations := 0
-	solutionsFound := 0
-
-	lowerBound, upperBound := limitsToArrays(ik.limits)
-	if len(lowerBound) == 0 || len(upperBound) == 0 {
-		return 0, errBadBounds
+	ss := &nloptSeedState{
+		seed: s,
+		meta: fmt.Sprintf("s:%d", seedNumber),
 	}
 
-	if len(travelPercent) == len(lowerBound) {
-		for i := 0; i < len(lowerBound); i++ {
-			lowerBound[i] = max(lowerBound[i], seed[i]-(ik.limits[i].Range()*travelPercent[i]))
-			upperBound[i] = min(upperBound[i], seed[i]+(ik.limits[i].Range()*travelPercent[i]))
+	ss.lowerBound, ss.upperBound = limitsToArrays(limits)
+	if len(ss.lowerBound) == 0 || len(ss.upperBound) == 0 {
+		return nil, errBadBounds
+	}
+
+	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
+	ss.jump = ik.calcJump(ctx, defaultJump, s, limits, minFunc)
+	ss.opt, err = nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ss.lowerBound)))
+	if err != nil {
+		return nil, errors.Wrap(err, "nlopt creation error")
+	}
+
+	err = multierr.Combine(
+		ss.opt.SetFtolAbs(defaultGoalThreshold),
+		ss.opt.SetLowerBounds(ss.lowerBound),
+		ss.opt.SetStopVal(defaultGoalThreshold),
+		ss.opt.SetUpperBounds(ss.upperBound),
+		ss.opt.SetXtolAbs1(defaultGoalThreshold),
+		ss.opt.SetMinObjective(ss.getMinFunc(ctx, minFunc, iterations)),
+		ss.opt.SetMaxEval(nloptStepsPerIter),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if ik.useRelTol {
+		err = multierr.Combine(
+			ss.opt.SetFtolRel(defaultGoalThreshold),
+			ss.opt.SetXtolRel(defaultGoalThreshold),
+		)
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(lowerBound)))
-	defer opt.Destroy()
-	if err != nil {
-		return 0, errors.Wrap(err, "nlopt creation error")
-	}
-	jumpVal := 0.
+	return ss, nil
+}
 
+func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, iteration *int) nlopt.Func {
 	// checkVals is our set of inputs that we evaluate for distance
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
-	nloptMinFunc := func(checkVals, gradient []float64) float64 {
-		iterations++
+	return func(checkVals, gradient []float64) float64 {
+		*iteration++
 		dist := minFunc(ctx, checkVals)
 		if len(gradient) > 0 {
 			// Yes, the for loop below is logically equivalent to not having this if statement. But CPU branch prediction means having the
 			// if statement is faster.
 			for i := range gradient {
-				jumpVal = jump[i]
+				jumpVal := nss.jump[i]
 				flip := false
 				checkVals[i] += jumpVal
-				ub := upperBound[i]
+				ub := nss.upperBound[i]
 				for checkVals[i] >= ub {
 					flip = true
 					checkVals[i] -= 10 * jumpVal
@@ -135,37 +148,60 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 		return dist
 	}
+}
 
-	err = multierr.Combine(
-		opt.SetFtolAbs(defaultGoalThreshold),
-		opt.SetLowerBounds(lowerBound),
-		opt.SetStopVal(defaultGoalThreshold),
-		opt.SetUpperBounds(upperBound),
-		opt.SetXtolAbs1(defaultGoalThreshold),
-		opt.SetMinObjective(nloptMinFunc),
-		opt.SetMaxEval(nloptStepsPerIter),
-	)
-	if err != nil {
-		return 0, err
+// Solve runs the actual solver and sends any solutions found to the given channel.
+func (ik *NloptIK) Solve(ctx context.Context,
+	solutionChan chan<- *Solution,
+	seeds [][]float64,
+	limits [][]referenceframe.Limit,
+	minFunc CostFunc,
+	rseed int,
+) (int, error) {
+	if len(seeds) == 0 {
+		return 0, fmt.Errorf("no seeds")
 	}
-	if ik.useRelTol {
-		err = multierr.Combine(
-			opt.SetFtolRel(defaultGoalThreshold),
-			opt.SetXtolRel(defaultGoalThreshold),
-		)
+
+	if len(seeds) != len(limits) {
+		return 0, fmt.Errorf("need matching limits (%d) and seeds (%d) arrays", len(limits), len(seeds))
+	}
+
+	randSeed := rand.New(rand.NewSource(int64(rseed))) //nolint: gosec
+
+	seedStates := []*nloptSeedState{}
+	defer func() {
+		for _, ss := range seedStates {
+			if ss.opt != nil {
+				ss.opt.Destroy()
+			}
+		}
+	}()
+
+	iterations := 0
+
+	for i, s := range seeds {
+		ss, err := ik.newSeedState(ctx, i, minFunc, s, limits[i], &iterations)
 		if err != nil {
 			return 0, err
 		}
+
+		seedStates = append(seedStates, ss)
 	}
 
-	for iterations < ik.maxIterations {
-		if ctx.Err() != nil {
-			break
-		}
+	if rseed%3 == 1 {
+		slices.Reverse(seedStates)
+	}
 
+	solutionsFound := 0
+	seedNumber := rseed // start randomly in the list
+
+	itStart := time.Now()
+	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < time.Second)) && ctx.Err() == nil {
 		iterations++
 
-		solutionRaw, result, nloptErr := opt.Optimize(seed)
+		ss := seedStates[seedNumber%len(seedStates)]
+
+		solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
 		if nloptErr != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
@@ -182,6 +218,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				Configuration: solutionRaw,
 				Score:         result,
 				Exact:         result < defaultGoalThreshold,
+				Meta:          ss.meta,
 			}
 			select {
 			case <-ctx.Done():
@@ -190,16 +227,19 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				solutionsFound++
 			}
 		}
+		ss.seed = generateRandomPositions(randSeed, ss.lowerBound, ss.upperBound)
 
-		seed = generateRandomPositions(randSeed, lowerBound, upperBound)
+		seedNumber++
 	}
 
 	return solutionsFound, nil
 }
 
-func (ik *NloptIK) calcJump(ctx context.Context, testJump float64, seed []float64, minFunc CostFunc) []float64 {
+func (ik *NloptIK) calcJump(ctx context.Context, testJump float64,
+	seed []float64, limits []referenceframe.Limit, minFunc CostFunc,
+) []float64 {
 	jump := make([]float64, 0, len(seed))
-	lowerBound, upperBound := limitsToArrays(ik.limits)
+	lowerBound, upperBound := limitsToArrays(limits)
 
 	seedDist := minFunc(ctx, seed)
 	for i, testVal := range seed {
