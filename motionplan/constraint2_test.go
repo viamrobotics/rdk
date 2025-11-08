@@ -155,10 +155,12 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
 
 	stateCheck.Configuration = lastGood.EndConfiguration
+	stateCheck.Cache = nil
 	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
 
 	// Check that a deviating configuration will fail
 	stateCheck.Configuration = referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mpFail)}.ToLinearInputs()
+	stateCheck.Cache = nil
 	err = opt.CheckStateFSConstraints(ctx, stateCheck)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldStartWith, "whiteboard")

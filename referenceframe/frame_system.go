@@ -653,7 +653,8 @@ func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[str
 // elements are GeometriesInFrames with a World reference frame. This is preferred for hot
 // paths. But requires the caller to manage a `LinearInputs`.
 func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInputs,
-	cache map[string]spatial.Pose) (map[string]*GeometriesInFrame, error) {
+	cache map[string]spatial.Pose,
+) (map[string]*GeometriesInFrame, error) {
 	if cache == nil {
 		cache = map[string]spatial.Pose{}
 	}
