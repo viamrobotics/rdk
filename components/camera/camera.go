@@ -188,7 +188,7 @@ type ImageMetadata struct {
 //
 //	myCamera, err := camera.FromProvider(machine, "my_camera")
 //
-//	images, metadata, err := myCamera.Images(context.Background(), nil)
+//	images, metadata, err := myCamera.Images(context.Background(), nil, nil)
 //
 // For more information, see the [Images method docs].
 //
@@ -197,7 +197,7 @@ type ImageMetadata struct {
 //	myCamera, err := camera.FromProvider(machine, "my_camera")
 //
 //	// gets the next point cloud from a camera
-//	pointCloud, err := myCamera.NextPointCloud(context.Background())
+//	pointCloud, err := myCamera.NextPointCloud(context.Background(), nil)
 //
 // For more information, see the [NextPointCloud method docs].
 //
@@ -230,7 +230,7 @@ type Camera interface {
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
-	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+	NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error)
 
 	// Properties returns properties that are intrinsic to the particular
 	// implementation of a camera.
@@ -367,7 +367,7 @@ func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func
 
 // A PointCloudSource is a source that can generate pointclouds.
 type PointCloudSource interface {
-	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+	NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error)
 }
 
 // A ImagesSource is a source that can return a list of images with timestamp.

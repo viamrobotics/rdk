@@ -43,14 +43,14 @@ func (ptg *ptgCS) Velocities(alpha, dist float64) (float64, float64, error) {
 }
 
 func (ptg *ptgCS) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
-	alpha := inputs[0].Value
-	dist := inputs[1].Value
+	alpha := inputs[0]
+	dist := inputs[1]
 
 	turnDist := ptg.turnDist(alpha)
 	var err error
 	arcPose := spatialmath.NewZeroPose()
 	if alpha != 0 {
-		arcPose, err = ptg.circle.Transform([]referenceframe.Input{inputs[0], {math.Min(dist, turnDist)}})
+		arcPose, err = ptg.circle.Transform([]referenceframe.Input{inputs[0], math.Min(dist, turnDist)})
 		if err != nil {
 			return nil, err
 		}
@@ -58,7 +58,7 @@ func (ptg *ptgCS) Transform(inputs []referenceframe.Input) (spatialmath.Pose, er
 	if dist < turnDist {
 		return arcPose, nil
 	}
-	fwdPose, err := ptg.circle.Transform([]referenceframe.Input{{0}, {dist - turnDist}})
+	fwdPose, err := ptg.circle.Transform([]referenceframe.Input{0, dist - turnDist})
 	if err != nil {
 		return nil, err
 	}

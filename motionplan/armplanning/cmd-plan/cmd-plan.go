@@ -18,7 +18,6 @@ import (
 	"time"
 
 	viz "github.com/viam-labs/motion-tools/client/client"
-	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 
 	"go.viam.com/rdk/logging"
@@ -59,13 +58,18 @@ func realMain() error {
 		if err != nil {
 			return fmt.Errorf("couldn't create %s %w", *cpu, err)
 		}
-		defer utils.UncheckedError(f.Close())
 
 		err = pprof.StartCPUProfile(f)
 		if err != nil {
 			return fmt.Errorf("could not start CPU profile: %w", err)
 		}
-		defer pprof.StopCPUProfile()
+		defer func() {
+			pprof.StopCPUProfile()
+			err = f.Close()
+			if err != nil {
+				logger.Errorf("couldn't write profiling file: %v", err)
+			}
+		}()
 	}
 
 	if *verbose {
@@ -85,6 +89,11 @@ func realMain() error {
 
 	if *seed >= 0 {
 		req.PlannerOptions.RandomSeed = *seed
+	}
+
+	err = armplanning.PrepSmartSeed(req.FrameSystem, logger)
+	if err != nil {
+		return err
 	}
 
 	logger.Infof("starting motion planning for %d goals", len(req.Goals))
@@ -155,7 +164,7 @@ func realMain() error {
 			}
 			mylog.Printf("\t\t %s", c)
 			mylog.Printf("\t\t\t %v", pp)
-			mylog.Printf("\t\t\t %v", t[c])
+			mylog.Printf("\t\t\t joints: %v", logging.FloatArrayFormat{"%0.2f", t[c]})
 			if idx > 0 {
 				p := plan.Trajectory()[idx-1][c]
 
@@ -212,14 +221,17 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 	for idx := range plan.Path() {
 		if idx > 0 {
 			midPoints, err := motionplan.InterpolateSegmentFS(
-				&motionplan.SegmentFS{plan.Trajectory()[idx-1], plan.Trajectory()[idx], req.FrameSystem},
-				2)
+				&motionplan.SegmentFS{
+					StartConfiguration: plan.Trajectory()[idx-1].ToLinearInputs(),
+					EndConfiguration:   plan.Trajectory()[idx].ToLinearInputs(),
+					FS:                 req.FrameSystem,
+				}, 2)
 			if err != nil {
 				return err
 			}
 
 			for _, mp := range midPoints {
-				if err := viz.DrawFrameSystem(req.FrameSystem, mp); err != nil {
+				if err := viz.DrawFrameSystem(req.FrameSystem, mp.ToFrameSystemInputs()); err != nil {
 					return err
 				}
 
@@ -398,7 +410,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					logger.Println("Rendering failed solution")
 					logger.Println("  Err:", errStr)
 					logger.Println("  Inputs:", configuration)
-					if err := viz.DrawFrameSystem(req.FrameSystem, configuration); err != nil {
+					if err := viz.DrawFrameSystem(req.FrameSystem, configuration.ToFrameSystemInputs()); err != nil {
 						return err
 					}
 					break searchLoop

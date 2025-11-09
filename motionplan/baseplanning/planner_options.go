@@ -264,7 +264,7 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 			}
 			score += goalMetric(&motionplan.State{
 				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
-				Configuration: state.Configuration[frame],
+				Configuration: state.Configuration.Get(frame),
 				Frame:         state.FS.Frame(frame),
 			})
 		}

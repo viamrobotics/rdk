@@ -134,6 +134,25 @@ func pointVsBoxDistance(pt r3.Vector, b *box) float64 {
 	return -b.pointPenetrationDepth(pt)
 }
 
+// Hash returns a hash value for this point.
+func (pt *point) Hash() int {
+	hash := 0
+	pos := pt.position
+	hash += (5 * (int(pos.X*10) + 1000)) * 2
+	hash += (6 * (int(pos.Y*10) + 10221)) * 3
+	hash += (7 * (int(pos.Z*10) + 2124)) * 4
+	hash += hashString(pt.label) * 11
+	return hash
+}
+
+func hashString(s string) int {
+	hash := 0
+	for idx, c := range s {
+		hash += ((idx + 1) * 7) + ((int(c) + 12) * 12)
+	}
+	return hash
+}
+
 // ToPointCloud converts a point geometry into a []r3.Vector.
 func (pt *point) ToPoints(resolution float64) []r3.Vector {
 	return []r3.Vector{pt.position}

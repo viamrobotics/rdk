@@ -116,6 +116,11 @@ func FromDependencies(deps resource.Dependencies) (Service, error) {
 	return resource.FromProvider[Service](deps, PublicServiceName)
 }
 
+// FromProvider is a helper for getting the named arm from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider) (Service, error) {
+	return resource.FromProvider[Service](provider, PublicServiceName)
+}
+
 // New returns a new frame system service for the given robot.
 func New(ctx context.Context, deps resource.Dependencies, logger logging.Logger) (Service, error) {
 	fs := &frameSystemService{
@@ -269,7 +274,7 @@ func (svc *frameSystemService) TransformPose(
 		return nil, err
 	}
 
-	tf, err := fs.Transform(input, pose, dst)
+	tf, err := fs.Transform(input.ToLinearInputs(), pose, dst)
 	if err != nil {
 		return nil, err
 	}

@@ -47,7 +47,7 @@ func NewConstraintChecker(
 	startPoses, goalPoses referenceframe.FrameSystemPoses,
 	fs *referenceframe.FrameSystem,
 	movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry,
-	seedMap referenceframe.FrameSystemInputs,
+	seedMap *referenceframe.LinearInputs,
 	worldState *referenceframe.WorldState,
 	boundingRegions []spatialmath.Geometry,
 	useTPspace bool,
@@ -60,12 +60,12 @@ func NewConstraintChecker(
 	handler := NewEmptyConstraintChecker()
 	handler.boundingRegions = boundingRegions
 
-	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, seedMap)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(fs, seedMap)
 	if err != nil {
 		return nil, err
 	}
 
-	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
+	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(fs, seedMap.ToFrameSystemInputs())
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func NewConstraintChecker(
 // constraints. It will return a bool indicating whether there are any to add.
 func (c *ConstraintChecker) addTopoConstraints(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	constraints *Constraints,
 ) (bool, error) {
@@ -175,7 +175,7 @@ func (c *ConstraintChecker) addTopoConstraints(
 
 func (c *ConstraintChecker) addLinearConstraints(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	linConstraint LinearConstraint,
 ) error {
@@ -201,7 +201,7 @@ func (c *ConstraintChecker) addLinearConstraints(
 
 func (c *ConstraintChecker) addPseudolinearConstraints(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	plinConstraint PseudolinearConstraint,
 ) error {
@@ -227,7 +227,7 @@ func (c *ConstraintChecker) addPseudolinearConstraints(
 
 func (c *ConstraintChecker) addOrientationConstraints(
 	fs *referenceframe.FrameSystem,
-	startCfg referenceframe.FrameSystemInputs,
+	startCfg *referenceframe.LinearInputs,
 	from, to referenceframe.FrameSystemPoses,
 	orientConstraint OrientationConstraint,
 ) error {
@@ -269,7 +269,9 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 }
 
 // CheckSegmentConstraints will check a given input against all segment constraints.
-func (c *ConstraintChecker) CheckSegmentConstraints(segment *Segment) error {
+func (c *ConstraintChecker) CheckSegmentConstraints(ctx context.Context, segment *Segment) error {
+	_, span := trace.StartSpan(ctx, "CheckSegmentConstraints")
+	defer span.End()
 	for name, cFunc := range c.segmentConstraints {
 		if err := cFunc(segment); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -280,7 +282,9 @@ func (c *ConstraintChecker) CheckSegmentConstraints(segment *Segment) error {
 }
 
 // CheckSegmentFSConstraints will check a given input against all FS segment constraints.
-func (c *ConstraintChecker) CheckSegmentFSConstraints(segment *SegmentFS) error {
+func (c *ConstraintChecker) CheckSegmentFSConstraints(ctx context.Context, segment *SegmentFS) error {
+	_, span := trace.StartSpan(ctx, "CheckSegmentFSConstraints")
+	defer span.End()
 	for name, cFunc := range c.segmentFSConstraints {
 		if err := cFunc(segment); err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -346,16 +350,16 @@ func InterpolateSegment(ci *Segment, resolution float64) ([][]referenceframe.Inp
 
 // InterpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
 // configuration of a segment at a given resolution value.
-func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]referenceframe.FrameSystemInputs, error) {
+func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.LinearInputs, error) {
 	// Find the frame with the most steps by calculating steps for each frame
 	maxSteps := defaultMinStepCount
-	for frameName, startConfig := range ci.StartConfiguration {
+	for frameName, startConfig := range ci.StartConfiguration.Items() {
 		if len(startConfig) == 0 {
 			// No need to interpolate 0dof frames
 			continue
 		}
-		endConfig, exists := ci.EndConfiguration[frameName]
-		if !exists {
+		endConfig := ci.EndConfiguration.Get(frameName)
+		if endConfig == nil {
 			return nil, fmt.Errorf("frame %s exists in start config but not in end config", frameName)
 		}
 
@@ -383,21 +387,21 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]referenceframe.F
 	}
 
 	// Create interpolated configurations for all frames
-	var interpolatedConfigurations []referenceframe.FrameSystemInputs
+	var interpolatedConfigurations []*referenceframe.LinearInputs
 	for i := 0; i <= maxSteps; i++ {
 		interp := float64(i) / float64(maxSteps)
-		frameConfigs := make(referenceframe.FrameSystemInputs)
+		frameConfigs := referenceframe.NewLinearInputs()
 
 		// Interpolate each frame's configuration
-		for frameName, startConfig := range ci.StartConfiguration {
-			endConfig := ci.EndConfiguration[frameName]
+		for frameName, startConfig := range ci.StartConfiguration.Items() {
+			endConfig := ci.EndConfiguration.Get(frameName)
 			frame := ci.FS.Frame(frameName)
 
 			interpConfig, err := frame.Interpolate(startConfig, endConfig, interp)
 			if err != nil {
 				return nil, err
 			}
-			frameConfigs[frameName] = interpConfig
+			frameConfigs.Put(frameName, interpConfig)
 		}
 
 		interpolatedConfigurations = append(interpolatedConfigurations, frameConfigs)
@@ -409,18 +413,18 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]referenceframe.F
 // CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all
 // state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
 // provided that segment also meets segment constraints.
-func (c *ConstraintChecker) CheckSegmentAndStateValidity(segment *Segment, resolution float64) (bool, *Segment) {
+func (c *ConstraintChecker) CheckSegmentAndStateValidity(ctx context.Context, segment *Segment, resolution float64) (bool, *Segment) {
 	valid, subSegment := c.CheckStateConstraintsAcrossSegment(segment, resolution)
 	if !valid {
 		if subSegment != nil {
-			if c.CheckSegmentConstraints(subSegment) == nil {
+			if c.CheckSegmentConstraints(ctx, subSegment) == nil {
 				return false, subSegment
 			}
 		}
 		return false, nil
 	}
 	// all states are valid
-	return c.CheckSegmentConstraints(segment) == nil, nil
+	return c.CheckSegmentConstraints(ctx, segment) == nil, nil
 }
 
 // AddStateConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
@@ -509,14 +513,15 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	ci *SegmentFS,
 	resolution float64,
 ) (*SegmentFS, error) {
-	_, span := trace.StartSpan(ctx, "CheckStateConstraintsAcrossSegmentFS")
+	ctx, span := trace.StartSpan(ctx, "CheckStateConstraintsAcrossSegmentFS")
 	defer span.End()
 
 	interpolatedConfigurations, err := InterpolateSegmentFS(ci, resolution)
 	if err != nil {
 		return nil, err
 	}
-	var lastGood referenceframe.FrameSystemInputs
+
+	var lastGood *referenceframe.LinearInputs
 	for i, interpConfig := range interpolatedConfigurations {
 		interpC := &StateFS{FS: ci.FS, Configuration: interpConfig}
 		err = c.CheckStateFSConstraints(ctx, interpC)
@@ -541,19 +546,19 @@ func (c *ConstraintChecker) CheckSegmentAndStateValidityFS(
 	segment *SegmentFS,
 	resolution float64,
 ) (*SegmentFS, error) {
-	_, span := trace.StartSpan(ctx, "CheckSegmentAndStateValidityFS")
+	ctx, span := trace.StartSpan(ctx, "CheckSegmentAndStateValidityFS")
 	defer span.End()
 	subSegment, err := c.CheckStateConstraintsAcrossSegmentFS(ctx, segment, resolution)
 	if err != nil {
 		if subSegment != nil {
-			if c.CheckSegmentFSConstraints(subSegment) == nil {
+			if c.CheckSegmentFSConstraints(ctx, subSegment) == nil {
 				return subSegment, err
 			}
 		}
 		return nil, err
 	}
 
-	return nil, c.CheckSegmentFSConstraints(segment)
+	return nil, c.CheckSegmentFSConstraints(ctx, segment)
 }
 
 // BoundingRegions returns the bounding regions - TODO what does this mean??

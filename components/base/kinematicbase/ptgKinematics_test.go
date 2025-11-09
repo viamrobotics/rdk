@@ -62,7 +62,7 @@ func TestPTGKinematicsNoGeom(t *testing.T) {
 		test.That(t, f.Name(), test.ShouldEqual, b.Name().ShortName())
 		test.That(t, f.DoF(), test.ShouldResemble, frame.DoF())
 
-		gifs, err := f.Geometries(referenceframe.FloatsToInputs([]float64{0, 0, 0, 0}))
+		gifs, err := f.Geometries([]referenceframe.Input{0, 0, 0, 0})
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, gifs.Geometries(), test.ShouldResemble, []spatialmath.Geometry{defaultBaseGeom})
@@ -215,8 +215,8 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		currInputs := []referenceframe.Input{
 			arcSteps[arcIdx].arcSegment.StartConfiguration[0],
 			arcSteps[arcIdx].arcSegment.StartConfiguration[1],
-			{0},
-			{1},
+			0,
+			1,
 		}
 		ptgBase.inputLock.Lock()
 		ptgBase.currentState.currentIdx = arcIdx
@@ -280,8 +280,8 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 			newInputs := []referenceframe.Input{
 				arcSteps[arcIdx].arcSegment.StartConfiguration[0],
 				arcSteps[arcIdx].arcSegment.StartConfiguration[1],
-				{0},
-				{0},
+				0,
+				0,
 			}
 			ptgBase.inputLock.Lock()
 			ptgBase.currentState.currentIdx = arcIdx
@@ -316,7 +316,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		test.That(t, k.Name(), test.ShouldEqual, b.Name().ShortName())
 		test.That(t, k.DoF(), test.ShouldResemble, f.DoF())
 
-		gifs, err := k.Geometries(referenceframe.FloatsToInputs([]float64{0, 0, 0, 0}))
+		gifs, err := k.Geometries([]referenceframe.Input{0, 0, 0, 0})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gifs.Geometries(), test.ShouldResemble, []spatialmath.Geometry{baseGeom})
 	})
@@ -330,7 +330,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 			ptgBase.inputLock.RLock()
 			currInputs := ptgBase.currentState.currentInputs
 			ptgBase.inputLock.RUnlock()
-			currInputs[2].Value = 0
+			currInputs[2] = 0
 			newPose, err := k.Transform(currInputs)
 
 			test.That(t, err, test.ShouldBeNil)
@@ -341,7 +341,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 			ptgBase.inputLock.RLock()
 			currInputs := ptgBase.currentState.currentInputs
 			ptgBase.inputLock.RUnlock()
-			currInputs[2].Value = 0
+			currInputs[2] = 0
 			newPose, err := k.Transform(currInputs)
 			test.That(t, err, test.ShouldBeNil)
 			headingRightHanded := newPose.Orientation().OrientationVectorDegrees().Theta
@@ -354,10 +354,10 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		err = kb.GoToInputs(ctx, waypoints[0])
 		test.That(t, err, test.ShouldBeNil)
 		newInputs := []referenceframe.Input{
-			{float64(ptgBase.courseCorrectionIdx)},
-			{math.Pi / 2.},
-			{0},
-			{1100},
+			float64(ptgBase.courseCorrectionIdx),
+			math.Pi / 2.,
+			0,
+			1100,
 		}
 		err = kb.GoToInputs(ctx, newInputs)
 		test.That(t, err, test.ShouldBeNil)
@@ -367,7 +367,7 @@ func TestPTGKinematicsWithGeom(t *testing.T) {
 		currentInputs, err := kb.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(currentInputs), test.ShouldEqual, 4)
-		expectedInputs := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0})
+		expectedInputs := []referenceframe.Input{0, 0, 0, 0}
 		test.That(t, currentInputs, test.ShouldResemble, expectedInputs)
 	})
 
@@ -411,11 +411,11 @@ func TestPTGKinematicsSimpleInputs(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, ptgBase, test.ShouldNotBeNil)
 
-	inputs := []referenceframe.Input{{0}, {1.9}, {1300}, {200}}
+	inputs := []referenceframe.Input{0, 1.9, 1300, 200}
 	err = ptgBase.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 
-	inputs = []referenceframe.Input{{0}, {1.9}, {1300}, {0}}
+	inputs = []referenceframe.Input{0, 1.9, 1300, 0}
 	err = ptgBase.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -428,8 +428,8 @@ func TestCopyArcStep(t *testing.T) {
 		arcSegment: motionplan.Segment{
 			StartPosition:      spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3}),
 			EndPosition:        spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}),
-			StartConfiguration: []referenceframe.Input{{1}, {2}, {3}},
-			EndConfiguration:   []referenceframe.Input{{4}, {5}, {6}},
+			StartConfiguration: []referenceframe.Input{1, 2, 3},
+			EndConfiguration:   []referenceframe.Input{4, 5, 6},
 			Frame:              referenceframe.NewZeroStaticFrame("test"),
 		},
 		subTraj: []*tpspace.TrajNode{

@@ -2,7 +2,6 @@ package ik
 
 import (
 	"context"
-	"math/rand"
 	"sync"
 
 	"go.uber.org/multierr"
@@ -16,24 +15,21 @@ import (
 type CombinedIK struct {
 	solvers []*NloptIK
 	logger  logging.Logger
-	limits  []referenceframe.Limit
 }
 
 // CreateCombinedIKSolver creates a combined parallel IK solver that operates on a frame with a number of nlopt solvers equal to the
 // nCPU passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
 func CreateCombinedIKSolver(
-	limits []referenceframe.Limit,
 	logger logging.Logger,
 	nCPU int,
 	goalThreshold float64,
 ) (*CombinedIK, error) {
 	ik := &CombinedIK{}
-	ik.limits = limits
-	nCPU = max(nCPU, 2)
 
+	logger.Debugf("CreateCombinedIKSolver nCPU: %d", nCPU)
 	for i := 1; i <= nCPU; i++ {
-		nloptSolver, err := CreateNloptSolver(ik.limits, logger, -1, true, true)
+		nloptSolver, err := CreateNloptSolver(logger, -1, true, true)
 		if err != nil {
 			return nil, err
 		}
@@ -47,42 +43,28 @@ func CreateCombinedIKSolver(
 // positions. If unable to solve, the returned error will be non-nil.
 func (ik *CombinedIK) Solve(ctx context.Context,
 	retChan chan<- *Solution,
-	seed []float64,
-	travelPercent []float64,
+	seeds [][]float64,
+	limits [][]referenceframe.Limit,
 	costFunc CostFunc,
 	rseed int,
 ) (int, error) {
-	randSeed := rand.New(rand.NewSource(int64(rseed))) //nolint: gosec
-
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
-
-	lowerBound, upperBound := limitsToArrays(ik.limits)
 
 	var solveErrors error
 	totalSolutionsFound := 0
 	var solveResultLock sync.Mutex
 
-	for i, solver := range ik.solvers {
-		rseed += 1500
-		parseed := rseed
+	for _, solver := range ik.solvers {
 		thisSolver := solver
-		seedFloats := seed
-		if i > 1 {
-			seedFloats = generateRandomPositions(randSeed, lowerBound, upperBound)
-		}
-
-		var myTravelPercent []float64
-		if i == 0 {
-			// TODO: this is probablytoo conservative
-			myTravelPercent = travelPercent
-		}
+		myseed := rseed
+		rseed++
 
 		activeSolvers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			n, err := thisSolver.Solve(ctx, retChan, seedFloats, myTravelPercent, costFunc, parseed)
+			n, err := thisSolver.Solve(ctx, retChan, seeds, limits, costFunc, myseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()
@@ -93,9 +75,4 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 
 	activeSolvers.Wait()
 	return totalSolutionsFound, solveErrors
-}
-
-// DoF returns the DoF of the solver.
-func (ik *CombinedIK) DoF() []referenceframe.Limit {
-	return ik.limits
 }

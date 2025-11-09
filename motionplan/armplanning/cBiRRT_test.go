@@ -14,16 +14,6 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var interp = referenceframe.FloatsToInputs([]float64{
-	0.22034293025523666,
-	0.023301860367034785,
-	0.0035938741832804775,
-	0.03706780636626979,
-	-0.006010542176591475,
-	0.013764993693680328,
-	0.22994099248696265,
-})
-
 // This should test a simple linear motion.
 // This test will step through the different stages of cbirrt and test each one in turn.
 func TestSimpleLinearMotion(t *testing.T) {
@@ -53,7 +43,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	pc, err := newPlanContext(ctx, logger, request, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(ctx, pc, referenceframe.FrameSystemInputs{m.Name(): home7}, goal)
+	psc, err := newPlanSegmentContext(ctx, pc, referenceframe.FrameSystemInputs{m.Name(): home7}.ToLinearInputs(), goal)
 	test.That(t, err, test.ShouldBeNil)
 
 	mp, err := newCBiRRTMotionPlanner(ctx, pc, psc)
@@ -62,10 +52,19 @@ func TestSimpleLinearMotion(t *testing.T) {
 	bgGen.StopAndWait() // Original solutions must be good enough.
 	test.That(t, err, test.ShouldBeNil)
 
-	near1 := &node{inputs: referenceframe.FrameSystemInputs{m.Name(): home7}}
+	near1 := &node{inputs: referenceframe.FrameSystemInputs{m.Name(): home7}.ToLinearInputs()}
 	seedMap := rrtMap{}
 	seedMap[near1] = nil
-	target := referenceframe.FrameSystemInputs{m.Name(): interp}
+	target := referenceframe.NewLinearInputs()
+	target.Put(m.Name(), []referenceframe.Input{
+		0.22034293025523666,
+		0.023301860367034785,
+		0.0035938741832804775,
+		0.03706780636626979,
+		-0.006010542176591475,
+		0.013764993693680328,
+		0.22994099248696265,
+	})
 
 	goalMap := rrtMap{}
 
@@ -111,7 +110,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	// Test that smoothing succeeds and does not lengthen the path (it may be the same length)
 	unsmoothLen := len(inputSteps)
 	// Convert node slice to FrameSystemInputs slice for smoothPath
-	inputSlice := make([]referenceframe.FrameSystemInputs, len(inputSteps))
+	inputSlice := make([]*referenceframe.LinearInputs, len(inputSteps))
 	for i, step := range inputSteps {
 		inputSlice[i] = step.inputs
 	}

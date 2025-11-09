@@ -154,11 +154,11 @@ const (
 func (m *SessionManager) Start(ctx context.Context, ownerID string) (*session.Session, error) {
 	sess := session.New(ctx, ownerID, m.heartbeatWindow, m.AssociateResource)
 	m.sessionResourceMu.Lock()
+	defer m.sessionResourceMu.Unlock()
 	if len(m.sessions) > maxSessions {
 		return nil, errors.New("too many concurrent sessions")
 	}
 	m.sessions[sess.ID()] = sess
-	m.sessionResourceMu.Unlock()
 	return sess, nil
 }
 

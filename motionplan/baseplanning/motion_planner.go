@@ -136,7 +136,7 @@ func newPlanner(
 		chains = &motionChains{}
 	}
 
-	solver, err := ik.CreateCombinedIKSolver(lfs.dof, logger, opt.NumThreads, opt.GoalThreshold)
+	solver, err := ik.CreateCombinedIKSolver(logger, opt.NumThreads, opt.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func newPlanner(
 
 func (mp *planner) checkInputs(ctx context.Context, inputs referenceframe.FrameSystemInputs) bool {
 	return mp.CheckStateFSConstraints(ctx, &motionplan.StateFS{
-		Configuration: inputs,
+		Configuration: inputs.ToLinearInputs(),
 		FS:            mp.fs,
 	}) == nil
 }
@@ -167,8 +167,8 @@ func (mp *planner) checkPath(ctx context.Context, seedInputs, target referencefr
 	_, err := mp.CheckSegmentAndStateValidityFS(
 		ctx,
 		&motionplan.SegmentFS{
-			StartConfiguration: seedInputs,
-			EndConfiguration:   target,
+			StartConfiguration: seedInputs.ToLinearInputs(),
+			EndConfiguration:   target.ToLinearInputs(),
 			FS:                 mp.fs,
 		},
 		mp.planOpts.Resolution,
@@ -180,26 +180,26 @@ func (mp *planner) sample(rSeed node, sampleNum int) (node, error) {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and gofsal maps.
 	if sampleNum >= mp.planOpts.IterBeforeRand && sampleNum%4 >= 2 {
-		randomInputs := make(referenceframe.FrameSystemInputs)
+		randomInputs := referenceframe.NewLinearInputs()
 		for _, name := range mp.fs.FrameNames() {
 			f := mp.fs.Frame(name)
 			if f != nil && len(f.DoF()) > 0 {
-				randomInputs[name] = referenceframe.RandomFrameInputs(f, mp.randseed)
+				randomInputs.Put(name, referenceframe.RandomFrameInputs(f, mp.randseed))
 			}
 		}
 		return newConfigurationNode(randomInputs), nil
 	}
 
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	newInputs := make(referenceframe.FrameSystemInputs)
-	for name, inputs := range rSeed.Q() {
+	newInputs := referenceframe.NewLinearInputs()
+	for name, inputs := range rSeed.Q().Items() {
 		f := mp.fs.Frame(name)
 		if f != nil && len(f.DoF()) > 0 {
 			q, err := referenceframe.RestrictedRandomFrameInputs(f, mp.randseed, 0.1, inputs)
 			if err != nil {
 				return nil, err
 			}
-			newInputs[name] = q
+			newInputs.Put(name, q)
 		}
 	}
 	return newConfigurationNode(newInputs), nil
@@ -238,7 +238,7 @@ func (mp *planner) process(
 	}
 	// Ensure the end state is a valid one
 	err = mp.CheckStateFSConstraints(ctx, &motionplan.StateFS{
-		Configuration: step,
+		Configuration: step.ToLinearInputs(),
 		FS:            mp.fs,
 	})
 	if err != nil {
@@ -248,11 +248,11 @@ func (mp *planner) process(
 	}
 
 	stepArc := &motionplan.SegmentFS{
-		StartConfiguration: seed,
-		EndConfiguration:   step,
+		StartConfiguration: seed.ToLinearInputs(),
+		EndConfiguration:   step.ToLinearInputs(),
 		FS:                 mp.fs,
 	}
-	err = mp.CheckSegmentFSConstraints(stepArc)
+	err = mp.CheckSegmentFSConstraints(ctx, stepArc)
 	if err != nil {
 		sss.constraintFailCnt++
 		sss.failures[err.Error()]++
@@ -270,8 +270,8 @@ func (mp *planner) process(
 
 	for _, oldSol := range sss.solutions {
 		similarity := &motionplan.SegmentFS{
-			StartConfiguration: oldSol,
-			EndConfiguration:   step,
+			StartConfiguration: oldSol.ToLinearInputs(),
+			EndConfiguration:   step.ToLinearInputs(),
 			FS:                 mp.fs,
 		}
 		simscore := mp.configurationDistanceFunc(similarity)
@@ -339,13 +339,6 @@ func (mp *planner) getSolutions(
 	}
 
 	minFunc := mp.linearizeFSmetric(metric)
-	// Spawn the IK solver to generate solutions until done
-
-	approxCartesianDist := math.Sqrt(minFunc(ctx, linearSeed))
-	ratios := []float64{}
-	for range linearSeed {
-		ratios = append(ratios, min(1, max(.15, approxCartesianDist/100)))
-	}
 
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
@@ -354,7 +347,10 @@ func (mp *planner) getSolutions(
 	utils.PanicCapturingGo(func() {
 		defer activeSolvers.Done()
 		defer solverFinished.Store(true)
-		_, err := mp.solver.Solve(ctxWithCancel, solutionGen, linearSeed, ratios, minFunc, mp.randseed.Int())
+		_, err := mp.solver.Solve(ctxWithCancel, solutionGen,
+			[][]float64{linearSeed, linearSeed},
+			[][]referenceframe.Limit{mp.lfs.dof, ik.ComputeAdjustLimits(linearSeed, mp.lfs.dof, .15)},
+			minFunc, mp.randseed.Int())
 		if err != nil {
 			if ctxWithCancel.Err() == nil {
 				mp.logger.Warnf("solver had an error: %v", err)
@@ -407,7 +403,7 @@ func (mp *planner) getSolutions(
 
 	orderedSolutions := make([]node, 0)
 	for _, key := range keys {
-		orderedSolutions = append(orderedSolutions, &basicNode{q: solvingState.solutions[key], cost: key})
+		orderedSolutions = append(orderedSolutions, &basicNode{q: solvingState.solutions[key].ToLinearInputs(), cost: key})
 	}
 	return orderedSolutions, nil
 }
@@ -421,7 +417,7 @@ func (mp *planner) linearizeFSmetric(metric motionplan.StateFSMetric) ik.CostFun
 		if err != nil {
 			return math.Inf(1)
 		}
-		return metric(&motionplan.StateFS{Configuration: inputs, FS: mp.fs})
+		return metric(&motionplan.StateFS{Configuration: inputs.ToLinearInputs(), FS: mp.fs})
 	}
 }
 
@@ -450,13 +446,13 @@ func (mp *planner) nonchainMinimize(ctx context.Context, seed, step referencefra
 	lastGood, _ := mp.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&motionplan.SegmentFS{
-			StartConfiguration: step,
-			EndConfiguration:   alteredStep,
+			StartConfiguration: step.ToLinearInputs(),
+			EndConfiguration:   alteredStep.ToLinearInputs(),
 			FS:                 mp.fs,
 		}, mp.planOpts.Resolution,
 	)
 	if lastGood != nil {
-		return lastGood.EndConfiguration
+		return lastGood.EndConfiguration.ToFrameSystemInputs()
 	}
 	return nil
 }

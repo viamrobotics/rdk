@@ -40,8 +40,8 @@ func (ptg *ptgDiffDrive) Transform(inputs []referenceframe.Input) (spatialmath.P
 	if len(inputs) != 2 {
 		return nil, referenceframe.NewIncorrectDoFError(len(inputs), 2)
 	}
-	alpha := inputs[0].Value
-	dist := inputs[1].Value
+	alpha := inputs[0]
+	dist := inputs[1]
 
 	// Check for OOB within FP error
 	if math.Pi-math.Abs(alpha) > math.Pi+floatEpsilon {
