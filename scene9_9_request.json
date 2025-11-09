@@ -376,24 +376,7 @@
     "poses": null,
     "configuration": {
       "arm": [
-        {
-          "Value": 0
-        },
-        {
-          "Value": 0
-        },
-        {
-          "Value": 0
-        },
-        {
-          "Value": 0
-        },
-        {
-          "Value": 0
-        },
-        {
-          "Value": 0
-        }
+        0,0,0,0,0,0
       ]
     }
   },
