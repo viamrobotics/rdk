@@ -28,6 +28,13 @@ const (
 // CostFunc is the function to minimize.
 type CostFunc func(context.Context, []float64) float64
 
+// SeedSolveMetaData meta data about how a seed did
+type SeedSolveMetaData struct {
+	Attempts int
+	Errors   int
+	Valid    int
+}
+
 // Solver defines an interface which, provided with seed inputs and a function to minimize to zero, will output all found
 // solutions to the provided channel until cancelled or otherwise completes.
 type Solver interface {
@@ -35,7 +42,7 @@ type Solver interface {
 	// number of iterations to run.
 	Solve(ctx context.Context, solutions chan<- *Solution,
 		seeds [][]float64, limits [][]referenceframe.Limit,
-		minFunc CostFunc, rseed int) (int, error)
+		minFunc CostFunc, rseed int) (int, []SeedSolveMetaData, error)
 }
 
 // Solution is the struct returned from an IK solver. It contains the solution configuration, the score of the solution, and a flag
@@ -110,7 +117,7 @@ func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
 
 	go func() {
 		defer close(solutionGen)
-		_, err := solver.Solve(ctx, solutionGen, seeds, limits, solveFunc, 1)
+		_, _, err := solver.Solve(ctx, solutionGen, seeds, limits, solveFunc, 1)
 		solveErrors = err
 	}()
 

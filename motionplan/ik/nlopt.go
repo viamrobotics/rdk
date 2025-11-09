@@ -157,13 +157,13 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	limits [][]referenceframe.Limit,
 	minFunc CostFunc,
 	rseed int,
-) (int, error) {
+) (int, []SeedSolveMetaData, error) {
 	if len(seeds) == 0 {
-		return 0, fmt.Errorf("no seeds")
+		return 0, nil, fmt.Errorf("no seeds")
 	}
 
 	if len(seeds) != len(limits) {
-		return 0, fmt.Errorf("need matching limits (%d) and seeds (%d) arrays", len(limits), len(seeds))
+		return 0, nil, fmt.Errorf("need matching limits (%d) and seeds (%d) arrays", len(limits), len(seeds))
 	}
 
 	randSeed := rand.New(rand.NewSource(int64(rseed))) //nolint: gosec
@@ -177,15 +177,18 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 	}()
 
+	meta := []SeedSolveMetaData{}
+
 	iterations := 0
 
 	for i, s := range seeds {
 		ss, err := ik.newSeedState(ctx, i, minFunc, s, limits[i], &iterations)
 		if err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 
 		seedStates = append(seedStates, ss)
+		meta = append(meta, SeedSolveMetaData{})
 	}
 
 	if rseed%3 == 1 {
@@ -199,21 +202,25 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < time.Second)) && ctx.Err() == nil {
 		iterations++
 
-		ss := seedStates[seedNumber%len(seedStates)]
+		seedNumberRanged := seedNumber % len(seedStates)
+		ss := seedStates[seedNumberRanged]
+		meta[seedNumberRanged].Attempts++
 
 		solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
 		if nloptErr != nil {
+			meta[seedNumberRanged].Errors++
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
 			// Above was previous comment.
 			// I (Eliot) think this is caused by a bug in how we compute the gradient
 			// When the absolute value of the gradient is too high, it blows up
 			if nloptErr.Error() != "nlopt: FAILURE" {
-				return solutionsFound, nloptErr
+				return solutionsFound, nil, nloptErr
 			}
 		} else if solutionRaw == nil {
 			panic("why is solutionRaw nil")
 		} else if result < defaultGoalThreshold || !ik.exact {
+			meta[seedNumberRanged].Valid++
 			solution := &Solution{
 				Configuration: solutionRaw,
 				Score:         result,
@@ -232,7 +239,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		seedNumber++
 	}
 
-	return solutionsFound, nil
+	return solutionsFound, meta, nil
 }
 
 func (ik *NloptIK) calcJump(ctx context.Context, testJump float64,

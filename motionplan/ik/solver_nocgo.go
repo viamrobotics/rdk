@@ -30,7 +30,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	limits [][]referenceframe.Limit,
 	minFunc CostFunc,
 	rseed int,
-) (int, error) {
+) (int, []SeedSolveMetaData, error) {
 	return 0, errors.New("Cannot solve without cgo")
 }
 

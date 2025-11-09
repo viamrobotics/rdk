@@ -58,6 +58,11 @@ func (l *Limit) GoodLimits() (float64, float64, float64) {
 	return a, b, b - a
 }
 
+// IsValid return if the value is in the range
+func (l *Limit) IsValid(v float64) bool {
+	return v >= l.Min && v <= l.Max
+}
+
 func limitsAlmostEqual(limits1, limits2 []Limit, epsilon float64) bool {
 	if len(limits1) != len(limits2) {
 		return false
