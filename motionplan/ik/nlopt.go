@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/go-nlopt/nlopt"
@@ -14,9 +15,12 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/utils"
 )
 
 var errBadBounds = errors.New("cannot set upper or lower bounds for nlopt, slice is empty. Are you trying to move a static frame?")
+
+var debugIkMinFunc = utils.GetenvBool("DEBUG_IK_MINFUNC", false)
 
 const (
 	nloptStepsPerIter = 4001
@@ -144,6 +148,11 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 					checkVals[i] -= jumpVal
 				}
 			}
+		}
+		if debugIkMinFunc {
+			//nolint:errcheck
+			fmt.Fprintf(os.Stdout, " minfunc seed:%s vals: %v dist: %0.2f gradient: %v\n",
+				nss.meta, logging.FloatArrayFormat{"%0.5f", checkVals}, dist, logging.FloatArrayFormat{"", gradient})
 		}
 		return dist
 	}
