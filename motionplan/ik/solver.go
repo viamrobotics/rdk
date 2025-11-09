@@ -105,20 +105,22 @@ func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame,
 //	but will fail if you have to move. 1 means search the entire range.
 func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
 	seeds [][]float64, limits [][]referenceframe.Limit,
-) ([][]float64, error) {
+) ([][]float64, []SeedSolveMetaData, error) {
 	limits, err := fixLimits(len(seeds), limits)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	solutionGen := make(chan *Solution)
 
 	var solveErrors error
+	var meta []SeedSolveMetaData
 
 	go func() {
 		defer close(solutionGen)
-		_, _, err := solver.Solve(ctx, solutionGen, seeds, limits, solveFunc, 1)
+		_, m, err := solver.Solve(ctx, solutionGen, seeds, limits, solveFunc, 1)
 		solveErrors = err
+		meta = m
 	}()
 
 	var solutions [][]float64
@@ -127,14 +129,14 @@ func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
 	}
 
 	if solveErrors != nil {
-		return nil, solveErrors
+		return nil, nil, solveErrors
 	}
 
 	if len(solutions) == 0 {
-		return nil, fmt.Errorf("unable to solve for position")
+		return nil, nil, fmt.Errorf("unable to solve for position")
 	}
 
-	return solutions, nil
+	return solutions, meta, nil
 }
 
 func fixLimits(numSeeds int, limits [][]referenceframe.Limit) ([][]referenceframe.Limit, error) {

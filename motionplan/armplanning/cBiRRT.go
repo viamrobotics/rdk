@@ -287,7 +287,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		linearSeed := target.GetLinearizedInputs()
-		solutions, err := ik.DoSolve(ctx, mp.fastGradDescent,
+		solutions, _, err := ik.DoSolve(ctx, mp.fastGradDescent,
 			mp.psc.pc.linearizeFSmetric(mp.psc.checker.PathMetric()),
 			[][]float64{linearSeed}, [][]referenceframe.Limit{ik.ComputeAdjustLimits(linearSeed, mp.pc.lis.GetLimits(), .25)})
 		if err != nil {

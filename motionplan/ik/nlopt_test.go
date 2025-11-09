@@ -29,7 +29,7 @@ func TestCreateNloptSolverNotExact(t *testing.T) {
 		ik, err := CreateNloptSolver(logger, -1, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
+		_, _, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -37,8 +37,11 @@ func TestCreateNloptSolverNotExact(t *testing.T) {
 		ik, err := CreateNloptSolver(logger, -1, true, true)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
+		_, meta, err := DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
 		test.That(t, err, test.ShouldBeNil)
+		for idx, m := range meta {
+			logger.Debugf("seed: %d %#v", idx, m)
+		}
 	})
 
 	t.Run("Check unpacking from proto", func(t *testing.T) {
@@ -53,7 +56,7 @@ func TestCreateNloptSolverNotExact(t *testing.T) {
 		ik, err := CreateNloptSolver(logger, -1, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
+		_, _, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
