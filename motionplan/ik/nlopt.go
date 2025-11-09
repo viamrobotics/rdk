@@ -151,7 +151,7 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 		}
 		if debugIkMinFunc {
 			//nolint:errcheck
-			fmt.Fprintf(os.Stdout, " minfunc seed:%s vals: %v dist: %0.2f gradient: %v\n",
+			fmt.Fprintf(os.Stdout, "\t minfunc seed:%s vals: %v dist: %0.2f gradient: %v\n",
 				nss.meta, logging.FloatArrayFormat{"%0.5f", checkVals}, dist, logging.FloatArrayFormat{"", gradient})
 		}
 		return dist
@@ -210,7 +210,17 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		ss := seedStates[seedNumberRanged]
 		meta[seedNumberRanged].Attempts++
 
+		if debugIkMinFunc {
+			//nolint:errcheck
+			fmt.Fprintf(os.Stdout, "seed (%d) %v\n", seedNumberRanged, logging.FloatArrayFormat{"", ss.seed})
+		}
+
 		solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
+		if debugIkMinFunc {
+			//nolint:errcheck
+			fmt.Fprintf(os.Stdout, "\t result: %0.2f  err: %v res: %v\n", result, nloptErr, logging.FloatArrayFormat{"", solutionRaw})
+		}
+
 		if nloptErr != nil {
 			meta[seedNumberRanged].Errors++
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.

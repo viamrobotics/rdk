@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func TestCreateNloptSolverNotExact(t *testing.T) {
+func TestCreateNloptSolver(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
