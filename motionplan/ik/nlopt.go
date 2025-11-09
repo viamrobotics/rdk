@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"slices"
 	"time"
 
 	"github.com/go-nlopt/nlopt"
@@ -189,10 +188,6 @@ func (ik *NloptIK) Solve(ctx context.Context,
 
 		seedStates = append(seedStates, ss)
 		meta = append(meta, SeedSolveMetaData{})
-	}
-
-	if rseed%3 == 1 {
-		slices.Reverse(seedStates)
 	}
 
 	solutionsFound := 0
