@@ -461,8 +461,10 @@ func (sfs *FrameSystem) transformFromParent(inputs *LinearInputs,
 	return result, nil
 }
 
-// composeTransforms assumes there is one moveable frame and its DoF is equal to the `inputs`
-// length.
+// composeTransforms returns the pose for `frame` given the inputs that frame depends on. The cache
+// maps frame names to output poses. The cache assumes the linear inputs are the same as prior calls
+// to `composeTransforms`. When a caller changes its `linearInputs`, the caller must invalidate its
+// `cache` object.
 func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInputs, cache map[string]spatial.Pose) (dualquat.Number, error) {
 	ret := dualquat.Number{
 		Real: quat.Number{Real: 1},
