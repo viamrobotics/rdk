@@ -68,6 +68,9 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 
 func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) ik.CostFunc {
 	return func(ctx context.Context, linearizedInputs []float64) float64 {
+		_, span := trace.StartSpan(ctx, "linearizeFSmetric-lambda")
+		defer span.End()
+
 		conf, err := pc.lis.FloatsToInputs(linearizedInputs)
 		if err != nil {
 			return math.Inf(1)
