@@ -512,6 +512,8 @@ func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "\n")
 
+	inValid := make([]bool, len(solveMeta))
+
 	for _, frameName := range sss.psc.pc.fs.FrameNames() {
 		f := sss.psc.pc.fs.Frame(frameName)
 		dof := f.DoF()
@@ -537,12 +539,17 @@ func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 				myLimit := sss.seedLimits[seedNumber][jointNumber]
 				fmt.Fprintf(&builder, "\t\t  seed %d %0.2f delta: %0.2f valid: %v limits: %v\n",
 					seedNumber, v, math.Abs(v-winningValue)/r, myLimit.IsValid(winningValue), myLimit)
+				if !myLimit.IsValid(winningValue) {
+					inValid[seedNumber] = true
+				}
 			}
 		}
 	}
 
 	for idx, m := range solveMeta {
 		fmt.Fprintf(&builder, "seed: %d %#v\n", idx, m)
+		fmt.Fprintf(&builder, "\t %v\n", logging.FloatArrayFormat{"", sss.linearSeeds[idx]})
+		fmt.Fprintf(&builder, "\t valid: %v\n", !inValid[idx])
 	}
 
 	sss.psc.pc.logger.Debugf(builder.String())
