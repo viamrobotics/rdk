@@ -158,7 +158,7 @@ func NewObservedTestLogger(tb testing.TB) (Logger, *observer.ObservedLogs) {
 		recentMessageWindowStart: time.Now(),
 	}
 	logger.registry.Update([]LoggerPatternConfig{
-		{
+		LoggerPatternConfig{
 			Pattern: "*.planner",
 			Level:   "WARN",
 		},
