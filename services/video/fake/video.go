@@ -15,6 +15,7 @@ import (
 var Model = resource.DefaultModelFamily.WithModel("fake")
 
 func init() {
+	fmt.Println("[video/fake] registered")
 	// Register the fake implementation so the blank import builds & makes it available.
 	resource.RegisterService(
 		video.API,
@@ -36,7 +37,7 @@ func init() {
 }
 
 // Ensure Video implements video.Service.
-var _ video.Service = (*Video)(nil)
+// var _ video.Service = (*Video)(nil)
 
 type Video struct {
 	resource.Named
