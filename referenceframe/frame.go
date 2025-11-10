@@ -188,7 +188,7 @@ type baseFrame struct {
 }
 
 func (bf *baseFrame) hash() int {
-	h := hashString(bf.name)
+	h := 0
 	h += 10 * len(bf.limits)
 
 	for i, l := range bf.limits {

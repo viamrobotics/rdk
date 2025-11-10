@@ -18,7 +18,7 @@ func TestIKTolerances(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
-	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/ur5eDH.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs := referenceframe.NewEmptyFrameSystem("")
 	fs.AddFrame(m, fs.World())
