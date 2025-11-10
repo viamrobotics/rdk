@@ -169,7 +169,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
 		}
 
-		altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, psc.pc.logger)
+		altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, 5 /* TODO */, psc.pc.logger)
 		if err != nil {
 			psc.pc.logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
