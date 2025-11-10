@@ -36,9 +36,47 @@ func (w streamWriter) Write(p []byte) (int, error) {
 }
 
 // GetVideo streams video data from the specified source to the provided writer.
-func (server *serviceServer) GetVideo(ctx context.Context, req *pb.GetVideoRequest, stream pb.VideoService_GetVideoServer) error {
-	ctx, span := trace.StartSpan(ctx, "video::server::GetVideo")
-	defer span.End()
+// func (server *serviceServer) GetVideo(ctx context.Context, req *pb.GetVideoRequest, stream pb.VideoService_GetVideoServer) error {
+// 	ctx, span := trace.StartSpan(ctx, "video::server::GetVideo")
+// 	defer span.End()
+
+// 	svc, err := server.coll.Resource(req.Name)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	var start time.Time
+// 	if req.StartTimestamp != nil {
+// 		start = req.StartTimestamp.AsTime()
+// 	}
+// 	var end time.Time
+// 	if req.EndTimestamp != nil {
+// 		end = req.EndTimestamp.AsTime()
+// 	}
+
+// 	extra := map[string]interface{}{}
+// 	if req.Extra != nil {
+// 		for k, v := range req.Extra.GetFields() {
+// 			extra[k] = v.AsInterface()
+// 		}
+// 	}
+
+// 	// Stream directly via the interface to avoid buffering the entire video in memory.
+// 	return svc.GetVideo(
+// 		stream.Context(),
+// 		start,
+// 		end,
+// 		req.VideoCodec,
+// 		req.VideoContainer,
+// 		req.RequestId,
+// 		extra,
+// 		streamWriter{stream: stream, requestID: req.RequestId},
+// 	)
+// }
+
+func (server *serviceServer) GetVideo(req *pb.GetVideoRequest, stream pb.VideoService_GetVideoServer) error {
+	// ctx, span := trace.StartSpan(stream.Context(), "video::server::GetVideo")
+	// defer span.End()
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
@@ -70,7 +108,7 @@ func (server *serviceServer) GetVideo(ctx context.Context, req *pb.GetVideoReque
 		req.VideoContainer,
 		req.RequestId,
 		extra,
-		streamWriter{stream: stream, requestID: req.RequestId},
+		&streamWriter{stream: stream, requestID: req.RequestId},
 	)
 }
 
