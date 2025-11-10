@@ -99,6 +99,7 @@ type RobotClient struct {
 	refClient                *grpcreflect.Client
 	connected                atomic.Bool
 	rpcSubtypesUnimplemented bool
+	modName                  string
 
 	activeBackgroundWorkers sync.WaitGroup
 	backgroundCtx           context.Context
@@ -292,6 +293,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		sessionsDisabled:    rOpts.disableSessions,
 		heartbeatCtx:        heartbeatCtx,
 		heartbeatCtxCancel:  heartbeatCtxCancel,
+		modName:             rOpts.modName,
 	}
 
 	// interceptors are applied in order from first to last

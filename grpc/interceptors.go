@@ -85,7 +85,6 @@ func EnsureTimeoutUnaryClientInterceptor(
 }
 
 func sessionMetadataInner(ctx context.Context, shouldLog bool) context.Context {
-	// sessionID := ctx.Value(session.IDMetadataKey)
 	sess, ok := session.FromContext(ctx)
 	if !ok {
 		return ctx
@@ -104,14 +103,14 @@ func SessionUnaryClientInterceptor(
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
 ) error {
-	myLogger := logging.NewLogger("vijays SessionUnaryClientInterceptor")
-	// session
-	sess, ok := session.FromContext(ctx)
-	if ok {
-		myLogger.Warnw("session in unary client interceptor from rdk to module", "session", sess.ID().String())
-	} else {
-		myLogger.Warnw("session in unary client interceptor from rdk to module not found")
-	}
+	// myLogger := logging.NewLogger("vijays SessionUnaryClientInterceptor")
+	// // session
+	// sess, ok := session.FromContext(ctx)
+	// if ok {
+	// 	myLogger.Warnw("session in unary client interceptor from rdk to module", "session", sess.ID().String())
+	// } else {
+	// 	myLogger.Warnw("session in unary client interceptor from rdk to module not found")
+	// }
 	ctx = sessionMetadataInner(ctx, false)
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
