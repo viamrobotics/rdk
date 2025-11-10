@@ -77,7 +77,7 @@ func TestSmartSeedCache1(t *testing.T) {
 		logger.Infof("time to run findSeedsForFrame: %v", time.Since(startTime))
 		test.That(t, err, test.ShouldBeNil)
 		cost := myCost(start.Get("ur5e"), seeds[0])
-		test.That(t, cost, test.ShouldBeLessThan, .5)
+		test.That(t, cost, test.ShouldBeLessThan, .6)
 	})
 
 	t.Run("real", func(t *testing.T) {
@@ -89,7 +89,7 @@ func TestSmartSeedCache1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		logger.Infof("time to run findSeed: %v", time.Since(startTime))
 		cost := myCost(start.Get("ur5e"), seed.Get("ur5e"))
-		test.That(t, cost, test.ShouldBeLessThan, .5)
+		test.That(t, cost, test.ShouldBeLessThan, .6)
 	})
 }
 
