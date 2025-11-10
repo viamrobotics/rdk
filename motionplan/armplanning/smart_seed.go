@@ -510,8 +510,9 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 }
 
 var (
-	sscCache     = map[int]*cacheForFrame{}
-	sscCacheLock sync.Mutex
+	sscCache         = map[int]*cacheForFrame{}
+	sscCacheLock     sync.Mutex
+	cacheBuildLogger = logging.NewLogger("smart-seed-cache-build")
 )
 
 func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.Logger) error {
@@ -539,7 +540,7 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.L
 			return err
 		}
 
-		logger.Infof("time to build: %v for: %v", time.Since(start), frameName)
+		cacheBuildLogger.Infof("time to build: %v for: %v", time.Since(start), frameName)
 
 		sscCacheLock.Lock()
 		sscCache[hash] = ccf
