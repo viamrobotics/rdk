@@ -72,6 +72,7 @@ func TestSmartSeedCache1(t *testing.T) {
 			"ur5e",
 			start.Get("ur5e"),
 			goal,
+			1,
 			logger)
 		logger.Infof("time to run findSeedsForFrame: %v", time.Since(startTime))
 		test.That(t, err, test.ShouldBeNil)
@@ -158,6 +159,7 @@ func TestSmartSeedCachePirouette(t *testing.T) {
 		seeds, _, err := ssc.findSeeds(ctx,
 			referenceframe.FrameSystemPoses{armName: referenceframe.NewPoseInFrame("world", pose)},
 			referenceframe.FrameSystemInputs{armName: idealJointValues[0]}.ToLinearInputs(),
+			10,
 			logger)
 		test.That(t, err, test.ShouldBeNil)
 		firstScore := 0.0
@@ -171,9 +173,6 @@ func TestSmartSeedCachePirouette(t *testing.T) {
 				break
 			}
 			if score1 == 0 {
-				break
-			}
-			if ii > 10 {
 				break
 			}
 		}
