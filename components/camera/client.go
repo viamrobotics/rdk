@@ -24,6 +24,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
