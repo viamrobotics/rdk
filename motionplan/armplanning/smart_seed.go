@@ -261,7 +261,7 @@ func (ssc *smartSeedCache) findSeed(ctx context.Context,
 	start *referenceframe.LinearInputs,
 	logger logging.Logger,
 ) (*referenceframe.LinearInputs, error) {
-	ss, _, err := ssc.findSeeds(ctx, goal, start, logger)
+	ss, _, err := ssc.findSeeds(ctx, goal, start, 1, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -274,6 +274,7 @@ func (ssc *smartSeedCache) findSeed(ctx context.Context,
 func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 	goal referenceframe.FrameSystemPoses,
 	start *referenceframe.LinearInputs,
+	maxSeeds int,
 	logger logging.Logger,
 ) ([]*referenceframe.LinearInputs, []float64, error) {
 	_, span := trace.StartSpan(ctx, "smartSeedCache::findSeeds")
@@ -298,7 +299,7 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 		return nil, nil, err
 	}
 
-	seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, logger)
+	seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, maxSeeds, logger)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -394,6 +395,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	frameName string,
 	start []referenceframe.Input,
 	goalPose spatialmath.Pose,
+	maxSeeds int,
 	logger logging.Logger,
 ) ([][]referenceframe.Input, []float64, error) {
 	frame := ssc.fs.Frame(frameName)
@@ -441,7 +443,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx := 0
-	cutDistance := max(500, 5*best[0].distance)
+	cutDistance := max(500, 2*best[0].distance)
 	for cutIdx < len(best) {
 		if best[cutIdx].distance > cutDistance {
 			break
@@ -460,7 +462,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx = 0
-	costCut := 4 * best[0].cost
+	costCut := 3 * best[0].cost
 	for cutIdx < len(best) {
 		if best[cutIdx].cost > costCut {
 			break
@@ -472,10 +474,17 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	best = best[0:cutIdx]
 
-	best = selectMostVariableEntries(best, 5) // now randomize a bit to get a good set to work with
+	if maxSeeds <= 0 {
+		maxSeeds = len(best)
+	}
+
+	if maxSeeds < len(best) {
+		// now randomize a bit to get a good set to work with
+		best = selectMostVariableEntries(best, maxSeeds)
+	}
 
 	ret := [][]referenceframe.Input{}
-	for i := 0; i < len(best) && i < 5; i++ {
+	for i := 0; i < len(best) && i < maxSeeds; i++ {
 		e := best[i]
 		ret = append(ret, e.e.inputs)
 		logger.Debugf("dist: %02.f cost: %0.2f %v", e.distance, e.cost, logging.FloatArrayFormat{"%0.2f", e.e.inputs})
