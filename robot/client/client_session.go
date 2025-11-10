@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	"google.golang.org/grpc"
@@ -74,6 +73,12 @@ func (rc *RobotClient) heartbeatLoop() {
 }
 
 func (rc *RobotClient) sessionMetadataInner(ctx context.Context) context.Context {
+	logger := logging.NewLogger("vijays sessionMetadataInner")
+	logger.Warnw("sessionMetadataInner", "sessionsSupported", *rc.sessionsSupported, "currentSessionID", rc.currentSessionID)
+	sess, ok := session.FromContext(ctx)
+	if ok {
+		ctx = metadata.AppendToOutgoingContext(ctx, session.IDMetadataKey, sess.ID().String())
+	}
 	if *rc.sessionsSupported && rc.currentSessionID != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, session.IDMetadataKey, rc.currentSessionID)
 	}
@@ -100,42 +105,42 @@ func (rc *RobotClient) sessionMetadata(ctx context.Context, method string) (cont
 		return rc.sessionMetadataInner(ctx), nil
 	}
 
-	reqCtx, cancel := utils.MergeContext(ctx, rc.backgroundCtx)
-	defer cancel()
+	// reqCtx, cancel := utils.MergeContext(ctx, rc.backgroundCtx)
+	// defer cancel()
 
-	var startReq pb.StartSessionRequest
-	if rc.currentSessionID != "" {
-		startReq.Resume = rc.currentSessionID
-	}
+	// var startReq pb.StartSessionRequest
+	// if rc.currentSessionID != "" {
+	// 	startReq.Resume = rc.currentSessionID
+	// }
 
-	startResp, err := rc.client.StartSession(
-		reqCtx,
-		&startReq,
-		grpc_retry.WithMax(5),
-		grpc_retry.WithCodes(codes.InvalidArgument),
-	)
-	if err != nil {
-		if s, ok := status.FromError(err); ok && s.Code() == codes.Unimplemented {
-			falseVal := false
-			rc.sessionsSupported = &falseVal
-			rc.logger.CInfow(ctx, "sessions unsupported; will not try again")
-			return ctx, nil
-		}
-		return nil, err
-	}
+	// startResp, err := rc.client.StartSession(
+	// 	reqCtx,
+	// 	&startReq,
+	// 	grpc_retry.WithMax(5),
+	// 	grpc_retry.WithCodes(codes.InvalidArgument),
+	// )
+	// if err != nil {
+	// 	if s, ok := status.FromError(err); ok && s.Code() == codes.Unimplemented {
+	// 		falseVal := false
+	// 		rc.sessionsSupported = &falseVal
+	// 		rc.logger.CInfow(ctx, "sessions unsupported; will not try again")
+	// 		return ctx, nil
+	// 	}
+	// 	return nil, err
+	// }
 
-	heartbeatWindow := startResp.HeartbeatWindow.AsDuration()
-	sessionHeartbeatInterval := heartbeatWindow / 5
-	if heartbeatWindow <= 0 || sessionHeartbeatInterval <= 0 {
-		rc.logger.CInfow(ctx, "session heartbeat window invalid; will not try again", "heartbeat_window", heartbeatWindow)
-		return ctx, nil
-	}
+	// heartbeatWindow := startResp.HeartbeatWindow.AsDuration()
+	// sessionHeartbeatInterval := heartbeatWindow / 5
+	// if heartbeatWindow <= 0 || sessionHeartbeatInterval <= 0 {
+	// 	rc.logger.CInfow(ctx, "session heartbeat window invalid; will not try again", "heartbeat_window", heartbeatWindow)
+	// 	return ctx, nil
+	// }
 
 	trueVal := true
 	rc.sessionsSupported = &trueVal
-	rc.currentSessionID = startResp.Id
-	rc.sessionHeartbeatInterval = sessionHeartbeatInterval
-	rc.heartbeatLoop()
+	// rc.currentSessionID = startResp.Id
+	// rc.sessionHeartbeatInterval = sessionHeartbeatInterval
+	// rc.heartbeatLoop()
 
 	return rc.sessionMetadataInner(ctx), nil
 }

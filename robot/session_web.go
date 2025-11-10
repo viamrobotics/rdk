@@ -237,6 +237,8 @@ func associateSession(
 	if err != nil {
 		return nil, err
 	}
+	logger := logging.NewLogger("vijays associateSession")
+	logger.Warnw("session found in associateSession", "session", sess.ID().String())
 	return session.ToContext(ctx, sess), nil
 }
 

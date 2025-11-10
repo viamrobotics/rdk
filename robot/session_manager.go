@@ -170,8 +170,9 @@ func (m *SessionManager) FindByID(ctx context.Context, id uuid.UUID, ownerID str
 	m.sessionResourceMu.RLock()
 	sess, ok := m.sessions[id]
 	if !ok || !sess.CheckOwnerID(ownerID) {
+		sess = session.NewWithID(ctx, id, ownerID, m.heartbeatWindow, m.AssociateResource)
 		m.sessionResourceMu.RUnlock()
-		return nil, session.ErrNoSession
+		return sess, nil
 	}
 	m.sessionResourceMu.RUnlock()
 	sess.Heartbeat(ctx)
