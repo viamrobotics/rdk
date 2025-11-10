@@ -64,6 +64,7 @@ func NewManager(
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
 		modPeerConnTracker:      options.ModPeerConnTracker,
+		failedModules:           make(map[string]bool),
 	}
 	return ret, nil
 }
@@ -150,6 +151,9 @@ type Manager struct {
 	// modPeerConnTracker must be updated as modules create/destroy any underlying WebRTC
 	// PeerConnections.
 	modPeerConnTracker *rdkgrpc.ModPeerConnTracker
+
+	failedModules   map[string]bool
+	muFailedModules sync.RWMutex
 }
 
 // Close terminates module connections and processes.
@@ -269,6 +273,9 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
 				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
+				mgr.muFailedModules.Lock()
+				mgr.failedModules[conf.Name] = true
+				mgr.muFailedModules.Unlock()
 				errs[i] = err
 				return
 			}
@@ -1112,4 +1119,31 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 		robotID = "local"
 	}
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
+}
+
+func (mgr *Manager) GetFailedModules() []string {
+	mgr.muFailedModules.RLock()
+	defer mgr.muFailedModules.RUnlock()
+	var failedModuleNames []string
+      for moduleName := range mgr.failedModules {
+          failedModuleNames = append(failedModuleNames, moduleName)
+      }
+      return failedModuleNames
+}
+
+//remove failed modules not present in new config
+func (mgr *Manager) UpdateFailedModules(newConfigModules []config.Module) {
+	mgr.muFailedModules.Lock()
+	defer mgr.muFailedModules.Unlock()
+
+	configModuleNames := make(map[string]bool)
+	for _, module := range newConfigModules {
+		configModuleNames[module.Name] = true
+	}
+
+	for moduleName := range mgr.failedModules {
+		if !configModuleNames[moduleName] {
+			delete(mgr.failedModules, moduleName)
+		}
+	}
 }

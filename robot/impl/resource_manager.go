@@ -63,6 +63,8 @@ type moduleManager interface {
 	RemoveResource(ctx context.Context, name resource.Name) error
 	ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
+	GetFailedModules() []string
+	UpdateFailedModules(newConfigModules []config.Module)
 }
 
 // resourceManager manages the actual parts that make up a robot.
