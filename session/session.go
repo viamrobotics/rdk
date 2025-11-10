@@ -3,7 +3,6 @@ package session
 import (
 	"context"
 	"crypto/subtle"
-	"strings"
 	"sync"
 	"time"
 
@@ -11,9 +10,6 @@ import (
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/rpc"
 
-	"runtime/debug"
-
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -37,18 +33,7 @@ func New(
 	heartbeatWindow time.Duration,
 	associateResource func(id uuid.UUID, resourceName resource.Name),
 ) *Session {
-	logger := logging.NewLogger("session logger")
-	stack := debug.Stack()
-	// Format stack trace for better readability - indent each line after the first
-	stackStr := strings.TrimSpace(string(stack))
-	stackLines := strings.Split(stackStr, "\n")
-	formattedStack := stackLines[0]
-	if len(stackLines) > 1 {
-		formattedStack += "\n\t" + strings.Join(stackLines[1:], "\n\t")
-	}
-	id := uuid.New()
-	logger.Warnw("created session w/ randomid", "id", id.String(), "stack", formattedStack)
-	return NewWithID(ctx, id, ownerID, heartbeatWindow, associateResource)
+	return NewWithID(ctx, uuid.New(), ownerID, heartbeatWindow, associateResource)
 }
 
 // NewWithID makes a new session with an ID.
@@ -59,16 +44,6 @@ func NewWithID(
 	heartbeatWindow time.Duration,
 	associateResource func(id uuid.UUID, resourceName resource.Name),
 ) *Session {
-	logger := logging.NewLogger("session logger")
-	stack := debug.Stack()
-	// Format stack trace for better readability - indent each line after the first
-	stackStr := strings.TrimSpace(string(stack))
-	stackLines := strings.Split(stackStr, "\n")
-	formattedStack := stackLines[0]
-	if len(stackLines) > 1 {
-		formattedStack += "\n\t" + strings.Join(stackLines[1:], "\n\t")
-	}
-	logger.Warnw("created session w/ id", "id", id.String(), "stack", formattedStack)
 	sess := &Session{
 		id:                id,
 		ownerID:           []byte(ownerID),

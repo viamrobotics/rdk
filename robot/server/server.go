@@ -9,9 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"runtime/debug"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -366,16 +364,6 @@ func (s *Server) StopAll(ctx context.Context, req *pb.StopAllRequest) (*pb.StopA
 // lapses, any resources that have safety heart monitored methods, where this session was the last caller
 // on the resource, will be stopped.
 func (s *Server) StartSession(ctx context.Context, req *pb.StartSessionRequest) (*pb.StartSessionResponse, error) {
-	stack := debug.Stack()
-	// Format stack trace for better readability - indent each line after the first
-	stackStr := strings.TrimSpace(string(stack))
-	stackLines := strings.Split(stackStr, "\n")
-	formattedStack := stackLines[0]
-	if len(stackLines) > 1 {
-		formattedStack += "\n\t" + strings.Join(stackLines[1:], "\n\t")
-	}
-	logger := logging.NewLogger("vijays StartSession")
-	logger.Warnw("starting session w/ formatted stack", "formattedStack", formattedStack)
 	var authUID string
 	if authEntity, ok := rpc.ContextAuthEntity(ctx); ok {
 		authUID = authEntity.Entity
