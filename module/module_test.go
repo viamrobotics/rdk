@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
-	"go.uber.org/zap/zapcore"
 	v1 "go.viam.com/api/app/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/module/v1"
@@ -1018,20 +1017,38 @@ func TestFrameSystemFromDependencies(t *testing.T) {
 func TestResLoggersCleanup(t *testing.T) {
 	// Primarily a regression test for RSDK-12383. Asserts values of resLoggers is as
 	// expected with no resources (empty), an added resource (one entry), a reconfigured
-	// resource (one entry with new level), and a removed resource (empty).
+	// resource (still one entry, but a different one given a must rebuild error), and a
+	// removed resource (empty).
 	ctx := t.Context()
 	logger := logging.NewTestLogger(t)
 
+	modelName := utils.RandomAlphaString(5)
+	model := resource.DefaultModelFamily.WithModel(modelName)
+	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, resource.NoNativeConfig]{
+		Constructor: func(
+			ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
+		) (motor.Motor, error) {
+			injectedMotor := &inject.Motor{
+				ReconfigureFunc: func(ctx context.Context, deps resource.Dependencies, cfg resource.Config) error {
+					return resource.NewMustRebuildError(motor.Named(cfg.Name))
+				},
+			}
+			return injectedMotor, nil
+		},
+	})
+	t.Cleanup(func() {
+		resource.Deregister(motor.API, model)
+	})
+
 	cfg := &v1.ComponentConfig{
-		Name:             "foo",
-		Api:              motor.API.String(),
-		Model:            "fake",
-		LogConfiguration: &v1.LogConfiguration{Level: "debug"},
+		Name:  "foo",
+		Api:   motor.API.String(),
+		Model: model.String(),
 	}
-	expectedResName := motor.Named("foo")
+	resName := motor.Named("foo")
 
 	m := setupLocalModule(t, ctx, logger)
-	err := m.AddModelFromRegistry(ctx, motor.API, resource.DefaultModelFamily.WithModel("fake"))
+	err := m.AddModelFromRegistry(ctx, motor.API, model)
 	test.That(t, err, test.ShouldBeNil)
 
 	resLoggers := m.GetResourceLoggers()
@@ -1042,19 +1059,23 @@ func TestResLoggersCleanup(t *testing.T) {
 
 	resLoggers = m.GetResourceLoggers()
 	test.That(t, resLoggers, test.ShouldNotBeNil)
-	test.That(t, resLoggers[expectedResName], test.ShouldNotBeNil)
-	test.That(t, resLoggers[expectedResName].Level(), test.ShouldEqual, zapcore.DebugLevel)
+	test.That(t, len(resLoggers), test.ShouldEqual, 1)
+	var resourceAfterAddition resource.Resource
+	for res := range resLoggers { // for loop used to grab single key of map
+		resourceAfterAddition = res
+	}
 
-	cfg.LogConfiguration.Level = "info"
 	_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: cfg})
 	test.That(t, err, test.ShouldBeNil)
 
 	resLoggers = m.GetResourceLoggers()
 	test.That(t, resLoggers, test.ShouldNotBeNil)
-	test.That(t, resLoggers[expectedResName], test.ShouldNotBeNil)
-	test.That(t, resLoggers[expectedResName].Level(), test.ShouldEqual, zapcore.InfoLevel)
+	test.That(t, len(resLoggers), test.ShouldEqual, 1)
+	for res := range resLoggers { // for loop used to grab single key of map
+		test.That(t, res, test.ShouldNotEqual, resourceAfterAddition)
+	}
 
-	_, err = m.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: expectedResName.String()})
+	_, err = m.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: resName.String()})
 	test.That(t, err, test.ShouldBeNil)
 
 	resLoggers = m.GetResourceLoggers()

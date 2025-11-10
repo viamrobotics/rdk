@@ -199,7 +199,7 @@ type Module struct {
 	activeBackgroundWorkers sync.WaitGroup
 	handlers                HandlerMap
 	collections             map[resource.API]resource.APIResourceCollection[resource.Resource]
-	resLoggers              map[resource.Name]logging.Logger
+	resLoggers              map[resource.Resource]logging.Logger
 	closeOnce               sync.Once
 	pc                      *webrtc.PeerConnection
 	pcReady                 <-chan struct{}
@@ -248,7 +248,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		ready:                 true,
 		handlers:              HandlerMap{},
 		collections:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
-		resLoggers:            map[resource.Name]logging.Logger{},
+		resLoggers:            map[resource.Resource]logging.Logger{},
 	}
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
@@ -615,7 +615,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, multierr.Combine(err, res.Close(ctx))
 	}
 
-	m.resLoggers[conf.ResourceName()] = resLogger
+	m.resLoggers[res] = resLogger
 
 	// add the video stream resources upon creation
 	if passthroughSource != nil {
@@ -665,7 +665,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		return nil, err
 	}
 
-	if logger, ok := m.resLoggers[conf.ResourceName()]; ok {
+	if logger, ok := m.resLoggers[res]; ok {
 		levelStr := req.GetConfig().GetLogConfiguration().GetLevel()
 		// An unset LogConfiguration will materialize as an empty string.
 		if levelStr != "" {
@@ -692,6 +692,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	}
 
 	delete(m.activeResourceStreams, res.Name())
+	delete(m.resLoggers, res)
 	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
 	if !ok {
 		return nil, errors.Errorf("do not know how to construct %q", conf.API)
@@ -700,10 +701,13 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		return nil, errors.Errorf("invariant: no constructor for %q", conf.API)
 	}
 
-	newRes, err := resInfo.Constructor(ctx, deps, *conf, m.logger)
+	resLogger := m.logger.Sublogger(conf.ResourceName().String())
+	newRes, err := resInfo.Constructor(ctx, deps, *conf, resLogger)
 	if err != nil {
 		return nil, err
 	}
+	m.resLoggers[newRes] = resLogger
+
 	var passthroughSource rtppassthrough.Source
 	if p, ok := newRes.(rtppassthrough.Source); ok {
 		passthroughSource = p
@@ -776,7 +780,7 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 
 	delete(m.streamSourceByName, res.Name())
 	delete(m.activeResourceStreams, res.Name())
-	delete(m.resLoggers, res.Name())
+	delete(m.resLoggers, res)
 
 	return &pb.RemoveResourceResponse{}, coll.Remove(name)
 }
@@ -1024,6 +1028,6 @@ func validateRegistered(api resource.API, model resource.Model) error {
 
 // GetResourceLoggers returns the value of resLoggers. Only to be used for internal
 // testing.
-func (m *Module) GetResourceLoggers() map[resource.Name]logging.Logger {
+func (m *Module) GetResourceLoggers() map[resource.Resource]logging.Logger {
 	return m.resLoggers
 }
