@@ -1,8 +1,13 @@
 package video
 
 import (
-	"go.viam.com/rdk/resource"
+	"context"
+	"io"
+	"time"
+
 	servicepb "go.viam.com/api/service/video/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -16,7 +21,13 @@ func init() {
 
 type Service interface {
 	resource.Resource
-	GetVideo(ctx context.Context, from, to, container string, w io.Writer) error
+	GetVideo(
+		ctx context.Context,
+		startTime, endTime time.Time,
+		videoCodec, videoContainer, requestID string,
+		extra map[string]interface{},
+		w io.Writer,
+	) error
 }
 
 // SubtypeName is the name of the type of service.

@@ -1,5 +1,17 @@
 package video
 
+import (
+	"context"
+	"time"
+
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/video/v1"
+
+	"go.opencensus.io/trace"
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
+)
+
 type serviceServer struct {
 	pb.UnimplementedVideoServiceServer
 	coll resource.APIResourceGetter[Service]
@@ -12,32 +24,54 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[Service]) interface{} {
 }
 
 type streamWriter struct {
-	stream    servicepb.videoService_GetVideoServer
+	stream    pb.VideoService_GetVideoServer
 	requestID string
 }
 
 func (w streamWriter) Write(p []byte) (int, error) {
-	if err := w.stream.Send(&servicepb.GetVideoResponse{VideoData: p, RequestId: w.requestID}); err != nil {
+	if err := w.stream.Send(&pb.GetVideoResponse{VideoData: p, RequestId: w.requestID}); err != nil {
 		return 0, err
 	}
 	return len(p), nil
 }
 
 // GetVideo streams video data from the specified source to the provided writer.
-func (server *serviceServer) GetVideo(ctx context.Context, req *pb.GetVideoRequest) (
-	*pb.GetVideoResponse, error,
-) {
+func (server *serviceServer) GetVideo(ctx context.Context, req *pb.GetVideoRequest, stream pb.VideoService_GetVideoServer) error {
 	ctx, span := trace.StartSpan(ctx, "video::server::GetVideo")
 	defer span.End()
 
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// Here we would have logic to stream video data to the writer.
-	// For simplicity, we will just return an empty response.
-	return &pb.GetVideoResponse{}, nil
+	var start time.Time
+	if req.StartTimestamp != nil {
+		start = req.StartTimestamp.AsTime()
+	}
+	var end time.Time
+	if req.EndTimestamp != nil {
+		end = req.EndTimestamp.AsTime()
+	}
+
+	extra := map[string]interface{}{}
+	if req.Extra != nil {
+		for k, v := range req.Extra.GetFields() {
+			extra[k] = v.AsInterface()
+		}
+	}
+
+	// Stream directly via the interface to avoid buffering the entire video in memory.
+	return svc.GetVideo(
+		stream.Context(),
+		start,
+		end,
+		req.VideoCodec,
+		req.VideoContainer,
+		req.RequestId,
+		extra,
+		streamWriter{stream: stream, requestID: req.RequestId},
+	)
 }
 
 func (server *serviceServer) DoCommand(ctx context.Context,
