@@ -266,7 +266,6 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	seedInputs,
 	target *referenceframe.LinearInputs,
 ) *referenceframe.LinearInputs {
-
 	if debugConstrainNear {
 		mp.pc.logger.Infof("constrainNear called")
 		mp.pc.logger.Infof("\t start: %v end: %v",
