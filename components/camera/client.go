@@ -236,7 +236,7 @@ func (c *client) Images(
 			// format. We will remove this once we remove the format field from the proto.
 			img.MimeType = utils.FormatToMimeType[img.Format]
 		}
-		namedImg, err := NamedImageFromBytes(img.Image, img.SourceName, img.MimeType)
+		namedImg, err := NamedImageFromBytes(img.Image, img.SourceName, img.MimeType, data.AnnotationsFromProto(img.Annotations))
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}

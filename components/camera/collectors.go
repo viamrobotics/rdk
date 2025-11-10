@@ -128,8 +128,9 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 			TimeReceived:  time.Now(),
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
-			MimeType: mimeType,
-			Payload:  img,
+			MimeType:    mimeType,
+			Payload:     img,
+			Annotations: metadata.Annotations,
 		}}), nil
 	})
 	return data.NewCollector(cFunc, params)
@@ -160,8 +161,10 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 			if err != nil {
 				return res, data.NewFailedToReadError(params.ComponentName, getImages.String(), err)
 			}
+			annotations := img.Annotations
+			annotations.Classifications = append(annotations.Classifications, data.Classification{Label: img.SourceName})
 			binaries = append(binaries, data.Binary{
-				Annotations: data.Annotations{Classifications: []data.Classification{{Label: img.SourceName}}},
+				Annotations: annotations,
 				Payload:     imgBytes,
 				MimeType:    data.MimeTypeStringToMimeType(img.MimeType()),
 			})
