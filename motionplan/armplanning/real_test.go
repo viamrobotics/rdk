@@ -170,7 +170,7 @@ func TestSandingLargeMove1(t *testing.T) {
 		ss, err := smartSeed(req.FrameSystem, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		seeds, _, err := ss.findSeeds(ctx, req.Goals[0].poses, req.StartState.LinearConfiguration(), logger)
+		seeds, _, err := ss.findSeeds(ctx, req.Goals[0].poses, req.StartState.LinearConfiguration(), 5, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(seeds), test.ShouldBeGreaterThan, 1)
 
@@ -188,6 +188,11 @@ func TestSandingLargeMove1(t *testing.T) {
 		}
 		test.That(t, hasPos, test.ShouldBeTrue)
 		test.That(t, hasNeg, test.ShouldBeTrue)
+
+		seeds, _, err = ss.findSeeds(ctx, req.Goals[0].poses, req.StartState.LinearConfiguration(), -1, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(seeds), test.ShouldBeGreaterThan, 5)
+		test.That(t, len(seeds), test.ShouldBeLessThan, 2000)
 	}
 
 	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
