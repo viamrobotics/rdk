@@ -278,6 +278,10 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 				mgr.muFailedModules.Unlock()
 				errs[i] = err
 				return
+			} else {
+				mgr.muFailedModules.Lock()
+				delete(mgr.failedModules, conf.Name)
+				mgr.muFailedModules.Unlock()
 			}
 		}(i, conf)
 	}
