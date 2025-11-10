@@ -249,7 +249,7 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 		return nil, meta, errors.New("must populate start state configuration")
 	}
 
-	sfPlanner, err := newPlanManager(ctx, logger, request, meta)
+	sfPlanner, err := newPlanManager(ctx, logger.Sublogger("planner"), request, meta)
 	if err != nil {
 		return nil, meta, err
 	}
