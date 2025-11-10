@@ -28,6 +28,13 @@ const (
 // CostFunc is the function to minimize.
 type CostFunc func(context.Context, []float64) float64
 
+// SeedSolveMetaData meta data about how a seed did
+type SeedSolveMetaData struct {
+	Attempts int
+	Errors   int
+	Valid    int
+}
+
 // Solver defines an interface which, provided with seed inputs and a function to minimize to zero, will output all found
 // solutions to the provided channel until cancelled or otherwise completes.
 type Solver interface {
@@ -35,7 +42,7 @@ type Solver interface {
 	// number of iterations to run.
 	Solve(ctx context.Context, solutions chan<- *Solution,
 		seeds [][]float64, limits [][]referenceframe.Limit,
-		minFunc CostFunc, rseed int) (int, error)
+		minFunc CostFunc, rseed int) (int, []SeedSolveMetaData, error)
 }
 
 // Solution is the struct returned from an IK solver. It contains the solution configuration, the score of the solution, and a flag
@@ -98,20 +105,22 @@ func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame,
 //	but will fail if you have to move. 1 means search the entire range.
 func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
 	seeds [][]float64, limits [][]referenceframe.Limit,
-) ([][]float64, error) {
+) ([][]float64, []SeedSolveMetaData, error) {
 	limits, err := fixLimits(len(seeds), limits)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	solutionGen := make(chan *Solution)
 
 	var solveErrors error
+	var meta []SeedSolveMetaData
 
 	go func() {
 		defer close(solutionGen)
-		_, err := solver.Solve(ctx, solutionGen, seeds, limits, solveFunc, 1)
+		_, m, err := solver.Solve(ctx, solutionGen, seeds, limits, solveFunc, 1)
 		solveErrors = err
+		meta = m
 	}()
 
 	var solutions [][]float64
@@ -120,14 +129,14 @@ func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
 	}
 
 	if solveErrors != nil {
-		return nil, solveErrors
+		return nil, nil, solveErrors
 	}
 
 	if len(solutions) == 0 {
-		return nil, fmt.Errorf("unable to solve for position")
+		return nil, nil, fmt.Errorf("unable to solve for position")
 	}
 
-	return solutions, nil
+	return solutions, meta, nil
 }
 
 func fixLimits(numSeeds int, limits [][]referenceframe.Limit) ([][]referenceframe.Limit, error) {

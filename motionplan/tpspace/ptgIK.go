@@ -96,7 +96,7 @@ func (ptg *ptgIK) Solve(
 	}
 
 	// Spawn the IK solver to generate a solution
-	_, err := ptg.fastGradDescent.Solve(
+	_, _, err := ptg.fastGradDescent.Solve(
 		ctx,
 		internalSolutionGen,
 		[][]float64{seed},
