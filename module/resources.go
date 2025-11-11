@@ -2,6 +2,7 @@ package module
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -104,6 +105,13 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 
 	if _, err = m.reconfigureResource(ctx, deps, conf, logLevel); err != nil {
 		return nil, err
+	}
+
+	if errors.Is(ctx.Err(), context.Canceled) {
+		m.logger.Error(
+			"Context was canceled before returning. Viam-server will not know the state of this resource. Module must be restarted.",
+			"res", conf.Name,
+		)
 	}
 
 	return &pb.ReconfigureResourceResponse{}, nil
