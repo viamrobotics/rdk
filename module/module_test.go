@@ -1017,7 +1017,8 @@ func TestFrameSystemFromDependencies(t *testing.T) {
 
 func TestQueryTabularDataForResource(t *testing.T) {
 	grpcClient := &inject.DataServiceClient{}
-	grpcClient.TabularDataByMQLFunc = func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
+	grpcClient.TabularDataByMQLFunc = func(
+		ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
 		test.That(t, "my_org", test.ShouldEqual, in.OrganizationId)
 
 		return &datapb.TabularDataByMQLResponse{}, nil

@@ -42,7 +42,8 @@ func (r *ResourceDataConsumer) DataClient(ctx context.Context, client datapb.Dat
 }
 
 // QueryTabularDataForResource will return historical data for a resource.
-func (r ResourceDataConsumer) QueryTabularDataForResource(ctx context.Context, resourceName string, opts *QueryTabularDataOptions) ([]map[string]any, error) {
+func (r ResourceDataConsumer) QueryTabularDataForResource(
+	ctx context.Context, resourceName string, opts *QueryTabularDataOptions) ([]map[string]any, error) {
 	dataClient, err := r.DataClient(ctx, nil)
 	if err != nil {
 		return nil, err
