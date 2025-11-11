@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	datapb "go.viam.com/api/app/data/v1"
 	v1 "go.viam.com/api/app/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/module/v1"
@@ -1012,4 +1013,20 @@ func TestFrameSystemFromDependencies(t *testing.T) {
 	_, err := th.m.AddResource(th.ctx, &pb.AddResourceRequest{Config: th.cfg})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, th.constructCount, test.ShouldEqual, 1)
+}
+
+func TestQueryTabularDataForResource(t *testing.T) {
+	grpcClient := &inject.DataServiceClient{}
+	grpcClient.TabularDataByMQLFunc = func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption) (*datapb.TabularDataByMQLResponse, error) {
+		test.That(t, "my_org", test.ShouldEqual, in.OrganizationId)
+
+		return &datapb.TabularDataByMQLResponse{}, nil
+	}
+
+	os.Setenv(rutils.PrimaryOrgIDEnvVar, "my_org")
+	os.Setenv(rutils.MachinePartIDEnvVar, "part")
+
+	dataConsumer := &module.ResourceDataConsumer{}
+	dataConsumer.DataClient(context.Background(), grpcClient)
+	dataConsumer.QueryTabularDataForResource(context.Background(), "resource", nil)
 }

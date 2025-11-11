@@ -5,12 +5,13 @@ import (
 	"os"
 	"time"
 
+	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/rdk/app"
 	"go.viam.com/rdk/utils"
 )
 
 type QueryTabularDataOptions struct {
-	TimeBack time.Duration
+	TimeBack         time.Duration
 	AdditionalStages []map[string]any
 }
 
@@ -18,10 +19,16 @@ type ResourceDataConsumer struct {
 	_dataClient *app.DataClient
 }
 
-func (r *ResourceDataConsumer) dataClient(ctx context.Context) (*app.DataClient, error) {
+func (r *ResourceDataConsumer) DataClient(ctx context.Context, client datapb.DataServiceClient) (*app.DataClient, error) {
 	if r._dataClient != nil {
 		return r._dataClient, nil
 	}
+
+	if client != nil {
+		r._dataClient = app.CreateDataClientWithDataServiceClient(client)
+		return r._dataClient, nil
+	}
+
 	viamClient, err := app.CreateViamClientFromEnvVars(ctx, nil, nil)
 	if err != nil {
 		return nil, err
@@ -31,11 +38,11 @@ func (r *ResourceDataConsumer) dataClient(ctx context.Context) (*app.DataClient,
 }
 
 func (r ResourceDataConsumer) QueryTabularDataForResource(ctx context.Context, resourceName string, opts *QueryTabularDataOptions) ([]map[string]any, error) {
-	dataClient, err := r.dataClient(ctx)
+	dataClient, err := r.DataClient(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	orgId := os.Getenv(utils.PrimaryOrgIDEnvVar)
 	partId := os.Getenv(utils.MachinePartIDEnvVar)
 
@@ -50,7 +57,7 @@ func (r ResourceDataConsumer) QueryTabularDataForResource(ctx context.Context, r
 	query := []map[string]any{
 		{
 			"$match": map[string]any{
-				"part_id":   partId,
+				"part_id":        partId,
 				"component_name": resourceName,
 				"time_received": map[string]any{
 					"$gte": time.Now().Add(timeBack),
@@ -58,7 +65,10 @@ func (r ResourceDataConsumer) QueryTabularDataForResource(ctx context.Context, r
 			},
 		},
 	}
-	query = append(query, opts.AdditionalStages...)
-	
+
+	if opts != nil {
+		query = append(query, opts.AdditionalStages...)
+	}
+
 	return dataClient.TabularDataByMQL(ctx, orgId, query, nil)
 }

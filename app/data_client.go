@@ -471,6 +471,12 @@ func newDataClient(conn rpc.ClientConn) *DataClient {
 	}
 }
 
+// Creates a DataClient with a manually set DataServiceClient.
+// This is needed for unit tests and should not be used elsewhere.
+func CreateDataClientWithDataServiceClient(client pb.DataServiceClient) *DataClient {
+	return &DataClient{dataClient: client}
+}
+
 // BsonToGo converts raw BSON data (as [][]byte) into native Go types and interfaces.
 // Returns a slice of maps representing the data objects.
 func BsonToGo(rawData [][]byte) ([]map[string]interface{}, error) {
