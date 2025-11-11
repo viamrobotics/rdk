@@ -313,6 +313,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithUnaryClientInterceptor(logging.UnaryClientInterceptor),
 		// sending version metadata
 		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()),
+		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 		// sending traces across the network
 		rpc.WithDialStatsHandler(&ocgrpc.ClientHandler{}),
 	)

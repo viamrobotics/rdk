@@ -173,13 +173,6 @@ func (s *serviceServer) GetPointCloud(
 	ctx context.Context,
 	req *pb.GetPointCloudRequest,
 ) (*pb.GetPointCloudResponse, error) {
-	myLogger := logging.NewBlankLogger("server get point cloud")
-	sp := trace.FromContext(ctx)
-	if sp != nil {
-		myLogger.Infow("span", "span", sp, "id", sp.SpanContext().TraceID.String())
-	} else {
-		myLogger.Infow("no span", "id", "no span")
-	}
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetPointCloud")
 	defer span.End()
 	camera, err := s.coll.Resource(req.Name)
