@@ -26,7 +26,7 @@ type resConfigureArgs struct {
 	depStrings []string
 }
 
-// AddResource receives the component/service configuration from the parent.
+// AddResource receives the component/service configuration from the viam-server.
 func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
 	select {
 	case <-m.pcReady:
@@ -70,7 +70,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 	return &pb.AddResourceResponse{}, nil
 }
 
-// ReconfigureResource receives the component/service configuration from the parent.
+// ReconfigureResource receives the component/service configuration from the viam-server.
 func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureResourceRequest) (*pb.ReconfigureResourceResponse, error) {
 	// it is assumed the caller robot has handled model differences
 	conf, err := config.ComponentConfigFromProto(req.Config, m.logger)
@@ -117,7 +117,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 	return &pb.ReconfigureResourceResponse{}, nil
 }
 
-// ValidateConfig receives the validation request for a resource from the parent.
+// ValidateConfig receives the validation request for a resource from the viam-server.
 func (m *Module) ValidateConfig(ctx context.Context,
 	req *pb.ValidateConfigRequest,
 ) (*pb.ValidateConfigResponse, error) {
@@ -165,7 +165,7 @@ func (m *Module) RemoveResource(ctx context.Context, req *pb.RemoveResourceReque
 	return &pb.RemoveResourceResponse{}, nil
 }
 
-// GetParentResource returns a resource from the parent robot by name.
+// GetParentResource returns a resource from the viam-server by name.
 func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (resource.Resource, error) {
 	// Refresh parent to ensure it has the most up-to-date resources before calling
 	// ResourceByName.
@@ -175,7 +175,8 @@ func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (res
 	return m.parent.ResourceByName(name)
 }
 
-// getLocalResource must be called while holding the `registerMu`.
+// getLocalResource returns a resource from within the module by name. `getLocalResource` must be
+// called while holding the `registerMu`.
 func (m *Module) getLocalResource(_ context.Context, name resource.Name) (resource.Resource, error) {
 	for res := range m.resLoggers {
 		if res.Name() == name {
@@ -413,9 +414,10 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 	defer m.registerMu.Unlock()
 	delete(m.streamSourceByName, res.Name())
 	delete(m.activeResourceStreams, res.Name())
+	delete(m.resLoggers, res)
 
-	// Dan: Log if there are still resources that depend on us? We assume the viam-server forbids
-	// removing a resource until dependents are first closed/removed.
+	// The viam-server forbids removing a resource until dependents are first closed/removed. Hence
+	// it's safe to assume the value in the map for `res` is empty and simply remove the map entry.q
 	delete(m.internalDeps, res)
 
 	for dep, chainReconfigures := range m.internalDeps {
@@ -455,7 +457,6 @@ func (m *Module) reconfigureResource(
 		resLogger.SetLevel(*logLevel)
 	}
 
-	m.logger.Debugw("rebuilding", "name", conf.ResourceName().String())
 	err = res.Reconfigure(ctx, deps, *conf)
 	if err == nil {
 		return nil, nil
@@ -494,8 +495,6 @@ func (m *Module) reconfigureResource(
 	m.registerMu.Lock()
 	// We're modifying internal module maps now. We must not error out at this point without rolling
 	// back module state mutations.
-	m.logger.Infof("DBG. Deleting res from loggers: %p %v", res, res.Name())
-	m.logger.Infof("DBG. Added res to loggers: %p %v", newRes, newRes.Name())
 	delete(m.resLoggers, res)
 	m.resLoggers[newRes] = resLogger
 
@@ -504,14 +503,12 @@ func (m *Module) reconfigureResource(
 	}
 
 	for _, resConfigureArgs := range m.internalDeps[res] {
-		m.logger.Infof("DBG. Chain reconfiguring. Initial: %v (%p -> %p) Dep: %v (%p)",
-			conf.ResourceName().Name, res, newRes, resConfigureArgs.toReconfig.Name().Name, resConfigureArgs.toReconfig)
 		deps, err := m.getDependenciesForConstruction(ctx, resConfigureArgs.depStrings)
 		if err != nil {
-			m.logger.Warn("Failed to get dependencies for reconfiguring dependent on parent rebuild",
-				"parent", resConfigureArgs.conf.ResourceName().Name,
-				"child", conf.ResourceName().Name,
-				"deps", resConfigureArgs.depStrings,
+			m.logger.Warn("Failed to get dependencies for cascading dependant reconfigure",
+				"changedResource", conf.ResourceName().Name,
+				"dependant", resConfigureArgs.conf.ResourceName().Name,
+				"dependantDeps", resConfigureArgs.depStrings,
 				"err", err)
 			continue
 		}
@@ -520,9 +517,9 @@ func (m *Module) reconfigureResource(
 		var nilLogLevel *logging.Level // pass in nil to avoid changing the log level
 		rebuiltRes, err := m.reconfigureResource(ctx, deps, resConfigureArgs.conf, nilLogLevel)
 		if err != nil {
-			m.logger.Warn("Failed to reconfigure parent on child rebuild",
-				"parent", resConfigureArgs.conf.ResourceName().Name,
-				"child", conf.ResourceName().Name,
+			m.logger.Warn("Failed to cascade dependant reconfigure",
+				"changedResource", conf.ResourceName().Name,
+				"dependant", resConfigureArgs.conf.ResourceName().Name,
 				"err", err)
 		}
 		m.registerMu.Lock()

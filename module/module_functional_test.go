@@ -76,6 +76,9 @@ func (dcd *doCommandDepender) DoCommand(ctx context.Context, cmd map[string]any)
 		return nil, errors.New("was closed")
 	}
 
+	// Dan: I do some fancy stuff here to chain the API calls through to dependencies. But the
+	// values are not asserted on. They were just deemed to be some way to summarize the path a
+	// request took.
 	if dcd.dependsOn != nil {
 		if val, exists := cmd["outgoing"]; exists {
 			cmd["outgoing"] = val.(int) + 1
@@ -107,6 +110,9 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	ctx := t.Context()
 	logger := logging.NewTestLogger(t)
 
+	// We expose one model that satisfies the (component) generic API and can have a variable number
+	// of dependents. The test will create multiple of these components that may or may not depend
+	// on others.
 	modelName := utils.RandomAlphaString(20)
 	model := resource.DefaultModelFamily.WithModel(modelName)
 	logger.Info("Randomized model name:", modelName)
@@ -143,105 +149,113 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	module := setupLocalModule(t, ctx, logging.NewTestLogger(t))
 	test.That(t, module.AddModelFromRegistry(ctx, generic.API, model), test.ShouldBeNil)
 
-	// Add a child resource that depends on nothing.
+	// This test will ultimately create three resources:
+	// 1) A leaf that depends on nothing
+	// 2) A branch that depends on the leaf
+	// 3) A trunk that depends on the branch
+	//
+	// We create these resources in proper dependency order.
+	//
+	// Add a leaf resource that depends on nothing.
 	_, err := module.AddResource(ctx, &pb.AddResourceRequest{Config: &v1.ComponentConfig{
-		Name: "child", Api: generic.API.String(), Model: model.String(),
+		Name: "leaf", Api: generic.API.String(), Model: model.String(),
 	}})
 	test.That(t, err, test.ShouldBeNil)
 
-	childRes, err := module.getLocalResource(ctx, generic.Named("child"))
+	leafRes, err := module.getLocalResource(ctx, generic.Named("leaf"))
 	test.That(t, err, test.ShouldBeNil)
 
-	resp, err := childRes.DoCommand(ctx, map[string]any{})
+	_, err = leafRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
-	logger.Info("ChildResp:", resp)
 
-	// Build up and add a parent resource that depends on the child resource.
+	// Build up and add a branch resource that depends on the leaf resource.
 	attrsBuf, err := protoutils.StructToStructPb(&doCommandDependerConfig{
-		DependsOn: "child",
+		DependsOn: "leaf",
 	})
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = module.AddResource(ctx, &pb.AddResourceRequest{
-		Dependencies: []string{generic.Named("child").String()},
+		Dependencies: []string{generic.Named("leaf").String()},
 		Config: &v1.ComponentConfig{
-			Name: "parent", Api: generic.API.String(), Model: model.String(),
-			DependsOn:  []string{"child"}, // unnecessary but mimics reality?
+			Name: "branch", Api: generic.API.String(), Model: model.String(),
+			DependsOn:  []string{"leaf"}, // unnecessary but mimics reality?
 			Attributes: attrsBuf,
 		},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	parentRes, err := module.getLocalResource(ctx, generic.Named("parent"))
+	branchRes, err := module.getLocalResource(ctx, generic.Named("branch"))
 	test.That(t, err, test.ShouldBeNil)
 
-	resp, err = parentRes.DoCommand(ctx, map[string]any{})
+	_, err = branchRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
-	logger.Info("ParentResp:", resp)
 
-	// Reconfigure the child. This results in a `Close` -> `Constructor`.
-	logger.Info("Reconfiguring child first time")
+	// Reconfigure the leaf. This results in a `Close` -> `Constructor`.
+	logger.Info("Reconfiguring leaf first time")
 	_, err = module.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
 		Config: &v1.ComponentConfig{ // Same config.
-			Name: "child", Api: generic.API.String(), Model: model.String(),
+			Name: "leaf", Api: generic.API.String(), Model: model.String(),
 		},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Assert that the original `parentRes` has its dependency invalidated.
-	_, err = parentRes.DoCommand(ctx, map[string]any{})
+	// Assert that the original `branchRes` has its dependency invalidated.
+	_, err = branchRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldNotBeNil)
 
-	// Get a fresh value for the `parentRes`.
-	parentRes, err = module.getLocalResource(ctx, generic.Named("parent"))
+	// Get a fresh value for the `branchRes`.
+	branchRes, err = module.getLocalResource(ctx, generic.Named("branch"))
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = parentRes.DoCommand(ctx, map[string]any{})
+	_, err = branchRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Build up and add a parent resource that depends on the child resource.
-	gpAttrsBuf, err := protoutils.StructToStructPb(&doCommandDependerConfig{
-		DependsOn: "parent",
+	// Build up and add a branch resource that depends on the leaf resource.
+	trunkAttrsBuf, err := protoutils.StructToStructPb(&doCommandDependerConfig{
+		DependsOn: "branch",
 	})
 	test.That(t, err, test.ShouldBeNil)
-	// Add a grandparent that depends on the parent resource.
+	// Add a trunk that depends on the branch resource.
 	_, err = module.AddResource(ctx, &pb.AddResourceRequest{
-		Dependencies: []string{generic.Named("parent").String()},
+		Dependencies: []string{generic.Named("branch").String()},
 		Config: &v1.ComponentConfig{
-			Name: "grandParent", Api: generic.API.String(), Model: model.String(),
-			DependsOn:  []string{"parent"}, // unnecessary but mimics reality?
-			Attributes: gpAttrsBuf,
+			Name: "trunk", Api: generic.API.String(), Model: model.String(),
+			DependsOn:  []string{"branch"}, // unnecessary but mimics reality?
+			Attributes: trunkAttrsBuf,
 		},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	gpRes, err := module.getLocalResource(ctx, generic.Named("grandParent"))
+	trunkRes, err := module.getLocalResource(ctx, generic.Named("trunk"))
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = gpRes.DoCommand(ctx, map[string]any{})
+	_, err = trunkRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 
-	logger.Info("Reconfiguring child second time")
-	// Reconfigure the child again. This results in a `Close` -> `Constructor` on both the child
-	// _and_ the parent _and_ the grandparent. Refetch the parent and grandparent and assert they
-	// both grandparent can continue respond to `DoCommand`s that require dependencies to be valid.
-	_, err = module.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
+	logger.Info("Reconfiguring leaf second time")
+	// Reconfigure the leaf again. This results in a `Close` -> `Constructor` on both the leaf
+	// _and_ the branch _and_ the trunk. Refetch the branch and trunk and assert they
+	// both trunk can continue respond to `DoCommand`s that require dependencies to be valid.
+
+	canceledCtx, cancel := context.WithCancel(ctx)
+	cancel()
+	_, err = module.ReconfigureResource(canceledCtx, &pb.ReconfigureResourceRequest{
 		Config: &v1.ComponentConfig{ // Same config.
-			Name: "child", Api: generic.API.String(), Model: model.String(),
+			Name: "leaf", Api: generic.API.String(), Model: model.String(),
 		},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Get a fresh value for the `parentRes`.
-	parentRes, err = module.getLocalResource(ctx, generic.Named("parent"))
+	// Get a fresh value for the `branchRes`.
+	branchRes, err = module.getLocalResource(ctx, generic.Named("branch"))
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = parentRes.DoCommand(ctx, map[string]any{})
+	_, err = branchRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 
-	gpRes, err = module.getLocalResource(ctx, generic.Named("grandParent"))
+	trunkRes, err = module.getLocalResource(ctx, generic.Named("branch"))
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = gpRes.DoCommand(ctx, map[string]any{})
+	_, err = trunkRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 }
