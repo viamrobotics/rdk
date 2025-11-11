@@ -136,7 +136,12 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 				rrtMaps.goalMap[newGoal] = nil
 
 				// Readjust the target to give the new solution a chance to succeed.
-				target, err = mp.sample(newGoal, iterNum)
+				newTarget, err := mp.sample(newGoal, iterNum)
+				if err != nil {
+					mp.pc.logger.CWarnw(ctx, "Sampling new node had error", "err", err)
+				} else {
+					target = newTarget
+				}
 			default:
 			}
 		}

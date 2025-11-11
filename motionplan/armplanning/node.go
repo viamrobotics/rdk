@@ -280,7 +280,7 @@ func (sss *solutionSolvingState) processCorrectness(ctx context.Context, step *r
 
 // processSimilarity returns a non-nil *node object if the solution is unique amongst the existing solutions
 func (sss *solutionSolvingState) processSimilarity(
-	ctx context.Context,
+	_ context.Context,
 	step *referenceframe.LinearInputs,
 	stepArc *motionplan.SegmentFS,
 ) *node {
@@ -305,7 +305,7 @@ func (sss *solutionSolvingState) processSimilarity(
 	return &node{inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
 }
 
-func (sss *solutionSolvingState) toInputs(ctx context.Context, stepSolution *ik.Solution) *referenceframe.LinearInputs {
+func (sss *solutionSolvingState) toInputs(_ context.Context, stepSolution *ik.Solution) *referenceframe.LinearInputs {
 	step, err := sss.psc.pc.lis.FloatsToInputs(stepSolution.Configuration)
 	if err != nil {
 		sss.psc.pc.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
