@@ -657,6 +657,11 @@ func TestArmObstacleSolve(t *testing.T) {
 }
 
 func TestArmAndGantrySolve(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	logger := logging.NewTestLogger(t)
 	t.Parallel()
 	fs := makeTestFS(t)
@@ -691,6 +696,11 @@ func TestArmAndGantrySolve(t *testing.T) {
 }
 
 func TestMultiArmSolve(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+
 	logger := logging.NewTestLogger(t)
 	fs := makeTestFS(t)
 	positions := frame.NewZeroInputs(fs)

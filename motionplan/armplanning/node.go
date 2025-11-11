@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -161,7 +162,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
 
 	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .1))
+	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .05))
 
 	if sss.goodCost > 1 && minRatio > .05 {
 		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
@@ -169,33 +170,13 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
 		}
 
-		altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, psc.pc.logger)
+		altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, 5 /* TODO */, psc.pc.logger)
 		if err != nil {
 			psc.pc.logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
 		psc.pc.logger.Debugf("got %d altSeeds", len(altSeeds))
 
-		passed := []bool{}
-		anyPassed := false
-		for idx, s := range altSeeds {
-			err = psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
-				Configuration: s,
-				FS:            psc.pc.fs,
-			})
-			if err == nil {
-				passed = append(passed, true)
-				anyPassed = true
-			} else {
-				psc.pc.logger.Debugf("seed %d invalid %v", idx, err)
-				passed = append(passed, false)
-			}
-		}
-
-		for idx, s := range altSeeds {
-			if anyPassed && !passed[idx] {
-				psc.pc.logger.Debugf("skipping smart seed %d", idx)
-				continue
-			}
+		for _, s := range altSeeds {
 			si := s.GetLinearizedInputs()
 			sss.linearSeeds = append(sss.linearSeeds, si)
 			ll := ik.ComputeAdjustLimitsArray(si, sss.seedLimits[0], altLimitDivisors)
@@ -416,7 +397,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	solutionGen := make(chan *ik.Solution, defaultNumThreads*20)
+	solutionGen := make(chan *ik.Solution, defaultNumThreads)
 	defer func() {
 		// In lieu of creating a separate WaitGroup to wait on before returning, we simply wait to
 		// see the `solutionGen` channel get closed to know that the goroutine we spawned has
@@ -431,19 +412,21 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 	}
 
 	var solveError error
+	var solveMeta []ik.SeedSolveMetaData
 	var solveErrorLock sync.Mutex
 
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		// This channel close doubles as signaling that the goroutine has exited.
 		defer close(solutionGen)
-		nSol, err := solver.Solve(ctxWithCancel, solutionGen, solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
+		nSol, m, err := solver.Solve(ctxWithCancel,
+			solutionGen, solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
 		solvingState.psc.pc.logger.Debugf("Solver stopping. Solutions: %v Err? %v", nSol, err)
-		if err != nil {
-			solveErrorLock.Lock()
-			solveError = err
-			solveErrorLock.Unlock()
-		}
+
+		solveErrorLock.Lock()
+		solveError = err
+		solveMeta = m
+		solveErrorLock.Unlock()
 	})
 
 solutionLoop:
@@ -464,7 +447,7 @@ solutionLoop:
 			solvingState.process(ctx, stepSolution)
 			if solvingState.shouldStopEarly() {
 				cancel()
-				break solutionLoop
+				// we don't exit the loop to get the last solutions so we don't waste them
 			}
 		}
 	}
@@ -493,5 +476,62 @@ solutionLoop:
 		return solvingState.solutions[i].cost < solvingState.solutions[j].cost
 	})
 
+	err = solvingState.debugSeedInfoForWinner(solvingState.solutions[0].inputs, solveMeta)
+	if err != nil {
+		return nil, err
+	}
+
 	return solvingState.solutions, nil
+}
+
+func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.LinearInputs, solveMeta []ik.SeedSolveMetaData) error {
+	if sss.psc.pc.logger.GetLevel() != logging.DEBUG {
+		return nil
+	}
+
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "\n")
+
+	inValid := make([]bool, len(solveMeta))
+
+	for _, frameName := range sss.psc.pc.fs.FrameNames() {
+		f := sss.psc.pc.fs.Frame(frameName)
+		dof := f.DoF()
+		if len(dof) == 0 {
+			continue
+		}
+		fmt.Fprintf(&builder, "frame: %s\n", frameName)
+
+		inputs := winner.Get(frameName)
+
+		for jointNumber, l := range dof {
+			min, max, r := l.GoodLimits()
+			winningValue := inputs[jointNumber]
+			fmt.Fprintf(&builder, "\t joint %d min: %0.2f, max: %0.2f range: %0.2f\n", jointNumber, min, max, r)
+			fmt.Fprintf(&builder, "\t\t winner: %0.2f\n", winningValue)
+
+			for seedNumber, s := range sss.linearSeeds {
+				step, err := sss.psc.pc.lis.FloatsToInputs(s)
+				if err != nil {
+					return err
+				}
+				v := step.Get(frameName)[jointNumber]
+				myLimit := sss.seedLimits[seedNumber][jointNumber]
+				fmt.Fprintf(&builder, "\t\t  seed %d %0.2f delta: %0.2f valid: %v limits: %v\n",
+					seedNumber, v, math.Abs(v-winningValue)/r, myLimit.IsValid(winningValue), myLimit)
+				if !myLimit.IsValid(winningValue) {
+					inValid[seedNumber] = true
+				}
+			}
+		}
+	}
+
+	for idx, m := range solveMeta {
+		fmt.Fprintf(&builder, "seed: %d %#v\n", idx, m)
+		fmt.Fprintf(&builder, "\t %v\n", logging.FloatArrayFormat{"", sss.linearSeeds[idx]})
+		fmt.Fprintf(&builder, "\t valid: %v\n", !inValid[idx])
+	}
+
+	sss.psc.pc.logger.Debugf(builder.String())
+	return nil
 }
