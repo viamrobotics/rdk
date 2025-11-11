@@ -471,7 +471,7 @@ func newDataClient(conn rpc.ClientConn) *DataClient {
 	}
 }
 
-// Creates a DataClient with a manually set DataServiceClient.
+// CreateDataClientWithDataServiceClient creates a DataClient with a manually set DataServiceClient.
 // This is needed for unit tests and should not be used elsewhere.
 func CreateDataClientWithDataServiceClient(client pb.DataServiceClient) *DataClient {
 	return &DataClient{dataClient: client}
