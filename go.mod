@@ -2,6 +2,11 @@ module go.viam.com/rdk
 
 go 1.25.1
 
+// This must be a replace because a bunch of our deps also use it + `go mod tidy` fails from the conflict
+// if you switch it out in the require block.
+// We fork this bc the stock version doubles binary size from 25mb -> 50mb.
+replace github.com/hashicorp/go-getter => github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a
+
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/Masterminds/semver/v3 v3.3.0
@@ -44,6 +49,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3
+	github.com/hashicorp/go-getter v1.8.3
 	github.com/invopop/jsonschema v0.6.0
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/jhump/protoreflect v1.15.6
@@ -161,6 +167,7 @@ require (
 	github.com/aws/aws-sdk-go v1.38.20 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/bitfield/gotestdox v0.2.2 // indirect
 	github.com/bkielbasa/cyclop v1.2.1 // indirect
 	github.com/blackjack/webcam v0.6.1 // indirect
@@ -273,6 +280,7 @@ require (
 	github.com/gostaticanalysis/comment v1.4.2 // indirect
 	github.com/gostaticanalysis/forcetypeassert v0.1.0 // indirect
 	github.com/gostaticanalysis/nilerr v0.1.1 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
@@ -408,6 +416,7 @@ require (
 	github.com/tomarrell/wrapcheck/v2 v2.9.0 // indirect
 	github.com/tommy-muehle/go-mnd/v2 v2.5.1 // indirect
 	github.com/u2takey/go-utils v0.3.1 // indirect
+	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/ultraware/funlen v0.1.0 // indirect
 	github.com/ultraware/whitespace v0.1.1 // indirect
 	github.com/uudashr/gocognit v1.1.3 // indirect

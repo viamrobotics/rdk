@@ -17,6 +17,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-getter"
+
+	errw "github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
@@ -181,6 +184,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// download package from a http endpoint
 		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p, true,
 			func(ctx context.Context, url, dstPath string) (string, string, error) {
+				println("TODO DONOTMERGE: figure out what to do about status file in partial mode")
 				statusFile := packageSyncFile{
 					PackageID:       p.Package,
 					Version:         p.Version,
@@ -194,7 +198,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 					return "", "", err
 				}
 
-				return m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
+				return m.downloadFileWithChecksum(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
 			},
 		)
 		if err != nil {
@@ -391,14 +395,16 @@ func (wc *logProgressWriter) Write(p []byte) (int, error) {
 	return bytesWritten, nil
 }
 
-func (m *cloudManager) downloadFileFromGCSURL(
+// downloader with header-based checksum logic and partials support.
+func (m *cloudManager) downloadFileWithChecksum(
 	ctx context.Context,
-	url string,
+	rawURL string,
 	downloadPath string,
 	partID string,
 	partSecret string,
 ) (string, string, error) {
-	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	println("TODO MAKE THIS A HEAD NOW")
+	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	getReq.Header.Add("part_id", partID)
 	getReq.Header.Add("secret", partSecret)
 	if err != nil {
@@ -418,29 +424,38 @@ func (m *cloudManager) downloadFileFromGCSURL(
 
 	contentType := resp.Header.Get("Content-Type")
 	checksum := getGoogleHash(resp.Header, "crc32c")
-
-	//nolint:gosec // safe
-	out, err := os.Create(downloadPath)
+	expectedChecksumBytes, err := base64.StdEncoding.DecodeString(checksum)
 	if err != nil {
-		return checksum, contentType, err
+		return "", "", fmt.Errorf("failed to decode expected checksum: %q %w", checksum, err)
 	}
-	defer utils.UncheckedErrorFunc(out.Close)
+
+	if stat, err := os.Stat(downloadPath); err == nil {
+		m.logger.Infow("download to existing", "dest", downloadPath, "size", stat.Size())
+	}
+
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return "", "", err
+	}
+
+	g := getter.HttpGetter{} // MaxBytes: 2e6} // for testing
+	g.SetClient(&getter.Client{Ctx: ctx})
+	if err := g.GetFile(downloadPath, parsedURL); err != nil {
+		return "", "", errw.Wrap(err, "downloading file")
+	}
 
 	hash := crc32Hash()
-	w := io.MultiWriter(out, hash, newLogProgressWriter(m.logger, downloadPath, resp.ContentLength))
-
-	_, err = io.CopyN(w, resp.Body, maxPackageSize)
-	if err != nil && !errors.Is(err, io.EOF) {
-		utils.UncheckedError(os.Remove(downloadPath))
-		return checksum, contentType, err
-	}
-
-	checksumBytes, err := base64.StdEncoding.DecodeString(checksum)
+	destFile, err := os.Open(downloadPath)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to decode expected checksum: %s %w", checksum, err)
+		return "", "", err
+	}
+	defer destFile.Close()
+	_, err = io.Copy(hash, destFile)
+	if err != nil {
+		return "", "", err
 	}
 
-	trimmedChecksumBytes := trimLeadingZeroes(checksumBytes)
+	trimmedChecksumBytes := trimLeadingZeroes(expectedChecksumBytes)
 	trimmedOutHashBytes := trimLeadingZeroes(hash.Sum(nil))
 
 	if !bytes.Equal(trimmedOutHashBytes, trimmedChecksumBytes) {
@@ -449,7 +464,7 @@ func (m *cloudManager) downloadFileFromGCSURL(
 			"download did not match expected hash:\n"+
 				"  pre-trimmed: %x vs. %x\n"+
 				"  trimmed:     %x vs. %x",
-			checksumBytes, hash.Sum(nil),
+			expectedChecksumBytes, hash.Sum(nil),
 			trimmedChecksumBytes, trimmedOutHashBytes,
 		)
 	}
