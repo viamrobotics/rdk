@@ -395,7 +395,7 @@ func TestRetryableCopyToPart(t *testing.T) {
 	})
 
 	t.Run("AllAttemptsFail", func(t *testing.T) {
-		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
 			map[string]any{}, "token")
 
 		attemptCount := 0
@@ -429,18 +429,9 @@ func TestRetryableCopyToPart(t *testing.T) {
 		)
 
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "failed copying to part")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "after 6 attempts")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "all 6 upload attempts failed")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "viam module reload --no-build --part-id test-part-123")
 		test.That(t, attemptCount, test.ShouldEqual, 6)
-
-		// Verify error messages in errOut
-		errMsg := strings.Join(errOut.messages, "")
-
-		// Final failure message
-		test.That(t, errMsg, test.ShouldContainSubstring, "All 6 upload attempts failed")
-
-		// Resume command message with part ID
-		test.That(t, errMsg, test.ShouldContainSubstring, "viam module reload --no-build --part-id test-part-123")
 	})
 
 	t.Run("PermissionDeniedError", func(t *testing.T) {

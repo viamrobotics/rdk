@@ -1481,7 +1481,6 @@ func (c *viamClient) retryableCopyToPart(
 	copyFunc func(fqdn string, debug, allowRecursion, preserve bool,
 		paths []string, destination string, logger logging.Logger, noProgress bool) error,
 ) error {
-	var lastErr error
 	var hadPreviousFailure bool
 
 	for attempt := 1; attempt <= maxCopyAttempts; attempt++ {
@@ -1517,7 +1516,6 @@ func (c *viamClient) retryableCopyToPart(
 		}
 
 		// Handle error
-		lastErr = err
 		hadPreviousFailure = true
 
 		// Print special warning for permission denied errors (in addition to regular error)
@@ -1549,13 +1547,9 @@ func (c *viamClient) retryableCopyToPart(
 		_ = pm.Fail(attemptStepID, err) //nolint:errcheck
 	}
 
-	// All attempts failed
-	warningf(ctx.App.ErrWriter, "All %d upload attempts failed", maxCopyAttempts)
-	warningf(ctx.App.ErrWriter,
-		"You can retry the copy later, skipping the build step with: viam module reload --no-build --part-id %s",
-		partID)
-
-	return fmt.Errorf("failed copying to part (%v) after %d attempts: %w", dest, maxCopyAttempts, lastErr)
+	// All attempts failed - return a comprehensive error message
+	return fmt.Errorf("all %d upload attempts failed. You can retry the copy later, skipping the build step with: viam module reload --no-build --part-id %s",
+		maxCopyAttempts, partID)
 }
 
 type resolveTargetModuleArgs struct {
