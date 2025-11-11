@@ -403,20 +403,18 @@ func (m *cloudManager) downloadFileWithChecksum(
 	partID string,
 	partSecret string,
 ) (string, string, error) {
-	println("TODO MAKE THIS A HEAD NOW")
-	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	getReq, err := http.NewRequestWithContext(ctx, http.MethodHead, rawURL, nil)
 	getReq.Header.Add("part_id", partID)
 	getReq.Header.Add("secret", partSecret)
 	if err != nil {
 		return "", "", err
 	}
 
-	//nolint:bodyclose /// closed in UncheckedErrorFunc
 	resp, err := m.httpClient.Do(getReq)
 	if err != nil {
 		return "", "", err
 	}
-	defer utils.UncheckedErrorFunc(resp.Body.Close)
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf("invalid status code %d", resp.StatusCode)
