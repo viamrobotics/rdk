@@ -478,7 +478,7 @@ func (rc *RobotClient) Changed() <-chan bool {
 func (rc *RobotClient) Connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
 		if strings.Contains(err.Error(), " host appears to be offline") {
-			//simplify long rpc error if host is offline
+			// simplify long rpc error if host is offline
 			return fmt.Errorf("host appears to be offline; ensure machine is online and try again")
 		}
 		return err
