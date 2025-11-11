@@ -128,11 +128,13 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 			perCallCtx, perCallCtxCancelFunc := context.WithTimeout(parentCtxTimeout, 3*time.Second)
 			resp, err = m.client.Ready(perCallCtx, req)
 			perCallCtxCancelFunc()
+			m.logger.Infof("~~~~~~~resp=%v, err=%v", resp, err)
 
 			// if module is not ready yet, wait and try again
 			code := status.Code(err)
 			// context errors here are the perCallCtx
 			if code == codes.Unavailable || code == codes.ResourceExhausted || code == codes.DeadlineExceeded || code == codes.Canceled {
+				m.logger.Infof("~~~~~~~unavailable sleeping resp=%v, err=%v", resp, err)
 				waitTimer := time.NewTimer(50 * time.Millisecond)
 				select {
 				case <-parentCtxTimeout.Done():
@@ -293,6 +295,7 @@ func (m *module) startProcess(
 	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(m.logger))
 	defer cancel()
 	for {
+		m.logger.Infof("~~~~~~ startProcess proc status. %v", m.process.Status())
 		select {
 		case <-ctxTimeout.Done():
 			if errors.Is(ctxTimeout.Err(), context.DeadlineExceeded) {
@@ -311,6 +314,7 @@ func (m *module) startProcess(
 			// note: we don't do this check in TCP mode because TCP addresses are not file paths and will fail check.
 			// note: CheckSocketOwner on Windows only returns err, if any, from os.Stat.
 			err = modlib.CheckSocketOwner(m.addr)
+			m.logger.Infof("~~~~~~ startProcess proc status %v", err)
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
 			}
