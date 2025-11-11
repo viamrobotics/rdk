@@ -30,7 +30,8 @@ type RequestLimitExceededError struct {
 }
 
 func (e RequestLimitExceededError) Error() string {
-	return fmt.Sprintf("exceeded request limit %v on resource %v, See https://docs.viam.com/dev/tools/common-errors/#exceeded-request-limit-on-resource for troubleshooting steps", e.limit, e.resource)
+	return fmt.Sprintf("exceeded request limit %v on resource %v, see https://docs.viam.com/dev/tools/common-errors/#req-limit-exceeded "+
+		"for troubleshooting steps", e.limit, e.resource)
 }
 
 // GRPCStatus allows this error to be converted to a [status.Status].
@@ -144,7 +145,9 @@ func (rc *RequestCounter) UnaryInterceptor(
 	if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
 		if ok := rc.incrInFlight(resource); !ok {
 			rc.logger.Warnw("Request limit exceeded for resource",
-				"method", apiMethod.full, "resource", resource)
+				"method", apiMethod.full, "resource", resource,
+				"; see https://docs.viam.com/dev/tools/common-errors/#req-limit-exceeded "+
+					"for troubleshooting steps")
 			return nil, &RequestLimitExceededError{
 				resource: resource,
 				limit:    rc.inFlightLimit,
