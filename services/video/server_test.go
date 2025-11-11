@@ -8,11 +8,12 @@ import (
 	"time"
 
 	pb "go.viam.com/api/service/video/v1"
+	"go.viam.com/test"
+	"google.golang.org/grpc"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/video"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
-	"google.golang.org/grpc"
 )
 
 type testGetVideoServer struct {

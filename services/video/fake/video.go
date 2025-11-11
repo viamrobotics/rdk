@@ -1,3 +1,4 @@
+// Package fake contains a fake video service implementation for testing.
 package fake
 
 import (
@@ -15,7 +16,6 @@ import (
 var Model = resource.DefaultModelFamily.WithModel("fake")
 
 func init() {
-	fmt.Println("[video/fake] registered")
 	// Register the fake implementation so the blank import builds & makes it available.
 	resource.RegisterService(
 		video.API,
@@ -39,6 +39,7 @@ func init() {
 // Ensure Video implements video.Service.
 // var _ video.Service = (*Video)(nil)
 
+// Video is a fake video service implementation for testing.
 type Video struct {
 	resource.Named
 	resource.TriviallyReconfigurable
@@ -46,6 +47,7 @@ type Video struct {
 	logger logging.Logger
 }
 
+// GetVideo is a fake implementation that writes dummy video data to the provided writer.
 func (fv *Video) GetVideo(
 	ctx context.Context,
 	startTime, endTime time.Time,
@@ -92,6 +94,7 @@ func (fv *Video) GetVideo(
 	return nil
 }
 
+// DoCommand is a fake implementation that returns the command as the result.
 func (fv *Video) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }

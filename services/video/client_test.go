@@ -2,20 +2,21 @@ package video_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"testing"
 	"time"
 
 	pb "go.viam.com/api/service/video/v1"
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/video"
-	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/video"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func setupVideoService(t *testing.T, injectVideo *inject.Video) (net.Listener, func()) {
@@ -101,7 +102,7 @@ func TestWorkingVideoClient(t *testing.T) {
 		var receivedData []byte
 		for {
 			resp, err := stream.Recv()
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			test.That(t, err, test.ShouldBeNil)

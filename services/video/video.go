@@ -1,3 +1,4 @@
+// Package video contains the video service implementation.
 package video
 
 import (
@@ -6,6 +7,7 @@ import (
 	"time"
 
 	servicepb "go.viam.com/api/service/video/v1"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -19,6 +21,7 @@ func init() {
 	})
 }
 
+// Service is the interface for a video service.
 type Service interface {
 	resource.Resource
 	GetVideo(

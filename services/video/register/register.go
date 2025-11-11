@@ -1,3 +1,4 @@
+// Package register registers the video service and its implementations.
 package register
 
 import (

@@ -2,16 +2,18 @@ package video
 
 import (
 	"context"
+	"errors"
 	"io"
 	"time"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/video/v1"
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 )
 
 type client struct {
@@ -23,6 +25,7 @@ type client struct {
 	logger logging.Logger
 }
 
+// NewClientFromConn creates a new video service client from a gRPC connection.
 func NewClientFromConn(
 	ctx context.Context,
 	conn rpc.ClientConn,
@@ -73,7 +76,7 @@ func (c *client) GetVideo(
 	}
 	for {
 		chunk, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
