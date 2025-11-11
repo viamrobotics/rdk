@@ -151,7 +151,6 @@ func TestWineCrazyTouch2(t *testing.T) {
 }
 
 func TestSandingLargeMove1(t *testing.T) {
-	t.Skip() // TODO: eliot fix me
 	name := "ur20-modular"
 
 	if Is32Bit() {
@@ -193,7 +192,7 @@ func TestSandingLargeMove1(t *testing.T) {
 		seeds, _, err = ss.findSeeds(ctx, req.Goals[0].poses, req.StartState.LinearConfiguration(), -1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(seeds), test.ShouldBeGreaterThan, 5)
-		test.That(t, len(seeds), test.ShouldBeLessThan, 2000)
+		test.That(t, len(seeds), test.ShouldBeLessThan, 5000)
 	}
 
 	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
