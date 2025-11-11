@@ -6,6 +6,7 @@ import (
 	"time"
 
 	datapb "go.viam.com/api/app/data/v1"
+
 	"go.viam.com/rdk/app"
 	"go.viam.com/rdk/utils"
 )
@@ -43,7 +44,8 @@ func (r *ResourceDataConsumer) DataClient(ctx context.Context, client datapb.Dat
 
 // QueryTabularDataForResource will return historical data for a resource.
 func (r ResourceDataConsumer) QueryTabularDataForResource(
-	ctx context.Context, resourceName string, opts *QueryTabularDataOptions) ([]map[string]any, error) {
+	ctx context.Context, resourceName string, opts *QueryTabularDataOptions,
+) ([]map[string]any, error) {
 	dataClient, err := r.DataClient(ctx, nil)
 	if err != nil {
 		return nil, err
