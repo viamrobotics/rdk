@@ -22,31 +22,31 @@ type ResourceDataConsumer struct {
 	_dataClient *app.DataClient
 }
 
-// DataClient is a constructor method for initializing the DataClient of ResourceDataConsumer.
+// SetDataClient is a method for initializing the DataClient of ResourceDataConsumer.
 // The client parameter should be nil in most usage except unit tests.
-func (r *ResourceDataConsumer) DataClient(ctx context.Context, client datapb.DataServiceClient) (*app.DataClient, error) {
+func (r *ResourceDataConsumer) SetDataClient(ctx context.Context, client datapb.DataServiceClient) error {
 	if r._dataClient != nil {
-		return r._dataClient, nil
+		return nil
 	}
 
 	if client != nil {
 		r._dataClient = app.CreateDataClientWithDataServiceClient(client)
-		return r._dataClient, nil
+		return nil
 	}
 
 	viamClient, err := app.CreateViamClientFromEnvVars(ctx, nil, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	r._dataClient = viamClient.DataClient()
-	return r._dataClient, nil
+	return nil
 }
 
 // QueryTabularDataForResource will return historical data for a resource.
 func (r ResourceDataConsumer) QueryTabularDataForResource(
 	ctx context.Context, resourceName string, opts *QueryTabularDataOptions,
 ) ([]map[string]any, error) {
-	dataClient, err := r.DataClient(ctx, nil)
+	err := r.SetDataClient(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -78,5 +78,5 @@ func (r ResourceDataConsumer) QueryTabularDataForResource(
 		query = append(query, opts.AdditionalStages...)
 	}
 
-	return dataClient.TabularDataByMQL(ctx, orgID, query, nil)
+	return r._dataClient.TabularDataByMQL(ctx, orgID, query, nil)
 }

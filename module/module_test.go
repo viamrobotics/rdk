@@ -1029,6 +1029,6 @@ func TestQueryTabularDataForResource(t *testing.T) {
 	os.Setenv(rutils.MachinePartIDEnvVar, "part")
 
 	dataConsumer := &module.ResourceDataConsumer{}
-	dataConsumer.DataClient(context.Background(), grpcClient)
+	dataConsumer.SetDataClient(context.Background(), grpcClient)
 	dataConsumer.QueryTabularDataForResource(context.Background(), "resource", nil)
 }
