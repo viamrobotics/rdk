@@ -299,7 +299,7 @@ func (m *module) startProcess(
 		}
 		if !m.isRunningInTCPMode() {
 			// note: we don't do this check in TCP mode because TCP addresses are not file paths and will fail check.
-			// note: CheckSocketOwner always returns nil on Windows
+			// note: CheckSocketOwner on Windows only returns err, if any, from os.Stat.
 			err = modlib.CheckSocketOwner(m.addr)
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
