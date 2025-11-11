@@ -6,7 +6,6 @@ import (
 	"math"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"go.opencensus.io/trace"
@@ -50,9 +49,6 @@ func fixedStepInterpolation(start, target *node, qstep map[string][]float64) *re
 }
 
 type node struct {
-	name     int
-	goalNode bool
-
 	inputs *referenceframe.LinearInputs
 	// Dan: What is a corner?
 	corner bool
@@ -60,15 +56,10 @@ type node struct {
 	cost float64
 	// checkPath is true when the path has been checked and was determined to meet constraints
 	checkPath bool
-
-	liveSolution bool
 }
-
-var nodeNameCounter atomic.Int64
 
 func newConfigurationNode(q *referenceframe.LinearInputs) *node {
 	return &node{
-		name:   int(nodeNameCounter.Add(1)),
 		inputs: q,
 		corner: false,
 	}
@@ -108,9 +99,6 @@ func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []*refe
 		// extract the path to the goal
 		for goalReached != nil {
 			path = append(path, goalReached.inputs)
-			if goalReached.goalNode {
-				fmt.Println("Solution node:", goalReached.name, "Live?", goalReached.liveSolution)
-			}
 			goalReached = goalMap[goalReached]
 		}
 	}
@@ -314,7 +302,7 @@ func (sss *solutionSolvingState) processSimilarity(
 		}
 	}
 
-	return &node{name: int(nodeNameCounter.Add(1)), inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
+	return &node{inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
 }
 
 func (sss *solutionSolvingState) toInputs(ctx context.Context, stepSolution *ik.Solution) *referenceframe.LinearInputs {
@@ -349,7 +337,6 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		return false
 	}
 
-	myNode.goalNode = true
 	now := time.Since(sss.startTime)
 	if len(sss.solutions) == 0 {
 		sss.firstSolutionTime = now
@@ -590,8 +577,6 @@ solutionLoop:
 				continue
 			}
 
-			myNode.liveSolution = true
-			myNode.goalNode = true
 			select {
 			case goalNodeGenerator.newSolutionsCh <- myNode:
 				solvingState.solutions = append(solvingState.solutions, myNode)
