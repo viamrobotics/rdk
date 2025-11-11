@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"go.opencensus.io/plugin/ocgrpc"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/ftdc/sys"
@@ -80,6 +81,7 @@ func (m *module) dial() error {
 			grpc_retry.StreamClientInterceptor(),
 			operation.StreamClientInterceptor,
 		),
+		grpc.WithStatsHandler(&ocgrpc.ClientHandler{}),
 	)
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")

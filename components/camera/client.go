@@ -246,6 +246,14 @@ func (c *client) Images(
 }
 
 func (c *client) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+	// myLogger := logging.NewBlankLogger("client next point cloud")
+	sp := trace.FromContext(ctx)
+	if sp != nil {
+		c.logger.Infow("span", "id", sp.SpanContext().TraceID.String())
+	} else {
+		c.logger.Infow("no span in NextPointCloud", "id", "no span")
+	}
+
 	ctx, span := trace.StartSpan(ctx, "camera::client::NextPointCloud")
 	defer span.End()
 

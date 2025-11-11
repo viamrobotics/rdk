@@ -18,6 +18,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/webrtc/v3"
+	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
@@ -43,6 +44,7 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/discovery"
+
 	// Register service APIs.
 	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"
@@ -228,6 +230,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		grpc.MaxRecvMsgSize(rpc.MaxMessageSize),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaries...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streams...)),
+		grpc.StatsHandler(&ocgrpc.ServerHandler{}),
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
