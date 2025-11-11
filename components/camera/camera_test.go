@@ -647,7 +647,8 @@ func TestNamedImage(t *testing.T) {
 	sourceName := "test_source"
 	annotations := data.Annotations{
 		BoundingBoxes: []data.BoundingBox{
-			{Label: "object1"}},
+			{Label: "object1"},
+		},
 	}
 	t.Run("NamedImageFromBytes", func(t *testing.T) {
 		t.Run("success", func(t *testing.T) {
@@ -812,6 +813,5 @@ func TestNamedImage(t *testing.T) {
 		ni, err = camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG, data.Annotations{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ni.Annotations().Empty(), test.ShouldBeTrue)
-
 	})
 }
