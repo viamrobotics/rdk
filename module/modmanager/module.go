@@ -21,7 +21,9 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
@@ -119,32 +121,35 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 		m.logger.CWarnw(ctx, "Unable to generate offer for module PeerConnection. Ignoring.", "err", err)
 	}
 
-	// Use a background watcher to short circuit this check if the process has already exited. We could get here if process exits
-	// before module can set up the Ready server. This is most likely in TCP mode, where the .sock presence check is skipped, but
-	// also possible in UNIX mode if the process exits in between.
-	// (OUE is waiting on the same modmanager lock, so it can't try to restart).
-	checkTicker := time.NewTicker(1 * time.Second)
-	defer checkTicker.Stop()
-	go func() {
-		for {
-			select {
-			case <-ctxTimeout.Done():
-				return
-			case <-checkTicker.C:
+	for {
+		var resp *pb.ReadyResponse
+		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
+		for range 5000 {
+			resp, err = m.client.Ready(ctxTimeout, req)
+
+			// if module is not ready yet, wait and try again
+			if status.Code(err) == codes.Unavailable || status.Code(err) == codes.ResourceExhausted {
+				time.Sleep(50 * time.Millisecond)
+				// Short circuit this check if the process has already exited. We could get here if process exits before
+				// module can set up the Ready server.
+				// This is most likely in TCP mode, where the .sock presence check is skipped, but
+				// also possible in UNIX mode if the process exits in between.
+				// (OUE is waiting on the same modmanager lock, so it can't try to restart).
 				if errors.Is(m.process.Status(), os.ErrProcessDone) {
 					m.logger.Info("Module process exited unexpectedly while waiting for ready.")
 					cancelFunc()
 				}
+				continue
+			} else if err != nil {
+				return err
 			}
+			break
 		}
-	}()
-
-	for {
-		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
-		// If module is not yet ready, grpc (not the loop) internally retries the call with backoff of 1s * 1.6 multiplier up to max 120s
-		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
-		if err != nil {
-			return err
+		if resp == nil {
+			// should not get here unless Module Startup Timeout has been overridden to very large value
+			// and there is still no connection after 5000 retries
+			cancelFunc()
+			return ctx.Err()
 		}
 
 		if !resp.Ready {
@@ -294,6 +299,7 @@ func (m *module) startProcess(
 		}
 		if !m.isRunningInTCPMode() {
 			// note: we don't do this check in TCP mode because TCP addresses are not file paths and will fail check.
+			// note: CheckSocketOwner always returns nil on Windows
 			err = modlib.CheckSocketOwner(m.addr)
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
