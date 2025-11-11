@@ -162,7 +162,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
 
 	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .1))
+	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .05))
 
 	if sss.goodCost > 1 && minRatio > .05 {
 		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
