@@ -17,6 +17,8 @@ type Video struct {
 		startTime time.Time,
 		endTime time.Time,
 		videoCodec string,
+		videoContainer string,
+		requestID string,
 		extra map[string]interface{},
 		w io.Writer,
 	) error
