@@ -68,12 +68,16 @@ func TestServer(t *testing.T) {
 			_, err := w.Write(data)
 			return err
 		}
-		stream := &testGetVideoServer{ctx: context.Background()}
+
+		buf := &bytes.Buffer{}
+		stream := &testGetVideoServer{ctx: context.Background(), writer: buf}
+
 		err := videoServer.GetVideo(getVideoRequest, stream)
 		test.That(t, err, test.ShouldBeNil)
+
 		// Verify that the video data was sent
 		expectedData := []byte{0x00, 0x01, 0x02, 0x03, 0x04}
-		test.That(t, stream.writer.(*bytes.Buffer).Bytes(), test.ShouldResemble, expectedData)
+		test.That(t, buf.Bytes(), test.ShouldResemble, expectedData)
 	})
 
 	t.Run("GetVideo failure", func(t *testing.T) {

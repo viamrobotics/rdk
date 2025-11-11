@@ -44,7 +44,7 @@ func (v *Video) GetVideo(
 	if v.GetVideoFunc == nil {
 		return v.Service.GetVideo(ctx, startTime, endTime, videoCodec, videoContainer, requestID, extra, w)
 	}
-	return v.GetVideoFunc(ctx, startTime, endTime, videoCodec, extra, w)
+	return v.GetVideoFunc(ctx, startTime, endTime, videoCodec, videoContainer, requestID, extra, w)
 }
 
 func (v *Video) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
