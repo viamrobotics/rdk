@@ -48,7 +48,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	mp, err := newCBiRRTMotionPlanner(ctx, pc, psc)
 	test.That(t, err, test.ShouldBeNil)
-	solutions, err := getSolutions(ctx, psc)
+	solutions, err := getSolutions(ctx, psc, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &node{inputs: referenceframe.FrameSystemInputs{m.Name(): home7}.ToLinearInputs()}

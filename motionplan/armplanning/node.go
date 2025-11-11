@@ -381,7 +381,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 //
 // If minScore is positive, if a solution scoring below that amount is found, the solver will
 // terminate and return that one solution.
-func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error) {
+func getSolutions(ctx context.Context, psc *planSegmentContext, minFunc ik.CostFunc) ([]*node, error) {
 	if psc.start.Len() == 0 {
 		return nil, fmt.Errorf("getSolutions start can't be empty")
 	}
@@ -391,8 +391,9 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		return nil, err
 	}
 
-	// Spawn the IK solver to generate solutions until done
-	minFunc := psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
+	if minFunc == nil {
+		minFunc = psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
+	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
