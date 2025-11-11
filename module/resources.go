@@ -502,7 +502,11 @@ func (m *Module) reconfigureResource(
 		m.streamSourceByName[res.Name()] = p
 	}
 
-	for _, resConfigureArgs := range m.internalDeps[res] {
+	for idx := range m.internalDeps[res] {
+		// We are going to modify `toReconfig` at the end. Make sure changes to `resConfigureArgs`
+		// get reflected in the slice.
+		resConfigureArgs := &m.internalDeps[res][idx]
+
 		deps, err := m.getDependenciesForConstruction(ctx, resConfigureArgs.depStrings)
 		if err != nil {
 			m.logger.Warn("Failed to get dependencies for cascading dependant reconfigure",
