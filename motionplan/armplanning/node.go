@@ -176,27 +176,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 		}
 		psc.pc.logger.Debugf("got %d altSeeds", len(altSeeds))
 
-		passed := []bool{}
-		anyPassed := false
-		for idx, s := range altSeeds {
-			err = psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
-				Configuration: s,
-				FS:            psc.pc.fs,
-			})
-			if err == nil {
-				passed = append(passed, true)
-				anyPassed = true
-			} else {
-				psc.pc.logger.Debugf("seed %d invalid %v", idx, err)
-				passed = append(passed, false)
-			}
-		}
-
-		for idx, s := range altSeeds {
-			if anyPassed && !passed[idx] {
-				psc.pc.logger.Debugf("skipping smart seed %d", idx)
-				continue
-			}
+		for _, s := range altSeeds {
 			si := s.GetLinearizedInputs()
 			sss.linearSeeds = append(sss.linearSeeds, si)
 			ll := ik.ComputeAdjustLimitsArray(si, sss.seedLimits[0], altLimitDivisors)

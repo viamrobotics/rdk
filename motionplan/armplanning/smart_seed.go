@@ -80,7 +80,7 @@ func (cff *cacheForFrame) boxKey(p r3.Vector) string {
 
 var (
 	arm6JogRatios   = []float64{360, 32, 8, 8, 4, 2}
-	arm6JogDivisors = []float64{.1, .1, .2, 1, 1, 1}
+	arm6JogDivisors = []float64{.05, .1, .2, 1, 1, 1}
 	defaultDivisor  = 10.0
 )
 
@@ -450,7 +450,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx := 0
-	cutDistance := max(500, 2*best[0].distance)
+	cutDistance := max(200, 1.5*best[0].distance)
 	for cutIdx < len(best) {
 		if best[cutIdx].distance > cutDistance {
 			break
@@ -469,7 +469,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx = 0
-	costCut := 3 * best[0].cost
+	costCut := 4 * best[0].cost
 	for cutIdx < len(best) {
 		if best[cutIdx].cost > costCut {
 			break
