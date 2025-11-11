@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	errw "github.com/pkg/errors"
+
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
@@ -24,7 +26,7 @@ import (
 )
 
 // create a partials folder for this URL and return a destination path for the file.
-func preparePartialDownload(parentDir, rawURL string) (string, error) {
+func partialDownloadPath(parentDir, rawURL string) (string, error) {
 	// func CreatePartialPath(rawURL string) string {
 	var filename string
 	if parsed, err := url.Parse(rawURL); err != nil {
@@ -71,7 +73,22 @@ func installPackage(
 		}
 	}
 
-	dstPath := p.LocalDownloadPath(packagesDir)
+	// The paths here are:
+	// LocalDownloadPath: the destination of the download
+	// PartialDownloadPath: the download destination for partials, which have different cleanup logic
+	// tmpDataPath: a successful download is unpacked into here
+	// renameDest: after unpacking, we rename atomically to the final location
+
+	parentDir := p.LocalDataParentDirectory(packagesDir)
+	var dstPath string
+	if supportsPartial {
+		var err error
+		if dstPath, err = partialDownloadPath(parentDir, url); err != nil {
+			return errw.Wrap(err, "creating temp dir")
+		}
+	} else {
+		dstPath = p.LocalDownloadPath(packagesDir)
+	}
 	checksum, contentType, err := installFn(ctx, url, dstPath)
 	if err != nil {
 		return err
@@ -82,15 +99,8 @@ func installPackage(
 		return fmt.Errorf("unknown content-type for package %s", contentType)
 	}
 
-	parentDir := p.LocalDataParentDirectory(packagesDir)
-	var tmpDataPath string
-	switch supportsPartial {
-	case true:
-		tmpDataPath, err = preparePartialDownload(parentDir, url)
-	case false:
-		// unpack to temp directory to ensure we do an atomic rename once finished.
-		tmpDataPath, err = os.MkdirTemp(parentDir, "*.tmp")
-	}
+	// unpack to temp directory to ensure we do an atomic rename once finished.
+	tmpDataPath, err := os.MkdirTemp(parentDir, "*.tmp")
 	if err != nil {
 		return err
 	}
