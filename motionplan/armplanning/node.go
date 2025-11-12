@@ -109,9 +109,6 @@ func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []*refe
 		// extract the path to the goal
 		for goalReached != nil {
 			path = append(path, goalReached.inputs)
-			if goalReached.goalNode {
-				fmt.Println("Solution node:", goalReached.name, "Live?", goalReached.liveSolution)
-			}
 			goalReached = goalMap[goalReached]
 		}
 	}
