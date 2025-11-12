@@ -19,18 +19,18 @@ type QueryTabularDataOptions struct {
 
 // ResourceDataConsumer can be added as an anonymous struct member to a resource to enable historical module data queries.
 type ResourceDataConsumer struct {
-	_dataClient *app.DataClient
+	dataClient *app.DataClient
 }
 
 // SetDataClient is a method for initializing the DataClient of ResourceDataConsumer.
 // The client parameter should be nil in most usage except unit tests.
 func (r *ResourceDataConsumer) SetDataClient(ctx context.Context, client datapb.DataServiceClient) error {
-	if r._dataClient != nil {
+	if r.dataClient != nil {
 		return nil
 	}
 
 	if client != nil {
-		r._dataClient = app.CreateDataClientWithDataServiceClient(client)
+		r.dataClient = app.CreateDataClientWithDataServiceClient(client)
 		return nil
 	}
 
@@ -38,7 +38,7 @@ func (r *ResourceDataConsumer) SetDataClient(ctx context.Context, client datapb.
 	if err != nil {
 		return err
 	}
-	r._dataClient = viamClient.DataClient()
+	r.dataClient = viamClient.DataClient()
 	return nil
 }
 
@@ -78,5 +78,5 @@ func (r ResourceDataConsumer) QueryTabularDataForResource(
 		query = append(query, opts.AdditionalStages...)
 	}
 
-	return r._dataClient.TabularDataByMQL(ctx, orgID, query, nil)
+	return r.dataClient.TabularDataByMQL(ctx, orgID, query, nil)
 }
