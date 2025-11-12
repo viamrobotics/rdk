@@ -347,7 +347,7 @@ func (mp *planner) getSolutions(
 	utils.PanicCapturingGo(func() {
 		defer activeSolvers.Done()
 		defer solverFinished.Store(true)
-		_, err := mp.solver.Solve(ctxWithCancel, solutionGen,
+		_, _, err := mp.solver.Solve(ctxWithCancel, solutionGen,
 			[][]float64{linearSeed, linearSeed},
 			[][]referenceframe.Limit{mp.lfs.dof, ik.ComputeAdjustLimits(linearSeed, mp.lfs.dof, .15)},
 			minFunc, mp.randseed.Int())

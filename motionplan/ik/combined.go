@@ -47,12 +47,13 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	limits [][]referenceframe.Limit,
 	costFunc CostFunc,
 	rseed int,
-) (int, error) {
+) (int, []SeedSolveMetaData, error) {
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
 
 	var solveErrors error
 	totalSolutionsFound := 0
+	metas := []SeedSolveMetaData{}
 	var solveResultLock sync.Mutex
 
 	for _, solver := range ik.solvers {
@@ -64,15 +65,25 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			n, err := thisSolver.Solve(ctx, retChan, seeds, limits, costFunc, myseed)
+			n, m, err := thisSolver.Solve(ctx, retChan, seeds, limits, costFunc, myseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()
 			totalSolutionsFound += n
 			solveErrors = multierr.Combine(solveErrors, err)
+			if len(metas) == 0 {
+				metas = m
+			} else {
+				for idx, mm := range m {
+					metas[idx].Attempts += mm.Attempts
+					metas[idx].Valid += mm.Valid
+					metas[idx].Errors += mm.Errors
+				}
+			}
 		})
 	}
 
 	activeSolvers.Wait()
-	return totalSolutionsFound, solveErrors
+
+	return totalSolutionsFound, metas, solveErrors
 }

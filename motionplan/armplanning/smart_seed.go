@@ -28,7 +28,6 @@ type smartSeedCacheEntry struct {
 }
 
 type goalCacheBox struct {
-	boxKey  string
 	center  r3.Vector
 	entries []smartSeedCacheEntry
 }
@@ -41,6 +40,8 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 		return ccf, nil
 	}
 
+	start := time.Now()
+
 	values := make([]float64, len(f.DoF()))
 
 	err := ccf.buildCacheHelper(f, values, 0)
@@ -48,7 +49,11 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 		return nil, fmt.Errorf("cannot buildCache for: %s: %w", f.Name(), err)
 	}
 
+	logger.Debugf("time to do raw building: %v of %d entries", time.Since(start), len(ccf.entriesForCacheBuilding))
+
+	start = time.Now()
 	ccf.buildInverseCache()
+	logger.Debugf("time to buildInverseCache: %v", time.Since(start))
 
 	return ccf, nil
 }
@@ -75,7 +80,7 @@ func (cff *cacheForFrame) boxKey(p r3.Vector) string {
 
 var (
 	arm6JogRatios   = []float64{360, 32, 8, 8, 4, 2}
-	arm6JogDivisors = []float64{.1, .1, .2, 1, 1, 1}
+	arm6JogDivisors = []float64{.05, .1, .2, 1, 1, 1}
 	defaultDivisor  = 10.0
 )
 
@@ -126,33 +131,35 @@ func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine [
 func (cff *cacheForFrame) buildInverseCache() {
 	cff.boxes = map[string]*goalCacheBox{}
 
-	for _, e := range cff.entriesForCacheBuilding {
-		cff.minCartesian.X = min(cff.minCartesian.X, e.pose.Point().X)
-		cff.minCartesian.Y = min(cff.minCartesian.X, e.pose.Point().Y)
-		cff.minCartesian.Z = min(cff.minCartesian.X, e.pose.Point().X)
+	points := make([]r3.Vector, len(cff.entriesForCacheBuilding))
 
-		cff.maxCartesian.X = max(cff.maxCartesian.X, e.pose.Point().X)
-		cff.maxCartesian.Y = max(cff.maxCartesian.X, e.pose.Point().Y)
-		cff.maxCartesian.Z = max(cff.maxCartesian.X, e.pose.Point().X)
+	for idx, e := range cff.entriesForCacheBuilding {
+		p := e.pose.Point()
+		points[idx] = p
+		cff.minCartesian.X = min(cff.minCartesian.X, p.X)
+		cff.minCartesian.Y = min(cff.minCartesian.X, p.Y)
+		cff.minCartesian.Z = min(cff.minCartesian.X, p.X)
+
+		cff.maxCartesian.X = max(cff.maxCartesian.X, p.X)
+		cff.maxCartesian.Y = max(cff.maxCartesian.X, p.Y)
+		cff.maxCartesian.Z = max(cff.maxCartesian.X, p.X)
 	}
 
-	for _, e := range cff.entriesForCacheBuilding {
-		key := cff.boxKey(e.pose.Point())
+	for idx, e := range cff.entriesForCacheBuilding {
+		p := points[idx]
+		key := cff.boxKey(p)
 		box, ok := cff.boxes[key]
 		if !ok {
-			box = &goalCacheBox{boxKey: key}
+			box = &goalCacheBox{}
 			cff.boxes[key] = box
 		}
 		box.entries = append(box.entries, e)
+
+		box.center = box.center.Add(p)
 	}
 
-	for _, v := range cff.boxes {
-		for _, e := range v.entries {
-			p := e.pose.Point()
-			v.center = v.center.Add(p)
-		}
-
-		v.center = v.center.Mul(1.0 / float64(len(v.entries)))
+	for _, box := range cff.boxes {
+		box.center = box.center.Mul(1.0 / float64(len(box.entries)))
 	}
 
 	cff.entriesForCacheBuilding = nil
@@ -443,7 +450,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx := 0
-	cutDistance := max(500, 2*best[0].distance)
+	cutDistance := max(200, 1.5*best[0].distance)
 	for cutIdx < len(best) {
 		if best[cutIdx].distance > cutDistance {
 			break
@@ -462,7 +469,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx = 0
-	costCut := 3 * best[0].cost
+	costCut := 4 * best[0].cost
 	for cutIdx < len(best) {
 		if best[cutIdx].cost > costCut {
 			break
@@ -503,8 +510,9 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 }
 
 var (
-	sscCache     = map[int]*cacheForFrame{}
-	sscCacheLock sync.Mutex
+	sscCache         = map[int]*cacheForFrame{}
+	sscCacheLock     sync.Mutex
+	cacheBuildLogger = logging.NewLogger("smart-seed-cache-build")
 )
 
 func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.Logger) error {
@@ -532,7 +540,7 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.L
 			return err
 		}
 
-		logger.Infof("time to build: %v for: %v", time.Since(start), frameName)
+		cacheBuildLogger.Infof("time to build: %v for: %v", time.Since(start), frameName)
 
 		sscCacheLock.Lock()
 		sscCache[hash] = ccf
