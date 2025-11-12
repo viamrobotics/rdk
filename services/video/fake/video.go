@@ -12,6 +12,12 @@ import (
 	"go.viam.com/rdk/services/video"
 )
 
+const (
+	chunkCount = 6
+	chunkSize  = 512
+	interval   = 40 * time.Millisecond
+)
+
 // Model identifies this fake video service implementation.
 var Model = resource.DefaultModelFamily.WithModel("fake")
 
@@ -35,9 +41,6 @@ func init() {
 		},
 	)
 }
-
-// Ensure Video implements video.Service.
-// var _ video.Service = (*Video)(nil)
 
 // Video is a fake video service implementation for testing.
 type Video struct {
@@ -64,19 +67,14 @@ func (fv *Video) GetVideo(
 		"extra_len", len(extra),
 	)
 
-	const (
-		chunkCount = 6
-		chunkSize  = 512
-		interval   = 40 * time.Millisecond
-	)
 	payload := make([]byte, chunkSize)
 	for i := range payload {
 		payload[i] = byte((i * 17) % 251)
 	}
 
+	// simulate streaming by sending chunks at intervals
 	t := time.NewTicker(interval)
 	defer t.Stop()
-
 	for i := 0; i < chunkCount; i++ {
 		select {
 		case <-ctx.Done():
