@@ -373,7 +373,7 @@ func (m *Module) addResource(
 		// Dan: We could call `m.getLocalResource(dep.Name())` but that's just a linear scan over
 		// resLoggers.
 		if _, exists := m.resLoggers[dep]; exists {
-			*m.internalDeps[dep] = append(*m.internalDeps[dep], resConfigureArgs{
+			m.internalDeps[dep] = append(m.internalDeps[dep], resConfigureArgs{
 				toReconfig: res,
 				conf:       conf,
 				depStrings: depStrings,
@@ -421,11 +421,11 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 	delete(m.internalDeps, res)
 
 	for dep, chainReconfiguresPtr := range m.internalDeps {
-		chainReconfigures := *chainReconfiguresPtr
+		chainReconfigures := chainReconfiguresPtr
 		for idx, chainRes := range chainReconfigures {
 			if res == chainRes.toReconfig {
 				// Clear the removed resource from any chain of reconfigures it appears in.
-				*m.internalDeps[dep] = append(chainReconfigures[:idx], chainReconfigures[idx+1:]...)
+				m.internalDeps[dep] = append(chainReconfigures[:idx], chainReconfigures[idx+1:]...)
 			}
 		}
 	}
@@ -502,20 +502,18 @@ func (m *Module) reconfigureResource(
 		m.streamSourceByName[res.Name()] = p
 	}
 
-	depsToReconfig := m.internalDeps[res]
-	fmt.Printf("Depds to reconfigure: %+v\n", depsToReconfig)
-	for idx := range depsToReconfig {
+	depsToReconfigure := m.internalDeps[res]
+	// Build up a new slice to map `m.internalDeps[newRes]` to.
+	newDepsToReconfigure := make([]resConfigureArgs, 0, len(depsToReconfigure))
+	for _, depToReconfig := range depsToReconfigure {
 		// We are going to modify `toReconfig` at the end. Make sure changes to `dependentResConfigureArgs`
 		// get reflected in the slice.
-		dependentResConfigureArgs := &depsToReconfig[idx]
-		dependentConf := dependentResConfigureArgs.conf
-
-		deps, err := m.getDependenciesForConstruction(ctx, dependentResConfigureArgs.depStrings)
+		deps, err := m.getDependenciesForConstruction(ctx, depToReconfig.depStrings)
 		if err != nil {
 			m.logger.Warn("Failed to get dependencies for cascading dependent reconfigure",
 				"changedResource", conf.Name,
-				"dependent", dependentConf.Name,
-				"dependentDeps", dependentResConfigureArgs.depStrings,
+				"dependent", depToReconfig.conf.Name,
+				"dependentDeps", depToReconfig.depStrings,
 				"err", err)
 			continue
 		}
@@ -528,46 +526,23 @@ func (m *Module) reconfigureResource(
 		m.registerMu.Unlock()
 
 		var nilLogLevel *logging.Level // pass in nil to avoid changing the log level
-		rebuiltRes, err := m.reconfigureResource(ctx, deps, conf, nilLogLevel)
+		rebuiltRes, err := m.reconfigureResource(ctx, deps, depToReconfig.conf, nilLogLevel)
 		if err != nil {
 			m.logger.Warn("Failed to cascade dependent reconfigure",
 				"changedResource", conf.Name,
-				"dependent", dependentConf.Name,
+				"dependent", depToReconfig.conf.Name,
 				"err", err)
 		}
 		m.registerMu.Lock()
 
-		// Normally one ought to recheck premises after an unlock -> lock step. However, we assume `internalDeps` did not
-		//
-		// This is considered programmer error. `reconfigureResource` can only be called with the
-		// module mutex. No destructive resource actions may happen while we hold that mutex. Hence
-		// we only look for the `depsToReconfig` entry at exactly the same `idx` address that we're
-		// in.
-		if idx >= len(depsToReconfig) {
-			m.logger.Error(
-				"Dependencies to reconfigure has changed. We assume the viam-server timed out waiting for reconfigure. This module must be restarted.",
-				"ctxErr", ctx.Err(), "reconfiguringRes", conf.Name, "dependentRes", dependentConf.Name,
-			)
-		}
-
-		reacquiredResConfigureArgs := &depsToReconfig[idx]
-		if reacquiredResConfigureArgs.toReconfig != existingRes {
-			m.logger.Error(
-				"Dependencies to reconfigure has changed. We assume the viam-server timed out waiting for reconfigure. This module must be restarted.",
-				"ctxErr", ctx.Err(), "reconfiguringRes", conf.Name, "dependentRes", dependentConf.Name,
-			)
-		}
-
-		if reacquiredResConfigureArgs.toReconfig == rebuiltRes {
-			// The resource was rebuilt in place. No need to update anything.
-			continue
-		}
-
-		reacquiredResConfigureArgs.toReconfig = rebuiltRes
+		newDepsToReconfigure = append(newDepsToReconfigure, resConfigureArgs{
+			toReconfig: rebuiltRes,
+			conf:       depToReconfig.conf,
+			depStrings: depToReconfig.depStrings,
+		})
 	}
 
-	chainReconfigures := m.internalDeps[res]
-	m.internalDeps[newRes] = chainReconfigures
+	m.internalDeps[newRes] = newDepsToReconfigure
 	delete(m.internalDeps, res)
 	m.registerMu.Unlock()
 

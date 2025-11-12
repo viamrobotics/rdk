@@ -43,12 +43,12 @@ func setupLocalModule(t *testing.T, ctx context.Context, logger logging.Logger) 
 }
 
 type doCommandDependerConfig struct {
-	DependsOn string
+	DependsOn []string
 }
 
 func (dcdc *doCommandDependerConfig) Validate(path string) ([]string, []string, error) {
 	if len(dcdc.DependsOn) > 0 {
-		return []string{}, []string{dcdc.DependsOn}, nil
+		return []string{}, dcdc.DependsOn, nil
 	}
 
 	return []string{}, []string{}, nil
@@ -59,14 +59,14 @@ type doCommandDepender struct {
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
 
-	dependsOn resource.Resource
+	dependsOn []resource.Resource
 	closed    bool
 
 	logger logging.Logger
 }
 
 func (dcd *doCommandDepender) Close(ctx context.Context) error {
-	dcd.logger.Infof("Closing %v %p, depends: %p\n", dcd.Name(), dcd, dcd.dependsOn)
+	dcd.logger.Infof("Closing %v %p, depends: %p", dcd.Name(), dcd, dcd.dependsOn)
 	dcd.closed = true
 	return nil
 }
@@ -106,6 +106,17 @@ func (dcd *doCommandDepender) DoCommand(ctx context.Context, cmd map[string]any)
 	}, nil
 }
 
+func testLocal(ctx context.Context, t *testing.T, mod *Module, resStrings ...string) {
+	t.Helper()
+	for _, resStr := range resStrings {
+		res, err := mod.getLocalResource(ctx, generic.Named(resStr))
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = res.DoCommand(ctx, map[string]any{})
+		test.That(t, err, test.ShouldBeNil)
+	}
+}
+
 func TestOptimizedModuleCommunication(t *testing.T) {
 	ctx := t.Context()
 	logger := logging.NewTestLogger(t)
@@ -120,6 +131,7 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 		Constructor: func(
 			ctx context.Context, deps resource.Dependencies, rcfg resource.Config, logger logging.Logger,
 		) (resource.Resource, error) {
+			// logger.SetLevel(logging.ERROR)
 			cfg, err := resource.NativeConfig[*doCommandDependerConfig](rcfg)
 			if err != nil {
 				return nil, err
@@ -136,7 +148,7 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 					return nil, err
 				}
 			}
-			logger.Infof("I %v (%p) depend on %p Config.DependsOn: %v\n",
+			logger.Infof("I %v (%p) depend on %p Config.DependsOn: %v",
 				rcfg.Name, ret, ret.dependsOn, cfg.DependsOn)
 
 			return ret, nil
@@ -162,11 +174,8 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	}})
 	test.That(t, err, test.ShouldBeNil)
 
-	leafRes, err := module.getLocalResource(ctx, generic.Named("leaf"))
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = leafRes.DoCommand(ctx, map[string]any{})
-	test.That(t, err, test.ShouldBeNil)
+	// Assert leaf can be used.
+	testLocal(ctx, t, module, "leaf")
 
 	// Build up and add a branch resource that depends on the leaf resource.
 	attrsBuf, err := protoutils.StructToStructPb(&doCommandDependerConfig{
@@ -184,13 +193,15 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	branchRes, err := module.getLocalResource(ctx, generic.Named("branch"))
+	// Assert branch can use its dependency.
+	testLocal(ctx, t, module, "branch")
+
+	// Get a handle on the branch resource that we are going to invalidate.
+	staleBranchRes, err := module.getLocalResource(ctx, generic.Named("branch"))
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = branchRes.DoCommand(ctx, map[string]any{})
-	test.That(t, err, test.ShouldBeNil)
-
-	// Reconfigure the leaf. This results in a `Close` -> `Constructor`.
+	// Reconfigure the leaf. This results in a `Close` -> `Constructor`. Invaliding the above
+	// `staleBranchRes`.
 	logger.Info("Reconfiguring leaf first time")
 	_, err = module.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
 		Config: &v1.ComponentConfig{ // Same config.
@@ -200,15 +211,11 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Assert that the original `branchRes` has its dependency invalidated.
-	_, err = branchRes.DoCommand(ctx, map[string]any{})
+	_, err = staleBranchRes.DoCommand(ctx, map[string]any{})
 	test.That(t, err, test.ShouldNotBeNil)
 
-	// Get a fresh value for the `branchRes`.
-	branchRes, err = module.getLocalResource(ctx, generic.Named("branch"))
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = branchRes.DoCommand(ctx, map[string]any{})
-	test.That(t, err, test.ShouldBeNil)
+	// Assert getting a fresh value for the `branchRes` succeeds in using its dependency.
+	testLocal(ctx, t, module, "branch")
 
 	// Build up and add a branch resource that depends on the leaf resource.
 	trunkAttrsBuf, err := protoutils.StructToStructPb(&doCommandDependerConfig{
@@ -226,36 +233,35 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	trunkRes, err := module.getLocalResource(ctx, generic.Named("trunk"))
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = trunkRes.DoCommand(ctx, map[string]any{})
-	test.That(t, err, test.ShouldBeNil)
+	testLocal(ctx, t, module, "trunk")
 
 	logger.Info("Reconfiguring leaf second time")
+
 	// Reconfigure the leaf again. This results in a `Close` -> `Constructor` on both the leaf
 	// _and_ the branch _and_ the trunk. Refetch the branch and trunk and assert they
 	// both trunk can continue respond to `DoCommand`s that require dependencies to be valid.
-
-	canceledCtx, cancel := context.WithCancel(ctx)
-	cancel()
-	_, err = module.ReconfigureResource(canceledCtx, &pb.ReconfigureResourceRequest{
+	_, err = module.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
 		Config: &v1.ComponentConfig{ // Same config.
 			Name: "leaf", Api: generic.API.String(), Model: model.String(),
 		},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Get a fresh value for the `branchRes`.
-	branchRes, err = module.getLocalResource(ctx, generic.Named("branch"))
-	test.That(t, err, test.ShouldBeNil)
+	testLocal(ctx, t, module, "branch", "trunk")
 
-	_, err = branchRes.DoCommand(ctx, map[string]any{})
-	test.That(t, err, test.ShouldBeNil)
-
-	trunkRes, err = module.getLocalResource(ctx, generic.Named("branch"))
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = trunkRes.DoCommand(ctx, map[string]any{})
+	// To play a trick, we add a `super` resource that will depend on each of `leaf`, `branch` and
+	// `trunk`. Reconfiguring leaf ought to reconfigure `super` 3 times. Once for each of its
+	// dependencies.
+	superAttrsBuf, err := protoutils.StructToStructPb(&doCommandDependerConfig{
+		DependsOn: []string{"leaf", "branch", "trunk"},
+	})
+	_, err = module.AddResource(ctx, &pb.AddResourceRequest{
+		Dependencies: []string{generic.Named("branch").String()},
+		Config: &v1.ComponentConfig{
+			Name: "super", Api: generic.API.String(), Model: model.String(),
+			DependsOn:  []string{"leaf", "branch", "trunk"}, // unnecessary but mimics reality?
+			Attributes: superAttrsBuf,
+		},
+	})
 	test.That(t, err, test.ShouldBeNil)
 }

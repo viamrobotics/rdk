@@ -101,7 +101,9 @@ type Module struct {
 	collections map[resource.API]resource.APIResourceCollection[resource.Resource]
 	// internalDeps is keyed by a "child" resource and its values are "internal" resources that
 	// depend on the child. We use a pointer for the value such that it's stable across map growth.
-	internalDeps          map[resource.Resource]*[]resConfigureArgs
+	// Similarly, the slice of `resConfigureArgs` can grow, hence we must use pointers such that
+	// modifiying in place remains valid.
+	internalDeps          map[resource.Resource][]resConfigureArgs
 	resLoggers            map[resource.Resource]logging.Logger
 	activeResourceStreams map[resource.Name]peerResourceState
 	streamSourceByName    map[resource.Name]rtppassthrough.Source
@@ -178,7 +180,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		handlers:              HandlerMap{},
 		collections:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
 		resLoggers:            map[resource.Resource]logging.Logger{},
-		internalDeps:          map[resource.Resource]*[]resConfigureArgs{},
+		internalDeps:          map[resource.Resource][]resConfigureArgs{},
 	}
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
 		return nil, err
