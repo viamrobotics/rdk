@@ -627,9 +627,9 @@ solutionLoop:
 	return solvingState.solutions, goalNodeGenerator, nil
 }
 
-func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.LinearInputs, solveMeta []ik.SeedSolveMetaData) error {
+func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.LinearInputs, solveMeta []ik.SeedSolveMetaData) {
 	if sss.psc.pc.logger.GetLevel() != logging.DEBUG {
-		return nil
+		return
 	}
 
 	var builder strings.Builder
@@ -656,7 +656,8 @@ func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 			for seedNumber, s := range sss.linearSeeds {
 				step, err := sss.psc.pc.lis.FloatsToInputs(s)
 				if err != nil {
-					return err
+					sss.psc.pc.logger.Debugw("Error generating debug output", "err", err)
+					return
 				}
 				v := step.Get(frameName)[jointNumber]
 				myLimit := sss.seedLimits[seedNumber][jointNumber]
@@ -676,5 +677,5 @@ func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 	}
 
 	sss.psc.pc.logger.Debugf(builder.String())
-	return nil
+	return
 }
