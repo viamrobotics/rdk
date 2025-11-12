@@ -429,6 +429,18 @@ type backgroundGenerator struct {
 	wg             sync.WaitGroup
 }
 
+func (bgGen *backgroundGenerator) Stop() {
+	if bgGen != nil {
+		bgGen.cancel()
+	}
+}
+
+func (bgGen *backgroundGenerator) Wait() {
+	if bgGen != nil {
+		bgGen.wg.Wait()
+	}
+}
+
 func (bgGen *backgroundGenerator) StopAndWait() {
 	if bgGen != nil {
 		bgGen.cancel()
@@ -549,36 +561,51 @@ solutionLoop:
 
 	goalNodeGenerator.wg.Add(1)
 	utils.PanicCapturingGo(func() {
-		defer goalNodeGenerator.wg.Done()
-		for {
-			solution, more := <-solutionGen
-			if !more {
-				return
-			}
+		ctx, span := trace.StartSpan(ctx, "backgroundIK")
+		defer func() {
+			close(goalNodeGenerator.newSolutionsCh)
+			waitForWorkers()
+			span.End()
+			goalNodeGenerator.wg.Done()
+		}()
 
-			step := solvingState.toInputs(ctx, solution)
-			if step == nil {
-				continue
-			}
-
-			stepArc := solvingState.processCorrectness(ctx, step)
-			if stepArc == nil {
-				continue
-			}
-
-			myNode := solvingState.processSimilarity(ctx, step, stepArc)
-			if myNode == nil {
-				continue
-			}
-
-			myNode.liveSolution = true
-			myNode.goalNode = true
+		for ctxWithCancel.Err() == nil {
 			select {
-			case goalNodeGenerator.newSolutionsCh <- myNode:
-				solvingState.solutions = append(solvingState.solutions, myNode)
 			case <-ctxWithCancel.Done():
-				waitForWorkers()
 				return
+			case solution, more := <-solutionGen:
+				if !more {
+					return
+				}
+
+				if ctxWithCancel.Err() != nil {
+					// If we've been canceled, avoid busy work.
+					return
+				}
+
+				step := solvingState.toInputs(ctx, solution)
+				if step == nil {
+					continue
+				}
+
+				stepArc := solvingState.processCorrectness(ctx, step)
+				if stepArc == nil {
+					continue
+				}
+
+				myNode := solvingState.processSimilarity(ctx, step, stepArc)
+				if myNode == nil {
+					continue
+				}
+
+				myNode.liveSolution = true
+				myNode.goalNode = true
+				select {
+				case goalNodeGenerator.newSolutionsCh <- myNode:
+					solvingState.solutions = append(solvingState.solutions, myNode)
+				case <-ctxWithCancel.Done():
+					return
+				}
 			}
 		}
 	})

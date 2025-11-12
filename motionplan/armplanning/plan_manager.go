@@ -203,13 +203,12 @@ func (pm *planManager) planSingleGoal(
 		return nil, err
 	}
 
-	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
-
 	if planSeed.steps != nil {
-		pm.logger.Debugf("found an ideal ik solution")
+		pm.logger.Debug("found an ideal ik solution")
 		return planSeed.steps, nil
 	}
 
+	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
 	if err != nil {
 		return nil, err
@@ -219,7 +218,10 @@ func (pm *planManager) planSingleGoal(
 	if err != nil {
 		return nil, err
 	}
-	bgGen.StopAndWait()
+
+	// Nothing left for IK to do. Cancel it and let goroutines exit while we do smoothing. The above
+	// `defer` will do any final necessary waiting.
+	bgGen.Stop()
 
 	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
 	return finalSteps.steps, nil
