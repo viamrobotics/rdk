@@ -614,12 +614,6 @@ solutionLoop:
 		}
 	})
 
-	// Given we're still running IK, this can be incomplete.
-	if err != nil {
-		goalNodeGenerator.StopAndWait()
-		return nil, nil, err
-	}
-
 	// We assume the caller will only ever read the `solutions` elements between index [0,
 	// len(solutions)). And it will never append to the `solutions` slice. Hence, we do not need to
 	// make a copy. It's safe for the background goal node generator to read/append to the slice for
@@ -677,5 +671,4 @@ func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 	}
 
 	sss.psc.pc.logger.Debugf(builder.String())
-	return
 }
