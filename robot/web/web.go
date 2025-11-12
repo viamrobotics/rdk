@@ -566,6 +566,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		rpc.WithAuthAudience(options.FQDN),
 		rpc.WithInstanceNames(hosts.Names...),
 		rpc.WithWebRTCServerOptions(webrtcOptions),
+		rpc.WithStatsHandler(&ocgrpc.ServerHandler{}),
 	}
 	if options.DisableMulticastDNS {
 		rpcOpts = append(rpcOpts, rpc.WithDisableMulticastDNS())
