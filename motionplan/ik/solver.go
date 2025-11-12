@@ -7,10 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"strings"
 
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -82,21 +79,6 @@ func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
 		max = append(max, limit.Max)
 	}
 	return min, max
-}
-
-// NewMetricMinFunc takes a metric and a frame, and converts to a function able to be minimized with Solve().
-func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame, logger logging.Logger) CostFunc {
-	return func(_ context.Context, inputs []referenceframe.Input) float64 {
-		mInput := &motionplan.State{Frame: frame}
-		eePos, err := frame.Transform(inputs)
-		if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
-			logger.Errorw("error calculating frame Transform in IK", "error", err)
-			return math.Inf(1)
-		}
-		mInput.Configuration = inputs
-		mInput.Position = eePos
-		return metric(mInput)
-	}
 }
 
 // DoSolve is a synchronous wrapper around Solver.Solve.

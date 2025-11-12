@@ -218,7 +218,7 @@ func TestCollisionConstraints(t *testing.T) {
 	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, collisionConstraints, err := CreateAllCollisionConstraints(
+	collisionConstraints, err := CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
@@ -227,13 +227,13 @@ func TestCollisionConstraints(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
-		handler.AddStateConstraint(name, constraint)
+		handler.AddStateFSConstraint(name, constraint)
 	}
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			err := handler.CheckStateConstraints(&State{Configuration: c.input, Frame: model})
+			err := handler.CheckStateFSConstraints(&State{Configuration: c.input, Frame: model})
 			test.That(t, err == nil, test.ShouldEqual, c.expected)
 			if err != nil {
 				test.That(t, err.Error(), test.ShouldStartWith, c.failName)
@@ -284,7 +284,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
 	test.That(b, err, test.ShouldBeNil)
 
-	_, collisionConstraints, err := CreateAllCollisionConstraints(
+	collisionConstraints, err := CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
@@ -293,14 +293,14 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	)
 	test.That(b, err, test.ShouldBeNil)
 	for name, constraint := range collisionConstraints {
-		handler.AddStateConstraint(name, constraint)
+		handler.AddStateFSConstraint(name, constraint)
 	}
 	rseed := rand.New(rand.NewSource(1))
 
 	// loop through cases and check constraint handler processes them correctly
 	for n := 0; n < b.N; n++ {
 		rfloats := referenceframe.GenerateRandomConfiguration(model, rseed)
-		err = handler.CheckStateConstraints(&State{Configuration: rfloats, Frame: model})
+		err = handler.CheckStateFSConstraints(&State{Configuration: rfloats, Frame: model})
 		test.That(b, err, test.ShouldBeNil)
 	}
 }

@@ -20,7 +20,6 @@ type planContext struct {
 	lis *referenceframe.LinearInputsSchema
 
 	movableFrames   []string
-	boundingRegions []spatialmath.Geometry
 
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
@@ -56,11 +55,6 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 		if len(f.DoF()) > 0 {
 			pc.movableFrames = append(pc.movableFrames, fn)
 		}
-	}
-
-	pc.boundingRegions, err = referenceframe.NewGeometriesFromProto(request.BoundingRegions)
-	if err != nil {
-		return nil, err
 	}
 
 	return pc, nil
@@ -137,8 +131,6 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 		movingRobotGeometries, staticRobotGeometries,
 		start,
 		pc.request.WorldState,
-		pc.boundingRegions,
-		false,
 	)
 	if err != nil {
 		return nil, err

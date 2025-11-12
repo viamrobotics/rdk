@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math"
 
-	"gonum.org/v1/gonum/num/quat"
-
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -87,34 +85,6 @@ func (s *Segment) String() string {
 	)
 }
 
-// State contains all the information a constraint needs to determine validity for a particular state or configuration.
-// It contains inputs, the corresponding poses, and the frame it refers to.
-// Pose field may be empty, and may be filled in by a constraint that needs it.
-type State struct {
-	Position      spatial.Pose
-	Configuration []referenceframe.Input
-	Frame         referenceframe.Frame
-}
-
-// ResolveStateAndUpdatePositions converts Position Configuration to Position.
-func (state *State) ResolveStateAndUpdatePositions() error {
-	if state.Position != nil {
-		return nil
-	}
-
-	if state.Frame == nil || state.Configuration == nil {
-		return errInvalidConstraint
-	}
-
-	pos, err := state.Frame.Transform(state.Configuration)
-	if err != nil {
-		return err
-	}
-
-	state.Position = pos
-	return nil
-}
-
 // StateFS contains all the information a constraint needs to determine validity for a particular state or configuration of an entire
 // framesystem. It contains inputs, the corresponding poses, and the frame it refers to.
 // Pose field may be empty, and may be filled in by a constraint that needs it.
@@ -122,10 +92,6 @@ type StateFS struct {
 	Configuration *referenceframe.LinearInputs
 	FS            *referenceframe.FrameSystem
 }
-
-// StateMetric are functions which, given a State, produces some score. Lower is better.
-// This is used for gradient descent to converge upon a goal pose, for example.
-type StateMetric func(*State) float64
 
 // StateFSMetric are functions which, given a StateFS, produces some score. Lower is better.
 // This is used for gradient descent to converge upon a goal pose, for example.
@@ -139,30 +105,13 @@ type SegmentMetric func(*Segment) float64
 // This is used to sort produced IK solutions by goodness, for example.
 type SegmentFSMetric func(*SegmentFS) float64
 
-// NewZeroMetric always returns zero as the distance.
-func NewZeroMetric() StateMetric {
-	return func(from *State) float64 { return 0 }
-}
-
 // NewZeroFSMetric always returns zero as the distance.
 func NewZeroFSMetric() StateFSMetric {
 	return func(from *StateFS) float64 { return 0 }
 }
 
-type combinableStateMetric struct {
-	metrics []StateMetric
-}
-
 type combinableStateFSMetric struct {
 	metrics []StateFSMetric
-}
-
-func (m *combinableStateMetric) combinedDist(input *State) float64 {
-	dist := 0.
-	for _, metric := range m.metrics {
-		dist += metric(input)
-	}
-	return dist
 }
 
 func (m *combinableStateFSMetric) combinedDist(input *StateFS) float64 {
@@ -171,13 +120,6 @@ func (m *combinableStateFSMetric) combinedDist(input *StateFS) float64 {
 		dist += metric(input)
 	}
 	return dist
-}
-
-// CombineMetrics will take a variable number of Metrics and return a new Metric which will combine all given metrics into one, summing
-// their distances.
-func CombineMetrics(metrics ...StateMetric) StateMetric {
-	cm := &combinableStateMetric{metrics: metrics}
-	return cm.combinedDist
 }
 
 // CombineFSMetrics will take a variable number of StateFSMetrics and return a new StateFSMetric which will combine all given metrics into
@@ -210,61 +152,6 @@ func OrientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Or
 		}
 		dist := math.Acos(acosInput)
 		return math.Max(0, dist-alpha)
-	}
-}
-
-// NewSquaredNormMetric is the default distance function between two poses to be used for gradient descent.
-func NewSquaredNormMetric(goal spatial.Pose) StateMetric {
-	return NewScaledSquaredNormMetric(goal, orientationDistanceScaling)
-}
-
-// NewScaledSquaredNormMetric is a distance function between two poses. It allows the user to scale the contribution of orientation.
-// Increase weight for orientation since it's a small number.
-func NewScaledSquaredNormMetric(goal spatial.Pose, orientationDistanceScale float64) StateMetric {
-	weightedSqNormDist := func(query *State) float64 {
-		deltaCartesianPoint := query.Position.Point().Sub(
-			goal.(*spatial.DualQuaternion).Point())
-		deltaCartesianOrientation := quat.Mul(
-			query.Position.Orientation().Quaternion(),
-			quat.Conj(goal.Orientation().Quaternion()))
-		deltaOrientation := spatial.QuatToR3AA(deltaCartesianOrientation).Mul(orientationDistanceScale)
-
-		return deltaCartesianPoint.Norm2() + deltaOrientation.Norm2()
-	}
-
-	return weightedSqNormDist
-}
-
-// NewPosWeightSquaredNormMetric is a distance function between two poses to be used for gradient descent.
-// This changes the magnitude of the position delta used to be smaller and avoid numeric instability issues that happens with large floats.
-// TODO: RSDK-6053 this should probably be done more flexibly.
-func NewPosWeightSquaredNormMetric(goal spatial.Pose) StateMetric {
-	weightedSqNormDist := func(query *State) float64 {
-		return WeightedSquaredNormSegmentMetric(&Segment{StartPosition: query.Position, EndPosition: goal})
-	}
-	return weightedSqNormDist
-}
-
-// NewPoseFlexOVMetricConstructor will provide a distance function which will converge on a pose with an OV within an arclength of `alpha`
-// of the ov of the goal given.
-func NewPoseFlexOVMetricConstructor(alpha float64) func(spatial.Pose) StateMetric {
-	return func(goal spatial.Pose) StateMetric {
-		oDistFunc := OrientDistToRegion(goal.Orientation(), alpha)
-		return func(state *State) float64 {
-			pDist := state.Position.Point().Distance(goal.Point())
-			oDist := oDistFunc(state.Position.Orientation())
-			return pDist*pDist + oDist*oDist
-		}
-	}
-}
-
-// NewPositionOnlyMetric returns a Metric that reports the point-wise distance between two poses without regard for orientation.
-// This is useful for scenarios where there are not enough DOF to control orientation, but arbitrary spatial points may
-// still be arrived at.
-func NewPositionOnlyMetric(goal spatial.Pose) StateMetric {
-	return func(state *State) float64 {
-		pDist := state.Position.Point().Distance(goal.Point())
-		return pDist * pDist
 	}
 }
 
