@@ -149,7 +149,6 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 				superConstructCount++
 			}
 
-			// logger.SetLevel(logging.ERROR)
 			cfg, err := resource.NativeConfig[*doCommandDependerConfig](rcfg)
 			if err != nil {
 				return nil, err
@@ -160,7 +159,6 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 				logger: logger,
 			}
 
-			// if len(cfg.DependsOn) > 0 {
 			for _, depStr := range cfg.DependsOn {
 				dep, err := generic.FromProvider(deps, depStr)
 				if err != nil {
