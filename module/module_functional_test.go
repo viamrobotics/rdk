@@ -132,12 +132,12 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 
 			if len(cfg.DependsOn) > 0 {
 				ret.dependsOn, err = generic.FromProvider(deps, cfg.DependsOn)
-				logger.Infof("I %v (%p) depend on %p Config: %v\n",
-					rcfg.ResourceName().Name, ret, ret.dependsOn, cfg.DependsOn)
 				if err != nil {
 					return nil, err
 				}
 			}
+			logger.Infof("I %v (%p) depend on %p Config.DependsOn: %v\n",
+				rcfg.Name, ret, ret.dependsOn, cfg.DependsOn)
 
 			return ret, nil
 		},

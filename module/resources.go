@@ -58,7 +58,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 			resLogger.SetLevel(level)
 		} else {
 			m.logger.Warnw("LogConfiguration does not contain a valid level.",
-				"resource", conf.ResourceName().Name, "level", levelStr)
+				"resource", conf.Name, "level", levelStr)
 		}
 	}
 
@@ -100,7 +100,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 		logLevel = &level
 	} else if logLevelStr != "" {
 		m.logger.Warnw("LogConfiguration does not contain a valid level",
-			"resource", conf.ResourceName().Name, "level", logLevelStr)
+			"resource", conf.Name, "level", logLevelStr)
 	}
 
 	if _, err = m.reconfigureResource(ctx, deps, conf, logLevel); err != nil {
@@ -373,7 +373,7 @@ func (m *Module) addResource(
 		// Dan: We could call `m.getLocalResource(dep.Name())` but that's just a linear scan over
 		// resLoggers.
 		if _, exists := m.resLoggers[dep]; exists {
-			m.internalDeps[dep] = append(m.internalDeps[dep], resConfigureArgs{
+			*m.internalDeps[dep] = append(*m.internalDeps[dep], resConfigureArgs{
 				toReconfig: res,
 				conf:       conf,
 				depStrings: depStrings,
@@ -420,11 +420,12 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 	// it's safe to assume the value in the map for `res` is empty and simply remove the map entry.q
 	delete(m.internalDeps, res)
 
-	for dep, chainReconfigures := range m.internalDeps {
+	for dep, chainReconfiguresPtr := range m.internalDeps {
+		chainReconfigures := *chainReconfiguresPtr
 		for idx, chainRes := range chainReconfigures {
 			if res == chainRes.toReconfig {
 				// Clear the removed resource from any chain of reconfigures it appears in.
-				m.internalDeps[dep] = append(chainReconfigures[:idx], chainReconfigures[idx+1:]...)
+				*m.internalDeps[dep] = append(chainReconfigures[:idx], chainReconfigures[idx+1:]...)
 			}
 		}
 	}
@@ -432,9 +433,8 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 	return coll.Remove(resName)
 }
 
-// reconfigureResource will return a resource iff the targeted resource is successfully destroyed
-// and reconstructed. If a resource is successfully reconfigured in place, (nil, nil) will be
-// returned.
+// reconfigureResource will reconfigure a resource and, if successful, return the new resource
+// pointer/interface object.
 func (m *Module) reconfigureResource(
 	ctx context.Context, deps resource.Dependencies, conf *resource.Config, logLevel *logging.Level,
 ) (resource.Resource, error) {
@@ -459,7 +459,7 @@ func (m *Module) reconfigureResource(
 
 	err = res.Reconfigure(ctx, deps, *conf)
 	if err == nil {
-		return nil, nil
+		return res, nil
 	}
 
 	if !resource.IsMustRebuildError(err) {
@@ -502,39 +502,68 @@ func (m *Module) reconfigureResource(
 		m.streamSourceByName[res.Name()] = p
 	}
 
-	for idx := range m.internalDeps[res] {
-		// We are going to modify `toReconfig` at the end. Make sure changes to `resConfigureArgs`
+	depsToReconfig := m.internalDeps[res]
+	fmt.Printf("Depds to reconfigure: %+v\n", depsToReconfig)
+	for idx := range depsToReconfig {
+		// We are going to modify `toReconfig` at the end. Make sure changes to `dependentResConfigureArgs`
 		// get reflected in the slice.
-		resConfigureArgs := &m.internalDeps[res][idx]
+		dependentResConfigureArgs := &depsToReconfig[idx]
+		dependentConf := dependentResConfigureArgs.conf
 
-		deps, err := m.getDependenciesForConstruction(ctx, resConfigureArgs.depStrings)
+		deps, err := m.getDependenciesForConstruction(ctx, dependentResConfigureArgs.depStrings)
 		if err != nil {
-			m.logger.Warn("Failed to get dependencies for cascading dependant reconfigure",
-				"changedResource", conf.ResourceName().Name,
-				"dependant", resConfigureArgs.conf.ResourceName().Name,
-				"dependantDeps", resConfigureArgs.depStrings,
+			m.logger.Warn("Failed to get dependencies for cascading dependent reconfigure",
+				"changedResource", conf.Name,
+				"dependent", dependentConf.Name,
+				"dependentDeps", dependentResConfigureArgs.depStrings,
 				"err", err)
 			continue
 		}
 
+		// We release the `registerMu` to let other resource query/acquisition methods make
+		// progress. We do not assume `reconfigureResource` is fast.
+		//
+		// We also release the mutex as the recursive call to `reconfigureResource` will reacquire
+		// it. And the mutex is not reentrant.
 		m.registerMu.Unlock()
+
 		var nilLogLevel *logging.Level // pass in nil to avoid changing the log level
-		rebuiltRes, err := m.reconfigureResource(ctx, deps, resConfigureArgs.conf, nilLogLevel)
+		rebuiltRes, err := m.reconfigureResource(ctx, deps, conf, nilLogLevel)
 		if err != nil {
-			m.logger.Warn("Failed to cascade dependant reconfigure",
-				"changedResource", conf.ResourceName().Name,
-				"dependant", resConfigureArgs.conf.ResourceName().Name,
+			m.logger.Warn("Failed to cascade dependent reconfigure",
+				"changedResource", conf.Name,
+				"dependent", dependentConf.Name,
 				"err", err)
 		}
 		m.registerMu.Lock()
 
-		// Nil here implies the underlying resource was rebuilt in place. No need to amend the
-		// `internalDeps` map.
-		if rebuiltRes == nil {
+		// Normally one ought to recheck premises after an unlock -> lock step. However, we assume `internalDeps` did not
+		//
+		// This is considered programmer error. `reconfigureResource` can only be called with the
+		// module mutex. No destructive resource actions may happen while we hold that mutex. Hence
+		// we only look for the `depsToReconfig` entry at exactly the same `idx` address that we're
+		// in.
+		if idx >= len(depsToReconfig) {
+			m.logger.Error(
+				"Dependencies to reconfigure has changed. We assume the viam-server timed out waiting for reconfigure. This module must be restarted.",
+				"ctxErr", ctx.Err(), "reconfiguringRes", conf.Name, "dependentRes", dependentConf.Name,
+			)
+		}
+
+		reacquiredResConfigureArgs := &depsToReconfig[idx]
+		if reacquiredResConfigureArgs.toReconfig != existingRes {
+			m.logger.Error(
+				"Dependencies to reconfigure has changed. We assume the viam-server timed out waiting for reconfigure. This module must be restarted.",
+				"ctxErr", ctx.Err(), "reconfiguringRes", conf.Name, "dependentRes", dependentConf.Name,
+			)
+		}
+
+		if reacquiredResConfigureArgs.toReconfig == rebuiltRes {
+			// The resource was rebuilt in place. No need to update anything.
 			continue
 		}
 
-		resConfigureArgs.toReconfig = rebuiltRes
+		reacquiredResConfigureArgs.toReconfig = rebuiltRes
 	}
 
 	chainReconfigures := m.internalDeps[res]
