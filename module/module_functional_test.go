@@ -116,6 +116,7 @@ func (dcd *doCommandDepender) DoCommand(ctx context.Context, cmd map[string]any)
 	}
 }
 
+// testLocal gets a fresh local resource for each input string and asserts its `DoCommand` succeeds.
 func testLocal(ctx context.Context, t *testing.T, mod *Module, resStrings ...string) {
 	t.Helper()
 	for _, resStr := range resStrings {
