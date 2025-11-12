@@ -54,6 +54,13 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 		return nil, 0, err
 	}
 
+	bgGens := make([]*backgroundGenerator, 0, len(pm.request.Goals))
+	defer func() {
+		for idx := range bgGens {
+			bgGens[idx].StopAndWait()
+		}
+	}()
+
 	for i, g := range pm.request.Goals {
 		if ctx.Err() != nil {
 			return linearTraj, i, err // note: here and below, we return traj because of ReturnPartialPlan
@@ -87,12 +94,14 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 
 			for subGoalIdx, sg := range subGoals {
 				singleGoalStart := time.Now()
-				newTraj, err := pm.planSingleGoal(ctx, linearTraj[len(linearTraj)-1], sg)
+				newTraj, bgGen, err := pm.planSingleGoal(ctx, linearTraj[len(linearTraj)-1], sg)
 				if err != nil {
 					return linearTraj, i, err
 				}
+
 				pm.logger.Debugf("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
 				linearTraj = append(linearTraj, newTraj...)
+				bgGens = append(bgGens, bgGen)
 			}
 		}
 		start = to
@@ -186,7 +195,7 @@ func (pm *planManager) planSingleGoal(
 	ctx context.Context,
 	start *referenceframe.LinearInputs,
 	goal referenceframe.FrameSystemPoses,
-) ([]*referenceframe.LinearInputs, error) {
+) ([]*referenceframe.LinearInputs, *backgroundGenerator, error) {
 	ctx, span := trace.StartSpan(ctx, "planSingleGoal")
 	defer span.End()
 	pm.logger.Debug("start configuration", start)
@@ -194,37 +203,45 @@ func (pm *planManager) planSingleGoal(
 
 	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goal)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
+	// For error cases, we'll wait for `bgGen` to drain before returning. Otherwise we'll `Stop` the
+	// generator, but the caller is responsible for waiting.
+	//
+	// This optimization is useful for cases where we plan for dozens of goals, and each planning
+	// each goal is very fast. Each "wait" can be up to ~2ms. Hence we'd rather do one big wait at
+	// the end. See `data/wine-adjust.json`.
 	planSeed, bgGen, err := initRRTSolutions(ctx, psc)
-	defer bgGen.StopAndWait()
 	if err != nil {
-		return nil, err
+		bgGen.StopAndWait()
+		return nil, nil, err
 	}
 
 	if planSeed.steps != nil {
 		pm.logger.Debug("found an ideal ik solution")
-		return planSeed.steps, nil
+		bgGen.Stop()
+		return planSeed.steps, bgGen, nil
 	}
 
 	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
 	if err != nil {
-		return nil, err
+		bgGen.StopAndWait()
+		return nil, nil, err
 	}
 
 	finalSteps, err := pathPlanner.rrtRunner(ctx, planSeed.maps, bgGen)
 	if err != nil {
-		return nil, err
+		bgGen.StopAndWait()
+		return nil, nil, err
 	}
 
-	// Nothing left for IK to do. Cancel it and let goroutines exit while we do smoothing. The above
-	// `defer` will do any final necessary waiting.
+	// Nothing left for IK to do. Cancel it and let goroutines exit while we do smoothing.
 	bgGen.Stop()
 
 	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
-	return finalSteps.steps, nil
+	return finalSteps.steps, bgGen, nil
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
