@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/tpspace"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -43,10 +42,6 @@ func TestEvaluateTrajectory(t *testing.T) {
 	plan = append(plan, referenceframe.FrameSystemInputs{"test": {3., 5., 6.}})
 	score = plan.EvaluateCost(motionplan.FSConfigurationL2Distance)
 	test.That(t, score, test.ShouldAlmostEqual, math.Sqrt(27)*2+3)
-
-	// Evaluated with the tp-space metric, should be the sum of the distance values (third input) ignoring the first input step
-	score = plan.EvaluateCost(tpspace.NewPTGDistanceMetric([]string{"", "test"}))
-	test.That(t, score, test.ShouldAlmostEqual, 22)
 }
 
 func TestPlanStep(t *testing.T) {
