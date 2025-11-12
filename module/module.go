@@ -13,6 +13,7 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/viamrobotics/webrtc/v3"
+	"go.opencensus.io/plugin/ocgrpc"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
@@ -158,6 +159,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		grpc.MaxRecvMsgSize(rpc.MaxMessageSize),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaries...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streams...)),
+		grpc.StatsHandler(&ocgrpc.ServerHandler{}),
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())

@@ -14,6 +14,7 @@ import (
 
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/pkg/errors"
+	"go.opencensus.io/plugin/ocgrpc"
 	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
@@ -66,6 +67,7 @@ func (m *module) dial() error {
 	if !rutils.TCPRegex.MatchString(addrToDial) {
 		addrToDial = "unix:" + addrToDial
 	}
+
 	//nolint:staticcheck
 	conn, err := grpc.Dial(
 		addrToDial,
@@ -80,6 +82,7 @@ func (m *module) dial() error {
 			grpc_retry.StreamClientInterceptor(),
 			operation.StreamClientInterceptor,
 		),
+		grpc.WithStatsHandler(&ocgrpc.ClientHandler{}),
 	)
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
