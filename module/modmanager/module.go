@@ -107,8 +107,8 @@ func (m *module) dial() error {
 // checkReady sends a `ReadyRequest` and waits for either a `ReadyResponse`, or a context
 // cancelation.
 func (m *module) checkReady(ctx context.Context, parentAddr string) error {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(m.logger))
-	defer cancelFunc()
+	parentCtxTimeout, parentCtxCancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(m.logger))
+	defer parentCtxCancelFunc()
 
 	m.logger.CInfow(ctx, "Waiting for module to respond to ready request", "module", m.cfg.Name)
 
@@ -125,11 +125,21 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 		var resp *pb.ReadyResponse
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
 		for range 5000 {
-			resp, err = m.client.Ready(ctxTimeout, req)
+			perCallCtx, perCallCtxCancelFunc := context.WithTimeout(parentCtxTimeout, 3*time.Second)
+			resp, err = m.client.Ready(perCallCtx, req)
+			perCallCtxCancelFunc()
 
 			// if module is not ready yet, wait and try again
-			if status.Code(err) == codes.Unavailable || status.Code(err) == codes.ResourceExhausted {
-				time.Sleep(50 * time.Millisecond)
+			code := status.Code(err)
+			// context errors here are the perCallCtx
+			if code == codes.Unavailable || code == codes.ResourceExhausted || code == codes.DeadlineExceeded || code == codes.Canceled {
+				waitTimer := time.NewTimer(50 * time.Millisecond)
+				select {
+				case <-parentCtxTimeout.Done():
+					waitTimer.Stop()
+					return parentCtxTimeout.Err()
+				case <-waitTimer.C:
+				}
 				// Short circuit this check if the process has already exited. We could get here if process exits before
 				// module can set up the Ready server.
 				// This is most likely in TCP mode, where the .sock presence check is skipped, but
@@ -137,7 +147,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 				// (OUE is waiting on the same modmanager lock, so it can't try to restart).
 				if errors.Is(m.process.Status(), os.ErrProcessDone) {
 					m.logger.Info("Module process exited unexpectedly while waiting for ready.")
-					cancelFunc()
+					parentCtxCancelFunc()
 				}
 				continue
 			} else if err != nil {
@@ -148,8 +158,8 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 		if resp == nil {
 			// should not get here unless Module Startup Timeout has been overridden to very large value
 			// and there is still no connection after 5000 retries
-			cancelFunc()
-			return ctx.Err()
+			parentCtxCancelFunc()
+			return parentCtxTimeout.Err()
 		}
 
 		if !resp.Ready {
