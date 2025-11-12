@@ -273,6 +273,8 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	superImplicitDependsOn, err := protoutils.StructToStructPb(&doCommandDependerConfig{
 		DependsOn: []string{"leaf", "branch", "trunk"},
 	})
+	test.That(t, err, test.ShouldBeNil)
+
 	_, err = module.AddResource(ctx, &pb.AddResourceRequest{
 		Dependencies: []string{
 			generic.Named("leaf").String(),
