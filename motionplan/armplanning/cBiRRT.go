@@ -131,16 +131,18 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 			// We continue to generate IK solutions in the background. New candidates can only
 			// succeed if given some time. Hence we will pull on a reduced cadence.
 			select {
-			case newGoal := <-bgSolutionGenerator.newSolutionsCh:
-				mp.pc.logger.CDebugf(ctx, "Added new goal while birrting. Goal: %v GoalName: %v", newGoal.inputs, newGoal.name)
-				rrtMaps.goalMap[newGoal] = nil
+			case newGoal, ok := <-bgSolutionGenerator.newSolutionsCh:
+				if ok {
+					mp.pc.logger.CDebugf(ctx, "Added new goal while birrting. Goal: %v GoalName: %v", newGoal.inputs, newGoal.name)
+					rrtMaps.goalMap[newGoal] = nil
 
-				// Readjust the target to give the new solution a chance to succeed.
-				newTarget, err := mp.sample(newGoal, iterNum)
-				if err != nil {
-					mp.pc.logger.CWarnw(ctx, "Sampling new node had error", "err", err)
-				} else {
-					target = newTarget
+					// Readjust the target to give the new solution a chance to succeed.
+					newTarget, err := mp.sample(newGoal, iterNum)
+					if err != nil {
+						mp.pc.logger.CWarnw(ctx, "Sampling new node had error", "err", err)
+					} else {
+						target = newTarget
+					}
 				}
 			default:
 			}
