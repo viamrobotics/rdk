@@ -144,7 +144,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 	apiMethod := extractViamAPI(info.FullMethod)
 	if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
 		if ok := rc.incrInFlight(resource); !ok {
-			rc.logger.Warnf("Request limit exceeded for method %s on resource %s. " +  
+			rc.logger.Warnf("Request limit exceeded for method %s on resource %s. "+
 				"See https://docs.viam.com/dev/tools/common-errors/#req-limit-exceeded "+
 				"for troubleshooting steps", apiMethod.full, resource)
 			return nil, &RequestLimitExceededError{
