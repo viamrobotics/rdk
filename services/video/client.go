@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+// client is a video service client that talks to a gRPC video service.
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
@@ -42,6 +43,8 @@ func NewClientFromConn(
 	}, nil
 }
 
+// GetVideo calls the GetVideo method on the video service.
+// It writes the received video data to the provided writer.
 func (c *client) GetVideo(
 	ctx context.Context,
 	startTime, endTime time.Time,
@@ -90,6 +93,7 @@ func (c *client) GetVideo(
 	return nil
 }
 
+// DoCommand calls the DoCommand method on the video service.
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	command, err := protoutils.StructToStructPb(cmd)
 	if err != nil {

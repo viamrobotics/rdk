@@ -23,11 +23,13 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[Service]) interface{} {
 	return &serviceServer{coll: coll}
 }
 
+// streamWriter implements io.Writer by sending data over a gRPC stream.
 type streamWriter struct {
 	stream    pb.VideoService_GetVideoServer
 	requestID string
 }
 
+// Write sends data over the gRPC stream.
 func (w streamWriter) Write(p []byte) (int, error) {
 	if err := w.stream.Send(&pb.GetVideoResponse{VideoData: p, RequestId: w.requestID}); err != nil {
 		return 0, err
@@ -35,10 +37,8 @@ func (w streamWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// GetVideo streams video data to the client.
 func (server *serviceServer) GetVideo(req *pb.GetVideoRequest, stream pb.VideoService_GetVideoServer) error {
-	// ctx, span := trace.StartSpan(stream.Context(), "video::server::GetVideo")
-	// defer span.End()
-
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return err
@@ -73,6 +73,7 @@ func (server *serviceServer) GetVideo(req *pb.GetVideoRequest, stream pb.VideoSe
 	)
 }
 
+// DoCommand implements the generic command interface.
 func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
 ) (*commonpb.DoCommandResponse, error) {
