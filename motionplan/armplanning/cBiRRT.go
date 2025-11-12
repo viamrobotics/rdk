@@ -108,8 +108,8 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 		}
 	}
 
-	mp.pc.logger.CDebugf(ctx, "start node: %v inputs: %v DOF: %v",
-		seed, rrtMaps.optNode.inputs, mp.pc.lis.GetLimits())
+	mp.pc.logger.CDebugf(ctx, "start node: %v goal node name: %v inputs: %v DOF: %v",
+		seed, rrtMaps.optNode.name, rrtMaps.optNode.inputs, mp.pc.lis.GetLimits())
 	interpConfig, err := referenceframe.InterpolateFS(mp.pc.fs, seed, rrtMaps.optNode.inputs, 0.5)
 	if err != nil {
 		return nil, err
@@ -125,14 +125,14 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 			mp.pc.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", iterNum)
 			return &rrtSolution{maps: rrtMaps}, fmt.Errorf("cbirrt timeout %w", ctx.Err())
 		}
-		mp.pc.logger.CDebugf(ctx, "iteration: %d target: %v", iterNum, target.inputs)
+		mp.pc.logger.CDebugf(ctx, "iteration: %d target: %v target name: %v", iterNum, target.inputs, target.name)
 
 		if iterNum%20 == 0 {
 			// We continue to generate IK solutions in the background. New candidates can only
 			// succeed if given some time. Hence we will pull on a reduced cadence.
 			select {
 			case newGoal := <-bgSolutionGenerator.newSolutionsCh:
-				mp.pc.logger.CDebugf(ctx, "Added new goal while birrting. Goal: %v", newGoal.inputs)
+				mp.pc.logger.CDebugf(ctx, "Added new goal while birrting. Goal: %v GoalName: %v", newGoal.inputs, newGoal.name)
 				rrtMaps.goalMap[newGoal] = nil
 
 				// Readjust the target to give the new solution a chance to succeed.
@@ -271,7 +271,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			doubled = false
 		}
 		// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
-		near = &node{inputs: newNear}
+		near = &node{name: int(nodeNameCounter.Add(1)), inputs: newNear}
 		rrtMap[near] = oldNear
 	}
 	return oldNear

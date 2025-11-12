@@ -170,9 +170,9 @@ func (pm *planManager) planToDirectJoints(
 	}
 
 	maps := rrtMaps{}
-	maps.startMap = rrtMap{&node{inputs: start}: nil}
-	maps.goalMap = rrtMap{&node{inputs: fullConfig}: nil}
-	maps.optNode = &node{inputs: fullConfig}
+	maps.startMap = rrtMap{&node{name: -1, inputs: start}: nil}
+	maps.goalMap = rrtMap{&node{name: -2, inputs: fullConfig}: nil}
+	maps.optNode = &node{name: -3, inputs: fullConfig}
 
 	finalSteps, err := pathPlanner.rrtRunner(ctx, &maps, nil)
 	if err != nil {
@@ -332,9 +332,9 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolutio
 			return rrt, goalNodeGenerator, nil
 		}
 
-		rrt.maps.goalMap[&node{inputs: solution.inputs}] = nil
+		rrt.maps.goalMap[&node{name: solution.name, goalNode: solution.goalNode, inputs: solution.inputs}] = nil
 	}
-	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil
+	rrt.maps.startMap[&node{name: -5, inputs: seed.inputs}] = nil
 
 	return rrt, goalNodeGenerator, nil
 }
