@@ -124,9 +124,6 @@ func realMain() error {
 		return fmt.Errorf("path and trajectory not the same %d vs %d", len(plan.Path()), len(plan.Trajectory()))
 	}
 
-	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
-		time.Since(start).Truncate(time.Millisecond), len(req.Goals), len(plan.Trajectory()))
-
 	for *cpu != "" && time.Since(start) < (10*time.Second) {
 		ss := time.Now()
 		_, _, err := armplanning.PlanMotion(ctx, logger, req)
@@ -181,6 +178,8 @@ func realMain() error {
 		}
 	}
 
+	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
+		time.Since(start).Truncate(time.Millisecond), len(req.Goals), len(plan.Trajectory()))
 	mylog.Printf("totalCartesion: %0.4f\n", totalCartesion)
 	mylog.Printf("totalL2: %0.4f\n", totalL2)
 
