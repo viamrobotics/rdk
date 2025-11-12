@@ -562,6 +562,13 @@ solutionLoop:
 		defer func() {
 			close(goalNodeGenerator.newSolutionsCh)
 			waitForWorkers()
+
+			// The first `inputs` argument is known prior to starting this goroutine, but the
+			// `solveMeta` argument is only guaranteed to be filled in after all of the solvers have
+			// exited. This information was complete back when IK was finished before starting
+			// cbirrt. But now that we can continue to generate IK solutions, it would be cumbersome
+			// to pass a `solvingState` back up to the caller.
+			solvingState.debugSeedInfoForWinner(solvingState.solutions[0].inputs, solveMeta)
 			span.End()
 			goalNodeGenerator.wg.Done()
 		}()
@@ -608,7 +615,6 @@ solutionLoop:
 	})
 
 	// Given we're still running IK, this can be incomplete.
-	err = solvingState.debugSeedInfoForWinner(solvingState.solutions[0].inputs, solveMeta)
 	if err != nil {
 		goalNodeGenerator.StopAndWait()
 		return nil, nil, err
