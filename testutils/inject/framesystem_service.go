@@ -47,7 +47,7 @@ type FrameSystemService struct {
 // NewFrameSystemService returns a new injected framesystem service.
 func NewFrameSystemService(name string) *FrameSystemService {
 	resourceName := resource.NewName(
-		resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
+		resource.APINamespaceRDKInternal.WithServiceType(framesystem.SubtypeName),
 		name,
 	)
 	return &FrameSystemService{name: resourceName}
