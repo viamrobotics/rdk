@@ -79,31 +79,41 @@ func (dcd *doCommandDepender) DoCommand(ctx context.Context, cmd map[string]any)
 	// Dan: I do some fancy stuff here to chain the API calls through to dependencies. But the
 	// values are not asserted on. They were just deemed to be some way to summarize the path a
 	// request took.
-	if dcd.dependsOn != nil {
+	switch {
+	case len(dcd.dependsOn) == 0:
+		return map[string]any{
+			"outgoing": 0,
+			"incoming": 1,
+		}, nil
+
+	case len(dcd.dependsOn) == 1:
 		if val, exists := cmd["outgoing"]; exists {
 			cmd["outgoing"] = val.(int) + 1
 		} else {
 			cmd["outgoing"] = 1
 		}
 
-		res, err := dcd.dependsOn.DoCommand(ctx, cmd)
+		resp, err := dcd.dependsOn[0].DoCommand(ctx, cmd)
 		if err != nil {
 			return nil, err
 		}
 
-		res["incoming"] = res["incoming"].(int) + 1
-		return res, nil
-	}
+		resp["incoming"] = resp["incoming"].(int) + 1
+		return resp, nil
+	default:
+		// > 1
+		for _, dep := range dcd.dependsOn {
+			_, err := dep.DoCommand(ctx, cmd)
+			if err != nil {
+				return nil, err
+			}
+		}
 
-	var outgoing any = int(0)
-	if val, exists := cmd["outgoing"]; exists {
-		outgoing = val
+		return map[string]any{
+			"outgoing": len(dcd.dependsOn),
+			"incoming": 1,
+		}, nil
 	}
-
-	return map[string]any{
-		"outgoing": outgoing,
-		"incoming": 1,
-	}, nil
 }
 
 func testLocal(ctx context.Context, t *testing.T, mod *Module, resStrings ...string) {
@@ -127,10 +137,17 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	modelName := utils.RandomAlphaString(20)
 	model := resource.DefaultModelFamily.WithModel(modelName)
 	logger.Info("Randomized model name:", modelName)
+
+	// We will use this to count how often a particular resource gets constructed.
+	superConstructCount := 0
 	resource.RegisterComponent(generic.API, model, resource.Registration[resource.Resource, *doCommandDependerConfig]{
 		Constructor: func(
 			ctx context.Context, deps resource.Dependencies, rcfg resource.Config, logger logging.Logger,
 		) (resource.Resource, error) {
+			if rcfg.Name == "super" {
+				superConstructCount++
+			}
+
 			// logger.SetLevel(logging.ERROR)
 			cfg, err := resource.NativeConfig[*doCommandDependerConfig](rcfg)
 			if err != nil {
@@ -142,11 +159,14 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 				logger: logger,
 			}
 
-			if len(cfg.DependsOn) > 0 {
-				ret.dependsOn, err = generic.FromProvider(deps, cfg.DependsOn)
+			// if len(cfg.DependsOn) > 0 {
+			for _, depStr := range cfg.DependsOn {
+				dep, err := generic.FromProvider(deps, depStr)
 				if err != nil {
 					return nil, err
 				}
+
+				ret.dependsOn = append(ret.dependsOn, dep)
 			}
 			logger.Infof("I %v (%p) depend on %p Config.DependsOn: %v",
 				rcfg.Name, ret, ret.dependsOn, cfg.DependsOn)
@@ -179,7 +199,7 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 
 	// Build up and add a branch resource that depends on the leaf resource.
 	attrsBuf, err := protoutils.StructToStructPb(&doCommandDependerConfig{
-		DependsOn: "leaf",
+		DependsOn: []string{"leaf"},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -218,8 +238,8 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	testLocal(ctx, t, module, "branch")
 
 	// Build up and add a branch resource that depends on the leaf resource.
-	trunkAttrsBuf, err := protoutils.StructToStructPb(&doCommandDependerConfig{
-		DependsOn: "branch",
+	trunkImplicitDependsOn, err := protoutils.StructToStructPb(&doCommandDependerConfig{
+		DependsOn: []string{"branch"},
 	})
 	test.That(t, err, test.ShouldBeNil)
 	// Add a trunk that depends on the branch resource.
@@ -227,8 +247,7 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 		Dependencies: []string{generic.Named("branch").String()},
 		Config: &v1.ComponentConfig{
 			Name: "trunk", Api: generic.API.String(), Model: model.String(),
-			DependsOn:  []string{"branch"}, // unnecessary but mimics reality?
-			Attributes: trunkAttrsBuf,
+			Attributes: trunkImplicitDependsOn,
 		},
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -250,18 +269,47 @@ func TestOptimizedModuleCommunication(t *testing.T) {
 	testLocal(ctx, t, module, "branch", "trunk")
 
 	// To play a trick, we add a `super` resource that will depend on each of `leaf`, `branch` and
-	// `trunk`. Reconfiguring leaf ought to reconfigure `super` 3 times. Once for each of its
+	// `trunk`. Reconfiguring leaf ought to reconfigure `super` three times. Once for each of its
 	// dependencies.
-	superAttrsBuf, err := protoutils.StructToStructPb(&doCommandDependerConfig{
+	superImplicitDependsOn, err := protoutils.StructToStructPb(&doCommandDependerConfig{
 		DependsOn: []string{"leaf", "branch", "trunk"},
 	})
 	_, err = module.AddResource(ctx, &pb.AddResourceRequest{
-		Dependencies: []string{generic.Named("branch").String()},
+		Dependencies: []string{
+			generic.Named("leaf").String(),
+			generic.Named("branch").String(),
+			generic.Named("trunk").String(),
+		},
 		Config: &v1.ComponentConfig{
 			Name: "super", Api: generic.API.String(), Model: model.String(),
-			DependsOn:  []string{"leaf", "branch", "trunk"}, // unnecessary but mimics reality?
-			Attributes: superAttrsBuf,
+			Attributes: superImplicitDependsOn,
 		},
 	})
 	test.That(t, err, test.ShouldBeNil)
+	testLocal(ctx, t, module, "super")
+
+	// Get a handle on the `super` resource that we are going to invalidate.
+	staleSuperRes, err := module.getLocalResource(ctx, generic.Named("super"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Reconfigure the leaf _yet_ again. Assert that the `staleSuperRes` does not work.
+	logger.Info("Reconfiguring leaf. Super resource should reconfigure 4 times.")
+	_, err = module.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{
+		Config: &v1.ComponentConfig{ // Same config.
+			Name: "leaf", Api: generic.API.String(), Model: model.String(),
+		},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = staleSuperRes.DoCommand(ctx, map[string]any{})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Assert that super continues to work with all of its dependencies. Along with all the others
+	// for good measure.
+	testLocal(ctx, t, module, "super", "trunk", "branch", "leaf")
+
+	// Assert that `super` was constructed once initially plus three times due to cascading
+	// reconfigures. This is not a correctness assertion, but just a demonstration of current
+	// behavior. By all means optimize this away with some topological sorting.
+	test.That(t, superConstructCount, test.ShouldEqual, 4)
 }
