@@ -5,8 +5,6 @@ import (
 	"os"
 	"time"
 
-	datapb "go.viam.com/api/app/data/v1"
-
 	"go.viam.com/rdk/app"
 	"go.viam.com/rdk/utils"
 )
@@ -22,15 +20,8 @@ type ResourceDataConsumer struct {
 	dataClient *app.DataClient
 }
 
-// SetDataClient is a method for initializing the DataClient of ResourceDataConsumer.
-// The client parameter should be nil in most usage except unit tests.
-func (r *ResourceDataConsumer) SetDataClient(ctx context.Context, client datapb.DataServiceClient) error {
+func (r *ResourceDataConsumer) setDataClient(ctx context.Context) error {
 	if r.dataClient != nil {
-		return nil
-	}
-
-	if client != nil {
-		r.dataClient = app.CreateDataClientWithDataServiceClient(client)
 		return nil
 	}
 
@@ -46,7 +37,7 @@ func (r *ResourceDataConsumer) SetDataClient(ctx context.Context, client datapb.
 func (r ResourceDataConsumer) QueryTabularDataForResource(
 	ctx context.Context, resourceName string, opts *QueryTabularDataOptions,
 ) ([]map[string]any, error) {
-	err := r.SetDataClient(ctx, nil)
+	err := r.setDataClient(ctx)
 	if err != nil {
 		return nil, err
 	}
