@@ -18,11 +18,11 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.opencensus.io/trace"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
+	"go.viam.com/utils/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -4234,7 +4234,7 @@ func TestModuleLogging(t *testing.T) {
 
 	ctx, span := trace.StartSpan(context.Background(), "TestModuleLogging")
 	defer span.End()
-	traceID := span.SpanContext().TraceID.String()
+	traceID := span.SpanContext().TraceID().String()
 	test.That(t, traceID, test.ShouldNotBeEmpty)
 	logger, observer, registry := logging.NewObservedTestLoggerWithRegistry(t, "rdk")
 	logger.SetLevel(logging.INFO)
