@@ -133,7 +133,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 			code := status.Code(err)
 			// context errors here are the perCallCtx
 			if code == codes.Unavailable || code == codes.ResourceExhausted || code == codes.DeadlineExceeded || code == codes.Canceled {
-				waitTimer := time.NewTimer(50 * time.Millisecond)
+				waitTimer := time.NewTimer(200 * time.Millisecond)
 				select {
 				case <-parentCtxTimeout.Done():
 					waitTimer.Stop()
@@ -148,6 +148,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 				if errors.Is(m.process.Status(), os.ErrProcessDone) {
 					m.logger.Info("Module process exited unexpectedly while waiting for ready.")
 					parentCtxCancelFunc()
+					return parentCtxTimeout.Err()
 				}
 				continue
 			} else if err != nil {
