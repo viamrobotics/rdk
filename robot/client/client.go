@@ -477,10 +477,6 @@ func (rc *RobotClient) Changed() <-chan bool {
 // Connect will close any existing connection and try to reconnect to the remote.
 func (rc *RobotClient) Connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
-		if strings.Contains(err.Error(), "context deadline exceeded; context deadline exceeded; mDNS query failed to find a candidate") {
-			return fmt.Errorf("failed to connect to robot within time limit. check network connection and try again. " +
-				"see http://docs.viam.com/dev/tools/common-errors/#conn-time-out for troubleshooting steps")
-		}
 		return err
 	}
 	rc.Logger().CInfow(ctx, "successfully (re)connected to remote at address", "address", rc.address)
@@ -537,6 +533,12 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 			err = nil
 		} else {
 			err = multierr.Combine(err, grpcErr)
+		}
+
+		//instead of returning two context.DeadlineExceeded errors, tell the user how to fix
+		if errors.Is(err, context.DeadlineExceeded) && errors.Is(grpcErr, context.DeadlineExceeded) {
+			return fmt.Errorf("failed to connect to robot within time limit. check network connection and try again. " +
+				"see http://docs.viam.com/dev/tools/common-errors/#conn-time-out for troubleshooting steps")
 		}
 	}
 	if err != nil {
