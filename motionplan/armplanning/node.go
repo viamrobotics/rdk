@@ -614,11 +614,11 @@ solutionLoop:
 		}
 	})
 
-	// We assume the caller will only ever read the `solutions` elements between index [0,
-	// len(solutions)). And it will never append to the `solutions` slice. Hence, we do not need to
-	// make a copy. It's safe for the background goal node generator to read/append to the slice for
-	// similarity checking.
-	return solvingState.solutions, goalNodeGenerator, nil
+	// The above goroutine will continue to append to `solvingState.solutions` for similarity
+	// checking. We make a copy to return for the caller to own.
+	ret := make([]*node, len(solvingState.solutions))
+	copy(ret, solvingState.solutions)
+	return ret, goalNodeGenerator, nil
 }
 
 func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.LinearInputs, solveMeta []ik.SeedSolveMetaData) {
