@@ -126,7 +126,6 @@ func (req *PlanRequest) validatePlanRequest() error {
 			if req.FrameSystem.Frame(goalParentFrame) == nil {
 				return referenceframe.NewParentFrameMissingError(fName, goalParentFrame)
 			}
-
 		}
 	}
 	return nil

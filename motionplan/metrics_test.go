@@ -13,7 +13,7 @@ import (
 func TestSqNormMetric(t *testing.T) {
 	p1 := spatial.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	p2 := spatial.NewPoseFromPoint(r3.Vector{0, 0, 10})
-	
+
 	// Test using WeightedSquaredNormDistance function
 	d1 := WeightedSquaredNormDistance(p1, p1)
 	test.That(t, d1, test.ShouldAlmostEqual, 0)

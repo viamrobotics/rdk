@@ -57,6 +57,7 @@ func TestUnconstrainedMotion(t *testing.T) {
 }
 
 func TestConstrainedMotion(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	testCases := []struct {
 		name   string
@@ -92,7 +93,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	}
 
 	cons := motionplan.NewEmptyConstraints()
-	cons.OrientationConstraint = append(cons.OrientationConstraint,motionplan.OrientationConstraint{1})
+	cons.OrientationConstraint = append(cons.OrientationConstraint, motionplan.OrientationConstraint{1})
 
 	start := &PlanState{structuredConfiguration: map[string][]frame.Input{model.Name(): home7}}
 	goalPoses := frame.FrameSystemPoses{model.Name(): frame.NewPoseInFrame(frame.World, pos)}

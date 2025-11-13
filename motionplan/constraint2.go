@@ -20,26 +20,8 @@ const (
 	selfCollisionConstraintDescription  = "self-collision constraint"
 	robotCollisionConstraintDescription = "robot constraint" // collision between a moving robot component and one that is stationary
 
-	// Default distance below which two distances are considered equal.
-	defaultEpsilon = 0.001
-
-	// allowable deviation from slerp between start/goal orientations, unit is the number of degrees of rotation away from the most direct
-	// arc from start orientation to goal orientation.
-	defaultOrientationDeviation = 2.0
-
-	defaultConstraintName = "unnamed constraint"
-
-	// max linear deviation from straight-line between start and goal, in mm.
-	defaultLinearDeviation = 0.1
-
-	// allowable linear and orientation deviation from direct interpolation path, as a proportion of the linear and orientation distances
-	// between the start and goal.
-	defaultPseudolinearTolerance = 0.8
-
 	defaultCollisionBufferMM = 1e-8
 )
-
-var errInvalidConstraint = errors.New("invalid constraint input")
 
 // Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
 func resolveSegmentsToPositions(segment *Segment) error {

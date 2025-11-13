@@ -102,20 +102,15 @@ type SegmentMetric func(*Segment) float64
 // This is used to sort produced IK solutions by goodness, for example.
 type SegmentFSMetric func(*SegmentFS) float64
 
-
 // OrientDist returns the arclength between two orientations in degrees.
 func OrientDist(o1, o2 spatial.Orientation) float64 {
 	return math.Abs(utils.RadToDeg(spatial.QuatToR4AA(spatial.OrientationBetween(o1, o2).Quaternion()).Theta))
 }
 
-
-
-
 // WeightedSquaredNormDistance is a distance function between two poses to be used for gradient descent.
 func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
 	return WeightedSquaredNormDistanceWithOptions(start, end, .1, orientationDistanceScaling)
 }
-	
 
 // WeightedSquaredNormDistanceWithOptions is a distance function between two poses to be used for gradient descent.
 func WeightedSquaredNormDistanceWithOptions(start, end spatial.Pose, cartesianScale, orientScale float64) float64 {
@@ -132,7 +127,7 @@ func WeightedSquaredNormDistanceWithOptions(start, end spatial.Pose, cartesianSc
 	if cartesianScale > 0 {
 		ptDelta = end.Point().Mul(cartesianScale).Sub(start.Point().Mul(cartesianScale)).Norm2()
 	}
-	
+
 	return ptDelta + orientDelta
 }
 

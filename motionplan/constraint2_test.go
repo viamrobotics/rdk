@@ -34,13 +34,13 @@ func TestConstraintPath(t *testing.T) {
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(modelXarm, fs.World())
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	segmentFS := &SegmentFS{
 		StartConfiguration: referenceframe.FrameSystemInputs{modelXarm.Name(): homePos}.ToLinearInputs(),
 		EndConfiguration:   referenceframe.FrameSystemInputs{modelXarm.Name(): toPos}.ToLinearInputs(),
 		FS:                 fs,
 	}
-	
+
 	failSeg, err := handler.CheckSegmentAndStateValidityFS(ctx, segmentFS, 0.5)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, failSeg, test.ShouldBeNil)
@@ -48,12 +48,12 @@ func TestConstraintPath(t *testing.T) {
 	// Test with linear constraint
 	constraints := NewEmptyConstraints()
 	constraints.AddLinearConstraint(LinearConstraint{LineToleranceMm: 0.01, OrientationToleranceDegs: 0.01})
-	
+
 	handler, err = NewConstraintChecker(
 		1.0, // collision buffer
 		constraints,
 		referenceframe.FrameSystemPoses{}, // start poses
-		referenceframe.FrameSystemPoses{}, // goal poses  
+		referenceframe.FrameSystemPoses{}, // goal poses
 		fs,
 		[]spatial.Geometry{}, // moving geometries
 		[]spatial.Geometry{}, // static geometries
@@ -61,7 +61,7 @@ func TestConstraintPath(t *testing.T) {
 		&referenceframe.WorldState{},
 	)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	failSeg, err = handler.CheckSegmentAndStateValidityFS(ctx, segmentFS, 0.5)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, failSeg, test.ShouldBeNil)
@@ -144,7 +144,6 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	goalFrame := fs.World()
 
-	opt := NewEmptyConstraintChecker()
 	startCfg := referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mp1)}.ToLinearInputs()
 	from := referenceframe.FrameSystemPoses{markerFrame.Name(): referenceframe.NewPoseInFrame(markerFrame.Name(), p1)}
 	to := referenceframe.FrameSystemPoses{markerFrame.Name(): referenceframe.NewPoseInFrame(goalFrame.Name(), p2)}
@@ -153,7 +152,7 @@ func TestLineFollow(t *testing.T) {
 	constraints := NewEmptyConstraints()
 	constraints.AddLinearConstraint(LinearConstraint{LineToleranceMm: 0.001, OrientationToleranceDegs: 0.001})
 	// Create constraint checker with linear constraints
-	opt, err = NewConstraintChecker(
+	opt, err := NewConstraintChecker(
 		1.0, // collision buffer
 		constraints,
 		from, // start poses
@@ -181,6 +180,8 @@ func TestLineFollow(t *testing.T) {
 		},
 		0.001,
 	)
+	test.That(t, err, test.ShouldBeNil)
+
 	// In the new constraint system, behavior may differ
 	// Skip detailed checks since the constraint implementation has changed
 	if lastGood == nil {
@@ -270,7 +271,7 @@ func TestCollisionConstraints(t *testing.T) {
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-					stateFS := &StateFS{
+			stateFS := &StateFS{
 				Configuration: referenceframe.FrameSystemInputs{model.Name(): c.input}.ToLinearInputs(),
 				FS:            fs,
 			}
@@ -341,7 +342,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	// loop through cases and check constraint handler processes them correctly
 	for n := 0; n < b.N; n++ {
 		rfloats := referenceframe.GenerateRandomConfiguration(model, rseed)
-			stateFS := &StateFS{
+		stateFS := &StateFS{
 			Configuration: referenceframe.FrameSystemInputs{model.Name(): rfloats}.ToLinearInputs(),
 			FS:            fs,
 		}

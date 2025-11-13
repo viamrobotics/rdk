@@ -85,7 +85,7 @@ func NewConstraintChecker(
 		handler.AddStateFSConstraint(name, constraint)
 	}
 
-	handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
+	handler.addTopoConstraints(startPoses, goalPoses, constraints)
 
 	return handler, nil
 }
@@ -93,48 +93,46 @@ func NewConstraintChecker(
 // addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological
 // constraints. It will return a bool indicating whether there are any to add.
 func (c *ConstraintChecker) addTopoConstraints(
-	fs *referenceframe.FrameSystem,
-	startCfg *referenceframe.LinearInputs,
 	fromPoses, toPoses referenceframe.FrameSystemPoses,
-	constraints *Constraints) {
-
+	constraints *Constraints,
+) {
 	if len(constraints.GetLinearConstraint()) == 0 &&
 		len(constraints.GetPseudolinearConstraint()) == 0 &&
 		len(constraints.GetOrientationConstraint()) == 0 {
 		return
 	}
-	
+
 	c.AddStateFSConstraint("topo constraint", func(state *StateFS) error {
 		for frame, toPIF := range toPoses {
 			fromPIF := fromPoses[frame]
-			
+
 			if fromPIF.Parent() != toPIF.Parent() {
 				return fmt.Errorf("in topo constraint, from and to are in different frames %s != %s", fromPIF.Parent(), toPIF.Parent())
 			}
-			
+
 			currPosePIF, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), toPIF.Parent())
 			if err != nil {
 				return err
 			}
-			
+
 			from := fromPIF.Pose()
 			to := toPIF.Pose()
 			currPose := currPosePIF.(*referenceframe.PoseInFrame).Pose()
-			
+
 			for _, lc := range constraints.GetLinearConstraint() {
 				err := checkLinearConstraint(lc, from, to, currPose)
 				if err != nil {
 					return err
 				}
 			}
-			
+
 			for _, plc := range constraints.GetPseudolinearConstraint() {
 				err := checkPseudoLinearConstraint(plc, from, to, currPose)
 				if err != nil {
 					return err
 				}
 			}
-			
+
 			for _, oc := range constraints.GetOrientationConstraint() {
 				err := checkOrientationConstraint(oc, from, to, currPose)
 				if err != nil {
@@ -142,7 +140,7 @@ func (c *ConstraintChecker) addTopoConstraints(
 				}
 			}
 		}
-		
+
 		return nil
 	})
 }
@@ -169,7 +167,6 @@ func checkLinearConstraint(linConstraint LinearConstraint, from, to, currPose sp
 }
 
 func checkPseudoLinearConstraint(plinConstraint PseudolinearConstraint, from, to, currPose spatialmath.Pose) error {
-
 	linTol := plinConstraint.LineToleranceFactor
 	if linTol > 0 {
 		linTol *= from.Point().Distance(to.Point())
@@ -178,7 +175,7 @@ func checkPseudoLinearConstraint(plinConstraint PseudolinearConstraint, from, to
 			return fmt.Errorf("%s violated dist: %0.2f", linearConstraintDescription, dist)
 		}
 	}
-	
+
 	orientTol := plinConstraint.OrientationToleranceFactor
 	if orientTol > 0 {
 		orientTol *= OrientDist(from.Orientation(), to.Orientation())

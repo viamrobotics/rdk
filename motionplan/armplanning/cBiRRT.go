@@ -288,11 +288,10 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	}
 
 	if len(mp.psc.pc.request.Constraints.GetOrientationConstraint()) > 0 {
-		
 		myFunc := func(metric *motionplan.StateFS) float64 {
 			panic(1)
 		}
-		
+
 		linearSeed := target.GetLinearizedInputs()
 		solutions, _, err := ik.DoSolve(ctx, mp.fastGradDescent,
 			mp.psc.pc.linearizeFSmetric(myFunc),
@@ -301,15 +300,15 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			mp.pc.logger.Debugf("constrainNear fail (DoSolve): %v", err)
 			return nil
 		}
-		
+
 		if len(solutions) == 0 {
 			return nil
 		}
-		
+
 		if debugConstrainNear {
 			mp.pc.logger.Infof("\t -> %v", logging.FloatArrayFormat{"", solutions[0]})
 		}
-		
+
 		target, err = mp.psc.pc.lis.FloatsToInputs(solutions[0])
 		if err != nil {
 			mp.pc.logger.Infof("constrainNear fail (FloatsToInputs): %v", err)

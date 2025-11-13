@@ -18,7 +18,7 @@ type planContext struct {
 	fs  *referenceframe.FrameSystem
 	lis *referenceframe.LinearInputsSchema
 
-	movableFrames   []string
+	movableFrames []string
 
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
