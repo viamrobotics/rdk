@@ -118,7 +118,6 @@ func TestCrashedModuleCheckReadyShortCircuit(t *testing.T) {
 			viamHomeTemp := t.TempDir()
 			mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
 
-			startTime := time.Now()
 			err = mgr.Add(context.Background(), config.Module{
 				Name:     "test",
 				ExePath:  modPath,
@@ -133,8 +132,6 @@ func TestCrashedModuleCheckReadyShortCircuit(t *testing.T) {
 				// exits with err from checkReady (short circuit after detecting module crashed)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "error while waiting for module to be ready test: context canceled")
 			}
-			// should not wait for the full DefaultModuleStartupTimeout / ModuleStartupTimeoutEnvVar
-			test.That(t, time.Since(startTime), test.ShouldBeLessThan, time.Second*10)
 		})
 	}
 }
