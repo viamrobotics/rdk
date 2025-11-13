@@ -556,6 +556,11 @@ solutionLoop:
 		return solvingState.solutions[i].cost < solvingState.solutions[j].cost
 	})
 
+	// The above goroutine will continue to append to `solvingState.solutions` for similarity
+	// checking. We make a copy to return for the caller to own.
+	ret := make([]*node, len(solvingState.solutions))
+	copy(ret, solvingState.solutions)
+
 	goalNodeGenerator.wg.Add(1)
 	utils.PanicCapturingGo(func() {
 		ctx, span := trace.StartSpan(ctx, "backgroundIK")
@@ -614,10 +619,6 @@ solutionLoop:
 		}
 	})
 
-	// The above goroutine will continue to append to `solvingState.solutions` for similarity
-	// checking. We make a copy to return for the caller to own.
-	ret := make([]*node, len(solvingState.solutions))
-	copy(ret, solvingState.solutions)
 	return ret, goalNodeGenerator, nil
 }
 
