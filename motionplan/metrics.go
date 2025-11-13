@@ -102,76 +102,14 @@ type SegmentMetric func(*Segment) float64
 // This is used to sort produced IK solutions by goodness, for example.
 type SegmentFSMetric func(*SegmentFS) float64
 
-// NewZeroFSMetric always returns zero as the distance.
-func NewZeroFSMetric() StateFSMetric {
-	return func(from *StateFS) float64 { return 0 }
-}
-
-type combinableStateFSMetric struct {
-	metrics []StateFSMetric
-}
-
-func (m *combinableStateFSMetric) combinedDist(input *StateFS) float64 {
-	dist := 0.
-	for _, metric := range m.metrics {
-		dist += metric(input)
-	}
-	return dist
-}
-
-func CombineFSMetrics(metrics ...StateFSMetric) StateFSMetric {
-	cm := &combinableStateFSMetric{metrics: metrics}
-	return cm.combinedDist
-}
 
 // OrientDist returns the arclength between two orientations in degrees.
 func OrientDist(o1, o2 spatial.Orientation) float64 {
 	return math.Abs(utils.RadToDeg(spatial.QuatToR4AA(spatial.OrientationBetween(o1, o2).Quaternion()).Theta))
 }
 
-// OrientDistToRegion will return a function which will tell you how far the unit sphere component of an orientation
-// vector is from a region defined by a point and an arclength around it. The theta value of OV is disregarded.
-// This is useful, for example, in defining the set of acceptable angles of attack for writing on a whiteboard.
-func OrientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Orientation) float64 {
-	ov1 := goal.OrientationVectorRadians()
-	return func(o spatial.Orientation) float64 {
-		ov2 := o.OrientationVectorRadians()
-		acosInput := ov1.OX*ov2.OX + ov1.OY*ov2.OY + ov1.OZ*ov2.OZ
 
-		// Account for floating point issues
-		if acosInput > 1.0 {
-			acosInput = 1.0
-		}
-		if acosInput < -1.0 {
-			acosInput = -1.0
-		}
-		dist := math.Acos(acosInput)
-		return math.Max(0, dist-alpha)
-	}
-}
 
-// NewSquaredNormSegmentMetric returns a metric which will return the cartesian distance between the two positions.
-// It allows the caller to choose the scaling level of orientation.
-func NewSquaredNormSegmentMetric(orientationScaleFactor float64) SegmentMetric {
-	return func(segment *Segment) float64 {
-		delta := spatial.PoseDelta(segment.StartPosition, segment.EndPosition)
-		// Increase weight for orientation since it's a small number
-		return delta.Point().Norm2() + spatial.QuatToR3AA(delta.Orientation().Quaternion()).Mul(orientationScaleFactor).Norm2()
-	}
-}
-
-// SquaredNormNoOrientSegmentMetric is a metric which will return the cartesian distance between the two positions.
-func SquaredNormNoOrientSegmentMetric(segment *Segment) float64 {
-	delta := spatial.PoseDelta(segment.StartPosition, segment.EndPosition)
-	return delta.Point().Norm2()
-}
-
-// WeightedSquaredNormSegmentMetric is a distance function between two poses to be used for gradient descent.
-// This changes the magnitude of the position delta used to be smaller and avoid numeric instability issues that happens with large floats.
-// It also scales the orientation distance to give more weight to it.
-func WeightedSquaredNormSegmentMetric(segment *Segment) float64 {
-	return WeightedSquaredNormDistance(segment.StartPosition, segment.EndPosition)
-}
 
 // WeightedSquaredNormDistance is a distance function between two poses to be used for gradient descent.
 func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
@@ -197,24 +135,6 @@ func WeightedSquaredNormDistanceWithOptions(start, end spatial.Pose, cartesianSc
 	
 	return ptDelta + orientDelta
 }
-
-func WeightedSquaredNormDistanceMany(
-	start, end referenceframe.FrameSystemPoses,
-	cartesianScale, orientScale float64) (float64, error) {
-
-	score := 0.0
-	
-	for f, s := range start {
-		e := end[f]
-		if s.Parent() != e.Parent() {
-			return 0, fmt.Errorf("WeightedSquaredNormDistanceFS start and end frame mismatch (%s) != (%s)", s.Parent(), e.Parent())
-		}
-		score += WeightedSquaredNormDistanceWithOptions(s.Pose(), e.Pose(), cartesianScale, orientScale)
-	}
-	
-	return score, nil
-}
-
 
 // TODO(RSDK-2557): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of obstacles rather than terminating
 // the RRT tree when an obstacle is hit
