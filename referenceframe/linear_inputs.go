@@ -60,6 +60,19 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 	return li.schema, nil
 }
 
+func (li *LinearInputs) Clone() *LinearInputs {
+	ret := &LinearInputs{
+		schema: &LinearInputsSchema{
+			metas: make([]linearInputMeta, len(li.schema.metas)),
+		},
+		inputs: make([]Input, len(li.inputs)),
+	}
+	copy(ret.inputs, li.inputs)
+	copy(ret.schema.metas, li.schema.metas)
+
+	return ret
+}
+
 // FloatsToInputs applies the given schema to a new set of linearized floats. This returns an error
 // if the wrong number of floats are provided.
 func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, error) {
