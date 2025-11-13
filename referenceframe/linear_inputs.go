@@ -60,6 +60,7 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 	return li.schema, nil
 }
 
+// Clone creates a full copy of `LinearInputs`.
 func (li *LinearInputs) Clone() *LinearInputs {
 	ret := &LinearInputs{
 		schema: &LinearInputsSchema{
