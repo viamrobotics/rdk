@@ -15,9 +15,13 @@ type QueryTabularDataOptions struct {
 	AdditionalStages []map[string]any
 }
 
+type queryBackend interface {
+	TabularDataByMQL(context.Context, string, []map[string]interface{}, *app.TabularDataByMQLOptions) ([]map[string]interface{}, error)
+}
+
 // ResourceDataConsumer can be added as an anonymous struct member to a resource to enable historical module data queries.
 type ResourceDataConsumer struct {
-	dataClient *app.DataClient
+	dataClient queryBackend
 }
 
 func (r *ResourceDataConsumer) setDataClient(ctx context.Context) error {
