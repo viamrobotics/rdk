@@ -22,7 +22,9 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
@@ -108,8 +110,8 @@ func (m *module) dial() error {
 // checkReady sends a `ReadyRequest` and waits for either a `ReadyResponse`, or a context
 // cancelation.
 func (m *module) checkReady(ctx context.Context, parentAddr string) error {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(m.logger))
-	defer cancelFunc()
+	parentCtxTimeout, parentCtxCancelFunc := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(m.logger))
+	defer parentCtxCancelFunc()
 
 	m.logger.CInfow(ctx, "Waiting for module to respond to ready request", "module", m.cfg.Name)
 
@@ -123,10 +125,45 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 	}
 
 	for {
+		var resp *pb.ReadyResponse
 		// 5000 is an arbitrarily high number of attempts (context timeout should hit long before)
-		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
-		if err != nil {
-			return err
+		for range 5000 {
+			perCallCtx, perCallCtxCancelFunc := context.WithTimeout(parentCtxTimeout, 3*time.Second)
+			resp, err = m.client.Ready(perCallCtx, req)
+			perCallCtxCancelFunc()
+
+			// if module is not ready yet, wait and try again
+			code := status.Code(err)
+			// context errors here are the perCallCtx
+			if code == codes.Unavailable || code == codes.ResourceExhausted || code == codes.DeadlineExceeded || code == codes.Canceled {
+				waitTimer := time.NewTimer(200 * time.Millisecond)
+				select {
+				case <-parentCtxTimeout.Done():
+					waitTimer.Stop()
+					return parentCtxTimeout.Err()
+				case <-waitTimer.C:
+				}
+				// Short circuit this check if the process has already exited. We could get here if process exits before
+				// module can set up the Ready server.
+				// This is most likely in TCP mode, where the .sock presence check is skipped, but
+				// also possible in UNIX mode if the process exits in between.
+				// (OUE is waiting on the same modmanager lock, so it can't try to restart).
+				if errors.Is(m.process.Status(), os.ErrProcessDone) {
+					m.logger.Debug("Module process exited unexpectedly while waiting for ready.")
+					parentCtxCancelFunc()
+					return errors.New("module process exited unexpectedly")
+				}
+				continue
+			} else if err != nil {
+				return err
+			}
+			break
+		}
+		if resp == nil {
+			// should not get here unless Module Startup Timeout has been overridden to very large value
+			// and there is still no connection after 5000 retries
+			parentCtxCancelFunc()
+			return parentCtxTimeout.Err()
 		}
 
 		if !resp.Ready {
@@ -156,6 +193,12 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 // (based on either global setting or per-module setting).
 func (m *module) tcpMode() bool {
 	return rutils.ViamTCPSockets() || m.cfg.TCPMode
+}
+
+// returns true if this module is running in TCP mode.
+func (m *module) isRunningInTCPMode() bool {
+	// addr is ip:port in TCP mode, or a path to .sock in unix socket mode.
+	return rutils.TCPRegex.MatchString(m.addr)
 }
 
 func (m *module) startProcess(
@@ -268,8 +311,9 @@ func (m *module) startProcess(
 				)
 			}
 		}
-		if !rutils.TCPRegex.MatchString(m.addr) {
+		if !m.isRunningInTCPMode() {
 			// note: we don't do this check in TCP mode because TCP addresses are not file paths and will fail check.
+			// note: CheckSocketOwner on Windows only returns err, if any, from os.Stat.
 			err = modlib.CheckSocketOwner(m.addr)
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
