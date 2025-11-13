@@ -130,7 +130,8 @@ func TestCrashedModuleCheckReadyShortCircuit(t *testing.T) {
 				test.That(t, err.Error(), test.ShouldContainSubstring, "module test exited too quickly after attempted startup")
 			} else {
 				// exits with err from checkReady (short circuit after detecting module crashed)
-				test.That(t, err.Error(), test.ShouldContainSubstring, "error while waiting for module to be ready test: context canceled")
+				test.That(t, err.Error(), test.ShouldContainSubstring,
+					"error while waiting for module to be ready test: module process exited unexpectedly")
 			}
 		})
 	}

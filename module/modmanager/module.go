@@ -146,9 +146,9 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 				// also possible in UNIX mode if the process exits in between.
 				// (OUE is waiting on the same modmanager lock, so it can't try to restart).
 				if errors.Is(m.process.Status(), os.ErrProcessDone) {
-					m.logger.Info("Module process exited unexpectedly while waiting for ready.")
+					m.logger.Debug("Module process exited unexpectedly while waiting for ready.")
 					parentCtxCancelFunc()
-					return parentCtxTimeout.Err()
+					return errors.New("module process exited unexpectedly")
 				}
 				continue
 			} else if err != nil {
