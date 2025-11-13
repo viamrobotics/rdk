@@ -9,7 +9,6 @@ import (
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -28,9 +27,6 @@ const (
 
 	// default number of seconds to try to solve in total before returning.
 	defaultTimeout = 300.
-
-	// default number of times to try to smooth the path.
-	defaultSmoothIter = 100
 
 	// random seed.
 	defaultRandomSeed = 0
@@ -78,8 +74,6 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.InputIdentDist = defaultInputIdentDist
 	opt.IterBeforeRand = defaultIterBeforeRand
 
-	opt.SmoothIter = defaultSmoothIter
-
 	opt.CollisionBufferMM = defaultCollisionBufferMM
 	opt.RandomSeed = defaultRandomSeed
 
@@ -91,10 +85,6 @@ type PlannerOptions struct {
 	// This is used to create functions which are passed to IK for solving. This may be used to turn starting or ending state poses into
 	// configurations for nodes.
 	GoalMetricType motionplan.GoalMetricType `json:"goal_metric_type"`
-
-	// Acceptable arc length around the goal orientation vector for any solution. This is the additional parameter used to acquire
-	// the goal metric only if the GoalMetricType is ik.ArcLengthConvergence
-	ArcLengthTolerance float64 `json:"arc_length_tolerance"`
 
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
 	// Max number of ik solutions to consider
@@ -108,9 +98,6 @@ type PlannerOptions struct {
 
 	// Number of seconds before terminating planner
 	Timeout float64 `json:"timeout"`
-
-	// Number of times to try to smooth the path
-	SmoothIter int `json:"smooth_iter"`
 
 	// How close to get to the goal
 	GoalThreshold float64 `json:"goal_threshold"`
@@ -173,89 +160,27 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 }
 
 // getGoalMetric creates the distance metric for the solver using the configured options.
-func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) motionplan.StateFSMetric {
-	metrics := map[string]motionplan.StateMetric{}
-	frames := map[string]string{}
+func (p *PlannerOptions) getGoalMetric(goals referenceframe.FrameSystemPoses) motionplan.StateFSMetric {
+	cartesianScale := 0.1
+	orientScale := 10.0
 
-	for frame, goalInFrame := range goal {
-		frames[frame] = goalInFrame.Parent()
-		switch p.GoalMetricType {
-		case motionplan.PositionOnly:
-			metrics[frame] = motionplan.NewPositionOnlyMetric(goalInFrame.Pose())
-		case motionplan.SquaredNorm:
-			metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
-		case motionplan.ArcLengthConvergence:
-			metrics[frame] = motionplan.NewPoseFlexOVMetricConstructor(p.ArcLengthTolerance)(goalInFrame.Pose())
-		default:
-			metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
-		}
+	if p.GoalMetricType == motionplan.PositionOnly {
+		orientScale = 0
 	}
 
 	return func(state *motionplan.StateFS) float64 {
 		score := 0.
-		for frame, goalMetric := range metrics {
-			poseParent := frames[frame]
-			var currPose spatialmath.Pose
-
-			dq, err := state.FS.TransformToDQ(state.Configuration, frame, poseParent)
+		for frame, goal := range goals {
+			dq, err := state.FS.TransformToDQ(state.Configuration, frame, goal.Parent())
 			if err != nil {
-				panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",
-					state.FS.FrameNames(), frame, poseParent, err))
+				panic(fmt.Errorf("frame: %v goal parent: %s", frame, goal.Parent()))
 			}
 
-			currPose = &dq
-
-			score += goalMetric(&motionplan.State{
-				Position:      currPose,
-				Configuration: state.Configuration.Get(frame),
-				Frame:         state.FS.Frame(frame),
-			})
+			score += motionplan.WeightedSquaredNormDistanceWithOptions(goal.Pose(), &dq, cartesianScale, orientScale)
 		}
 		return score
 	}
 }
-
-// TODO: Hopefully can remove?
-//
-// func (p *PlannerOptions) getGoalMetricLinear(goal referenceframe.FrameSystemPoses) (motionplan.LinearFSMetric, error) {
-//  	if p.GoalMetricType != motionplan.SquaredNormOptimized {
-//  		//nolint
-//  		return nil, fmt.Errorf("May only call `getGoalMetricLinear` with a planner type of `SquaredNormOpt`")
-//  	}
-//
-//  	metrics := map[string]motionplan.StateMetric{}
-//  	frames := map[string]string{}
-//
-//  	for frame, goalInFrame := range goal {
-//  		frames[frame] = goalInFrame.Parent()
-//  		metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
-//  	}
-//
-//  	return func(state *motionplan.LinearFS) float64 {
-//  		score := 0.
-//  		for frame, goalMetric := range metrics {
-//  			poseParent := frames[frame]
-//  			var currPose spatialmath.Pose
-//
-//  			if p.GoalMetricType == motionplan.SquaredNormOptimized {
-//  				dq, err := state.FS.TransformOptLinear(state.Configuration, frame, poseParent)
-//  				if err != nil {
-//  					panic(fmt.Sprintf("fs: %v frame: %s poseParent: %v err: %v",
-//  						state.FS.FrameNames(), frame, poseParent, err))
-//  				}
-//
-//  				currPose = &dq
-//  			} else {
-//  				panic("non comprenez")
-//  			}
-//
-//  			score += goalMetric(&motionplan.State{
-//  				Position: currPose,
-//  			})
-//  		}
-//  		return score
-//  	}, nil
-// }
 
 // SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
 func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {

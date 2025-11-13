@@ -287,34 +287,41 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		return target
 	}
 
-	linearSeed := target.GetLinearizedInputs()
-	solutions, _, err := ik.DoSolve(ctx, mp.fastGradDescent,
-		mp.psc.pc.linearizeFSmetric(mp.psc.checker.PathMetric()),
-		[][]float64{linearSeed}, [][]referenceframe.Limit{ik.ComputeAdjustLimits(linearSeed, mp.pc.lis.GetLimits(), .05)})
-	if err != nil {
-		mp.pc.logger.Debugf("constrainNear fail (DoSolve): %v", err)
-		return nil
-	}
-
-	if len(solutions) == 0 {
-		return nil
-	}
-
-	if debugConstrainNear {
-		mp.pc.logger.Infof("\t -> %v", logging.FloatArrayFormat{"", solutions[0]})
-	}
-
-	solutionMap, err := mp.psc.pc.lis.FloatsToInputs(solutions[0])
-	if err != nil {
-		mp.pc.logger.Infof("constrainNear fail (FloatsToInputs): %v", err)
-		return nil
+	if len(mp.psc.pc.request.Constraints.GetOrientationConstraint()) > 0 {
+		
+		myFunc := func(metric *motionplan.StateFS) float64 {
+			panic(1)
+		}
+		
+		linearSeed := target.GetLinearizedInputs()
+		solutions, _, err := ik.DoSolve(ctx, mp.fastGradDescent,
+			mp.psc.pc.linearizeFSmetric(myFunc),
+			[][]float64{linearSeed}, [][]referenceframe.Limit{ik.ComputeAdjustLimits(linearSeed, mp.pc.lis.GetLimits(), .05)})
+		if err != nil {
+			mp.pc.logger.Debugf("constrainNear fail (DoSolve): %v", err)
+			return nil
+		}
+		
+		if len(solutions) == 0 {
+			return nil
+		}
+		
+		if debugConstrainNear {
+			mp.pc.logger.Infof("\t -> %v", logging.FloatArrayFormat{"", solutions[0]})
+		}
+		
+		target, err = mp.psc.pc.lis.FloatsToInputs(solutions[0])
+		if err != nil {
+			mp.pc.logger.Infof("constrainNear fail (FloatsToInputs): %v", err)
+			return nil
+		}
 	}
 
 	failpos, err := mp.psc.checker.CheckSegmentAndStateValidityFS(
 		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: seedInputs,
-			EndConfiguration:   solutionMap,
+			EndConfiguration:   target,
 			FS:                 mp.pc.fs,
 		},
 		mp.pc.planOpts.Resolution,
@@ -323,7 +330,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		mp.pc.logger.Infof("\t failpos: %v err: %v", failpos != nil, err)
 	}
 	if err == nil {
-		return solutionMap
+		return target
 	}
 
 	if failpos == nil {

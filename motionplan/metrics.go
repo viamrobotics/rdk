@@ -42,9 +42,6 @@ const (
 	PositionOnly GoalMetricType = "position_only"
 	// SquaredNorm indicates the use of the norm between two poses.
 	SquaredNorm GoalMetricType = "squared_norm"
-	// ArcLengthConvergence indicates the use of an algorithm that converges on a pose
-	// that lies within an arc length of a goal pose.
-	ArcLengthConvergence GoalMetricType = "pose_flex_ov"
 )
 
 // Segment is a referenceframe.Frame-specific contains all the information a constraint needs to determine validity for a movement.
@@ -122,8 +119,6 @@ func (m *combinableStateFSMetric) combinedDist(input *StateFS) float64 {
 	return dist
 }
 
-// CombineFSMetrics will take a variable number of StateFSMetrics and return a new StateFSMetric which will combine all given metrics into
-// one, summing their distances.
 func CombineFSMetrics(metrics ...StateFSMetric) StateFSMetric {
 	cm := &combinableStateFSMetric{metrics: metrics}
 	return cm.combinedDist
@@ -155,20 +150,6 @@ func OrientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Or
 	}
 }
 
-// JointMetric is a metric which will sum the squared differences in each input from start to end.
-func JointMetric(segment *Segment) float64 {
-	jScore := 0.
-	for i, f := range segment.StartConfiguration {
-		jScore += math.Abs(f - segment.EndConfiguration[i])
-	}
-	return jScore
-}
-
-// L2InputMetric is a metric which will return a L2 norm of the StartConfiguration and EndConfiguration in an arc input.
-func L2InputMetric(segment *Segment) float64 {
-	return referenceframe.InputsL2Distance(segment.StartConfiguration, segment.EndConfiguration)
-}
-
 // NewSquaredNormSegmentMetric returns a metric which will return the cartesian distance between the two positions.
 // It allows the caller to choose the scaling level of orientation.
 func NewSquaredNormSegmentMetric(orientationScaleFactor float64) SegmentMetric {
@@ -194,15 +175,46 @@ func WeightedSquaredNormSegmentMetric(segment *Segment) float64 {
 
 // WeightedSquaredNormDistance is a distance function between two poses to be used for gradient descent.
 func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
+	return WeightedSquaredNormDistanceWithOptions(start, end, .1, orientationDistanceScaling)
+}
+	
+
+// WeightedSquaredNormDistanceWithOptions is a distance function between two poses to be used for gradient descent.
+func WeightedSquaredNormDistanceWithOptions(start, end spatial.Pose, cartesianScale, orientScale float64) float64 {
 	// Increase weight for orientation since it's a small number
-	orientDelta := spatial.QuatToR3AA(spatial.OrientationBetween(
-		start.Orientation(),
-		end.Orientation(),
-	).Quaternion()).Mul(orientationDistanceScaling).Norm2()
-	// Also, we multiply delta.Point() by 0.1, effectively measuring in cm rather than mm.
-	ptDelta := end.Point().Mul(0.1).Sub(start.Point().Mul(0.1)).Norm2()
+	orientDelta := 0.0
+	if orientScale > 0 {
+		orientDelta = spatial.QuatToR3AA(spatial.OrientationBetween(
+			start.Orientation(),
+			end.Orientation(),
+		).Quaternion()).Mul(orientScale).Norm2()
+	}
+
+	ptDelta := 0.0
+	if cartesianScale > 0 {
+		ptDelta = end.Point().Mul(cartesianScale).Sub(start.Point().Mul(cartesianScale)).Norm2()
+	}
+	
 	return ptDelta + orientDelta
 }
+
+func WeightedSquaredNormDistanceMany(
+	start, end referenceframe.FrameSystemPoses,
+	cartesianScale, orientScale float64) (float64, error) {
+
+	score := 0.0
+	
+	for f, s := range start {
+		e := end[f]
+		if s.Parent() != e.Parent() {
+			return 0, fmt.Errorf("WeightedSquaredNormDistanceFS start and end frame mismatch (%s) != (%s)", s.Parent(), e.Parent())
+		}
+		score += WeightedSquaredNormDistanceWithOptions(s.Pose(), e.Pose(), cartesianScale, orientScale)
+	}
+	
+	return score, nil
+}
+
 
 // TODO(RSDK-2557): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of obstacles rather than terminating
 // the RRT tree when an obstacle is hit

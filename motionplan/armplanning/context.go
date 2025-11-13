@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
 
 type planContext struct {
