@@ -255,3 +255,17 @@ func GetConfigurationDistanceFunc(distType SegmentFSMetricType) SegmentFSMetric 
 		return FSConfigurationL2Distance
 	}
 }
+
+// NewSquaredNormMetric creates a metric function that calculates squared norm distance to a goal pose
+func NewSquaredNormMetric(goalPose spatial.Pose) func(spatial.Pose) float64 {
+	return func(currentPose spatial.Pose) float64 {
+		return WeightedSquaredNormDistance(currentPose, goalPose)
+	}
+}
+
+// NewScaledSquaredNormMetric creates a metric function with scaled orientation weight
+func NewScaledSquaredNormMetric(goalPose spatial.Pose, orientationScale float64) func(spatial.Pose) float64 {
+	return func(currentPose spatial.Pose) float64 {
+		return WeightedSquaredNormDistanceWithOptions(currentPose, goalPose, 0.1, orientationScale)
+	}
+}

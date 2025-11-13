@@ -8,7 +8,9 @@ import (
 	"math"
 	"math/rand"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -174,4 +176,16 @@ func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, del
 		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
 	}
 	return newLimits
+}
+
+// NewMetricMinFunc creates a cost function that minimizes distance to a goal pose using the specified metric
+func NewMetricMinFunc(metricFunc func(spatialmath.Pose) float64, frame referenceframe.Frame, logger logging.Logger) CostFunc {
+	return func(ctx context.Context, inputs []float64) float64 {
+		currentPose, err := frame.Transform(inputs)
+		if err != nil {
+			logger.Debugf("Transform error in metric: %v", err)
+			return math.Inf(1)
+		}
+		return metricFunc(currentPose)
+	}
 }
