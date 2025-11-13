@@ -390,24 +390,34 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 	var interpolatedConfigurations []*referenceframe.LinearInputs
 	for i := 0; i <= maxSteps; i++ {
 		interp := float64(i) / float64(maxSteps)
-		frameConfigs := referenceframe.NewLinearInputs()
-
-		// Interpolate each frame's configuration
-		for frameName, startConfig := range ci.StartConfiguration.Items() {
-			endConfig := ci.EndConfiguration.Get(frameName)
-			frame := ci.FS.Frame(frameName)
-
-			interpConfig, err := frame.Interpolate(startConfig, endConfig, interp)
-			if err != nil {
-				return nil, err
-			}
-			frameConfigs.Put(frameName, interpConfig)
+		frameConfigs, err := InterpLinear(ci.FS, ci.StartConfiguration, ci.EndConfiguration, interp)
+		if err != nil {
+			return nil, err
 		}
 
 		interpolatedConfigurations = append(interpolatedConfigurations, frameConfigs)
 	}
 
 	return interpolatedConfigurations, nil
+}
+
+// InterpLinear interpolates between 2 LinearInputs by interp
+func InterpLinear(fs *referenceframe.FrameSystem,
+	start, end *referenceframe.LinearInputs, interp float64,
+) (*referenceframe.LinearInputs, error) {
+	mid := referenceframe.NewLinearInputs()
+
+	for frameName, startConfig := range start.Items() {
+		endConfig := end.Get(frameName)
+		frame := fs.Frame(frameName)
+
+		interpConfig, err := frame.Interpolate(startConfig, endConfig, interp)
+		if err != nil {
+			return nil, err
+		}
+		mid.Put(frameName, interpConfig)
+	}
+	return mid, nil
 }
 
 // CheckSegmentAndStateValidity will check an segment input and confirm that it 1) meets all segment constraints, and 2) meets all

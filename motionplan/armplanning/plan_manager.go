@@ -143,27 +143,6 @@ func (pm *planManager) planToDirectJoints(
 		return nil, fmt.Errorf("want to go to specific joint config but it is invalid: %w", err)
 	}
 
-	if false { // true cartesian half
-		// TODO(eliot): finish me
-		startPoses, err := start.ComputePoses(pm.pc.fs)
-		if err != nil {
-			return nil, err
-		}
-
-		mid := interp(startPoses, goalPoses, .5)
-
-		pm.logger.Infof("foo things\n\t%v\n\t%v\n\t%v", startPoses, mid, goalPoses)
-
-		err = pm.foo(ctx, start, mid)
-		if err != nil {
-			pm.logger.Infof("foo failed: %v", err)
-		} else {
-			panic(2)
-		}
-
-		// panic(1)
-	}
-
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
 	if err != nil {
 		return nil, err
@@ -209,6 +188,19 @@ func (pm *planManager) planSingleGoal(
 		return planSeed.steps, nil
 	}
 
+	midJoints, err := pm.useMidPointBeforeSearch(ctx, psc, planSeed.maps.optNode.inputs)
+	if err != nil {
+		return nil, err
+	}
+
+	if midJoints != nil {
+		psc, err = newPlanSegmentContext(ctx, pm.pc, midJoints, goal)
+		if err != nil {
+			return nil, err
+		}
+		planSeed.maps.startMap = rrtMap{&node{inputs: midJoints}: nil}
+	}
+
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
 	if err != nil {
 		return nil, err
@@ -217,6 +209,9 @@ func (pm *planManager) planSingleGoal(
 	finalSteps, err := pathPlanner.rrtRunner(ctx, planSeed.maps)
 	if err != nil {
 		return nil, err
+	}
+	if midJoints != nil {
+		finalSteps.steps = append([]*referenceframe.LinearInputs{start}, finalSteps.steps...)
 	}
 	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
 	return finalSteps.steps, nil
@@ -335,47 +330,22 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolutio
 	return rrt, nil
 }
 
-func interp(start, end referenceframe.FrameSystemPoses, delta float64) referenceframe.FrameSystemPoses {
-	mid := referenceframe.FrameSystemPoses{}
+func (pm *planManager) useMidPointBeforeSearch(ctx context.Context,
+	psc *planSegmentContext,
+	goal *referenceframe.LinearInputs,
+) (*referenceframe.LinearInputs, error) {
+	ctx, span := trace.StartSpan(ctx, "quickReroute")
+	defer span.End()
 
-	for k, s := range start {
-		e, ok := end[k]
-		if !ok {
-			mid[k] = s
-			continue
-		}
-		if s.Parent() != e.Parent() {
-			panic("eliottttt")
-		}
-		m := spatialmath.Interpolate(s.Pose(), e.Pose(), delta)
-		mid[k] = referenceframe.NewPoseInFrame(s.Parent(), m)
-	}
-	return mid
-}
-
-func (pm *planManager) foo(ctx context.Context, start *referenceframe.LinearInputs, goal referenceframe.FrameSystemPoses) error {
-	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goal)
+	midJoints, err := motionplan.InterpLinear(pm.pc.fs, psc.start, goal, .5)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	planSeed, err := initRRTSolutions(ctx, psc)
-	if err != nil {
-		return err
+	if psc.checkPath(ctx, psc.start, midJoints) == nil {
+		pm.logger.Debugf("the midpoint is safe, we should go there first")
+		return midJoints, nil
 	}
 
-	if planSeed.steps == nil {
-		return fmt.Errorf("no steps")
-	}
-
-	if len(planSeed.steps) != 1 {
-		return fmt.Errorf("steps odd %d", len(planSeed.steps))
-	}
-
-	err = psc.checkPath(ctx, start, planSeed.steps[0])
-	if err != nil {
-		return err
-	}
-
-	panic(5)
+	return nil, nil
 }
