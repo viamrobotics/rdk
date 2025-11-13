@@ -21,9 +21,12 @@ type Registry struct {
 }
 
 func newRegistry() *Registry {
-	return &Registry{
+	ret := &Registry{
 		loggers: make(map[string]Logger),
 	}
+	applyMotionRegistryOptions(ret)
+
+	return ret
 }
 
 func (lr *Registry) registerLogger(name string, logger Logger) {

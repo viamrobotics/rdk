@@ -52,10 +52,12 @@ func NewLocalManager(conf *config.Config, logger logging.Logger) (ManagerSyncer,
 	// if the package path isn't set, don't generate folders because they're not used and won't get deleted
 	if conf.PackagePath != "" {
 		if err := os.MkdirAll(packagesDir, 0o700); err != nil {
+			fmt.Println("Returning error", err)
 			return nil, err
 		}
 
 		if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
+			fmt.Println("Returning error", err)
 			return nil, err
 		}
 	}
