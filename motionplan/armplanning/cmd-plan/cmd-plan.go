@@ -82,20 +82,20 @@ func realMain() error {
 			},
 		}, logger)
 	} else {
-		// reg.Update([]logging.LoggerPatternConfig{
-		//  	{
-		//  		Pattern: "*.mp",
-		//  		Level:   "DEBUG",
-		//  	},
-		//  	{
-		//  		Pattern: "*.ik",
-		//  		Level:   "INFO",
-		//  	},
-		//  	{
-		//  		Pattern: "*.cbirrt",
-		//  		Level:   "INFO",
-		//  	},
-		// }, logger)
+		reg.Update([]logging.LoggerPatternConfig{
+			{
+				Pattern: "*.mp",
+				Level:   "DEBUG",
+			},
+			{
+				Pattern: "*.ik",
+				Level:   "INFO",
+			},
+			{
+				Pattern: "*.cbirrt",
+				Level:   "INFO",
+			},
+		}, logger)
 	}
 
 	logger.Infof("reading plan from %s", flag.Arg(0))

@@ -176,14 +176,14 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 		if err != nil {
 			logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
-		logger.Debugf("got %d altSeeds", len(altSeeds))
 
+		logger.Infof("got %d altSeeds", len(altSeeds))
 		for _, s := range altSeeds {
 			si := s.GetLinearizedInputs()
 			sss.linearSeeds = append(sss.linearSeeds, si)
 			ll := ik.ComputeAdjustLimitsArray(si, sss.seedLimits[0], altLimitDivisors)
 			sss.seedLimits = append(sss.seedLimits, ll)
-			logger.Debugf("\t ss (%d): %v", len(sss.linearSeeds)-1, logging.FloatArrayFormat{"", si})
+			logger.Infof("\t ss (%d): %v", len(sss.linearSeeds)-1, logging.FloatArrayFormat{"", si})
 		}
 	}
 
@@ -221,7 +221,7 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 	}
 
 	sss.goodCost = sss.psc.pc.configurationDistanceFunc(stepArc)
-	sss.logger.Debugf("goodCost: %v", sss.goodCost)
+	sss.logger.Infof("goodCost: %v", sss.goodCost)
 	return ratios, minRatio, nil
 }
 
@@ -308,17 +308,17 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	elapsed := time.Since(sss.startTime)
 
 	if sss.fatal != nil {
-		sss.logger.Debugf("stopping with fatal %v", sss.fatal)
+		sss.logger.Infof("stopping with fatal %v", sss.fatal)
 		return true
 	}
 
 	if len(sss.solutions) >= sss.maxSolutions {
-		sss.logger.Debugf("stopping with %d solutions after: %v", len(sss.solutions), elapsed)
+		sss.logger.Infof("stopping with %d solutions after: %v", len(sss.solutions), elapsed)
 		return true
 	}
 
 	if sss.bestScoreNoProblem < .2 {
-		sss.logger.Debugf("stopping early with amazing %0.2f after: %v", sss.bestScoreNoProblem, elapsed)
+		sss.logger.Infof("stopping early with amazing %0.2f after: %v", sss.bestScoreNoProblem, elapsed)
 		return true
 	}
 
@@ -358,7 +358,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	}
 
 	if elapsed > timeToSearch {
-		sss.logger.Debugf("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n\t timeToSearch: %v firstSolutionTime: %v",
+		sss.logger.Infof("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n\t timeToSearch: %v firstSolutionTime: %v",
 			sss.bestScoreNoProblem, sss.bestScoreNoProblem/sss.goodCost,
 			sss.bestScoreWithProblem, sss.bestScoreWithProblem/sss.goodCost,
 			elapsed, timeToSearch, sss.firstSolutionTime)
@@ -368,7 +368,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	if len(sss.solutions) == 0 && elapsed > (1000*time.Millisecond) {
 		// if we found any solution, we want to look for better for a while
 		// but if we've found 0, then probably never going to
-		sss.logger.Debugf("stopping early after: %v because nothing has been found, probably won't", elapsed)
+		sss.logger.Infof("stopping early after: %v because nothing has been found, probably won't", elapsed)
 		return true
 	}
 
