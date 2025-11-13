@@ -85,7 +85,10 @@ func NewConstraintChecker(
 		handler.AddStateFSConstraint(name, constraint)
 	}
 
-	handler.addTopoConstraints(startPoses, goalPoses, constraints)
+	err = handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
+	if err != nil {
+		return nil, err
+	}
 
 	return handler, nil
 }
@@ -93,13 +96,29 @@ func NewConstraintChecker(
 // addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological
 // constraints. It will return a bool indicating whether there are any to add.
 func (c *ConstraintChecker) addTopoConstraints(
-	fromPoses, toPoses referenceframe.FrameSystemPoses,
+	fs *referenceframe.FrameSystem,
+	startCfg *referenceframe.LinearInputs,
+	fromPosesBad, toPoses referenceframe.FrameSystemPoses,
 	constraints *Constraints,
-) {
+) error {
 	if len(constraints.GetLinearConstraint()) == 0 &&
 		len(constraints.GetPseudolinearConstraint()) == 0 &&
 		len(constraints.GetOrientationConstraint()) == 0 {
-		return
+		return nil
+	}
+
+	fromPoses := referenceframe.FrameSystemPoses{}
+	for f, b := range fromPosesBad {
+		g := toPoses[f]
+		if b.Parent() == g.Parent() {
+			fromPoses[f] = b
+			continue
+		}
+		x, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(f), g.Parent())
+		if err != nil {
+			return err
+		}
+		fromPoses[f] = x.(*referenceframe.PoseInFrame)
 	}
 
 	c.AddStateFSConstraint("topo constraint", func(state *StateFS) error {
@@ -143,6 +162,8 @@ func (c *ConstraintChecker) addTopoConstraints(
 
 		return nil
 	})
+
+	return nil
 }
 
 func checkLinearConstraint(linConstraint LinearConstraint, from, to, currPose spatialmath.Pose) error {
