@@ -17,6 +17,22 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// TestJointToJoint is to exercise otherwise untested code paths. It's really only asserting that we
+// don't have obvious programmer errors.
+func TestJointToJoint(t *testing.T) {
+	if Is32Bit() {
+		t.Skip()
+		return
+	}
+	logger := logging.NewTestLogger(t)
+
+	req, err := ReadRequestFromFile("data/joint-to-joint.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, _, err = PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestOrbOneSeed(t *testing.T) {
 	if Is32Bit() {
 		t.Skip()

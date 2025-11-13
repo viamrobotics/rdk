@@ -183,7 +183,9 @@ func (pm *planManager) planToDirectJoints(
 	maps.goalMap = rrtMap{&node{name: -2, inputs: fullConfig}: nil}
 	maps.optNode = &node{name: -3, inputs: fullConfig}
 
-	finalSteps, err := pathPlanner.rrtRunner(ctx, &maps, nil)
+	// Pass in a non-nil `backgroundGenerator`. To avoid needing to nil check inside `rrtRunner`. It
+	// will never require the backgroundGenerator channel to be useful.
+	finalSteps, err := pathPlanner.rrtRunner(ctx, &maps, &backgroundGenerator{})
 	if err != nil {
 		return nil, err
 	}
