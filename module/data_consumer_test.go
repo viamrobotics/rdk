@@ -6,9 +6,10 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/app"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/test"
 )
 
 type mockClient struct {
@@ -41,7 +42,6 @@ func (m *mockClient) TabularDataByMQL(
 }
 
 func TestQueryTabularDataForResource(t *testing.T) {
-
 	client := &mockClient{}
 
 	os.Setenv(utils.PrimaryOrgIDEnvVar, "my_org")
