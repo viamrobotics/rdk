@@ -96,6 +96,8 @@ func TestClient(t *testing.T) {
 	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
+	annotations1 := data.Annotations{BoundingBoxes: []data.BoundingBox{{Label: "annotation1"}}}
+	annotations2 := data.Annotations{BoundingBoxes: []data.BoundingBox{{Label: "annotation2"}}}
 	injectCamera.ImagesFunc = func(
 		ctx context.Context,
 		filterSourceNames []string,
@@ -103,13 +105,13 @@ func TestClient(t *testing.T) {
 	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		images := []camera.NamedImage{}
 		// one color image
-		namedImgColor, err := camera.NamedImageFromImage(expectedColor, "color", rutils.MimeTypeRawRGBA)
+		namedImgColor, err := camera.NamedImageFromImage(expectedColor, "color", rutils.MimeTypeRawRGBA, annotations1)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
 		images = append(images, namedImgColor)
 		// one depth image
-		namedImgDepth, err := camera.NamedImageFromImage(expectedDepth, "depth", rutils.MimeTypeRawDepth)
+		namedImgDepth, err := camera.NamedImageFromImage(expectedDepth, "depth", rutils.MimeTypeRawDepth, annotations2)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
@@ -231,6 +233,7 @@ func TestClient(t *testing.T) {
 		test.That(t, meta.CapturedAt, test.ShouldEqual, time.UnixMilli(12345))
 		test.That(t, len(images), test.ShouldEqual, 2)
 		test.That(t, images[0].SourceName, test.ShouldEqual, "color")
+		test.That(t, images[0].Annotations(), test.ShouldResemble, annotations1)
 		img, err := images[0].Image(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, img.Bounds().Dx(), test.ShouldEqual, 40)
@@ -238,6 +241,7 @@ func TestClient(t *testing.T) {
 		test.That(t, img, test.ShouldHaveSameTypeAs, &image.NRGBA{})
 		test.That(t, img.ColorModel(), test.ShouldHaveSameTypeAs, color.RGBAModel)
 		test.That(t, images[1].SourceName, test.ShouldEqual, "depth")
+		test.That(t, images[1].Annotations(), test.ShouldResemble, annotations2)
 		img, err = images[1].Image(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, img.Bounds().Dx(), test.ShouldEqual, 10)
@@ -418,11 +422,11 @@ func TestClient(t *testing.T) {
 			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-			namedImgColor, err := camera.NamedImageFromImage(expectedColor, "color", rutils.MimeTypeRawRGBA)
+			namedImgColor, err := camera.NamedImageFromImage(expectedColor, "color", rutils.MimeTypeRawRGBA, data.Annotations{})
 			if err != nil {
 				return nil, resource.ResponseMetadata{}, err
 			}
-			namedImgDepth, err := camera.NamedImageFromImage(expectedDepth, "depth", rutils.MimeTypeRawDepth)
+			namedImgDepth, err := camera.NamedImageFromImage(expectedDepth, "depth", rutils.MimeTypeRawDepth, data.Annotations{})
 			if err != nil {
 				return nil, resource.ResponseMetadata{}, err
 			}

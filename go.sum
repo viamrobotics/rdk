@@ -1456,6 +1456,8 @@ github.com/vbatts/tar-split v0.11.5 h1:3bHCTIheBm1qFTcgh9oPu+nNBtX+XJIupG/vacinC
 github.com/vbatts/tar-split v0.11.5/go.mod h1:yZbwRsSeGjusneWgA781EKej9HF8vme8okylkAeNKLk=
 github.com/viam-labs/motion-tools v0.11.8 h1:3T+/46TSGrDkUQ8jF2onXhRC63cFNm2eWY85tDW/rC0=
 github.com/viam-labs/motion-tools v0.11.8/go.mod h1:ssOehj02YwtsJ4wEJqjrfpPQ43ZoU8ppXH8JIfocY1w=
+github.com/viamrobotics/api v0.1.488-0.20251110195528-f9899c831ae4 h1:JTEHEkdIiH5rDyiqPo79AAFYtYxbxPdLvzhUZQMn/fw=
+github.com/viamrobotics/api v0.1.488-0.20251110195528-f9899c831ae4/go.mod h1:p/am76zx8SZ74V/F4rEAYQIpHaaLUwJgY2q3Uw3FIWk=
 github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWjpfc=
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
 github.com/viamrobotics/ice/v2 v2.3.40 h1:H9r4ztsKkxWSn42R4fLvYlaPtpBys1Yj7/MERBtZY0k=
@@ -1587,8 +1589,6 @@ go.uber.org/zap v1.18.1/go.mod h1:xg/QME4nWcxGxrpdeYfq7UvYrLh66cuVKdrbD1XF/NI=
 go.uber.org/zap v1.23.0/go.mod h1:D+nX8jyLsMHMYrln8A0rJjFt/T/9/bGgIhAqxv5URuY=
 go.uber.org/zap v1.27.0 h1:aJMhYGrd5QSmlpLMr2MftRKl7t8J8PTZPA732ud/XR8=
 go.uber.org/zap v1.27.0/go.mod h1:GB2qFLM7cTU87MWRP2mPIjqfIDnGu+VIO4V/SdhGo2E=
-go.viam.com/api v0.1.485 h1:48a6R7jSAUHKTMvZZYpuXEZCenkKQjNiUf7Zql7LGTg=
-go.viam.com/api v0.1.485/go.mod h1:p/am76zx8SZ74V/F4rEAYQIpHaaLUwJgY2q3Uw3FIWk=
 go.viam.com/test v1.2.4 h1:JYgZhsuGAQ8sL9jWkziAXN9VJJiKbjoi9BsO33TW3ug=
 go.viam.com/test v1.2.4/go.mod h1:zI2xzosHdqXAJ/kFqcN+OIF78kQuTV2nIhGZ8EzvaJI=
 go.viam.com/utils v0.1.176 h1:I5TvnuBZtE9i3e6j1VOBzWQ6W3nlUiOR/L4WpTMFhxg=

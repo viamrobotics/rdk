@@ -33,7 +33,12 @@ import (
 
 //nolint:lll
 var viamLogoJpegB64 = []byte("/9j/4QD4RXhpZgAATU0AKgAAAAgABwESAAMAAAABAAEAAAEaAAUAAAABAAAAYgEbAAUAAAABAAAAagEoAAMAAAABAAIAAAExAAIAAAAhAAAAcgITAAMAAAABAAEAAIdpAAQAAAABAAAAlAAAAAAAAABIAAAAAQAAAEgAAAABQWRvYmUgUGhvdG9zaG9wIDIzLjQgKE1hY2ludG9zaCkAAAAHkAAABwAAAAQwMjIxkQEABwAAAAQBAgMAoAAABwAAAAQwMTAwoAEAAwAAAAEAAQAAoAIABAAAAAEAAAAgoAMABAAAAAEAAAAgpAYAAwAAAAEAAAAAAAAAAAAA/9sAhAAcHBwcHBwwHBwwRDAwMERcRERERFx0XFxcXFx0jHR0dHR0dIyMjIyMjIyMqKioqKioxMTExMTc3Nzc3Nzc3NzcASIkJDg0OGA0NGDmnICc5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ubm5ub/3QAEAAL/wAARCAAgACADASIAAhEBAxEB/8QBogAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoLEAACAQMDAgQDBQUEBAAAAX0BAgMABBEFEiExQQYTUWEHInEUMoGRoQgjQrHBFVLR8CQzYnKCCQoWFxgZGiUmJygpKjQ1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4eLj5OXm5+jp6vHy8/T19vf4+foBAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKCxEAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDm6K0dNu1tZsSgGNuDx0961NX09WT7ZbgcD5gPT1oA5qiul0fT1VPtlwByPlB7D1rL1K7W5mxEAI04GBjPvQB//9Dm66TRr/I+xTf8A/wrm6ASpBXgjpQB0ms34UfYof8AgWP5VzdBJY5PJNFAH//Z")
-var doCommandMap = map[string]any{"readings": "random-test"}
+
+var (
+	doCommandMap = map[string]any{"readings": "random-test"}
+	annotations1 = data.Annotations{Classifications: []data.Classification{{Label: "add_annotations"}}}
+	annotations2 = data.Annotations{Classifications: []data.Classification{{Label: "add_more_annotations"}}}
+)
 
 const (
 	serviceName     = "camera"
@@ -126,14 +131,14 @@ func TestCollectors(t *testing.T) {
 				{
 					Metadata: &datasyncpb.SensorMetadata{
 						MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
-						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "left"}}},
+						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "add_annotations"}, {Label: "left"}}},
 					},
 					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 				},
 				{
 					Metadata: &datasyncpb.SensorMetadata{
 						MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
-						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "right"}}},
+						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "add_more_annotations"}, {Label: "right"}}},
 					},
 					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 				},
@@ -202,11 +207,11 @@ func newCamera(
 		filterSourceNames []string,
 		extra map[string]interface{},
 	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-		leftImg, err := camera.NamedImageFromImage(left, "left", utils.MimeTypeJPEG)
+		leftImg, err := camera.NamedImageFromImage(left, "left", utils.MimeTypeJPEG, annotations1)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		rightImg, err := camera.NamedImageFromImage(right, "right", utils.MimeTypeJPEG)
+		rightImg, err := camera.NamedImageFromImage(right, "right", utils.MimeTypeJPEG, annotations2)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
