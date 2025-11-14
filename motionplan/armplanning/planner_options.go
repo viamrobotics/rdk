@@ -18,7 +18,7 @@ const (
 	defaultCollisionBufferMM = 1e-8
 
 	// Number of IK solutions that should be generated before stopping.
-	defaultSolutionsToSeed = 100
+	defaultSolutionsToSeed = 10
 
 	// Check constraints are still met every this many mm/degrees of movement.
 	defaultResolution = 2.0

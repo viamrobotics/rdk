@@ -1686,7 +1686,7 @@
   "planner_options": {
     "goal_metric_type": "squared_norm",
     "arc_length_tolerance": 0,
-    "max_ik_solutions": 100,
+    "max_ik_solutions": 10,
     "min_ik_score": 0.01,
     "resolution": 2,
     "timeout": 300,

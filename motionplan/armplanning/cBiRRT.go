@@ -58,10 +58,11 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegme
 
 // only used for testin.
 func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]*referenceframe.LinearInputs, error) {
-	initMaps, err := initRRTSolutions(ctx, mp.psc)
+	initMaps, bgGen, err := initRRTSolutions(ctx, mp.psc)
 	if err != nil {
 		return nil, err
 	}
+	bgGen.StopAndWait() // Assume initial solutions are good enough.
 
 	x := []*referenceframe.LinearInputs{mp.psc.start}
 
@@ -70,7 +71,7 @@ func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]*referencefra
 		return x, nil
 	}
 
-	solution, err := mp.rrtRunner(ctx, initMaps.maps)
+	solution, err := mp.rrtRunner(ctx, initMaps.maps, bgGen)
 	if err != nil {
 		return nil, err
 	}
@@ -83,19 +84,18 @@ func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]*referencefra
 func (mp *cBiRRTMotionPlanner) rrtRunner(
 	ctx context.Context,
 	rrtMaps *rrtMaps,
+	bgSolutionGenerator *backgroundGenerator,
 ) (*rrtSolution, error) {
 	ctx, span := trace.StartSpan(ctx, "rrtRunner")
 	defer span.End()
 
-	mp.pc.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d\n", len(rrtMaps.startMap), len(rrtMaps.goalMap))
+	mp.pc.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d", len(rrtMaps.startMap), len(rrtMaps.goalMap))
 
 	// setup planner options
 	if mp.pc.planOpts == nil {
 		return nil, errNoPlannerOptions
 	}
 
-	_, cancel := context.WithCancel(ctx)
-	defer cancel()
 	startTime := time.Now()
 
 	// initialize maps
@@ -107,10 +107,9 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 			break
 		}
 	}
-	mp.pc.logger.CDebugf(ctx, "goal node: %v\n", rrtMaps.optNode.inputs)
-	mp.pc.logger.CDebugf(ctx, "start node: %v\n", seed)
-	mp.pc.logger.Debug("DOF", mp.pc.lis.GetLimits())
 
+	mp.pc.logger.CDebugf(ctx, "start node: %v goal node name: %v inputs: %v DOF: %v",
+		seed, rrtMaps.optNode.name, rrtMaps.optNode.inputs, mp.pc.lis.GetLimits())
 	interpConfig, err := referenceframe.InterpolateFS(mp.pc.fs, seed, rrtMaps.optNode.inputs, 0.5)
 	if err != nil {
 		return nil, err
@@ -119,11 +118,34 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	target := newConfigurationNode(interpConfig)
 
 	map1, map2 := rrtMaps.startMap, rrtMaps.goalMap
-	for i := 0; i < mp.pc.planOpts.PlanIter; i++ {
-		mp.pc.logger.CDebugf(ctx, "iteration: %d target: %v", i, logging.FloatArrayFormat{"", target.inputs.GetLinearizedInputs()})
+	for iterNum := 0; iterNum < mp.pc.planOpts.PlanIter; iterNum++ {
+		mp.pc.logger.CDebugf(ctx, "iteration: %d target: %v", iterNum,
+			logging.FloatArrayFormat{"", target.inputs.GetLinearizedInputs()})
 		if ctx.Err() != nil {
-			mp.pc.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
+			mp.pc.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", iterNum)
 			return &rrtSolution{maps: rrtMaps}, fmt.Errorf("cbirrt timeout %w", ctx.Err())
+		}
+		mp.pc.logger.CDebugf(ctx, "iteration: %d target: %v target name: %v", iterNum, target.inputs, target.name)
+
+		if iterNum%20 == 0 {
+			// We continue to generate IK solutions in the background. New candidates can only
+			// succeed if given some time. Hence we will pull on a reduced cadence.
+			select {
+			case newGoal, ok := <-bgSolutionGenerator.newSolutionsCh:
+				if ok {
+					mp.pc.logger.CDebugf(ctx, "Added new goal while birrting. Goal: %v GoalName: %v", newGoal.inputs, newGoal.name)
+					rrtMaps.goalMap[newGoal] = nil
+
+					// Readjust the target to give the new solution a chance to succeed.
+					newTarget, err := mp.sample(newGoal, iterNum)
+					if err != nil {
+						mp.pc.logger.CWarnw(ctx, "Sampling new node had error", "err", err)
+					} else {
+						target = newTarget
+					}
+				}
+			default:
+			}
 		}
 
 		tryExtend := func(target *node) (*node, *node) {
@@ -132,8 +154,8 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 			nearest1 := nearestNeighbor(target, map1, nodeConfigurationDistanceFunc)
 			nearest2 := nearestNeighbor(target, map2, nodeConfigurationDistanceFunc)
 
-			map1reached := mp.constrainedExtend(ctx, i, map1, nearest1, target)
-			map2reached := mp.constrainedExtend(ctx, i, map2, nearest2, target)
+			map1reached := mp.constrainedExtend(ctx, iterNum, map1, nearest1, target)
+			map2reached := mp.constrainedExtend(ctx, iterNum, map2, nearest2, target)
 
 			map1reached.corner = true
 			map2reached.corner = true
@@ -167,14 +189,13 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 
 		// Solved!
 		if reachedDelta <= mp.pc.planOpts.InputIdentDist {
-			mp.pc.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations in %v", i, time.Since(startTime))
-			cancel()
+			mp.pc.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations in %v", iterNum, time.Since(startTime))
 			path := extractPath(rrtMaps.startMap, rrtMaps.goalMap, &nodePair{map1reached, map2reached}, true)
 			return &rrtSolution{steps: path, maps: rrtMaps}, nil
 		}
 
 		// sample near map 1 and switch which map is which to keep adding to them even
-		target, err = mp.sample(map1reached, i)
+		target, err = mp.sample(map1reached, iterNum)
 		if err != nil {
 			return &rrtSolution{maps: rrtMaps}, err
 		}
@@ -252,7 +273,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			doubled = false
 		}
 		// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
-		near = &node{inputs: newNear}
+		near = &node{name: int(nodeNameCounter.Add(1)), inputs: newNear}
 		rrtMap[near] = oldNear
 	}
 	return oldNear

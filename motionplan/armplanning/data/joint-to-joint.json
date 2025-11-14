@@ -1,0 +1,1297 @@
+{
+  "frame_system": {
+    "name": "builtin",
+    "world": {
+      "frame_type": "static",
+      "frame": {
+        "id": "world",
+        "translation": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+        },
+        "orientation": {
+          "type": "quaternion",
+          "value": {
+            "W": 1,
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          }
+        }
+      }
+    },
+    "frames": {
+      "base-ur20": {
+        "frame_type": "model",
+        "frame": {
+          "name": "base-ur20",
+          "model": {
+            "name": "base-ur20",
+            "links": [
+              {
+                "id": "",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "quaternion",
+                  "value": {
+                    "W": 1,
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "box",
+                  "x": 855,
+                  "y": 855,
+                  "z": 230,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "world"
+              }
+            ],
+            "OriginalFile": null
+          },
+          "limits": []
+        }
+      },
+      "base-ur20_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "base-ur20_origin",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": -687.5
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "ceiling-ur20": {
+        "frame_type": "model",
+        "frame": {
+          "name": "ceiling-ur20",
+          "model": {
+            "name": "ceiling-ur20",
+            "links": [
+              {
+                "id": "",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "quaternion",
+                  "value": {
+                    "W": 1,
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "box",
+                  "x": 2000,
+                  "y": 2000,
+                  "z": 10,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "world"
+              }
+            ],
+            "OriginalFile": null
+          },
+          "limits": []
+        }
+      },
+      "ceiling-ur20_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "ceiling-ur20_origin",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 2000
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "compliance": {
+        "frame_type": "static",
+        "frame": {
+          "id": "compliance",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "compliance_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "compliance_origin",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 2
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          },
+          "geometry": {
+            "type": "box",
+            "x": 340,
+            "y": 110,
+            "z": 1,
+            "r": 0,
+            "l": 0,
+            "translation": {
+              "X": 0,
+              "Y": 0,
+              "Z": -0.5
+            },
+            "orientation": {
+              "type": "quaternion",
+              "value": {
+                "W": 1,
+                "X": 0,
+                "Y": 0,
+                "Z": 0
+              }
+            },
+            "Label": "compliance_origin"
+          }
+        }
+      },
+      "floor-ur20": {
+        "frame_type": "model",
+        "frame": {
+          "name": "floor-ur20",
+          "model": {
+            "name": "floor-ur20",
+            "links": [
+              {
+                "id": "",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "quaternion",
+                  "value": {
+                    "W": 1,
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "box",
+                  "x": 4000,
+                  "y": 4000,
+                  "z": 10,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "world"
+              }
+            ],
+            "OriginalFile": null
+          },
+          "limits": []
+        }
+      },
+      "floor-ur20_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "floor-ur20_origin",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": -786
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "hose": {
+        "frame_type": "model",
+        "frame": {
+          "name": "hose",
+          "model": {
+            "name": "hose",
+            "links": [
+              {
+                "id": "",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "quaternion",
+                  "value": {
+                    "W": 1,
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "box",
+                  "x": 100,
+                  "y": 65,
+                  "z": 35,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "world"
+              }
+            ],
+            "OriginalFile": null
+          },
+          "limits": []
+        }
+      },
+      "hose-guide": {
+        "frame_type": "model",
+        "frame": {
+          "name": "hose-guide",
+          "model": {
+            "name": "hose-guide",
+            "links": [
+              {
+                "id": "",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "quaternion",
+                  "value": {
+                    "W": 1,
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "box",
+                  "x": 70,
+                  "y": 70,
+                  "z": 90,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "world"
+              }
+            ],
+            "OriginalFile": null
+          },
+          "limits": []
+        }
+      },
+      "hose-guide_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "hose-guide_origin",
+          "translation": {
+            "X": 0,
+            "Y": -90,
+            "Z": -108
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 0.7071067811865476,
+              "X": 0,
+              "Y": 0.7071067811865475,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "hose_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "hose_origin",
+          "translation": {
+            "X": -185,
+            "Y": 0,
+            "Z": -49.999999999999986
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 0.7071067811865476,
+              "X": 0,
+              "Y": 0.7071067811865475,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "pedestal-ur20": {
+        "frame_type": "model",
+        "frame": {
+          "name": "pedestal-ur20",
+          "model": {
+            "name": "pedestal-ur20",
+            "links": [
+              {
+                "id": "",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "quaternion",
+                  "value": {
+                    "W": 1,
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "box",
+                  "x": 285,
+                  "y": 285,
+                  "z": 563,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "world"
+              }
+            ],
+            "OriginalFile": null
+          },
+          "limits": []
+        }
+      },
+      "pedestal-ur20_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "pedestal-ur20_origin",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": -281.5
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "sander": {
+        "frame_type": "static",
+        "frame": {
+          "id": "sander",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "sander_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "sander_origin",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 86.5
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 0.7071067811865476,
+              "X": 0,
+              "Y": 0,
+              "Z": 0.7071067811865475
+            }
+          },
+          "geometry": {
+            "type": "box",
+            "x": 340,
+            "y": 110,
+            "z": 86.5,
+            "r": 0,
+            "l": 0,
+            "translation": {
+              "X": 0,
+              "Y": 0,
+              "Z": -43.25
+            },
+            "orientation": {
+              "type": "quaternion",
+              "value": {
+                "W": 1,
+                "X": 0,
+                "Y": 0,
+                "Z": 0
+              }
+            },
+            "Label": "sander_origin"
+          }
+        }
+      },
+      "sensing-camera": {
+        "frame_type": "static",
+        "frame": {
+          "id": "sensing-camera",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "sensing-camera_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "sensing-camera_origin",
+          "translation": {
+            "X": 74.60193266625825,
+            "Y": -18.179968219672404,
+            "Z": 49.147778192578215
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 0.707579711167704,
+              "X": 0.0045566682313764395,
+              "Y": 0.006453801963396557,
+              "Z": 0.7065893698313575
+            }
+          },
+          "geometry": {
+            "type": "box",
+            "x": 160,
+            "y": 65,
+            "z": 50,
+            "r": 0,
+            "l": 0,
+            "translation": {
+              "X": -5,
+              "Y": 10,
+              "Z": 0
+            },
+            "orientation": {
+              "type": "quaternion",
+              "value": {
+                "W": 1,
+                "X": 0,
+                "Y": 0,
+                "Z": 0
+              }
+            },
+            "Label": "sensing-camera_origin"
+          }
+        }
+      },
+      "sphere": {
+        "frame_type": "model",
+        "frame": {
+          "name": "sphere",
+          "model": {
+            "name": "sphere",
+            "links": [
+              {
+                "id": "",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "quaternion",
+                  "value": {
+                    "W": 1,
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "sphere",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 10,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "world"
+              }
+            ],
+            "OriginalFile": null
+          },
+          "limits": []
+        }
+      },
+      "sphere_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "sphere_origin",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "ur20-modular": {
+        "frame_type": "model",
+        "frame": {
+          "name": "ur20-modular",
+          "model": {
+            "name": "UR20",
+            "kinematic_param_type": "SVA",
+            "links": [
+              {
+                "id": "base_link",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 236.3
+                },
+                "orientation": {
+                  "type": "euler_angles",
+                  "value": {
+                    "pitch": 0,
+                    "roll": 0,
+                    "yaw": 3.141592653589793
+                  }
+                },
+                "parent": "world"
+              },
+              {
+                "id": "shoulder_link",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "euler_angles",
+                  "value": {
+                    "pitch": 0,
+                    "roll": 1.570796327,
+                    "yaw": 0
+                  }
+                },
+                "geometry": {
+                  "type": "capsule",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 122.5,
+                  "l": 333,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": -100
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 0,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 1
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "shoulder_pan_joint"
+              },
+              {
+                "id": "upper_arm_link",
+                "translation": {
+                  "X": -862,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": null,
+                "geometry": {
+                  "type": "capsule",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 90,
+                  "l": 1032,
+                  "translation": {
+                    "X": -421.6,
+                    "Y": 0,
+                    "Z": 260
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 0.5,
+                      "X": 0.5,
+                      "Y": -0.5,
+                      "Z": -0.5
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "shoulder_lift_joint"
+              },
+              {
+                "id": "forearm_link",
+                "translation": {
+                  "X": -728.7,
+                  "Y": 0,
+                  "Z": 201
+                },
+                "orientation": null,
+                "geometry": {
+                  "type": "capsule",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 75,
+                  "l": 858,
+                  "translation": {
+                    "X": -360,
+                    "Y": 0,
+                    "Z": 43
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 0.5,
+                      "X": 0.5,
+                      "Y": -0.5,
+                      "Z": -0.5
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "elbow_joint"
+              },
+              {
+                "id": "wrist_1_link",
+                "translation": {
+                  "X": 0,
+                  "Y": -159.3,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "euler_angles",
+                  "value": {
+                    "pitch": 0,
+                    "roll": 1.570796327,
+                    "yaw": 0
+                  }
+                },
+                "geometry": {
+                  "type": "capsule",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 48.5,
+                  "l": 262,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": -77.5
+                  },
+                  "orientation": {
+                    "type": ""
+                  },
+                  "Label": ""
+                },
+                "parent": "wrist_1_joint"
+              },
+              {
+                "id": "wrist_2_link",
+                "translation": {
+                  "X": 0,
+                  "Y": 154.29999999999998,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "euler_angles",
+                  "value": {
+                    "pitch": 3.141592653589793,
+                    "roll": 1.570796326589793,
+                    "yaw": 3.141592653589793
+                  }
+                },
+                "geometry": {
+                  "type": "capsule",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 48.5,
+                  "l": 260,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": -74.89999999999999
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "wrist_2_joint"
+              },
+              {
+                "id": "wrist_3_link",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": null,
+                "geometry": {
+                  "type": "capsule",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 48.5,
+                  "l": 204,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": -70
+                  },
+                  "orientation": {
+                    "type": ""
+                  },
+                  "Label": ""
+                },
+                "parent": "wrist_3_joint"
+              }
+            ],
+            "joints": [
+              {
+                "id": "shoulder_pan_joint",
+                "type": "revolute",
+                "parent": "base_link",
+                "axis": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 1
+                },
+                "max": 360,
+                "min": -360
+              },
+              {
+                "id": "shoulder_lift_joint",
+                "type": "revolute",
+                "parent": "shoulder_link",
+                "axis": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 1
+                },
+                "max": 360,
+                "min": -360
+              },
+              {
+                "id": "elbow_joint",
+                "type": "revolute",
+                "parent": "upper_arm_link",
+                "axis": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 1
+                },
+                "max": 180,
+                "min": -180
+              },
+              {
+                "id": "wrist_1_joint",
+                "type": "revolute",
+                "parent": "forearm_link",
+                "axis": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 1
+                },
+                "max": 360,
+                "min": -360
+              },
+              {
+                "id": "wrist_2_joint",
+                "type": "revolute",
+                "parent": "wrist_1_link",
+                "axis": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 1
+                },
+                "max": 360,
+                "min": -360
+              },
+              {
+                "id": "wrist_3_joint",
+                "type": "revolute",
+                "parent": "wrist_2_link",
+                "axis": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 1
+                },
+                "max": 360,
+                "min": -360
+              }
+            ],
+            "OriginalFile": {
+              "Bytes": "ewogICAgIm5hbWUiOiAiVVIyMCIsCiAgICAia2luZW1hdGljX3BhcmFtX3R5cGUiOiAiU1ZBIiwKICAgICJsaW5rcyI6IFsKICAgICAgICB7CiAgICAgICAgICAgICJpZCI6ICJiYXNlX2xpbmsiLAogICAgICAgICAgICAicGFyZW50IjogIndvcmxkIiwKICAgICAgICAgICAgIm9yaWVudGF0aW9uIjogewogICAgICAgICAgICAgICAgInR5cGUiOiAiZXVsZXJfYW5nbGVzIiwKICAgICAgICAgICAgICAgICJ2YWx1ZSI6IHsKICAgICAgICAgICAgICAgICAgICAicGl0Y2giOiAwLAogICAgICAgICAgICAgICAgICAgICJyb2xsIjogMCwKICAgICAgICAgICAgICAgICAgICAieWF3IjogMy4xNDE1OTI2NTM1ODk3OTMKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfSwKICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgInkiOiAwLAogICAgICAgICAgICAgICAgInoiOiAyMzYuMwogICAgICAgICAgICB9CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAgICJpZCI6ICJzaG91bGRlcl9saW5rIiwKICAgICAgICAgICAgInBhcmVudCI6ICJzaG91bGRlcl9wYW5fam9pbnQiLAogICAgICAgICAgICAib3JpZW50YXRpb24iOiB7CiAgICAgICAgICAgICAgICAidHlwZSI6ICJldWxlcl9hbmdsZXMiLAogICAgICAgICAgICAgICAgInZhbHVlIjogewogICAgICAgICAgICAgICAgICAgICJwaXRjaCI6IDAsCiAgICAgICAgICAgICAgICAgICAgInJvbGwiOiAxLjU3MDc5NjMyNywKICAgICAgICAgICAgICAgICAgICAieWF3IjogMAogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9LAogICAgICAgICAgICAiZ2VvbWV0cnkiOiB7CiAgICAgICAgICAgICAgICAidHlwZSI6ICJjYXBzdWxlIiwKICAgICAgICAgICAgICAgICJyIjogMTIyLjUsCiAgICAgICAgICAgICAgICAibCI6IDMzMywKICAgICAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAgICAgInkiOiAwLAogICAgICAgICAgICAgICAgICAgICJ6IjogLTEwMAogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgICJvcmllbnRhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAidHlwZSI6ICJxdWF0ZXJuaW9uIiwKICAgICAgICAgICAgICAgICAgICAidmFsdWUiOiB7CiAgICAgICAgICAgICAgICAgICAgICAgICJXIjogMCwKICAgICAgICAgICAgICAgICAgICAgICAgIlgiOiAwLAogICAgICAgICAgICAgICAgICAgICAgICAiWSI6IDAsCiAgICAgICAgICAgICAgICAgICAgICAgICJaIjogMQogICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgICAiaWQiOiAidXBwZXJfYXJtX2xpbmsiLAogICAgICAgICAgICAicGFyZW50IjogInNob3VsZGVyX2xpZnRfam9pbnQiLAogICAgICAgICAgICAidHJhbnNsYXRpb24iOiB7CiAgICAgICAgICAgICAgICAieCI6IC04NjIsCiAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAieiI6IDAKICAgICAgICAgICAgfSwKICAgICAgICAgICAgImdlb21ldHJ5IjogewogICAgICAgICAgICAgICAgInR5cGUiOiAiY2Fwc3VsZSIsCiAgICAgICAgICAgICAgICAiciI6IDkwLAogICAgICAgICAgICAgICAgImwiOiAxMDMyLAogICAgICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgICAgICJ4IjogLTQyMS42LAogICAgICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICAgICAieiI6IDI2MAogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgICJvcmllbnRhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAidHlwZSI6ICJxdWF0ZXJuaW9uIiwKICAgICAgICAgICAgICAgICAgICAidmFsdWUiOiB7CiAgICAgICAgICAgICAgICAgICAgICAgICJXIjogMC41LAogICAgICAgICAgICAgICAgICAgICAgICAiWCI6IDAuNSwKICAgICAgICAgICAgICAgICAgICAgICAgIlkiOiAtMC41LAogICAgICAgICAgICAgICAgICAgICAgICAiWiI6IC0wLjUKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogImZvcmVhcm1fbGluayIsCiAgICAgICAgICAgICJwYXJlbnQiOiAiZWxib3dfam9pbnQiLAogICAgICAgICAgICAidHJhbnNsYXRpb24iOiB7CiAgICAgICAgICAgICAgICAieCI6IC03MjguNywKICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICJ6IjogMjAxCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJnZW9tZXRyeSI6IHsKICAgICAgICAgICAgICAgICJ0eXBlIjogImNhcHN1bGUiLAogICAgICAgICAgICAgICAgInIiOiA3NSwKICAgICAgICAgICAgICAgICJsIjogODU4LAogICAgICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgICAgICJ4IjogLTM2MCwKICAgICAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAgICAgInoiOiA0MwogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgICJvcmllbnRhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAidHlwZSI6ICJxdWF0ZXJuaW9uIiwKICAgICAgICAgICAgICAgICAgICAidmFsdWUiOiB7CiAgICAgICAgICAgICAgICAgICAgICAgICJXIjogMC41LAogICAgICAgICAgICAgICAgICAgICAgICAiWCI6IDAuNSwKICAgICAgICAgICAgICAgICAgICAgICAgIlkiOiAtMC41LAogICAgICAgICAgICAgICAgICAgICAgICAiWiI6IC0wLjUKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogIndyaXN0XzFfbGluayIsCiAgICAgICAgICAgICJwYXJlbnQiOiAid3Jpc3RfMV9qb2ludCIsCiAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICJ5IjogLTE1OS4zLAogICAgICAgICAgICAgICAgInoiOiAwCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJvcmllbnRhdGlvbiI6IHsKICAgICAgICAgICAgICAgICJ0eXBlIjogImV1bGVyX2FuZ2xlcyIsCiAgICAgICAgICAgICAgICAidmFsdWUiOiB7CiAgICAgICAgICAgICAgICAgICAgInBpdGNoIjogMCwKICAgICAgICAgICAgICAgICAgICAicm9sbCI6IDEuNTcwNzk2MzI3LAogICAgICAgICAgICAgICAgICAgICJ5YXciOiAwCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJnZW9tZXRyeSI6IHsKICAgICAgICAgICAgICAgICJ0eXBlIjogImNhcHN1bGUiLAogICAgICAgICAgICAgICAgInIiOiA0OC41LAogICAgICAgICAgICAgICAgImwiOiAyNjIsCiAgICAgICAgICAgICAgICAidHJhbnNsYXRpb24iOiB7CiAgICAgICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICAgICAieiI6IC03Ny41CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogIndyaXN0XzJfbGluayIsCiAgICAgICAgICAgICJwYXJlbnQiOiAid3Jpc3RfMl9qb2ludCIsCiAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICJ5IjogMTU0LjI5OTk5OTk5OTk5OTk4LAogICAgICAgICAgICAgICAgInoiOiAwCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJvcmllbnRhdGlvbiI6IHsKICAgICAgICAgICAgICAgICJ0eXBlIjogImV1bGVyX2FuZ2xlcyIsCiAgICAgICAgICAgICAgICAidmFsdWUiOiB7CiAgICAgICAgICAgICAgICAgICAgInBpdGNoIjogMy4xNDE1OTI2NTM1ODk3OTMsCiAgICAgICAgICAgICAgICAgICAgInJvbGwiOiAxLjU3MDc5NjMyNjU4OTc5MywKICAgICAgICAgICAgICAgICAgICAieWF3IjogMy4xNDE1OTI2NTM1ODk3OTMKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfSwKICAgICAgICAgICAgImdlb21ldHJ5IjogewogICAgICAgICAgICAgICAgInR5cGUiOiAiY2Fwc3VsZSIsCiAgICAgICAgICAgICAgICAiciI6IDQ4LjUsCiAgICAgICAgICAgICAgICAibCI6IDI2MCwKICAgICAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAgICAgInkiOiAwLAogICAgICAgICAgICAgICAgICAgICJ6IjogLTc0Ljg5OTk5OTk5OTk5OTk5CiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgIm9yaWVudGF0aW9uIjogewogICAgICAgICAgICAgICAgICAgICJ0eXBlIjogInF1YXRlcm5pb24iLAogICAgICAgICAgICAgICAgICAgICJ2YWx1ZSI6IHsKICAgICAgICAgICAgICAgICAgICAgICAgIlciOiAxLAogICAgICAgICAgICAgICAgICAgICAgICAiWCI6IDAsCiAgICAgICAgICAgICAgICAgICAgICAgICJZIjogMCwKICAgICAgICAgICAgICAgICAgICAgICAgIloiOiAwCiAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAgICJpZCI6ICJ3cmlzdF8zX2xpbmsiLAogICAgICAgICAgICAicGFyZW50IjogIndyaXN0XzNfam9pbnQiLAogICAgICAgICAgICAiZ2VvbWV0cnkiOiB7CiAgICAgICAgICAgICAgICAidHlwZSI6ICJjYXBzdWxlIiwKICAgICAgICAgICAgICAgICJyIjogNDguNSwKICAgICAgICAgICAgICAgICJsIjogMjA0LAogICAgICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAgICAgInoiOiAtNzAKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQogICAgICAgIH0KICAgIF0sCiAgICAiam9pbnRzIjogWwogICAgICAgIHsKICAgICAgICAgICAgImlkIjogInNob3VsZGVyX3Bhbl9qb2ludCIsCiAgICAgICAgICAgICJ0eXBlIjogInJldm9sdXRlIiwKICAgICAgICAgICAgInBhcmVudCI6ICJiYXNlX2xpbmsiLAogICAgICAgICAgICAiYXhpcyI6IHsKICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICJ6IjogMQogICAgICAgICAgICB9LAogICAgICAgICAgICAibWF4IjogMzYwLAogICAgICAgICAgICAibWluIjogLTM2MAogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgICAiaWQiOiAic2hvdWxkZXJfbGlmdF9qb2ludCIsCiAgICAgICAgICAgICJ0eXBlIjogInJldm9sdXRlIiwKICAgICAgICAgICAgInBhcmVudCI6ICJzaG91bGRlcl9saW5rIiwKICAgICAgICAgICAgImF4aXMiOiB7CiAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAieiI6IDEKICAgICAgICAgICAgfSwKICAgICAgICAgICAgIm1heCI6IDM2MCwKICAgICAgICAgICAgIm1pbiI6IC0zNjAKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogImVsYm93X2pvaW50IiwKICAgICAgICAgICAgInR5cGUiOiAicmV2b2x1dGUiLAogICAgICAgICAgICAicGFyZW50IjogInVwcGVyX2FybV9saW5rIiwKICAgICAgICAgICAgImF4aXMiOiB7CiAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAieiI6IDEKICAgICAgICAgICAgfSwKICAgICAgICAgICAgIm1heCI6IDE4MCwKICAgICAgICAgICAgIm1pbiI6IC0xODAKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogIndyaXN0XzFfam9pbnQiLAogICAgICAgICAgICAidHlwZSI6ICJyZXZvbHV0ZSIsCiAgICAgICAgICAgICJwYXJlbnQiOiAiZm9yZWFybV9saW5rIiwKICAgICAgICAgICAgImF4aXMiOiB7CiAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAieiI6IDEKICAgICAgICAgICAgfSwKICAgICAgICAgICAgIm1heCI6IDM2MCwKICAgICAgICAgICAgIm1pbiI6IC0zNjAKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogIndyaXN0XzJfam9pbnQiLAogICAgICAgICAgICAidHlwZSI6ICJyZXZvbHV0ZSIsCiAgICAgICAgICAgICJwYXJlbnQiOiAid3Jpc3RfMV9saW5rIiwKICAgICAgICAgICAgImF4aXMiOiB7CiAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAieiI6IDEKICAgICAgICAgICAgfSwKICAgICAgICAgICAgIm1heCI6IDM2MCwKICAgICAgICAgICAgIm1pbiI6IC0zNjAKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogIndyaXN0XzNfam9pbnQiLAogICAgICAgICAgICAidHlwZSI6ICJyZXZvbHV0ZSIsCiAgICAgICAgICAgICJwYXJlbnQiOiAid3Jpc3RfMl9saW5rIiwKICAgICAgICAgICAgImF4aXMiOiB7CiAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAieiI6IDEKICAgICAgICAgICAgfSwKICAgICAgICAgICAgIm1heCI6IDM2MCwKICAgICAgICAgICAgIm1pbiI6IC0zNjAKICAgICAgICB9CiAgICBdCn0K",
+              "Extension": "json"
+            }
+          },
+          "limits": [
+            {
+              "Min": -6.283185307179586,
+              "Max": 6.283185307179586
+            },
+            {
+              "Min": -6.283185307179586,
+              "Max": 6.283185307179586
+            },
+            {
+              "Min": -3.141592653589793,
+              "Max": 3.141592653589793
+            },
+            {
+              "Min": -6.283185307179586,
+              "Max": 6.283185307179586
+            },
+            {
+              "Min": -6.283185307179586,
+              "Max": 6.283185307179586
+            },
+            {
+              "Min": -6.283185307179586,
+              "Max": 6.283185307179586
+            }
+          ]
+        }
+      },
+      "ur20-modular_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "ur20-modular_origin",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 0.9978589232386035,
+              "X": 0,
+              "Y": 0,
+              "Z": 0.06540312923014306
+            }
+          }
+        }
+      },
+      "wall-ur20": {
+        "frame_type": "model",
+        "frame": {
+          "name": "wall-ur20",
+          "model": {
+            "name": "wall-ur20",
+            "links": [
+              {
+                "id": "",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "quaternion",
+                  "value": {
+                    "W": 1,
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "box",
+                  "x": 5000,
+                  "y": 10,
+                  "z": 2000,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "world"
+              }
+            ],
+            "OriginalFile": null
+          },
+          "limits": []
+        }
+      },
+      "wall-ur20_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "wall-ur20_origin",
+          "translation": {
+            "X": 0,
+            "Y": 900,
+            "Z": 0
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      }
+    },
+    "parents": {
+      "base-ur20": "base-ur20_origin",
+      "base-ur20_origin": "world",
+      "ceiling-ur20": "ceiling-ur20_origin",
+      "ceiling-ur20_origin": "world",
+      "compliance": "compliance_origin",
+      "compliance_origin": "sander",
+      "floor-ur20": "floor-ur20_origin",
+      "floor-ur20_origin": "world",
+      "hose": "hose_origin",
+      "hose-guide": "hose-guide_origin",
+      "hose-guide_origin": "sander",
+      "hose_origin": "sander",
+      "pedestal-ur20": "pedestal-ur20_origin",
+      "pedestal-ur20_origin": "world",
+      "sander": "sander_origin",
+      "sander_origin": "ur20-modular",
+      "sensing-camera": "sensing-camera_origin",
+      "sensing-camera_origin": "ur20-modular",
+      "sphere": "sphere_origin",
+      "sphere_origin": "world",
+      "ur20-modular": "ur20-modular_origin",
+      "ur20-modular_origin": "world",
+      "wall-ur20": "wall-ur20_origin",
+      "wall-ur20_origin": "world"
+    }
+  },
+  "goals": [
+    {
+      "poses": null,
+      "configuration": {
+        "base-ur20": [],
+        "base-ur20_origin": [],
+        "ceiling-ur20": [],
+        "ceiling-ur20_origin": [],
+        "compliance": [],
+        "compliance_origin": [],
+        "floor-ur20": [],
+        "floor-ur20_origin": [],
+        "hose": [],
+        "hose-guide": [],
+        "hose-guide_origin": [],
+        "hose_origin": [],
+        "pedestal-ur20": [],
+        "pedestal-ur20_origin": [],
+        "sander": [],
+        "sander_origin": [],
+        "sensing-camera": [],
+        "sensing-camera_origin": [],
+        "sphere": [],
+        "sphere_origin": [],
+        "ur20-modular": [
+          1.673100233078003,
+          -2.1156307659544886,
+          -1.9549140930175781,
+          2.461310549373291,
+          -1.5409830252276822,
+          -4.479891959820883
+        ],
+        "ur20-modular_origin": [],
+        "wall-ur20": [],
+        "wall-ur20_origin": []
+      }
+    }
+  ],
+  "start_state": {
+    "poses": null,
+    "configuration": {
+      "ur20-modular": [
+        -2.8123343626605433,
+        -0.15810544908557134,
+        1.0138252417193812,
+        -2.442796369592184,
+        -1.571702305470602,
+        5.16834831237793
+      ]
+    }
+  },
+  "world_state": {
+    "obstacles": [
+      {
+        "referenceFrame": "world",
+        "geometries": [
+          {
+            "center": {
+              "x": 38.66500000000008,
+              "y": -1103.517,
+              "z": -546.432,
+              "oZ": 1
+            },
+            "box": {
+              "dimsMm": {
+                "x": 3241.9300000000003,
+                "y": 1514.366,
+                "z": 581.194
+              }
+            },
+            "label": "unnamedWorldStateGeometry_0"
+          }
+        ]
+      }
+    ]
+  },
+  "bounding_regions": null,
+  "constraints": {
+    "linear_constraints": [],
+    "pseudolinear_constraints": [],
+    "orientation_constraints": [],
+    "collision_specifications": []
+  },
+  "planner_options": {
+    "goal_metric_type": "squared_norm",
+    "arc_length_tolerance": 0,
+    "max_ik_solutions": 10,
+    "min_ik_score": 0.01,
+    "resolution": 2,
+    "timeout": 300,
+    "smooth_iter": 100,
+    "goal_threshold": 0.1,
+    "plan_iter": 1500,
+    "frame_step": 0.01,
+    "input_ident_dist": 0.0001,
+    "iter_before_rand": 50,
+    "position_seeds": 0,
+    "return_partial_plan": false,
+    "configuration_distance_metric": "fs_config_l2",
+    "collision_buffer_mm": 1e-8,
+    "rseed": 1,
+    "meshes_as_octrees": false
+  }
+}
