@@ -1005,7 +1005,7 @@ func LaunchREPL(ftdcFilepath string) {
 			if len(pieces) == 0 {
 				break
 			}
-			new := make([]string, 0)
+			additions := make([]string, 0)
 			for _, piece := range pieces {
 				trimmedPattern := strings.TrimSpace(piece)
 				for _, nameFilePair := range sorted(gpw.metricFiles) {
@@ -1016,11 +1016,11 @@ func LaunchREPL(ftdcFilepath string) {
 					}
 					if matched {
 						graphOptions.selectList = append(graphOptions.selectList, nameFilePair.Key)
-						new = append(new, nameFilePair.Key)
+						additions = append(additions, nameFilePair.Key)
 					}
 				}
 			}
-			NolintPrintln("Added metrics to select list:", new)
+			NolintPrintln("Added metrics to select list:", additions)
 			NolintPrintln()
 			NolintPrintln("New list of metrics to print at top of generated image:", graphOptions.selectList)
 		case strings.HasPrefix(cmd, "deselect"):
