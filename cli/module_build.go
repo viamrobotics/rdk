@@ -1548,8 +1548,8 @@ func (c *viamClient) retryableCopyToPart(
 	}
 
 	// All attempts failed - return a comprehensive error message
-	return fmt.Errorf("all %d upload attempts failed. You can retry the copy later, skipping the build step with: viam module reload --no-build --part-id %s",
-		maxCopyAttempts, partID)
+	return fmt.Errorf("all %d upload attempts failed. You can retry the copy later, "+
+		"skipping the build step with: viam module reload --no-build --part-id %s", maxCopyAttempts, partID)
 }
 
 type resolveTargetModuleArgs struct {
