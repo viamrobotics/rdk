@@ -19,6 +19,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -409,7 +410,7 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 ) error {
 	ids := make(chan string, parallelActions)
 	// Give channel buffer of 1+parallelActions because that is the number of goroutines that may be passing an
-	// error into this channel (1 get ids routine + parallelActions download routines).
+	// error into this channel (1 get ids routine + parallelActions worker routines).
 	errs := make(chan error, 1+parallelActions)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -427,65 +428,48 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 		}
 	}()
 
-	// In parallel, read from ids and perform the action on the binary data for each id in batches of parallelActions.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		var nextBinaryDataID string
-		var done bool
-		var numFilesProcessed atomic.Int32
-		var downloadWG sync.WaitGroup
-		for {
-			for i := uint(0); i < parallelActions; i++ {
-				if err := ctx.Err(); err != nil {
-					errs <- err
-					cancel()
-					done = true
-					break
-				}
+	// Read from ids and perform the action on the binary data for each id.
+	var downloadWG sync.WaitGroup
+	var numFilesProcessed atomic.Int32
 
-				binaryDataID, ok := <-ids
-
-				// If nextID is nil, the channel has been closed and there are no more IDs to be read.
-				if !ok {
-					done = true
-					break
-				}
-				nextBinaryDataID = binaryDataID
-
-				downloadWG.Add(1)
-				go func(id string) {
-					defer downloadWG.Done()
-					// Perform the desired action on the binary data
+	for i := uint(0); i < parallelActions; i++ {
+		downloadWG.Add(1)
+		go func() {
+			defer downloadWG.Done()
+			for {
+				select {
+				case id, ok := <-ids:
+					if !ok {
+						return
+					}
 					err := actionOnBinaryData(id)
 					if err != nil {
 						errs <- err
 						cancel()
-						done = true
+						return
 					}
 					numFilesProcessed.Add(1)
 					if numFilesProcessed.Load()%logEveryN == 0 {
 						printStatement(numFilesProcessed.Load())
 					}
-				}(nextBinaryDataID)
+				case <-ctx.Done():
+					return
+				}
 			}
-			downloadWG.Wait()
-			if done {
-				break
-			}
-		}
-		if numFilesProcessed.Load()%logEveryN != 0 {
-			printStatement(numFilesProcessed.Load())
-		}
-	}()
+		}()
+	}
 	wg.Wait()
+	downloadWG.Wait()
+	if numFilesProcessed.Load()%logEveryN != 0 {
+		printStatement(numFilesProcessed.Load())
+	}
 	close(errs)
 
-	if err := <-errs; err != nil {
-		return err
+	var allErrs error
+	for err := range errs {
+		allErrs = multierr.Append(allErrs, err)
 	}
-
-	return nil
+	return allErrs
 }
 
 // getMatchingBinaryIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
