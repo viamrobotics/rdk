@@ -2,6 +2,8 @@ package motionplan
 
 import (
 	motionpb "go.viam.com/api/service/motion/v1"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 // Constraints is a struct to store the constraints imposed upon a robot
@@ -142,6 +144,40 @@ type PseudolinearConstraint struct {
 // OrientationConstraint specifies that the components being moved will not deviate orientation beyond some threshold.
 type OrientationConstraint struct {
 	OrientationToleranceDegs float64
+}
+
+func between(a, b, v float64) bool {
+	if a > b {
+		a, b = b, a
+	}
+	return v >= a && v <= b
+}
+
+// Score computes a score which is how close we are to valid in degrees
+func (oc *OrientationConstraint) Score(from, to, now spatialmath.Orientation) float64 {
+	d := oc.Distance(from, to, now)
+	if d <= 0 {
+		return 0
+	}
+	return max(0, d-oc.OrientationToleranceDegs)
+}
+
+// Distance apart in degrees
+func (oc *OrientationConstraint) Distance(from, to, now spatialmath.Orientation) float64 {
+	f := from.OrientationVectorDegrees()
+	t := to.OrientationVectorDegrees()
+	n := now.OrientationVectorDegrees()
+
+	if between(f.OX, t.OX, n.OX) &&
+		between(f.OY, t.OY, n.OY) &&
+		between(f.OZ, t.OZ, n.OZ) &&
+		between(f.Theta, t.Theta, n.Theta) {
+		return 0
+	}
+
+	a := OrientDist(from, now)
+	b := OrientDist(to, now)
+	return min(a, b)
 }
 
 // CollisionSpecificationAllowedFrameCollisions is used to define frames that are allowed to collide.

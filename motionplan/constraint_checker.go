@@ -218,9 +218,7 @@ func checkPseudoLinearConstraint(frame string, plinConstraint PseudolinearConstr
 }
 
 func checkOrientationConstraint(frame string, c OrientationConstraint, from, to, currPose spatialmath.Pose) error {
-	dist := min(
-		OrientDist(from.Orientation(), currPose.Orientation()),
-		OrientDist(to.Orientation(), currPose.Orientation()))
+	dist := c.Distance(from.Orientation(), to.Orientation(), currPose.Orientation())
 	if dist > c.OrientationToleranceDegs {
 		return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, c.OrientationToleranceDegs)
 	}
