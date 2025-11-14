@@ -171,6 +171,11 @@ func (r *localRobot) PackageManager() packages.Manager {
 	return r.packageManager
 }
 
+// PackageManager returns the package manager for the robot.
+func (r *localRobot) JobManager() *jobmanager.JobManager {
+	return r.jobManager
+}
+
 // Close attempts to cleanly close down all constituent parts of the robot. It does not wait on reconfigureWorkers,
 // as they may be running outside code and have unexpected behavior.
 func (r *localRobot) Close(ctx context.Context) error {
