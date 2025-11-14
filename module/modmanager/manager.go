@@ -278,11 +278,10 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 				mgr.muFailedModules.Unlock()
 				errs[i] = err
 				return
-			} else {
-				mgr.muFailedModules.Lock()
-				delete(mgr.failedModules, conf.Name)
-				mgr.muFailedModules.Unlock()
 			}
+			mgr.muFailedModules.Lock()
+			delete(mgr.failedModules, conf.Name)
+			mgr.muFailedModules.Unlock()
 		}(i, conf)
 	}
 	wg.Wait()
@@ -1125,17 +1124,18 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }
 
+// GetFailedModules returns the names of all failing modules.
 func (mgr *Manager) GetFailedModules() []string {
 	mgr.muFailedModules.RLock()
 	defer mgr.muFailedModules.RUnlock()
 	var failedModuleNames []string
-      for moduleName := range mgr.failedModules {
-          failedModuleNames = append(failedModuleNames, moduleName)
-      }
-      return failedModuleNames
+	for moduleName := range mgr.failedModules {
+		failedModuleNames = append(failedModuleNames, moduleName)
+	}
+	return failedModuleNames
 }
 
-//remove failed modules not present in new config
+// UpdateFailedModules removes failed modules not present in new config.
 func (mgr *Manager) UpdateFailedModules(newConfigModules []config.Module) {
 	mgr.muFailedModules.Lock()
 	defer mgr.muFailedModules.Unlock()
