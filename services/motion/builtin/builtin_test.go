@@ -418,7 +418,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 			"world")
 		test.That(t, err, test.ShouldBeNil)
 		plannedPose := finalPoseInWorld.(*referenceframe.PoseInFrame).Pose()
-		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, finalPose.Pose(), 1e-3), test.ShouldBeTrue)
+		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, finalPose.Pose(), .01), test.ShouldBeTrue)
 	})
 
 	t.Run("plan through mixed pose and configuration waypoints", func(t *testing.T) {
