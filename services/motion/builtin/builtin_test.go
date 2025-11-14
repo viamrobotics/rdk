@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
@@ -69,7 +70,8 @@ func TestMoveFailures(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
 		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: "arm1", Destination: poseInFrame, WorldState: worldState})
-		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("frame2", "noParent"))
+		test.That(t, err, test.ShouldBeError,
+			errors.New("Cannot construct frame system. Some parts are not linked to the world frame. Parts: [frame2]"))
 	})
 }
 
@@ -243,7 +245,8 @@ func TestGetPose(t *testing.T) {
 		referenceframe.NewLinkInFrame("noParent", testPose, "testFrame", nil),
 	}
 	pose, err = ms.GetPose(context.Background(), "arm1", "testFrame", transforms, map[string]interface{}{})
-	test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("testFrame", "noParent"))
+	test.That(t, err, test.ShouldBeError,
+		errors.New("Cannot construct frame system. Some parts are not linked to the world frame. Parts: [testFrame]"))
 	test.That(t, pose, test.ShouldBeNil)
 }
 
