@@ -16,6 +16,8 @@ import (
 )
 
 const (
+	maxPlanIter = 2500
+
 	// Maximum number of iterations that constrainedExtend will run before exiting.
 	maxExtendIter = 5000
 
@@ -119,7 +121,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	target := newConfigurationNode(interpConfig)
 
 	map1, map2 := rrtMaps.startMap, rrtMaps.goalMap
-	for i := 0; i < mp.pc.planOpts.PlanIter; i++ {
+	for i := 0; i < maxPlanIter; i++ {
 		mp.pc.logger.CDebugf(ctx, "iteration: %d target: %v", i, logging.FloatArrayFormat{"", target.inputs.GetLinearizedInputs()})
 		if ctx.Err() != nil {
 			mp.pc.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)

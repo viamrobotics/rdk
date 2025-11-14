@@ -34,9 +34,6 @@ const (
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultStepSizeMM = 10
 
-	// Number of planner iterations before giving up.
-	defaultPlanIter = 1500
-
 	// The maximum percent of a joints range of motion to allow per step.
 	defaultFrameStep = 0.01
 
@@ -69,7 +66,6 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
 
-	opt.PlanIter = defaultPlanIter
 	opt.FrameStep = defaultFrameStep
 	opt.InputIdentDist = defaultInputIdentDist
 	opt.IterBeforeRand = defaultIterBeforeRand
@@ -101,9 +97,6 @@ type PlannerOptions struct {
 
 	// How close to get to the goal
 	GoalThreshold float64 `json:"goal_threshold"`
-
-	// Number of planner iterations before giving up.
-	PlanIter int `json:"plan_iter"`
 
 	// The maximum percent of a joints range of motion to allow per step.
 	FrameStep float64 `json:"frame_step"`
