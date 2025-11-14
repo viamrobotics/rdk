@@ -108,17 +108,16 @@ type webService struct {
 	tcpModServer  rpc.Server
 
 	// Will be nil on non-cgo builds.
-	streamServerMu sync.Mutex
-	streamServer   *webstream.Server
-	opts           options
-	addr           string
-	modAddrs       config.ParentSockAddrs
-	logger         logging.Logger
-	cancelCtx      context.Context
-	cancelFunc     func()
-	isRunning      bool
-	webWorkers     sync.WaitGroup
-	modWorkers     sync.WaitGroup
+	streamServer *webstream.Server
+	opts         options
+	addr         string
+	modAddrs     config.ParentSockAddrs
+	logger       logging.Logger
+	cancelCtx    context.Context
+	cancelFunc   func()
+	isRunning    bool
+	webWorkers   sync.WaitGroup
+	modWorkers   sync.WaitGroup
 
 	requestCounter     RequestCounter
 	modPeerConnTracker *grpc.ModPeerConnTracker

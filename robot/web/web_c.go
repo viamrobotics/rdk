@@ -23,19 +23,10 @@ func (svc *webService) Reconfigure(ctx context.Context, _ resource.Dependencies,
 	if !svc.isRunning {
 		return nil
 	}
-
-	svc.streamServerMu.Lock()
-	defer svc.streamServerMu.Unlock()
-	// May be nil if this is being run after closeStreamServer.
-	if svc.streamServer != nil {
-		return svc.streamServer.AddNewStreams(svc.cancelCtx)
-	}
-	return nil
+	return svc.streamServer.AddNewStreams(svc.cancelCtx)
 }
 
 func (svc *webService) closeStreamServer() {
-	svc.streamServerMu.Lock()
-	defer svc.streamServerMu.Unlock()
 	if err := svc.streamServer.Close(); err != nil {
 		svc.logger.Errorw("error closing stream server", "error", err)
 	}
@@ -50,8 +41,6 @@ func (svc *webService) closeStreamServer() {
 func (svc *webService) initStreamServer(ctx context.Context, srv rpc.Server) error {
 	// The webService depends on the stream server in addition to modules. We relax expectations on
 	// what will be started first and allow for any order.
-	svc.streamServerMu.Lock()
-	defer svc.streamServerMu.Unlock()
 	if svc.streamServer == nil {
 		var streamConfig gostream.StreamConfig
 		if svc.opts.streamConfig != nil {
