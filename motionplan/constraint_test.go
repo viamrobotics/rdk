@@ -55,3 +55,12 @@ func TestConstraintConstructors(t *testing.T) {
 	pbToRDKConstraint = ConstraintsFromProtobuf(pbConstraint)
 	test.That(t, c, test.ShouldResemble, pbToRDKConstraint)
 }
+
+func TestOrientationConstraintHelpers(t *testing.T) {
+	test.That(t, between(1, 5, 3), test.ShouldBeTrue)
+	test.That(t, between(1, 5, 0), test.ShouldBeFalse)
+	test.That(t, between(1, 5, 6), test.ShouldBeFalse)
+	test.That(t, between(5, 1, 3), test.ShouldBeTrue)
+	test.That(t, between(5, 1, 0), test.ShouldBeFalse)
+	test.That(t, between(5, 1, 6), test.ShouldBeFalse)
+}

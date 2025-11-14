@@ -16,6 +16,8 @@ import (
 )
 
 const (
+	maxPlanIter = 2500
+
 	// Maximum number of iterations that constrainedExtend will run before exiting.
 	maxExtendIter = 5000
 
@@ -119,7 +121,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	target := newConfigurationNode(interpConfig)
 
 	map1, map2 := rrtMaps.startMap, rrtMaps.goalMap
-	for i := 0; i < mp.pc.planOpts.PlanIter; i++ {
+	for i := 0; i < maxPlanIter; i++ {
 		mp.pc.logger.CDebugf(ctx, "iteration: %d target: %v", i, logging.FloatArrayFormat{"", target.inputs.GetLinearizedInputs()})
 		if ctx.Err() != nil {
 			mp.pc.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
@@ -279,7 +281,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	}
 
 	// Check if the arc of "seedInputs" to "target" is valid
-	_, err := mp.psc.checker.CheckSegmentAndStateValidityFS(ctx, newArc, mp.pc.planOpts.Resolution)
+	_, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, newArc, mp.pc.planOpts.Resolution)
 	if debugConstrainNear {
 		mp.pc.logger.Infof("\t err %v", err)
 	}
@@ -287,34 +289,63 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		return target
 	}
 
-	linearSeed := target.GetLinearizedInputs()
-	solutions, _, err := ik.DoSolve(ctx, mp.fastGradDescent,
-		mp.psc.pc.linearizeFSmetric(mp.psc.checker.PathMetric()),
-		[][]float64{linearSeed}, [][]referenceframe.Limit{ik.ComputeAdjustLimits(linearSeed, mp.pc.lis.GetLimits(), .05)})
-	if err != nil {
-		mp.pc.logger.Debugf("constrainNear fail (DoSolve): %v", err)
-		return nil
+	if len(mp.psc.pc.request.Constraints.OrientationConstraint) > 0 {
+		myFunc := func(metric *motionplan.StateFS) float64 {
+			score := 0.0
+			now, err := metric.Configuration.ComputePoses(metric.FS)
+			if err != nil {
+				panic(err)
+			}
+			for f, g := range mp.psc.goal {
+				s := mp.psc.startPoses[f]
+				n := now[f]
+				if g.Parent() != referenceframe.World ||
+					s.Parent() != referenceframe.World ||
+					n.Parent() != referenceframe.World {
+					panic(fmt.Errorf("mismatch frame %v %v %v", g.Parent(), s.Parent(), n.Parent()))
+				}
+
+				for _, c := range mp.psc.pc.request.Constraints.OrientationConstraint {
+					score += c.Score(
+						s.Pose().Orientation(),
+						g.Pose().Orientation(),
+						n.Pose().Orientation(),
+					)
+				}
+			}
+
+			return score
+		}
+
+		linearSeed := target.GetLinearizedInputs()
+		solutions, _, err := ik.DoSolve(ctx, mp.fastGradDescent,
+			mp.psc.pc.linearizeFSmetric(myFunc),
+			[][]float64{linearSeed}, [][]referenceframe.Limit{ik.ComputeAdjustLimits(linearSeed, mp.pc.lis.GetLimits(), .05)})
+		if err != nil {
+			mp.pc.logger.Debugf("constrainNear fail (DoSolve): %v", err)
+			return nil
+		}
+
+		if len(solutions) == 0 {
+			return nil
+		}
+
+		if debugConstrainNear {
+			mp.pc.logger.Infof("\t -> %v", logging.FloatArrayFormat{"", solutions[0]})
+		}
+
+		target, err = mp.psc.pc.lis.FloatsToInputs(solutions[0])
+		if err != nil {
+			mp.pc.logger.Infof("constrainNear fail (FloatsToInputs): %v", err)
+			return nil
+		}
 	}
 
-	if len(solutions) == 0 {
-		return nil
-	}
-
-	if debugConstrainNear {
-		mp.pc.logger.Infof("\t -> %v", logging.FloatArrayFormat{"", solutions[0]})
-	}
-
-	solutionMap, err := mp.psc.pc.lis.FloatsToInputs(solutions[0])
-	if err != nil {
-		mp.pc.logger.Infof("constrainNear fail (FloatsToInputs): %v", err)
-		return nil
-	}
-
-	failpos, err := mp.psc.checker.CheckSegmentAndStateValidityFS(
+	failpos, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: seedInputs,
-			EndConfiguration:   solutionMap,
+			EndConfiguration:   target,
 			FS:                 mp.pc.fs,
 		},
 		mp.pc.planOpts.Resolution,
@@ -323,7 +354,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		mp.pc.logger.Infof("\t failpos: %v err: %v", failpos != nil, err)
 	}
 	if err == nil {
-		return solutionMap
+		return target
 	}
 
 	if failpos == nil {
