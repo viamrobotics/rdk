@@ -1506,7 +1506,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}()
 
 	// We update the failing modules tracker to remove any modules that are no longer in the config.
-	r.manager.moduleManager.UpdateFailedModules(newConfig.Modules)
+	if r.manager.moduleManager != nil {
+		r.manager.moduleManager.UpdateFailedModules(newConfig.Modules)
+	}
 
 	if diff.ResourcesEqual {
 		return
