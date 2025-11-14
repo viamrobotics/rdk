@@ -108,19 +108,17 @@ type webService struct {
 	tcpModServer  rpc.Server
 
 	// Will be nil on non-cgo builds.
-	streamServer *webstream.Server
-	// streamServerInitCloseMu synchronizes concurrent access to streamServer, particularly instance management: (re)creating & destroying.
-	// it differs from streamServer.mu which is used to guard internal operations for a single instance.
-	streamServerInitCloseMu sync.Mutex
-	opts                    options
-	addr                    string
-	modAddrs                config.ParentSockAddrs
-	logger                  logging.Logger
-	cancelCtx               context.Context
-	cancelFunc              func()
-	isRunning               bool
-	webWorkers              sync.WaitGroup
-	modWorkers              sync.WaitGroup
+	streamServerMu sync.Mutex
+	streamServer   *webstream.Server
+	opts           options
+	addr           string
+	modAddrs       config.ParentSockAddrs
+	logger         logging.Logger
+	cancelCtx      context.Context
+	cancelFunc     func()
+	isRunning      bool
+	webWorkers     sync.WaitGroup
+	modWorkers     sync.WaitGroup
 
 	requestCounter     RequestCounter
 	modPeerConnTracker *grpc.ModPeerConnTracker
