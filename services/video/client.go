@@ -6,14 +6,14 @@ import (
 	"io"
 	"time"
 
-	commonpb "go.viam.com/api/common/v1"
+	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/video/v1"
+	"go.viam.com/rdk/logging"
+	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
 )
 
 // client is a video service client that talks to a gRPC video service.
@@ -101,16 +101,7 @@ func (c *client) GetVideo(
 
 // DoCommand calls the DoCommand method on the video service.
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	command, err := protoutils.StructToStructPb(cmd)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.client.DoCommand(ctx, &commonpb.DoCommandRequest{
-		Name:    c.name,
-		Command: command,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Result.AsMap(), nil
+	ctx, span := trace.StartSpan(ctx, "discovery::client::DoCommand")
+	defer span.End()
+	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
