@@ -77,10 +77,15 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 
 	// Topologically sort parts
 	sortedParts, unlinkedParts := TopologicallySortParts(allParts)
-	if len(unlinkedParts) != 0 {
+	if len(unlinkedParts) > 0 {
+		strs := make([]string, len(unlinkedParts))
+		for idx, part := range unlinkedParts {
+			strs[idx] = part.FrameConfig.Name()
+		}
+
 		//nolint
 		return nil, fmt.Errorf("Cannot construct frame system. Some parts are not linked to the world frame. Parts: %v",
-			unlinkedParts)
+			strs)
 	}
 
 	if len(sortedParts) != len(allParts) {
