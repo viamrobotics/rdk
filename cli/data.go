@@ -446,6 +446,7 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 					if err != nil {
 						errs <- err
 						cancel()
+						return
 					}
 					numFilesProcessed.Add(1)
 					if numFilesProcessed.Load()%logEveryN == 0 {
@@ -457,11 +458,11 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 			}
 		}()
 	}
+	wg.Wait()
 	downloadWG.Wait()
 	if numFilesProcessed.Load()%logEveryN != 0 {
 		printStatement(numFilesProcessed.Load())
 	}
-	wg.Wait()
 	close(errs)
 
 	var allErrs error
