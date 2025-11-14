@@ -37,7 +37,7 @@ func TestConstraintPath(t *testing.T) {
 		FS:                 fs,
 	}
 
-	failSeg, err := handler.CheckSegmentAndStateValidityFS(ctx, segmentFS, 0.5)
+	failSeg, err := handler.CheckStateConstraintsAcrossSegmentFS(ctx, segmentFS, 0.5)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, failSeg, test.ShouldBeNil)
 
@@ -58,7 +58,7 @@ func TestConstraintPath(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	failSeg, err = handler.CheckSegmentAndStateValidityFS(ctx, segmentFS, 0.5)
+	failSeg, err = handler.CheckStateConstraintsAcrossSegmentFS(ctx, segmentFS, 0.5)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, failSeg, test.ShouldBeNil)
 
@@ -70,7 +70,7 @@ func TestConstraintPath(t *testing.T) {
 		EndConfiguration:   referenceframe.FrameSystemInputs{modelXarm.Name(): badInterpPos}.ToLinearInputs(),
 		FS:                 fs,
 	}
-	failSeg, err = handler.CheckSegmentAndStateValidityFS(ctx, badSegmentFS, 0.5)
+	failSeg, err = handler.CheckStateConstraintsAcrossSegmentFS(ctx, badSegmentFS, 0.5)
 	// The constraint behavior may vary - just ensure test runs
 	if err != nil {
 		test.That(t, failSeg, test.ShouldBeNil) // If error, no valid segment
@@ -167,7 +167,7 @@ func TestLineFollow(t *testing.T) {
 
 	// This tests that we are able to advance partway, but not entirely, to the goal while keeping constraints, and return the last good
 	// partway position
-	lastGood, err := opt.CheckSegmentAndStateValidityFS(
+	lastGood, err := opt.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&SegmentFS{
 			StartConfiguration: referenceframe.FrameSystemInputs{m.Name(): mp1}.ToLinearInputs(),

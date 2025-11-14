@@ -17,8 +17,7 @@ var defaultMinStepCount = 2
 // ConstraintChecker is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
 type ConstraintChecker struct {
-	segmentFSConstraints map[string]SegmentFSConstraint
-	stateFSConstraints   map[string]StateFSConstraint
+	stateFSConstraints map[string]StateFSConstraint
 }
 
 // NewEmptyConstraintChecker - creates a ConstraintChecker with nothing.
@@ -237,19 +236,6 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 	return nil
 }
 
-// CheckSegmentFSConstraints will check a given input against all FS segment constraints.
-func (c *ConstraintChecker) CheckSegmentFSConstraints(ctx context.Context, segment *SegmentFS) error {
-	_, span := trace.StartSpan(ctx, "CheckSegmentFSConstraints")
-	defer span.End()
-	for name, cFunc := range c.segmentFSConstraints {
-		if err := cFunc(segment); err != nil {
-			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
-			return errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
-		}
-	}
-	return nil
-}
-
 // InterpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
 // configuration of a segment at a given resolution value.
 func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.LinearInputs, error) {
@@ -331,25 +317,6 @@ func (c *ConstraintChecker) StateFSConstraints() []string {
 	return names
 }
 
-// AddSegmentFSConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
-// if the given position satisfies the constraint.
-func (c *ConstraintChecker) AddSegmentFSConstraint(name string, cons SegmentFSConstraint) {
-	if c.segmentFSConstraints == nil {
-		c.segmentFSConstraints = map[string]SegmentFSConstraint{}
-	}
-	name = name + "_" + fmt.Sprintf("%p", cons)
-	c.segmentFSConstraints[name] = cons
-}
-
-// SegmentFSConstraints will list all FS segment constraints by name.
-func (c *ConstraintChecker) SegmentFSConstraints() []string {
-	names := make([]string, 0, len(c.segmentFSConstraints))
-	for name := range c.segmentFSConstraints {
-		names = append(names, name)
-	}
-	return names
-}
-
 // CheckStateConstraintsAcrossSegmentFS will interpolate the given input from the StartConfiguration to the EndConfiguration, and ensure
 // that all intermediate states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will
 // return `true, nil`. If any constraints fail, this will return false, and an SegmentFS representing the valid portion of the segment,
@@ -382,27 +349,4 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	}
 
 	return nil, nil
-}
-
-// CheckSegmentAndStateValidityFS will check a segment input and confirm that it 1) meets all segment constraints, and 2) meets all
-// state constraints across the segment at some resolution. If it fails an intermediate state, it will return the shortest valid segment,
-// provided that segment also meets segment constraints.
-func (c *ConstraintChecker) CheckSegmentAndStateValidityFS(
-	ctx context.Context,
-	segment *SegmentFS,
-	resolution float64,
-) (*SegmentFS, error) {
-	ctx, span := trace.StartSpan(ctx, "CheckSegmentAndStateValidityFS")
-	defer span.End()
-	subSegment, err := c.CheckStateConstraintsAcrossSegmentFS(ctx, segment, resolution)
-	if err != nil {
-		if subSegment != nil {
-			if c.CheckSegmentFSConstraints(ctx, subSegment) == nil {
-				return subSegment, err
-			}
-		}
-		return nil, err
-	}
-
-	return nil, c.CheckSegmentFSConstraints(ctx, segment)
 }

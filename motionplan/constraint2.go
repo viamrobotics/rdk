@@ -22,10 +22,6 @@ const (
 	defaultCollisionBufferMM = 1e-8
 )
 
-// SegmentFSConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
-// If the returned error is nil, the constraint is satisfied and the segment is valid.
-type SegmentFSConstraint func(*SegmentFS) error
-
 // StateFSConstraint tests whether a given robot configuration is valid
 // If the returned error is nil, the constraint is satisfied and the state is valid.
 type StateFSConstraint func(*StateFS) error

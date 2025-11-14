@@ -281,7 +281,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	}
 
 	// Check if the arc of "seedInputs" to "target" is valid
-	_, err := mp.psc.checker.CheckSegmentAndStateValidityFS(ctx, newArc, mp.pc.planOpts.Resolution)
+	_, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, newArc, mp.pc.planOpts.Resolution)
 	if debugConstrainNear {
 		mp.pc.logger.Infof("\t err %v", err)
 	}
@@ -341,7 +341,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 	}
 
-	failpos, err := mp.psc.checker.CheckSegmentAndStateValidityFS(
+	failpos, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: seedInputs,
