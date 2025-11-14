@@ -77,6 +77,12 @@ func (c *client) GetVideo(
 	if err != nil {
 		return err
 	}
+	// The blocking Recv call below already honors ctx: if ctx is canceled or its deadline
+	// expires, Recv returns an error (e.g. context.Canceled or context.DeadlineExceeded).
+	// Therefore we do not need an explicit select on ctx.Done(). We only check for:
+	//   - io.EOF: normal end of stream.
+	//   - any other error: propagate upstream (includes context cancel).
+	// Chunk data is written directly to the writer as it arrives to avoid buffering the entire video.
 	for {
 		chunk, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
