@@ -535,6 +535,9 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 			conn = grpcConn
 			err = nil
 		} else {
+			if errors.Is(err, rpc.ErrOffline) || errors.Is(grpcErr, rpc.ErrOffline) {
+				return rpc.ErrOffline
+			}
 			err = multierr.Combine(err, grpcErr)
 		}
 	}
