@@ -12,15 +12,13 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
 
 type planContext struct {
 	fs  *referenceframe.FrameSystem
 	lis *referenceframe.LinearInputsSchema
 
-	movableFrames   []string
-	boundingRegions []spatialmath.Geometry
+	movableFrames []string
 
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
@@ -56,11 +54,6 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 		if len(f.DoF()) > 0 {
 			pc.movableFrames = append(pc.movableFrames, fn)
 		}
-	}
-
-	pc.boundingRegions, err = referenceframe.NewGeometriesFromProto(request.BoundingRegions)
-	if err != nil {
-		return nil, err
 	}
 
 	return pc, nil
@@ -137,8 +130,6 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 		movingRobotGeometries, staticRobotGeometries,
 		start,
 		pc.request.WorldState,
-		pc.boundingRegions,
-		false,
 	)
 	if err != nil {
 		return nil, err
@@ -150,7 +141,7 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs) error {
 	ctx, span := trace.StartSpan(ctx, "checkPath")
 	defer span.End()
-	_, err := psc.checker.CheckSegmentAndStateValidityFS(
+	_, err := psc.checker.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: start,

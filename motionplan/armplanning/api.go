@@ -4,7 +4,6 @@ package armplanning
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
@@ -42,9 +40,6 @@ type PlanRequest struct {
 	StartState *PlanState `json:"start_state"`
 	// The data representation of the robot's environment.
 	WorldState *referenceframe.WorldState `json:"world_state"`
-	// Set of bounds which the robot must remain within while navigating. This is used only for kinematic bases
-	// and not arms.
-	BoundingRegions []*commonpb.Geometry `json:"bounding_regions"`
 	// Additional parameters constraining the motion of the robot.
 	Constraints *motionplan.Constraints `json:"constraints"`
 	// Other more granular parameters for the plan used to move the robot.
@@ -120,13 +115,8 @@ func (req *PlanRequest) validatePlanRequest() error {
 		req.WorldState = newWS
 	}
 
-	boundingRegions, err := referenceframe.NewGeometriesFromProto(req.BoundingRegions)
-	if err != nil {
-		return err
-	}
-
 	// Validate the goals. Each goal with a pose must not also have a configuration specified. The parent frame of the pose must exist.
-	for i, goalState := range req.Goals {
+	for _, goalState := range req.Goals {
 		for fName, pif := range goalState.poses {
 			if len(goalState.structuredConfiguration) > 0 {
 				return errors.New("individual goals cannot have both configuration and poses populated")
@@ -136,46 +126,11 @@ func (req *PlanRequest) validatePlanRequest() error {
 			if req.FrameSystem.Frame(goalParentFrame) == nil {
 				return referenceframe.NewParentFrameMissingError(fName, goalParentFrame)
 			}
-
-			if len(boundingRegions) > 0 {
-				// Check that robot components start within bounding regions.
-				// Bounding regions are for 2d planning, which requires a start pose
-				if len(goalState.poses) > 0 && len(req.StartState.poses) > 0 {
-					goalFrame := req.FrameSystem.Frame(fName)
-					if goalFrame == nil {
-						return referenceframe.NewFrameMissingError(fName)
-					}
-					buffer := req.PlannerOptions.CollisionBufferMM
-					// check that the request frame's geometries are within or in collision with the bounding regions
-					robotGifs, err := goalFrame.Geometries(make([]referenceframe.Input, len(goalFrame.DoF())))
-					if err != nil {
-						return err
-					}
-					if i == 0 {
-						// Only need to check start poses once
-						startPose, ok := req.StartState.poses[fName]
-						if !ok {
-							return fmt.Errorf("goal frame %s does not have a start pose", fName)
-						}
-						var robotGeoms []spatialmath.Geometry
-						for _, geom := range robotGifs.Geometries() {
-							robotGeoms = append(robotGeoms, geom.Transform(startPose.Pose()))
-						}
-						robotGeomBoundingRegionCheck := motionplan.NewBoundingRegionConstraint(robotGeoms, boundingRegions, buffer)
-						if robotGeomBoundingRegionCheck(&motionplan.State{}) != nil {
-							return fmt.Errorf("frame named %s is not within the provided bounding regions", fName)
-						}
-					}
-
-					// check that the destination is within or in collision with the bounding regions
-					destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(pif.Pose().Point(), "")}
-					destinationBoundingRegionCheck := motionplan.NewBoundingRegionConstraint(destinationAsGeom, boundingRegions, buffer)
-					if destinationBoundingRegionCheck(&motionplan.State{}) != nil {
-						return errors.New("destination was not within the provided bounding regions")
-					}
-				}
-			}
 		}
+	}
+
+	if req.Constraints == nil {
+		req.Constraints = &motionplan.Constraints{}
 	}
 	return nil
 }

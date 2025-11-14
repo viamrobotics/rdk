@@ -32,6 +32,7 @@ type planConfig struct {
 	Options          *PlannerOptions
 	ConstraintHander *motionplan.ConstraintChecker
 	MotionChains     *motionChains
+	Constraints      *motionplan.Constraints
 }
 
 type planConfigConstructor func(logger logging.Logger) (*planConfig, error)
@@ -43,7 +44,6 @@ func TestUnconstrainedMotion(t *testing.T) {
 		name   string
 		config planConfigConstructor
 	}{
-		{"2D plan test", simple2DMap},
 		{"6D plan test", simpleUR5eMotion},
 		{"7D plan test", simpleXArmMotion},
 	}
@@ -85,9 +85,6 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	pos := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{X: -206, Y: 100, Z: 120, OZ: -1})
 
 	opt := NewBasicPlannerOptions()
-	opt.SmoothIter = 2
-	opt.ArcLengthTolerance = 0.09
-
 	// Create a temporary frame system for the transformation
 	fs := frame.NewEmptyFrameSystem("")
 	err = fs.AddFrame(model, fs.World())
@@ -95,39 +92,8 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 		return nil, err
 	}
 
-	oFunc := motionplan.OrientDistToRegion(pos.Orientation(), 0.1)
-	oFuncMet := func(from *motionplan.StateFS) float64 {
-		if err != nil {
-			return math.Inf(1)
-		}
-
-		// Transform the current state to get the pose
-		currPose, err := fs.Transform(
-			from.Configuration,
-			frame.NewZeroPoseInFrame(model.Name()),
-			frame.World,
-		)
-		if err != nil {
-			return math.Inf(1)
-		}
-
-		return oFunc(currPose.(*frame.PoseInFrame).Pose().Orientation())
-	}
-	orientConstraint := func(cInput *motionplan.State) error {
-		err := cInput.ResolveStateAndUpdatePositions()
-		if err != nil {
-			return err
-		}
-
-		if oFunc(cInput.Position.Orientation()) == 0 {
-			return nil
-		}
-		return errors.New("violation")
-	}
-
-	opt.GoalMetricType = motionplan.ArcLengthConvergence
-	constraintHandler := motionplan.NewConstraintCheckerWithPathMetric(oFuncMet)
-	constraintHandler.AddStateConstraint("orientation", orientConstraint)
+	cons := motionplan.NewEmptyConstraints()
+	cons.OrientationConstraint = append(cons.OrientationConstraint, motionplan.OrientationConstraint{1})
 
 	start := &PlanState{structuredConfiguration: map[string][]frame.Input{model.Name(): home7}}
 	goalPoses := frame.FrameSystemPoses{model.Name(): frame.NewPoseInFrame(frame.World, pos)}
@@ -142,8 +108,9 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 		Goal:             goal,
 		FS:               fs,
 		Options:          opt,
-		ConstraintHander: constraintHandler,
+		ConstraintHander: motionplan.NewEmptyConstraintChecker(),
 		MotionChains:     motionChains,
+		Constraints:      cons,
 	}, nil
 }
 
@@ -172,118 +139,6 @@ func TestPlanningWithGripper(t *testing.T) {
 	test.That(t, len(solutionMap.Trajectory()), test.ShouldBeGreaterThanOrEqualTo, 2)
 }
 
-// simple2DMapConfig returns a planConfig with the following map
-//   - start at (-9, 9) and end at (9, 9)
-//   - bounds are from (-10, -10) to (10, 10)
-//   - obstacle from (-4, 2) to (4, 10)
-//
-// ------------------------
-// | +      |    |      + |
-// |        |    |        |
-// |        |    |        |
-// |        |    |        |
-// |        ------        |
-// |          *           |
-// |                      |
-// |                      |
-// |                      |
-// ------------------------.
-func simple2DMap(logger logging.Logger) (*planConfig, error) {
-	// build model
-	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}, {Min: -2 * math.Pi, Max: 2 * math.Pi}}
-	physicalGeometry, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 10, Y: 10, Z: 10}, "")
-	if err != nil {
-		return nil, err
-	}
-	modelName := "mobile-base"
-	model, err := frame.New2DMobileModelFrame(modelName, limits, physicalGeometry)
-	if err != nil {
-		return nil, err
-	}
-
-	// add it to the frame system
-	fs := frame.NewEmptyFrameSystem("test")
-	if err := fs.AddFrame(model, fs.Frame(frame.World)); err != nil {
-		return nil, err
-	}
-
-	// obstacles
-	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 50, 0}), r3.Vector{80, 80, 1}, "")
-	if err != nil {
-		return nil, err
-	}
-	worldState, err := frame.NewWorldState(
-		[]*frame.GeometriesInFrame{frame.NewGeometriesInFrame(frame.World, []spatialmath.Geometry{box})},
-		nil,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// setup planner options
-	opt := NewBasicPlannerOptions()
-	constraintHandler := motionplan.NewEmptyConstraintChecker()
-	startInput := frame.NewZeroInputs(fs)
-	startInput[modelName] = []frame.Input{-90., 90., 0}
-	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})
-	goal := &PlanState{poses: frame.FrameSystemPoses{modelName: frame.NewPoseInFrame(frame.World, goalPose)}}
-
-	seedMap := frame.NewZeroInputs(fs)
-	// create robot collision entities
-	movingGeometriesInFrame, err := model.Geometries(seedMap[model.Name()])
-	movingRobotGeometries := movingGeometriesInFrame.Geometries()
-	if err != nil {
-		return nil, err
-	}
-
-	// find all geometries that are not moving but are in the frame system
-	staticRobotGeometries := make([]spatialmath.Geometry, 0)
-	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, seedMap)
-	if err != nil {
-		return nil, err
-	}
-	for name, geometries := range frameSystemGeometries {
-		if name != model.Name() {
-			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
-		}
-	}
-
-	// Note that all obstacles in worldState are assumed to be static so it is ok to transform them into the world frame
-	// TODO(rb) it is bad practice to assume that the current inputs of the robot correspond to the passed in world state
-	// the state that observed the worldState should ultimately be included as part of the worldState message
-	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
-	if err != nil {
-		return nil, err
-	}
-
-	_, collisionConstraints, err := motionplan.CreateAllCollisionConstraints(
-		movingRobotGeometries,
-		staticRobotGeometries,
-		worldGeometries.Geometries(),
-		nil, nil,
-		defaultCollisionBufferMM,
-	)
-	if err != nil {
-		return nil, err
-	}
-	for name, constraint := range collisionConstraints {
-		constraintHandler.AddStateConstraint(name, constraint)
-	}
-	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
-	if err != nil {
-		return nil, err
-	}
-
-	return &planConfig{
-		Start:            &PlanState{structuredConfiguration: startInput},
-		Goal:             goal,
-		FS:               fs,
-		Options:          opt,
-		ConstraintHander: constraintHandler,
-		MotionChains:     motionChains,
-	}, nil
-}
-
 // simpleArmMotion tests moving an xArm7.
 func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
@@ -303,7 +158,6 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 
 	// setup planner options
 	opt := NewBasicPlannerOptions()
-	opt.SmoothIter = 20
 
 	// create robot collision entities
 	movingGeometriesInFrame, err := xarm.Geometries(home7)
@@ -324,10 +178,9 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		}
 	}
 
-	fsCollisionConstraints, collisionConstraints, err := motionplan.CreateAllCollisionConstraints(
+	fsCollisionConstraints, err := motionplan.CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
-		nil,
 		nil,
 		nil,
 		defaultCollisionBufferMM,
@@ -337,9 +190,6 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 	}
 
 	constraintHandler := motionplan.NewEmptyConstraintChecker()
-	for name, constraint := range collisionConstraints {
-		constraintHandler.AddStateConstraint(name, constraint)
-	}
 	for name, constraint := range fsCollisionConstraints {
 		constraintHandler.AddStateFSConstraint(name, constraint)
 	}
@@ -377,7 +227,6 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 
 	// setup planner options
 	opt := NewBasicPlannerOptions()
-	opt.SmoothIter = 20
 
 	// create robot collision entities
 	movingGeometriesInFrame, err := ur5e.Geometries(home6)
@@ -398,10 +247,9 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 		}
 	}
 
-	fsCollisionConstraints, collisionConstraints, err := motionplan.CreateAllCollisionConstraints(
+	fsCollisionConstraints, err := motionplan.CreateAllCollisionConstraints(
 		movingRobotGeometries,
 		staticRobotGeometries,
-		nil,
 		nil,
 		nil,
 		defaultCollisionBufferMM,
@@ -410,9 +258,6 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 		return nil, err
 	}
 	constraintHandler := motionplan.NewEmptyConstraintChecker()
-	for name, constraint := range collisionConstraints {
-		constraintHandler.AddStateConstraint(name, constraint)
-	}
 	for name, constraint := range fsCollisionConstraints {
 		constraintHandler.AddStateFSConstraint(name, constraint)
 	}
@@ -448,7 +293,7 @@ func testPlanner(t *testing.T, ctx context.Context, config planConfigConstructor
 		Goals:          []*PlanState{cfg.Goal},
 		StartState:     cfg.Start,
 		PlannerOptions: cfg.Options,
-		Constraints:    &motionplan.Constraints{},
+		Constraints:    cfg.Constraints,
 	}
 
 	pc, err := newPlanContext(ctx, logger, request, &PlanMeta{})
@@ -466,7 +311,7 @@ func testPlanner(t *testing.T, ctx context.Context, config planConfigConstructor
 	// test that path doesn't violate constraints
 	test.That(t, len(nodes), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(nodes)-1; j++ {
-		_, err := cfg.ConstraintHander.CheckSegmentAndStateValidityFS(
+		_, err := cfg.ConstraintHander.CheckStateConstraintsAcrossSegmentFS(
 			ctx,
 			&motionplan.SegmentFS{
 				StartConfiguration: nodes[j],

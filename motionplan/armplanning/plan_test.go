@@ -247,16 +247,8 @@ func BenchmarkScaledSquaredNormMetric(b *testing.B) {
 	)
 	goalFrame.SetName("xarm6")
 
-	metricFn := motionplan.NewScaledSquaredNormMetric(goalFrame.Pose(), 10.0)
-	state := motionplan.State{
-		Position: spatialmath.NewZeroPose(),
-		Configuration: []referenceframe.Input{
-			-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
-		},
-	}
-
 	for b.Loop() {
-		metricFn(&state)
+		motionplan.WeightedSquaredNormDistance(goalFrame.Pose(), spatialmath.NewZeroPose())
 	}
 }
 
