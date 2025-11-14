@@ -45,6 +45,33 @@ type SegmentFS struct {
 type StateFS struct {
 	Configuration *referenceframe.LinearInputs
 	FS            *referenceframe.FrameSystem
+
+	geometries map[string]*referenceframe.GeometriesInFrame
+	poses      referenceframe.FrameSystemPoses
+}
+
+// Geometries get Geometries and cache
+func (s *StateFS) Geometries() (map[string]*referenceframe.GeometriesInFrame, error) {
+	if s.geometries == nil {
+		g, err := referenceframe.FrameSystemGeometriesLinearInputs(s.FS, s.Configuration)
+		if err != nil {
+			return nil, err
+		}
+		s.geometries = g
+	}
+	return s.geometries, nil
+}
+
+// Poses get poses and cache
+func (s *StateFS) Poses() (referenceframe.FrameSystemPoses, error) {
+	if s.poses == nil {
+		p, err := s.Configuration.ComputePoses(s.FS)
+		if err != nil {
+			return nil, err
+		}
+		s.poses = p
+	}
+	return s.poses, nil
 }
 
 // StateFSMetric are functions which, given a StateFS, produces some score. Lower is better.

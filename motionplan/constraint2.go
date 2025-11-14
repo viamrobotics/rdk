@@ -3,7 +3,6 @@ package motionplan
 import (
 	"fmt"
 
-	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -114,7 +113,7 @@ func NewCollisionConstraintFS(
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) error {
 		// Use FrameSystemGeometries to get all geometries in the frame system
-		internalGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(state.FS, state.Configuration)
+		internalGeometries, err := state.Geometries()
 		if err != nil {
 			return err
 		}
