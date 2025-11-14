@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/utils/ssync"
 )
 
+// ReqLimitExceededURL is the URL for the troubleshooting steps for request limit exceeded errors.
 const ReqLimitExceededURL = "https://docs.viam.com/dev/tools/common-errors/#req-limit-exceeded"
 
 // RequestLimitExceededError is an error returned when a request is rejected
