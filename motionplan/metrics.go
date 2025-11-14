@@ -21,18 +21,6 @@ const (
 	FSConfigurationL2DistanceMetric SegmentFSMetricType = "fs_config_l2"
 )
 
-// ScoringMetric is a string enum indicating a choice of plan scoring algorithm.
-type ScoringMetric string
-
-const (
-	// FSConfigScoringMetric indicates the use of FS configuration distance for scoring.
-	FSConfigScoringMetric ScoringMetric = "fs_config"
-	// FSConfigL2ScoringMetric indicates the use of the L2 norm in FS configuration space for scoring.
-	FSConfigL2ScoringMetric ScoringMetric = "fs_config_l2"
-	// PTGDistance indicates the use of distance in TP-space for scoring.
-	PTGDistance ScoringMetric = "ptg_distance"
-)
-
 // GoalMetricType is a string enum indicating the type of goal metric to use.
 type GoalMetricType string
 
