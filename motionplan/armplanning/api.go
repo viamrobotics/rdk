@@ -128,6 +128,10 @@ func (req *PlanRequest) validatePlanRequest() error {
 			}
 		}
 	}
+
+	if req.Constraints == nil {
+		req.Constraints = &motionplan.Constraints{}
+	}
 	return nil
 }
 

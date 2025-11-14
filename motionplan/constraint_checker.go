@@ -60,7 +60,7 @@ func NewConstraintChecker(
 	}
 
 	allowedCollisions, err := collisionSpecifications(
-		constraints.GetCollisionSpecification(),
+		constraints.CollisionSpecification,
 		frameSystemGeometries,
 		frameNames,
 		worldState.ObstacleNames(),
@@ -100,9 +100,9 @@ func (c *ConstraintChecker) addTopoConstraints(
 	fromPosesBad, toPoses referenceframe.FrameSystemPoses,
 	constraints *Constraints,
 ) error {
-	if len(constraints.GetLinearConstraint()) == 0 &&
-		len(constraints.GetPseudolinearConstraint()) == 0 &&
-		len(constraints.GetOrientationConstraint()) == 0 {
+	if len(constraints.LinearConstraint) == 0 &&
+		len(constraints.PseudolinearConstraint) == 0 &&
+		len(constraints.OrientationConstraint) == 0 {
 		return nil
 	}
 
@@ -137,21 +137,21 @@ func (c *ConstraintChecker) addTopoConstraints(
 			to := toPIF.Pose()
 			currPose := currPosePIF.(*referenceframe.PoseInFrame).Pose()
 
-			for _, lc := range constraints.GetLinearConstraint() {
+			for _, lc := range constraints.LinearConstraint {
 				err := checkLinearConstraint(frame, lc, from, to, currPose)
 				if err != nil {
 					return err
 				}
 			}
 
-			for _, plc := range constraints.GetPseudolinearConstraint() {
+			for _, plc := range constraints.PseudolinearConstraint {
 				err := checkPseudoLinearConstraint(frame, plc, from, to, currPose)
 				if err != nil {
 					return err
 				}
 			}
 
-			for _, oc := range constraints.GetOrientationConstraint() {
+			for _, oc := range constraints.OrientationConstraint {
 				err := checkOrientationConstraint(frame, oc, from, to, currPose)
 				if err != nil {
 					return err

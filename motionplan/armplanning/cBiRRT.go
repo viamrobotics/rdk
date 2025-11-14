@@ -289,7 +289,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		return target
 	}
 
-	if len(mp.psc.pc.request.Constraints.GetOrientationConstraint()) > 0 {
+	if len(mp.psc.pc.request.Constraints.OrientationConstraint) > 0 {
 		myFunc := func(metric *motionplan.StateFS) float64 {
 			score := 0.0
 			now, err := metric.Configuration.ComputePoses(metric.FS)
@@ -305,7 +305,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 					panic(fmt.Errorf("mismatch frame %v %v %v", g.Parent(), s.Parent(), n.Parent()))
 				}
 
-				for _, c := range mp.psc.pc.request.Constraints.GetOrientationConstraint() {
+				for _, c := range mp.psc.pc.request.Constraints.OrientationConstraint {
 					score += c.Score(
 						s.Pose().Orientation(),
 						g.Pose().Orientation(),
