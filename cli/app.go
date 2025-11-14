@@ -3159,6 +3159,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: "meta.json",
 						},
 						&cli.BoolFlag{
+							Name:  moduleBuildFlagNoBuild,
+							Usage: "don't do build step, reuse existing downloaded artifact",
+						},
+						&cli.BoolFlag{
 							Name:  generalFlagNoProgress,
 							Usage: "hide progress of the file transfer",
 						},

@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,8 +13,11 @@ import (
 	v1 "go.viam.com/api/app/build/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -229,4 +233,245 @@ func TestLocalBuild(t *testing.T) {
 	outMsg := strings.Join(out.messages, "")
 	test.That(t, outMsg, test.ShouldContainSubstring, "setup step msg")
 	test.That(t, outMsg, test.ShouldContainSubstring, "build step msg")
+}
+
+func TestRetryableCopyToPart(t *testing.T) {
+	t.Run("SuccessOnFirstAttempt", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
+			paths []string, destination string, logger logging.Logger, noProgress bool,
+		) error {
+			return nil // Success immediately
+		}
+
+		allSteps := []*Step{
+			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("upload")
+		test.That(t, err, test.ShouldBeNil)
+
+		logger := logging.NewTestLogger(t)
+		err = vc.retryableCopyToPart(
+			cCtx,
+			"test-fqdn",
+			false,
+			[]string{"/path/to/file"},
+			"/dest/path",
+			logger,
+			"test-part-123",
+			pm,
+			mockCopyFunc,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, errOut.messages, test.ShouldHaveLength, 0)
+
+		// Verify no retry steps were created
+		retryStepFound := false
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "upload-attempt-") {
+				retryStepFound = true
+				break
+			}
+		}
+		test.That(t, retryStepFound, test.ShouldBeFalse)
+	})
+
+	t.Run("SuccessAfter2Retries", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
+			paths []string, destination string, logger logging.Logger, noProgress bool,
+		) error {
+			attemptCount++
+			if attemptCount <= 2 {
+				return errors.New("copy failed")
+			}
+			return nil // Success on 3rd attempt
+		}
+
+		allSteps := []*Step{
+			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("upload")
+		test.That(t, err, test.ShouldBeNil)
+
+		logger := logging.NewTestLogger(t)
+		err = vc.retryableCopyToPart(
+			cCtx,
+			"test-fqdn",
+			false,
+			[]string{"/path/to/file"},
+			"/dest/path",
+			logger,
+			"test-part-123",
+			pm,
+			mockCopyFunc,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 3)
+
+		// Verify retry steps were created (attempt 1, 2, and 3)
+		retryStepCount := 0
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "upload-attempt-") {
+				retryStepCount++
+				// Verify IndentLevel is 2 for deeper nesting
+				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
+			}
+		}
+		test.That(t, retryStepCount, test.ShouldEqual, 3) // attempt-1, attempt-2, and attempt-3
+
+		// Verify no duplicate warning messages in errOut (only permission denied warnings should appear)
+		errMsg := strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Upload attempt 1/6 failed:")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Upload attempt 2/6 failed:")
+	})
+
+	t.Run("SuccessAfter5Retries", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
+			paths []string, destination string, logger logging.Logger, noProgress bool,
+		) error {
+			attemptCount++
+			if attemptCount <= 5 {
+				return errors.New("copy failed")
+			}
+			return nil // Success on 6th attempt
+		}
+
+		allSteps := []*Step{
+			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("upload")
+		test.That(t, err, test.ShouldBeNil)
+
+		logger := logging.NewTestLogger(t)
+		err = vc.retryableCopyToPart(
+			cCtx,
+			"test-fqdn",
+			false,
+			[]string{"/path/to/file"},
+			"/dest/path",
+			logger,
+			"test-part-123",
+			pm,
+			mockCopyFunc,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 6)
+
+		// Verify all retry steps were created (attempt 1 through 6)
+		retryStepCount := 0
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "upload-attempt-") {
+				retryStepCount++
+				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
+			}
+		}
+		test.That(t, retryStepCount, test.ShouldEqual, 6) // attempt-1 through attempt-6
+
+		// No duplicate warning messages should appear (only permission denied warnings)
+		errMsg := strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Upload attempt")
+	})
+
+	t.Run("AllAttemptsFail", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
+			paths []string, destination string, logger logging.Logger, noProgress bool,
+		) error {
+			attemptCount++
+			return errors.New("persistent copy failure")
+		}
+
+		allSteps := []*Step{
+			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("upload")
+		test.That(t, err, test.ShouldBeNil)
+
+		logger := logging.NewTestLogger(t)
+		err = vc.retryableCopyToPart(
+			cCtx,
+			"test-fqdn",
+			false,
+			[]string{"/path/to/file"},
+			"/dest/path",
+			logger,
+			"test-part-123",
+			pm,
+			mockCopyFunc,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "all 6 upload attempts failed")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "viam module reload --no-build --part-id test-part-123")
+		test.That(t, attemptCount, test.ShouldEqual, 6)
+	})
+
+	t.Run("PermissionDeniedError", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
+			paths []string, destination string, logger logging.Logger, noProgress bool,
+		) error {
+			return status.Error(codes.PermissionDenied, "permission denied")
+		}
+
+		allSteps := []*Step{
+			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("upload")
+		test.That(t, err, test.ShouldBeNil)
+
+		logger := logging.NewTestLogger(t)
+		err = vc.retryableCopyToPart(
+			cCtx,
+			"test-fqdn",
+			false,
+			[]string{"/path/to/file"},
+			"/dest/path",
+			logger,
+			"test-part-123",
+			pm,
+			mockCopyFunc,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+
+		// Verify permission denied specific warning appears
+		errMsg := strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldContainSubstring, "RDK couldn't write to the default file copy destination")
+		test.That(t, errMsg, test.ShouldContainSubstring, "--home")
+		test.That(t, errMsg, test.ShouldContainSubstring, "run the RDK as root")
+	})
 }
