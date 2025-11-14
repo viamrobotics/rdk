@@ -292,7 +292,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	if len(mp.psc.pc.request.Constraints.OrientationConstraint) > 0 {
 		myFunc := func(metric *motionplan.StateFS) float64 {
 			score := 0.0
-			now, err := metric.Configuration.ComputePoses(metric.FS)
+			now, err := metric.Poses()
 			if err != nil {
 				panic(err)
 			}
