@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// Copied from the utils directory. The utils package sillily depends on logging, hence would create
-// an import cycle if we re-used that one.
+// GetenvBool is copied from the utils directory. The utils package sillily depends on logging,
+// hence would create an import cycle if we re-used that one.
 func GetenvBool(v string, def bool) bool {
 	x := os.Getenv(v)
 	if x == "" {

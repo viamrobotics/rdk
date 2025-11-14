@@ -38,7 +38,8 @@ type cBiRRTMotionPlanner struct {
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
-func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegmentContext, logger logging.Logger) (*cBiRRTMotionPlanner, error) {
+func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegmentContext, logger logging.Logger,
+) (*cBiRRTMotionPlanner, error) {
 	_, span := trace.StartSpan(ctx, "newCBiRRTMotionPlanner")
 	defer span.End()
 	c := &cBiRRTMotionPlanner{
