@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -127,6 +128,10 @@ type graphOptions struct {
 	// "equally distanced" timestamps. A user needing more fine-grained information is expected to
 	// zoom in.
 	maxPoints int
+
+	// selectList is a list of metric names to always show at the top of the generated image.
+	// This option will override hideAllZeroes and show a graph at the top even if all values of the graph is 0.
+	selectList []string
 }
 
 // defaultGraphOptions returns a default set of graph options. It adds all but the last
@@ -144,6 +149,7 @@ func defaultGraphOptions(fileBoundaryTimestamps []int64) graphOptions {
 		vertLinesAtSeconds:      make([]int64, 0),
 		fileBoundariesAtSeconds: fileBoundaryTimestamps[:len(fileBoundaryTimestamps)-1],
 		maxPoints:               1000,
+		selectList:              make([]string, 0),
 	}
 }
 
@@ -625,6 +631,55 @@ func (gpw *gnuplotWriter) Render() {
 	}
 }
 
+func (gpw *gnuplotWriter) writeSinglePlot(metricName string, graphInfo *graphInfo, gnuFile *os.File) {
+	// If we're graphing something that has the same value for all readings, bump the yrange to
+	// avoid gnuplot complaints. E.g: `set yrange [0:0]` turns into `set yrange [0:1]`.
+	if graphInfo.minVal == graphInfo.maxVal {
+		graphInfo.maxVal = graphInfo.minVal + 1
+	}
+
+	// Set the lower/upper limits on the Y-axis for the graph. We use 2* maxVal to allow extra
+	// headroom for writing out the legend.
+	writelnf(gnuFile, "set yrange [%v:%v]", graphInfo.minVal, 2*float64(graphInfo.maxVal))
+
+	//nolint
+	// We write the plot line without a trailing newline. In case we want to add the vertical
+	// lines. An example output for the following writes might be:
+	// plot '/tmp/ftdc_parser1500397090/3060093295' using 1:2 with lines linestyle 7 lw 4 title 'rdk-internal:service:web/builtin.ResStats.RPCServer.WebRTCGrpcStats.CallTicketsAvailable',\
+	// 		'/tmp/ftdc_parser1500397090/vert-0.txt' using 1:2 with lines linestyle 6 lw 4 title '2025-02-22 21:13:00 +0000 UTC',\
+	// 		'/tmp/ftdc_parser1500397090/vert-1.txt' using 1:2 with lines linestyle 6 lw 4 title '2025-02-22 21:13:40 +0000 UTC'
+	//
+	//
+	// linestyle 7 is red, 6 is blue, lw is line-width (or weight) -- makes it thicker. The
+	// title is what's used in the legend.
+	writef(gnuFile, "plot '%v' using 1:2 with lines linestyle 7 lw 4 title '%v'", graphInfo.file.Name(), strings.ReplaceAll(metricName, "_", "\\_"))
+
+	// "vertical lines" for events are rendered as another set of data points for a
+	// `plot`. Because the vertical lines are at the same x-value/time for each graph, we can
+	// re-use the same file at a pre-determined name. These files will be written out next after
+	// we've accumulated all of the min/max Y values.
+	for idx, vertLineX := range gpw.options.vertLinesAtSeconds {
+		writeln(gnuFile, ",\\")
+		writef(gnuFile,
+			"\t'%v' using 1:2 with lines linestyle 6 lw 4 title '%v'",
+			filepath.Join(gpw.tempdir, fmt.Sprintf("vert-%d.txt", idx)),
+			time.Unix(vertLineX, 0).UTC())
+	}
+
+	// File boundaries are the same as vertical lines above, but should be represented
+	// with yellow lines (5) instead of blue, and should not have titles, as many file
+	// boundaries can crowd out the actual metric's title.
+	for idx := range gpw.options.fileBoundariesAtSeconds {
+		writeln(gnuFile, ",\\")
+		writef(gnuFile,
+			"\t'%v' using 1:2 with lines linestyle 5 lw 4 notitle",
+			filepath.Join(gpw.tempdir, fmt.Sprintf("fb-%d.txt", idx)))
+	}
+
+	// The trailing newline for the above calls to write out a single plot.
+	writeln(gnuFile, "")
+}
+
 // Compile writes out all of the underlying files for gnuplot. And returns the "top-level" filename
 // that can be input to gnuplot. The returned filename is an absolute path.
 func (gpw *gnuplotWriter) CompileAndClose() string {
@@ -663,6 +718,13 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 	writeln(gnuFile, "set xlabel 'Time'")
 	writeln(gnuFile, "set xdata time")
 
+	// For each metric name in selectList, we will output a single gnuplot `plot` directive
+	// that will generate a single graph.
+	for _, metricName := range gpw.options.selectList {
+		graphInfo := gpw.metricFiles[metricName]
+		gpw.writeSinglePlot(metricName, graphInfo, gnuFile)
+	}
+
 	allZeroesHidden := 0
 	var minY int64
 	var maxY int64
@@ -687,60 +749,14 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 		if minY == 0 && maxY == 0 {
 			maxY = 1
 		}
+		gpw.writeSinglePlot(metricName, graphInfo, gnuFile)
 
-		// If we're graphing something that has the same value for all readings, bump the yrange to
-		// avoid gnuplot complaints. E.g: `set yrange [0:0]` turns into `set yrange [0:1]`.
-		if graphInfo.minVal == graphInfo.maxVal {
-			graphInfo.maxVal = graphInfo.minVal + 1
-		}
-
-		// Set the lower/upper limits on the Y-axis for the graph. We use 2* maxVal to allow extra
-		// headroom for writing out the legend.
-		writelnf(gnuFile, "set yrange [%v:%v]", graphInfo.minVal, 2*float64(graphInfo.maxVal))
-
-		//nolint
-		// We write the plot line without a trailing newline. In case we want to add the vertical
-		// lines. An example output for the following writes might be:
-		// plot '/tmp/ftdc_parser1500397090/3060093295' using 1:2 with lines linestyle 7 lw 4 title 'rdk-internal:service:web/builtin.ResStats.RPCServer.WebRTCGrpcStats.CallTicketsAvailable',\
-		// 		'/tmp/ftdc_parser1500397090/vert-0.txt' using 1:2 with lines linestyle 6 lw 4 title '2025-02-22 21:13:00 +0000 UTC',\
-		// 		'/tmp/ftdc_parser1500397090/vert-1.txt' using 1:2 with lines linestyle 6 lw 4 title '2025-02-22 21:13:40 +0000 UTC'
-		//
-		//
-		// linestyle 7 is red, 6 is blue, lw is line-width (or weight) -- makes it thicker. The
-		// title is what's used in the legend.
-		writef(gnuFile, "plot '%v' using 1:2 with lines linestyle 7 lw 4 title '%v'", graphInfo.file.Name(), strings.ReplaceAll(metricName, "_", "\\_"))
-
-		// "vertical lines" for events are rendered as another set of data points for a
-		// `plot`. Because the vertical lines are at the same x-value/time for each graph, we can
-		// re-use the same file at a pre-determined name. These files will be written out next after
-		// we've accumulated all of the min/max Y values.
-		for idx, vertLineX := range gpw.options.vertLinesAtSeconds {
-			writeln(gnuFile, ",\\")
-			writef(gnuFile,
-				"\t'%v' using 1:2 with lines linestyle 6 lw 4 title '%v'",
-				filepath.Join(gpw.tempdir, fmt.Sprintf("vert-%d.txt", idx)),
-				time.Unix(vertLineX, 0).UTC())
-		}
-
-		// File boundaries are the same as vertical lines above, but should be represented
-		// with yellow lines (5) instead of blue, and should not have titles, as many file
-		// boundaries can crowd out the actual metric's title.
-		for idx := range gpw.options.fileBoundariesAtSeconds {
-			writeln(gnuFile, ",\\")
-			writef(gnuFile,
-				"\t'%v' using 1:2 with lines linestyle 5 lw 4 notitle",
-				filepath.Join(gpw.tempdir, fmt.Sprintf("fb-%d.txt", idx)))
-		}
-
-		// The trailing newline for the above calls to write out a single plot.
-		writeln(gnuFile, "")
-
+		// only need to close file once
 		utils.UncheckedErrorFunc(graphInfo.file.Close)
 	}
 	if allZeroesHidden > 0 {
 		NolintPrintln("Hid metrics that only had 0s for data. Cnt:", allZeroesHidden)
-		// Dan: perhaps add a command to disable this. E.g:
-		//   NolintPrintln("Use `set show-all-zeroes 1` to show them.")
+		NolintPrintln("Use `show zeroes` to show them.")
 	}
 
 	// Actually write out the `vert-<number>.txt` plots.
@@ -861,6 +877,26 @@ func getFTDCData(ftdcPath string, logger logging.Logger) ([]ftdc.FlatDatum, []in
 	return flatDatums, fileBoundaryTimestamps, nil
 }
 
+func renderPlot(data []ftdc.FlatDatum, graphOptions graphOptions, logger logging.Logger) *gnuplotWriter {
+	deferredValues := make([]map[string]*ratioReading, 0)
+	gpw := newGnuPlotWriter(graphOptions, len(data), data[0].Time, data[len(data)-1].Time)
+	for idx := 0; idx < len(data)-1; idx++ {
+		thisDatum, nextDatum := data[idx], data[idx+1]
+		if pt := gpw.shouldIncludePoint(&thisDatum, &nextDatum); pt != nil {
+			deferredValues = append(deferredValues, gpw.addFlatDatum(*pt))
+		}
+	}
+	if gpw.timesToInclude == nil {
+		// If we're including all of the data points, don't forget the last one.
+		deferredValues = append(deferredValues, gpw.addFlatDatum(data[len(data)-1]))
+	}
+
+	gpw.writeDeferredValues(deferredValues, logger)
+
+	gpw.Render()
+	return gpw
+}
+
 // LaunchREPL opens an ftdc file or directory, plots it, and runs a cli for it.
 func LaunchREPL(ftdcFilepath string) {
 	logger := logging.NewLogger("parser")
@@ -873,26 +909,14 @@ func LaunchREPL(ftdcFilepath string) {
 	}
 
 	stdinReader := bufio.NewReader(os.Stdin)
-	render := true
+
 	graphOptions := defaultGraphOptions(fileBoundaryTimestamps)
+
+	gpw := renderPlot(data, graphOptions, logger)
+	render := false
 	for {
 		if render {
-			deferredValues := make([]map[string]*ratioReading, 0)
-			gpw := newGnuPlotWriter(graphOptions, len(data), data[0].Time, data[len(data)-1].Time)
-			for idx := 0; idx < len(data)-1; idx++ {
-				thisDatum, nextDatum := data[idx], data[idx+1]
-				if pt := gpw.shouldIncludePoint(&thisDatum, &nextDatum); pt != nil {
-					deferredValues = append(deferredValues, gpw.addFlatDatum(*pt))
-				}
-			}
-			if gpw.timesToInclude == nil {
-				// If we're including all of the data points, don't forget the last one.
-				deferredValues = append(deferredValues, gpw.addFlatDatum(data[len(data)-1]))
-			}
-
-			gpw.writeDeferredValues(deferredValues, logger)
-
-			gpw.Render()
+			gpw = renderPlot(data, graphOptions, logger)
 		}
 		render = true
 
@@ -923,6 +947,22 @@ func LaunchREPL(ftdcFilepath string) {
 			NolintPrintln("ev, event <timestamp>")
 			NolintPrintln("-  Add a vertical marker at a timestamp representing an event of interest.")
 			NolintPrintln("-  E.g: ev 2024-09-24T18:15:00")
+			NolintPrintln()
+			NolintPrintln("select <metric1,metric2>")
+			NolintPrintln("-  Comma-separated list of metric names (can be regex) to show top of the generated plot.png image.")
+			NolintPrintln("-  If metric name matches multiple regexes it will get selected multiple times.")
+			NolintPrintln("-  E.g: select metric1,metric2.*")
+			NolintPrintln()
+			NolintPrintln("deselect <metric1,metric2>")
+			NolintPrintln("-  Comma-separated list of metric names (can be regex) to stop showing at the top of the generated plot.png image.")
+			NolintPrintln("-  E.g: deselect metric1,metric2.*")
+			NolintPrintln("-       deselect all")
+			NolintPrintln()
+			NolintPrintln("show zeroes")
+			NolintPrintln("-  Generate graphs without omitting plots with all zeroes.")
+			NolintPrintln()
+			NolintPrintln("hide zeroes")
+			NolintPrintln("-  Generate graphs omitting plots with all zeroes.")
 			NolintPrintln()
 			NolintPrintln("r, refresh")
 			NolintPrintln("-  Regenerate the plot.png image. Useful when a current viam-server is running.")
@@ -959,6 +999,72 @@ func LaunchREPL(ftdcFilepath string) {
 				// parseStringAsTime outputs an error message for us.
 				graphOptions.vertLinesAtSeconds = append(graphOptions.vertLinesAtSeconds, goTime.Unix())
 			}
+		case strings.HasPrefix(cmd, "select"):
+			withoutCmd := strings.TrimPrefix(cmd, "select")
+			pieces := strings.Split(withoutCmd, ",")
+			if len(pieces) == 0 {
+				break
+			}
+			new := make([]string, 0)
+			for _, piece := range pieces {
+				trimmedPattern := strings.TrimSpace(piece)
+				for _, nameFilePair := range sorted(gpw.metricFiles) {
+					matched, err := regexp.MatchString(trimmedPattern, nameFilePair.Key)
+					if err != nil {
+						NolintPrintln("Error matching input:", trimmedPattern, "Err:", err)
+						continue
+					}
+					if matched {
+						graphOptions.selectList = append(graphOptions.selectList, nameFilePair.Key)
+						new = append(new, nameFilePair.Key)
+					}
+				}
+			}
+			NolintPrintln("Added metrics to select list:", new)
+			NolintPrintln()
+			NolintPrintln("New list of metrics to print at top of generated image:", graphOptions.selectList)
+		case strings.HasPrefix(cmd, "deselect"):
+			withoutCmd := strings.TrimPrefix(cmd, "deselect")
+			pieces := strings.Split(withoutCmd, ",")
+			if len(pieces) == 0 {
+				break
+			}
+			selectList := graphOptions.selectList
+			graphOptions.selectList = make([]string, 0)
+			if strings.TrimSpace(withoutCmd) == "all" {
+				NolintPrintln("Removed all metrics to be printed at top of generated image")
+				break
+			}
+			removed := make([]string, 0)
+			for _, metricName := range selectList {
+				matchedOnce := false
+				for _, piece := range pieces {
+					trimmedPattern := strings.TrimSpace(piece)
+					matched, err := regexp.MatchString(trimmedPattern, metricName)
+					if err != nil {
+						NolintPrintln("Error matching input:", trimmedPattern, "Err:", err)
+						continue
+					}
+					if matched {
+						matchedOnce = true
+						break
+					}
+				}
+				if !matchedOnce {
+					graphOptions.selectList = append(graphOptions.selectList, metricName)
+				} else {
+					removed = append(removed, metricName)
+				}
+			}
+			NolintPrintln("Removed metrics from select list:", removed)
+			NolintPrintln()
+			NolintPrintln("New list of metrics to print at top of generated image:", graphOptions.selectList)
+		case cmd == "show zeroes":
+			graphOptions.hideAllZeroes = false
+			NolintPrintln("Generating graphs without omitting plots with all zeroes")
+		case cmd == "hide zeroes":
+			graphOptions.hideAllZeroes = true
+			NolintPrintln("Generating graphs omitting plots with all zeroes")
 		case cmd == "refresh" || cmd == "r":
 			NolintPrintln("Refreshing graphs with new data")
 		case len(cmd) == 0:
