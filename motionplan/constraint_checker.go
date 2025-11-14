@@ -17,7 +17,6 @@ var defaultMinStepCount = 2
 // ConstraintChecker is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
 type ConstraintChecker struct {
-	segmentConstraints   map[string]SegmentConstraint
 	segmentFSConstraints map[string]SegmentFSConstraint
 	stateFSConstraints   map[string]StateFSConstraint
 }
@@ -238,19 +237,6 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 	return nil
 }
 
-// CheckSegmentConstraints will check a given input against all segment constraints.
-func (c *ConstraintChecker) CheckSegmentConstraints(ctx context.Context, segment *Segment) error {
-	_, span := trace.StartSpan(ctx, "CheckSegmentConstraints")
-	defer span.End()
-	for name, cFunc := range c.segmentConstraints {
-		if err := cFunc(segment); err != nil {
-			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
-			return errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
-		}
-	}
-	return nil
-}
-
 // CheckSegmentFSConstraints will check a given input against all FS segment constraints.
 func (c *ConstraintChecker) CheckSegmentFSConstraints(ctx context.Context, segment *SegmentFS) error {
 	_, span := trace.StartSpan(ctx, "CheckSegmentFSConstraints")
@@ -262,32 +248,6 @@ func (c *ConstraintChecker) CheckSegmentFSConstraints(ctx context.Context, segme
 		}
 	}
 	return nil
-}
-
-// InterpolateSegment is a helper function which produces a list of intermediate inputs, between the start and end
-// configuration of a segment at a given resolution value.
-func InterpolateSegment(ci *Segment, resolution float64) ([][]referenceframe.Input, error) {
-	// ensure we have cartesian positions
-	if err := resolveSegmentsToPositions(ci); err != nil {
-		return nil, err
-	}
-
-	steps := CalculateStepCount(ci.StartPosition, ci.EndPosition, resolution)
-	if steps < defaultMinStepCount {
-		// Minimum step count ensures we are not missing anything
-		steps = defaultMinStepCount
-	}
-
-	var interpolatedConfigurations [][]referenceframe.Input
-	for i := 0; i <= steps; i++ {
-		interp := float64(i) / float64(steps)
-		interpConfig, err := ci.Frame.Interpolate(ci.StartConfiguration, ci.EndConfiguration, interp)
-		if err != nil {
-			return nil, err
-		}
-		interpolatedConfigurations = append(interpolatedConfigurations, interpConfig)
-	}
-	return interpolatedConfigurations, nil
 }
 
 // InterpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
@@ -350,26 +310,6 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 	}
 
 	return interpolatedConfigurations, nil
-}
-
-// AddSegmentConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
-// if the given position satisfies the constraint.
-func (c *ConstraintChecker) AddSegmentConstraint(name string, cons SegmentConstraint) {
-	if c.segmentConstraints == nil {
-		c.segmentConstraints = map[string]SegmentConstraint{}
-	}
-	// Add function address to name to prevent collisions
-	name = name + "_" + fmt.Sprintf("%p", cons)
-	c.segmentConstraints[name] = cons
-}
-
-// SegmentConstraints will list all segment constraints by name.
-func (c *ConstraintChecker) SegmentConstraints() []string {
-	names := make([]string, 0, len(c.segmentConstraints))
-	for name := range c.segmentConstraints {
-		names = append(names, name)
-	}
-	return names
 }
 
 // AddStateFSConstraint will add or overwrite a constraint function with a given name. A constraint function should return true

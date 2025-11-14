@@ -1,7 +1,6 @@
 package motionplan
 
 import (
-	"fmt"
 	"math"
 
 	"go.viam.com/rdk/referenceframe"
@@ -44,42 +43,12 @@ const (
 	SquaredNorm GoalMetricType = "squared_norm"
 )
 
-// Segment is a referenceframe.Frame-specific contains all the information a constraint needs to determine validity for a movement.
-// It contains the starting inputs, the ending inputs, corresponding poses, and the frame it refers to.
-// Pose fields may be empty, and may be filled in by a constraint that needs them.
-type Segment struct {
-	StartPosition      spatial.Pose
-	EndPosition        spatial.Pose
-	StartConfiguration []referenceframe.Input
-	EndConfiguration   []referenceframe.Input
-	Frame              referenceframe.Frame
-}
-
 // SegmentFS is a referenceframe.FrameSystem-specific contains all the information a constraint needs to determine validity for a movement.
 // It contains the starting inputs, the ending inputs, and the framesystem it refers to.
 type SegmentFS struct {
 	StartConfiguration *referenceframe.LinearInputs
 	EndConfiguration   *referenceframe.LinearInputs
 	FS                 *referenceframe.FrameSystem
-}
-
-func (s *Segment) String() string {
-	startPosString := "nil"
-	endPosString := "nil"
-	if s.StartPosition != nil {
-		startPosString = fmt.Sprint(s.StartPosition)
-	}
-	if s.EndPosition != nil {
-		endPosString = fmt.Sprint(s.EndPosition)
-	}
-	return fmt.Sprintf(
-		"Segment: \n\t StartPosition: %s,\n\t EndPosition: %s,\n\t StartConfiguration:%v,\n\t EndConfiguration:%v,\n\t Frame: %v",
-		startPosString,
-		endPosString,
-		s.StartConfiguration,
-		s.EndConfiguration,
-		s.Frame,
-	)
 }
 
 // StateFS contains all the information a constraint needs to determine validity for a particular state or configuration of an entire
@@ -93,10 +62,6 @@ type StateFS struct {
 // StateFSMetric are functions which, given a StateFS, produces some score. Lower is better.
 // This is used for gradient descent to converge upon a goal pose, for example.
 type StateFSMetric func(*StateFS) float64
-
-// SegmentMetric are functions which produce some score given an Segment. Lower is better.
-// This is used to sort produced IK solutions by goodness, for example.
-type SegmentMetric func(*Segment) float64
 
 // SegmentFSMetric are functions which produce some score given an SegmentFS. Lower is better.
 // This is used to sort produced IK solutions by goodness, for example.

@@ -1,7 +1,6 @@
 package motionplan
 
 import (
-	"errors"
 	"fmt"
 
 	"go.viam.com/rdk/referenceframe"
@@ -23,50 +22,9 @@ const (
 	defaultCollisionBufferMM = 1e-8
 )
 
-// Given a constraint input with only frames and input positions, calculates the corresponding poses as needed.
-func resolveSegmentsToPositions(segment *Segment) error {
-	if segment.StartPosition == nil {
-		if segment.Frame != nil {
-			if segment.StartConfiguration != nil {
-				pos, err := segment.Frame.Transform(segment.StartConfiguration)
-				if err == nil {
-					segment.StartPosition = pos
-				} else {
-					return err
-				}
-			} else {
-				return errors.New("invalid constraint input")
-			}
-		} else {
-			return errors.New("invalid constraint input")
-		}
-	}
-	if segment.EndPosition == nil {
-		if segment.Frame != nil {
-			if segment.EndConfiguration != nil {
-				pos, err := segment.Frame.Transform(segment.EndConfiguration)
-				if err == nil {
-					segment.EndPosition = pos
-				} else {
-					return err
-				}
-			} else {
-				return errors.New("invalid constraint input")
-			}
-		} else {
-			return errors.New("invalid constraint input")
-		}
-	}
-	return nil
-}
-
 // SegmentFSConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
 // If the returned error is nil, the constraint is satisfied and the segment is valid.
 type SegmentFSConstraint func(*SegmentFS) error
-
-// SegmentConstraint tests whether a transition from a starting robot configuration to an ending robot configuration is valid.
-// If the returned error is nil, the constraint is satisfied and the segment is valid.
-type SegmentConstraint func(*Segment) error
 
 // StateFSConstraint tests whether a given robot configuration is valid
 // If the returned error is nil, the constraint is satisfied and the state is valid.

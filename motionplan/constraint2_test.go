@@ -22,10 +22,6 @@ func TestConstraintPath(t *testing.T) {
 	toPos := []referenceframe.Input{0, 0, 0, 0, 0, 1}
 
 	modelXarm, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
-
-	test.That(t, err, test.ShouldBeNil)
-	ci := &Segment{StartConfiguration: homePos, EndConfiguration: toPos, Frame: modelXarm}
-	err = resolveSegmentsToPositions(ci)
 	test.That(t, err, test.ShouldBeNil)
 
 	handler := &ConstraintChecker{}
