@@ -528,6 +528,7 @@ func TestTopologicalSortParts(t *testing.T) {
 	// Disconnect the `arm`. TopologicallySortParts should return the world, table and bottle, but
 	// not the arm nor gripper.
 	scrambledArmIdx := slices.IndexFunc(scrambled, findPartByName("arm"))
+	//nolint
 	scrambledNoArm := append(scrambled[:scrambledArmIdx], scrambled[scrambledArmIdx+1:]...)
 	ordered, unlinked = TopologicallySortParts(scrambledNoArm)
 
