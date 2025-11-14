@@ -40,7 +40,8 @@ func TestOrbOneSeed(t *testing.T) {
 			b := plan.Trajectory()[1]["sanding-ur5"]
 
 			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .005)
-			test.That(t, meta.Duration.Milliseconds(), test.ShouldBeGreaterThan, 0)
+			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeGreaterThan, 0)
+			test.That(t, meta.Duration, test.ShouldBeGreaterThan, 0)
 		})
 	}
 }

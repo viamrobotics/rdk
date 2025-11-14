@@ -110,7 +110,7 @@ func (c *ConstraintChecker) addTopoConstraints(
 	fromPoses := referenceframe.FrameSystemPoses{}
 	for f, b := range fromPosesBad {
 		g := toPoses[f]
-		if b.Parent() == g.Parent() {
+		if g == nil || b.Parent() == g.Parent() {
 			fromPoses[f] = b
 			continue
 		}
@@ -139,21 +139,21 @@ func (c *ConstraintChecker) addTopoConstraints(
 			currPose := currPosePIF.(*referenceframe.PoseInFrame).Pose()
 
 			for _, lc := range constraints.GetLinearConstraint() {
-				err := checkLinearConstraint(lc, from, to, currPose)
+				err := checkLinearConstraint(frame, lc, from, to, currPose)
 				if err != nil {
 					return err
 				}
 			}
 
 			for _, plc := range constraints.GetPseudolinearConstraint() {
-				err := checkPseudoLinearConstraint(plc, from, to, currPose)
+				err := checkPseudoLinearConstraint(frame, plc, from, to, currPose)
 				if err != nil {
 					return err
 				}
 			}
 
 			for _, oc := range constraints.GetOrientationConstraint() {
-				err := checkOrientationConstraint(oc, from, to, currPose)
+				err := checkOrientationConstraint(frame, oc, from, to, currPose)
 				if err != nil {
 					return err
 				}
@@ -166,57 +166,63 @@ func (c *ConstraintChecker) addTopoConstraints(
 	return nil
 }
 
-func checkLinearConstraint(linConstraint LinearConstraint, from, to, currPose spatialmath.Pose) error {
+func orientationError(prefix string, from, to, curr spatialmath.Orientation, dist, max float64) error {
+	return fmt.Errorf("%s %s violated dist: %0.5f > %0.5f from: %v to: %v currPose: %v",
+		prefix, orientationConstraintDescription, dist, max,
+		from, to, curr)
+}
+
+func checkLinearConstraint(frame string, linConstraint LinearConstraint, from, to, currPose spatialmath.Pose) error {
 	linTol := linConstraint.LineToleranceMm
 	if linTol > 0 {
 		dist := spatialmath.DistToLineSegment(from.Point(), to.Point(), currPose.Point())
 		if dist > linTol {
-			return fmt.Errorf("%s violated dist: %0.2f", linearConstraintDescription, dist)
+			return fmt.Errorf("%s %s violated dist: %0.2f", frame, linearConstraintDescription, dist)
 		}
 	}
 	orientTol := linConstraint.OrientationToleranceDegs
 	if orientTol > 0 {
-		dist := max(
+		dist := min(
 			OrientDist(from.Orientation(), currPose.Orientation()),
 			OrientDist(to.Orientation(), currPose.Orientation()))
 		if dist > orientTol {
-			return fmt.Errorf("%s violated dist: %0.2f", orientationConstraintDescription, dist)
+			return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol)
 		}
 	}
 
 	return nil
 }
 
-func checkPseudoLinearConstraint(plinConstraint PseudolinearConstraint, from, to, currPose spatialmath.Pose) error {
+func checkPseudoLinearConstraint(frame string, plinConstraint PseudolinearConstraint, from, to, currPose spatialmath.Pose) error {
 	linTol := plinConstraint.LineToleranceFactor
 	if linTol > 0 {
 		linTol *= from.Point().Distance(to.Point())
 		dist := spatialmath.DistToLineSegment(from.Point(), to.Point(), currPose.Point())
 		if dist > linTol {
-			return fmt.Errorf("%s violated dist: %0.2f", linearConstraintDescription, dist)
+			return fmt.Errorf("%s %s violated dist: %0.2f", frame, linearConstraintDescription, dist)
 		}
 	}
 
 	orientTol := plinConstraint.OrientationToleranceFactor
 	if orientTol > 0 {
 		orientTol *= OrientDist(from.Orientation(), to.Orientation())
-		dist := max(
+		dist := min(
 			OrientDist(from.Orientation(), currPose.Orientation()),
 			OrientDist(to.Orientation(), currPose.Orientation()))
 		if dist > orientTol {
-			return fmt.Errorf("%s violated dist: %0.2f", orientationConstraintDescription, dist)
+			return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol)
 		}
 	}
 
 	return nil
 }
 
-func checkOrientationConstraint(c OrientationConstraint, from, to, currPose spatialmath.Pose) error {
-	dist := max(
+func checkOrientationConstraint(frame string, c OrientationConstraint, from, to, currPose spatialmath.Pose) error {
+	dist := min(
 		OrientDist(from.Orientation(), currPose.Orientation()),
 		OrientDist(to.Orientation(), currPose.Orientation()))
 	if dist > c.OrientationToleranceDegs {
-		return fmt.Errorf("%s violated dist: %0.2f", orientationConstraintDescription, dist)
+		return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, c.OrientationToleranceDegs)
 	}
 	return nil
 }

@@ -95,7 +95,7 @@ func TestLineFollow(t *testing.T) {
 		Z:  550,
 		OY: -1,
 	})
-	mp1 := referenceframe.JointPositionsFromRadians([]float64{
+	mp1 := []float64{
 		3.75646398939225,
 		-1.0162453766159272,
 		1.2142890600914453,
@@ -103,8 +103,8 @@ func TestLineFollow(t *testing.T) {
 		-0.21337105357552288,
 		-0.006502311329196852,
 		-4.3822913510408945,
-	})
-	mp2 := referenceframe.JointPositionsFromRadians([]float64{
+	}
+	mp2 := []float64{
 		3.896845654143853,
 		-0.8353398707254642,
 		1.1306783805718412,
@@ -112,8 +112,8 @@ func TestLineFollow(t *testing.T) {
 		0.49562136809544177,
 		-0.2260694386799326,
 		-4.383397470889424,
-	})
-	mpFail := referenceframe.JointPositionsFromRadians([]float64{
+	}
+	mpFail := []float64{
 		3.896845654143853,
 		-1.8353398707254642,
 		1.1306783805718412,
@@ -121,7 +121,7 @@ func TestLineFollow(t *testing.T) {
 		0.49562136809544177,
 		-0.2260694386799326,
 		-4.383397470889424,
-	})
+	}
 
 	query := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  289.94907586421124,
@@ -144,7 +144,7 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	goalFrame := fs.World()
 
-	startCfg := referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mp1)}.ToLinearInputs()
+	startCfg := referenceframe.FrameSystemInputs{m.Name(): mp1}.ToLinearInputs()
 	from := referenceframe.FrameSystemPoses{markerFrame.Name(): referenceframe.NewPoseInFrame(markerFrame.Name(), p1)}
 	to := referenceframe.FrameSystemPoses{markerFrame.Name(): referenceframe.NewPoseInFrame(goalFrame.Name(), p2)}
 
@@ -174,19 +174,15 @@ func TestLineFollow(t *testing.T) {
 	lastGood, err := opt.CheckSegmentAndStateValidityFS(
 		ctx,
 		&SegmentFS{
-			StartConfiguration: referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mp1)}.ToLinearInputs(),
-			EndConfiguration:   referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mp2)}.ToLinearInputs(),
+			StartConfiguration: referenceframe.FrameSystemInputs{m.Name(): mp1}.ToLinearInputs(),
+			EndConfiguration:   referenceframe.FrameSystemInputs{m.Name(): mp2}.ToLinearInputs(),
 			FS:                 fs,
 		},
 		0.001,
 	)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, lastGood, test.ShouldNotBeNil)
 
-	// In the new constraint system, behavior may differ
-	// Skip detailed checks since the constraint implementation has changed
-	if lastGood == nil {
-		return // Skip the rest of the test if no valid segment found
-	}
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints
 	stateCheck := &StateFS{Configuration: lastGood.StartConfiguration, FS: fs}
 	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
@@ -195,10 +191,10 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
 
 	// Check that a deviating configuration will fail
-	stateCheck.Configuration = referenceframe.FrameSystemInputs{m.Name(): m.InputFromProtobuf(mpFail)}.ToLinearInputs()
+	stateCheck.Configuration = referenceframe.FrameSystemInputs{m.Name(): mpFail}.ToLinearInputs()
 	err = opt.CheckStateFSConstraints(ctx, stateCheck)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldStartWith, "whiteboard")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "marker")
 }
 
 func TestCollisionConstraints(t *testing.T) {
