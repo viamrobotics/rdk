@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"os"
 	"time"
 
 	"github.com/go-nlopt/nlopt"
@@ -15,12 +14,9 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/utils"
 )
 
 var errBadBounds = errors.New("cannot set upper or lower bounds for nlopt, slice is empty. Are you trying to move a static frame?")
-
-var debugIkMinFunc = utils.GetenvBool("DEBUG_IK_MINFUNC", false)
 
 // NloptAlg is what algorith to use - nlopt.LD_SLSQP is the original one we used
 var NloptAlg = nlopt.LD_SLSQP
@@ -54,6 +50,13 @@ func CreateNloptSolver(
 	iter int,
 	exact, useRelTol bool,
 ) (*NloptIK, error) {
+	// if debugIkMinFunc {
+	//  	// DONT COMMIT. Assert this works w.r.t registry. We might be omitting prior debug log lines
+	//  	// from `initRRT` and now including them. Simply for the purpose of this low level debug
+	//  	// state.
+	//  	logger.SetLevel(logging.DEBUG)
+	// }
+
 	ik := &NloptIK{logger: logger}
 
 	if iter < 1 {
@@ -74,7 +77,8 @@ type nloptSeedState struct {
 
 	meta string
 
-	opt *nlopt.NLopt
+	opt    *nlopt.NLopt
+	logger logging.Logger
 }
 
 func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc CostFunc,
@@ -83,8 +87,9 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 	var err error
 
 	ss := &nloptSeedState{
-		seed: s,
-		meta: fmt.Sprintf("s:%d", seedNumber),
+		seed:   s,
+		meta:   fmt.Sprintf("s:%d", seedNumber),
+		logger: ik.logger,
 	}
 
 	ss.lowerBound, ss.upperBound = limitsToArrays(limits)
@@ -152,11 +157,8 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 				}
 			}
 		}
-		if debugIkMinFunc {
-			//nolint:errcheck
-			fmt.Fprintf(os.Stdout, "\t minfunc seed:%s vals: %v dist: %0.2f gradient: %v\n",
-				nss.meta, logging.FloatArrayFormat{"%0.5f", checkVals}, dist, logging.FloatArrayFormat{"", gradient})
-		}
+		nss.logger.Debugf("\n\t minfunc seed:%s vals: %v dist: %0.2f gradient: %v",
+			nss.meta, logging.FloatArrayFormat{"%0.5f", checkVals}, dist, logging.FloatArrayFormat{"", gradient})
 		return dist
 	}
 }
@@ -213,16 +215,10 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		ss := seedStates[seedNumberRanged]
 		meta[seedNumberRanged].Attempts++
 
-		if debugIkMinFunc {
-			//nolint:errcheck
-			fmt.Fprintf(os.Stdout, "seed (%d) %v\n", seedNumberRanged, logging.FloatArrayFormat{"", ss.seed})
-		}
-
 		solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
-		if debugIkMinFunc {
-			//nolint:errcheck
-			fmt.Fprintf(os.Stdout, "\t result: %0.2f  err: %v res: %v\n", result, nloptErr, logging.FloatArrayFormat{"", solutionRaw})
-		}
+		ik.logger.Debugf("seed (%d) %v\n\t result: %0.2f  err: %v res: %v",
+			seedNumberRanged, logging.FloatArrayFormat{"", ss.seed},
+			result, nloptErr, logging.FloatArrayFormat{"", solutionRaw})
 
 		if nloptErr != nil {
 			meta[seedNumberRanged].Errors++
