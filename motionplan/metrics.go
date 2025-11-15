@@ -51,6 +51,13 @@ type StateFS struct {
 	myCache    map[string]spatial.Pose
 }
 
+func (s *StateFS) reset(c *referenceframe.LinearInputs) {
+	s.Configuration = c
+	s.geometries = nil
+	s.poses = nil
+	s.myCache = nil
+}
+
 func (s *StateFS) cache() map[string]spatial.Pose {
 	if s.myCache == nil {
 		s.myCache = map[string]spatial.Pose{}
