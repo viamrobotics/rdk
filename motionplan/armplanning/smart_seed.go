@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.opencensus.io/trace"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -25,6 +26,7 @@ func Is32Bit() bool {
 type smartSeedCacheEntry struct {
 	inputs []referenceframe.Input
 	pose   spatialmath.Pose // this is in the frame's frame, NOT world
+	pt     r3.Vector
 }
 
 type goalCacheBox struct {
@@ -42,14 +44,39 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 
 	start := time.Now()
 
-	values := make([]float64, len(f.DoF()))
+	ccf.entriesForCacheBuilding = make([][]smartSeedCacheEntry, defaultNumThreads)
 
-	err := ccf.buildCacheHelper(f, values, 0)
-	if err != nil {
-		return nil, fmt.Errorf("cannot buildCache for: %s: %w", f.Name(), err)
+	var mainErr error
+	var errLock sync.Mutex
+
+	var wg sync.WaitGroup
+
+	for x := range defaultNumThreads {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			values := make([]float64, len(f.DoF()))
+			err := ccf.buildCacheHelper(f, values, 0, x)
+			if err != nil {
+				errLock.Lock()
+				mainErr = multierr.Combine(mainErr, err)
+				errLock.Unlock()
+			}
+		}()
 	}
 
-	logger.Debugf("time to do raw building: %v of %d entries", time.Since(start), len(ccf.entriesForCacheBuilding))
+	wg.Wait()
+
+	if mainErr != nil {
+		return nil, mainErr
+	}
+
+	total := 0
+	for _, l := range ccf.entriesForCacheBuilding {
+		total += len(l)
+	}
+
+	logger.Debugf("time to do raw building: %v of %d entries", time.Since(start), total)
 
 	start = time.Now()
 	ccf.buildInverseCache()
@@ -59,7 +86,7 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 }
 
 type cacheForFrame struct {
-	entriesForCacheBuilding []smartSeedCacheEntry
+	entriesForCacheBuilding [][]smartSeedCacheEntry
 
 	minCartesian, maxCartesian r3.Vector
 
@@ -84,7 +111,7 @@ var (
 	defaultDivisor  = 10.0
 )
 
-func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []float64, joint int) error {
+func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []float64, joint, t int) error {
 	limits := f.DoF()
 
 	if joint > len(limits) {
@@ -92,7 +119,7 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 	}
 
 	if joint == len(limits) {
-		return cff.addToCache(f, values)
+		return cff.addToCache(f, values, t)
 	}
 
 	min, max, r := limits[joint].GoodLimits()
@@ -104,26 +131,30 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 		jogDivisor = arm6JogRatios[joint]
 	}
 	jog := r / jogDivisor
+	x := 0
 	for values[joint] <= max {
-		err := cff.buildCacheHelper(f, values, joint+1)
-		if err != nil {
-			return err
+		if joint > 0 || t < 0 || x%defaultNumThreads == t {
+			err := cff.buildCacheHelper(f, values, joint+1, t)
+			if err != nil {
+				return err
+			}
 		}
 
 		values[joint] += jog
+		x++
 	}
 
 	return nil
 }
 
-func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine []float64) error {
+func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine []float64, t int) error {
 	inputs := append([]float64{}, inputsNotMine...)
 	p, err := frame.Transform(inputs)
 	if err != nil {
 		return err
 	}
 
-	cff.entriesForCacheBuilding = append(cff.entriesForCacheBuilding, smartSeedCacheEntry{inputs, p})
+	cff.entriesForCacheBuilding[t] = append(cff.entriesForCacheBuilding[t], smartSeedCacheEntry{inputs, p, p.Point()})
 
 	return nil
 }
@@ -131,31 +162,31 @@ func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine [
 func (cff *cacheForFrame) buildInverseCache() {
 	cff.boxes = map[string]*goalCacheBox{}
 
-	points := make([]r3.Vector, len(cff.entriesForCacheBuilding))
+	for _, l := range cff.entriesForCacheBuilding {
+		for _, e := range l {
+			p := e.pt
+			cff.minCartesian.X = min(cff.minCartesian.X, p.X)
+			cff.minCartesian.Y = min(cff.minCartesian.X, p.Y)
+			cff.minCartesian.Z = min(cff.minCartesian.X, p.X)
 
-	for idx, e := range cff.entriesForCacheBuilding {
-		p := e.pose.Point()
-		points[idx] = p
-		cff.minCartesian.X = min(cff.minCartesian.X, p.X)
-		cff.minCartesian.Y = min(cff.minCartesian.X, p.Y)
-		cff.minCartesian.Z = min(cff.minCartesian.X, p.X)
-
-		cff.maxCartesian.X = max(cff.maxCartesian.X, p.X)
-		cff.maxCartesian.Y = max(cff.maxCartesian.X, p.Y)
-		cff.maxCartesian.Z = max(cff.maxCartesian.X, p.X)
+			cff.maxCartesian.X = max(cff.maxCartesian.X, p.X)
+			cff.maxCartesian.Y = max(cff.maxCartesian.X, p.Y)
+			cff.maxCartesian.Z = max(cff.maxCartesian.X, p.X)
+		}
 	}
 
-	for idx, e := range cff.entriesForCacheBuilding {
-		p := points[idx]
-		key := cff.boxKey(p)
-		box, ok := cff.boxes[key]
-		if !ok {
-			box = &goalCacheBox{}
-			cff.boxes[key] = box
-		}
-		box.entries = append(box.entries, e)
+	for _, l := range cff.entriesForCacheBuilding {
+		for _, e := range l {
+			key := cff.boxKey(e.pt)
+			box, ok := cff.boxes[key]
+			if !ok {
+				box = &goalCacheBox{}
+				cff.boxes[key] = box
+			}
+			box.entries = append(box.entries, e)
 
-		box.center = box.center.Add(p)
+			box.center = box.center.Add(e.pt)
+		}
 	}
 
 	for _, box := range cff.boxes {
@@ -376,15 +407,8 @@ type entry struct {
 	cost     float64
 }
 
-func myDistance(start, end spatialmath.Pose) float64 {
-	/*
-		orientDelta := spatialmath.QuatToR3AA(spatialmath.OrientationBetween(
-			start.Orientation(),
-			end.Orientation(),
-		).Quaternion()).Mul(1).Norm2()
-	*/
-	ptDelta := end.Point().Distance(start.Point())
-	return ptDelta // + orientDelta
+func myDistance(start, end r3.Vector) float64 {
+	return end.Distance(start)
 }
 
 func myCost(start, end []float64) float64 {
@@ -417,7 +441,8 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		return nil, nil, err
 	}
 
-	startDistance := myDistance(startPose, goalPose)
+	goalPoint := goalPose.Point()
+	startDistance := myDistance(startPose.Point(), goalPoint)
 
 	best := []entry{}
 
@@ -427,7 +452,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	for _, b := range boxes {
 		for _, c := range b.entries {
-			distance := myDistance(goalPose, c.pose)
+			distance := myDistance(goalPoint, c.pt)
 
 			if distance > startDistance {
 				// we're further than we started, so don't bother

@@ -261,13 +261,6 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		return
 	}
 
-	err = sss.psc.checker.CheckSegmentFSConstraints(ctx, stepArc)
-	if err != nil {
-		// sss.psc.pc.logger.Debugf("bad solution b: %v %v", stepSolution, err)
-		sss.failures.add(step, err)
-		return
-	}
-
 	for _, oldSol := range sss.solutions {
 		similarity := &motionplan.SegmentFS{
 			StartConfiguration: oldSol.inputs,

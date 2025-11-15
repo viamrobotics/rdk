@@ -227,13 +227,13 @@ func (pm *planManager) generateWaypoints(ctx context.Context, start, goal refere
 ) ([]referenceframe.FrameSystemPoses, error) {
 	_, span := trace.StartSpan(ctx, "generateWaypoints")
 	defer span.End()
-	if len(pm.request.Constraints.GetLinearConstraint()) == 0 {
+	if len(pm.request.Constraints.LinearConstraint) == 0 {
 		return []referenceframe.FrameSystemPoses{goal}, nil
 	}
 
 	tighestConstraint := 10.0
 
-	for _, lc := range pm.request.Constraints.GetLinearConstraint() {
+	for _, lc := range pm.request.Constraints.LinearConstraint {
 		tighestConstraint = min(tighestConstraint, lc.LineToleranceMm)
 		tighestConstraint = min(tighestConstraint, lc.OrientationToleranceDegs)
 	}
