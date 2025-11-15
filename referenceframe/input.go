@@ -98,7 +98,7 @@ func (inputs FrameSystemInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses,
 	// Compute poses from configuration using the FrameSystem
 	computedPoses := make(FrameSystemPoses)
 	for _, frameName := range fs.FrameNames() {
-		pif, err := fs.Transform(inputs.ToLinearInputs(), NewZeroPoseInFrame(frameName), World)
+		pif, err := fs.Transform(inputs.ToLinearInputs(), NewZeroPoseInFrame(frameName), World, nil)
 		if err != nil {
 			return nil, err
 		}

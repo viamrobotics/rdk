@@ -415,7 +415,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		finalConfig := plan[len(plan)-1]
 		finalPoseInWorld, err := frameSys.Transform(finalConfig.ToLinearInputs(),
 			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
-			"world")
+			"world", nil)
 		test.That(t, err, test.ShouldBeNil)
 		plannedPose := finalPoseInWorld.(*referenceframe.PoseInFrame).Pose()
 		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, finalPose.Pose(), .01), test.ShouldBeTrue)
@@ -476,7 +476,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		finalConfig := plan[len(plan)-1]
 		finalPoseInWorld, err := frameSys.Transform(finalConfig.ToLinearInputs(),
 			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
-			"world")
+			"world", nil)
 		test.That(t, err, test.ShouldBeNil)
 		plannedPose := finalPoseInWorld.(*referenceframe.PoseInFrame).Pose()
 		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, finalPose.Pose(), .01), test.ShouldBeTrue)
@@ -513,7 +513,7 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		finalConfig := plan[len(plan)-1]
 		finalPoseInWorld, err := frameSys.Transform(finalConfig.ToLinearInputs(),
 			referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewZeroPose()),
-			"world")
+			"world", nil)
 		test.That(t, err, test.ShouldBeNil)
 		plannedPose := finalPoseInWorld.(*referenceframe.PoseInFrame).Pose()
 		test.That(t, spatialmath.PoseAlmostEqualEps(plannedPose, finalPose.Pose(), .01), test.ShouldBeTrue)

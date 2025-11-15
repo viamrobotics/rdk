@@ -48,12 +48,27 @@ type StateFS struct {
 
 	geometries map[string]*referenceframe.GeometriesInFrame
 	poses      referenceframe.FrameSystemPoses
+	myCache    map[string]spatial.Pose
+}
+
+func (s *StateFS) reset(c *referenceframe.LinearInputs) {
+	s.Configuration = c
+	s.geometries = nil
+	s.poses = nil
+	s.myCache = nil
+}
+
+func (s *StateFS) cache() map[string]spatial.Pose {
+	if s.myCache == nil {
+		s.myCache = map[string]spatial.Pose{}
+	}
+	return s.myCache
 }
 
 // Geometries get Geometries and cache
 func (s *StateFS) Geometries() (map[string]*referenceframe.GeometriesInFrame, error) {
 	if s.geometries == nil {
-		g, err := referenceframe.FrameSystemGeometriesLinearInputs(s.FS, s.Configuration)
+		g, err := referenceframe.FrameSystemGeometriesLinearInputs(s.FS, s.Configuration, s.cache())
 		if err != nil {
 			return nil, err
 		}

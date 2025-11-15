@@ -242,11 +242,11 @@ func TestLineFollow(t *testing.T) {
 	stateCheck := &StateFS{Configuration: lastGood.StartConfiguration, FS: fs}
 	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
 
-	stateCheck.Configuration = lastGood.EndConfiguration
+	stateCheck.reset(lastGood.EndConfiguration)
 	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
 
 	// Check that a deviating configuration will fail
-	stateCheck.Configuration = referenceframe.FrameSystemInputs{m.Name(): mpFail}.ToLinearInputs()
+	stateCheck.reset(referenceframe.FrameSystemInputs{m.Name(): mpFail}.ToLinearInputs())
 	err = opt.CheckStateFSConstraints(ctx, stateCheck)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "marker")

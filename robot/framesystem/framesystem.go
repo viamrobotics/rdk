@@ -274,7 +274,7 @@ func (svc *frameSystemService) TransformPose(
 		return nil, err
 	}
 
-	tf, err := fs.Transform(input.ToLinearInputs(), pose, dst)
+	tf, err := fs.Transform(input.ToLinearInputs(), pose, dst, nil)
 	if err != nil {
 		return nil, err
 	}

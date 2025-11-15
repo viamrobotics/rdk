@@ -211,14 +211,14 @@ func BenchmarkFSTransform(b *testing.B) {
 		-1.335, -1.334, -1.339, -1.338, -1.337, -1.336,
 	})
 
-	outputPose, err := fs.Transform(inputs, referenceframe.NewZeroPoseInFrame("xarm6"), "world")
+	outputPose, err := fs.Transform(inputs, referenceframe.NewZeroPoseInFrame("xarm6"), "world", nil)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, fmt.Sprintf("%v", outputPose), test.ShouldEqual,
 		"parent: world, pose: {X:53.425180 Y:243.992738 Z:692.082423 OX:0.898026 OY:0.314087 OZ:0.308055 Theta:130.963386°}")
 
 	accumulator := referenceframe.NewZeroPoseInFrame("xarm6")
 	for b.Loop() {
-		fs.Transform(inputs, accumulator, "world")
+		fs.Transform(inputs, accumulator, "world", nil)
 	}
 }
 
