@@ -336,6 +336,10 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 	_, span := trace.StartSpan(ctx, "smartSeedCache::findSeeds")
 	defer span.End()
 
+	if Is32Bit() {
+		return nil, nil, nil
+	}
+
 	if len(goal) > 1 {
 		return nil, nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
 	}
