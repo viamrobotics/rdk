@@ -45,6 +45,10 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 	start := time.Now()
 
 	ccf.entriesForCacheBuilding = make([][]smartSeedCacheEntry, defaultNumThreads)
+	perSize := totalCacheSizeEstimate(len(f.DoF())) / defaultNumThreads
+	for x := range ccf.entriesForCacheBuilding {
+		ccf.entriesForCacheBuilding[x] = make([]smartSeedCacheEntry, 0, perSize+1)
+	}
 
 	var mainErr error
 	var errLock sync.Mutex
@@ -76,7 +80,7 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 		total += len(l)
 	}
 
-	logger.Debugf("time to do raw building: %v of %d entries", time.Since(start), total)
+	logger.Debugf("time to do raw building: %v of %d entries (guess %v)", time.Since(start), total, perSize*defaultNumThreads)
 
 	start = time.Now()
 	ccf.buildInverseCache()
@@ -111,6 +115,17 @@ var (
 	defaultDivisor  = 10.0
 )
 
+func totalCacheSizeEstimate(dof int) int {
+	if dof != 6 {
+		return int(math.Pow(defaultDivisor, float64(dof)))
+	}
+	l := 1.0
+	for _, x := range arm6JogRatios {
+		l *= (1 + x)
+	}
+	return int(l)
+}
+
 func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []float64, joint, t int) error {
 	limits := f.DoF()
 
@@ -130,7 +145,7 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 		// assum it's an arm
 		jogDivisor = arm6JogRatios[joint]
 	}
-	jog := r / jogDivisor
+	jog := (r / jogDivisor) * .9999
 	x := 0
 	for values[joint] <= max {
 		if joint > 0 || t < 0 || x%defaultNumThreads == t {
@@ -143,7 +158,6 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 		values[joint] += jog
 		x++
 	}
-
 	return nil
 }
 
