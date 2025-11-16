@@ -121,7 +121,7 @@ func realMain() error {
 	mylog := log.New(os.Stdout, "", 0)
 	start := time.Now()
 
-	exporter := perf.NewDevelopmentExporter()
+	exporter := perf.NewOtelDevelopmentExporter()
 	if err := exporter.Start(); err != nil {
 		return err
 	}

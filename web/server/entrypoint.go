@@ -194,7 +194,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	if argsParsed.OutputTelemetry {
-		exporter := perf.NewDevelopmentExporter()
+		exporter := perf.NewOtelDevelopmentExporter()
 		if err := exporter.Start(); err != nil {
 			return err
 		}
