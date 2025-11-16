@@ -180,12 +180,12 @@ func (cff *cacheForFrame) buildInverseCache() {
 		for _, e := range l {
 			p := e.pt
 			cff.minCartesian.X = min(cff.minCartesian.X, p.X)
-			cff.minCartesian.Y = min(cff.minCartesian.X, p.Y)
-			cff.minCartesian.Z = min(cff.minCartesian.X, p.X)
+			cff.minCartesian.Y = min(cff.minCartesian.Y, p.Y)
+			cff.minCartesian.Z = min(cff.minCartesian.Z, p.Z)
 
 			cff.maxCartesian.X = max(cff.maxCartesian.X, p.X)
-			cff.maxCartesian.Y = max(cff.maxCartesian.X, p.Y)
-			cff.maxCartesian.Z = max(cff.maxCartesian.X, p.X)
+			cff.maxCartesian.Y = max(cff.maxCartesian.Y, p.Y)
+			cff.maxCartesian.Z = max(cff.maxCartesian.Z, p.Z)
 		}
 	}
 
