@@ -4,17 +4,20 @@ package armplanning
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -248,8 +251,24 @@ func TestBadSpray1(t *testing.T) {
 
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
 
-	_, _, err = PlanMotion(context.Background(), logger, req)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("basic", func(t *testing.T) {
+		_, _, err = PlanMotion(context.Background(), logger, req)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("toofar", func(t *testing.T) {
+		req.Goals = []*PlanState{
+			{
+				poses: referenceframe.FrameSystemPoses{
+					"arm": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 10000000})),
+				},
+			},
+		}
+		req.Constraints = nil
+		_, _, err = PlanMotion(context.Background(), logger, req)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, errors.Is(err, &tooFarError{}), test.ShouldBeTrue)
+	})
 }
 
 func TestPirouette(t *testing.T) {
