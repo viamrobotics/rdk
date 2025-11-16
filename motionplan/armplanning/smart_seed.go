@@ -25,7 +25,6 @@ func Is32Bit() bool {
 
 type smartSeedCacheEntry struct {
 	inputs []referenceframe.Input
-	pose   spatialmath.Pose // this is in the frame's frame, NOT world
 	pt     r3.Vector
 }
 
@@ -168,7 +167,7 @@ func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine [
 		return err
 	}
 
-	cff.entriesForCacheBuilding[t] = append(cff.entriesForCacheBuilding[t], smartSeedCacheEntry{inputs, p, p.Point()})
+	cff.entriesForCacheBuilding[t] = append(cff.entriesForCacheBuilding[t], smartSeedCacheEntry{inputs, p.Point()})
 
 	return nil
 }
@@ -216,12 +215,13 @@ func (cff *cacheForFrame) findBoxes(goalPose spatialmath.Pose) []*goalCacheBox {
 		d float64
 	}
 
-	best := []e{}
+	goalPoint := goalPose.Point()
 
+	best := []e{}
 	bestScore := cff.minCartesian.Distance(cff.maxCartesian) / 20
 
 	for _, b := range cff.boxes {
-		d := goalPose.Point().Distance(b.center)
+		d := goalPoint.Distance(b.center)
 		if d > bestScore*10 {
 			continue
 		}
