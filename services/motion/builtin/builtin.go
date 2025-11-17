@@ -30,7 +30,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
@@ -69,16 +68,6 @@ const (
 	defaultGlobePlanDeviationM         = 2.6
 	defaultCollisionBuffer             = 150. // mm
 	defaultExecuteEpsilon              = 0.01 // rad or mm
-)
-
-var (
-	defaultPositionPollingHz = 1.
-	defaultObstaclePollingHz = 1.
-)
-
-var (
-	stateTTL              = time.Hour * 24
-	stateTTLCheckInterval = time.Minute
 )
 
 // inputEnabledActuator is an actuator that interacts with the frame system.
@@ -142,7 +131,6 @@ type builtIn struct {
 	visionServices          map[string]vision.Service
 	components              map[string]resource.Resource
 	logger                  logging.Logger
-	state                   *state.State
 	configuredDefaultExtras map[string]any
 }
 
@@ -207,24 +195,11 @@ func (ms *builtIn) Reconfigure(
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
 	ms.components = componentMap
-	if ms.state != nil {
-		ms.state.Stop()
-	}
 
-	state, err := state.NewState(stateTTL, stateTTLCheckInterval, ms.logger)
-	if err != nil {
-		return err
-	}
-	ms.state = state
 	return nil
 }
 
 func (ms *builtIn) Close(ctx context.Context) error {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-	if ms.state != nil {
-		ms.state.Stop()
-	}
 	return nil
 }
 
@@ -243,84 +218,11 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 }
 
 func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-	if err := ctx.Err(); err != nil {
-		return uuid.Nil, err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	ms.logger.CDebugf(ctx, "MoveOnMap called with %s", req)
-
-	// TODO: Deprecated: remove once no motion apis use the opid system
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	ms.applyDefaultExtras(req.Extra)
-	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnMapRequest)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return id, nil
-}
-
-type validatedExtra struct {
-	maxReplans       int
-	replanCostFactor float64
-	extra            map[string]interface{}
-}
-
-func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
-	maxReplans := -1
-	replanCostFactor := defaultReplanCostFactor
-	v := validatedExtra{}
-	if extra == nil {
-		v.extra = map[string]interface{}{"smooth_iter": defaultSmoothIter}
-		return v, nil
-	}
-	if replansRaw, ok := extra["max_replans"]; ok {
-		if replans, ok := replansRaw.(int); ok {
-			maxReplans = replans
-		}
-	}
-
-	if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
-		costFactor, ok := costFactorRaw.(float64)
-		if !ok {
-			return validatedExtra{}, errors.New("could not interpret replan_cost_factor field as float")
-		}
-		replanCostFactor = costFactor
-	}
-
-	if _, ok := extra["smooth_iter"]; !ok {
-		extra["smooth_iter"] = defaultSmoothIter
-	}
-	if _, ok := extra["collision_buffer_mm"]; !ok {
-		extra["collision_buffer_mm"] = defaultCollisionBuffer
-	}
-
-	return validatedExtra{
-		maxReplans:       maxReplans,
-		replanCostFactor: replanCostFactor,
-		extra:            extra,
-	}, nil
+	return uuid.Nil, fmt.Errorf("MoveOnMap not supported by builtin")
 }
 
 func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
-	if err := ctx.Err(); err != nil {
-		return uuid.Nil, err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	ms.logger.CDebugf(ctx, "MoveOnGlobe called with %s", req)
-	// TODO: Deprecated: remove once no motion apis use the opid system
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	ms.applyDefaultExtras(req.Extra)
-	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnGlobeRequest)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return id, nil
+	return uuid.Nil, fmt.Errorf("MoveOnGlobeReqe not supported by builtin")
 }
 
 // GetPose is deprecated.
@@ -341,36 +243,21 @@ func (ms *builtIn) StopPlan(
 	ctx context.Context,
 	req motion.StopPlanReq,
 ) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	return ms.state.StopExecutionByResource(req.ComponentName)
+	return fmt.Errorf("StopPlan not supported by builtin")
 }
 
 func (ms *builtIn) ListPlanStatuses(
 	ctx context.Context,
 	req motion.ListPlanStatusesReq,
 ) ([]motion.PlanStatusWithID, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	return ms.state.ListPlanStatuses(req)
+	return nil, fmt.Errorf("ListPlanStatuses not supported by builtin")
 }
 
 func (ms *builtIn) PlanHistory(
 	ctx context.Context,
 	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	return ms.state.PlanHistory(req)
+	return nil, fmt.Errorf("PlanHistory not supported by builtin")
 }
 
 // DoCommand supports two commands which are specified through the command map
@@ -570,7 +457,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		if wp.Poses() != nil {
 			step := referenceframe.FrameSystemPoses{}
 			for fName, destination := range wp.Poses() {
-				tf, err := frameSys.Transform(fsInputs, destination, solvingFrame)
+				tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, solvingFrame)
 				if err != nil {
 					return nil, err
 				}

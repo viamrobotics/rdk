@@ -56,7 +56,7 @@ func (s *simpleSourceWithPCD) Read(ctx context.Context) (image.Image, func(), er
 	return img, func() {}, err
 }
 
-func (s *simpleSourceWithPCD) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (s *simpleSourceWithPCD) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	return nil, nil
 }
 
@@ -169,7 +169,7 @@ type cloudSource struct {
 	*simpleSource
 }
 
-func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (cs *cloudSource) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	p := pointcloud.NewBasicEmpty()
 	return p, p.Set(pointcloud.NewVector(0, 0, 0), nil)
 }
@@ -178,7 +178,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 	videoSrc := &simpleSource{"rimage/board1"}
 	noProj, err := camera.NewVideoSourceFromReader(context.Background(), videoSrc, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = noProj.NextPointCloud(context.Background())
+	_, err = noProj.NextPointCloud(context.Background(), nil)
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 
 	// make a camera with a NextPointCloudFunction
@@ -186,7 +186,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 	videoSrc2, err := camera.NewVideoSourceFromReader(context.Background(), cloudSrc2, nil, camera.DepthStream)
 	noProj2 := camera.FromVideoSource(resource.NewName(camera.API, "bar"), videoSrc2)
 	test.That(t, err, test.ShouldBeNil)
-	pc, err := noProj2.NextPointCloud(context.Background())
+	pc, err := noProj2.NextPointCloud(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
@@ -217,7 +217,7 @@ func TestCameraWithProjector(t *testing.T) {
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	pc, err := src.NextPointCloud(context.Background())
+	pc, err := src.NextPointCloud(context.Background(), nil)
 	test.That(t, pc.Size(), test.ShouldEqual, 921600)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, src.Close(context.Background()), test.ShouldBeNil)
@@ -234,7 +234,7 @@ func TestCameraWithProjector(t *testing.T) {
 	)
 	cam2 := camera.FromVideoSource(resource.NewName(camera.API, "bar"), videoSrc2)
 	test.That(t, err, test.ShouldBeNil)
-	pc, err = videoSrc2.NextPointCloud(context.Background())
+	pc, err = videoSrc2.NextPointCloud(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)

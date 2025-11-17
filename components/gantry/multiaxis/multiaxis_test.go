@@ -166,7 +166,7 @@ func TestGoToInputs(t *testing.T) {
 		lengthsMm: []float64{1, 2, 3},
 		opMgr:     operation.NewSingleOperationManager(),
 	}
-	inputs = []referenceframe.Input{{Value: 1}, {Value: 2}, {Value: 3}}
+	inputs = []referenceframe.Input{1, 2, 3}
 	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -175,7 +175,7 @@ func TestGoToInputs(t *testing.T) {
 		lengthsMm: []float64{1, 2},
 		opMgr:     operation.NewSingleOperationManager(),
 	}
-	inputs = []referenceframe.Input{{Value: 1}, {Value: 2}}
+	inputs = []referenceframe.Input{1, 2}
 	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -289,7 +289,7 @@ func TestCurrentInputs(t *testing.T) {
 	}
 	inputs, err = fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{Value: 1}, {Value: 5}, {Value: 9}})
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{1, 5, 9})
 
 	fakemultiaxis = &multiAxis{
 		subAxes: twoAxes,
@@ -297,7 +297,7 @@ func TestCurrentInputs(t *testing.T) {
 	}
 	inputs, err = fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{Value: 1}, {Value: 5}})
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{1, 5})
 }
 
 func TestKinematics(t *testing.T) {

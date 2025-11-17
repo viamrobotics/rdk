@@ -87,18 +87,19 @@ func TestFullReloadFlow(t *testing.T) {
 		map[string]any{
 			moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 			moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+			generalFlagNoProgress: true, // Disable progress spinner to avoid race conditions in tests
 		},
 		"token",
 	)
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger)
+	err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 
 	t.Run("addShellService", func(t *testing.T) {
 		t.Run("addsServiceWhenMissing", func(t *testing.T) {
 			part, _ := vc.getRobotPart("id")
-			err := addShellService(cCtx, vc, part.Part, false)
+			_, err := addShellService(cCtx, vc, logging.NewTestLogger(t), part.Part, false)
 			test.That(t, err, test.ShouldBeNil)
 			services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
 			test.That(t, ok, test.ShouldBeTrue)
@@ -127,7 +128,7 @@ func TestFullReloadFlow(t *testing.T) {
 			)
 
 			part, _ := vc2.getRobotPart("id")
-			err = addShellService(cCtx2, vc2, part.Part, false)
+			_, err = addShellService(cCtx2, vc2, logging.NewTestLogger(t), part.Part, false)
 			test.That(t, err, test.ShouldBeNil)
 			services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
 			test.That(t, ok, test.ShouldBeTrue)
@@ -166,11 +167,12 @@ func TestFullReloadFlow(t *testing.T) {
 				map[string]any{
 					moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 					moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+					generalFlagNoProgress: true, // Disable progress spinner to avoid race conditions in tests
 				},
 				"token",
 			)
 
-			err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger)
+			err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "not supported for hot reloading")
 		})
@@ -191,11 +193,12 @@ func TestFullReloadFlow(t *testing.T) {
 				map[string]any{
 					moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 					moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+					generalFlagNoProgress: true, // Disable progress spinner to avoid race conditions in tests
 				},
 				"token",
 			)
 
-			err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger)
+			err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, updateCount, test.ShouldEqual, 1)
 		})

@@ -17,6 +17,7 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/viamrobotics/webrtc/v3"
+	"go.opencensus.io/plugin/ocgrpc"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -313,6 +314,8 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		// sending version metadata
 		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()),
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
+		// sending traces across the network
+		rpc.WithDialStatsHandler(&ocgrpc.ClientHandler{}),
 	)
 
 	// If we're a client running as part of a module, we annotate our requests with our module

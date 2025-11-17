@@ -18,9 +18,11 @@ import (
 	"sync/atomic"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
+	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
@@ -31,6 +33,9 @@ import (
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -263,6 +268,21 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
+	// Add recovery handler interceptors to avoid crashing the rdk when a module's gRPC
+	// request manages to cause an internal panic.
+	unaryInterceptors = append(unaryInterceptors, grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandler(
+		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
+			err := status.Errorf(codes.Internal, "%v", p)
+			svc.logger.Errorw("panicked while calling unary server method for module request", "error", errors.WithStack(err))
+			return err
+		}))))
+	streamInterceptors = append(streamInterceptors, grpc_recovery.StreamServerInterceptor(grpc_recovery.WithRecoveryHandler(
+		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
+			err := status.Errorf(codes.Internal, "%s", p)
+			svc.logger.Errorw("panicked while calling stream server method for module request", "error", errors.WithStack(err))
+			return err
+		}))))
+
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
 		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)
@@ -276,6 +296,11 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		googlegrpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)),
 		googlegrpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
 		googlegrpc.UnknownServiceHandler(svc.foreignServiceHandler),
+		googlegrpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             rpc.KeepAliveTime / 2, // keep this in sync with goutils' rpc/dialer & server.
+			PermitWithoutStream: true,
+		}),
+		googlegrpc.StatsHandler(&ocgrpc.ServerHandler{}),
 	}
 	server := module.NewServer(opts...)
 	if tcpMode {
@@ -337,6 +362,7 @@ func (svc *webService) stopWeb() {
 	if svc.cancelFunc != nil {
 		svc.cancelFunc()
 	}
+	svc.closeStreamServer()
 	svc.isRunning = false
 	svc.webWorkers.Wait()
 }
@@ -461,7 +487,6 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 				svc.logger.Errorw("error stopping rpc server", "error", err)
 			}
 		}()
-		svc.closeStreamServer()
 	})
 	svc.webWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
