@@ -39,6 +39,7 @@ type Config struct {
 	LengthMm        float64  `json:"length_mm"`
 	MmPerRevolution float64  `json:"mm_per_rev"`
 	GantryMmPerSec  float64  `json:"gantry_mm_per_sec,omitempty"`
+	Kinematics      string   `json:"kinematics_file,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -165,6 +166,13 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		g.logger.CWarn(ctx, "gantry_mm_per_sec not provided, defaulting to 100 motor rpm")
 		g.rpm = 100
 	}
+
+	m, err := referenceframe.KinematicModelFromFile(newConf.Kinematics, g.Named.Name().String())
+	if err != nil {
+		g.logger.CWarnf(ctx, "failed to load kinematics from file '%v': %v", newConf.Kinematics, err)
+		m = nil
+	}
+	g.model = m
 
 	// Rerun homing if the board has changed
 	if newConf.Board != "" {
@@ -598,26 +606,23 @@ func (g *singleAxis) IsMoving(ctx context.Context) (bool, error) {
 	return g.opMgr.OpRunning(), nil
 }
 
+func (g *singleAxis) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatial.Geometry, error) {
+	inputs, err := g.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	gif, err := g.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
+}
+
 func (g *singleAxis) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.model == nil {
-		m := referenceframe.NewSimpleModel("")
-
-		f, err := referenceframe.NewStaticFrame(g.Name().ShortName(), spatial.NewZeroPose())
-		if err != nil {
-			return nil, err
-		}
-		m.SetOrdTransforms(append(m.OrdTransforms(), f))
-
-		f, err = referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{Min: 0, Max: g.lengthMm})
-		if err != nil {
-			return nil, err
-		}
-
-		m.SetOrdTransforms(append(m.OrdTransforms(), f))
-		g.model = m
-	}
 	return g.model, nil
 }
 
