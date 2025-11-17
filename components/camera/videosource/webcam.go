@@ -249,10 +249,32 @@ func (c *webcam) Reconfigure(
 	if err != nil {
 		return err
 	}
-	c.stopWorkers()
+
+	// Stop the driver and frame buffer worker
+	c.mu.Lock()
+	driver := c.driver
+	frameBufferWorker := c.buffer.worker
+	c.mu.Unlock()
+
+	if driver != nil {
+		if err := driver.Close(); err != nil {
+			c.logger.Errorw("failed to close current camera before stopping buffer worker", "error", err)
+		}
+	}
+
+	if frameBufferWorker != nil {
+		frameBufferWorker.Stop()
+	}
+
+	// Release buffer
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.buffer.stopBuffer()
+	if c.buffer != nil {
+		if c.buffer.release != nil {
+			c.buffer.release()
+			c.buffer.release = nil
+		}
+	}
 	c.reader = nil
 	c.driver = nil
 
@@ -282,7 +304,7 @@ func (c *webcam) Reconfigure(
 		c.conf.FrameRate = defaultFrameRate
 	}
 	c.buffer = NewWebcamBuffer(c.workers.Context())
-	c.startBuffer()
+	c.startFrameBufferWorker()
 
 	return nil
 }
@@ -522,9 +544,9 @@ func (c *webcam) getLatestFrame() (image.Image, error) {
 	return c.buffer.frame, nil
 }
 
-func (c *webcam) startBuffer() {
+func (c *webcam) startFrameBufferWorker() {
 	if c.buffer.frame != nil {
-		return // webcam buffer already started
+		return // frame buffer worker already started
 	}
 
 	interFrameDuration := time.Duration(float32(time.Second) / c.conf.FrameRate)
@@ -560,7 +582,7 @@ func (c *webcam) startBuffer() {
 					c.buffer.release = nil
 					c.buffer.frame = nil
 					c.logger.Errorf("error reading frame: %v", err)
-					isEOF := err == io.EOF
+					isEOF := errors.Is(err, io.EOF)
 					if isEOF {
 						c.logger.Warnf("camera disconnected (EOF), stopping buffer. Error: %v", err)
 						c.disconnected = true
@@ -574,42 +596,9 @@ func (c *webcam) startBuffer() {
 				c.buffer.frame = img
 				c.buffer.release = release
 				c.mu.Unlock()
-
 			}
 		}
 	})
-}
-
-// stopWorkers closes the current driver (if any) to unblock any pending reads
-// and stops the buffer worker so reconfigure or shutdown operations don't hang.
-func (c *webcam) stopWorkers() {
-	c.mu.Lock()
-	driver := c.driver
-	bufferWorker := c.buffer.worker
-	c.mu.Unlock()
-
-	if driver != nil {
-		if err := driver.Close(); err != nil {
-			c.logger.Errorw("failed to close current camera before stopping buffer worker", "error", err)
-		}
-	}
-
-	if bufferWorker != nil {
-		bufferWorker.Stop()
-	}
-}
-
-// Must lock the mutex before using this function.
-func (buffer *WebcamBuffer) stopBuffer() {
-	if buffer == nil {
-		return
-	}
-
-	// Release the remaining frame.
-	if buffer.release != nil {
-		buffer.release()
-		buffer.release = nil
-	}
 }
 
 func (c *webcam) Close(ctx context.Context) error {
