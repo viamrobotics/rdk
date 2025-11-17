@@ -355,15 +355,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	if mod.dataDir != "" {
 		mod.logger.Debugf("Creating data directory %q for module %q", mod.dataDir, mod.cfg.Name)
 		if err := os.MkdirAll(mod.dataDir, 0o750); err != nil {
-			// RSDK-12423: It's possible that tests running in parallel can cause this
-			// `MkdirAll` to fail as one test attempts to "cleanup" the module directory while
-			// the `MkdirAll` is running causing one of the parent directories it created to no
-			// longer exist.
-			mgr.logger.Errorw("error while creating data directory for module; trying again",
-				"error", err, "module", mod.cfg.Name)
-			if err := os.MkdirAll(mod.dataDir, 0o750); err != nil {
-				return errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
-			}
+			return errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
 		}
 	}
 
