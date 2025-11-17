@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -90,6 +91,16 @@ func newMultiAxis(
 	if err != nil {
 		return nil, err
 	}
+
+	model := referenceframe.NewSimpleModel(mAx.Name().Name)
+	for _, subAx := range mAx.subAxes {
+		k, err := subAx.Kinematics(ctx)
+		if err != nil {
+			return nil, err
+		}
+		model.SetOrdTransforms(append(model.OrdTransforms(), k))
+	}
+	mAx.model = model
 
 	return mAx, nil
 }
@@ -229,18 +240,19 @@ func (g *multiAxis) IsMoving(ctx context.Context) (bool, error) {
 	return g.opMgr.OpRunning(), nil
 }
 
-func (g *multiAxis) Kinematics(ctx context.Context) (referenceframe.Model, error) {
-	if g.model == nil {
-		model := referenceframe.NewSimpleModel("")
-		for _, subAx := range g.subAxes {
-			k, err := subAx.Kinematics(ctx)
-			if err != nil {
-				return nil, err
-			}
-			model.SetOrdTransforms(append(model.OrdTransforms(), k))
-		}
-		g.model = model
+func (g *multiAxis) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	inputs, err := g.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
 	}
+	gif, err := g.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
+}
+
+func (g *multiAxis) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	return g.model, nil
 }
 

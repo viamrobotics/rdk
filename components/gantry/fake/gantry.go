@@ -4,12 +4,11 @@ package fake
 import (
 	"context"
 
-	"github.com/golang/geo/r3"
-
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 )
 
@@ -31,6 +30,11 @@ func init() {
 
 // NewGantry returns a new fake gantry.
 func NewGantry(name resource.Name, logger logging.Logger) gantry.Gantry {
+	m, err := referenceframe.KinematicModelFromFile("../test_gantry_model.json", "test_gantry_model")
+	if err != nil {
+		logger.CWarnf(context.Background(), "failed to load kinematics from file: %v", err)
+		m = nil
+	}
 	return &Gantry{
 		testutils.NewUnimplementedResource(name),
 		resource.TriviallyReconfigurable{},
@@ -39,7 +43,7 @@ func NewGantry(name resource.Name, logger logging.Logger) gantry.Gantry {
 		[]float64{120},
 		[]float64{5},
 		2,
-		r3.Vector{X: 1, Y: 0, Z: 0},
+		m,
 		logger,
 	}
 }
@@ -53,7 +57,7 @@ type Gantry struct {
 	speedsMmPerSec []float64
 	lengths        []float64
 	lengthMeters   float64
-	frame          r3.Vector
+	model          referenceframe.Model
 	logger         logging.Logger
 }
 
@@ -90,15 +94,22 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// Kinematics returns the kinematic model associated with the gantry.
-func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Model, error) {
-	m := referenceframe.NewSimpleModel("")
-	f, err := referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{0, g.lengthMeters})
+// Geometries returns the geometries of the gantry.
+func (g *Gantry) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	inputs, err := g.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	m.SetOrdTransforms(append(m.OrdTransforms(), f))
-	return m, nil
+	gif, err := g.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
+}
+
+// Kinematics returns the kinematic model associated with the gantry.
+func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	return g.model, nil
 }
 
 // CurrentInputs returns positions in the Gantry frame model..
