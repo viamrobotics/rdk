@@ -255,8 +255,8 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 // commonCleanup is a helper for the various ManagerSyncer.Cleanup functions.
 func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool, packagesDataDir string) error {
 	topLevelFiles, err := os.ReadDir(packagesDataDir)
-	if err != nil {
-		return err
+	if pathErr := (&os.PathError{}); errors.Is(err, pathErr) {
+		return nil
 	}
 
 	var allErrors error
