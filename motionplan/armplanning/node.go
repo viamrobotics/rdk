@@ -51,7 +51,7 @@ func fixedStepInterpolation(start, target *node, qstep map[string][]float64) *re
 }
 
 type node struct {
-	name     int
+	name     int64
 	goalNode bool
 
 	inputs *referenceframe.LinearInputs
@@ -69,7 +69,7 @@ var nodeNameCounter atomic.Int64
 
 func newConfigurationNode(q *referenceframe.LinearInputs) *node {
 	return &node{
-		name:   int(nodeNameCounter.Add(1)),
+		name:   nodeNameCounter.Add(1),
 		inputs: q,
 		corner: false,
 	}
@@ -292,7 +292,7 @@ func (sss *solutionSolvingState) processSimilarity(
 		}
 	}
 
-	return &node{name: int(nodeNameCounter.Add(1)), inputs: step, cost: sss.psc.pc.configurationDistanceFunc(stepArc)}
+	return &node{name: nodeNameCounter.Add(1), inputs: step, cost: myCost}
 }
 
 func (sss *solutionSolvingState) toInputs(_ context.Context, stepSolution *ik.Solution) *referenceframe.LinearInputs {
@@ -439,10 +439,8 @@ func (bgGen *backgroundGenerator) Wait() {
 }
 
 func (bgGen *backgroundGenerator) StopAndWait() {
-	if bgGen != nil {
-		bgGen.cancel()
-		bgGen.wg.Wait()
-	}
+	bgGen.Stop()
+	bgGen.Wait()
 }
 
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and

@@ -273,7 +273,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			doubled = false
 		}
 		// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
-		near = &node{name: int(nodeNameCounter.Add(1)), inputs: newNear}
+		near = &node{name: nodeNameCounter.Add(1), inputs: newNear}
 		rrtMap[near] = oldNear
 	}
 	return oldNear
