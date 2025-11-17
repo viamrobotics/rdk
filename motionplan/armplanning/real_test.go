@@ -214,7 +214,7 @@ func TestSandingLargeMove1(t *testing.T) {
 	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
-	solution, err := initRRTSolutions(context.Background(), psc)
+	solution, err := initRRTSolutions(context.Background(), psc, logger.Sublogger("ik"))
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(solution.steps), test.ShouldEqual, 1)

@@ -127,10 +127,11 @@ type solutionSolvingState struct {
 	bestScoreWithProblem float64
 	bestScoreNoProblem   float64
 
-	fatal error
+	fatal  error
+	logger logging.Logger
 }
 
-func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*solutionSolvingState, error) {
+func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logger logging.Logger) (*solutionSolvingState, error) {
 	ctx, span := trace.StartSpan(ctx, "newSolutionSolvingState")
 	defer span.End()
 
@@ -144,6 +145,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 		bestScoreNoProblem:   10000000,
 		bestScoreWithProblem: 10000000,
 		maxSolutions:         psc.pc.planOpts.MaxSolutions,
+		logger:               logger,
 	}
 
 	if sss.maxSolutions <= 0 {
@@ -165,23 +167,23 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .05))
 
 	if sss.goodCost > 1 && minRatio > .05 {
-		ssc, err := smartSeed(psc.pc.fs, psc.pc.logger)
+		ssc, err := smartSeed(psc.pc.fs, logger)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
 		}
 
-		altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, 5 /* TODO */, psc.pc.logger)
+		altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, 5 /* TODO */, logger)
 		if err != nil {
-			psc.pc.logger.Warnf("findSeeds failed, ignoring: %v", err)
+			logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
-		psc.pc.logger.Debugf("got %d altSeeds", len(altSeeds))
 
+		logger.Infof("got %d altSeeds", len(altSeeds))
 		for _, s := range altSeeds {
 			si := s.GetLinearizedInputs()
 			sss.linearSeeds = append(sss.linearSeeds, si)
 			ll := ik.ComputeAdjustLimitsArray(si, sss.seedLimits[0], altLimitDivisors)
 			sss.seedLimits = append(sss.seedLimits, ll)
-			psc.pc.logger.Debugf("\t ss (%d): %v", len(sss.linearSeeds)-1, logging.FloatArrayFormat{"", si})
+			logger.Infof("\t ss (%d): %v", len(sss.linearSeeds)-1, logging.FloatArrayFormat{"", si})
 		}
 	}
 
@@ -194,7 +196,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 
 func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) ([]float64, float64, error) {
 	ratios, err := inputChangeRatio(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
-		sss.psc.pc.planOpts.getGoalMetric(goal), sss.psc.pc.logger)
+		sss.psc.pc.planOpts.getGoalMetric(goal), sss.logger)
 	if err != nil {
 		return nil, 1, err
 	}
@@ -219,7 +221,7 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 	}
 
 	sss.goodCost = sss.psc.pc.configurationDistanceFunc(stepArc)
-	sss.psc.pc.logger.Debugf("goodCost: %v", sss.goodCost)
+	sss.logger.Infof("goodCost: %v", sss.goodCost)
 	return ratios, minRatio, nil
 }
 
@@ -231,7 +233,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 
 	step, err := sss.psc.pc.lis.FloatsToInputs(stepSolution.Configuration)
 	if err != nil {
-		sss.psc.pc.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
+		sss.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
 		return
 	}
 
@@ -243,7 +245,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	myCost := sss.psc.pc.configurationDistanceFunc(stepArc)
 
 	if myCost > sss.bestScoreNoProblem {
-		sss.psc.pc.logger.Debugf("got score %0.4f worse than bestScoreNoProblem", myCost)
+		sss.logger.Debugf("got score %0.4f worse than bestScoreNoProblem", myCost)
 		return
 	}
 
@@ -253,7 +255,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		FS:            sss.psc.pc.fs,
 	})
 	if err != nil {
-		// sss.psc.pc.logger.Debugf("bad solution a: %v %v", stepSolution, err)
+		// sss.logger.Debugf("bad solution a: %v %v", stepSolution, err)
 		if len(sss.solutions) == 0 && sss.psc.pc.isFatalCollision(err) {
 			sss.fatal = fmt.Errorf("fatal early collision: %w", err)
 		}
@@ -286,7 +288,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	}
 
 	whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
-	sss.psc.pc.logger.Debugf("got score %0.4f @ %v - %s - result: %v", myNode.cost, now, stepSolution.Meta, whyNot)
+	sss.logger.Debugf("got score %0.4f @ %v - %s - result: %v", myNode.cost, now, stepSolution.Meta, whyNot)
 	myNode.checkPath = whyNot == nil
 
 	if whyNot == nil && myNode.cost < sss.bestScoreNoProblem {
@@ -299,17 +301,17 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	elapsed := time.Since(sss.startTime)
 
 	if sss.fatal != nil {
-		sss.psc.pc.logger.Debugf("stopping with fatal %v", sss.fatal)
+		sss.logger.Infof("stopping with fatal %v", sss.fatal)
 		return true
 	}
 
 	if len(sss.solutions) >= sss.maxSolutions {
-		sss.psc.pc.logger.Debugf("stopping with %d solutions after: %v", len(sss.solutions), elapsed)
+		sss.logger.Infof("stopping with %d solutions after: %v", len(sss.solutions), elapsed)
 		return true
 	}
 
 	if sss.bestScoreNoProblem < .2 {
-		sss.psc.pc.logger.Debugf("stopping early with amazing %0.2f after: %v", sss.bestScoreNoProblem, elapsed)
+		sss.logger.Infof("stopping early with amazing %0.2f after: %v", sss.bestScoreNoProblem, elapsed)
 		return true
 	}
 
@@ -349,7 +351,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	}
 
 	if elapsed > timeToSearch {
-		sss.psc.pc.logger.Debugf("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n\t timeToSearch: %v firstSolutionTime: %v",
+		sss.logger.Infof("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n\t timeToSearch: %v firstSolutionTime: %v",
 			sss.bestScoreNoProblem, sss.bestScoreNoProblem/sss.goodCost,
 			sss.bestScoreWithProblem, sss.bestScoreWithProblem/sss.goodCost,
 			elapsed, timeToSearch, sss.firstSolutionTime)
@@ -359,7 +361,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	if len(sss.solutions) == 0 && elapsed > (1000*time.Millisecond) {
 		// if we found any solution, we want to look for better for a while
 		// but if we've found 0, then probably never going to
-		sss.psc.pc.logger.Debugf("stopping early after: %v because nothing has been found, probably won't", elapsed)
+		sss.logger.Infof("stopping early after: %v because nothing has been found, probably won't", elapsed)
 		return true
 	}
 
@@ -374,12 +376,12 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 //
 // If minScore is positive, if a solution scoring below that amount is found, the solver will
 // terminate and return that one solution.
-func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error) {
+func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.Logger) ([]*node, error) {
 	if psc.start.Len() == 0 {
 		return nil, fmt.Errorf("getSolutions start can't be empty")
 	}
 
-	solvingState, err := newSolutionSolvingState(ctx, psc)
+	solvingState, err := newSolutionSolvingState(ctx, psc, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +401,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		}
 	}()
 
-	solver, err := ik.CreateCombinedIKSolver(psc.pc.logger, defaultNumThreads, psc.pc.planOpts.GoalThreshold)
+	solver, err := ik.CreateCombinedIKSolver(logger, defaultNumThreads, psc.pc.planOpts.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -414,7 +416,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext) ([]*node, error)
 		defer close(solutionGen)
 		nSol, m, err := solver.Solve(ctxWithCancel,
 			solutionGen, solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
-		solvingState.psc.pc.logger.Debugf("Solver stopping. Solutions: %v Err? %v", nSol, err)
+		solvingState.logger.Infof("Solver stopping. Solutions: %v Err? %v", nSol, err)
 
 		solveErrorLock.Lock()
 		solveError = err
@@ -430,7 +432,7 @@ solutionLoop:
 			return nil, ctx.Err()
 		case stepSolution, ok := <-solutionGen:
 			if !ok {
-				solvingState.psc.pc.logger.Debugf(
+				logger.Infof(
 					"Stopping because input channel is closed. Best score: %v With problem: %v",
 					solvingState.bestScoreNoProblem, solvingState.bestScoreWithProblem)
 				// No longer using the generated solutions. Cancel the workers.
@@ -478,7 +480,7 @@ solutionLoop:
 }
 
 func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.LinearInputs, solveMeta []ik.SeedSolveMetaData) error {
-	if sss.psc.pc.logger.GetLevel() != logging.DEBUG {
+	if sss.logger.GetLevel() != logging.DEBUG {
 		return nil
 	}
 
@@ -525,6 +527,6 @@ func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 		fmt.Fprintf(&builder, "\t valid: %v\n", !inValid[idx])
 	}
 
-	sss.psc.pc.logger.Debugf(builder.String())
+	sss.logger.Debugf(builder.String())
 	return nil
 }
