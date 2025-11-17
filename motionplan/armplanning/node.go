@@ -2,6 +2,7 @@ package armplanning
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -174,6 +175,9 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 
 		altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, 5 /* TODO */, logger)
 		if err != nil {
+			if errors.Is(err, &tooFarError{}) {
+				return nil, err
+			}
 			logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
 

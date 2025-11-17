@@ -18,6 +18,19 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+type tooFarError struct {
+	max, want float64
+}
+
+func (tfe *tooFarError) Error() string {
+	return fmt.Sprintf("asked for a pose too far max: %0.2f, asked for: %0.2f", tfe.max, tfe.want)
+}
+
+func (tfe *tooFarError) Is(target error) bool {
+	_, ok := target.(*tooFarError)
+	return ok
+}
+
 // Is32Bit returns true if we're on a 32-bit system.
 func Is32Bit() bool {
 	return strconv.IntSize < 64
@@ -92,6 +105,7 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 type cacheForFrame struct {
 	entriesForCacheBuilding [][]smartSeedCacheEntry
 
+	maxNorm                    float64
 	minCartesian, maxCartesian r3.Vector
 
 	boxes map[string]*goalCacheBox // hash to list
@@ -189,6 +203,8 @@ func (cff *cacheForFrame) buildInverseCache() {
 		}
 	}
 
+	cff.maxNorm = 0.0
+
 	for _, l := range cff.entriesForCacheBuilding {
 		for _, e := range l {
 			key := cff.boxKey(e.pt)
@@ -200,6 +216,8 @@ func (cff *cacheForFrame) buildInverseCache() {
 			box.entries = append(box.entries, e)
 
 			box.center = box.center.Add(e.pt)
+
+			cff.maxNorm = max(cff.maxNorm, e.pt.Norm())
 		}
 	}
 
@@ -333,6 +351,10 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 	_, span := trace.StartSpan(ctx, "smartSeedCache::findSeeds")
 	defer span.End()
 
+	if Is32Bit() {
+		return nil, nil, nil
+	}
+
 	if len(goal) > 1 {
 		return nil, nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
 	}
@@ -449,14 +471,19 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		return nil, nil, fmt.Errorf("no frame %s", frameName)
 	}
 
-	logger.Infof("findSeedsForFrame: %s goalPose: %v start: %v", frameName, goalPose, start)
+	goalPoint := goalPose.Point()
+	n := goalPoint.Norm()
+	logger.Infof("findSeedsForFrame: %s goalPose: %v start: %v norm: %0.2f", frameName, goalPose, start, n)
+
+	if n > ssc.rawCache[frameName].maxNorm {
+		return nil, nil, &tooFarError{ssc.rawCache[frameName].maxNorm, n}
+	}
 
 	startPose, err := frame.Transform(start)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	goalPoint := goalPose.Point()
 	startDistance := myDistance(startPose.Point(), goalPoint)
 
 	best := []entry{}
