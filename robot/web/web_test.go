@@ -1625,9 +1625,10 @@ func testResourceLimitsAndFTDC(
 	err = call(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
-	test.That(t, err.Error(), test.ShouldEndWith,
-		fmt.Sprintf("exceeded request limit 1 on resource %v, see %v for troubleshooting steps", keyPrefix, web.ReqLimitExceededURL))
-
+	test.That(t, err.Error(), test.ShouldContainSubstring,
+		fmt.Sprintf("exceeded request limit 1 on resource %v", keyPrefix))
+	var reqLimitErr *web.RequestLimitExceededError
+	test.That(t, errors.As(err, &reqLimitErr), test.ShouldBeTrue)
 	// In flight requests counter should still only be 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 1)
