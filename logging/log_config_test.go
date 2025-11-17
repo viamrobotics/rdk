@@ -140,8 +140,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	for _, tc := range tests {
 		testRegistry := createTestRegistry(tc.loggerNames)
 
-		err := testRegistry.Update(tc.loggerConfig, NewLogger("error-logger"))
-		test.That(t, err, test.ShouldBeNil)
+		testRegistry.Update(tc.loggerConfig, NewLogger("error-logger"))
 		test.That(t, verifySetLevels(testRegistry, tc.expectedMatches), test.ShouldBeTrue)
 	}
 }

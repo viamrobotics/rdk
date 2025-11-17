@@ -36,7 +36,7 @@ func main() {
 
 func realMain() error {
 	ctx := context.Background()
-	logger := logging.NewLogger("cmd-plan")
+	logger, reg := logging.NewLoggerWithRegistry("cmd-plan")
 
 	pseudolinearLine := flag.Float64("pseudolinear-line", 0, "")
 	pseudolinearOrientation := flag.Float64("pseudolinear-orientation", 0, "")
@@ -72,12 +72,33 @@ func realMain() error {
 		}()
 	}
 
+	_ = reg
 	if *verbose {
 		logger.SetLevel(logging.DEBUG)
+		reg.Update([]logging.LoggerPatternConfig{
+			{
+				Pattern: "*.mp*",
+				Level:   "DEBUG",
+			},
+		}, logger)
+	} else {
+		reg.Update([]logging.LoggerPatternConfig{
+			{
+				Pattern: "*.mp",
+				Level:   "DEBUG",
+			},
+			{
+				Pattern: "*.ik",
+				Level:   "INFO",
+			},
+			{
+				Pattern: "*.cbirrt",
+				Level:   "INFO",
+			},
+		}, logger)
 	}
 
 	logger.Infof("reading plan from %s", flag.Arg(0))
-
 	req, err := armplanning.ReadRequestFromFile(flag.Arg(0))
 	if err != nil {
 		return err
