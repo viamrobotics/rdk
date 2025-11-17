@@ -5,11 +5,13 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/gantry"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -28,6 +30,7 @@ var (
 	errLengthsFailed        = errors.New("couldn't get lengths")
 	errStopFailed           = errors.New("couldn't stop")
 	errGantryNotFound       = errors.New("not found")
+	errKinematicsFailed     = errors.New("couldn't get kinematics")
 )
 
 func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error) {
@@ -77,6 +80,13 @@ func TestServer(t *testing.T) {
 		extra1 = extra
 		return nil
 	}
+	injectGantry.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		model, err := referenceframe.KinematicModelFromFile("./test_gantry_model.json", "test_gantry_model")
+		if err != nil {
+			return nil, err
+		}
+		return model, nil
+	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
 	speed2 := []float64{100.0, 80.0, 120.0}
@@ -97,6 +107,9 @@ func TestServer(t *testing.T) {
 	}
 	injectGantry2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errStopFailed
+	}
+	injectGantry2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errKinematicsFailed
 	}
 
 	//nolint:dupl
@@ -212,5 +225,19 @@ func TestServer(t *testing.T) {
 		_, err = gantryServer.Stop(context.Background(), &pb.StopRequest{Name: failGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStopFailed.Error())
+	})
+
+	t.Run("kinematics", func(t *testing.T) {
+		_, err := gantryServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: missingGantryName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
+
+		resp, err := gantryServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: testGantryName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+
+		_, err = gantryServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: failGantryName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errKinematicsFailed.Error())
 	})
 }

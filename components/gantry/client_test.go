@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/components/gantry"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -52,6 +53,13 @@ func TestClient(t *testing.T) {
 		extra1 = extra
 		return true, nil
 	}
+	injectGantry.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		model, err := referenceframe.KinematicModelFromFile("./test_gantry_model.json", "test_gantry_model")
+		if err != nil {
+			return nil, err
+		}
+		return model, nil
+	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
 	speed2 := []float64{100.0, 80.0, 120.0}
@@ -79,6 +87,9 @@ func TestClient(t *testing.T) {
 	injectGantry2.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		extra2 = extra
 		return false, errHomingFailed
+	}
+	injectGantry2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errKinematicsFailed
 	}
 
 	gantrySvc, err := resource.NewAPIResourceCollection(
@@ -139,6 +150,10 @@ func TestClient(t *testing.T) {
 		test.That(t, homed, test.ShouldBeTrue)
 		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 345., "bar": "456"})
 
+		model, err := gantry1Client.Kinematics(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, model, test.ShouldNotBeNil)
+
 		err = gantry1Client.Stop(context.Background(), map[string]interface{}{"foo": 456, "bar": "567"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStopFailed.Error())
@@ -163,6 +178,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, errHomingFailed.Error())
 		test.That(t, homed, test.ShouldBeFalse)
 		test.That(t, extra2, test.ShouldResemble, map[string]interface{}{"foo": 345., "bar": "456"})
+
+		model, err := client2.Kinematics(context.Background())
+		test.That(t, err.Error(), test.ShouldContainSubstring, errKinematicsFailed.Error())
+		test.That(t, model, test.ShouldBeNil)
 
 		err = client2.Stop(context.Background(), map[string]interface{}{"foo": "234", "bar": 345})
 		test.That(t, err, test.ShouldBeNil)

@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 )
 
@@ -117,6 +118,18 @@ func (s *serviceServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (
 		return nil, err
 	}
 	return &pb.IsMovingResponse{IsMoving: moving}, nil
+}
+
+func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKinematicsRequest) (*commonpb.GetKinematicsResponse, error) {
+	gantry, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	model, err := gantry.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.KinematicModelToProtobuf(model), nil
 }
 
 // DoCommand receives arbitrary commands.
