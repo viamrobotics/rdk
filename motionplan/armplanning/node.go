@@ -146,6 +146,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 
 	var err error
 
+	const numSolutionsBeforeReturning = 10
 	sss := &solutionSolvingState{
 		psc:                  psc,
 		solutions:            []*node{},
@@ -153,11 +154,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext) (*sol
 		firstSolutionTime:    time.Hour,
 		bestScoreNoProblem:   10000000,
 		bestScoreWithProblem: 10000000,
-		maxSolutions:         psc.pc.planOpts.MaxSolutions,
-	}
-
-	if sss.maxSolutions <= 0 {
-		sss.maxSolutions = defaultSolutionsToSeed
+		maxSolutions:         numSolutionsBeforeReturning,
 	}
 
 	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()}

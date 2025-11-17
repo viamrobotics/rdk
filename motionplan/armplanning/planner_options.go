@@ -17,9 +17,6 @@ import (
 const (
 	defaultCollisionBufferMM = 1e-8
 
-	// Number of IK solutions that should be generated before stopping.
-	defaultSolutionsToSeed = 10
-
 	// Check constraints are still met every this many mm/degrees of movement.
 	defaultResolution = 2.0
 
@@ -68,7 +65,6 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	// TODO: RSDK-6079 this should be properly used, and deduplicated with defaultEpsilon, InputIdentDist, etc.
 	opt.GoalThreshold = 0.1
 	// Set defaults
-	opt.MaxSolutions = defaultSolutionsToSeed
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
@@ -95,10 +91,6 @@ type PlannerOptions struct {
 	// Acceptable arc length around the goal orientation vector for any solution. This is the additional parameter used to acquire
 	// the goal metric only if the GoalMetricType is ik.ArcLengthConvergence
 	ArcLengthTolerance float64 `json:"arc_length_tolerance"`
-
-	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
-	// Max number of ik solutions to consider
-	MaxSolutions int `json:"max_ik_solutions"`
 
 	// Movements that score below this amount are considered "good enough" and returned immediately
 	MinScore float64 `json:"min_ik_score"`
@@ -256,11 +248,6 @@ func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) mot
 //  		return score
 //  	}, nil
 // }
-
-// SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
-func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
-	p.MaxSolutions = maxSolutions
-}
 
 // SetMinScore specifies the IK stopping score for the planner.
 func (p *PlannerOptions) SetMinScore(minScore float64) {

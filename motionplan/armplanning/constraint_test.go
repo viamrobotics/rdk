@@ -56,7 +56,6 @@ func TestIKTolerances(t *testing.T) {
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
 	opt := NewBasicPlannerOptions()
 	opt.GoalMetricType = motionplan.PositionOnly
-	opt.SetMaxSolutions(50)
 
 	request2 := &PlanRequest{
 		FrameSystem:    fs,
