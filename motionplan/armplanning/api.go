@@ -177,7 +177,9 @@ type PlanMeta struct {
 }
 
 // PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, *PlanMeta, error) {
+func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanRequest) (motionplan.Plan, *PlanMeta, error) {
+	logger := parentLogger.Sublogger("mp")
+
 	start := time.Now()
 	meta := &PlanMeta{}
 	ctx, span := trace.StartSpan(ctx, "PlanMotion")
