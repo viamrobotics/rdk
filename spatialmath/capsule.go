@@ -312,7 +312,7 @@ func capsuleInSphere(c *capsule, s *sphere) bool {
 
 // capsuleVsBoxCollision returns immediately as soon as any result is found indicating that the two objects are not in collision.
 func capsuleVsBoxCollision(c *capsule, b *box, collisionBufferMM float64) bool {
-	centerDist := b.pose.Point().Sub(c.center)
+	centerDist := b.centerPt.Sub(c.center)
 
 	// check if there is a distance between bounding spheres to potentially exit early
 	if centerDist.Norm()-((c.length/2)+b.boundingSphereR) > collisionBufferMM {
@@ -348,7 +348,7 @@ func capsuleVsBoxCollision(c *capsule, b *box, collisionBufferMM float64) bool {
 }
 
 func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
-	centerDist := b.pose.Point().Sub(c.center)
+	centerDist := b.centerPt.Sub(c.center)
 
 	// check if there is a distance between bounding spheres to potentially exit early
 	if boundingSphereDist := centerDist.Norm() - ((c.length / 2) + b.boundingSphereR); boundingSphereDist > defaultCollisionBufferMM {
