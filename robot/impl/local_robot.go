@@ -486,7 +486,7 @@ func newWithResources(
 	if r.ftdc != nil {
 		r.ftdc.Add("web", r.webSvc.RequestCounter())
 	}
-	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger)
+	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger.Sublogger("framesystem"))
 	if err != nil {
 		return nil, err
 	}
