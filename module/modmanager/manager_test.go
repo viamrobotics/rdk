@@ -1072,7 +1072,11 @@ func TestModuleMisc(t *testing.T) {
 		test.That(t, resp, test.ShouldNotBeNil)
 		dataFullPath, ok := resp["fullpath"].(string)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, dataFullPath, test.ShouldEqual, filepath.Join(testViamHomeDir, "module-data", "local", "test-module", "data.txt"))
+		// Assert that file path for module data is believable. Because we are in a test
+		// environment, the path will be in an unknown temporary directory and there will be a
+		// random string in the middle to avoid collisions with other tests.
+		test.That(t, strings.Contains(dataFullPath, filepath.Join("module-data", "local-testing-")), test.ShouldBeTrue)
+		test.That(t, strings.HasSuffix(dataFullPath, filepath.Join("test-module", "data.txt")), test.ShouldBeTrue)
 		dataFileContents, err := os.ReadFile(dataFullPath)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(dataFileContents), test.ShouldEqual, "hello, world!")
