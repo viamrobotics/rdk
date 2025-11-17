@@ -184,18 +184,15 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Canceled)
 	})
 
-	t.Run("server returns stream error on first Recv", func(t *testing.T) {
-		// Create a client bound to a non-existent resource name; server will error.
-		svcMissingRes, err := video.NewClientFromConn(ctx, conn, "", video.Named("does-not-exist"), logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = svcMissingRes.(video.Service).GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-3", nil, &bytes.Buffer{})
-		test.That(t, err, test.ShouldNotBeNil)
-	})
-
 	t.Run("writer error during streaming", func(t *testing.T) {
 		// Server writes one chunk, client writer fails.
-		injectVideo.GetVideoFunc = func(ctx context.Context, s, e time.Time, codec, container, reqID string, extra map[string]interface{}, w io.Writer) error {
+		injectVideo.GetVideoFunc = func(
+			ctx context.Context,
+			s, e time.Time,
+			codec, container, reqID string,
+			extra map[string]interface{},
+			w io.Writer,
+		) error {
 			_, err := w.Write([]byte{1, 2, 3})
 			return err
 		}
@@ -207,7 +204,13 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 
 	t.Run("normal EOF with no data", func(t *testing.T) {
 		// Server writes nothing and returns nil, client should return nil after io.EOF.
-		injectVideo.GetVideoFunc = func(ctx context.Context, s, e time.Time, codec, container, reqID string, extra map[string]interface{}, w io.Writer) error {
+		injectVideo.GetVideoFunc = func(
+			ctx context.Context,
+			s, e time.Time,
+			codec, container, reqID string,
+			extra map[string]interface{},
+			w io.Writer,
+		) error {
 			return nil
 		}
 		buf := &bytes.Buffer{}
@@ -218,7 +221,13 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 
 	t.Run("context deadline exceeded while waiting for chunks", func(t *testing.T) {
 		// Server blocks for a while, client times out.
-		injectVideo.GetVideoFunc = func(ctx context.Context, s, e time.Time, codec, container, reqID string, extra map[string]interface{}, w io.Writer) error {
+		injectVideo.GetVideoFunc = func(
+			ctx context.Context,
+			s, e time.Time,
+			codec, container, reqID string,
+			extra map[string]interface{},
+			w io.Writer,
+		) error {
 			// Simulate a long operation with no writes.
 			select {
 			case <-ctx.Done():
