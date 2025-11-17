@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"io"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -248,10 +249,12 @@ func (c *webcam) Reconfigure(
 	if err != nil {
 		return err
 	}
-	c.buffer.worker.Stop() // Calling this before locking shuts down the goroutines, and allows stopBuffer() to handle rest of the shutdown.
+	c.stopWorkers()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.buffer.stopBuffer()
+	c.reader = nil
+	c.driver = nil
 
 	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
 	driverReinitNotNeeded := c.conf.Format == newConf.Format &&
@@ -533,27 +536,67 @@ func (c *webcam) startBuffer() {
 			case <-closedCtx.Done():
 				return
 			case <-ticker.C:
-				// We must unlock the mutex even if the release() or read() functions panic.
-				func() {
-					c.mu.Lock()
-					defer c.mu.Unlock()
-					if c.buffer.release != nil {
-						c.buffer.release()
-						c.buffer.release = nil
-						c.buffer.frame = nil
+				// Make a private copy of the previously published frame so consumers can continue to read it,
+				// then return the Reader-managed buffer before we kick off the next read. This avoids holding
+				// on to driver memory while still serving the last frame.
+				var prevRelease func()
+				c.mu.Lock()
+				if c.buffer.release != nil && c.buffer.frame != nil {
+					c.buffer.frame = rimage.CloneImage(c.buffer.frame)
+				}
+				prevRelease = c.buffer.release
+				c.buffer.release = nil
+				c.mu.Unlock()
+
+				if prevRelease != nil {
+					prevRelease()
+				}
+
+				img, release, err := c.reader.Read()
+
+				c.mu.Lock()
+				c.buffer.err = err
+				if err != nil {
+					c.buffer.release = nil
+					c.buffer.frame = nil
+					c.logger.Errorf("error reading frame: %v", err)
+					isEOF := err == io.EOF
+					if isEOF {
+						c.logger.Warnf("camera disconnected (EOF), stopping buffer. Error: %v", err)
+						c.disconnected = true
 					}
-					img, release, err := c.reader.Read()
-					c.buffer.err = err
-					if err != nil {
-						c.logger.Errorf("error reading frame: %v", err)
-						return // next iteration of for loop
+					c.mu.Unlock()
+					if isEOF {
+						return
 					}
-					c.buffer.frame = img
-					c.buffer.release = release
-				}()
+					continue
+				}
+				c.buffer.frame = img
+				c.buffer.release = release
+				c.mu.Unlock()
+
 			}
 		}
 	})
+}
+
+// stopWorkers closes the current driver (if any) to unblock any pending reads
+// and stops the buffer worker so reconfigure or shutdown operations don't hang.
+func (c *webcam) stopWorkers() {
+	c.mu.Lock()
+	driver := c.driver
+	bufferWorker := c.buffer.worker
+	c.mu.Unlock()
+
+	if driver != nil {
+		if err := driver.Close(); err != nil {
+			c.logger.Errorw("failed to close current camera before stopping buffer worker", "error", err)
+		}
+	}
+
+	if bufferWorker != nil {
+		bufferWorker.Stop()
+	}
 }
 
 // Must lock the mutex before using this function.
