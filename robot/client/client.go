@@ -477,6 +477,10 @@ func (rc *RobotClient) Changed() <-chan bool {
 // Connect will close any existing connection and try to reconnect to the remote.
 func (rc *RobotClient) Connect(ctx context.Context) error {
 	if err := rc.connectWithLock(ctx); err != nil {
+		if strings.Contains(err.Error(), "host appears to be offline") {
+			// simplify long rpc error if host is offline
+			return fmt.Errorf("host appears to be offline; ensure machine is online and try again")
+		}
 		return err
 	}
 	rc.Logger().CInfow(ctx, "successfully (re)connected to remote at address", "address", rc.address)
@@ -532,9 +536,6 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 			conn = grpcConn
 			err = nil
 		} else {
-			if errors.Is(err, rpc.ErrOffline) || errors.Is(grpcErr, rpc.ErrOffline) {
-				return rpc.ErrOffline
-			}
 			err = multierr.Combine(err, grpcErr)
 		}
 	}
