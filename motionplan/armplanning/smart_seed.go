@@ -77,10 +77,11 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 	}
 
 	logger.Debugf("time to do raw building: %v of %d entries", time.Since(start), total)
+	logger.Infof("time to do raw building: %v of %d entries", time.Since(start), total)
 
 	start = time.Now()
 	ccf.buildInverseCache()
-	logger.Debugf("time to buildInverseCache: %v", time.Since(start))
+	logger.Infof("time to buildInverseCache: %v", time.Since(start))
 
 	return ccf, nil
 }
@@ -330,7 +331,7 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 		goalPIF = v
 	}
 
-	logger.Debugf("goalPIF: %v", goalPIF)
+	logger.Infof("goalPIF: %v", goalPIF)
 
 	movingFrame, movingPose, err := ssc.findMovingInfo(start, goalFrame, goalPIF)
 	if err != nil {
@@ -434,7 +435,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		return nil, nil, fmt.Errorf("no frame %s", frameName)
 	}
 
-	logger.Debugf("findSeedsForFrame: %s goalPose: %v start: %v", frameName, goalPose, start)
+	logger.Infof("findSeedsForFrame: %s goalPose: %v start: %v", frameName, goalPose, start)
 
 	startPose, err := frame.Transform(start)
 	if err != nil {
@@ -448,7 +449,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	boxes := ssc.rawCache[frameName].findBoxes(goalPose)
 
-	logger.Debugf("startDistance: %v num boxes: %d", startDistance, len(boxes))
+	logger.Infof("startDistance: %v num boxes: %d", startDistance, len(boxes))
 
 	for _, b := range boxes {
 		for _, c := range b.entries {
@@ -483,7 +484,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		cutIdx++
 	}
 
-	logger.Debugf("\t len(best): %d cutIdx: %d best distance: %0.2f cutDistance: %0.2f", len(best), cutIdx, best[0].distance, cutDistance)
+	logger.Infof("\t len(best): %d cutIdx: %d best distance: %0.2f cutDistance: %0.2f", len(best), cutIdx, best[0].distance, cutDistance)
 
 	best = best[0:cutIdx]
 
@@ -502,7 +503,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		cutIdx++
 	}
 
-	logger.Debugf("\t len(best): %d cutIdx: %d best cost: %0.2f costCut: %0.2f", len(best), cutIdx, best[0].cost, costCut)
+	logger.Infof("\t len(best): %d cutIdx: %d best cost: %0.2f costCut: %0.2f", len(best), cutIdx, best[0].cost, costCut)
 
 	best = best[0:cutIdx]
 
@@ -578,7 +579,7 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.L
 }
 
 func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
-	logger.Debugf("buildCache # of frames: %d", len(ssc.fs.FrameNames()))
+	logger.Infof("buildCache # of frames: %d", len(ssc.fs.FrameNames()))
 
 	ssc.rawCache = map[string]*cacheForFrame{}
 
