@@ -1177,16 +1177,45 @@ func reloadModuleActionInner(
 				return err
 			}
 			downloadArgs := downloadModuleFlags{
-				ID:       buildInfo.ID,
-				Version:  buildInfo.Version,
-				Platform: buildInfo.Platform,
+				ID:          buildInfo.ID,
+				Version:     buildInfo.Version,
+				Platform:    buildInfo.Platform,
+				Destination: ".",
 			}
-			buildPath, err = vc.downloadModuleAction(c, downloadArgs)
+			downloadedPath, err := vc.downloadModuleAction(c, downloadArgs)
 			if err != nil {
 				_ = pm.Fail("download", err)                             //nolint:errcheck
 				_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
 				return err
 			}
+
+			// Move the downloaded artifact to reload-dist/{platform}.tar.gz
+			platformFile := strings.ReplaceAll(buildInfo.Platform, "/", "-") + ".tar.gz"
+			reloadDistPath := filepath.Join("reload-dist", platformFile)
+
+			// Ensure reload-dist directory exists
+			if err := os.MkdirAll("reload-dist", 0o750); err != nil {
+				_ = pm.Fail("download", err)                             //nolint:errcheck
+				_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+				return fmt.Errorf("failed to create reload-dist directory: %w", err)
+			}
+
+			// Move the file to the new location
+			if err := os.Rename(downloadedPath, reloadDistPath); err != nil {
+				_ = pm.Fail("download", err)                             //nolint:errcheck
+				_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+				return fmt.Errorf("failed to move artifact to reload-dist: %w", err)
+			}
+
+			buildPath = reloadDistPath
+
+			// Clean up the version directory that was created
+			downloadDir := filepath.Dir(downloadedPath)
+			if downloadDir != "." && downloadDir != "" {
+				// Try to remove the version directory - if it fails, it's not critical
+				_ = os.RemoveAll(downloadDir) //nolint:errcheck
+			}
+
 			if err := pm.Complete("download"); err != nil {
 				return err
 			}
@@ -1198,6 +1227,35 @@ func reloadModuleActionInner(
 		}
 		if err != nil {
 			return err
+		}
+	} else {
+		// --no-build flag is set, look for existing artifact
+		if !cloudBuild {
+			// For local builds, use manifest build path if available
+			if manifest == nil || manifest.Build == nil {
+				return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, moduleFlagPath)
+			}
+			buildPath = manifest.Build.Path
+		} else {
+			// For cloud builds, look for artifact in reload-dist directory
+			if platform == "" {
+				return errors.New("unable to determine platform for part")
+			}
+			platformFile := strings.ReplaceAll(platform, "/", "-") + ".tar.gz"
+			artifactPath := filepath.Join("reload-dist", platformFile)
+
+			// Check if file exists
+			if _, err := os.Stat(artifactPath); os.IsNotExist(err) {
+				// Show command to run without --no-build
+				errorf(c.App.ErrWriter, "No existing artifact found for platform %s at %s", platform, artifactPath)
+				infof(c.App.ErrWriter, "To build and reload, run: viam module reload --part-id %s", partID)
+				return fmt.Errorf("no existing artifact found for platform %s", platform)
+			} else if err != nil {
+				return fmt.Errorf("error checking for artifact: %w", err)
+			}
+
+			buildPath = artifactPath
+			infof(c.App.ErrWriter, "Starting reload onto part with existing artifact at: %s...", artifactPath)
 		}
 	}
 
@@ -1250,18 +1308,21 @@ func reloadModuleActionInner(
 		if err := pm.Start("upload"); err != nil {
 			return err
 		}
-		err = vc.copyFilesToFqdn(
-			part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
-			dest, logger, true)
+		err = vc.retryableCopyToPart(
+			c,
+			part.Part.Fqdn,
+			globalArgs.Debug,
+			[]string{buildPath},
+			dest,
+			logger,
+			partID,
+			pm,
+			vc.copyFilesToFqdn,
+		)
 		if err != nil {
-			if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
-				warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
-					"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
-					"Alternatively, run the RDK as root.")
-			}
 			_ = pm.Fail("upload", err)                               //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
-			return fmt.Errorf("failed copying to part (%v): %w", dest, err)
+			return err
 		}
 		if err := pm.Complete("upload"); err != nil {
 			return err
@@ -1400,6 +1461,95 @@ func resolvePartID(partIDFromFlag, cloudJSON string) (string, error) {
 		return "", fmt.Errorf("unknown failure opening viam.json at: %s", cloudJSON)
 	}
 	return conf.Cloud.ID, nil
+}
+
+// maxCopyAttempts is the number of times to retry copying files to a part before giving up.
+const maxCopyAttempts = 6
+
+// retryableCopyToPart attempts to copy files to a part using the shell service with retries.
+// It handles progress manager updates for each attempt and provides helpful error messages.
+// The copyFunc parameter allows for mocking in tests.
+func (c *viamClient) retryableCopyToPart(
+	ctx *cli.Context,
+	fqdn string,
+	debug bool,
+	paths []string,
+	dest string,
+	logger logging.Logger,
+	partID string,
+	pm *ProgressManager,
+	copyFunc func(fqdn string, debug, allowRecursion, preserve bool,
+		paths []string, destination string, logger logging.Logger, noProgress bool) error,
+) error {
+	var hadPreviousFailure bool
+
+	for attempt := 1; attempt <= maxCopyAttempts; attempt++ {
+		// If we had a previous failure, create a nested step for this retry
+		var attemptStepID string
+		if hadPreviousFailure {
+			attemptStepID = fmt.Sprintf("upload-attempt-%d", attempt)
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("Upload attempt %d/%d...", attempt, maxCopyAttempts),
+				CompletedMsg: fmt.Sprintf("Upload attempt %d succeeded", attempt),
+				Status:       StepPending,
+				IndentLevel:  2, // Nested under "upload" which is at level 1
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+
+			if err := pm.Start(attemptStepID); err != nil {
+				return err
+			}
+		}
+
+		err := copyFunc(fqdn, debug, false, false, paths, dest, logger, true)
+
+		if err == nil {
+			// Success! Complete the step if this was a retry
+			if attemptStepID != "" {
+				if err := pm.Complete(attemptStepID); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
+		// Handle error
+		hadPreviousFailure = true
+
+		// Print special warning for permission denied errors (in addition to regular error)
+		if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
+			warningf(ctx.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
+				"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
+				"Alternatively, run the RDK as root.")
+		}
+
+		// Create a step for this failed attempt (so it shows in the output)
+		if attemptStepID == "" {
+			// First attempt - create its step retroactively
+			attemptStepID = "upload-attempt-1"
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("Upload attempt 1/%d...", maxCopyAttempts),
+				CompletedMsg: "Upload attempt 1 succeeded",
+				Status:       StepPending,
+				IndentLevel:  2,
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+			if err := pm.Start(attemptStepID); err != nil {
+				return err
+			}
+		}
+
+		// Mark this attempt as failed (this will print the error on next line)
+		_ = pm.Fail(attemptStepID, err) //nolint:errcheck
+	}
+
+	// All attempts failed - return a comprehensive error message
+	return fmt.Errorf("all %d upload attempts failed. You can retry the copy later, "+
+		"skipping the build step with: viam module reload --no-build --part-id %s", maxCopyAttempts, partID)
 }
 
 type resolveTargetModuleArgs struct {

@@ -25,9 +25,11 @@ func CreateCombinedIKSolver(
 	nCPU int,
 	goalThreshold float64,
 ) (*CombinedIK, error) {
-	ik := &CombinedIK{}
+	ik := &CombinedIK{
+		logger: logger,
+	}
 
-	logger.Debugf("CreateCombinedIKSolver nCPU: %d", nCPU)
+	logger.Infof("CreateCombinedIKSolver nCPU: %d", nCPU)
 	for i := 1; i <= nCPU; i++ {
 		nloptSolver, err := CreateNloptSolver(logger, -1, true, true)
 		if err != nil {
@@ -35,7 +37,6 @@ func CreateCombinedIKSolver(
 		}
 		ik.solvers = append(ik.solvers, nloptSolver)
 	}
-	ik.logger = logger
 	return ik, nil
 }
 
