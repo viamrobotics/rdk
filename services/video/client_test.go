@@ -1,7 +1,6 @@
 package video_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -86,10 +85,17 @@ func TestWorkingVideoClient(t *testing.T) {
 			videoContainer string,
 			requestID string,
 			extra map[string]interface{},
-			w io.Writer,
-		) error {
-			_, err := w.Write(mockVideoData)
-			return err
+		) (chan *video.VideoChunk, error) {
+			ch := make(chan *video.VideoChunk, 1)
+			go func() {
+				defer close(ch)
+				ch <- &video.VideoChunk{
+					Data:      mockVideoData,
+					Container: "mp4",
+					RequestID: "12345",
+				}
+			}()
+			return ch, nil
 		}
 
 		getVideoRequest := &pb.GetVideoRequest{
@@ -125,9 +131,8 @@ func TestWorkingVideoClient(t *testing.T) {
 			videoContainer string,
 			requestID string,
 			extra map[string]interface{},
-			w io.Writer,
-		) error {
-			return io.EOF
+		) (chan *video.VideoChunk, error) {
+			return nil, io.EOF
 		}
 
 		getVideoRequest := &pb.GetVideoRequest{
@@ -145,15 +150,7 @@ func TestWorkingVideoClient(t *testing.T) {
 	})
 }
 
-// failingWriter is an io.Writer that always returns an error.
-type failingWriter struct{ err error }
-
-// Write always returns the predefined error.
-func (fw *failingWriter) Write(p []byte) (int, error) {
-	return 0, fw.err
-}
-
-var _ io.Writer = (*failingWriter)(nil)
+// ...remove failingWriter definition...
 
 func TestClientGetVideoStreamErrors(t *testing.T) {
 	logger := logging.NewTestLogger(t)
@@ -172,75 +169,109 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 
 	t.Run("extra conversion error (StructToStructPb fails)", func(t *testing.T) {
 		extra := map[string]interface{}{"bad": make(chan int)}
-		err := svc.GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-1", extra, &bytes.Buffer{})
+		ch, err := svc.GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-1", extra)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, ch, test.ShouldBeNil)
 	})
 
 	t.Run("context canceled before RPC", func(t *testing.T) {
 		cctx, cancel := context.WithCancel(context.Background())
 		cancel() // cancel immediately
-		err := svc.GetVideo(cctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-2", nil, &bytes.Buffer{})
+		ch, err := svc.GetVideo(cctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-2", nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Canceled)
+		test.That(t, ch, test.ShouldBeNil)
 	})
 
-	t.Run("writer error during streaming", func(t *testing.T) {
-		// Server writes one chunk, client writer fails.
+	t.Run("success one chunk via channel", func(t *testing.T) {
+		// Server sends one chunk then closes.
+		payload := []byte{9, 8, 7}
 		injectVideo.GetVideoFunc = func(
 			ctx context.Context,
 			s, e time.Time,
 			codec, container, reqID string,
 			extra map[string]interface{},
-			w io.Writer,
-		) error {
-			_, err := w.Write([]byte{1, 2, 3})
-			return err
+		) (chan *video.VideoChunk, error) {
+			ch := make(chan *video.VideoChunk, 1)
+			go func() {
+				defer close(ch)
+				ch <- &video.VideoChunk{Data: payload, Container: container, RequestID: reqID}
+			}()
+			return ch, nil
 		}
-		w := &failingWriter{err: io.ErrClosedPipe}
-		err := svc.GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-4", nil, w)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, errors.Is(err, io.ErrClosedPipe), test.ShouldBeTrue)
+		ch, err := svc.GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-3", nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		select {
+		case got, ok := <-ch:
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, got.Data, test.ShouldResemble, payload)
+			test.That(t, got.Container, test.ShouldEqual, "mp4")
+			test.That(t, got.RequestID, test.ShouldEqual, "rid-3")
+		case <-time.After(500 * time.Millisecond):
+			t.Fatal("timed out waiting for first chunk")
+		}
+
+		// Ensure channel closes after the first chunk.
+		select {
+		case _, ok := <-ch:
+			test.That(t, ok, test.ShouldBeFalse)
+		case <-time.After(500 * time.Millisecond):
+			t.Fatal("timed out waiting for channel close")
+		}
 	})
 
 	t.Run("normal EOF with no data", func(t *testing.T) {
-		// Server writes nothing and returns nil, client should return nil after io.EOF.
+		// Server writes nothing and closes channel.
 		injectVideo.GetVideoFunc = func(
 			ctx context.Context,
 			s, e time.Time,
 			codec, container, reqID string,
 			extra map[string]interface{},
-			w io.Writer,
-		) error {
-			return nil
+		) (chan *video.VideoChunk, error) {
+			ch := make(chan *video.VideoChunk)
+			close(ch)
+			return ch, nil
 		}
-		buf := &bytes.Buffer{}
-		err := svc.GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-5", nil, buf)
+		ch, err := svc.GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-5", nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, buf.Len(), test.ShouldEqual, 0)
+		select {
+		case _, ok := <-ch:
+			test.That(t, ok, test.ShouldBeFalse) // closed, no data
+		case <-time.After(500 * time.Millisecond):
+			t.Fatal("timed out waiting for channel close")
+		}
 	})
 
 	t.Run("context deadline exceeded while waiting for chunks", func(t *testing.T) {
-		// Server blocks for a while, client times out.
+		// Server blocks; client times out via context. The client GetVideo returns (ch, nil),
+		// and the goroutine will close ch after Recv returns the context error.
 		injectVideo.GetVideoFunc = func(
 			ctx context.Context,
 			s, e time.Time,
 			codec, container, reqID string,
 			extra map[string]interface{},
-			w io.Writer,
-		) error {
-			// Simulate a long operation with no writes.
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(2 * time.Second):
-				return nil
-			}
+		) (chan *video.VideoChunk, error) {
+			ch := make(chan *video.VideoChunk)
+			// Simulate a producer that never sends (server blocks); channel remains open
+			// and the server handler will terminate when ctx is done.
+			go func() {
+				<-ctx.Done()
+				close(ch)
+			}()
+			return ch, nil
 		}
 		shortCtx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
-		err := svc.GetVideo(shortCtx, time.Time{}, time.Time{}, "h264", "mp4", "rid-6", nil, &bytes.Buffer{})
-		test.That(t, err, test.ShouldNotBeNil)
-		code := status.Code(err)
-		test.That(t, code == codes.DeadlineExceeded || code == codes.Canceled, test.ShouldBeTrue)
+		ch, err := svc.GetVideo(shortCtx, time.Time{}, time.Time{}, "h264", "mp4", "rid-6", nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Expect the channel to close without yielding any chunks within a short time.
+		select {
+		case _, ok := <-ch:
+			test.That(t, ok, test.ShouldBeFalse)
+		case <-time.After(1 * time.Second):
+			t.Fatal("timed out waiting for channel close after context deadline")
+		}
 	})
 }

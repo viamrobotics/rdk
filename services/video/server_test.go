@@ -22,9 +22,7 @@ type testGetVideoServer struct {
 	writer io.Writer
 }
 
-func (x *testGetVideoServer) Context() context.Context {
-	return x.ctx
-}
+func (x *testGetVideoServer) Context() context.Context { return x.ctx }
 
 func (x *testGetVideoServer) Send(m *pb.GetVideoResponse) error {
 	_, err := x.writer.Write(m.VideoData)
@@ -63,11 +61,18 @@ func TestServer(t *testing.T) {
 			startTime, endTime time.Time,
 			videoCodec, videoContainer, requestID string,
 			extra map[string]interface{},
-			w io.Writer,
-		) error {
-			data := []byte{0x00, 0x01, 0x02, 0x03, 0x04}
-			_, err := w.Write(data)
-			return err
+		) (chan *video.VideoChunk, error) {
+			ch := make(chan *video.VideoChunk, 1)
+			go func() {
+				defer close(ch)
+				data := []byte{0x00, 0x01, 0x02, 0x03, 0x04}
+				ch <- &video.VideoChunk{
+					Data:      data,
+					Container: videoContainer,
+					RequestID: requestID,
+				}
+			}()
+			return ch, nil
 		}
 
 		buf := &bytes.Buffer{}
@@ -76,20 +81,18 @@ func TestServer(t *testing.T) {
 		err := videoServer.GetVideo(getVideoRequest, stream)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Verify that the video data was sent
 		expectedData := []byte{0x00, 0x01, 0x02, 0x03, 0x04}
 		test.That(t, buf.Bytes(), test.ShouldResemble, expectedData)
 	})
 
-	t.Run("GetVideo failure", func(t *testing.T) {
+	t.Run("GetVideo failure (constructor error)", func(t *testing.T) {
 		injectVideo.GetVideoFunc = func(
 			ctx context.Context,
 			startTime, endTime time.Time,
 			videoCodec, videoContainer, requestID string,
 			extra map[string]interface{},
-			w io.Writer,
-		) error {
-			return io.EOF
+		) (chan *video.VideoChunk, error) {
+			return nil, io.EOF
 		}
 		stream := &testGetVideoServer{ctx: context.Background(), writer: &bytes.Buffer{}}
 		err := videoServer.GetVideo(getVideoRequest, stream)

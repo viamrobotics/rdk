@@ -2,7 +2,6 @@ package inject
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"go.viam.com/rdk/resource"
@@ -15,14 +14,10 @@ type Video struct {
 	name         resource.Name
 	GetVideoFunc func(
 		ctx context.Context,
-		startTime time.Time,
-		endTime time.Time,
-		videoCodec string,
-		videoContainer string,
-		requestID string,
+		startTime, endTime time.Time,
+		videoCodec, videoContainer, requestID string,
 		extra map[string]interface{},
-		w io.Writer,
-	) error
+	) (chan *video.VideoChunk, error)
 	DoFunc func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
@@ -42,12 +37,11 @@ func (v *Video) GetVideo(
 	startTime, endTime time.Time,
 	videoCodec, videoContainer, requestID string,
 	extra map[string]interface{},
-	w io.Writer,
-) error {
+) (chan *video.VideoChunk, error) {
 	if v.GetVideoFunc == nil {
-		return v.Service.GetVideo(ctx, startTime, endTime, videoCodec, videoContainer, requestID, extra, w)
+		return v.Service.GetVideo(ctx, startTime, endTime, videoCodec, videoContainer, requestID, extra)
 	}
-	return v.GetVideoFunc(ctx, startTime, endTime, videoCodec, videoContainer, requestID, extra, w)
+	return v.GetVideoFunc(ctx, startTime, endTime, videoCodec, videoContainer, requestID, extra)
 }
 
 // DoCommand calls the injected DoFunc if set, otherwise calls the embedded Service's DoCommand method.
@@ -57,3 +51,6 @@ func (v *Video) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 	}
 	return v.DoFunc(ctx, cmd)
 }
+
+// Ensure the mock implements the interface.
+var _ video.Service = (*Video)(nil)
