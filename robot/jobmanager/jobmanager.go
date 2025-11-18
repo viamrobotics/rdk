@@ -207,6 +207,11 @@ func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 // createJobFunction returns a function that the job scheduler puts on its queue.
 func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) func(ctx context.Context) error {
 	jobLogger := jm.logger.Sublogger(jc.Name)
+	// Note, if only removing a previously set LogConfiguration, there will be no change (instead of reverting to default).
+	// This matches the existing LogConfiguration behavior throughout the system.
+	if jc.LogConfiguration != nil {
+		jobLogger.SetLevel(jc.LogConfiguration.Level)
+	}
 	// To support logging for quick jobs (~ on the seconds schedule), we disable log
 	// deduplication for job loggers.
 	jobLogger.NeverDeduplicate()
