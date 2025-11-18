@@ -205,12 +205,14 @@ func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 }
 
 // createJobFunction returns a function that the job scheduler puts on its queue.
-func (jm *JobManager) createJobFunction(jc config.JobConfig) func(ctx context.Context) error {
+func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) func(ctx context.Context) error {
 	jobLogger := jm.logger.Sublogger(jc.Name)
 	// To support logging for quick jobs (~ on the seconds schedule), we disable log
 	// deduplication for job loggers.
 	jobLogger.NeverDeduplicate()
-	return func(ctx context.Context) error {
+
+	// using jm.ctx so we interrupt only if JM is shutting down. When changing schedule, let existing jobs complete instead of interrupting.
+	jobFunc := func(_ context.Context) error {
 		res, err := jm.getResource(jc.Resource)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "Could not get resource", "error", err.Error())
@@ -271,6 +273,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig) func(ctx context.Co
 			jobLogger.CWarnw(jm.ctx, "Job failed", "name", jc.Name, "error", err.Error())
 			return err
 		} else if h.Status != nil && h.Status.Err() != nil {
+			// if job panics, it seems to be captured here.
 			jobLogger.CWarnw(jm.ctx, "Job failed", "name", jc.Name, "error", h.Status.Err())
 			return h.Status.Err()
 		}
@@ -283,6 +286,34 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig) func(ctx context.Co
 		}
 		jobLogger.CDebugw(jm.ctx, "Job succeeded", "name", jc.Name, "response", response)
 		return nil
+	}
+
+	return func(ctx context.Context) error {
+		var err error
+		for {
+			select {
+			case <-ctx.Done():
+				// Job cancelled (e.g. from schedule modification)
+				return err
+			case <-jm.ctx.Done():
+				// JM shutting down
+				return err
+			default:
+			}
+			err = jobFunc(ctx)
+			now := time.Now()
+			if jh, ok := jm.JobHistories.Load(jc.Name); ok {
+				if err != nil {
+					// this includes captured panics (from InvokeRPC).
+					jh.AddFailure(now)
+				} else {
+					jh.AddSuccess(now)
+				}
+			}
+			if !continuous {
+				return err
+			}
+		}
 	}
 }
 
@@ -307,32 +338,21 @@ func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 		return
 	}
 
-	var jobType gocron.JobDefinition
-	var jobLimitMode gocron.LimitMode
-	t, err := time.ParseDuration(jc.Schedule)
-	if err != nil {
-		withSeconds := len(strings.Split(jc.Schedule, " ")) >= 6
-		jobType = gocron.CronJob(jc.Schedule, withSeconds)
-		jobLimitMode = gocron.LimitModeReschedule
+	var continuous bool
+	var jobDefinition gocron.JobDefinition
+	var jobOptions []gocron.JobOption
+	if strings.ToLower(jc.Schedule) == "continuous" {
+		continuous = true
+		// used with WithIntervalFromCompletion: if job unexpectedly exits, try to restart later.
+		// since we capture panics, this is largely unused, but helps reduce scheduler overhead.
+		jobDefinition = gocron.DurationJob(time.Second * 5)
+		jobOptions = append(jobOptions,
+			// don't queue up if running
+			gocron.WithSingletonMode(gocron.LimitModeReschedule),
+			gocron.WithIntervalFromCompletion())
 	} else {
-		jobType = gocron.DurationJob(t)
-		jobLimitMode = gocron.LimitModeWait
-	}
-
-	if _, ok := jm.JobHistories.Load(jc.Name); !ok {
-		jm.JobHistories.Store(jc.Name, &JobHistory{
-			successTimes: ring.New(historyLength),
-			failureTimes: ring.New(historyLength),
-		})
-		jm.NumJobHistories.Add(1)
-	}
-
-	jobLogger := jm.logger.Sublogger(jc.Name)
-
-	jobFunc := jm.createJobFunction(jc)
-	j, err := jm.scheduler.NewJob(
-		jobType,
-		gocron.NewTask(jobFunc),
+		// Regular gocron-supported modes:
+		//
 		// WithSingletonMode option allows us to perform jobs on the same schedule
 		// sequentially. This will guarantee that there is only one instance of a particular
 		// job running at the same time. If a job reaches its schedule while the previous
@@ -361,30 +381,37 @@ func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 
 		// It is also important to note that DURATION jobs start relative to when they were
 		// queued on the job scheduler, while CRON jobs are tied to the physical clock.
-		gocron.WithSingletonMode(jobLimitMode),
+		t, err := time.ParseDuration(jc.Schedule)
+		if err != nil {
+			// TODO: exit if cron job is also invalid. Currently it's stored as an invalid string and validated at NewJob call.
+			withSeconds := len(strings.Split(jc.Schedule, " ")) >= 6
+			jobDefinition = gocron.CronJob(jc.Schedule, withSeconds)
+			jobOptions = append(jobOptions, gocron.WithSingletonMode(gocron.LimitModeReschedule))
+		} else {
+			jobDefinition = gocron.DurationJob(t)
+			jobOptions = append(jobOptions, gocron.WithSingletonMode(gocron.LimitModeWait))
+		}
+	}
+
+	jobOptions = append(jobOptions,
 		gocron.WithName(jc.Name),
-		gocron.WithContext(jm.ctx),
-		gocron.WithEventListeners(
-			// May be slightly more accurate to use j.LastRun(), but we don't have direct reference to it here, and we don't want the job to
-			// complete before we can store the returned Job.
-			gocron.AfterJobRuns(func(jobID uuid.UUID, jobName string) {
-				now := time.Now()
-				if jh, ok := jm.JobHistories.Load(jobName); ok {
-					jh.AddSuccess(now)
-				}
-			}),
-			gocron.AfterJobRunsWithError(func(jobID uuid.UUID, jobName string, err error) {
-				now := time.Now()
-				if jh, ok := jm.JobHistories.Load(jobName); ok {
-					jh.AddFailure(now)
-				}
-			}),
-			gocron.AfterJobRunsWithPanic(func(jobID uuid.UUID, jobName string, recoverData any) {
-				now := time.Now()
-				if jh, ok := jm.JobHistories.Load(jobName); ok {
-					jh.AddFailure(now)
-				}
-			})),
+		gocron.WithContext(jm.ctx))
+
+	jobLogger := jm.logger.Sublogger(jc.Name)
+
+	if _, ok := jm.JobHistories.Load(jc.Name); !ok {
+		jm.JobHistories.Store(jc.Name, &JobHistory{
+			successTimes: ring.New(historyLength),
+			failureTimes: ring.New(historyLength),
+		})
+		jm.NumJobHistories.Add(1)
+	}
+
+	jobFunc := jm.createJobFunction(jc, continuous)
+	j, err := jm.scheduler.NewJob(
+		jobDefinition,
+		gocron.NewTask(jobFunc),
+		jobOptions...,
 	)
 	if err != nil {
 		jobLogger.CErrorw(jm.ctx, "Failed to create a new job", "name", jc.Name, "error", err.Error())
