@@ -62,7 +62,7 @@ func TestJobManagerDurationAndCronFromJson(t *testing.T) {
 		tb.Helper()
 		// the jobs in the config are on 4-5s schedules so after 6-7 seconds, all of them
 		// should run at least once
-		test.That(tb, logs.FilterMessage("Job triggered").Len(),
+		test.That(tb, logs.FilterMessage("Job added").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 3)
 		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 3)
@@ -898,7 +898,7 @@ func TestJobManagerComponents(t *testing.T) {
 		tb.Helper()
 		// we will test for succeeded jobs to be the amount we started,
 		// and that there are no failed jobs
-		test.That(tb, logs.FilterMessage("Job triggered").Len(),
+		test.That(tb, logs.FilterMessage("Job added").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 18)
 		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 18)
@@ -1227,7 +1227,7 @@ func TestJobManagerServices(t *testing.T) {
 
 	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessage("Job triggered").Len(),
+		test.That(tb, logs.FilterMessage("Job added").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 8)
 		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 8)
@@ -1262,7 +1262,7 @@ func TestJobManagerErrors(t *testing.T) {
 
 	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessage("Job triggered").Len(),
+		test.That(tb, logs.FilterMessage("Job added").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 		test.That(tb, logs.FilterMessage("Job failed").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
