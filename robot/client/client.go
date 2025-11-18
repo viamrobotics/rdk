@@ -532,6 +532,13 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 			conn = grpcConn
 			err = nil
 		} else {
+			if statusErr := status.Convert(err); statusErr != nil &&
+			statusErr.Code() == codes.Unavailable &&
+			strings.Contains(statusErr.Message(),rpc.ErrOffline.Error()) && 
+			errors.Is(grpcErr, rpc.ErrMDNSQuery) && 
+			errors.Is(grpcErr, context.DeadlineExceeded) {
+				return rpc.ErrOffline
+			}
 			err = multierr.Combine(err, grpcErr)
 		}
 	}
