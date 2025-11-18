@@ -131,7 +131,7 @@ type graphOptions struct {
 
 	// selectList is a list of metric names to always show at the top of the generated image.
 	// This option will override hideAllZeroes and show a graph at the top even if all values of the graph is 0.
-	selectList []string
+	selectList map[string]bool
 }
 
 // defaultGraphOptions returns a default set of graph options. It adds all but the last
@@ -149,7 +149,7 @@ func defaultGraphOptions(fileBoundaryTimestamps []int64) graphOptions {
 		vertLinesAtSeconds:      make([]int64, 0),
 		fileBoundariesAtSeconds: fileBoundaryTimestamps[:len(fileBoundaryTimestamps)-1],
 		maxPoints:               1000,
-		selectList:              make([]string, 0),
+		selectList:              make(map[string]bool, 0),
 	}
 }
 
@@ -692,6 +692,9 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 	// Write a png with width of 1000 pixels and 200 pixels of height per metric/graph. This works
 	// well for small numbers of graphs, but for large numbers, we get a bunch of extra whitespace
 	// at the top/bottom. Adding `crop` will trim that whitespace.
+	//
+	// Since we will only ever render one plot per metric, it is acceptable to just use the length of
+	// gpw.metricFiles.
 	writelnf(gnuFile, "set term png size %d, %d crop", 1000, 200*len(gpw.metricFiles))
 
 	// Log the tempdir in case one wants to go back and see/edit how the graph was generated. A user
@@ -718,21 +721,44 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 	writeln(gnuFile, "set xlabel 'Time'")
 	writeln(gnuFile, "set xdata time")
 
+	var minY int64
+	var maxY int64
+
 	// For each metric name in selectList, we will output a single gnuplot `plot` directive
 	// that will generate a single graph.
-	for _, metricName := range gpw.options.selectList {
+	for _, nameBoolPair := range sorted(gpw.options.selectList) {
+		metricName := nameBoolPair.Key
 		graphInfo := gpw.metricFiles[metricName]
+
+		// The minY/maxY values start at 0. So this the range from minY -> maxY will fall into one
+		// of the three buckets (in order of likelihood):
+		//
+		// - [0, positive number]
+		// - [negative number, positive number]
+		// - [negative number, 0]
+		minY = min(minY, int64(graphInfo.minVal))
+		maxY = max(maxY, int64(graphInfo.maxVal))
+		if minY == 0 && maxY == 0 {
+			maxY = 1
+		}
+
 		gpw.writeSinglePlot(metricName, graphInfo, gnuFile)
+
+		utils.UncheckedErrorFunc(graphInfo.file.Close)
 	}
 
 	allZeroesHidden := 0
-	var minY int64
-	var maxY int64
 
 	// For each metric file, we will output a single gnuplot `plot` directive that will generate a
 	// single graph.
 	for _, nameFilePair := range sorted(gpw.metricFiles) {
 		metricName, graphInfo := nameFilePair.Key, nameFilePair.Val
+
+		// if already rendered, skip
+		if _, ok := gpw.options.selectList[metricName]; ok {
+			continue
+		}
+
 		if gpw.options.hideAllZeroes && graphInfo.minVal == 0 && graphInfo.maxVal == 0 {
 			allZeroesHidden++
 			continue
@@ -751,7 +777,6 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 		}
 		gpw.writeSinglePlot(metricName, graphInfo, gnuFile)
 
-		// only need to close file once
 		utils.UncheckedErrorFunc(graphInfo.file.Close)
 	}
 	if allZeroesHidden > 0 {
@@ -913,12 +938,8 @@ func LaunchREPL(ftdcFilepath string) {
 	graphOptions := defaultGraphOptions(fileBoundaryTimestamps)
 
 	gpw := renderPlot(data, graphOptions, logger)
-	render := false
 	for {
-		if render {
-			gpw = renderPlot(data, graphOptions, logger)
-		}
-		render = true
+		render := true
 
 		// This is a CLI. It's acceptable to output to stdout.
 		//nolint:forbidigo
@@ -964,9 +985,6 @@ func LaunchREPL(ftdcFilepath string) {
 			NolintPrintln("hide zeroes")
 			NolintPrintln("-  Generate graphs omitting plots with all zeroes.")
 			NolintPrintln()
-			NolintPrintln("r, refresh")
-			NolintPrintln("-  Regenerate the plot.png image. Useful when a current viam-server is running.")
-			NolintPrintln()
 			NolintPrintln("`quit` or Ctrl-d to exit")
 		case strings.HasPrefix(cmd, "range "):
 			pieces := strings.SplitN(cmd, " ", 3)
@@ -1006,17 +1024,21 @@ func LaunchREPL(ftdcFilepath string) {
 				break
 			}
 			additions := make([]string, 0)
-			for _, piece := range pieces {
-				trimmedPattern := strings.TrimSpace(piece)
-				for _, nameFilePair := range sorted(gpw.metricFiles) {
-					matched, err := regexp.MatchString(trimmedPattern, nameFilePair.Key)
+
+			// sorting it so that the additions output is alphabetical, but otherwise unnecessary
+			for _, nameFilePair := range sorted(gpw.metricFiles) {
+				metricName := nameFilePair.Key
+				for _, piece := range pieces {
+					trimmedPattern := strings.TrimSpace(piece)
+					matched, err := regexp.MatchString(trimmedPattern, metricName)
 					if err != nil {
 						NolintPrintln("Error matching input:", trimmedPattern, "Err:", err)
 						continue
 					}
 					if matched {
-						graphOptions.selectList = append(graphOptions.selectList, nameFilePair.Key)
-						additions = append(additions, nameFilePair.Key)
+						graphOptions.selectList[metricName] = true
+						additions = append(additions, metricName)
+						break
 					}
 				}
 			}
@@ -1030,13 +1052,15 @@ func LaunchREPL(ftdcFilepath string) {
 				break
 			}
 			selectList := graphOptions.selectList
-			graphOptions.selectList = make([]string, 0)
+			graphOptions.selectList = make(map[string]bool, 0)
 			if strings.TrimSpace(withoutCmd) == "all" {
 				NolintPrintln("Removed all metrics to be printed at top of generated image")
 				break
 			}
 			removed := make([]string, 0)
-			for _, metricName := range selectList {
+			// sorting it so that the additions output is alphabetical, but otherwise unnecessary
+			for _, nameBoolPair := range sorted(selectList) {
+				metricName := nameBoolPair.Key
 				matchedOnce := false
 				for _, piece := range pieces {
 					trimmedPattern := strings.TrimSpace(piece)
@@ -1051,7 +1075,7 @@ func LaunchREPL(ftdcFilepath string) {
 					}
 				}
 				if !matchedOnce {
-					graphOptions.selectList = append(graphOptions.selectList, metricName)
+					graphOptions.selectList[metricName] = true
 				} else {
 					removed = append(removed, metricName)
 				}
@@ -1065,13 +1089,15 @@ func LaunchREPL(ftdcFilepath string) {
 		case cmd == "hide zeroes":
 			graphOptions.hideAllZeroes = true
 			NolintPrintln("Generating graphs omitting plots with all zeroes")
-		case cmd == "refresh" || cmd == "r":
-			NolintPrintln("Refreshing graphs with new data")
 		case len(cmd) == 0:
 			render = false
 		default:
 			NolintPrintln("Unknown command. Type `h` for help.")
 			render = false
+		}
+
+		if render {
+			gpw = renderPlot(data, graphOptions, logger)
 		}
 	}
 }
