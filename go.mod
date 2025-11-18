@@ -332,6 +332,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
 )
-
-// FOR TESTING: to remove once https://github.com/viamrobotics/api/pull/778 is merged
-replace go.viam.com/api => github.com/jgeaso1266/api v0.0.1
