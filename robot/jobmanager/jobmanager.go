@@ -206,12 +206,12 @@ func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 }
 
 // createJobFunction returns a function that the job scheduler puts on its queue.
-func (jm *JobManager) createJobFunction(jc config.JobConfig) func() error {
+func (jm *JobManager) createJobFunction(jc config.JobConfig) func(ctx context.Context) error {
 	jobLogger := jm.logger.Sublogger(jc.Name)
 	// To support logging for quick jobs (~ on the seconds schedule), we disable log
 	// deduplication for job loggers.
 	jobLogger.NeverDeduplicate()
-	return func() error {
+	return func(ctx context.Context) error {
 		res, err := jm.getResource(jc.Resource)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "Could not get resource", "error", err.Error())
@@ -362,6 +362,7 @@ func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 		// queued on the job scheduler, while CRON jobs are tied to the physical clock.
 		gocron.WithSingletonMode(jobLimitMode),
 		gocron.WithName(jc.Name),
+		gocron.WithContext(jm.ctx),
 		gocron.WithEventListeners(
 			// May be slightly more accurate to use j.LastRun(), but we don't have direct reference to it here, and we don't want the job to
 			// complete before we can store the returned Job.
