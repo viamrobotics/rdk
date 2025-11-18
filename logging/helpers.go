@@ -1,8 +1,6 @@
 package logging
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // FloatArrayFormat is a helper to format float arrays
 type FloatArrayFormat struct {
@@ -25,4 +23,3 @@ func (a FloatArrayFormat) String() string {
 	}
 	return s + "]"
 }
-

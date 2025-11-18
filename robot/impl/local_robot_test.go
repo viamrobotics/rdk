@@ -18,6 +18,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.opencensus.io/trace"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -4231,7 +4232,10 @@ func TestModuleLogging(t *testing.T) {
 	// fields themselves. Even if the RDK is configured at INFO level, assert
 	// that modular resources can log at their own, configured levels.
 
-	ctx := context.Background()
+	ctx, span := trace.StartSpan(context.Background(), "TestModuleLogging")
+	defer span.End()
+	traceID := span.SpanContext().TraceID.String()
+	test.That(t, traceID, test.ShouldNotBeEmpty)
 	logger, observer, registry := logging.NewObservedTestLoggerWithRegistry(t, "rdk")
 	logger.SetLevel(logging.INFO)
 	helperModel := resource.NewModel("rdk", "test", "helper")
@@ -4268,6 +4272,13 @@ func TestModuleLogging(t *testing.T) {
 		tb.Helper()
 		test.That(t, observer.FilterMessageSnippet("debug log line").Len(), test.ShouldEqual, 1)
 	})
+	resp, err := startsAtDebugRes.DoCommand(ctx, map[string]interface{}{"command": "get_trace_id"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp["trace_id"], test.ShouldEqual, traceID)
+	// verify that a new trace ID is returned when the context is not the same as the one used to start the span
+	resp, err = startsAtDebugRes.DoCommand(context.Background(), map[string]interface{}{"command": "get_trace_id"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp["trace_id"], test.ShouldNotEqual, traceID)
 }
 
 func TestLogPropagation(t *testing.T) {
