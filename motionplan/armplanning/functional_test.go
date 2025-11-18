@@ -515,7 +515,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	transformPoint, err := fs.Transform(
 		positions,
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
-		frame.World,
+		frame.World, nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostCoincident(transformPoint.(*frame.PoseInFrame).Pose(), pointXarmGripper), test.ShouldBeTrue)
@@ -534,7 +534,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	solvedPose, err := fs.Transform(
 		plan.Trajectory()[len(plan.Trajectory())-1].ToLinearInputs(),
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
-		frame.World,
+		frame.World, nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostCoincidentEps(solvedPose.(*frame.PoseInFrame).Pose(), goal1, 0.01), test.ShouldBeTrue)
@@ -573,7 +573,7 @@ func TestMultiArmSolve(t *testing.T) {
 	solvedPose, err := fs.Transform(
 		plan.Trajectory()[len(plan.Trajectory())-1].ToLinearInputs(),
 		frame.NewPoseInFrame("xArmVgripper", spatialmath.NewZeroPose()),
-		"world",
+		"world", nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
 

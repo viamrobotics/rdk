@@ -105,7 +105,7 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 	// World point of xArm at 0 position
 	poseWorld1 := spatial.NewPoseFromPoint(r3.Vector{207, 0, 112})
 
-	transformPoint1, err := fs.Transform(positions, frame.NewPoseInFrame("xArm6", spatial.NewZeroPose()), frame.World)
+	transformPoint1, err := fs.Transform(positions, frame.NewPoseInFrame("xArm6", spatial.NewZeroPose()), frame.World, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(transformPoint1.(*frame.PoseInFrame).Pose(), poseWorld1), test.ShouldBeTrue)
 }
@@ -158,13 +158,13 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	poseXarmFromCam := spatial.NewPoseFromPoint(r3.Vector{874.2, -112.9, -350.8})
 
 	// Check the UR5e and camera default positions
-	transformPoint1, err := fs.Transform(positions, frame.NewPoseInFrame("UR5e", spatial.NewZeroPose()), frame.World)
+	transformPoint1, err := fs.Transform(positions, frame.NewPoseInFrame("UR5e", spatial.NewZeroPose()), frame.World, nil)
 	test.That(t, err, test.ShouldBeNil)
-	transformPoint2, err := fs.Transform(positions, frame.NewPoseInFrame("urCamera", spatial.NewZeroPose()), frame.World)
+	transformPoint2, err := fs.Transform(positions, frame.NewPoseInFrame("urCamera", spatial.NewZeroPose()), frame.World, nil)
 	test.That(t, err, test.ShouldBeNil)
-	transformPoint3, err := fs.Transform(positions, frame.NewPoseInFrame("xArm6", spatial.NewZeroPose()), frame.World)
+	transformPoint3, err := fs.Transform(positions, frame.NewPoseInFrame("xArm6", spatial.NewZeroPose()), frame.World, nil)
 	test.That(t, err, test.ShouldBeNil)
-	transformPoint4, err := fs.Transform(positions, frame.NewPoseInFrame("urCamera", spatial.NewZeroPose()), "xArm6")
+	transformPoint4, err := fs.Transform(positions, frame.NewPoseInFrame("urCamera", spatial.NewZeroPose()), "xArm6", nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(transformPoint1.(*frame.PoseInFrame).Pose(), poseUR5e), test.ShouldBeTrue)
 	test.That(t, spatial.PoseAlmostCoincident(transformPoint2.(*frame.PoseInFrame).Pose(), poseUR5eCam), test.ShouldBeTrue)
@@ -178,7 +178,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	// This puts the point in the Z plane of the xArm6
 	targetPoint := spatial.NewPoseFromPoint(r3.Vector{350.8, -50, 200})
 	// Target point in world
-	tf, err := fs.Transform(positions, frame.NewPoseInFrame("urCamera", targetPoint), frame.World)
+	tf, err := fs.Transform(positions, frame.NewPoseInFrame("urCamera", targetPoint), frame.World, nil)
 	test.That(t, err, test.ShouldBeNil)
 	worldPointLoc := spatial.NewPoseFromPoint(tf.(*frame.PoseInFrame).Pose().Point())
 
@@ -187,12 +187,12 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	positions.Put("gantryY", []frame.Input{worldPointLoc.Point().Y - poseXarm.Point().Y})
 
 	// Confirm the xArm6 is now at the same location as the point
-	newPointXarm, err := fs.Transform(positions, frame.NewPoseInFrame("xArm6", spatial.NewZeroPose()), frame.World)
+	newPointXarm, err := fs.Transform(positions, frame.NewPoseInFrame("xArm6", spatial.NewZeroPose()), frame.World, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(newPointXarm.(*frame.PoseInFrame).Pose(), worldPointLoc), test.ShouldBeTrue)
 
 	// If the above passes, then converting one directly to the other should be (0,0,0)
-	pointCamToXarm, err := fs.Transform(positions, frame.NewPoseInFrame("urCamera", targetPoint), "xArm6")
+	pointCamToXarm, err := fs.Transform(positions, frame.NewPoseInFrame("urCamera", targetPoint), "xArm6", nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(pointCamToXarm.(*frame.PoseInFrame).Pose(), spatial.NewZeroPose()), test.ShouldBeTrue)
 }

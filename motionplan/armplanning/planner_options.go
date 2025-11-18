@@ -164,7 +164,7 @@ func (p *PlannerOptions) getGoalMetric(goals referenceframe.FrameSystemPoses) mo
 	return func(state *motionplan.StateFS) float64 {
 		score := 0.
 		for frame, goal := range goals {
-			dq, err := state.FS.TransformToDQ(state.Configuration, frame, goal.Parent())
+			dq, err := state.FS.TransformToDQ(state.Configuration, frame, goal.Parent(), nil)
 			if err != nil {
 				panic(fmt.Errorf("frame: %v goal parent: %s", frame, goal.Parent()))
 			}

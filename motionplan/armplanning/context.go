@@ -160,7 +160,7 @@ func translateGoalsToWorldPosition(
 ) (referenceframe.FrameSystemPoses, error) {
 	alteredGoals := referenceframe.FrameSystemPoses{}
 	for f, pif := range goal {
-		tf, err := fs.Transform(start, pif, referenceframe.World)
+		tf, err := fs.Transform(start, pif, referenceframe.World, nil)
 		if err != nil {
 			return nil, err
 		}
