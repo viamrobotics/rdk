@@ -145,8 +145,6 @@ func TestWorkingVideoClient(t *testing.T) {
 	})
 }
 
-// ...remove failingWriter definition...
-
 func TestClientGetVideoStreamErrors(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	injectVideo := &inject.Video{}
@@ -238,7 +236,7 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 	})
 
 	t.Run("context deadline exceeded while waiting for chunks", func(t *testing.T) {
-		// Server blocks; client times out via context. The client GetVideo returns (ch, nil),
+		// Server blocks and client times out via context. The client GetVideo returns (ch, nil),
 		// and the goroutine will close ch after Recv returns the context error.
 		injectVideo.GetVideoFunc = func(
 			ctx context.Context,

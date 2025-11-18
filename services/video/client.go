@@ -46,7 +46,6 @@ func NewClientFromConn(
 }
 
 // GetVideo calls the GetVideo method on the video service.
-// It writes the received video data to the provided writer.
 func (c *client) GetVideo(
 	ctx context.Context,
 	startTime, endTime time.Time,
