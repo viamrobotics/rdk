@@ -15,7 +15,7 @@ type Video struct {
 	GetVideoFunc func(
 		ctx context.Context,
 		startTime, endTime time.Time,
-		videoCodec, videoContainer, requestID string,
+		videoCodec, videoContainer string,
 		extra map[string]interface{},
 	) (chan *video.Chunk, error)
 	DoFunc func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
@@ -35,13 +35,13 @@ func (v *Video) Name() resource.Name {
 func (v *Video) GetVideo(
 	ctx context.Context,
 	startTime, endTime time.Time,
-	videoCodec, videoContainer, requestID string,
+	videoCodec, videoContainer string,
 	extra map[string]interface{},
 ) (chan *video.Chunk, error) {
 	if v.GetVideoFunc == nil {
-		return v.Service.GetVideo(ctx, startTime, endTime, videoCodec, videoContainer, requestID, extra)
+		return v.Service.GetVideo(ctx, startTime, endTime, videoCodec, videoContainer, extra)
 	}
-	return v.GetVideoFunc(ctx, startTime, endTime, videoCodec, videoContainer, requestID, extra)
+	return v.GetVideoFunc(ctx, startTime, endTime, videoCodec, videoContainer, extra)
 }
 
 // DoCommand calls the injected DoFunc if set, otherwise calls the embedded Service's DoCommand method.

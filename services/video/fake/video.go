@@ -53,7 +53,7 @@ type Video struct {
 func (fv *Video) GetVideo(
 	ctx context.Context,
 	startTime, endTime time.Time,
-	videoCodec, videoContainer, requestID string,
+	videoCodec, videoContainer string,
 	extra map[string]interface{},
 ) (chan *video.Chunk, error) {
 	fv.logger.Debug("fake GetVideo",
@@ -61,7 +61,6 @@ func (fv *Video) GetVideo(
 		"end", endTime,
 		"codec", videoCodec,
 		"container", videoContainer,
-		"requestID", requestID,
 		"extra_len", len(extra),
 	)
 
@@ -86,7 +85,7 @@ func (fv *Video) GetVideo(
 				return
 			case <-t.C:
 				// prepend a tiny header so chunks are distinct
-				header := []byte(fmt.Sprintf("fake-%s-%02d\n", requestID, i))
+				header := []byte(fmt.Sprintf("fake-video-%02d\n", i))
 				data := make([]byte, len(header)+len(payload))
 				copy(data, header)
 				copy(data[len(header):], payload)
@@ -94,9 +93,7 @@ func (fv *Video) GetVideo(
 				chunk := &video.Chunk{
 					Data:      data,
 					Container: videoContainer,
-					RequestID: requestID,
 				}
-				// best-effort send; if receiver is slow, block until it reads or ctx cancels
 				select {
 				case <-ctx.Done():
 					return

@@ -83,7 +83,6 @@ func TestWorkingVideoClient(t *testing.T) {
 			endTime time.Time,
 			videoCodec string,
 			videoContainer string,
-			requestID string,
 			extra map[string]interface{},
 		) (chan *video.Chunk, error) {
 			ch := make(chan *video.Chunk, 1)
@@ -92,7 +91,6 @@ func TestWorkingVideoClient(t *testing.T) {
 				ch <- &video.Chunk{
 					Data:      mockVideoData,
 					Container: "mp4",
-					RequestID: "12345",
 				}
 			}()
 			return ch, nil
@@ -102,7 +100,6 @@ func TestWorkingVideoClient(t *testing.T) {
 			Name:           "video1",
 			VideoCodec:     "h264",
 			VideoContainer: "mp4",
-			RequestId:      "12345",
 		}
 
 		stream, err := videoClient.GetVideo(cancelCtx, getVideoRequest)
@@ -129,7 +126,6 @@ func TestWorkingVideoClient(t *testing.T) {
 			endTime time.Time,
 			videoCodec string,
 			videoContainer string,
-			requestID string,
 			extra map[string]interface{},
 		) (chan *video.Chunk, error) {
 			return nil, io.EOF
@@ -139,7 +135,6 @@ func TestWorkingVideoClient(t *testing.T) {
 			Name:           "video1",
 			VideoCodec:     "h264",
 			VideoContainer: "mp4",
-			RequestId:      "12345",
 		}
 
 		stream, err := videoClient.GetVideo(cancelCtx, getVideoRequest)
@@ -169,7 +164,7 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 
 	t.Run("extra conversion error (StructToStructPb fails)", func(t *testing.T) {
 		extra := map[string]interface{}{"bad": make(chan int)}
-		ch, err := svc.GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-1", extra)
+		ch, err := svc.GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", extra)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, ch, test.ShouldBeNil)
 	})
@@ -177,7 +172,7 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 	t.Run("context canceled before RPC", func(t *testing.T) {
 		cctx, cancel := context.WithCancel(context.Background())
 		cancel() // cancel immediately
-		ch, err := svc.GetVideo(cctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-2", nil)
+		ch, err := svc.GetVideo(cctx, time.Time{}, time.Time{}, "h264", "mp4", nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Canceled)
 		test.That(t, ch, test.ShouldBeNil)
@@ -189,17 +184,17 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 		injectVideo.GetVideoFunc = func(
 			ctx context.Context,
 			s, e time.Time,
-			codec, container, reqID string,
+			codec, container string,
 			extra map[string]interface{},
 		) (chan *video.Chunk, error) {
 			ch := make(chan *video.Chunk, 1)
 			go func() {
 				defer close(ch)
-				ch <- &video.Chunk{Data: payload, Container: container, RequestID: reqID}
+				ch <- &video.Chunk{Data: payload, Container: container}
 			}()
 			return ch, nil
 		}
-		ch, err := svc.GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-3", nil)
+		ch, err := svc.GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		select {
@@ -207,7 +202,6 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, got.Data, test.ShouldResemble, payload)
 			test.That(t, got.Container, test.ShouldEqual, "mp4")
-			test.That(t, got.RequestID, test.ShouldEqual, "rid-3")
 		case <-time.After(500 * time.Millisecond):
 			t.Fatal("timed out waiting for first chunk")
 		}
@@ -226,14 +220,14 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 		injectVideo.GetVideoFunc = func(
 			ctx context.Context,
 			s, e time.Time,
-			codec, container, reqID string,
+			codec, container string,
 			extra map[string]interface{},
 		) (chan *video.Chunk, error) {
 			ch := make(chan *video.Chunk)
 			close(ch)
 			return ch, nil
 		}
-		ch, err := svc.GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", "rid-5", nil)
+		ch, err := svc.GetVideo(ctx, time.Time{}, time.Time{}, "h264", "mp4", nil)
 		test.That(t, err, test.ShouldBeNil)
 		select {
 		case _, ok := <-ch:
@@ -249,7 +243,7 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 		injectVideo.GetVideoFunc = func(
 			ctx context.Context,
 			s, e time.Time,
-			codec, container, reqID string,
+			codec, container string,
 			extra map[string]interface{},
 		) (chan *video.Chunk, error) {
 			ch := make(chan *video.Chunk)
@@ -263,7 +257,7 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 		}
 		shortCtx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
-		ch, err := svc.GetVideo(shortCtx, time.Time{}, time.Time{}, "h264", "mp4", "rid-6", nil)
+		ch, err := svc.GetVideo(shortCtx, time.Time{}, time.Time{}, "h264", "mp4", nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Expect the channel to close without yielding any chunks within a short time.

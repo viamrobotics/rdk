@@ -52,7 +52,6 @@ func (server *serviceServer) GetVideo(req *pb.GetVideoRequest, stream pb.VideoSe
 		end,
 		req.VideoCodec,
 		req.VideoContainer,
-		req.RequestId,
 		extra,
 	)
 	if err != nil {
@@ -72,8 +71,8 @@ func (server *serviceServer) GetVideo(req *pb.GetVideoRequest, stream pb.VideoSe
 
 			resp := &pb.GetVideoResponse{
 				VideoData:      chunk.Data,
-				RequestId:      chunk.RequestID,
 				VideoContainer: chunk.Container,
+				RequestId:      req.RequestId,
 			}
 
 			if err := stream.Send(resp); err != nil {

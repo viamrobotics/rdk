@@ -59,7 +59,7 @@ func TestServer(t *testing.T) {
 		injectVideo.GetVideoFunc = func(
 			ctx context.Context,
 			startTime, endTime time.Time,
-			videoCodec, videoContainer, requestID string,
+			videoCodec, videoContainer string,
 			extra map[string]interface{},
 		) (chan *video.Chunk, error) {
 			ch := make(chan *video.Chunk, 1)
@@ -69,7 +69,6 @@ func TestServer(t *testing.T) {
 				ch <- &video.Chunk{
 					Data:      data,
 					Container: videoContainer,
-					RequestID: requestID,
 				}
 			}()
 			return ch, nil
@@ -89,7 +88,7 @@ func TestServer(t *testing.T) {
 		injectVideo.GetVideoFunc = func(
 			ctx context.Context,
 			startTime, endTime time.Time,
-			videoCodec, videoContainer, requestID string,
+			videoCodec, videoContainer string,
 			extra map[string]interface{},
 		) (chan *video.Chunk, error) {
 			return nil, io.EOF

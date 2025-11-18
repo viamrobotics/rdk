@@ -33,7 +33,7 @@ type Service interface {
 	GetVideo(
 		ctx context.Context,
 		startTime, endTime time.Time,
-		videoCodec, videoContainer, requestID string,
+		videoCodec, videoContainer string,
 		extra map[string]interface{},
 	) (chan *Chunk, error)
 }

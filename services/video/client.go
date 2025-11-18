@@ -6,6 +6,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/google/uuid"
 	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/video/v1"
 	"go.viam.com/utils/protoutils"
@@ -49,7 +50,7 @@ func NewClientFromConn(
 func (c *client) GetVideo(
 	ctx context.Context,
 	startTime, endTime time.Time,
-	videoCodec, videoContainer, requestID string,
+	videoCodec, videoContainer string,
 	extra map[string]interface{},
 ) (chan *Chunk, error) {
 	ext, err := protoutils.StructToStructPb(extra)
@@ -70,7 +71,7 @@ func (c *client) GetVideo(
 		EndTimestamp:   endTS,
 		VideoCodec:     videoCodec,
 		VideoContainer: videoContainer,
-		RequestId:      requestID,
+		RequestId:      uuid.New().String(),
 		Extra:          ext,
 	}
 	stream, err := c.client.GetVideo(ctx, req)
