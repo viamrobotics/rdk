@@ -84,7 +84,7 @@ require (
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.487
+	go.viam.com/api v0.1.492
 	go.viam.com/test v1.2.4
 	go.viam.com/utils v0.1.176
 	goji.io v2.0.2+incompatible
@@ -329,6 +329,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
 )
-
-// FOR TESTING: to remove once https://github.com/viamrobotics/api/pull/778 is merged
-replace go.viam.com/api => github.com/jgeaso1266/api v0.0.1
