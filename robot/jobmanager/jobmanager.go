@@ -4,11 +4,13 @@ package jobmanager
 
 import (
 	"bytes"
+	"container/ring"
 	"context"
 	"encoding/json"
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fullstorydev/grpcurl"
@@ -21,12 +23,14 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/ssync"
 )
 
 const (
@@ -35,6 +39,7 @@ const (
 	// has movementsensor as its second index in a dot separated slice, which is the resource
 	// the job manager will be looking for.
 	componentServiceIndex int = 2
+	historyLength         int = 10
 )
 
 // JobManager keeps track of the currently scheduled jobs and updates the schedule with
@@ -48,6 +53,61 @@ type JobManager struct {
 	conn          rpc.ClientConn
 	isClosed      bool
 	closeMutex    sync.Mutex
+
+	NumJobHistories atomic.Int32
+	JobHistories    ssync.Map[string, *JobHistory]
+}
+
+// JobHistory records historical metadata about a job.
+type JobHistory struct {
+	successTimesMu sync.Mutex
+	successTimes   *ring.Ring
+	failureTimesMu sync.Mutex
+	failureTimes   *ring.Ring
+}
+
+// Successes returns timestamps of the last historyLength number successfully completed jobs.
+func (jh *JobHistory) Successes() []*timestamppb.Timestamp {
+	ts := make([]*timestamppb.Timestamp, 0, historyLength)
+	jh.successTimesMu.Lock()
+	defer jh.successTimesMu.Unlock()
+	for i := 0; i < historyLength; i++ {
+		if jh.successTimes.Value != nil {
+			ts = append(ts, jh.successTimes.Value.(*timestamppb.Timestamp))
+		}
+		jh.successTimes = jh.successTimes.Next()
+	}
+	return ts
+}
+
+// Failures returns timestamps of the last historyLength number jobs that returned with Error or panic.
+func (jh *JobHistory) Failures() []*timestamppb.Timestamp {
+	ts := make([]*timestamppb.Timestamp, 0, historyLength)
+	jh.failureTimesMu.Lock()
+	defer jh.failureTimesMu.Unlock()
+	for i := 0; i < historyLength; i++ {
+		if jh.failureTimes.Value != nil {
+			ts = append(ts, jh.failureTimes.Value.(*timestamppb.Timestamp))
+		}
+		jh.failureTimes = jh.failureTimes.Next()
+	}
+	return ts
+}
+
+// AddSuccess adds a timestamp to successTimes, overwriting the earliest entry if it is full.
+func (jh *JobHistory) AddSuccess(time *timestamppb.Timestamp) {
+	jh.successTimesMu.Lock()
+	defer jh.successTimesMu.Unlock()
+	jh.successTimes.Value = time
+	jh.successTimes = jh.successTimes.Next()
+}
+
+// AddFailure adds a timestamp to failureTimes, overwriting the earliest entry if it is full.
+func (jh *JobHistory) AddFailure(time *timestamppb.Timestamp) {
+	jh.failureTimesMu.Lock()
+	defer jh.failureTimesMu.Unlock()
+	jh.failureTimes.Value = time
+	jh.failureTimes = jh.failureTimes.Next()
 }
 
 // New sets up the context and grpcConn that is used in scheduled jobs. The actual
@@ -258,6 +318,16 @@ func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 		jobLimitMode = gocron.LimitModeWait
 	}
 
+	if _, ok := jm.JobHistories.Load(jc.Name); !ok {
+		jm.JobHistories.Store(jc.Name, &JobHistory{
+			successTimes: ring.New(historyLength),
+			failureTimes: ring.New(historyLength),
+		})
+		jm.NumJobHistories.Add(1)
+	}
+
+	jobLogger := jm.logger.Sublogger(jc.Name)
+
 	jobFunc := jm.createJobFunction(jc)
 	j, err := jm.scheduler.NewJob(
 		jobType,
@@ -291,10 +361,29 @@ func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 		// It is also important to note that DURATION jobs start relative to when they were
 		// queued on the job scheduler, while CRON jobs are tied to the physical clock.
 		gocron.WithSingletonMode(jobLimitMode),
+		gocron.WithName(jc.Name),
+		gocron.WithEventListeners(
+			// May be slightly more accurate to use j.LastRun(), but we don't have direct reference to it here, and we don't want the job to
+			// complete before we can store the returned Job.
+			gocron.AfterJobRuns(func(jobID uuid.UUID, jobName string) {
+				now := timestamppb.Now()
+				if jh, ok := jm.JobHistories.Load(jobName); ok {
+					jh.AddSuccess(now)
+				}
+			}),
+			gocron.AfterJobRunsWithError(func(jobID uuid.UUID, jobName string, err error) {
+				now := timestamppb.Now()
+				if jh, ok := jm.JobHistories.Load(jobName); ok {
+					jh.AddFailure(now)
+				}
+			}),
+			gocron.AfterJobRunsWithPanic(func(jobID uuid.UUID, jobName string, recoverData any) {
+				now := timestamppb.Now()
+				if jh, ok := jm.JobHistories.Load(jobName); ok {
+					jh.AddFailure(now)
+				}
+			})),
 	)
-
-	jobLogger := jm.logger.Sublogger(jc.Name)
-
 	if err != nil {
 		jobLogger.CErrorw(jm.ctx, "Failed to create a new job", "name", jc.Name, "error", err.Error())
 		return
