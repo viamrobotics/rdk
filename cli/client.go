@@ -1856,7 +1856,9 @@ func newViamClientInner(c *cli.Context, disableBrowserOpen bool) (*viamClient, e
 		return nil, err
 	}
 
-	conf.checkUpdate(c)
+	if err = conf.checkUpdate(c); err != nil {
+		warningf(c.App.ErrWriter, "Failed to check for CLI updates: %w", err)
+	}
 
 	var authFlow *authFlow
 	if isProdBaseURL(baseURL) {
