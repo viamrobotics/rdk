@@ -51,7 +51,7 @@ func (c *client) GetVideo(
 	startTime, endTime time.Time,
 	videoCodec, videoContainer, requestID string,
 	extra map[string]interface{},
-) (chan *VideoChunk, error) {
+) (chan *Chunk, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -79,7 +79,7 @@ func (c *client) GetVideo(
 	}
 
 	// small buffered channel to prevent blocking when receiver is slow
-	ch := make(chan *VideoChunk, 8)
+	ch := make(chan *Chunk, 8)
 	go func() {
 		defer close(ch)
 		for {
@@ -96,7 +96,7 @@ func (c *client) GetVideo(
 				c.logger.Errorf("error receiving video chunk: %v", err)
 				return
 			}
-			ch <- &VideoChunk{
+			ch <- &Chunk{
 				Data:      chunk.GetVideoData(),
 				Container: chunk.GetVideoContainer(),
 				RequestID: chunk.GetRequestId(),

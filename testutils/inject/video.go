@@ -17,7 +17,7 @@ type Video struct {
 		startTime, endTime time.Time,
 		videoCodec, videoContainer, requestID string,
 		extra map[string]interface{},
-	) (chan *video.VideoChunk, error)
+	) (chan *video.Chunk, error)
 	DoFunc func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
@@ -37,7 +37,7 @@ func (v *Video) GetVideo(
 	startTime, endTime time.Time,
 	videoCodec, videoContainer, requestID string,
 	extra map[string]interface{},
-) (chan *video.VideoChunk, error) {
+) (chan *video.Chunk, error) {
 	if v.GetVideoFunc == nil {
 		return v.Service.GetVideo(ctx, startTime, endTime, videoCodec, videoContainer, requestID, extra)
 	}

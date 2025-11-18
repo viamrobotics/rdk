@@ -55,7 +55,7 @@ func (fv *Video) GetVideo(
 	startTime, endTime time.Time,
 	videoCodec, videoContainer, requestID string,
 	extra map[string]interface{},
-) (chan *video.VideoChunk, error) {
+) (chan *video.Chunk, error) {
 	fv.logger.Debug("fake GetVideo",
 		"start", startTime,
 		"end", endTime,
@@ -65,7 +65,7 @@ func (fv *Video) GetVideo(
 		"extra_len", len(extra),
 	)
 
-	ch := make(chan *video.VideoChunk, 1)
+	ch := make(chan *video.Chunk, 1)
 
 	go func() {
 		defer close(ch)
@@ -91,7 +91,7 @@ func (fv *Video) GetVideo(
 				copy(data, header)
 				copy(data[len(header):], payload)
 
-				chunk := &video.VideoChunk{
+				chunk := &video.Chunk{
 					Data:      data,
 					Container: videoContainer,
 					RequestID: requestID,

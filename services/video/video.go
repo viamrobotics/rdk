@@ -20,7 +20,8 @@ func init() {
 	})
 }
 
-type VideoChunk struct {
+// Chunk defines a chunk of video data.
+type Chunk struct {
 	Data      []byte
 	Container string
 	RequestID string
@@ -34,7 +35,7 @@ type Service interface {
 		startTime, endTime time.Time,
 		videoCodec, videoContainer, requestID string,
 		extra map[string]interface{},
-	) (chan *VideoChunk, error)
+	) (chan *Chunk, error)
 }
 
 // SubtypeName is the name of the type of service.

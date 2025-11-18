@@ -85,11 +85,11 @@ func TestWorkingVideoClient(t *testing.T) {
 			videoContainer string,
 			requestID string,
 			extra map[string]interface{},
-		) (chan *video.VideoChunk, error) {
-			ch := make(chan *video.VideoChunk, 1)
+		) (chan *video.Chunk, error) {
+			ch := make(chan *video.Chunk, 1)
 			go func() {
 				defer close(ch)
-				ch <- &video.VideoChunk{
+				ch <- &video.Chunk{
 					Data:      mockVideoData,
 					Container: "mp4",
 					RequestID: "12345",
@@ -131,7 +131,7 @@ func TestWorkingVideoClient(t *testing.T) {
 			videoContainer string,
 			requestID string,
 			extra map[string]interface{},
-		) (chan *video.VideoChunk, error) {
+		) (chan *video.Chunk, error) {
 			return nil, io.EOF
 		}
 
@@ -191,11 +191,11 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 			s, e time.Time,
 			codec, container, reqID string,
 			extra map[string]interface{},
-		) (chan *video.VideoChunk, error) {
-			ch := make(chan *video.VideoChunk, 1)
+		) (chan *video.Chunk, error) {
+			ch := make(chan *video.Chunk, 1)
 			go func() {
 				defer close(ch)
-				ch <- &video.VideoChunk{Data: payload, Container: container, RequestID: reqID}
+				ch <- &video.Chunk{Data: payload, Container: container, RequestID: reqID}
 			}()
 			return ch, nil
 		}
@@ -228,8 +228,8 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 			s, e time.Time,
 			codec, container, reqID string,
 			extra map[string]interface{},
-		) (chan *video.VideoChunk, error) {
-			ch := make(chan *video.VideoChunk)
+		) (chan *video.Chunk, error) {
+			ch := make(chan *video.Chunk)
 			close(ch)
 			return ch, nil
 		}
@@ -251,8 +251,8 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 			s, e time.Time,
 			codec, container, reqID string,
 			extra map[string]interface{},
-		) (chan *video.VideoChunk, error) {
-			ch := make(chan *video.VideoChunk)
+		) (chan *video.Chunk, error) {
+			ch := make(chan *video.Chunk)
 			// Simulate a producer that never sends (server blocks); channel remains open
 			// and the server handler will terminate when ctx is done.
 			go func() {

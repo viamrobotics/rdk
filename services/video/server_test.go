@@ -61,12 +61,12 @@ func TestServer(t *testing.T) {
 			startTime, endTime time.Time,
 			videoCodec, videoContainer, requestID string,
 			extra map[string]interface{},
-		) (chan *video.VideoChunk, error) {
-			ch := make(chan *video.VideoChunk, 1)
+		) (chan *video.Chunk, error) {
+			ch := make(chan *video.Chunk, 1)
 			go func() {
 				defer close(ch)
 				data := []byte{0x00, 0x01, 0x02, 0x03, 0x04}
-				ch <- &video.VideoChunk{
+				ch <- &video.Chunk{
 					Data:      data,
 					Container: videoContainer,
 					RequestID: requestID,
@@ -91,7 +91,7 @@ func TestServer(t *testing.T) {
 			startTime, endTime time.Time,
 			videoCodec, videoContainer, requestID string,
 			extra map[string]interface{},
-		) (chan *video.VideoChunk, error) {
+		) (chan *video.Chunk, error) {
 			return nil, io.EOF
 		}
 		stream := &testGetVideoServer{ctx: context.Background(), writer: &bytes.Buffer{}}
