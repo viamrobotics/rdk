@@ -217,13 +217,13 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig) func(ctx context.Co
 			return err
 		}
 		if jc.Method == "DoCommand" {
-			jobLogger.CInfo(jm.ctx, "Job triggered")
+			jobLogger.CDebugw(jm.ctx, "Job added", "name", jc.Name)
 			response, err := res.DoCommand(jm.ctx, jc.Command)
 			if err != nil {
 				jobLogger.CWarnw(jm.ctx, "Job failed", "error", err.Error())
 				return err
 			}
-			jobLogger.CInfow(jm.ctx, "Job succeeded", "response", response)
+			jobLogger.CDebugw(jm.ctx, "Job succeeded", "name", jc.Name, "response", response)
 			return nil
 		}
 
@@ -263,23 +263,25 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig) func(ctx context.Co
 			Formatter:      formatter,
 			VerbosityLevel: 0,
 		}
-		jobLogger.CInfo(jm.ctx, "Job triggered")
+		// Job added for scheduling; may not immediately run.
+		jobLogger.CDebugw(jm.ctx, "Job added", "name", jc.Name)
 		grpcMethodCombined := grpcService + "." + grpcMethod
 		err = grpcurl.InvokeRPC(jm.ctx, descSource, jm.conn, grpcMethodCombined, nil, h, rf.Next)
 		if err != nil {
-			jobLogger.CWarnw(jm.ctx, "Job failed", "error", err.Error())
+			jobLogger.CWarnw(jm.ctx, "Job failed", "name", jc.Name, "error", err.Error())
 			return err
 		} else if h.Status != nil && h.Status.Err() != nil {
-			jobLogger.CWarnw(jm.ctx, "Job failed", "error", h.Status.Err())
+			jobLogger.CWarnw(jm.ctx, "Job failed", "name", jc.Name, "error", h.Status.Err())
 			return h.Status.Err()
 		}
 		response := map[string]any{}
 		err = json.Unmarshal(buffer.Bytes(), &response)
 		if err != nil {
-			jobLogger.CWarnw(jm.ctx, "Unmarshalling grpc response failed with error", "error", err.Error())
+			jobLogger.CWarnw(jm.ctx, "Unmarshalling grpc response failed with error", "name", jc.Name,
+				"error", err.Error())
 			return err
 		}
-		jobLogger.CInfow(jm.ctx, "Job succeeded", "response", response)
+		jobLogger.CDebugw(jm.ctx, "Job succeeded", "name", jc.Name, "response", response)
 		return nil
 	}
 }
