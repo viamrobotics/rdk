@@ -51,11 +51,10 @@ func (c *client) GetVideo(
 	startTime, endTime time.Time,
 	videoCodec, videoContainer, requestID string,
 	extra map[string]interface{},
-	w io.Writer,
-) error {
+) (chan *VideoChunk, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var startTS *timestamppb.Timestamp
 	if !startTime.IsZero() {
@@ -76,28 +75,36 @@ func (c *client) GetVideo(
 	}
 	stream, err := c.client.GetVideo(ctx, req)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	// The blocking Recv call below already honors ctx: if ctx is canceled or its deadline
-	// expires, Recv returns an error (e.g. context.Canceled or context.DeadlineExceeded).
-	// Therefore we do not need an explicit select on ctx.Done(). We only check for:
-	//   - io.EOF: normal end of stream.
-	//   - any other error: propagate upstream (includes context cancel).
-	// Chunk data is written directly to the writer as it arrives to avoid buffering the entire video.
-	for {
-		chunk, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			break
+
+	// small buffered channel to prevent blocking when receiver is slow
+	ch := make(chan *VideoChunk, 8)
+	go func() {
+		defer close(ch)
+		for {
+			// The blocking Recv call below already honors ctx: if ctx is canceled or its deadline
+			// expires, Recv returns an error (e.g. context.Canceled or context.DeadlineExceeded).
+			// Therefore we do not need an explicit select on ctx.Done(). We only check for:
+			//   - io.EOF: normal end of stream.
+			//   - any other error: propagate upstream (includes context cancel).
+			chunk, err := stream.Recv()
+			if errors.Is(err, io.EOF) {
+				return
+			}
+			if err != nil {
+				c.logger.Errorf("error receiving video chunk: %v", err)
+				return
+			}
+			ch <- &VideoChunk{
+				Data:      chunk.GetVideoData(),
+				Container: chunk.GetVideoContainer(),
+				RequestID: chunk.GetRequestId(),
+			}
 		}
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(chunk.GetVideoData())
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	}()
+
+	return ch, nil
 }
 
 // DoCommand calls the DoCommand method on the video service.

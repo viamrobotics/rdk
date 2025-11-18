@@ -4,7 +4,6 @@ package fake
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -56,8 +55,7 @@ func (fv *Video) GetVideo(
 	startTime, endTime time.Time,
 	videoCodec, videoContainer, requestID string,
 	extra map[string]interface{},
-	w io.Writer,
-) error {
+) (chan *video.VideoChunk, error) {
 	fv.logger.Debug("fake GetVideo",
 		"start", startTime,
 		"end", endTime,
@@ -67,29 +65,48 @@ func (fv *Video) GetVideo(
 		"extra_len", len(extra),
 	)
 
-	payload := make([]byte, chunkSize)
-	for i := range payload {
-		payload[i] = byte((i * 17) % 251)
-	}
+	ch := make(chan *video.VideoChunk, 1)
 
-	// simulate streaming by sending chunks at intervals
-	t := time.NewTicker(interval)
-	defer t.Stop()
-	for i := 0; i < chunkCount; i++ {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-t.C:
-			header := []byte(fmt.Sprintf("fake-%s-%02d\n", requestID, i))
-			if _, err := w.Write(header); err != nil {
-				return err
-			}
-			if _, err := w.Write(payload); err != nil {
-				return err
+	go func() {
+		defer close(ch)
+
+		// fixed-size payload pattern
+		payload := make([]byte, chunkSize)
+		for i := range payload {
+			payload[i] = byte((i * 17) % 251)
+		}
+
+		t := time.NewTicker(interval)
+		defer t.Stop()
+
+		for i := 0; i < chunkCount; i++ {
+			select {
+			case <-ctx.Done():
+				fv.logger.Debug("fake video context canceled", "err", ctx.Err())
+				return
+			case <-t.C:
+				// prepend a tiny header so chunks are distinct
+				header := []byte(fmt.Sprintf("fake-%s-%02d\n", requestID, i))
+				data := make([]byte, len(header)+len(payload))
+				copy(data, header)
+				copy(data[len(header):], payload)
+
+				chunk := &video.VideoChunk{
+					Data:      data,
+					Container: videoContainer,
+					RequestID: requestID,
+				}
+				// best-effort send; if receiver is slow, block until it reads or ctx cancels
+				select {
+				case <-ctx.Done():
+					return
+				case ch <- chunk:
+				}
 			}
 		}
-	}
-	return nil
+	}()
+
+	return ch, nil
 }
 
 // DoCommand is a fake implementation that returns the command as the result.

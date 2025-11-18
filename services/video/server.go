@@ -23,20 +23,6 @@ func NewRPCServiceServer(coll resource.APIResourceGetter[Service]) interface{} {
 	return &serviceServer{coll: coll}
 }
 
-// streamWriter implements io.Writer by sending data over a gRPC stream.
-type streamWriter struct {
-	stream    pb.VideoService_GetVideoServer
-	requestID string
-}
-
-// Write sends data over the gRPC stream.
-func (w streamWriter) Write(p []byte) (int, error) {
-	if err := w.stream.Send(&pb.GetVideoResponse{VideoData: p, RequestId: w.requestID}); err != nil {
-		return 0, err
-	}
-	return len(p), nil
-}
-
 // GetVideo streams video data to the client.
 func (server *serviceServer) GetVideo(req *pb.GetVideoRequest, stream pb.VideoService_GetVideoServer) error {
 	svc, err := server.coll.Resource(req.Name)
@@ -60,8 +46,7 @@ func (server *serviceServer) GetVideo(req *pb.GetVideoRequest, stream pb.VideoSe
 		}
 	}
 
-	// Stream directly via the interface to avoid buffering the entire video in memory.
-	return svc.GetVideo(
+	chunkChan, err := svc.GetVideo(
 		stream.Context(),
 		start,
 		end,
@@ -69,8 +54,33 @@ func (server *serviceServer) GetVideo(req *pb.GetVideoRequest, stream pb.VideoSe
 		req.VideoContainer,
 		req.RequestId,
 		extra,
-		&streamWriter{stream: stream, requestID: req.RequestId},
 	)
+	if err != nil {
+		return err
+	}
+
+	// Stream video chunks
+	for {
+		select {
+		case <-stream.Context().Done():
+			return nil
+
+		case chunk, ok := <-chunkChan:
+			if !ok {
+				return nil
+			}
+
+			resp := &pb.GetVideoResponse{
+				VideoData:      chunk.Data,
+				RequestId:      chunk.RequestID,
+				VideoContainer: chunk.Container,
+			}
+
+			if err := stream.Send(resp); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // DoCommand implements the generic command interface.

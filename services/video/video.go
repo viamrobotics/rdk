@@ -3,7 +3,6 @@ package video
 
 import (
 	"context"
-	"io"
 	"time"
 
 	servicepb "go.viam.com/api/service/video/v1"
@@ -21,6 +20,12 @@ func init() {
 	})
 }
 
+type VideoChunk struct {
+	Data      []byte
+	Container string
+	RequestID string
+}
+
 // Service is the interface for a video service.
 type Service interface {
 	resource.Resource
@@ -29,8 +34,7 @@ type Service interface {
 		startTime, endTime time.Time,
 		videoCodec, videoContainer, requestID string,
 		extra map[string]interface{},
-		w io.Writer,
-	) error
+	) (chan *VideoChunk, error)
 }
 
 // SubtypeName is the name of the type of service.
