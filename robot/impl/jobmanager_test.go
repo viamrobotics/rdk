@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
@@ -69,6 +70,91 @@ func TestJobManagerDurationAndCronFromJson(t *testing.T) {
 		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 3)
 	})
+}
+
+func TestLogLevelChange(t *testing.T) {
+	// This is created at debug level
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	fakeSensorComponent := []resource.Config{
+		{
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			Name:  "sensor",
+			API:   sensor.API,
+		},
+	}
+
+	cfg := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "1s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	cfgWarn := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "1s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+					LogConfiguration: &resource.LogConfig{
+						Level: logging.WARN,
+					},
+				},
+			},
+		},
+	}
+	cfgDebug := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "1s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+					LogConfiguration: &resource.LogConfig{
+						Level: logging.DEBUG,
+					},
+				},
+			},
+		},
+	}
+	ctx, ctxCancelFunc := context.WithCancel(context.Background())
+	defer ctxCancelFunc()
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+
+	time.Sleep(7 * time.Second)
+	test.That(t, logs.FilterMessage("Job added").FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeGreaterThan, 2)
+	test.That(t, logs.FilterMessage("Job succeeded").FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeGreaterThan, 2)
+
+	lr.Reconfigure(ctx, cfgWarn)
+	logs.TakeAll()
+	time.Sleep(7 * time.Second)
+	// update will let the previous job iteration complete first, so may be 1 or 0.
+	test.That(t, logs.FilterMessage("Job added").FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeLessThanOrEqualTo, 1)
+	test.That(t, logs.FilterMessage("Job succeeded").FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeLessThanOrEqualTo, 1)
+
+	lr.Reconfigure(ctx, cfgDebug)
+	logs.TakeAll()
+	time.Sleep(7 * time.Second)
+	test.That(t, logs.FilterMessage("Job added").FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeGreaterThan, 2)
+	test.That(t, logs.FilterMessage("Job succeeded").FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeGreaterThan, 2)
 }
 
 func TestJobManagerHistory(t *testing.T) {
