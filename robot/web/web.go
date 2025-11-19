@@ -22,6 +22,7 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
+	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
@@ -299,6 +300,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 			MinTime:             rpc.KeepAliveTime / 2, // keep this in sync with goutils' rpc/dialer & server.
 			PermitWithoutStream: true,
 		}),
+		googlegrpc.StatsHandler(&ocgrpc.ServerHandler{}),
 	}
 	server := module.NewServer(opts...)
 	if tcpMode {
@@ -360,6 +362,7 @@ func (svc *webService) stopWeb() {
 	if svc.cancelFunc != nil {
 		svc.cancelFunc()
 	}
+	svc.closeStreamServer()
 	svc.isRunning = false
 	svc.webWorkers.Wait()
 }
@@ -484,7 +487,6 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 				svc.logger.Errorw("error stopping rpc server", "error", err)
 			}
 		}()
-		svc.closeStreamServer()
 	})
 	svc.webWorkers.Add(1)
 	utils.PanicCapturingGo(func() {

@@ -277,6 +277,7 @@ type ImageMetadata struct {
 	Timestamp                 string           `json:"timestamp"`
 	BinaryDataID              string           `json:"binary_data_id,omitempty"`
 	OrganizationID            string           `json:"organization_id,omitempty"`
+	RobotID                   string           `json:"robot_id,omitempty"`
 	LocationID                string           `json:"location_id,omitempty"`
 	PartID                    string           `json:"part_id,omitempty"`
 	ComponentName             string           `json:"component_name,omitempty"`
@@ -348,6 +349,7 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 		LocationID:                captureMD.GetLocationId(),
 		PartID:                    captureMD.GetPartId(),
 		ComponentName:             captureMD.GetComponentName(),
+		RobotID:                   captureMD.GetRobotId(),
 	}
 
 	line, err := json.Marshal(jsonl)

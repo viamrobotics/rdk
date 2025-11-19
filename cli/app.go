@@ -470,7 +470,6 @@ var app = &cli.App{
 				},
 			},
 			Action: createCommandWithT[loginActionArgs](LoginAction),
-			After:  createCommandWithT[emptyArgs](CheckUpdateAction),
 			Subcommands: []*cli.Command{
 				{
 					Name:      "print-access-token",
@@ -3042,7 +3041,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.PathFlag{
 							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Usage: "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
 							Value: "/etc/viam.json",
 						},
 					},
@@ -3050,7 +3049,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				},
 				{
 					Name:      "reload-local",
-					Usage:     "build a module locally and run it on a target device. rebuild & restart if already running",
+					Usage:     "build a module locally and run it on a target machine. rebuild & restart if already running",
 					UsageText: createUsageText("module reload-local", nil, true, false),
 					Description: `Example invocations:
 
@@ -3109,7 +3108,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.PathFlag{
 							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Usage: "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
 							Value: "/etc/viam.json",
 						},
 						&cli.StringFlag{
@@ -3132,7 +3131,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				},
 				{
 					Name:      "reload",
-					Usage:     "build a module in the cloud and run it on a target device. rebuild & restart if already running",
+					Usage:     "build a module in the cloud and run it on a target machine. rebuild & restart if already running",
 					UsageText: createUsageText("module reload", nil, true, false),
 					Description: `Example invocations:
 
@@ -3159,6 +3158,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: "meta.json",
 						},
 						&cli.BoolFlag{
+							Name:  moduleBuildFlagNoBuild,
+							Usage: "don't do build step, reuse existing downloaded artifact",
+						},
+						&cli.BoolFlag{
 							Name:  generalFlagNoProgress,
 							Usage: "hide progress of the file transfer",
 						},
@@ -3169,7 +3172,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.PathFlag{
 							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Usage: "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
 							Value: "/etc/viam.json",
 						},
 						&cli.StringFlag{
@@ -3189,7 +3192,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:        generalFlagPath,
-							Usage:       "Use this with --cloud-build to indicate the path to the root of the git repo to build",
+							Usage:       "The path to the root of the git repo to build",
 							DefaultText: ".",
 						},
 					},

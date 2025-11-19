@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"slices"
 	"time"
 
 	"github.com/go-nlopt/nlopt"
@@ -19,6 +18,9 @@ import (
 
 var errBadBounds = errors.New("cannot set upper or lower bounds for nlopt, slice is empty. Are you trying to move a static frame?")
 
+// NloptAlg is what algorith to use - nlopt.LD_SLSQP is the original one we used
+var NloptAlg = nlopt.LD_SLSQP
+
 const (
 	nloptStepsPerIter = 4001
 	defaultMaxIter    = 5000
@@ -27,7 +29,6 @@ const (
 
 // NloptIK can solve IK problems with nlopt.
 type NloptIK struct {
-	limits        []referenceframe.Limit
 	maxIterations int
 	logger        logging.Logger
 
@@ -45,12 +46,18 @@ type NloptIK struct {
 // of the solver, a logger, and the number of iterations to run. If the iteration count is less than 1, it will be set
 // to the default of 5000.
 func CreateNloptSolver(
-	limits []referenceframe.Limit,
 	logger logging.Logger,
 	iter int,
 	exact, useRelTol bool,
 ) (*NloptIK, error) {
-	ik := &NloptIK{logger: logger, limits: limits}
+	// if debugIkMinFunc {
+	//  	// DONT COMMIT. Assert this works w.r.t registry. We might be omitting prior debug log lines
+	//  	// from `initRRT` and now including them. Simply for the purpose of this low level debug
+	//  	// state.
+	//  	logger.SetLevel(logging.DEBUG)
+	// }
+
+	ik := &NloptIK{logger: logger}
 
 	if iter < 1 {
 		// default value
@@ -63,24 +70,6 @@ func CreateNloptSolver(
 	return ik, nil
 }
 
-// DoF returns the DoF of the solver.
-func (ik *NloptIK) DoF() []referenceframe.Limit {
-	return ik.limits
-}
-
-func (ik *NloptIK) computeLimits(seed, travelPercent []float64) ([]float64, []float64) {
-	lowerBound, upperBound := limitsToArrays(ik.limits)
-
-	if len(travelPercent) == len(lowerBound) {
-		for i := 0; i < len(lowerBound); i++ {
-			lowerBound[i] = max(lowerBound[i], seed[i]-(ik.limits[i].Range()*travelPercent[i]))
-			upperBound[i] = min(upperBound[i], seed[i]+(ik.limits[i].Range()*travelPercent[i]))
-		}
-	}
-
-	return lowerBound, upperBound
-}
-
 type nloptSeedState struct {
 	seed                   []float64
 	lowerBound, upperBound []float64
@@ -88,40 +77,29 @@ type nloptSeedState struct {
 
 	meta string
 
-	opt *nlopt.NLopt
+	opt    *nlopt.NLopt
+	logger logging.Logger
 }
 
 func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc CostFunc,
-	s []float64, travelPercentMultiplier float64, travelPercentIn []float64, iterations *int,
+	s []float64, limits []referenceframe.Limit, iterations *int,
 ) (*nloptSeedState, error) {
 	var err error
 
 	ss := &nloptSeedState{
-		seed: s,
-		meta: fmt.Sprintf("s:%d-travel:%0.1f", seedNumber, travelPercentMultiplier),
+		seed:   s,
+		meta:   fmt.Sprintf("s:%d", seedNumber),
+		logger: ik.logger,
 	}
 
-	var travelPercent []float64
-	if travelPercentMultiplier <= 0 {
-		travelPercent = nil
-	} else if travelPercentMultiplier >= 1 {
-		travelPercent = travelPercentIn
-	} else {
-		travelPercent = make([]float64, len(travelPercentIn))
-		for i, in := range travelPercentIn {
-			travelPercent[i] = min(.5, max(travelPercentMultiplier, in))
-		}
-	}
-
-	ss.lowerBound, ss.upperBound = ik.computeLimits(s, travelPercent)
+	ss.lowerBound, ss.upperBound = limitsToArrays(limits)
 	if len(ss.lowerBound) == 0 || len(ss.upperBound) == 0 {
 		return nil, errBadBounds
 	}
 
 	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
-	ss.jump = ik.calcJump(ctx, defaultJump, s, minFunc)
-
-	ss.opt, err = nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ss.lowerBound)))
+	ss.jump = ik.calcJump(ctx, defaultJump, s, limits, minFunc)
+	ss.opt, err = nlopt.NewNLopt(NloptAlg, uint(len(ss.lowerBound)))
 	if err != nil {
 		return nil, errors.Wrap(err, "nlopt creation error")
 	}
@@ -179,6 +157,8 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 				}
 			}
 		}
+		nss.logger.Debugf("\n\t minfunc seed:%s vals: %v dist: %0.2f gradient: %v",
+			nss.meta, logging.FloatArrayFormat{"%0.5f", checkVals}, dist, logging.FloatArrayFormat{"", gradient})
 		return dist
 	}
 }
@@ -187,19 +167,19 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
 	seeds [][]float64,
-	travelPercent []float64,
+	limits [][]referenceframe.Limit,
 	minFunc CostFunc,
 	rseed int,
-) (int, error) {
+) (int, []SeedSolveMetaData, error) {
 	if len(seeds) == 0 {
-		return 0, fmt.Errorf("no seeds")
+		return 0, nil, fmt.Errorf("no seeds")
 	}
 
-	if len(seeds[0]) != len(ik.limits) {
-		return 0, fmt.Errorf("nlopt initialized with %d dof but seed was length %d", len(ik.limits), len(seeds[0]))
+	if len(seeds) != len(limits) {
+		return 0, nil, fmt.Errorf("need matching limits (%d) and seeds (%d) arrays", len(limits), len(seeds))
 	}
-	//nolint: gosec
-	randSeed := rand.New(rand.NewSource(int64(rseed)))
+
+	randSeed := rand.New(rand.NewSource(int64(rseed))) //nolint: gosec
 
 	seedStates := []*nloptSeedState{}
 	defer func() {
@@ -210,45 +190,50 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 	}()
 
+	meta := []SeedSolveMetaData{}
+
 	iterations := 0
 
-	for _, x := range []float64{.1, 1, 0} {
-		for i, s := range seeds {
-			ss, err := ik.newSeedState(ctx, i, minFunc, s, x, travelPercent, &iterations)
-			if err != nil {
-				return 0, err
-			}
-
-			seedStates = append(seedStates, ss)
+	for i, s := range seeds {
+		ss, err := ik.newSeedState(ctx, i, minFunc, s, limits[i], &iterations)
+		if err != nil {
+			return 0, nil, err
 		}
-	}
 
-	if rseed%3 == 1 {
-		slices.Reverse(seedStates)
+		seedStates = append(seedStates, ss)
+		meta = append(meta, SeedSolveMetaData{})
 	}
 
 	solutionsFound := 0
-	seedNumber := 0
+	seedNumber := rseed // start randomly in the list
 
 	itStart := time.Now()
 	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < time.Second)) && ctx.Err() == nil {
 		iterations++
 
-		ss := seedStates[seedNumber%len(seedStates)]
+		seedNumberRanged := seedNumber % len(seedStates)
+		ss := seedStates[seedNumberRanged]
+		meta[seedNumberRanged].Attempts++
 
 		solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
+		ik.logger.Debugf("seed (%d) %v\n\t result: %0.2f  err: %v res: %v",
+			seedNumberRanged, logging.FloatArrayFormat{"", ss.seed},
+			result, nloptErr, logging.FloatArrayFormat{"", solutionRaw})
+
 		if nloptErr != nil {
+			meta[seedNumberRanged].Errors++
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
 			// Above was previous comment.
 			// I (Eliot) think this is caused by a bug in how we compute the gradient
 			// When the absolute value of the gradient is too high, it blows up
 			if nloptErr.Error() != "nlopt: FAILURE" {
-				return solutionsFound, nloptErr
+				return solutionsFound, nil, nloptErr
 			}
 		} else if solutionRaw == nil {
 			panic("why is solutionRaw nil")
 		} else if result < defaultGoalThreshold || !ik.exact {
+			meta[seedNumberRanged].Valid++
 			solution := &Solution{
 				Configuration: solutionRaw,
 				Score:         result,
@@ -267,12 +252,14 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		seedNumber++
 	}
 
-	return solutionsFound, nil
+	return solutionsFound, meta, nil
 }
 
-func (ik *NloptIK) calcJump(ctx context.Context, testJump float64, seed []float64, minFunc CostFunc) []float64 {
+func (ik *NloptIK) calcJump(ctx context.Context, testJump float64,
+	seed []float64, limits []referenceframe.Limit, minFunc CostFunc,
+) []float64 {
 	jump := make([]float64, 0, len(seed))
-	lowerBound, upperBound := limitsToArrays(ik.limits)
+	lowerBound, upperBound := limitsToArrays(limits)
 
 	seedDist := minFunc(ctx, seed)
 	for i, testVal := range seed {

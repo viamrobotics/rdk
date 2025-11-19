@@ -231,6 +231,21 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
 }
 
+func (c *client) Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.Get3DModels(ctx, &commonpb.Get3DModelsRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Models, nil
+}
+
 // warnKinematicsUnsafe is a helper function to warn the user that no kinematics have been supplied for the conversion between
 // joints space and Inputs. The assumption we are making here is safe for any arm that has only revolute joints (true for most
 // commercially available arms) and will only come into play if the kinematics for the arm have not been cached successfully yet.

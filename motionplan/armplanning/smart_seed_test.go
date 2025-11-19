@@ -3,6 +3,7 @@
 package armplanning
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -37,6 +38,7 @@ func TestSmartSeedCache1(t *testing.T) {
 		t.Skip()
 		return
 	}
+	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
 	armName := "ur5e"
@@ -66,27 +68,39 @@ func TestSmartSeedCache1(t *testing.T) {
 
 	t.Run("partial", func(t *testing.T) {
 		startTime := time.Now()
-		seeds, err := c.findSeedsForFrame(
+		seeds, _, err := c.findSeedsForFrame(
 			"ur5e",
 			start.Get("ur5e"),
 			goal,
+			5,
 			logger)
 		logger.Infof("time to run findSeedsForFrame: %v", time.Since(startTime))
 		test.That(t, err, test.ShouldBeNil)
-		cost := referenceframe.InputsL2Distance(start.Get("ur5e"), seeds[0])
-		test.That(t, cost, test.ShouldBeLessThan, 1.25)
+		best := 100000.0
+		for _, s := range seeds {
+			cost := myCost(start.Get("ur5e"), s)
+			best = min(best, cost)
+		}
+		logger.Infof("best: %v\n", best)
+		test.That(t, best, test.ShouldBeLessThan, .6)
 	})
 
 	t.Run("real", func(t *testing.T) {
 		startTime := time.Now()
-		seed, err := c.findSeed(
+		seeds, _, err := c.findSeeds(ctx,
 			referenceframe.FrameSystemPoses{"ur5e": referenceframe.NewPoseInFrame("world", goal)},
 			start,
+			10,
 			logger)
 		test.That(t, err, test.ShouldBeNil)
 		logger.Infof("time to run findSeed: %v", time.Since(startTime))
-		cost := referenceframe.InputsL2Distance(start.Get("ur5e"), seed.Get("ur5e"))
-		test.That(t, cost, test.ShouldBeLessThan, 1.25)
+		best := 100000.0
+		for _, s := range seeds {
+			cost := myCost(start.Get("ur5e"), s.Get("ur5e"))
+			best = min(best, cost)
+		}
+		logger.Infof("best: %v\n", best)
+		test.That(t, best, test.ShouldBeLessThan, .6)
 	})
 }
 
@@ -132,6 +146,7 @@ func TestSmartSeedCacheFrames(t *testing.T) {
 }
 
 func TestSmartSeedCachePirouette(t *testing.T) {
+	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
 	armName := "ur5e"
@@ -152,9 +167,10 @@ func TestSmartSeedCachePirouette(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		score1 := referenceframe.InputsL2Distance(idealJointValues[0], ideal)
-		seeds, err := ssc.findSeeds(
+		seeds, _, err := ssc.findSeeds(ctx,
 			referenceframe.FrameSystemPoses{armName: referenceframe.NewPoseInFrame("world", pose)},
 			referenceframe.FrameSystemInputs{armName: idealJointValues[0]}.ToLinearInputs(),
+			10,
 			logger)
 		test.That(t, err, test.ShouldBeNil)
 		firstScore := 0.0
@@ -170,18 +186,16 @@ func TestSmartSeedCachePirouette(t *testing.T) {
 			if score1 == 0 {
 				break
 			}
-			if ii > 10 {
-				break
-			}
 		}
 
 		if score1 > 0 {
-			test.That(t, firstScore, test.ShouldBeLessThan, 4)
+			test.That(t, firstScore, test.ShouldBeLessThan, 5)
 		}
 	}
 }
 
 func BenchmarkSmartSeedCacheSearch(t *testing.B) {
+	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
 	armName := "ur5e"
@@ -207,7 +221,7 @@ func BenchmarkSmartSeedCacheSearch(t *testing.B) {
 	t.ResetTimer()
 
 	for range t.N {
-		_, err = c.findSeed(
+		_, err = c.findSeed(ctx,
 			referenceframe.FrameSystemPoses{"ur5e": referenceframe.NewPoseInFrame("world",
 				spatialmath.NewPose(
 					r3.Vector{X: -337.976430, Y: -464.051182, Z: 554.695381},

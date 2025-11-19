@@ -17,7 +17,7 @@ import (
 const (
 	// DefaultResourceConfigurationTimeout is the default resource configuration
 	// timeout.
-	DefaultResourceConfigurationTimeout = time.Minute
+	DefaultResourceConfigurationTimeout = 2 * time.Minute
 
 	// ResourceConfigurationTimeoutEnvVar is the environment variable that can
 	// be set to override DefaultResourceConfigurationTimeout as the duration
@@ -193,6 +193,16 @@ func GetenvInt(v string, def int) int {
 	}
 
 	return num
+}
+
+// GetenvBool gets a variable from the environment, and returns as bool, if can't, then uses default.
+func GetenvBool(v string, def bool) bool {
+	x := os.Getenv(v)
+	if x == "" {
+		return def
+	}
+
+	return x[0] == 't' || x[0] == 'T' || x[0] == '1'
 }
 
 // GetImagesInStreamServer returns true iff an env bool was set to use the GetImages feature flag in stream server.

@@ -23,6 +23,8 @@ const (
 	minWidthUs    uint    = 500  // absolute minimum PWM width
 	maxWidthUs    uint    = 2500 // absolute maximum PWM width
 	defaultFreq   uint    = 300
+	minFreqHz     uint    = 50
+	maxFreqHz     uint    = 450
 )
 
 // We want to distinguish values that are 0 because the user set them to 0 from ones that are 0
@@ -187,9 +189,9 @@ func (s *servoGPIO) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	if newConf.Frequency != nil {
-		if *newConf.Frequency > 450 || *newConf.Frequency < 50 {
+		if *newConf.Frequency > maxFreqHz || *newConf.Frequency < minFreqHz {
 			return errors.Errorf(
-				"PWM frequencies should not be above 450Hz or below 50, have %d", newConf.Frequency)
+				"PWM frequencies should not be above %dHz or below %dHz, have %dHz", maxFreqHz, minFreqHz, newConf.Frequency)
 		}
 
 		s.frequency = *newConf.Frequency
@@ -200,8 +202,12 @@ func (s *servoGPIO) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	// microsecond, but rarely over 10. Call it 50 microseconds just to be safe.
 	const maxDeadbandWidthUs = 50
 	if maxFrequency := 1e6 / (s.maxUs + maxDeadbandWidthUs); s.frequency > maxFrequency {
-		s.logger.CWarnf(ctx, "servo frequency (%f.1) is above maximum (%f.1), setting to max instead",
-			s.frequency, maxFrequency)
+		// if the frequency wasn't set in the config we will default to whatever the driver sets as default frequency
+		// we silence the warning below if clamping the frequency was needed
+		if newConf.Frequency != nil {
+			s.logger.CWarnf(ctx, "servo frequency (%dHz) is above maximum (%dHz), setting to max instead",
+				s.frequency, maxFrequency)
+		}
 		s.frequency = maxFrequency
 	}
 

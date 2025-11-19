@@ -21,9 +21,12 @@ type Registry struct {
 }
 
 func newRegistry() *Registry {
-	return &Registry{
+	ret := &Registry{
 		loggers: make(map[string]Logger),
 	}
+	applyMotionRegistryOptions(ret)
+
+	return ret
 }
 
 func (lr *Registry) registerLogger(name string, logger Logger) {
@@ -52,7 +55,7 @@ func (lr *Registry) updateLoggerLevel(name string, level Level) error {
 
 // Update updates the logger registry with the passed in `logConfig`. Invalid patterns
 // are warn-logged through the warnLogger.
-func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) error {
+func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) {
 	lr.mu.Lock()
 	lr.logConfig = logConfig
 	lr.mu.Unlock()
@@ -90,11 +93,9 @@ func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) e
 		}
 		err := lr.updateLoggerLevel(name, level)
 		if err != nil {
-			return err
+			warnLogger.Warnw("Logger disappeared after seeing its name", "name", name, "level", level)
 		}
 	}
-
-	return nil
 }
 
 func (lr *Registry) getRegisteredLoggerNames() []string {
