@@ -1,17 +1,22 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
+	"go.viam.com/utils"
 )
 
 const (
@@ -251,7 +256,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines bool, 
 				downloadErr = c.downloadBinary(dst, timeout, id)
 				datasetFilePath = filepath.Join(dst, dataDir)
 			}
-			datasetErr := binaryDataToJSONLines(c.c.Context, c.dataClient, datasetFilePath, datasetFile, id)
+			datasetErr := binaryMetadataToJSONLines(c, datasetFilePath, datasetFile, id)
 
 			return multierr.Combine(downloadErr, datasetErr)
 		},
@@ -292,13 +297,22 @@ type BBoxAnnotation struct {
 	YMaxNormalized  float64 `json:"y_max_normalized"`
 }
 
-func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient, dst string, file *os.File,
-	id string,
-) error {
+// BinaryMetadataToJSONLRequest represents the request body structure
+type BinaryMetadataToJSONLRequest struct {
+	BinaryMetadata []*datapb.BinaryMetadata `json:"binary_metadata"`
+	Path           string                   `json:"path"`
+}
+
+// Example function to call the binary-metadata-to-jsonl endpoint
+func binaryMetadataToJSONLines(c *viamClient, path string, file *os.File, id string) error {
+	args, err := getGlobalArgs(c.c)
+	if err != nil {
+		return err
+	}
+	debugf(c.c.App.Writer, args.Debug, "Attempting to get binary metadata for binary data ID: %s", id)
 	var resp *datapb.BinaryDataByIDsResponse
-	var err error
 	for count := 0; count < maxRetryCount; count++ {
-		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+		resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
 			BinaryDataIds: []string{id},
 			IncludeBinary: false,
 		})
@@ -306,75 +320,77 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 			break
 		}
 	}
+
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
-
 	data := resp.GetData()
 	if len(data) != 1 {
 		return errors.Errorf("expected a single response, received %d", len(data))
 	}
-	datum := data[0]
 
-	// Make JSONLines
-	var jsonl interface{}
-
-	annotations := []Annotation{}
-	for _, tag := range datum.GetMetadata().GetCaptureMetadata().GetTags() {
-		annotations = append(annotations, Annotation{AnnotationLabel: tag})
-	}
-	classificationsAnnotations := datum.GetMetadata().GetAnnotations().GetClassifications()
-	for _, classification := range classificationsAnnotations {
-		annotations = append(annotations, Annotation{AnnotationLabel: classification.GetLabel()})
-	}
-	bboxAnnotations := convertBoundingBoxes(datum.GetMetadata().GetAnnotations().GetBboxes())
-
-	fileName := filepath.Join(dst, filenameForDownload(datum.GetMetadata()))
-	ext := datum.GetMetadata().GetFileExt()
-	// If the file is gzipped, unzip.
-	if ext != gzFileExt && filepath.Ext(fileName) != ext {
-		// If the file name did not already include the extension (e.g. for data capture files), add it.
-		// Don't do this for files that we're unzipping.
-		fileName += ext
+	// Create the request payload
+	requestBody := BinaryMetadataToJSONLRequest{
+		BinaryMetadata: []*datapb.BinaryMetadata{data[0].GetMetadata()},
+		Path:           path,
 	}
 
-	captureMD := datum.GetMetadata().GetCaptureMetadata()
-	jsonl = ImageMetadata{
-		ImagePath:                 fileName,
-		ClassificationAnnotations: annotations,
-		BBoxAnnotations:           bboxAnnotations,
-		Timestamp:                 datum.GetMetadata().GetTimeRequested().AsTime().String(),
-		BinaryDataID:              datum.GetMetadata().GetBinaryDataId(),
-		OrganizationID:            captureMD.GetOrganizationId(),
-		LocationID:                captureMD.GetLocationId(),
-		PartID:                    captureMD.GetPartId(),
-		ComponentName:             captureMD.GetComponentName(),
-		RobotID:                   captureMD.GetRobotId(),
-	}
-
-	line, err := json.Marshal(jsonl)
+	// Marshal the request to JSON
+	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
-		return errors.Wrap(err, "error formatting JSON")
+		return errors.Wrapf(err, "failed to marshal request")
 	}
-	line = append(line, "\n"...)
-	_, err = file.Write(line)
+
+	// Create the HTTP request
+	url := fmt.Sprintf("%s/binary-metadata-to-jsonl", c.baseURL.String())
+	req, err := http.NewRequestWithContext(c.c.Context, http.MethodPost, url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return errors.Wrap(err, "error writing to file")
+		return errors.Wrapf(err, "failed to create request")
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	token, ok := c.conf.Auth.(*token)
+	if ok {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
+	}
+	apiKey, ok := c.conf.Auth.(*apiKey)
+	if ok {
+		req.Header.Set("key_id", apiKey.KeyID)
+		req.Header.Set("key", apiKey.KeyCrypto)
+	}
+
+	// Send the request
+	// need to make timeout a constant
+	var res *http.Response
+	httpClient := &http.Client{Timeout: time.Duration(30) * time.Second}
+	for count := 0; count < maxRetryCount; count++ {
+		res, err = httpClient.Do(req)
+		if err == nil && res.StatusCode == http.StatusOK {
+			debugf(c.c.App.Writer, args.Debug, "Binary metadata to JSONL request: attempt %d/%d succeeded", count+1, maxRetryCount)
+			break
+		}
+		debugf(c.c.App.Writer, args.Debug, "Binary metadata to JSONL request: attempt %d/%d failed", count+1, maxRetryCount)
+	}
+	if err != nil {
+		return errors.Wrapf(err, "error sending request")
+	}
+	if res.StatusCode != http.StatusOK {
+		return errors.New(serverErrorMessage)
+	}
+	defer func() {
+		utils.UncheckedError(res.Body.Close())
+	}()
+	// Read the JSONL response
+	jsonlData, err := io.ReadAll(res.Body)
+	if err != nil {
+		return errors.Wrapf(err, "error reading response")
+	}
+
+	_, err = file.Write(jsonlData)
+	if err != nil {
+		return errors.Wrapf(err, "error writing to file")
 	}
 
 	return nil
-}
-
-func convertBoundingBoxes(protoBBoxes []*datapb.BoundingBox) []BBoxAnnotation {
-	bboxes := make([]BBoxAnnotation, len(protoBBoxes))
-	for i, box := range protoBBoxes {
-		bboxes[i] = BBoxAnnotation{
-			AnnotationLabel: box.GetLabel(),
-			XMinNormalized:  box.GetXMinNormalized(),
-			XMaxNormalized:  box.GetXMaxNormalized(),
-			YMinNormalized:  box.GetYMinNormalized(),
-			YMaxNormalized:  box.GetYMaxNormalized(),
-		}
-	}
-	return bboxes
 }
