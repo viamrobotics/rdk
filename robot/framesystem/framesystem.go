@@ -211,7 +211,6 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 		components[short] = r
 	}
 	svc.components = components
-	svc.logger.Info("Reconfigured. Known components:", components)
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -228,6 +227,13 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 	}
 
 	svc.parts = sortedParts
+
+	partsStr := make([]string, len(svc.parts))
+	for idx, part := range svc.parts {
+		partsStr[idx] = part.FrameConfig.Name()
+	}
+
+	svc.logger.Infof("Reconfigured. Me: %p Known components: %v parts: %v", svc, components, partsStr)
 	svc.logger.Debugf("reconfigured robot frame system: %v", (&Config{Parts: sortedParts}).String())
 	return nil
 }
@@ -269,7 +275,12 @@ func (svc *frameSystemService) TransformPose(
 	defer span.End()
 
 	fs, err := referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)
-	svc.logger.Info("NewFrameSystem. Parts: %v Err: %v", svc.parts, err)
+	partNames := make([]string, len(svc.parts))
+	for idx, part := range svc.parts {
+		partNames[idx] = part.FrameConfig.Name()
+	}
+
+	svc.logger.Infof("NewFrameSystem. Me: %p Parts: %v Err: %v", svc, partNames, err)
 	if err != nil {
 		return nil, err
 	}
@@ -278,13 +289,13 @@ func (svc *frameSystemService) TransformPose(
 	defer svc.partsMu.RUnlock()
 
 	input, err := svc.CurrentInputs(ctx)
-	svc.logger.Info("Inputs. Err: %v", err)
+	svc.logger.Infof("Inputs. Err: %v", err)
 	if err != nil {
 		return nil, err
 	}
 
 	tf, err := fs.Transform(input.ToLinearInputs(), pose, dst)
-	svc.logger.Info("Transform. Inputs: %v Err: %v", input, err)
+	svc.logger.Infof("Transform. Inputs: %v Err: %v", input, err)
 	if err != nil {
 		return nil, err
 	}
