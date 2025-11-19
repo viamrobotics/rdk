@@ -100,12 +100,12 @@ func TestServer(t *testing.T) {
 		extra map[string]interface{},
 	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		color := rimage.NewImage(40, 50)
-		colorImg, err := camera.NamedImageFromImage(color, "color", utils.MimeTypeJPEG)
+		colorImg, err := camera.NamedImageFromImage(color, "color", utils.MimeTypeJPEG, annotations1)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
 		depth := rimage.NewEmptyDepthMap(10, 20)
-		depthImg, err := camera.NamedImageFromImage(depth, "depth", utils.MimeTypeRawDepth)
+		depthImg, err := camera.NamedImageFromImage(depth, "depth", utils.MimeTypeRawDepth, annotations2)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
