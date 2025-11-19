@@ -70,7 +70,7 @@ func TestAddModelFromRegistry(t *testing.T) {
 	validServiceModel := mysum.Model
 	validComponentModel := mygizmo.Model
 
-	resourceError := "resource with API %s and model %s not yet registered"
+	resourceError := "resource with API %q and model %q not yet registered"
 	testCases := []struct {
 		api   resource.API
 		model resource.Model

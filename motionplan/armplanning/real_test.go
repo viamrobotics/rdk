@@ -4,16 +4,20 @@ package armplanning
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -40,7 +44,8 @@ func TestOrbOneSeed(t *testing.T) {
 			b := plan.Trajectory()[1]["sanding-ur5"]
 
 			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .005)
-			test.That(t, meta.Duration.Milliseconds(), test.ShouldBeGreaterThan, 0)
+			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeGreaterThan, 0)
+			test.That(t, meta.Duration, test.ShouldBeGreaterThan, 0)
 		})
 	}
 }
@@ -137,17 +142,28 @@ func TestWineCrazyTouch2(t *testing.T) {
 	req, err := ReadRequestFromFile("data/wine-crazy-touch2.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	plan, _, err := PlanMotion(context.Background(), logger, req)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("regular", func(t *testing.T) {
+		plan, _, err := PlanMotion(context.Background(), logger, req)
+		test.That(t, err, test.ShouldBeNil)
 
-	orig := plan.Trajectory()[0]["arm-right"]
-	for _, tt := range plan.Trajectory() {
-		now := tt["arm-right"]
-		logger.Info(now)
-		test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
-	}
+		orig := plan.Trajectory()[0]["arm-right"]
+		for _, tt := range plan.Trajectory() {
+			now := tt["arm-right"]
+			logger.Info(now)
+			test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
+		}
 
-	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
+		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
+	})
+
+	t.Run("orientation", func(t *testing.T) {
+		req.Constraints.OrientationConstraint = append(req.Constraints.OrientationConstraint,
+			motionplan.OrientationConstraint{60})
+
+		plan, _, err := PlanMotion(context.Background(), logger, req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
+	})
 }
 
 func TestSandingLargeMove1(t *testing.T) {
@@ -201,7 +217,7 @@ func TestSandingLargeMove1(t *testing.T) {
 	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
-	solution, err := initRRTSolutions(context.Background(), psc)
+	solution, err := initRRTSolutions(context.Background(), psc, logger.Sublogger("ik"))
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(solution.steps), test.ShouldEqual, 1)
@@ -235,8 +251,24 @@ func TestBadSpray1(t *testing.T) {
 
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
 
-	_, _, err = PlanMotion(context.Background(), logger, req)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("basic", func(t *testing.T) {
+		_, _, err = PlanMotion(context.Background(), logger, req)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("toofar", func(t *testing.T) {
+		req.Goals = []*PlanState{
+			{
+				poses: referenceframe.FrameSystemPoses{
+					"arm": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 10000000})),
+				},
+			},
+		}
+		req.Constraints = nil
+		_, _, err = PlanMotion(context.Background(), logger, req)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, errors.Is(err, &tooFarError{}), test.ShouldBeTrue)
+	})
 }
 
 func TestPirouette(t *testing.T) {

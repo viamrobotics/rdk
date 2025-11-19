@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"strings"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -82,21 +81,6 @@ func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
 		max = append(max, limit.Max)
 	}
 	return min, max
-}
-
-// NewMetricMinFunc takes a metric and a frame, and converts to a function able to be minimized with Solve().
-func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame, logger logging.Logger) CostFunc {
-	return func(_ context.Context, inputs []referenceframe.Input) float64 {
-		mInput := &motionplan.State{Frame: frame}
-		eePos, err := frame.Transform(inputs)
-		if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
-			logger.Errorw("error calculating frame Transform in IK", "error", err)
-			return math.Inf(1)
-		}
-		mInput.Configuration = inputs
-		mInput.Position = eePos
-		return metric(mInput)
-	}
 }
 
 // DoSolve is a synchronous wrapper around Solver.Solve.
@@ -192,4 +176,16 @@ func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, del
 		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
 	}
 	return newLimits
+}
+
+// NewMetricMinFunc creates a cost function that minimizes distance to a goal pose using the specified metric
+func NewMetricMinFunc(metricFunc func(spatialmath.Pose) float64, frame referenceframe.Frame, logger logging.Logger) CostFunc {
+	return func(ctx context.Context, inputs []float64) float64 {
+		currentPose, err := frame.Transform(inputs)
+		if err != nil {
+			logger.Debugf("Transform error in metric: %v", err)
+			return math.Inf(1)
+		}
+		return metricFunc(currentPose)
+	}
 }

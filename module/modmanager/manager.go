@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/pkg/errors"
@@ -1099,6 +1100,8 @@ func DepsToNames(deps resource.Dependencies) []string {
 // options.ViamHomeDir/module-data/<cloud-robot-id>
 // For local robots, it should be in the form
 // options.ViamHomeDir/module-data/local.
+// For local robots in a testing environment (where no cloud ID is set), it should be in the form:
+// [temp-dir]/module-data/local-testing-[random-string-to-avoid-collisions].
 //
 // If no ViamHomeDir is provided, this will return an empty moduleDataParentDirectory (and no module data directories will be created).
 func getModuleDataParentDirectory(options modmanageroptions.Options) string {
@@ -1109,6 +1112,10 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	}
 	robotID := options.RobotCloudID
 	if robotID == "" {
+		if testing.Testing() {
+			return filepath.Join(os.TempDir(), parentModuleDataFolderName, "local-testing-"+utils.RandomAlphaString(5))
+		}
+
 		robotID = "local"
 	}
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)

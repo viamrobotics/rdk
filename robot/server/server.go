@@ -556,11 +556,7 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 
 // GetVersion returns version information about the robot.
 func (s *Server) GetVersion(ctx context.Context, _ *pb.GetVersionRequest) (*pb.GetVersionResponse, error) {
-	result, err := robot.Version()
-	if err != nil {
-		return nil, err
-	}
-
+	result := robot.Version
 	return &pb.GetVersionResponse{
 		Platform:   result.Platform,
 		Version:    result.Version,

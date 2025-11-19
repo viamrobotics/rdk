@@ -46,7 +46,7 @@ func TestIKTolerances(t *testing.T) {
 	psc, err := newPlanSegmentContext(ctx, pc, seed, goal)
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := newCBiRRTMotionPlanner(ctx, pc, psc)
+	mp, err := newCBiRRTMotionPlanner(ctx, pc, psc, logger.Sublogger("cbirrt"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test inability to arrive at another position due to orientation
@@ -72,7 +72,7 @@ func TestIKTolerances(t *testing.T) {
 	psc2, err := newPlanSegmentContext(ctx, pc2, seed, goal)
 	test.That(t, err, test.ShouldBeNil)
 
-	mp2, err := newCBiRRTMotionPlanner(ctx, pc2, psc2)
+	mp2, err := newCBiRRTMotionPlanner(ctx, pc2, psc2, logger.Sublogger("cbirrt"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = mp2.planForTest(ctx)
 	test.That(t, err, test.ShouldBeNil)

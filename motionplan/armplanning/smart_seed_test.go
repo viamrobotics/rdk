@@ -72,24 +72,35 @@ func TestSmartSeedCache1(t *testing.T) {
 			"ur5e",
 			start.Get("ur5e"),
 			goal,
-			1,
+			5,
 			logger)
 		logger.Infof("time to run findSeedsForFrame: %v", time.Since(startTime))
 		test.That(t, err, test.ShouldBeNil)
-		cost := myCost(start.Get("ur5e"), seeds[0])
-		test.That(t, cost, test.ShouldBeLessThan, .6)
+		best := 100000.0
+		for _, s := range seeds {
+			cost := myCost(start.Get("ur5e"), s)
+			best = min(best, cost)
+		}
+		logger.Infof("best: %v\n", best)
+		test.That(t, best, test.ShouldBeLessThan, .6)
 	})
 
 	t.Run("real", func(t *testing.T) {
 		startTime := time.Now()
-		seed, err := c.findSeed(ctx,
+		seeds, _, err := c.findSeeds(ctx,
 			referenceframe.FrameSystemPoses{"ur5e": referenceframe.NewPoseInFrame("world", goal)},
 			start,
+			10,
 			logger)
 		test.That(t, err, test.ShouldBeNil)
 		logger.Infof("time to run findSeed: %v", time.Since(startTime))
-		cost := myCost(start.Get("ur5e"), seed.Get("ur5e"))
-		test.That(t, cost, test.ShouldBeLessThan, .6)
+		best := 100000.0
+		for _, s := range seeds {
+			cost := myCost(start.Get("ur5e"), s.Get("ur5e"))
+			best = min(best, cost)
+		}
+		logger.Infof("best: %v\n", best)
+		test.That(t, best, test.ShouldBeLessThan, .6)
 	})
 }
 

@@ -74,11 +74,20 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 			return nil, ErrNoWorldConnection
 		}
 	}
+
 	// Topologically sort parts
-	sortedParts, err := TopologicallySortParts(allParts)
-	if err != nil {
-		return nil, err
+	sortedParts, unlinkedParts := TopologicallySortParts(allParts)
+	if len(unlinkedParts) > 0 {
+		strs := make([]string, len(unlinkedParts))
+		for idx, part := range unlinkedParts {
+			strs[idx] = part.FrameConfig.Name()
+		}
+
+		//nolint
+		return nil, fmt.Errorf("Cannot construct frame system. Some parts are not linked to the world frame. Parts: %v",
+			strs)
 	}
+
 	if len(sortedParts) != len(allParts) {
 		return nil, errors.Errorf(
 			"frame system has disconnected frames. connected frames: %v, all frames: %v",
@@ -86,6 +95,7 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 			getPartNames(allParts),
 		)
 	}
+
 	fs := NewEmptyFrameSystem(name)
 	for _, part := range sortedParts {
 		// make the frames from the configs
@@ -101,6 +111,7 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 			return nil, err
 		}
 	}
+
 	return fs, nil
 }
 
@@ -794,52 +805,71 @@ func getPartNames(parts []*FrameSystemPart) []string {
 	return names
 }
 
-// TopologicallySortParts takes a potentially un-ordered slice of frame system parts and
-// sorts them, beginning at the world node.
-func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error) {
+// TopologicallySortParts takes a potentially un-ordered slice of frame system parts and sorts them,
+// beginning at the world node. The world frame is not included in the output.
+//
+// Parts that are missing a parent will be ignored and returned as part of the second return
+// value. If it's important that all inputs are connected to the world frame, a caller must
+// conditionally error on that second return value.
+//
+// Given each node can only have one parent, and we always return the tree rooted at the world
+// frame, cycles are impossible. The "unlinked" second return value might be unlinked because a
+// parent does not exist, or the nodes are in a cycle with each other.
+func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, []*FrameSystemPart) {
 	// set up directory to check existence of parents
-	existingParts := make(map[string]bool, len(parts))
-	existingParts[World] = true
+	partNameIndex := make(map[string]bool, len(parts))
+	partNameIndex[World] = true
 	for _, part := range parts {
-		existingParts[part.FrameConfig.Name()] = true
+		partNameIndex[part.FrameConfig.Name()] = true
 	}
+
 	// make map of children
 	children := make(map[string][]*FrameSystemPart)
 	for _, part := range parts {
 		parent := part.FrameConfig.Parent()
-		if !existingParts[parent] {
-			return nil, NewParentFrameMissingError(part.FrameConfig.Name(), parent)
+		if !partNameIndex[parent] {
+			continue
 		}
-		children[part.FrameConfig.Parent()] = append(children[part.FrameConfig.Parent()], part)
+
+		children[parent] = append(children[parent], part)
 	}
-	topoSortedParts := []*FrameSystemPart{} // keep track of tree structure
+
 	// If there are no frames, return the empty list
 	if len(children) == 0 {
-		return topoSortedParts, nil
+		return nil, parts
 	}
-	stack := make([]string, 0)
-	visited := make(map[string]struct{})
-	if _, ok := children[World]; !ok {
-		return nil, ErrNoWorldConnection
-	}
-	stack = append(stack, World)
+
+	queue := make([]string, 0)
+	visited := make(map[string]bool)
+	topoSortedParts := []*FrameSystemPart{}
+	queue = append(queue, World)
 	// begin adding frames to tree
-	for len(stack) != 0 {
-		parent := stack[0] // pop the top element from the stack
-		stack = stack[1:]
-		if _, ok := visited[parent]; ok {
-			return nil, errors.Errorf("the system contains a cycle, have already visited frame %s", parent)
+	for len(queue) != 0 {
+		parent := queue[0]
+		queue = queue[1:]
+		if visited[parent] {
+			return nil, nil
 		}
-		visited[parent] = struct{}{}
+
+		visited[parent] = true
 		sort.Slice(children[parent], func(i, j int) bool {
 			return children[parent][i].FrameConfig.Name() < children[parent][j].FrameConfig.Name()
 		}) // sort alphabetically within the topological sort
+
 		for _, part := range children[parent] { // add all the children to the frame system, and to the stack as new parents
-			stack = append(stack, part.FrameConfig.Name())
+			queue = append(queue, part.FrameConfig.Name())
 			topoSortedParts = append(topoSortedParts, part)
 		}
 	}
-	return topoSortedParts, nil
+
+	unlinkedParts := make([]*FrameSystemPart, 0, 4)
+	for _, part := range parts {
+		if !visited[part.FrameConfig.Name()] {
+			unlinkedParts = append(unlinkedParts, part)
+		}
+	}
+
+	return topoSortedParts, unlinkedParts
 }
 
 func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, error) {
