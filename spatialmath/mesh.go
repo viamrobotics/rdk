@@ -462,7 +462,7 @@ func (m *Mesh) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSON implements the json.Marshaler interface.
-func (m Mesh) MarshalJSON() ([]byte, error) {
+func (m *Mesh) MarshalJSON() ([]byte, error) {
 	return protojson.Marshal(m.ToProtobuf())
 }
 
