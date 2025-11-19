@@ -68,8 +68,8 @@ generate-go: tool-install
 
 lint-go: tool-install
 	go mod tidy
-	GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run --config=./etc/.golangci.yaml || true
-	GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run -v --fix --config=./etc/.golangci.yaml
+	GOTOOLCHAIN=go1.25.1 GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run --config=./etc/.golangci.yaml || true
+	GOTOOLCHAIN=go1.25.1 GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run -v --fix --config=./etc/.golangci.yaml
 	./etc/lint_register_apis.sh
 
 cover-only: tool-install
