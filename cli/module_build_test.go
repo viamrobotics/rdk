@@ -50,7 +50,12 @@ func createTestManifest(t *testing.T, path string, overrides map[string]any) str
 
 	// Apply overrides
 	for key, value := range overrides {
-		defaultManifest[key] = value
+		if value == nil {
+			// nil means delete the key entirely
+			delete(defaultManifest, key)
+		} else {
+			defaultManifest[key] = value
+		}
 	}
 
 	// Marshal to JSON

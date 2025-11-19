@@ -1155,6 +1155,9 @@ func reloadModuleActionInner(
 		if manifest == nil {
 			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
 		}
+		if manifest.Build == nil || manifest.Build.Build == "" {
+			return errors.New("your meta.json cannot have an empty build step. It is required for 'reload' and 'reload-local' commands")
+		}
 		if !cloudBuild {
 			err = moduleBuildLocalAction(c, manifest, environment)
 			buildPath = manifest.Build.Path
