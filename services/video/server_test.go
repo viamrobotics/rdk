@@ -84,7 +84,7 @@ func TestServer(t *testing.T) {
 		test.That(t, buf.Bytes(), test.ShouldResemble, expectedData)
 	})
 
-	t.Run("GetVideo failure (constructor error)", func(t *testing.T) {
+	t.Run("GetVideo failure", func(t *testing.T) {
 		injectVideo.GetVideoFunc = func(
 			ctx context.Context,
 			startTime, endTime time.Time,

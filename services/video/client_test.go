@@ -21,6 +21,10 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const (
+	testVideoName = "video1"
+)
+
 func setupVideoService(t *testing.T, injectVideo *inject.Video) (net.Listener, func()) {
 	t.Helper()
 	logger := logging.NewTestLogger(t)
@@ -30,7 +34,7 @@ func setupVideoService(t *testing.T, injectVideo *inject.Video) (net.Listener, f
 	test.That(t, err, test.ShouldBeNil)
 
 	videoSvc, err := resource.NewAPIResourceCollection(
-		video.API, map[resource.Name]video.Service{video.Named("video1"): injectVideo})
+		video.API, map[resource.Name]video.Service{video.Named(testVideoName): injectVideo})
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[video.Service](video.API)
 	test.That(t, err, test.ShouldBeNil)
@@ -97,7 +101,7 @@ func TestWorkingVideoClient(t *testing.T) {
 		}
 
 		getVideoRequest := &pb.GetVideoRequest{
-			Name:           "video1",
+			Name:           testVideoName,
 			VideoCodec:     "h264",
 			VideoContainer: "mp4",
 		}
@@ -132,7 +136,7 @@ func TestWorkingVideoClient(t *testing.T) {
 		}
 
 		getVideoRequest := &pb.GetVideoRequest{
-			Name:           "video1",
+			Name:           testVideoName,
 			VideoCodec:     "h264",
 			VideoContainer: "mp4",
 		}
@@ -157,7 +161,7 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer conn.Close()
 
-	svc, err := video.NewClientFromConn(ctx, conn, "", video.Named("video1"), logger)
+	svc, err := video.NewClientFromConn(ctx, conn, "", video.Named(testVideoName), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("extra conversion error (StructToStructPb fails)", func(t *testing.T) {
