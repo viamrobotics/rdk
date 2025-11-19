@@ -16,6 +16,7 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/samber/lo"
 	"github.com/viamrobotics/webrtc/v3"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.uber.org/multierr"
@@ -1268,6 +1269,19 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		mStatus.State = robot.StateInitializing
 	case pb.GetMachineStatusResponse_STATE_RUNNING:
 		mStatus.State = robot.StateRunning
+	}
+
+	if resp.GetJobStatuses() != nil {
+		tspbToTime := func(tspb *timestamppb.Timestamp, _ int) time.Time {
+			return tspb.AsTime()
+		}
+		mStatus.JobStatuses = make(map[string]robot.JobStatus, len(resp.GetJobStatuses()))
+		for _, js := range resp.GetJobStatuses() {
+			mStatus.JobStatuses[js.GetJobName()] = robot.JobStatus{
+				RecentSuccessfulRuns: lo.Map(js.GetRecentSuccessfulRuns(), tspbToTime),
+				RecentFailedRuns:     lo.Map(js.GetRecentFailedRuns(), tspbToTime),
+			}
+		}
 	}
 
 	return mStatus, nil
