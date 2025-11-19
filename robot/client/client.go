@@ -538,9 +538,11 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 			err = multierr.Combine(err, grpcErr)
 		}
 
-		// instead of returning two context.DeadlineExceeded errors, tell the user how to fix
+		// A context.DeadlineExceeded from the WebRTC dial implies the client is unable to reach
+		// the signaling server, which likely means that the client is offline. In that case, if the errors returned from grpc dials are also timeouts or mDNS failing to find a candidate, we should remind clients to double-check their internet connection and that the machine is on.
+		// This should be more helpful than simply returning a chain of context.DeadlineExceeded and candidate not found errors.
 		if errors.Is(err, context.DeadlineExceeded) && errors.Is(grpcErr, context.DeadlineExceeded) && errors.Is(grpcErr, rpc.ErrMDNSQuery) {
-			return fmt.Errorf("failed to connect to robot within time limit; check network connection and try again; " +
+			return fmt.Errorf("failed to connect to robot within time limit. check network connection, whether the viam-server is running, and try again. " +
 				"see http://docs.viam.com/dev/tools/common-errors/#conn-time-out for troubleshooting steps")
 		}
 	}
