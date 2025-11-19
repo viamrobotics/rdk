@@ -1975,5 +1975,4 @@ func TestFailedModuleTracking(t *testing.T) {
 		test.That(t, len(failedModules), test.ShouldEqual, 0)
 		test.That(t, failedModules, test.ShouldBeEmpty)
 	})
-
 }
