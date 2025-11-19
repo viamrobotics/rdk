@@ -228,6 +228,106 @@ func TestJobManagerHistory(t *testing.T) {
 	})
 }
 
+// Test continuous mode, include switching to and from.
+func TestJobContinuousSchedule(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	fakeSensorComponent := []resource.Config{
+		{
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			Name:  "sensor",
+			API:   sensor.API,
+		},
+	}
+
+	cfg := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "2s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	cfgCron := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "*/5 * * * * *",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	cfgContinuous := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "continuous",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	ctx, ctxCancelFunc := context.WithCancel(context.Background())
+	defer ctxCancelFunc()
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+	o, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := lr.StartWeb(ctx, o)
+	test.That(t, err, test.ShouldBeNil)
+	robotClient, err := rclient.New(ctx, addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer robotClient.Close(ctx)
+
+	// Start running in 2s duration mode. Expect latest success timestamp - earliest > 1s
+	time.Sleep(10 * time.Second)
+	ms, err := robotClient.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(ms.JobStatuses), test.ShouldEqual, 1)
+	jh, ok := ms.JobStatuses["fake sensor"]
+	test.That(t, ok, test.ShouldBeTrue)
+	successes := jh.RecentSuccessfulRuns
+	test.That(t, len(successes), test.ShouldBeLessThan, 10)
+	test.That(t, successes[len(successes)-1].Sub(successes[0]), test.ShouldBeGreaterThan, time.Second)
+
+	// Switch from 2s duration to continuous. Expect latest success timestamp - earliest < 1s
+	lr.Reconfigure(ctx, cfgContinuous)
+	time.Sleep(10 * time.Second)
+	ms, err = robotClient.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(ms.JobStatuses), test.ShouldEqual, 1)
+	jh, ok = ms.JobStatuses["fake sensor"]
+	test.That(t, ok, test.ShouldBeTrue)
+	successes = jh.RecentSuccessfulRuns
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, len(successes), test.ShouldBeGreaterThanOrEqualTo, 10)
+	test.That(t, successes[len(successes)-1].Sub(successes[0]), test.ShouldBeLessThan, time.Second)
+
+	// Swtich from continuous to 2s cron. Expect latest success timestamp - earliest > 1s
+	lr.Reconfigure(ctx, cfgCron)
+	time.Sleep(10 * time.Second)
+	ms, err = robotClient.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(ms.JobStatuses), test.ShouldEqual, 1)
+	jh, ok = ms.JobStatuses["fake sensor"]
+	test.That(t, ok, test.ShouldBeTrue)
+	successes = jh.RecentSuccessfulRuns
+	test.That(t, ok, test.ShouldBeTrue)
+	// History still contains runs from prev. If stored size is 10, we still expect 10 here.
+	test.That(t, len(successes), test.ShouldBeGreaterThanOrEqualTo, 10)
+	test.That(t, successes[len(successes)-1].Sub(successes[0]), test.ShouldBeGreaterThan, time.Second)
+}
+
 func TestJobManagerConfigChanges(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
