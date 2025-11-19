@@ -142,6 +142,7 @@ type builtIn struct {
 	visionServices          map[string]vision.Service
 	components              map[string]resource.Resource
 	logger                  logging.Logger
+	moveLogger              logging.Logger
 	state                   *state.State
 	configuredDefaultExtras map[string]any
 }
@@ -153,6 +154,7 @@ func NewBuiltIn(
 	ms := &builtIn{
 		Named:                   conf.ResourceName().AsNamed(),
 		logger:                  logger,
+		moveLogger:              logger.Sublogger("move"),
 		configuredDefaultExtras: make(map[string]any),
 	}
 
@@ -233,6 +235,7 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	defer ms.mu.RUnlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
+	ms.moveLogger.Debugw("Move", "req", req)
 	ms.applyDefaultExtras(req.Extra)
 	plan, err := ms.plan(ctx, req, ms.logger)
 	if err != nil {
@@ -383,6 +386,8 @@ func (ms *builtIn) PlanHistory(
 //     input value: a motionplan.Trajectory
 //     output value: a bool
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	ms.moveLogger.Debugw("DoCommand", "cmd", cmd)
+
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	resp := make(map[string]interface{}, 0)
