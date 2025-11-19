@@ -356,24 +356,12 @@
     "poses": null,
     "configuration": {
       "xArm6": [
-        {
-          "Value": 0
-        },
-        {
-          "Value": 0
-        },
-        {
-          "Value": 0
-        },
-        {
-          "Value": 0
-        },
-        {
-          "Value": 0
-        },
-        {
-          "Value": 0
-        }
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
       ],
       "xArmVgripper": []
     }

@@ -50,7 +50,7 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 10)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 20)
-	_, err = color.NextPointCloud(context.Background())
+	_, err = color.NextPointCloud(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 
@@ -101,7 +101,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 	prop, err := depth.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, prop.IntrinsicParams, test.ShouldResemble, intrinsics)
-	outPc, err := depth.NextPointCloud(context.Background())
+	outPc, err := depth.NextPointCloud(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not defined for last videosource")
 	test.That(t, outPc, test.ShouldBeNil)

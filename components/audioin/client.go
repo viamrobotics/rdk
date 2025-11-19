@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // client implements AudioInServiceClient.
@@ -82,9 +83,9 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 		defer close(ch)
 
 		// Send the first response we already received
-		var info *AudioInfo
+		var info *rutils.AudioInfo
 		if resp.Audio.AudioInfo != nil {
-			info = audioInfoPBToStruct(resp.Audio.AudioInfo)
+			info = rutils.AudioInfoPBToStruct(resp.Audio.AudioInfo)
 		}
 
 		ch <- &AudioChunk{
@@ -113,9 +114,9 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 				return
 			}
 
-			var info *AudioInfo
+			var info *rutils.AudioInfo
 			if resp.Audio.AudioInfo != nil {
-				info = audioInfoPBToStruct(resp.Audio.AudioInfo)
+				info = rutils.AudioInfoPBToStruct(resp.Audio.AudioInfo)
 			}
 
 			ch <- &AudioChunk{
@@ -132,18 +133,18 @@ func (c *client) GetAudio(ctx context.Context, codec string, durationSeconds flo
 	return ch, nil
 }
 
-func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Properties, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
 	ext, err := utils.StructToStructPb(extra)
 	if err != nil {
-		return Properties{}, err
+		return rutils.Properties{}, err
 	}
 	resp, err := c.client.GetProperties(ctx, &commonpb.GetPropertiesRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return Properties{}, err
+		return rutils.Properties{}, err
 	}
 
-	return Properties{SupportedCodecs: resp.SupportedCodecs, SampleRateHz: resp.SampleRateHz, NumChannels: resp.NumChannels}, nil
+	return rutils.Properties{SupportedCodecs: resp.SupportedCodecs, SampleRateHz: resp.SampleRateHz, NumChannels: resp.NumChannels}, nil
 }

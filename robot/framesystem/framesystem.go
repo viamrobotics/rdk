@@ -116,6 +116,11 @@ func FromDependencies(deps resource.Dependencies) (Service, error) {
 	return resource.FromProvider[Service](deps, PublicServiceName)
 }
 
+// FromProvider is a helper for getting the named arm from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider) (Service, error) {
+	return resource.FromProvider[Service](provider, PublicServiceName)
+}
+
 // New returns a new frame system service for the given robot.
 func New(ctx context.Context, deps resource.Dependencies, logger logging.Logger) (Service, error) {
 	fs := &frameSystemService{
@@ -206,16 +211,22 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 		components[short] = r
 	}
 	svc.components = components
+	svc.logger.Info("Reconfigured. Known components:", components)
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
 
-	sortedParts, err := referenceframe.TopologicallySortParts(fsCfg.Parts)
-	if err != nil {
-		return err
+	sortedParts, unlinkedParts := referenceframe.TopologicallySortParts(fsCfg.Parts)
+	if len(unlinkedParts) > 0 {
+		strs := make([]string, len(unlinkedParts))
+		for idx, part := range unlinkedParts {
+			strs[idx] = part.FrameConfig.Name()
+		}
+		svc.logger.Warnw("Some frames are not linked to the world frame", "unlinkedParts", strs)
 	}
+
 	svc.parts = sortedParts
 	svc.logger.Debugf("reconfigured robot frame system: %v", (&Config{Parts: sortedParts}).String())
 	return nil
@@ -269,7 +280,7 @@ func (svc *frameSystemService) TransformPose(
 		return nil, err
 	}
 
-	tf, err := fs.Transform(input, pose, dst)
+	tf, err := fs.Transform(input.ToLinearInputs(), pose, dst)
 	if err != nil {
 		return nil, err
 	}

@@ -124,6 +124,10 @@ const (
 	dataFlagDatabasePassword               = "password"
 	dataFlagFilterTags                     = "filter-tags"
 	dataFlagTimeout                        = "timeout"
+	dataFlagCollectionType                 = "collection-type"
+	dataFlagPipelineName                   = "pipeline-name"
+	dataFlagIndexName                      = "index-name"
+	dataFlagIndexSpecFile                  = "index-path"
 
 	datapipelineFlagSchedule       = "schedule"
 	datapipelineFlagMQL            = "mql"
@@ -466,7 +470,6 @@ var app = &cli.App{
 				},
 			},
 			Action: createCommandWithT[loginActionArgs](LoginAction),
-			After:  createCommandWithT[emptyArgs](CheckUpdateAction),
 			Subcommands: []*cli.Command{
 				{
 					Name:      "print-access-token",
@@ -1381,6 +1384,91 @@ var app = &cli.App{
 						},
 					},
 				},
+				{
+					Name:            "index",
+					Usage:           "manage indexes for hot data and pipeline sink collections",
+					UsageText:       createUsageText("data index", nil, false, true),
+					HideHelpCommand: true,
+					Subcommands: []*cli.Command{
+						{
+							Name:  "create",
+							Usage: "create an index for a data collection",
+							UsageText: createUsageText(
+								"data index create", []string{generalFlagOrgID, dataFlagCollectionType, dataFlagIndexSpecFile}, true, false,
+							),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "org ID of the data collection",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagCollectionType,
+									Required: true,
+									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
+								},
+								&cli.StringFlag{
+									Name:     dataFlagPipelineName,
+									Required: false,
+									Usage:    "name of the pipeline associated with the index when collection type is 'pipeline-sink'",
+								},
+								&cli.PathFlag{
+									Name:      dataFlagIndexSpecFile,
+									Required:  true,
+									Usage:     "path to index specification JSON file",
+									TakesFile: true,
+								},
+							},
+							Action: createCommandWithT[createCustomIndexArgs](CreateCustomIndexAction),
+						},
+						{
+							Name:      "delete",
+							Usage:     "delete an index from a data collection",
+							UsageText: createUsageText("data index delete", []string{generalFlagOrgID, dataFlagCollectionType, dataFlagIndexName}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "org ID of the data collection",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagCollectionType,
+									Required: true,
+									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
+								},
+								&cli.StringFlag{
+									Name:     dataFlagPipelineName,
+									Required: false,
+									Usage:    "name of the pipeline associated with the index when collection type is 'pipeline-sink'",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagIndexName,
+									Required: true,
+									Usage:    "name of the index to delete",
+								},
+							},
+							Action: createCommandWithT[deleteCustomIndexArgs](DeleteCustomIndexAction),
+						},
+						{
+							Name:      "list",
+							Usage:     "list indexes for a data collection",
+							UsageText: createUsageText("data index list", []string{generalFlagOrgID, dataFlagCollectionType}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "org ID of the data collection",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagCollectionType,
+									Required: true,
+									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
+								},
+							},
+							Action: createCommandWithT[listCustomIndexesArgs](ListCustomIndexesAction),
+						},
+					},
+				},
 			},
 		},
 		{
@@ -1474,8 +1562,8 @@ var app = &cli.App{
 							Usage:    "dataset ID of the dataset to be downloaded",
 						},
 						&cli.BoolFlag{
-							Name:  datasetFlagIncludeJSONLines,
-							Usage: "option to include JSON Lines files for local testing",
+							Name:  datasetFlagOnlyJSONLines,
+							Usage: "option to include only the JSON Lines files for local testing; no binary data will be downloaded",
 						},
 						&cli.UintFlag{
 							Name:  dataFlagParallelDownloads,
@@ -2984,7 +3072,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.PathFlag{
 							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Usage: "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
 							Value: "/etc/viam.json",
 						},
 					},
@@ -2992,7 +3080,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				},
 				{
 					Name:      "reload-local",
-					Usage:     "build a module locally and run it on a target device. rebuild & restart if already running",
+					Usage:     "build a module locally and run it on a target machine. rebuild & restart if already running",
 					UsageText: createUsageText("module reload-local", nil, true, false),
 					Description: `Example invocations:
 
@@ -3051,7 +3139,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.PathFlag{
 							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Usage: "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
 							Value: "/etc/viam.json",
 						},
 						&cli.StringFlag{
@@ -3074,7 +3162,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				},
 				{
 					Name:      "reload",
-					Usage:     "build a module in the cloud and run it on a target device. rebuild & restart if already running",
+					Usage:     "build a module in the cloud and run it on a target machine. rebuild & restart if already running",
 					UsageText: createUsageText("module reload", nil, true, false),
 					Description: `Example invocations:
 
@@ -3101,6 +3189,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: "meta.json",
 						},
 						&cli.BoolFlag{
+							Name:  moduleBuildFlagNoBuild,
+							Usage: "don't do build step, reuse existing downloaded artifact",
+						},
+						&cli.BoolFlag{
 							Name:  generalFlagNoProgress,
 							Usage: "hide progress of the file transfer",
 						},
@@ -3111,7 +3203,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.PathFlag{
 							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Usage: "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
 							Value: "/etc/viam.json",
 						},
 						&cli.StringFlag{
@@ -3131,7 +3223,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:        generalFlagPath,
-							Usage:       "Use this with --cloud-build to indicate the path to the root of the git repo to build",
+							Usage:       "The path to the root of the git repo to build",
 							DefaultText: ".",
 						},
 					},

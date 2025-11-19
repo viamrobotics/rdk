@@ -27,6 +27,20 @@ const (
 	platform = "rdk"
 )
 
+// Version gets added as grpc metadata for every request. Computing this fresh requires reading the
+// binary file from disk. This is expensive, hence we cache it once at startup.
+var Version VersionResponse
+
+func init() {
+	var err error
+	if Version, err = version(); err != nil {
+		Version = VersionResponse{
+			Version:    "unknown",
+			APIVersion: "unknown",
+		}
+	}
+}
+
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 //
@@ -344,7 +358,7 @@ type VersionResponse struct {
 // Version returns platform, version and API version of the robot.
 // platform will always be `rdk`
 // If built without a version tag,  will be dev-<git hash>.
-func Version() (VersionResponse, error) {
+func version() (VersionResponse, error) {
 	var result VersionResponse
 	result.Platform = platform
 

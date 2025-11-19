@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/data"
@@ -142,6 +143,9 @@ type Arm interface {
 
 	// JointPositions returns the current joint positions of the arm.
 	JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error)
+
+	// Get3DModels returns the 3D models of the arm.
+	Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error)
 }
 
 // Deprecated: FromDependencies is a helper for getting the named arm from a collection of
@@ -187,17 +191,17 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []refe
 		min := limits[i].Min
 		currPosition := currentJointPos[i]
 		// to make sure that val is a valid input it must either bring the joint closer inbounds or keep the joint inbounds.
-		if currPosition.Value > limits[i].Max {
-			max = currPosition.Value
-		} else if currPosition.Value < limits[i].Min {
-			min = currPosition.Value
+		if currPosition > limits[i].Max {
+			max = currPosition
+		} else if currPosition < limits[i].Min {
+			min = currPosition
 		}
-		if val.Value > max || val.Value < min {
+		if val > max || val < min {
 			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v",
 				i,
 				utils.RadToDeg(min),
 				utils.RadToDeg(max),
-				utils.RadToDeg(val.Value),
+				utils.RadToDeg(val),
 			)
 		}
 	}

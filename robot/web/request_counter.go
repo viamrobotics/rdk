@@ -21,6 +21,9 @@ import (
 	"go.viam.com/rdk/utils/ssync"
 )
 
+// ReqLimitExceededURL is the URL for the troubleshooting steps for request limit exceeded errors.
+const ReqLimitExceededURL = "https://docs.viam.com/dev/tools/common-errors/#req-limit-exceeded"
+
 // RequestLimitExceededError is an error returned when a request is rejected
 // because it would exceed the limit for concurrent requests to a given
 // resource.
@@ -30,7 +33,8 @@ type RequestLimitExceededError struct {
 }
 
 func (e RequestLimitExceededError) Error() string {
-	return fmt.Sprintf("exceeded request limit %v on resource %v", e.limit, e.resource)
+	return fmt.Sprintf("exceeded request limit %v on resource %v, see %v for troubleshooting steps",
+		e.limit, e.resource, ReqLimitExceededURL)
 }
 
 // GRPCStatus allows this error to be converted to a [status.Status].
@@ -143,8 +147,9 @@ func (rc *RequestCounter) UnaryInterceptor(
 	apiMethod := extractViamAPI(info.FullMethod)
 	if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
 		if ok := rc.incrInFlight(resource); !ok {
-			rc.logger.Warnw("Request limit exceeded for resource",
-				"method", apiMethod.full, "resource", resource)
+			rc.logger.Warnw(fmt.Sprintf("Request limit exceeded for resource. See %s for troubleshooting steps", ReqLimitExceededURL),
+				"method", apiMethod.full,
+				"resource", resource)
 			return nil, &RequestLimitExceededError{
 				resource: resource,
 				limit:    rc.inFlightLimit,

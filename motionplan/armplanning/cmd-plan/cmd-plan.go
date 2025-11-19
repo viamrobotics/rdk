@@ -18,7 +18,6 @@ import (
 	"time"
 
 	viz "github.com/viam-labs/motion-tools/client/client"
-	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 
 	"go.viam.com/rdk/logging"
@@ -37,7 +36,7 @@ func main() {
 
 func realMain() error {
 	ctx := context.Background()
-	logger := logging.NewLogger("cmd-plan")
+	logger, reg := logging.NewLoggerWithRegistry("cmd-plan")
 
 	pseudolinearLine := flag.Float64("pseudolinear-line", 0, "")
 	pseudolinearOrientation := flag.Float64("pseudolinear-orientation", 0, "")
@@ -59,21 +58,47 @@ func realMain() error {
 		if err != nil {
 			return fmt.Errorf("couldn't create %s %w", *cpu, err)
 		}
-		defer utils.UncheckedError(f.Close())
 
 		err = pprof.StartCPUProfile(f)
 		if err != nil {
 			return fmt.Errorf("could not start CPU profile: %w", err)
 		}
-		defer pprof.StopCPUProfile()
+		defer func() {
+			pprof.StopCPUProfile()
+			err = f.Close()
+			if err != nil {
+				logger.Errorf("couldn't write profiling file: %v", err)
+			}
+		}()
 	}
 
+	_ = reg
 	if *verbose {
 		logger.SetLevel(logging.DEBUG)
+		reg.Update([]logging.LoggerPatternConfig{
+			{
+				Pattern: "*.mp*",
+				Level:   "DEBUG",
+			},
+		}, logger)
+	} else {
+		reg.Update([]logging.LoggerPatternConfig{
+			{
+				Pattern: "*.mp",
+				Level:   "DEBUG",
+			},
+			{
+				Pattern: "*.ik",
+				Level:   "INFO",
+			},
+			{
+				Pattern: "*.cbirrt",
+				Level:   "INFO",
+			},
+		}, logger)
 	}
 
 	logger.Infof("reading plan from %s", flag.Arg(0))
-
 	req, err := armplanning.ReadRequestFromFile(flag.Arg(0))
 	if err != nil {
 		return err
@@ -85,6 +110,11 @@ func realMain() error {
 
 	if *seed >= 0 {
 		req.PlannerOptions.RandomSeed = *seed
+	}
+
+	err = armplanning.PrepSmartSeed(req.FrameSystem, logger)
+	if err != nil {
+		return err
 	}
 
 	logger.Infof("starting motion planning for %d goals", len(req.Goals))
@@ -114,9 +144,6 @@ func realMain() error {
 	if len(plan.Path()) != len(plan.Trajectory()) {
 		return fmt.Errorf("path and trajectory not the same %d vs %d", len(plan.Path()), len(plan.Trajectory()))
 	}
-
-	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
-		time.Since(start).Truncate(time.Millisecond), len(req.Goals), len(plan.Trajectory()))
 
 	for *cpu != "" && time.Since(start) < (10*time.Second) {
 		ss := time.Now()
@@ -155,7 +182,7 @@ func realMain() error {
 			}
 			mylog.Printf("\t\t %s", c)
 			mylog.Printf("\t\t\t %v", pp)
-			mylog.Printf("\t\t\t %v", t[c])
+			mylog.Printf("\t\t\t joints: %v", logging.FloatArrayFormat{"%0.2f", t[c]})
 			if idx > 0 {
 				p := plan.Trajectory()[idx-1][c]
 
@@ -172,6 +199,8 @@ func realMain() error {
 		}
 	}
 
+	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
+		time.Since(start).Truncate(time.Millisecond), len(req.Goals), len(plan.Trajectory()))
 	mylog.Printf("totalCartesion: %0.4f\n", totalCartesion)
 	mylog.Printf("totalL2: %0.4f\n", totalL2)
 
@@ -212,14 +241,17 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 	for idx := range plan.Path() {
 		if idx > 0 {
 			midPoints, err := motionplan.InterpolateSegmentFS(
-				&motionplan.SegmentFS{plan.Trajectory()[idx-1], plan.Trajectory()[idx], req.FrameSystem},
-				2)
+				&motionplan.SegmentFS{
+					StartConfiguration: plan.Trajectory()[idx-1].ToLinearInputs(),
+					EndConfiguration:   plan.Trajectory()[idx].ToLinearInputs(),
+					FS:                 req.FrameSystem,
+				}, 2)
 			if err != nil {
 				return err
 			}
 
 			for _, mp := range midPoints {
-				if err := viz.DrawFrameSystem(req.FrameSystem, mp); err != nil {
+				if err := viz.DrawFrameSystem(req.FrameSystem, mp.ToFrameSystemInputs()); err != nil {
 					return err
 				}
 
@@ -398,7 +430,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					logger.Println("Rendering failed solution")
 					logger.Println("  Err:", errStr)
 					logger.Println("  Inputs:", configuration)
-					if err := viz.DrawFrameSystem(req.FrameSystem, configuration); err != nil {
+					if err := viz.DrawFrameSystem(req.FrameSystem, configuration.ToFrameSystemInputs()); err != nil {
 						return err
 					}
 					break searchLoop

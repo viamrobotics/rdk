@@ -127,13 +127,13 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.FloatsToInputs(res), nil
+	return res, nil
 }
 
 func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	for _, goal := range inputSteps {
 		speeds := []float64{}
-		err := c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
+		err := c.MoveToPosition(ctx, goal, speeds, nil)
 		if err != nil {
 			return err
 		}

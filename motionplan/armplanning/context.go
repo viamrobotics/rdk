@@ -4,20 +4,21 @@ import (
 	"context"
 	"math"
 	"math/rand"
+	"strings"
 
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
 
 type planContext struct {
 	fs  *referenceframe.FrameSystem
-	lfs *linearizedFrameSystem
+	lis *referenceframe.LinearInputsSchema
 
-	boundingRegions []spatialmath.Geometry
+	movableFrames []string
 
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
@@ -43,40 +44,39 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 	}
 
 	var err error
-	pc.lfs, err = newLinearizedFrameSystem(pc.fs)
+	pc.lis, err = request.StartState.LinearConfiguration().GetSchema(pc.fs)
 	if err != nil {
 		return nil, err
 	}
 
-	pc.boundingRegions, err = referenceframe.NewGeometriesFromProto(request.BoundingRegions)
-	if err != nil {
-		return nil, err
+	for _, fn := range pc.fs.FrameNames() {
+		f := pc.fs.Frame(fn)
+		if len(f.DoF()) > 0 {
+			pc.movableFrames = append(pc.movableFrames, fn)
+		}
 	}
 
 	return pc, nil
 }
 
-// linearize the goal metric for use with solvers.
-// Since our solvers operate on arrays of floats, there needs to be a way to map bidirectionally between the framesystem configuration
-// of FrameSystemInputs and the []float64 that the solver expects. This is that mapping.
-func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) func(context.Context, []float64) float64 {
-	return func(ctx context.Context, query []float64) float64 {
-		_, span := trace.StartSpan(ctx, "linearizeFSmetric::func")
-		defer span.End()
-		inputs, err := pc.lfs.sliceToMap(query)
+func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) ik.CostFunc {
+	return func(ctx context.Context, linearizedInputs []float64) float64 {
+		conf, err := pc.lis.FloatsToInputs(linearizedInputs)
 		if err != nil {
 			return math.Inf(1)
 		}
-		_, span2 := trace.StartSpan(ctx, "linearizeFSmetric::metric")
-		defer span2.End()
-		return metric(&motionplan.StateFS{Configuration: inputs, FS: pc.fs})
+
+		return metric(&motionplan.StateFS{
+			Configuration: conf,
+			FS:            pc.fs,
+		})
 	}
 }
 
 type planSegmentContext struct {
 	pc *planContext
 
-	start    referenceframe.FrameSystemInputs
+	start    *referenceframe.LinearInputs
 	origGoal referenceframe.FrameSystemPoses // goals are defined in frames willy nilly
 	goal     referenceframe.FrameSystemPoses // all in world
 
@@ -86,7 +86,7 @@ type planSegmentContext struct {
 	checker      *motionplan.ConstraintChecker
 }
 
-func newPlanSegmentContext(ctx context.Context, pc *planContext, start referenceframe.FrameSystemInputs,
+func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenceframe.LinearInputs,
 	goal referenceframe.FrameSystemPoses,
 ) (*planSegmentContext, error) {
 	_, span := trace.StartSpan(ctx, "newPlanSegmentContext")
@@ -98,7 +98,6 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start reference
 	}
 
 	var err error
-
 	psc.goal, err = translateGoalsToWorldPosition(pc.fs, psc.start, psc.origGoal)
 	if err != nil {
 		return nil, err
@@ -115,7 +114,7 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start reference
 	}
 
 	// TODO: this is duplicated work as it's also done in motionplan.NewConstraintChecker
-	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pc.fs, start)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pc.fs, start.ToFrameSystemInputs())
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +130,6 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start reference
 		movingRobotGeometries, staticRobotGeometries,
 		start,
 		pc.request.WorldState,
-		pc.boundingRegions,
-		false,
 	)
 	if err != nil {
 		return nil, err
@@ -141,10 +138,10 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start reference
 	return psc, nil
 }
 
-func (psc *planSegmentContext) checkPath(ctx context.Context, start, end referenceframe.FrameSystemInputs) error {
-	_, span := trace.StartSpan(ctx, "checkPath")
+func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs) error {
+	ctx, span := trace.StartSpan(ctx, "checkPath")
 	defer span.End()
-	_, err := psc.checker.CheckSegmentAndStateValidityFS(
+	_, err := psc.checker.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: start,
@@ -156,18 +153,9 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end referen
 	return err
 }
 
-func (psc *planSegmentContext) checkInputs(ctx context.Context, inputs referenceframe.FrameSystemInputs) bool {
-	return psc.checker.CheckStateFSConstraints(
-		ctx,
-		&motionplan.StateFS{
-			Configuration: inputs,
-			FS:            psc.pc.fs,
-		}) == nil
-}
-
 func translateGoalsToWorldPosition(
 	fs *referenceframe.FrameSystem,
-	start referenceframe.FrameSystemInputs,
+	start *referenceframe.LinearInputs,
 	goal referenceframe.FrameSystemPoses,
 ) (referenceframe.FrameSystemPoses, error) {
 	alteredGoals := referenceframe.FrameSystemPoses{}
@@ -180,4 +168,19 @@ func translateGoalsToWorldPosition(
 		alteredGoals[f] = tf.(*referenceframe.PoseInFrame)
 	}
 	return alteredGoals, nil
+}
+
+func (pc *planContext) isFatalCollision(err error) bool {
+	s := err.Error()
+	if strings.Contains(s, "obstacle constraint: violation") {
+		hasMovingFrame := false
+		for _, f := range pc.movableFrames {
+			if strings.Contains(s, f) {
+				hasMovingFrame = true
+				break
+			}
+		}
+		return !hasMovingFrame
+	}
+	return false
 }

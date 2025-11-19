@@ -412,6 +412,7 @@ func TestDataClient(t *testing.T) {
 		limitBytes, _ := bson.Marshal(limitQuery)
 		mqlQueries := []map[string]interface{}{matchQuery, limitQuery}
 		mqlBinary := [][]byte{matchBytes, limitBytes}
+		queryPrefixName := "prefix_name"
 
 		// convert rawData to BSON
 		var expectedRawDataPb [][]byte
@@ -430,6 +431,9 @@ func TestDataClient(t *testing.T) {
 			if in.DataSource != nil {
 				test.That(t, in.DataSource.Type, test.ShouldNotEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED)
 			}
+			if in.QueryPrefixName != nil {
+				test.That(t, *in.QueryPrefixName, test.ShouldEqual, queryPrefixName)
+			}
 			return &pb.TabularDataByMQLResponse{
 				RawData: expectedRawDataPb,
 			}, nil
@@ -444,6 +448,11 @@ func TestDataClient(t *testing.T) {
 		test.That(t, response, test.ShouldResemble, rawData)
 		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{
 			TabularDataSourceType: TabularDataSourceTypeHotStorage,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, response, test.ShouldResemble, rawData)
+		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{
+			QueryPrefixName: queryPrefixName,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)

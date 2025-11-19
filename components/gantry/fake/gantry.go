@@ -107,13 +107,13 @@ func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.FloatsToInputs(res), nil
+	return res, nil
 }
 
 // GoToInputs moves using the Gantry frames..
 func (g *Gantry) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	for _, goal := range inputSteps {
-		err := g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), g.speedsMmPerSec, nil)
+		err := g.MoveToPosition(ctx, goal, g.speedsMmPerSec, nil)
 		if err != nil {
 			return err
 		}

@@ -188,7 +188,7 @@ func (ws *WorldState) ObstaclesInWorldFrame(fs *FrameSystem, inputs FrameSystemI
 
 	allGeometries := make([]spatialmath.Geometry, 0, len(ws.obstacles))
 	for _, gf := range ws.obstacles {
-		tf, err := fs.Transform(inputs, gf, World)
+		tf, err := fs.Transform(inputs.ToLinearInputs(), gf, World)
 		if err != nil {
 			return nil, err
 		}
