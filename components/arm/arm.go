@@ -187,13 +187,17 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []refe
 	}
 	limits := model.DoF()
 	for i, val := range desiredInputs {
+		//nolint: revive
 		max := limits[i].Max
+		//nolint: revive
 		min := limits[i].Min
 		currPosition := currentJointPos[i]
 		// to make sure that val is a valid input it must either bring the joint closer inbounds or keep the joint inbounds.
 		if currPosition > limits[i].Max {
+			//nolint: revive
 			max = currPosition
 		} else if currPosition < limits[i].Min {
+			//nolint: revive
 			min = currPosition
 		}
 		if val > max || val < min {

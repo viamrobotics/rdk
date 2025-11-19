@@ -112,6 +112,7 @@ func (lis *LinearInputsSchema) Jog(linearizedInputIdx int, val, percentJog float
 		metas = metas[1:]
 	}
 
+	//nolint: revive
 	_, max, r := metas[0].frame.DoF()[linearizedInputIdx].GoodLimits()
 	x := r * percentJog
 
