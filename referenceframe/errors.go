@@ -1,6 +1,8 @@
 package referenceframe
 
 import (
+	"runtime/debug"
+
 	"github.com/pkg/errors"
 )
 
@@ -38,6 +40,7 @@ func NewParentFrameNilError(frameName string) error {
 
 // NewFrameMissingError returns an error indicating that the given frame is missing from the framesystem.
 func NewFrameMissingError(frameName string) error {
+	debug.PrintStack()
 	return errors.Errorf("frame with name %q not in frame system", frameName)
 }
 

@@ -249,6 +249,7 @@ func (svc *frameSystemService) GetPose(
 	if componentName == "" {
 		return nil, errors.New("must provide component name")
 	}
+
 	return svc.TransformPose(
 		ctx,
 		referenceframe.NewPoseInFrame(componentName, spatialmath.NewZeroPose()),
@@ -268,6 +269,7 @@ func (svc *frameSystemService) TransformPose(
 	defer span.End()
 
 	fs, err := referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)
+	svc.logger.Info("NewFrameSystem. Parts: %v Err: %v", svc.parts, err)
 	if err != nil {
 		return nil, err
 	}
@@ -276,11 +278,13 @@ func (svc *frameSystemService) TransformPose(
 	defer svc.partsMu.RUnlock()
 
 	input, err := svc.CurrentInputs(ctx)
+	svc.logger.Info("Inputs. Err: %v", err)
 	if err != nil {
 		return nil, err
 	}
 
 	tf, err := fs.Transform(input.ToLinearInputs(), pose, dst)
+	svc.logger.Info("Transform. Inputs: %v Err: %v", input, err)
 	if err != nil {
 		return nil, err
 	}
