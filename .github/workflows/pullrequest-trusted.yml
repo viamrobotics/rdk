@@ -14,6 +14,12 @@ on:
 # Don't forget to tag back to @main before merge.
 
 jobs:
+  fake-step:
+    if: github.event.label.name == 'safe to test' || github.event.label.name == 'appimage'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Always pass
+        run: echo "This step always passes"
   test:
     if: (github.event.label.name == 'safe to test' || github.event.label.name == 'appimage')
     uses: viamrobotics/rdk/.github/workflows/test.yml@goutils-031
