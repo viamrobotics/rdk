@@ -69,6 +69,59 @@ func TestJobManagerDurationAndCronFromJson(t *testing.T) {
 	})
 }
 
+func TestJobManagerHistory(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Name:  "sensor",
+				API:   sensor.API,
+			},
+		},
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "1s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "test unimplemented",
+					Schedule: "1s",
+					Resource: "sensor",
+					Method:   "DoCommand",
+					Command: map[string]any{
+						"command": "test unimplemented",
+					},
+				},
+			},
+		},
+	}
+	ctx, ctxCancelFunc := context.WithCancel(context.Background())
+	defer ctxCancelFunc()
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+
+	test.That(t, lr.JobManager().NumJobHistories.Load(), test.ShouldEqual, 2)
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+		tb.Helper()
+		successJob, ok := lr.JobManager().JobHistories.Load("fake sensor")
+		test.That(tb, ok, test.ShouldBeTrue)
+		test.That(tb, len(successJob.Successes()), test.ShouldBeGreaterThan, 0)
+		test.That(tb, len(successJob.Failures()), test.ShouldEqual, 0)
+
+		failJob, ok := lr.JobManager().JobHistories.Load("test unimplemented")
+		test.That(tb, ok, test.ShouldBeTrue)
+		test.That(tb, len(failJob.Successes()), test.ShouldEqual, 0)
+		test.That(tb, len(failJob.Failures()), test.ShouldBeGreaterThan, 0)
+	})
+	// TODO: test flaky job with both successes and panics
+}
+
 func TestJobManagerConfigChanges(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
