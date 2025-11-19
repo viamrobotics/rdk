@@ -546,7 +546,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		// grpc dials are also timeouts or mDNS failing to find a candidate, we should remind clients to double-check their internet 
 		// connection and that the machine is on. This should be more helpful than simply returning a chain of context.DeadlineExceeded 
 		// and candidate not found errors.
-		if errors.Is(err, context.DeadlineExceeded) && errors.Is(grpcErr, context.DeadlineExceeded) && errors.Is(grpcErr, rpc.ErrMDNSQuery) {
+		if errors.Is(err, context.DeadlineExceeded) && errors.Is(grpcErr, context.DeadlineExceeded) && errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) {
 			return fmt.Errorf("failed to connect to machine within time limit. check network connection, whether the viam-server is running, and try again. " +
 				"see " + connTimeoutURL + " for troubleshooting steps")
 		}
