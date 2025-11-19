@@ -6,6 +6,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/posetracker/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -18,7 +19,7 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs a pose tracker gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceGetter[PoseTracker]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[PoseTracker], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

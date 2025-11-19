@@ -6,6 +6,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioout/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
@@ -18,7 +19,7 @@ type serviceServer struct {
 }
 
 // NewRPCServiceServer constructs an audioout gRPC service server.
-func NewRPCServiceServer(coll resource.APIResourceGetter[AudioOut]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[AudioOut], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

@@ -63,7 +63,7 @@ type serviceServer struct {
 }
 
 // NewRPCServiceServer returns a new RPC server for the gizmo API.
-func NewRPCServiceServer(coll resource.APIResourceGetter[Gizmo]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Gizmo], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

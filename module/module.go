@@ -43,6 +43,7 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/discovery"
+
 	// Register service APIs.
 	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"
@@ -800,7 +801,7 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error
 	if !ok {
 		return nil
 	}
-	return apiInfo.RegisterRPCService(ctx, m.server, newColl)
+	return apiInfo.RegisterRPCService(ctx, m.server, newColl, m.logger)
 }
 
 // AddModelFromRegistry adds a preregistered component or service model to the module's services.

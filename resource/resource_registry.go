@@ -141,7 +141,7 @@ func (r Registration[ResourceT, ConfigT]) ConfigReflectType() reflect.Type {
 
 // APIRegistration stores api-specific functions and clients.
 type APIRegistration[ResourceT Resource] struct {
-	RPCServiceServerConstructor func(apiGetter APIResourceGetter[ResourceT]) any
+	RPCServiceServerConstructor func(apiGetter APIResourceGetter[ResourceT], logger logging.Logger) any
 	RPCServiceHandler           rpc.RegisterServiceHandlerFromEndpointFunc
 	RPCServiceDesc              *grpc.ServiceDesc
 	ReflectRPCServiceDesc       *desc.ServiceDescriptor
@@ -161,6 +161,7 @@ func (rs APIRegistration[ResourceT]) RegisterRPCService(
 	ctx context.Context,
 	rpcServer rpc.Server,
 	apiGetter APIResourceGetter[ResourceT],
+	logger logging.Logger,
 ) error {
 	if rs.RPCServiceServerConstructor == nil {
 		return nil
@@ -168,7 +169,7 @@ func (rs APIRegistration[ResourceT]) RegisterRPCService(
 	return rpcServer.RegisterServiceServer(
 		ctx,
 		rs.RPCServiceDesc,
-		rs.RPCServiceServerConstructor(apiGetter),
+		rs.RPCServiceServerConstructor(apiGetter, logger),
 		rs.RPCServiceHandler,
 	)
 }
@@ -503,6 +504,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 	if typed.RPCServiceServerConstructor != nil {
 		reg.RPCServiceServerConstructor = func(
 			coll APIResourceGetter[Resource],
+			logger logging.Logger,
 		) any {
 			var typedResourceGetter APIResourceGetter[ResourceT]
 			switch t := coll.(type) {
@@ -516,7 +518,7 @@ func makeGenericAPIRegistration[ResourceT Resource](
 				return utils.NewUnexpectedTypeError[APIResourceGetter[ResourceT]](t)
 			}
 
-			return typed.RPCServiceServerConstructor(typedResourceGetter)
+			return typed.RPCServiceServerConstructor(typedResourceGetter, logger)
 		}
 	}
 	if typed.RPCClient != nil {

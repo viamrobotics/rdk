@@ -22,12 +22,14 @@ const unimplemented = "unimplemented"
 type serviceServer struct {
 	pb.UnimplementedArmServiceServer
 	coll resource.APIResourceGetter[Arm]
+
+	logger logging.Logger
 }
 
 // NewRPCServiceServer constructs an arm gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceGetter[Arm]) interface{} {
-	return &serviceServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceGetter[Arm], logger logging.Logger) interface{} {
+	return &serviceServer{coll: coll, logger: logger.Sublogger("arm_server")}
 }
 
 // GetEndPosition returns the position of the arm specified.
