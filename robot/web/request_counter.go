@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -162,7 +161,7 @@ func (rc *RequestCounter) Stats() any {
 }
 
 type clientInformation struct {
-	ClientName       string
+	ConnectionID     string
 	ConnectTime      string
 	TimeSinceConnect string
 	ServerIP         string
@@ -171,8 +170,7 @@ type clientInformation struct {
 	RejectedRequests map[string]int64
 }
 
-// Creates a client information object for logging from a passed in peer connection by
-// examining "stats" on the peer connection.
+// Creates a client information object for logging from a passed in peer connection.
 func (rc *RequestCounter) createClientInformationFromPC(
 	pc *webrtc.PeerConnection,
 ) *clientInformation {
@@ -181,55 +179,54 @@ func (rc *RequestCounter) createClientInformationFromPC(
 		return ci
 	}
 
-	var candPair map[string]any
-	cands := make(map[string]map[string]any)
-	pcStats := pc.GetStats()
-	for statKey, statVal := range pcStats {
-		// statVal is an opaque blob. JSON-ify it.
-		//
-		// Searching for:
-		// 1. statKey: PeerConnection-1761759940137764346
-		// 2. statVal.Type: "candidate-pair"
-		// 3. statKey: <pair>.LocalCandidateID
-		// 4. statKey: <pair>.RemoteCandidateID
-		if strings.HasPrefix(statKey, "PeerConnection-") {
-			ci.ClientName = statKey
-		} else if strings.HasPrefix(statKey, "candidate:") {
-			statValJSON, err := json.Marshal(statVal)
-			if err != nil {
-				panic(err)
-			}
+	// Code to grab selected ICE candidate pair copied from goutils.
+	if connectionState := pc.ICEConnectionState(); connectionState == webrtc.ICEConnectionStateConnected &&
+		pc.SCTP() != nil &&
+		pc.SCTP().Transport() != nil &&
+		pc.SCTP().Transport().ICETransport() != nil {
+		selectedCandPair, err := pc.SCTP().Transport().ICETransport().GetSelectedCandidatePair()
 
-			statValMap := make(map[string]any)
-			err = json.Unmarshal(statValJSON, &statValMap)
-			if err != nil {
-				panic(err)
+		// RSDK-8527: Surprisingly, `GetSelectedCandidatePair` can return `nil, nil` when the
+		// ice agent has been shut down.
+		if selectedCandPair != nil && err == nil {
+			if selectedCandPair.Remote != nil {
+				ci.ClientIP = selectedCandPair.Remote.Address
 			}
-
-			if statValMap["type"].(string) == "candidate-pair" {
-				candPair = statValMap
-			} else {
-				cands[statKey] = statValMap
+			if selectedCandPair.Local != nil {
+				ci.ServerIP = selectedCandPair.Local.Address
 			}
 		}
 	}
 
-	var localCand, remoteCand map[string]any
-	for candName, candStats := range cands {
-		if candName == candPair["localCandidateId"].(string) {
-			localCand = candStats
-		} else if candName == candPair["remoteCandidateId"].(string) {
-			remoteCand = candStats
+	// The selected ICE candidate pair object above does _not_ have an associated timestamp.
+	// That object also does _not_ expose its `statsID`. We loop through all peer connection
+	// stats below, find the first candidate pair that's been nominated, and grab the ID of
+	// its local candidate. We then use the `Timestamp` of the candidate associated with
+	// that ID (when the local candidate was gathered) as a guess at the time the client
+	// "connected." This guess could be wrong if multiple candidate pairs were nominated,
+	// and does not really represent the point at which the client could start sending
+	// requests. Those caveats are probably OK.
+	//
+	// TL;DR this is hacky way to guess the connection time of the client.
+	var localCandID string
+	allCandsByID := make(map[string]webrtc.ICECandidateStats)
+	stats := pc.GetStats()
+	for _, stat := range stats {
+		if candPairStat, ok := stat.(webrtc.ICECandidatePairStats); ok && candPairStat.Nominated {
+			localCandID = candPairStat.LocalCandidateID
+		} else if candStat, ok := stat.(webrtc.ICECandidateStats); ok {
+			allCandsByID[candStat.ID] = candStat
+		} else if pcStat, ok := stat.(webrtc.PeerConnectionStats); ok {
+			ci.ConnectionID = pcStat.ID
 		}
 	}
-	ci.ClientIP = fmt.Sprintf("%v", localCand["ip"])
-	ci.ServerIP = fmt.Sprintf("%v", remoteCand["ip"])
-
-	seconds, millis := int64(localCand["timestamp"].(float64))/1000,
-		int64(localCand["timestamp"].(float64))%1000
-	connectTime := time.Unix(seconds, millis)
-	ci.ConnectTime = fmt.Sprintf("%v", time.Unix(seconds, millis))
-	ci.TimeSinceConnect = fmt.Sprintf("%v", time.Since(connectTime))
+	var timeSinceConnect time.Duration
+	if localCand, ok := allCandsByID[localCandID]; ok {
+		connectTime := localCand.Timestamp.Time()
+		timeSinceConnect = time.Since(connectTime)
+		ci.ConnectTime = connectTime.String()
+		ci.TimeSinceConnect = timeSinceConnect.String()
+	}
 
 	ci.InFlightRequests = make(map[string]int64)
 	ci.RejectedRequests = make(map[string]int64)
@@ -238,10 +235,22 @@ func (rc *RequestCounter) createClientInformationFromPC(
 			resourceName string,
 			ifarr *inFlightAndRejectedRequests,
 		) bool {
-			ci.InFlightRequests[resourceName] = ifarr.inFlightRequests.Load()
-			ci.RejectedRequests[resourceName] = ifarr.rejectedRequests.Load()
+			if ifr := ifarr.inFlightRequests.Load(); ifr > 0 {
+				ci.InFlightRequests[resourceName] = ifr
+			}
+			if rr := ifarr.rejectedRequests.Load(); rr > 0 {
+				ci.RejectedRequests[resourceName] = rr
+			}
+
 			return true
 		})
+	}
+
+	// If client has no in-flight requests, and connected >= 5 minutes ago, prune the client
+	// from the `rc.requestsForPC` map so the map does not grow unboundedly. That client
+	// will re-appear in debug information if it makes another request.
+	if len(ci.InFlightRequests) == 0 && timeSinceConnect > 5*time.Minute {
+		rc.requestsPerPC.Delete(pc)
 	}
 
 	return ci
@@ -257,21 +266,25 @@ func (rc *RequestCounter) logRequestLimitExceeded(
 	apiMethodString, resource string,
 	pc *webrtc.PeerConnection,
 ) {
-	offendingClientInformation := rc.createClientInformationFromPC(pc)
-	var allOtherClientInformation []*clientInformation
+	offendingClientInformation := fmt.Sprintf(
+		"%+v",
+		rc.createClientInformationFromPC(pc),
+	)
+	allOtherClientInformation := "["
 	rc.requestsPerPC.Range(func(
 		pcKey *webrtc.PeerConnection,
 		_ *ssync.Map[string, *inFlightAndRejectedRequests],
 	) bool {
 		// Do not include offending client.
 		if pc != pcKey {
-			allOtherClientInformation = append(
-				allOtherClientInformation,
+			allOtherClientInformation += fmt.Sprintf(
+				"%+v",
 				rc.createClientInformationFromPC(pcKey),
 			)
 		}
 		return true
 	})
+	allOtherClientInformation += "]"
 
 	msg := fmt.Sprintf("Request limit exceeded for resource. See %s for troubleshooting steps", ReqLimitExceededURL)
 	rc.logger.Warnw(
