@@ -801,7 +801,7 @@ func (r *localRobot) newResource(
 	resName := conf.ResourceName()
 	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
-		failedModules := r.manager.moduleManager.GetFailedModules()
+		failedModules := r.manager.moduleManager.FailedModules()
 		var modules string
 		if len(failedModules) > 0 {
 			modules = fmt.Sprintf("May be in failing module: %v; ", failedModules)

@@ -1903,8 +1903,8 @@ func TestFailedModuleTracking(t *testing.T) {
 	err = mgr.Add(ctx, failingMod2...)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	t.Run("GetFailedModules returns failing modules properly", func(t *testing.T) {
-		failedModules := mgr.GetFailedModules()
+	t.Run("FailedModules returns failing modules properly", func(t *testing.T) {
+		failedModules := mgr.FailedModules()
 		test.That(t, failedModules, test.ShouldContain, "failing-module-1")
 		test.That(t, failedModules, test.ShouldContain, "failing-module-2")
 		test.That(t, failedModules, test.ShouldNotContain, "working-module")
@@ -1913,7 +1913,7 @@ func TestFailedModuleTracking(t *testing.T) {
 
 	t.Run("Module that starts failing gets added to failedModules", func(t *testing.T) {
 		// Verify working-module is not in failedModules initially
-		failedModules := mgr.GetFailedModules()
+		failedModules := mgr.FailedModules()
 		test.That(t, failedModules, test.ShouldNotContain, "working-module")
 
 		// Reconfigure working-module with an invalid path (simulating config update that causes failure)
@@ -1928,11 +1928,11 @@ func TestFailedModuleTracking(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// Verify working-module is now in failedModules after Reconfigure failure
-		failedModules = mgr.GetFailedModules()
+		failedModules = mgr.FailedModules()
 		test.That(t, failedModules, test.ShouldContain, "working-module")
 	})
 
-	t.Run("deleted failing module removed from GetFailedModules", func(t *testing.T) {
+	t.Run("deleted failing module removed from FailedModules", func(t *testing.T) {
 		// Remove failing-module-1 by updating failed modules with config that doesn't include it
 		remainingConfig := []config.Module{
 			workingMod[0],
@@ -1944,14 +1944,14 @@ func TestFailedModuleTracking(t *testing.T) {
 		}
 		mgr.UpdateFailedModules(remainingConfig)
 
-		// Verify it's no longer in GetFailedModules
-		failedModules := mgr.GetFailedModules()
+		// Verify it's no longer in FailedModules
+		failedModules := mgr.FailedModules()
 		test.That(t, failedModules, test.ShouldNotContain, "failing-module-1")
 		test.That(t, failedModules, test.ShouldContain, "failing-module-2")
 		test.That(t, len(failedModules), test.ShouldEqual, 1)
 	})
 
-	t.Run("fixed failing module removed from GetFailedModules", func(t *testing.T) {
+	t.Run("fixed failing module removed from FailedModules", func(t *testing.T) {
 		// Add failing-module-2 again with a valid path to fix it
 		fixedMod := []config.Module{
 			{
@@ -1964,14 +1964,14 @@ func TestFailedModuleTracking(t *testing.T) {
 		err := mgr.Add(ctx, fixedMod...)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Verify it's no longer in GetFailedModules after Add
-		failedModules := mgr.GetFailedModules()
+		// Verify it's no longer in FailedModules after Add
+		failedModules := mgr.FailedModules()
 		test.That(t, failedModules, test.ShouldNotContain, "failing-module-2")
 		test.That(t, len(failedModules), test.ShouldEqual, 0)
 	})
 
-	t.Run("GetFailedModules is empty after all failing modules fixed or deleted", func(t *testing.T) {
-		failedModules := mgr.GetFailedModules()
+	t.Run("FailedModules is empty after all failing modules fixed or deleted", func(t *testing.T) {
+		failedModules := mgr.FailedModules()
 		test.That(t, len(failedModules), test.ShouldEqual, 0)
 		test.That(t, failedModules, test.ShouldBeEmpty)
 	})

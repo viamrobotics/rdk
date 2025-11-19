@@ -1151,8 +1151,8 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }
 
-// GetFailedModules returns the names of all failing modules.
-func (mgr *Manager) GetFailedModules() []string {
+// FailedModules returns the names of all failing modules.
+func (mgr *Manager) FailedModules() []string {
 	mgr.muFailedModules.RLock()
 	defer mgr.muFailedModules.RUnlock()
 	var failedModuleNames []string
