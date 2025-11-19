@@ -122,6 +122,90 @@ func TestJobManagerHistory(t *testing.T) {
 	// TODO: test flaky job with both successes and panics
 }
 
+// Test continuous mode, include switching to and from.
+func TestJobContinuousSchedule(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	fakeSensorComponent := []resource.Config{
+		{
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			Name:  "sensor",
+			API:   sensor.API,
+		},
+	}
+
+	cfg := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "2s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	cfgCron := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "*/5 * * * * *",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	cfgContinuous := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "continuous",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	ctx, ctxCancelFunc := context.WithCancel(context.Background())
+	defer ctxCancelFunc()
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+
+	test.That(t, lr.JobManager().NumJobHistories.Load(), test.ShouldEqual, 1)
+
+	time.Sleep(10 * time.Second)
+	jh, ok := lr.JobManager().JobHistories.Load("fake sensor")
+	successes := jh.Successes()
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, len(successes), test.ShouldBeLessThan, 10)
+	test.That(t, successes[len(successes)-1].AsTime().Sub(successes[0].AsTime()), test.ShouldBeGreaterThan, time.Second)
+
+	// Switch from duration to continuous
+	lr.Reconfigure(ctx, cfgContinuous)
+	time.Sleep(10 * time.Second)
+	jh, ok = lr.JobManager().JobHistories.Load("fake sensor")
+	successes = jh.Successes()
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, len(successes), test.ShouldBeGreaterThanOrEqualTo, 10)
+	test.That(t, successes[len(successes)-1].AsTime().Sub(successes[0].AsTime()), test.ShouldBeLessThan, time.Second)
+
+	// Swtich from continuous to cron
+	lr.Reconfigure(ctx, cfgCron)
+	time.Sleep(10 * time.Second)
+	jh, ok = lr.JobManager().JobHistories.Load("fake sensor")
+	successes = jh.Successes()
+	test.That(t, ok, test.ShouldBeTrue)
+	// History still contains runs from prev
+	test.That(t, len(successes), test.ShouldBeGreaterThanOrEqualTo, 10)
+	test.That(t, successes[len(successes)-1].AsTime().Sub(successes[0].AsTime()), test.ShouldBeGreaterThan, time.Second)
+}
+
 func TestJobManagerConfigChanges(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
