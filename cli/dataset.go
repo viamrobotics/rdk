@@ -339,42 +339,46 @@ func binaryIDToJSONLine(c *viamClient, path string, file *os.File, id string, ti
 	}
 
 	url := fmt.Sprintf("%s/binary-metadata-to-jsonl", c.baseURL.String())
-	req, err := http.NewRequestWithContext(c.c.Context, http.MethodPost, url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return errors.Wrapf(err, "failed to create request")
-	}
-
-	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	token, ok := c.conf.Auth.(*token)
-	if ok {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
-	}
-	apiKey, ok := c.conf.Auth.(*apiKey)
-	if ok {
-		req.Header.Set("key_id", apiKey.KeyID)
-		req.Header.Set("key", apiKey.KeyCrypto)
-	}
 
 	var res *http.Response
 	httpClient := &http.Client{Timeout: time.Duration(timeout) * time.Second}
 	for count := 0; count < maxRetryCount; count++ {
+		req, err := http.NewRequestWithContext(c.c.Context, http.MethodPost, url, bytes.NewBuffer(jsonData))
+		if err != nil {
+			return errors.Wrapf(err, "failed to create request")
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		token, ok := c.conf.Auth.(*token)
+		if ok {
+			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
+		}
+		apiKey, ok := c.conf.Auth.(*apiKey)
+		if ok {
+			req.Header.Set("key_id", apiKey.KeyID)
+			req.Header.Set("key", apiKey.KeyCrypto)
+		}
+
 		res, err = httpClient.Do(req)
 		if err == nil && res.StatusCode == http.StatusOK {
 			debugf(c.c.App.Writer, args.Debug, "Binary metadata to JSONL request: attempt %d/%d succeeded", count+1, maxRetryCount)
 			break
+		}
+		// Close response body for failed attempts to prevent resource leaks
+		if res != nil && res.Body != nil {
+			utils.UncheckedError(res.Body.Close())
 		}
 		debugf(c.c.App.Writer, args.Debug, "Binary metadata to JSONL request: attempt %d/%d failed", count+1, maxRetryCount)
 	}
 	if err != nil {
 		return errors.Wrapf(err, "error sending request")
 	}
-	if res.StatusCode != http.StatusOK {
-		return errors.New(serverErrorMessage)
-	}
 	defer func() {
 		utils.UncheckedError(res.Body.Close())
 	}()
+	if res.StatusCode != http.StatusOK {
+		return errors.New(serverErrorMessage)
+	}
 
 	jsonlData, err := io.ReadAll(res.Body)
 	if err != nil {
