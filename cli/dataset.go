@@ -256,7 +256,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines bool, 
 				downloadErr = c.downloadBinary(dst, timeout, id)
 				datasetFilePath = filepath.Join(dst, dataDir)
 			}
-			datasetErr := binaryMetadataToJSONLines(c, datasetFilePath, datasetFile, id)
+			datasetErr := binaryIDToJSONLine(c, datasetFilePath, datasetFile, id)
 
 			return multierr.Combine(downloadErr, datasetErr)
 		},
@@ -303,8 +303,7 @@ type BinaryMetadataToJSONLRequest struct {
 	Path           string                   `json:"path"`
 }
 
-// Example function to call the binary-metadata-to-jsonl endpoint
-func binaryMetadataToJSONLines(c *viamClient, path string, file *os.File, id string) error {
+func binaryIDToJSONLine(c *viamClient, path string, file *os.File, id string) error {
 	args, err := getGlobalArgs(c.c)
 	if err != nil {
 		return err
@@ -329,19 +328,16 @@ func binaryMetadataToJSONLines(c *viamClient, path string, file *os.File, id str
 		return errors.Errorf("expected a single response, received %d", len(data))
 	}
 
-	// Create the request payload
 	requestBody := BinaryMetadataToJSONLRequest{
 		BinaryMetadata: []*datapb.BinaryMetadata{data[0].GetMetadata()},
 		Path:           path,
 	}
 
-	// Marshal the request to JSON
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal request")
 	}
 
-	// Create the HTTP request
 	url := fmt.Sprintf("%s/binary-metadata-to-jsonl", c.baseURL.String())
 	req, err := http.NewRequestWithContext(c.c.Context, http.MethodPost, url, bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -360,8 +356,7 @@ func binaryMetadataToJSONLines(c *viamClient, path string, file *os.File, id str
 		req.Header.Set("key", apiKey.KeyCrypto)
 	}
 
-	// Send the request
-	// need to make timeout a constant
+	// TODO: need to make timeout a constant
 	var res *http.Response
 	httpClient := &http.Client{Timeout: time.Duration(30) * time.Second}
 	for count := 0; count < maxRetryCount; count++ {
@@ -381,7 +376,7 @@ func binaryMetadataToJSONLines(c *viamClient, path string, file *os.File, id str
 	defer func() {
 		utils.UncheckedError(res.Body.Close())
 	}()
-	// Read the JSONL response
+
 	jsonlData, err := io.ReadAll(res.Body)
 	if err != nil {
 		return errors.Wrapf(err, "error reading response")
