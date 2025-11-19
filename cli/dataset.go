@@ -256,7 +256,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines bool, 
 				downloadErr = c.downloadBinary(dst, timeout, id)
 				datasetFilePath = filepath.Join(dst, dataDir)
 			}
-			datasetErr := binaryIDToJSONLine(c, datasetFilePath, datasetFile, id)
+			datasetErr := binaryIDToJSONLine(c, datasetFilePath, datasetFile, id, timeout)
 
 			return multierr.Combine(downloadErr, datasetErr)
 		},
@@ -303,7 +303,7 @@ type BinaryMetadataToJSONLRequest struct {
 	Path           string                   `json:"path"`
 }
 
-func binaryIDToJSONLine(c *viamClient, path string, file *os.File, id string) error {
+func binaryIDToJSONLine(c *viamClient, path string, file *os.File, id string, timeout uint) error {
 	args, err := getGlobalArgs(c.c)
 	if err != nil {
 		return err
@@ -356,9 +356,8 @@ func binaryIDToJSONLine(c *viamClient, path string, file *os.File, id string) er
 		req.Header.Set("key", apiKey.KeyCrypto)
 	}
 
-	// TODO: need to make timeout a constant
 	var res *http.Response
-	httpClient := &http.Client{Timeout: time.Duration(30) * time.Second}
+	httpClient := &http.Client{Timeout: time.Duration(timeout) * time.Second}
 	for count := 0; count < maxRetryCount; count++ {
 		res, err = httpClient.Do(req)
 		if err == nil && res.StatusCode == http.StatusOK {
