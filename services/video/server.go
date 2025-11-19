@@ -41,9 +41,7 @@ func (server *serviceServer) GetVideo(req *pb.GetVideoRequest, stream pb.VideoSe
 
 	extra := map[string]interface{}{}
 	if req.Extra != nil {
-		for k, v := range req.Extra.GetFields() {
-			extra[k] = v.AsInterface()
-		}
+		extra = req.Extra.AsMap()
 	}
 
 	chunkChan, err := svc.GetVideo(
