@@ -536,7 +536,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 				statusErr.Code() == codes.NotFound &&
 				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) &&
 				errors.Is(grpcErr, context.DeadlineExceeded) {
-				return rpc.ErrOffline
+				return rpc.ErrHostOffline
 			}
 			err = multierr.Combine(err, grpcErr)
 		}
