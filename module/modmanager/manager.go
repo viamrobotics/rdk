@@ -259,6 +259,9 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		// The config was already validated, but we must check again before attempting to add.
 		if err := conf.Validate(""); err != nil {
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
+			mgr.muFailedModules.Lock()
+			mgr.failedModules[conf.Name] = true
+			mgr.muFailedModules.Unlock()
 			errs[i] = err
 			continue
 		}
@@ -537,6 +540,14 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		}
 	}
 	mgr.modules.Delete(mod.cfg.Name)
+
+	// Remove from failedModules when module is closed (but not during reconfigure,
+	// as Reconfigure will handle it based on whether the new module starts successfully)
+	if !reconfigure {
+		mgr.muFailedModules.Lock()
+		delete(mgr.failedModules, mod.cfg.Name)
+		mgr.muFailedModules.Unlock()
+	}
 
 	mod.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
 	return nil
@@ -1151,18 +1162,26 @@ func (mgr *Manager) GetFailedModules() []string {
 	return failedModuleNames
 }
 
-// UpdateFailedModules removes failed modules not present in new config.
+// UpdateFailedModules removes failed modules not present in new config, or modules whose configs now validate.
 func (mgr *Manager) UpdateFailedModules(newConfigModules []config.Module) {
 	mgr.muFailedModules.Lock()
 	defer mgr.muFailedModules.Unlock()
 
-	configModuleNames := make(map[string]bool)
+	configModules := make(map[string]config.Module, len(newConfigModules))
 	for _, module := range newConfigModules {
-		configModuleNames[module.Name] = true
+		configModules[module.Name] = module
 	}
 
 	for moduleName := range mgr.failedModules {
-		if !configModuleNames[moduleName] {
+		moduleConf, ok := configModules[moduleName]
+		if !ok {
+			// Module no longer in config, remove from failedModules
+			delete(mgr.failedModules, moduleName)
+			continue
+		}
+		// If module is in config and now validates, remove from failedModules
+		// (Add()/Reconfigure() will handle re-adding if it fails again)
+		if err := moduleConf.Validate(""); err == nil {
 			delete(mgr.failedModules, moduleName)
 		}
 	}
