@@ -1708,7 +1708,7 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 
 // Version returns version information about the robot.
 func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
-	return robot.Version()
+	return robot.Version, nil
 }
 
 // reconfigureAllowed returns whether the local robot can reconfigure.
