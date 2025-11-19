@@ -209,8 +209,6 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		req.Arguments = argMap
 	}
 
-	fmt.Printf("\nSubmitting with ContainerVersion: %s\n", containerVersion)
-
 	resp, err := c.mlTrainingClient.SubmitCustomTrainingJob(context.Background(), req)
 	if err != nil {
 		return "", errors.Wrapf(err, "received error from server")
