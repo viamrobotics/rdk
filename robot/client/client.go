@@ -136,6 +136,9 @@ func (rc *RobotClient) GetResource(name resource.Name) (resource.Resource, error
 // RemoteTypeName is the type name used for a remote. This is for internal use.
 const RemoteTypeName = string("remote")
 
+// connTimeoutURL is the URL for connection timeout error troubleshooting.
+const connTimeoutURL = "https://docs.viam.com/dev/tools/common-errors/#conn-time-out"
+
 // RemoteAPI is the fully qualified API for a remote. This is for internal use.
 var RemoteAPI = resource.APINamespaceRDK.WithType(RemoteTypeName).WithSubtype("")
 
@@ -539,11 +542,13 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 		}
 
 		// A context.DeadlineExceeded from the WebRTC dial implies the client is unable to reach
-		// the signaling server, which likely means that the client is offline. In that case, if the errors returned from grpc dials are also timeouts or mDNS failing to find a candidate, we should remind clients to double-check their internet connection and that the machine is on.
-		// This should be more helpful than simply returning a chain of context.DeadlineExceeded and candidate not found errors.
+		// the signaling server, which likely means that the client is offline. In that case, if the errors returned from 
+		// grpc dials are also timeouts or mDNS failing to find a candidate, we should remind clients to double-check their internet 
+		// connection and that the machine is on. This should be more helpful than simply returning a chain of context.DeadlineExceeded 
+		// and candidate not found errors.
 		if errors.Is(err, context.DeadlineExceeded) && errors.Is(grpcErr, context.DeadlineExceeded) && errors.Is(grpcErr, rpc.ErrMDNSQuery) {
-			return fmt.Errorf("failed to connect to robot within time limit. check network connection, whether the viam-server is running, and try again. " +
-				"see http://docs.viam.com/dev/tools/common-errors/#conn-time-out for troubleshooting steps")
+			return fmt.Errorf("failed to connect to machine within time limit. check network connection, whether the viam-server is running, and try again. " +
+				"see " + connTimeoutURL + " for troubleshooting steps")
 		}
 	}
 	if err != nil {
