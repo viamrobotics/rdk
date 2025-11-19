@@ -30,13 +30,14 @@ const (
 )
 
 type mlSubmitCustomTrainingJobArgs struct {
-	DatasetID    string
-	OrgID        string
-	ModelName    string
-	ModelVersion string
-	ScriptName   string
-	Version      string
-	Args         []string
+	DatasetID        string
+	OrgID            string
+	ModelName        string
+	ModelVersion     string
+	ScriptName       string
+	Version          string
+	ContainerVersion string
+	Args             []string
 }
 
 // MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
@@ -48,7 +49,7 @@ func MLSubmitCustomTrainingJob(c *cli.Context, args mlSubmitCustomTrainingJobArg
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, args.ScriptName, args.Version, args.OrgID,
-		args.ModelName, args.ModelVersion, args.Args)
+		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args)
 	if err != nil {
 		return err
 	}
@@ -57,18 +58,19 @@ func MLSubmitCustomTrainingJob(c *cli.Context, args mlSubmitCustomTrainingJobArg
 }
 
 type mlSubmitCustomTrainingJobWithUploadArgs struct {
-	URL          string
-	DatasetID    string
-	ModelName    string
-	ModelVersion string
-	Path         string
-	OrgID        string
-	ModelOrgID   string
-	ScriptName   string
-	Version      string
-	Framework    string
-	ModelType    string
-	Args         []string
+	URL              string
+	DatasetID        string
+	ModelName        string
+	ModelVersion     string
+	Path             string
+	OrgID            string
+	ModelOrgID       string
+	ScriptName       string
+	Version          string
+	Framework        string
+	ModelType        string
+	ContainerVersion string
+	Args             []string
 }
 
 // MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
@@ -95,7 +97,7 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, registryItemID, resp.Version, args.ModelOrgID,
-		args.ModelName, args.ModelVersion, args.Args)
+		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args)
 	if err != nil {
 		return err
 	}
@@ -162,7 +164,7 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 
 // mlSubmitCustomTrainingJob trains on data with the specified dataset and registry item.
 func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, registryItemVersion, orgID, modelName,
-	modelVersion string, args []string,
+	modelVersion, containerVersion string, args []string,
 ) (string, error) {
 	splitName := strings.Split(registryItemID, ":")
 	if len(splitName) != 2 {
@@ -174,6 +176,17 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		modelVersion = time.Now().Format("2006-01-02T15-04-05")
 	}
 
+	if containerVersion == "" {
+		res, err := c.mlTrainingClient.ListSupportedContainers(context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
+		if err != nil {
+			return "", err
+		}
+		for k := range res.GetContainerMap() {
+			containerVersion = k
+			break
+		}
+	}
+
 	req := &mltrainingpb.SubmitCustomTrainingJobRequest{
 		DatasetId:           datasetID,
 		RegistryItemId:      registryItemID,
@@ -181,6 +194,7 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		OrganizationId:      orgID,
 		ModelName:           modelName,
 		ModelVersion:        modelVersion,
+		ContainerVersion:    containerVersion,
 	}
 
 	if len(args) > 0 {
@@ -194,6 +208,8 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		}
 		req.Arguments = argMap
 	}
+
+	fmt.Printf("\nSubmitting with ContainerVersion: %s\n", containerVersion)
 
 	resp, err := c.mlTrainingClient.SubmitCustomTrainingJob(context.Background(), req)
 	if err != nil {
