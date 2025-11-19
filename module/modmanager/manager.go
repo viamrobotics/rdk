@@ -438,8 +438,16 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 
 	if err := mgr.startModule(ctx, mod); err != nil {
 		// If re-addition fails, assume all handled resources are orphaned.
+		mgr.muFailedModules.Lock()
+		mgr.failedModules[conf.Name] = true
+		mgr.muFailedModules.Unlock()
 		return handledResourceNames, err
 	}
+
+	// reconfiguration successful, remove from failed modules
+	mgr.muFailedModules.Lock()
+	delete(mgr.failedModules, conf.Name)
+	mgr.muFailedModules.Unlock()
 
 	mod.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
@@ -856,6 +864,11 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
 
+		// Add to failedModules when crash is detected
+		mgr.muFailedModules.Lock()
+		mgr.failedModules[mod.cfg.Name] = true
+		mgr.muFailedModules.Unlock()
+
 		// There are two relevant calls that may race with a crashing module:
 		// 1. mgr.Remove, which wants to stop the module and remove it entirely
 		// 2. mgr.Reconfigure, which wants to stop the module and replace it with
@@ -908,6 +921,9 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 
 			err := mgr.attemptRestart(ctx, mod)
 			if err == nil {
+				mgr.muFailedModules.Lock()
+				delete(mgr.failedModules, mod.cfg.Name)
+				mgr.muFailedModules.Unlock()
 				break
 			}
 			unlock()
