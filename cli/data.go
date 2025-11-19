@@ -547,6 +547,8 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 	}
 	// For large files, we get the metadata but not the binary itself
 	// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
+	// Unavailable (such as error 'upstream connect error or disconnect/reset before headers. reset reason: connection termination')
+	// can also be returned when the file is too large.
 	if err != nil && (status.Code(err) == codes.ResourceExhausted || status.Code(err) == codes.Unavailable) {
 		largeFile = true
 		for count := 0; count < maxRetryCount; count++ {
