@@ -75,11 +75,15 @@ func generateRandomPositions(randSeed *rand.Rand, lowerBound, upperBound []float
 }
 
 func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
+	//nolint: revive
 	var min, max []float64
 	for _, limit := range limits {
+		//nolint: revive
 		min = append(min, limit.Min)
+		//nolint: revive
 		max = append(max, limit.Max)
 	}
+
 	return min, max
 }
 
