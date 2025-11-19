@@ -231,6 +231,8 @@ func (rc *RequestCounter) createClientInformationFromPC(
 	ci.ConnectTime = fmt.Sprintf("%v", time.Unix(seconds, millis))
 	ci.TimeSinceConnect = fmt.Sprintf("%v", time.Since(connectTime))
 
+	ci.InFlightRequests = make(map[string]int64)
+	ci.RejectedRequests = make(map[string]int64)
 	if requestsForPC, ok := rc.requestsPerPC.Load(pc); ok {
 		requestsForPC.Range(func(
 			resourceName string,
