@@ -330,4 +330,4 @@ require (
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
 )
 
-replace go.viam.com/utils => github.com/viamrobotics/goutils v0.3.2-0.20251120212734-2c2f09704181
+replace go.viam.com/utils => github.com/viamrobotics/goutils v0.3.2-0.20251120231212-869dc70bfbdd
