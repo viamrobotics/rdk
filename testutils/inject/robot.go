@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/robot/jobmanager"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 )
@@ -57,6 +58,7 @@ type Robot struct {
 	ops        *operation.Manager
 	SessMgr    session.Manager
 	PackageMgr packages.Manager
+	JobMgr     *jobmanager.JobManager
 }
 
 // MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
@@ -199,6 +201,17 @@ func (r *Robot) PackageManager() packages.Manager {
 		return packages.NewNoopManager()
 	}
 	return r.PackageMgr
+}
+
+// JobManager calls the injected JobManager or the real version.
+func (r *Robot) JobManager() *jobmanager.JobManager {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+
+	if r.JobMgr == nil {
+		return &jobmanager.JobManager{}
+	}
+	return r.JobMgr
 }
 
 // Config calls the injected Config or the real version.

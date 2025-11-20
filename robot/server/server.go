@@ -551,6 +551,21 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		result.State = pb.GetMachineStatusResponse_STATE_RUNNING
 	}
 
+	if s.robot.JobManager() != nil {
+		if n := s.robot.JobManager().NumJobHistories.Load(); n > 0 {
+			if result.JobStatuses == nil {
+				result.JobStatuses = make([]*pb.JobStatus, 0, n)
+			}
+			for jobName, jobHistory := range s.robot.JobManager().JobHistories.Range {
+				result.JobStatuses = append(result.JobStatuses, &pb.JobStatus{
+					JobName:              jobName,
+					RecentSuccessfulRuns: jobHistory.Successes(),
+					RecentFailedRuns:     jobHistory.Failures(),
+				})
+			}
+		}
+	}
+
 	return &result, nil
 }
 

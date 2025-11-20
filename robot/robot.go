@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/robot/jobmanager"
 	"go.viam.com/rdk/robot/packages"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/session"
@@ -122,6 +124,9 @@ type Robot interface {
 
 	// PackageManager returns the package manager the robot is using.
 	PackageManager() packages.Manager
+
+	// JobManager returns the job manager the robot is using.
+	JobManager() *jobmanager.JobManager
 
 	// Logger returns the logger the robot is using.
 	Logger() logging.Logger
@@ -343,9 +348,16 @@ const (
 
 // MachineStatus encapsulates the current status of the robot.
 type MachineStatus struct {
-	Resources []resource.Status
-	Config    config.Revision
-	State     MachineState
+	Resources   []resource.Status
+	Config      config.Revision
+	State       MachineState
+	JobStatuses map[string]JobStatus
+}
+
+// JobStatus encapsulates status information about a single JobManager job.
+type JobStatus struct {
+	RecentSuccessfulRuns []time.Time
+	RecentFailedRuns     []time.Time
 }
 
 // VersionResponse encapsulates the version info of the robot.

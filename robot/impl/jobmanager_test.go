@@ -62,11 +62,148 @@ func TestJobManagerDurationAndCronFromJson(t *testing.T) {
 		tb.Helper()
 		// the jobs in the config are on 4-5s schedules so after 6-7 seconds, all of them
 		// should run at least once
-		test.That(tb, logs.FilterMessage("Job triggered").Len(),
+		test.That(tb, logs.FilterMessage("Job added").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 3)
 		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 3)
 	})
+}
+
+func TestJobManagerHistory(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Name:  "sensor",
+				API:   sensor.API,
+			},
+		},
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "1s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "test unimplemented",
+					Schedule: "1s",
+					Resource: "sensor",
+					Method:   "DoCommand",
+					Command: map[string]any{
+						"command": "test unimplemented",
+					},
+				},
+			},
+		},
+	}
+	ctx, ctxCancelFunc := context.WithCancel(context.Background())
+	defer ctxCancelFunc()
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+
+	test.That(t, lr.JobManager().NumJobHistories.Load(), test.ShouldEqual, 2)
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+		tb.Helper()
+		successJob, ok := lr.JobManager().JobHistories.Load("fake sensor")
+		test.That(tb, ok, test.ShouldBeTrue)
+		test.That(tb, len(successJob.Successes()), test.ShouldBeGreaterThan, 0)
+		test.That(tb, len(successJob.Failures()), test.ShouldEqual, 0)
+
+		failJob, ok := lr.JobManager().JobHistories.Load("test unimplemented")
+		test.That(tb, ok, test.ShouldBeTrue)
+		test.That(tb, len(failJob.Successes()), test.ShouldEqual, 0)
+		test.That(tb, len(failJob.Failures()), test.ShouldBeGreaterThan, 0)
+	})
+	// TODO: test flaky job with both successes and panics
+}
+
+// Test continuous mode, include switching to and from.
+func TestJobContinuousSchedule(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	fakeSensorComponent := []resource.Config{
+		{
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			Name:  "sensor",
+			API:   sensor.API,
+		},
+	}
+
+	cfg := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "2s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	cfgCron := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "*/5 * * * * *",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	cfgContinuous := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "continuous",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	ctx, ctxCancelFunc := context.WithCancel(context.Background())
+	defer ctxCancelFunc()
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+
+	test.That(t, lr.JobManager().NumJobHistories.Load(), test.ShouldEqual, 1)
+
+	time.Sleep(10 * time.Second)
+	jh, ok := lr.JobManager().JobHistories.Load("fake sensor")
+	successes := jh.Successes()
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, len(successes), test.ShouldBeLessThan, 10)
+	test.That(t, successes[len(successes)-1].AsTime().Sub(successes[0].AsTime()), test.ShouldBeGreaterThan, time.Second)
+
+	// Switch from duration to continuous
+	lr.Reconfigure(ctx, cfgContinuous)
+	time.Sleep(10 * time.Second)
+	jh, ok = lr.JobManager().JobHistories.Load("fake sensor")
+	successes = jh.Successes()
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, len(successes), test.ShouldBeGreaterThanOrEqualTo, 10)
+	test.That(t, successes[len(successes)-1].AsTime().Sub(successes[0].AsTime()), test.ShouldBeLessThan, time.Second)
+
+	// Swtich from continuous to cron
+	lr.Reconfigure(ctx, cfgCron)
+	time.Sleep(10 * time.Second)
+	jh, ok = lr.JobManager().JobHistories.Load("fake sensor")
+	successes = jh.Successes()
+	test.That(t, ok, test.ShouldBeTrue)
+	// History still contains runs from prev
+	test.That(t, len(successes), test.ShouldBeGreaterThanOrEqualTo, 10)
+	test.That(t, successes[len(successes)-1].AsTime().Sub(successes[0].AsTime()), test.ShouldBeGreaterThan, time.Second)
 }
 
 func TestJobManagerConfigChanges(t *testing.T) {
@@ -845,7 +982,7 @@ func TestJobManagerComponents(t *testing.T) {
 		tb.Helper()
 		// we will test for succeeded jobs to be the amount we started,
 		// and that there are no failed jobs
-		test.That(tb, logs.FilterMessage("Job triggered").Len(),
+		test.That(tb, logs.FilterMessage("Job added").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 18)
 		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 18)
@@ -1174,7 +1311,7 @@ func TestJobManagerServices(t *testing.T) {
 
 	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessage("Job triggered").Len(),
+		test.That(tb, logs.FilterMessage("Job added").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 8)
 		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 8)
@@ -1209,7 +1346,7 @@ func TestJobManagerErrors(t *testing.T) {
 
 	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessage("Job triggered").Len(),
+		test.That(tb, logs.FilterMessage("Job added").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 		test.That(tb, logs.FilterMessage("Job failed").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)

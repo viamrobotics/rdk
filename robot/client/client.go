@@ -16,6 +16,7 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/samber/lo"
 	"github.com/viamrobotics/webrtc/v3"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.uber.org/multierr"
@@ -45,6 +46,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/robot/jobmanager"
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
@@ -897,6 +899,11 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 	return nil
 }
 
+// JobManager returns nil.
+func (rc *RobotClient) JobManager() *jobmanager.JobManager {
+	return nil
+}
+
 // ResourceNames returns a list of all known resource names connected to this machine.
 //
 //	resource_names := machine.ResourceNames()
@@ -1262,6 +1269,19 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		mStatus.State = robot.StateInitializing
 	case pb.GetMachineStatusResponse_STATE_RUNNING:
 		mStatus.State = robot.StateRunning
+	}
+
+	if resp.GetJobStatuses() != nil {
+		tspbToTime := func(tspb *timestamppb.Timestamp, _ int) time.Time {
+			return tspb.AsTime()
+		}
+		mStatus.JobStatuses = make(map[string]robot.JobStatus, len(resp.GetJobStatuses()))
+		for _, js := range resp.GetJobStatuses() {
+			mStatus.JobStatuses[js.GetJobName()] = robot.JobStatus{
+				RecentSuccessfulRuns: lo.Map(js.GetRecentSuccessfulRuns(), tspbToTime),
+				RecentFailedRuns:     lo.Map(js.GetRecentFailedRuns(), tspbToTime),
+			}
+		}
 	}
 
 	return mStatus, nil
