@@ -1115,7 +1115,8 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			r.logger.Warnw("Extracing model information",
 				"resName", component.ResourceName().Name,
 				"err", err)
-			if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+			// if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+			if resource.IsNotAvailableError(err) || resource.IsNotFoundError(err) {
 				// When we have non-nil errors here, it is because the resource is not yet
 				// available.  In this case, we will exclude it from the FS. When it becomes
 				// available, it will be included.
