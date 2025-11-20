@@ -3,6 +3,7 @@ package gantry
 
 import (
 	"context"
+	"strings"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gantry/v1"
@@ -12,6 +13,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 )
+
+var unimplemented = "unimplemented"
 
 // serviceServer implements the GantryService from gantry.proto.
 type serviceServer struct {
@@ -130,6 +133,39 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 		return nil, err
 	}
 	return referenceframe.KinematicModelToProtobuf(model), nil
+}
+
+func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
+	res, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
+	if err != nil {
+		// if the error tells us the method is unimplemented, then we
+		// can use the kinematics and joint positions endpoints to
+		// construct the geometries of the arm
+		if strings.Contains(err.Error(), unimplemented) {
+			kinematicsPbResp, err := s.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: req.GetName()})
+			if err != nil {
+				return nil, err
+			}
+			model, err := referenceframe.KinematicModelFromProtobuf(req.GetName(), kinematicsPbResp)
+			if err != nil {
+				return nil, err
+			}
+
+			posResp, err := s.GetPosition(ctx, &pb.GetPositionRequest{Name: req.GetName()})
+			gifs, err := model.Geometries(posResp.PositionsMm)
+			if err != nil {
+				return nil, err
+			}
+			return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(
+				gifs.Geometries())}, nil
+		}
+		return nil, err
+	}
+	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }
 
 // DoCommand receives arbitrary commands.
