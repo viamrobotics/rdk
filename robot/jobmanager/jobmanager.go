@@ -23,7 +23,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -67,13 +66,13 @@ type JobHistory struct {
 }
 
 // Successes returns timestamps of the last historyLength number successfully completed jobs.
-func (jh *JobHistory) Successes() []*timestamppb.Timestamp {
-	ts := make([]*timestamppb.Timestamp, 0, historyLength)
+func (jh *JobHistory) Successes() []time.Time {
+	ts := make([]time.Time, 0, historyLength)
 	jh.successTimesMu.Lock()
 	defer jh.successTimesMu.Unlock()
 	for i := 0; i < historyLength; i++ {
 		if jh.successTimes.Value != nil {
-			ts = append(ts, jh.successTimes.Value.(*timestamppb.Timestamp))
+			ts = append(ts, jh.successTimes.Value.(time.Time))
 		}
 		jh.successTimes = jh.successTimes.Next()
 	}
@@ -81,13 +80,13 @@ func (jh *JobHistory) Successes() []*timestamppb.Timestamp {
 }
 
 // Failures returns timestamps of the last historyLength number jobs that returned with Error or panic.
-func (jh *JobHistory) Failures() []*timestamppb.Timestamp {
-	ts := make([]*timestamppb.Timestamp, 0, historyLength)
+func (jh *JobHistory) Failures() []time.Time {
+	ts := make([]time.Time, 0, historyLength)
 	jh.failureTimesMu.Lock()
 	defer jh.failureTimesMu.Unlock()
 	for i := 0; i < historyLength; i++ {
 		if jh.failureTimes.Value != nil {
-			ts = append(ts, jh.failureTimes.Value.(*timestamppb.Timestamp))
+			ts = append(ts, jh.failureTimes.Value.(time.Time))
 		}
 		jh.failureTimes = jh.failureTimes.Next()
 	}
@@ -95,7 +94,7 @@ func (jh *JobHistory) Failures() []*timestamppb.Timestamp {
 }
 
 // AddSuccess adds a timestamp to successTimes, overwriting the earliest entry if it is full.
-func (jh *JobHistory) AddSuccess(time *timestamppb.Timestamp) {
+func (jh *JobHistory) AddSuccess(time time.Time) {
 	jh.successTimesMu.Lock()
 	defer jh.successTimesMu.Unlock()
 	jh.successTimes.Value = time
@@ -103,7 +102,7 @@ func (jh *JobHistory) AddSuccess(time *timestamppb.Timestamp) {
 }
 
 // AddFailure adds a timestamp to failureTimes, overwriting the earliest entry if it is full.
-func (jh *JobHistory) AddFailure(time *timestamppb.Timestamp) {
+func (jh *JobHistory) AddFailure(time time.Time) {
 	jh.failureTimesMu.Lock()
 	defer jh.failureTimesMu.Unlock()
 	jh.failureTimes.Value = time
@@ -367,19 +366,19 @@ func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 			// May be slightly more accurate to use j.LastRun(), but we don't have direct reference to it here, and we don't want the job to
 			// complete before we can store the returned Job.
 			gocron.AfterJobRuns(func(jobID uuid.UUID, jobName string) {
-				now := timestamppb.Now()
+				now := time.Now()
 				if jh, ok := jm.JobHistories.Load(jobName); ok {
 					jh.AddSuccess(now)
 				}
 			}),
 			gocron.AfterJobRunsWithError(func(jobID uuid.UUID, jobName string, err error) {
-				now := timestamppb.Now()
+				now := time.Now()
 				if jh, ok := jm.JobHistories.Load(jobName); ok {
 					jh.AddFailure(now)
 				}
 			}),
 			gocron.AfterJobRunsWithPanic(func(jobID uuid.UUID, jobName string, recoverData any) {
-				now := timestamppb.Now()
+				now := time.Now()
 				if jh, ok := jm.JobHistories.Load(jobName); ok {
 					jh.AddFailure(now)
 				}

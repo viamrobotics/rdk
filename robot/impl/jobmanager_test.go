@@ -36,6 +36,7 @@ import (
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	rclient "go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/discovery"
 	genSvc "go.viam.com/rdk/services/generic"
@@ -49,6 +50,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	injectmotion "go.viam.com/rdk/testutils/inject/motion"
+	"go.viam.com/rdk/testutils/robottestutils"
 )
 
 func TestJobManagerDurationAndCronFromJson(t *testing.T) {
@@ -105,19 +107,28 @@ func TestJobManagerHistory(t *testing.T) {
 	ctx, ctxCancelFunc := context.WithCancel(context.Background())
 	defer ctxCancelFunc()
 	lr := setupLocalRobot(t, ctx, cfg, logger)
+	o, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := lr.StartWeb(ctx, o)
+	test.That(t, err, test.ShouldBeNil)
+	robotClient, err := rclient.New(ctx, addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer robotClient.Close(ctx)
 
-	test.That(t, lr.JobManager().NumJobHistories.Load(), test.ShouldEqual, 2)
 	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
 		tb.Helper()
-		successJob, ok := lr.JobManager().JobHistories.Load("fake sensor")
-		test.That(tb, ok, test.ShouldBeTrue)
-		test.That(tb, len(successJob.Successes()), test.ShouldBeGreaterThan, 0)
-		test.That(tb, len(successJob.Failures()), test.ShouldEqual, 0)
+		ms, err := robotClient.MachineStatus(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, len(ms.JobStatuses), test.ShouldEqual, 2)
 
-		failJob, ok := lr.JobManager().JobHistories.Load("test unimplemented")
+		successJob, ok := ms.JobStatuses["fake sensor"]
 		test.That(tb, ok, test.ShouldBeTrue)
-		test.That(tb, len(failJob.Successes()), test.ShouldEqual, 0)
-		test.That(tb, len(failJob.Failures()), test.ShouldBeGreaterThan, 0)
+		test.That(tb, len(successJob.RecentSuccessfulRuns), test.ShouldBeGreaterThan, 0)
+		test.That(tb, len(successJob.RecentFailedRuns), test.ShouldEqual, 0)
+
+		failJob, ok := ms.JobStatuses["test unimplemented"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		test.That(tb, len(failJob.RecentSuccessfulRuns), test.ShouldEqual, 0)
+		test.That(tb, len(failJob.RecentFailedRuns), test.ShouldBeGreaterThan, 0)
 	})
 	// TODO: test flaky job with both successes and panics
 }

@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
-	"go.viam.com/rdk/robot/jobmanager"
 	"go.viam.com/rdk/robot/packages"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/session"
@@ -124,9 +123,6 @@ type Robot interface {
 
 	// PackageManager returns the package manager the robot is using.
 	PackageManager() packages.Manager
-
-	// JobManager returns the job manager the robot is using.
-	JobManager() *jobmanager.JobManager
 
 	// Logger returns the logger the robot is using.
 	Logger() logging.Logger

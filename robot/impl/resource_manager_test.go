@@ -57,7 +57,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
-	"go.viam.com/rdk/robot/jobmanager"
 	"go.viam.com/rdk/robot/packages"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/shell"
@@ -1920,10 +1919,6 @@ func (rr *dummyRobot) SessionManager() session.Manager {
 }
 
 func (rr *dummyRobot) PackageManager() packages.Manager {
-	panic("change to return nil")
-}
-
-func (rr *dummyRobot) JobManager() *jobmanager.JobManager {
 	panic("change to return nil")
 }
 
