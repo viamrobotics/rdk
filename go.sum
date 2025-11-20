@@ -1000,8 +1000,8 @@ github.com/viam-labs/motion-tools v0.11.8 h1:3T+/46TSGrDkUQ8jF2onXhRC63cFNm2eWY8
 github.com/viam-labs/motion-tools v0.11.8/go.mod h1:ssOehj02YwtsJ4wEJqjrfpPQ43ZoU8ppXH8JIfocY1w=
 github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWjpfc=
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
-github.com/viamrobotics/goutils v0.3.2-0.20251120212734-2c2f09704181 h1:NWlLImnq9OZb3wSsvs9PtnrkB6lAekrjc+JPPW6X2ac=
-github.com/viamrobotics/goutils v0.3.2-0.20251120212734-2c2f09704181/go.mod h1:cV1ZiiTxc3FdGR8GBxNBWv8Z2ZJ6YIGJKTXbGRYQxE4=
+github.com/viamrobotics/goutils v0.3.2-0.20251120231212-869dc70bfbdd h1:UPR17n8wEqSB+9pojeXsu7Rrf4wjIDjX8gA8MZOsCT0=
+github.com/viamrobotics/goutils v0.3.2-0.20251120231212-869dc70bfbdd/go.mod h1:cV1ZiiTxc3FdGR8GBxNBWv8Z2ZJ6YIGJKTXbGRYQxE4=
 github.com/viamrobotics/ice/v2 v2.3.40 h1:H9r4ztsKkxWSn42R4fLvYlaPtpBys1Yj7/MERBtZY0k=
 github.com/viamrobotics/ice/v2 v2.3.40/go.mod h1:MFqB81U1pliDKaXJx2hGHvYKg1PepyEYwEY10828Ve0=
 github.com/viamrobotics/webrtc/v3 v3.99.16 h1:N3OQoWnV9Zg68mTDOq8ymsx2AMpbEjuo1gHWaVd7wB0=
