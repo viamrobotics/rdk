@@ -3,6 +3,7 @@ package robotimpl
 import (
 	"context"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -114,6 +115,13 @@ func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger
 	}
 
 	return r, cfg
+}
+
+func failedModules(r robot.LocalRobot) []string {
+	modFailures := r.(*localRobot).manager.moduleManager.FailedModules()
+	// guarantee order for test assertions
+	slices.Sort(modFailures)
+	return modFailures
 }
 
 func TestRenamedModuleDependentRecovery(t *testing.T) {
@@ -524,4 +532,39 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
+}
+	// test that failing modules are properly tracked in failedModules by breaking
+	// and fixing modules and making sure failedModules is updated accordingly.
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	r, cfg := setupModuleTest(t, ctx, false, logger)
+
+	// assert test is empty before adding failing modules
+	test.That(t, failedModules(r), test.ShouldBeEmpty)
+
+	// Update cfg to have one failing mod with nonexistant path and keep working mod
+	cfg.Modules[0].ExePath = "/nonexistent/path/to/module1"
+	r.Reconfigure(ctx, &cfg)
+
+	// assert failing modules get added to failedModules
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod"})
+
+	// Reconfigure working "mod2" with an invalid path; it should be tracked as failing.
+	cfg.Modules[1].ExePath = "/nonexistent/path/to/invalid"
+	r.Reconfigure(ctx, &cfg)
+
+	// assert that "mod2" gets added to failedModules
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod2"})
+
+	// Remove "mod2" from config; it should be removed from FailedModules.
+	cfg.Modules = slices.Delete(cfg.Modules, 1, 2)
+	r.Reconfigure(ctx, &cfg)
+
+	// assert that "mod2" gets removed from failedModules
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod"})
+
+	// Fix "mod" by providing a valid path; it should be removed from FailedModules.
+	cfg.Modules[0].ExePath = rtestutils.BuildTempModule(t, "module/testmodule")
+	r.Reconfigure(ctx, &cfg)
+	test.That(t, failedModules(r), test.ShouldBeEmpty)
 }

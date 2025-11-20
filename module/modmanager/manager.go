@@ -152,8 +152,8 @@ type Manager struct {
 	// PeerConnections.
 	modPeerConnTracker *rdkgrpc.ModPeerConnTracker
 
+	failedModulesMu sync.RWMutex
 	failedModules   map[string]bool
-	muFailedModules sync.RWMutex
 }
 
 // Close terminates module connections and processes.
@@ -259,9 +259,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		// The config was already validated, but we must check again before attempting to add.
 		if err := conf.Validate(""); err != nil {
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
-			mgr.muFailedModules.Lock()
-			mgr.failedModules[conf.Name] = true
-			mgr.muFailedModules.Unlock()
+			mgr.addToFailedModules(conf.Name)
 			errs[i] = err
 			continue
 		}
@@ -276,15 +274,11 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
 				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
-				mgr.muFailedModules.Lock()
-				mgr.failedModules[conf.Name] = true
-				mgr.muFailedModules.Unlock()
+				mgr.addToFailedModules(conf.Name)
 				errs[i] = err
 				return
 			}
-			mgr.muFailedModules.Lock()
-			delete(mgr.failedModules, conf.Name)
-			mgr.muFailedModules.Unlock()
+			mgr.deleteFromFailedModules(conf.Name)
 		}(i, conf)
 	}
 	wg.Wait()
@@ -441,16 +435,12 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 
 	if err := mgr.startModule(ctx, mod); err != nil {
 		// If re-addition fails, assume all handled resources are orphaned.
-		mgr.muFailedModules.Lock()
-		mgr.failedModules[conf.Name] = true
-		mgr.muFailedModules.Unlock()
+		mgr.addToFailedModules(conf.Name)
 		return handledResourceNames, err
 	}
 
 	// reconfiguration successful, remove from failed modules
-	mgr.muFailedModules.Lock()
-	delete(mgr.failedModules, conf.Name)
-	mgr.muFailedModules.Unlock()
+	mgr.deleteFromFailedModules(conf.Name)
 
 	mod.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
@@ -540,14 +530,6 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		}
 	}
 	mgr.modules.Delete(mod.cfg.Name)
-
-	// Remove from failedModules when module is closed (but not during reconfigure,
-	// as Reconfigure will handle it based on whether the new module starts successfully)
-	if !reconfigure {
-		mgr.muFailedModules.Lock()
-		delete(mgr.failedModules, mod.cfg.Name)
-		mgr.muFailedModules.Unlock()
-	}
 
 	mod.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
 	return nil
@@ -876,9 +858,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		)
 
 		// Add to failedModules when crash is detected
-		mgr.muFailedModules.Lock()
-		mgr.failedModules[mod.cfg.Name] = true
-		mgr.muFailedModules.Unlock()
+		mgr.addToFailedModules(mod.cfg.Name)
 
 		// There are two relevant calls that may race with a crashing module:
 		// 1. mgr.Remove, which wants to stop the module and remove it entirely
@@ -932,9 +912,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 
 			err := mgr.attemptRestart(ctx, mod)
 			if err == nil {
-				mgr.muFailedModules.Lock()
-				delete(mgr.failedModules, mod.cfg.Name)
-				mgr.muFailedModules.Unlock()
+				mgr.deleteFromFailedModules(mod.cfg.Name)
 				break
 			}
 			unlock()
@@ -1151,10 +1129,22 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }
 
+func (mgr *Manager) addToFailedModules(moduleName string) {
+	mgr.failedModulesMu.Lock()
+	mgr.failedModules[moduleName] = true
+	mgr.failedModulesMu.Unlock()
+}
+
+func (mgr *Manager) deleteFromFailedModules(moduleName string) {
+	mgr.failedModulesMu.Lock()
+	delete(mgr.failedModules, moduleName)
+	mgr.failedModulesMu.Unlock()
+}
+
 // FailedModules returns the names of all failing modules.
 func (mgr *Manager) FailedModules() []string {
-	mgr.muFailedModules.RLock()
-	defer mgr.muFailedModules.RUnlock()
+	mgr.failedModulesMu.RLock()
+	defer mgr.failedModulesMu.RUnlock()
 	var failedModuleNames []string
 	for moduleName := range mgr.failedModules {
 		failedModuleNames = append(failedModuleNames, moduleName)
@@ -1162,27 +1152,15 @@ func (mgr *Manager) FailedModules() []string {
 	return failedModuleNames
 }
 
-// UpdateFailedModules removes failed modules not present in new config, or modules whose configs now validate.
+// UpdateFailedModules clears the failedModules map at the start of reconfigure.
+// Modules will be added to failedModules as they fail during the reconfigure process.
 func (mgr *Manager) UpdateFailedModules(newConfigModules []config.Module) {
-	mgr.muFailedModules.Lock()
-	defer mgr.muFailedModules.Unlock()
+	mgr.failedModulesMu.Lock()
+	defer mgr.failedModulesMu.Unlock()
 
-	configModules := make(map[string]config.Module, len(newConfigModules))
-	for _, module := range newConfigModules {
-		configModules[module.Name] = module
-	}
-
-	for moduleName := range mgr.failedModules {
-		moduleConf, ok := configModules[moduleName]
-		if !ok {
-			// Module no longer in config, remove from failedModules
-			delete(mgr.failedModules, moduleName)
-			continue
-		}
-		// If module is in config and now validates, remove from failedModules
-		// (Add()/Reconfigure() will handle re-adding if it fails again)
-		if err := moduleConf.Validate(""); err == nil {
-			delete(mgr.failedModules, moduleName)
-		}
+	// Clear all failed modules at the start of reconfigure.
+	// Modules will be added back as they fail during the reconfigure process.
+	for k := range mgr.failedModules {
+		delete(mgr.failedModules, k)
 	}
 }
