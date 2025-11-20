@@ -99,11 +99,15 @@ type RequestCounter struct {
 	inFlightRequests ssync.Map[string, *atomic.Int64]
 	inFlightLimit    int64
 
+	// RSDK-12608:
+	//
+	// The two maps below exist so that diagnostic information (which client is flooding a
+	// resource with requests) may be output when a "Resource limit exceeded for resource"
+	// error is output.
+
 	// requestsPerPC maps WebRTC connections (pcs) to _another_ map. That second map is a
 	// mapping of resource names to how many in flight and rejected (exceeded
-	// `inFlightLimit`) requests the WebRTC connection is responsible for. This field exists
-	// so that diagnostic information (which client is flooding a resource with requests)
-	// may be output when a "Resource limit exceeded for resource" error is output.
+	// `inFlightLimit`) requests the WebRTC connection is responsible for.
 	requestsPerPC ssync.Map[*webrtc.PeerConnection, *ssync.Map[string, *inFlightAndRejectedRequests]]
 
 	// pcToClientMetadata maps WebRTC connections (pcs) to the metadata of the connecting
@@ -183,7 +187,7 @@ type clientInformation struct {
 	ConnectTime string
 	// TimeSinceConnect is the amount of time that has passed since `ConnectTime`.
 	TimeSinceConnect string
-	// ServerIP is the IP address used by the client used to connect to this server.
+	// ServerIP is the IP address used by the client to connect to this server.
 	ServerIP string
 	// ClientIP is the IP address of the client.
 	ClientIP string
@@ -335,8 +339,8 @@ func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
-	pc, _ := rpc.ContextPeerConnection(ctx)
-	if pc != nil {
+	pc, pcSet := rpc.ContextPeerConnection(ctx)
+	if pcSet {
 		rc.setClientMetadataForPC(ctx, pc)
 	}
 
@@ -454,8 +458,8 @@ func (rc *RequestCounter) setClientMetadataForPC(ctx context.Context, pc *webrtc
 		return
 	}
 
-	clientMetadata := client.GetViamClientInfo(ctx)
-	if clientMetadata == "" {
+	clientMetadata, clientMetadataSet := client.GetViamClientInfo(ctx)
+	if !clientMetadataSet {
 		// The Typescript SDK does not seem to be correctly attaching the `viam_client`
 		// metadata, so absence here may mean typescript.
 		clientMetadata = "maybe-typescript;unknown;unknown"
