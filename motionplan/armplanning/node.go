@@ -504,6 +504,7 @@ func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 		inputs := winner.Get(frameName)
 
 		for jointNumber, l := range dof {
+			//nolint: revive
 			min, max, r := l.GoodLimits()
 			winningValue := inputs[jointNumber]
 			fmt.Fprintf(&builder, "\t joint %d min: %0.2f, max: %0.2f range: %0.2f\n", jointNumber, min, max, r)

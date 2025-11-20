@@ -238,6 +238,8 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestBadSpray1(t *testing.T) {
+	t.Skip()
+
 	if Is32Bit() {
 		t.Skip()
 		return

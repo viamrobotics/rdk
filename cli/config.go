@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -99,6 +100,11 @@ func removeConfigFromCache() error {
 	return os.Remove(getCLICachePath())
 }
 
+func (conf *Config) updateLastUpdateCheck() error {
+	conf.LastUpdateCheck = time.Now().Format(time.RFC3339)
+	return storeConfigToCache(conf)
+}
+
 func storeConfigToCache(cfg *Config) error {
 	var path string
 
@@ -119,8 +125,8 @@ func storeConfigToCache(cfg *Config) error {
 	return os.WriteFile(path, md, 0o640)
 }
 
-// TODO(RSDK-9727) - `LastUpdateCheck` and `LatestVersion` are no longer used anywhere.
-// Confirm that it's safe to remove these and then get rid of them.
+// TODO(RSDK-9727) - `LatestVersion` is no longer used anywhere. Confirm that it's safe to
+// remove and then get rid of it.
 
 // Config is the schema for saved CLI credentials.
 type Config struct {

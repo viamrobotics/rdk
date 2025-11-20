@@ -360,12 +360,15 @@ func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
 	// Capsule is modeled as a 0x0xN box, where N = (length/2)-radius.
 	// This allows us to check separating axes on a reduced set of projections.
 
+	//nolint: revive
 	max := math.Inf(-1)
 	for i := 0; i < 3; i++ {
 		if separation := separatingAxisTest1D(&centerDist, &c.capVec, rmA.Row(i), b.halfSize, rmB); separation > max {
+			//nolint: revive
 			max = separation
 		}
 		if separation := separatingAxisTest1D(&centerDist, &c.capVec, rmB.Row(i), b.halfSize, rmB); separation > max {
+			//nolint: revive
 			max = separation
 		}
 		for j := 0; j < 3; j++ {
@@ -374,6 +377,7 @@ func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
 				if separation := separatingAxisTest1D(&centerDist, &c.capVec, crossProductPlane, b.halfSize, rmB); separation > max {
+					//nolint: revive
 					max = separation
 				}
 			}

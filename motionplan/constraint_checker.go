@@ -182,7 +182,7 @@ func (c *ConstraintChecker) addTopoConstraints(
 	return nil
 }
 
-func orientationError(prefix string, from, to, curr spatialmath.Orientation, dist, max float64) error {
+func orientationError(prefix string, from, to, curr spatialmath.Orientation, dist, max float64) error { //nolint: revive
 	return fmt.Errorf("%s %s violated dist: %0.5f > %0.5f from: %v to: %v currPose: %v",
 		prefix, orientationConstraintDescription, dist, max,
 		from, to, curr)

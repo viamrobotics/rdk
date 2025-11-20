@@ -198,7 +198,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // CheckSpeed checks if the input rpm is too slow or fast and returns a warning and/or error.
-func CheckSpeed(rpm, max float64) (string, error) {
+func CheckSpeed(rpm, max float64) (string, error) { //nolint: revive
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
 		return "motor speed is nearly 0 rev_per_min", NewZeroRPMError()
