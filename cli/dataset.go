@@ -336,17 +336,3 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 	}
 	return nil
 }
-
-func convertBoundingBoxes(protoBBoxes []*datapb.BoundingBox) []BBoxAnnotation {
-	bboxes := make([]BBoxAnnotation, len(protoBBoxes))
-	for i, box := range protoBBoxes {
-		bboxes[i] = BBoxAnnotation{
-			AnnotationLabel: box.GetLabel(),
-			XMinNormalized:  box.GetXMinNormalized(),
-			XMaxNormalized:  box.GetXMaxNormalized(),
-			YMinNormalized:  box.GetYMinNormalized(),
-			YMaxNormalized:  box.GetYMaxNormalized(),
-		}
-	}
-	return bboxes
-}
