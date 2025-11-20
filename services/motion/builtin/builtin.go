@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -138,6 +139,7 @@ type builtIn struct {
 func NewBuiltIn(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (motion.Service, error) {
+	logger.Infof("DBG. New Motion service builtin")
 	ms := &builtIn{
 		Named:                   conf.ResourceName().AsNamed(),
 		logger:                  logger,
@@ -156,10 +158,13 @@ func (ms *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
+
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
 	config, err := resource.NativeConfig[*Config](conf)
+	ms.logger.Infof("DBG. Reconfigure motion service builtin. Deps: %#v Conf: %#v Native: %#v", deps, conf, *config)
+	debug.PrintStack()
 	if err != nil {
 		return err
 	}
@@ -355,7 +360,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 }
 
 func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referenceframe.LinkInFrame) (*referenceframe.FrameSystem, error) {
-	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, transforms)
+	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, transforms, ms.logger)
 	if err != nil {
 		return nil, err
 	}

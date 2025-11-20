@@ -4,6 +4,7 @@ package framesystem
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"sync"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -196,6 +197,7 @@ type frameSystemService struct {
 
 // Reconfigure will rebuild the frame system from the newly updated robot.
 func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+
 	svc.partsMu.Lock()
 	defer svc.partsMu.Unlock()
 
@@ -213,6 +215,8 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 	svc.components = components
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)
+	svc.logger.Infof("Deps: %#v Conf: %#v Comps: %v Native: %#v", deps, conf, components, *fsCfg)
+	debug.PrintStack()
 	if err != nil {
 		return err
 	}
@@ -332,7 +336,7 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 // CurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
 // InputEnabled resources that those inputs came from.
 func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
-	fs, err := NewFromService(ctx, svc, nil)
+	fs, err := NewFromService(ctx, svc, nil, svc.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -372,8 +376,11 @@ func NewFromService(
 	ctx context.Context,
 	service Service,
 	supplementalTransforms []*referenceframe.LinkInFrame,
+	logger logging.Logger,
 ) (*referenceframe.FrameSystem, error) {
 	fsCfg, err := service.FrameSystemConfig(ctx)
+	logger.Infof("DBG. NewFromService. Parts: %#v", fsCfg.Parts)
+	debug.PrintStack()
 	if err != nil {
 		return nil, err
 	}

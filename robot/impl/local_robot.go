@@ -1084,6 +1084,9 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 
 	parts := make([]*referenceframe.FrameSystemPart, 0)
 	for _, component := range cfg.Components {
+		r.logger.Infof("Getting local frame system parts. Name: %v Frame: %v Parent: %v API: %v",
+			component.ResourceName().Name, component.Frame.ID, component.Frame.Parent,
+			component.ResourceName().API.String())
 		if component.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
@@ -1110,15 +1113,20 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		switch component.ResourceName().API.SubtypeName {
 		case arm.SubtypeName, gantry.SubtypeName, gripper.SubtypeName: // catch the case for all the ModelFramers
 			model, err = r.extractModelFrameJSON(ctx, component.ResourceName())
+			r.logger.Warnw("Extracing model information",
+				"resName", component.ResourceName().Name,
+				"err", err)
 			if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
-				// When we have non-nil errors here, it is because the resource is not yet available.
-				// In this case, we will exclude it from the FS. When it becomes available, it will be included.
+				// When we have non-nil errors here, it is because the resource is not yet
+				// available.  In this case, we will exclude it from the FS. When it becomes
+				// available, it will be included.
 				continue
 			}
 		default:
 		}
 		lif, err := cfgCopy.ParseConfig()
 		if err != nil {
+			r.logger.Warnf("Error parsing cfgCopy: %v", err)
 			return nil, err
 		}
 
