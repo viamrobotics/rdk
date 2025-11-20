@@ -533,6 +533,8 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestFailedModuleTrackingIntegration(t *testing.T) {
 	// test that failing modules are properly tracked in failedModules by breaking
 	// and fixing modules and making sure failedModules is updated accordingly.
 	ctx := context.Background()
