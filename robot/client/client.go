@@ -1453,19 +1453,26 @@ type viamClientInfoKeyType int
 
 const viamClientInfoKeyID = viamClientInfoKeyType(iota)
 
-// GetViamClientInfo returns the client info (if any) for the request. The client info
-// will look like "[type-of-sdk];[sdk-version];[api-version]".
-func GetViamClientInfo(ctx context.Context) string {
+// GetViamClientInfo returns the client info (("", false) if not set or non-string) for
+// the request. The client info will look like
+// "[type-of-sdk];[sdk-version];[api-version]".
+func GetViamClientInfo(ctx context.Context) (string, bool) {
 	valI := ctx.Value(viamClientInfoKeyID)
 	if val, ok := valI.(string); ok {
-		return val
+		return val, true
 	}
 
-	return ""
+	return "", false
 }
 
 const viamClientInfoMetadataKey = "viam_client"
 
+// ViamClientInfoUnaryServerInterceptor examines the incoming metadata for the
+// "viam_client" key and, if found, attaches its associated value to the context so that
+// the value may accessed by the `handler` (and any function/method it calls) if needed.
+// The value associated with this key should be the one set by all SDKs by client
+// interceptors like the ones below, and will be in the form
+// "[type-of-sdk];[sdk-version];[api-version]".
 func ViamClientInfoUnaryServerInterceptor(
 	ctx context.Context,
 	req interface{},
@@ -1479,7 +1486,6 @@ func ViamClientInfoUnaryServerInterceptor(
 
 	values := meta.Get(viamClientInfoMetadataKey)
 	if len(values) == 1 {
-		// We have viam client info. Attach it for anyone interested.
 		ctx = context.WithValue(ctx, viamClientInfoKeyID, values[0])
 	}
 
