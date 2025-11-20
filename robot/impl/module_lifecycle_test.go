@@ -36,6 +36,7 @@ func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger
 		env["VIAM_TESTMODULE_FAIL_ON_FIRST"] = "1"
 	}
 
+	// Config has two working modules and one failing module.
 	cfg := config.Config{
 		Modules: []config.Module{
 			{
@@ -46,6 +47,10 @@ func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger
 			{
 				Name:    "mod2",
 				ExePath: test2Path,
+			},
+			{
+				Name:    "mod3",	
+				ExePath: "/nonexistent/path/to/module1",
 			},
 		},
 		Components: []resource.Config{
@@ -150,6 +155,12 @@ func TestRenamedModuleDependentRecovery(t *testing.T) {
 
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
+
+	// test that renamed module remains in failedModules
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
+	cfg.Modules[2].Name = "failingmod"
+	r.Reconfigure(ctx, &cfg)
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"failingmod"})
 }
 
 func TestRenamedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
@@ -397,6 +408,9 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
+	// test that crashing module is added to failedModules
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod"})
+
 	// Wait for restart attempt in logs.
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
@@ -429,6 +443,9 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 		test.That(tb, logs.FilterMessage("Module resources successfully re-added after module restart").Len(),
 			test.ShouldEqual, 1)
 	})
+
+	// test that fixed module is removed from failedModules
+	test.That(t, failedModules(r), test.ShouldBeEmpty)
 
 	h, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
@@ -541,32 +558,25 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
 
-	// assert test is empty before adding failing modules
-	test.That(t, failedModules(r), test.ShouldBeEmpty)
-
-	// Update cfg to have one failing mod with nonexistant path and keep working mod
-	cfg.Modules[0].ExePath = "/nonexistent/path/to/module1"
-	r.Reconfigure(ctx, &cfg)
-
-	// assert failing modules get added to failedModules
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod"})
+	// assert test has one failing module (mod3 with invalid exec path)
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
 
 	// Reconfigure working "mod2" with an invalid path; it should be tracked as failing.
 	cfg.Modules[1].ExePath = "/nonexistent/path/to/invalid"
 	r.Reconfigure(ctx, &cfg)
 
 	// assert that "mod2" gets added to failedModules
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod2"})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod2", "mod3"})
 
 	// Remove "mod2" from config; it should be removed from FailedModules.
 	cfg.Modules = slices.Delete(cfg.Modules, 1, 2)
 	r.Reconfigure(ctx, &cfg)
 
 	// assert that "mod2" gets removed from failedModules
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod"})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
 
-	// Fix "mod" by providing a valid path; it should be removed from FailedModules.
-	cfg.Modules[0].ExePath = rtestutils.BuildTempModule(t, "module/testmodule")
+	// Fix "mod3" by providing a valid path; it should be removed from FailedModules.
+	cfg.Modules[1].ExePath = rtestutils.BuildTempModule(t, "module/testmodule")
 	r.Reconfigure(ctx, &cfg)
 	test.That(t, failedModules(r), test.ShouldBeEmpty)
 }
