@@ -17,8 +17,10 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/client"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/utils/ssync"
 )
@@ -103,6 +105,12 @@ type RequestCounter struct {
 	// so that diagnostic information (which client is flooding a resource with requests)
 	// may be output when a "Resource limit exceeded for resource" error is output.
 	requestsPerPC ssync.Map[*webrtc.PeerConnection, *ssync.Map[string, *inFlightAndRejectedRequests]]
+
+	// pcToClientMetadata maps WebRTC connections (pcs) to the metadata of the connecting
+	// client. This will be in the form "[type-of-sdk];[sdk-version];[api-version]"
+	// potentially suffixed with "-module-[name-of-module]" to represent a module's
+	// connection back to the RDK.
+	pcToClientMetadata ssync.Map[*webrtc.PeerConnection, string]
 }
 
 // decrInFlight decrements the in flight request counters for a given resource and pc.
@@ -161,12 +169,26 @@ func (rc *RequestCounter) Stats() any {
 }
 
 type clientInformation struct {
-	ConnectionID     string
-	ConnectTime      string
+	// ClientMetadata represents the type and version of SDK connected and potentially the
+	// name of the module if it is a module->RDK connection.
+	ClientMetadata string
+	// ConnectionID is the WebRTC peer connection ID of the connection; useful to associate
+	// with other WebRTC logs.
+	ConnectionID string
+	// ConnectTime is the timestamp around which the client initially connected.
+	ConnectTime string
+	// TimeSinceConnect is the amount of time that has passed since `ConnectTime`.
 	TimeSinceConnect string
-	ServerIP         string
-	ClientIP         string
+	// ServerIP is the IP address used by the client used to connect to this server.
+	ServerIP string
+	// ClientIP is the IP address of the client.
+	ClientIP string
+	// InFlightRequests is a map of resource names to the number of in flight requests
+	// against that resource this client is responsible for.
 	InFlightRequests map[string]int64
+	// RejectedRequests is a map of resource names to the number of requests against that
+	// resource that have exceeded the in flight limit this client is responsible for (how
+	// many times has this client caused a request limit exceeded error).
 	RejectedRequests map[string]int64
 }
 
@@ -177,6 +199,10 @@ func (rc *RequestCounter) createClientInformationFromPC(
 	ci := &clientInformation{}
 	if pc == nil {
 		return ci
+	}
+
+	if clientMetadata, ok := rc.pcToClientMetadata.Load(pc); ok {
+		ci.ClientMetadata = clientMetadata
 	}
 
 	// Code to grab selected ICE candidate pair copied from goutils.
@@ -247,10 +273,12 @@ func (rc *RequestCounter) createClientInformationFromPC(
 	}
 
 	// If client has no in-flight requests, and connected >= 5 minutes ago, prune the client
-	// from the `rc.requestsForPC` map so the map does not grow unboundedly. That client
-	// will re-appear in debug information if it makes another request.
+	// from the `rc.requestsForPC` and `rc.pcToClientMetadata` maps so the maps do not grow
+	// unboundedly. That client will re-appear in debug information if it makes another
+	// request.
 	if len(ci.InFlightRequests) == 0 && timeSinceConnect > 5*time.Minute {
 		rc.requestsPerPC.Delete(pc)
+		rc.pcToClientMetadata.Delete(pc)
 	}
 
 	return ci
@@ -407,6 +435,24 @@ func (rc *RequestCounter) ensureCounterForResourceForPC(
 		rc.logger.Errorf("unrecognized counter name %s for PC; returning nil", cn)
 		return nil
 	}
+}
+
+// Sets the client metadata for the passed in peer connection given the passed in ctx if
+// the metadata has not been set already. We assume that peer connection metadata does
+// vary over the connection's lifetime.
+func (rc *RequestCounter) setClientMetadataForPC(ctx context.Context, pc *webrtc.PeerConnection) {
+	_, ok := rc.pcToClientMetadata.Load(pc)
+	if ok {
+		return
+	}
+
+	clientMetadata := client.GetViamClientInfo(ctx)
+
+	if moduleName := grpc.GetModuleName(ctx); moduleName != "" {
+		clientMetadata += "-module-" + moduleName
+	}
+
+	rc.pcToClientMetadata.Store(pc, clientMetadata)
 }
 
 // incrInFlight attempts to increment the in flight request counters for a given

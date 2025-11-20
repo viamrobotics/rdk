@@ -1449,6 +1449,43 @@ func (rc *RobotClient) getClientConn() rpc.ClientConn {
 	return rc.sharedConn
 }
 
+type viamClientInfoKeyType int
+
+const viamClientInfoKeyID = viamClientInfoKeyType(iota)
+
+// GetViamClientInfo returns the client info (if any) for the request. The client info
+// will look like "[type-of-sdk];[sdk-version];[api-version]".
+func GetViamClientInfo(ctx context.Context) string {
+	valI := ctx.Value(viamClientInfoKeyID)
+	if val, ok := valI.(string); ok {
+		return val
+	}
+
+	return ""
+}
+
+const viamClientInfoMetadataKey = "viam_client"
+
+func ViamClientInfoUnaryServerInterceptor(
+	ctx context.Context,
+	req interface{},
+	info *googlegrpc.UnaryServerInfo,
+	handler googlegrpc.UnaryHandler,
+) (interface{}, error) {
+	meta, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return handler(ctx, req)
+	}
+
+	values := meta.Get(viamClientInfoMetadataKey)
+	if len(values) == 1 {
+		// We have viam client info. Attach it for anyone interested.
+		ctx = context.WithValue(ctx, viamClientInfoKeyID, values[0])
+	}
+
+	return handler(ctx, req)
+}
+
 func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
@@ -1460,7 +1497,7 @@ func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 	) error {
 		md := robot.Version
 		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
-		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
+		ctx = metadata.AppendToOutgoingContext(ctx, viamClientInfoMetadataKey, stringMd)
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
@@ -1476,7 +1513,7 @@ func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
 	) (cs googlegrpc.ClientStream, err error) {
 		md := robot.Version
 		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
-		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
+		ctx = metadata.AppendToOutgoingContext(ctx, viamClientInfoMetadataKey, stringMd)
 		return streamer(ctx, desc, cc, method, opts...)
 	}
 }
