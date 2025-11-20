@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -321,7 +322,7 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 		Timestamp:      datum.GetMetadata().GetTimeRequested().AsTime(),
 		Tags:           datum.GetMetadata().GetCaptureMetadata().GetTags(),
 		Annotations:    datum.GetMetadata().GetAnnotations(),
-		Path:           filenameForDownload(datum.GetMetadata()),
+		Path:           strings.Join([]string{dst, filenameForDownload(datum.GetMetadata())}, "/"),
 		BinaryDataID:   datum.GetMetadata().GetBinaryDataId(),
 		OrganizationID: datum.GetMetadata().GetCaptureMetadata().GetOrganizationId(),
 		LocationID:     datum.GetMetadata().GetCaptureMetadata().GetLocationId(),
