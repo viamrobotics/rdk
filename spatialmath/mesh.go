@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cast"
 	commonpb "go.viam.com/api/common/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/utils"
 )
@@ -441,9 +442,28 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 	return points
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (m *Mesh) UnmarshalJSON(data []byte) error {
+	var g commonpb.Geometry
+	if err := protojson.Unmarshal(data, &g); err != nil {
+		return err
+	}
+	if _, ok := g.GeometryType.(*commonpb.Geometry_Mesh); !ok {
+		return errors.New("geometry is not a mesh")
+	}
+
+	pose := NewPoseFromProtobuf(g.GetCenter())
+	mesh, err := NewMeshFromProto(pose, g.GetMesh(), g.Label)
+	if err != nil {
+		return err
+	}
+	*m = *mesh
+	return nil
+}
+
 // MarshalJSON implements the json.Marshaler interface.
 func (m *Mesh) MarshalJSON() ([]byte, error) {
-	return nil, errors.New("MarshalJSON not yet implemented for Mesh")
+	return protojson.Marshal(m.ToProtobuf())
 }
 
 // MeshBoxIntersectionArea calculates the summed area of all triangles in a mesh

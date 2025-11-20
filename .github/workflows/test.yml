@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
 
@@ -57,6 +57,10 @@ jobs:
 
       - name: Chown
         run: chown -R testbot:testbot .
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
 
       - name: Run CLI linter tests
         run: |

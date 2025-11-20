@@ -192,7 +192,7 @@ func (kd *KDTree) NearestNeighbor(p r3.Vector) (r3.Vector, Data, float64, bool) 
 	return p2.vec, d, math.Sqrt(dist), true
 }
 
-func keeperToArray(heap kdtree.Heap, points storage, p r3.Vector, includeSelf bool, max int) []*PointAndData {
+func keeperToArray(heap kdtree.Heap, points storage, p r3.Vector, includeSelf bool, max int) []*PointAndData { //nolint: revive
 	nearestPoints := make([]*PointAndData, 0, heap.Len())
 	for i := 0; i < heap.Len(); i++ {
 		if heap[i].Comparable == nil {
