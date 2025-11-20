@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/golang/geo/r3"
 
@@ -34,22 +35,18 @@ func init() {
 func NewGantry(name resource.Name, logger logging.Logger) gantry.Gantry {
 	m := referenceframe.NewSimpleModel("test_gantry")
 	pose := spatialmath.NewZeroPose()
-	baseRailGeom, err := spatialmath.NewBox(pose, r3.Vector{500, 100, 100}, "base_rail")
+	carriageGeom, err := spatialmath.NewBox(pose, r3.Vector{150, 150, 10}, "carriage")
 	if err != nil {
-		logger.CErrorf(context.Background(), "could not create base rail geometry: %v", err)
+		logger.CErrorf(context.Background(), "could not create carriage geometry: %v", err)
 	}
-	f, err := referenceframe.NewStaticFrameWithGeometry("base_rail", pose, baseRailGeom)
+	f, err := referenceframe.NewStaticFrameWithGeometry("carriage", pose, carriageGeom)
 	if err != nil {
 		logger.CErrorf(context.Background(), "could not create static frame: %v", err)
 	}
 	m.SetOrdTransforms(append(m.OrdTransforms(), f))
 
-	carriageGeom, err := spatialmath.NewBox(pose, r3.Vector{150, 120, 10}, "carriage")
-	if err != nil {
-		logger.CErrorf(context.Background(), "could not create carriage geometry: %v", err)
-	}
-	f, err = referenceframe.NewTranslationalFrameWithGeometry(
-		"carriage", r3.Vector{1, 0, 0}, referenceframe.Limit{Min: 0, Max: 500}, carriageGeom)
+	f, err = referenceframe.NewTranslationalFrame(
+		"gantry_joint", r3.Vector{1, 0, 0}, referenceframe.Limit{Min: 0, Max: 350})
 	if err != nil {
 		logger.CErrorf(context.Background(), "could not create translational frame: %v", err)
 	}
@@ -59,10 +56,9 @@ func NewGantry(name resource.Name, logger logging.Logger) gantry.Gantry {
 		testutils.NewUnimplementedResource(name),
 		resource.TriviallyReconfigurable{},
 		resource.TriviallyCloseable{},
-		[]float64{1.2},
 		[]float64{120},
-		[]float64{5},
-		2,
+		[]float64{120},
+		[]float64{350},
 		m,
 		logger,
 	}
@@ -75,8 +71,7 @@ type Gantry struct {
 	resource.TriviallyCloseable
 	positionsMm    []float64
 	speedsMmPerSec []float64
-	lengths        []float64
-	lengthMeters   float64
+	lengthsMm        []float64
 	model          referenceframe.Model
 	logger         logging.Logger
 }
@@ -88,7 +83,7 @@ func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]
 
 // Lengths returns the position in meters.
 func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	return g.lengths, nil
+	return g.lengthsMm, nil
 }
 
 // Home runs the homing sequence of the gantry and returns true once completed.
@@ -99,6 +94,12 @@ func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, 
 
 // MoveToPosition is in meters.
 func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error {
+	for i, position := range positionsMm {
+		if position < 0 || position > g.lengthsMm[i] {
+			return fmt.Errorf("position %v out of range [0, %v]", position, g.lengthsMm[i])
+		}
+	}
+	
 	g.positionsMm = positionsMm
 	g.speedsMmPerSec = speedsMmPerSec
 	return nil

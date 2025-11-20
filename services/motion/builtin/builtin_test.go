@@ -193,14 +193,14 @@ func TestGetPose(t *testing.T) {
 	pose, err := ms.GetPose(context.Background(), "gantry1", "", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Parent(), test.ShouldEqual, referenceframe.World)
-	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 1.2)
+	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 120)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
 
 	pose, err = ms.GetPose(context.Background(), "arm1", "", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Parent(), test.ShouldEqual, referenceframe.World)
-	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 501.2)
+	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 620)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 300)
 
@@ -233,7 +233,7 @@ func TestGetPose(t *testing.T) {
 
 	pose, err = ms.GetPose(context.Background(), "arm1", "testFrame2", transforms, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, -501.2)
+	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, -620)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, -300)
 	test.That(t, pose.Pose().Orientation().AxisAngles().RX, test.ShouldEqual, 0)
