@@ -66,7 +66,7 @@ lint: lint-go
 generate-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) go generate ./...
 
-# Yes this regex could be more specific but making it more specific an a way
+# Yes this regex could be more specific but making it more specific in a way
 # that works the same across GNU and BSD grep isn't currently worth the effort.
 GOVERSION = $(shell grep '^go .\..' go.mod | head -n1 | cut -d' ' -f2)
 lint-go: tool-install
