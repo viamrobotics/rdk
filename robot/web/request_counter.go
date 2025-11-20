@@ -108,7 +108,7 @@ type RequestCounter struct {
 
 	// pcToClientMetadata maps WebRTC connections (pcs) to the metadata of the connecting
 	// client. This will be in the form "[type-of-sdk];[sdk-version];[api-version]"
-	// potentially suffixed with "-module-[name-of-module]" to represent a module's
+	// potentially prefixed with "module-[name-of-module]-" to represent a module's
 	// connection back to the RDK.
 	pcToClientMetadata ssync.Map[*webrtc.PeerConnection, string]
 }
@@ -116,7 +116,9 @@ type RequestCounter struct {
 // decrInFlight decrements the in flight request counters for a given resource and pc.
 func (rc *RequestCounter) decrInFlight(resource string, pc *webrtc.PeerConnection) {
 	rc.ensureInFlightCounterForResource(resource).Add(-1)
-	rc.ensureCounterForResourceForPC(resource, pc, inFlightCounterName).Add(-1)
+	if pc != nil {
+		rc.ensureCounterForResourceForPC(resource, pc, inFlightCounterName).Add(-1)
+	}
 }
 
 func (rc *RequestCounter) preRequestIncrement(key string) {
@@ -170,7 +172,9 @@ func (rc *RequestCounter) Stats() any {
 
 type clientInformation struct {
 	// ClientMetadata represents the type and version of SDK connected and potentially the
-	// name of the module if it is a module->RDK connection.
+	// name of the module if it is a module->RDK connection. This will be in the form
+	// "[type-of-sdk];[sdk-version];[api-version]" potentially prefixed with
+	// "module-[name-of-module]-" to represent a module's connection back to the RDK.
 	ClientMetadata string
 	// ConnectionID is the WebRTC peer connection ID of the connection; useful to associate
 	// with other WebRTC logs.
@@ -196,10 +200,11 @@ type clientInformation struct {
 func (rc *RequestCounter) createClientInformationFromPC(
 	pc *webrtc.PeerConnection,
 ) *clientInformation {
-	ci := &clientInformation{}
 	if pc == nil {
-		return ci
+		return nil
 	}
+
+	ci := &clientInformation{}
 
 	if clientMetadata, ok := rc.pcToClientMetadata.Load(pc); ok {
 		ci.ClientMetadata = clientMetadata
@@ -233,7 +238,7 @@ func (rc *RequestCounter) createClientInformationFromPC(
 	// and does not really represent the point at which the client could start sending
 	// requests. Those caveats are probably OK.
 	//
-	// TL;DR this is hacky way to guess the connection time of the client.
+	// TL;DR this is a hacky way to guess the connection time of the client.
 	var localCandID string
 	allCandsByID := make(map[string]webrtc.ICECandidateStats)
 	stats := pc.GetStats()
@@ -331,6 +336,9 @@ func (rc *RequestCounter) UnaryInterceptor(
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
 	pc, _ := rpc.ContextPeerConnection(ctx)
+	if pc != nil {
+		rc.setClientMetadataForPC(ctx, pc)
+	}
 
 	if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
 		if ok := rc.incrInFlight(resource, pc); !ok {
@@ -447,9 +455,14 @@ func (rc *RequestCounter) setClientMetadataForPC(ctx context.Context, pc *webrtc
 	}
 
 	clientMetadata := client.GetViamClientInfo(ctx)
+	if clientMetadata == "" {
+		// The Typescript SDK does not seem to be correctly attaching the `viam_client`
+		// metadata, so absence here may mean typescript.
+		clientMetadata = "maybe-typescript;unknown;unknown"
+	}
 
 	if moduleName := grpc.GetModuleName(ctx); moduleName != "" {
-		clientMetadata += "-module-" + moduleName
+		clientMetadata = "module-" + moduleName + "-" + clientMetadata
 	}
 
 	rc.pcToClientMetadata.Store(pc, clientMetadata)
@@ -462,10 +475,14 @@ func (rc *RequestCounter) incrInFlight(resource string, pc *webrtc.PeerConnectio
 	counter := rc.ensureInFlightCounterForResource(resource)
 	if newCount := counter.Add(1); newCount > rc.inFlightLimit {
 		counter.Add(-1)
-		rc.ensureCounterForResourceForPC(resource, pc, rejectedCounterName).Add(1)
+		if pc != nil {
+			rc.ensureCounterForResourceForPC(resource, pc, rejectedCounterName).Add(1)
+		}
 		return false
 	}
-	rc.ensureCounterForResourceForPC(resource, pc, inFlightCounterName).Add(1)
+	if pc != nil {
+		rc.ensureCounterForResourceForPC(resource, pc, inFlightCounterName).Add(1)
+	}
 	return true
 }
 
