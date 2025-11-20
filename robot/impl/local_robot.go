@@ -1084,9 +1084,8 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 
 	parts := make([]*referenceframe.FrameSystemPart, 0)
 	for _, component := range cfg.Components {
-		r.logger.Infof("Getting local frame system parts. Name: %v Frame: %v Parent: %v API: %v",
-			component.ResourceName().Name, component.Frame.ID, component.Frame.Parent,
-			component.ResourceName().API.String())
+		r.logger.Infof("Getting local frame system parts. Name: %v Frame: %+v API: %v",
+			component.ResourceName().Name, component.Frame, component.ResourceName().API.String())
 		if component.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
