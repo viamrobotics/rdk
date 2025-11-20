@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -318,11 +317,20 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 	}
 	datum := data[0]
 
+	fileName := filepath.Join(dst, filenameForDownload(datum.GetMetadata()))
+	ext := datum.GetMetadata().GetFileExt()
+	// If the file is gzipped, unzip.
+	if ext != gzFileExt && filepath.Ext(fileName) != ext {
+		// If the file name did not already include the extension (e.g. for data capture files), add it.
+		// Don't do this for files that we're unzipping.
+		fileName += ext
+	}
+
 	imageMetadata := &utilsml.ImageMetadata{
 		Timestamp:      datum.GetMetadata().GetTimeRequested().AsTime(),
 		Tags:           datum.GetMetadata().GetCaptureMetadata().GetTags(),
 		Annotations:    datum.GetMetadata().GetAnnotations(),
-		Path:           strings.Join([]string{dst, filenameForDownload(datum.GetMetadata())}, "/"),
+		Path:           fileName,
 		BinaryDataID:   datum.GetMetadata().GetBinaryDataId(),
 		OrganizationID: datum.GetMetadata().GetCaptureMetadata().GetOrganizationId(),
 		LocationID:     datum.GetMetadata().GetCaptureMetadata().GetLocationId(),
