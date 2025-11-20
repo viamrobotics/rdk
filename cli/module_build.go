@@ -825,13 +825,13 @@ func (c *viamClient) triggerCloudReloadBuild(
 		return "", err
 	}
 
-	part, err := c.getRobotPart(args.PartID)
+	part, err := c.getRobotPart(partID)
 	if err != nil {
 		return "", err
 	}
 
 	if part.Part == nil {
-		return "", fmt.Errorf("part with id=%s not found", args.PartID)
+		return "", fmt.Errorf("part with id=%s not found", partID)
 	}
 
 	if part.Part.UserSuppliedInfo == nil {
@@ -1596,7 +1596,12 @@ func ModuleRestartAction(c *cli.Context, args moduleRestartArgs) error {
 		return err
 	}
 
-	part, err := client.getRobotPart(args.PartID)
+	partID, err := resolvePartID(args.PartID, args.CloudConfig)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.getRobotPart(partID)
 	if err != nil {
 		return err
 	}

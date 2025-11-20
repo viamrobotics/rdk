@@ -205,6 +205,74 @@ func TestFullReloadFlow(t *testing.T) {
 	})
 }
 
+func TestReloadWithCloudConfig(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	manifestPath := createTestManifest(t, "", nil)
+	confStruct, err := structpb.NewStruct(map[string]any{
+		"modules": []any{},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create a temporary cloud config file
+	cloudConfigPath := filepath.Join(t.TempDir(), "viam.json")
+	cloudConfigFile, err := os.Create(cloudConfigPath)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = cloudConfigFile.WriteString(`{"cloud":{"app_address":"https://app.viam.com:443","id":"cloud-config-part-id","secret":"SECRET"}}`)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cloudConfigFile.Close(), test.ShouldBeNil)
+
+	t.Run("reloadWithCloudConfigLocal", func(t *testing.T) {
+		updateCount := 0
+		cCtx, vc, _, _ := setup(
+			mockFullAppServiceClient(confStruct, nil, &updateCount),
+			nil,
+			&inject.BuildServiceClient{},
+			map[string]any{
+				moduleFlagPath:             manifestPath,
+				moduleBuildFlagCloudConfig: cloudConfigPath,
+				moduleBuildFlagNoBuild:     true,
+				moduleFlagLocal:            true,
+				generalFlagNoProgress:      true, // Disable progress spinner to avoid race conditions in tests
+			},
+			"token",
+		)
+		test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
+
+		// Test that reloadModuleActionInner correctly uses cloud-config to resolve part ID
+		err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, updateCount, test.ShouldEqual, 1)
+	})
+
+	t.Run("verifyPartIDResolution", func(t *testing.T) {
+		// Test that the part ID is correctly resolved from cloud-config
+		// and that args.PartID remains empty when only cloud-config is provided
+		cCtx, _, _, _ := setup(
+			mockFullAppServiceClient(confStruct, nil, nil),
+			nil,
+			&inject.BuildServiceClient{},
+			map[string]any{
+				moduleFlagPath:             manifestPath,
+				moduleBuildFlagCloudConfig: cloudConfigPath,
+				moduleBuildFlagNoBuild:     true,
+				moduleFlagLocal:            true,
+			},
+			"token",
+		)
+
+		args := parseStructFromCtx[reloadModuleArgs](cCtx)
+		// Verify that args.PartID is empty (not set via --part-id flag) and CloudConfig is set
+		test.That(t, args.PartID, test.ShouldBeEmpty)
+		test.That(t, args.CloudConfig, test.ShouldEqual, cloudConfigPath)
+
+		// Verify that resolvePartID correctly extracts the part ID from the cloud config
+		partID, err := resolvePartID(args.PartID, args.CloudConfig)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, partID, test.ShouldEqual, "cloud-config-part-id")
+	})
+}
+
 func TestRestartModule(t *testing.T) {
 	t.Skip("restartModule test requires fake robot client")
 }
