@@ -227,14 +227,17 @@ func (b *box) closestPoint(pt r3.Vector) r3.Vector {
 func (b *box) pointPenetrationDepth(pt r3.Vector) float64 {
 	direction := pt.Sub(b.centerPt)
 	rm := b.center.Orientation().RotationMatrix()
+	//nolint: revive
 	min := math.Inf(1)
 	for i := 0; i < 3; i++ {
 		axis := rm.Row(i)
 		projection := direction.Dot(axis)
 		if distance := math.Abs(projection - b.halfSize[i]); distance < min {
+			//nolint: revive
 			min = distance
 		}
 		if distance := math.Abs(projection + b.halfSize[i]); distance < min {
+			//nolint: revive
 			min = distance
 		}
 	}
@@ -330,17 +333,20 @@ func boxVsBoxDistance(a, b *box) float64 {
 	rmB := b.rotationMatrix()
 
 	// iterate over axes of box
+	//nolint: revive
 	max := math.Inf(-1)
 	for i := 0; i < 3; i++ {
 		// project onto face of box A
 		separation := separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB)
 		if separation > max {
+			//nolint: revive
 			max = separation
 		}
 
 		// project onto face of box B
 		separation = separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB)
 		if separation > max {
+			//nolint: revive
 			max = separation
 		}
 
@@ -352,6 +358,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
 				separation = separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB)
 				if separation > max {
+					//nolint: revive
 					max = separation
 				}
 			}
