@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +11,8 @@ import (
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
+	mlpb "go.viam.com/api/app/mltraining/v1"
+	utilsml "go.viam.com/utils/machinelearning"
 )
 
 const (
@@ -316,52 +317,22 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 	}
 	datum := data[0]
 
-	// Make JSONLines
-	var jsonl interface{}
-
-	annotations := []Annotation{}
-	for _, tag := range datum.GetMetadata().GetCaptureMetadata().GetTags() {
-		annotations = append(annotations, Annotation{AnnotationLabel: tag})
+	imageMetadata := &utilsml.ImageMetadata{
+		Timestamp:      datum.GetMetadata().GetTimeRequested().AsTime(),
+		Tags:           datum.GetMetadata().GetCaptureMetadata().GetTags(),
+		Annotations:    datum.GetMetadata().GetAnnotations(),
+		Path:           filenameForDownload(datum.GetMetadata()),
+		BinaryDataID:   datum.GetMetadata().GetBinaryDataId(),
+		OrganizationID: datum.GetMetadata().GetCaptureMetadata().GetOrganizationId(),
+		LocationID:     datum.GetMetadata().GetCaptureMetadata().GetLocationId(),
+		RobotID:        datum.GetMetadata().GetCaptureMetadata().GetRobotId(),
+		PartID:         datum.GetMetadata().GetCaptureMetadata().GetPartId(),
+		ComponentName:  datum.GetMetadata().GetCaptureMetadata().GetComponentName(),
 	}
-	classificationsAnnotations := datum.GetMetadata().GetAnnotations().GetClassifications()
-	for _, classification := range classificationsAnnotations {
-		annotations = append(annotations, Annotation{AnnotationLabel: classification.GetLabel()})
-	}
-	bboxAnnotations := convertBoundingBoxes(datum.GetMetadata().GetAnnotations().GetBboxes())
-
-	fileName := filepath.Join(dst, filenameForDownload(datum.GetMetadata()))
-	ext := datum.GetMetadata().GetFileExt()
-	// If the file is gzipped, unzip.
-	if ext != gzFileExt && filepath.Ext(fileName) != ext {
-		// If the file name did not already include the extension (e.g. for data capture files), add it.
-		// Don't do this for files that we're unzipping.
-		fileName += ext
-	}
-
-	captureMD := datum.GetMetadata().GetCaptureMetadata()
-	jsonl = ImageMetadata{
-		ImagePath:                 fileName,
-		ClassificationAnnotations: annotations,
-		BBoxAnnotations:           bboxAnnotations,
-		Timestamp:                 datum.GetMetadata().GetTimeRequested().AsTime().String(),
-		BinaryDataID:              datum.GetMetadata().GetBinaryDataId(),
-		OrganizationID:            captureMD.GetOrganizationId(),
-		LocationID:                captureMD.GetLocationId(),
-		PartID:                    captureMD.GetPartId(),
-		ComponentName:             captureMD.GetComponentName(),
-		RobotID:                   captureMD.GetRobotId(),
-	}
-
-	line, err := json.Marshal(jsonl)
-	if err != nil {
-		return errors.Wrap(err, "error formatting JSON")
-	}
-	line = append(line, "\n"...)
-	_, err = file.Write(line)
+	err = utilsml.ImageMetadataToJSONLines([]*utilsml.ImageMetadata{imageMetadata}, nil, mlpb.ModelType_MODEL_TYPE_UNSPECIFIED, file)
 	if err != nil {
 		return errors.Wrap(err, "error writing to file")
 	}
-
 	return nil
 }
 
