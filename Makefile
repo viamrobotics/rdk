@@ -66,10 +66,13 @@ lint: lint-go
 generate-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) go generate ./...
 
+# Yes this regex could be more specific but making it more specific an a way
+# that works the same across GNU and BSD grep isn't currently worth the effort.
+GOVERSION = $(shell grep '^go .\..' go.mod | head -n1 | cut -d' ' -f2)
 lint-go: tool-install
 	go mod tidy
-	GOTOOLCHAIN=go1.25.1 GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run --config=./etc/.golangci.yaml || true
-	GOTOOLCHAIN=go1.25.1 GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run -v --fix --config=./etc/.golangci.yaml
+	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run --config=./etc/.golangci.yaml || true
+	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run -v --fix --config=./etc/.golangci.yaml
 	./etc/lint_register_apis.sh
 
 cover-only: tool-install
