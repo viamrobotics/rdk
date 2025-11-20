@@ -204,7 +204,8 @@ func TestWorkingClient(t *testing.T) {
 
 		// SetPowerMode (currently unimplemented in RDK)
 		injectBoard.SetPowerModeFunc = func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration,
-			extra map[string]interface{}) error {
+			extra map[string]interface{},
+		) error {
 			actualExtra = extra
 			return viamgrpc.UnimplementedError
 		}
