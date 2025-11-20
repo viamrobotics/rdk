@@ -79,6 +79,9 @@ func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 
 func (c *client) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
 	var dur *durationpb.Duration
 	if duration != nil {
 		dur = durationpb.New(*duration)
