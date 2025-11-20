@@ -692,14 +692,15 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 // transform datum's filename to a destination path on this computer.
 func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	timeRequested := meta.GetTimeRequested().AsTime().Format(time.RFC3339Nano)
+	timeRequested = data.CaptureFilePathWithReplacedReservedChars(timeRequested)
 	fileName := meta.GetFileName()
 
 	// If there is no file name, this is a data capture file.
 	if fileName == "" {
 		//nolint:staticcheck
 		fileName = timeRequested + "_" + meta.GetId() + meta.GetFileExt()
-	} else if filepath.Dir(fileName) == "." {
-		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
+	} else if filepath.Dir(fileName) == "." && !strings.HasPrefix(fileName, timeRequested) {
+		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted (if it is not already prepended)
 		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
 		fileName = timeRequested + "_" + fileName
 	}
