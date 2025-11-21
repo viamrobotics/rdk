@@ -224,7 +224,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 			return err
 		}
 		if jc.Method == "DoCommand" {
-			jobLogger.CDebugw(jm.ctx, "Job added", "name", jc.Name)
+			jobLogger.CDebugw(jm.ctx, "Job triggered", "name", jc.Name)
 			response, err := res.DoCommand(jm.ctx, jc.Command)
 			if err != nil {
 				jobLogger.CWarnw(jm.ctx, "Job failed", "error", err.Error())
@@ -270,8 +270,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 			Formatter:      formatter,
 			VerbosityLevel: 0,
 		}
-		// Job added for scheduling; may not immediately run.
-		jobLogger.CDebugw(jm.ctx, "Job added", "name", jc.Name)
+		jobLogger.CDebugw(jm.ctx, "Job triggered", "name", jc.Name)
 		grpcMethodCombined := grpcService + "." + grpcMethod
 		err = grpcurl.InvokeRPC(jm.ctx, descSource, jm.conn, grpcMethodCombined, nil, h, rf.Next)
 		if err != nil {
