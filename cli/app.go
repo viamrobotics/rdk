@@ -3401,8 +3401,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				{
 					Name:  "test-local",
 					Usage: "test training script locally using Docker",
-					UsageText: createUsageText("training-script test-local", []string{trainFlagDatasetFile, trainFlagTrainingScriptDirectory,
-						trainFlagContainerVersion, trainFlagModelOutputDirectory}, true, false),
+					UsageText: createUsageText("training-script test-local", []string{
+						trainFlagDatasetFile, trainFlagTrainingScriptDirectory,
+						trainFlagContainerVersion, trainFlagModelOutputDirectory,
+					}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     trainFlagDatasetFile,
@@ -3410,8 +3412,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     trainFlagTrainingScriptDirectory,
-							Usage:    "path to the training script directory (must contain setup.py and model/training.py), the container will be mounted to this directory",
+							Name: trainFlagTrainingScriptDirectory,
+							Usage: "path to the training script directory (must contain setup.py and model/training.py)," +
+								" the container will be mounted to this directory",
 							Required: true,
 						},
 						&cli.StringFlag{

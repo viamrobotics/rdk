@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -659,12 +660,12 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 	}
 
 	// Ensure output directory exists
-	if err := os.MkdirAll(outputDirAbs, 0o755); err != nil {
+	if err := os.MkdirAll(outputDirAbs, 0o750); err != nil {
 		return errors.Wrapf(err, "failed to create model output directory")
 	}
 
 	// Create temporary script to run inside container
-	scriptContent, err := createTrainingScript(args.CustomArgs, datasetFileAbs)
+	scriptContent, err := createTrainingScript(args.CustomArgs)
 	if err != nil {
 		return err
 	}
@@ -673,6 +674,7 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 	if err != nil {
 		return errors.Wrap(err, "failed to create temporary script file")
 	}
+	//nolint:errcheck
 	defer os.Remove(tmpScript.Name())
 
 	if _, err := tmpScript.WriteString(scriptContent); err != nil {
@@ -682,8 +684,8 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 		return errors.Wrap(err, "failed to close temporary script file")
 	}
 
-	// Make script executable
-	if err := os.Chmod(tmpScript.Name(), 0o755); err != nil {
+	//nolint:gosec
+	if err := os.Chmod(tmpScript.Name(), 0o700); err != nil {
 		return errors.Wrap(err, "failed to make script executable")
 	}
 
@@ -694,6 +696,9 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 	}
 
 	// Build docker run command
+	// NOTE: Google Vertex AI training containers are only available for linux/x86_64 (amd64).
+	// On ARM systems (e.g., Apple Silicon Macs), Docker will use Rosetta 2 emulation which
+	// may be slower but ensures compatibility with the same containers used in cloud training.
 	dockerArgs := []string{
 		"run",
 		"-i", // Interactive mode to ensure signals are properly handled
@@ -724,6 +729,15 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 			printf(c.App.Writer, "\nTraining interrupted by user")
 			return errors.New("training interrupted")
 		}
+
+		// Provide additional context for platform-related errors
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "platform") || strings.Contains(errMsg, "architecture") {
+			return errors.Wrap(err, "failed to run training in Docker container. "+
+				"Note: Training containers only support linux/x86_64 (amd64). "+
+				"On ARM systems, ensure Docker Desktop is configured to enable Rosetta 2 emulation for x86_64 containers")
+		}
+
 		return errors.Wrap(err, "failed to run training in Docker container")
 	}
 
@@ -787,40 +801,74 @@ func validateLocalTrainingPaths(scriptDir, datasetFile string) error {
 }
 
 // createTrainingScript creates the shell script content to run inside the container.
-func createTrainingScript(customArgs []string, datasetPath string) (string, error) {
-	script := `#!/bin/bash
-set -e
-
-echo "Installing training script package..."
-pip3 install --no-cache-dir .
-
-echo "Running training..."
-`
-
-	// Build the python command with arguments
-	pythonCmd := "python3 -m model.training"
-
-	// Add dataset file argument
-	pythonCmd += " --dataset_file=/dataset.jsonl"
-
-	// Add model output directory argument
-	pythonCmd += " --model_output_directory=/model_output"
-
-	// Add custom arguments
+func createTrainingScript(customArgs []string) (string, error) {
+	// Validate custom arguments format (key=value) before building script
 	for _, arg := range customArgs {
-		// Validate argument format (should be key=value)
 		if !strings.Contains(arg, "=") {
 			return "", errors.Errorf("invalid custom argument format: %s (expected key=value)", arg)
 		}
-		pythonCmd += " --" + arg
+
+		// Validate that the key portion only contains safe characters
+		parts := strings.SplitN(arg, "=", 2)
+		key := parts[0]
+		if !isValidArgumentKey(key) {
+			return "", errors.Errorf("invalid argument key: %s (only alphanumeric characters, underscores, and hyphens are allowed)", key)
+		}
 	}
 
-	script += pythonCmd + "\n"
-	script += `
-echo "Training completed successfully!"
-`
+	var script strings.Builder
 
-	return script, nil
+	// Script header and setup
+	script.WriteString("#!/bin/bash\n")
+	script.WriteString("set -e\n\n")
+	script.WriteString("echo \"Installing training script package...\"\n")
+	script.WriteString("pip3 install --no-cache-dir .\n\n")
+	script.WriteString("echo \"Running training...\"\n")
+
+	// Build Python training command
+	script.WriteString("python3 -m model.training")
+	script.WriteString(" --dataset_file=/dataset.jsonl")
+	script.WriteString(" --model_output_directory=/model_output")
+
+	// Add custom arguments
+	for _, arg := range customArgs {
+		parts := strings.SplitN(arg, "=", 2)
+		key := parts[0]
+		value := parts[1]
+
+		script.WriteString(" --")
+		script.WriteString(key)
+		script.WriteString("=")
+		// Use strconv.Quote for proper shell quoting - it returns a double-quoted string
+		// with all special characters properly escaped
+		script.WriteString(strconv.Quote(value))
+	}
+	script.WriteString("\n\n")
+
+	// Script footer
+	script.WriteString("echo \"Training completed successfully!\"\n")
+
+	return script.String(), nil
+}
+
+// isValidArgumentKey validates that an argument key only contains safe characters.
+// Allowed characters: letters (a-z, A-Z), digits (0-9), underscores (_), and hyphens (-).
+func isValidArgumentKey(key string) bool {
+	if key == "" {
+		return false
+	}
+
+	for _, char := range key {
+		if !((char >= 'a' && char <= 'z') ||
+			(char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') ||
+			char == '_' ||
+			char == '-') {
+			return false
+		}
+	}
+
+	return true
 }
 
 // getContainerImageURI returns the full container image URI based on the version.
