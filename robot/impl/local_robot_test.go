@@ -18,8 +18,10 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 	"go.viam.com/utils/trace"
@@ -4231,6 +4233,12 @@ func TestModuleLogging(t *testing.T) {
 	// want to ensure that the RDK trusts modules to handle `log_configuration`
 	// fields themselves. Even if the RDK is configured at INFO level, assert
 	// that modular resources can log at their own, configured levels.
+
+	// Set up a real trace provider + exporter so we get real trace IDs.
+	sdktrace.NewTracerProvider()
+	devExporter := perf.NewOtelDevelopmentExporter()
+	test.That(t, devExporter.Start(), test.ShouldBeNil)
+	defer devExporter.Stop()
 
 	ctx, span := trace.StartSpan(context.Background(), "TestModuleLogging")
 	defer span.End()

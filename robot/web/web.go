@@ -22,7 +22,8 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
-	"go.opencensus.io/plugin/ocgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -290,6 +291,11 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 
 	// TODO(PRODUCT-343): Add session manager interceptors
 
+	otelStatsHandler := otelgrpc.NewServerHandler(
+		otelgrpc.WithTracerProvider(trace.GetProvider()),
+		otelgrpc.WithPropagators(propagation.TraceContext{}),
+	)
+
 	// MaxRecvMsgSize and MaxSendMsgSize by default are 4 MB & MaxInt32 (2.1 GB)
 	opts := []googlegrpc.ServerOption{
 		googlegrpc.MaxRecvMsgSize(rpc.MaxMessageSize),
@@ -300,7 +306,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 			MinTime:             rpc.KeepAliveTime / 2, // keep this in sync with goutils' rpc/dialer & server.
 			PermitWithoutStream: true,
 		}),
-		googlegrpc.StatsHandler(&ocgrpc.ServerHandler{}),
+		googlegrpc.StatsHandler(otelStatsHandler),
 	}
 	server := module.NewServer(opts...)
 	if tcpMode {
