@@ -3405,6 +3405,19 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						trainFlagDatasetFile, trainFlagTrainingScriptDirectory,
 						trainFlagContainerVersion, trainFlagModelOutputDirectory,
 					}, true, false),
+					Description: `Test your training script locally before submitting to the cloud. This runs your training script 
+in a Docker container using the same environment as cloud training.
+
+REQUIREMENTS:
+  - Docker must be installed and running
+  - Training script directory must contain setup.py and model/training.py
+  - Dataset must be in JSONL format
+
+NOTES:
+  - Training containers only support linux/x86_64 (amd64) architecture
+  - Ensure Docker Desktop has sufficient resources allocated (memory, CPU)
+  - Model output will be saved to the specified output directory on your host machine
+`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     trainFlagDatasetFile,
