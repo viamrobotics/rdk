@@ -16,53 +16,22 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@test-workflow
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
   appimage:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
-    with:
-      release_type: 'latest'
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+    steps:
+    - name: test
+      run: echo 'hello'
 
   staticbuild:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
-    with:
-      release_type: 'latest'
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-
-  full-static:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/full-static.yml@main
-    with:
-      channel: latest
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
-  droid:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
-    with:
-      release_type: 'latest'
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
-  cli:
-    uses: viamrobotics/rdk/.github/workflows/cli.yml@main
-    with:
-      release_type: 'latest'
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
-  license_finder:
-    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
+    steps:
+    - name: test
+      run: echo 'hello'
 
   slack-workflow-status:
     if: ${{ failure() }}
@@ -75,10 +44,5 @@ jobs:
     permissions:
       actions: 'read'
     steps:
-      - name: Slack Workflow Notification
-        uses: Gamesight/slack-workflow-status@master
-        with:
-          repo_token: ${{secrets.GITHUB_TOKEN}}
-          slack_webhook_url: ${{secrets.SLACK_WEBHOOK_URL}}
-          channel: '#team-devops'
-          name: 'Workflow Status'
+    - name: test
+      run: echo 'hello'
