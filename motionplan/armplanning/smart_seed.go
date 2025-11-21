@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"

@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/referenceframe"
 )
