@@ -614,7 +614,7 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	cfg.Modules[0].ExePath = "/nonexistent/path/to/invalid"
 	r.Reconfigure(ctx, &cfg)
 
-	// assert that "mod" gets added to failedModules
+	// Assert that "mod" gets added to failedModules
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
 		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3", "mod4"})
