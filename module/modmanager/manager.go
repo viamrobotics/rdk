@@ -915,6 +915,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 				mgr.deleteFromFailedModules(mod.cfg.Name)
 				break
 			}
+			mgr.AddToFailedModules(mod.cfg.Name)
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
 		}
