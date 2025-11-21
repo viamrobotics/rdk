@@ -36,7 +36,7 @@ jobs:
       run: echo 'hello'
 
   slack-workflow-status:
-    if: ${{ failure() || cancelled() }}
+    if: ${{ failure() }}
     name: Post Workflow Status To Slack
     needs:
       - test

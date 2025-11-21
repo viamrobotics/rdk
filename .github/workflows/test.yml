@@ -13,6 +13,30 @@ env:
   MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
 jobs:
+  test_go:
+    # note: we have automations that match on platform_name. be careful changing this.
+    name: ${{ matrix.platform_name }} Go Unit Tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: ubuntu-16-core
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            platform: linux/amd64
+            platform_name: linux-amd64
+          - arch: ubuntu-arm-16-core
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
+            platform: linux/arm64
+            platform_name: linux-arm64
+    runs-on: ${{ matrix.arch }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+    timeout-minutes: 30
+
+    steps:
+    - name: test
+      run: echo 'hello'
 
   test_win:
     name: windows
@@ -25,21 +49,31 @@ jobs:
   test32:
     name: Go 32-bit Unit Tests
     runs-on: ubuntu-arm-16-core
-    timeout-minutes: 1
+    timeout-minutes: 30
 
     steps:
     - name: test
       run: sleep 2m
   
+  motion_tests:
+    runs-on: ubuntu-arm-16-core
+    steps:
+    - name: test
+      run: echo 'hello'
+
   test_passing:
     name: All Tests Passing
-    needs: [ test32, test_win]
+    needs: [test_go, test32, motion_tests, test_win]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
       - name: Check Results
         run: |
+          echo Go Unit Tests: ${{ needs.test_go.result }}
           echo Go 32-bit Tests: ${{ needs.test32.result }}
           echo Windows Tests: ${{ needs.test_win.result }}
+          echo Motion Tests: ${{ needs.motion_tests.result }}
+          [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
           [ "${{ needs.test_win.result }}" == "success" ] && \
+          [ "${{ needs.motion_tests.result }}" == "success" ]
