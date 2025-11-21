@@ -1130,6 +1130,7 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }
 
+// AddToFailedModules adds a failing module to the failedModules map.
 func (mgr *Manager) AddToFailedModules(moduleName string) {
 	mgr.failedModulesMu.Lock()
 	mgr.failedModules[moduleName] = true

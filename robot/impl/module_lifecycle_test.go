@@ -569,12 +569,7 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
 
-	// Build module path once to reuse for tests that need a valid exec path that can panic
-	execFailPath := rtestutils.BuildTempModule(t, "module/testmodule")
-
-	// TEST 1: validation error on module startup
-	// User input: Module with invalid/nonexistent exec path at startup (mod3: "/nonexistent/path/to/module1").
-	// Flow: setupModuleTest creates robot → validation fails → AddToFailedModules called → add() never called.
+	// TEST: user adds module with invalid exec path and it fails to validate
 	mod3 := config.Module{
 		Name:    "mod3",
 		ExePath: "/nonexistent/path/to/module1",
@@ -582,22 +577,21 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	cfg.Modules = append(cfg.Modules, mod3)
 	r.Reconfigure(ctx, &cfg)
 
-	// Assert that "mod3" gets added to failedModules due to validation failure with invalid ExePath.
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
+	// Assert that "mod3" gets added to failedModules
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
+		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
 		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
 			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 			`May be in failing module: [mod3]; There may be no module in config that provides this model`).Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 	})
 
-	// TEST 2: execution failure on module startup
-	// User input: Module with valid exec path but exits immediately (VIAM_TESTMODULE_PANIC=1).
-	// Flow: Validation passes → add() called → startModule() fails → AddToFailedModules called.
+	// TEST: user adds module with valid exec path but exits immediately by injecting a panic
 	panicEnv := map[string]string{
 		"VIAM_TESTMODULE_PANIC": "1",
 	}
+	execFailPath := rtestutils.BuildTempModule(t, "module/testmodule")
 	mod4 := config.Module{
 		Name:        "mod4",
 		ExePath:     execFailPath,
@@ -605,38 +599,41 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	}
 	cfg.Modules = append(cfg.Modules, mod4)
 	r.Reconfigure(ctx, &cfg)
-	// Assert that "mod4" gets added to failedModules due to panic and failed startup.
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod4"})
+
+	// Assert that "mod4" gets added to failedModules.
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
+		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod4"})
 		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
 			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 			`May be in failing module: [mod3 mod4]; There may be no module in config that provides this model`).Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 	})
-	// TEST 3: validation error on module reconfiguration
-	// User input: Reconfigure existing module with invalid/nonexistent exec path.
-	// Flow: r.Reconfigure() called → validation fails in resource_manager → AddToFailedModules called → manager.Reconfigure() never called.
+
+	// TEST: user reconfigures module with invalid exec path and it fails to validate
 	cfg.Modules[0].ExePath = "/nonexistent/path/to/invalid"
 	r.Reconfigure(ctx, &cfg)
-	// assert that "mod2" gets added to failedModules
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3", "mod4"})
+
+	// assert that "mod" gets added to failedModules
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
+		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3", "mod4"})
 		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
 			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 			`May be in failing module: [mod mod3 mod4]; There may be no module in config that provides this model`).Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 	})
 
-	// TEST 4: Reconfigure - execution failure (manager.go:438)
-	// User input: Reconfigure existing module with valid exec path but module exits immediately (VIAM_TESTMODULE_PANIC=1).
-	// Flow: Validation passes → manager.Reconfigure() is called → startModule() fails → AddToFailedModules.
-	// This is different from TEST 3 where validation fails and manager.Reconfigure() is never called.
+	// TEST: user reconfigures module with valid exec path but exits immediately by injecting a panic
+	cfg.Modules[1].ExePath = execFailPath
 	cfg.Modules[1].Environment = panicEnv
 	r.Reconfigure(ctx, &cfg)
-	// Wait for the module to be added to failedModules due to execution failure during reconfigure.
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod2", "mod3", "mod4"})
+
+	// Assert that "mod2" gets added to failedModules
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, failedModules(r), test.ShouldResemble, []string{"mod", "mod2", "mod3", "mod4"})
+	})
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
@@ -645,36 +642,39 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 	})
 
-	// Fix broken module's panic: Fix mod4 (TEST 2) by removing VIAM_TESTMODULE_PANIC.
-	// This should remove mod4 from failedModules.
+	// TEST: user fixes broken module's panic by removing VIAM_TESTMODULE_PANIC.
 	cfg.Modules[1].Environment = nil
 	cfg.Modules[3].Environment = nil
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3"})
+	r.Reconfigure(ctx, &cfg)
+
+	// Assert that "mod2" is removed from failedModules.
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
+		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3"})
 		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
 			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 			`May be in failing module: [mod mod3]; There may be no module in config that provides this model`).Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 	})
 
-	//test renaming modules keeps them in failedModules
+	// TEST: user renames module and it is added to failedModules
 	cfg.Modules[0].Name = "mod5"
 	r.Reconfigure(ctx, &cfg)
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod5"})
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
+		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod5"})
 		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
 			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 			`May be in failing module: [mod3 mod5]; There may be no module in config that provides this model`).Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 	})
 
-	// Fix broken module's broken exec: Fix mod3 (TEST 1) and mod2 (TEST 3) by providing valid exec paths.
-	// This should remove both mod3 and mod2 from failedModules.
+	// TEST: user fixes broken module's broken exec by providing valid exec paths.
 	cfg.Modules[0].ExePath = execFailPath
 	cfg.Modules[2].ExePath = rtestutils.BuildTempModule(t, "module/testmodule2")
 	r.Reconfigure(ctx, &cfg)
+
+	// Assert that "mod3" is removed from failedModules and empty failedModules log is called.
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
@@ -683,5 +683,6 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 	})
 
-	// Test that a crashing module is added to failedModules done in TestCrashedModuleDependentRecovery
+	// Test that a module crashing not during runtime or reconfiguration is added to failedModules
+	// done in TestCrashedModuleDependentRecovery
 }
