@@ -71,6 +71,12 @@ func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger
 				API:       generic.API,
 				DependsOn: []string{"h"},
 			},
+			{
+				Name:      "h4",
+				Model:     resource.DefaultModelFamily.WithModel("nonexistent"),
+				API:       generic.API,
+				DependsOn: []string{"h"},
+			},
 		},
 	}
 
@@ -408,15 +414,15 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-	// test that crashing module is added to failedModules
-	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod"})
-
 	// Wait for restart attempt in logs.
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage("Error while restarting crashed module").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 	})
+
+	// Test that crashing module is added to failedModules
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3"})
 
 	// Check that 'h' is still present but commands fail.
 	h, err = r.ResourceByName(generic.Named("h"))
@@ -444,13 +450,13 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 			test.ShouldEqual, 1)
 	})
 
-	// test that fixed module is removed from failedModules
-	test.That(t, failedModules(r), test.ShouldBeEmpty)
-
 	h, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
+
+	// Test that restored module is removed from failedModules
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
 
 	// 'h2' and 'h3' should also continue to exist and requests that go to 'h' should no longer fail.
 	h2, err = r.ResourceByName(generic.Named("h2"))
@@ -557,10 +563,6 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
-
-	// force error logs by setting h3 to use an invalid model
-	cfg.Components[2].Model = resource.DefaultModelFamily.WithModel("nonexistent")
-	r.Reconfigure(ctx, &cfg)
 
 	// assert test has one failing module (mod3 with invalid exec path)
 	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})

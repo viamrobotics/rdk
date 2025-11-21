@@ -259,7 +259,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		// The config was already validated, but we must check again before attempting to add.
 		if err := conf.Validate(""); err != nil {
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
-			mgr.addToFailedModules(conf.Name)
+			mgr.AddToFailedModules(conf.Name)
 			errs[i] = err
 			continue
 		}
@@ -274,7 +274,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
 				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
-				mgr.addToFailedModules(conf.Name)
+				mgr.AddToFailedModules(conf.Name)
 				errs[i] = err
 				return
 			}
@@ -435,7 +435,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 
 	if err := mgr.startModule(ctx, mod); err != nil {
 		// If re-addition fails, assume all handled resources are orphaned.
-		mgr.addToFailedModules(conf.Name)
+		mgr.AddToFailedModules(conf.Name)
 		return handledResourceNames, err
 	}
 
@@ -858,7 +858,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		)
 
 		// Add to failedModules when crash is detected
-		mgr.addToFailedModules(mod.cfg.Name)
+		mgr.AddToFailedModules(mod.cfg.Name)
 
 		// There are two relevant calls that may race with a crashing module:
 		// 1. mgr.Remove, which wants to stop the module and remove it entirely
@@ -1129,7 +1129,7 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }
 
-func (mgr *Manager) addToFailedModules(moduleName string) {
+func (mgr *Manager) AddToFailedModules(moduleName string) {
 	mgr.failedModulesMu.Lock()
 	mgr.failedModules[moduleName] = true
 	mgr.failedModulesMu.Unlock()
