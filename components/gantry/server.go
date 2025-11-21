@@ -156,6 +156,9 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 			}
 
 			posResp, err := s.GetPosition(ctx, &pb.GetPositionRequest{Name: req.GetName()})
+			if err != nil {
+				return nil, err
+			}
 			gifs, err := model.Geometries(posResp.PositionsMm)
 			if err != nil {
 				return nil, err

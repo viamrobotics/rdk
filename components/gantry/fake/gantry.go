@@ -71,7 +71,7 @@ type Gantry struct {
 	resource.TriviallyCloseable
 	positionsMm    []float64
 	speedsMmPerSec []float64
-	lengthsMm        []float64
+	lengthsMm      []float64
 	model          referenceframe.Model
 	logger         logging.Logger
 }
@@ -99,7 +99,7 @@ func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec
 			return fmt.Errorf("position %v out of range [0, %v]", position, g.lengthsMm[i])
 		}
 	}
-	
+
 	g.positionsMm = positionsMm
 	g.speedsMmPerSec = speedsMmPerSec
 	return nil
