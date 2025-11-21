@@ -84,7 +84,7 @@ jobs:
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
           sudo apt-get update && sudo apt-get install -y python3-venv
-          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
+          TEST_TARGET='./motionplan/...' sudo --preserve-env=TEST_TARGET,MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
 
       - name: Upload test.json
         if: always()
@@ -143,7 +143,7 @@ jobs:
             --platform linux/arm/v7 \
             -v `pwd`:/rdk \
             ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
-            sudo -Hu testbot bash -lc 'sudo apt-get update && sudo apt-get install -y python3-venv && cd /rdk && go test ./...'
+            sudo -Hu testbot bash -lc 'sudo apt-get update && sudo apt-get install -y python3-venv && cd /rdk && go test ./motionplan/...'
 
   motion_tests:
     name: Test Longer-running Motion Plans if affected

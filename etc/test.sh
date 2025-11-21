@@ -2,6 +2,7 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 TEST_TARGET=${TEST_TARGET:-./...}
+echo "TEST_TARGET: $TEST_TARGET"
 ROOT_DIR="$DIR/../"
 cd $ROOT_DIR
 
