@@ -4,11 +4,13 @@ package jobmanager
 
 import (
 	"bytes"
+	"container/ring"
 	"context"
 	"encoding/json"
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fullstorydev/grpcurl"
@@ -27,6 +29,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/ssync"
 )
 
 const (
@@ -35,6 +38,7 @@ const (
 	// has movementsensor as its second index in a dot separated slice, which is the resource
 	// the job manager will be looking for.
 	componentServiceIndex int = 2
+	historyLength         int = 10
 )
 
 // JobManager keeps track of the currently scheduled jobs and updates the schedule with
@@ -48,6 +52,61 @@ type JobManager struct {
 	conn          rpc.ClientConn
 	isClosed      bool
 	closeMutex    sync.Mutex
+
+	NumJobHistories atomic.Int32
+	JobHistories    ssync.Map[string, *JobHistory]
+}
+
+// JobHistory records historical metadata about a job.
+type JobHistory struct {
+	successTimesMu sync.Mutex
+	successTimes   *ring.Ring
+	failureTimesMu sync.Mutex
+	failureTimes   *ring.Ring
+}
+
+// Successes returns timestamps of the last historyLength number successfully completed jobs.
+func (jh *JobHistory) Successes() []time.Time {
+	ts := make([]time.Time, 0, historyLength)
+	jh.successTimesMu.Lock()
+	defer jh.successTimesMu.Unlock()
+	for i := 0; i < historyLength; i++ {
+		if jh.successTimes.Value != nil {
+			ts = append(ts, jh.successTimes.Value.(time.Time))
+		}
+		jh.successTimes = jh.successTimes.Next()
+	}
+	return ts
+}
+
+// Failures returns timestamps of the last historyLength number jobs that returned with Error or panic.
+func (jh *JobHistory) Failures() []time.Time {
+	ts := make([]time.Time, 0, historyLength)
+	jh.failureTimesMu.Lock()
+	defer jh.failureTimesMu.Unlock()
+	for i := 0; i < historyLength; i++ {
+		if jh.failureTimes.Value != nil {
+			ts = append(ts, jh.failureTimes.Value.(time.Time))
+		}
+		jh.failureTimes = jh.failureTimes.Next()
+	}
+	return ts
+}
+
+// AddSuccess adds a timestamp to successTimes, overwriting the earliest entry if it is full.
+func (jh *JobHistory) AddSuccess(time time.Time) {
+	jh.successTimesMu.Lock()
+	defer jh.successTimesMu.Unlock()
+	jh.successTimes.Value = time
+	jh.successTimes = jh.successTimes.Next()
+}
+
+// AddFailure adds a timestamp to failureTimes, overwriting the earliest entry if it is full.
+func (jh *JobHistory) AddFailure(time time.Time) {
+	jh.failureTimesMu.Lock()
+	defer jh.failureTimesMu.Unlock()
+	jh.failureTimes.Value = time
+	jh.failureTimes = jh.failureTimes.Next()
 }
 
 // New sets up the context and grpcConn that is used in scheduled jobs. The actual
@@ -146,32 +205,32 @@ func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 }
 
 // createJobFunction returns a function that the job scheduler puts on its queue.
-func (jm *JobManager) createJobFunction(jc config.JobConfig) func() {
+func (jm *JobManager) createJobFunction(jc config.JobConfig) func(ctx context.Context) error {
 	jobLogger := jm.logger.Sublogger(jc.Name)
 	// To support logging for quick jobs (~ on the seconds schedule), we disable log
 	// deduplication for job loggers.
 	jobLogger.NeverDeduplicate()
-	return func() {
+	return func(ctx context.Context) error {
 		res, err := jm.getResource(jc.Resource)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "Could not get resource", "error", err.Error())
-			return
+			return err
 		}
 		if jc.Method == "DoCommand" {
 			jobLogger.CInfo(jm.ctx, "Job triggered")
 			response, err := res.DoCommand(jm.ctx, jc.Command)
 			if err != nil {
 				jobLogger.CWarnw(jm.ctx, "Job failed", "error", err.Error())
-			} else {
-				jobLogger.CInfow(jm.ctx, "Job succeeded", "response", response)
+				return err
 			}
-			return
+			jobLogger.CInfow(jm.ctx, "Job succeeded", "response", response)
+			return nil
 		}
 
 		descSource, grpcService, grpcMethod, err := jm.createDescriptorSourceAndgRPCMethod(res, jc.Method)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "grpc setup failed", "error", err)
-			return
+			return err
 		}
 
 		gRPCArgument := resource.GetResourceNameOverride(grpcService, grpcMethod)
@@ -181,7 +240,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig) func() {
 		argumentBytes, err := json.Marshal(argumentMap)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "could not serialize gRPC method arguments", "error", err.Error())
-			return
+			return err
 		}
 		options := grpcurl.FormatOptions{
 			EmitJSONDefaultFields: true,
@@ -195,7 +254,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig) func() {
 			options)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "could not create parser and formatter for grpc requests", "error", err.Error())
-			return
+			return err
 		}
 
 		buffer := bytes.NewBuffer(make([]byte, 0))
@@ -209,18 +268,19 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig) func() {
 		err = grpcurl.InvokeRPC(jm.ctx, descSource, jm.conn, grpcMethodCombined, nil, h, rf.Next)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "Job failed", "error", err.Error())
-			return
+			return err
 		} else if h.Status != nil && h.Status.Err() != nil {
 			jobLogger.CWarnw(jm.ctx, "Job failed", "error", h.Status.Err())
-			return
+			return h.Status.Err()
 		}
 		response := map[string]any{}
 		err = json.Unmarshal(buffer.Bytes(), &response)
 		if err != nil {
 			jobLogger.CWarnw(jm.ctx, "Unmarshalling grpc response failed with error", "error", err.Error())
-		} else {
-			jobLogger.CInfow(jm.ctx, "Job succeeded", "response", response)
+			return err
 		}
+		jobLogger.CInfow(jm.ctx, "Job succeeded", "response", response)
+		return nil
 	}
 }
 
@@ -257,6 +317,16 @@ func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 		jobLimitMode = gocron.LimitModeWait
 	}
 
+	if _, ok := jm.JobHistories.Load(jc.Name); !ok {
+		jm.JobHistories.Store(jc.Name, &JobHistory{
+			successTimes: ring.New(historyLength),
+			failureTimes: ring.New(historyLength),
+		})
+		jm.NumJobHistories.Add(1)
+	}
+
+	jobLogger := jm.logger.Sublogger(jc.Name)
+
 	jobFunc := jm.createJobFunction(jc)
 	j, err := jm.scheduler.NewJob(
 		jobType,
@@ -290,10 +360,30 @@ func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 		// It is also important to note that DURATION jobs start relative to when they were
 		// queued on the job scheduler, while CRON jobs are tied to the physical clock.
 		gocron.WithSingletonMode(jobLimitMode),
+		gocron.WithName(jc.Name),
+		gocron.WithContext(jm.ctx),
+		gocron.WithEventListeners(
+			// May be slightly more accurate to use j.LastRun(), but we don't have direct reference to it here, and we don't want the job to
+			// complete before we can store the returned Job.
+			gocron.AfterJobRuns(func(jobID uuid.UUID, jobName string) {
+				now := time.Now()
+				if jh, ok := jm.JobHistories.Load(jobName); ok {
+					jh.AddSuccess(now)
+				}
+			}),
+			gocron.AfterJobRunsWithError(func(jobID uuid.UUID, jobName string, err error) {
+				now := time.Now()
+				if jh, ok := jm.JobHistories.Load(jobName); ok {
+					jh.AddFailure(now)
+				}
+			}),
+			gocron.AfterJobRunsWithPanic(func(jobID uuid.UUID, jobName string, recoverData any) {
+				now := time.Now()
+				if jh, ok := jm.JobHistories.Load(jobName); ok {
+					jh.AddFailure(now)
+				}
+			})),
 	)
-
-	jobLogger := jm.logger.Sublogger(jc.Name)
-
 	if err != nil {
 		jobLogger.CErrorw(jm.ctx, "Failed to create a new job", "name", jc.Name, "error", err.Error())
 		return
