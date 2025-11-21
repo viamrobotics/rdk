@@ -16,7 +16,7 @@ func (m *Map[K, V]) CompareAndDelete(key K, old V) bool {
 }
 
 // CompareAndSwap is an alias to [sync.Map.CompareAndSwap].
-func (m *Map[K, V]) CompareAndSwap(key K, old, new V) bool { //nolint: revive
+func (m *Map[K, V]) CompareAndSwap(key K, old, new V) bool {
 	return (*sync.Map)(m).CompareAndSwap(key, old, new)
 }
 

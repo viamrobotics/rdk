@@ -1571,7 +1571,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
-func (r *localRobot) checkMaxInstance(api resource.API, max int) error { //nolint: revive
+func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
 	maxInstance := 0
 	for _, n := range r.ResourceNames() {
 		if n.API == api && !n.ContainsRemoteNames() {

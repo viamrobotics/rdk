@@ -111,7 +111,7 @@ type cacheForFrame struct {
 	boxes map[string]*goalCacheBox // hash to list
 }
 
-func (cff *cacheForFrame) boxKeyCompute(value, min, max float64) int { //nolint: revive
+func (cff *cacheForFrame) boxKeyCompute(value, min, max float64) int {
 	x := (value - min) / (max - min)
 	return int(x * 100)
 }
@@ -151,7 +151,6 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 		return cff.addToCache(f, values, t)
 	}
 
-	//nolint: revive
 	min, max, r := limits[joint].GoodLimits()
 	values[joint] = min
 
