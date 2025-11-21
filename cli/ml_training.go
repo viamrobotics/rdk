@@ -3,8 +3,14 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -27,7 +33,16 @@ const (
 	trainFlagModelLabels    = "model-labels"
 
 	trainingStatusPrefix = "TRAINING_STATUS_"
+
+	// Flags for test-local command
+	trainFlagContainerVersion        = "container-version"
+	trainFlagDatasetFile             = "dataset-file"
+	trainFlagModelOutputDirectory    = "model-output-directory"
+	trainFlagCustomArgs              = "custom-args"
+	trainFlagTrainingScriptDirectory = "training-script-directory"
 )
+
+var dockerVertexImageRegex = regexp.MustCompile(`^us-docker\.pkg\.dev/vertex-ai/training/[^:@\s]+(:[^@\s]+)?(@sha256:[A-Fa-f0-9]{64})?$`)
 
 type mlSubmitCustomTrainingJobArgs struct {
 	DatasetID    string
@@ -596,4 +611,237 @@ func convertVisibilityToProto(visibility string) (*v1.Visibility, error) {
 	}
 
 	return &visibilityProto, nil
+}
+
+type mlTrainingScriptTestLocalArgs struct {
+	ContainerVersion        string
+	DatasetFile             string
+	ModelOutputDirectory    string
+	TrainingScriptDirectory string
+	CustomArgs              []string
+}
+
+// MLTrainingScriptTestLocalAction runs training locally in a Docker container.
+func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLocalArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	// Check if Docker is available
+	if err := checkDockerAvailable(); err != nil {
+		return err
+	}
+
+	// Validate required paths exist
+	if err := validateLocalTrainingPaths(args.TrainingScriptDirectory, args.DatasetFile); err != nil {
+		return err
+	}
+	// Get absolute paths for volume mounting
+	scriptDirAbs, err := filepath.Abs(args.TrainingScriptDirectory)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get absolute path for training script directory")
+	}
+
+	datasetFileAbs, err := filepath.Abs(args.DatasetFile)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get absolute path for dataset file")
+	}
+
+	// Determine output directory (default to current directory if not specified)
+	outputDir := args.ModelOutputDirectory
+	if outputDir == "" {
+		outputDir = "."
+	}
+	outputDirAbs, err := filepath.Abs(outputDir)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get absolute path for model output directory")
+	}
+
+	// Ensure output directory exists
+	if err := os.MkdirAll(outputDirAbs, 0o755); err != nil {
+		return errors.Wrapf(err, "failed to create model output directory")
+	}
+
+	// Create temporary script to run inside container
+	scriptContent, err := createTrainingScript(args.CustomArgs, datasetFileAbs)
+	if err != nil {
+		return err
+	}
+
+	tmpScript, err := os.CreateTemp("", "viam-training-*.sh")
+	if err != nil {
+		return errors.Wrap(err, "failed to create temporary script file")
+	}
+	defer os.Remove(tmpScript.Name())
+
+	if _, err := tmpScript.WriteString(scriptContent); err != nil {
+		return errors.Wrap(err, "failed to write to temporary script file")
+	}
+	if err := tmpScript.Close(); err != nil {
+		return errors.Wrap(err, "failed to close temporary script file")
+	}
+
+	// Make script executable
+	if err := os.Chmod(tmpScript.Name(), 0o755); err != nil {
+		return errors.Wrap(err, "failed to make script executable")
+	}
+
+	// Get container image name
+	containerImageURI, err := getContainerImageURI(client, args.ContainerVersion)
+	if err != nil {
+		return err
+	}
+
+	// Build docker run command
+	dockerArgs := []string{
+		"run",
+		"-i", // Interactive mode to ensure signals are properly handled
+		"--entrypoint", "/bin/bash",
+		"--platform", "linux/x86_64",
+		"--rm",
+		"-v", fmt.Sprintf("%s:/training_script", scriptDirAbs),
+		"-v", fmt.Sprintf("%s:/dataset.jsonl", datasetFileAbs),
+		"-v", fmt.Sprintf("%s:/model_output", outputDirAbs),
+		"-v", fmt.Sprintf("%s:/run_training.sh", tmpScript.Name()),
+		"-w", "/training_script",
+		containerImageURI,
+		"/run_training.sh",
+	}
+
+	// Setup context with signal handling for Ctrl+C
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	//nolint:gosec
+	cmd := exec.CommandContext(ctx, "docker", dockerArgs...)
+	cmd.Stdout = c.App.Writer
+	cmd.Stderr = c.App.ErrWriter
+
+	if err := cmd.Run(); err != nil {
+		// Check if the command was interrupted
+		if ctx.Err() == context.Canceled {
+			printf(c.App.Writer, "\nTraining interrupted by user")
+			return errors.New("training interrupted")
+		}
+		return errors.Wrap(err, "failed to run training in Docker container")
+	}
+
+	return nil
+}
+
+// checkDockerAvailable checks if Docker is installed and running.
+func checkDockerAvailable() error {
+	// Create a context with timeout for Docker commands
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "--version")
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("Docker command timed out. Please check if Docker is responding")
+		}
+		return errors.New("Docker is not available. Please install Docker and ensure it is running. " +
+			"Visit https://docs.docker.com/get-docker/ for installation instructions")
+	}
+
+	// Check if Docker daemon is running
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd = exec.CommandContext(ctx, "docker", "ps")
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return errors.New("Docker daemon is not responding. It may be starting up - please wait and try again")
+		}
+		return errors.New("Docker daemon is not running. Please start Docker and try again")
+	}
+
+	return nil
+}
+
+// validateLocalTrainingPaths validates that required paths exist.
+func validateLocalTrainingPaths(scriptDir, datasetFile string) error {
+	// Check training script directory exists
+	if _, err := os.Stat(scriptDir); os.IsNotExist(err) {
+		return errors.Errorf("training script directory does not exist: %s", scriptDir)
+	}
+
+	// Check for required files in training script directory
+	setupPyPath := filepath.Join(scriptDir, "setup.py")
+	if _, err := os.Stat(setupPyPath); os.IsNotExist(err) {
+		return errors.Errorf("setup.py not found in training script directory: %s", scriptDir)
+	}
+
+	trainingPyPath := filepath.Join(scriptDir, "model", "training.py")
+	if _, err := os.Stat(trainingPyPath); os.IsNotExist(err) {
+		return errors.Errorf("model/training.py not found in training script directory: %s", scriptDir)
+	}
+
+	// Check dataset file exists
+	if _, err := os.Stat(datasetFile); os.IsNotExist(err) {
+		return errors.Errorf("dataset file does not exist: %s", datasetFile)
+	}
+
+	return nil
+}
+
+// createTrainingScript creates the shell script content to run inside the container.
+func createTrainingScript(customArgs []string, datasetPath string) (string, error) {
+	script := `#!/bin/bash
+set -e
+
+echo "Installing training script package..."
+pip3 install --no-cache-dir .
+
+echo "Running training..."
+`
+
+	// Build the python command with arguments
+	pythonCmd := "python3 -m model.training"
+
+	// Add dataset file argument
+	pythonCmd += " --dataset_file=/dataset.jsonl"
+
+	// Add model output directory argument
+	pythonCmd += " --model_output_directory=/model_output"
+
+	// Add custom arguments
+	for _, arg := range customArgs {
+		// Validate argument format (should be key=value)
+		if !strings.Contains(arg, "=") {
+			return "", errors.Errorf("invalid custom argument format: %s (expected key=value)", arg)
+		}
+		pythonCmd += " --" + arg
+	}
+
+	script += pythonCmd + "\n"
+	script += `
+echo "Training completed successfully!"
+`
+
+	return script, nil
+}
+
+// getContainerImageURI returns the full container image URI based on the version.
+func getContainerImageURI(c *viamClient, version string) (string, error) {
+	res, err := c.mlTrainingClient.ListSupportedContainers(context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to list supported containers")
+	}
+
+	containerKeyList := []string{}
+	for key := range res.ContainerMap {
+		containerKeyList = append(containerKeyList, key)
+	}
+	slices.Sort(containerKeyList)
+
+	container, ok := res.ContainerMap[version]
+	if !ok {
+		if dockerVertexImageRegex.MatchString(version) {
+			return version, nil
+		}
+		return "", errors.Errorf("container version %s not found. Supported versions: %s", version, strings.Join(containerKeyList, ", "))
+	}
+	return container.Uri, nil
 }

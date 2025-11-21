@@ -3398,6 +3398,39 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					},
 					Action: createCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),
 				},
+				{
+					Name:  "test-local",
+					Usage: "test training script locally using Docker",
+					UsageText: createUsageText("training-script test-local", []string{trainFlagDatasetFile, trainFlagTrainingScriptDirectory,
+						trainFlagContainerVersion, trainFlagModelOutputDirectory}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     trainFlagDatasetFile,
+							Usage:    "path to the dataset file (JSONL format)",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     trainFlagTrainingScriptDirectory,
+							Usage:    "path to the training script directory (must contain setup.py and model/training.py), the container will be mounted to this directory",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  trainFlagContainerVersion,
+							Usage: "container version to use (e.g., 'tf:2.16'). Defaults to tf:2.16",
+							Value: "tf:2.16",
+						},
+						&cli.StringFlag{
+							Name:  trainFlagModelOutputDirectory,
+							Usage: "directory where the trained model will be saved. Defaults to current directory",
+							Value: ".",
+						},
+						&cli.StringSliceFlag{
+							Name:  trainFlagCustomArgs,
+							Usage: "custom arguments to pass to the training script (format: key=value)",
+						},
+					},
+					Action: createCommandWithT[mlTrainingScriptTestLocalArgs](MLTrainingScriptTestLocalAction),
+				},
 			},
 		},
 		{
