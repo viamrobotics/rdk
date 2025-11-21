@@ -34,7 +34,6 @@ var pirIdealJointValues = [][]referenceframe.Input{
 }
 
 func TestSmartSeedCache1(t *testing.T) {
-	t.Skip()
 	if Is32Bit() {
 		t.Skip()
 		return
@@ -147,7 +146,6 @@ func TestSmartSeedCacheFrames(t *testing.T) {
 }
 
 func TestSmartSeedCachePirouette(t *testing.T) {
-	t.Skip()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
