@@ -57,7 +57,7 @@ func NewGantry(name resource.Name, logger logging.Logger) gantry.Gantry {
 		resource.TriviallyReconfigurable{},
 		resource.TriviallyCloseable{},
 		[]float64{120},
-		[]float64{120},
+		[]float64{50},
 		[]float64{350},
 		m,
 		logger,

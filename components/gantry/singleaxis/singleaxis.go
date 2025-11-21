@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
@@ -102,7 +101,6 @@ type singleAxis struct {
 	rpm             float64
 
 	model referenceframe.Model
-	frame r3.Vector
 
 	cancelFunc              func()
 	logger                  logging.Logger
@@ -154,12 +152,6 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		return errors.New("gantry with one limit switch per axis needs a mm_per_length ratio defined")
 	}
 
-	// Add a default frame, then overwrite with the config frame if that is supplied
-	g.frame = r3.Vector{X: 1.0, Y: 0, Z: 0}
-	if conf.Frame != nil {
-		g.frame = conf.Frame.Translation
-	}
-
 	rpm := g.gantryToMotorSpeeds(newConf.GantryMmPerSec)
 	g.rpm = rpm
 	if g.rpm == 0 {
@@ -170,7 +162,6 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 	m, err := referenceframe.KinematicModelFromFile(newConf.Kinematics, g.Named.Name().String())
 	if err != nil {
 		g.logger.CWarnf(ctx, "failed to load kinematics from file '%v': %v", newConf.Kinematics, err)
-		m = nil
 	}
 	g.model = m
 
