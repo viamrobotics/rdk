@@ -124,7 +124,7 @@ func (cff *cacheForFrame) boxKey(p r3.Vector) string {
 }
 
 var (
-	arm6JogRatios   = []float64{360, 32, 8, 8, 4, 2}
+	arm6JogRatios   = []float64{90, 16, 8, 8, 4, 2}
 	arm6JogDivisors = []float64{.05, .1, .2, 1, 1, 1}
 	defaultDivisor  = 10.0
 )
