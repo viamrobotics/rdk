@@ -87,18 +87,19 @@ func TestFullReloadFlow(t *testing.T) {
 		map[string]any{
 			moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 			moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+			generalFlagNoProgress: true, // Disable progress spinner to avoid race conditions in tests
 		},
 		"token",
 	)
 	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger)
+	err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 
 	t.Run("addShellService", func(t *testing.T) {
 		t.Run("addsServiceWhenMissing", func(t *testing.T) {
 			part, _ := vc.getRobotPart("id")
-			err := addShellService(cCtx, vc, part.Part, false)
+			_, err := addShellService(cCtx, vc, logging.NewTestLogger(t), part.Part, false)
 			test.That(t, err, test.ShouldBeNil)
 			services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
 			test.That(t, ok, test.ShouldBeTrue)
@@ -127,7 +128,7 @@ func TestFullReloadFlow(t *testing.T) {
 			)
 
 			part, _ := vc2.getRobotPart("id")
-			err = addShellService(cCtx2, vc2, part.Part, false)
+			_, err = addShellService(cCtx2, vc2, logging.NewTestLogger(t), part.Part, false)
 			test.That(t, err, test.ShouldBeNil)
 			services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
 			test.That(t, ok, test.ShouldBeTrue)
@@ -166,11 +167,12 @@ func TestFullReloadFlow(t *testing.T) {
 				map[string]any{
 					moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 					moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+					generalFlagNoProgress: true, // Disable progress spinner to avoid race conditions in tests
 				},
 				"token",
 			)
 
-			err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger)
+			err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "not supported for hot reloading")
 		})
@@ -191,14 +193,83 @@ func TestFullReloadFlow(t *testing.T) {
 				map[string]any{
 					moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
 					moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+					generalFlagNoProgress: true, // Disable progress spinner to avoid race conditions in tests
 				},
 				"token",
 			)
 
-			err = reloadModuleAction(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger)
+			err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, updateCount, test.ShouldEqual, 1)
 		})
+	})
+}
+
+func TestReloadWithCloudConfig(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	manifestPath := createTestManifest(t, "", nil)
+	confStruct, err := structpb.NewStruct(map[string]any{
+		"modules": []any{},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create a temporary cloud config file
+	cloudConfigPath := filepath.Join(t.TempDir(), "viam.json")
+	cloudConfigFile, err := os.Create(cloudConfigPath)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = cloudConfigFile.WriteString(`{"cloud":{"app_address":"https://app.viam.com:443","id":"cloud-config-part-id","secret":"SECRET"}}`)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cloudConfigFile.Close(), test.ShouldBeNil)
+
+	t.Run("reloadWithCloudConfigLocal", func(t *testing.T) {
+		updateCount := 0
+		cCtx, vc, _, _ := setup(
+			mockFullAppServiceClient(confStruct, nil, &updateCount),
+			nil,
+			&inject.BuildServiceClient{},
+			map[string]any{
+				moduleFlagPath:             manifestPath,
+				moduleBuildFlagCloudConfig: cloudConfigPath,
+				moduleBuildFlagNoBuild:     true,
+				moduleFlagLocal:            true,
+				generalFlagNoProgress:      true, // Disable progress spinner to avoid race conditions in tests
+			},
+			"token",
+		)
+		test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
+
+		// Test that reloadModuleActionInner correctly uses cloud-config to resolve part ID
+		err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, updateCount, test.ShouldEqual, 1)
+	})
+
+	t.Run("verifyPartIDResolution", func(t *testing.T) {
+		// Test that the part ID is correctly resolved from cloud-config
+		// and that args.PartID remains empty when only cloud-config is provided
+		cCtx, _, _, _ := setup(
+			mockFullAppServiceClient(confStruct, nil, nil),
+			nil,
+			&inject.BuildServiceClient{},
+			map[string]any{
+				moduleFlagPath:             manifestPath,
+				moduleBuildFlagCloudConfig: cloudConfigPath,
+				moduleBuildFlagNoBuild:     true,
+				moduleFlagLocal:            true,
+			},
+			"token",
+		)
+
+		args := parseStructFromCtx[reloadModuleArgs](cCtx)
+		// Verify that args.PartID is empty (not set via --part-id flag) and CloudConfig is set
+		test.That(t, args.PartID, test.ShouldBeEmpty)
+		test.That(t, args.CloudConfig, test.ShouldEqual, cloudConfigPath)
+
+		// Verify that resolvePartID correctly extracts the part ID from the cloud config
+		partID, err := resolvePartID(args.PartID, args.CloudConfig)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, partID, test.ShouldEqual, "cloud-config-part-id")
 	})
 }
 
@@ -332,5 +403,159 @@ func TestMutateModuleConfig(t *testing.T) {
 		test.That(t, modules[0]["reload_path"], test.ShouldEqual, remoteReloadPath)
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
 		test.That(t, modules[0]["version"], test.ShouldEqual, expectedVersion)
+	})
+}
+
+func TestReloadWithMissingBuildSection(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	t.Run("reload-local with missing build section", func(t *testing.T) {
+		// Create manifest without build section (nil value deletes the key)
+		manifestPath := createTestManifest(t, "", map[string]any{
+			"build": nil,
+		})
+
+		confStruct, err := structpb.NewStruct(map[string]any{
+			"modules": []any{},
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		userInfo, err := structpb.NewStruct(map[string]any{
+			"version":  "0.90.0",
+			"platform": "linux/amd64",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		cCtx, vc, _, _ := setup(
+			mockFullAppServiceClient(confStruct, userInfo, nil),
+			nil,
+			&inject.BuildServiceClient{},
+			map[string]any{
+				moduleFlagPath:        manifestPath,
+				generalFlagPartID:     "part-123",
+				moduleFlagLocal:       true,
+				generalFlagNoProgress: true,
+			},
+			"token",
+		)
+
+		// Test reload-local (cloudBuild=false)
+		err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot have an empty build step")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "required for 'reload' and 'reload-local' commands")
+	})
+
+	t.Run("reload (cloud) with missing build section", func(t *testing.T) {
+		// Create manifest without build section (nil value deletes the key)
+		manifestPath := createTestManifest(t, "", map[string]any{
+			"build": nil,
+		})
+
+		confStruct, err := structpb.NewStruct(map[string]any{
+			"modules": []any{},
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		userInfo, err := structpb.NewStruct(map[string]any{
+			"version":  "0.90.0",
+			"platform": "linux/amd64",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		cCtx, vc, _, _ := setup(
+			mockFullAppServiceClient(confStruct, userInfo, nil),
+			nil,
+			&inject.BuildServiceClient{},
+			map[string]any{
+				moduleFlagPath:        manifestPath,
+				generalFlagPartID:     "part-123",
+				generalFlagNoProgress: true,
+			},
+			"token",
+		)
+
+		// Test reload with cloud build (cloudBuild=true)
+		err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, true)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot have an empty build step")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "required for 'reload' and 'reload-local' commands")
+	})
+
+	t.Run("reload-local with empty build command", func(t *testing.T) {
+		// Create manifest with build section but empty build command
+		manifestPath := createTestManifest(t, "", map[string]any{
+			"build": map[string]any{
+				"path": "module",
+				"arch": []any{"linux/amd64"},
+				// "build" field is missing or empty
+			},
+		})
+
+		confStruct, err := structpb.NewStruct(map[string]any{
+			"modules": []any{},
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		userInfo, err := structpb.NewStruct(map[string]any{
+			"version":  "0.90.0",
+			"platform": "linux/amd64",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		cCtx, vc, _, _ := setup(
+			mockFullAppServiceClient(confStruct, userInfo, nil),
+			nil,
+			&inject.BuildServiceClient{},
+			map[string]any{
+				moduleFlagPath:        manifestPath,
+				generalFlagPartID:     "part-123",
+				moduleFlagLocal:       true,
+				generalFlagNoProgress: true,
+			},
+			"token",
+		)
+
+		err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot have an empty build step")
+	})
+
+	t.Run("reload-local with --no-build flag still requires manifest", func(t *testing.T) {
+		// Create manifest without build section (nil value deletes the key)
+		manifestPath := createTestManifest(t, "", map[string]any{
+			"build": nil,
+		})
+
+		confStruct, err := structpb.NewStruct(map[string]any{
+			"modules": []any{},
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		userInfo, err := structpb.NewStruct(map[string]any{
+			"version":  "0.90.0",
+			"platform": "linux/amd64",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		cCtx, vc, _, _ := setup(
+			mockFullAppServiceClient(confStruct, userInfo, nil),
+			nil,
+			&inject.BuildServiceClient{},
+			map[string]any{
+				moduleFlagPath:         manifestPath,
+				generalFlagPartID:      "part-123",
+				moduleBuildFlagNoBuild: true, // --no-build flag
+				moduleFlagLocal:        true,
+				generalFlagNoProgress:  true,
+			},
+			"token",
+		)
+
+		// Even with --no-build flag, manifest with build section is still required
+		// because it needs to know where to find the already-built artifact
+		err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "manifest required for reload")
 	})
 }

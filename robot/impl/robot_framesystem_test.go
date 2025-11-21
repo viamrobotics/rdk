@@ -139,7 +139,8 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 
 	// expected error as remote parent frame is missing
 	_, err = referenceframe.NewFrameSystem("test", fsCfg.Parts, nil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "references non-existent parent")
+	test.That(t, err.Error(), test.ShouldContainSubstring,
+		"Cannot construct frame system. Some parts are not linked to the world frame")
 
 	// reconfigure to no longer have remote parent frame
 	localConfig = &config.Config{

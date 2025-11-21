@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 
 	pb "go.viam.com/api/component/arm/v1"
 	"gonum.org/v1/gonum/floats"
@@ -11,19 +12,17 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position.
+// Input represents the input to a mutable frame, e.g. a joint angle or a gantry position.
 //   - revolute inputs should be in radians.
 //   - prismatic inputs should be in mm.
-type Input struct {
-	Value float64
-}
+type Input = float64
 
 // JointPositionsFromInputs converts the given slice of Input to a JointPositions struct,
 // using the ProtobufFromInput function provided by the given Frame.
 func JointPositionsFromInputs(f Frame, inputs []Input) (*pb.JointPositions, error) {
 	if f == nil {
 		// if a frame is not provided, we will assume all inputs are specified in degrees and need to be converted to radians
-		return JointPositionsFromRadians(InputsToFloats(inputs)), nil
+		return JointPositionsFromRadians(inputs), nil
 	}
 	if len(f.DoF()) != len(inputs) {
 		return nil, NewIncorrectDoFError(len(inputs), len(f.DoF()))
@@ -36,7 +35,7 @@ func JointPositionsFromInputs(f Frame, inputs []Input) (*pb.JointPositions, erro
 func InputsFromJointPositions(f Frame, jp *pb.JointPositions) ([]Input, error) {
 	if f == nil {
 		// if a frame is not provided, we will assume all inputs are specified in degrees and need to be converted to radians
-		return FloatsToInputs(JointPositionsToRadians(jp)), nil
+		return JointPositionsToRadians(jp), nil
 	}
 	if jp == nil {
 		return nil, errors.New("jointPositions cannot be nil")
@@ -45,24 +44,6 @@ func InputsFromJointPositions(f Frame, jp *pb.JointPositions) ([]Input, error) {
 		return nil, NewIncorrectDoFError(len(jp.Values), len(f.DoF()))
 	}
 	return f.InputFromProtobuf(jp), nil
-}
-
-// FloatsToInputs wraps a slice of floats in Inputs.
-func FloatsToInputs(floats []float64) []Input {
-	inputs := make([]Input, len(floats))
-	for i, f := range floats {
-		inputs[i] = Input{f}
-	}
-	return inputs
-}
-
-// InputsToFloats unwraps Inputs to raw floats.
-func InputsToFloats(inputs []Input) []float64 {
-	floats := make([]float64, len(inputs))
-	for i, f := range inputs {
-		floats[i] = f.Value
-	}
-	return floats
 }
 
 // JointPositionsToRadians converts the given positions into a slice
@@ -91,7 +72,7 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 func interpolateInputs(from, to []Input, by float64) []Input {
 	var newVals []Input
 	for i, j1 := range from {
-		newVals = append(newVals, Input{j1.Value + ((to[i].Value - j1.Value) * by)})
+		newVals = append(newVals, j1+((to[i]-j1)*by))
 	}
 	return newVals
 }
@@ -117,13 +98,38 @@ func (inputs FrameSystemInputs) ComputePoses(fs *FrameSystem) (FrameSystemPoses,
 	// Compute poses from configuration using the FrameSystem
 	computedPoses := make(FrameSystemPoses)
 	for _, frameName := range fs.FrameNames() {
-		pif, err := fs.Transform(inputs, NewZeroPoseInFrame(frameName), World)
+		pif, err := fs.Transform(inputs.ToLinearInputs(), NewZeroPoseInFrame(frameName), World)
 		if err != nil {
 			return nil, err
 		}
 		computedPoses[frameName] = pif.(*PoseInFrame)
 	}
 	return computedPoses, nil
+}
+
+// ToLinearInputs turns this structured map into a flat map of `LinearInputs`. The flat map will
+// internally be in frame name order.
+func (inputs FrameSystemInputs) ToLinearInputs() *LinearInputs {
+	// Using this API can be fragile. "Equivalent" `LinearInputs` must be used for
+	// IK. `LinearInputs` are equivalent if their internal key order is the same. Hence we sort the
+	// frame names here such that multiple calls `ToLinearInputs` on the same `FrameSystemInputs`
+	// will create "equivalent" values that will work when writing out and reading in the values
+	// sent to IK/nlopt.
+	//
+	// Note that "not equivalent" `LinearInputs` are perfectly fine for the `FrameSystem` API. As
+	// that always uses the map access methods.
+	sortedFrameNames := make([]string, 0, len(inputs))
+	for name := range inputs {
+		sortedFrameNames = append(sortedFrameNames, name)
+	}
+	slices.Sort(sortedFrameNames)
+
+	ret := NewLinearInputs()
+	for _, frameName := range sortedFrameNames {
+		ret.Put(frameName, inputs[frameName])
+	}
+
+	return ret
 }
 
 // InputsL2Distance returns the square of the two-norm (the sqrt of the sum of the squares) between two Input sets.
@@ -133,7 +139,7 @@ func InputsL2Distance(from, to []Input) float64 {
 	}
 	diff := make([]float64, 0, len(from))
 	for i, f := range from {
-		diff = append(diff, f.Value-to[i].Value)
+		diff = append(diff, f-to[i])
 	}
 	// 2 is the L value returning a standard L2 Normalization
 	return floats.Norm(diff, 2)
@@ -144,10 +150,12 @@ func InputsLinfDistance(from, to []Input) float64 {
 	if len(from) != len(to) {
 		return math.Inf(1)
 	}
+	//nolint: revive
 	max := 0.
 	for index := range from {
-		norm := math.Abs(from[index].Value - to[index].Value)
+		norm := math.Abs(from[index] - to[index])
 		if norm > max {
+			//nolint: revive
 			max = norm
 		}
 	}

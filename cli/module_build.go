@@ -273,7 +273,7 @@ func ModuleBuildLogsAction(c *cli.Context, args moduleBuildLogsArgs) error {
 
 	var statuses map[string]jobStatus
 	if shouldWait {
-		statuses, err = client.waitForBuildToFinish(buildID, platform)
+		statuses, err = client.waitForBuildToFinish(buildID, platform, nil)
 		if err != nil {
 			return err
 		}
@@ -424,7 +424,12 @@ func (c *viamClient) listModuleBuildJobs(moduleIDFilter string, count *int32, bu
 // waitForBuildToFinish calls listModuleBuildJobs every moduleBuildPollingInterval
 // Will wait until the status of the specified job is DONE or FAILED
 // if platform is empty, it waits for all jobs associated with the ID.
-func (c *viamClient) waitForBuildToFinish(buildID, platform string) (map[string]jobStatus, error) {
+// If pm is not nil, it will show progress spinners for each build step.
+func (c *viamClient) waitForBuildToFinish(
+	buildID string,
+	platform string,
+	pm *ProgressManager,
+) (map[string]jobStatus, error) {
 	// If the platform is not empty, we should check that the platform is actually present on the build
 	// this is mostly to protect against users misspelling the platform
 	if platform != "" {
@@ -436,9 +441,15 @@ func (c *viamClient) waitForBuildToFinish(buildID, platform string) (map[string]
 			return nil, fmt.Errorf("platform %q is not present on build %q", platform, buildID)
 		}
 	}
+
 	statuses := make(map[string]jobStatus)
 	ticker := time.NewTicker(moduleBuildPollingInterval)
 	defer ticker.Stop()
+
+	// Track the last build step to detect changes
+	var lastBuildStep string
+	var currentStepID string
+	var buildStartCompleted bool
 
 	for {
 		select {
@@ -458,14 +469,53 @@ func (c *viamClient) waitForBuildToFinish(buildID, platform string) (map[string]
 				if platform == "" || job.Platform == platform {
 					status := jobStatusFromProto(job.Status)
 					statuses[job.Platform] = status
+
+					// Handle progress spinner for build steps
+					if pm != nil && job.GetBuildStep() != "" && job.GetBuildStep() != lastBuildStep {
+						// On first build step, complete "build-start" with the build ID message
+						if !buildStartCompleted {
+							_ = pm.CompleteWithMessage("build-start", fmt.Sprintf("Build started (ID: %s)", buildID)) //nolint:errcheck
+							buildStartCompleted = true
+						}
+
+						// Complete the previous step if it exists
+						if currentStepID != "" {
+							_ = pm.Complete(currentStepID) //nolint:errcheck
+						}
+
+						// Start a new step with IndentLevel = 1 (child of "Building...")
+						currentStepID = "build-step-" + job.GetBuildStep()
+						newStep := &Step{
+							ID:          currentStepID,
+							Message:     job.GetBuildStep(),
+							Status:      StepPending,
+							IndentLevel: 1,
+						}
+						pm.steps = append(pm.steps, newStep)
+						pm.stepMap[currentStepID] = newStep
+
+						_ = pm.Start(currentStepID) //nolint:errcheck
+						lastBuildStep = job.GetBuildStep()
+					}
+
 					if status != jobStatusDone && status != jobStatusFailed {
 						allDone = false
 						break
 					}
 				}
 			}
-			// If all jobs are done, return
+			// If all jobs are done, complete the last step and return
 			if allDone {
+				if pm != nil {
+					// If build-start was never completed (no build steps received), complete it now
+					if !buildStartCompleted {
+						_ = pm.CompleteWithMessage("build-start", fmt.Sprintf("Build started (ID: %s)", buildID)) //nolint:errcheck
+					}
+					// Complete the last build step
+					if currentStepID != "" {
+						_ = pm.Complete(currentStepID) //nolint:errcheck
+					}
+				}
 				return statuses, nil
 			}
 		}
@@ -500,13 +550,12 @@ func jobStatusFromProto(s buildpb.JobStatus) jobStatus {
 }
 
 type reloadModuleArgs struct {
-	PartID      string
-	Module      string
-	RestartOnly bool
-	NoBuild     bool
-	Local       bool
-	NoProgress  bool
-	CloudBuild  bool
+	PartID     string
+	Module     string
+	NoBuild    bool
+	Local      bool
+	NoProgress bool
+	CloudBuild bool
 
 	// CloudConfig is a path to the `viam.json`, or the config containing the robot ID.
 	CloudConfig  string
@@ -679,10 +728,18 @@ func (c *viamClient) shouldIgnoreFile(relPath string, matcher gitignore.Matcher)
 	return matcher.Match(strings.Split(normalizedPath, "/"), false)
 }
 
-func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID moduleID, manifest *moduleManifest) error {
+func (c *viamClient) ensureModuleRegisteredInCloud(
+	ctx *cli.Context, moduleID moduleID, manifest *moduleManifest, pm *ProgressManager,
+) error {
 	_, err := c.getModule(moduleID)
 	if err != nil {
 		// Module is not registered in the cloud, prompt user for confirmation
+		// Stop the spinner before prompting for user input to avoid interference
+		// with the interactive prompt.
+		if pm != nil {
+			pm.Stop()
+		}
+
 		red := "\033[1;31m%s\033[0m"
 		printf(ctx.App.Writer, red, "Error: module not registered in cloud or you lack permissions to edit it.")
 
@@ -706,6 +763,12 @@ func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID mo
 
 		// If user confirmed, we'll proceed with the reload which will register the module
 		// The registration happens implicitly through the cloud build process
+		// Restart the spinner after user input
+		if pm != nil {
+			if err := pm.Start("register"); err != nil {
+				return err
+			}
+		}
 
 		org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
 		if err != nil {
@@ -727,30 +790,8 @@ func (c *viamClient) ensureModuleRegisteredInCloud(ctx *cli.Context, moduleID mo
 	return nil
 }
 
-// moduleCloudReload triggers a cloud build and then reloads the specified module with that build.
-func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, platform, partID string) (string, error) {
-	manifest, err := loadManifest(args.Module)
-	if err != nil {
-		return "", err
-	}
-
-	// ensure that the module has been registered in the cloud
+func (c *viamClient) inferOrgIDFromManifest(manifest moduleManifest) (string, error) {
 	moduleID, err := parseModuleID(manifest.ModuleID)
-	if err != nil {
-		return "", err
-	}
-
-	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, &manifest)
-	if err != nil {
-		return "", err
-	}
-
-	id := ctx.String(generalFlagID)
-	if id == "" {
-		id = manifest.ModuleID
-	}
-
-	archivePath, err := c.createGitArchive(args.Path)
 	if err != nil {
 		return "", err
 	}
@@ -759,91 +800,241 @@ func (c *viamClient) moduleCloudReload(ctx *cli.Context, args reloadModuleArgs, 
 		return "", err
 	}
 
-	// Upload a package with the bundled local dev code. Note that "reload" is a sentinel
-	// value for hot reloading modules. App expects it; don't change without making a
-	// complimentary update to the app repo
-	reloadSourceVersionFormatted := getReloadVersion(reloadSourceVersionPrefix, partID)
-	resp, err := c.uploadPackage(org.GetId(), moduleID.name, reloadSourceVersionFormatted, "module", archivePath, nil)
+	return org.GetId(), nil
+}
+
+func (c *viamClient) triggerCloudReloadBuild(
+	ctx *cli.Context,
+	args reloadModuleArgs,
+	manifest moduleManifest,
+	archivePath, partID string,
+) (string, error) {
+	stream, err := c.buildClient.StartReloadBuild(ctx.Context)
 	if err != nil {
 		return "", err
 	}
 
-	// get package URL for downloading purposes
-	packageURL, err := c.getPackageDownloadURL(org.GetId(), moduleID.name, reloadSourceVersionFormatted, "module")
+	//nolint:gosec
+	file, err := os.Open(archivePath)
 	if err != nil {
 		return "", err
 	}
 
-	// object ID stringifies as `ObjectID("{actual_id}")` but we only want the actual ID when
-	// passing back to app for package lookup.
-	versionParts := strings.Split(resp.Version, "\"")
-	if len(versionParts) != 3 {
-		return "", errors.Errorf("malformed ID %s", versionParts)
-	}
-	resp.Version = versionParts[1]
-
-	// (TODO RSDK-11531) It'd be nice to add some streaming logs for this so we can see how the progress is going. create a new build
-	// TODO (RSDK-11692) - passing org ID in the ref field and `resp.Version` (which is actually an object ID)
-	// in the token field is pretty hacky, let's fix it up
-	infof(c.c.App.Writer, "Creating a new cloud build and swapping it onto the requested machine part. This may take a few minutes...")
-	reloadVersionFormatted := getReloadVersion(reloadVersionPrefix, partID)
-	buildArgs := moduleBuildStartArgs{
-		Module:    args.Module,
-		Version:   reloadVersionFormatted,
-		Workdir:   args.Workdir,
-		Ref:       org.GetId(),
-		Platforms: []string{platform},
-		Token:     resp.Version,
-	}
-
-	buildID, err := c.moduleBuildStartForRepo(ctx, buildArgs, &manifest, packageURL)
+	orgID, err := c.inferOrgIDFromManifest(manifest)
 	if err != nil {
 		return "", err
 	}
 
-	// ensure the build completes before we try to dowload and use it
-	statuses, err := c.waitForBuildToFinish(buildID, platform)
+	part, err := c.getRobotPart(partID)
 	if err != nil {
 		return "", err
+	}
+
+	if part.Part == nil {
+		return "", fmt.Errorf("part with id=%s not found", partID)
+	}
+
+	if part.Part.UserSuppliedInfo == nil {
+		return "", errors.New("unable to determine platform for part")
+	}
+
+	// App expects `BuildInfo` as the first request
+	platform := part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
+	req := &buildpb.StartReloadBuildRequest{
+		CloudBuild: &buildpb.StartReloadBuildRequest_BuildInfo{
+			BuildInfo: &buildpb.ReloadBuildInfo{
+				Platform: platform,
+				Workdir:  &args.Workdir,
+				ModuleId: manifest.ModuleID,
+			},
+		},
+	}
+	if err := stream.Send(req); err != nil {
+		return "", err
+	}
+
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return "", err
+	}
+	pkgInfo := v1.PackageInfo{
+		OrganizationId: orgID,
+		Name:           moduleID.name,
+		Version:        getReloadVersion(reloadSourceVersionPrefix, partID),
+		Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
+	}
+	reqInner := &v1.CreatePackageRequest{
+		Package: &v1.CreatePackageRequest_Info{
+			Info: &pkgInfo,
+		},
+	}
+	req = &buildpb.StartReloadBuildRequest{
+		CloudBuild: &buildpb.StartReloadBuildRequest_Package{
+			Package: reqInner,
+		},
+	}
+
+	if err := stream.Send(req); err != nil {
+		return "", err
+	}
+
+	var errs error
+	// Suppress the "Uploading... X%" progress bar output since we have our own spinner
+	if err := sendUploadRequests(
+		ctx.Context, stream, file, io.Discard, getNextReloadBuildUploadRequest); err != nil && !errors.Is(err, io.EOF) {
+		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
+	}
+
+	resp, closeErr := stream.CloseAndRecv()
+	if closeErr != nil && !errors.Is(closeErr, io.EOF) {
+		errs = multierr.Combine(errs, closeErr)
+	}
+	return resp.GetBuildId(), errs
+}
+
+func getNextReloadBuildUploadRequest(file *os.File) (*buildpb.StartReloadBuildRequest, int, error) {
+	packagesRequest, byteLen, err := getNextPackageUploadRequest(file)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return &buildpb.StartReloadBuildRequest{
+		CloudBuild: &buildpb.StartReloadBuildRequest_Package{
+			Package: packagesRequest,
+		},
+	}, byteLen, nil
+}
+
+// moduleCloudBuildInfo contains information needed to download a cloud build artifact.
+type moduleCloudBuildInfo struct {
+	ID          string
+	Version     string
+	Platform    string
+	ArchivePath string // Path to the temporary archive that should be deleted after download
+}
+
+// moduleCloudReload triggers a cloud build and returns info needed to download the artifact.
+func (c *viamClient) moduleCloudReload(
+	ctx *cli.Context,
+	args reloadModuleArgs,
+	platform string,
+	manifest moduleManifest,
+	partID string,
+	pm *ProgressManager,
+) (*moduleCloudBuildInfo, error) {
+	// Start the "Preparing for build..." parent step (prints as header)
+	if err := pm.Start("prepare"); err != nil {
+		return nil, err
+	}
+
+	// ensure that the module has been registered in the cloud
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := pm.Start("register"); err != nil {
+		return nil, err
+	}
+	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, &manifest, pm)
+	if err != nil {
+		_ = pm.FailWithMessage("register", "Registration failed")   //nolint:errcheck
+		_ = pm.FailWithMessage("prepare", "Preparing for build...") //nolint:errcheck
+		return nil, err
+	}
+	if err := pm.Complete("register"); err != nil {
+		return nil, err
+	}
+
+	id := ctx.String(generalFlagID)
+	if id == "" {
+		id = manifest.ModuleID
+	}
+
+	if err := pm.Start("archive"); err != nil {
+		return nil, err
+	}
+	archivePath, err := c.createGitArchive(args.Path)
+	if err != nil {
+		_ = pm.FailWithMessage("archive", "Archive creation failed") //nolint:errcheck
+		_ = pm.FailWithMessage("prepare", "Preparing for build...")  //nolint:errcheck
+		return nil, err
+	}
+	if err := pm.Complete("archive"); err != nil {
+		return nil, err
+	}
+
+	if err := pm.Start("upload-source"); err != nil {
+		return nil, err
+	}
+	buildID, err := c.triggerCloudReloadBuild(ctx, args, manifest, archivePath, partID)
+	if err != nil {
+		_ = pm.FailWithMessage("upload-source", "Upload failed")    //nolint:errcheck
+		_ = pm.FailWithMessage("prepare", "Preparing for build...") //nolint:errcheck
+		return nil, err
+	}
+	if err := pm.Complete("upload-source"); err != nil {
+		return nil, err
+	}
+
+	// Complete the "Preparing for build..." parent step AFTER all its children
+	if err := pm.Complete("prepare"); err != nil {
+		return nil, err
+	}
+
+	// Start the "Building..." parent step (prints as header)
+	if err := pm.Start("build"); err != nil {
+		return nil, err
+	}
+
+	// Start "Starting build..." and keep it active until first actual build step
+	if err := pm.Start("build-start"); err != nil {
+		return nil, err
+	}
+
+	// ensure the build completes before we try to download and use it
+	// waitForBuildToFinish will complete "build-start" when first build step is received
+	statuses, err := c.waitForBuildToFinish(buildID, platform, pm)
+	if err != nil {
+		_ = pm.FailWithMessage("build", "Building...") //nolint:errcheck
+		return nil, err
 	}
 
 	// if the build failed, print the logs and return an error
 	if statuses[platform] == jobStatusFailed {
+		_ = pm.FailWithMessage("build", "Building...") //nolint:errcheck
+
 		// Print error message without exiting (don't use Errorf since it calls os.Exit(1))
 		errorf(c.c.App.Writer, "Build %q failed to complete. Please check the logs below for more information.", buildID)
 
 		if err = c.printModuleBuildLogs(buildID, platform); err != nil {
-			return "", err
+			return nil, err
 		}
 
-		return "", errors.Errorf("Reloading module failed")
+		return nil, errors.Errorf("Reloading module failed")
 	}
+	// Note: The "build" parent step will be completed by the caller after downloading artifacts
 
-	downloadArgs := downloadModuleFlags{
-		ID:       id,
-		Version:  reloadVersionFormatted,
-		Platform: platform,
-	}
+	// Return build info so the caller can download the artifact with a spinner
+	return &moduleCloudBuildInfo{
+		ID:          id,
+		Version:     getReloadVersion(reloadVersionPrefix, partID),
+		Platform:    platform,
+		ArchivePath: archivePath,
+	}, nil
+}
 
-	// delete the package now that the build is complete
-	_, err = c.packageClient.DeletePackage(
-		ctx.Context,
-		&v1.DeletePackageRequest{Id: resp.GetId(), Version: reloadSourceVersionFormatted, Type: v1.PackageType_PACKAGE_TYPE_MODULE},
-	)
-	if err != nil {
-		warningf(ctx.App.Writer, "failed to delete reload source code package: %s", err.Error())
-	}
-
-	// delete the archive we created
-	if err := os.Remove(archivePath); err != nil {
-		warningf(ctx.App.Writer, "failed to delete archive at %s", archivePath)
-	}
-
-	return c.downloadModuleAction(ctx, downloadArgs)
+// ReloadModuleLocalAction builds a module locally, configures it on a robot, and starts or restarts it.
+func ReloadModuleLocalAction(c *cli.Context, args reloadModuleArgs) error {
+	return reloadModuleAction(c, args, false)
 }
 
 // ReloadModuleAction builds a module, configures it on a robot, and starts or restarts it.
 func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
+	return reloadModuleAction(c, args, true)
+}
+
+func reloadModuleAction(c *cli.Context, args reloadModuleArgs, cloudBuild bool) error {
 	vc, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -859,7 +1050,7 @@ func ReloadModuleAction(c *cli.Context, args reloadModuleArgs) error {
 		logger = logging.NewDebugLogger("cli")
 	}
 
-	return reloadModuleAction(c, vc, args, logger)
+	return reloadModuleActionInner(c, vc, args, logger, cloudBuild)
 }
 
 func getReloadVersion(versionPrefix, partID string) string {
@@ -870,12 +1061,13 @@ func getReloadVersion(versionPrefix, partID string) string {
 // there are older versions of viam-servet that don't support ~/ file prefix, so lets avoid using them.
 var reloadVersionSupported = semver.MustParse("0.90.0")
 
-// reloadModuleAction is the testable inner reload logic.
-func reloadModuleAction(
+// reloadModuleActionInner is the testable inner reload logic.
+func reloadModuleActionInner(
 	c *cli.Context,
 	vc *viamClient,
 	args reloadModuleArgs,
 	logger logging.Logger,
+	cloudBuild bool,
 ) error {
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	partID, err := resolvePartID(args.PartID, args.CloudConfig)
@@ -934,83 +1126,281 @@ func reloadModuleAction(
 	// CLI will see configuration changes before the robot, and skip to the needsRestart
 	// case on the second call. Because these are triggered by user actions, we're okay
 	// with this behavior, and the robot will eventually converge to what is in config.
-	needsRestart := true
-	var buildPath string
-	if !args.RestartOnly {
-		if !args.NoBuild {
-			if manifest == nil {
-				return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
-			}
-			if !args.CloudBuild {
-				err = moduleBuildLocalAction(c, manifest, environment)
-				buildPath = manifest.Build.Path
-			} else {
-				buildPath, err = vc.moduleCloudReload(c, args, platform, partID)
-			}
-			if err != nil {
-				return err
-			}
-		}
-		if !args.Local {
-			if manifest == nil || manifest.Build == nil || buildPath == "" {
-				return errors.New(
-					"remote reloading requires a meta.json with the 'build.path' field set. " +
-						"try --local if you are testing on the same machine.",
-				)
-			}
-			if err := validateReloadableArchive(c, manifest.Build); err != nil {
-				// if it is a cloud build then it makes sense that we might not have a reloadable
-				// archive locally, so we can safely ignore the error
-				if !args.CloudBuild {
-					return err
-				}
-			}
-			if err := addShellService(c, vc, part.Part, true); err != nil {
-				return err
-			}
-			infof(c.App.Writer, "Copying %s to part %s", buildPath, part.Part.Id)
-			globalArgs, err := getGlobalArgs(c)
-			if err != nil {
-				return err
-			}
-			dest := reloadingDestination(c, manifest)
-			err = vc.copyFilesToFqdn(
-				part.Part.Fqdn, globalArgs.Debug, false, false, []string{buildPath},
-				dest, logging.NewLogger(reloadVersionPrefix), args.NoProgress)
-			if err != nil {
-				if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
-					warningf(c.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
-						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
-						"Alternatively, run the RDK as root.")
-				}
-				return fmt.Errorf("failed copying to part (%v): %w", dest, err)
-			}
-		}
-		var newPart *apppb.RobotPart
-		newPart, needsRestart, err = configureModule(c, vc, manifest, part.Part, args.Local)
-		// if the module has been configured, the cached response we have may no longer accurately reflect
-		// the update, so we set the updated `part.Part`
-		if newPart != nil {
-			part.Part = newPart
-		}
 
+	// Define all steps upfront (build + reload) with clear parent/child relationships
+	allSteps := []*Step{
+		{ID: "prepare", Message: "Preparing for build...", CompletedMsg: "Prepared for build", IndentLevel: 0},
+		{ID: "register", Message: "Ensuring module is registered...", CompletedMsg: "Module is registered", IndentLevel: 1},
+		{ID: "archive", Message: "Creating source code archive...", CompletedMsg: "Source code archive created", IndentLevel: 1},
+		{ID: "upload-source", Message: "Uploading source code...", CompletedMsg: "Source code uploaded", IndentLevel: 1},
+		{ID: "build", Message: "Building...", CompletedMsg: "Built", IndentLevel: 0},
+		{ID: "build-start", Message: "Starting build...", IndentLevel: 1},
+		// Dynamic build steps (e.g., "Spin up environment", "Install dependencies") are added at runtime with IndentLevel: 1
+		{ID: "reload", Message: "Reloading to part...", CompletedMsg: "Reloaded to part", IndentLevel: 0},
+		{ID: "download", Message: "Downloading build artifact...", CompletedMsg: "Build artifact downloaded", IndentLevel: 1},
+		{ID: "shell", Message: "Setting up shell service...", CompletedMsg: "Shell service ready", IndentLevel: 1},
+		{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 1},
+		{ID: "configure", Message: "Configuring module...", CompletedMsg: "Module configured", IndentLevel: 1},
+		{ID: "restart", Message: "Restarting module...", CompletedMsg: "Module restarted successfully", IndentLevel: 1},
+		{ID: "resource", Message: "Adding resource...", CompletedMsg: "Resource added", IndentLevel: 1},
+	}
+
+	pm := NewProgressManager(allSteps, WithProgressOutput(!args.NoProgress))
+	defer pm.Stop()
+
+	var needsRestart bool
+	var buildPath string
+	var buildInfo *moduleCloudBuildInfo
+	if !args.NoBuild {
+		if manifest == nil {
+			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
+		}
+		if manifest.Build == nil || manifest.Build.Build == "" {
+			return errors.New("your meta.json cannot have an empty build step. It is required for 'reload' and 'reload-local' commands")
+		}
+		if !cloudBuild {
+			err = moduleBuildLocalAction(c, manifest, environment)
+			buildPath = manifest.Build.Path
+		} else {
+			buildInfo, err = vc.moduleCloudReload(c, args, platform, *manifest, partID, pm)
+			if err != nil {
+				return err
+			}
+
+			// Complete the build phase before starting reload
+			if err := pm.Complete("build"); err != nil {
+				return err
+			}
+
+			// Download the build artifact with a spinner
+			if err := pm.Start("reload"); err != nil {
+				return err
+			}
+			if err := pm.Start("download"); err != nil {
+				return err
+			}
+			downloadArgs := downloadModuleFlags{
+				ID:          buildInfo.ID,
+				Version:     buildInfo.Version,
+				Platform:    buildInfo.Platform,
+				Destination: ".",
+			}
+			downloadedPath, err := vc.downloadModuleAction(c, downloadArgs)
+			if err != nil {
+				_ = pm.Fail("download", err)                             //nolint:errcheck
+				_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+				return err
+			}
+
+			// Move the downloaded artifact to reload-dist/{platform}.tar.gz
+			platformFile := strings.ReplaceAll(buildInfo.Platform, "/", "-") + ".tar.gz"
+			reloadDistPath := filepath.Join("reload-dist", platformFile)
+
+			// Ensure reload-dist directory exists
+			if err := os.MkdirAll("reload-dist", 0o750); err != nil {
+				_ = pm.Fail("download", err)                             //nolint:errcheck
+				_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+				return fmt.Errorf("failed to create reload-dist directory: %w", err)
+			}
+
+			// Move the file to the new location
+			if err := os.Rename(downloadedPath, reloadDistPath); err != nil {
+				_ = pm.Fail("download", err)                             //nolint:errcheck
+				_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+				return fmt.Errorf("failed to move artifact to reload-dist: %w", err)
+			}
+
+			buildPath = reloadDistPath
+
+			// Clean up the version directory that was created
+			downloadDir := filepath.Dir(downloadedPath)
+			if downloadDir != "." && downloadDir != "" {
+				// Try to remove the version directory - if it fails, it's not critical
+				_ = os.RemoveAll(downloadDir) //nolint:errcheck
+			}
+
+			if err := pm.Complete("download"); err != nil {
+				return err
+			}
+
+			// Delete the archive we created
+			if err := os.Remove(buildInfo.ArchivePath); err != nil {
+				warningf(c.App.Writer, "failed to delete archive at %s", buildInfo.ArchivePath)
+			}
+		}
 		if err != nil {
 			return err
 		}
+	} else {
+		// --no-build flag is set, look for existing artifact
+		if !cloudBuild {
+			// For local builds, use manifest build path if available
+			if manifest == nil || manifest.Build == nil {
+				return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, moduleFlagPath)
+			}
+			buildPath = manifest.Build.Path
+		} else {
+			// For cloud builds, look for artifact in reload-dist directory
+			if platform == "" {
+				return errors.New("unable to determine platform for part")
+			}
+			platformFile := strings.ReplaceAll(platform, "/", "-") + ".tar.gz"
+			artifactPath := filepath.Join("reload-dist", platformFile)
+
+			// Check if file exists
+			if _, err := os.Stat(artifactPath); os.IsNotExist(err) {
+				// Show command to run without --no-build
+				errorf(c.App.ErrWriter, "No existing artifact found for platform %s at %s", platform, artifactPath)
+				infof(c.App.ErrWriter, "To build and reload, run: viam module reload --part-id %s", partID)
+				return fmt.Errorf("no existing artifact found for platform %s", platform)
+			} else if err != nil {
+				return fmt.Errorf("error checking for artifact: %w", err)
+			}
+
+			buildPath = artifactPath
+			infof(c.App.ErrWriter, "Starting reload onto part with existing artifact at: %s...", artifactPath)
+		}
 	}
-	if needsRestart {
-		if err = restartModule(c, vc, part.Part, manifest, logger); err != nil {
+
+	if !args.Local {
+		if manifest == nil || manifest.Build == nil || buildPath == "" {
+			return errors.New(
+				"remote reloading requires a meta.json with the 'build.path' field set. " +
+					"try --local if you are testing on the same machine.",
+			)
+		}
+		if err := validateReloadableArchive(c, manifest.Build); err != nil {
+			// if it is a cloud build then it makes sense that we might not have a reloadable
+			// archive locally, so we can safely ignore the error
+			if !cloudBuild {
+				return err
+			}
+		}
+
+		// Start the "Reloading to part..." parent step if not already started (for local builds with cloud-built artifacts)
+		if !cloudBuild {
+			if err := pm.Start("reload"); err != nil {
+				return err
+			}
+		}
+		if err := pm.Start("shell"); err != nil {
+			return err
+		}
+		shellAdded, err := addShellService(c, vc, logger, part.Part, true)
+		if err != nil {
+			_ = pm.Fail("shell", err)                                //nolint:errcheck
+			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+			return err
+		}
+		if shellAdded {
+			if err := pm.CompleteWithMessage("shell", "Shell service installed"); err != nil {
+				return err
+			}
+		} else {
+			if err := pm.CompleteWithMessage("shell", "Shell service already exists"); err != nil {
+				return err
+			}
+		}
+
+		globalArgs, err := getGlobalArgs(c)
+		if err != nil {
+			return err
+		}
+		dest := reloadingDestination(c, manifest)
+
+		if err := pm.Start("upload"); err != nil {
+			return err
+		}
+		err = vc.retryableCopyToPart(
+			c,
+			part.Part.Fqdn,
+			globalArgs.Debug,
+			[]string{buildPath},
+			dest,
+			logger,
+			partID,
+			pm,
+			vc.copyFilesToFqdn,
+		)
+		if err != nil {
+			_ = pm.Fail("upload", err)                               //nolint:errcheck
+			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+			return err
+		}
+		if err := pm.Complete("upload"); err != nil {
 			return err
 		}
 	} else {
-		infof(c.App.Writer, "Reload complete")
+		// For local builds, start the "Reloading to part..." parent step right before configure
+		if err := pm.Start("reload"); err != nil {
+			return err
+		}
+	}
+
+	if err := pm.Start("configure"); err != nil {
+		return err
+	}
+	var newPart *apppb.RobotPart
+	newPart, needsRestart, err = configureModule(c, vc, manifest, part.Part, args.Local)
+	// if the module has been configured, the cached response we have may no longer accurately reflect
+	// the update, so we set the updated `part.Part`
+	if newPart != nil {
+		part.Part = newPart
+	}
+
+	if err != nil {
+		_ = pm.Fail("configure", err)                            //nolint:errcheck
+		_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+		return err
+	}
+
+	if !needsRestart {
+		if err := pm.CompleteWithMessage("configure", "Module added to part"); err != nil {
+			return err
+		}
+	} else {
+		if err := pm.CompleteWithMessage("configure", "Module already exists on part"); err != nil {
+			return err
+		}
+	}
+
+	if needsRestart {
+		if err := pm.Start("restart"); err != nil {
+			return err
+		}
+		if err = restartModule(c, vc, part.Part, manifest, logger); err != nil {
+			_ = pm.Fail("restart", err)                              //nolint:errcheck
+			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+			return err
+		}
+		if err := pm.Complete("restart"); err != nil {
+			return err
+		}
 	}
 
 	if args.ModelName != "" {
+		if err := pm.Start("resource"); err != nil {
+			return err
+		}
 		if err = vc.addResourceFromModule(c, part.Part, manifest, args.ModelName, args.ResourceName); err != nil {
+			_ = pm.FailWithMessage("resource", fmt.Sprintf("Failed to add resource: %v", err)) //nolint:errcheck
 			warningf(c.App.ErrWriter, "unable to add requested resource to robot config: %s", err)
+		} else {
+			resourceName := args.ResourceName
+			if resourceName == "" {
+				resourceName = args.ModelName
+			}
+			if err := pm.CompleteWithMessage("resource", fmt.Sprintf("Added %s", resourceName)); err != nil {
+				return err
+			}
 		}
 	}
+
+	// Complete the parent "Reloading to part..." step
+	if err := pm.Complete("reload"); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1076,6 +1466,95 @@ func resolvePartID(partIDFromFlag, cloudJSON string) (string, error) {
 	return conf.Cloud.ID, nil
 }
 
+// maxCopyAttempts is the number of times to retry copying files to a part before giving up.
+const maxCopyAttempts = 6
+
+// retryableCopyToPart attempts to copy files to a part using the shell service with retries.
+// It handles progress manager updates for each attempt and provides helpful error messages.
+// The copyFunc parameter allows for mocking in tests.
+func (c *viamClient) retryableCopyToPart(
+	ctx *cli.Context,
+	fqdn string,
+	debug bool,
+	paths []string,
+	dest string,
+	logger logging.Logger,
+	partID string,
+	pm *ProgressManager,
+	copyFunc func(fqdn string, debug, allowRecursion, preserve bool,
+		paths []string, destination string, logger logging.Logger, noProgress bool) error,
+) error {
+	var hadPreviousFailure bool
+
+	for attempt := 1; attempt <= maxCopyAttempts; attempt++ {
+		// If we had a previous failure, create a nested step for this retry
+		var attemptStepID string
+		if hadPreviousFailure {
+			attemptStepID = fmt.Sprintf("upload-attempt-%d", attempt)
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("Upload attempt %d/%d...", attempt, maxCopyAttempts),
+				CompletedMsg: fmt.Sprintf("Upload attempt %d succeeded", attempt),
+				Status:       StepPending,
+				IndentLevel:  2, // Nested under "upload" which is at level 1
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+
+			if err := pm.Start(attemptStepID); err != nil {
+				return err
+			}
+		}
+
+		err := copyFunc(fqdn, debug, false, false, paths, dest, logger, true)
+
+		if err == nil {
+			// Success! Complete the step if this was a retry
+			if attemptStepID != "" {
+				if err := pm.Complete(attemptStepID); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
+		// Handle error
+		hadPreviousFailure = true
+
+		// Print special warning for permission denied errors (in addition to regular error)
+		if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
+			warningf(ctx.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
+				"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
+				"Alternatively, run the RDK as root.")
+		}
+
+		// Create a step for this failed attempt (so it shows in the output)
+		if attemptStepID == "" {
+			// First attempt - create its step retroactively
+			attemptStepID = "upload-attempt-1"
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("Upload attempt 1/%d...", maxCopyAttempts),
+				CompletedMsg: "Upload attempt 1 succeeded",
+				Status:       StepPending,
+				IndentLevel:  2,
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+			if err := pm.Start(attemptStepID); err != nil {
+				return err
+			}
+		}
+
+		// Mark this attempt as failed (this will print the error on next line)
+		_ = pm.Fail(attemptStepID, err) //nolint:errcheck
+	}
+
+	// All attempts failed - return a comprehensive error message
+	return fmt.Errorf("all %d upload attempts failed. You can retry the copy later, "+
+		"skipping the build step with: viam module reload --no-build --part-id %s", maxCopyAttempts, partID)
+}
+
 type resolveTargetModuleArgs struct {
 	Name string
 	ID   string
@@ -1102,6 +1581,38 @@ func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.Resta
 		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, generalFlagID)
 	}
 	return request, nil
+}
+
+type moduleRestartArgs struct {
+	PartID      string
+	Module      string
+	CloudConfig string
+}
+
+// ModuleRestartAction triggers a restart of the requested module.
+func ModuleRestartAction(c *cli.Context, args moduleRestartArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	partID, err := resolvePartID(args.PartID, args.CloudConfig)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.getRobotPart(partID)
+	if err != nil {
+		return err
+	}
+
+	manifest, err := loadManifestOrNil(args.Module)
+	if err != nil {
+		return err
+	}
+	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
+
+	return restartModule(c, client, part.Part, manifest, logger)
 }
 
 // restartModule restarts a module on a robot.
@@ -1141,9 +1652,5 @@ func restartModule(
 	defer robotClient.Close(c.Context) //nolint: errcheck
 	debugf(c.App.Writer, args.Debug, "restarting module %v", restartReq)
 	// todo: make this a stream so '--wait' can tell user what's happening
-	err = robotClient.RestartModule(c.Context, *restartReq)
-	if err == nil {
-		infof(c.App.Writer, "restarted module.")
-	}
-	return err
+	return robotClient.RestartModule(c.Context, *restartReq)
 }

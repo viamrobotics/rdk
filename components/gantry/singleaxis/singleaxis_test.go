@@ -776,7 +776,7 @@ func TestCurrentInputs(t *testing.T) {
 
 	input, err := fakegantry.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, input[0].Value, test.ShouldEqual, 100)
+	test.That(t, input[0], test.ShouldEqual, 100)
 
 	fakegantry = &singleAxis{
 		motor:           createFakeMotor(),
@@ -793,7 +793,7 @@ func TestCurrentInputs(t *testing.T) {
 
 	input, err = fakegantry.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, input[0].Value, test.ShouldEqual, 100)
+	test.That(t, input[0], test.ShouldEqual, 100)
 
 	// out of bounds position
 	fakegantry = &singleAxis{
@@ -855,19 +855,19 @@ func TestGoToInputs(t *testing.T) {
 	err = fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "needs 1 position to move")
 
-	inputs = []referenceframe.Input{{Value: 1.0}, {Value: 2.0}}
+	inputs = []referenceframe.Input{1.0, 2.0}
 	err = fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "needs 1 position to move")
 
-	inputs = []referenceframe.Input{{Value: -1.0}}
+	inputs = []referenceframe.Input{-1.0}
 	err = fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "out of range")
 
-	inputs = []referenceframe.Input{{Value: 4.0}}
+	inputs = []referenceframe.Input{4.0}
 	err = fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "out of range")
 
-	inputs = []referenceframe.Input{{Value: 1.0}}
+	inputs = []referenceframe.Input{1.0}
 	err = fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot move past limit switch")
 

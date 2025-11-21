@@ -258,7 +258,7 @@ func validateMetadata(t *testing.T, bOct *BasicOctree) {
 }
 
 // Helper function to create lopsided octree for testing of recursion depth limit.
-func createLopsidedOctree(oct *BasicOctree, i, max int) *BasicOctree {
+func createLopsidedOctree(oct *BasicOctree, i, max int) *BasicOctree { //nolint: revive
 	if i >= max {
 		return oct
 	}

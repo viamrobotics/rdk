@@ -52,7 +52,10 @@ func (v treeComparableR3Vector) Distance(c kdtree.Comparable) float64 {
 	if !ok {
 		panic("treeComparableR3Vector Distance got wrong data")
 	}
-	return v.vec.Distance(v2.vec)
+	// The contract of a class that implements kdtree.Comparable is that the distance method returns the squared distance.
+	// See https://pkg.go.dev/gonum.org/v1/gonum/spatial/kdtree#Comparable
+	dist := v.vec.Distance(v2.vec)
+	return dist * dist
 }
 
 type kdValues []treeComparableR3Vector
@@ -78,7 +81,8 @@ type kdValuesSlicer struct {
 func (kdv kdValuesSlicer) Len() int { return len(kdv.vs) }
 
 func (kdv kdValuesSlicer) Less(i, j int) bool {
-	return kdv.vs[i].vec.Distance(kdv.vs[j].vec) < 0
+	// Compare by distance from origin (norm)
+	return kdv.vs[i].vec.Norm() < kdv.vs[j].vec.Norm()
 }
 
 func (kdv kdValuesSlicer) Pivot() int { return kdtree.Partition(kdv, kdtree.MedianOfMedians(kdv)) }
@@ -184,10 +188,11 @@ func (kd *KDTree) NearestNeighbor(p r3.Vector) (r3.Vector, Data, float64, bool) 
 	if !ok {
 		panic("Mismatch between tree and point storage.")
 	}
-	return p2.vec, d, dist, true
+	// dist is squared distance, so take square root to return actual distance
+	return p2.vec, d, math.Sqrt(dist), true
 }
 
-func keeperToArray(heap kdtree.Heap, points storage, p r3.Vector, includeSelf bool, max int) []*PointAndData {
+func keeperToArray(heap kdtree.Heap, points storage, p r3.Vector, includeSelf bool, max int) []*PointAndData { //nolint: revive
 	nearestPoints := make([]*PointAndData, 0, heap.Len())
 	for i := 0; i < heap.Len(); i++ {
 		if heap[i].Comparable == nil {
@@ -229,7 +234,8 @@ func (kd *KDTree) KNearestNeighbors(p r3.Vector, k int, includeSelf bool) []*Poi
 // If includeSelf is true and if the point p is in the point cloud, point p will also be returned in the slice
 // as the first element with distance 0.
 func (kd *KDTree) RadiusNearestNeighbors(p r3.Vector, r float64, includeSelf bool) []*PointAndData {
-	keep := kdtree.NewDistKeeper(r)
+	// gonum kdtree uses squared distance, so we need to square the radius
+	keep := kdtree.NewDistKeeper(r * r)
 	kd.tree.NearestSet(keep, &treeComparableR3Vector{p})
 	return keeperToArray(keep.Heap, kd.points, p, includeSelf, math.MaxInt)
 }

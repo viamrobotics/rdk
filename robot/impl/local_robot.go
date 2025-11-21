@@ -488,7 +488,7 @@ func newWithResources(
 	if r.ftdc != nil {
 		r.ftdc.Add("web", r.webSvc.RequestCounter())
 	}
-	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger)
+	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger.Sublogger("framesystem"))
 	if err != nil {
 		return nil, err
 	}
@@ -1119,10 +1119,18 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		switch component.ResourceName().API.SubtypeName {
 		case arm.SubtypeName, gantry.SubtypeName, gripper.SubtypeName: // catch the case for all the ModelFramers
 			model, err = r.extractModelFrameJSON(ctx, component.ResourceName())
-			if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+			if resource.IsNotAvailableError(err) || resource.IsNotFoundError(err) {
 				// When we have non-nil errors here, it is because the resource is not yet available.
 				// In this case, we will exclude it from the FS. When it becomes available, it will be included.
 				continue
+			}
+
+			if err != nil {
+				// If there is an error getting kinematics unrelated to resource availability, log a
+				// warning. It probably impacts correct operation of the application.
+				r.logger.Warnw(
+					"Error getting kinematics. Resource is added to the frame system, but modeling may not work correctly.",
+					"res", component, "err", err)
 			}
 		default:
 		}
@@ -1577,7 +1585,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
-func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
+func (r *localRobot) checkMaxInstance(api resource.API, max int) error { //nolint: revive
 	maxInstance := 0
 	for _, n := range r.ResourceNames() {
 		if n.API == api && !n.ContainsRemoteNames() {
@@ -1722,7 +1730,7 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 
 // Version returns version information about the robot.
 func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
-	return robot.Version()
+	return robot.Version, nil
 }
 
 // reconfigureAllowed returns whether the local robot can reconfigure.

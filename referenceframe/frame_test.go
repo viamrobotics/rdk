@@ -26,12 +26,12 @@ func TestStaticFrame(t *testing.T) {
 	frame, err := NewStaticFrame("test", expPose)
 	test.That(t, err, test.ShouldBeNil)
 	// get expected transform back
-	emptyInput := FloatsToInputs([]float64{})
+	emptyInput := []Input{}
 	pose, err := frame.Transform(emptyInput)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in non-empty input, should get err back
-	nonEmptyInput := FloatsToInputs([]float64{0, 0, 0})
+	nonEmptyInput := []Input{0, 0, 0}
 	_, err = frame.Transform(nonEmptyInput)
 	test.That(t, err, test.ShouldNotBeNil)
 	// check that there are no limits on the static frame
@@ -52,24 +52,24 @@ func TestPrismaticFrame(t *testing.T) {
 
 	// get expected transform back
 	expPose := spatial.NewPoseFromPoint(r3.Vector{3, 4, 0})
-	input := FloatsToInputs([]float64{5})
+	input := []Input{5}
 	pose, err := frame.Transform(input)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostEqual(pose, expPose), test.ShouldBeTrue)
 
 	// if you feed in too many inputs, should get an error back
-	input = FloatsToInputs([]float64{0, 20, 0})
+	input = []Input{0, 20, 0}
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// if you feed in empty input, should get an error
-	input = FloatsToInputs([]float64{})
+	input = []Input{}
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// if you try to move beyond set limits, should get an error
 	overLimit := 50.0
-	input = FloatsToInputs([]float64{overLimit})
+	input = []Input{overLimit}
 	_, err = frame.Transform(input)
 	s := "joint 0 input out of bounds, input 50.00000 needs to be within range [30.00000 -30.00000]"
 	test.That(t, err.Error(), test.ShouldEqual, s)
@@ -82,11 +82,11 @@ func TestPrismaticFrame(t *testing.T) {
 	test.That(t, len(randomInputs), test.ShouldEqual, len(frame.DoF()))
 
 	for i := 0; i < 10; i++ {
-		restrictRandomInputs, err := RestrictedRandomFrameInputs(frame, nil, 0.001, FloatsToInputs([]float64{-10}))
+		restrictRandomInputs, err := RestrictedRandomFrameInputs(frame, nil, 0.001, []Input{-10})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(restrictRandomInputs), test.ShouldEqual, len(frame.DoF()))
-		test.That(t, restrictRandomInputs[0].Value, test.ShouldBeLessThan, -9.07)
-		test.That(t, restrictRandomInputs[0].Value, test.ShouldBeGreaterThan, -10.03)
+		test.That(t, restrictRandomInputs[0], test.ShouldBeLessThan, -9.07)
+		test.That(t, restrictRandomInputs[0], test.ShouldBeGreaterThan, -10.03)
 	}
 }
 
@@ -130,7 +130,7 @@ func TestGeometries(t *testing.T) {
 	// test creating a new translational frame with a geometry
 	tf, err := NewTranslationalFrameWithGeometry("", r3.Vector{0, 1, 0}, Limit{Min: -30, Max: 30}, bc)
 	test.That(t, err, test.ShouldBeNil)
-	geometries, err := tf.Geometries(FloatsToInputs([]float64{10}))
+	geometries, err := tf.Geometries([]Input{10})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.GeometriesAlmostEqual(expectedBox, geometries.Geometries()[0]), test.ShouldBeTrue)
 
@@ -219,7 +219,7 @@ func TestRandomFrameInputs(t *testing.T) {
 
 	limitedFrame, _ := NewTranslationalFrame("", r3.Vector{X: 1}, Limit{-2, 2})
 	for i := 0; i < 100; i++ {
-		r, err := RestrictedRandomFrameInputs(frame, seed, .2, FloatsToInputs([]float64{0}))
+		r, err := RestrictedRandomFrameInputs(frame, seed, .2, []Input{0})
 		test.That(t, err, test.ShouldBeNil)
 		_, err = limitedFrame.Transform(r)
 		test.That(t, err, test.ShouldBeNil)

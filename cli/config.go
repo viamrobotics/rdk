@@ -1,16 +1,23 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+
+	appClient "go.viam.com/rdk/app"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/robot"
+	robotClient "go.viam.com/rdk/robot/client"
 )
 
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
@@ -93,6 +100,11 @@ func removeConfigFromCache() error {
 	return os.Remove(getCLICachePath())
 }
 
+func (conf *Config) updateLastUpdateCheck() error {
+	conf.LastUpdateCheck = time.Now().Format(time.RFC3339)
+	return storeConfigToCache(conf)
+}
+
 func storeConfigToCache(cfg *Config) error {
 	var path string
 
@@ -113,8 +125,8 @@ func storeConfigToCache(cfg *Config) error {
 	return os.WriteFile(path, md, 0o640)
 }
 
-// TODO(RSDK-9727) - `LastUpdateCheck` and `LatestVersion` are no longer used anywhere.
-// Confirm that it's safe to remove these and then get rid of them.
+// TODO(RSDK-9727) - `LatestVersion` is no longer used anywhere. Confirm that it's safe to
+// remove and then get rid of it.
 
 // Config is the schema for saved CLI credentials.
 type Config struct {
@@ -154,4 +166,43 @@ func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
 		return nil, err
 	}
 	return append(opts, conf.Auth.dialOpts()), nil
+}
+
+// ConnectToMachine connects to a Viam machine using the cached CLI token.
+func ConnectToMachine(ctx context.Context, hostname string, logger logging.Logger) (robot.Robot, error) {
+	if hostname == "" {
+		return nil, errors.New("hostname is required")
+	}
+
+	c, err := ConfigFromCache(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	dopts, err := c.DialOptions()
+	if err != nil {
+		return nil, err
+	}
+
+	return robotClient.New(
+		ctx,
+		hostname,
+		logger,
+		robotClient.WithDialOptions(dopts...),
+	)
+}
+
+// ConnectToApp connects to the Viam app using the cached CLI token.
+func ConnectToApp(ctx context.Context, logger logging.Logger) (*appClient.ViamClient, error) {
+	c, err := ConfigFromCache(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	dopts, err := c.DialOptions()
+	if err != nil {
+		return nil, err
+	}
+
+	return appClient.CreateViamClientWithOptions(ctx, appClient.WithDialOptions(dopts...), logger)
 }
