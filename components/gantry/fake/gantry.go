@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/golang/geo/r3"
 
@@ -10,6 +11,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 )
 
@@ -31,15 +33,33 @@ func init() {
 
 // NewGantry returns a new fake gantry.
 func NewGantry(name resource.Name, logger logging.Logger) gantry.Gantry {
+	m := referenceframe.NewSimpleModel("test_gantry")
+	pose := spatialmath.NewZeroPose()
+	carriageGeom, err := spatialmath.NewBox(pose, r3.Vector{150, 150, 10}, "carriage")
+	if err != nil {
+		logger.CErrorf(context.Background(), "could not create carriage geometry: %v", err)
+	}
+	f, err := referenceframe.NewStaticFrameWithGeometry("carriage", pose, carriageGeom)
+	if err != nil {
+		logger.CErrorf(context.Background(), "could not create static frame: %v", err)
+	}
+	m.SetOrdTransforms(append(m.OrdTransforms(), f))
+
+	f, err = referenceframe.NewTranslationalFrame(
+		"gantry_joint", r3.Vector{1, 0, 0}, referenceframe.Limit{Min: 0, Max: 350})
+	if err != nil {
+		logger.CErrorf(context.Background(), "could not create translational frame: %v", err)
+	}
+	m.SetOrdTransforms(append(m.OrdTransforms(), f))
+
 	return &Gantry{
 		testutils.NewUnimplementedResource(name),
 		resource.TriviallyReconfigurable{},
 		resource.TriviallyCloseable{},
-		[]float64{1.2},
 		[]float64{120},
-		[]float64{5},
-		2,
-		r3.Vector{X: 1, Y: 0, Z: 0},
+		[]float64{120},
+		[]float64{350},
+		m,
 		logger,
 	}
 }
@@ -51,9 +71,8 @@ type Gantry struct {
 	resource.TriviallyCloseable
 	positionsMm    []float64
 	speedsMmPerSec []float64
-	lengths        []float64
-	lengthMeters   float64
-	frame          r3.Vector
+	lengthsMm      []float64
+	model          referenceframe.Model
 	logger         logging.Logger
 }
 
@@ -64,7 +83,7 @@ func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]
 
 // Lengths returns the position in meters.
 func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	return g.lengths, nil
+	return g.lengthsMm, nil
 }
 
 // Home runs the homing sequence of the gantry and returns true once completed.
@@ -75,6 +94,12 @@ func (g *Gantry) Home(ctx context.Context, extra map[string]interface{}) (bool, 
 
 // MoveToPosition is in meters.
 func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error {
+	for i, position := range positionsMm {
+		if position < 0 || position > g.lengthsMm[i] {
+			return fmt.Errorf("position %v out of range [0, %v]", position, g.lengthsMm[i])
+		}
+	}
+
 	g.positionsMm = positionsMm
 	g.speedsMmPerSec = speedsMmPerSec
 	return nil
@@ -90,15 +115,22 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// Kinematics returns the kinematic model associated with the gantry.
-func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Model, error) {
-	m := referenceframe.NewSimpleModel("")
-	f, err := referenceframe.NewTranslationalFrame(g.Name().ShortName(), g.frame, referenceframe.Limit{0, g.lengthMeters})
+// Geometries returns the geometries of the gantry.
+func (g *Gantry) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	inputs, err := g.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	m.SetOrdTransforms(append(m.OrdTransforms(), f))
-	return m, nil
+	gif, err := g.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
+}
+
+// Kinematics returns the kinematic model associated with the gantry.
+func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	return g.model, nil
 }
 
 // CurrentInputs returns positions in the Gantry frame model..
