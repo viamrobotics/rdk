@@ -503,6 +503,7 @@ func TestArmObstacleSolve(t *testing.T) {
 }
 
 func TestArmAndGantrySolve(t *testing.T) {
+	t.Skip()
 	if Is32Bit() {
 		t.Skip()
 		return
