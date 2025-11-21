@@ -1,39 +1,39 @@
 {
-    "name": "single_axis_gantry",
-    "kinematic_param_type": "SVA",
-    "links": [
-      {
-        "id": "carriage",
-        "parent": "world",
+  "name": "single_axis_gantry",
+  "kinematic_param_type": "SVA",
+  "links": [
+    {
+      "id": "carriage",
+      "parent": "world",
+      "translation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "geometry": {
+        "x": 150,
+        "y": 120,
+        "z": 10,
         "translation": {
           "x": 0,
           "y": 0,
           "z": 0
-        },
-        "geometry": {
-          "x": 150,
-          "y": 120,
-          "z": 10,
-          "translation": {
-            "x": 0,
-            "y": 0,
-            "z": 75
-          }
         }
       }
-    ],
-    "joints": [
-      {
-        "id": "gantry_joint",
-        "type": "prismatic",
-        "parent": "carriage",
-        "axis": {
-          "x": 1,
-          "y": 0,
-          "z": 0
-        },
-        "max": 500,
-        "min": 0
-      }
-    ]
-  }
+    }
+  ],
+  "joints": [
+    {
+      "id": "gantry_joint",
+      "type": "prismatic",
+      "parent": "carriage",
+      "axis": {
+        "x": 1,
+        "y": 0,
+        "z": 0
+      },
+      "max": 500,
+      "min": 0
+    }
+  ]
+}
