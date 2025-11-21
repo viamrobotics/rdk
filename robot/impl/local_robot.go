@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -804,6 +805,7 @@ func (r *localRobot) newResource(
 		failedModules := r.manager.moduleManager.FailedModules()
 		var modules string
 		if len(failedModules) > 0 {
+			sort.Strings(failedModules)
 			modules = fmt.Sprintf("May be in failing module: %v; ", failedModules)
 		}
 		return nil, errors.Errorf("unknown resource type: API %v with model %v not registered; "+

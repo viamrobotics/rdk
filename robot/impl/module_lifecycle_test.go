@@ -555,11 +555,22 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	// test that failing modules are properly tracked in failedModules by breaking
 	// and fixing modules and making sure failedModules is updated accordingly.
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
+
+	// force error logs by setting h3 to use an invalid model
+	cfg.Components[2].Model = resource.DefaultModelFamily.WithModel("nonexistent")
+	r.Reconfigure(ctx, &cfg)
 
 	// assert test has one failing module (mod3 with invalid exec path)
 	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: ` +
+			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; ` +
+			`May be in failing module: [mod3]; There may be no module in config that provides this model`).Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
 
 	// Reconfigure working "mod2" with an invalid path; it should be tracked as failing.
 	cfg.Modules[1].ExePath = "/nonexistent/path/to/invalid"
@@ -567,6 +578,13 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 
 	// assert that "mod2" gets added to failedModules
 	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod2", "mod3"})
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: ` +
+			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; ` +
+			`May be in failing module: [mod2 mod3]; There may be no module in config that provides this model`).Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
 
 	// Remove "mod2" from config; it should be removed from FailedModules.
 	cfg.Modules = slices.Delete(cfg.Modules, 1, 2)
@@ -574,9 +592,23 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 
 	// assert that "mod2" gets removed from failedModules
 	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: ` +
+			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; ` +
+			`May be in failing module: [mod3]; There may be no module in config that provides this model`).Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
 
 	// Fix "mod3" by providing a valid path; it should be removed from FailedModules.
 	cfg.Modules[1].ExePath = rtestutils.BuildTempModule(t, "module/testmodule")
 	r.Reconfigure(ctx, &cfg)
 	test.That(t, failedModules(r), test.ShouldBeEmpty)
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: ` +
+			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; ` +
+			`There may be no module in config that provides this model`).Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
 }
