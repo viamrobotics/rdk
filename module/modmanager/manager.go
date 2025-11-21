@@ -278,6 +278,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 				errs[i] = err
 				return
 			}
+			// module started successfully, remove it from failedModules
 			mgr.deleteFromFailedModules(conf.Name)
 		}(i, conf)
 	}
@@ -434,8 +435,9 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	mod.logger.CInfow(ctx, "Existing module process stopped. Starting new module process", "module", conf.Name)
 
 	if err := mgr.startModule(ctx, mod); err != nil {
-		// If re-addition fails, assume all handled resources are orphaned.
+		// could not start module during reconfiguration, add it to failedModules
 		mgr.AddToFailedModules(conf.Name)
+		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
 
@@ -912,9 +914,11 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 
 			err := mgr.attemptRestart(ctx, mod)
 			if err == nil {
+				// restart successful, remove module from failedModules
 				mgr.deleteFromFailedModules(mod.cfg.Name)
 				break
 			}
+			// could not restart crashed module, add it to failedModules
 			mgr.AddToFailedModules(mod.cfg.Name)
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
@@ -1160,8 +1164,6 @@ func (mgr *Manager) UpdateFailedModules(newConfigModules []config.Module) {
 	mgr.failedModulesMu.Lock()
 	defer mgr.failedModulesMu.Unlock()
 
-	// Clear all failed modules at the start of reconfigure.
-	// Modules will be added back as they fail during the reconfigure process.
 	for k := range mgr.failedModules {
 		delete(mgr.failedModules, k)
 	}
