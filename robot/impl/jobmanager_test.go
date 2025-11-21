@@ -74,10 +74,53 @@ func TestJobManagerDurationAndCronFromJson(t *testing.T) {
 func TestJobManagerHistory(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
+	fakeSensorModel := resource.DefaultModelFamily.WithModel("fakesensor")
+	injectSensor := inject.NewSensor("fakesensor")
+	injectSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return map[string]interface{}{"a": 1, "b": 2, "c": 3}, nil
+	}
+	injectSensor.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		if cmd["command"] == "pass" {
+			return nil, nil
+		}
+		return nil, errors.New("fail")
+	}
+	fakeSensorModelPanic := resource.DefaultModelFamily.WithModel("fakesensorPanic")
+	injectSensorPanic := inject.NewSensor("fakesensorPanic")
+	injectSensorPanic.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		panic("panic")
+	}
+	injectSensorPanic.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return nil, nil
+	}
+	resource.RegisterComponent(
+		sensor.API,
+		fakeSensorModel,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return injectSensor, nil
+		}})
+	resource.RegisterComponent(
+		sensor.API,
+		fakeSensorModelPanic,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return injectSensorPanic, nil
+		}})
+
+	// test GetReadings success, DoCommand fail
 	cfg := &config.Config{
 		Components: []resource.Config{
 			{
-				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Model: fakeSensorModel,
 				Name:  "sensor",
 				API:   sensor.API,
 			},
@@ -86,24 +129,56 @@ func TestJobManagerHistory(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "fake sensor",
-					Schedule: "1s",
+					Schedule: "200ms",
 					Resource: "sensor",
 					Method:   "GetReadings",
 				},
 			},
 			{
 				config.JobConfigData{
-					Name:     "test unimplemented",
-					Schedule: "1s",
+					Name:     "test DoCommand",
+					Schedule: "200ms",
 					Resource: "sensor",
 					Method:   "DoCommand",
 					Command: map[string]any{
-						"command": "test unimplemented",
+						"command": "fail",
 					},
 				},
 			},
 		},
 	}
+	// switch to test GetReadings Panic, DoCommand success
+	cfgSwitch := &config.Config{
+		Components: []resource.Config{
+			{
+				Model: fakeSensorModelPanic,
+				Name:  "sensor",
+				API:   sensor.API,
+			},
+		},
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "200ms",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "test DoCommand",
+					Schedule: "200ms",
+					Resource: "sensor",
+					Method:   "DoCommand",
+					Command: map[string]any{
+						"command": "pass",
+					},
+				},
+			},
+		},
+	}
+
 	ctx, ctxCancelFunc := context.WithCancel(context.Background())
 	defer ctxCancelFunc()
 	lr := setupLocalRobot(t, ctx, cfg, logger)
@@ -114,6 +189,7 @@ func TestJobManagerHistory(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer robotClient.Close(ctx)
 
+	//nolint:dupl
 	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
 		tb.Helper()
 		ms, err := robotClient.MachineStatus(ctx)
@@ -125,12 +201,31 @@ func TestJobManagerHistory(t *testing.T) {
 		test.That(tb, len(successJob.RecentSuccessfulRuns), test.ShouldBeGreaterThan, 0)
 		test.That(tb, len(successJob.RecentFailedRuns), test.ShouldEqual, 0)
 
-		failJob, ok := ms.JobStatuses["test unimplemented"]
+		failJob, ok := ms.JobStatuses["test DoCommand"]
 		test.That(tb, ok, test.ShouldBeTrue)
 		test.That(tb, len(failJob.RecentSuccessfulRuns), test.ShouldEqual, 0)
 		test.That(tb, len(failJob.RecentFailedRuns), test.ShouldBeGreaterThan, 0)
 	})
-	// TODO: test flaky job with both successes and panics
+
+	lr.Reconfigure(ctx, cfgSwitch)
+	//nolint:dupl
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+		tb.Helper()
+		ms, err := robotClient.MachineStatus(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, len(ms.JobStatuses), test.ShouldEqual, 2)
+
+		// both ShouldBeGreaterThan because history from previous run remains
+		panicJob, ok := ms.JobStatuses["fake sensor"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		test.That(tb, len(panicJob.RecentSuccessfulRuns), test.ShouldBeGreaterThan, 0)
+		test.That(tb, len(panicJob.RecentFailedRuns), test.ShouldBeGreaterThan, 0)
+
+		successJob, ok := ms.JobStatuses["test DoCommand"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		test.That(tb, len(successJob.RecentSuccessfulRuns), test.ShouldBeGreaterThan, 0)
+		test.That(tb, len(successJob.RecentFailedRuns), test.ShouldBeGreaterThan, 0)
+	})
 }
 
 func TestJobManagerConfigChanges(t *testing.T) {
