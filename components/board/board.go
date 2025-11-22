@@ -132,7 +132,7 @@ type Board interface {
 	// SetPowerMode sets the board to the given power mode. If
 	// provided, the board will exit the given power mode after
 	// the specified duration.
-	SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error
+	SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration, extra map[string]interface{}) error
 
 	// StreamTicks starts a stream of digital interrupt ticks.
 	StreamTicks(ctx context.Context, interrupts []DigitalInterrupt, ch chan Tick,
