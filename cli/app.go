@@ -102,13 +102,14 @@ const (
 	moduleBuildFlagOAuthLink   = "oauth-link"
 	moduleBuildFlagRepo        = "repo"
 
-	mlTrainingFlagName        = "script-name"
-	mlTrainingFlagFramework   = "framework"
-	mlTrainingFlagDraft       = "draft"
-	mlTrainingFlagVisibility  = "visibility"
-	mlTrainingFlagDescription = "description"
-	mlTrainingFlagURL         = "url"
-	mlTrainingFlagArgs        = "args"
+	mlTrainingFlagName             = "script-name"
+	mlTrainingFlagFramework        = "framework"
+	mlTrainingFlagDraft            = "draft"
+	mlTrainingFlagVisibility       = "visibility"
+	mlTrainingFlagDescription      = "description"
+	mlTrainingFlagURL              = "url"
+	mlTrainingFlagArgs             = "args"
+	mlTrainingFlagContainerVersion = "container-version"
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -1923,7 +1924,7 @@ var app = &cli.App{
 									Name:  "from-registry",
 									Usage: "submits custom training job with an existing training script in the registry on data in Viam cloud",
 									UsageText: createUsageText("train submit custom from-registry",
-										[]string{datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName, mlTrainingFlagName, generalFlagVersion},
+										[]string{datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName, mlTrainingFlagName, generalFlagVersion, mlTrainingFlagContainerVersion},
 										true, false,
 									),
 									Flags: []cli.Flag{
@@ -1957,6 +1958,10 @@ var app = &cli.App{
 											Usage:    "version of the ML training script to use for training.",
 											Required: true,
 										},
+										&cli.StringFlag{
+											Name:  mlTrainingFlagContainerVersion,
+											Usage: "ml training container version to use. must be one of the supported types found by calling ListSupportedContainers",
+										},
 										&cli.StringSliceFlag{
 											Name:  mlTrainingFlagArgs,
 											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
@@ -1968,7 +1973,7 @@ var app = &cli.App{
 									Name:  "with-upload",
 									Usage: "submits custom training job with an upload training script on data in Viam cloud",
 									UsageText: createUsageText("train submit custom with-upload",
-										[]string{generalFlagOrgID, datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, generalFlagPath, mlTrainingFlagName},
+										[]string{generalFlagOrgID, datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, generalFlagPath, mlTrainingFlagName, mlTrainingFlagContainerVersion},
 										true, false,
 									),
 									Flags: []cli.Flag{
@@ -2022,6 +2027,10 @@ var app = &cli.App{
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
 											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
+										},
+										&cli.StringFlag{
+											Name:  mlTrainingFlagContainerVersion,
+											Usage: "ml training container version to use. must be one of the supported types found by calling ListSupportedContainers. defaults to the oldest supported",
 										},
 										&cli.StringSliceFlag{
 											Name:  mlTrainingFlagArgs,
