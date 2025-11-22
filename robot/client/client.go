@@ -545,7 +545,7 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) &&
 				errors.Is(grpcErr, context.DeadlineExceeded) {
 				return err
-          
+			}
 			// A context.DeadlineExceeded from the WebRTC dial implies the client is unable to reach
 			// the signaling server, which likely means that the client is offline. In that case, if the errors returned from
 			// grpc dials are also timeouts or mDNS failing to find a candidate, we should remind clients to double-check their internet
