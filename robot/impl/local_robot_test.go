@@ -1369,7 +1369,8 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 		test.ShouldBeError,
 		resource.NewNotAvailableError(
 			base.Named("fake0"),
-			errors.New(`resource build error: unknown resource type: API rdk:component:base with model rdk:builtin:random not registered`),
+			errors.New(`resource build error: unknown resource type: API rdk:component:base with model rdk:builtin:random not registered; `+
+				`There may be no module in config that provides this model`),
 		),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
@@ -1957,7 +1958,8 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotAvailableError(
 				gizmoapi.Named("g"),
-				errors.New(`resource build error: unknown resource type: API acme:component:gizmo with model acme:demo:mygizmo not registered`),
+				errors.New(`resource build error: unknown resource type: API acme:component:gizmo with model acme:demo:mygizmo not registered; `+
+					`There may be no module in config that provides this model`),
 			),
 		)
 		test.That(t, res, test.ShouldBeNil)
@@ -1965,7 +1967,8 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotAvailableError(
 				summationapi.Named("s"),
-				errors.New(`resource build error: unknown resource type: API acme:service:summation with model acme:demo:mysum not registered`),
+				errors.New(`resource build error: unknown resource type: API acme:service:summation with model acme:demo:mysum not registered; `+
+					`There may be no module in config that provides this model`),
 			),
 		)
 		test.That(t, res, test.ShouldBeNil)
@@ -2324,7 +2327,8 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 	test.That(t, err, test.ShouldBeError,
 		resource.NewNotAvailableError(
 			gizmoapi.Named("g"),
-			errors.New(`resource build error: unknown resource type: API acme:component:gizmo with model acme:demo:mygizmo not registered`),
+			errors.New(`resource build error: unknown resource type: API acme:component:gizmo with model acme:demo:mygizmo not registered; `+
+				`There may be no module in config that provides this model`),
 		),
 	)
 	test.That(t, res, test.ShouldBeNil)
@@ -2539,7 +2543,8 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeError,
 			resource.NewNotAvailableError(
 				generic.Named("h"),
-				errors.New(`resource build error: unknown resource type: API rdk:component:generic with model rdk:test:helper not registered`),
+				errors.New(`resource build error: unknown resource type: API rdk:component:generic with model rdk:test:helper not registered; `+
+					`May be in failing module: [mod]; There may be no module in config that provides this model`),
 			),
 		)
 	})
