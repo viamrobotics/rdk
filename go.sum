@@ -1000,8 +1000,6 @@ github.com/viam-labs/motion-tools v0.11.8 h1:3T+/46TSGrDkUQ8jF2onXhRC63cFNm2eWY8
 github.com/viam-labs/motion-tools v0.11.8/go.mod h1:ssOehj02YwtsJ4wEJqjrfpPQ43ZoU8ppXH8JIfocY1w=
 github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWjpfc=
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
-github.com/viamrobotics/goutils v0.3.2-0.20251120231212-869dc70bfbdd h1:UPR17n8wEqSB+9pojeXsu7Rrf4wjIDjX8gA8MZOsCT0=
-github.com/viamrobotics/goutils v0.3.2-0.20251120231212-869dc70bfbdd/go.mod h1:cV1ZiiTxc3FdGR8GBxNBWv8Z2ZJ6YIGJKTXbGRYQxE4=
 github.com/viamrobotics/ice/v2 v2.3.40 h1:H9r4ztsKkxWSn42R4fLvYlaPtpBys1Yj7/MERBtZY0k=
 github.com/viamrobotics/ice/v2 v2.3.40/go.mod h1:MFqB81U1pliDKaXJx2hGHvYKg1PepyEYwEY10828Ve0=
 github.com/viamrobotics/webrtc/v3 v3.99.16 h1:N3OQoWnV9Zg68mTDOq8ymsx2AMpbEjuo1gHWaVd7wB0=
@@ -1112,6 +1110,8 @@ go.viam.com/api v0.1.493 h1:VlOaSQkV2TYGecPHCygSs66vdojBDX3otLCGpLHRM9o=
 go.viam.com/api v0.1.493/go.mod h1:p/am76zx8SZ74V/F4rEAYQIpHaaLUwJgY2q3Uw3FIWk=
 go.viam.com/test v1.2.4 h1:JYgZhsuGAQ8sL9jWkziAXN9VJJiKbjoi9BsO33TW3ug=
 go.viam.com/test v1.2.4/go.mod h1:zI2xzosHdqXAJ/kFqcN+OIF78kQuTV2nIhGZ8EzvaJI=
+go.viam.com/utils v0.3.3 h1:ooWmbBmQoxbt+cfHbcTmuPKcPImuocp/wlW4I67Qfb0=
+go.viam.com/utils v0.3.3/go.mod h1:Pajy4VYaIEKfNSPPZdGL0lfbyncEXdxJ3Z2HxoaDZv0=
 go.yaml.in/yaml/v4 v4.0.0-rc.2 h1:/FrI8D64VSr4HtGIlUtlFMGsm7H7pWTbj6vOLVZcA6s=
 go.yaml.in/yaml/v4 v4.0.0-rc.2/go.mod h1:aZqd9kCMsGL7AuUv/m/PvWLdg5sjJsZ4oHDEnfPPfY0=
 go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 h1:WJhcL4p+YeDxmZWg141nRm7XC8IDmhz7lk5GpadO1Sg=
