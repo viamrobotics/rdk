@@ -146,7 +146,8 @@ func (c *capsule) ToProtobuf() *commonpb.Geometry {
 	}
 }
 
-// CollidesWith checks if the given capsule collides with the given geometry and returns true if it does.
+// CollidesWith checks if the given capsule collides with the given geometry and returns true if it
+// does.
 func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *box:
