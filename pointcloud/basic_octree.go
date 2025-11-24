@@ -281,10 +281,10 @@ func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
 
 // CollidesWith checks if the given octree collides with the given geometry and returns true if it does.
 // A point is in collision if its stored probability is >= confidenceThreshold and if it is at most collisionBufferMM distance away.
-func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBufferMM float64) (bool, error) {
+func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBufferMM float64) (bool, float64, error) {
 	var err error
 	if octree.MaxVal() < octree.confidenceThreshold {
-		return false, nil
+		return false, collisionBufferMM, nil
 	}
 	switch octree.node.nodeType {
 	case internalNode:
@@ -300,7 +300,8 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 				"",
 			)
 			if err != nil {
-				return false, err
+				panic(1)
+				return false, collisionBufferMM, err
 			}
 
 			octree.boxCache.Store(&box)
@@ -309,42 +310,44 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 		}
 
 		// Check whether our geom collides with the area represented by the octree. If false, we can skip
-		collide, err := geom.CollidesWith(box, collisionBufferMM)
+		collide, dist, err := geom.CollidesWith(box, collisionBufferMM)
 		if err != nil {
-			return false, err
+			return false, collisionBufferMM, err
 		}
 		if !collide {
-			return false, nil
+			return false, dist, nil
 		}
+		minDist := 1000000.0
 		for _, child := range octree.node.children {
-			collide, err = child.CollidesWith(geom, collisionBufferMM)
+			collide, dist, err = child.CollidesWith(geom, collisionBufferMM)
 			if err != nil {
-				return false, err
+				return false, collisionBufferMM, err
 			}
 			if collide {
-				return true, nil
+				return true, -1, nil
 			}
+			minDist = min(minDist, dist)
 		}
-		return false, nil
+		return false, minDist, nil
 	case leafNodeEmpty:
-		return false, nil
+		return false, math.Inf(1), nil
 	case leafNodeFilled:
 		return geom.CollidesWith(spatialmath.NewPoint(octree.node.point.P, ""), collisionBufferMM)
 	}
-	return false, errors.New("unknown octree node type")
+	return false, collisionBufferMM, errors.New("unknown octree node type")
 }
 
 // DistanceFrom returns the distance from the given octree to the given geometry.
 // TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, error) {
-	collides, err := octree.CollidesWith(geom, floatEpsilon)
+	collides, dist, err := octree.CollidesWith(geom, floatEpsilon)
 	if err != nil {
 		return math.Inf(1), err
 	}
 	if collides {
 		return -1, nil
 	}
-	return 1, nil
+	return dist, nil
 }
 
 // EncompassedBy returns true if the given octree is within the given geometry.
@@ -479,7 +482,7 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 		// Check if any geometry intersects with this octree region
 		intersects := false
 		for _, geom := range geometries {
-			collides, err := geom.CollidesWith(ocbox, collisionBufferMM)
+			collides, _, err := geom.CollidesWith(ocbox, collisionBufferMM)
 			if err == nil && collides {
 				intersects = true
 				break
@@ -511,7 +514,7 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 
 		// Check collision with each geometry
 		for _, geom := range geometries {
-			collides, err := geom.CollidesWith(pointGeom, collisionBufferMM)
+			collides, _, err := geom.CollidesWith(pointGeom, collisionBufferMM)
 			if err == nil && collides {
 				*accumulator = append(*accumulator, octree.node.point.P)
 				break // Point collides with at least one geometry, no need to check others

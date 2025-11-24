@@ -167,29 +167,44 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 }
 
 // CollidesWith checks if the given mesh collides with the given geometry and returns true if it does.
-func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
+func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *box:
 		// Mesh-ifying the box misses the case where the box encompasses a mesh triangle without its surface intersecting a triangle.
 		encompassed := m.boxIntersectsVertex(other)
 		if encompassed {
-			return true, nil
+			return true, -1, nil
 		}
 		// Convert box to mesh and check triangle collisions
-		return m.collidesWithMesh(other.toMesh(), collisionBufferMM), nil
+		return m.collidesWithMesh(other.toMesh(), collisionBufferMM), collisionBufferMM, nil
 	case *capsule:
 		// Use existing capsule vs mesh distance check
 		// TODO: This is inefficient! Replace with a function with a short-circuit.
 		dist := capsuleVsMeshDistance(other, m)
-		return dist <= collisionBufferMM, nil
+		if dist <= collisionBufferMM {
+			return true, -1, nil
+		}
+		return false, dist, nil
 	case *point:
-		return m.collidesWithSphere(&sphere{pose: NewPoseFromPoint(other.position)}, collisionBufferMM), nil
+		collides := m.collidesWithSphere(&sphere{pose: NewPoseFromPoint(other.position)}, collisionBufferMM)
+		if collides {
+			return true, -1, nil
+		}
+		return false, collisionBufferMM, nil
 	case *sphere:
-		return m.collidesWithSphere(other, collisionBufferMM), nil
+		collides := m.collidesWithSphere(other, collisionBufferMM)
+		if collides {
+			return true, -1, nil
+		}
+		return false, collisionBufferMM, nil
 	case *Mesh:
-		return m.collidesWithMesh(other, collisionBufferMM), nil
+		collides := m.collidesWithMesh(other, collisionBufferMM)
+		if collides {
+			return true, -1, nil
+		}
+		return false, collisionBufferMM, nil
 	default:
-		return true, newCollisionTypeUnsupportedError(m, g)
+		return true, collisionBufferMM, newCollisionTypeUnsupportedError(m, g)
 	}
 }
 
@@ -203,7 +218,7 @@ func (m *Mesh) EncompassedBy(g Geometry) (bool, error) {
 	}
 	// For all other geometry types, check if all vertices of all triangles are inside
 	for _, pt := range m.ToPoints(1) {
-		collides, err := NewPoint(pt, "").CollidesWith(g, defaultCollisionBufferMM)
+		collides, _, err := NewPoint(pt, "").CollidesWith(g, defaultCollisionBufferMM)
 		if err != nil {
 			return false, err
 		}
@@ -251,7 +266,8 @@ func (m *Mesh) boxIntersectsVertex(b *box) bool {
 			}
 			pointMap[key] = pt
 			worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
-			if pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM) {
+			c, _ := pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM)
+			if c {
 				return true
 			}
 		}
@@ -478,7 +494,7 @@ func MeshBoxIntersectionArea(mesh, theBox Geometry) (float64, error) {
 func boxTriangleIntersectionArea(b *box, t *Triangle) (float64, error) {
 	// Quick check if they don't intersect at all
 	mesh := NewMesh(NewZeroPose(), []*Triangle{t}, "")
-	collides, err := b.CollidesWith(mesh, defaultCollisionBufferMM)
+	collides, _, err := b.CollidesWith(mesh, defaultCollisionBufferMM)
 	if err != nil {
 		return -1, err
 	}
@@ -489,7 +505,8 @@ func boxTriangleIntersectionArea(b *box, t *Triangle) (float64, error) {
 	// Check if triangle is fully enclosed by the box
 	enclosed := true
 	for _, pt := range t.Points() {
-		if !pointVsBoxCollision(pt, b, defaultCollisionBufferMM) {
+		c, _ := pointVsBoxCollision(pt, b, defaultCollisionBufferMM)
+		if !c {
 			enclosed = false
 			break
 		}

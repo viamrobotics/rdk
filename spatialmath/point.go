@@ -77,20 +77,36 @@ func (pt *point) ToProtobuf() *commonpb.Geometry {
 }
 
 // CollidesWith checks if the given point collides with the given geometry and returns true if it does.
-func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
+func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
 		return other.CollidesWith(pt, collisionBufferMM)
 	case *box:
-		return pointVsBoxCollision(pt.position, other, collisionBufferMM), nil
+		c, d := pointVsBoxCollision(pt.position, other, collisionBufferMM)
+		return c, d, nil
 	case *sphere:
-		return sphereVsPointDistance(other, pt.position) <= collisionBufferMM, nil
+		// Point-sphere distance is cheap
+		dist := sphereVsPointDistance(other, pt.position)
+		if dist <= collisionBufferMM {
+			return true, -1, nil
+		}
+		return false, dist, nil
 	case *capsule:
-		return capsuleVsPointDistance(other, pt.position) <= collisionBufferMM, nil
+		// Point-capsule distance is cheap
+		dist := capsuleVsPointDistance(other, pt.position)
+		if dist <= collisionBufferMM {
+			return true, -1, nil
+		}
+		return false, dist, nil
 	case *point:
-		return pt.position.Sub(other.position).Norm() <= collisionBufferMM, nil
+		// Point-point distance is cheap
+		dist := pt.position.Sub(other.position).Norm()
+		if dist <= collisionBufferMM {
+			return true, -1, nil
+		}
+		return false, dist, nil
 	default:
-		return true, newCollisionTypeUnsupportedError(pt, g)
+		return true, collisionBufferMM, newCollisionTypeUnsupportedError(pt, g)
 	}
 }
 
@@ -114,13 +130,15 @@ func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 
 // EncompassedBy returns a bool describing if the given point is completely encompassed by the given geometry.
 func (pt *point) EncompassedBy(g Geometry) (bool, error) {
-	return pt.CollidesWith(g, defaultCollisionBufferMM)
+	collides, _, err := pt.CollidesWith(g, defaultCollisionBufferMM)
+	return collides, err
 }
 
 // pointVsBoxCollision takes a box and a point as arguments and returns a bool describing if they are in collision. \
 // true == collision / false == no collision.
-func pointVsBoxCollision(pt r3.Vector, b *box, collisionBufferMM float64) bool {
-	return b.closestPoint(pt).Sub(pt).Norm() <= collisionBufferMM
+func pointVsBoxCollision(pt r3.Vector, b *box, collisionBufferMM float64) (bool, float64) {
+	d := b.closestPoint(pt).Sub(pt).Norm()
+	return d <= collisionBufferMM, d
 }
 
 // pointVsBoxDistance takes a box and a point as arguments and returns a floating point number.  If this number is nonpositive it represents

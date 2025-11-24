@@ -135,7 +135,7 @@ func (pm *planManager) planToDirectJoints(
 	}
 
 	pm.logger.Debugf("want to go to specific joint positions, but path is blocked: %v", err)
-	err = psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
+	_, err = psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: fullConfig,
 		FS:            psc.pc.fs,
 	})

@@ -25,7 +25,10 @@ type Geometry interface {
 	Transform(Pose) Geometry
 
 	// CollidesWith returns a bool describing if the two geometries are within the given float of colliding with each other.
-	CollidesWith(Geometry, float64) (bool, error)
+	// The 2nd return value is -1 if there is a collision, and if not, a lower bound of the distance beteen the objects.
+	// It is meant to be computed quickly.
+	// If it cannot be, should just return buffer
+	CollidesWith(other Geometry, buffer float64) (bool, float64, error)
 
 	// If DistanceFrom is negative, it represents the penetration depth of the two geometries, which are in collision.
 	// Penetration depth magnitude is defined as the minimum translation which would result in the geometries not colliding.

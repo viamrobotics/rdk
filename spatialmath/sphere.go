@@ -94,20 +94,38 @@ func (s *sphere) ToProtobuf() *commonpb.Geometry {
 }
 
 // CollidesWith checks if the given sphere collides with the given geometry and returns true if it does.
-func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
+func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
 		return other.CollidesWith(s, collisionBufferMM)
 	case *sphere:
-		return sphereVsSphereDistance(s, other) <= collisionBufferMM, nil
+		// Sphere-sphere distance is cheap, so we can return it
+		dist := sphereVsSphereDistance(s, other)
+		if dist <= collisionBufferMM {
+			return true, -1, nil
+		}
+		return false, dist, nil
 	case *capsule:
-		return capsuleVsSphereDistance(other, s) <= collisionBufferMM, nil
+		// Capsule-sphere distance is cheap, so we can return it
+		dist := capsuleVsSphereDistance(other, s)
+		if dist <= collisionBufferMM {
+			return true, -1, nil
+		}
+		return false, dist, nil
 	case *box:
-		return sphereVsBoxCollision(s, other, collisionBufferMM), nil
+		if sphereVsBoxCollision(s, other, collisionBufferMM) {
+			return true, -1, nil
+		}
+		return false, collisionBufferMM, nil
 	case *point:
-		return sphereVsPointDistance(s, other.position) <= collisionBufferMM, nil
+		// Point-sphere distance is cheap, so we can return it
+		dist := sphereVsPointDistance(s, other.position)
+		if dist <= collisionBufferMM {
+			return true, -1, nil
+		}
+		return false, dist, nil
 	default:
-		return true, newCollisionTypeUnsupportedError(s, g)
+		return true, collisionBufferMM, newCollisionTypeUnsupportedError(s, g)
 	}
 }
 

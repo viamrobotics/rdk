@@ -11,6 +11,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -76,6 +77,7 @@ func TestOrientationConstraintHelpers(t *testing.T) {
 }
 
 func TestConstraintPath(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	homePos := []referenceframe.Input{0, 0, 0, 0, 0, 0}
 	toPos := []referenceframe.Input{0, 0, 0, 0, 0, 1}
@@ -83,7 +85,7 @@ func TestConstraintPath(t *testing.T) {
 	modelXarm, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	handler := &ConstraintChecker{}
+	handler := NewEmptyConstraintChecker(logger)
 
 	// No constraints, should pass - convert to FS segment
 	fs := referenceframe.NewEmptyFrameSystem("test")
@@ -114,6 +116,7 @@ func TestConstraintPath(t *testing.T) {
 		[]spatial.Geometry{}, // static geometries
 		referenceframe.NewZeroInputs(fs).ToLinearInputs(),
 		&referenceframe.WorldState{},
+		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -121,7 +124,7 @@ func TestConstraintPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, failSeg, test.ShouldBeNil)
 
-	test.That(t, len(handler.StateFSConstraints()), test.ShouldBeGreaterThan, 0)
+	test.That(t, handler.topoConstraint, test.ShouldNotBeNil)
 
 	badInterpPos := []referenceframe.Input{6.2, 0, 0, 0, 0, 0}
 	badSegmentFS := &SegmentFS{
@@ -138,6 +141,8 @@ func TestConstraintPath(t *testing.T) {
 
 func TestLineFollow(t *testing.T) {
 	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	
 	p1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  440,
 		Y:  -447,
@@ -217,6 +222,7 @@ func TestLineFollow(t *testing.T) {
 		[]spatial.Geometry{}, // static geometries
 		startCfg,
 		&referenceframe.WorldState{},
+		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -240,14 +246,16 @@ func TestLineFollow(t *testing.T) {
 
 	// lastGood.StartConfiguration and EndConfiguration should pass constraints
 	stateCheck := &StateFS{Configuration: lastGood.StartConfiguration, FS: fs}
-	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
+	_, err = opt.CheckStateFSConstraints(ctx, stateCheck)
+	test.That(t, err, test.ShouldBeNil)
 
 	stateCheck.Configuration = lastGood.EndConfiguration
-	test.That(t, opt.CheckStateFSConstraints(ctx, stateCheck), test.ShouldBeNil)
+	_, err = opt.CheckStateFSConstraints(ctx, stateCheck)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Check that a deviating configuration will fail
 	stateCheck.Configuration = referenceframe.FrameSystemInputs{m.Name(): mpFail}.ToLinearInputs()
-	err = opt.CheckStateFSConstraints(ctx, stateCheck)
+	_, err = opt.CheckStateFSConstraints(ctx, stateCheck)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "marker")
 }
@@ -307,7 +315,8 @@ func TestCollisionConstraints(t *testing.T) {
 	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
 	test.That(t, err, test.ShouldBeNil)
 
-	collisionConstraints, err := CreateAllCollisionConstraints(
+	handler.collisionConstraints, err = CreateAllCollisionConstraints(
+		fs,
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
@@ -315,9 +324,6 @@ func TestCollisionConstraints(t *testing.T) {
 		defaultCollisionBufferMM,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	for name, constraint := range collisionConstraints {
-		handler.AddStateFSConstraint(name, constraint)
-	}
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
@@ -326,7 +332,7 @@ func TestCollisionConstraints(t *testing.T) {
 				Configuration: referenceframe.FrameSystemInputs{model.Name(): c.input}.ToLinearInputs(),
 				FS:            fs,
 			}
-			err := handler.CheckStateFSConstraints(ctx, stateFS)
+			_, err := handler.CheckStateFSConstraints(ctx, stateFS)
 			test.That(t, err == nil, test.ShouldEqual, c.expected)
 			if err != nil {
 				test.That(t, err.Error(), test.ShouldStartWith, c.failName)
@@ -377,7 +383,8 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
 	test.That(b, err, test.ShouldBeNil)
 
-	collisionConstraints, err := CreateAllCollisionConstraints(
+	handler.collisionConstraints, err = CreateAllCollisionConstraints(
+		fs,
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries.Geometries(),
@@ -385,9 +392,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 		defaultCollisionBufferMM,
 	)
 	test.That(b, err, test.ShouldBeNil)
-	for name, constraint := range collisionConstraints {
-		handler.AddStateFSConstraint(name, constraint)
-	}
+
 	rseed := rand.New(rand.NewSource(1))
 
 	// loop through cases and check constraint handler processes them correctly
@@ -397,7 +402,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 			Configuration: referenceframe.FrameSystemInputs{model.Name(): rfloats}.ToLinearInputs(),
 			FS:            fs,
 		}
-		err = handler.CheckStateFSConstraints(context.Background(), stateFS)
+		_, err = handler.CheckStateFSConstraints(context.Background(), stateFS)
 		test.That(b, err, test.ShouldBeNil)
 	}
 }

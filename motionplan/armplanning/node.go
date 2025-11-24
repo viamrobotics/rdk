@@ -248,7 +248,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	}
 
 	// Ensure the end state is a valid one
-	err = sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
+	_, err = sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: step,
 		FS:            sss.psc.pc.fs,
 	})
