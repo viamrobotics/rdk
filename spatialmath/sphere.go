@@ -113,10 +113,11 @@ func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, floa
 		}
 		return false, dist, nil
 	case *box:
-		if sphereVsBoxCollision(s, other, collisionBufferMM) {
+		col, dist := sphereVsBoxCollision(s, other, collisionBufferMM)
+		if col {
 			return true, -1, nil
 		}
-		return false, collisionBufferMM, nil
+		return false, dist, nil
 	case *point:
 		// Point-sphere distance is cheap, so we can return it
 		dist := sphereVsPointDistance(s, other.position)
@@ -178,11 +179,12 @@ func sphereVsSphereDistance(a, s *sphere) float64 {
 	return a.pose.Point().Sub(s.pose.Point()).Norm() - (a.radius + s.radius)
 }
 
-// sphereVsBoxDistance takes a box and a sphere as arguments and returns a bool describing if they are in collision
-// true == collision / false == no collision.
+// sphereVsBoxCollision takes a box and a sphere as arguments and returns a bool describing if they are in collision
+// true == collision / false == no collision. Also returns the distance estimate.
 // Reference: https://github.com/gszauer/GamePhysicsCookbook/blob/a0b8ee0c39fed6d4b90bb6d2195004dfcf5a1115/Code/Geometry3D.cpp#L326
-func sphereVsBoxCollision(s *sphere, b *box, collisionBufferMM float64) bool {
-	return s.pose.Point().Sub(b.closestPoint(s.pose.Point())).Norm() <= s.radius+collisionBufferMM
+func sphereVsBoxCollision(s *sphere, b *box, collisionBufferMM float64) (bool, float64) {
+	dist := s.pose.Point().Sub(b.closestPoint(s.pose.Point())).Norm() - s.radius
+	return dist <= collisionBufferMM, dist
 }
 
 // sphereVsBoxDistance takes a box and a sphere as arguments and returns a floating point number.  If this number is nonpositive it

@@ -160,10 +160,11 @@ func (b *box) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64
 		}
 		return false, d, nil
 	case *sphere:
-		if sphereVsBoxCollision(other, b, collisionBufferMM) {
+		col, dist := sphereVsBoxCollision(other, b, collisionBufferMM)
+		if col {
 			return true, -1, nil
 		}
-		return false, collisionBufferMM, nil
+		return false, dist, nil
 	case *capsule:
 		col, d := capsuleVsBoxCollision(other, b, collisionBufferMM)
 		return col, d, nil

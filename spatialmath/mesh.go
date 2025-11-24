@@ -176,7 +176,11 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 			return true, -1, nil
 		}
 		// Convert box to mesh and check triangle collisions
-		return m.collidesWithMesh(other.toMesh(), collisionBufferMM), collisionBufferMM, nil
+		collides, dist := m.collidesWithMesh(other.toMesh(), collisionBufferMM)
+		if collides {
+			return true, -1, nil
+		}
+		return false, dist, nil
 	case *capsule:
 		// Use existing capsule vs mesh distance check
 		// TODO: This is inefficient! Replace with a function with a short-circuit.
@@ -186,25 +190,25 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 		}
 		return false, dist, nil
 	case *point:
-		collides := m.collidesWithSphere(&sphere{pose: NewPoseFromPoint(other.position)}, collisionBufferMM)
+		collides, dist := m.collidesWithSphere(&sphere{pose: NewPoseFromPoint(other.position)}, collisionBufferMM)
 		if collides {
 			return true, -1, nil
 		}
-		return false, collisionBufferMM, nil
+		return false, dist, nil
 	case *sphere:
-		collides := m.collidesWithSphere(other, collisionBufferMM)
+		collides, dist := m.collidesWithSphere(other, collisionBufferMM)
 		if collides {
 			return true, -1, nil
 		}
-		return false, collisionBufferMM, nil
+		return false, dist, nil
 	case *Mesh:
-		collides := m.collidesWithMesh(other, collisionBufferMM)
+		collides, dist := m.collidesWithMesh(other, collisionBufferMM)
 		if collides {
 			return true, -1, nil
 		}
-		return false, collisionBufferMM, nil
+		return false, dist, nil
 	default:
-		return true, collisionBufferMM, newCollisionTypeUnsupportedError(m, g)
+		return true, math.Inf(1), newCollisionTypeUnsupportedError(m, g)
 	}
 }
 
@@ -289,21 +293,26 @@ func (m *Mesh) distanceFromSphere(s *sphere) float64 {
 	return minDist
 }
 
-func (m *Mesh) collidesWithSphere(s *sphere, buffer float64) bool {
+func (m *Mesh) collidesWithSphere(s *sphere, buffer float64) (bool, float64) {
 	pt := s.pose.Point()
+	minDist := math.Inf(1)
 	// Transform all triangles to world space once
 	for _, tri := range m.triangles {
 		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose), pt)
-		if closestPt.Sub(pt).Norm() <= s.radius+buffer {
-			return true
+		dist := closestPt.Sub(pt).Norm() - s.radius
+		if dist <= buffer {
+			return true, -1
+		}
+		if dist < minDist {
+			minDist = dist
 		}
 	}
-	return false
+	return false, minDist
 }
 
 // collidesWithMesh checks if this mesh collides with another mesh
 // TODO: This function is *begging* for GPU acceleration.
-func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
+func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64) {
 	// Transform all triangles to world space
 	worldTris1 := make([]*Triangle, len(m.triangles))
 	for i, tri := range m.triangles {
@@ -314,6 +323,7 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
 		worldTris2[i] = tri.Transform(other.pose)
 	}
 
+	minDist := math.Inf(1)
 	// Check if any triangles from either mesh collide.
 	// If two triangles intersect, then the segment between two vertices of one triangle intersects the other triangle.
 	for _, worldTri1 := range worldTris1 {
@@ -327,8 +337,12 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
 				start := p1[i]
 				end := p1[(i+1)%3]
 				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri2)
-				if bestSegPt.Sub(bestTriPt).Norm() <= collisionBufferMM {
-					return true
+				dist := bestSegPt.Sub(bestTriPt).Norm()
+				if dist <= collisionBufferMM {
+					return true, -1
+				}
+				if dist < minDist {
+					minDist = dist
 				}
 			}
 
@@ -337,13 +351,17 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
 				start := p2[i]
 				end := p2[(i+1)%3]
 				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri1)
-				if bestSegPt.Sub(bestTriPt).Norm() <= collisionBufferMM {
-					return true
+				dist := bestSegPt.Sub(bestTriPt).Norm()
+				if dist <= collisionBufferMM {
+					return true, -1
+				}
+				if dist < minDist {
+					minDist = dist
 				}
 			}
 		}
 	}
-	return false
+	return false, minDist
 }
 
 // distanceFromMesh returns the minimum distance between this mesh and another mesh.
