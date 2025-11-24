@@ -65,7 +65,13 @@ func TestOrbManySeeds(t *testing.T) {
 
 		for i := 0; i < 100; i++ {
 			t.Run(fmt.Sprintf("%s-%d", fp, i), func(t *testing.T) {
-				logger := logging.NewTestLogger(t)
+				logger, _, reg := logging.NewObservedTestLoggerWithRegistry(t, t.Name())
+				reg.Update([]logging.LoggerPatternConfig{
+					{
+						Pattern: "*.mp.*",
+						Level:   "WARN",
+					},
+				}, logger)
 
 				req.PlannerOptions.RandomSeed = i
 				plan, _, err := PlanMotion(context.Background(), logger, req)
@@ -91,7 +97,13 @@ func TestPourManySeeds(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		t.Run(fmt.Sprintf("seed-%d", i), func(t *testing.T) {
-			logger := logging.NewTestLogger(t)
+			logger, _, reg := logging.NewObservedTestLoggerWithRegistry(t, t.Name())
+			reg.Update([]logging.LoggerPatternConfig{
+				{
+					Pattern: "*.mp.*",
+					Level:   "WARN",
+				},
+			}, logger)
 
 			req.PlannerOptions.RandomSeed = i
 			plan, _, err := PlanMotion(context.Background(), logger, req)
@@ -174,7 +186,7 @@ func TestSandingLargeMove1(t *testing.T) {
 		return
 	}
 
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewTestLogger(t).Sublogger("mp")
 	ctx := context.Background()
 
 	start := time.Now()
@@ -217,7 +229,7 @@ func TestSandingLargeMove1(t *testing.T) {
 	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
-	solution, err := initRRTSolutions(context.Background(), psc, logger.Sublogger("ik"))
+	solution, err := initRRTSolutions(context.Background(), psc, logger.Sublogger("solve"))
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(solution.steps), test.ShouldEqual, 1)
@@ -316,7 +328,14 @@ func TestPirouette(t *testing.T) {
 		// iterate through pifs and create a plan which gets the arm there
 		for i, p := range pifs {
 			t.Run(fmt.Sprintf("iteration-%d-%d", iter, i), func(t *testing.T) {
-				logger := logging.NewTestLogger(t)
+				logger, _, reg := logging.NewObservedTestLoggerWithRegistry(t, t.Name())
+				reg.Update([]logging.LoggerPatternConfig{
+					{
+						Pattern: "*.mp.*",
+						Level:   "WARN",
+					},
+				}, logger)
+
 				// construct req and get the plan
 				goalState := NewPlanState(map[string]*referenceframe.PoseInFrame{armName: p}, nil)
 

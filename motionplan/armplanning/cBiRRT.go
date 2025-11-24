@@ -63,7 +63,7 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegme
 
 // only used for testin.
 func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]*referenceframe.LinearInputs, error) {
-	initMaps, err := initRRTSolutions(ctx, mp.psc, mp.psc.pc.logger.Sublogger("ik"))
+	initMaps, err := initRRTSolutions(ctx, mp.psc, mp.psc.pc.logger.Sublogger("solve"))
 	if err != nil {
 		return nil, err
 	}
