@@ -115,8 +115,7 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 		total += len(l)
 	}
 
-	logger.Debugf("time to do raw building: %v of %d entries (guess %v)", time.Since(start), total, perSize*defaultNumThreads)
-	logger.Infof("time to do raw building: %v of %d entries", time.Since(start), total)
+	logger.Infof("time to do raw building: %v of %d entries (guess %v)", time.Since(start), total, perSize*defaultNumThreads)
 
 	start = time.Now()
 	ccf.buildInverseCache()
@@ -500,7 +499,8 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	goalPoint := goalPose.Point()
 	n := goalPoint.Norm()
-	logger.Infof("findSeedsForFrame: %s goalPose: %v start: %v norm: %0.2f", frameName, goalPose, start, n)
+	logger.Infof("findSeedsForFrame: %s goalPose: %v start: %v norm: %0.2f maxNorm: %0.2f",
+		frameName, goalPose, logging.FloatArrayFormat{"", start}, n, ssc.rawCache[frameName].maxNorm)
 
 	if n > ssc.rawCache[frameName].maxNorm {
 		return nil, nil, &tooFarError{ssc.rawCache[frameName].maxNorm, n}
@@ -522,7 +522,6 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	for _, b := range boxes {
 		for _, c := range b.entries {
 			distance := myDistance(goalPoint, c.pt)
-
 			if distance > startDistance {
 				// we're further than we started, so don't bother
 				continue
