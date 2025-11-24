@@ -22,7 +22,7 @@ import (
 )
 
 func TestOrbOneSeed(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -51,7 +51,7 @@ func TestOrbOneSeed(t *testing.T) {
 }
 
 func TestOrbManySeeds(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -81,7 +81,7 @@ func TestOrbManySeeds(t *testing.T) {
 }
 
 func TestPourManySeeds(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -106,7 +106,7 @@ func TestPourManySeeds(t *testing.T) {
 }
 
 func TestWineCrazyTouch1(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -132,7 +132,7 @@ func TestWineCrazyTouch1(t *testing.T) {
 }
 
 func TestWineCrazyTouch2(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -169,7 +169,7 @@ func TestWineCrazyTouch2(t *testing.T) {
 func TestSandingLargeMove1(t *testing.T) {
 	name := "ur20-modular"
 
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -240,7 +240,7 @@ func TestSandingLargeMove1(t *testing.T) {
 func TestBadSpray1(t *testing.T) {
 	t.Skip()
 
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -274,7 +274,7 @@ func TestBadSpray1(t *testing.T) {
 }
 
 func TestPirouette(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}

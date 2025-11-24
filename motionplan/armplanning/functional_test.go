@@ -109,7 +109,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 		Goal:             goal,
 		FS:               fs,
 		Options:          opt,
-		ConstraintHander: motionplan.NewEmptyConstraintChecker(),
+		ConstraintHander: motionplan.NewEmptyConstraintChecker(logger),
 		MotionChains:     motionChains,
 		Constraints:      cons,
 	}, nil
@@ -180,6 +180,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 	}
 
 	fsCollisionConstraints, err := motionplan.CreateAllCollisionConstraints(
+		fs,
 		movingRobotGeometries,
 		staticRobotGeometries,
 		nil,
@@ -190,10 +191,9 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		return nil, err
 	}
 
-	constraintHandler := motionplan.NewEmptyConstraintChecker()
-	for name, constraint := range fsCollisionConstraints {
-		constraintHandler.AddStateFSConstraint(name, constraint)
-	}
+	constraintHandler := motionplan.NewEmptyConstraintChecker(logger)
+	constraintHandler.SetCollisionConstraints(fsCollisionConstraints)
+
 	start := map[string][]frame.Input{xarm.Name(): home7}
 	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
@@ -249,6 +249,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	}
 
 	fsCollisionConstraints, err := motionplan.CreateAllCollisionConstraints(
+		fs,
 		movingRobotGeometries,
 		staticRobotGeometries,
 		nil,
@@ -258,10 +259,9 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	constraintHandler := motionplan.NewEmptyConstraintChecker()
-	for name, constraint := range fsCollisionConstraints {
-		constraintHandler.AddStateFSConstraint(name, constraint)
-	}
+	constraintHandler := motionplan.NewEmptyConstraintChecker(logger)
+	constraintHandler.SetCollisionConstraints(fsCollisionConstraints)
+
 	start := map[string][]frame.Input{ur5e.Name(): home6}
 	motionChains, err := motionChainsFromPlanState(fs, goal.poses)
 	if err != nil {
@@ -503,7 +503,8 @@ func TestArmObstacleSolve(t *testing.T) {
 }
 
 func TestArmAndGantrySolve(t *testing.T) {
-	if Is32Bit() {
+	t.Skip()
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -542,7 +543,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 }
 
 func TestMultiArmSolve(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
