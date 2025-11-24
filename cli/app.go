@@ -3402,8 +3402,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Name:  "test-local",
 					Usage: "test training script locally using Docker",
 					UsageText: createUsageText("training-script test-local", []string{
-						trainFlagDatasetFile, trainFlagTrainingScriptDirectory,
-						trainFlagContainerVersion, trainFlagModelOutputDirectory,
+						trainFlagDatasetRoot, trainFlagTrainingScriptDirectory,
+						trainFlagDatasetFile, trainFlagContainerVersion, trainFlagModelOutputDirectory,
 					}, true, false),
 					Description: `Test your training script locally before submitting to the cloud. This runs your training script 
 in a Docker container using the same environment as cloud training.
@@ -3411,18 +3411,35 @@ in a Docker container using the same environment as cloud training.
 REQUIREMENTS:
   - Docker must be installed and running
   - Training script directory must contain setup.py and model/training.py
-  - Dataset must be in JSONL format
+  - Dataset root directory must contain:
+    * dataset.jsonl (or the file specified with --dataset-file)
+    * All image files referenced in the dataset (using relative paths from dataset root)
+
+DATASET ORGANIZATION:
+  The dataset root should be organized so that image paths in dataset.jsonl are relative to it.
+  For example:
+    dataset_root/
+      ├── dataset.jsonl         (contains paths like "data/images/cat.jpg")
+      └── data/
+          └── images/
+              └── cat.jpg
 
 NOTES:
   - Training containers only support linux/x86_64 (amd64) architecture
   - Ensure Docker Desktop has sufficient resources allocated (memory, CPU)
+  - The container's working directory will be set to the dataset root, so relative paths resolve correctly
   - Model output will be saved to the specified output directory on your host machine
 `,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     trainFlagDatasetFile,
-							Usage:    "path to the dataset file (JSONL format)",
+							Name:     trainFlagDatasetRoot,
+							Usage:    "path to the dataset root directory (where dataset.jsonl and image files are located)",
 							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  trainFlagDatasetFile,
+							Usage: "relative path to the dataset file from the dataset root. Defaults to dataset.jsonl",
+							Value: "dataset.jsonl",
 						},
 						&cli.StringFlag{
 							Name: trainFlagTrainingScriptDirectory,
