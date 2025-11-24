@@ -95,6 +95,10 @@ func realMain() error {
 				Pattern: "*.cbirrt",
 				Level:   "INFO",
 			},
+			{
+				Pattern: "*.constraint",
+				Level:   "INFO",
+			},
 		}, logger)
 	}
 

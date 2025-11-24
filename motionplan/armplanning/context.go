@@ -130,7 +130,7 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 		movingRobotGeometries, staticRobotGeometries,
 		start,
 		pc.request.WorldState,
-		pc.logger,
+		pc.logger.Sublogger(".constraint"),
 	)
 	if err != nil {
 		return nil, err
