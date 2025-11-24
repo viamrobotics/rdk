@@ -385,6 +385,8 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 		return nil, nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
 	}
 
+	logger.Debugf("findSeeds goal: %v", goal)
+
 	goalFrame := ""
 	var goalPIF *referenceframe.PoseInFrame
 
@@ -393,13 +395,12 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 		goalPIF = v
 	}
 
-	logger.Infof("goalPIF: %v", goalPIF)
-
 	movingFrame, movingPose, err := ssc.findMovingInfo(start, goalFrame, goalPIF)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	logger.Infof("goalPIF: %v movingFrame: %v movingPose: %v", goalPIF, movingFrame, movingPose)
 	seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, maxSeeds, logger)
 	if err != nil {
 		return nil, nil, err
@@ -480,7 +481,9 @@ func myCost(start, end []float64) float64 {
 	for i, s := range start {
 		d := math.Abs(end[i] - s)
 		cost += (d * m)
-		m *= .5
+		if len(start) == 6 {
+			m *= .25
+		}
 	}
 	return cost
 }
@@ -562,7 +565,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx = 0
-	costCut := 4 * best[0].cost
+	costCut := 5 * best[0].cost
 	for cutIdx < len(best) {
 		if best[cutIdx].cost > costCut {
 			break
