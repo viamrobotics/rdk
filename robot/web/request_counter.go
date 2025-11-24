@@ -295,10 +295,10 @@ func (rc *RequestCounter) createClientInformationFromPC(
 
 // Logs that a particular request limit was exceeded. Outputs the following information
 // (where possible):
-// - Which API method invocation was attempted
-// - Which resource the API method was invoked upon
-// - Which "offending" client caused the limit to be reached (name and IP)
-// - The in-flight and rejected request counts of all connected clients
+//   - Which API method invocation was attempted
+//   - Which resource the API method was invoked upon
+//   - All fields of the `clientInformation` struct for both the offending client and all
+//     other clients
 func (rc *RequestCounter) logRequestLimitExceeded(
 	apiMethodString, resource string,
 	pc *webrtc.PeerConnection,
