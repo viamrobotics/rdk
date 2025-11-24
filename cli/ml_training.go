@@ -657,7 +657,8 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 	}
 
 	// Validate required paths exist
-	if err := validateLocalTrainingPaths(args.TrainingScriptDirectory, datasetRootAbs, filepath.Join(datasetRootAbs, datasetFileRelative)); err != nil {
+	if err := validateLocalTrainingPaths(args.TrainingScriptDirectory, datasetRootAbs,
+		filepath.Join(datasetRootAbs, datasetFileRelative)); err != nil {
 		return err
 	}
 

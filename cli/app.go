@@ -3433,8 +3433,9 @@ NOTES:
 `,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     trainFlagDatasetRoot,
-							Usage:    "path to the dataset root directory (where dataset.jsonl and image files are located). This is where you ran the 'viam dataset export' command from.",
+							Name: trainFlagDatasetRoot,
+							Usage: "path to the dataset root directory (where dataset.jsonl and image files are located)." +
+								" This is where you ran the 'viam dataset export' command from.",
 							Required: true,
 						},
 						&cli.StringFlag{
