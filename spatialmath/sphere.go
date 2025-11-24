@@ -93,7 +93,9 @@ func (s *sphere) ToProtobuf() *commonpb.Geometry {
 	}
 }
 
-// CollidesWith checks if the given sphere collides with the given geometry and returns true if it does.
+// CollidesWith checks if the given sphere collides with the given geometry and returns true if it
+// does. If there's no collision, the method will return the distance between the sphere and input
+// geometry. If there is a collision, a negative number is returned.
 func (s *sphere) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *Mesh:

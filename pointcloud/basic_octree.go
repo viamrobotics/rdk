@@ -279,8 +279,11 @@ func (octree *BasicOctree) ToProtobuf() *commonpb.Geometry {
 	}
 }
 
-// CollidesWith checks if the given octree collides with the given geometry and returns true if it does.
-// A point is in collision if its stored probability is >= confidenceThreshold and if it is at most collisionBufferMM distance away.
+// CollidesWith checks if the given octree collides with the given geometry and returns true if it
+// does.  A point is in collision if its stored probability is >= confidenceThreshold and if it is
+// at most collisionBufferMM distance away. If there's no collision, the method will return the
+// distance between the octree and input geometry. If there is a collision, a negative number is
+// returned.
 func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBufferMM float64) (bool, float64, error) {
 	var err error
 	if octree.MaxVal() < octree.confidenceThreshold {
@@ -337,7 +340,6 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 }
 
 // DistanceFrom returns the distance from the given octree to the given geometry.
-// TODO (RSDK-3743): Implement BasicOctree Geometry functions.
 func (octree *BasicOctree) DistanceFrom(geom spatialmath.Geometry) (float64, error) {
 	collides, dist, err := octree.CollidesWith(geom, floatEpsilon)
 	if err != nil {

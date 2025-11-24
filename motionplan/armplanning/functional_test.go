@@ -504,7 +504,7 @@ func TestArmObstacleSolve(t *testing.T) {
 
 func TestArmAndGantrySolve(t *testing.T) {
 	t.Skip()
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -543,7 +543,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 }
 
 func TestMultiArmSolve(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}

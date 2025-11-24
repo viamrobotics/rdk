@@ -76,7 +76,9 @@ func (pt *point) ToProtobuf() *commonpb.Geometry {
 	}
 }
 
-// CollidesWith checks if the given point collides with the given geometry and returns true if it does.
+// CollidesWith checks if the given point collides with the given geometry and returns true if it
+// does. If there's no collision, the method will return the distance between the point and input
+// geometry. If there is a collision, a negative number is returned.
 func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
