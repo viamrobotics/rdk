@@ -97,7 +97,6 @@ func TestPourManySeeds(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		t.Run(fmt.Sprintf("seed-%d", i), func(t *testing.T) {
-			logger := logging.NewTestLogger(t)
 			logger, _, reg := logging.NewObservedTestLoggerWithRegistry(t, t.Name())
 			reg.Update([]logging.LoggerPatternConfig{
 				{
