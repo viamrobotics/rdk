@@ -257,13 +257,11 @@ func checkOrientationConstraint(frame string, c OrientationConstraint, from, to,
 // CheckStateFSConstraints will check a given input against all FS state constraints.
 // first is closest obstacle, negative if in collision
 func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *StateFS) (float64, error) {
-	ctx, span := trace.StartSpan(ctx, "CheckStateFSConstraints")
+	_, span := trace.StartSpan(ctx, "CheckStateFSConstraints")
 	defer span.End()
 
 	{
-		_, span := trace.StartSpan(ctx, "Geometries")
 		_, err := state.Geometries()
-		span.End()
 		if err != nil {
 			return 0, err
 		}
@@ -272,9 +270,7 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 	closest := math.Inf(1)
 
 	for name, cFunc := range c.collisionConstraints {
-		_, span := trace.StartSpan(ctx, name)
 		d, err := cFunc(state)
-		span.End()
 		closest = min(closest, d)
 		if err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
@@ -283,9 +279,7 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 	}
 
 	if c.topoConstraint != nil {
-		_, span := trace.StartSpan(ctx, "topo")
 		err := c.topoConstraint(state)
-		span.End()
 		if err != nil {
 			return closest, err
 		}
