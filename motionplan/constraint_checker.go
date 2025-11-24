@@ -383,8 +383,6 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 
 		canSkip := int(min(100, math.Floor(closestObstacle/resolution)))
 		if canSkip > 0 && c.topoConstraint == nil {
-			c.logger.Debugf("in CheckStateFSConstraints, skipping ahead closestObstacle: %0.2f resolution: %0.2f canSkip: %d",
-				closestObstacle, resolution, canSkip)
 			i += canSkip
 		}
 	}
