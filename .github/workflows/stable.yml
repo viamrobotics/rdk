@@ -61,7 +61,7 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   slack-workflow-status:
-    if: ${{ failure() }}
+    if: ${{ !success() }}
     name: Post Workflow Status To Slack
     needs:
       - test

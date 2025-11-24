@@ -225,7 +225,7 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 	}
 
 	sss.goodCost = sss.psc.pc.configurationDistanceFunc(stepArc)
-	sss.logger.Infof("goodCost: %v", sss.goodCost)
+	sss.logger.Infof("goodCost: %0.2f minRatio: %0.2f", sss.goodCost, minRatio)
 	return ratios, minRatio, nil
 }
 
@@ -254,7 +254,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	}
 
 	// Ensure the end state is a valid one
-	err = sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
+	_, err = sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: step,
 		FS:            sss.psc.pc.fs,
 	})
@@ -405,7 +405,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		}
 	}()
 
-	solver, err := ik.CreateCombinedIKSolver(logger, defaultNumThreads, psc.pc.planOpts.GoalThreshold)
+	solver, err := ik.CreateCombinedIKSolver(logger.Sublogger("ik"), defaultNumThreads, psc.pc.planOpts.GoalThreshold)
 	if err != nil {
 		return nil, err
 	}
