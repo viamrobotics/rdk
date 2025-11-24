@@ -286,7 +286,7 @@ func boxVsBoxCollision(a, b *box, collisionBufferMM float64) (bool, float64) {
 	centerDist := b.pose.Point().Sub(a.pose.Point())
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	dist := centerDist.Norm()-(a.boundingSphereR+b.boundingSphereR)
+	dist := centerDist.Norm() - (a.boundingSphereR + b.boundingSphereR)
 	if dist > collisionBufferMM {
 		return false, dist
 	}

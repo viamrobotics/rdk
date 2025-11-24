@@ -38,12 +38,11 @@ type StateFSConstraint func(*StateFS) error
 // first return is closest target
 type CollisionConstraintFunc func(*StateFS) (float64, error)
 
-
 // ConstraintChecker is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
 type ConstraintChecker struct {
 	collisionConstraints map[string]CollisionConstraintFunc
-	topoConstraint StateFSConstraint
+	topoConstraint       StateFSConstraint
 
 	logger logging.Logger
 }
@@ -118,6 +117,7 @@ func NewConstraintChecker(
 	return handler, nil
 }
 
+// SetCollisionConstraints set the collision constraints explicitly
 func (c *ConstraintChecker) SetCollisionConstraints(cs map[string]CollisionConstraintFunc) {
 	c.collisionConstraints = cs
 }
@@ -262,18 +262,21 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 
 	{
 		_, span := trace.StartSpan(ctx, "Geometries")
-		state.Geometries()
+		_, err := state.Geometries()
 		span.End()
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	closest := math.Inf(1)
-	
+
 	for name, cFunc := range c.collisionConstraints {
 		_, span := trace.StartSpan(ctx, name)
 		d, err := cFunc(state)
 		span.End()
 		closest = min(closest, d)
-		if  err != nil {
+		if err != nil {
 			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
 			return -1, errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
 		}
@@ -384,13 +387,12 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 		}
 		lastGood = interpC.Configuration
 
-		canSkip := int(min(100,math.Floor(closestObstacle / resolution)))
-		if err == nil && canSkip > 0 && c.topoConstraint == nil {
+		canSkip := int(min(100, math.Floor(closestObstacle/resolution)))
+		if canSkip > 0 && c.topoConstraint == nil {
 			c.logger.Debugf("in CheckStateFSConstraints, skipping ahead closestObstacle: %0.2f resolution: %0.2f canSkip: %d",
 				closestObstacle, resolution, canSkip)
 			i += canSkip
 		}
-
 	}
 
 	return nil, nil
@@ -487,7 +489,6 @@ func NewCollisionConstraintFS(
 
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
-		
 		// Use FrameSystemGeometries to get all geometries in the frame system
 		internalGeometries, err := state.Geometries()
 		if err != nil {
@@ -507,21 +508,6 @@ func NewCollisionConstraintFS(
 		return collisionCheckFinish(state.FS, internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
 	}
 	return constraint, nil
-}
-
-func justLabels(gs []spatialmath.Geometry) string {
-	s := ""
-	for i, g := range gs {
-		if i > 0 {
-			s += ", "
-		}
-		if g.Label() == "" {
-			s += "?"
-		} else {
-			s += g.Label()
-		}
-	}
-	return s
 }
 
 func collisionCheckFinish(fs *referenceframe.FrameSystem, internalGeoms, static []spatialmath.Geometry, zeroCG *collisionGraph,

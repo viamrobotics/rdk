@@ -142,7 +142,7 @@ func TestConstraintPath(t *testing.T) {
 func TestLineFollow(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-	
+
 	p1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  440,
 		Y:  -447,

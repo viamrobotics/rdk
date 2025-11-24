@@ -321,7 +321,7 @@ func capsuleVsBoxCollision(c *capsule, b *box, collisionBufferMM float64) (bool,
 	centerDist := b.pose.Point().Sub(c.center)
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	dist := centerDist.Norm()-((c.length/2)+b.boundingSphereR)
+	dist := centerDist.Norm() - ((c.length / 2) + b.boundingSphereR)
 	if dist > collisionBufferMM {
 		return false, dist
 	}

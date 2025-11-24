@@ -300,7 +300,6 @@ func (octree *BasicOctree) CollidesWith(geom spatialmath.Geometry, collisionBuff
 				"",
 			)
 			if err != nil {
-				panic(1)
 				return false, collisionBufferMM, err
 			}
 

@@ -197,8 +197,8 @@ type collisionGraph struct {
 	//    - false: collisions will be reported as bools, not numerically. Upon finding a collision, will exit early
 	reportDistances bool
 
-	minDistance      float64
-	minDistancePair  string
+	minDistance     float64
+	minDistancePair string
 }
 
 // newCollisionGraph instantiates a collisionGraph object and checks for collisions between the x and y sets of geometries
@@ -225,9 +225,9 @@ func newCollisionGraph(fs *referenceframe.FrameSystem,
 	cg = &collisionGraph{
 		geometryGraph:   newGeometryGraph(xMap, yMap),
 		reportDistances: reportDistances,
-		minDistance : math.Inf(1),
+		minDistance:     math.Inf(1),
 	}
-	
+
 	var distance float64
 	for xName, xGeometry := range cg.x {
 		for yName, yGeometry := range cg.y {
@@ -250,7 +250,7 @@ func newCollisionGraph(fs *referenceframe.FrameSystem,
 				cg.minDistance = distance
 				cg.minDistancePair = fmt.Sprintf("%s with %s", xName, yName)
 			}
-			
+
 			cg.setDistance(xName, yName, distance)
 			if !reportDistances && distance <= collisionBufferMM {
 				// collision found, can return early
@@ -280,7 +280,6 @@ func (cg *collisionGraph) checkCollision(x, y spatial.Geometry, collisionBufferM
 		if err != nil {
 			return math.Inf(-1), err
 		}
-		x,y = y,x
 	}
 	if col {
 		return math.Inf(-1), err

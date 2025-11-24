@@ -91,7 +91,7 @@ func TestUniqueCollisions(t *testing.T) {
 	internalGeometries, _ := m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	zeroPositionCG, err := newCollisionGraph(
-		referenceframe.NewEmptyFrameSystem(""), 
+		referenceframe.NewEmptyFrameSystem(""),
 		internalGeometries.Geometries(),
 		internalGeometries.Geometries(),
 		nil,
@@ -105,7 +105,7 @@ func TestUniqueCollisions(t *testing.T) {
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	cg, err := newCollisionGraph(
-		referenceframe.NewEmptyFrameSystem(""), 
+		referenceframe.NewEmptyFrameSystem(""),
 		internalGeometries.Geometries(),
 		internalGeometries.Geometries(),
 		zeroPositionCG,
@@ -120,7 +120,7 @@ func TestUniqueCollisions(t *testing.T) {
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	cg, err = newCollisionGraph(
-		referenceframe.NewEmptyFrameSystem(""), 
+		referenceframe.NewEmptyFrameSystem(""),
 		internalGeometries.Geometries(),
 		internalGeometries.Geometries(),
 		zeroPositionCG,
@@ -135,7 +135,7 @@ func TestUniqueCollisions(t *testing.T) {
 	zeroPositionCG.addCollisionSpecification(&expectedCollisions[1])
 
 	cg, err = newCollisionGraph(
-		referenceframe.NewEmptyFrameSystem(""), 
+		referenceframe.NewEmptyFrameSystem(""),
 		internalGeometries.Geometries(),
 		internalGeometries.Geometries(),
 		zeroPositionCG,
