@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
+	"github.com/shirou/gopsutil/v3/mem"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 
@@ -31,9 +32,30 @@ func (tfe *tooFarError) Is(target error) bool {
 	return ok
 }
 
-// Is32Bit returns true if we're on a 32-bit system.
-func Is32Bit() bool {
-	return strconv.IntSize < 64
+var (
+	okForSmartCache          = true
+	okForSmartCacheBadReason = ""
+)
+
+func init() {
+	vm, err := mem.VirtualMemory()
+	if err != nil {
+		panic(err)
+	}
+
+	memGB := vm.Total / (1024 * 1024 * 1024)
+
+	if strconv.IntSize < 64 {
+		okForSmartCache = false
+		okForSmartCacheBadReason = "32-bit system"
+	} else if memGB < 4 {
+		okForSmartCache = false
+		okForSmartCacheBadReason = fmt.Sprintf("not enough ram %v", memGB)
+	}
+}
+// IsTooSmallForCache returns true if we're on a 32-bit system.
+func IsTooSmallForCache() bool {
+	return !okForSmartCache
 }
 
 type smartSeedCacheEntry struct {
@@ -49,8 +71,8 @@ type goalCacheBox struct {
 func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForFrame, error) {
 	ccf := &cacheForFrame{}
 
-	if Is32Bit() {
-		logger.Warnf("not building cache because on 32-bit system")
+	if IsTooSmallForCache() {
+		logger.Warnf("not building cache because " + okForSmartCacheBadReason)
 		return ccf, nil
 	}
 
@@ -352,7 +374,7 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 	_, span := trace.StartSpan(ctx, "smartSeedCache::findSeeds")
 	defer span.End()
 
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		return nil, nil, nil
 	}
 
