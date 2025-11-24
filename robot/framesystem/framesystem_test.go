@@ -178,32 +178,32 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 	// There is a point at (1500, 500, 1300) in the world referenceframe. See if it transforms correctly in each referenceframe.
 	worldPose := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{1500, 500, 1300}))
 	armPt := r3.Vector{500, 0, 0}
-	tf, err := fs.Transform(blankPos, worldPose, "pieceArm")
+	tf, err := fs.Transform(blankPos, worldPose, "pieceArm", nil)
 	test.That(t, err, test.ShouldBeNil)
 	transformPose, _ := tf.(*referenceframe.PoseInFrame)
 	test.That(t, transformPose.Pose().Point().ApproxEqual(armPt), test.ShouldBeTrue)
 
 	sensorPt := r3.Vector{500, 0, 0}
-	tf, err = fs.Transform(blankPos, worldPose, "movement_sensor2")
+	tf, err = fs.Transform(blankPos, worldPose, "movement_sensor2", nil)
 	test.That(t, err, test.ShouldBeNil)
 	transformPose, _ = tf.(*referenceframe.PoseInFrame)
 	test.That(t, transformPose.Pose().Point().ApproxEqual(sensorPt), test.ShouldBeTrue)
 
 	gripperPt := r3.Vector{500, 0, 0}
-	tf, err = fs.Transform(blankPos, worldPose, "pieceGripper")
+	tf, err = fs.Transform(blankPos, worldPose, "pieceGripper", nil)
 	test.That(t, err, test.ShouldBeNil)
 	transformPose, _ = tf.(*referenceframe.PoseInFrame)
 	test.That(t, transformPose.Pose().Point().ApproxEqual(gripperPt), test.ShouldBeTrue)
 
 	cameraPt := r3.Vector{500, 0, 0}
-	tf, err = fs.Transform(blankPos, worldPose, "cameraOver")
+	tf, err = fs.Transform(blankPos, worldPose, "cameraOver", nil)
 	test.That(t, err, test.ShouldBeNil)
 	transformPose, _ = tf.(*referenceframe.PoseInFrame)
 	test.That(t, spatialmath.R3VectorAlmostEqual(transformPose.Pose().Point(), cameraPt, 1e-8), test.ShouldBeTrue)
 
 	// go from camera point to gripper point
 	cameraPose := referenceframe.NewPoseInFrame("cameraOver", spatialmath.NewPoseFromPoint(cameraPt))
-	tf, err = fs.Transform(blankPos, cameraPose, "pieceGripper")
+	tf, err = fs.Transform(blankPos, cameraPose, "pieceGripper", nil)
 	test.That(t, err, test.ShouldBeNil)
 	transformPose, _ = tf.(*referenceframe.PoseInFrame)
 	test.That(t, spatialmath.R3VectorAlmostEqual(transformPose.Pose().Point(), gripperPt, 1e-8), test.ShouldBeTrue)

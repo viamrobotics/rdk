@@ -294,15 +294,15 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	// 2) the frame of the thing we want to move
 	// 3) the frame of the actuating component
 
-	f2w1DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalPIF.Parent()))
+	f2w1DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalPIF.Parent()), nil)
 	if err != nil {
 		return "", nil, err
 	}
-	f2w2DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalFrame))
+	f2w2DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalFrame), nil)
 	if err != nil {
 		return "", nil, err
 	}
-	f2w3DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(frame.Name()))
+	f2w3DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(frame.Name()), nil)
 	if err != nil {
 		return "", nil, err
 	}

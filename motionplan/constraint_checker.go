@@ -60,7 +60,7 @@ func NewConstraintChecker(
 	}
 	handler := NewEmptyConstraintChecker()
 
-	frameSystemGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(fs, seedMap)
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(fs, seedMap, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *ConstraintChecker) addTopoConstraints(
 			fromPoses[f] = b
 			continue
 		}
-		x, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(f), g.Parent())
+		x, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(f), g.Parent(), nil)
 		if err != nil {
 			return err
 		}
@@ -145,7 +145,7 @@ func (c *ConstraintChecker) addTopoConstraints(
 				return fmt.Errorf("in topo constraint, from and to are in different frames %s != %s", fromPIF.Parent(), toPIF.Parent())
 			}
 
-			currPosePIF, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), toPIF.Parent())
+			currPosePIF, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), toPIF.Parent(), state.cache())
 			if err != nil {
 				return err
 			}

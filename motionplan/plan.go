@@ -63,7 +63,7 @@ func NewSimplePlanFromTrajectory(
 	for _, inputNode := range trajAsInputs {
 		poseMap := make(map[string]*referenceframe.PoseInFrame)
 		for frame := range inputNode.Keys() {
-			tf, err := fs.Transform(inputNode, referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World)
+			tf, err := fs.Transform(inputNode, referenceframe.NewPoseInFrame(frame, spatialmath.NewZeroPose()), referenceframe.World, nil)
 			if err != nil {
 				return nil, err
 			}
