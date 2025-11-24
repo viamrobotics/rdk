@@ -84,10 +84,6 @@ func realMain() error {
 				Pattern: "*.ik",
 				Level:   "INFO",
 			},
-			{
-				Pattern: "*.ik",
-				Level:   "INFO",
-			},
 		}, logger)
 	} else {
 		// For regular cmd-plan runs, leave `mp` at DEBUG, and promote underneath loggers to emit
@@ -95,10 +91,6 @@ func realMain() error {
 		reg.Update([]logging.LoggerPatternConfig{
 			{
 				Pattern: "*.mp.*",
-				Level:   "INFO",
-			},
-			{
-				Pattern: "*.constraint",
 				Level:   "INFO",
 			},
 		}, logger)
