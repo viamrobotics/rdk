@@ -88,9 +88,17 @@ func setupModManager(
 		}
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 		for _, m := range modules {
+			// don't have OUE try to restart module
+			if m.restartCancel != nil {
+				m.restartCancel()
+			}
+
 			// managedProcess.Stop waits on the process lock and for all logging to
 			// end before returning.
 			m.process.Stop()
+
+			// wait for any modules' goroutines to complete
+			m.process.Wait()
 		}
 	})
 	return mgr
