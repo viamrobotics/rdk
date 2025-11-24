@@ -80,12 +80,20 @@ func realMain() error {
 				Pattern: "*.mp*",
 				Level:   "DEBUG",
 			},
+			{
+				Pattern: "*.ik",
+				Level:   "INFO",
+			},
 		}, logger)
 	} else {
 		reg.Update([]logging.LoggerPatternConfig{
 			{
 				Pattern: "*.mp",
 				Level:   "DEBUG",
+			},
+			{
+				Pattern: "*.solve",
+				Level:   "INFO",
 			},
 			{
 				Pattern: "*.ik",

@@ -189,7 +189,7 @@ func (pm *planManager) planSingleGoal(
 ) ([]*referenceframe.LinearInputs, error) {
 	ctx, span := trace.StartSpan(ctx, "planSingleGoal")
 	defer span.End()
-	pm.logger.Debug("start configuration", start)
+	pm.logger.Debug("start configuration", logging.FloatArrayFormat{"", start.GetLinearizedInputs()})
 	pm.logger.Debug("going to", goal)
 
 	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goal)
@@ -197,7 +197,11 @@ func (pm *planManager) planSingleGoal(
 		return nil, err
 	}
 
-	planSeed, err := initRRTSolutions(ctx, psc, pm.logger.Sublogger("ik"))
+	for x := range goal {
+		pm.logger.Debugf("start (%s) from %v", x, psc.startPoses[x])
+	}
+
+	planSeed, err := initRRTSolutions(ctx, psc, pm.logger.Sublogger("solve"))
 	if err != nil {
 		return nil, err
 	}
