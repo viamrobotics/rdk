@@ -127,6 +127,7 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 
 type cacheForFrame struct {
 	entriesForCacheBuilding [][]smartSeedCacheEntry
+	totalSize               int
 
 	maxNorm                    float64
 	minCartesian, maxCartesian r3.Vector
@@ -147,9 +148,8 @@ func (cff *cacheForFrame) boxKey(p r3.Vector) string {
 }
 
 var (
-	arm6JogRatios   = []float64{360, 32, 8, 8, 4, 2}
-	arm6JogDivisors = []float64{.05, .1, .2, 1, 1, 1}
-	defaultDivisor  = 10.0
+	arm6JogRatios  = []float64{360, 32, 8, 1, 1, 1}
+	defaultDivisor = 10.0
 )
 
 func totalCacheSizeEstimate(dof int) int {
@@ -213,6 +213,7 @@ func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine [
 
 func (cff *cacheForFrame) buildInverseCache() {
 	cff.boxes = map[string]*goalCacheBox{}
+	cff.totalSize = 0
 
 	for _, l := range cff.entriesForCacheBuilding {
 		for _, e := range l {
@@ -224,6 +225,8 @@ func (cff *cacheForFrame) buildInverseCache() {
 			cff.maxCartesian.X = max(cff.maxCartesian.X, p.X)
 			cff.maxCartesian.Y = max(cff.maxCartesian.Y, p.Y)
 			cff.maxCartesian.Z = max(cff.maxCartesian.Z, p.Z)
+
+			cff.totalSize++
 		}
 	}
 
@@ -590,7 +593,9 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	var divisors []float64
 	if len(frame.DoF()) == 6 {
-		divisors = arm6JogDivisors
+		for _, r := range arm6JogRatios {
+			divisors = append(divisors, min(1, 2/r))
+		}
 	} else {
 		for range len(frame.DoF()) {
 			divisors = append(divisors, 1/defaultDivisor)
@@ -631,7 +636,7 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.L
 			return err
 		}
 
-		cacheBuildLogger.Infof("time to build: %v for: %v", time.Since(start), frameName)
+		cacheBuildLogger.Infof("time to build: %v for: %v size: %d", time.Since(start), frameName, ccf.totalSize)
 
 		sscCacheLock.Lock()
 		sscCache[hash] = ccf
