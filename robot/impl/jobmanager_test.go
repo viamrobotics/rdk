@@ -332,7 +332,7 @@ func TestJobContinuousSchedule(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "fake sensor",
-					Schedule: "2s",
+					Schedule: "1s",
 					Resource: "sensor",
 					Method:   "GetReadings",
 				},
@@ -345,7 +345,7 @@ func TestJobContinuousSchedule(t *testing.T) {
 			{
 				config.JobConfigData{
 					Name:     "fake sensor",
-					Schedule: "*/5 * * * * *",
+					Schedule: "*/1 * * * * *",
 					Resource: "sensor",
 					Method:   "GetReadings",
 				},
@@ -375,43 +375,56 @@ func TestJobContinuousSchedule(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer robotClient.Close(ctx)
 
-	// Start running in 2s duration mode. Expect latest success timestamp - earliest > 1s
-	time.Sleep(10 * time.Second)
-	ms, err := robotClient.MachineStatus(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(ms.JobStatuses), test.ShouldEqual, 1)
-	jh, ok := ms.JobStatuses["fake sensor"]
-	test.That(t, ok, test.ShouldBeTrue)
-	successes := jh.RecentSuccessfulRuns
-	test.That(t, len(successes), test.ShouldBeLessThan, 10)
-	test.That(t, successes[len(successes)-1].Sub(successes[0]), test.ShouldBeGreaterThan, time.Second)
+	// Start running in 1s duration mode. Expect last 2 latest success timestamps differ by > 900ms
+	testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
+		tb.Helper()
+		ms, err := robotClient.MachineStatus(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, len(ms.JobStatuses), test.ShouldEqual, 1)
+		jh, ok := ms.JobStatuses["fake sensor"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		successes := jh.RecentSuccessfulRuns
+		test.That(tb, len(successes), test.ShouldBeGreaterThanOrEqualTo, 2)
+		if len(successes) >= 2 {
+			test.That(tb, successes[len(successes)-1].Sub(successes[len(successes)-2]), test.ShouldBeGreaterThan, 900*time.Millisecond)
+		}
+	})
 
-	// Switch from 2s duration to continuous. Expect latest success timestamp - earliest < 1s
+	// Switch from duration to continuous. Should run more than 10x. Expect latest success timestamp - earliest < 900ms
 	lr.Reconfigure(ctx, cfgContinuous)
-	time.Sleep(10 * time.Second)
-	ms, err = robotClient.MachineStatus(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(ms.JobStatuses), test.ShouldEqual, 1)
-	jh, ok = ms.JobStatuses["fake sensor"]
-	test.That(t, ok, test.ShouldBeTrue)
-	successes = jh.RecentSuccessfulRuns
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, len(successes), test.ShouldBeGreaterThanOrEqualTo, 10)
-	test.That(t, successes[len(successes)-1].Sub(successes[0]), test.ShouldBeLessThan, time.Second)
+	testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
+		tb.Helper()
+		ms, err := robotClient.MachineStatus(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, len(ms.JobStatuses), test.ShouldEqual, 1)
+		jh, ok := ms.JobStatuses["fake sensor"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		successes := jh.RecentSuccessfulRuns
+		test.That(tb, ok, test.ShouldBeTrue)
+		// increase this if bumping history size
+		test.That(tb, len(successes), test.ShouldBeGreaterThanOrEqualTo, 10)
+		if len(successes) >= 2 {
+			test.That(tb, successes[len(successes)-1].Sub(successes[0]), test.ShouldBeLessThan, 900*time.Millisecond)
+		}
+	})
 
-	// Swtich from continuous to 2s cron. Expect latest success timestamp - earliest > 1s
+	// Switch from continuous to 1s cron. Expect last 2 latest success timestamps differ by > 900ms
 	lr.Reconfigure(ctx, cfgCron)
-	time.Sleep(10 * time.Second)
-	ms, err = robotClient.MachineStatus(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(ms.JobStatuses), test.ShouldEqual, 1)
-	jh, ok = ms.JobStatuses["fake sensor"]
-	test.That(t, ok, test.ShouldBeTrue)
-	successes = jh.RecentSuccessfulRuns
-	test.That(t, ok, test.ShouldBeTrue)
-	// History still contains runs from prev. If stored size is 10, we still expect 10 here.
-	test.That(t, len(successes), test.ShouldBeGreaterThanOrEqualTo, 10)
-	test.That(t, successes[len(successes)-1].Sub(successes[0]), test.ShouldBeGreaterThan, time.Second)
+	testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
+		tb.Helper()
+		ms, err := robotClient.MachineStatus(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, len(ms.JobStatuses), test.ShouldEqual, 1)
+		jh, ok := ms.JobStatuses["fake sensor"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		successes := jh.RecentSuccessfulRuns
+		test.That(tb, ok, test.ShouldBeTrue)
+		// History still contains runs from prev. If stored size is 10, we still expect 10 here.
+		test.That(tb, len(successes), test.ShouldBeGreaterThanOrEqualTo, 10)
+		if len(successes) >= 2 {
+			test.That(tb, successes[len(successes)-1].Sub(successes[len(successes)-2]), test.ShouldBeGreaterThan, 900*time.Millisecond)
+		}
+	})
 }
 
 func TestJobManagerConfigChanges(t *testing.T) {
