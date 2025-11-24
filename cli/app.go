@@ -3410,13 +3410,14 @@ in a Docker container using the same environment as cloud training.
 
 REQUIREMENTS:
   - Docker must be installed and running
-  - Training script directory must contain setup.py and model/training.py
+  - Training script directory must contain model/training.py and one of the following files: setup.py, setup.cfg, or pyproject.toml.
   - Dataset root directory must contain:
     * dataset.jsonl (or the file specified with --dataset-file)
     * All image files referenced in the dataset (using relative paths from dataset root)
 
 DATASET ORGANIZATION:
   The dataset root should be organized so that image paths in dataset.jsonl are relative to it.
+  If downloaded with the 'viam dataset export' command, this will happen automatically.
   For example:
     dataset_root/
       ├── dataset.jsonl         (contains paths like "data/images/cat.jpg")
@@ -3433,7 +3434,7 @@ NOTES:
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     trainFlagDatasetRoot,
-							Usage:    "path to the dataset root directory (where dataset.jsonl and image files are located)",
+							Usage:    "path to the dataset root directory (where dataset.jsonl and image files are located). This is where you ran the 'viam dataset export' command from.",
 							Required: true,
 						},
 						&cli.StringFlag{
@@ -3448,9 +3449,9 @@ NOTES:
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:  trainFlagContainerVersion,
-							Usage: "container version to use (e.g., 'tf:2.16'). Defaults to tf:2.16",
-							Value: "tf:2.16",
+							Name:     trainFlagContainerVersion,
+							Usage:    "container version to use (e.g., 'tf:2.16').",
+							Required: true,
 						},
 						&cli.StringFlag{
 							Name:  trainFlagModelOutputDirectory,
