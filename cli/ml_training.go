@@ -176,17 +176,6 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		modelVersion = time.Now().Format("2006-01-02T15-04-05")
 	}
 
-	if containerVersion == "" {
-		res, err := c.mlTrainingClient.ListSupportedContainers(context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
-		if err != nil {
-			return "", err
-		}
-		for k := range res.GetContainerMap() {
-			containerVersion = k
-			break
-		}
-	}
-
 	req := &mltrainingpb.SubmitCustomTrainingJobRequest{
 		DatasetId:           datasetID,
 		RegistryItemId:      registryItemID,

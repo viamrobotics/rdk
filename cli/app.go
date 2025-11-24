@@ -1959,8 +1959,9 @@ var app = &cli.App{
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:  mlTrainingFlagContainerVersion,
-											Usage: "ml training container version to use. must be one of the supported types found by calling ListSupportedContainers",
+											Name:     mlTrainingFlagContainerVersion,
+											Usage:    "ml training container version to use. Must be one of the supported types found by calling ListSupportedContainers",
+											Required: true,
 										},
 										&cli.StringSliceFlag{
 											Name:  mlTrainingFlagArgs,
@@ -2029,8 +2030,9 @@ var app = &cli.App{
 											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
 										},
 										&cli.StringFlag{
-											Name:  mlTrainingFlagContainerVersion,
-											Usage: "ml training container version to use. must be one of the supported types found by calling ListSupportedContainers. defaults to the oldest supported",
+											Name:     mlTrainingFlagContainerVersion,
+											Usage:    "ml training container version to use. Must be one of the supported types found by calling ListSupportedContainers",
+											Required: true,
 										},
 										&cli.StringSliceFlag{
 											Name:  mlTrainingFlagArgs,
