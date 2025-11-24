@@ -48,7 +48,7 @@ func init() {
 	if strconv.IntSize < 64 {
 		okForSmartCache = false
 		okForSmartCacheBadReason = "32-bit system"
-	} else if memGB < 4 {
+	} else if memGB < 2 {
 		okForSmartCache = false
 		okForSmartCacheBadReason = fmt.Sprintf("not enough ram %v", memGB)
 	}
