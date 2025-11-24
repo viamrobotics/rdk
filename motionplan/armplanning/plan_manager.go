@@ -362,7 +362,7 @@ func (pm *planManager) foo(ctx context.Context, start *referenceframe.LinearInpu
 		return err
 	}
 
-	planSeed, err := initRRTSolutions(ctx, psc, pm.logger.Sublogger("ik"))
+	planSeed, err := initRRTSolutions(ctx, psc, pm.logger.Sublogger("solve"))
 	if err != nil {
 		return err
 	}
