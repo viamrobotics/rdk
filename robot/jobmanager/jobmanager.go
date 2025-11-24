@@ -225,6 +225,7 @@ func (jm *JobManager) createJobFunction(jc config.JobConfig, continuous bool) fu
 		}
 		if jc.Method == "DoCommand" {
 			jobLogger.CDebugw(jm.ctx, "Job triggered", "name", jc.Name)
+			// unlike below InvokeRPC, if DoCommand panics there is no recover
 			response, err := res.DoCommand(jm.ctx, jc.Command)
 			if err != nil {
 				jobLogger.CWarnw(jm.ctx, "Job failed", "error", err.Error())
