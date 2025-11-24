@@ -470,7 +470,6 @@ var app = &cli.App{
 				},
 			},
 			Action: createCommandWithT[loginActionArgs](LoginAction),
-			After:  createCommandWithT[emptyArgs](CheckUpdateAction),
 			Subcommands: []*cli.Command{
 				{
 					Name:      "print-access-token",
@@ -3157,6 +3156,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  moduleFlagPath,
 							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
 							Value: "meta.json",
+						},
+						&cli.BoolFlag{
+							Name:  moduleBuildFlagNoBuild,
+							Usage: "don't do build step, reuse existing downloaded artifact",
 						},
 						&cli.BoolFlag{
 							Name:  generalFlagNoProgress,

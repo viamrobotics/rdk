@@ -164,7 +164,7 @@ func (pm *planManager) planToDirectJoints(
 		// panic(1)
 	}
 
-	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
+	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc, pm.logger.Sublogger("cbirrt"))
 	if err != nil {
 		return nil, err
 	}
@@ -197,19 +197,18 @@ func (pm *planManager) planSingleGoal(
 		return nil, err
 	}
 
-	planSeed, err := initRRTSolutions(ctx, psc)
+	planSeed, err := initRRTSolutions(ctx, psc, pm.logger.Sublogger("ik"))
 	if err != nil {
 		return nil, err
 	}
 
 	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
-
 	if planSeed.steps != nil {
 		pm.logger.Debugf("found an ideal ik solution")
 		return planSeed.steps, nil
 	}
 
-	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc)
+	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc, pm.logger.Sublogger("cbirrt"))
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +217,7 @@ func (pm *planManager) planSingleGoal(
 	if err != nil {
 		return nil, err
 	}
+
 	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
 	return finalSteps.steps, nil
 }
@@ -293,7 +293,7 @@ type rrtMaps struct {
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK
 // solutions to pre-populate the goal map, and will check if any of those goals are able to be
 // directly interpolated to.
-func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolution, error) {
+func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger logging.Logger) (*rrtSolution, error) {
 	ctx, span := trace.StartSpan(ctx, "initRRTSolutions")
 	defer span.End()
 	rrt := &rrtSolution{
@@ -305,14 +305,13 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext) (*rrtSolutio
 
 	seed := newConfigurationNode(psc.start)
 	// goalNodes are sorted from lowest cost to highest.
-	goalNodes, err := getSolutions(ctx, psc)
+	goalNodes, err := getSolutions(ctx, psc, logger)
 	if err != nil {
 		return rrt, err
 	}
 
 	rrt.maps.optNode = goalNodes[0]
-
-	psc.pc.logger.Debugf("optNode cost: %v", rrt.maps.optNode.cost)
+	logger.Infof("optNode cost: %v", rrt.maps.optNode.cost)
 
 	// `defaultOptimalityMultiple` is > 1.0
 	reasonableCost := max(.01, goalNodes[0].cost) * defaultOptimalityMultiple
@@ -359,7 +358,7 @@ func (pm *planManager) foo(ctx context.Context, start *referenceframe.LinearInpu
 		return err
 	}
 
-	planSeed, err := initRRTSolutions(ctx, psc)
+	planSeed, err := initRRTSolutions(ctx, psc, pm.logger.Sublogger("ik"))
 	if err != nil {
 		return err
 	}

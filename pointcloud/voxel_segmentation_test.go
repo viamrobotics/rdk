@@ -11,7 +11,9 @@ import (
 
 // RandomCubeSide choose a random integer between 0 and 5 that correspond to one facet of a cube.
 func RandomCubeSide() int {
+	//nolint: revive
 	min := 0
+	//nolint: revive
 	max := 6
 	return rand.Intn(max-min) + min
 }

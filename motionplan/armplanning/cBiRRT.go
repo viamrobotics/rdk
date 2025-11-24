@@ -32,25 +32,28 @@ var debugConstrainNear = false
 // It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
 // https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
-	pc  *planContext
-	psc *planSegmentContext
+	pc     *planContext
+	psc    *planSegmentContext
+	logger logging.Logger
 
 	fastGradDescent *ik.NloptIK
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
-func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegmentContext) (*cBiRRTMotionPlanner, error) {
+func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegmentContext, logger logging.Logger,
+) (*cBiRRTMotionPlanner, error) {
 	_, span := trace.StartSpan(ctx, "newCBiRRTMotionPlanner")
 	defer span.End()
 	c := &cBiRRTMotionPlanner{
-		pc:  pc,
-		psc: psc,
+		pc:     pc,
+		psc:    psc,
+		logger: logger,
 	}
 
 	var err error
 
 	// nlopt should try only once
-	c.fastGradDescent, err = ik.CreateNloptSolver(pc.logger, 1, true, true)
+	c.fastGradDescent, err = ik.CreateNloptSolver(logger, 1, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +63,7 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegme
 
 // only used for testin.
 func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]*referenceframe.LinearInputs, error) {
-	initMaps, err := initRRTSolutions(ctx, mp.psc)
+	initMaps, err := initRRTSolutions(ctx, mp.psc, mp.psc.pc.logger.Sublogger("ik"))
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +92,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	ctx, span := trace.StartSpan(ctx, "rrtRunner")
 	defer span.End()
 
-	mp.pc.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d\n", len(rrtMaps.startMap), len(rrtMaps.goalMap))
+	mp.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d\n", len(rrtMaps.startMap), len(rrtMaps.goalMap))
 
 	// setup planner options
 	if mp.pc.planOpts == nil {
@@ -109,9 +112,9 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 			break
 		}
 	}
-	mp.pc.logger.CDebugf(ctx, "goal node: %v\n", rrtMaps.optNode.inputs)
-	mp.pc.logger.CDebugf(ctx, "start node: %v\n", seed)
-	mp.pc.logger.Debug("DOF", mp.pc.lis.GetLimits())
+	mp.logger.CDebugf(ctx, "goal node: %v\n", rrtMaps.optNode.inputs)
+	mp.logger.CDebugf(ctx, "start node: %v\n", seed)
+	mp.logger.Debug("DOF", mp.pc.lis.GetLimits())
 
 	interpConfig, err := referenceframe.InterpolateFS(mp.pc.fs, seed, rrtMaps.optNode.inputs, 0.5)
 	if err != nil {
@@ -122,9 +125,9 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 
 	map1, map2 := rrtMaps.startMap, rrtMaps.goalMap
 	for i := 0; i < maxPlanIter; i++ {
-		mp.pc.logger.CDebugf(ctx, "iteration: %d target: %v", i, logging.FloatArrayFormat{"", target.inputs.GetLinearizedInputs()})
+		mp.logger.CDebugf(ctx, "iteration: %d target: %v", i, logging.FloatArrayFormat{"", target.inputs.GetLinearizedInputs()})
 		if ctx.Err() != nil {
-			mp.pc.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
+			mp.logger.CDebugf(ctx, "CBiRRT timed out after %d iterations", i)
 			return &rrtSolution{maps: rrtMaps}, fmt.Errorf("cbirrt timeout %w", ctx.Err())
 		}
 
@@ -169,7 +172,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 
 		// Solved!
 		if reachedDelta <= mp.pc.planOpts.InputIdentDist {
-			mp.pc.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations in %v", i, time.Since(startTime))
+			mp.logger.CDebugf(ctx, "CBiRRT found solution after %d iterations in %v", i, time.Since(startTime))
 			cancel()
 			path := extractPath(rrtMaps.startMap, rrtMaps.goalMap, &nodePair{map1reached, map2reached}, true)
 			return &rrtSolution{steps: path, maps: rrtMaps}, nil
@@ -269,8 +272,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	target *referenceframe.LinearInputs,
 ) *referenceframe.LinearInputs {
 	if debugConstrainNear {
-		mp.pc.logger.Infof("constrainNear called")
-		mp.pc.logger.Infof("\t start: %v end: %v",
+		mp.logger.Infof("constrainNear called")
+		mp.logger.Infof("\t start: %v end: %v",
 			logging.FloatArrayFormat{"", seedInputs.GetLinearizedInputs()}, logging.FloatArrayFormat{"", target.GetLinearizedInputs()})
 	}
 
@@ -283,7 +286,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	// Check if the arc of "seedInputs" to "target" is valid
 	_, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, newArc, mp.pc.planOpts.Resolution)
 	if debugConstrainNear {
-		mp.pc.logger.Infof("\t err %v", err)
+		mp.logger.Infof("\t err %v", err)
 	}
 	if err == nil {
 		return target
@@ -322,7 +325,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			mp.psc.pc.linearizeFSmetric(myFunc),
 			[][]float64{linearSeed}, [][]referenceframe.Limit{ik.ComputeAdjustLimits(linearSeed, mp.pc.lis.GetLimits(), .05)})
 		if err != nil {
-			mp.pc.logger.Debugf("constrainNear fail (DoSolve): %v", err)
+			mp.logger.Debugf("constrainNear fail (DoSolve): %v", err)
 			return nil
 		}
 
@@ -331,12 +334,12 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		if debugConstrainNear {
-			mp.pc.logger.Infof("\t -> %v", logging.FloatArrayFormat{"", solutions[0]})
+			mp.logger.Infof("\t -> %v", logging.FloatArrayFormat{"", solutions[0]})
 		}
 
 		target, err = mp.psc.pc.lis.FloatsToInputs(solutions[0])
 		if err != nil {
-			mp.pc.logger.Infof("constrainNear fail (FloatsToInputs): %v", err)
+			mp.logger.Infof("constrainNear fail (FloatsToInputs): %v", err)
 			return nil
 		}
 	}
@@ -351,7 +354,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		mp.pc.planOpts.Resolution,
 	)
 	if debugConstrainNear {
-		mp.pc.logger.Infof("\t failpos: %v err: %v", failpos != nil, err)
+		mp.logger.Infof("\t failpos: %v err: %v", failpos != nil, err)
 	}
 	if err == nil {
 		return target
@@ -374,7 +377,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 
 	target = failpos.EndConfiguration
 	if debugConstrainNear {
-		mp.pc.logger.Infof("\t new target %v", logging.FloatArrayFormat{"", target.GetLinearizedInputs()})
+		mp.logger.Infof("\t new target %v", logging.FloatArrayFormat{"", target.GetLinearizedInputs()})
 	}
 	return target
 }
