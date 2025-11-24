@@ -869,15 +869,11 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 		visibility = moduleVisibilityPublic
 	}
 
-	modelDescription := "Provide a short (100 characters or less) description of this model here"
 	manifest := moduleManifest{
-		Schema:      "https://dl.viam.dev/module.schema.json",
-		ModuleID:    moduleID,
-		Visibility:  visibility,
-		Description: fmt.Sprintf("Modular %s %s: %s", module.ResourceSubtype, module.ResourceType, module.ModelName),
-		Models: []ModuleComponent{
-			{API: module.API, Model: module.ModelTriple, MarkdownLink: &module.ModelReadmeLink, Description: &modelDescription},
-		},
+		Schema:       "https://dl.viam.dev/module.schema.json",
+		ModuleID:     moduleID,
+		Visibility:   visibility,
+		Description:  fmt.Sprintf("Modular %s %s: %s", module.ResourceSubtype, module.ResourceType, module.ModelName),
 		MarkdownLink: &module.ModuleReadmeLink,
 	}
 	switch module.Language {

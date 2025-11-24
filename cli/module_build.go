@@ -781,12 +781,6 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 		}
 	}
 
-	// // always update the cloud module before reloading
-	// _, err = c.updateModule(moduleID, *manifest)
-	// if err != nil {
-	// 	return err
-	// }
-
 	return nil
 }
 
