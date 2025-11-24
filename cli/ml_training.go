@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -113,6 +114,37 @@ type mlSubmitTrainingJobArgs struct {
 	ModelFramework string
 	ModelLabels    []string
 	ModelVersion   string
+}
+
+type prettyPrintContainer struct {
+	Name        string
+	EndOfLife   string
+	Description string
+	Framework   string
+}
+
+func MLListContainers(c *cli.Context, args emptyArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
+	if err != nil {
+		return err
+	}
+
+	var returnContainers []prettyPrintContainer
+	for _, v := range supportedContainers.ContainerMap {
+		returnContainers = append(returnContainers, prettyPrintContainer{
+			Name:        v.Key,
+			Description: v.Description,
+			Framework:   v.Framework,
+			EndOfLife:   v.Eol.AsTime().Format(time.RFC1123),
+		})
+	}
+	b, err := json.MarshalIndent(returnContainers, "", "  ")
+	printf(c.App.Writer, "%s", b)
+	return nil
 }
 
 // MLSubmitTrainingJob is the corresponding action for 'train submit'.

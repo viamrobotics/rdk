@@ -1858,6 +1858,19 @@ var app = &cli.App{
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
+					Name:      "containers",
+					Usage:     "handles containers for custom training",
+					UsageText: createUsageText("train containers", nil, false, false),
+					Subcommands: []*cli.Command{
+						{
+							Name:      "list",
+							Usage:     "lists supported containers for custom training",
+							UsageText: createUsageText("train containers list", nil, false, false),
+							Action:    createCommandWithT[emptyArgs](MLListContainers),
+						},
+					},
+				},
+				{
 					Name:      "submit",
 					Usage:     "submits training job on data in Viam cloud",
 					UsageText: createUsageText("train submit", nil, false, true),
