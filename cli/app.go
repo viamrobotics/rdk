@@ -1937,7 +1937,11 @@ var app = &cli.App{
 									Name:  "from-registry",
 									Usage: "submits custom training job with an existing training script in the registry on data in Viam cloud",
 									UsageText: createUsageText("train submit custom from-registry",
-										[]string{datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName, mlTrainingFlagName, generalFlagVersion, mlTrainingFlagContainerVersion},
+										[]string{
+											datasetFlagDatasetID, generalFlagOrgID,
+											trainFlagModelName, mlTrainingFlagName,
+											generalFlagVersion, mlTrainingFlagContainerVersion,
+										},
 										true, false,
 									),
 									Flags: []cli.Flag{
@@ -1987,7 +1991,11 @@ var app = &cli.App{
 									Name:  "with-upload",
 									Usage: "submits custom training job with an upload training script on data in Viam cloud",
 									UsageText: createUsageText("train submit custom with-upload",
-										[]string{generalFlagOrgID, datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, generalFlagPath, mlTrainingFlagName, mlTrainingFlagContainerVersion},
+										[]string{
+											generalFlagOrgID, datasetFlagDatasetID,
+											trainFlagModelOrgID, trainFlagModelName, generalFlagPath,
+											mlTrainingFlagName, mlTrainingFlagContainerVersion,
+										},
 										true, false,
 									),
 									Flags: []cli.Flag{

@@ -123,12 +123,14 @@ type prettyPrintContainer struct {
 	Framework   string
 }
 
+// MLListContainers is the corresponding action for 'train containers'.
 func MLListContainers(c *cli.Context, args emptyArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
-	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
+	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
+		context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
 	if err != nil {
 		return err
 	}
@@ -143,6 +145,9 @@ func MLListContainers(c *cli.Context, args emptyArgs) error {
 		})
 	}
 	b, err := json.MarshalIndent(returnContainers, "", "  ")
+	if err != nil {
+		return err
+	}
 	printf(c.App.Writer, "%s", b)
 	return nil
 }
