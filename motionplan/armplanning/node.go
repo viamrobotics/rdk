@@ -163,25 +163,33 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 
 	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
 	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
+	logger.Debugf("seed %v limits %v", len(sss.seedLimits)-1, sss.seedLimits[len(sss.seedLimits)-1])
 
 	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
 	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .05))
+	logger.Debugf("seed %v limits %v", len(sss.seedLimits)-1, sss.seedLimits[len(sss.seedLimits)-1])
 
-	if sss.goodCost > 1 && minRatio > .05 {
-		ssc, err := smartSeed(psc.pc.fs, logger)
-		if err != nil {
-			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
+	ssc, err := smartSeed(psc.pc.fs, logger)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
+	}
+
+	altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, 5 /* TODO */, logger)
+	if err != nil {
+		if errors.Is(err, &tooFarError{}) {
+			return nil, err
 		}
+		logger.Warnf("findSeeds failed, ignoring: %v", err)
+	}
 
-		altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, 5 /* TODO */, logger)
-		if err != nil {
-			if errors.Is(err, &tooFarError{}) {
-				return nil, err
-			}
-			logger.Warnf("findSeeds failed, ignoring: %v", err)
-		}
+	if len(altSeeds) == 0 && !Is32Bit() {
+		return nil, fmt.Errorf("got no alt seeds, I think this is unreachable")
+	}
 
-		logger.Infof("got %d altSeeds", len(altSeeds))
+	useAltseeds := sss.goodCost > 1 && minRatio > .05
+	logger.Infof("got %d altSeeds, using: %v", len(altSeeds), useAltseeds)
+
+	if useAltseeds {
 		for _, s := range altSeeds {
 			si := s.GetLinearizedInputs()
 			sss.linearSeeds = append(sss.linearSeeds, si)
@@ -292,7 +300,8 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	}
 
 	whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
-	sss.logger.Debugf("got score %0.4f @ %v - %s - result: %v", myNode.cost, now, stepSolution.Meta, whyNot)
+	sss.logger.Debugf("got score %0.4f @ %v - %s - result: %v\n\t%v",
+		myNode.cost, now, stepSolution.Meta, whyNot, logging.FloatArrayFormat{"", stepSolution.Configuration})
 	myNode.checkPath = whyNot == nil
 
 	if whyNot == nil && myNode.cost < sss.bestScoreNoProblem {
