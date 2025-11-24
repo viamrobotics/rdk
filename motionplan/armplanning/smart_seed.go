@@ -92,8 +92,7 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 		total += len(l)
 	}
 
-	logger.Debugf("time to do raw building: %v of %d entries (guess %v)", time.Since(start), total, perSize*defaultNumThreads)
-	logger.Infof("time to do raw building: %v of %d entries", time.Since(start), total)
+	logger.Infof("time to do raw building: %v of %d entries (guess %v)", time.Since(start), total, perSize*defaultNumThreads)
 
 	start = time.Now()
 	ccf.buildInverseCache()
