@@ -53,6 +53,7 @@ func init() {
 		okForSmartCacheBadReason = fmt.Sprintf("not enough ram %v", memGB)
 	}
 }
+
 // IsTooSmallForCache returns true if we're on a 32-bit system.
 func IsTooSmallForCache() bool {
 	return !okForSmartCache
