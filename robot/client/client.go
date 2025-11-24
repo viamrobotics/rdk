@@ -536,6 +536,29 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 			conn = grpcConn
 			err = nil
 		} else {
+			// A NotFound error from the WebRTC dial means that the client is able to reach
+			// the signaling server but the machine is not. If the machine is running viam-server but not connected to the signaling server,
+			// it is expected to only be available to clients on the same network. If the errors returned from grpc dials are timeouts or mDNS
+			// failing to find a candidate, it implies that the machine is not connected to the same network the client is.
+			// In that case, filtering out the errors from grpc dials should reduce noise and give clients a clearer idea of what to do next.
+			if statusErr := status.Convert(err); statusErr != nil &&
+				statusErr.Code() == codes.NotFound &&
+				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) &&
+				errors.Is(grpcErr, context.DeadlineExceeded) {
+				return err
+			}
+			// A context.DeadlineExceeded from the WebRTC dial implies the client is unable to reach
+			// the signaling server, which likely means that the client is offline. In that case, if the errors returned from
+			// grpc dials are also timeouts or mDNS failing to find a candidate, we should remind clients to double-check their internet
+			// connection and that the machine is on. This should be more helpful than simply returning a chain of context.DeadlineExceeded
+			// and candidate not found errors.
+			const connTimeoutURL = "https://docs.viam.com/dev/tools/common-errors/#conn-time-out"
+			if errors.Is(err, context.DeadlineExceeded) &&
+				errors.Is(grpcErr, context.DeadlineExceeded) &&
+				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) {
+				return fmt.Errorf("failed to connect to machine within time limit. check network connection, whether the viam-server is running, " +
+					"and try again. see " + connTimeoutURL + " for troubleshooting steps")
+			}
 			err = multierr.Combine(err, grpcErr)
 		}
 	}
