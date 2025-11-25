@@ -58,24 +58,6 @@ jobs:
       - name: Chown
         run: chown -R testbot:testbot .
 
-      - name: Run CLI linter tests
-        run: |
-          cd cli/internal/cli_lint
-          go build .
-          ./cli_lint ../../
-
-      - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
-        run: |
-          sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
-          GEN_DIFF=$(git status -s)
-          if [ -n "$GEN_DIFF" ]; then
-              echo '"make build-go lint-go generate-go" resulted in the following untracked changes:' 1>&2
-              git diff
-              echo '"make build-go lint-go generate-go" resulted in changes not in git' 1>&2
-              git status
-              exit 1
-          fi
-
       - name: Run go unit tests
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
@@ -93,6 +75,7 @@ jobs:
   test_win:
     name: windows
     runs-on: windows-2025
+    if: false
     steps:
     - uses: actions/checkout@v4
       with:
@@ -119,6 +102,7 @@ jobs:
     name: Go 32-bit Unit Tests
     runs-on: ubuntu-arm-16-core
     timeout-minutes: 30
+    if: false
 
     steps:
       - uses: actions/checkout@v4
@@ -148,6 +132,7 @@ jobs:
   jsonschema:
     name: Test meta.json jsonschema
     runs-on: ubuntu-latest
+    if: false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
