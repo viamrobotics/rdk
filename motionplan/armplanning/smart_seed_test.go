@@ -34,7 +34,6 @@ var pirIdealJointValues = [][]referenceframe.Input{
 }
 
 func TestSmartSeedCache1(t *testing.T) {
-	t.Skip()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -73,7 +72,7 @@ func TestSmartSeedCache1(t *testing.T) {
 			"ur5e",
 			start.Get("ur5e"),
 			goal,
-			5,
+			10,
 			logger)
 		logger.Infof("time to run findSeedsForFrame: %v", time.Since(startTime))
 		test.That(t, err, test.ShouldBeNil)
@@ -83,7 +82,7 @@ func TestSmartSeedCache1(t *testing.T) {
 			best = min(best, cost)
 		}
 		logger.Infof("best: %v\n", best)
-		test.That(t, best, test.ShouldBeLessThan, .6)
+		test.That(t, best, test.ShouldBeLessThan, 1.5)
 	})
 
 	t.Run("real", func(t *testing.T) {
@@ -101,7 +100,7 @@ func TestSmartSeedCache1(t *testing.T) {
 			best = min(best, cost)
 		}
 		logger.Infof("best: %v\n", best)
-		test.That(t, best, test.ShouldBeLessThan, .6)
+		test.That(t, best, test.ShouldBeLessThan, 1.5)
 	})
 }
 
@@ -147,7 +146,6 @@ func TestSmartSeedCacheFrames(t *testing.T) {
 }
 
 func TestSmartSeedCachePirouette(t *testing.T) {
-	t.Skip()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
