@@ -503,7 +503,6 @@ func TestArmObstacleSolve(t *testing.T) {
 }
 
 func TestArmAndGantrySolve(t *testing.T) {
-	t.Skip()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
