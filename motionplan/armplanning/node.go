@@ -164,16 +164,13 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
 	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
 
-	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .05))
-
 	if sss.goodCost > 1 && minRatio > .05 {
 		ssc, err := smartSeed(psc.pc.fs, logger)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
 		}
 
-		altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, 5 /* TODO */, logger)
+		altSeeds, altLimitDivisors, err := ssc.findSeeds(ctx, psc.goal, psc.start, 10 /* TODO */, logger)
 		if err != nil {
 			if errors.Is(err, &tooFarError{}) {
 				return nil, err
@@ -189,6 +186,9 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 			sss.seedLimits = append(sss.seedLimits, ll)
 			logger.Infof("\t ss (%d): %v", len(sss.linearSeeds)-1, logging.FloatArrayFormat{"", si})
 		}
+	} else {
+		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+		sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .05))
 	}
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
