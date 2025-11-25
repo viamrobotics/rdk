@@ -120,7 +120,7 @@ func TestGet3DModels(t *testing.T) {
 	confNo3DModels := resource.Config{
 		Name: "testArm",
 		ConvertedAttributes: &Config{
-			ArmModel: xArm6Model,
+			ArmModel: xArm7Model,
 		},
 	}
 	a, err := NewArm(ctx, nil, confNo3DModels, logging.NewTestLogger(t))

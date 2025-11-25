@@ -36,6 +36,7 @@ var (
 	ur20Model  = "ur20"
 	xArm6Model = "xarm6"
 	xArm7Model = "xarm7"
+	lite6Model = "lite6"
 )
 
 //go:embed kinematics/fake.json
@@ -52,6 +53,9 @@ var xarm6JSON []byte
 
 //go:embed kinematics/xarm7.json
 var xarm7JSON []byte
+
+//go:embed kinematics/lite6.json
+var lite6JSON []byte
 
 //go:embed 3d_models/ur5e/base_link.glb
 var ur5eBaseLinkGLB []byte
@@ -116,6 +120,27 @@ var xarm6WristLinkGLB []byte
 //go:embed 3d_models/xarm6/gripper_mount.glb
 var xarm6GripperMountGLB []byte
 
+//go:embed 3d_models/lite6/base.glb
+var lite6BaseGLB []byte
+
+//go:embed 3d_models/lite6/base_top.glb
+var lite6BaseTopGLB []byte
+
+//go:embed 3d_models/lite6/upper_arm.glb
+var lite6UpperArmGLB []byte
+
+//go:embed 3d_models/lite6/upper_forearm.glb
+var lite6UpperForearmGLB []byte
+
+//go:embed 3d_models/lite6/lower_forearm.glb
+var lite6LowerForearmGLB []byte
+
+//go:embed 3d_models/lite6/wrist_link.glb
+var lite6WristLinkGLB []byte
+
+//go:embed 3d_models/lite6/gripper_mount.glb
+var lite6GripperMountGLB []byte
+
 var armTo3DModelParts = map[string][]string{
 	"ur5e": {
 		"ee_link",
@@ -136,6 +161,15 @@ var armTo3DModelParts = map[string][]string{
 		"wrist_3_link",
 	},
 	"xarm6": {
+		"base",
+		"base_top",
+		"upper_arm",
+		"upper_forearm",
+		"lower_forearm",
+		"wrist_link",
+		"gripper_mount",
+	},
+	"lite6": {
 		"base",
 		"base_top",
 		"upper_arm",
@@ -405,6 +439,8 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 		return referenceframe.UnmarshalModelJSON(xarm6JSON, name)
 	case xArm7Model:
 		return referenceframe.UnmarshalModelJSON(xarm7JSON, name)
+	case lite6Model:
+		return referenceframe.UnmarshalModelJSON(lite6JSON, name)
 	case Model.Name:
 		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:
@@ -525,6 +561,44 @@ func threeDMeshFromName(model, name string) commonpb.Mesh {
 		case "gripper_mount":
 			return commonpb.Mesh{
 				Mesh:        xarm6GripperMountGLB,
+				ContentType: "model/gltf-binary",
+			}
+		}
+	case lite6Model:
+		switch name {
+		case "base":
+			return commonpb.Mesh{
+				Mesh:        lite6BaseGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "base_top":
+			return commonpb.Mesh{
+				Mesh:        lite6BaseTopGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "upper_arm":
+			return commonpb.Mesh{
+				Mesh:        lite6UpperArmGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "upper_forearm":
+			return commonpb.Mesh{
+				Mesh:        lite6UpperForearmGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "lower_forearm":
+			return commonpb.Mesh{
+				Mesh:        lite6LowerForearmGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "wrist_link":
+			return commonpb.Mesh{
+				Mesh:        lite6WristLinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "gripper_mount":
+			return commonpb.Mesh{
+				Mesh:        lite6GripperMountGLB,
 				ContentType: "model/gltf-binary",
 			}
 		}
