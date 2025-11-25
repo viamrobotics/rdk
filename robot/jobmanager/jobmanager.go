@@ -388,7 +388,7 @@ func (jm *JobManager) scheduleJob(jc config.JobConfig, verbose bool) {
 		// queued on the job scheduler, while CRON jobs are tied to the physical clock.
 		t, err := time.ParseDuration(jc.Schedule)
 		if err != nil {
-			// TODO: exit if cron job is also invalid. Currently it's stored as an invalid string and validated at NewJob call.
+			// TODO(RSDK-12757): exit if cron job is also invalid. Currently it's stored as an invalid string and validated at NewJob call.
 			withSeconds := len(strings.Split(jc.Schedule, " ")) >= 6
 			jobDefinition = gocron.CronJob(jc.Schedule, withSeconds)
 			jobOptions = append(jobOptions, gocron.WithSingletonMode(gocron.LimitModeReschedule))
