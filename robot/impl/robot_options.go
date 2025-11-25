@@ -61,6 +61,7 @@ func WithFTDC() Option {
 	})
 }
 
+// WithTraceFile enables storing trace spans to disk.
 func WithTraceFile() Option {
 	return newFuncOption(func(o *options) {
 		o.tracing.enabled = true
