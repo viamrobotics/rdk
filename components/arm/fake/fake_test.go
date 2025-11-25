@@ -140,7 +140,7 @@ func TestGet3DModels(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	models, err = fakeArm.Get3DModels(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(models), test.ShouldEqual, 6)
+	test.That(t, len(models), test.ShouldEqual, 7)
 	test.That(t, models["ee_link"].Mesh, test.ShouldResemble, ur5eEELinkGLB)
 	test.That(t, models["ee_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
 	test.That(t, models["forearm_link"].Mesh, test.ShouldResemble, ur5eForearmLinkGLB)
@@ -153,4 +153,6 @@ func TestGet3DModels(t *testing.T) {
 	test.That(t, models["wrist_2_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
 	test.That(t, models["base_link"].Mesh, test.ShouldResemble, ur5eBaseLinkGLB)
 	test.That(t, models["base_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
+	test.That(t, models["shoulder_link"].Mesh, test.ShouldResemble, ur5eShoulderLinkGLB)
+	test.That(t, models["shoulder_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
 }

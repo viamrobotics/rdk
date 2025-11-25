@@ -16,6 +16,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -65,13 +66,7 @@ func TestOrbManySeeds(t *testing.T) {
 
 		for i := 0; i < 100; i++ {
 			t.Run(fmt.Sprintf("%s-%d", fp, i), func(t *testing.T) {
-				logger, _, reg := logging.NewObservedTestLoggerWithRegistry(t, t.Name())
-				reg.Update([]logging.LoggerPatternConfig{
-					{
-						Pattern: "*.mp.*",
-						Level:   "WARN",
-					},
-				}, logger)
+				logger := newChattyMotionPlanTestLogger(t)
 
 				req.PlannerOptions.RandomSeed = i
 				plan, _, err := PlanMotion(context.Background(), logger, req)
@@ -97,13 +92,7 @@ func TestPourManySeeds(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		t.Run(fmt.Sprintf("seed-%d", i), func(t *testing.T) {
-			logger, _, reg := logging.NewObservedTestLoggerWithRegistry(t, t.Name())
-			reg.Update([]logging.LoggerPatternConfig{
-				{
-					Pattern: "*.mp.*",
-					Level:   "WARN",
-				},
-			}, logger)
+			logger := newChattyMotionPlanTestLogger(t)
 
 			req.PlannerOptions.RandomSeed = i
 			plan, _, err := PlanMotion(context.Background(), logger, req)
@@ -217,10 +206,31 @@ func TestSandingLargeMove1(t *testing.T) {
 		test.That(t, hasPos, test.ShouldBeTrue)
 		test.That(t, hasNeg, test.ShouldBeTrue)
 
-		seeds, _, err = ss.findSeeds(ctx, req.Goals[0].poses, req.StartState.LinearConfiguration(), -1, logger)
+		seeds, seedLimits, err := ss.findSeeds(ctx, req.Goals[0].poses, req.StartState.LinearConfiguration(), -1, logger)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(seeds), test.ShouldBeGreaterThan, 5)
-		test.That(t, len(seeds), test.ShouldBeLessThan, 5000)
+		test.That(t, len(seeds), test.ShouldBeGreaterThan, 3)
+		test.That(t, len(seeds), test.ShouldBeLessThan, 500)
+		test.That(t, len(seedLimits), test.ShouldEqual, 6)
+
+		lis, err := req.StartState.LinearConfiguration().GetSchema(req.FrameSystem)
+		test.That(t, err, test.ShouldBeNil)
+
+		goodSets := [][]float64{
+			{-0.78, -0.19, 1.26, -2.58, -1.48, 3.95},
+			{5.51, -0.19, 1.26, -2.58, -1.48, -2.33},
+		}
+		for _, goodJoints := range goodSets {
+			numGood := 0
+			for i, s := range seeds {
+				ll := ik.ComputeAdjustLimitsArray(s.GetLinearizedInputs(), lis.GetLimits(), seedLimits)
+				if !referenceframe.AreInputsValid(ll, goodJoints) {
+					continue
+				}
+				logger.Infof("good %d %v", i, logging.FloatArrayFormat{"%0.2f", s.GetLinearizedInputs()})
+				numGood++
+			}
+			test.That(t, numGood, test.ShouldBeGreaterThan, 0)
+		}
 	}
 
 	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
@@ -250,14 +260,12 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestBadSpray1(t *testing.T) {
-	t.Skip()
-
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
 
-	logger := logging.NewTestLogger(t)
+	logger := newChattyMotionPlanTestLogger(t)
 
 	start := time.Now()
 	req, err := ReadRequestFromFile("data/spray-bad1.json")
@@ -328,13 +336,8 @@ func TestPirouette(t *testing.T) {
 		// iterate through pifs and create a plan which gets the arm there
 		for i, p := range pifs {
 			t.Run(fmt.Sprintf("iteration-%d-%d", iter, i), func(t *testing.T) {
-				logger, _, reg := logging.NewObservedTestLoggerWithRegistry(t, t.Name())
-				reg.Update([]logging.LoggerPatternConfig{
-					{
-						Pattern: "*.mp.*",
-						Level:   "WARN",
-					},
-				}, logger)
+				testLogger := logging.NewTestLogger(t)
+				mpLogger := newChattyMotionPlanTestLogger(t)
 
 				// construct req and get the plan
 				goalState := NewPlanState(map[string]*referenceframe.PoseInFrame{armName: p}, nil)
@@ -344,7 +347,7 @@ func TestPirouette(t *testing.T) {
 					Goals:       []*PlanState{goalState},
 					StartState:  startState,
 				}
-				plan, _, err := PlanMotion(context.Background(), logger, req)
+				plan, _, err := PlanMotion(context.Background(), mpLogger, req)
 				test.That(t, err, test.ShouldBeNil)
 
 				traj := plan.Trajectory()
@@ -363,8 +366,8 @@ func TestPirouette(t *testing.T) {
 				idealPreviousJ0Value := idealJointValues[prevIndex][0]
 				expectedJ0Change := math.Abs(idealJ0Value-idealPreviousJ0Value) + 2e-2 // add buffer of 1.15 degrees
 
-				logger.Infof("motionplan's trajectory: %v", traj)
-				logger.Infof("ideal trajectory: \n%v\n%v\n", idealJointValues[prevIndex], idealJointValues[i])
+				testLogger.Infof("motionplan's trajectory: %v", traj)
+				testLogger.Infof("ideal trajectory: \n%v\n%v\n", idealJointValues[prevIndex], idealJointValues[i])
 
 				// determine if a pirouette happened
 				// in order to satisfy our desired pose in frame while execeeding the expected change in joint 0 a pirouette was necessary
