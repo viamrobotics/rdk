@@ -1653,8 +1653,32 @@ func getLatestReleaseVersion() (string, error) {
 	return resp.TagName, err
 }
 
-// CheckUpdateAction is the corresponding Action for 'check-update'.
-func CheckUpdateAction(c *cli.Context, args emptyArgs) error {
+func (conf *Config) checkUpdate(c *cli.Context) error {
+	var shouldCheckUpdate bool
+
+	// if there has never been a last update check, then we should definitely alert as necessary
+	if conf.LastUpdateCheck == "" {
+		shouldCheckUpdate = true
+	} else {
+		lastUpdateCheck, err := time.Parse(time.RFC3339, conf.LastUpdateCheck)
+		if err != nil {
+			warningf(c.App.ErrWriter, "CLI Update Check: failed to parse last update check: %w", err)
+			return nil
+		}
+		// if we've warned people within the last hour, don't do so again
+		shouldCheckUpdate = time.Since(lastUpdateCheck) > time.Hour
+	}
+
+	if !shouldCheckUpdate {
+		return nil
+	}
+
+	// indicate that the most recent check happened now
+	if err := conf.updateLastUpdateCheck(); err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to update config update time: %w", err)
+		return nil
+	}
+
 	globalArgs, err := getGlobalArgs(c)
 	if err != nil {
 		return err
@@ -1830,6 +1854,10 @@ func newViamClientInner(c *cli.Context, disableBrowserOpen bool) (*viamClient, e
 	baseURL, conf, err := getBaseURL(c)
 	if err != nil {
 		return nil, err
+	}
+
+	if err = conf.checkUpdate(c); err != nil {
+		warningf(c.App.ErrWriter, "Failed to check for CLI updates: %w", err)
 	}
 
 	var authFlow *authFlow

@@ -20,7 +20,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
 	inputSteps := []*node{}
 	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewTestLogger(t).Sublogger("mp")
 	m, err := referenceframe.ParseModelJSONFile(rutils.ResolveFile("components/arm/fake/kinematics/xarm7.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -46,9 +46,9 @@ func TestSimpleLinearMotion(t *testing.T) {
 	psc, err := newPlanSegmentContext(ctx, pc, referenceframe.FrameSystemInputs{m.Name(): home7}.ToLinearInputs(), goal)
 	test.That(t, err, test.ShouldBeNil)
 
-	mp, err := newCBiRRTMotionPlanner(ctx, pc, psc)
+	mp, err := newCBiRRTMotionPlanner(ctx, pc, psc, logger.Sublogger("cbirrt"))
 	test.That(t, err, test.ShouldBeNil)
-	solutions, err := getSolutions(ctx, psc)
+	solutions, err := getSolutions(ctx, psc, logger.Sublogger("solve"))
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &node{inputs: referenceframe.FrameSystemInputs{m.Name(): home7}.ToLinearInputs()}

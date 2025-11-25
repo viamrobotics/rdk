@@ -256,7 +256,8 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 		fsCfg, err := r.FrameSystemConfig(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		fs, err := referenceframe.NewFrameSystem("", fsCfg.Parts, transforms)
-		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("frame2", "noParent"))
+		test.That(t, err.Error(), test.ShouldEqual,
+			"Cannot construct frame system. Some parts are not linked to the world frame. Parts: [frame2]")
 		test.That(t, fs, test.ShouldBeNil)
 	})
 

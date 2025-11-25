@@ -17,7 +17,7 @@ import (
 const (
 	// DefaultResourceConfigurationTimeout is the default resource configuration
 	// timeout.
-	DefaultResourceConfigurationTimeout = time.Minute
+	DefaultResourceConfigurationTimeout = 2 * time.Minute
 
 	// ResourceConfigurationTimeoutEnvVar is the environment variable that can
 	// be set to override DefaultResourceConfigurationTimeout as the duration

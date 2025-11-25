@@ -159,7 +159,7 @@ func (a *AudioIn) GetAudio(ctx context.Context,
 				chunkTime = chunkTime.Add(time.Duration(chunkDurationMs) * time.Millisecond)
 
 				// Check if we've generated enough chunks
-				if totalChunktestentrys > 0 && chunksGenerated >= totalChunks {
+				if totalChunks > 0 && chunksGenerated >= totalChunks {
 					return
 				}
 

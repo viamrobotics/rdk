@@ -14,6 +14,7 @@ import (
 func Overlay(i *Image, dm *DepthMap) *image.NRGBA {
 	const minAlpha = 32.0
 
+	//nolint: revive
 	min, max := dm.MinMax()
 
 	img := image.NewNRGBA(i.Bounds())
