@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
@@ -549,6 +550,24 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		result.State = pb.GetMachineStatusResponse_STATE_INITIALIZING
 	case robot.StateRunning:
 		result.State = pb.GetMachineStatusResponse_STATE_RUNNING
+	}
+
+	if mStatus.JobStatuses != nil {
+		if len(mStatus.JobStatuses) > 0 {
+			timeToTspb := func(t time.Time, _ int) *timestamppb.Timestamp {
+				return timestamppb.New(t)
+			}
+			if result.JobStatuses == nil {
+				result.JobStatuses = make([]*pb.JobStatus, 0, len(mStatus.JobStatuses))
+			}
+			for jobName, jobHistory := range mStatus.JobStatuses {
+				result.JobStatuses = append(result.JobStatuses, &pb.JobStatus{
+					JobName:              jobName,
+					RecentSuccessfulRuns: lo.Map(jobHistory.RecentSuccessfulRuns, timeToTspb),
+					RecentFailedRuns:     lo.Map(jobHistory.RecentFailedRuns, timeToTspb),
+				})
+			}
+		}
 	}
 
 	return &result, nil
