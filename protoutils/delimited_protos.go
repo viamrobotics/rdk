@@ -32,7 +32,7 @@ type DelimitedProtoReader[T any, M interface {
 	*T
 	proto.Message
 }] struct {
-	raw RawDelimitedProtoReader
+	RawDelimitedProtoReader
 }
 
 // NewDelimitedProtoWriter creates a [DelimitedProtoWriter].
@@ -114,7 +114,7 @@ func (o *DelimitedProtoReader[T, M]) AllWithMemory(message M) iter.Seq[M] {
 
 func (o *DelimitedProtoReader[T, M]) allWithMessageProvider(getMessage func() M) iter.Seq[M] {
 	return func(yield func(M) bool) {
-		o.raw.All()(func(messageBytes []byte) bool {
+		o.RawDelimitedProtoReader.All()(func(messageBytes []byte) bool {
 			message := getMessage()
 			err := proto.Unmarshal(messageBytes, message)
 			if err != nil {

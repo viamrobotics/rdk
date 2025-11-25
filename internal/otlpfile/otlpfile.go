@@ -26,10 +26,10 @@ type Client struct {
 // NewClient creates a new [Client].
 func NewClient(dirPath, filename string) (*Client, error) {
 	logger := &lumberjack.Logger{
-		Filename: filepath.Join(dirPath, filename),
-		MaxSize: 256,
+		Filename:   filepath.Join(dirPath, filename),
+		MaxSize:    256,
 		MaxBackups: 4,
-		Compress: true,
+		Compress:   true,
 	}
 	writer := protoutils.NewDelimitedProtoWriter[*v1.ResourceSpans](logger)
 	return &Client{
