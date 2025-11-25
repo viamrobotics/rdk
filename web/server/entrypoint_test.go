@@ -85,11 +85,11 @@ func TestEntrypoint(t *testing.T) {
 
 		// numResources is the # of resources in /etc/configs/fake.json + the 1
 		// expected builtin resources.
-		numResources := 20
+		numResources := 21
 		if runtime.GOOS == "windows" {
 			// windows build excludes builtin models that use cgo,
 			// including fake audioinput, builtin motion, fake arm, and builtin navigation.
-			numResources = 16
+			numResources = 18
 		}
 
 		test.That(t, len(resourceNames.Resources), test.ShouldEqual, numResources)
@@ -112,10 +112,10 @@ func TestEntrypoint(t *testing.T) {
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
 
-		numReg := 53
+		numReg := 55
 		if runtime.GOOS == "windows" {
 			// windows build excludes builtin models that use cgo
-			numReg = 44
+			numReg = 46
 		}
 		test.That(t, registrations, test.ShouldHaveLength, numReg)
 
