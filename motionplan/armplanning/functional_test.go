@@ -57,7 +57,6 @@ func TestUnconstrainedMotion(t *testing.T) {
 }
 
 func TestConstrainedMotion(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	ctx := context.Background()
 	testCases := []struct {
@@ -503,7 +502,6 @@ func TestArmObstacleSolve(t *testing.T) {
 }
 
 func TestArmAndGantrySolve(t *testing.T) {
-	t.Skip()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -915,8 +913,6 @@ func TestValidatePlanRequest(t *testing.T) {
 }
 
 func TestArmGantryCheckPlan(t *testing.T) {
-	t.Skip()
-
 	logger := logging.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("test")
 

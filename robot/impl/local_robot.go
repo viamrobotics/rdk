@@ -1711,6 +1711,21 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	if r.initializing.Load() {
 		result.State = robot.StateInitializing
 	}
+
+	if r.jobManager != nil {
+		if n := r.jobManager.NumJobHistories.Load(); n > 0 {
+			if result.JobStatuses == nil {
+				result.JobStatuses = make(map[string]robot.JobStatus)
+			}
+			for jobName, jobHistory := range r.jobManager.JobHistories.Range {
+				result.JobStatuses[jobName] = robot.JobStatus{
+					RecentSuccessfulRuns: jobHistory.Successes(),
+					RecentFailedRuns:     jobHistory.Failures(),
+				}
+			}
+		}
+	}
+
 	return result, nil
 }
 
