@@ -336,7 +336,8 @@ func TestPirouette(t *testing.T) {
 		// iterate through pifs and create a plan which gets the arm there
 		for i, p := range pifs {
 			t.Run(fmt.Sprintf("iteration-%d-%d", iter, i), func(t *testing.T) {
-				logger := newChattyMotionPlanTestLogger(t)
+				testLogger := logging.NewTestLogger(t)
+				mpLogger := newChattyMotionPlanTestLogger(t)
 
 				// construct req and get the plan
 				goalState := NewPlanState(map[string]*referenceframe.PoseInFrame{armName: p}, nil)
@@ -346,7 +347,7 @@ func TestPirouette(t *testing.T) {
 					Goals:       []*PlanState{goalState},
 					StartState:  startState,
 				}
-				plan, _, err := PlanMotion(context.Background(), logger, req)
+				plan, _, err := PlanMotion(context.Background(), mpLogger, req)
 				test.That(t, err, test.ShouldBeNil)
 
 				traj := plan.Trajectory()
@@ -365,8 +366,8 @@ func TestPirouette(t *testing.T) {
 				idealPreviousJ0Value := idealJointValues[prevIndex][0]
 				expectedJ0Change := math.Abs(idealJ0Value-idealPreviousJ0Value) + 2e-2 // add buffer of 1.15 degrees
 
-				logger.Warnf("motionplan's trajectory: %v", traj)
-				logger.Warnf("ideal trajectory: \n%v\n%v\n", idealJointValues[prevIndex], idealJointValues[i])
+				testLogger.Infof("motionplan's trajectory: %v", traj)
+				testLogger.Infof("ideal trajectory: \n%v\n%v\n", idealJointValues[prevIndex], idealJointValues[i])
 
 				// determine if a pirouette happened
 				// in order to satisfy our desired pose in frame while execeeding the expected change in joint 0 a pirouette was necessary
