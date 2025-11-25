@@ -14,10 +14,12 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
@@ -124,6 +126,23 @@ func (r *localRobot) ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, 
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.manager.RemoteByName(name)
+}
+
+// WriteTraceMessages writes trace spans to any configured exporters.
+func (r *localRobot) WriteTraceMessages(ctx context.Context, spans [][]byte) error {
+	if r.traceClient == nil {
+		return nil
+	}
+	messages := make([]*otlpv1.ResourceSpans, 0, len(spans))
+	for _, s := range spans {
+		m := &otlpv1.ResourceSpans{}
+		err := proto.Unmarshal(s, m)
+		if err != nil {
+			continue
+		}
+		messages = append(messages, m)
+	}
+	return r.traceClient.UploadTraces(ctx, messages)
 }
 
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
