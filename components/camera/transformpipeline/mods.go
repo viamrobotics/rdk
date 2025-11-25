@@ -8,7 +8,7 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 	"golang.org/x/image/draw"
 
 	"go.viam.com/rdk/components/camera"

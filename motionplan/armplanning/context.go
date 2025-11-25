@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"strings"
 
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"

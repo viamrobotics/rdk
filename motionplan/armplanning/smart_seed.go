@@ -11,8 +11,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/shirou/gopsutil/v3/mem"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"

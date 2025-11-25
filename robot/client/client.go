@@ -18,7 +18,9 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/samber/lo"
 	"github.com/viamrobotics/webrtc/v3"
-	"go.opencensus.io/plugin/ocgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -296,6 +298,11 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		heartbeatCtxCancel:  heartbeatCtxCancel,
 	}
 
+	otelStatsHandler := otelgrpc.NewClientHandler(
+		otelgrpc.WithTracerProvider(noop.NewTracerProvider()),
+		otelgrpc.WithPropagators(propagation.TraceContext{}),
+	)
+
 	// interceptors are applied in order from first to last
 	rc.dialOptions = append(
 		rc.dialOptions,
@@ -316,7 +323,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()),
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 		// sending traces across the network
-		rpc.WithDialStatsHandler(&ocgrpc.ClientHandler{}),
+		rpc.WithDialStatsHandler(otelStatsHandler),
 	)
 
 	// If we're a client running as part of a module, we annotate our requests with our module
