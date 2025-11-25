@@ -73,26 +73,24 @@ func realMain() error {
 	}
 
 	_ = reg
+
+	// The default logger keeps `mp` at the default INFO level. But all loggers underneath only emit
+	// WARN+ logs. Let's start with DEBUG everywhere and:
+	logger.SetLevel(logging.DEBUG)
 	if *verbose {
-		logger.SetLevel(logging.DEBUG)
+		// For verbose keep everything at DEBUG and only claw back `ik` logs to INFO.
 		reg.Update([]logging.LoggerPatternConfig{
-			{
-				Pattern: "*.mp*",
-				Level:   "DEBUG",
-			},
-		}, logger)
-	} else {
-		reg.Update([]logging.LoggerPatternConfig{
-			{
-				Pattern: "*.mp",
-				Level:   "DEBUG",
-			},
 			{
 				Pattern: "*.ik",
 				Level:   "INFO",
 			},
+		}, logger)
+	} else {
+		// For regular cmd-plan runs, leave `mp` at DEBUG, and promote underneath loggers to emit
+		// INFO+ logs.
+		reg.Update([]logging.LoggerPatternConfig{
 			{
-				Pattern: "*.cbirrt",
+				Pattern: "*.mp.*",
 				Level:   "INFO",
 			},
 		}, logger)
