@@ -147,7 +147,7 @@ func (cff *cacheForFrame) boxKey(p r3.Vector) string {
 }
 
 var (
-	arm6JogRatios  = []float64{360, 32, 8, 1, 1, 1}
+	arm6JogRatios  = []float64{120, 48, 16, 0, 0, 0}
 	defaultDivisor = 10.0
 )
 
@@ -179,10 +179,14 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 
 	jogDivisor := defaultDivisor
 	if len(limits) == 6 {
-		// assum it's an arm
+		// assume it's an arm
 		jogDivisor = arm6JogRatios[joint]
 	}
 	jog := (r / jogDivisor) * .9999
+	if jogDivisor == 0 {
+		jog = r
+		values[joint] = (min + max) / 2
+	}
 	x := 0
 	for values[joint] <= max {
 		if joint > 0 || t < 0 || x%defaultNumThreads == t {
@@ -482,7 +486,7 @@ func myCost(start, end []float64) float64 {
 		d := math.Abs(end[i] - s)
 		cost += (d * m)
 		if len(start) == 6 {
-			m *= .25
+			m *= .5
 		}
 	}
 	return cost
@@ -546,7 +550,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx := 0
-	cutDistance := max(200, 1.5*best[0].distance)
+	cutDistance := 2 * best[0].distance
 	for cutIdx < len(best) {
 		if best[cutIdx].distance > cutDistance {
 			break
@@ -559,7 +563,6 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	best = best[0:cutIdx]
 
 	// sort by cst then cut
-
 	sort.Slice(best, func(i, j int) bool {
 		return best[i].cost < best[j].cost
 	})
@@ -586,25 +589,54 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		best = selectMostVariableEntries(best, maxSeeds)
 	}
 
-	ret := [][]referenceframe.Input{}
-	for i := 0; i < len(best) && i < maxSeeds; i++ {
-		e := best[i]
-		ret = append(ret, e.e.inputs)
-		logger.Debugf("dist: %02.f cost: %0.2f %v", e.distance, e.cost, logging.FloatArrayFormat{"%0.2f", e.e.inputs})
-	}
-
 	var divisors []float64
 	if len(frame.DoF()) == 6 {
-		for _, r := range arm6JogRatios {
-			divisors = append(divisors, min(1, 2/r))
+		for j, r := range arm6JogRatios {
+			if j >= 2 {
+				divisors = append(divisors, 1)
+			} else if r == 0 {
+				divisors = append(divisors, 1)
+			} else {
+				divisors = append(divisors, min(1, 2/(r+1)))
+			}
 		}
 	} else {
 		for range len(frame.DoF()) {
-			divisors = append(divisors, 1/defaultDivisor)
+			divisors = append(divisors, 1/(1+defaultDivisor))
 		}
 	}
 
+	ret := [][]referenceframe.Input{}
+	for i := 0; i < len(best) && i < maxSeeds; i++ {
+		e := best[i]
+		logger.Debugf("dist: %02.f cost: %0.2f %v", e.distance, e.cost, logging.FloatArrayFormat{"%0.2f", e.e.inputs})
+
+		similar := false
+		for _, other := range ret {
+			if similiarInputs(e.e.inputs, other, divisors, frame.DoF()) {
+				logger.Debugf("\t skipping %v", logging.FloatArrayFormat{"%0.2f", other})
+				similar = true
+				break
+			}
+		}
+		if similar {
+			continue
+		}
+		ret = append(ret, e.e.inputs)
+	}
+
 	return ret, divisors, nil
+}
+
+func similiarInputs(a, b []referenceframe.Input, divisors []float64, limits []referenceframe.Limit) bool {
+	for i, l := range limits {
+		_, _, r := l.GoodLimits()
+		d := math.Abs((a[i] - b[i]) / r)
+		if d > divisors[i] {
+			return false
+		}
+	}
+	return true
 }
 
 var (

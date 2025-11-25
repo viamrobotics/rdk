@@ -220,24 +220,29 @@ func TestSandingLargeMove1(t *testing.T) {
 
 		seeds, seedLimits, err := ss.findSeeds(ctx, req.Goals[0].poses, req.StartState.LinearConfiguration(), -1, logger)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(seeds), test.ShouldBeGreaterThan, 5)
-		test.That(t, len(seeds), test.ShouldBeLessThan, 9000)
+		test.That(t, len(seeds), test.ShouldBeGreaterThan, 3)
+		test.That(t, len(seeds), test.ShouldBeLessThan, 500)
 		test.That(t, len(seedLimits), test.ShouldEqual, 6)
 
 		lis, err := req.StartState.LinearConfiguration().GetSchema(req.FrameSystem)
 		test.That(t, err, test.ShouldBeNil)
 
-		goodJoints := []float64{5.51, -0.19, 1.26, -2.58, -1.48, -2.33}
-		numGood := 0
-		for i, s := range seeds {
-			ll := ik.ComputeAdjustLimitsArray(s.GetLinearizedInputs(), lis.GetLimits(), seedLimits)
-			if !referenceframe.AreInputsValid(ll, goodJoints) {
-				continue
-			}
-			logger.Infof("good %d %v", i, logging.FloatArrayFormat{"%0.2f", s.GetLinearizedInputs()})
-			numGood++
+		goodSets := [][]float64{
+			{-0.78, -0.19, 1.26, -2.58, -1.48, 3.95},
+			{5.51, -0.19, 1.26, -2.58, -1.48, -2.33},
 		}
-		test.That(t, numGood, test.ShouldBeGreaterThan, 0)
+		for _, goodJoints := range goodSets {
+			numGood := 0
+			for i, s := range seeds {
+				ll := ik.ComputeAdjustLimitsArray(s.GetLinearizedInputs(), lis.GetLimits(), seedLimits)
+				if !referenceframe.AreInputsValid(ll, goodJoints) {
+					continue
+				}
+				logger.Infof("good %d %v", i, logging.FloatArrayFormat{"%0.2f", s.GetLinearizedInputs()})
+				numGood++
+			}
+			test.That(t, numGood, test.ShouldBeGreaterThan, 0)
+		}
 	}
 
 	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
