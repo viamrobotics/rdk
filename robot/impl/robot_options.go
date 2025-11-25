@@ -24,6 +24,12 @@ type options struct {
 
 	// disableCompleteConfigWorker starts the robot without the complete config worker - should only be used for tests.
 	disableCompleteConfigWorker bool
+
+	tracing tracingConfig
+}
+
+type tracingConfig struct {
+	enabled bool
 }
 
 // Option configures how we set up the web service.
