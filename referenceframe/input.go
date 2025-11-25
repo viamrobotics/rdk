@@ -150,10 +150,12 @@ func InputsLinfDistance(from, to []Input) float64 {
 	if len(from) != len(to) {
 		return math.Inf(1)
 	}
+	//nolint: revive
 	max := 0.
 	for index := range from {
 		norm := math.Abs(from[index] - to[index])
 		if norm > max {
+			//nolint: revive
 			max = norm
 		}
 	}

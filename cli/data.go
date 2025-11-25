@@ -523,7 +523,7 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 			IncludeBinary: !largeFile,
 		})
 		// If any file is too large, we break and try a different pathway for downloading
-		if err == nil || status.Code(err) == codes.ResourceExhausted {
+		if err == nil || status.Code(err) == codes.ResourceExhausted || status.Code(err) == codes.Unavailable {
 			debugf(c.c.App.Writer, args.Debug, "Small file download for files %v: attempt %d/%d succeeded", ids, count+1, maxRetryCount)
 			break
 		}
@@ -531,7 +531,9 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 	}
 	// For large files, we get the metadata but not the binary itself
 	// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
-	if err != nil && status.Code(err) == codes.ResourceExhausted {
+	// Unavailable (such as error 'upstream connect error or disconnect/reset before headers. reset reason: connection termination')
+	// can also be returned when the file is too large.
+	if err != nil && (status.Code(err) == codes.ResourceExhausted || status.Code(err) == codes.Unavailable) {
 		largeFile = true
 		for count := 0; count < maxRetryCount; count++ {
 			resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
@@ -676,14 +678,14 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 // transform datum's filename to a destination path on this computer.
 func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	timeRequested := meta.GetTimeRequested().AsTime().Format(time.RFC3339Nano)
+	timeRequested = data.CaptureFilePathWithReplacedReservedChars(timeRequested)
 	fileName := meta.GetFileName()
 
-	// If there is no file name, this is a data capture file.
 	if fileName == "" {
 		//nolint:staticcheck
 		fileName = timeRequested + "_" + meta.GetId() + meta.GetFileExt()
 	} else if filepath.Dir(fileName) == "." {
-		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
+		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted (if it is not already prepended)
 		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
 		fileName = timeRequested + "_" + fileName
 	}

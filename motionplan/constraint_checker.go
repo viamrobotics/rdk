@@ -3,11 +3,13 @@ package motionplan
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -32,15 +34,22 @@ const (
 // If the returned error is nil, the constraint is satisfied and the state is valid.
 type StateFSConstraint func(*StateFS) error
 
+// CollisionConstraintFunc tests if there is a collision
+// first return is closest target
+type CollisionConstraintFunc func(*StateFS) (float64, error)
+
 // ConstraintChecker is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
 type ConstraintChecker struct {
-	stateFSConstraints map[string]StateFSConstraint
+	collisionConstraints map[string]CollisionConstraintFunc
+	topoConstraint       StateFSConstraint
+
+	logger logging.Logger
 }
 
 // NewEmptyConstraintChecker - creates a ConstraintChecker with nothing.
-func NewEmptyConstraintChecker() *ConstraintChecker {
-	return &ConstraintChecker{}
+func NewEmptyConstraintChecker(logger logging.Logger) *ConstraintChecker {
+	return &ConstraintChecker{logger: logger}
 }
 
 // NewConstraintChecker - creates a ConstraintChecker with all the params.
@@ -52,13 +61,14 @@ func NewConstraintChecker(
 	movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry,
 	seedMap *referenceframe.LinearInputs,
 	worldState *referenceframe.WorldState,
+	logger logging.Logger,
 ) (*ConstraintChecker, error) {
 	if constraints == nil {
 		// Constraints may be nil, but if a motion profile is set in planningOpts
 		// we need it to be a valid pointer to an empty struct.
 		constraints = &Constraints{}
 	}
-	handler := NewEmptyConstraintChecker()
+	handler := NewEmptyConstraintChecker(logger)
 
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(fs, seedMap)
 	if err != nil {
@@ -87,7 +97,8 @@ func NewConstraintChecker(
 	}
 
 	// add collision constraints
-	fsCollisionConstraints, err := CreateAllCollisionConstraints(
+	handler.collisionConstraints, err = CreateAllCollisionConstraints(
+		fs,
 		movingRobotGeometries,
 		staticRobotGeometries,
 		worldGeometries,
@@ -97,9 +108,6 @@ func NewConstraintChecker(
 	if err != nil {
 		return nil, err
 	}
-	for name, constraint := range fsCollisionConstraints {
-		handler.AddStateFSConstraint(name, constraint)
-	}
 
 	err = handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
 	if err != nil {
@@ -107,6 +115,11 @@ func NewConstraintChecker(
 	}
 
 	return handler, nil
+}
+
+// SetCollisionConstraints set the collision constraints explicitly
+func (c *ConstraintChecker) SetCollisionConstraints(cs map[string]CollisionConstraintFunc) {
+	c.collisionConstraints = cs
 }
 
 // addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological
@@ -137,7 +150,7 @@ func (c *ConstraintChecker) addTopoConstraints(
 		fromPoses[f] = x.(*referenceframe.PoseInFrame)
 	}
 
-	c.AddStateFSConstraint("topo constraint", func(state *StateFS) error {
+	c.topoConstraint = func(state *StateFS) error {
 		for frame, toPIF := range toPoses {
 			fromPIF := fromPoses[frame]
 
@@ -177,12 +190,12 @@ func (c *ConstraintChecker) addTopoConstraints(
 		}
 
 		return nil
-	})
+	}
 
 	return nil
 }
 
-func orientationError(prefix string, from, to, curr spatialmath.Orientation, dist, max float64) error {
+func orientationError(prefix string, from, to, curr spatialmath.Orientation, dist, max float64) error { //nolint: revive
 	return fmt.Errorf("%s %s violated dist: %0.5f > %0.5f from: %v to: %v currPose: %v",
 		prefix, orientationConstraintDescription, dist, max,
 		from, to, curr)
@@ -242,16 +255,36 @@ func checkOrientationConstraint(frame string, c OrientationConstraint, from, to,
 }
 
 // CheckStateFSConstraints will check a given input against all FS state constraints.
-func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *StateFS) error {
+// first is closest obstacle, negative if in collision
+func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *StateFS) (float64, error) {
 	_, span := trace.StartSpan(ctx, "CheckStateFSConstraints")
 	defer span.End()
-	for name, cFunc := range c.stateFSConstraints {
-		if err := cFunc(state); err != nil {
-			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
-			return errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
+
+	{
+		_, err := state.Geometries()
+		if err != nil {
+			return 0, err
 		}
 	}
-	return nil
+
+	closest := math.Inf(1)
+
+	for name, cFunc := range c.collisionConstraints {
+		d, err := cFunc(state)
+		closest = min(closest, d)
+		if err != nil {
+			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
+			return -1, errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
+		}
+	}
+
+	if c.topoConstraint != nil {
+		err := c.topoConstraint(state)
+		if err != nil {
+			return closest, err
+		}
+	}
+	return closest, nil
 }
 
 // InterpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
@@ -316,25 +349,6 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 	return interpolatedConfigurations, nil
 }
 
-// AddStateFSConstraint will add or overwrite a constraint function with a given name. A constraint function should return true
-// if the given position satisfies the constraint.
-func (c *ConstraintChecker) AddStateFSConstraint(name string, cons StateFSConstraint) {
-	if c.stateFSConstraints == nil {
-		c.stateFSConstraints = map[string]StateFSConstraint{}
-	}
-	name = name + "_" + fmt.Sprintf("%p", cons)
-	c.stateFSConstraints[name] = cons
-}
-
-// StateFSConstraints will list all FS state constraints by name.
-func (c *ConstraintChecker) StateFSConstraints() []string {
-	names := make([]string, 0, len(c.stateFSConstraints))
-	for name := range c.stateFSConstraints {
-		names = append(names, name)
-	}
-	return names
-}
-
 // CheckStateConstraintsAcrossSegmentFS will interpolate the given input from the StartConfiguration to the EndConfiguration, and ensure
 // that all intermediate states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will
 // return `true, nil`. If any constraints fail, this will return false, and an SegmentFS representing the valid portion of the segment,
@@ -353,9 +367,11 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	}
 
 	var lastGood *referenceframe.LinearInputs
-	for i, interpConfig := range interpolatedConfigurations {
+
+	for i := 0; i < len(interpolatedConfigurations); i++ {
+		interpConfig := interpolatedConfigurations[i]
 		interpC := &StateFS{FS: ci.FS, Configuration: interpConfig}
-		err = c.CheckStateFSConstraints(ctx, interpC)
+		closestObstacle, err := c.CheckStateFSConstraints(ctx, interpC)
 		if err != nil {
 			if i == 0 {
 				// fail on start pos
@@ -364,6 +380,11 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 			return &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}, err
 		}
 		lastGood = interpC.Configuration
+
+		canSkip := int(min(100, math.Floor(closestObstacle/resolution)))
+		if canSkip > 0 && c.topoConstraint == nil {
+			i += canSkip
+		}
 	}
 
 	return nil, nil
@@ -371,15 +392,16 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 
 // CreateAllCollisionConstraints -.
 func CreateAllCollisionConstraints(
+	fs *referenceframe.FrameSystem,
 	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatialmath.Geometry,
 	allowedCollisions []*Collision,
 	collisionBufferMM float64,
-) (map[string]StateFSConstraint, error) {
-	constraintFSMap := map[string]StateFSConstraint{}
+) (map[string]CollisionConstraintFunc, error) {
+	constraintFSMap := map[string]CollisionConstraintFunc{}
 
 	if len(worldGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting world state obstacles
-		obstacleConstraintFS, err := NewCollisionConstraintFS(
+		obstacleConstraintFS, err := NewCollisionConstraintFS("world", fs,
 			movingRobotGeometries,
 			worldGeometries,
 			allowedCollisions,
@@ -393,7 +415,7 @@ func CreateAllCollisionConstraints(
 	}
 
 	if len(staticRobotGeometries) > 0 {
-		robotConstraintFS, err := NewCollisionConstraintFS(
+		robotConstraintFS, err := NewCollisionConstraintFS("static", fs,
 			movingRobotGeometries,
 			staticRobotGeometries,
 			allowedCollisions,
@@ -407,7 +429,7 @@ func CreateAllCollisionConstraints(
 
 	// create constraint to keep moving geometries from hitting themselves
 	if len(movingRobotGeometries) > 1 {
-		selfCollisionConstraintFS, err := NewCollisionConstraintFS(
+		selfCollisionConstraintFS, err := NewCollisionConstraintFS("self", fs,
 			movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM)
 		if err != nil {
 			return nil, err
@@ -418,13 +440,14 @@ func CreateAllCollisionConstraints(
 }
 
 func setupZeroCG(
+	fs *referenceframe.FrameSystem,
 	moving, static []spatialmath.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
 	collisionBufferMM float64,
 ) (*collisionGraph, error) {
 	// create the reference collisionGraph
-	zeroCG, err := newCollisionGraph(moving, static, nil, reportDistances, collisionBufferMM)
+	zeroCG, err := newCollisionGraph(fs, moving, static, nil, reportDistances, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -439,12 +462,14 @@ func setupZeroCG(
 // outside of the collisions present for the observationInput. Collisions specified as collisionSpecifications will also be ignored.
 // If reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
 func NewCollisionConstraintFS(
+	n string,
+	fs *referenceframe.FrameSystem,
 	moving, static []spatialmath.Geometry,
 	collisionSpecifications []*Collision,
 	reportDistances bool,
 	collisionBufferMM float64,
-) (StateFSConstraint, error) {
-	zeroCG, err := setupZeroCG(moving, static, collisionSpecifications, true, collisionBufferMM)
+) (CollisionConstraintFunc, error) {
+	zeroCG, err := setupZeroCG(fs, moving, static, collisionSpecifications, true, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -455,11 +480,11 @@ func NewCollisionConstraintFS(
 	}
 
 	// create constraint from reference collision graph
-	constraint := func(state *StateFS) error {
+	constraint := func(state *StateFS) (float64, error) {
 		// Use FrameSystemGeometries to get all geometries in the frame system
 		internalGeometries, err := state.Geometries()
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		// We only want to compare *moving* geometries, so we filter what we get from the framesystem against what we were passed.
@@ -472,22 +497,22 @@ func NewCollisionConstraintFS(
 			}
 		}
 
-		return collisionCheckFinish(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
+		return collisionCheckFinish(state.FS, internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
 	}
 	return constraint, nil
 }
 
-func collisionCheckFinish(internalGeoms, static []spatialmath.Geometry, zeroCG *collisionGraph,
+func collisionCheckFinish(fs *referenceframe.FrameSystem, internalGeoms, static []spatialmath.Geometry, zeroCG *collisionGraph,
 	reportDistances bool, collisionBufferMM float64,
-) error {
-	cg, err := newCollisionGraph(internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
+) (float64, error) {
+	cg, err := newCollisionGraph(fs, internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	cs := cg.collisions(collisionBufferMM)
 	if len(cs) != 0 {
 		// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
-		return fmt.Errorf("violation between %s and %s geometries (total collisions: %d)", cs[0].name1, cs[0].name2, len(cs))
+		return -1, fmt.Errorf("violation between %s and %s geometries (total collisions: %d)", cs[0].name1, cs[0].name2, len(cs))
 	}
-	return nil
+	return cg.minDistance, nil
 }

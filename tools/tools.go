@@ -9,7 +9,6 @@ import (
 	_ "github.com/AlekSi/gocov-xml"
 	_ "github.com/axw/gocov/gocov"
 	_ "github.com/fullstorydev/grpcurl/cmd/grpcurl"
-	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
 	_ "github.com/rhysd/actionlint"
 	_ "golang.org/x/mobile/cmd/gomobile"
 	_ "golang.org/x/tools/cmd/stringer" // generates `String` methods for enums

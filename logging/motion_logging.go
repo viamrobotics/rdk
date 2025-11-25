@@ -27,39 +27,38 @@ func applyMotionRegistryOptions(registry *Registry) {
 		recentMessageEntries: make(map[string]LogEntry),
 	}
 
+	// Default viam-server logging. `*.mp` is at its default value (presumably INFO), but loggers
+	// underneath `mp` are chatty. Set them to only emit WARN+ logs.
 	if !testing.Testing() {
 		registry.Update([]LoggerPatternConfig{
 			{
-				Pattern: "*.ik",
-				Level:   "WARN",
-			},
-			{
-				Pattern: "*.cbirrt",
+				Pattern: "*.mp.*",
 				Level:   "WARN",
 			},
 		}, warnLogger)
 		return
 	}
 
+	// We are in testing. If the IK debug env variable is also present, set all motion planning to
+	// DEBUG.
 	if debugIkMinFunc {
 		registry.Update([]LoggerPatternConfig{
+			// This targets both `*.mp` and `*.mp.*`.
 			{
-				Pattern: "*.ik",
-				Level:   "DEBUG",
-			},
-			{
-				Pattern: "*.cbirrt",
+				Pattern: "*.mp*",
 				Level:   "DEBUG",
 			},
 		}, warnLogger)
 	} else {
 		registry.Update([]LoggerPatternConfig{
+			// `mp` at DEBUG is reasonable, everything under `mp` is chatty and set to only emit
+			// INFO+ for testing.
 			{
-				Pattern: "*.ik",
-				Level:   "INFO",
+				Pattern: "*.mp",
+				Level:   "DEBUG",
 			},
 			{
-				Pattern: "*.cbirrt",
+				Pattern: "*.mp.*",
 				Level:   "INFO",
 			},
 		}, warnLogger)

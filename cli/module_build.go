@@ -825,13 +825,13 @@ func (c *viamClient) triggerCloudReloadBuild(
 		return "", err
 	}
 
-	part, err := c.getRobotPart(args.PartID)
+	part, err := c.getRobotPart(partID)
 	if err != nil {
 		return "", err
 	}
 
 	if part.Part == nil {
-		return "", fmt.Errorf("part with id=%s not found", args.PartID)
+		return "", fmt.Errorf("part with id=%s not found", partID)
 	}
 
 	if part.Part.UserSuppliedInfo == nil {
@@ -1154,6 +1154,9 @@ func reloadModuleActionInner(
 	if !args.NoBuild {
 		if manifest == nil {
 			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, moduleFlagPath)
+		}
+		if manifest.Build == nil || manifest.Build.Build == "" {
+			return errors.New("your meta.json cannot have an empty build step. It is required for 'reload' and 'reload-local' commands")
 		}
 		if !cloudBuild {
 			err = moduleBuildLocalAction(c, manifest, environment)
@@ -1593,7 +1596,12 @@ func ModuleRestartAction(c *cli.Context, args moduleRestartArgs) error {
 		return err
 	}
 
-	part, err := client.getRobotPart(args.PartID)
+	partID, err := resolvePartID(args.PartID, args.CloudConfig)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.getRobotPart(partID)
 	if err != nil {
 		return err
 	}
