@@ -651,7 +651,10 @@ func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[str
 func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInputs) (map[string]*GeometriesInFrame, error) {
 	var errAll error
 	allGeometries := make(map[string]*GeometriesInFrame, 0)
-	for _, name := range fs.FrameNames() {
+	framenames := fs.FrameNames()
+	//nolint: forbidigo
+	fmt.Printf("Processing %v frame names\n", len(framenames))
+	for _, name := range framenames {
 		frame := fs.Frame(name)
 		inputs, err := linearInputs.GetFrameInputs(frame)
 		if err != nil {
@@ -674,6 +677,8 @@ func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInpu
 			allGeometries[name] = transformed.(*GeometriesInFrame)
 		}
 	}
+	//nolint: forbidigo
+	fmt.Print("Done processing frame names\n")
 
 	return allGeometries, errAll
 }

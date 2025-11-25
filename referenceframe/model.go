@@ -326,8 +326,6 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 	posIdx := 0
 
 	// get quaternions from the base outwards.
-	//nolint: forbidigo
-	fmt.Printf("Processing %v ordTransforms\n", len(m.ordTransforms))
 	for _, transform := range m.ordTransforms {
 		dof := len(transform.DoF()) + posIdx
 		input := inputs[posIdx:dof]
@@ -364,8 +362,6 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 	}
-	//nolint: forbidigo
-	fmt.Print("Done processing ord transforms\n")
 
 	// TODO(rb) as written this will return one too many frames, no need to return zeroth frame
 	poses = append(poses, &staticFrame{&baseFrame{"", []Limit{}}, composedTransformation, nil})
