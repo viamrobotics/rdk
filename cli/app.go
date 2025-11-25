@@ -3398,6 +3398,73 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					},
 					Action: createCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),
 				},
+				{
+					Name:  "test-local",
+					Usage: "test training script locally using Docker",
+					UsageText: createUsageText("training-script test-local", []string{
+						trainFlagDatasetRoot, trainFlagTrainingScriptDirectory,
+						trainFlagDatasetFile, trainFlagContainerVersion, trainFlagModelOutputDirectory,
+					}, true, false),
+					Description: `Test your training script locally before submitting to the cloud. This runs your training script 
+in a Docker container using the same environment as cloud training.
+
+REQUIREMENTS:
+  - Docker must be installed and running
+  - Training script directory must contain model/training.py and setup.py.
+  - Dataset root directory must contain:
+    * dataset.jsonl (or the file specified with --dataset-file)
+    * All image files referenced in the dataset (using relative paths from dataset root)
+
+DATASET ORGANIZATION:
+  The dataset root should be organized so that image paths in dataset.jsonl are relative to it.
+  If downloaded with the 'viam dataset export' command, this will happen automatically.
+  For example:
+    dataset_root/
+      ├── dataset.jsonl         (contains paths like "data/images/cat.jpg")
+      └── data/
+          └── images/
+              └── cat.jpg
+
+NOTES:
+  - Training containers only support linux/x86_64 (amd64) architecture
+  - Ensure Docker Desktop has sufficient resources allocated (memory, CPU)
+  - The container's working directory will be set to the dataset root, so relative paths resolve correctly
+  - Model output will be saved to the specified output directory on your host machine
+`,
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name: trainFlagDatasetRoot,
+							Usage: "path to the dataset root directory (where dataset.jsonl and image files are located)." +
+								" This is where you ran the 'viam dataset export' command from. The container will be mounted to this directory",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  trainFlagDatasetFile,
+							Usage: "relative path to the dataset file from the dataset root. Defaults to dataset.jsonl",
+							Value: "dataset.jsonl",
+						},
+						&cli.StringFlag{
+							Name:     trainFlagTrainingScriptDirectory,
+							Usage:    "path to the training script directory (must contain setup.py and model/training.py)",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     trainFlagContainerVersion,
+							Usage:    "container version to use (e.g., 'tf:2.16').",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:  trainFlagModelOutputDirectory,
+							Usage: "directory where the trained model will be saved. Defaults to current directory",
+							Value: ".",
+						},
+						&cli.StringSliceFlag{
+							Name:  trainFlagCustomArgs,
+							Usage: "custom arguments to pass to the training script (format: key=value)",
+						},
+					},
+					Action: createCommandWithT[mlTrainingScriptTestLocalArgs](MLTrainingScriptTestLocalAction),
+				},
 			},
 		},
 		{
