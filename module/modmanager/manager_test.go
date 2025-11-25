@@ -138,6 +138,7 @@ func TestCrashedModuleCheckReadyShortCircuit(t *testing.T) {
 }
 
 func TestModManagerFunctions(t *testing.T) {
+	// t.Parallel() // todo: can this race with ./examples? // also this fails
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 	modPath2 := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexmodule")
@@ -582,6 +583,7 @@ func TestModManagerValidation(t *testing.T) {
 }
 
 func TestModuleReloading(t *testing.T) {
+	// t.Parallel() // can't, uses Setenv or Chdir
 	ctx := context.Background()
 
 	myHelperModel := resource.NewModel("rdk", "test", "helper")
@@ -928,6 +930,7 @@ func TestModuleReloading(t *testing.T) {
 }
 
 func TestDebugModule(t *testing.T) {
+	// t.Parallel() // fails
 	ctx := context.Background()
 
 	// Precompile module to avoid timeout issues when building takes too long.
@@ -1196,6 +1199,7 @@ func TestModuleMisc(t *testing.T) {
 }
 
 func TestTwoModulesRestart(t *testing.T) {
+	// t.Parallel() // seems to fail when run parallel
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
@@ -1294,6 +1298,7 @@ func greenLog(t *testing.T, msg string) {
 }
 
 func TestRTPPassthrough(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewInMemoryLogger(t)
 
@@ -1504,6 +1509,7 @@ func TestRTPPassthrough(t *testing.T) {
 }
 
 func TestAddStreamMaxTrackErr(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewInMemoryLogger(t)
 
@@ -1618,6 +1624,7 @@ func TestBadModuleFailsFast(t *testing.T) {
 // process information (e.g: CPU usage) is in sync with the Process IDs (PIDs) that are actually
 // running.
 func TestFTDCAfterModuleCrash(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS != "linux" {
 		t.Skip(t.Name(), "only runs on Linux due to a dependency on the /proc filesystem")
 	}
@@ -1704,6 +1711,7 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 }
 
 func TestFirstRun(t *testing.T) {
+	// t.Parallel() // tests using Setenv and Chdir can't use Parallel
 	t.Run("fails", func(t *testing.T) {
 		ctx := context.Background()
 		logger, logs := logging.NewObservedTestLogger(t)
