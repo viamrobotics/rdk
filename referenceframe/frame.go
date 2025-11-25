@@ -63,6 +63,21 @@ func (l *Limit) IsValid(v float64) bool {
 	return v >= l.Min && v <= l.Max
 }
 
+// AreInputsValid checks if all values are within limit ranges
+func AreInputsValid(ls []Limit, values []float64) bool {
+	if len(ls) != len(values) {
+		return false
+	}
+
+	for i, l := range ls {
+		if !l.IsValid(values[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func limitsAlmostEqual(limits1, limits2 []Limit, epsilon float64) bool {
 	if len(limits1) != len(limits2) {
 		return false

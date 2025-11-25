@@ -7,10 +7,10 @@ import (
 
 	"github.com/pion/rtp"
 	"github.com/viamrobotics/webrtc/v3"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 	"golang.org/x/exp/maps"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pion/mediadevices/pkg/prop"
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
@@ -36,6 +37,7 @@ import (
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	rclient "go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/discovery"
 	genSvc "go.viam.com/rdk/services/generic"
@@ -49,6 +51,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	injectmotion "go.viam.com/rdk/testutils/inject/motion"
+	"go.viam.com/rdk/testutils/robottestutils"
 )
 
 func TestJobManagerDurationAndCronFromJson(t *testing.T) {
@@ -66,6 +69,361 @@ func TestJobManagerDurationAndCronFromJson(t *testing.T) {
 			test.ShouldBeGreaterThanOrEqualTo, 3)
 		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 3)
+	})
+}
+
+func TestLogLevelChange(t *testing.T) {
+	// This is created at debug level
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	fakeSensorComponent := []resource.Config{
+		{
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			Name:  "sensor",
+			API:   sensor.API,
+		},
+	}
+
+	cfg := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "1s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	cfgWarn := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "1s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+					LogConfiguration: &resource.LogConfig{
+						Level: logging.WARN,
+					},
+				},
+			},
+		},
+	}
+	cfgDebug := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "1s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+					LogConfiguration: &resource.LogConfig{
+						Level: logging.DEBUG,
+					},
+				},
+			},
+		},
+	}
+	ctx, ctxCancelFunc := context.WithCancel(context.Background())
+	defer ctxCancelFunc()
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+
+	time.Sleep(7 * time.Second)
+	test.That(t, logs.FilterMessage("Job triggered").FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeGreaterThan, 2)
+	test.That(t, logs.FilterMessage("Job succeeded").FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeGreaterThan, 2)
+
+	lr.Reconfigure(ctx, cfgWarn)
+	logs.TakeAll()
+	time.Sleep(7 * time.Second)
+	// update will let the previous job iteration complete first, so may be 1 or 0.
+	test.That(t, logs.FilterMessage("Job triggered").FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeLessThanOrEqualTo, 1)
+	test.That(t, logs.FilterMessage("Job succeeded").FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeLessThanOrEqualTo, 1)
+
+	lr.Reconfigure(ctx, cfgDebug)
+	logs.TakeAll()
+	time.Sleep(7 * time.Second)
+	test.That(t, logs.FilterMessage("Job triggered").FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeGreaterThan, 2)
+	test.That(t, logs.FilterMessage("Job succeeded").FilterLevelExact(zapcore.DebugLevel).Len(),
+		test.ShouldBeGreaterThan, 2)
+}
+
+func TestJobManagerHistory(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	fakeSensorModel := resource.DefaultModelFamily.WithModel("fakesensor")
+	injectSensor := inject.NewSensor("fakesensor")
+	injectSensor.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		return map[string]interface{}{"a": 1, "b": 2, "c": 3}, nil
+	}
+	injectSensor.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		if cmd["command"] == "pass" {
+			return nil, nil
+		}
+		return nil, errors.New("fail")
+	}
+	fakeSensorModelPanic := resource.DefaultModelFamily.WithModel("fakesensorPanic")
+	injectSensorPanic := inject.NewSensor("fakesensorPanic")
+	injectSensorPanic.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+		panic("panic")
+	}
+	injectSensorPanic.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return nil, nil
+	}
+	resource.RegisterComponent(
+		sensor.API,
+		fakeSensorModel,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return injectSensor, nil
+		}})
+	resource.RegisterComponent(
+		sensor.API,
+		fakeSensorModelPanic,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return injectSensorPanic, nil
+		}})
+
+	// test GetReadings success, DoCommand fail
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Model: fakeSensorModel,
+				Name:  "sensor",
+				API:   sensor.API,
+			},
+		},
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "200ms",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "test DoCommand",
+					Schedule: "200ms",
+					Resource: "sensor",
+					Method:   "DoCommand",
+					Command: map[string]any{
+						"command": "fail",
+					},
+				},
+			},
+		},
+	}
+	// switch to test GetReadings Panic, DoCommand success
+	cfgSwitch := &config.Config{
+		Components: []resource.Config{
+			{
+				Model: fakeSensorModelPanic,
+				Name:  "sensor",
+				API:   sensor.API,
+			},
+		},
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "200ms",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "test DoCommand",
+					Schedule: "200ms",
+					Resource: "sensor",
+					Method:   "DoCommand",
+					Command: map[string]any{
+						"command": "pass",
+					},
+				},
+			},
+		},
+	}
+
+	ctx, ctxCancelFunc := context.WithCancel(context.Background())
+	defer ctxCancelFunc()
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+	o, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := lr.StartWeb(ctx, o)
+	test.That(t, err, test.ShouldBeNil)
+	robotClient, err := rclient.New(ctx, addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer robotClient.Close(ctx)
+
+	//nolint:dupl
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+		tb.Helper()
+		ms, err := robotClient.MachineStatus(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, len(ms.JobStatuses), test.ShouldEqual, 2)
+
+		successJob, ok := ms.JobStatuses["fake sensor"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		test.That(tb, len(successJob.RecentSuccessfulRuns), test.ShouldBeGreaterThan, 0)
+		test.That(tb, len(successJob.RecentFailedRuns), test.ShouldEqual, 0)
+
+		failJob, ok := ms.JobStatuses["test DoCommand"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		test.That(tb, len(failJob.RecentSuccessfulRuns), test.ShouldEqual, 0)
+		test.That(tb, len(failJob.RecentFailedRuns), test.ShouldBeGreaterThan, 0)
+	})
+
+	lr.Reconfigure(ctx, cfgSwitch)
+	//nolint:dupl
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+		tb.Helper()
+		ms, err := robotClient.MachineStatus(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, len(ms.JobStatuses), test.ShouldEqual, 2)
+
+		// both ShouldBeGreaterThan because history from previous run remains
+		panicJob, ok := ms.JobStatuses["fake sensor"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		test.That(tb, len(panicJob.RecentSuccessfulRuns), test.ShouldBeGreaterThan, 0)
+		test.That(tb, len(panicJob.RecentFailedRuns), test.ShouldBeGreaterThan, 0)
+
+		successJob, ok := ms.JobStatuses["test DoCommand"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		test.That(tb, len(successJob.RecentSuccessfulRuns), test.ShouldBeGreaterThan, 0)
+		test.That(tb, len(successJob.RecentFailedRuns), test.ShouldBeGreaterThan, 0)
+	})
+}
+
+// Test continuous mode, include switching to and from.
+func TestJobContinuousSchedule(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	fakeSensorComponent := []resource.Config{
+		{
+			Model: resource.DefaultModelFamily.WithModel("fake"),
+			Name:  "sensor",
+			API:   sensor.API,
+		},
+	}
+
+	cfg := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "1s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	cfgCron := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "*/1 * * * * *",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	cfgContinuous := &config.Config{
+		Components: fakeSensorComponent,
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "fake sensor",
+					Schedule: "continuous",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	ctx, ctxCancelFunc := context.WithCancel(context.Background())
+	defer ctxCancelFunc()
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+	o, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := lr.StartWeb(ctx, o)
+	test.That(t, err, test.ShouldBeNil)
+	robotClient, err := rclient.New(ctx, addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer robotClient.Close(ctx)
+
+	// Start running in 1s duration mode. Expect last 2 latest success timestamps differ by > 900ms
+	testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
+		tb.Helper()
+		ms, err := robotClient.MachineStatus(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, len(ms.JobStatuses), test.ShouldEqual, 1)
+		jh, ok := ms.JobStatuses["fake sensor"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		successes := jh.RecentSuccessfulRuns
+		test.That(tb, len(successes), test.ShouldBeGreaterThanOrEqualTo, 2)
+		if len(successes) >= 2 {
+			test.That(tb, successes[len(successes)-1].Sub(successes[len(successes)-2]), test.ShouldBeGreaterThan, 900*time.Millisecond)
+		}
+	})
+
+	// Switch from duration to continuous. Should run more than 10x. Expect latest success timestamp - earliest < 900ms
+	lr.Reconfigure(ctx, cfgContinuous)
+	testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
+		tb.Helper()
+		ms, err := robotClient.MachineStatus(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, len(ms.JobStatuses), test.ShouldEqual, 1)
+		jh, ok := ms.JobStatuses["fake sensor"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		successes := jh.RecentSuccessfulRuns
+		test.That(tb, ok, test.ShouldBeTrue)
+		// increase this if bumping history size
+		test.That(tb, len(successes), test.ShouldBeGreaterThanOrEqualTo, 10)
+		if len(successes) >= 2 {
+			test.That(tb, successes[len(successes)-1].Sub(successes[0]), test.ShouldBeLessThan, 900*time.Millisecond)
+		}
+	})
+
+	// Switch from continuous to 1s cron. Expect last 2 latest success timestamps differ by > 900ms
+	lr.Reconfigure(ctx, cfgCron)
+	testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
+		tb.Helper()
+		ms, err := robotClient.MachineStatus(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, len(ms.JobStatuses), test.ShouldEqual, 1)
+		jh, ok := ms.JobStatuses["fake sensor"]
+		test.That(tb, ok, test.ShouldBeTrue)
+		successes := jh.RecentSuccessfulRuns
+		test.That(tb, ok, test.ShouldBeTrue)
+		// History still contains runs from prev. If stored size is 10, we still expect 10 here.
+		test.That(tb, len(successes), test.ShouldBeGreaterThanOrEqualTo, 10)
+		if len(successes) >= 2 {
+			test.That(tb, successes[len(successes)-1].Sub(successes[len(successes)-2]), test.ShouldBeGreaterThan, 900*time.Millisecond)
+		}
 	})
 }
 

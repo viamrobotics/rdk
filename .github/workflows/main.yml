@@ -65,7 +65,7 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
 
   slack-workflow-status:
-    if: ${{ failure() }}
+    if: ${{ !success() }}
     name: Post Workflow Status To Slack
     needs:
       - test

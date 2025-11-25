@@ -1032,6 +1032,9 @@ func JobsConfigToProto(jc *JobConfig) (*pb.JobConfig, error) {
 		}
 		protoConfig.Command = command
 	}
+	if jc.LogConfiguration != nil {
+		protoConfig.LogConfiguration = &pb.LogConfiguration{Level: strings.ToLower(jc.LogConfiguration.Level.String())}
+	}
 	return protoConfig, nil
 }
 
@@ -1048,6 +1051,15 @@ func JobsConfigFromProto(proto *pb.JobConfig, _ logging.Logger) (*JobConfig, err
 
 	if proto.Command != nil {
 		jobConfig.Command = proto.Command.AsMap()
+	}
+	if proto.LogConfiguration != nil {
+		if proto.GetLogConfiguration() != nil {
+			level, err := logging.LevelFromString(proto.GetLogConfiguration().Level)
+			if err != nil {
+				level = logging.INFO
+			}
+			jobConfig.LogConfiguration = &resource.LogConfig{Level: level}
+		}
 	}
 	return jobConfig, nil
 }

@@ -67,6 +67,9 @@ var ur5eWrist1LinkGLB []byte
 //go:embed 3d_models/ur5e/wrist_2_link.glb
 var ur5eWrist2LinkGLB []byte
 
+//go:embed 3d_models/ur5e/shoulder_link.glb
+var ur5eShoulderLinkGLB []byte
+
 var armTo3DModelParts = map[string][]string{
 	"ur5e": {
 		"ee_link",
@@ -75,6 +78,7 @@ var armTo3DModelParts = map[string][]string{
 		"wrist_1_link",
 		"wrist_2_link",
 		"base_link",
+		"shoulder_link",
 	},
 }
 
@@ -353,6 +357,11 @@ func threeDMeshFromName(model, name string) commonpb.Mesh {
 		case "ee_link":
 			return commonpb.Mesh{
 				Mesh:        ur5eEELinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "shoulder_link":
+			return commonpb.Mesh{
+				Mesh:        ur5eShoulderLinkGLB,
 				ContentType: "model/gltf-binary",
 			}
 		case "forearm_link":

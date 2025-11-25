@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
@@ -343,9 +344,16 @@ const (
 
 // MachineStatus encapsulates the current status of the robot.
 type MachineStatus struct {
-	Resources []resource.Status
-	Config    config.Revision
-	State     MachineState
+	Resources   []resource.Status
+	Config      config.Revision
+	State       MachineState
+	JobStatuses map[string]JobStatus
+}
+
+// JobStatus encapsulates status information about a single JobManager job.
+type JobStatus struct {
+	RecentSuccessfulRuns []time.Time
+	RecentFailedRuns     []time.Time
 }
 
 // VersionResponse encapsulates the version info of the robot.

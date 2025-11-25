@@ -69,7 +69,7 @@ generate-go: tool-install
 # Yes this regex could be more specific but making it more specific in a way
 # that works the same across GNU and BSD grep isn't currently worth the effort.
 GOVERSION = $(shell grep '^go .\..' go.mod | head -n1 | cut -d' ' -f2)
-lint-go: tool-install
+lint-go:
 	go mod tidy
 	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run --config=./etc/.golangci.yaml || true
 	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run -v --fix --config=./etc/.golangci.yaml

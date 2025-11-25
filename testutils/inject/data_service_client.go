@@ -26,6 +26,8 @@ type DataServiceClient struct {
 		opts ...grpc.CallOption) (*datapb.BinaryDataByFilterResponse, error)
 	BinaryDataByIDsFunc func(ctx context.Context, in *datapb.BinaryDataByIDsRequest,
 		opts ...grpc.CallOption) (*datapb.BinaryDataByIDsResponse, error)
+	CreateBinaryDataSignedURLFunc func(ctx context.Context, in *datapb.CreateBinaryDataSignedURLRequest,
+		opts ...grpc.CallOption) (*datapb.CreateBinaryDataSignedURLResponse, error)
 	DeleteTabularDataFunc func(ctx context.Context, in *datapb.DeleteTabularDataRequest,
 		opts ...grpc.CallOption) (*datapb.DeleteTabularDataResponse, error)
 	DeleteBinaryDataByFilterFunc func(ctx context.Context, in *datapb.DeleteBinaryDataByFilterRequest,
@@ -154,6 +156,16 @@ func (client *DataServiceClient) BinaryDataByIDs(ctx context.Context, in *datapb
 		return client.DataServiceClient.BinaryDataByIDs(ctx, in, opts...)
 	}
 	return client.BinaryDataByIDsFunc(ctx, in, opts...)
+}
+
+// CreateBinaryDataSignedURL calls the injected CreateBinaryDataSignedURL or the real version.
+func (client *DataServiceClient) CreateBinaryDataSignedURL(ctx context.Context, in *datapb.CreateBinaryDataSignedURLRequest,
+	opts ...grpc.CallOption,
+) (*datapb.CreateBinaryDataSignedURLResponse, error) {
+	if client.CreateBinaryDataSignedURLFunc == nil {
+		return client.DataServiceClient.CreateBinaryDataSignedURL(ctx, in, opts...)
+	}
+	return client.CreateBinaryDataSignedURLFunc(ctx, in, opts...)
 }
 
 // DeleteTabularData calls the injected DeleteTabularData or the real version.

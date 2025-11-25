@@ -1275,11 +1275,12 @@ type JobConfig struct {
 
 // JobConfigData is the job config data that gets marshaled/unmarshaled.
 type JobConfigData struct {
-	Name     string         `json:"name"`
-	Schedule string         `json:"schedule"`
-	Resource string         `json:"resource"`
-	Method   string         `json:"method"`
-	Command  map[string]any `json:"command,omitempty"`
+	Name             string              `json:"name"`
+	Schedule         string              `json:"schedule"`
+	Resource         string              `json:"resource"`
+	Method           string              `json:"method"`
+	Command          map[string]any      `json:"command,omitempty"`
+	LogConfiguration *resource.LogConfig `json:"log_configuration,omitempty"`
 }
 
 // MarshalJSON marshals out this config.

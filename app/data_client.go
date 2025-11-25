@@ -730,6 +730,19 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryDataIDs []string
 	return data, nil
 }
 
+// CreateBinaryDataSignedURL creates a signed URL for a given binary data ID.
+// The signed URL can be used for public access to the binary data for a limited time.
+func (d *DataClient) CreateBinaryDataSignedURL(ctx context.Context, binaryDataID string, expirationMinutes uint32) (string, error) {
+	resp, err := d.dataClient.CreateBinaryDataSignedURL(ctx, &pb.CreateBinaryDataSignedURLRequest{
+		BinaryDataId:      binaryDataID,
+		ExpirationMinutes: &expirationMinutes,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.SignedUrl, nil
+}
+
 // DeleteTabularData deletes tabular data older than a number of days, based on the given organization ID.
 // It returns the number of tabular datapoints deleted.
 func (d *DataClient) DeleteTabularData(ctx context.Context, organizationID string, deleteOlderThanDays int) (int, error) {

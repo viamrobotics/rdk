@@ -555,6 +555,24 @@ func TestDataClient(t *testing.T) {
 		test.That(t, respBinaryData[0], test.ShouldResemble, &binaryData)
 	})
 
+	t.Run("CreateBinaryDataSignedURL", func(t *testing.T) {
+		expectedSignedURL := "https://example.com/signed-url?token=abc123"
+		expirationMinutes := uint32(60)
+		grpcClient.CreateBinaryDataSignedURLFunc = func(ctx context.Context, in *pb.CreateBinaryDataSignedURLRequest,
+			opts ...grpc.CallOption,
+		) (*pb.CreateBinaryDataSignedURLResponse, error) {
+			test.That(t, in.BinaryDataId, test.ShouldEqual, binaryDataID)
+			test.That(t, in.ExpirationMinutes, test.ShouldNotBeNil)
+			test.That(t, *in.ExpirationMinutes, test.ShouldEqual, expirationMinutes)
+			return &pb.CreateBinaryDataSignedURLResponse{
+				SignedUrl: expectedSignedURL,
+			}, nil
+		}
+		resp, err := client.CreateBinaryDataSignedURL(context.Background(), binaryDataID, expirationMinutes)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, expectedSignedURL)
+	})
+
 	t.Run("DeleteTabularData", func(t *testing.T) {
 		deleteOlderThanDays := 1
 		pbDeleteOlderThanDays := uint32(deleteOlderThanDays)
