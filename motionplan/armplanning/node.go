@@ -305,17 +305,17 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	elapsed := time.Since(sss.startTime)
 
 	if sss.fatal != nil {
-		sss.logger.Infof("stopping with fatal %v", sss.fatal)
+		sss.logger.Warnf("stopping with fatal %v", sss.fatal)
 		return true
 	}
 
 	if len(sss.solutions) >= sss.maxSolutions {
-		sss.logger.Infof("stopping with %d solutions after: %v", len(sss.solutions), elapsed)
+		sss.logger.Debugf("stopping with %d solutions after: %v", len(sss.solutions), elapsed)
 		return true
 	}
 
 	if sss.bestScoreNoProblem < .2 {
-		sss.logger.Infof("stopping early with amazing %0.2f after: %v", sss.bestScoreNoProblem, elapsed)
+		sss.logger.Debugf("stopping early with amazing %0.2f after: %v", sss.bestScoreNoProblem, elapsed)
 		return true
 	}
 
