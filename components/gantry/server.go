@@ -144,7 +144,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	if err != nil {
 		// if the error tells us the method is unimplemented, then we
 		// can use the kinematics and joint positions endpoints to
-		// construct the geometries of the arm
+		// construct the geometries of the gantry
 		if strings.Contains(err.Error(), unimplemented) {
 			kinematicsPbResp, err := s.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: req.GetName()})
 			if err != nil {
