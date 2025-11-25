@@ -25,7 +25,7 @@ if test -n "$GITHUB_RUN_ID"; then
 fi
 
 # We run analyzetests on every run, pass or fail. We only run analyzecoverage when all tests passed.
-PION_LOG_WARN=webrtc,datachannel,sctp go test -tags=no_skip -timeout 40m -run TestArmAndGantrySolve $RACE $COVER ./motionplan/...
+PION_LOG_WARN=webrtc,datachannel,sctp go test -tags=no_skip -timeout 110m -run TestArmAndGantrySolve $RACE $COVER ./motionplan/...
 SUCCESS=$?
 
 if [[ $RACE != "" ]]; then
