@@ -1859,7 +1859,7 @@ var app = &cli.App{
 			Subcommands: []*cli.Command{
 				{
 					Name:      "containers",
-					Usage:     "handles containers for custom training",
+					Usage:     "returns container information for custom training",
 					UsageText: createUsageText("train containers", nil, false, false),
 					Subcommands: []*cli.Command{
 						{
@@ -1976,8 +1976,10 @@ var app = &cli.App{
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagContainerVersion,
-											Usage:    "ml training container version to use. Must be one of the supported types found by calling ListSupportedContainers",
+											Name: mlTrainingFlagContainerVersion,
+											Usage: `ml training container version to use.
+											Must be one of the supported container names found by
+											calling ListSupportedContainers`,
 											Required: true,
 										},
 										&cli.StringSliceFlag{
@@ -2051,8 +2053,10 @@ var app = &cli.App{
 											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
 										},
 										&cli.StringFlag{
-											Name:     mlTrainingFlagContainerVersion,
-											Usage:    "ml training container version to use. Must be one of the supported types found by calling ListSupportedContainers",
+											Name: mlTrainingFlagContainerVersion,
+											Usage: `ml training container version to use.
+											Must be one of the supported container names found by
+											calling ListSupportedContainers`,
 											Required: true,
 										},
 										&cli.StringSliceFlag{
