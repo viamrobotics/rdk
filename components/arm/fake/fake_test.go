@@ -5,11 +5,11 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/test"
-
+	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
 )
 
 func TestReconfigure(t *testing.T) {
@@ -141,18 +141,18 @@ func TestGet3DModels(t *testing.T) {
 	models, err = fakeArm.Get3DModels(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(models), test.ShouldEqual, 7)
-	test.That(t, models["ee_link"].Mesh, test.ShouldResemble, ur5eEELinkGLB)
+	test.That(t, models["ee_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "ee_link").Mesh)
 	test.That(t, models["ee_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
-	test.That(t, models["forearm_link"].Mesh, test.ShouldResemble, ur5eForearmLinkGLB)
+	test.That(t, models["forearm_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "forearm_link").Mesh)
 	test.That(t, models["forearm_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
-	test.That(t, models["upper_arm_link"].Mesh, test.ShouldResemble, ur5eUpperArmLinkGLB)
+	test.That(t, models["upper_arm_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "upper_arm_link").Mesh)
 	test.That(t, models["upper_arm_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
-	test.That(t, models["wrist_1_link"].Mesh, test.ShouldResemble, ur5eWrist1LinkGLB)
+	test.That(t, models["wrist_1_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "wrist_1_link").Mesh)
 	test.That(t, models["wrist_1_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
-	test.That(t, models["wrist_2_link"].Mesh, test.ShouldResemble, ur5eWrist2LinkGLB)
+	test.That(t, models["wrist_2_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "wrist_2_link").Mesh)
 	test.That(t, models["wrist_2_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
-	test.That(t, models["base_link"].Mesh, test.ShouldResemble, ur5eBaseLinkGLB)
+	test.That(t, models["base_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "base_link").Mesh)
 	test.That(t, models["base_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
-	test.That(t, models["shoulder_link"].Mesh, test.ShouldResemble, ur5eShoulderLinkGLB)
+	test.That(t, models["shoulder_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "shoulder_link").Mesh)
 	test.That(t, models["shoulder_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
 }
