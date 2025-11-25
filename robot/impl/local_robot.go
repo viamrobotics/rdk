@@ -444,13 +444,13 @@ func newWithResources(
 	var traceClient *otlpfile.Client
 	if rOpts.tracing.enabled {
 		func() {
-			tracesDir := filepath.Join(utils.ViamDotDir, "traces", partID)
+			tracesDir := filepath.Join(utils.ViamDotDir, "trace", partID)
 			if err := os.MkdirAll(tracesDir, 0o700); err != nil {
 				logger.Errorw("failed to create directory to store traces", "err", err)
 				return
 			}
 			logger.Infow("created trace storage dir", "dir", tracesDir)
-			traceClient, err = otlpfile.NewClient(tracesDir)
+			traceClient, err = otlpfile.NewClient(tracesDir, "traces")
 			if err != nil {
 				logger.Errorw("failed to create OLTP client", "err", err)
 				return
@@ -469,8 +469,6 @@ func newWithResources(
 					semconv.SchemaURL,
 					semconv.ServiceName("rdk"),
 					semconv.ServiceNamespace("viam.com"),
-					semconv.HostName(cfg.Cloud.FQDN),
-					semconv.HostID(cfg.Cloud.MachineID),
 				),
 				exporter,
 			)

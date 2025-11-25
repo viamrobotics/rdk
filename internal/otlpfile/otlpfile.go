@@ -23,23 +23,13 @@ type Client struct {
 	writer *protoutils.DelimitedProtoWriter[*v1.ResourceSpans]
 }
 
-// NewExporterForPath will create an [*otlptrace.Exporter] that writes traces
-// to files in the specified directory as encoded proto messages.
-func NewExporterForPath(path string) (*otlptrace.Exporter, error) {
-	client, err := NewClient(path)
-	if err != nil {
-		return nil, err
-	}
-	return otlptrace.New(
-		context.Background(),
-		client,
-	)
-}
-
 // NewClient creates a new [Client].
-func NewClient(dirPath string) (*Client, error) {
+func NewClient(dirPath, filename string) (*Client, error) {
 	logger := &lumberjack.Logger{
-		Filename: filepath.Join(dirPath, "traces.json"),
+		Filename: filepath.Join(dirPath, filename),
+		MaxSize: 256,
+		MaxBackups: 4,
+		Compress: true,
 	}
 	writer := protoutils.NewDelimitedProtoWriter[*v1.ResourceSpans](logger)
 	return &Client{

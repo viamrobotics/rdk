@@ -61,6 +61,12 @@ func WithFTDC() Option {
 	})
 }
 
+func WithTraceFile() Option {
+	return newFuncOption(func(o *options) {
+		o.tracing.enabled = true
+	})
+}
+
 // WithWebOptions returns a Option which sets the streamConfig
 // used to enable audio/video streaming over WebRTC.
 func WithWebOptions(opts ...web.Option) Option {
