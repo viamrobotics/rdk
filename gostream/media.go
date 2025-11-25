@@ -9,9 +9,9 @@ import (
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 )
 
 type (
@@ -204,7 +204,7 @@ func newMediaSource[T, U any](d driver.Driver, r MediaReader[T], p U) MediaSourc
 
 func (pc *producerConsumer[T, U]) start() {
 	var startLocalCtx context.Context
-	var span *trace.Span
+	var span trace.Span
 
 	func() {
 		pc.cancelCtxMu.RLock()
@@ -277,7 +277,7 @@ func (pc *producerConsumer[T, U]) start() {
 			pc.cancelCtxMu.RUnlock()
 
 			func() {
-				var doReadSpan *trace.Span
+				var doReadSpan trace.Span
 				startLocalCtx, doReadSpan = trace.StartSpan(startLocalCtx, "gostream::producerConsumer (anonymous function to read)")
 
 				defer func() {
@@ -345,7 +345,7 @@ func (pc *producerConsumer[T, U]) Stop() {
 
 // assumes stateMu lock is held.
 func (pc *producerConsumer[T, U]) stop() {
-	var span *trace.Span
+	var span trace.Span
 	func() {
 		pc.cancelCtxMu.RLock()
 		defer pc.cancelCtxMu.RUnlock()
@@ -377,7 +377,7 @@ func (pc *producerConsumer[T, U]) stop() {
 }
 
 func (pc *producerConsumer[T, U]) stopOne() {
-	var span *trace.Span
+	var span trace.Span
 	func() {
 		pc.cancelCtxMu.RLock()
 		defer pc.cancelCtxMu.RUnlock()
@@ -546,7 +546,7 @@ func (ms *mediaStream[T, U]) Close(ctx context.Context) error {
 		}()
 	}
 
-	var span *trace.Span
+	var span trace.Span
 	func() {
 		ms.prodCon.cancelCtxMu.Lock()
 		defer ms.prodCon.cancelCtxMu.Unlock()

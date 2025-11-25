@@ -7,11 +7,11 @@ import (
 	"image"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
