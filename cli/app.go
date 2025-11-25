@@ -3410,7 +3410,7 @@ in a Docker container using the same environment as cloud training.
 
 REQUIREMENTS:
   - Docker must be installed and running
-  - Training script directory must contain model/training.py and one of the following files: setup.py, setup.cfg, or pyproject.toml.
+  - Training script directory must contain model/training.py and setup.py.
   - Dataset root directory must contain:
     * dataset.jsonl (or the file specified with --dataset-file)
     * All image files referenced in the dataset (using relative paths from dataset root)
@@ -3435,7 +3435,7 @@ NOTES:
 						&cli.StringFlag{
 							Name: trainFlagDatasetRoot,
 							Usage: "path to the dataset root directory (where dataset.jsonl and image files are located)." +
-								" This is where you ran the 'viam dataset export' command from.",
+								" This is where you ran the 'viam dataset export' command from. The container will be mounted to this directory",
 							Required: true,
 						},
 						&cli.StringFlag{
@@ -3444,9 +3444,8 @@ NOTES:
 							Value: "dataset.jsonl",
 						},
 						&cli.StringFlag{
-							Name: trainFlagTrainingScriptDirectory,
-							Usage: "path to the training script directory (must contain setup.py and model/training.py)," +
-								" the container will be mounted to this directory",
+							Name:     trainFlagTrainingScriptDirectory,
+							Usage:    "path to the training script directory (must contain setup.py and model/training.py)",
 							Required: true,
 						},
 						&cli.StringFlag{

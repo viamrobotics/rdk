@@ -44,7 +44,10 @@ const (
 	trainFlagTrainingScriptDirectory = "training-script-directory"
 )
 
-var dockerVertexImageRegex = regexp.MustCompile(`^us-docker\.pkg\.dev/vertex-ai/training/[^:@\s]+(:[^@\s]+)?(@sha256:[A-Fa-f0-9]{64})?$`)
+var (
+	dockerVertexImageRegex = regexp.MustCompile(`^us-docker\.pkg\.dev/vertex-ai/training/[^:@\s]+(:[^@\s]+)?(@sha256:[A-Fa-f0-9]{64})?$`)
+	validArgumentKeyRegex  = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+)
 
 type mlSubmitCustomTrainingJobArgs struct {
 	DatasetID    string
@@ -636,77 +639,31 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 		return err
 	}
 
-	// Get absolute path for dataset root directory
-	datasetRootAbs, err := filepath.Abs(args.DatasetRoot)
+	scriptDirAbs, datasetRootAbs, outputDirAbs, err := getAbsolutePaths(args)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get absolute path for dataset root directory")
+		return err
 	}
 
-	// Dataset file is relative to dataset root (defaults to "dataset.jsonl")
-	datasetFileRelative := args.DatasetFile
-	if datasetFileRelative == "" {
-		datasetFileRelative = "dataset.jsonl"
-	}
-
-	// Clean the path to normalize it (remove .., ., extra slashes, etc.)
-	datasetFileRelative = filepath.Clean(datasetFileRelative)
-
-	// Ensure the path doesn't try to escape the dataset root
-	if strings.HasPrefix(datasetFileRelative, "..") || filepath.IsAbs(datasetFileRelative) {
-		return errors.Errorf("dataset file path must be relative to dataset root and cannot escape it: %s", datasetFileRelative)
+	// Ensure the dataset file path is relative and doesn't escape the dataset root
+	datasetFileRelative := filepath.Clean(args.DatasetFile)
+	if !filepath.IsLocal(datasetFileRelative) {
+		return errors.Errorf("dataset file path must be relative to dataset root and cannot escape it: %s", args.DatasetFile)
 	}
 
 	// Validate required paths exist
-	if err := validateLocalTrainingPaths(args.TrainingScriptDirectory, datasetRootAbs,
-		filepath.Join(datasetRootAbs, datasetFileRelative)); err != nil {
+	if err := validatePaths(scriptDirAbs, datasetRootAbs,
+		filepath.Join(datasetRootAbs, datasetFileRelative), outputDirAbs); err != nil {
 		return err
 	}
 
-	// Get absolute path for training script directory
-	scriptDirAbs, err := filepath.Abs(args.TrainingScriptDirectory)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get absolute path for training script directory")
-	}
-
-	// Determine output directory (default to current directory if not specified)
-	outputDir := args.ModelOutputDirectory
-	if outputDir == "" {
-		outputDir = "."
-	}
-	outputDirAbs, err := filepath.Abs(outputDir)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get absolute path for model output directory")
-	}
-
-	// Ensure output directory exists
-	if err := os.MkdirAll(outputDirAbs, 0o750); err != nil {
-		return errors.Wrapf(err, "failed to create model output directory")
-	}
-
-	// Create temporary script to run inside container
-	scriptContent, err := createTrainingScript(args.CustomArgs, datasetFileRelative)
+	// Create temporary training script
+	tmpScript, err := createTrainingScript(args.CustomArgs, datasetFileRelative)
 	if err != nil {
 		return err
 	}
 
-	tmpScript, err := os.CreateTemp("", "viam-training-*.sh")
-	if err != nil {
-		return errors.Wrap(err, "failed to create temporary script file")
-	}
 	//nolint:errcheck
-	defer os.Remove(tmpScript.Name())
-
-	if _, err := tmpScript.WriteString(scriptContent); err != nil {
-		return errors.Wrap(err, "failed to write to temporary script file")
-	}
-	if err := tmpScript.Close(); err != nil {
-		return errors.Wrap(err, "failed to close temporary script file")
-	}
-
-	//nolint:gosec
-	if err := os.Chmod(tmpScript.Name(), 0o700); err != nil {
-		return errors.Wrap(err, "failed to make script executable")
-	}
+	defer os.Remove(tmpScript)
 
 	// Get container image name
 	containerImageURI, err := getContainerImageURI(client, args.ContainerVersion)
@@ -715,23 +672,7 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 	}
 
 	// Build docker run command
-	// NOTE: Google Vertex AI training containers are only available for linux/x86_64 (amd64).
-	// On ARM systems (e.g., Apple Silicon Macs), Docker will use Rosetta 2 emulation which
-	// may be slower but ensures compatibility with the same containers used in cloud training.
-	dockerArgs := []string{
-		"run",
-		"-i", // Interactive mode to ensure signals are properly handled
-		"--entrypoint", "/bin/bash",
-		"--platform", "linux/x86_64",
-		"--rm",
-		"-v", fmt.Sprintf("%s:/training_script", scriptDirAbs),
-		"-v", fmt.Sprintf("%s:/dataset_root", datasetRootAbs),
-		"-v", fmt.Sprintf("%s:/model_output", outputDirAbs),
-		"-v", fmt.Sprintf("%s:/run_training.sh", tmpScript.Name()),
-		"-w", "/dataset_root", // Set working directory to dataset root so relative paths resolve correctly
-		containerImageURI,
-		"/run_training.sh",
-	}
+	dockerArgs := buildDockerRunArgs(scriptDirAbs, datasetRootAbs, outputDirAbs, tmpScript, containerImageURI)
 
 	// Setup context with signal handling for Ctrl+C
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -761,6 +702,54 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 	}
 
 	return nil
+}
+
+// createTrainingScript creates a temporary shell script file for running training inside the container.
+func createTrainingScript(customArgs []string, datasetFileRelative string) (string, error) {
+	scriptContent, err := buildTrainingScript(customArgs, datasetFileRelative)
+	if err != nil {
+		return "", err
+	}
+
+	tmpScript, err := os.CreateTemp("", "viam-training-*.sh")
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create temporary script file")
+	}
+
+	//nolint:errcheck
+	defer tmpScript.Close()
+
+	if _, err := tmpScript.WriteString(scriptContent); err != nil {
+		return "", errors.Wrap(err, "failed to write to temporary script file")
+	}
+
+	//nolint:gosec
+	if err := os.Chmod(tmpScript.Name(), 0o700); err != nil {
+		return "", errors.Wrap(err, "failed to make script executable")
+	}
+
+	return tmpScript.Name(), nil
+}
+
+// buildDockerRunArgs constructs the arguments for the docker run command.
+// NOTE: Google Vertex AI training containers are only available for linux/x86_64 (amd64).
+// On ARM systems (e.g., Apple Silicon Macs), Docker will use Rosetta 2 emulation which
+// may be slower but ensures compatibility with the same containers used in cloud training.
+func buildDockerRunArgs(scriptDir, datasetRoot, outputDir, tmpScript, containerImageURI string) []string {
+	return []string{
+		"run",
+		"-i", // Interactive mode to ensure signals are properly handled
+		"--entrypoint", "/bin/bash",
+		"--platform", "linux/x86_64",
+		"--rm",
+		"-v", fmt.Sprintf("%s:/training_script", scriptDir),
+		"-v", fmt.Sprintf("%s:/dataset_root", datasetRoot),
+		"-v", fmt.Sprintf("%s:/model_output", outputDir),
+		"-v", fmt.Sprintf("%s:/run_training.sh", tmpScript),
+		"-w", "/dataset_root", // Set working directory to dataset root so relative paths resolve correctly
+		containerImageURI,
+		"/run_training.sh",
+	}
 }
 
 // checkDockerAvailable checks if Docker is installed and running.
@@ -793,8 +782,8 @@ func checkDockerAvailable() error {
 	return nil
 }
 
-// validateLocalTrainingPaths validates that required paths exist.
-func validateLocalTrainingPaths(scriptDir, datasetRoot, datasetFile string) error {
+// validatePaths validates that required paths exist.
+func validatePaths(scriptDir, datasetRoot, datasetFile, outputDir string) error {
 	// Check training script directory exists
 	if _, err := os.Stat(scriptDir); os.IsNotExist(err) {
 		return errors.Errorf("training script directory does not exist: %s", scriptDir)
@@ -816,23 +805,38 @@ func validateLocalTrainingPaths(scriptDir, datasetRoot, datasetFile string) erro
 		return errors.Errorf("dataset root directory does not exist: %s", datasetRoot)
 	}
 
-	// Check that the data folder exists
-	dataFolderPath := filepath.Join(datasetRoot, "data")
-	if _, err := os.Stat(dataFolderPath); os.IsNotExist(err) {
-		return errors.Errorf("data folder does not exist in dataset root directory: %s", datasetRoot)
-	}
-
 	// Check dataset file exists
 	if _, err := os.Stat(datasetFile); os.IsNotExist(err) {
 		return errors.Errorf("dataset file does not exist: %s", datasetFile)
 	}
 
+	// Ensure output directory exists
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		return errors.Wrapf(err, "failed to create model output directory")
+	}
+
 	return nil
 }
 
-// createTrainingScript creates the shell script content to run inside the container.
+func getAbsolutePaths(args mlTrainingScriptTestLocalArgs) (string, string, string, error) {
+	scriptDirAbs, err := filepath.Abs(args.TrainingScriptDirectory)
+	if err != nil {
+		return "", "", "", errors.Wrapf(err, "failed to get absolute path for training script directory")
+	}
+	datasetRootAbs, err := filepath.Abs(args.DatasetRoot)
+	if err != nil {
+		return "", "", "", errors.Wrapf(err, "failed to get absolute path for dataset root directory")
+	}
+	outputDirAbs, err := filepath.Abs(args.ModelOutputDirectory)
+	if err != nil {
+		return "", "", "", errors.Wrapf(err, "failed to get absolute path for output directory")
+	}
+	return scriptDirAbs, datasetRootAbs, outputDirAbs, nil
+}
+
+// buildTrainingScript builds the shell script content to run inside the container.
 // datasetFileRelative is the path to the dataset file relative to the dataset root (which is the CWD).
-func createTrainingScript(customArgs []string, datasetFileRelative string) (string, error) {
+func buildTrainingScript(customArgs []string, datasetFileRelative string) (string, error) {
 	// Validate custom arguments format (key=value) before building script
 	for _, arg := range customArgs {
 		if !strings.Contains(arg, "=") {
@@ -859,7 +863,7 @@ func createTrainingScript(customArgs []string, datasetFileRelative string) (stri
 	// Build Python training command
 	script.WriteString("python3 -m model.training")
 	script.WriteString(" --dataset_file=")
-	script.WriteString(datasetFileRelative)
+	script.WriteString(strconv.Quote(datasetFileRelative))
 	script.WriteString(" --model_output_directory=/model_output")
 
 	// Add custom arguments
@@ -886,21 +890,7 @@ func createTrainingScript(customArgs []string, datasetFileRelative string) (stri
 // isValidArgumentKey validates that an argument key only contains safe characters.
 // Allowed characters: letters (a-z, A-Z), digits (0-9), underscores (_), and hyphens (-).
 func isValidArgumentKey(key string) bool {
-	if key == "" {
-		return false
-	}
-
-	for _, char := range key {
-		if !((char >= 'a' && char <= 'z') ||
-			(char >= 'A' && char <= 'Z') ||
-			(char >= '0' && char <= '9') ||
-			char == '_' ||
-			char == '-') {
-			return false
-		}
-	}
-
-	return true
+	return key != "" && validArgumentKeyRegex.MatchString(key)
 }
 
 // getContainerImageURI returns the full container image URI based on the version.
