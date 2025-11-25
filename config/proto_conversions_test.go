@@ -1106,12 +1106,17 @@ func TestJobsConfigProtoConversions(t *testing.T) {
 			Command: map[string]any{
 				"arg1": true,
 			},
+			LogConfiguration: &resource.LogConfig{
+				Level: logging.DEBUG,
+			},
 		},
 	}
 
 	proto, err = JobsConfigToProto(&testJobConfigCommand)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proto.LogConfiguration.Level, test.ShouldEqual, "debug")
 	out, err = JobsConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.LogConfiguration.Level, test.ShouldEqual, logging.DEBUG)
 	test.That(t, *out, test.ShouldResemble, testJobConfigCommand)
 }

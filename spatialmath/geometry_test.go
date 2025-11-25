@@ -77,7 +77,7 @@ func testGeometryCollision(t *testing.T, cases []geometryComparisonTestCase) {
 				if c.expected <= defaultCollisionBufferMM {
 					fn = test.ShouldBeTrue
 				}
-				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2], defaultCollisionBufferMM)
+				collides, _, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2], defaultCollisionBufferMM)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, collides, fn)
 			})
