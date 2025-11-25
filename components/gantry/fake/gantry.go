@@ -5,14 +5,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/golang/geo/r3"
-
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -33,24 +32,11 @@ func init() {
 
 // NewGantry returns a new fake gantry.
 func NewGantry(name resource.Name, logger logging.Logger) gantry.Gantry {
-	m := referenceframe.NewSimpleModel("test_gantry")
-	pose := spatialmath.NewZeroPose()
-	carriageGeom, err := spatialmath.NewBox(pose, r3.Vector{150, 150, 10}, "carriage")
+	m, err := referenceframe.KinematicModelFromFile(
+		utils.ResolveFile("components/gantry/test_gantry_model.json"), "test_gantry_model")
 	if err != nil {
-		logger.CErrorf(context.Background(), "could not create carriage geometry: %v", err)
+		logger.CErrorf(context.Background(), "could not create kinematic model from file: %v", err)
 	}
-	f, err := referenceframe.NewStaticFrameWithGeometry("carriage", pose, carriageGeom)
-	if err != nil {
-		logger.CErrorf(context.Background(), "could not create static frame: %v", err)
-	}
-	m.SetOrdTransforms(append(m.OrdTransforms(), f))
-
-	f, err = referenceframe.NewTranslationalFrame(
-		"gantry_joint", r3.Vector{1, 0, 0}, referenceframe.Limit{Min: 0, Max: 350})
-	if err != nil {
-		logger.CErrorf(context.Background(), "could not create translational frame: %v", err)
-	}
-	m.SetOrdTransforms(append(m.OrdTransforms(), f))
 
 	return &Gantry{
 		testutils.NewUnimplementedResource(name),
