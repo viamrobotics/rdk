@@ -191,7 +191,7 @@
                                     }
                                 },
                                 "label": "myCamera_transientObstacle_capsule"
-                            }   
+                            }
                         ]
                     },
                     {
@@ -225,6 +225,7 @@
                 ]
             }
         },
+
         {
             "name": "slam1",
             "type": "slam",
