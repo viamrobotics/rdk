@@ -32,7 +32,7 @@ jobs:
     container:
       image: ${{ matrix.image }}
       options: --platform ${{ matrix.platform }}
-    timeout-minutes: 30
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
