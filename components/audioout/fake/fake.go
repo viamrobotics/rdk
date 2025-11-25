@@ -33,7 +33,6 @@ type AudioOut struct {
 
 // NewAudioOut instantiates a new AudioOut of the fake model type.
 func NewAudioOut(_ context.Context, _ resource.Dependencies, conf resource.Config, logger logging.Logger) (audioout.AudioOut, error) {
-
 	a := &AudioOut{
 		Named:           conf.ResourceName().AsNamed(),
 		Geometry:        []spatialmath.Geometry{},
