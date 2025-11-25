@@ -33,6 +33,7 @@ type Config struct {
 // Known values that can be provided for the ArmModel field.
 var (
 	ur5eModel  = "ur5e"
+	ur20Model  = "ur20"
 	xArm6Model = "xarm6"
 	xArm7Model = "xarm7"
 )
@@ -42,6 +43,9 @@ var fakejson []byte
 
 //go:embed kinematics/ur5e.json
 var ur5eJSON []byte
+
+//go:embed kinematics/ur20.json
+var ur20JSON []byte
 
 //go:embed kinematics/xarm6.json
 var xarm6JSON []byte
@@ -69,6 +73,27 @@ var ur5eWrist2LinkGLB []byte
 
 //go:embed 3d_models/ur5e/shoulder_link.glb
 var ur5eShoulderLinkGLB []byte
+
+//go:embed 3d_models/ur20/base_link.glb
+var ur20BaseLinkGLB []byte
+
+//go:embed 3d_models/ur20/shoulder_link.glb
+var ur20ShoulderLinkGLB []byte
+
+//go:embed 3d_models/ur20/upper_arm_link.glb
+var ur20UpperArmLinkGLB []byte
+
+//go:embed 3d_models/ur20/forearm_link.glb
+var ur20ForearmLinkGLB []byte
+
+//go:embed 3d_models/ur20/wrist_1_link.glb
+var ur20Wrist1LinkGLB []byte
+
+//go:embed 3d_models/ur20/wrist_2_link.glb
+var ur20Wrist2LinkGLB []byte
+
+//go:embed 3d_models/ur20/wrist_3_link.glb
+var ur20Wrist3LinkGLB []byte
 
 //go:embed 3d_models/xarm6/base.glb
 var xarm6BaseGLB []byte
@@ -100,6 +125,15 @@ var armTo3DModelParts = map[string][]string{
 		"wrist_2_link",
 		"base_link",
 		"shoulder_link",
+	},
+	"ur20": {
+		"base_link",
+		"shoulder_link",
+		"upper_arm_link",
+		"forearm_link",
+		"wrist_1_link",
+		"wrist_2_link",
+		"wrist_3_link",
 	},
 	"xarm6": {
 		"base",
@@ -365,6 +399,8 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
 	case ur5eModel:
 		return referenceframe.UnmarshalModelJSON(ur5eJSON, name)
+	case ur20Model:
+		return referenceframe.UnmarshalModelJSON(ur20JSON, name)
 	case xArm6Model:
 		return referenceframe.UnmarshalModelJSON(xarm6JSON, name)
 	case xArm7Model:
@@ -413,6 +449,44 @@ func threeDMeshFromName(model, name string) commonpb.Mesh {
 		case "wrist_2_link":
 			return commonpb.Mesh{
 				Mesh:        ur5eWrist2LinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		}
+	case ur20Model:
+		switch name {
+		case "base_link":
+			return commonpb.Mesh{
+				Mesh:        ur20BaseLinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "shoulder_link":
+			return commonpb.Mesh{
+				Mesh:        ur20ShoulderLinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "upper_arm_link":
+			return commonpb.Mesh{
+				Mesh:        ur20UpperArmLinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "forearm_link":
+			return commonpb.Mesh{
+				Mesh:        ur20ForearmLinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "wrist_1_link":
+			return commonpb.Mesh{
+				Mesh:        ur20Wrist1LinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "wrist_2_link":
+			return commonpb.Mesh{
+				Mesh:        ur20Wrist2LinkGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "wrist_3_link":
+			return commonpb.Mesh{
+				Mesh:        ur20Wrist3LinkGLB,
 				ContentType: "model/gltf-binary",
 			}
 		}
