@@ -5,11 +5,12 @@ import (
 	"math"
 	"testing"
 
+	"go.viam.com/test"
+
 	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/test"
 )
 
 func TestReconfigure(t *testing.T) {

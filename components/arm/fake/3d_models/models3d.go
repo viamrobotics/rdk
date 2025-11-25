@@ -1,5 +1,5 @@
-// Package 3d_models contains embedded 3D model files and related mappings for fake arm models.
-package models
+// Package models3d contains embedded 3D model files and related mappings for fake arm models.
+package models3d
 
 import (
 	_ "embed"
