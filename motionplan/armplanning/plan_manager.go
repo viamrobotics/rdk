@@ -186,16 +186,14 @@ func (pm *planManager) planSingleGoal(
 		return nil, err
 	}
 
-	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
 	if planSeed.steps != nil {
 		pm.logger.Debugf("found an ideal ik solution")
 		return planSeed.steps, nil
-	}
-
-	if !cbirrtAllowed {
+	} else if !cbirrtAllowed {
 		return nil, fmt.Errorf("linear with cbirrt not allowed and no direct solutions found")
 	}
 
+	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc, pm.logger.Sublogger("cbirrt"))
 	if err != nil {
 		return nil, err

@@ -57,7 +57,6 @@ func TestUnconstrainedMotion(t *testing.T) {
 }
 
 func TestConstrainedMotion(t *testing.T) {
-	t.Skip()
 	t.Parallel()
 	ctx := context.Background()
 	testCases := []struct {
@@ -191,7 +190,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		return nil, err
 	}
 
-	constraintHandler := motionplan.NewEmptyConstraintChecker(logger)
+	constraintHandler := motionplan.NewEmptyConstraintChecker(logger.Sublogger("constraint"))
 	constraintHandler.SetCollisionConstraints(fsCollisionConstraints)
 
 	start := map[string][]frame.Input{xarm.Name(): home7}
@@ -259,7 +258,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	constraintHandler := motionplan.NewEmptyConstraintChecker(logger)
+	constraintHandler := motionplan.NewEmptyConstraintChecker(logger.Sublogger("constraint"))
 	constraintHandler.SetCollisionConstraints(fsCollisionConstraints)
 
 	start := map[string][]frame.Input{ur5e.Name(): home6}
@@ -282,7 +281,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 // returns a valid set of waypoints.
 func testPlanner(t *testing.T, ctx context.Context, config planConfigConstructor) {
 	t.Helper()
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewTestLogger(t).Sublogger("mp")
 
 	// plan
 	cfg, err := config(logger)
@@ -503,7 +502,6 @@ func TestArmObstacleSolve(t *testing.T) {
 }
 
 func TestArmAndGantrySolve(t *testing.T) {
-	t.Skip()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -915,8 +913,6 @@ func TestValidatePlanRequest(t *testing.T) {
 }
 
 func TestArmGantryCheckPlan(t *testing.T) {
-	t.Skip()
-
 	logger := logging.NewTestLogger(t)
 	fs := frame.NewEmptyFrameSystem("test")
 
