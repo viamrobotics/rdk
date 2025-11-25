@@ -457,6 +457,31 @@ var app = &cli.App{
 	},
 	Commands: []*cli.Command{
 		{
+			Name:  "traces",
+			Usage: "Work with viam-server traces",
+			Subcommands: []*cli.Command{
+				{
+					Name:        "import-local",
+					Description: "Import traces from a local viam server trace file to an OTLP endpoint.",
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:      "path",
+							TakesFile: true,
+							Required:  true,
+							Usage:     "path to file to import",
+						},
+					},
+					Action: createCommandWithT(ImportTraceFileAction),
+				},
+				{
+					Name:        "import-remote",
+					Description: "Import traces from a remote viam machine to an OTLP endpoint.",
+					Flags:       commonPartFlags,
+					Action:      createCommandWithT(MachinesPartImportTracesAction),
+				},
+			},
+		},
+		{
 			Name: "login",
 			// NOTE(benjirewis): maintain `auth` as an alias for backward compatibility.
 			Aliases:         []string{"auth"},
