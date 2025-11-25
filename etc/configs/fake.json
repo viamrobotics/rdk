@@ -13,13 +13,8 @@
             }
         },
         {
-            "name": "audio_in1",
-            "type": "audio_in",
-            "model": "fake"
-        },
-        {
-            "name": "audio_out1",
-            "type": "audio_out",
+            "name": "audio_input1",
+            "type": "audio_input",
             "model": "fake"
         },
         {
@@ -191,7 +186,7 @@
                                     }
                                 },
                                 "label": "myCamera_transientObstacle_capsule"
-                            }
+                            }    
                         ]
                     },
                     {
@@ -225,7 +220,7 @@
                 ]
             }
         },
-
+          
         {
             "name": "slam1",
             "type": "slam",
