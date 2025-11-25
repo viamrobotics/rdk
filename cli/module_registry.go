@@ -422,6 +422,21 @@ func UpdateModelsAction(c *cli.Context, args updateModelsArgs) error {
 		return err
 	}
 
+	// Get the directory containing the meta.json file
+	manifestDir := filepath.Dir(args.Module)
+
+	// For each model, check if a corresponding markdown file exists
+	for i := range newModels {
+		markdownFilename := modelTripleToMarkdownFilename(newModels[i].Model)
+		markdownPath := filepath.Join(manifestDir, markdownFilename)
+
+		// Check if the markdown file exists
+		if _, err := os.Stat(markdownPath); err == nil {
+			// File exists, set the markdown link
+			newModels[i].MarkdownLink = &markdownFilename
+		}
+	}
+
 	if sameModels(newModels, manifest.Models) {
 		return nil
 	}
@@ -970,6 +985,14 @@ func sameModels(a, b []ModuleComponent) bool {
 	}
 
 	return true
+}
+
+// modelTripleToMarkdownFilename converts a model triple (namespace:module_name:model_name)
+// to the corresponding markdown filename (namespace_module_name_model_name.md).
+func modelTripleToMarkdownFilename(modelTriple string) string {
+	// Replace colons with underscores
+	filename := strings.ReplaceAll(modelTriple, ":", "_")
+	return filename + ".md"
 }
 
 type sender[RequestT any] interface {
