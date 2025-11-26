@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Check out code
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
       uses: actions/checkout@v4
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
@@ -33,6 +33,20 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: 3.12
+        cache-dependency-path: cli/test-requirements.txt
+
+    - run: |
+        go run -tags no_cgo ./cli/viam/ module create --local-only --name schematest --public-namespace ns
+        cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install -r cli/test-requirements.txt
+        check-jsonschema --schemafile ./cli/module.schema.json meta2.json
+        rm meta.json meta2.json
 
     - name: build
       env:

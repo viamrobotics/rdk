@@ -60,7 +60,9 @@ tool-install:
 		github.com/rhysd/actionlint/cmd/actionlint \
 		golang.org/x/tools/cmd/stringer
 
-lint: lint-go
+lint: lint-go actionlint
+
+actionlint:
 	PATH=$(PATH_WITH_TOOLS) actionlint
 
 generate-go: tool-install
