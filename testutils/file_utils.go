@@ -104,6 +104,7 @@ func shortHash(input string, n int) (string, error) {
 func BuildTempModule(tb testing.TB, modDir string) string {
 	tb.Helper()
 
+	// todo: cross-test-process locking instead of per-package
 	mut := buildMutex.get(modDir)
 	mut.Lock()
 	defer mut.Unlock()

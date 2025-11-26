@@ -1,4 +1,3 @@
-//nolint:tparallel
 package robotimpl
 
 import (

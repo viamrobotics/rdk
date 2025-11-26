@@ -1,4 +1,3 @@
-//nolint:tparallel
 package gpio
 
 import (

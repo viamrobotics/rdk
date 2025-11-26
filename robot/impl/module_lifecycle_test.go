@@ -191,7 +191,7 @@ func TestRenamedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 }
 
 func TestReconfiguredModuleDependentRecovery(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	// on module 1 'mod' reconfigure, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to be and work.
