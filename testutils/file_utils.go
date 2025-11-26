@@ -68,6 +68,7 @@ func BuildViamServer(tb testing.TB) string {
 // return the path to the executable binary.
 func BuildTempModule(tb testing.TB, modDir string) string {
 	tb.Helper()
+	t0 := time.Now()
 
 	exePath := filepath.Join(tb.TempDir(), filepath.Base(modDir))
 	if runtime.GOOS == "windows" {
@@ -92,6 +93,7 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 	if tb.Failed() {
 		tb.Fatalf("failed to build temporary module for testing")
 	}
+	println("BuildTempModule ELAPSED TIME", modDir, time.Since(t0).String()) //nolint:forbidigo
 	return exePath
 }
 
