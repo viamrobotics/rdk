@@ -29,7 +29,6 @@ func CreateCombinedIKSolver(
 		logger: logger,
 	}
 
-	logger.Infof("CreateCombinedIKSolver nCPU: %d", nCPU)
 	for i := 1; i <= nCPU; i++ {
 		nloptSolver, err := CreateNloptSolver(logger, -1, true, true)
 		if err != nil {

@@ -14,13 +14,13 @@ import (
 
 	"github.com/pion/rtp"
 	"github.com/viamrobotics/webrtc/v3"
-	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	streampb "go.viam.com/api/stream/v1"
 	goutils "go.viam.com/utils"
 	goprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"

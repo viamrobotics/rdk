@@ -6,7 +6,7 @@ import (
 	"time"
 
 	// "go.viam.com/rdk/motionplan".
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/referenceframe"
 )
@@ -23,7 +23,7 @@ func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []*ref
 		}
 		// we can merge
 		steps = append(steps[0:i-step], steps[i:]...)
-		i--
+		i -= step
 	}
 	return steps
 }
@@ -39,7 +39,7 @@ func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
 
 	originalSize := len(steps)
 	steps = simpleSmoothStep(ctx, psc, steps, 10)
-	steps = simpleSmoothStep(ctx, psc, steps, 2)
+	steps = simpleSmoothStep(ctx, psc, steps, 3)
 	steps = simpleSmoothStep(ctx, psc, steps, 1)
 
 	if len(steps) != originalSize {

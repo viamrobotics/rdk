@@ -680,7 +680,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 		oidcDiscoveryEndpoint: fmt.Sprintf("%s%s", authDomain, defaultOpenIDDiscoveryPath),
 
 		disableBrowserOpen: disableBrowserOpen,
-		httpClient:         &http.Client{Timeout: time.Second * 30},
+		httpClient:         &http.Client{Timeout: time.Minute * 5},
 		logger:             logging.NewLogger("cli"),
 		console:            console,
 	}

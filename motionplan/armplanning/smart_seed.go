@@ -10,8 +10,9 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
-	"go.opencensus.io/trace"
+	"github.com/shirou/gopsutil/v3/mem"
 	"go.uber.org/multierr"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -31,9 +32,31 @@ func (tfe *tooFarError) Is(target error) bool {
 	return ok
 }
 
-// Is32Bit returns true if we're on a 32-bit system.
-func Is32Bit() bool {
-	return strconv.IntSize < 64
+var (
+	okForSmartCache          = true
+	okForSmartCacheBadReason = ""
+)
+
+func init() {
+	vm, err := mem.VirtualMemory()
+	if err != nil {
+		panic(err)
+	}
+
+	memGB := vm.Total / (1024 * 1024 * 1024)
+
+	if strconv.IntSize < 64 {
+		okForSmartCache = false
+		okForSmartCacheBadReason = "32-bit system"
+	} else if memGB < 2 {
+		okForSmartCache = false
+		okForSmartCacheBadReason = fmt.Sprintf("not enough ram %v", memGB)
+	}
+}
+
+// IsTooSmallForCache returns true if we're on a 32-bit system.
+func IsTooSmallForCache() bool {
+	return !okForSmartCache
 }
 
 type smartSeedCacheEntry struct {
@@ -49,8 +72,8 @@ type goalCacheBox struct {
 func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForFrame, error) {
 	ccf := &cacheForFrame{}
 
-	if Is32Bit() {
-		logger.Warnf("not building cache because on 32-bit system")
+	if IsTooSmallForCache() {
+		logger.Warnf("not building cache because " + okForSmartCacheBadReason)
 		return ccf, nil
 	}
 
@@ -92,8 +115,7 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 		total += len(l)
 	}
 
-	logger.Debugf("time to do raw building: %v of %d entries (guess %v)", time.Since(start), total, perSize*defaultNumThreads)
-	logger.Infof("time to do raw building: %v of %d entries", time.Since(start), total)
+	logger.Infof("time to do raw building: %v of %d entries (guess %v)", time.Since(start), total, perSize*defaultNumThreads)
 
 	start = time.Now()
 	ccf.buildInverseCache()
@@ -104,6 +126,7 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 
 type cacheForFrame struct {
 	entriesForCacheBuilding [][]smartSeedCacheEntry
+	totalSize               int
 
 	maxNorm                    float64
 	minCartesian, maxCartesian r3.Vector
@@ -111,7 +134,7 @@ type cacheForFrame struct {
 	boxes map[string]*goalCacheBox // hash to list
 }
 
-func (cff *cacheForFrame) boxKeyCompute(value, min, max float64) int {
+func (cff *cacheForFrame) boxKeyCompute(value, min, max float64) int { //nolint: revive
 	x := (value - min) / (max - min)
 	return int(x * 100)
 }
@@ -124,9 +147,8 @@ func (cff *cacheForFrame) boxKey(p r3.Vector) string {
 }
 
 var (
-	arm6JogRatios   = []float64{360, 32, 8, 8, 4, 2}
-	arm6JogDivisors = []float64{.05, .1, .2, 1, 1, 1}
-	defaultDivisor  = 10.0
+	arm6JogRatios  = []float64{120, 48, 16, 0, 0, 0}
+	defaultDivisor = 10.0
 )
 
 func totalCacheSizeEstimate(dof int) int {
@@ -151,15 +173,20 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 		return cff.addToCache(f, values, t)
 	}
 
+	//nolint: revive
 	min, max, r := limits[joint].GoodLimits()
 	values[joint] = min
 
 	jogDivisor := defaultDivisor
 	if len(limits) == 6 {
-		// assum it's an arm
+		// assume it's an arm
 		jogDivisor = arm6JogRatios[joint]
 	}
 	jog := (r / jogDivisor) * .9999
+	if jogDivisor == 0 {
+		jog = r
+		values[joint] = (min + max) / 2
+	}
 	x := 0
 	for values[joint] <= max {
 		if joint > 0 || t < 0 || x%defaultNumThreads == t {
@@ -189,6 +216,7 @@ func (cff *cacheForFrame) addToCache(frame referenceframe.Frame, inputsNotMine [
 
 func (cff *cacheForFrame) buildInverseCache() {
 	cff.boxes = map[string]*goalCacheBox{}
+	cff.totalSize = 0
 
 	for _, l := range cff.entriesForCacheBuilding {
 		for _, e := range l {
@@ -200,6 +228,8 @@ func (cff *cacheForFrame) buildInverseCache() {
 			cff.maxCartesian.X = max(cff.maxCartesian.X, p.X)
 			cff.maxCartesian.Y = max(cff.maxCartesian.Y, p.Y)
 			cff.maxCartesian.Z = max(cff.maxCartesian.Z, p.Z)
+
+			cff.totalSize++
 		}
 	}
 
@@ -351,13 +381,15 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 	_, span := trace.StartSpan(ctx, "smartSeedCache::findSeeds")
 	defer span.End()
 
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		return nil, nil, nil
 	}
 
 	if len(goal) > 1 {
 		return nil, nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
 	}
+
+	logger.Debugf("findSeeds goal: %v", goal)
 
 	goalFrame := ""
 	var goalPIF *referenceframe.PoseInFrame
@@ -367,13 +399,12 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 		goalPIF = v
 	}
 
-	logger.Infof("goalPIF: %v", goalPIF)
-
 	movingFrame, movingPose, err := ssc.findMovingInfo(start, goalFrame, goalPIF)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	logger.Infof("goalPIF: %v movingFrame: %v movingPose: %v", goalPIF, movingFrame, movingPose)
 	seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, maxSeeds, logger)
 	if err != nil {
 		return nil, nil, err
@@ -454,7 +485,9 @@ func myCost(start, end []float64) float64 {
 	for i, s := range start {
 		d := math.Abs(end[i] - s)
 		cost += (d * m)
-		m *= .5
+		if len(start) == 6 {
+			m *= .5
+		}
 	}
 	return cost
 }
@@ -473,7 +506,8 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	goalPoint := goalPose.Point()
 	n := goalPoint.Norm()
-	logger.Infof("findSeedsForFrame: %s goalPose: %v start: %v norm: %0.2f", frameName, goalPose, start, n)
+	logger.Infof("findSeedsForFrame: %s goalPose: %v start: %v norm: %0.2f maxNorm: %0.2f",
+		frameName, goalPose, logging.FloatArrayFormat{"", start}, n, ssc.rawCache[frameName].maxNorm)
 
 	if n > ssc.rawCache[frameName].maxNorm {
 		return nil, nil, &tooFarError{ssc.rawCache[frameName].maxNorm, n}
@@ -495,7 +529,6 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	for _, b := range boxes {
 		for _, c := range b.entries {
 			distance := myDistance(goalPoint, c.pt)
-
 			if distance > startDistance {
 				// we're further than we started, so don't bother
 				continue
@@ -517,7 +550,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx := 0
-	cutDistance := max(200, 1.5*best[0].distance)
+	cutDistance := max(1, 2*best[0].distance)
 	for cutIdx < len(best) {
 		if best[cutIdx].distance > cutDistance {
 			break
@@ -530,13 +563,12 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	best = best[0:cutIdx]
 
 	// sort by cst then cut
-
 	sort.Slice(best, func(i, j int) bool {
 		return best[i].cost < best[j].cost
 	})
 
 	cutIdx = 0
-	costCut := 4 * best[0].cost
+	costCut := max(3, 5*best[0].cost)
 	for cutIdx < len(best) {
 		if best[cutIdx].cost > costCut {
 			break
@@ -557,23 +589,54 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		best = selectMostVariableEntries(best, maxSeeds)
 	}
 
-	ret := [][]referenceframe.Input{}
-	for i := 0; i < len(best) && i < maxSeeds; i++ {
-		e := best[i]
-		ret = append(ret, e.e.inputs)
-		logger.Debugf("dist: %02.f cost: %0.2f %v", e.distance, e.cost, logging.FloatArrayFormat{"%0.2f", e.e.inputs})
-	}
-
 	var divisors []float64
 	if len(frame.DoF()) == 6 {
-		divisors = arm6JogDivisors
+		for j, r := range arm6JogRatios {
+			if j >= 2 {
+				divisors = append(divisors, 1)
+			} else if r == 0 {
+				divisors = append(divisors, 1)
+			} else {
+				divisors = append(divisors, min(1, 2/(r+1)))
+			}
+		}
 	} else {
 		for range len(frame.DoF()) {
-			divisors = append(divisors, 1/defaultDivisor)
+			divisors = append(divisors, 1/(1+defaultDivisor))
 		}
 	}
 
+	ret := [][]referenceframe.Input{}
+	for i := 0; i < len(best) && i < maxSeeds; i++ {
+		e := best[i]
+		logger.Debugf("dist: %02.f cost: %0.2f %v", e.distance, e.cost, logging.FloatArrayFormat{"%0.2f", e.e.inputs})
+
+		similar := false
+		for _, other := range ret {
+			if similiarInputs(e.e.inputs, other, divisors, frame.DoF()) {
+				logger.Debugf("\t skipping %v", logging.FloatArrayFormat{"%0.2f", other})
+				similar = true
+				break
+			}
+		}
+		if similar {
+			continue
+		}
+		ret = append(ret, e.e.inputs)
+	}
+
 	return ret, divisors, nil
+}
+
+func similiarInputs(a, b []referenceframe.Input, divisors []float64, limits []referenceframe.Limit) bool {
+	for i, l := range limits {
+		_, _, r := l.GoodLimits()
+		d := math.Abs((a[i] - b[i]) / r)
+		if d > divisors[i] {
+			return false
+		}
+	}
+	return true
 }
 
 var (
@@ -607,7 +670,7 @@ func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.L
 			return err
 		}
 
-		cacheBuildLogger.Infof("time to build: %v for: %v", time.Since(start), frameName)
+		cacheBuildLogger.Infof("time to build: %v for: %v size: %d", time.Since(start), frameName, ccf.totalSize)
 
 		sscCacheLock.Lock()
 		sscCache[hash] = ccf
