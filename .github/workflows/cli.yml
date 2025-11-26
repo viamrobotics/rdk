@@ -42,6 +42,7 @@ jobs:
 
     - uses: actions/setup-python@v5
       with:
+        python-version: 3.12
         cache-dependency-path: cli/test-requirements.txt
 
     - run: |
