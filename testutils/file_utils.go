@@ -98,6 +98,17 @@ func shortHash(input string, n int) (string, error) {
 	return hex.EncodeToString(hash.Sum(nil))[:n], nil
 }
 
+// takes a path (presumably in a stable shared location), returns a symlink to it
+// in a t.TempDir.
+func symlinkTempDir(tb testing.TB, realPath string) string {
+	// We have this because some tests save things in the module folder,
+	// others rely on this folder being unique for each invocation.
+	tb.Helper()
+	linkPath := filepath.Join(tb.TempDir(), filepath.Base(realPath))
+	test.That(tb, os.Symlink(realPath, linkPath), test.ShouldBeNil)
+	return linkPath
+}
+
 // BuildTempModule will attempt to build the module in the provided directory and put the
 // resulting executable binary into a temporary directory. If successful, this function will
 // return the path to the executable binary.
@@ -124,7 +135,7 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 	}
 	if _, err := os.Stat(exePath); err == nil {
 		// it exists, reusing
-		return exePath
+		return symlinkTempDir(tb, exePath)
 	}
 
 	//nolint:gosec
@@ -147,7 +158,7 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 		tb.Fatalf("failed to build temporary module for testing")
 	}
 	println("BuildTempModule ELAPSED TIME", modDir, time.Since(t0).String()) //nolint:forbidigo
-	return exePath
+	return symlinkTempDir(tb, exePath)
 }
 
 // BuildTempModuleWithFirstRun will attempt to build the module in the provided directory and put the
@@ -157,10 +168,7 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 	tb.Helper()
 
-	sharedExePath := BuildTempModule(tb, modDir)
-	// some tests edit the contents here so we give them a tempdir of their own:
-	exePath := filepath.Join(tb.TempDir(), filepath.Base(sharedExePath))
-	test.That(tb, os.Symlink(sharedExePath, exePath), test.ShouldBeNil)
+	exePath := BuildTempModule(tb, modDir)
 	exeDir := filepath.Dir(exePath)
 
 	type copyOp struct {
