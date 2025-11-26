@@ -2,8 +2,10 @@ package module
 
 import (
 	"context"
+	"errors"
 	"os"
 	"runtime/debug"
+	"testing"
 
 	"go.viam.com/utils"
 
@@ -12,16 +14,14 @@ import (
 	"go.viam.com/rdk/robot/client"
 )
 
-// ModularMain can be called as the main function from a module. It will start up a module with all
-// the provided APIModels added to it.
-func ModularMain(models ...resource.APIModel) {
-	mainWithArgs := func(ctx context.Context, args []string, logger logging.Logger) error {
+func modMain(address string, models ...resource.APIModel) func(ctx context.Context, args []string, logger logging.Logger) error {
+	return func(ctx context.Context, args []string, logger logging.Logger) error {
 		info, ok := debug.ReadBuildInfo()
 		if ok {
 			logger.Infof("module version: %s, go version: %s", info.Main.Version, info.GoVersion)
 		}
 
-		mod, err := NewModuleFromArgs(ctx)
+		mod, err := NewModule(ctx, address, NewLoggerFromArgs(""))
 		if err != nil {
 			return err
 		}
@@ -51,6 +51,10 @@ func ModularMain(models ...resource.APIModel) {
 			// will eventually restart the module through the OnUnexpectedExit handler.
 			mod.RegisterParentConnectionChangeHandler(func(rc *client.RobotClient) {
 				if !rc.Connected() {
+					if testing.Testing() {
+						cancel()
+						return
+					}
 					// If viam-server is alive, these logs can be used to debug.
 					// Otherwise, these logs will not go anywhere since the logger will
 					// only attempt to write to the dead viam-server.
@@ -71,6 +75,17 @@ func ModularMain(models ...resource.APIModel) {
 
 		<-ctx.Done()
 		return nil
+	}
+}
+
+// ModularMain can be called as the main function from a module. It will start up a module with all
+// the provided APIModels added to it.
+func ModularMain(models ...resource.APIModel) {
+	mainWithArgs := func(ctx context.Context, args []string, logger logging.Logger) error {
+		if len(os.Args) < 2 {
+			return errors.New("need socket path as command line argument")
+		}
+		return modMain(os.Args[1], models...)(ctx, args, logger)
 	}
 
 	// On systems with SIGPIPE such as Unix, using SIGPIPE to signal a module shutdown
