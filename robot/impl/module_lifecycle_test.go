@@ -17,6 +17,7 @@ import (
 	rtestutils "go.viam.com/rdk/testutils"
 )
 
+// create an in-process testing robot with a basic modules config, return the client.
 func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger logging.Logger) (robot.LocalRobot, config.Config) {
 	t.Helper()
 
@@ -113,6 +114,7 @@ func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger
 		test.That(t, err, test.ShouldBeNil)
 	}
 
+	logger.Info("module setup finished")
 	return r, cfg
 }
 
@@ -191,7 +193,6 @@ func TestRenamedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 }
 
 func TestReconfiguredModuleDependentRecovery(t *testing.T) {
-	// t.Parallel()
 	// on module 1 'mod' reconfigure, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to be and work.
@@ -199,9 +200,8 @@ func TestReconfiguredModuleDependentRecovery(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
 
-	// reconfigure 'mod' by changing the ExePath.
-	testPathReconf := rtestutils.BuildTempModule(t, "module/testmodule")
-	cfg.Modules[0].ExePath = testPathReconf
+	// reconfigure 'mod'
+	cfg.Modules[0].LocalVersion = "1"
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that after a module rename, 'h', 'h2', and 'h3' continue to exist and work.
@@ -221,7 +221,6 @@ func TestReconfiguredModuleDependentRecovery(t *testing.T) {
 }
 
 func TestReconfiguredModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
-	t.Parallel()
 	// on module 1 'mod' reconfigure, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to be and work.
@@ -231,9 +230,8 @@ func TestReconfiguredModuleDependentRecoveryAfterFailedFirstConstruction(t *test
 	logger := logging.NewTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, true, logger)
 
-	// reconfigure 'mod' by changing the ExePath.
-	testPathReconf := rtestutils.BuildTempModule(t, "module/testmodule")
-	cfg.Modules[0].ExePath = testPathReconf
+	// reconfigure 'mod'
+	cfg.Modules[0].LocalVersion = "1"
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that 'h', 'h2', and 'h3' are all not available because 'h' failed construction,

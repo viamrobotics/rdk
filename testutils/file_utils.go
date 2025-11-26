@@ -123,10 +123,10 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 		exePath += ".exe"
 	}
 	if _, err := os.Stat(exePath); err == nil {
-		println("BuildTempModule exists, reusing", exePath)
+		println("BuildTempModule exists, reusing", exePath) //nolint:forbidigo
 		return exePath
 	} else {
-		println("BuildTempModule fresh, building", exePath)
+		println("BuildTempModule fresh, building", exePath) //nolint:forbidigo
 	}
 
 	//nolint:gosec
