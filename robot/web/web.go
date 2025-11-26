@@ -44,6 +44,7 @@ import (
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	grpcserver "go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
@@ -265,6 +266,11 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	// Attach the module name (as defined by the robot config) to the handler context. Can be
 	// accessed via `grpc.GetModuleName`.
 	unaryInterceptors = append(unaryInterceptors, svc.modPeerConnTracker.ModInfoUnaryServerInterceptor)
+
+	// Attach the Viam client info to the handler context. Can be accessed via
+	// client.GetViamClientInfo. Helpful for seeing the language, SDK version, and API
+	// version of the module.
+	unaryInterceptors = append(unaryInterceptors, client.ViamClientInfoUnaryServerInterceptor)
 
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
@@ -582,6 +588,8 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		streamInterceptors []googlegrpc.StreamServerInterceptor
 	)
 	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryServerInterceptor)
+
+	unaryInterceptors = append(unaryInterceptors, client.ViamClientInfoUnaryServerInterceptor)
 
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
