@@ -380,3 +380,11 @@ func TestPirouette(t *testing.T) {
 		}
 	}
 }
+
+func TestBadPlanNoCrash(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	req, err := ReadRequestFromFile("data/bad-sand-plan.json")
+	test.That(t, err, test.ShouldBeNil)
+	_, _, err = PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldNotBeNil)
+}
