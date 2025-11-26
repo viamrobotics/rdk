@@ -2927,7 +2927,6 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 }
 
 func TestModuleDependencyToRemotes(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
