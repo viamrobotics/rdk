@@ -3,14 +3,12 @@ package camera
 
 import (
 	"context"
-	"fmt"
 	"image"
 
 	"github.com/pion/mediadevices/pkg/prop"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 )
 
@@ -37,16 +35,10 @@ func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.Vid
 		return img, func() {}, nil
 	})
 
-	img, err := camera.DecodeImageFromCamera(ctx, "", nil, cam)
-	if err != nil {
-		// Okay to return empty prop because processInputFrames will tick and set them
-		return gostream.NewVideoSource(reader, prop.Video{}), nil //nolint:nilerr
-	}
-	if lazyImg, ok := img.(*rimage.LazyEncodedImage); ok {
-		if err := lazyImg.DecodeConfig(); err != nil {
-			return nil, fmt.Errorf("failed to decode lazy encoded image: %w", err)
-		}
-	}
-
-	return gostream.NewVideoSource(reader, prop.Video{Width: img.Bounds().Dx(), Height: img.Bounds().Dy()}), nil
+	// Return empty prop because processInputFrames will tick and set them later.
+	// We no longer ask the camera for an image in this code path because if the camera
+	// hangs on this call, we can potentially block the resource reconfiguration due
+	// to the tight coupling of refreshing streams and the resource graph.
+	// See: https://viam.atlassian.net/browse/RSDK-12744
+	return gostream.NewVideoSource(reader, prop.Video{}), nil //nolint:nilerr
 }
