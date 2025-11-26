@@ -83,7 +83,7 @@ jobs:
     uses: ./.github/workflows/license_finder.yml
 
   cli:
-    uses: ./.github/workflows/cli.yml
+    uses: viamrobotics/rdk/.github/workflows/cli.yml@aw/move-lint
     with:
       release_type: pr
     secrets:
