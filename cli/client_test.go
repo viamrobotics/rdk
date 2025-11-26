@@ -1457,6 +1457,7 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 }
 
 func TestTunnelE2ECLI(t *testing.T) {
+	t.Parallel()
 	// `TestTunnelE2ECLI` attempts to send "Hello, World!" across a tunnel created by the
 	// CLI. It is mostly identical to `TestTunnelE2E` in web/server/entrypoint_test.go.
 	// The tunnel is:

@@ -27,6 +27,7 @@ import (
 )
 
 func TestRemoteRobotsGold(t *testing.T) {
+	t.Parallel()
 	// This tests that a main part is able to start up with an offline remote robot, connect to it and
 	// depend on the remote robot's resources when it comes online. And react appropriately when the remote robot goes offline again.
 
@@ -166,6 +167,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 }
 
 func TestRemoteRobotsUpdate(t *testing.T) {
+	t.Parallel()
 	// The test tests that the robot is able to update when multiple remote robot
 	// updates happen at the same time.
 	logger := logging.NewTestLogger(t)
@@ -234,6 +236,7 @@ func TestRemoteRobotsUpdate(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
+	t.Parallel()
 	// The test tests that the robot is able to infer remote dependencies
 	// if remote name is not part of the specified dependency
 	// and the remote is online at start up.
@@ -309,6 +312,7 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 }
 
 func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
+	t.Parallel()
 	// The test tests that the robot is able to infer remote dependencies
 	// if remote name is not part of the specified dependency
 	// and the remote is offline at start up.

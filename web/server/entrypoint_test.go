@@ -233,6 +233,7 @@ func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 
 // Tests that machine state properly reports initializing or running.
 func TestMachineState(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -351,6 +352,7 @@ func TestMachineState(t *testing.T) {
 }
 
 func TestMachineStateNoResources(t *testing.T) {
+	t.Parallel()
 	// Regression test for RSDK-10166. Ensure that starting a robot with no resources will
 	// still allow moving from initializing -> running state.
 
@@ -393,6 +395,7 @@ func TestMachineStateNoResources(t *testing.T) {
 }
 
 func TestTunnelE2E(t *testing.T) {
+	t.Parallel()
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
 	// test-process <-> source-listener(127.0.0.1:23658) <-> machine(127.0.0.1:23657) <-> dest-listener(127.0.0.1:23656)
@@ -555,6 +558,7 @@ func TestTunnelE2E(t *testing.T) {
 }
 
 func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS == "windows" {
 		t.Skip("RSDK-11682: get this to stop flaking on win")
 	}
