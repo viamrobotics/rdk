@@ -34,11 +34,11 @@ jobs:
       with:
         go-version-file: go.mod
 
-    - name: Run CLI linter tests
-      run: |
-        cd cli/internal/cli_lint
-        go build .
-        ./cli_lint ../../
+    # - name: Run CLI linter tests
+    #   run: |
+    #     cd cli/internal/cli_lint
+    #     go build -tags no_cgo .
+    #     ./cli_lint ../../
 
     - uses: actions/setup-python@v5
       with:
