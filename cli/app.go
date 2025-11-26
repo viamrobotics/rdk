@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/urfave/cli/v2"
 
 	"go.viam.com/rdk/logging"
@@ -186,6 +187,15 @@ var commonPartFlags = []cli.Flag{
 			Name:    generalFlagMachine,
 			Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 		},
+	},
+}
+
+var commonOtlpFlags = []cli.Flag{
+	&cli.StringFlag{
+		Name:        "endpoint",
+		DefaultText: "localhost:4317",
+		Usage:       "OTLP endpoint in host:port format",
+		Required:    true,
 	},
 }
 
@@ -463,21 +473,25 @@ var app = &cli.App{
 				{
 					Name:        "import-local",
 					Description: "Import traces from a local viam server trace file to an OTLP endpoint.",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
+					Flags: lo.Flatten([][]cli.Flag{
+						{&cli.StringFlag{
 							Name:      "path",
 							TakesFile: true,
 							Required:  true,
 							Usage:     "path to file to import",
-						},
-					},
+						}},
+						commonOtlpFlags,
+					}),
 					Action: createCommandWithT(ImportTraceFileAction),
 				},
 				{
 					Name:        "import-remote",
 					Description: "Import traces from a remote viam machine to an OTLP endpoint.",
-					Flags:       commonPartFlags,
-					Action:      createCommandWithT(MachinesPartImportTracesAction),
+					Flags: lo.Flatten([][]cli.Flag{
+						commonOtlpFlags,
+						commonPartFlags,
+					}),
+					Action: createCommandWithT(MachinesPartImportTracesAction),
 				},
 			},
 		},
