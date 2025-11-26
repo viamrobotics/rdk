@@ -2,12 +2,16 @@ package testutils
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +23,27 @@ import (
 )
 
 const osDarwin = "darwin"
+
+type mutexMap struct {
+	sync.Mutex
+	mutexes map[string]*sync.Mutex
+}
+
+// safely retrieve or create the mutex for the given key.
+func (mm *mutexMap) get(key string) *sync.Mutex {
+	mm.Lock()
+	defer mm.Unlock()
+	mut, ok := mm.mutexes[key]
+	if !ok {
+		mut = &sync.Mutex{}
+		mm.mutexes[key] = mut
+	}
+	return mut
+}
+
+// map of path => mutex. prevents overlapping builds, opening the door to
+// test parallelism. todo: test whether this is actually necessary.
+var buildMutex = mutexMap{mutexes: make(map[string]*sync.Mutex)}
 
 // BuildViamServer will attempt to build the viam-server (server-static if on linux). If successful, this function will
 // return the path to the executable.
@@ -63,17 +88,46 @@ func BuildViamServer(tb testing.TB) string {
 	return serverPath
 }
 
+// length `n` truncated md5sum of `input` string.
+func shortHash(input string, n int) (string, error) {
+	hash := md5.New()
+	_, err := hash.Write([]byte(input))
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hash.Sum(nil))[:n], nil
+}
+
 // BuildTempModule will attempt to build the module in the provided directory and put the
 // resulting executable binary into a temporary directory. If successful, this function will
 // return the path to the executable binary.
 func BuildTempModule(tb testing.TB, modDir string) string {
 	tb.Helper()
+
+	mut := buildMutex.get(modDir)
+	mut.Lock()
+	defer mut.Unlock()
+
 	t0 := time.Now()
 
-	exePath := filepath.Join(tb.TempDir(), filepath.Base(modDir))
+	// todo: hash the entire file tree under modDir, and do this above buildMutex
+	dirHash, err := shortHash(modDir, 8)
+	test.That(tb, err, test.ShouldBeNil)
+	// todo: clean this up at the beginning and end of each test run
+	// exePath is a stable temporary location for this temp module; it will be
+	// reused by all tests running in this process.
+	exePath := filepath.Join(os.TempDir(), "rdk-build", strconv.Itoa(os.Getpid()),
+		dirHash, filepath.Base(modDir))
 	if runtime.GOOS == "windows" {
 		exePath += ".exe"
 	}
+	if _, err := os.Stat(exePath); err == nil {
+		println("BuildTempModule exists, reusing", exePath)
+		return exePath
+	} else {
+		println("BuildTempModule fresh, building", exePath)
+	}
+
 	//nolint:gosec
 	builder := exec.Command("go", "build", "-o", exePath, ".")
 	builder.Dir = utils.ResolveFile(modDir)
