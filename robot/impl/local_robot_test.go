@@ -1839,7 +1839,7 @@ func TestDependentResources(t *testing.T) {
 }
 
 func TestSlowShutdownTicker(t *testing.T) {
-	t.Parallel()
+	// t.Parallel() // uses Setenv
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
@@ -2095,7 +2095,7 @@ func TestOrphanedResources(t *testing.T) {
 }
 
 func TestCrashedModuleModelReregisteredAfterRecovery(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
