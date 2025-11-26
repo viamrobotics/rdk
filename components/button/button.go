@@ -40,7 +40,7 @@ func Named(name string) resource.Name {
 //
 // Push example:
 //
-//	myButton, err := switch.FromRobot(machine, "my_button")
+//	myButton, err := switch.FromProvider(machine, "my_button")
 //
 //	err := myButton.Push(context.Background(), nil)
 //

@@ -40,7 +40,7 @@ func Named(name string) resource.Name {
 //
 // SetPosition example:
 //
-//	mySwitch, err := switch.FromRobot(machine, "my_switch")
+//	mySwitch, err := switch.FromProvider(machine, "my_switch")
 //
 //	err := mySwitch.SetPosition(context.Background(), 0 , nil)
 //
@@ -48,7 +48,7 @@ func Named(name string) resource.Name {
 //
 // GetPosition example:
 //
-//	mySwitch, err := switch.FromRobot(machine, "my_switch")
+//	mySwitch, err := switch.FromProvider(machine, "my_switch")
 //
 //	position, err := mySwitch.GetPosition(context.Background(), nil)
 //
@@ -56,7 +56,7 @@ func Named(name string) resource.Name {
 //
 // GetNumberOfPositions example:
 //
-//	mySwitch, err := switch.FromRobot(machine, "my_switch")
+//	mySwitch, err := switch.FromProvider(machine, "my_switch")
 //
 //	positions, err := mySwitch.GetNumberOfPositions(context.Background(), nil)
 //
