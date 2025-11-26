@@ -2084,6 +2084,7 @@ func TestReconfigureParity(t *testing.T) {
 // that remote resource will always be returned until it is configured away. When either the remote
 // robot removes it from its config. Or when the main part removes the remote.
 func TestOfflineRemoteResources(t *testing.T) {
+	t.Parallel()
 	logger, _ := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 

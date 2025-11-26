@@ -117,6 +117,7 @@ func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger
 }
 
 func TestRenamedModuleDependentRecovery(t *testing.T) {
+	t.Parallel()
 	// on module 1 'mod' rename, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to exist and work.
@@ -145,6 +146,7 @@ func TestRenamedModuleDependentRecovery(t *testing.T) {
 }
 
 func TestRenamedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
+	t.Parallel()
 	// on module 1 'mod' rename, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to exist and work.
@@ -189,6 +191,7 @@ func TestRenamedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 }
 
 func TestReconfiguredModuleDependentRecovery(t *testing.T) {
+	t.Parallel()
 	// on module 1 'mod' reconfigure, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to be and work.
@@ -218,6 +221,7 @@ func TestReconfiguredModuleDependentRecovery(t *testing.T) {
 }
 
 func TestReconfiguredModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
+	t.Parallel()
 	// on module 1 'mod' reconfigure, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to be and work.
@@ -263,6 +267,7 @@ func TestReconfiguredModuleDependentRecoveryAfterFailedFirstConstruction(t *test
 }
 
 func TestRestartModuleDependentRecovery(t *testing.T) {
+	t.Parallel()
 	// on module 1 'mod' restart, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to be and work.
@@ -306,6 +311,7 @@ func TestRestartModuleDependentRecovery(t *testing.T) {
 }
 
 func TestRestartModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
+	t.Parallel()
 	// on module 1 'mod' restart, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to be and work.
@@ -370,6 +376,7 @@ func TestRestartModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 }
 
 func TestCrashedModuleDependentRecovery(t *testing.T) {
+	t.Parallel()
 	// on module 1 'mod' crash and recovery, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to be and work.
@@ -439,6 +446,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 }
 
 func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
+	t.Parallel()
 	// on module 1 'mod' crash and recovery, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to be and work.

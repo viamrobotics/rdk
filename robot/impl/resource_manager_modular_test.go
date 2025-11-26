@@ -457,6 +457,7 @@ func (m *dummyModMan) FirstRun(ctx context.Context, conf config.Module) error {
 }
 
 func TestTwoModulesSameName(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
