@@ -35,10 +35,15 @@ func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.Vid
 		return img, func() {}, nil
 	})
 
-	// Return empty prop because processInputFrames will tick and set them later.
-	// We no longer ask the camera for an image in this code path because if the camera
+	// Return empty prop because there are no downstream consumers of the video props anyways.
+	// The video encoder's actual properties are set by processInputFrames by sniffing a returned image.
+	// We no longer ask the camera for an image in this code path to fill in video props because if the camera
 	// hangs on this call, we can potentially block the resource reconfiguration due
 	// to the tight coupling of refreshing streams and the resource graph.
-	// See: https://viam.atlassian.net/browse/RSDK-12744
-	return gostream.NewVideoSource(reader, prop.Video{}), nil //nolint:nilerr
+	//
+	// Blocking the resource reconfiguration is a known issue: https://viam.atlassian.net/browse/RSDK-12744
+	//
+	// If we ever start relying on the video props for other purposes, we should think of a way to set them
+	// without blocking the resource reconfiguration.
+	return gostream.NewVideoSource(reader, prop.Video{}), nil
 }
