@@ -91,7 +91,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 				if err != nil {
 					return linearTraj, i, err
 				}
-				pm.logger.Debugf("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
+				pm.logger.Infof("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
 				linearTraj = append(linearTraj, newTraj...)
 			}
 		}
@@ -298,7 +298,7 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger loggi
 	}
 
 	rrt.maps.optNode = goalNodes[0]
-	logger.Infof("optNode cost: %v", rrt.maps.optNode.cost)
+	logger.Debugf("optNode cost: %v", rrt.maps.optNode.cost)
 
 	// `defaultOptimalityMultiple` is > 1.0
 	reasonableCost := max(.01, goalNodes[0].cost) * defaultOptimalityMultiple

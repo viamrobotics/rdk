@@ -225,7 +225,7 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 	}
 
 	sss.goodCost = sss.psc.pc.configurationDistanceFunc(stepArc)
-	sss.logger.Infof("goodCost: %0.2f minRatio: %0.2f", sss.goodCost, minRatio)
+	sss.logger.Debugf("goodCost: %0.2f minRatio: %0.2f", sss.goodCost, minRatio)
 	return ratios, minRatio, nil
 }
 
@@ -253,6 +253,18 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		return
 	}
 
+	for _, oldSol := range sss.solutions {
+		similarity := &motionplan.SegmentFS{
+			StartConfiguration: oldSol.inputs,
+			EndConfiguration:   step,
+			FS:                 sss.psc.pc.fs,
+		}
+		simscore := sss.psc.pc.configurationDistanceFunc(similarity)
+		if simscore < defaultSimScore {
+			return
+		}
+	}
+
 	// Ensure the end state is a valid one
 	_, err = sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: step,
@@ -265,18 +277,6 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		}
 		sss.failures.add(step, err)
 		return
-	}
-
-	for _, oldSol := range sss.solutions {
-		similarity := &motionplan.SegmentFS{
-			StartConfiguration: oldSol.inputs,
-			EndConfiguration:   step,
-			FS:                 sss.psc.pc.fs,
-		}
-		simscore := sss.psc.pc.configurationDistanceFunc(similarity)
-		if simscore < defaultSimScore {
-			return
-		}
 	}
 
 	now := time.Since(sss.startTime)
@@ -420,7 +420,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		defer close(solutionGen)
 		nSol, m, err := solver.Solve(ctxWithCancel,
 			solutionGen, solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
-		solvingState.logger.Infof("Solver stopping. Solutions: %v Err? %v", nSol, err)
+		solvingState.logger.Debugf("Solver stopping. Solutions: %v Err? %v", nSol, err)
 
 		solveErrorLock.Lock()
 		solveError = err
@@ -436,7 +436,7 @@ solutionLoop:
 			return nil, ctx.Err()
 		case stepSolution, ok := <-solutionGen:
 			if !ok {
-				logger.Infof(
+				logger.Debugf(
 					"Stopping because input channel is closed. Best score: %v With problem: %v",
 					solvingState.bestScoreNoProblem, solvingState.bestScoreWithProblem)
 				// No longer using the generated solutions. Cancel the workers.
