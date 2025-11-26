@@ -19,6 +19,7 @@ import (
 
 	"go.viam.com/utils"
 
+	"github.com/iancoleman/orderedmap"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 )
@@ -131,7 +132,7 @@ type graphOptions struct {
 
 	// selectList is a list of metric names to always show at the top of the generated image.
 	// This option will override hideAllZeroes and show a graph at the top even if all values of the graph is 0.
-	selectList map[string]bool
+	selectList *orderedmap.OrderedMap
 }
 
 // defaultGraphOptions returns a default set of graph options. It adds all but the last
@@ -149,7 +150,7 @@ func defaultGraphOptions(fileBoundaryTimestamps []int64) graphOptions {
 		vertLinesAtSeconds:      make([]int64, 0),
 		fileBoundariesAtSeconds: fileBoundaryTimestamps[:len(fileBoundaryTimestamps)-1],
 		maxPoints:               1000,
-		selectList:              make(map[string]bool, 0),
+		selectList:              orderedmap.New(),
 	}
 }
 
@@ -726,8 +727,7 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 
 	// For each metric name in selectList, we will output a single gnuplot `plot` directive
 	// that will generate a single graph.
-	for _, nameBoolPair := range sorted(gpw.options.selectList) {
-		metricName := nameBoolPair.Key
+	for _, metricName := range gpw.options.selectList.Keys() {
 		graphInfo := gpw.metricFiles[metricName]
 
 		// The minY/maxY values start at 0. So this the range from minY -> maxY will fall into one
@@ -755,7 +755,7 @@ func (gpw *gnuplotWriter) CompileAndClose() string {
 		metricName, graphInfo := nameFilePair.Key, nameFilePair.Val
 
 		// if already rendered, skip
-		if _, ok := gpw.options.selectList[metricName]; ok {
+		if _, ok := gpw.options.selectList.Get(metricName); ok {
 			continue
 		}
 
@@ -1017,26 +1017,29 @@ func LaunchREPL(ftdcFilepath string) {
 				// parseStringAsTime outputs an error message for us.
 				graphOptions.vertLinesAtSeconds = append(graphOptions.vertLinesAtSeconds, goTime.Unix())
 			}
-		case strings.HasPrefix(cmd, "select"):
-			withoutCmd := strings.TrimPrefix(cmd, "select")
+		case strings.HasPrefix(cmd, "select "):
+			withoutCmd := strings.TrimPrefix(cmd, "select ")
 			pieces := strings.Split(withoutCmd, ",")
 			if len(pieces) == 0 {
 				break
 			}
 			additions := make([]string, 0)
 
-			// sorting it so that the additions output is alphabetical, but otherwise unnecessary
+			// sorting it so that additions are alphabetical and predictable
 			for _, nameFilePair := range sorted(gpw.metricFiles) {
 				metricName := nameFilePair.Key
+				if _, ok := graphOptions.selectList.Get(metricName); ok {
+					continue
+				}
 				for _, piece := range pieces {
 					trimmedPattern := strings.TrimSpace(piece)
-					matched, err := regexp.MatchString(trimmedPattern, metricName)
+					matched, err := regexp.MatchString(fmt.Sprintf("(?i)%v", trimmedPattern), metricName)
 					if err != nil {
 						NolintPrintln("Error matching input:", trimmedPattern, "Err:", err)
 						continue
 					}
 					if matched {
-						graphOptions.selectList[metricName] = true
+						graphOptions.selectList.Set(metricName, true)
 						additions = append(additions, metricName)
 						break
 					}
@@ -1044,27 +1047,25 @@ func LaunchREPL(ftdcFilepath string) {
 			}
 			NolintPrintln("Added metrics to select list:", additions)
 			NolintPrintln()
-			NolintPrintln("New list of metrics to print at top of generated image:", graphOptions.selectList)
-		case strings.HasPrefix(cmd, "deselect"):
-			withoutCmd := strings.TrimPrefix(cmd, "deselect")
+			NolintPrintln("New list of metrics to print at top of generated image:", graphOptions.selectList.Keys())
+		case strings.HasPrefix(cmd, "deselect "):
+			withoutCmd := strings.TrimPrefix(cmd, "deselect ")
 			pieces := strings.Split(withoutCmd, ",")
 			if len(pieces) == 0 {
 				break
 			}
 			selectList := graphOptions.selectList
-			graphOptions.selectList = make(map[string]bool, 0)
+			graphOptions.selectList = orderedmap.New()
 			if strings.TrimSpace(withoutCmd) == "all" {
 				NolintPrintln("Removed all metrics to be printed at top of generated image")
 				break
 			}
 			removed := make([]string, 0)
-			// sorting it so that the additions output is alphabetical, but otherwise unnecessary
-			for _, nameBoolPair := range sorted(selectList) {
-				metricName := nameBoolPair.Key
+			for _, metricName := range selectList.Keys() {
 				matchedOnce := false
 				for _, piece := range pieces {
 					trimmedPattern := strings.TrimSpace(piece)
-					matched, err := regexp.MatchString(trimmedPattern, metricName)
+					matched, err := regexp.MatchString(fmt.Sprintf("(?i)%v", trimmedPattern), metricName)
 					if err != nil {
 						NolintPrintln("Error matching input:", trimmedPattern, "Err:", err)
 						continue
@@ -1074,15 +1075,15 @@ func LaunchREPL(ftdcFilepath string) {
 						break
 					}
 				}
-				if !matchedOnce {
-					graphOptions.selectList[metricName] = true
-				} else {
+				if matchedOnce {
 					removed = append(removed, metricName)
+				} else {
+					graphOptions.selectList.Set(metricName, true)
 				}
 			}
 			NolintPrintln("Removed metrics from select list:", removed)
 			NolintPrintln()
-			NolintPrintln("New list of metrics to print at top of generated image:", graphOptions.selectList)
+			NolintPrintln("New list of metrics to print at top of generated image:", graphOptions.selectList.Keys())
 		case cmd == "show zeroes":
 			graphOptions.hideAllZeroes = false
 			NolintPrintln("Generating graphs without omitting plots with all zeroes")
