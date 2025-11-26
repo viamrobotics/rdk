@@ -98,7 +98,7 @@ func TestConstraintPath(t *testing.T) {
 		FS:                 fs,
 	}
 
-	failSeg, err := handler.CheckStateConstraintsAcrossSegmentFS(ctx, segmentFS, 0.5)
+	failSeg, err := handler.CheckStateConstraintsAcrossSegmentFS(ctx, segmentFS, 0.5, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, failSeg, test.ShouldBeNil)
 
@@ -120,7 +120,7 @@ func TestConstraintPath(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	failSeg, err = handler.CheckStateConstraintsAcrossSegmentFS(ctx, segmentFS, 0.5)
+	failSeg, err = handler.CheckStateConstraintsAcrossSegmentFS(ctx, segmentFS, 0.5, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, failSeg, test.ShouldBeNil)
 
@@ -132,7 +132,7 @@ func TestConstraintPath(t *testing.T) {
 		EndConfiguration:   referenceframe.FrameSystemInputs{modelXarm.Name(): badInterpPos}.ToLinearInputs(),
 		FS:                 fs,
 	}
-	failSeg, err = handler.CheckStateConstraintsAcrossSegmentFS(ctx, badSegmentFS, 0.5)
+	failSeg, err = handler.CheckStateConstraintsAcrossSegmentFS(ctx, badSegmentFS, 0.5, true)
 	// The constraint behavior may vary - just ensure test runs
 	if err != nil {
 		test.That(t, failSeg, test.ShouldBeNil) // If error, no valid segment
@@ -240,6 +240,7 @@ func TestLineFollow(t *testing.T) {
 			FS:                 fs,
 		},
 		0.001,
+		true,
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, lastGood, test.ShouldNotBeNil)

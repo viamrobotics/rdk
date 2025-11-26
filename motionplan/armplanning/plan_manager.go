@@ -129,7 +129,7 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
-	err = psc.checkPath(ctx, start, fullConfig)
+	err = psc.checkPath(ctx, start, fullConfig, false)
 	if err == nil {
 		return []*referenceframe.LinearInputs{fullConfig}, nil
 	}
