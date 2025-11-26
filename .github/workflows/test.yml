@@ -90,6 +90,10 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      - name: Chown
+        run: chown -R testbot:testbot .
+
       - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
         run: |
           sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
@@ -101,6 +105,9 @@ jobs:
               git status
               exit 1
           fi
+
+      - name: Run CLI linter tests
+        run: go run ./cli/internal/cli_lint ./cli
 
   test_win:
     name: windows

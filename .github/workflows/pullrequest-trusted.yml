@@ -1,8 +1,8 @@
 name: Pull Request Update
 
-# concurrency:
-#   group: pullrequest-${{ github.head_ref }}
-#   cancel-in-progress: true
+concurrency:
+  group: pullrequest-${{ github.head_ref }}-pr
+  cancel-in-progress: true
 
 on:
   pull_request:
