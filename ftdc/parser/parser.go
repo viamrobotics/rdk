@@ -17,9 +17,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/iancoleman/orderedmap"
 	"go.viam.com/utils"
 
-	"github.com/iancoleman/orderedmap"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 )
