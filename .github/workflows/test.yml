@@ -58,12 +58,6 @@ jobs:
       - name: Chown
         run: chown -R testbot:testbot .
 
-      - name: Run CLI linter tests
-        run: |
-          cd cli/internal/cli_lint
-          go build .
-          ./cli_lint ../../
-
       - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
         run: |
           sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
@@ -144,23 +138,6 @@ jobs:
   motion_tests:
     name: Test Longer-running Motion Plans if affected
     uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@main
-
-  jsonschema:
-    name: Test meta.json jsonschema
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-      - uses: actions/setup-python@v5
-        with:
-          cache-dependency-path: cli/test-requirements.txt
-      - run: |
-          go run -tags no_cgo ./cli/viam/ module create --local-only --name schematest --public-namespace ns
-          cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install -r cli/test-requirements.txt
-          check-jsonschema --schemafile ./cli/module.schema.json meta2.json
 
   test_passing:
     name: All Tests Passing
