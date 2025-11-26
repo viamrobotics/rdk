@@ -58,18 +58,6 @@ jobs:
       - name: Chown
         run: chown -R testbot:testbot .
 
-      - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
-        run: |
-          sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
-          GEN_DIFF=$(git status -s)
-          if [ -n "$GEN_DIFF" ]; then
-              echo '"make build-go lint-go generate-go" resulted in the following untracked changes:' 1>&2
-              git diff
-              echo '"make build-go lint-go generate-go" resulted in changes not in git' 1>&2
-              git status
-              exit 1
-          fi
-
       - name: Run go unit tests
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
@@ -83,6 +71,36 @@ jobs:
           name: test-${{ matrix.platform_name }}.json
           path: json.log
           retention-days: 30
+
+  lint:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64
+            platform: linux/amd64
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
+        run: |
+          sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
+          GEN_DIFF=$(git status -s)
+          if [ -n "$GEN_DIFF" ]; then
+              echo '"make build-go lint-go generate-go" resulted in the following untracked changes:' 1>&2
+              git diff
+              echo '"make build-go lint-go generate-go" resulted in changes not in git' 1>&2
+              git status
+              exit 1
+          fi
 
   test_win:
     name: windows
@@ -141,7 +159,7 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    needs: [test_go, test32, motion_tests, test_win]
+    needs: [test_go, test32, motion_tests, test_win, lint]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
@@ -151,10 +169,12 @@ jobs:
           echo Go 32-bit Tests: ${{ needs.test32.result }}
           echo Windows Tests: ${{ needs.test_win.result }}
           echo Motion Tests: ${{ needs.motion_tests.result }}
+          echo Lint: ${{ needs.lint.result }}
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
           [ "${{ needs.test_win.result }}" == "success" ] && \
-          [ "${{ needs.motion_tests.result }}" == "success" ]
+          [ "${{ needs.motion_tests.result }}" == "success" ] && \
+          [ "${{ needs.lint.result }}" == "success" ]
 
       - name: Mark appimage label
         if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')
