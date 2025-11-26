@@ -7,7 +7,7 @@ import (
 	"slices"
 	"time"
 
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	maxPlanIter = 2500
+	maxPlanIter = 5000
 
 	// Maximum number of iterations that constrainedExtend will run before exiting.
 	maxExtendIter = 5000
@@ -63,7 +63,7 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegme
 
 // only used for testin.
 func (mp *cBiRRTMotionPlanner) planForTest(ctx context.Context) ([]*referenceframe.LinearInputs, error) {
-	initMaps, err := initRRTSolutions(ctx, mp.psc, mp.psc.pc.logger.Sublogger("ik"))
+	initMaps, err := initRRTSolutions(ctx, mp.psc, mp.psc.pc.logger.Sublogger("solve"))
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,6 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 	defer span.End()
 
 	mp.logger.CDebugf(ctx, "starting cbirrt with start map len %d and goal map len %d\n", len(rrtMaps.startMap), len(rrtMaps.goalMap))
-
 	// setup planner options
 	if mp.pc.planOpts == nil {
 		return nil, errNoPlannerOptions
@@ -437,7 +436,7 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 	// we try to find a balance between not making wild motions for simple motions
 	// while looking broadly for situations we have to make large movements to work around obstacles.
 
-	percent := min(1, float64(sampleNum)/1000.0)
+	percent := min(1, float64(sampleNum)/1000)
 
 	newInputs := referenceframe.NewLinearInputs()
 	for name, inputs := range rSeed.inputs.Items() {

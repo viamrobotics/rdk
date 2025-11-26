@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
@@ -232,7 +232,7 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 		_, err := h.dependsOnSensor.Readings(ctx, nil)
 		return nil, err
 	case "get_trace_id":
-		traceID := trace.FromContext(ctx).SpanContext().TraceID.String()
+		traceID := trace.FromContext(ctx).SpanContext().TraceID().String()
 		return map[string]any{"trace_id": traceID}, nil
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)

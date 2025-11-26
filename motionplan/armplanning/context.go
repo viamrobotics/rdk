@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"strings"
 
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -130,6 +130,7 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 		movingRobotGeometries, staticRobotGeometries,
 		start,
 		pc.request.WorldState,
+		pc.logger.Sublogger("constraint"),
 	)
 	if err != nil {
 		return nil, err

@@ -150,7 +150,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 				r3.Vector{X: 0, Y: 0, Z: 1},
 				r3.Vector{X: 1, Y: 0, Z: 1},
 			)})
-		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		collides, _, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -163,7 +163,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 				r3.Vector{X: 0, Y: 0, Z: -1},
 				r3.Vector{X: -1, Y: 0, Z: 0},
 			)})
-		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		collides, _, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -176,7 +176,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 				r3.Vector{X: 0, Y: 0.4, Z: 1},
 				r3.Vector{X: 1, Y: 0.4, Z: 1},
 			)})
-		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		collides, _, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -189,7 +189,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 				r3.Vector{X: 0.5, Y: 0, Z: -0.5},
 				r3.Vector{X: 0.5, Y: -1, Z: 0},
 			)})
-		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		collides, _, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -205,7 +205,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 				r3.Vector{X: -0.1, Y: 0.5, Z: 0},
 				r3.Vector{X: 0, Y: 0, Z: 1},
 			)})
-		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		collides, _, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -218,7 +218,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 				r3.Vector{X: -0.1, Y: 0.5, Z: 0},
 				r3.Vector{X: 0.6, Y: 0.6, Z: 0},
 			)})
-		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		collides, _, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -231,7 +231,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 				r3.Vector{X: 0.5, Y: 0.1, Z: -0.5},
 				r3.Vector{X: -1, Y: 0, Z: 0},
 			)})
-		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		collides, _, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -244,7 +244,7 @@ func TestMeshCollidesWithMesh(t *testing.T) {
 				r3.Vector{X: 1, Y: 0, Z: 0.5},
 				r3.Vector{X: 0, Y: 1, Z: 0.3},
 			)})
-		collides, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+		collides, _, err := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeFalse)
 	})
@@ -268,7 +268,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0, Y: 0, Z: 1.5},
 			NewZeroOrientation()), 1, 3, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -278,7 +278,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 		capsule, err := NewCapsule(NewPose(r3.Vector{X: -0.75, Y: 0, Z: 1},
 			NewZeroOrientation()), 1, 3, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -288,7 +288,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 		capsule, err := NewCapsule(NewPose(r3.Vector{X: -1, Y: 0, Z: 0},
 			NewZeroOrientation()), 1, 3, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -299,7 +299,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0.5, Y: 0, Z: 1.5},
 			NewZeroOrientation()), 1, 3, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -309,7 +309,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 		capsule, err := NewCapsule(NewPose(r3.Vector{X: -0.75, Y: 0.5, Z: 1},
 			NewZeroOrientation()), 1, 3, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -319,7 +319,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0.5, Y: -1, Z: 0},
 			NewZeroOrientation()), 1, 3, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -330,7 +330,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0.5, Y: 0.5, Z: 1.5},
 			NewZeroOrientation()), 1, 3, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -340,7 +340,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0.5, Y: 0.5, Z: 1 + math.Sqrt(2)/4},
 			&OrientationVector{OY: 1, OZ: 1}), 1, 3, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -350,7 +350,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0.2, Y: 0.2, Z: 0.1},
 			&OrientationVector{OX: 1}), 0.1, 0.3, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -360,7 +360,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 		capsule, err := NewCapsule(NewPose(r3.Vector{X: 0.2, Y: 0.2, Z: 0},
 			NewZeroOrientation()), 0.1, 0.3, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -369,7 +369,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 	t.Run("capsule completely encompassing triangle", func(t *testing.T) {
 		capsule, err := NewCapsule(NewZeroPose(), 2, 4.5, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -379,7 +379,7 @@ func TestMeshCollidesWithCapsule(t *testing.T) {
 		capsule, err := NewCapsule(NewPose(r3.Vector{X: -1.1, Y: -1.1, Z: 0},
 			NewZeroOrientation()), 1, 3, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(capsule, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeFalse)
 	})
@@ -397,7 +397,7 @@ func TestMeshCollidesWithBox(t *testing.T) {
 		box, err := NewBox(NewPose(r3.Vector{X: 1.5, Y: 0.5, Z: 0.5}, NewZeroOrientation()),
 			r3.Vector{X: 1, Y: 1, Z: 1}, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -407,7 +407,7 @@ func TestMeshCollidesWithBox(t *testing.T) {
 		box, err := NewBox(NewPose(r3.Vector{X: 1.5, Y: 0, Z: 0.5}, NewZeroOrientation()),
 			r3.Vector{X: 1, Y: 1, Z: 1}, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -417,7 +417,7 @@ func TestMeshCollidesWithBox(t *testing.T) {
 		box, err := NewBox(NewPose(r3.Vector{X: 1.5, Y: 0, Z: 0}, NewZeroOrientation()),
 			r3.Vector{X: 1, Y: 1, Z: 1}, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -428,7 +428,7 @@ func TestMeshCollidesWithBox(t *testing.T) {
 		box, err := NewBox(NewPose(r3.Vector{X: 0.7, Y: 1.5 - 0.7*(3.0/2), Z: 0.5}, NewZeroOrientation()), // idk how to do orientation loool
 			r3.Vector{X: 1, Y: 1, Z: 1}, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -438,7 +438,7 @@ func TestMeshCollidesWithBox(t *testing.T) {
 		box, err := NewBox(NewPose(r3.Vector{X: 0.5, Y: -math.Sqrt(2) / 2, Z: 0},
 			&OrientationVector{Theta: math.Pi / 4}), r3.Vector{X: 1, Y: 1, Z: 1}, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -448,7 +448,7 @@ func TestMeshCollidesWithBox(t *testing.T) {
 		box, err := NewBox(NewPose(r3.Vector{X: 0.9, Y: 0.9, Z: 0}, NewZeroOrientation()),
 			r3.Vector{X: 1, Y: 1, Z: 1}, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -458,7 +458,7 @@ func TestMeshCollidesWithBox(t *testing.T) {
 		box, err := NewBox(NewZeroPose(),
 			r3.Vector{X: 4, Y: 4, Z: 4}, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -469,7 +469,7 @@ func TestMeshCollidesWithBox(t *testing.T) {
 			r3.Vector{X: 1, Y: 1, Z: 1}, "")
 		test.That(t, err, test.ShouldBeNil)
 
-		collides, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(box, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeFalse)
 	})
@@ -486,7 +486,7 @@ func TestMeshCollidesWithPoint(t *testing.T) {
 	// Collision with triangle vertex
 	t.Run("Point against triangle vertex", func(t *testing.T) {
 		point := NewPoint(r3.Vector{}, "")
-		collides, err := mesh.CollidesWith(point, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(point, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -494,7 +494,7 @@ func TestMeshCollidesWithPoint(t *testing.T) {
 	// Collision with triangle edge
 	t.Run("Point against triangle edge", func(t *testing.T) {
 		point := NewPoint(r3.Vector{X: 0, Y: 0.5, Z: 0}, "")
-		collides, err := mesh.CollidesWith(point, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(point, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -502,7 +502,7 @@ func TestMeshCollidesWithPoint(t *testing.T) {
 	// Collision with triangle face
 	t.Run("Point against triangle face", func(t *testing.T) {
 		point := NewPoint(r3.Vector{X: 0.3, Y: 0.3, Z: 0}, "")
-		collides, err := mesh.CollidesWith(point, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(point, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -510,7 +510,7 @@ func TestMeshCollidesWithPoint(t *testing.T) {
 	// Point not touching triangle
 	t.Run("Point not touching triangle", func(t *testing.T) {
 		point := NewPoint(r3.Vector{X: 0, Y: 0, Z: 2 * defaultCollisionBufferMM}, "")
-		collides, err := mesh.CollidesWith(point, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(point, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeFalse)
 	})
@@ -528,7 +528,7 @@ func TestMeshCollidesWithSphere(t *testing.T) {
 	t.Run("Sphere against triangle vertex", func(t *testing.T) {
 		sphere, err := NewSphere(NewPose(r3.Vector{X: 0, Y: 0, Z: 1}, NewZeroOrientation()), 1, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -537,7 +537,7 @@ func TestMeshCollidesWithSphere(t *testing.T) {
 	t.Run("Sphere against triangle edge", func(t *testing.T) {
 		sphere, err := NewSphere(NewPose(r3.Vector{X: 0.5, Y: 0, Z: 1}, NewZeroOrientation()), 1, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -546,7 +546,7 @@ func TestMeshCollidesWithSphere(t *testing.T) {
 	t.Run("Sphere against triangle face", func(t *testing.T) {
 		sphere, err := NewSphere(NewPose(r3.Vector{X: 0.3, Y: 0.3, Z: 1}, NewZeroOrientation()), 1, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -555,7 +555,7 @@ func TestMeshCollidesWithSphere(t *testing.T) {
 	t.Run("Sphere clipping triangle", func(t *testing.T) {
 		sphere, err := NewSphere(NewPose(r3.Vector{X: 0.3, Y: 0.3, Z: 0}, NewZeroOrientation()), 0.1, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -564,7 +564,7 @@ func TestMeshCollidesWithSphere(t *testing.T) {
 	t.Run("Sphere completely encompassing triangle", func(t *testing.T) {
 		sphere, err := NewSphere(NewZeroPose(), 2, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
@@ -573,7 +573,7 @@ func TestMeshCollidesWithSphere(t *testing.T) {
 	t.Run("Sphere not touching triangle", func(t *testing.T) {
 		sphere, err := NewSphere(NewPose(r3.Vector{X: 0, Y: 0, Z: 1 + 2*defaultCollisionBufferMM}, NewZeroOrientation()), 1, "")
 		test.That(t, err, test.ShouldBeNil)
-		collides, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
+		collides, _, err := mesh.CollidesWith(sphere, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collides, test.ShouldBeFalse)
 	})
