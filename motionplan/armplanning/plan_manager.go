@@ -88,7 +88,6 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 				for _, sg := range subGoals {
 					pm.logger.Debugf("\t\t sg: %v", sg)
 				}
-
 			}
 
 			for subGoalIdx, sg := range subGoals {
