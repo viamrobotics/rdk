@@ -2042,7 +2042,6 @@ func TestReconfigureParity(t *testing.T) {
 	testReconfigureParity := func(t *testing.T, initCfg, updateCfg string) {
 		name := fmt.Sprintf("%s -> %s", initCfg, updateCfg)
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
 			// Capture logs for this sub-test run. Only output the logs if the test fails.
 			logger := logging.NewInMemoryLogger(t)
 
@@ -2084,7 +2083,6 @@ func TestReconfigureParity(t *testing.T) {
 // that remote resource will always be returned until it is configured away. When either the remote
 // robot removes it from its config. Or when the main part removes the remote.
 func TestOfflineRemoteResources(t *testing.T) {
-	t.Parallel()
 	logger, _ := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 

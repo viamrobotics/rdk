@@ -126,9 +126,8 @@ func newHelper(
 			attemptedConstruction = true
 			logger.Warn("VIAM_TESTMODULE_FAIL_ON_FIRST causing intentional failure")
 			return nil, errors.New("gotta fail fast")
-		} else {
-			logger.Info("VIAM_TESTMODULE_FAIL_ON_FIRST not failing this time")
 		}
+		logger.Info("VIAM_TESTMODULE_FAIL_ON_FIRST not failing this time")
 	}
 	var dependsOnSensor sensor.Sensor
 	var err error

@@ -1881,7 +1881,7 @@ func TestSlowShutdownTicker(t *testing.T) {
 }
 
 func TestOrphanedResources(t *testing.T) {
-	t.Parallel()
+	// t.Parallel() // fails, todo debug
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
@@ -2215,7 +2215,7 @@ func (d *doodad) doThroughGizmo(ctx context.Context,
 }
 
 func TestDependentAndOrphanedResources(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -2393,7 +2393,7 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 }
 
 func TestModuleDebugReconfigure(t *testing.T) {
-	t.Parallel()
+	// t.Parallel() // fails when parallel, todo debug
 	ctx := context.Background()
 	// We must use an Info level observed test logger to avoid testmodule
 	// inheriting debug mode from the module manager.

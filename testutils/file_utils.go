@@ -2,7 +2,7 @@ package testutils
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec
 	"encoding/hex"
 	"errors"
 	"io"
@@ -90,7 +90,7 @@ func BuildViamServer(tb testing.TB) string {
 
 // length `n` truncated md5sum of `input` string.
 func shortHash(input string, n int) (string, error) {
-	hash := md5.New()
+	hash := md5.New() //nolint:gosec
 	_, err := hash.Write([]byte(input))
 	if err != nil {
 		return "", err
@@ -123,10 +123,8 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 		exePath += ".exe"
 	}
 	if _, err := os.Stat(exePath); err == nil {
-		println("BuildTempModule exists, reusing", exePath) //nolint:forbidigo
+		// it exists, reusing
 		return exePath
-	} else {
-		println("BuildTempModule fresh, building", exePath) //nolint:forbidigo
 	}
 
 	//nolint:gosec
@@ -159,7 +157,10 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 	tb.Helper()
 
-	exePath := BuildTempModule(tb, modDir)
+	sharedExePath := BuildTempModule(tb, modDir)
+	// some tests edit the contents here so we give them a tempdir of their own:
+	exePath := filepath.Join(tb.TempDir(), filepath.Base(sharedExePath))
+	test.That(tb, os.Symlink(sharedExePath, exePath), test.ShouldBeNil)
 	exeDir := filepath.Dir(exePath)
 
 	type copyOp struct {

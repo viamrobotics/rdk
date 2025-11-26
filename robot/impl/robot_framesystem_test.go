@@ -25,7 +25,6 @@ import (
 )
 
 func TestFrameSystemConfigWithRemote(t *testing.T) {
-	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	// make the remote robots
 	remoteConfig, err := config.Read(context.Background(), rutils.ResolveFile("robot/impl/data/fake.json"), logger.Sublogger("remote"), nil)
@@ -201,7 +200,6 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 }
 
 func TestServiceWithUnavailableRemote(t *testing.T) {
-	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	o1 := &spatialmath.R4AA{math.Pi / 2., 0, 0, 1}
 	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
