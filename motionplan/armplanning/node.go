@@ -291,7 +291,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		sss.bestScoreWithProblem = max(1, myNode.cost)
 	}
 
-	whyNot := sss.psc.checkPath(ctx, sss.psc.start, step)
+	whyNot := sss.psc.checkPath(ctx, sss.psc.start, step, false)
 	sss.logger.Debugf("got score %0.4f @ %v - %s - result: %v", myNode.cost, now, stepSolution.Meta, whyNot)
 	myNode.checkPath = whyNot == nil
 
