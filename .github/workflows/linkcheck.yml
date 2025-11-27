@@ -65,8 +65,8 @@ jobs:
         with:
           project: DOCS
           issuetype: Bug
-          summary: Broken link detected
-          description: "For more info see https://github.com/viamrobotics/docs/actions/runs/${{ env.GITHUB_RUN_ID }}."
+          summary: Broken link detected in RDK
+          description: "For more info see https://github.com/viamrobotics/rdk/actions/runs/${{ env.GITHUB_RUN_ID }}."
       - name: Log created Jira issue
         if: failure()
         run: echo "Issue ${{ steps.create.outputs.issue }} was created"
