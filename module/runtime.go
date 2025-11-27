@@ -14,14 +14,14 @@ import (
 	"go.viam.com/rdk/robot/client"
 )
 
-func modMain(address string, models ...resource.APIModel) func(ctx context.Context, args []string, logger logging.Logger) error {
+func modMain(address string, models ...resource.APIModel) func(context.Context, []string, logging.Logger) error {
 	return func(ctx context.Context, args []string, logger logging.Logger) error {
 		info, ok := debug.ReadBuildInfo()
 		if ok {
 			logger.Infof("module version: %s, go version: %s", info.Main.Version, info.GoVersion)
 		}
 
-		mod, err := NewModule(ctx, address, NewLoggerFromArgs(""))
+		mod, err := NewModule(ctx, address, logger)
 		if err != nil {
 			return err
 		}
@@ -74,7 +74,7 @@ func modMain(address string, models ...resource.APIModel) func(ctx context.Conte
 		}
 
 		<-ctx.Done()
-		return nil
+		return ctx.Err()
 	}
 }
 
@@ -85,7 +85,8 @@ func ModularMain(models ...resource.APIModel) {
 		if len(os.Args) < 2 {
 			return errors.New("need socket path as command line argument")
 		}
-		return modMain(os.Args[1], models...)(ctx, args, logger)
+		err := modMain(os.Args[1], models...)(ctx, args, NewLoggerFromArgs(""))
+		return utils.FilterOutError(err, context.Canceled)
 	}
 
 	// On systems with SIGPIPE such as Unix, using SIGPIPE to signal a module shutdown
