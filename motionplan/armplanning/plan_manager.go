@@ -83,6 +83,11 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 
 			if len(subGoals) > 1 {
 				pm.logger.Infof("\t generateWaypoint turned into %d subGoals cbirrtAllowed: %v", len(subGoals), cbirrtAllowed)
+				pm.logger.Debugf("\t start: %v\n", start)
+				pm.logger.Debugf("\t to   : %v\n", to)
+				for _, sg := range subGoals {
+					pm.logger.Debugf("\t\t sg: %v", sg)
+				}
 			}
 
 			for subGoalIdx, sg := range subGoals {
@@ -232,7 +237,11 @@ func (pm *planManager) generateWaypoints(ctx context.Context, start, goal refere
 
 	numSteps := 0
 	for frame, pif := range goal {
-		steps := motionplan.CalculateStepCount(start[frame].Pose(), pif.Pose(), stepSize)
+		startPIF, ok := start[frame]
+		if !ok {
+			return nil, true, fmt.Errorf("frame system broken?? %v and %v aren't connected?", frame, pif.Parent())
+		}
+		steps := motionplan.CalculateStepCount(startPIF.Pose(), pif.Pose(), stepSize)
 		if steps > numSteps {
 			numSteps = steps
 		}
