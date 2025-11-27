@@ -283,7 +283,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	}
 
 	// Check if the arc of "seedInputs" to "target" is valid
-	_, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, newArc, mp.pc.planOpts.Resolution)
+	_, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, newArc, mp.pc.planOpts.Resolution, true)
 	if debugConstrainNear {
 		mp.logger.Infof("\t err %v", err)
 	}
@@ -351,6 +351,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			FS:                 mp.pc.fs,
 		},
 		mp.pc.planOpts.Resolution,
+		true,
 	)
 	if debugConstrainNear {
 		mp.logger.Infof("\t failpos: %v err: %v", failpos != nil, err)
