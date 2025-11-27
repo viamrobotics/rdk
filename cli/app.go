@@ -493,6 +493,19 @@ var app = &cli.App{
 					}),
 					Action: createCommandWithT(MachinesPartImportTracesAction),
 				},
+				{
+					Name:        "print-local",
+					Description: "Print traces in a local file to the console",
+					Flags: lo.Flatten([][]cli.Flag{
+						{&cli.StringFlag{
+							Name:      "path",
+							TakesFile: true,
+							Required:  true,
+							Usage:     "path to file to import",
+						}},
+					}),
+					Action: createCommandWithT(PrintTraceFileAction),
+				},
 			},
 		},
 		{

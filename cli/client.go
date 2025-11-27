@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -44,6 +45,7 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -1346,7 +1348,7 @@ func MachinesPartGetFTDCAction(c *cli.Context, args machinesPartGetFTDCArgs) err
 	return client.machinesPartGetFTDCAction(c, args, globalArgs.Debug, logger)
 }
 
-// MachinesPartImportTracesAction is the corresponding Action for 'machines part import-traces'.
+// MachinesPartImportTracesAction is the corresponding Action for 'trace import-remote'.
 func MachinesPartImportTracesAction(c *cli.Context, args machinesPartGetFTDCArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
@@ -1362,14 +1364,14 @@ func MachinesPartImportTracesAction(c *cli.Context, args machinesPartGetFTDCArgs
 	return client.machinesPartImportTracesAction(c, args, globalArgs.Debug, logger)
 }
 
-// ImportTraceFileAction is the corresponding action for 'import-traces'.
-func ImportTraceFileAction(c *cli.Context, args importTracesFileArgs) error {
-	client, err := newViamClient(c)
-	if err != nil {
-		return err
-	}
+// PrintTraceFileAction is the corresponding action for 'trace print-local'.
+func PrintTraceFileAction(c *cli.Context, args importTracesFileArgs) error {
+	return printTraceFileAction(c, args)
+}
 
-	return client.importTraceFileAction(c, args)
+// ImportTraceFileAction is the corresponding action for 'trace import-local'.
+func ImportTraceFileAction(c *cli.Context, args importTracesFileArgs) error {
+	return importTraceFileAction(c, args)
 }
 
 // MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
@@ -1600,10 +1602,41 @@ func (c *viamClient) machinesPartImportTracesAction(
 	}
 	printf(ctx.App.Writer, "Done in %s. Files at %s", time.Since(startTime), targetPath)
 	traceFilePath := filepath.Join(targetPath, part.GetId(), "traces")
-	return c.importTraceFileAction(ctx, importTracesFileArgs{Path: traceFilePath})
+	return importTraceFileAction(ctx, importTracesFileArgs{Path: traceFilePath})
 }
 
-func (c *viamClient) importTraceFileAction(
+func printTraceFileAction(
+	ctx *cli.Context,
+	args importTracesFileArgs,
+) error {
+	traceFile, err := os.Open(args.Path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			printf(ctx.App.Writer, "No traces found")
+			return nil
+		}
+		return errors.Wrap(err, "failed to open trace file")
+	}
+	traceReader := protoutils.NewDelimitedProtoReader[tracepb.ResourceSpans](traceFile)
+	//nolint: errcheck
+	defer traceReader.Close()
+
+	devExporter := perf.NewOtelDevelopmentExporter()
+	if err := devExporter.Start(); err != nil {
+		return err
+	}
+	defer devExporter.Stop()
+	var msg tracepb.ResourceSpans
+	err = nil
+	for resource := range traceReader.AllWithMemory(&msg) {
+		for _, scope := range resource.ScopeSpans {
+			err = stderrors.Join(err, devExporter.ExportOTLPSpans(ctx.Context, scope.Spans))
+		}
+	}
+	return err
+}
+
+func importTraceFileAction(
 	ctx *cli.Context,
 	args importTracesFileArgs,
 ) error {
