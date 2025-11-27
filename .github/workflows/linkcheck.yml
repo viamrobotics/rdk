@@ -7,8 +7,8 @@
 name: run-htmltest
 on:
   schedule:
-    # 10am UTC on weekdays
-    - cron: '0 10 * * 1,2,3,4,5'
+    # 10am UTC on Mondays
+    - cron: "0 10 * * 1"
 jobs:
   htmltest:
     runs-on: ubuntu-large
@@ -17,11 +17,20 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-      - name: Setup Go
-        uses: actions/setup-go@v3
+      - name: Install Node.js (required for actions)
+        run: |
+          apt-get update
+          apt-get install -y curl
+          curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+          apt-get install -y nodejs
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          go-version: stable
-          cache: true
+          node-version: '20'
+      - name: Setup Go environment
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - name: Install doc2go
         run: go install go.abhg.dev/doc2go@latest
       - name: Generate API reference
