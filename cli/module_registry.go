@@ -118,7 +118,7 @@ type moduleManifest struct {
 	Visibility   moduleVisibility  `json:"visibility"`
 	URL          string            `json:"url"`
 	Description  string            `json:"description"`
-	Models       []ModuleComponent `json:"models"`
+	Models       []ModuleComponent `json:"models,omitempty"`
 	Apps         []AppComponent    `json:"applications"`
 	MarkdownLink *string           `json:"markdown_link,omitempty"`
 	// JsonManifest provides fields shared with RDK proper.
@@ -212,10 +212,6 @@ func CreateModuleAction(c *cli.Context, args createModuleActionArgs) error {
 			Schema:     "https://dl.viam.dev/module.schema.json",
 			ModuleID:   returnedModuleID.String(),
 			Visibility: moduleVisibilityPrivate,
-			// This is done so that the json has an empty example
-			Models: []ModuleComponent{
-				{},
-			},
 		}
 		if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
 			return err
