@@ -451,12 +451,16 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 
 // Returns the relative pose between the parent and the destination frame.
 func (sfs *FrameSystem) transformFromParent(inputs *LinearInputs, src, dst Frame) (spatial.DualQuaternion, error) {
-	dstToWorld, err := sfs.GetFrameToWorldTransform(inputs, dst)
+	srcToWorld, err := sfs.GetFrameToWorldTransform(inputs, src)
 	if err != nil {
 		return spatial.DualQuaternion{}, err
 	}
 
-	srcToWorld, err := sfs.GetFrameToWorldTransform(inputs, src)
+	if dst.Name() == World {
+		return spatial.DualQuaternion{srcToWorld}, nil
+	}
+
+	dstToWorld, err := sfs.GetFrameToWorldTransform(inputs, dst)
 	if err != nil {
 		return spatial.DualQuaternion{}, err
 	}

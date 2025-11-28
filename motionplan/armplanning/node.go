@@ -324,25 +324,25 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 
 	if sss.bestScoreNoProblem < sss.goodCost/20 {
 		multiple = 0
-		minMillis = 10
+		minMillis = 5
 	} else if sss.bestScoreNoProblem < sss.goodCost/15 {
 		multiple = 1
-		minMillis = 15
+		minMillis = 10
 	} else if sss.bestScoreNoProblem < sss.goodCost/10 {
 		multiple = 0
-		minMillis = 20
+		minMillis = 15
 	} else if sss.bestScoreNoProblem < sss.goodCost/5 {
 		multiple = 2
-		minMillis = 20
+		minMillis = 15
 	} else if sss.bestScoreNoProblem < sss.goodCost/3.5 {
 		multiple = 4
-		minMillis = 30
+		minMillis = 20
 	} else if sss.bestScoreNoProblem < sss.goodCost/2 {
 		multiple = 20
-		minMillis = 100
+		minMillis = 50
 	} else if sss.bestScoreNoProblem < sss.goodCost {
 		multiple = 50
-		minMillis = 250
+		minMillis = 100
 	} else if sss.bestScoreWithProblem < sss.goodCost {
 		// we're going to have to do cbirrt, so look a little less, but still look
 		multiple = 100
