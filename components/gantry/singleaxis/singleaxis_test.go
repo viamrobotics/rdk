@@ -730,6 +730,7 @@ func TestKinematics(t *testing.T) {
 			Board:           boardName,
 			LimitPinEnabled: &setTrue,
 			GantryMmPerSec:  float64(300),
+			Kinematics:      "../test_gantry_model.json",
 		},
 	}
 	fakegantry, _ := newSingleAxis(ctx, deps, fakecfg, logger)
