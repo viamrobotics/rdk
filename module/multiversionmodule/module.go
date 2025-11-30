@@ -53,7 +53,7 @@ func (cfg *config) Validate(_ string) ([]string, []string, error) {
 }
 
 func main() {
-	utils.ContextualMain(mainWithArgs, logging.NewLogger(fmt.Sprintf("MultiVersionModule-%s", VERSION)))
+	utils.ContextualMainWithSIGPIPE(mainWithArgs, logging.NewLogger(fmt.Sprintf("MultiVersionModule-%s", VERSION)))
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
