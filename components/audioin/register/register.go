@@ -1,7 +1,7 @@
-// Package register registers all relevant audio in components
+// Package register registers all relevant audio ins
 package register
 
 import (
-	// for audioins
+	// audio in import
 	_ "go.viam.com/rdk/components/audioin/fake"
 )

@@ -184,6 +184,8 @@ func CreateWAVFile(pcmData []byte, sampleRate, numChannels int32, codec string) 
 	case rutils.CodecPCM32Float:
 		audioFormat = 3
 		bitsPerSample = 32
+	default:
+		return nil, fmt.Errorf("unsupported codec: %v", codec)
 	}
 
 	// WAV file header
