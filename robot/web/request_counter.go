@@ -90,7 +90,7 @@ type RequestCounter struct {
 	// their own set of stats.
 	requestKeyToStats ssync.Map[string, *requestStats]
 
-	// inFlightRequests maps resource names to how many in flight requests are
+	// inFlightRequests maps resource names to how many in-flight requests are
 	// currently targeting that resource name. There can only be `limit` API
 	// calls for any resource. E.g: `motor-foo` can have 50 `IsPowered`
 	// concurrent calls with 50 more `GoFor` calls, or instead 100 `IsPowered`
@@ -108,7 +108,7 @@ type RequestCounter struct {
 	// error is output.
 
 	// requestsPerPC maps WebRTC connections (pcs) to _another_ map. That second map is a
-	// mapping of resource names to how many in flight and rejected (exceeded
+	// mapping of resource names to how many in-flight and rejected (exceeded
 	// `inFlightLimit`) requests the WebRTC connection is responsible for.
 	requestsPerPC ssync.Map[*webrtc.PeerConnection, *ssync.Map[string, *inFlightAndRejectedRequests]]
 
@@ -119,7 +119,7 @@ type RequestCounter struct {
 	pcToClientMetadata ssync.Map[*webrtc.PeerConnection, string]
 }
 
-// decrInFlight decrements the in flight request counters for a given resource and pc.
+// decrInFlight decrements the in-flight request counters for a given resource and pc.
 func (rc *RequestCounter) decrInFlight(resource string, pc *webrtc.PeerConnection) {
 	rc.ensureInFlightCounterForResource(resource).Add(-1)
 	if pc != nil {
@@ -196,11 +196,11 @@ type ClientInformation struct {
 	ServerIP string `json:"server_ip"`
 	// ClientIP is the IP address of the client.
 	ClientIP string `json:"client_ip"`
-	// InFlightRequests is a map of resource names to the number of in flight requests
+	// InFlightRequests is a map of resource names to the number of in-flight requests
 	// against that resource this client is responsible for.
-	InFlightRequests map[string]int64 `json:"in_flight_requests"`
+	InFlightRequests map[string]int64 `json:"inflight_requests"`
 	// RejectedRequests is a map of resource names to the number of requests against that
-	// resource that have exceeded the in flight limit this client is responsible for (how
+	// resource that have exceeded the in-flight limit this client is responsible for (how
 	// many times has this client caused a request limit exceeded error).
 	RejectedRequests map[string]int64 `json:"rejected_requests"`
 }
@@ -305,7 +305,7 @@ func (rc *RequestCounter) createClientInformationFromPC(
 //   - All fields of the `ClientInformation` struct for both the offending client and all
 //     other clients
 //
-// The method also returns the number of in flight requests against the invoked resource
+// The method also returns the number of in-flight requests against the invoked resource
 // for the offending client (to be included in returned error).
 func (rc *RequestCounter) logRequestLimitExceeded(
 	apiMethodString, resource string,
@@ -489,7 +489,7 @@ func (rc *RequestCounter) setClientMetadataForPC(ctx context.Context, pc *webrtc
 	rc.pcToClientMetadata.Store(pc, clientMetadata)
 }
 
-// incrInFlight attempts to increment the in flight request counters for a given
+// incrInFlight attempts to increment the in-flight request counters for a given
 // resource. It returns true if it was successful and false if an additional
 // request would exceed the configured limit.
 func (rc *RequestCounter) incrInFlight(resource string, pc *webrtc.PeerConnection) bool {

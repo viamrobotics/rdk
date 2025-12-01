@@ -1603,7 +1603,7 @@ func testResourceLimitsAndFTDC(
 	// Create a caller to invoke the gRPC method used for testing
 	call := createCall(addr, logger)
 
-	// Check that the in flight request counter is zero
+	// Check that the in-flight request counter is zero
 	statsKey := keyPrefix + ".inFlightRequests"
 	stats := svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 0)
@@ -1621,7 +1621,7 @@ func testResourceLimitsAndFTDC(
 	// counters have been updated.
 	<-callBlocking
 
-	// Check that the in flight request counter has increased to 1
+	// Check that the in-flight request counter has increased to 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 1)
 
@@ -1657,26 +1657,26 @@ func testResourceLimitsAndFTDC(
 		offendingClientInformation := fields["offending_client_information"]
 		offendingClientInformationM, ok := offendingClientInformation.(map[string]any)
 		test.That(t, ok, test.ShouldBeTrue)
-		// Assert exact values on InFlightRequests and RejectedRequests and assert the rest
+		// Assert exact values on inflight_requests and rejected_requests and assert the rest
 		// of the fields simply exist.
-		inFlightRequests := offendingClientInformationM["InFlightRequests"]
+		inFlightRequests := offendingClientInformationM["inflight_requests"]
 		inFlightRequestsM, ok := inFlightRequests.(map[string]any)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, inFlightRequestsM[keyPrefix], test.ShouldEqual, 1)
-		rejectedRequests := offendingClientInformationM["RejectedRequests"]
+		rejectedRequests := offendingClientInformationM["rejected_requests"]
 		rejectedRequestsM, ok := rejectedRequests.(map[string]any)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, rejectedRequestsM[keyPrefix], test.ShouldEqual, 1)
-		test.That(t, offendingClientInformationM["ClientMetadata"], test.ShouldNotBeNil)
-		test.That(t, offendingClientInformationM["ConnectionID"], test.ShouldNotBeNil)
-		test.That(t, offendingClientInformationM["ConnectTime"], test.ShouldNotBeNil)
-		test.That(t, offendingClientInformationM["TimeSinceConnect"], test.ShouldNotBeNil)
-		test.That(t, offendingClientInformationM["ServerIP"], test.ShouldNotBeNil)
-		test.That(t, offendingClientInformationM["ClientIP"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["client_metadata"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["connection_id"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["connect_time"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["time_since_connect"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["server_ip"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["client_ip"], test.ShouldNotBeNil)
 	}
 	test.That(t, fields["all_other_client_information"], test.ShouldResemble, []any{})
 
-	// In flight requests counter should still only be 1
+	// In-flight requests counter should still only be 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 1)
 
@@ -1684,7 +1684,7 @@ func testResourceLimitsAndFTDC(
 	close(blockCall)
 	clientCallsWg.Wait()
 
-	// In flight requests counter should be back to 0
+	// In-flight requests counter should be back to 0
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 0)
 }
