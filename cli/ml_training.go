@@ -722,7 +722,9 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 	cmd.Stdout = c.App.Writer
 	cmd.Stderr = c.App.ErrWriter
 
-	printf(c.App.Writer, "WARNING: If this is your first time running training, it may take a few minutes to download the container image. This is normal and will not affect the training process.")
+	printf(c.App.Writer, "WARNING: If this is your first time running training, "+
+		"it may take a few minutes to download the container image. "+
+		"This is normal and will not affect the training process.")
 
 	if err := cmd.Run(); err != nil {
 		// Check if the command was interrupted
