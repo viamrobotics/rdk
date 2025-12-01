@@ -335,10 +335,16 @@ func (rc *RequestCounter) logRequestLimitExceeded(
 		return true
 	})
 
-	msg := fmt.Sprintf("Request limit exceeded for resource. See %s for troubleshooting steps", ReqLimitExceededURL)
-	rc.logger.Warnw(msg, "method", apiMethodString, "resource", resource)
-	rc.logger.Info("Offending client information:", string(offendingClientInformationJSON))
-	rc.logger.Info("All other client information:", fmt.Sprintf("[%v]", strings.Join(allOtherClientInformationStrs, ",")))
+	msg := fmt.Sprintf(
+		"Request limit exceeded for resource. See %s for troubleshooting steps. "+
+			`{"method":%q,"resource":%q,"offending_client_information":%v,"all_other_client_information":%v}`,
+		ReqLimitExceededURL,
+		apiMethodString,
+		resource,
+		string(offendingClientInformationJSON),
+		fmt.Sprintf("[%v]", strings.Join(allOtherClientInformationStrs, ",")),
+	)
+	rc.logger.Warnw(msg)
 
 	return offendingClientInformation.InFlightRequests[resource]
 }
