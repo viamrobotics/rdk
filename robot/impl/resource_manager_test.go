@@ -2042,6 +2042,7 @@ func TestReconfigureParity(t *testing.T) {
 	testReconfigureParity := func(t *testing.T, initCfg, updateCfg string) {
 		name := fmt.Sprintf("%s -> %s", initCfg, updateCfg)
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			// Capture logs for this sub-test run. Only output the logs if the test fails.
 			logger := logging.NewInMemoryLogger(t)
 

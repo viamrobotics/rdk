@@ -120,8 +120,6 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 	mut.Lock()
 	defer mut.Unlock()
 
-	t0 := time.Now()
-
 	// todo: hash the entire file tree under modDir, and do this above buildMutex
 	dirHash, err := shortHash(modDir, 8)
 	test.That(tb, err, test.ShouldBeNil)
