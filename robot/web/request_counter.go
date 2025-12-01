@@ -32,13 +32,14 @@ const ReqLimitExceededURL = "https://docs.viam.com/dev/tools/common-errors/#req-
 // because it would exceed the limit for concurrent requests to a given
 // resource.
 type RequestLimitExceededError struct {
-	resource string
-	limit    int64
+	resource                            string
+	limit, numInFlightRequestsForClient int64
 }
 
 func (e RequestLimitExceededError) Error() string {
-	return fmt.Sprintf("exceeded request limit %v on resource %v, see %v for troubleshooting steps",
-		e.limit, e.resource, ReqLimitExceededURL)
+	return fmt.Sprintf(
+		"exceeded request limit %v on resource %v (your client is responsible for %v). See %v for troubleshooting steps",
+		e.limit, e.resource, e.numInFlightRequestsForClient, ReqLimitExceededURL)
 }
 
 // GRPCStatus allows this error to be converted to a [status.Status].
@@ -299,38 +300,42 @@ func (rc *RequestCounter) createClientInformationFromPC(
 //   - Which resource the API method was invoked upon
 //   - All fields of the `clientInformation` struct for both the offending client and all
 //     other clients
+//
+// The method also returns the number of in flight requests against the invoked resource
+// for the offending client (to be included in returned error).
 func (rc *RequestCounter) logRequestLimitExceeded(
 	apiMethodString, resource string,
 	pc *webrtc.PeerConnection,
-) {
-	offendingClientInformation := fmt.Sprintf(
-		"%+v",
-		rc.createClientInformationFromPC(pc),
-	)
-	allOtherClientInformation := "["
+) int64 {
+	offendingClientInformation := rc.createClientInformationFromPC(pc)
+	offendingClientInformationStr := fmt.Sprintf("%+v", offendingClientInformation)
+
+	allOtherClientInformationStr := "["
 	rc.requestsPerPC.Range(func(
 		pcKey *webrtc.PeerConnection,
 		_ *ssync.Map[string, *inFlightAndRejectedRequests],
 	) bool {
 		// Do not include offending client.
 		if pc != pcKey {
-			allOtherClientInformation += fmt.Sprintf(
+			allOtherClientInformationStr += fmt.Sprintf(
 				"%+v",
 				rc.createClientInformationFromPC(pcKey),
 			)
 		}
 		return true
 	})
-	allOtherClientInformation += "]"
+	allOtherClientInformationStr += "]"
 
 	msg := fmt.Sprintf("Request limit exceeded for resource. See %s for troubleshooting steps", ReqLimitExceededURL)
 	rc.logger.Warnw(
 		msg,
 		"method", apiMethodString,
 		"resource", resource,
-		"offending_client_information", offendingClientInformation,
-		"all_other_client_information", allOtherClientInformation,
+		"offending_client_information", offendingClientInformationStr,
+		"all_other_client_information", allOtherClientInformationStr,
 	)
+
+	return offendingClientInformation.InFlightRequests[resource]
 }
 
 // UnaryInterceptor returns an incoming server interceptor that will pull method information and
@@ -346,10 +351,11 @@ func (rc *RequestCounter) UnaryInterceptor(
 
 	if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
 		if ok := rc.incrInFlight(resource, pc); !ok {
-			rc.logRequestLimitExceeded(apiMethod.full, resource, pc)
+			numInFlightRequestsForClient := rc.logRequestLimitExceeded(apiMethod.full, resource, pc)
 			return nil, &RequestLimitExceededError{
-				resource: resource,
-				limit:    rc.inFlightLimit,
+				resource:                     resource,
+				limit:                        rc.inFlightLimit,
+				numInFlightRequestsForClient: numInFlightRequestsForClient,
 			}
 		}
 		defer rc.decrInFlight(resource, pc)

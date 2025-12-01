@@ -1628,7 +1628,13 @@ func testResourceLimitsAndFTDC(
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
 	test.That(t, err.Error(), test.ShouldEndWith,
-		fmt.Sprintf("exceeded request limit 1 on resource %v, see %v for troubleshooting steps", keyPrefix, web.ReqLimitExceededURL))
+		fmt.Sprintf(
+			"exceeded request limit 1 on resource %v (your client is responsible for 1). "+
+				"See %v for troubleshooting steps",
+			keyPrefix,
+			web.ReqLimitExceededURL,
+		),
+	)
 
 	// Assert that an appropriate warning log was output by the server.
 	reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
