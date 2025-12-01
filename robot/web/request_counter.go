@@ -184,25 +184,25 @@ type ClientInformation struct {
 	// name of the module if it is a module->RDK connection. This will be in the form
 	// "[type-of-sdk];[sdk-version];[api-version]" potentially prefixed with
 	// "module-[name-of-module]-" to represent a module's connection back to the RDK.
-	ClientMetadata string
+	ClientMetadata string `json:"client_metadata"`
 	// ConnectionID is the WebRTC peer connection ID of the connection; useful to associate
 	// with other WebRTC logs.
-	ConnectionID string
+	ConnectionID string `json:"connection_id"`
 	// ConnectTime is the timestamp around which the client initially connected.
-	ConnectTime string
+	ConnectTime string `json:"connect_time"`
 	// TimeSinceConnect is the amount of time that has passed since `ConnectTime`.
-	TimeSinceConnect string
+	TimeSinceConnect string `json:"time_since_connect"`
 	// ServerIP is the IP address used by the client to connect to this server.
-	ServerIP string
+	ServerIP string `json:"server_ip"`
 	// ClientIP is the IP address of the client.
-	ClientIP string
+	ClientIP string `json:"client_ip"`
 	// InFlightRequests is a map of resource names to the number of in flight requests
 	// against that resource this client is responsible for.
-	InFlightRequests map[string]int64
+	InFlightRequests map[string]int64 `json:"in_flight_requests"`
 	// RejectedRequests is a map of resource names to the number of requests against that
 	// resource that have exceeded the in flight limit this client is responsible for (how
 	// many times has this client caused a request limit exceeded error).
-	RejectedRequests map[string]int64
+	RejectedRequests map[string]int64 `json:"rejected_requests"`
 }
 
 // Creates a client information object for logging from a passed in peer connection.
@@ -324,7 +324,7 @@ func (rc *RequestCounter) logRequestLimitExceeded(
 	) bool {
 		// Do not include offending client.
 		if pc != pcKey {
-			clientInformation := rc.createClientInformationFromPC(pc)
+			clientInformation := rc.createClientInformationFromPC(pcKey)
 			clientInformationJSON, err := json.Marshal(clientInformation)
 			if err != nil {
 				rc.logger.Errorf("Failed to marshal client information %+v", clientInformation)
