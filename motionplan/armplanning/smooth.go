@@ -6,7 +6,7 @@ import (
 	"time"
 
 	// "go.viam.com/rdk/motionplan".
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/referenceframe"
 )
@@ -17,13 +17,13 @@ func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []*ref
 	defer span.End()
 	// look at each triplet, see if we can remove the middle one
 	for i := step + 1; i < len(steps); i += step {
-		err := psc.checkPath(ctx, steps[i-step-1], steps[i])
+		err := psc.checkPath(ctx, steps[i-step-1], steps[i], false)
 		if err != nil {
 			continue
 		}
 		// we can merge
 		steps = append(steps[0:i-step], steps[i:]...)
-		i--
+		i -= step
 	}
 	return steps
 }
@@ -39,7 +39,7 @@ func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
 
 	originalSize := len(steps)
 	steps = simpleSmoothStep(ctx, psc, steps, 10)
-	steps = simpleSmoothStep(ctx, psc, steps, 2)
+	steps = simpleSmoothStep(ctx, psc, steps, 3)
 	steps = simpleSmoothStep(ctx, psc, steps, 1)
 
 	if len(steps) != originalSize {
