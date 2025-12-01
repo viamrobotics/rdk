@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -175,7 +176,10 @@ func (rc *RequestCounter) Stats() any {
 	return ret
 }
 
-type clientInformation struct {
+// ClientInformation represents the metadata, connection information, and request counts
+// of a connected client. Useful for logging client information when request limits are
+// exceeded.
+type ClientInformation struct {
 	// ClientMetadata represents the type and version of SDK connected and potentially the
 	// name of the module if it is a module->RDK connection. This will be in the form
 	// "[type-of-sdk];[sdk-version];[api-version]" potentially prefixed with
@@ -204,12 +208,12 @@ type clientInformation struct {
 // Creates a client information object for logging from a passed in peer connection.
 func (rc *RequestCounter) createClientInformationFromPC(
 	pc *webrtc.PeerConnection,
-) *clientInformation {
+) *ClientInformation {
 	if pc == nil {
 		return nil
 	}
 
-	ci := &clientInformation{}
+	ci := &ClientInformation{}
 
 	if clientMetadata, ok := rc.pcToClientMetadata.Load(pc); ok {
 		ci.ClientMetadata = clientMetadata
@@ -298,7 +302,7 @@ func (rc *RequestCounter) createClientInformationFromPC(
 // (where possible):
 //   - Which API method invocation was attempted
 //   - Which resource the API method was invoked upon
-//   - All fields of the `clientInformation` struct for both the offending client and all
+//   - All fields of the `ClientInformation` struct for both the offending client and all
 //     other clients
 //
 // The method also returns the number of in flight requests against the invoked resource
@@ -308,32 +312,33 @@ func (rc *RequestCounter) logRequestLimitExceeded(
 	pc *webrtc.PeerConnection,
 ) int64 {
 	offendingClientInformation := rc.createClientInformationFromPC(pc)
-	offendingClientInformationStr := fmt.Sprintf("%+v", offendingClientInformation)
+	offendingClientInformationJSON, err := json.Marshal(offendingClientInformation)
+	if err != nil {
+		rc.logger.Errorf("Failed to marshal client information %+v", offendingClientInformation)
+	}
 
-	allOtherClientInformationStr := "["
+	var allOtherClientInformationStrs []string
 	rc.requestsPerPC.Range(func(
 		pcKey *webrtc.PeerConnection,
 		_ *ssync.Map[string, *inFlightAndRejectedRequests],
 	) bool {
 		// Do not include offending client.
 		if pc != pcKey {
-			allOtherClientInformationStr += fmt.Sprintf(
-				"%+v",
-				rc.createClientInformationFromPC(pcKey),
-			)
+			clientInformation := rc.createClientInformationFromPC(pc)
+			clientInformationJSON, err := json.Marshal(clientInformation)
+			if err != nil {
+				rc.logger.Errorf("Failed to marshal client information %+v", clientInformation)
+				return true
+			}
+			allOtherClientInformationStrs = append(allOtherClientInformationStrs, string(clientInformationJSON))
 		}
 		return true
 	})
-	allOtherClientInformationStr += "]"
 
 	msg := fmt.Sprintf("Request limit exceeded for resource. See %s for troubleshooting steps", ReqLimitExceededURL)
-	rc.logger.Warnw(
-		msg,
-		"method", apiMethodString,
-		"resource", resource,
-		"offending_client_information", offendingClientInformationStr,
-		"all_other_client_information", allOtherClientInformationStr,
-	)
+	rc.logger.Warnw(msg, "method", apiMethodString, "resource", resource)
+	rc.logger.Info("Offending client information:", string(offendingClientInformationJSON))
+	rc.logger.Info("All other client information:", fmt.Sprintf("[%v]", strings.Join(allOtherClientInformationStrs, ",")))
 
 	return offendingClientInformation.InFlightRequests[resource]
 }

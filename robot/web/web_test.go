@@ -6,11 +6,13 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -1642,27 +1644,25 @@ func testResourceLimitsAndFTDC(
 	test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
 	test.That(t, reqLimitExceededLogs[0].Message, test.ShouldEqual,
 		fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps", web.ReqLimitExceededURL))
-
-	// Assert that the fields of the log look as expected.
 	fields := reqLimitExceededLogs[0].ContextMap()
 	test.That(t, fields["method"], test.ShouldEqual, method)
 	test.That(t, fields["resource"], test.ShouldEqual, keyPrefix)
-	test.That(t, fields["all_other_client_information"], test.ShouldEqual, "[]")
-	{
-		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring,
-			fmt.Sprintf("InFlightRequests:map[%v:1]", keyPrefix))
-		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring,
-			fmt.Sprintf("RejectedRequests:map[%v:1]", keyPrefix))
 
-		// Check for presence of fields below in offending_client_information, but we cannot
-		// know their exact values.
-		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring, "ClientMetadata")
-		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring, "ConnectionID")
-		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring, "ConnectTime")
-		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring, "TimeSinceConnect")
-		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring, "ServerIP")
-		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring, "ClientIP")
-	}
+	// Assert that two info logs were output containing all client information.
+	offendingClientInformationLogs := logs.FilterMessageSnippet("Offending client information:").All()
+	test.That(t, offendingClientInformationLogs, test.ShouldHaveLength, 1)
+	test.That(t, offendingClientInformationLogs[0].Level, test.ShouldEqual, zapcore.InfoLevel)
+	var offendingClientInformation *web.ClientInformation
+	err = json.Unmarshal(
+		[]byte(strings.TrimPrefix(offendingClientInformationLogs[0].Message, "Offending client information:")),
+		&offendingClientInformation,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, offendingClientInformation.InFlightRequests, test.ShouldResemble, map[string]int64{keyPrefix: 1})
+	test.That(t, offendingClientInformation.RejectedRequests, test.ShouldResemble, map[string]int64{keyPrefix: 1})
+	allOtherClientInformationLogs := logs.FilterMessageSnippet("All other client information: []").All()
+	test.That(t, allOtherClientInformationLogs, test.ShouldHaveLength, 1)
+	test.That(t, allOtherClientInformationLogs[0].Level, test.ShouldEqual, zapcore.InfoLevel)
 
 	// In flight requests counter should still only be 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
