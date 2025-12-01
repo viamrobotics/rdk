@@ -147,7 +147,6 @@ func findReaderAndDriver(
 	path string,
 	logger logging.Logger,
 ) (video.Reader, driverutils.Driver, string, error) {
-	mediadevicescamera.Initialize()
 	constraints := makeConstraints(conf, logger)
 
 	// Handle specific path
@@ -393,13 +392,27 @@ func (c *webcam) Monitor() {
 						case <-ticker.C:
 							cont := func() bool {
 								c.mu.Lock()
-								defer c.mu.Unlock()
-
 								if err := c.reconnectCamera(&c.conf); err != nil {
+									c.mu.Unlock()
 									c.logger.Debugw("failed to reconnect camera", "error", err)
 									return true
 								}
 								c.logger.Infow("camera reconnected")
+
+								// Stop the buffer worker outside of the mutex to avoid deadlock
+								var oldWorker *goutils.StoppableWorkers
+								if c.buffer != nil && c.buffer.worker != nil {
+									oldWorker = c.buffer.worker
+								}
+
+								c.buffer = NewWebcamBuffer(c.workers.Context())
+								c.startFrameBufferWorker()
+								c.mu.Unlock()
+
+								if oldWorker != nil {
+									oldWorker.Stop()
+								}
+
 								return false
 							}()
 							if cont {
@@ -603,7 +616,6 @@ func (c *webcam) startFrameBufferWorker() {
 
 func (c *webcam) Close(ctx context.Context) error {
 	c.workers.Stop()
-	c.buffer.worker.Stop()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed {
@@ -611,5 +623,12 @@ func (c *webcam) Close(ctx context.Context) error {
 	}
 	c.closed = true
 
-	return c.driver.Close()
+	if c.buffer != nil && c.buffer.worker != nil {
+		c.buffer.worker.Stop()
+	}
+
+	if c.driver != nil {
+		return c.driver.Close()
+	}
+	return nil
 }
