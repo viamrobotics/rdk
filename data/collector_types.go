@@ -212,7 +212,7 @@ func (dt CaptureType) ToProto() datasyncPB.DataType {
 // MethodToCaptureType returns the DataType of the method.
 func MethodToCaptureType(methodName string) CaptureType {
 	switch methodName {
-	case nextPointCloud, readImage, pointCloudMap, GetImages, captureAllFromCamera:
+	case nextPointCloud, readImage, pointCloudMap, GetImages, captureAllFromCamera, getAudio:
 		return CaptureTypeBinary
 	default:
 		return CaptureTypeTabular
@@ -413,6 +413,10 @@ const (
 	ExtJpeg = ".jpeg"
 	// ExtPng is the file extension for png files.
 	ExtPng = ".png"
+	// ExtMp3 is the file extension for mp3 files.
+	ExtMP3 = ".mp3"
+	// ExtWav is the file extension for wav files.
+	ExtWav = ".wav"
 )
 
 // getFileExt gets the file extension for a capture file.
@@ -433,6 +437,16 @@ func getFileExt(dataType CaptureType, methodName string, parameters map[string]i
 				return ExtPng
 			case rutils.MimeTypePCD:
 				return ExtPcd
+			default:
+				return ExtDefault
+			}
+		}
+		if methodName == getAudio {
+			switch parameters["codec"] {
+			case rutils.CodecPCM16, rutils.CodecPCM32, rutils.CodecPCM32Float:
+				return ExtWav
+			case rutils.CodecMP3:
+				return ExtMP3
 			default:
 				return ExtDefault
 			}

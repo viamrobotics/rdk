@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"time"
 
 	"go.opencensus.io/trace"
@@ -56,17 +55,13 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 			}
 		}
 	}
-	fmt.Println("codec !")
-	fmt.Println(codec)
 
-	// Calculate duration from capture interval to avoid overlap
-	// Use the interval (time between captures) as the duration
+	// Use the capture interval as the stream duration
 	durationSeconds := float32(params.Interval.Seconds())
 
 	var previousTimestamp int64
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
-		fmt.Println("HERE! CAPTURE FUNC")
 		timeRequested := time.Now()
 		var res data.CaptureResult
 
@@ -83,13 +78,10 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 			return res, data.NewFailedToReadError(params.ComponentName, "GetAudio", err)
 		}
 
-		fmt.Println("called get audio")
-
-		// current buffer for contiguous same-format chunks
 		var currentBuffer []byte
 		var currentSR, currentCh int32
 		var binaries []data.Binary
-	LOOP:
+	loop:
 		for {
 			select {
 			case <-ctx.Done():
@@ -97,14 +89,13 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 				if len(currentBuffer) > 0 {
 					binaries = append(binaries, buildPayload(currentBuffer, currentSR, currentCh, codec))
 				}
-				break LOOP
+				break loop
 			case chunk, ok := <-audioChan:
 				if !ok {
-					// finalize current buffer if any, then exit
 					if len(currentBuffer) > 0 {
 						binaries = append(binaries, buildPayload(currentBuffer, currentSR, currentCh, codec))
 					}
-					break LOOP
+					break loop
 				}
 
 				previousTimestamp = chunk.EndTimestampNanoseconds
@@ -116,7 +107,6 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 					continue
 				}
 
-				// Check if format matches current buffer
 				if chunk.AudioInfo.SampleRateHz == currentSR && chunk.AudioInfo.NumChannels == currentCh {
 					currentBuffer = append(currentBuffer, chunk.AudioData...)
 				} else {
@@ -154,50 +144,40 @@ func buildPayload(audioData []byte, sr, ch int32, codec string) data.Binary {
 	var binary data.Binary
 	var payload []byte
 
-	fmt.Println(codec)
-
 	switch codec {
 	case rutils.CodecPCM16, rutils.CodecPCM32, rutils.CodecPCM32Float:
-		payload = createWAVFile(audioData, sr, ch, codec)
-		binary.MimeType = data.MimeTypeWav
-	case rutils.CodecMP3:
-		payload = audioData
-		binary.MimeType = data.MimeTypeMPEG
+		payload = CreateWAVFile(audioData, sr, ch, codec)
 	default:
 		payload = audioData
-		binary.MimeType = data.MimeTypeUnspecified
 	}
 
 	binary.Payload = payload
+	binary.MimeType = data.MimeTypeUnspecified
 	return binary
 }
 
-// createWAVFile creates a complete WAV file with header from PCM16 audio data.
-func createWAVFile(pcmData []byte, sampleRate int32, numChannels int32, codec string) []byte {
+// CreateWAVFile creates a complete WAV file with header from PCM audio data.
+func CreateWAVFile(pcmData []byte, sampleRate int32, numChannels int32, codec string) []byte {
 	var buf bytes.Buffer
 	var audioFormat uint16
 	var bitsPerSample uint16
+	const chunkBaseSize = 36
 
 	switch codec {
 	case rutils.CodecPCM16:
-		audioFormat = 1 // PCM
+		audioFormat = 1
 		bitsPerSample = 16
 	case rutils.CodecPCM32:
-		audioFormat = 1 // PCM
+		audioFormat = 1
 		bitsPerSample = 32
 	case rutils.CodecPCM32Float:
-		audioFormat = 3 // IEEE float
+		audioFormat = 3
 		bitsPerSample = 32
-	default:
-		// to do
 	}
 
 	// WAV file header
-	// "RIFF" chunk descriptor
 	buf.WriteString("RIFF")
-	// Chunk size (file size - 8)
-	binary.Write(&buf, binary.LittleEndian, uint32(36+len(pcmData)))
-	// Format
+	binary.Write(&buf, binary.LittleEndian, uint32(chunkBaseSize+len(pcmData)))
 	buf.WriteString("WAVE")
 
 	// "fmt " sub-chunk
@@ -218,4 +198,16 @@ func createWAVFile(pcmData []byte, sampleRate int32, numChannels int32, codec st
 	buf.Write(pcmData)
 
 	return buf.Bytes()
+}
+
+// NewDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	audioin, err := assertAudioIn(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(audioin, params)
+	return data.NewCollector(cFunc, params)
 }

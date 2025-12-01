@@ -27,6 +27,7 @@ const (
 	// which are no longer being written to.
 	CompletedCaptureFileExt = ".capture"
 	readImage               = "ReadImage"
+	getAudio                = "GetAudio"
 	// GetImages is used for getting simultaneous images from different imagers.
 	GetImages            = "GetImages"
 	nextPointCloud       = "NextPointCloud"
