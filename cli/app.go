@@ -195,7 +195,6 @@ var commonOtlpFlags = []cli.Flag{
 		Name:        "endpoint",
 		DefaultText: "localhost:4317",
 		Usage:       "OTLP endpoint in host:port format",
-		Required:    true,
 	},
 }
 
@@ -472,7 +471,7 @@ var app = &cli.App{
 			Subcommands: []*cli.Command{
 				{
 					Name:        "import-local",
-					Description: "Import traces from a local viam server trace file to an OTLP endpoint.",
+					Usage: "Import traces from a local viam server trace file to an OTLP endpoint.",
 					Flags: lo.Flatten([][]cli.Flag{
 						{&cli.StringFlag{
 							Name:      "path",
@@ -486,16 +485,16 @@ var app = &cli.App{
 				},
 				{
 					Name:        "import-remote",
-					Description: "Import traces from a remote viam machine to an OTLP endpoint.",
+					Usage: "Import traces from a remote viam machine to an OTLP endpoint.",
 					Flags: lo.Flatten([][]cli.Flag{
 						commonOtlpFlags,
 						commonPartFlags,
 					}),
-					Action: createCommandWithT(MachinesPartImportTracesAction),
+					Action: createCommandWithT(traceImportRemoteAction),
 				},
 				{
 					Name:        "print-local",
-					Description: "Print traces in a local file to the console",
+					Usage: "Print traces in a local file to the console",
 					Flags: lo.Flatten([][]cli.Flag{
 						{&cli.StringFlag{
 							Name:      "path",
@@ -504,7 +503,30 @@ var app = &cli.App{
 							Usage:     "path to file to import",
 						}},
 					}),
-					Action: createCommandWithT(PrintTraceFileAction),
+					Action: createCommandWithT(tracePrintLocalAction),
+				},
+				{
+					Name:        "print-remote",
+					Usage: "Print traces from a remote viam machine to the console",
+					Flags: lo.Flatten([][]cli.Flag{
+						commonPartFlags,
+					}),
+					Action: createCommandWithT(tracePrintRemoteAction),
+				},
+				{
+					Name:        "fetch-remote",
+					Usage: "Download a traces from a viam machine and save them to disk",
+					Flags: lo.Flatten([][]cli.Flag{
+						commonPartFlags,
+						{
+							&cli.PathFlag{
+								Name:     generalFlagDestination,
+								Required: true,
+								Usage:    "output directory for downloaded traces",
+							},
+						},
+					}),
+					Action: createCommandWithT(tracePrintLocalAction),
 				},
 			},
 		},

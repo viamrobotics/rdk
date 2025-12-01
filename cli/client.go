@@ -1328,6 +1328,14 @@ type machinesPartGetFTDCArgs struct {
 	Part         string
 }
 
+type traceFetchRemoteArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+	Destination  string
+}
+
 type importTracesFileArgs struct {
 	Path string
 }
@@ -1348,25 +1356,30 @@ func MachinesPartGetFTDCAction(c *cli.Context, args machinesPartGetFTDCArgs) err
 	return client.machinesPartGetFTDCAction(c, args, globalArgs.Debug, logger)
 }
 
-// MachinesPartImportTracesAction is the corresponding Action for 'trace import-remote'.
-func MachinesPartImportTracesAction(c *cli.Context, args machinesPartGetFTDCArgs) error {
-	client, err := newViamClient(c)
+func traceImportRemoteAction(ctx *cli.Context, args machinesPartGetFTDCArgs) error {
+	client, err := newViamClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(c)
+	globalArgs, err := getGlobalArgs(ctx)
 	if err != nil {
 		return err
 	}
 	logger := globalArgs.createLogger()
 
-	return client.machinesPartImportTracesAction(c, args, globalArgs.Debug, logger)
-}
+	targetPath, err := os.MkdirTemp("", "rdktraceimport")
+	if err != nil {
+		return err
+	}
+	//nolint: errcheck()
+	defer os.RemoveAll(targetPath)
 
-// PrintTraceFileAction is the corresponding action for 'trace print-local'.
-func PrintTraceFileAction(c *cli.Context, args importTracesFileArgs) error {
-	return printTraceFileAction(c, args)
+	if err := client.machinesPartGetTracesAction(ctx, args, targetPath, globalArgs.Debug, logger); err != nil {
+		return err
+	}
+
+	return importTraceFileAction(ctx, importTracesFileArgs{Path: filepath.Join(targetPath, "traces")})
 }
 
 // ImportTraceFileAction is the corresponding action for 'trace import-local'.
@@ -1553,19 +1566,13 @@ func (c *viamClient) machinesPartGetFTDCAction(
 	return nil
 }
 
-func (c *viamClient) machinesPartImportTracesAction(
+func (c *viamClient) machinesPartGetTracesAction(
 	ctx *cli.Context,
 	flagArgs machinesPartGetFTDCArgs,
+	destination string,
 	debug bool,
 	logger logging.Logger,
 ) error {
-	targetPath, err := os.MkdirTemp(os.TempDir(), "rdktraceimport")
-	if err != nil {
-		return err
-	}
-	//nolint: errcheck
-	defer os.RemoveAll(targetPath)
-
 	part, err := c.robotPart(flagArgs.Organization, flagArgs.Location, flagArgs.Machine, flagArgs.Part)
 	if err != nil {
 		return err
@@ -1573,13 +1580,13 @@ func (c *viamClient) machinesPartImportTracesAction(
 	// Intentional use of path instead of filepath: Windows understands both / and
 	// \ as path separators, and we don't want a cli running on Windows to send
 	// a path using \ to a *NIX machine.
-	src := path.Join(tracesPath, part.Id)
+	src := path.Join(tracesPath, part.Id, "traces")
 	gArgs, err := getGlobalArgs(ctx)
 	quiet := err == nil && gArgs != nil && gArgs.Quiet
 	var startTime time.Time
 	if !quiet {
 		startTime = time.Now()
-		printf(ctx.App.Writer, "Saving to %s ...", path.Join(targetPath, part.GetId()))
+		printf(ctx.App.Writer, "Saving to %s ...", path.Join(destination, part.GetId()))
 	}
 	if err := c.copyFilesFromMachine(
 		flagArgs.Organization,
@@ -1590,7 +1597,7 @@ func (c *viamClient) machinesPartImportTracesAction(
 		true,
 		false,
 		[]string{src},
-		targetPath,
+		destination,
 		logger,
 	); err != nil {
 		if statusErr := status.Convert(err); statusErr != nil &&
@@ -1600,12 +1607,53 @@ func (c *viamClient) machinesPartImportTracesAction(
 		}
 		return err
 	}
-	printf(ctx.App.Writer, "Done in %s. Files at %s", time.Since(startTime), targetPath)
-	traceFilePath := filepath.Join(targetPath, part.GetId(), "traces")
-	return importTraceFileAction(ctx, importTracesFileArgs{Path: traceFilePath})
+	if !quiet {
+		printf(ctx.App.Writer, "Done in %s.", time.Since(startTime))
+	}
+	return nil
 }
 
-func printTraceFileAction(
+func tracePrintRemoteAction(
+	ctx *cli.Context,
+	args machinesPartGetFTDCArgs,
+) error {
+	client, err := newViamClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	globalArgs, err := getGlobalArgs(ctx)
+	if err != nil {
+		return err
+	}
+	logger := globalArgs.createLogger()
+	tmp, err := os.MkdirTemp("", "rdktraceimport")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmp)
+	if err := client.machinesPartGetTracesAction(ctx, args, tmp, globalArgs.Debug, logger); err != nil {
+		return err
+	}
+	return tracePrintLocalAction(ctx, importTracesFileArgs{Path: filepath.Join(tmp, "traces")})
+}
+
+func traceFetchRemoteAction(ctx *cli.Context, args traceFetchRemoteArgs) error {
+	client, err := newViamClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	globalArgs, err := getGlobalArgs(ctx)
+	if err != nil {
+		return err
+	}
+	logger := globalArgs.createLogger()
+	
+	client.machinesPartGetTracesAction(ctx, args, "", globalArgs.Debug, logger)
+}
+
+func tracePrintLocalAction(
 	ctx *cli.Context,
 	args importTracesFileArgs,
 ) error {
