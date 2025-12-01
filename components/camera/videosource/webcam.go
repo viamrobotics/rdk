@@ -7,6 +7,7 @@ import (
 	"image"
 	"io"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -147,6 +148,12 @@ func findReaderAndDriver(
 	path string,
 	logger logging.Logger,
 ) (video.Reader, driverutils.Driver, string, error) {
+	if runtime.GOOS == "linux" {
+		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
+		// So we can call discover() without calling this overridden Initialize(),
+		// which behaves differently on darwin and other platforms.
+		mediadevicescamera.Initialize()
+	}
 	constraints := makeConstraints(conf, logger)
 
 	// Handle specific path
@@ -597,7 +604,7 @@ func (c *webcam) startFrameBufferWorker() {
 					c.logger.Errorf("error reading frame: %v", err)
 					isEOF := errors.Is(err, io.EOF)
 					if isEOF {
-						c.logger.Warnf("camera disconnected (EOF), stopping buffer. Error: %v", err)
+						c.logger.Warnf("camera disconnected (EOF), stopping buffer worker. Error: %v", err)
 						c.disconnected = true
 					}
 					c.mu.Unlock()
