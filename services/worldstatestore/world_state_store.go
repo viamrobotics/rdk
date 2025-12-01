@@ -108,9 +108,9 @@ func FromProvider(provider resource.Provider, name string) (Service, error) {
 // For more information, see the [stream transform changes method docs].
 //
 // [WorldStateStore service docs]: https://docs.viam.com/dev/reference/apis/services/world-state-store/
-// [list uuids method docs]: https://docs.viam.com/dev/reference/apis/services/list-uuids/
-// [get transform method docs]: https://docs.viam.com/dev/reference/apis/services/get-transform/
-// [stream transform changes method docs]: https://docs.viam.com/dev/reference/apis/services/stream-transform-changes/
+// [list uuids method docs]: https://docs.viam.com/dev/reference/apis/services/world-state-store/#listuuids
+// [get transform method docs]: https://docs.viam.com/dev/reference/apis/services/world-state-store/#gettransform
+// [stream transform changes method docs]: https://docs.viam.com/dev/reference/apis/services/world-state-store/#streamtransformchanges
 type Service interface {
 	resource.Resource
 	ListUUIDs(ctx context.Context, extra map[string]any) ([][]byte, error)
