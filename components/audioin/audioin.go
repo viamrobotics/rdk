@@ -22,7 +22,7 @@ func init() {
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
-		MethodName: "GetAudio",
+		MethodName: getAudio.String(),
 	}, newGetAudioCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,

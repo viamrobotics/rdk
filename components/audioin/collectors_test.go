@@ -29,7 +29,7 @@ const (
 
 var doCommandMap = map[string]any{"readings": "random-test"}
 
-func newAudioIn() audioin.AudioIn {
+func newAudioIn(chunks []chunkConfig) audioin.AudioIn {
 	audioIn := &inject.AudioIn{}
 	audioIn.GetAudioFunc = func(ctx context.Context,
 		codec string,
@@ -42,40 +42,52 @@ func newAudioIn() audioin.AudioIn {
 		go func() {
 			defer close(ch)
 
-			sampleRate := int32(testSampleRate)
-			numChannels := int32(testNumChannels)
-			numSamples := int(float32(sampleRate) * durationSeconds)
-			var audioData []byte
+			if chunks != nil {
+				// Send provided chunks
+				for i, chunkCfg := range chunks {
+					select {
+					case ch <- makeAudioChunkFromChunkConfig(i, chunkCfg, codec):
+					case <-ctx.Done():
+						return
+					}
+				}
+			} else {
+				// Send default chunk for basic tests
+				sampleRate := int32(testSampleRate)
+				numChannels := int32(testNumChannels)
+				numSamples := int(float32(sampleRate) * durationSeconds)
+				var audioData []byte
 
-			switch codec {
-			case rutils.CodecPCM16:
-				audioData = make([]byte, numSamples*2) // 2 bytes per 16-bit sample
-			case rutils.CodecPCM32, rutils.CodecPCM32Float:
-				audioData = make([]byte, numSamples*4) // 4 bytes per 32-bit sample
-			default:
-				audioData = make([]byte, numSamples*2) // default to 16-bit
-			}
-			for i := range audioData {
-				audioData[i] = byte(i % 256)
-			}
+				switch codec {
+				case rutils.CodecPCM16:
+					audioData = make([]byte, numSamples*2) // 2 bytes per 16-bit sample
+				case rutils.CodecPCM32, rutils.CodecPCM32Float:
+					audioData = make([]byte, numSamples*4) // 4 bytes per 32-bit sample
+				default:
+					audioData = make([]byte, numSamples*2) // default to 16-bit
+				}
+				for i := range audioData {
+					audioData[i] = byte(i % 256)
+				}
 
-			startNs := int64(1234567890)
-			endNs := startNs + int64(durationSeconds*1e9)
+				startNs := int64(1234567890)
+				endNs := startNs + int64(durationSeconds*1e9)
 
-			chunk := &audioin.AudioChunk{
-				AudioData: audioData,
-				AudioInfo: &rutils.AudioInfo{
-					SampleRateHz: sampleRate,
-					NumChannels:  numChannels,
-				},
-				Sequence:                  0,
-				StartTimestampNanoseconds: startNs,
-				EndTimestampNanoseconds:   endNs,
-			}
+				chunk := &audioin.AudioChunk{
+					AudioData: audioData,
+					AudioInfo: &rutils.AudioInfo{
+						SampleRateHz: sampleRate,
+						NumChannels:  numChannels,
+					},
+					Sequence:                  0,
+					StartTimestampNanoseconds: startNs,
+					EndTimestampNanoseconds:   endNs,
+				}
 
-			select {
-			case ch <- chunk:
-			case <-ctx.Done():
+				select {
+				case ch <- chunk:
+				case <-ctx.Done():
+				}
 			}
 		}()
 
@@ -86,6 +98,35 @@ func newAudioIn() audioin.AudioIn {
 		return doCommandMap, nil
 	}
 	return audioIn
+}
+
+type chunkConfig struct {
+	sampleRate  int32
+	numChannels int32
+	dataSize    int
+}
+
+// makeAudioChunkFromSpec builds an AudioChunk consistent with your original inline logic.
+func makeAudioChunkFromChunkConfig(i int, spec chunkConfig, codec string) *audioin.AudioChunk {
+	audioData := make([]byte, spec.dataSize)
+	for j := range audioData {
+		audioData[j] = byte(j % 256)
+	}
+
+	startNs := int64(i) * 1e9
+	endNs := startNs + int64(1e9)
+
+	return &audioin.AudioChunk{
+		AudioData: audioData,
+		AudioInfo: &rutils.AudioInfo{
+			SampleRateHz: spec.sampleRate,
+			NumChannels:  spec.numChannels,
+			Codec:        codec,
+		},
+		Sequence:                  int32(i),
+		StartTimestampNanoseconds: startNs,
+		EndTimestampNanoseconds:   endNs,
+	}
 }
 
 func TestGetAudioCollector(t *testing.T) {
@@ -145,7 +186,7 @@ func TestGetAudioCollector(t *testing.T) {
 				},
 			}
 
-			audioIn := newAudioIn()
+			audioIn := newAudioIn(nil)
 
 			collectorConstructor := data.CollectorLookup(data.MethodMetadata{
 				API:        audioin.API,
@@ -200,12 +241,148 @@ func TestGetAudioCollector(t *testing.T) {
 	}
 }
 
+func TestGetAudioCollectorFormatChanges(t *testing.T) {
+	tests := []struct {
+		name             string
+		codec            string
+		chunks           []chunkConfig
+		expectedBinaries int
+	}{
+		{
+			name:  "Sample rate changes should create multiple binaries",
+			codec: rutils.CodecPCM16,
+			chunks: []chunkConfig{
+				{sampleRate: 44100, numChannels: 1, dataSize: 1000},
+				{sampleRate: 48000, numChannels: 1, dataSize: 1000},
+				{sampleRate: 44100, numChannels: 1, dataSize: 1000},
+			},
+			expectedBinaries: 3,
+		},
+		{
+			name:  "Channel count changes should create multiple binaries",
+			codec: rutils.CodecPCM16,
+			chunks: []chunkConfig{
+				{sampleRate: 44100, numChannels: 1, dataSize: 1000},
+				{sampleRate: 44100, numChannels: 2, dataSize: 1000},
+			},
+			expectedBinaries: 2,
+		},
+		{
+			name:  "Same format should create single binary",
+			codec: rutils.CodecPCM16,
+			chunks: []chunkConfig{
+				{sampleRate: 44100, numChannels: 1, dataSize: 1000},
+				{sampleRate: 44100, numChannels: 1, dataSize: 1000},
+				{sampleRate: 44100, numChannels: 1, dataSize: 1000},
+			},
+			expectedBinaries: 1,
+		},
+		{
+			name:  "Multiple format changes with PCM32",
+			codec: rutils.CodecPCM32,
+			chunks: []chunkConfig{
+				{sampleRate: 44100, numChannels: 1, dataSize: 2000},
+				{sampleRate: 44100, numChannels: 2, dataSize: 2000},
+				{sampleRate: 48000, numChannels: 2, dataSize: 2000},
+			},
+			expectedBinaries: 3,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			start := time.Now()
+			buf := tu.NewMockBuffer(t)
+			codecAny, err := anypb.New(wrapperspb.String(tc.codec))
+			test.That(t, err, test.ShouldBeNil)
+
+			params := data.CollectorParams{
+				DataType:      data.CaptureTypeBinary,
+				ComponentName: componentName,
+				ComponentType: "audio_in",
+				MethodName:    "GetAudio",
+				Interval:      captureInterval,
+				Logger:        logging.NewTestLogger(t),
+				Clock:         clock.New(),
+				Target:        buf,
+				QueueSize:     10,
+				BufferSize:    10,
+				MethodParams: map[string]*anypb.Any{
+					"codec": codecAny,
+				},
+			}
+
+			audioIn := newAudioIn(tc.chunks)
+
+			collectorConstructor := data.CollectorLookup(data.MethodMetadata{
+				API:        audioin.API,
+				MethodName: "GetAudio",
+			})
+			test.That(t, collectorConstructor, test.ShouldNotBeNil)
+
+			col, err := collectorConstructor(audioIn, params)
+			test.That(t, err, test.ShouldBeNil)
+
+			defer col.Close()
+			col.Collect()
+
+			// Build expected binaries by grouping chunks with same format
+			var expected []*datasyncpb.SensorData
+			var currentBuffer []byte
+			var currentSR, currentCh int32
+
+			for _, spec := range tc.chunks {
+				audioData := make([]byte, spec.dataSize)
+				for j := range audioData {
+					audioData[j] = byte(j % 256)
+				}
+
+				if len(currentBuffer) == 0 {
+					currentSR = spec.sampleRate
+					currentCh = spec.numChannels
+					currentBuffer = append(currentBuffer, audioData...)
+				} else if spec.sampleRate == currentSR && spec.numChannels == currentCh {
+					currentBuffer = append(currentBuffer, audioData...)
+				} else {
+					wavFile, err := audioin.CreateWAVFile(currentBuffer, currentSR, currentCh, tc.codec)
+					test.That(t, err, test.ShouldBeNil)
+					expected = append(expected, &datasyncpb.SensorData{
+						Metadata: &datasyncpb.SensorMetadata{
+							MimeType: datasyncpb.MimeType_MIME_TYPE_UNSPECIFIED,
+						},
+						Data: &datasyncpb.SensorData_Binary{Binary: wavFile},
+					})
+					currentBuffer = append([]byte{}, audioData...)
+					currentSR = spec.sampleRate
+					currentCh = spec.numChannels
+				}
+			}
+
+			if len(currentBuffer) > 0 {
+				wavFile, err := audioin.CreateWAVFile(currentBuffer, currentSR, currentCh, tc.codec)
+				test.That(t, err, test.ShouldBeNil)
+				expected = append(expected, &datasyncpb.SensorData{
+					Metadata: &datasyncpb.SensorMetadata{
+						MimeType: datasyncpb.MimeType_MIME_TYPE_UNSPECIFIED,
+					},
+					Data: &datasyncpb.SensorData_Binary{Binary: wavFile},
+				})
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, expected)
+			buf.Close()
+		})
+	}
+}
+
 func TestDoCommandCollector(t *testing.T) {
 	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
 		ComponentName:   componentName,
 		CaptureInterval: time.Millisecond,
 		DoCommandMap:    doCommandMap,
 		Collector:       audioin.NewDoCommandCollector,
-		ResourceFactory: func() interface{} { return newAudioIn() },
+		ResourceFactory: func() interface{} { return newAudioIn(nil) },
 	})
 }
