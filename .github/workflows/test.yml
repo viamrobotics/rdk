@@ -79,7 +79,7 @@ jobs:
           - runner: ubuntu-24.04
             image: ghcr.io/viamrobotics/rdk-devenv:amd64
             platform: linux/amd64
-          - arch: github-linux-arm64-4core
+          - runner: github-linux-arm64-4core
             image: ghcr.io/viamrobotics/rdk-devenv:arm64
             platform: linux/arm64
     runs-on: ${{ matrix.runner }}
