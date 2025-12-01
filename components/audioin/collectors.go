@@ -5,16 +5,16 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.opencensus.io/trace"
-	rutils "go.viam.com/rdk/utils"
-
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/data"
+	rutils "go.viam.com/rdk/utils"
 )
 
 type method int64
@@ -43,12 +43,10 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 	// Parse codec parameter (default: pcm16)
 	codec := rutils.CodecPCM16
 	if codecParam := params.MethodParams["codec"]; codecParam != nil {
-		// Try to unmarshal as StringValue wrapper
 		strVal := &wrapperspb.StringValue{}
 		if err := codecParam.UnmarshalTo(strVal); err == nil {
 			codec = strVal.Value
 		} else {
-			// Try as structpb.Value
 			val := &structpb.Value{}
 			if err := codecParam.UnmarshalTo(val); err == nil {
 				codec = val.GetStringValue()
@@ -58,14 +56,14 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 
 	// Use the capture interval as the stream duration
 	durationSeconds := float32(params.Interval.Seconds())
-
 	var previousTimestamp int64
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
 		timeRequested := time.Now()
 		var res data.CaptureResult
+		fmt.Println(previousTimestamp)
 
-		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::NextPointCloud")
+		_, span := trace.StartSpan(ctx, "audioin::data::collector::CaptureFunc::GetAudio")
 		defer span.End()
 
 		audioChan, err := audioIn.GetAudio(ctx, codec, durationSeconds, previousTimestamp, data.FromDMExtraMap)
@@ -87,13 +85,21 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 			case <-ctx.Done():
 				// finalize current buffer if any, then exit
 				if len(currentBuffer) > 0 {
-					binaries = append(binaries, buildPayload(currentBuffer, currentSR, currentCh, codec))
+					binary, err := buildPayload(currentBuffer, currentSR, currentCh, codec)
+					if err != nil {
+						return data.CaptureResult{}, err
+					}
+					binaries = append(binaries, binary)
 				}
 				break loop
 			case chunk, ok := <-audioChan:
 				if !ok {
 					if len(currentBuffer) > 0 {
-						binaries = append(binaries, buildPayload(currentBuffer, currentSR, currentCh, codec))
+						binary, err := buildPayload(currentBuffer, currentSR, currentCh, codec)
+						if err != nil {
+							return data.CaptureResult{}, err
+						}
+						binaries = append(binaries, binary)
 					}
 					break loop
 				}
@@ -110,15 +116,17 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 				if chunk.AudioInfo.SampleRateHz == currentSR && chunk.AudioInfo.NumChannels == currentCh {
 					currentBuffer = append(currentBuffer, chunk.AudioData...)
 				} else {
-					// Format changed: finalize current buffer
-					binaries = append(binaries, buildPayload(currentBuffer, currentSR, currentCh, codec))
-					// Start new buffer with this chunk
+					// Format changed: finalize the current audio buffer and start a new one
+					binary, err := buildPayload(currentBuffer, currentSR, currentCh, codec)
+					if err != nil {
+						return data.CaptureResult{}, nil
+					}
+					binaries = append(binaries, binary)
 					currentBuffer = append([]byte{}, chunk.AudioData...)
 					currentSR = chunk.AudioInfo.SampleRateHz
 					currentCh = chunk.AudioInfo.NumChannels
 				}
 			}
-
 		}
 
 		ts := data.Timestamps{
@@ -140,24 +148,28 @@ func assertAudioIn(resource interface{}) (AudioIn, error) {
 	return audioIn, nil
 }
 
-func buildPayload(audioData []byte, sr, ch int32, codec string) data.Binary {
+func buildPayload(audioData []byte, sr, ch int32, codec string) (data.Binary, error) {
 	var binary data.Binary
 	var payload []byte
 
 	switch codec {
 	case rutils.CodecPCM16, rutils.CodecPCM32, rutils.CodecPCM32Float:
-		payload = CreateWAVFile(audioData, sr, ch, codec)
+		var err error
+		payload, err = CreateWAVFile(audioData, sr, ch, codec)
+		if err != nil {
+			return data.Binary{}, fmt.Errorf("error creating wav file: %w", err)
+		}
 	default:
 		payload = audioData
 	}
 
 	binary.Payload = payload
 	binary.MimeType = data.MimeTypeUnspecified
-	return binary
+	return binary, nil
 }
 
 // CreateWAVFile creates a complete WAV file with header from PCM audio data.
-func CreateWAVFile(pcmData []byte, sampleRate int32, numChannels int32, codec string) []byte {
+func CreateWAVFile(pcmData []byte, sampleRate, numChannels int32, codec string) ([]byte, error) {
 	var buf bytes.Buffer
 	var audioFormat uint16
 	var bitsPerSample uint16
@@ -177,27 +189,46 @@ func CreateWAVFile(pcmData []byte, sampleRate int32, numChannels int32, codec st
 
 	// WAV file header
 	buf.WriteString("RIFF")
-	binary.Write(&buf, binary.LittleEndian, uint32(chunkBaseSize+len(pcmData)))
+	if err := binary.Write(&buf, binary.LittleEndian, uint32(chunkBaseSize+len(pcmData))); err != nil {
+		return nil, err
+	}
 	buf.WriteString("WAVE")
 
 	// "fmt " sub-chunk
 	buf.WriteString("fmt ")
-	binary.Write(&buf, binary.LittleEndian, uint32(bitsPerSample))
-	binary.Write(&buf, binary.LittleEndian, uint16(audioFormat))
-	binary.Write(&buf, binary.LittleEndian, uint16(numChannels))
-	binary.Write(&buf, binary.LittleEndian, uint32(sampleRate))
-	byteRate := sampleRate * numChannels * int32(bitsPerSample/8)
-	binary.Write(&buf, binary.LittleEndian, uint32(byteRate))
-	blockAlign := numChannels * int32(bitsPerSample/8)
-	binary.Write(&buf, binary.LittleEndian, uint16(blockAlign))
-	binary.Write(&buf, binary.LittleEndian, uint16(bitsPerSample))
+	// length of fmt sub hunk
+	if err := binary.Write(&buf, binary.LittleEndian, uint32(16)); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.LittleEndian, audioFormat); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.LittleEndian, uint16(numChannels)); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.LittleEndian, uint32(sampleRate)); err != nil {
+		return nil, err
+	}
+	byteRate := sampleRate * numChannels * int32(bitsPerSample) / 8
+	if err := binary.Write(&buf, binary.LittleEndian, uint32(byteRate)); err != nil {
+		return nil, err
+	}
+	blockAlign := numChannels * int32(bitsPerSample) / 8
+	if err := binary.Write(&buf, binary.LittleEndian, uint16(blockAlign)); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.LittleEndian, bitsPerSample); err != nil {
+		return nil, err
+	}
 
 	// "data" sub-chunk
 	buf.WriteString("data")
-	binary.Write(&buf, binary.LittleEndian, uint32(len(pcmData)))
+	if err := binary.Write(&buf, binary.LittleEndian, uint32(len(pcmData))); err != nil {
+		return nil, err
+	}
 	buf.Write(pcmData)
 
-	return buf.Bytes()
+	return buf.Bytes(), nil
 }
 
 // NewDoCommandCollector returns a collector to register a doCommand action. If one is already registered

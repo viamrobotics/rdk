@@ -31,7 +31,12 @@ var doCommandMap = map[string]any{"readings": "random-test"}
 
 func newAudioIn() audioin.AudioIn {
 	audioIn := &inject.AudioIn{}
-	audioIn.GetAudioFunc = func(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64, extra map[string]interface{}) (chan *audioin.AudioChunk, error) {
+	audioIn.GetAudioFunc = func(ctx context.Context,
+		codec string,
+		durationSeconds float32,
+		previousTimestampNs int64,
+		extra map[string]interface{},
+	) (chan *audioin.AudioChunk, error) {
 		ch := make(chan *audioin.AudioChunk, 10)
 
 		go func() {
@@ -177,7 +182,8 @@ func TestGetAudioCollector(t *testing.T) {
 			if tc.codec == rutils.CodecMP3 {
 				expectedBinary = pcmData
 			} else {
-				expectedBinary = audioin.CreateWAVFile(pcmData, testSampleRate, testNumChannels, tc.codec)
+				expectedBinary, err = audioin.CreateWAVFile(pcmData, testSampleRate, testNumChannels, tc.codec)
+				test.That(t, err, test.ShouldBeNil)
 			}
 			expected := []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{

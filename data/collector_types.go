@@ -413,7 +413,7 @@ const (
 	ExtJpeg = ".jpeg"
 	// ExtPng is the file extension for png files.
 	ExtPng = ".png"
-	// ExtMp3 is the file extension for mp3 files.
+	// ExtMP3 is the file extension for mp3 files.
 	ExtMP3 = ".mp3"
 	// ExtWav is the file extension for wav files.
 	ExtWav = ".wav"
