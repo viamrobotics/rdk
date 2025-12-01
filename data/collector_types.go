@@ -372,23 +372,27 @@ func AnnotationsFromProto(protoAnnotations *dataPB.Annotations) Annotations {
 	}
 
 	var bboxes []BoundingBox
-	for _, bb := range protoAnnotations.Bboxes {
-		bboxes = append(bboxes, BoundingBox{
-			Label:          bb.Label,
-			Confidence:     bb.Confidence,
-			XMinNormalized: bb.XMinNormalized,
-			XMaxNormalized: bb.XMaxNormalized,
-			YMinNormalized: bb.YMinNormalized,
-			YMaxNormalized: bb.YMaxNormalized,
-		})
+	if protoAnnotations.Bboxes != nil {
+		for _, bb := range protoAnnotations.Bboxes {
+			bboxes = append(bboxes, BoundingBox{
+				Label:          bb.Label,
+				Confidence:     bb.Confidence,
+				XMinNormalized: bb.XMinNormalized,
+				XMaxNormalized: bb.XMaxNormalized,
+				YMinNormalized: bb.YMinNormalized,
+				YMaxNormalized: bb.YMaxNormalized,
+			})
+		}
 	}
 
 	var classifications []Classification
-	for _, c := range protoAnnotations.Classifications {
-		classifications = append(classifications, Classification{
-			Label:      c.Label,
-			Confidence: c.Confidence,
-		})
+	if protoAnnotations.Classifications != nil {
+		for _, c := range protoAnnotations.Classifications {
+			classifications = append(classifications, Classification{
+				Label:      c.Label,
+				Confidence: c.Confidence,
+			})
+		}
 	}
 
 	return Annotations{
