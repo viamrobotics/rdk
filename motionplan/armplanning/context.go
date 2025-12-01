@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"strings"
 
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -139,7 +139,7 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 	return psc, nil
 }
 
-func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs) error {
+func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs, checkFinal bool) error {
 	ctx, span := trace.StartSpan(ctx, "checkPath")
 	defer span.End()
 	_, err := psc.checker.CheckStateConstraintsAcrossSegmentFS(
@@ -150,6 +150,7 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *refere
 			FS:                 psc.pc.fs,
 		},
 		psc.pc.planOpts.Resolution,
+		checkFinal,
 	)
 	return err
 }

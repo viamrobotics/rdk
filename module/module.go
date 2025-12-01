@@ -13,7 +13,9 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/viamrobotics/webrtc/v3"
-	"go.opencensus.io/plugin/ocgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace/noop"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
@@ -154,12 +156,17 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		opMgr.StreamServerInterceptor,
 	}
 
+	otelStatsHandler := otelgrpc.NewServerHandler(
+		otelgrpc.WithTracerProvider(noop.NewTracerProvider()),
+		otelgrpc.WithPropagators(propagation.TraceContext{}),
+	)
+
 	// MaxRecvMsgSize and MaxSendMsgSize by default are 4 MB & MaxInt32 (2.1 GB)
 	opts := []grpc.ServerOption{
 		grpc.MaxRecvMsgSize(rpc.MaxMessageSize),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaries...)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streams...)),
-		grpc.StatsHandler(&ocgrpc.ServerHandler{}),
+		grpc.StatsHandler(otelStatsHandler),
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
