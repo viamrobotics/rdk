@@ -87,7 +87,7 @@ func newTestContext(t *testing.T, flags map[string]any) *cli.Context {
 	t.Helper()
 	out := &testWriter{}
 	errOut := &testWriter{}
-	return cli.NewContext(NewApp(out, errOut), populateFlags(flags), nil)
+	return cli.NewContext(newTestApp(out, errOut), populateFlags(flags), nil)
 }
 
 // setup creates a new cli.Context and viamClient with fake auth and the passed
@@ -106,7 +106,7 @@ func setup(asc apppb.AppServiceClient, dataClient datapb.DataServiceClient,
 		flags.String(generalFlagDestination, utils.ResolveFile(""), "")
 	}
 
-	cCtx := cli.NewContext(NewApp(out, errOut), flags, nil)
+	cCtx := cli.NewContext(newTestApp(out, errOut), flags, nil)
 	conf := &Config{}
 	if authMethod == "token" {
 		conf.Auth = &token{
