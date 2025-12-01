@@ -3469,8 +3469,8 @@ func NewApp(out, errOut io.Writer) *cli.App {
 
 // return a shallow copy of global `app` to support test parallelism.
 func newTestApp(out, errOut io.Writer) *cli.App {
-	copy := *app
-	copy.Writer = out
-	copy.ErrWriter = errOut
-	return &copy
+	appCopy := *app
+	appCopy.Writer = out
+	appCopy.ErrWriter = errOut
+	return &appCopy
 }
