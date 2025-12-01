@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -83,6 +83,11 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 
 			if len(subGoals) > 1 {
 				pm.logger.Infof("\t generateWaypoint turned into %d subGoals cbirrtAllowed: %v", len(subGoals), cbirrtAllowed)
+				pm.logger.Debugf("\t start: %v\n", start)
+				pm.logger.Debugf("\t to   : %v\n", to)
+				for _, sg := range subGoals {
+					pm.logger.Debugf("\t\t sg: %v", sg)
+				}
 			}
 
 			for subGoalIdx, sg := range subGoals {
@@ -91,7 +96,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 				if err != nil {
 					return linearTraj, i, err
 				}
-				pm.logger.Debugf("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
+				pm.logger.Infof("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
 				linearTraj = append(linearTraj, newTraj...)
 			}
 		}
@@ -129,7 +134,7 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
-	err = psc.checkPath(ctx, start, fullConfig)
+	err = psc.checkPath(ctx, start, fullConfig, false)
 	if err == nil {
 		return []*referenceframe.LinearInputs{fullConfig}, nil
 	}
@@ -186,16 +191,14 @@ func (pm *planManager) planSingleGoal(
 		return nil, err
 	}
 
-	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
 	if planSeed.steps != nil {
 		pm.logger.Debugf("found an ideal ik solution")
 		return planSeed.steps, nil
-	}
-
-	if !cbirrtAllowed {
+	} else if !cbirrtAllowed {
 		return nil, fmt.Errorf("linear with cbirrt not allowed and no direct solutions found")
 	}
 
+	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc, pm.logger.Sublogger("cbirrt"))
 	if err != nil {
 		return nil, err
@@ -234,7 +237,11 @@ func (pm *planManager) generateWaypoints(ctx context.Context, start, goal refere
 
 	numSteps := 0
 	for frame, pif := range goal {
-		steps := motionplan.CalculateStepCount(start[frame].Pose(), pif.Pose(), stepSize)
+		startPIF, ok := start[frame]
+		if !ok {
+			return nil, true, fmt.Errorf("frame system broken?? %v and %v aren't connected?", frame, pif.Parent())
+		}
+		steps := motionplan.CalculateStepCount(startPIF.Pose(), pif.Pose(), stepSize)
 		if steps > numSteps {
 			numSteps = steps
 		}
@@ -300,7 +307,7 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger loggi
 	}
 
 	rrt.maps.optNode = goalNodes[0]
-	logger.Infof("optNode cost: %v", rrt.maps.optNode.cost)
+	logger.Debugf("optNode cost: %v", rrt.maps.optNode.cost)
 
 	// `defaultOptimalityMultiple` is > 1.0
 	reasonableCost := max(.01, goalNodes[0].cost) * defaultOptimalityMultiple

@@ -193,5 +193,6 @@ func (a *AudioIn) Geometries(ctx context.Context, extra map[string]interface{}) 
 
 // Close does nothing
 func (a *AudioIn) Close(ctx context.Context) error {
+	a.workers.Stop()
 	return nil
 }

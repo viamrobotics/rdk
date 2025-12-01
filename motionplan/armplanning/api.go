@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"

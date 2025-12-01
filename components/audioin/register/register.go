@@ -2,7 +2,6 @@
 package register
 
 import (
-	// for audio in components and collectors.
-	_ "go.viam.com/rdk/components/audioin"
+	// for audioins
 	_ "go.viam.com/rdk/components/audioin/fake"
 )
