@@ -28,8 +28,8 @@ func NewClient(dirPath, filename string) (*Client, error) {
 	logger := &lumberjack.Logger{
 		Filename:   filepath.Join(dirPath, filename),
 		MaxSize:    1024,
-		MaxBackups: 0,
-		Compress:   false,
+		MaxBackups: 2,
+		Compress:   true,
 	}
 	writer := protoutils.NewDelimitedProtoWriter[*v1.ResourceSpans](logger)
 	return &Client{
