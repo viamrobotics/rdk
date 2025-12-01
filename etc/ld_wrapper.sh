@@ -42,7 +42,9 @@ for ARG in "${ARGS[@]}"; do
 		:
 	elif [[ "${STATIC_ARGS[@]}" =~ "${ARG}" ]]; then
 		# wrap the arg as a static one
-		FILTERED+=("-Wl,-Bstatic" "${ARG}" "-Wl,-Bdynamic")
+		# FILTERED+=("-Wl,-Bstatic" "${ARG}" "-Wl,-Bdynamic")
+		# DONOTCOMMIT: temporarily removing static preference
+		FILTERED+=("${ARG}")
 	else
 		# pass through with no filtering
 		FILTERED+=("${ARG}")
