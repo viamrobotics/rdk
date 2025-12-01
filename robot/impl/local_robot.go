@@ -241,6 +241,8 @@ func (r *localRobot) Close(ctx context.Context) error {
 		r.ftdc.StopAndJoin(ctx)
 	}
 
+	err = multierr.Combine(err, rdktrace.Shutdown(ctx))
+
 	return err
 }
 
