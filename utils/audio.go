@@ -6,7 +6,7 @@ import commonpb "go.viam.com/api/common/v1"
 const (
 	CodecPCM16      = "pcm16"
 	CodecPCM32      = "pcm32"
-	CodecPCM32Float = "pcm32float"
+	CodecPCM32Float = "pcm32_float"
 	CodecOpus       = "opus"
 	CodecAAC        = "aac"
 	CodecMP3        = "mp3"

@@ -61,7 +61,6 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
 		timeRequested := time.Now()
 		var res data.CaptureResult
-		fmt.Println(previousTimestamp)
 
 		_, span := trace.StartSpan(ctx, "audioin::data::collector::CaptureFunc::GetAudio")
 		defer span.End()
