@@ -21,6 +21,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/lestrrat-go/jwx/jwk"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap/zapcore"
 	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
@@ -1565,10 +1566,11 @@ type clientCall = func(context.Context) error
 func testResourceLimitsAndFTDC(
 	t *testing.T,
 	keyPrefix string,
+	method string,
 	setupBlock func(onEnter, wait func()) setupRobotOption,
 	createCall func(string, logging.Logger) clientCall,
 ) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	blockCall := make(chan struct{})
 	callBlocking := make(chan struct{})
@@ -1628,6 +1630,34 @@ func testResourceLimitsAndFTDC(
 	test.That(t, err.Error(), test.ShouldEndWith,
 		fmt.Sprintf("exceeded request limit 1 on resource %v, see %v for troubleshooting steps", keyPrefix, web.ReqLimitExceededURL))
 
+	// Assert that an appropriate warning log was output by the server.
+	reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
+	test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
+	test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
+	test.That(t, reqLimitExceededLogs[0].Message, test.ShouldEqual,
+		fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps", web.ReqLimitExceededURL))
+
+	// Assert that the fields of the log look as expected.
+	fields := reqLimitExceededLogs[0].ContextMap()
+	test.That(t, fields["method"], test.ShouldEqual, method)
+	test.That(t, fields["resource"], test.ShouldEqual, keyPrefix)
+	test.That(t, fields["all_other_client_information"], test.ShouldEqual, "[]")
+	{
+		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring,
+			fmt.Sprintf("InFlightRequests:map[%v:1]", keyPrefix))
+		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring,
+			fmt.Sprintf("RejectedRequests:map[%v:1]", keyPrefix))
+
+		// Check for presence of fields below in offending_client_information, but we cannot
+		// know their exact values.
+		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring, "ClientMetadata")
+		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring, "ConnectionID")
+		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring, "ConnectTime")
+		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring, "TimeSinceConnect")
+		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring, "ServerIP")
+		test.That(t, fields["offending_client_information"], test.ShouldContainSubstring, "ClientIP")
+	}
+
 	// In flight requests counter should still only be 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 1)
@@ -1646,6 +1676,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		testResourceLimitsAndFTDC(
 			t,
 			"arm1.viam.component.arm.v1.ArmService",
+			"/viam.component.arm.v1.ArmService/GetEndPosition",
 			func(onEnter, wait func()) setupRobotOption {
 				return withArmEndPosition(func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 					onEnter()
@@ -1675,6 +1706,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		testResourceLimitsAndFTDC(
 			t,
 			"viam.robot.v1.RobotService",
+			"/viam.robot.v1.RobotService/GetMachineStatus",
 			func(onEnter, wait func()) setupRobotOption {
 				return withMachineStatus(func(ctx context.Context) (robot.MachineStatus, error) {
 					onEnter()
