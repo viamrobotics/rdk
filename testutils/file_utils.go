@@ -157,7 +157,6 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 	if tb.Failed() {
 		tb.Fatalf("failed to build temporary module for testing")
 	}
-	println("BuildTempModule ELAPSED TIME", modDir, time.Since(t0).String()) //nolint:forbidigo
 	return symlinkTempDir(tb, exePath)
 }
 
