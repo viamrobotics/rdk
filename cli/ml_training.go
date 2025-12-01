@@ -713,7 +713,6 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 
 	// Build docker run command
 	dockerArgs := buildDockerRunArgs(scriptDirAbs, datasetRootAbs, outputDirAbs, tmpScript, containerImageURI)
-
 	// Setup context with signal handling for Ctrl+C
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -722,6 +721,8 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 	cmd := exec.CommandContext(ctx, "docker", dockerArgs...)
 	cmd.Stdout = c.App.Writer
 	cmd.Stderr = c.App.ErrWriter
+
+	printf(c.App.Writer, "WARNING: If this is your first time running training, it may take a few minutes to download the container image. This is normal and will not affect the training process.")
 
 	if err := cmd.Run(); err != nil {
 		// Check if the command was interrupted
