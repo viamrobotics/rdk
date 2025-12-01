@@ -11,8 +11,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/shirou/gopsutil/v3/mem"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -550,7 +550,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx := 0
-	cutDistance := 2 * best[0].distance
+	cutDistance := max(1, 2*best[0].distance)
 	for cutIdx < len(best) {
 		if best[cutIdx].distance > cutDistance {
 			break
@@ -568,7 +568,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	})
 
 	cutIdx = 0
-	costCut := 5 * best[0].cost
+	costCut := max(3, 5*best[0].cost)
 	for cutIdx < len(best) {
 		if best[cutIdx].cost > costCut {
 			break

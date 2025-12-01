@@ -317,7 +317,7 @@ func testPlanner(t *testing.T, ctx context.Context, config planConfigConstructor
 				StartConfiguration: nodes[j],
 				EndConfiguration:   nodes[j+1],
 				FS:                 cfg.FS,
-			}, cfg.Options.Resolution)
+			}, cfg.Options.Resolution, true)
 		test.That(t, err, test.ShouldBeNil)
 	}
 }

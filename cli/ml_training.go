@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -50,13 +51,14 @@ var (
 )
 
 type mlSubmitCustomTrainingJobArgs struct {
-	DatasetID    string
-	OrgID        string
-	ModelName    string
-	ModelVersion string
-	ScriptName   string
-	Version      string
-	Args         []string
+	DatasetID        string
+	OrgID            string
+	ModelName        string
+	ModelVersion     string
+	ScriptName       string
+	Version          string
+	ContainerVersion string
+	Args             []string
 }
 
 // MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
@@ -68,7 +70,7 @@ func MLSubmitCustomTrainingJob(c *cli.Context, args mlSubmitCustomTrainingJobArg
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, args.ScriptName, args.Version, args.OrgID,
-		args.ModelName, args.ModelVersion, args.Args)
+		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args)
 	if err != nil {
 		return err
 	}
@@ -77,18 +79,19 @@ func MLSubmitCustomTrainingJob(c *cli.Context, args mlSubmitCustomTrainingJobArg
 }
 
 type mlSubmitCustomTrainingJobWithUploadArgs struct {
-	URL          string
-	DatasetID    string
-	ModelName    string
-	ModelVersion string
-	Path         string
-	OrgID        string
-	ModelOrgID   string
-	ScriptName   string
-	Version      string
-	Framework    string
-	ModelType    string
-	Args         []string
+	URL              string
+	DatasetID        string
+	ModelName        string
+	ModelVersion     string
+	Path             string
+	OrgID            string
+	ModelOrgID       string
+	ScriptName       string
+	Version          string
+	Framework        string
+	ModelType        string
+	ContainerVersion string
+	Args             []string
 }
 
 // MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
@@ -115,7 +118,7 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, registryItemID, resp.Version, args.ModelOrgID,
-		args.ModelName, args.ModelVersion, args.Args)
+		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args)
 	if err != nil {
 		return err
 	}
@@ -131,6 +134,42 @@ type mlSubmitTrainingJobArgs struct {
 	ModelFramework string
 	ModelLabels    []string
 	ModelVersion   string
+}
+
+type prettyPrintContainer struct {
+	Name        string
+	EndOfLife   string
+	Description string
+	Framework   string
+}
+
+// MLListContainers is the corresponding action for 'train containers'.
+func MLListContainers(c *cli.Context, args emptyArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
+		context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
+	if err != nil {
+		return err
+	}
+
+	var returnContainers []prettyPrintContainer
+	for _, v := range supportedContainers.ContainerMap {
+		returnContainers = append(returnContainers, prettyPrintContainer{
+			Name:        v.Key,
+			Description: v.Description,
+			Framework:   v.Framework,
+			EndOfLife:   v.Eol.AsTime().Format(time.RFC1123),
+		})
+	}
+	b, err := json.MarshalIndent(returnContainers, "", "  ")
+	if err != nil {
+		return err
+	}
+	printf(c.App.Writer, "%s", b)
+	return nil
 }
 
 // MLSubmitTrainingJob is the corresponding action for 'train submit'.
@@ -182,7 +221,7 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 
 // mlSubmitCustomTrainingJob trains on data with the specified dataset and registry item.
 func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, registryItemVersion, orgID, modelName,
-	modelVersion string, args []string,
+	modelVersion, containerVersion string, args []string,
 ) (string, error) {
 	splitName := strings.Split(registryItemID, ":")
 	if len(splitName) != 2 {
@@ -201,6 +240,7 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		OrganizationId:      orgID,
 		ModelName:           modelName,
 		ModelVersion:        modelVersion,
+		ContainerVersion:    containerVersion,
 	}
 
 	if len(args) > 0 {

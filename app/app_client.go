@@ -584,7 +584,7 @@ func newAppClient(conn rpc.ClientConn) *AppClient {
 //
 // For more information, see the [GetUserIDByEmail method docs].
 //
-// [GetUserIDByEmail method docs]: https://docs.viam.com/dev/reference/apis/app/#getuseridbyemail
+// [GetUserIDByEmail method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getuseridbyemail
 func (c *AppClient) GetUserIDByEmail(ctx context.Context, email string) (string, error) {
 	resp, err := c.client.GetUserIDByEmail(ctx, &pb.GetUserIDByEmailRequest{
 		Email: email,
