@@ -532,6 +532,7 @@ type Cloud struct {
 	Secret            string
 	LocationSecret    string // Deprecated: Use LocationSecrets
 	LocationSecrets   []LocationSecret
+	APIKey            APIKey
 	LocationID        string
 	PrimaryOrgID      string
 	MachineID         string
@@ -559,6 +560,7 @@ type cloudData struct {
 
 	LocationSecret    string           `json:"location_secret"`
 	LocationSecrets   []LocationSecret `json:"location_secrets"`
+	APIKey            APIKey           `json:"api_key"`
 	LocationID        string           `json:"location_id"`
 	PrimaryOrgID      string           `json:"primary_org_id"`
 	MachineID         string           `json:"machine_id"`
@@ -576,6 +578,11 @@ type cloudData struct {
 	TLSPrivateKey  string `json:"tls_private_key"`
 }
 
+type APIKey struct {
+	ID    string `json:"id"`
+	Value string `json:"value"`
+}
+
 // UnmarshalJSON unmarshals JSON data into this config.
 func (config *Cloud) UnmarshalJSON(data []byte) error {
 	var temp cloudData
@@ -587,6 +594,7 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 		Secret:            temp.Secret,
 		LocationSecret:    temp.LocationSecret,
 		LocationSecrets:   temp.LocationSecrets,
+		APIKey:            temp.APIKey,
 		LocationID:        temp.LocationID,
 		PrimaryOrgID:      temp.PrimaryOrgID,
 		MachineID:         temp.MachineID,
@@ -618,6 +626,7 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 		Secret:            config.Secret,
 		LocationSecret:    config.LocationSecret,
 		LocationSecrets:   config.LocationSecrets,
+		APIKey:            config.APIKey,
 		LocationID:        config.LocationID,
 		PrimaryOrgID:      config.PrimaryOrgID,
 		MachineID:         config.MachineID,
@@ -650,8 +659,8 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		if config.LocalFQDN == "" {
 			return resource.NewConfigValidationFieldRequiredError(path, "local_fqdn")
 		}
-	} else if config.Secret == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "secret")
+	} else if config.Secret == "" && config.APIKey.Value == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "auth")
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second
@@ -1048,7 +1057,11 @@ func ProcessConfig(in *Config) (*Config, error) {
 			}
 			out.Network.TLSConfig = tlsConfig
 		}
-		selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
+		if in.Cloud.APIKey.Value != "" && in.Cloud.APIKey.ID != "" {
+			selfCreds = &rpc.Credentials{rutils.CredentialsTypeAPIKey, in.Cloud.APIKey.Value}
+		} else {
+			selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
+		}
 	}
 
 	out.Remotes = make([]Remote, len(in.Remotes))
