@@ -31,6 +31,8 @@ build: build-go
 
 build-go:
 	which -a go
+	echo PATH $(PATH)
+	echo GITHUB_PATH $(GITHUB_PATH)
 	exit 1
 	# go build ./...
 
