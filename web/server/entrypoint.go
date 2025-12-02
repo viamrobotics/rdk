@@ -206,7 +206,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if cfgFromDisk.Cloud != nil {
 		cloud := cfgFromDisk.Cloud
 		appConnLogger := logger.Sublogger("networking").Sublogger("app_connection")
-		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, appConnLogger)
+		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, cloud.APIKey.Value, cloud.APIKey.ID, appConnLogger)
 		if err != nil {
 			return err
 		}
@@ -215,7 +215,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		// if SignalingAddress is specified and different from AppAddress, create a new connection to it. Otherwise reuse appConn.
 		if cloud.SignalingAddress != "" && cloud.SignalingAddress != cloud.AppAddress {
 			signalingConnLogger := logger.Sublogger("networking").Sublogger("signaling_connection")
-			signalingConn, err = grpc.NewAppConn(ctx, cloud.SignalingAddress, cloud.Secret, cloud.ID, signalingConnLogger)
+			signalingConn, err = grpc.NewAppConn(ctx, cloud.SignalingAddress, cloud.Secret, cloud.ID, cloud.APIKey.Value, cloud.APIKey.ID, signalingConnLogger)
 			if err != nil {
 				return err
 			}
@@ -230,9 +230,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
 		netAppender, err := logging.NewNetAppender(
 			&logging.CloudConfig{
-				AppAddress: cfgFromDisk.Cloud.AppAddress,
-				ID:         cfgFromDisk.Cloud.ID,
-				Secret:     cfgFromDisk.Cloud.Secret,
+				AppAddress:  cfgFromDisk.Cloud.AppAddress,
+				ID:          cfgFromDisk.Cloud.ID,
+				Secret:      cfgFromDisk.Cloud.Secret,
+				APIKeyID:    cfgFromDisk.Cloud.APIKey.ID,
+				APIKeyValue: cfgFromDisk.Cloud.APIKey.Value,
 			},
 			appConn, false, logging.NewLogger("NetAppender-loggerWithoutNet"),
 		)
