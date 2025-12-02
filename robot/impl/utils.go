@@ -28,7 +28,7 @@ func setupLocalRobot(
 	var conn rpc.ClientConn
 	var err error
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
-		conn, err = grpc.NewAppConn(ctx, cfg.Cloud.AppAddress, cfg.Cloud.Secret, cfg.Cloud.ID, logger.Sublogger("appconn"))
+		conn, err = grpc.NewAppConn(ctx, cfg.Cloud.AppAddress, cfg.Cloud.Secret, cfg.Cloud.ID, cfg.Cloud.APIKey.Value, cfg.Cloud.APIKey.ID, logger)
 		test.That(t, err, test.ShouldBeNil)
 	}
 

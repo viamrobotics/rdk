@@ -730,8 +730,16 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger logging.Lo
 	}
 
 	dialOpts := make([]rpc.DialOption, 0, 2)
-	// Only add credentials when secret is set.
-	if cloudCfg.Secret != "" {
+
+	// Only add credentials when secret or API key is set.
+	if cloudCfg.APIKey.Value != "" && cloudCfg.APIKey.ID != "" {
+		dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloudCfg.APIKey.ID,
+			rpc.Credentials{
+				Type:    rutils.CredentialsTypeAPIKey,
+				Payload: cloudCfg.APIKey.Value,
+			},
+		))
+	} else if cloudCfg.Secret != "" {
 		dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloudCfg.ID,
 			rpc.Credentials{
 				Type:    rutils.CredentialsTypeRobotSecret,

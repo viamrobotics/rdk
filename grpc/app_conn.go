@@ -34,7 +34,7 @@ type AppConn struct {
 // establishing a connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a
 // connection is made. If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not
 // start.
-func NewAppConn(ctx context.Context, appAddress, secret, id string, logger logging.Logger) (rpc.ClientConn, error) {
+func NewAppConn(ctx context.Context, appAddress, secret, id, apiKeyValue, apiKeyID string, logger logging.Logger) (rpc.ClientConn, error) {
 	appConn := &AppConn{ReconfigurableClientConn: &ReconfigurableClientConn{Logger: logger.Sublogger("app_conn")}}
 
 	grpcURL, err := url.Parse(appAddress)
@@ -42,7 +42,7 @@ func NewAppConn(ctx context.Context, appAddress, secret, id string, logger loggi
 		return nil, err
 	}
 
-	dialOpts := dialOpts(secret, id)
+	dialOpts := dialOpts(secret, id, apiKeyValue, apiKeyID)
 
 	if grpcURL.Scheme == "http" {
 		dialOpts = append(dialOpts, rpc.WithInsecure())
@@ -132,9 +132,14 @@ func (ac *AppConn) Close() error {
 	return ac.ReconfigurableClientConn.Close()
 }
 
-func dialOpts(secret, id string) []rpc.DialOption {
+func dialOpts(secret, id, apiKeyValue, apiKeyID string) []rpc.DialOption {
 	dialOpts := make([]rpc.DialOption, 0, 2)
 	// Only add credentials when secret is set.
+	if apiKeyValue != "" {
+		dialOpts = append(dialOpts, rpc.WithEntityCredentials(apiKeyID, rpc.Credentials{Type: rpc.CredentialsTypeAPIKey, Payload: apiKeyValue}))
+		return dialOpts
+	}
+
 	if secret != "" {
 		dialOpts = append(dialOpts, rpc.WithEntityCredentials(id,
 			rpc.Credentials{
