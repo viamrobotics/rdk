@@ -365,6 +365,42 @@ type Annotations struct {
 	Classifications []Classification
 }
 
+// AnnotationsFromProto converts *dataPB.Annotations to Annotations.
+func AnnotationsFromProto(protoAnnotations *dataPB.Annotations) Annotations {
+	if protoAnnotations == nil {
+		return Annotations{}
+	}
+
+	var bboxes []BoundingBox
+	if protoAnnotations.Bboxes != nil {
+		for _, bb := range protoAnnotations.Bboxes {
+			bboxes = append(bboxes, BoundingBox{
+				Label:          bb.Label,
+				Confidence:     bb.Confidence,
+				XMinNormalized: bb.XMinNormalized,
+				XMaxNormalized: bb.XMaxNormalized,
+				YMinNormalized: bb.YMinNormalized,
+				YMaxNormalized: bb.YMaxNormalized,
+			})
+		}
+	}
+
+	var classifications []Classification
+	if protoAnnotations.Classifications != nil {
+		for _, c := range protoAnnotations.Classifications {
+			classifications = append(classifications, Classification{
+				Label:      c.Label,
+				Confidence: c.Confidence,
+			})
+		}
+	}
+
+	return Annotations{
+		BoundingBoxes:   bboxes,
+		Classifications: classifications,
+	}
+}
+
 // Empty returns true when Annotations are empty.
 func (mt Annotations) Empty() bool {
 	return len(mt.BoundingBoxes) == 0 && len(mt.Classifications) == 0
