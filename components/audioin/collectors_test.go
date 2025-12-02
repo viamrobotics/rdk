@@ -315,10 +315,20 @@ func TestGetAudioCollectorFormatChanges(t *testing.T) {
 			defer col.Close()
 			col.Collect()
 
-			// Assert correct number of binaries were made
-			test.That(t, len(buf.Writes), test.ShouldEqual, tc.expectedBinaries)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
 
-			buf.Close()
+			// Read from the buffer
+			var writes []*datasyncpb.SensorData
+			select {
+			case <-ctx.Done():
+				t.Error("timeout waiting for data")
+				t.FailNow()
+			case writes = <-buf.Writes:
+			}
+
+			// Assert correct number of binaries were made
+			test.That(t, len(writes), test.ShouldEqual, tc.expectedBinaries)
 
 			buf.Close()
 		})

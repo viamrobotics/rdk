@@ -62,7 +62,7 @@ func (p *pathologicalAssociatedConfig) Link(conf *resource.Config)              
 
 func TestCollectorRegistry(t *testing.T) {
 	collectors := data.DumpRegisteredCollectors()
-	test.That(t, len(collectors), test.ShouldEqual, 53)
+	test.That(t, len(collectors), test.ShouldEqual, 55)
 	mds := slices.SortedFunc(maps.Keys(collectors), func(a, b data.MethodMetadata) int {
 		return cmp.Compare(a.String(), b.String())
 	})
