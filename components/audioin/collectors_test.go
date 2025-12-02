@@ -106,9 +106,9 @@ type chunkConfig struct {
 	dataSize    int
 }
 
-// makeAudioChunkFromSpec builds an AudioChunk consistent with your original inline logic.
-func makeAudioChunkFromChunkConfig(i int, spec chunkConfig, codec string) *audioin.AudioChunk {
-	audioData := make([]byte, spec.dataSize)
+// makeAudioChunkFromSpec builds an AudioChunk
+func makeAudioChunkFromChunkConfig(i int, cfg chunkConfig, codec string) *audioin.AudioChunk {
+	audioData := make([]byte, cfg.dataSize)
 	for j := range audioData {
 		audioData[j] = byte(j % 256)
 	}
@@ -119,8 +119,8 @@ func makeAudioChunkFromChunkConfig(i int, spec chunkConfig, codec string) *audio
 	return &audioin.AudioChunk{
 		AudioData: audioData,
 		AudioInfo: &rutils.AudioInfo{
-			SampleRateHz: spec.sampleRate,
-			NumChannels:  spec.numChannels,
+			SampleRateHz: cfg.sampleRate,
+			NumChannels:  cfg.numChannels,
 			Codec:        codec,
 		},
 		Sequence:                  int32(i),

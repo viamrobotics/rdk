@@ -40,7 +40,6 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 		return nil, err
 	}
 
-	// Parse codec parameter (default: pcm16)
 	codec := rutils.CodecPCM16
 	if codecParam := params.MethodParams["codec"]; codecParam != nil {
 		strVal := &wrapperspb.StringValue{}
@@ -112,13 +111,17 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 					continue
 				}
 
+				if chunk.AudioInfo == nil {
+					return data.CaptureResult{}, fmt.Errorf("received audio chunk with nil AudioInfo")
+				}
+
 				if chunk.AudioInfo.SampleRateHz == currentSR && chunk.AudioInfo.NumChannels == currentCh {
 					currentBuffer = append(currentBuffer, chunk.AudioData...)
 				} else {
-					// Format changed: finalize the current audio buffer and start a new one
+					// Audio format changed: finalize the current audio file and start a new one
 					binary, err := buildPayload(currentBuffer, currentSR, currentCh, codec)
 					if err != nil {
-						return data.CaptureResult{}, nil
+						return data.CaptureResult{}, err
 					}
 					binaries = append(binaries, binary)
 					currentBuffer = append([]byte{}, chunk.AudioData...)
@@ -156,7 +159,7 @@ func buildPayload(audioData []byte, sr, ch int32, codec string) (data.Binary, er
 		var err error
 		payload, err = CreateWAVFile(audioData, sr, ch, codec)
 		if err != nil {
-			return data.Binary{}, fmt.Errorf("error creating wav file: %w", err)
+			return data.Binary{}, fmt.Errorf("error writing wav file: %w", err)
 		}
 	default:
 		payload = audioData
@@ -197,7 +200,7 @@ func CreateWAVFile(pcmData []byte, sampleRate, numChannels int32, codec string) 
 
 	// "fmt " sub-chunk
 	buf.WriteString("fmt ")
-	// length of fmt sub hunk
+	// length of fmt sub chunk
 	if err := binary.Write(&buf, binary.LittleEndian, uint32(16)); err != nil {
 		return nil, err
 	}
