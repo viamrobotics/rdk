@@ -99,6 +99,10 @@ jobs:
 
       - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
         run: |
+          pwd
+          whoami
+          ls -ls
+          make build-go
           sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
           GEN_DIFF=$(git status -s)
           if [ -n "$GEN_DIFF" ]; then
