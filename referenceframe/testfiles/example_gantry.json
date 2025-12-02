@@ -1,10 +1,19 @@
 {
-  "name": "single_axis_gantry",
+  "name": "example_gantry",
   "kinematic_param_type": "SVA",
   "links": [
     {
-      "id": "carriage",
+      "id": "base",
       "parent": "world",
+      "translation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      }
+    },
+    {
+      "id": "carriage",
+      "parent": "gantry_joint",
       "translation": {
         "x": 0,
         "y": 0,
@@ -26,7 +35,7 @@
     {
       "id": "gantry_joint",
       "type": "prismatic",
-      "parent": "carriage",
+      "parent": "base",
       "axis": {
         "x": 1,
         "y": 0,
