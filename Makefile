@@ -30,7 +30,9 @@ setup:
 build: build-go
 
 build-go:
-	go build ./...
+	which -a go
+	exit 1
+	# go build ./...
 
 GO_FILES=$(shell find . -name "*.go")
 
