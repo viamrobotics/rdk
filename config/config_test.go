@@ -209,7 +209,7 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
-	invalidCloud.Cloud.APIKey = config.APIKey{ID: "key_id", Value: "key_value"}
+	invalidCloud.Cloud.APIKey = config.APIKey{ID: "key_id", Key: "key_value"}
 	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
 	invalidCloud.Cloud.APIKey = config.APIKey{}
@@ -487,7 +487,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
-	invalidCloud.Cloud.APIKey = config.APIKey{ID: "key_id", Value: "key_value"}
+	invalidCloud.Cloud.APIKey = config.APIKey{ID: "key_id", Key: "key_value"}
 	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
 	invalidCloud.Cloud.APIKey = config.APIKey{}

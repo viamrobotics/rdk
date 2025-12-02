@@ -207,7 +207,7 @@ func TestStoreToCache(t *testing.T) {
 	}
 	cfg.Cloud = cloud
 
-	appConn, err := grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, "", "", logger)
+	appConn, err := grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, cloud.APIKey.Key, cloud.APIKey.ID, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
 

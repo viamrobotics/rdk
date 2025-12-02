@@ -184,12 +184,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
 
 		// download package from a http endpoint
-<<<<<<< HEAD
 		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p, true,
-=======
-		m.logger.Warnw("URL:", resp.Package.Url)
-		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p,
->>>>>>> 570d1fe73 (Migrate secret auth to api key auth if it exists)
 			func(ctx context.Context, url, dstPath string) (string, string, error) {
 				statusFile := packageSyncFile{
 					PackageID:       p.Package,
@@ -204,11 +199,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 					return "", "", err
 				}
 
-<<<<<<< HEAD
-				return m.downloadFileWithChecksum(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
-=======
-				return m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret, m.cloudConfig.APIKey.Value, m.cloudConfig.APIKey.ID)
->>>>>>> 570d1fe73 (Migrate secret auth to api key auth if it exists)
+				return m.downloadFileWithChecksum(ctx, url, dstPath)
 			},
 		)
 		if err != nil {
@@ -408,27 +399,18 @@ func (m *cloudManager) downloadFileWithChecksum(
 	ctx context.Context,
 	rawURL string,
 	downloadPath string,
-	partID string,
-	partSecret string,
-	apiKey string,
-	apiKeyID string,
 ) (string, string, error) {
-<<<<<<< HEAD
-	getReq, err := http.NewRequestWithContext(ctx, http.MethodHead, rawURL, nil)
-	getReq.Header.Add("part_id", partID)
-	getReq.Header.Add("secret", partSecret)
-=======
-	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 
-	if apiKey != "" {
-		getReq.Header.Add("key_id", apiKeyID)
-		getReq.Header.Add("key", apiKey)
+	headers := make(http.Header)
+	if m.cloudConfig.APIKey.IsFullySet() {
+		getReq.Header.Add("key_id", m.cloudConfig.APIKey.ID)
+		getReq.Header.Add("key", m.cloudConfig.APIKey.Key)
 	} else {
-		getReq.Header.Add("part_id", partID)
-		getReq.Header.Add("secret", partSecret)
+		getReq.Header.Add("part_id", m.cloudConfig.ID)
+		getReq.Header.Add("secret", m.cloudConfig.Secret)
 	}
 
->>>>>>> 570d1fe73 (Migrate secret auth to api key auth if it exists)
 	if err != nil {
 		return "", "", err
 	}
@@ -462,7 +444,7 @@ func (m *cloudManager) downloadFileWithChecksum(
 
 	g := getter.HttpGetter{
 		MaxBytes: maxBytesForTesting,
-		Header:   http.Header{"part_id": []string{partID}, "secret": []string{partSecret}},
+		Header:   headers,
 		Client:   &m.httpClient,
 	}
 	g.SetClient(&getter.Client{Ctx: ctx})

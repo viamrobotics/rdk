@@ -609,8 +609,18 @@ type cloudData struct {
 }
 
 type APIKey struct {
-	ID    string `json:"id"`
-	Value string `json:"value"`
+	ID  string `json:"id"`
+	Key string `json:"value"`
+}
+
+// IsFullySet returns true if an APIKey has both the ID and Key fields set.
+func (a APIKey) IsFullySet() bool {
+	return a.ID != "" && a.Key != ""
+}
+
+// IsPartiallySet returns true if only one of the ID or Key fields are set.
+func (a APIKey) IsPartiallySet() bool {
+	return (a.ID == "" && a.Key != "") || (a.ID != "" && a.Key == "")
 }
 
 // UnmarshalJSON unmarshals JSON data into this config.
@@ -689,7 +699,7 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		if config.LocalFQDN == "" {
 			return resource.NewConfigValidationFieldRequiredError(path, "local_fqdn")
 		}
-	} else if config.Secret == "" && config.APIKey.Value == "" {
+	} else if config.Secret == "" && config.APIKey.Key == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "auth")
 	}
 	if config.RefreshInterval == 0 {
@@ -1087,8 +1097,8 @@ func ProcessConfig(in *Config) (*Config, error) {
 			}
 			out.Network.TLSConfig = tlsConfig
 		}
-		if in.Cloud.APIKey.Value != "" && in.Cloud.APIKey.ID != "" {
-			selfCreds = &rpc.Credentials{rutils.CredentialsTypeAPIKey, in.Cloud.APIKey.Value}
+		if in.Cloud.APIKey.IsFullySet() {
+			selfCreds = &rpc.Credentials{rutils.CredentialsTypeAPIKey, in.Cloud.APIKey.Key}
 		} else {
 			selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
 		}
