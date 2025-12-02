@@ -72,6 +72,8 @@ func TestCollectorRegistry(t *testing.T) {
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "EndPosition"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "JointPositions"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_in"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_in"}, MethodName: "GetAudio"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_input"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "base"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "Analogs"},
