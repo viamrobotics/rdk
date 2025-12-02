@@ -38,8 +38,7 @@ type planConfig struct {
 type planConfigConstructor func(logger logging.Logger) (*planConfig, error)
 
 func TestUnconstrainedMotion(t *testing.T) {
-	t.Skip("highmem")
-	t.Parallel()
+	// t.Skip("highmem")
 	ctx := context.Background()
 	testCases := []struct {
 		name   string
@@ -58,8 +57,7 @@ func TestUnconstrainedMotion(t *testing.T) {
 }
 
 func TestConstrainedMotion(t *testing.T) {
-	t.Skip("highmem")
-	t.Parallel()
+	// t.Skip("highmem")
 	ctx := context.Background()
 	testCases := []struct {
 		name   string

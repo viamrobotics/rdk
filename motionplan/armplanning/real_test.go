@@ -168,7 +168,7 @@ func TestWineCrazyTouch2(t *testing.T) {
 }
 
 func TestSandingLargeMove1(t *testing.T) {
-	t.Skip("highmem")
+	// t.Skip("highmem")
 	name := "ur20-modular"
 
 	if IsTooSmallForCache() {
