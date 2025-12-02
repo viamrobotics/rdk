@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 
 	"go.viam.com/rdk/components/gantry"
@@ -11,35 +12,72 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
-	"go.viam.com/rdk/utils"
 )
+
+//go:embed test_gantry_model.json
+var gantryModelJSON []byte
+
+// Config is used for converting config attributes.
+type Config struct {
+	ModelFilePath string `json:"model-path,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (conf *Config) Validate(path string) ([]string, []string, error) {
+	var err error
+	if conf.ModelFilePath != "" {
+		_, err = referenceframe.KinematicModelFromFile(conf.ModelFilePath, "")
+	}
+	return nil, nil, err
+}
+
+func makeGantryModel(cfg resource.Config, newConf *Config) (referenceframe.Model, error) {
+	var (
+		model referenceframe.Model
+		err   error
+	)
+	modelPath := newConf.ModelFilePath
+
+	switch {
+	case modelPath != "":
+		model, err = referenceframe.KinematicModelFromFile(modelPath, cfg.Name)
+	default:
+		// if no arm model is specified, we return a fake arm with 1 dof and 0 spatial transformation
+		model, err = referenceframe.UnmarshalModelJSON(gantryModelJSON, cfg.Name)
+	}
+	return model, err
+}
 
 func init() {
 	resource.RegisterComponent(
 		gantry.API,
 		resource.DefaultModelFamily.WithModel("fake"),
-		resource.Registration[gantry.Gantry, resource.NoNativeConfig]{
+		resource.Registration[gantry.Gantry, *Config]{
 			Constructor: func(
 				ctx context.Context,
 				_ resource.Dependencies,
 				conf resource.Config,
 				logger logging.Logger,
 			) (gantry.Gantry, error) {
-				return NewGantry(conf.ResourceName(), logger), nil
+				return NewGantry(conf, logger)
 			},
 		})
 }
 
 // NewGantry returns a new fake gantry.
-func NewGantry(name resource.Name, logger logging.Logger) gantry.Gantry {
-	m, err := referenceframe.KinematicModelFromFile(
-		utils.ResolveFile("components/gantry/test_gantry_model.json"), "test_gantry_model")
+func NewGantry(conf resource.Config, logger logging.Logger) (gantry.Gantry, error) {
+	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
-		logger.CErrorf(context.Background(), "could not create kinematic model from file: %v", err)
+		return nil, err
+	}
+
+	m, err := makeGantryModel(conf, newConf)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Gantry{
-		testutils.NewUnimplementedResource(name),
+		testutils.NewUnimplementedResource(conf.ResourceName()),
 		resource.TriviallyReconfigurable{},
 		resource.TriviallyCloseable{},
 		[]float64{120},
@@ -47,7 +85,7 @@ func NewGantry(name resource.Name, logger logging.Logger) gantry.Gantry {
 		[]float64{350},
 		m,
 		logger,
-	}
+	}, nil
 }
 
 // Gantry is a fake gantry that can simply read and set properties.

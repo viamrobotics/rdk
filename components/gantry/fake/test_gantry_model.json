@@ -1,0 +1,48 @@
+{
+  "name": "test_gantry_model",
+  "kinematic_param_type": "SVA",
+  "links": [
+    {
+      "id": "base",
+      "parent": "world",
+      "translation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      }
+    },
+    {
+      "id": "carriage",
+      "parent": "gantry_joint",
+      "translation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "geometry": {
+        "x": 150,
+        "y": 120,
+        "z": 10,
+        "translation": {
+          "x": -475,
+          "y": 0,
+          "z": 5
+        }
+      }
+    }
+  ],
+  "joints": [
+    {
+      "id": "gantry_joint",
+      "type": "prismatic",
+      "parent": "base",
+      "axis": {
+        "x": 1,
+        "y": 0,
+        "z": 0
+      },
+      "max": 500,
+      "min": 0
+    }
+  ]
+}
