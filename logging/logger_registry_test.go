@@ -84,8 +84,7 @@ func TestGetOrRegister(t *testing.T) {
 			Level:   "WARN",
 		},
 	}
-	err := registry.Update(logCfg, NewLogger("error-logger"))
-	test.That(t, err, test.ShouldBeNil)
+	registry.Update(logCfg, NewLogger("error-logger"))
 
 	_ = registry.getOrRegister("a.b.c", NewLogger("a.b.c"))
 	loggerABD := registry.getOrRegister("a.b.d", NewLogger("a.b.d"))
@@ -126,8 +125,7 @@ func TestLoggerLevelReset(t *testing.T) {
 		},
 	}
 
-	err := registry.Update(logCfg, NewLogger("error-logger"))
-	test.That(t, err, test.ShouldBeNil)
+	registry.Update(logCfg, NewLogger("error-logger"))
 
 	logger, ok := registry.loggerNamed("a")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -135,8 +133,7 @@ func TestLoggerLevelReset(t *testing.T) {
 
 	logCfg = []LoggerPatternConfig{}
 
-	err = registry.Update(logCfg, NewLogger("error-logger"))
-	test.That(t, err, test.ShouldBeNil)
+	registry.Update(logCfg, NewLogger("error-logger"))
 
 	logger, ok = registry.loggerNamed("a")
 	test.That(t, ok, test.ShouldBeTrue)

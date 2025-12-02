@@ -30,8 +30,8 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	limits [][]referenceframe.Limit,
 	minFunc CostFunc,
 	rseed int,
-) (int, error) {
-	return 0, errors.New("Cannot solve without cgo")
+) (int, []SeedSolveMetaData, error) {
+	return 0, nil, errors.New("Cannot solve without cgo")
 }
 
 // DoF returns nil. The solver isn't real.

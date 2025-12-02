@@ -25,9 +25,10 @@ func CreateCombinedIKSolver(
 	nCPU int,
 	goalThreshold float64,
 ) (*CombinedIK, error) {
-	ik := &CombinedIK{}
+	ik := &CombinedIK{
+		logger: logger,
+	}
 
-	logger.Debugf("CreateCombinedIKSolver nCPU: %d", nCPU)
 	for i := 1; i <= nCPU; i++ {
 		nloptSolver, err := CreateNloptSolver(logger, -1, true, true)
 		if err != nil {
@@ -35,7 +36,6 @@ func CreateCombinedIKSolver(
 		}
 		ik.solvers = append(ik.solvers, nloptSolver)
 	}
-	ik.logger = logger
 	return ik, nil
 }
 
@@ -47,12 +47,13 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	limits [][]referenceframe.Limit,
 	costFunc CostFunc,
 	rseed int,
-) (int, error) {
+) (int, []SeedSolveMetaData, error) {
 	var activeSolvers sync.WaitGroup
 	defer activeSolvers.Wait()
 
 	var solveErrors error
 	totalSolutionsFound := 0
+	metas := []SeedSolveMetaData{}
 	var solveResultLock sync.Mutex
 
 	for _, solver := range ik.solvers {
@@ -64,15 +65,25 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			n, err := thisSolver.Solve(ctx, retChan, seeds, limits, costFunc, myseed)
+			n, m, err := thisSolver.Solve(ctx, retChan, seeds, limits, costFunc, myseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()
 			totalSolutionsFound += n
 			solveErrors = multierr.Combine(solveErrors, err)
+			if len(metas) == 0 {
+				metas = m
+			} else {
+				for idx, mm := range m {
+					metas[idx].Attempts += mm.Attempts
+					metas[idx].Valid += mm.Valid
+					metas[idx].Errors += mm.Errors
+				}
+			}
 		})
 	}
 
 	activeSolvers.Wait()
-	return totalSolutionsFound, solveErrors
+
+	return totalSolutionsFound, metas, solveErrors
 }

@@ -1222,10 +1222,7 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 		}
 	}
 
-	if err := registry.Update(combinedLogCfg, logger); err != nil {
-		logger.Warnw("Error processing log patterns",
-			"error", err)
-	}
+	registry.Update(combinedLogCfg, logger)
 
 	// Check incoming disable log deduplication value for any diff. Note that config value
 	// is a "disable" while registry is an "enable". This is by design to make configuration
@@ -1278,11 +1275,12 @@ type JobConfig struct {
 
 // JobConfigData is the job config data that gets marshaled/unmarshaled.
 type JobConfigData struct {
-	Name     string         `json:"name"`
-	Schedule string         `json:"schedule"`
-	Resource string         `json:"resource"`
-	Method   string         `json:"method"`
-	Command  map[string]any `json:"command,omitempty"`
+	Name             string              `json:"name"`
+	Schedule         string              `json:"schedule"`
+	Resource         string              `json:"resource"`
+	Method           string              `json:"method"`
+	Command          map[string]any      `json:"command,omitempty"`
+	LogConfiguration *resource.LogConfig `json:"log_configuration,omitempty"`
 }
 
 // MarshalJSON marshals out this config.

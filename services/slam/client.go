@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"io"
 
-	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
+	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	"go.viam.com/rdk/protoutils"

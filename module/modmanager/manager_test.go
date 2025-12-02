@@ -96,6 +96,47 @@ func setupModManager(
 	return mgr
 }
 
+// Test that if a module crashes shortly after startup, in UNIX mode we get "module exited too quickly" and
+// in TCP mode we get "context cancelled", without waiting for the full ModuleStartupTimeout
+func TestCrashedModuleCheckReadyShortCircuit(t *testing.T) {
+	modPath := filepath.Join(t.TempDir(), "run.sh")
+	err := os.WriteFile(modPath, []byte("#!/bin/sh\n\nsleep 2\nexit 1"), 0o755)
+	test.That(t, err, test.ShouldBeNil)
+
+	for _, mode := range []string{"unix", "tcp"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx := context.Background()
+			logger := logging.NewTestLogger(t)
+
+			if mode == "tcp" {
+				os.Setenv("VIAM_TCP_SOCKETS", "yes")
+				t.Cleanup(func() { os.Unsetenv("VIAM_TCP_SOCKETS") })
+			}
+
+			parentAddr := setupSocketWithRobot(t)
+
+			viamHomeTemp := t.TempDir()
+			mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
+
+			err = mgr.Add(context.Background(), config.Module{
+				Name:     "test",
+				ExePath:  modPath,
+				Type:     config.ModuleTypeLocal,
+				ModuleID: "will:crash",
+			})
+			test.That(t, err, test.ShouldNotBeNil)
+			if mode == "unix" {
+				// exits with err from startModuleProcess
+				test.That(t, err.Error(), test.ShouldContainSubstring, "module test exited too quickly after attempted startup")
+			} else {
+				// exits with err from checkReady (short circuit after detecting module crashed)
+				test.That(t, err.Error(), test.ShouldContainSubstring,
+					"error while waiting for module to be ready test: module process exited unexpectedly")
+			}
+		})
+	}
+}
+
 func TestModManagerFunctions(t *testing.T) {
 	// Precompile module copies to avoid timeout issues when building takes too long.
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
@@ -1031,7 +1072,11 @@ func TestModuleMisc(t *testing.T) {
 		test.That(t, resp, test.ShouldNotBeNil)
 		dataFullPath, ok := resp["fullpath"].(string)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, dataFullPath, test.ShouldEqual, filepath.Join(testViamHomeDir, "module-data", "local", "test-module", "data.txt"))
+		// Assert that file path for module data is believable. Because we are in a test
+		// environment, the path will be in an unknown temporary directory and there will be a
+		// random string in the middle to avoid collisions with other tests.
+		test.That(t, strings.Contains(dataFullPath, filepath.Join("module-data", "local-testing-")), test.ShouldBeTrue)
+		test.That(t, strings.HasSuffix(dataFullPath, filepath.Join("test-module", "data.txt")), test.ShouldBeTrue)
 		dataFileContents, err := os.ReadFile(dataFullPath)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(dataFileContents), test.ShouldEqual, "hello, world!")

@@ -102,13 +102,14 @@ const (
 	moduleBuildFlagOAuthLink   = "oauth-link"
 	moduleBuildFlagRepo        = "repo"
 
-	mlTrainingFlagName        = "script-name"
-	mlTrainingFlagFramework   = "framework"
-	mlTrainingFlagDraft       = "draft"
-	mlTrainingFlagVisibility  = "visibility"
-	mlTrainingFlagDescription = "description"
-	mlTrainingFlagURL         = "url"
-	mlTrainingFlagArgs        = "args"
+	mlTrainingFlagName             = "script-name"
+	mlTrainingFlagFramework        = "framework"
+	mlTrainingFlagDraft            = "draft"
+	mlTrainingFlagVisibility       = "visibility"
+	mlTrainingFlagDescription      = "description"
+	mlTrainingFlagURL              = "url"
+	mlTrainingFlagArgs             = "args"
+	mlTrainingFlagContainerVersion = "container-version"
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -470,7 +471,6 @@ var app = &cli.App{
 				},
 			},
 			Action: createCommandWithT[loginActionArgs](LoginAction),
-			After:  createCommandWithT[emptyArgs](CheckUpdateAction),
 			Subcommands: []*cli.Command{
 				{
 					Name:      "print-access-token",
@@ -1858,6 +1858,19 @@ var app = &cli.App{
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
+					Name:      "containers",
+					Usage:     "returns container information for custom training",
+					UsageText: createUsageText("train containers", nil, false, false),
+					Subcommands: []*cli.Command{
+						{
+							Name:      "list",
+							Usage:     "lists supported containers for custom training",
+							UsageText: createUsageText("train containers list", nil, false, false),
+							Action:    createCommandWithT[emptyArgs](MLListContainers),
+						},
+					},
+				},
+				{
 					Name:      "submit",
 					Usage:     "submits training job on data in Viam cloud",
 					UsageText: createUsageText("train submit", nil, false, true),
@@ -1924,7 +1937,11 @@ var app = &cli.App{
 									Name:  "from-registry",
 									Usage: "submits custom training job with an existing training script in the registry on data in Viam cloud",
 									UsageText: createUsageText("train submit custom from-registry",
-										[]string{datasetFlagDatasetID, generalFlagOrgID, trainFlagModelName, mlTrainingFlagName, generalFlagVersion},
+										[]string{
+											datasetFlagDatasetID, generalFlagOrgID,
+											trainFlagModelName, mlTrainingFlagName,
+											generalFlagVersion, mlTrainingFlagContainerVersion,
+										},
 										true, false,
 									),
 									Flags: []cli.Flag{
@@ -1958,6 +1975,13 @@ var app = &cli.App{
 											Usage:    "version of the ML training script to use for training.",
 											Required: true,
 										},
+										&cli.StringFlag{
+											Name: mlTrainingFlagContainerVersion,
+											Usage: `ml training container version to use.
+											Must be one of the supported container names found by
+											calling ListSupportedContainers`,
+											Required: true,
+										},
 										&cli.StringSliceFlag{
 											Name:  mlTrainingFlagArgs,
 											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
@@ -1969,7 +1993,11 @@ var app = &cli.App{
 									Name:  "with-upload",
 									Usage: "submits custom training job with an upload training script on data in Viam cloud",
 									UsageText: createUsageText("train submit custom with-upload",
-										[]string{generalFlagOrgID, datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, generalFlagPath, mlTrainingFlagName},
+										[]string{
+											generalFlagOrgID, datasetFlagDatasetID,
+											trainFlagModelOrgID, trainFlagModelName, generalFlagPath,
+											mlTrainingFlagName, mlTrainingFlagContainerVersion,
+										},
 										true, false,
 									),
 									Flags: []cli.Flag{
@@ -2023,6 +2051,13 @@ var app = &cli.App{
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
 											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
+										},
+										&cli.StringFlag{
+											Name: mlTrainingFlagContainerVersion,
+											Usage: `ml training container version to use.
+											Must be one of the supported container names found by
+											calling ListSupportedContainers`,
+											Required: true,
 										},
 										&cli.StringSliceFlag{
 											Name:  mlTrainingFlagArgs,
@@ -3042,7 +3077,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.PathFlag{
 							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Usage: "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
 							Value: "/etc/viam.json",
 						},
 					},
@@ -3050,7 +3085,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				},
 				{
 					Name:      "reload-local",
-					Usage:     "build a module locally and run it on a target device. rebuild & restart if already running",
+					Usage:     "build a module locally and run it on a target machine. rebuild & restart if already running",
 					UsageText: createUsageText("module reload-local", nil, true, false),
 					Description: `Example invocations:
 
@@ -3109,7 +3144,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.PathFlag{
 							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Usage: "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
 							Value: "/etc/viam.json",
 						},
 						&cli.StringFlag{
@@ -3132,7 +3167,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 				},
 				{
 					Name:      "reload",
-					Usage:     "build a module in the cloud and run it on a target device. rebuild & restart if already running",
+					Usage:     "build a module in the cloud and run it on a target machine. rebuild & restart if already running",
 					UsageText: createUsageText("module reload", nil, true, false),
 					Description: `Example invocations:
 
@@ -3159,6 +3194,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: "meta.json",
 						},
 						&cli.BoolFlag{
+							Name:  moduleBuildFlagNoBuild,
+							Usage: "don't do build step, reuse existing downloaded artifact",
+						},
+						&cli.BoolFlag{
 							Name:  generalFlagNoProgress,
 							Usage: "hide progress of the file transfer",
 						},
@@ -3169,7 +3208,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.PathFlag{
 							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file with robot ID to lookup the part-id. Use instead of --part-id option.",
+							Usage: "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
 							Value: "/etc/viam.json",
 						},
 						&cli.StringFlag{
@@ -3189,7 +3228,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:        generalFlagPath,
-							Usage:       "Use this with --cloud-build to indicate the path to the root of the git repo to build",
+							Usage:       "The path to the root of the git repo to build",
 							DefaultText: ".",
 						},
 					},

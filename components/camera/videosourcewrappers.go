@@ -6,7 +6,7 @@ import (
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"

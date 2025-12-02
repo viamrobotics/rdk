@@ -22,13 +22,15 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
-	"go.opencensus.io/trace"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
+	"go.viam.com/utils/trace"
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
@@ -42,6 +44,7 @@ import (
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	grpcserver "go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
@@ -264,6 +267,11 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	// accessed via `grpc.GetModuleName`.
 	unaryInterceptors = append(unaryInterceptors, svc.modPeerConnTracker.ModInfoUnaryServerInterceptor)
 
+	// Attach the Viam client info to the handler context. Can be accessed via
+	// client.GetViamClientInfo. Helpful for seeing the language, SDK version, and API
+	// version of the module.
+	unaryInterceptors = append(unaryInterceptors, client.ViamClientInfoUnaryServerInterceptor)
+
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
@@ -289,6 +297,11 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 
 	// TODO(PRODUCT-343): Add session manager interceptors
 
+	otelStatsHandler := otelgrpc.NewServerHandler(
+		otelgrpc.WithTracerProvider(trace.GetProvider()),
+		otelgrpc.WithPropagators(propagation.TraceContext{}),
+	)
+
 	// MaxRecvMsgSize and MaxSendMsgSize by default are 4 MB & MaxInt32 (2.1 GB)
 	opts := []googlegrpc.ServerOption{
 		googlegrpc.MaxRecvMsgSize(rpc.MaxMessageSize),
@@ -299,6 +312,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 			MinTime:             rpc.KeepAliveTime / 2, // keep this in sync with goutils' rpc/dialer & server.
 			PermitWithoutStream: true,
 		}),
+		googlegrpc.StatsHandler(otelStatsHandler),
 	}
 	server := module.NewServer(opts...)
 	if tcpMode {
@@ -360,6 +374,7 @@ func (svc *webService) stopWeb() {
 	if svc.cancelFunc != nil {
 		svc.cancelFunc()
 	}
+	svc.closeStreamServer()
 	svc.isRunning = false
 	svc.webWorkers.Wait()
 }
@@ -484,7 +499,6 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 				svc.logger.Errorw("error stopping rpc server", "error", err)
 			}
 		}()
-		svc.closeStreamServer()
 	})
 	svc.webWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -574,6 +588,8 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		streamInterceptors []googlegrpc.StreamServerInterceptor
 	)
 	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryServerInterceptor)
+
+	unaryInterceptors = append(unaryInterceptors, client.ViamClientInfoUnaryServerInterceptor)
 
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)

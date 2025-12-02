@@ -99,6 +99,7 @@ func isMultiModal(segment map[image.Point]bool, dm *DepthMap, threshold int) boo
 	if len(depths) == 0 {
 		return false
 	}
+	//nolint: revive
 	min, max := minmax(depths)
 	nbins := utils.MaxInt(1, int((max-min)/100.)) // bin widths 100mm
 	hist := histogram.Hist(nbins, depths)
@@ -119,13 +120,17 @@ func isMultiModal(segment map[image.Point]bool, dm *DepthMap, threshold int) boo
 
 // get the minimum and the maximum from a slice of float64s.
 func minmax(slice []float64) (float64, float64) {
+	//nolint: revive
 	max := slice[0]
+	//nolint: revive
 	min := slice[0]
 	for _, value := range slice {
 		if max < value {
+			//nolint: revive
 			max = value
 		}
 		if min > value {
+			//nolint: revive
 			min = value
 		}
 	}

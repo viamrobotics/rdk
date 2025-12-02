@@ -36,7 +36,7 @@ func main() {
 
 func realMain() error {
 	ctx := context.Background()
-	logger := logging.NewLogger("cmd-plan")
+	logger, reg := logging.NewLoggerWithRegistry("cmd-plan")
 
 	pseudolinearLine := flag.Float64("pseudolinear-line", 0, "")
 	pseudolinearOrientation := flag.Float64("pseudolinear-orientation", 0, "")
@@ -72,12 +72,31 @@ func realMain() error {
 		}()
 	}
 
+	_ = reg
+
+	// The default logger keeps `mp` at the default INFO level. But all loggers underneath only emit
+	// WARN+ logs. Let's start with DEBUG everywhere and:
+	logger.SetLevel(logging.DEBUG)
 	if *verbose {
-		logger.SetLevel(logging.DEBUG)
+		// For verbose keep everything at DEBUG and only claw back `ik` logs to INFO.
+		reg.Update([]logging.LoggerPatternConfig{
+			{
+				Pattern: "*.ik",
+				Level:   "INFO",
+			},
+		}, logger)
+	} else {
+		// For regular cmd-plan runs, leave `mp` at DEBUG, and promote underneath loggers to emit
+		// INFO+ logs.
+		reg.Update([]logging.LoggerPatternConfig{
+			{
+				Pattern: "*.mp.*",
+				Level:   "INFO",
+			},
+		}, logger)
 	}
 
 	logger.Infof("reading plan from %s", flag.Arg(0))
-
 	req, err := armplanning.ReadRequestFromFile(flag.Arg(0))
 	if err != nil {
 		return err
@@ -100,7 +119,7 @@ func realMain() error {
 	mylog := log.New(os.Stdout, "", 0)
 	start := time.Now()
 
-	exporter := perf.NewDevelopmentExporter()
+	exporter := perf.NewOtelDevelopmentExporter()
 	if err := exporter.Start(); err != nil {
 		return err
 	}
@@ -123,9 +142,6 @@ func realMain() error {
 	if len(plan.Path()) != len(plan.Trajectory()) {
 		return fmt.Errorf("path and trajectory not the same %d vs %d", len(plan.Path()), len(plan.Trajectory()))
 	}
-
-	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
-		time.Since(start).Truncate(time.Millisecond), len(req.Goals), len(plan.Trajectory()))
 
 	for *cpu != "" && time.Since(start) < (10*time.Second) {
 		ss := time.Now()
@@ -181,6 +197,8 @@ func realMain() error {
 		}
 	}
 
+	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
+		time.Since(start).Truncate(time.Millisecond), len(req.Goals), len(plan.Trajectory()))
 	mylog.Printf("totalCartesion: %0.4f\n", totalCartesion)
 	mylog.Printf("totalL2: %0.4f\n", totalL2)
 
