@@ -113,7 +113,7 @@ func NamedImageFromImage(img image.Image, sourceName, mimeType string, annotatio
 		return NamedImage{}, fmt.Errorf("must provide image to construct a named image from image")
 	}
 	if mimeType == "" {
-		return NamedImage{}, fmt.Errorf("must provide a mime type to construct a named image")
+		mimeType = utils.MimeTypeJPEG
 	}
 	return NamedImage{img: img, SourceName: sourceName, mimeType: mimeType, annotations: annotations}, nil
 }
