@@ -3485,8 +3485,10 @@ NOTES:
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     trainFlagContainerVersion,
-							Usage:    "container version to use (e.g., 'tf:2.16').",
+							Name: trainFlagContainerVersion,
+							Usage: `ml training container version to use.
+											Must be one of the supported container names found by
+											calling ListSupportedContainers`,
 							Required: true,
 						},
 						&cli.StringFlag{
