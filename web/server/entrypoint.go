@@ -57,6 +57,7 @@ type Arguments struct {
 	OutputLogFile              string `flag:"log-file,usage=write logs to a file with log rotation"`
 	NoTLS                      bool   `flag:"no-tls,usage=starts an insecure http server without TLS certificates even if one exists"`
 	NetworkCheckOnly           bool   `flag:"network-check,usage=only runs normal network checks, logs results, and exits"`
+	EnableTracing              bool   `flag:"tracing,default=false,usage=enable trace collection for diagnostics"`
 }
 
 type robotServer struct {
@@ -573,7 +574,9 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		robotOptions = append(robotOptions, robotimpl.WithFTDC())
 	}
 
-	robotOptions = append(robotOptions, robotimpl.WithTraceFile())
+	if s.args.EnableTracing {
+		robotOptions = append(robotOptions, robotimpl.WithTraceFile())
+	}
 
 	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove
 	// all components, services, remotes, modules, processes, packages, and jobs from
