@@ -32,7 +32,9 @@ build: build-go
 build-go:
 	which -a go
 	echo PATH $(PATH)
-	echo GITHUB_PATH $(GITHUB_PATH)
+	whoami
+	pwd
+	ls -ls
 	exit 1
 	# go build ./...
 
