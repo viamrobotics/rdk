@@ -419,11 +419,8 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 	})
 
-	// Test that the crashed module is added to failedModules.
-	// Reconfigure will preserve modules still in the config (ClearFailedModules only clears
-	// modules no longer in config). The module should remain in failedModules.
 	r.Reconfigure(ctx, &cfg)
-	// Verify module is still in failedModules after reconfigure (ClearFailedModules preserves it)
+	// Verify module is still in failedModules after reconfigure
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, failedModules(r), test.ShouldResemble, []string{"mod"})
