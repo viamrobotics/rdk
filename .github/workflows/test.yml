@@ -94,9 +94,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Chown
-        run: chown -R testbot:testbot .
-
       - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
         run: |
           git init && git add .
