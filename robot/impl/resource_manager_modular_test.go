@@ -460,7 +460,7 @@ func (m *dummyModMan) FailedModules() []string {
 	return nil
 }
 
-func (m *dummyModMan) UpdateFailedModules(newConfigModules []config.Module) {
+func (m *dummyModMan) ClearFailedModules() {
 }
 
 func TestTwoModulesSameName(t *testing.T) {

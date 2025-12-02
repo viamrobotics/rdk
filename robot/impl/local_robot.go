@@ -1517,7 +1517,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	// We update the failing modules tracker to remove any modules that are no longer in the config.
 	if r.manager.moduleManager != nil {
-		r.manager.moduleManager.UpdateFailedModules(newConfig.Modules)
+		r.manager.moduleManager.ClearFailedModules()
 	}
 
 	if diff.ResourcesEqual {

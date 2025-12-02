@@ -64,7 +64,7 @@ type moduleManager interface {
 	ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
 	FailedModules() []string
-	UpdateFailedModules(newConfigModules []config.Module)
+	ClearFailedModules()
 	AddToFailedModules(moduleName string)
 }
 

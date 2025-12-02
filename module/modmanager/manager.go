@@ -1165,13 +1165,10 @@ func (mgr *Manager) FailedModules() []string {
 	return failedModuleNames
 }
 
-// UpdateFailedModules clears the failedModules map at the start of reconfigure.
+// ClearFailedModules clears the failedModules map at the start of reconfigure.
 // Modules will be added to failedModules as they fail during the reconfigure process.
-func (mgr *Manager) UpdateFailedModules(newConfigModules []config.Module) {
+func (mgr *Manager) ClearFailedModules() {
 	mgr.failedModulesMu.Lock()
-	defer mgr.failedModulesMu.Unlock()
-
-	for k := range mgr.failedModules {
-		delete(mgr.failedModules, k)
-	}
+	mgr.failedModules = make(map[string]bool)
+	mgr.failedModulesMu.Unlock()
 }
