@@ -134,8 +134,8 @@ func (ac *AppConn) Close() error {
 
 func dialOpts(secret, id, apiKeyValue, apiKeyID string) []rpc.DialOption {
 	dialOpts := make([]rpc.DialOption, 0, 2)
-	// Only add credentials when secret is set.
-	if apiKeyValue != "" {
+	// Only add credentials when secret or API key is set.
+	if apiKeyValue != "" && apiKeyID != "" {
 		dialOpts = append(dialOpts, rpc.WithEntityCredentials(apiKeyID, rpc.Credentials{Type: rpc.CredentialsTypeAPIKey, Payload: apiKeyValue}))
 		return dialOpts
 	}

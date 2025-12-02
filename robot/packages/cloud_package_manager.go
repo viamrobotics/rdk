@@ -179,7 +179,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
 
 		// download package from a http endpoint
-		m.logger.Warnw("URL:", resp.Package.Url)
 		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p,
 			func(ctx context.Context, url, dstPath string) (string, string, error) {
 				statusFile := packageSyncFile{
@@ -403,7 +402,7 @@ func (m *cloudManager) downloadFileFromGCSURL(
 ) (string, string, error) {
 	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
-	if apiKey != "" {
+	if apiKey != "" && apiKeyID != "" {
 		getReq.Header.Add("key_id", apiKeyID)
 		getReq.Header.Add("key", apiKey)
 	} else {

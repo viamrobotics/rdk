@@ -36,10 +36,6 @@ func newPackageManager(t *testing.T,
 	testCloudConfig := &config.Cloud{
 		ID:     "some-id",
 		Secret: "some-secret",
-		APIKey: config.APIKey{
-			ID:    "some-api-key-id",
-			Value: "some-api-key-value",
-		},
 	}
 
 	pm, err := NewCloudManager(testCloudConfig, client, packageDir, logger)
