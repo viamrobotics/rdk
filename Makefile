@@ -30,13 +30,7 @@ setup:
 build: build-go
 
 build-go:
-	which -a go
-	echo PATH $(PATH)
-	whoami
-	pwd
-	ls -ls
-	exit 1
-	# go build ./...
+	go build ./...
 
 GO_FILES=$(shell find . -name "*.go")
 
