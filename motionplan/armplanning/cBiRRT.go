@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	maxPlanIter = 2500
+	maxPlanIter = 5000
 
 	// Maximum number of iterations that constrainedExtend will run before exiting.
 	maxExtendIter = 5000
@@ -283,7 +283,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	}
 
 	// Check if the arc of "seedInputs" to "target" is valid
-	_, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, newArc, mp.pc.planOpts.Resolution)
+	_, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, newArc, mp.pc.planOpts.Resolution, true)
 	if debugConstrainNear {
 		mp.logger.Infof("\t err %v", err)
 	}
@@ -351,6 +351,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			FS:                 mp.pc.fs,
 		},
 		mp.pc.planOpts.Resolution,
+		true,
 	)
 	if debugConstrainNear {
 		mp.logger.Infof("\t failpos: %v err: %v", failpos != nil, err)
@@ -436,7 +437,7 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 	// we try to find a balance between not making wild motions for simple motions
 	// while looking broadly for situations we have to make large movements to work around obstacles.
 
-	percent := min(1, float64(sampleNum)/1000.0)
+	percent := min(1, float64(sampleNum)/1000)
 
 	newInputs := referenceframe.NewLinearInputs()
 	for name, inputs := range rSeed.inputs.Items() {
