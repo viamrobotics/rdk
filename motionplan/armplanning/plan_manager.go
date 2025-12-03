@@ -251,23 +251,19 @@ func (pm *planManager) generateWaypoints(ctx context.Context, start, goal refere
 
 	waypoints := []referenceframe.FrameSystemPoses{}
 
-	from := start
-
 	for i := 1; i <= numSteps; i++ {
 		by := float64(i) / float64(numSteps)
 		to := referenceframe.FrameSystemPoses{}
 
 		for frameName, pif := range goal {
-			if from[frameName].Parent() != pif.Parent() {
-				return nil, false, fmt.Errorf("frame mismatch %v %v", from[frameName].Parent(), pif.Parent())
+			if start[frameName].Parent() != pif.Parent() {
+				return nil, false, fmt.Errorf("frame mismatch %v %v", start[frameName].Parent(), pif.Parent())
 			}
-			toPose := spatialmath.Interpolate(from[frameName].Pose(), pif.Pose(), by)
+			toPose := spatialmath.Interpolate(start[frameName].Pose(), pif.Pose(), by)
 			to[frameName] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
 		}
 
 		waypoints = append(waypoints, to)
-
-		from = to
 	}
 
 	return waypoints, tighestConstraint >= 10, nil
