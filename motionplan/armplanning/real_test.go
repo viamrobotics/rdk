@@ -380,3 +380,31 @@ func TestPirouette(t *testing.T) {
 		}
 	}
 }
+
+func TestBadPlanNoCrash(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	req, err := ReadRequestFromFile("data/bad-sand-plan.json")
+	test.That(t, err, test.ShouldBeNil)
+	_, _, err = PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func TestOrbPlanTooManySteps(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	req, err := ReadRequestFromFile("data/sanding-too-many-steps.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	plan, _, err := PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
+
+	traj := plan.Trajectory()
+	zeros := 0
+	for i := 1; i < len(traj); i++ {
+		d := referenceframe.InputsL2Distance(traj[i-1]["arm"], traj[i]["arm"])
+		if d == 0 {
+			zeros++
+		}
+	}
+	logger.Infof("zeros: %v / %v", zeros, len(traj))
+	test.That(t, zeros, test.ShouldBeLessThanOrEqualTo, 0)
+}

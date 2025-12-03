@@ -357,6 +357,7 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	ctx context.Context,
 	ci *SegmentFS,
 	resolution float64,
+	checkFinal bool,
 ) (*SegmentFS, error) {
 	ctx, span := trace.StartSpan(ctx, "CheckStateConstraintsAcrossSegmentFS")
 	defer span.End()
@@ -368,7 +369,11 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 
 	var lastGood *referenceframe.LinearInputs
 
-	for i := 0; i < len(interpolatedConfigurations); i++ {
+	end := len(interpolatedConfigurations)
+	if !checkFinal {
+		end--
+	}
+	for i := 0; i < end; i++ {
 		interpConfig := interpolatedConfigurations[i]
 		interpC := &StateFS{FS: ci.FS, Configuration: interpConfig}
 		closestObstacle, err := c.CheckStateFSConstraints(ctx, interpC)

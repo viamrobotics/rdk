@@ -17,7 +17,7 @@ func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []*ref
 	defer span.End()
 	// look at each triplet, see if we can remove the middle one
 	for i := step + 1; i < len(steps); i += step {
-		err := psc.checkPath(ctx, steps[i-step-1], steps[i])
+		err := psc.checkPath(ctx, steps[i-step-1], steps[i], false)
 		if err != nil {
 			continue
 		}

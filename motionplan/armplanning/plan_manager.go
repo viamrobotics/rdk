@@ -83,6 +83,11 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 
 			if len(subGoals) > 1 {
 				pm.logger.Infof("\t generateWaypoint turned into %d subGoals cbirrtAllowed: %v", len(subGoals), cbirrtAllowed)
+				pm.logger.Debugf("\t start: %v\n", start)
+				pm.logger.Debugf("\t to   : %v\n", to)
+				for _, sg := range subGoals {
+					pm.logger.Debugf("\t\t sg: %v", sg)
+				}
 			}
 
 			for subGoalIdx, sg := range subGoals {
@@ -129,7 +134,7 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
-	err = psc.checkPath(ctx, start, fullConfig)
+	err = psc.checkPath(ctx, start, fullConfig, false)
 	if err == nil {
 		return []*referenceframe.LinearInputs{fullConfig}, nil
 	}
@@ -232,7 +237,11 @@ func (pm *planManager) generateWaypoints(ctx context.Context, start, goal refere
 
 	numSteps := 0
 	for frame, pif := range goal {
-		steps := motionplan.CalculateStepCount(start[frame].Pose(), pif.Pose(), stepSize)
+		startPIF, ok := start[frame]
+		if !ok {
+			return nil, true, fmt.Errorf("frame system broken?? %v and %v aren't connected?", frame, pif.Parent())
+		}
+		steps := motionplan.CalculateStepCount(startPIF.Pose(), pif.Pose(), stepSize)
 		if steps > numSteps {
 			numSteps = steps
 		}
@@ -242,23 +251,19 @@ func (pm *planManager) generateWaypoints(ctx context.Context, start, goal refere
 
 	waypoints := []referenceframe.FrameSystemPoses{}
 
-	from := start
-
 	for i := 1; i <= numSteps; i++ {
 		by := float64(i) / float64(numSteps)
 		to := referenceframe.FrameSystemPoses{}
 
 		for frameName, pif := range goal {
-			if from[frameName].Parent() != pif.Parent() {
-				return nil, false, fmt.Errorf("frame mismatch %v %v", from[frameName].Parent(), pif.Parent())
+			if start[frameName].Parent() != pif.Parent() {
+				return nil, false, fmt.Errorf("frame mismatch %v %v", start[frameName].Parent(), pif.Parent())
 			}
-			toPose := spatialmath.Interpolate(from[frameName].Pose(), pif.Pose(), by)
+			toPose := spatialmath.Interpolate(start[frameName].Pose(), pif.Pose(), by)
 			to[frameName] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
 		}
 
 		waypoints = append(waypoints, to)
-
-		from = to
 	}
 
 	return waypoints, tighestConstraint >= 10, nil
