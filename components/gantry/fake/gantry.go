@@ -42,9 +42,14 @@ func makeGantryModel(cfg resource.Config, newConf *Config) (referenceframe.Model
 	case modelPath != "":
 		model, err = referenceframe.KinematicModelFromFile(modelPath, cfg.Name)
 	default:
-		// if no arm model is specified, we return a fake arm with 1 dof and 0 spatial transformation
+		// if no gantry model is specified, we return a default one.
 		model, err = referenceframe.UnmarshalModelJSON(gantryModelJSON, cfg.Name)
 	}
+
+	if (len(model.DoF()) != 1) {
+		return nil, fmt.Errorf("gantry model must have exactly one degree of freedom, got %d", len(model.DoF()))
+	}
+
 	return model, err
 }
 
@@ -80,9 +85,9 @@ func NewGantry(conf resource.Config, logger logging.Logger) (gantry.Gantry, erro
 		testutils.NewUnimplementedResource(conf.ResourceName()),
 		resource.TriviallyReconfigurable{},
 		resource.TriviallyCloseable{},
-		[]float64{120},
+		[]float64{m.DoF()[0].Max / 2},
 		[]float64{50},
-		[]float64{350},
+		[]float64{m.DoF()[0].Max},
 		m,
 		logger,
 	}, nil

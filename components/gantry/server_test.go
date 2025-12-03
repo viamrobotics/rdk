@@ -254,7 +254,7 @@ func TestServer(t *testing.T) {
 	t.Run("geometries", func(t *testing.T) {
 		// geometries only works for single axis (multi-axis is a controller of multiple single-axis gantries)
 		injectGantry.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-			return []float64{1.0}, nil
+			return []float64{51.0}, nil
 		}
 		geometries, err := gantryServer.GetGeometries(context.Background(), &commonpb.GetGeometriesRequest{Name: testGantryName})
 		test.That(t, err, test.ShouldBeNil)
@@ -266,7 +266,7 @@ func TestServer(t *testing.T) {
 				&commonpb.Pose{
 					X:     1.0,
 					Y:     0.0,
-					Z:     0.0,
+					Z:     5.0,
 					OX:    0.0,
 					OY:    0.0,
 					OZ:    1.0,
