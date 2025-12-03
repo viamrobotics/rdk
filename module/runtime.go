@@ -14,8 +14,11 @@ import (
 	"go.viam.com/rdk/robot/client"
 )
 
-func modMain(address string, models ...resource.APIModel) func(context.Context, []string, logging.Logger) error {
-	return func(ctx context.Context, args []string, logger logging.Logger) error {
+func moduleStartWithContext(
+	address string,
+	models ...resource.APIModel,
+) func(context.Context, []string, logging.Logger) (context.Context, *Module, error) {
+	return func(ctx context.Context, args []string, logger logging.Logger) (context.Context, *Module, error) {
 		info, ok := debug.ReadBuildInfo()
 		if ok {
 			logger.Infof("module version: %s, go version: %s", info.Main.Version, info.GoVersion)
@@ -23,12 +26,12 @@ func modMain(address string, models ...resource.APIModel) func(context.Context, 
 
 		mod, err := NewModule(ctx, address, logger)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
 
 		for _, apiModel := range models {
 			if err = mod.AddModelFromRegistry(ctx, apiModel.API, apiModel.Model); err != nil {
-				return err
+				return nil, nil, err
 			}
 		}
 
@@ -66,15 +69,12 @@ func modMain(address string, models ...resource.APIModel) func(context.Context, 
 				}
 			})
 		}
-
-		err = mod.Start(ctx)
-		defer mod.Close(ctx)
-		if err != nil {
-			return err
+		if err = mod.Start(ctx); err != nil {
+			mod.Close(ctx)
+			return nil, nil, err
 		}
 
-		<-ctx.Done()
-		return ctx.Err()
+		return ctx, mod, nil
 	}
 }
 
@@ -85,8 +85,13 @@ func ModularMain(models ...resource.APIModel) {
 		if len(os.Args) < 2 {
 			return errors.New("need socket path as command line argument")
 		}
-		err := modMain(os.Args[1], models...)(ctx, args, NewLoggerFromArgs(""))
-		return utils.FilterOutError(err, context.Canceled)
+		modCtx, mod, err := moduleStartWithContext(os.Args[1], models...)(ctx, args, NewLoggerFromArgs(""))
+		if err != nil {
+			return err
+		}
+		defer mod.Close(ctx)
+		<-modCtx.Done()
+		return utils.FilterOutError(modCtx.Err(), context.Canceled)
 	}
 
 	// On systems with SIGPIPE such as Unix, using SIGPIPE to signal a module shutdown
