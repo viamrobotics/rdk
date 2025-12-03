@@ -4,21 +4,21 @@ import (
 	"context"
 	"math"
 	"math/rand"
+	"strings"
 
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
 
 type planContext struct {
 	fs  *referenceframe.FrameSystem
 	lis *referenceframe.LinearInputsSchema
 
-	boundingRegions []spatialmath.Geometry
+	movableFrames []string
 
 	configurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
@@ -49,14 +49,11 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 		return nil, err
 	}
 
-	// pc.lfs, err = newLinearizedFrameSystem(pc.fs, pc.lis.FrameNamesInOrder())
-	// if err != nil {
-	//  	return nil, err
-	// }
-
-	pc.boundingRegions, err = referenceframe.NewGeometriesFromProto(request.BoundingRegions)
-	if err != nil {
-		return nil, err
+	for _, fn := range pc.fs.FrameNames() {
+		f := pc.fs.Frame(fn)
+		if len(f.DoF()) > 0 {
+			pc.movableFrames = append(pc.movableFrames, fn)
+		}
 	}
 
 	return pc, nil
@@ -133,8 +130,7 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 		movingRobotGeometries, staticRobotGeometries,
 		start,
 		pc.request.WorldState,
-		pc.boundingRegions,
-		false,
+		pc.logger.Sublogger("constraint"),
 	)
 	if err != nil {
 		return nil, err
@@ -143,10 +139,10 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 	return psc, nil
 }
 
-func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs) error {
-	_, span := trace.StartSpan(ctx, "checkPath")
+func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs, checkFinal bool) error {
+	ctx, span := trace.StartSpan(ctx, "checkPath")
 	defer span.End()
-	_, err := psc.checker.CheckSegmentAndStateValidityFS(
+	_, err := psc.checker.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: start,
@@ -154,17 +150,9 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *refere
 			FS:                 psc.pc.fs,
 		},
 		psc.pc.planOpts.Resolution,
+		checkFinal,
 	)
 	return err
-}
-
-func (psc *planSegmentContext) checkInputs(ctx context.Context, inputs *referenceframe.LinearInputs) bool {
-	return psc.checker.CheckStateFSConstraints(
-		ctx,
-		&motionplan.StateFS{
-			Configuration: inputs,
-			FS:            psc.pc.fs,
-		}) == nil
 }
 
 func translateGoalsToWorldPosition(
@@ -182,4 +170,19 @@ func translateGoalsToWorldPosition(
 		alteredGoals[f] = tf.(*referenceframe.PoseInFrame)
 	}
 	return alteredGoals, nil
+}
+
+func (pc *planContext) isFatalCollision(err error) bool {
+	s := err.Error()
+	if strings.Contains(s, "obstacle constraint: violation") {
+		hasMovingFrame := false
+		for _, f := range pc.movableFrames {
+			if strings.Contains(s, f) {
+				hasMovingFrame = true
+				break
+			}
+		}
+		return !hasMovingFrame
+	}
+	return false
 }

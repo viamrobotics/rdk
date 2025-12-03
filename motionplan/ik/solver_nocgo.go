@@ -13,7 +13,6 @@ import (
 
 // CreateNloptSolver is not supported on no_cgo builds.
 func CreateNloptSolver(
-	limits []referenceframe.Limit,
 	logger logging.Logger,
 	iter int,
 	exact, useRelTol bool,
@@ -28,11 +27,11 @@ type NloptIK struct{}
 func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
 	seeds [][]float64,
-	travelPercent []float64,
+	limits [][]referenceframe.Limit,
 	minFunc CostFunc,
 	rseed int,
-) (int, error) {
-	return 0, errors.New("Cannot solve without cgo")
+) (int, []SeedSolveMetaData, error) {
+	return 0, nil, errors.New("Cannot solve without cgo")
 }
 
 // DoF returns nil. The solver isn't real.

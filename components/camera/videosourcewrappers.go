@@ -6,9 +6,10 @@ import (
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -255,7 +256,7 @@ func (vs *videoSource) Images(
 		}
 	}()
 	ts := time.Now()
-	namedImg, err := NamedImageFromImage(img, "", utils.MimeTypeJPEG)
+	namedImg, err := NamedImageFromImage(img, "", utils.MimeTypeJPEG, data.Annotations{})
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, err
 	}

@@ -4,21 +4,26 @@ package armplanning
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
 func TestOrbOneSeed(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -40,13 +45,14 @@ func TestOrbOneSeed(t *testing.T) {
 			b := plan.Trajectory()[1]["sanding-ur5"]
 
 			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .005)
-			test.That(t, meta.Duration.Milliseconds(), test.ShouldBeGreaterThan, 0)
+			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeGreaterThan, 0)
+			test.That(t, meta.Duration, test.ShouldBeGreaterThan, 0)
 		})
 	}
 }
 
 func TestOrbManySeeds(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -60,7 +66,7 @@ func TestOrbManySeeds(t *testing.T) {
 
 		for i := 0; i < 100; i++ {
 			t.Run(fmt.Sprintf("%s-%d", fp, i), func(t *testing.T) {
-				logger := logging.NewTestLogger(t)
+				logger := newChattyMotionPlanTestLogger(t)
 
 				req.PlannerOptions.RandomSeed = i
 				plan, _, err := PlanMotion(context.Background(), logger, req)
@@ -76,7 +82,7 @@ func TestOrbManySeeds(t *testing.T) {
 }
 
 func TestPourManySeeds(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -86,7 +92,7 @@ func TestPourManySeeds(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		t.Run(fmt.Sprintf("seed-%d", i), func(t *testing.T) {
-			logger := logging.NewTestLogger(t)
+			logger := newChattyMotionPlanTestLogger(t)
 
 			req.PlannerOptions.RandomSeed = i
 			plan, _, err := PlanMotion(context.Background(), logger, req)
@@ -101,7 +107,7 @@ func TestPourManySeeds(t *testing.T) {
 }
 
 func TestWineCrazyTouch1(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -127,7 +133,7 @@ func TestWineCrazyTouch1(t *testing.T) {
 }
 
 func TestWineCrazyTouch2(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -137,26 +143,39 @@ func TestWineCrazyTouch2(t *testing.T) {
 	req, err := ReadRequestFromFile("data/wine-crazy-touch2.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	plan, _, err := PlanMotion(context.Background(), logger, req)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("regular", func(t *testing.T) {
+		plan, _, err := PlanMotion(context.Background(), logger, req)
+		test.That(t, err, test.ShouldBeNil)
 
-	orig := plan.Trajectory()[0]["arm-right"]
-	for _, tt := range plan.Trajectory() {
-		now := tt["arm-right"]
-		logger.Info(now)
-		test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
-	}
+		orig := plan.Trajectory()[0]["arm-right"]
+		for _, tt := range plan.Trajectory() {
+			now := tt["arm-right"]
+			logger.Info(now)
+			test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
+		}
 
-	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
+		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
+	})
+
+	t.Run("orientation", func(t *testing.T) {
+		req.Constraints.OrientationConstraint = append(req.Constraints.OrientationConstraint,
+			motionplan.OrientationConstraint{60})
+
+		plan, _, err := PlanMotion(context.Background(), logger, req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
+	})
 }
 
 func TestSandingLargeMove1(t *testing.T) {
-	if Is32Bit() {
+	name := "ur20-modular"
+
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
 
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewTestLogger(t).Sublogger("mp")
 	ctx := context.Background()
 
 	start := time.Now()
@@ -164,6 +183,55 @@ func TestSandingLargeMove1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
+	{
+		ss, err := smartSeed(req.FrameSystem, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		seeds, _, err := ss.findSeeds(ctx, req.Goals[0].poses, req.StartState.LinearConfiguration(), 5, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(seeds), test.ShouldBeGreaterThan, 1)
+
+		hasPos := false
+		hasNeg := false
+
+		for _, s := range seeds {
+			v := s.Get(name)[0]
+			if v > 0 {
+				hasPos = true
+			} else if v < 0 && v > -1 {
+				hasNeg = true
+			}
+			logger.Debugf("seed %v", s)
+		}
+		test.That(t, hasPos, test.ShouldBeTrue)
+		test.That(t, hasNeg, test.ShouldBeTrue)
+
+		seeds, seedLimits, err := ss.findSeeds(ctx, req.Goals[0].poses, req.StartState.LinearConfiguration(), -1, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(seeds), test.ShouldBeGreaterThan, 3)
+		test.That(t, len(seeds), test.ShouldBeLessThan, 500)
+		test.That(t, len(seedLimits), test.ShouldEqual, 6)
+
+		lis, err := req.StartState.LinearConfiguration().GetSchema(req.FrameSystem)
+		test.That(t, err, test.ShouldBeNil)
+
+		goodSets := [][]float64{
+			{-0.78, -0.19, 1.26, -2.58, -1.48, 3.95},
+			{5.51, -0.19, 1.26, -2.58, -1.48, -2.33},
+		}
+		for _, goodJoints := range goodSets {
+			numGood := 0
+			for i, s := range seeds {
+				ll := ik.ComputeAdjustLimitsArray(s.GetLinearizedInputs(), lis.GetLimits(), seedLimits)
+				if !referenceframe.AreInputsValid(ll, goodJoints) {
+					continue
+				}
+				logger.Infof("good %d %v", i, logging.FloatArrayFormat{"%0.2f", s.GetLinearizedInputs()})
+				numGood++
+			}
+			test.That(t, numGood, test.ShouldBeGreaterThan, 0)
+		}
+	}
 
 	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
@@ -171,19 +239,33 @@ func TestSandingLargeMove1(t *testing.T) {
 	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
-	solution, err := initRRTSolutions(context.Background(), psc)
+	solution, err := initRRTSolutions(context.Background(), psc, logger.Sublogger("solve"))
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(solution.steps), test.ShouldEqual, 1)
+
+	sta := req.StartState.LinearConfiguration().Get(name)
+	res := solution.steps[0].Get(name)
+	lim := req.FrameSystem.Frame(name).DoF()
+
+	p, err := req.FrameSystem.Frame(name).Transform(res)
+	test.That(t, err, test.ShouldBeNil)
+	logger.Infof("final arm pose: %v", p)
+
+	for j, startPosition := range sta {
+		_, _, r := lim[j].GoodLimits()
+		delta := math.Abs(startPosition - res[j])
+		logger.Infof("j: %d start: %0.2f end: %0.2f delta: %0.2f ratio: %0.2f", j, startPosition, res[j], delta, delta/r)
+	}
 }
 
 func TestBadSpray1(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
 
-	logger := logging.NewTestLogger(t)
+	logger := newChattyMotionPlanTestLogger(t)
 
 	start := time.Now()
 	req, err := ReadRequestFromFile("data/spray-bad1.json")
@@ -191,12 +273,28 @@ func TestBadSpray1(t *testing.T) {
 
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
 
-	_, _, err = PlanMotion(context.Background(), logger, req)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("basic", func(t *testing.T) {
+		_, _, err = PlanMotion(context.Background(), logger, req)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("toofar", func(t *testing.T) {
+		req.Goals = []*PlanState{
+			{
+				poses: referenceframe.FrameSystemPoses{
+					"arm": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 10000000})),
+				},
+			},
+		}
+		req.Constraints = nil
+		_, _, err = PlanMotion(context.Background(), logger, req)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, errors.Is(err, &tooFarError{}), test.ShouldBeTrue)
+	})
 }
 
 func TestPirouette(t *testing.T) {
-	if Is32Bit() {
+	if IsTooSmallForCache() {
 		t.Skip()
 		return
 	}
@@ -238,7 +336,9 @@ func TestPirouette(t *testing.T) {
 		// iterate through pifs and create a plan which gets the arm there
 		for i, p := range pifs {
 			t.Run(fmt.Sprintf("iteration-%d-%d", iter, i), func(t *testing.T) {
-				logger := logging.NewTestLogger(t)
+				testLogger := logging.NewTestLogger(t)
+				mpLogger := newChattyMotionPlanTestLogger(t)
+
 				// construct req and get the plan
 				goalState := NewPlanState(map[string]*referenceframe.PoseInFrame{armName: p}, nil)
 
@@ -247,7 +347,7 @@ func TestPirouette(t *testing.T) {
 					Goals:       []*PlanState{goalState},
 					StartState:  startState,
 				}
-				plan, _, err := PlanMotion(context.Background(), logger, req)
+				plan, _, err := PlanMotion(context.Background(), mpLogger, req)
 				test.That(t, err, test.ShouldBeNil)
 
 				traj := plan.Trajectory()
@@ -266,8 +366,8 @@ func TestPirouette(t *testing.T) {
 				idealPreviousJ0Value := idealJointValues[prevIndex][0]
 				expectedJ0Change := math.Abs(idealJ0Value-idealPreviousJ0Value) + 2e-2 // add buffer of 1.15 degrees
 
-				logger.Infof("motionplan's trajectory: %v", traj)
-				logger.Infof("ideal trajectory: \n%v\n%v\n", idealJointValues[prevIndex], idealJointValues[i])
+				testLogger.Infof("motionplan's trajectory: %v", traj)
+				testLogger.Infof("ideal trajectory: \n%v\n%v\n", idealJointValues[prevIndex], idealJointValues[i])
 
 				// determine if a pirouette happened
 				// in order to satisfy our desired pose in frame while execeeding the expected change in joint 0 a pirouette was necessary
@@ -279,4 +379,12 @@ func TestPirouette(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestBadPlanNoCrash(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	req, err := ReadRequestFromFile("data/bad-sand-plan.json")
+	test.That(t, err, test.ShouldBeNil)
+	_, _, err = PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldNotBeNil)
 }

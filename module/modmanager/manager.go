@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/pkg/errors"
@@ -64,6 +65,7 @@ func NewManager(
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
 		modPeerConnTracker:      options.ModPeerConnTracker,
+		failedModules:           make(map[string]bool),
 	}
 	return ret, nil
 }
@@ -150,6 +152,9 @@ type Manager struct {
 	// modPeerConnTracker must be updated as modules create/destroy any underlying WebRTC
 	// PeerConnections.
 	modPeerConnTracker *rdkgrpc.ModPeerConnTracker
+
+	failedModulesMu sync.RWMutex
+	failedModules   map[string]bool
 }
 
 // Close terminates module connections and processes.
@@ -255,6 +260,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		// The config was already validated, but we must check again before attempting to add.
 		if err := conf.Validate(""); err != nil {
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
+			mgr.AddToFailedModules(conf.Name)
 			errs[i] = err
 			continue
 		}
@@ -269,9 +275,12 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
 				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
+				mgr.AddToFailedModules(conf.Name)
 				errs[i] = err
 				return
 			}
+			// module started successfully, remove it from failedModules
+			mgr.deleteFromFailedModules(conf.Name)
 		}(i, conf)
 	}
 	wg.Wait()
@@ -427,9 +436,14 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	mod.logger.CInfow(ctx, "Existing module process stopped. Starting new module process", "module", conf.Name)
 
 	if err := mgr.startModule(ctx, mod); err != nil {
+		// could not start module during reconfiguration, add it to failedModules
+		mgr.AddToFailedModules(conf.Name)
 		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
+
+	// reconfiguration successful, remove from failed modules
+	mgr.deleteFromFailedModules(conf.Name)
 
 	mod.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
@@ -846,6 +860,9 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
 
+		// Add to failedModules when crash is detected
+		mgr.AddToFailedModules(mod.cfg.Name)
+
 		// There are two relevant calls that may race with a crashing module:
 		// 1. mgr.Remove, which wants to stop the module and remove it entirely
 		// 2. mgr.Reconfigure, which wants to stop the module and replace it with
@@ -898,8 +915,12 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 
 			err := mgr.attemptRestart(ctx, mod)
 			if err == nil {
+				// restart successful, remove module from failedModules
+				mgr.deleteFromFailedModules(mod.cfg.Name)
 				break
 			}
+			// could not restart crashed module, add it to failedModules
+			mgr.AddToFailedModules(mod.cfg.Name)
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
 		}
@@ -1099,6 +1120,8 @@ func DepsToNames(deps resource.Dependencies) []string {
 // options.ViamHomeDir/module-data/<cloud-robot-id>
 // For local robots, it should be in the form
 // options.ViamHomeDir/module-data/local.
+// For local robots in a testing environment (where no cloud ID is set), it should be in the form:
+// [temp-dir]/module-data/local-testing-[random-string-to-avoid-collisions].
 //
 // If no ViamHomeDir is provided, this will return an empty moduleDataParentDirectory (and no module data directories will be created).
 func getModuleDataParentDirectory(options modmanageroptions.Options) string {
@@ -1109,7 +1132,43 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	}
 	robotID := options.RobotCloudID
 	if robotID == "" {
+		if testing.Testing() {
+			return filepath.Join(os.TempDir(), parentModuleDataFolderName, "local-testing-"+utils.RandomAlphaString(5))
+		}
+
 		robotID = "local"
 	}
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
+}
+
+// AddToFailedModules adds a failing module to the failedModules map.
+func (mgr *Manager) AddToFailedModules(moduleName string) {
+	mgr.failedModulesMu.Lock()
+	mgr.failedModules[moduleName] = true
+	mgr.failedModulesMu.Unlock()
+}
+
+func (mgr *Manager) deleteFromFailedModules(moduleName string) {
+	mgr.failedModulesMu.Lock()
+	delete(mgr.failedModules, moduleName)
+	mgr.failedModulesMu.Unlock()
+}
+
+// FailedModules returns the names of all failing modules.
+func (mgr *Manager) FailedModules() []string {
+	mgr.failedModulesMu.RLock()
+	defer mgr.failedModulesMu.RUnlock()
+	var failedModuleNames []string
+	for moduleName := range mgr.failedModules {
+		failedModuleNames = append(failedModuleNames, moduleName)
+	}
+	return failedModuleNames
+}
+
+// ClearFailedModules clears the failedModules map at the start of reconfigure.
+// Modules will be added to failedModules as they fail during the reconfigure process.
+func (mgr *Manager) ClearFailedModules() {
+	mgr.failedModulesMu.Lock()
+	mgr.failedModules = make(map[string]bool)
+	mgr.failedModulesMu.Unlock()
 }

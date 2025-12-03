@@ -6,9 +6,9 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
+	"go.viam.com/utils/trace"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
 	"go.viam.com/rdk/logging"
@@ -129,10 +129,11 @@ func (s *serviceServer) GetImages(
 		}
 		format := utils.MimeTypeToFormat[img.MimeType()]
 		imgMes := &pb.Image{
-			SourceName: img.SourceName,
-			Format:     format,
-			MimeType:   img.MimeType(),
-			Image:      imgBytes,
+			SourceName:  img.SourceName,
+			Format:      format,
+			MimeType:    img.MimeType(),
+			Image:       imgBytes,
+			Annotations: img.Annotations().ToProto(),
 		}
 		imagesMessage = append(imagesMessage, imgMes)
 	}
@@ -178,6 +179,10 @@ func (s *serviceServer) GetPointCloud(
 	camera, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
+	}
+
+	if camClient, ok := camera.(*client); ok {
+		return camClient.client.GetPointCloud(ctx, req)
 	}
 
 	pc, err := camera.NextPointCloud(ctx, req.Extra.AsMap())

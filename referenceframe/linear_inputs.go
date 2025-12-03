@@ -112,6 +112,7 @@ func (lis *LinearInputsSchema) Jog(linearizedInputIdx int, val, percentJog float
 		metas = metas[1:]
 	}
 
+	//nolint: revive
 	_, max, r := metas[0].frame.DoF()[linearizedInputIdx].GoodLimits()
 	x := r * percentJog
 
@@ -268,4 +269,12 @@ func (li *LinearInputs) ToFrameSystemInputs() FrameSystemInputs {
 	}
 
 	return ret
+}
+
+// CopyWithZeros makes a new copy with everything zero
+func (li *LinearInputs) CopyWithZeros() *LinearInputs {
+	return &LinearInputs{
+		schema: li.schema,
+		inputs: make([]Input, len(li.inputs)),
+	}
 }

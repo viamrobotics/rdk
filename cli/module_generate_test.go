@@ -22,6 +22,7 @@ import (
 )
 
 func TestGenerateModuleAction(t *testing.T) {
+	t.Parallel()
 	testModule := modulegen.ModuleInputs{
 		ModuleName:       "my-module",
 		IsPublic:         false,

@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
@@ -120,9 +121,13 @@ func newHelper(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
 	// VIAM_TESTMODULE_FAIL_ON_FIRST will always fail the first attempt at construction
-	if os.Getenv("VIAM_TESTMODULE_FAIL_ON_FIRST") != "" && !attemptedConstruction {
-		attemptedConstruction = true
-		return nil, errors.New("gotta fail fast")
+	if os.Getenv("VIAM_TESTMODULE_FAIL_ON_FIRST") != "" {
+		if !attemptedConstruction {
+			attemptedConstruction = true
+			logger.Warn("VIAM_TESTMODULE_FAIL_ON_FIRST causing intentional failure")
+			return nil, errors.New("gotta fail fast")
+		}
+		logger.Info("VIAM_TESTMODULE_FAIL_ON_FIRST not failing this time")
 	}
 	var dependsOnSensor sensor.Sensor
 	var err error
@@ -230,6 +235,9 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 	case "do_readings_on_dep":
 		_, err := h.dependsOnSensor.Readings(ctx, nil)
 		return nil, err
+	case "get_trace_id":
+		traceID := trace.FromContext(ctx).SpanContext().TraceID().String()
+		return map[string]any{"trace_id": traceID}, nil
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)
 	}

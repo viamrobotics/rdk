@@ -54,23 +54,27 @@ cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
 
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install \
-		github.com/golangci/golangci-lint/cmd/golangci-lint \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
 		gotest.tools/gotestsum \
 		github.com/rhysd/actionlint/cmd/actionlint \
 		golang.org/x/tools/cmd/stringer
 
-lint: lint-go
+lint: lint-go actionlint
+
+actionlint:
 	PATH=$(PATH_WITH_TOOLS) actionlint
 
 generate-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) go generate ./...
 
-lint-go: tool-install
+# Yes this regex could be more specific but making it more specific in a way
+# that works the same across GNU and BSD grep isn't currently worth the effort.
+GOVERSION = $(shell grep '^go .\..' go.mod | head -n1 | cut -d' ' -f2)
+lint-go:
 	go mod tidy
-	GOGC=50 $(TOOL_BIN)/golangci-lint run --config=./etc/.golangci.yaml || true
-	GOGC=50 $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
+	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run --config=./etc/.golangci.yaml || true
+	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run -v --fix --config=./etc/.golangci.yaml
 	./etc/lint_register_apis.sh
 
 cover-only: tool-install

@@ -14,16 +14,17 @@ import (
 
 	"github.com/pion/rtp"
 	"github.com/viamrobotics/webrtc/v3"
-	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	streampb "go.viam.com/api/stream/v1"
 	goutils "go.viam.com/utils"
 	goprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 	"golang.org/x/exp/slices"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -236,7 +237,7 @@ func (c *client) Images(
 			// format. We will remove this once we remove the format field from the proto.
 			img.MimeType = utils.FormatToMimeType[img.Format]
 		}
-		namedImg, err := NamedImageFromBytes(img.Image, img.SourceName, img.MimeType)
+		namedImg, err := NamedImageFromBytes(img.Image, img.SourceName, img.MimeType, data.AnnotationsFromProto(img.Annotations))
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}

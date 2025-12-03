@@ -12,7 +12,7 @@ import (
 
 var enforceCreateCommandWithT = &analysis.Analyzer{
 	Name: "createcommandwitht",
-	Doc:  "Use CreateCommandWithT",
+	Doc:  "Enforces CreateCommandWithT usage in the CLI codebase",
 	Run:  enforceCreateCommandWithTRun,
 }
 

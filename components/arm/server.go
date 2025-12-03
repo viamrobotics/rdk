@@ -180,7 +180,12 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 			}
 			jointPositionsPb := jointPbResp.GetPositions()
 
-			gifs, err := model.Geometries(jointPositionsPb.Values)
+			// Joint positions are in degrees but model.Geometries expects radians, so we convert them here.
+			jointPositionsRads, err := referenceframe.InputsFromJointPositions(model, jointPositionsPb)
+			if err != nil {
+				return nil, err
+			}
+			gifs, err := model.Geometries(jointPositionsRads)
 			if err != nil {
 				return nil, err
 			}
@@ -190,6 +195,19 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 		return nil, err
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
+}
+
+// Get3DModels returns the 3D models of the arm.
+func (s *serviceServer) Get3DModels(ctx context.Context, req *commonpb.Get3DModelsRequest) (*commonpb.Get3DModelsResponse, error) {
+	arm, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	models, err := arm.Get3DModels(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.Get3DModelsResponse{Models: models}, nil
 }
 
 // GetKinematics returns the kinematics information associated with the arm.
