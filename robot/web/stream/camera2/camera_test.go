@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	camerautils "go.viam.com/rdk/robot/web/stream/camera2"
@@ -20,9 +21,9 @@ import (
 
 func TestGetStreamableNamedImageFromCamera(t *testing.T) {
 	sourceImg := image.NewRGBA(image.Rect(0, 0, 1, 1))
-	unstreamableImg, err := camera.NamedImageFromImage(sourceImg, "unstreamable", "image/undefined")
+	unstreamableImg, err := camera.NamedImageFromImage(sourceImg, "unstreamable", "image/undefined", data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
-	streamableImg, err := camera.NamedImageFromImage(sourceImg, "streamable", utils.MimeTypePNG)
+	streamableImg, err := camera.NamedImageFromImage(sourceImg, "streamable", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("no images", func(t *testing.T) {
@@ -101,7 +102,7 @@ func TestGetStreamableNamedImageFromCamera(t *testing.T) {
 
 func TestVideoSourceFromCamera(t *testing.T) {
 	sourceImg := image.NewRGBA(image.Rect(0, 0, 4, 4))
-	namedImg, err := camera.NamedImageFromImage(sourceImg, "test", utils.MimeTypePNG)
+	namedImg, err := camera.NamedImageFromImage(sourceImg, "test", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 	cam := &inject.Camera{
 		ImagesFunc: func(
@@ -127,7 +128,7 @@ func TestVideoSourceFromCamera(t *testing.T) {
 }
 
 func TestVideoSourceFromCameraFailure(t *testing.T) {
-	malformedNamedImage, err := camera.NamedImageFromBytes([]byte("not a valid image"), "source", utils.MimeTypePNG)
+	malformedNamedImage, err := camera.NamedImageFromBytes([]byte("not a valid image"), "source", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 	malformedCam := &inject.Camera{
 		ImagesFunc: func(
@@ -152,7 +153,7 @@ func TestVideoSourceFromCameraFailure(t *testing.T) {
 
 func TestVideoSourceFromCameraWithNonsenseMimeType(t *testing.T) {
 	sourceImg := image.NewRGBA(image.Rect(0, 0, 4, 4))
-	namedImg, err := camera.NamedImageFromImage(sourceImg, "test", "image/undefined")
+	namedImg, err := camera.NamedImageFromImage(sourceImg, "test", "image/undefined", data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	camWithNonsenseMimeType := &inject.Camera{
@@ -178,9 +179,9 @@ func TestVideoSourceFromCameraWithNonsenseMimeType(t *testing.T) {
 
 func TestVideoSourceFromCamera_SourceSelection(t *testing.T) {
 	sourceImg := image.NewRGBA(image.Rect(0, 0, 4, 4))
-	unstreamableImg, err := camera.NamedImageFromImage(sourceImg, "unstreamable", "image/undefined")
+	unstreamableImg, err := camera.NamedImageFromImage(sourceImg, "unstreamable", "image/undefined", data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
-	streamableImg, err := camera.NamedImageFromImage(sourceImg, "streamable", utils.MimeTypePNG)
+	streamableImg, err := camera.NamedImageFromImage(sourceImg, "streamable", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{
@@ -217,9 +218,9 @@ func TestVideoSourceFromCamera_Recovery(t *testing.T) {
 	sourceImg1 := image.NewRGBA(image.Rect(0, 0, 4, 4))
 	sourceImg2 := image.NewRGBA(image.Rect(0, 0, 6, 6))
 
-	goodNamedImage, err := camera.NamedImageFromImage(sourceImg1, "good", utils.MimeTypePNG)
+	goodNamedImage, err := camera.NamedImageFromImage(sourceImg1, "good", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
-	fallbackNamedImage, err := camera.NamedImageFromImage(sourceImg2, "fallback", utils.MimeTypeJPEG)
+	fallbackNamedImage, err := camera.NamedImageFromImage(sourceImg2, "fallback", utils.MimeTypeJPEG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	firstSourceFailed := false
@@ -324,9 +325,9 @@ func TestVideoSourceFromCamera_ImagesError(t *testing.T) {
 func TestVideoSourceFromCamera_MultipleStreamableSources(t *testing.T) {
 	imageGood1 := image.NewRGBA(image.Rect(0, 0, 4, 4))
 	imageGood2 := image.NewRGBA(image.Rect(0, 0, 6, 6))
-	namedA, err := camera.NamedImageFromImage(imageGood1, "good1", utils.MimeTypePNG)
+	namedA, err := camera.NamedImageFromImage(imageGood1, "good1", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
-	namedB, err := camera.NamedImageFromImage(imageGood2, "good2", utils.MimeTypeJPEG)
+	namedB, err := camera.NamedImageFromImage(imageGood2, "good2", utils.MimeTypeJPEG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{
@@ -361,9 +362,9 @@ func TestVideoSourceFromCamera_MultipleStreamableSources(t *testing.T) {
 
 func TestVideoSourceFromCamera_NoStreamableSources(t *testing.T) {
 	src := image.NewRGBA(image.Rect(0, 0, 2, 2))
-	unstream1, err := camera.NamedImageFromImage(src, "bad1", "image/undefined")
+	unstream1, err := camera.NamedImageFromImage(src, "bad1", "image/undefined", data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
-	unstream2, err := camera.NamedImageFromImage(src, "bad2", "image/undefined")
+	unstream2, err := camera.NamedImageFromImage(src, "bad2", "image/undefined", data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{
@@ -386,9 +387,9 @@ func TestVideoSourceFromCamera_NoStreamableSources(t *testing.T) {
 
 func TestVideoSourceFromCamera_FilterNoImages(t *testing.T) {
 	src := image.NewRGBA(image.Rect(0, 0, 4, 4))
-	good, err := camera.NamedImageFromImage(src, "good", utils.MimeTypePNG)
+	good, err := camera.NamedImageFromImage(src, "good", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
-	fallback, err := camera.NamedImageFromImage(src, "fallback", utils.MimeTypePNG)
+	fallback, err := camera.NamedImageFromImage(src, "fallback", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	var firstServed bool
@@ -432,7 +433,7 @@ func TestVideoSourceFromCamera_FilterNoImages(t *testing.T) {
 
 func TestVideoSourceFromCamera_FilterMultipleImages(t *testing.T) {
 	src := image.NewRGBA(image.Rect(0, 0, 4, 4))
-	good, err := camera.NamedImageFromImage(src, "good", utils.MimeTypePNG)
+	good, err := camera.NamedImageFromImage(src, "good", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{
@@ -467,9 +468,9 @@ func TestVideoSourceFromCamera_FilterMultipleImages(t *testing.T) {
 
 func TestVideoSourceFromCamera_FilterMultipleImages_NoMatchingSource(t *testing.T) {
 	src := image.NewRGBA(image.Rect(0, 0, 4, 4))
-	img1, err := camera.NamedImageFromImage(src, "source1", utils.MimeTypeRawRGBA)
+	img1, err := camera.NamedImageFromImage(src, "source1", utils.MimeTypeRawRGBA, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
-	img2, err := camera.NamedImageFromImage(src, "source2", utils.MimeTypeRawRGBA)
+	img2, err := camera.NamedImageFromImage(src, "source2", utils.MimeTypeRawRGBA, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	var erroredOnce bool
@@ -535,7 +536,7 @@ func TestVideoSourceFromCamera_LazyDecodeConfigError(t *testing.T) {
 		utils.MimeTypePNG,
 	)
 
-	namedImg, err := camera.NamedImageFromImage(malformedImage, "lazy-image", utils.MimeTypePNG)
+	namedImg, err := camera.NamedImageFromImage(malformedImage, "lazy-image", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{
@@ -555,9 +556,9 @@ func TestVideoSourceFromCamera_LazyDecodeConfigError(t *testing.T) {
 func TestVideoSourceFromCamera_InvalidImageFirst_ThenValidAlsoAvailable(t *testing.T) {
 	validImg := image.NewRGBA(image.Rect(0, 0, 4, 4))
 	invalidBytes := []byte("not a valid image")
-	invalidNamed, err := camera.NamedImageFromBytes(invalidBytes, "bad", utils.MimeTypePNG)
+	invalidNamed, err := camera.NamedImageFromBytes(invalidBytes, "bad", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
-	validNamed, err := camera.NamedImageFromImage(validImg, "good", utils.MimeTypePNG)
+	validNamed, err := camera.NamedImageFromImage(validImg, "good", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{
@@ -596,9 +597,9 @@ func TestVideoSourceFromCamera_InvalidImageFirst_ThenValidAlsoAvailable(t *testi
 
 func TestVideoSourceFromCamera_FilterMismatchedSourceName(t *testing.T) {
 	src := image.NewRGBA(image.Rect(0, 0, 4, 4))
-	good, err := camera.NamedImageFromImage(src, "good", utils.MimeTypePNG)
+	good, err := camera.NamedImageFromImage(src, "good", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
-	mismatched, err := camera.NamedImageFromImage(src, "bad", utils.MimeTypePNG)
+	mismatched, err := camera.NamedImageFromImage(src, "bad", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	var askedOnce bool
@@ -643,7 +644,7 @@ func TestVideoSourceFromCamera_OddDimensionsCropped(t *testing.T) {
 	// Create an image with odd dimensions
 	oddImg := image.NewRGBA(image.Rect(0, 0, 3, 3))
 
-	namedImg, err := camera.NamedImageFromImage(oddImg, "test", utils.MimeTypePNG)
+	namedImg, err := camera.NamedImageFromImage(oddImg, "test", utils.MimeTypePNG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
 	cam := &inject.Camera{

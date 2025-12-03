@@ -1294,6 +1294,7 @@ func greenLog(t *testing.T, msg string) {
 }
 
 func TestRTPPassthrough(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewInMemoryLogger(t)
 
@@ -1504,6 +1505,7 @@ func TestRTPPassthrough(t *testing.T) {
 }
 
 func TestAddStreamMaxTrackErr(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewInMemoryLogger(t)
 
@@ -1618,6 +1620,7 @@ func TestBadModuleFailsFast(t *testing.T) {
 // process information (e.g: CPU usage) is in sync with the Process IDs (PIDs) that are actually
 // running.
 func TestFTDCAfterModuleCrash(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS != "linux" {
 		t.Skip(t.Name(), "only runs on Linux due to a dependency on the /proc filesystem")
 	}

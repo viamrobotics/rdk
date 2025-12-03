@@ -1,0 +1,23 @@
+DirectoryPath: "www"
+EnforceHTTPS: true
+IgnoreEmptyHref: true
+IgnoreInternalEmptyHash: true
+IgnoreDirectoryMissingTrailingSlash: false
+Concurrency: 1
+Delay: "500ms"
+Timeout: "30s"
+IgnoreURLs:
+  - "app.viam.com"
+  - "fonts.gstatic.com"
+  - "contributor-covenant.org"
+  - "download.datasheets.com"
+  - "https://pkg.go.dev"
+  - "https://bzotto.medium.com/introducing-the-rgba-bitmap-file-format-4a8a94329e2c"
+IgnoreDirs:
+  - "lib"
+CacheExpires: "6h"
+# IgnoreDirs: - if we need to ever ignore files
+CheckInternal: false
+CheckDoctype: false
+CheckScripts: false
+FileExtension: ".html"

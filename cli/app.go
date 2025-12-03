@@ -3502,3 +3502,11 @@ func NewApp(out, errOut io.Writer) *cli.App {
 	app.ErrWriter = errOut
 	return app
 }
+
+// return a shallow copy of global `app` to support test parallelism.
+func newTestApp(out, errOut io.Writer) *cli.App {
+	appCopy := *app
+	appCopy.Writer = out
+	appCopy.ErrWriter = errOut
+	return &appCopy
+}
