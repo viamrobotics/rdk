@@ -1224,7 +1224,7 @@ func TestShellGetFTDC(t *testing.T) {
 		args := []string{"foo", "bar"}
 		cCtx, viamClient, _, _ := setup(asc, nil, nil, partFlags, "token", args...)
 		test.That(t,
-			viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[baseRemotePartArgs](cCtx), true, logger),
+			viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), true, logger),
 			test.ShouldBeError, wrongNumArgsError{2, 0, 1})
 	})
 
@@ -1243,7 +1243,7 @@ func TestShellGetFTDC(t *testing.T) {
 		cCtx, viamClient, _, _ := setupWithRunningPart(
 			t, asc, nil, nil, partFlags, "token", partFqdn, args...)
 		test.That(t,
-			viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[baseRemotePartArgs](cCtx), true, logger),
+			viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), true, logger),
 			test.ShouldNotBeNil)
 
 		entries, err := os.ReadDir(tempDir)
@@ -1277,7 +1277,7 @@ func TestShellGetFTDC(t *testing.T) {
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, partFlags, "token", partFqdn, args...)
 			test.That(t,
-				viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[baseRemotePartArgs](cCtx), true, logger),
+				viamClient.machinesPartGetFTDCAction(cCtx, parseStructFromCtx[machinesPartGetFTDCArgs](cCtx), true, logger),
 				test.ShouldBeNil)
 
 			entries, err := os.ReadDir(filepath.Join(targetPath, partID))
