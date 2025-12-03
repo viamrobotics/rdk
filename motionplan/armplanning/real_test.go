@@ -391,7 +391,7 @@ func TestBadPlanNoCrash(t *testing.T) {
 
 func TestOrbPlanTooManySteps(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	req, err := ReadRequestFromFile("data/orb-plan-too-many-steps.json")
+	req, err := ReadRequestFromFile("data/sanding-too-many-steps.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	plan, _, err := PlanMotion(context.Background(), logger, req)
