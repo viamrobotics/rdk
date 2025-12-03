@@ -613,7 +613,7 @@ func (c *viamClient) prepareDialInner(
 	}
 	if t, ok := c.conf.Auth.(*token); ok {
 		rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, partFqdn))
-		if strings.HasPrefix(t.TokenURL, prodAuthDomain) || strings.HasPrefix(t.TokenURL, stgAuthDomain) {
+		if t.TokenType == tokenTypeUserOAuthToken {
 			// TODO(RSDK-12818): mDNS connections cannot handle fusion-auth tokens
 			rpcOpts = append(rpcOpts, rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{Disable: true}))
 		}
