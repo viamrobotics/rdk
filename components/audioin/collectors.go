@@ -11,7 +11,6 @@ import (
 	"go.opencensus.io/trace"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/data"
 	rutils "go.viam.com/rdk/utils"
@@ -42,14 +41,9 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 
 	codec := rutils.CodecPCM16
 	if codecParam := params.MethodParams["codec"]; codecParam != nil {
-		strVal := &wrapperspb.StringValue{}
-		if err := codecParam.UnmarshalTo(strVal); err == nil {
-			codec = strVal.Value
-		} else {
-			val := &structpb.Value{}
-			if err := codecParam.UnmarshalTo(val); err == nil {
-				codec = val.GetStringValue()
-			}
+		val := &structpb.Value{}
+		if err := codecParam.UnmarshalTo(val); err == nil {
+			codec = val.GetStringValue()
 		}
 	}
 
