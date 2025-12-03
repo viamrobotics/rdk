@@ -15,6 +15,7 @@ import (
 )
 
 func TestUpdateModelsAction(t *testing.T) {
+	t.Parallel()
 	_, filename, _, ok := runtime.Caller(0)
 	test.That(t, ok, test.ShouldBeTrue)
 

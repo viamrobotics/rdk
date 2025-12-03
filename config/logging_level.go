@@ -24,6 +24,9 @@ var globalLogger struct {
 
 // InitLoggingSettings initializes the global logging settings.
 func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
+	globalLogger.mu.Lock()
+	defer globalLogger.mu.Unlock()
+
 	globalLogger.logger = logger
 	globalLogger.cmdLineDebugFlag = cmdLineDebugFlag
 
