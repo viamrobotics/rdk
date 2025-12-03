@@ -1321,7 +1321,7 @@ func (err wrongNumArgsError) Error() string {
 	return fmt.Sprintf("expected %d-%d arguments but got %d", err.min, err.max, err.have)
 }
 
-type machinesPartGetFTDCArgs struct {
+type baseRemotePartArgs struct {
 	Organization string
 	Location     string
 	Machine      string
@@ -1329,11 +1329,8 @@ type machinesPartGetFTDCArgs struct {
 }
 
 type traceFetchRemoteArgs struct {
-	Organization string
-	Location     string
-	Machine      string
-	Part         string
-	Destination  string
+	baseRemotePartArgs
+	Destination string
 }
 
 type importTracesFileArgs struct {
@@ -1341,7 +1338,7 @@ type importTracesFileArgs struct {
 }
 
 // MachinesPartGetFTDCAction is the corresponding Action for 'machines part get-ftdc'.
-func MachinesPartGetFTDCAction(c *cli.Context, args machinesPartGetFTDCArgs) error {
+func MachinesPartGetFTDCAction(c *cli.Context, args baseRemotePartArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -1356,7 +1353,7 @@ func MachinesPartGetFTDCAction(c *cli.Context, args machinesPartGetFTDCArgs) err
 	return client.machinesPartGetFTDCAction(c, args, globalArgs.Debug, logger)
 }
 
-func traceImportRemoteAction(ctx *cli.Context, args machinesPartGetFTDCArgs) error {
+func traceImportRemoteAction(ctx *cli.Context, args baseRemotePartArgs) error {
 	client, err := newViamClient(ctx)
 	if err != nil {
 		return err
@@ -1372,19 +1369,22 @@ func traceImportRemoteAction(ctx *cli.Context, args machinesPartGetFTDCArgs) err
 	if err != nil {
 		return err
 	}
-	//nolint: errcheck()
+	//nolint: errcheck
 	defer os.RemoveAll(targetPath)
 
-	if err := client.machinesPartGetTracesAction(ctx, args, targetPath, globalArgs.Debug, logger); err != nil {
+	if err := client.machinesPartGetTracesAction(
+		ctx,
+		traceFetchRemoteArgs{
+			baseRemotePartArgs: args,
+			Destination:        targetPath,
+		},
+		globalArgs.Debug,
+		logger,
+	); err != nil {
 		return err
 	}
 
-	return importTraceFileAction(ctx, importTracesFileArgs{Path: filepath.Join(targetPath, "traces")})
-}
-
-// ImportTraceFileAction is the corresponding action for 'trace import-local'.
-func ImportTraceFileAction(c *cli.Context, args importTracesFileArgs) error {
-	return importTraceFileAction(c, args)
+	return traceImportLocalAction(ctx, importTracesFileArgs{Path: filepath.Join(targetPath, "traces")})
 }
 
 // MachinesPartCopyFilesAction is the corresponding Action for 'machines part cp'.
@@ -1507,7 +1507,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 
 func (c *viamClient) machinesPartGetFTDCAction(
 	ctx *cli.Context,
-	flagArgs machinesPartGetFTDCArgs,
+	flagArgs baseRemotePartArgs,
 	debug bool,
 	logger logging.Logger,
 ) error {
@@ -1568,8 +1568,7 @@ func (c *viamClient) machinesPartGetFTDCAction(
 
 func (c *viamClient) machinesPartGetTracesAction(
 	ctx *cli.Context,
-	flagArgs machinesPartGetFTDCArgs,
-	destination string,
+	flagArgs traceFetchRemoteArgs,
 	debug bool,
 	logger logging.Logger,
 ) error {
@@ -1586,7 +1585,7 @@ func (c *viamClient) machinesPartGetTracesAction(
 	var startTime time.Time
 	if !quiet {
 		startTime = time.Now()
-		printf(ctx.App.Writer, "Saving to %s ...", path.Join(destination, part.GetId()))
+		printf(ctx.App.Writer, "Saving to %s ...", path.Join(flagArgs.Destination, part.GetId()))
 	}
 	if err := c.copyFilesFromMachine(
 		flagArgs.Organization,
@@ -1597,7 +1596,7 @@ func (c *viamClient) machinesPartGetTracesAction(
 		true,
 		false,
 		[]string{src},
-		destination,
+		flagArgs.Destination,
 		logger,
 	); err != nil {
 		if statusErr := status.Convert(err); statusErr != nil &&
@@ -1615,7 +1614,7 @@ func (c *viamClient) machinesPartGetTracesAction(
 
 func tracePrintRemoteAction(
 	ctx *cli.Context,
-	args machinesPartGetFTDCArgs,
+	args baseRemotePartArgs,
 ) error {
 	client, err := newViamClient(ctx)
 	if err != nil {
@@ -1632,7 +1631,15 @@ func tracePrintRemoteAction(
 		return err
 	}
 	defer os.RemoveAll(tmp)
-	if err := client.machinesPartGetTracesAction(ctx, args, tmp, globalArgs.Debug, logger); err != nil {
+	if err := client.machinesPartGetTracesAction(
+		ctx,
+		traceFetchRemoteArgs{
+			baseRemotePartArgs: args,
+			Destination:        tmp,
+		},
+		globalArgs.Debug,
+		logger,
+	); err != nil {
 		return err
 	}
 	return tracePrintLocalAction(ctx, importTracesFileArgs{Path: filepath.Join(tmp, "traces")})
@@ -1649,8 +1656,8 @@ func traceFetchRemoteAction(ctx *cli.Context, args traceFetchRemoteArgs) error {
 		return err
 	}
 	logger := globalArgs.createLogger()
-	
-	client.machinesPartGetTracesAction(ctx, args, "", globalArgs.Debug, logger)
+
+	return client.machinesPartGetTracesAction(ctx, args, globalArgs.Debug, logger)
 }
 
 func tracePrintLocalAction(
@@ -1684,7 +1691,7 @@ func tracePrintLocalAction(
 	return err
 }
 
-func importTraceFileAction(
+func traceImportLocalAction(
 	ctx *cli.Context,
 	args importTracesFileArgs,
 ) error {

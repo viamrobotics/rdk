@@ -470,7 +470,7 @@ var app = &cli.App{
 			Usage: "Work with viam-server traces",
 			Subcommands: []*cli.Command{
 				{
-					Name:        "import-local",
+					Name:  "import-local",
 					Usage: "Import traces from a local viam server trace file to an OTLP endpoint.",
 					Flags: lo.Flatten([][]cli.Flag{
 						{&cli.StringFlag{
@@ -481,10 +481,10 @@ var app = &cli.App{
 						}},
 						commonOtlpFlags,
 					}),
-					Action: createCommandWithT(ImportTraceFileAction),
+					Action: createCommandWithT(traceImportLocalAction),
 				},
 				{
-					Name:        "import-remote",
+					Name:  "import-remote",
 					Usage: "Import traces from a remote viam machine to an OTLP endpoint.",
 					Flags: lo.Flatten([][]cli.Flag{
 						commonOtlpFlags,
@@ -493,20 +493,20 @@ var app = &cli.App{
 					Action: createCommandWithT(traceImportRemoteAction),
 				},
 				{
-					Name:        "print-local",
+					Name:  "print-local",
 					Usage: "Print traces in a local file to the console",
-					Flags: lo.Flatten([][]cli.Flag{
-						{&cli.StringFlag{
+					Flags: []cli.Flag{
+						&cli.StringFlag{
 							Name:      "path",
 							TakesFile: true,
 							Required:  true,
 							Usage:     "path to file to import",
-						}},
-					}),
+						},
+					},
 					Action: createCommandWithT(tracePrintLocalAction),
 				},
 				{
-					Name:        "print-remote",
+					Name:  "print-remote",
 					Usage: "Print traces from a remote viam machine to the console",
 					Flags: lo.Flatten([][]cli.Flag{
 						commonPartFlags,
@@ -514,7 +514,7 @@ var app = &cli.App{
 					Action: createCommandWithT(tracePrintRemoteAction),
 				},
 				{
-					Name:        "fetch-remote",
+					Name:  "fetch-remote",
 					Usage: "Download a traces from a viam machine and save them to disk",
 					Flags: lo.Flatten([][]cli.Flag{
 						commonPartFlags,
@@ -526,7 +526,7 @@ var app = &cli.App{
 							},
 						},
 					}),
-					Action: createCommandWithT(tracePrintLocalAction),
+					Action: createCommandWithT(traceFetchRemoteAction),
 				},
 			},
 		},
