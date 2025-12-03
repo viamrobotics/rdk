@@ -21,6 +21,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace/noop"
+	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -1325,6 +1326,14 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 	mVersion.APIVersion = resp.ApiVersion
 
 	return mVersion, nil
+}
+
+// SendTraces sends OTLP spans to be recorded by viam server. It should only be
+// called from modules.
+func (rc *RobotClient) SendTraces(ctx context.Context, spans []*otlpv1.ResourceSpans) error {
+	req := &pb.SendTracesRequest{ResourceSpans: spans}
+	_, err := rc.client.SendTraces(ctx, req)
+	return err
 }
 
 // Tunnel tunnels data to/from the read writer from/to the destination port on the server. This

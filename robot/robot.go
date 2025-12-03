@@ -12,6 +12,7 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 
+	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -192,6 +193,9 @@ type LocalRobot interface {
 	// [resource.Graph.FindBySimpleNameAndAPI] for specifics about what is
 	// returned in the case of name collisions.
 	FindBySimpleNameAndAPI(string, resource.API) (resource.Resource, error)
+
+	// WriteTraceMessages writes trace spans to any configured exporters.
+	WriteTraceMessages(context.Context, []*otlpv1.ResourceSpans) error
 }
 
 // A RemoteRobot is a Robot that was created through a connection.
