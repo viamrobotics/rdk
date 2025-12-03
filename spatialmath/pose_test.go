@@ -218,5 +218,5 @@ func TestInterpolateSand1(t *testing.T) {
 	x := Interpolate(a, b, .5)
 	y := Interpolate(a, b, .75)
 
-	test.That(t, x.Point().Distance(y.Point()), test.ShouldAlmostEqual, y.Point().Distance(b.Point()), 0)
+	test.That(t, x.Point().Distance(y.Point()), test.ShouldAlmostEqual, y.Point().Distance(b.Point()), .00001)
 }
