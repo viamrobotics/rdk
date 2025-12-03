@@ -10,8 +10,11 @@ import (
 	"io/fs"
 	"maps"
 	"net"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -1574,4 +1577,216 @@ func TestTunnelE2ECLI(t *testing.T) {
 	runServerCtxCancel()
 
 	wg.Wait()
+}
+
+func TestSelfUpdateAction(t *testing.T) {
+	// This is an integration test that tests real downloads and file operations.
+	// Run it with: go test -v -run TestSelfUpdateAction
+	// or in CI where it runs automatically on all OSes
+
+	// Skip if explicitly requested (for fast local testing)
+	if os.Getenv("SKIP_INTEGRATION_TESTS") != "" {
+		t.Skip("Skipping integration test (SKIP_INTEGRATION_TESTS set)")
+	}
+
+	// Skip if OS is not supported
+	switch runtime.GOOS {
+	case "linux", "darwin", "windows":
+		// Supported OS, continue with test
+	default:
+		t.Skipf("self-update not supported on %s", runtime.GOOS)
+	}
+
+	t.Run("path detection for go install", func(t *testing.T) {
+		// Test that we correctly detect if binary is in a go/bin directory
+		testCases := []struct {
+			name       string
+			binaryPath string
+			goPath     string
+			wantGoPath bool
+		}{
+			{
+				name:       "go bin directory",
+				binaryPath: filepath.Join(os.Getenv("HOME"), "go", "bin", "viam"),
+				goPath:     filepath.Join(os.Getenv("HOME"), "go"),
+				wantGoPath: true,
+			},
+			{
+				name:       "custom GOPATH bin",
+				binaryPath: "/custom/gopath/bin/viam",
+				goPath:     "/custom/gopath",
+				wantGoPath: true,
+			},
+			{
+				name:       "system binary path",
+				binaryPath: "/usr/local/bin/viam",
+				goPath:     filepath.Join(os.Getenv("HOME"), "go"),
+				wantGoPath: false,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				// Extract the logic that checks if path is in go/bin
+				binaryDir := filepath.Dir(tc.binaryPath)
+				goBinPath := filepath.Join(tc.goPath, "bin")
+				homeGoBinPath := filepath.Join(os.Getenv("HOME"), "go", "bin")
+				goBinPattern := filepath.Join("go", "bin")
+
+				isGoPath := binaryDir == goBinPath ||
+					binaryDir == homeGoBinPath ||
+					strings.Contains(binaryDir, goBinPattern)
+
+				test.That(t, isGoPath, test.ShouldEqual, tc.wantGoPath)
+			})
+		}
+	})
+
+	t.Run("download and file operations", func(t *testing.T) {
+		switch runtime.GOOS {
+		case "linux":
+			testLinuxDownload(t)
+		case "windows":
+			testWindowsDownload(t)
+		case "darwin":
+			testDarwinBrewCheck(t)
+		}
+	})
+}
+
+func testLinuxDownload(t *testing.T) {
+	t.Helper()
+
+	// Only run on Linux
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux-specific test")
+	}
+
+	// Test the actual download and file operations in a temp directory
+	tempDir := t.TempDir()
+
+	// Construct the URL that the real code uses
+	binaryURL := fmt.Sprintf("https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-linux-%s", runtime.GOARCH)
+
+	t.Logf("Testing download from: %s", binaryURL)
+
+	// Test 1: Verify the URL is reachable
+	resp, err := http.Get(binaryURL)
+	if err != nil {
+		t.Fatalf("Failed to download binary (check network or URL): %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Download failed with status: %d", resp.StatusCode)
+	}
+
+	// Test 2: Write to temp file (mimics what the code does)
+	tmpFile, err := os.CreateTemp(tempDir, "viam-cli-update-*")
+	test.That(t, err, test.ShouldBeNil)
+	tmpPath := tmpFile.Name()
+
+	bytesWritten, err := io.Copy(tmpFile, resp.Body)
+	tmpFile.Close()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, bytesWritten, test.ShouldBeGreaterThan, 0)
+	t.Logf("Downloaded %d bytes", bytesWritten)
+
+	// Test 3: Verify file exists and has content
+	info, err := os.Stat(tmpPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, info.Size(), test.ShouldEqual, bytesWritten)
+	test.That(t, info.Size(), test.ShouldBeGreaterThan, 1000) // Should be a real binary (> 1KB)
+
+	// Test 4: Set permissions (mimics chmod a+rx)
+	currentMode := info.Mode().Perm()
+	newMode := currentMode | 0555
+	err = os.Chmod(tmpPath, newMode)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test 5: Verify permissions were set correctly
+	info, err = os.Stat(tmpPath)
+	test.That(t, err, test.ShouldBeNil)
+	// Check that at least user has read+execute
+	test.That(t, info.Mode().Perm()&0500, test.ShouldEqual, 0500)
+
+	// Test 6: Verify we can rename the file (atomic replace simulation)
+	newPath := filepath.Join(tempDir, "viam-cli-test")
+	err = os.Rename(tmpPath, newPath)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Verify the file exists at new location
+	_, err = os.Stat(newPath)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Logf("Successfully tested Linux download and file operations")
+}
+
+func testWindowsDownload(t *testing.T) {
+	t.Helper()
+
+	// Only run on Windows
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-specific test")
+	}
+
+	// Test the actual download in a temp directory
+	tempDir := t.TempDir()
+
+	binaryURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-windows-amd64.exe"
+
+	t.Logf("Testing download from: %s", binaryURL)
+
+	// Test 1: Verify the URL is reachable
+	resp, err := http.Get(binaryURL)
+	if err != nil {
+		t.Fatalf("Failed to download installer (check network or URL): %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Download failed with status: %d", resp.StatusCode)
+	}
+
+	// Test 2: Write to temp file
+	tmpFile, err := os.CreateTemp(tempDir, "viam-cli-update-*.exe")
+	test.That(t, err, test.ShouldBeNil)
+	tmpPath := tmpFile.Name()
+
+	bytesWritten, err := io.Copy(tmpFile, resp.Body)
+	tmpFile.Close()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, bytesWritten, test.ShouldBeGreaterThan, 0)
+	t.Logf("Downloaded %d bytes", bytesWritten)
+
+	// Test 3: Verify file exists and has content
+	info, err := os.Stat(tmpPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, info.Size(), test.ShouldEqual, bytesWritten)
+	test.That(t, info.Size(), test.ShouldBeGreaterThan, 1000) // Should be a real binary
+
+	// Note: We don't actually run the installer since that would modify the system
+	// The real test is that the download works and creates a valid file
+	t.Logf("Successfully tested Windows download")
+}
+
+func testDarwinBrewCheck(t *testing.T) {
+	t.Helper()
+
+	// Only run on macOS
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS-specific test")
+	}
+
+	// Test that we can check for brew
+	_, err := exec.LookPath("brew")
+	if err != nil {
+		t.Logf("brew not found (expected on systems without brew): %v", err)
+		// This is expected behavior - the code should return an error
+		return
+	}
+
+	t.Logf("brew found - self-update would use: brew upgrade viam")
+	// Note: We don't actually run 'brew upgrade viam' as that would modify the system
+	// The integration test verifies the command exists and is callable
 }

@@ -1775,24 +1775,22 @@ func selfUpdate(c *cli.Context) bool {
 }
 
 func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
-	// Check if installed via go install (source build) - works on all platforms
+	// Check if installed via go install (source build)
 	execPath, err := os.Executable()
 	if err == nil {
 		realPath, _ := filepath.EvalSymlinks(execPath)
 		binaryDir, _ := filepath.Abs(filepath.Dir(realPath))
 
-		// Check if binary is in a Go bin directory
+		// Check if binary is in GOPATH/bin
 		goPath := os.Getenv("GOPATH")
 		if goPath == "" {
 			// Default GOPATH if not set
 			goPath = filepath.Join(os.Getenv("HOME"), "go")
 		}
 		goBinPath, _ := filepath.Abs(filepath.Join(goPath, "bin"))
-		homeGoBinPath, _ := filepath.Abs(filepath.Join(os.Getenv("HOME"), "go", "bin"))
 
-		// Check if binary directory matches Go bin paths (cross-platform)
-		goBinPattern := filepath.Join("go", "bin")
-		if binaryDir == goBinPath || binaryDir == homeGoBinPath || strings.Contains(binaryDir, goBinPattern) {
+		// Check if binary directory matches GOPATH/bin
+		if binaryDir == goBinPath {
 			// Installed via go install - update using go install
 			cmd := exec.Command("go", "install", "go.viam.com/rdk/cli/viam@latest")
 			cmd.Stdout = os.Stdout
@@ -1800,11 +1798,10 @@ func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
 			if err := cmd.Run(); err != nil {
 				return errors.Errorf("go install failed: %v", err)
 			}
-			infof(c.App.Writer, "CLI updated successfully via go install.")
+			infof(c.App.Writer, "The CLI has been successfully updated.")
 			return nil
 		}
 	}
-
 	// Not a source build - use OS-specific update methods
 	switch runtime.GOOS {
 	case "darwin":
