@@ -52,6 +52,7 @@ func NewManager(
 	}
 	restartCtx, restartCtxCancel := context.WithCancel(ctx)
 	ret := &Manager{
+		modulesLogger:           logger.Sublogger("modules"),
 		logger:                  logger.Sublogger("modmanager"),
 		modules:                 moduleMap{},
 		parentAddrs:             parentAddrs,
@@ -130,6 +131,10 @@ type Manager struct {
 	// `Reconfigure`ing modules, `Remove`ing modules and `Close`ing the `Manager`.
 	mu sync.RWMutex
 
+	// modulesLogger is used for adding, removing, and reconfiguring modules as well as
+	// module log output and is user-facing in app.
+	modulesLogger logging.Logger
+	// logger is used for all other module manager logs.
 	logger       logging.Logger
 	modules      moduleMap
 	parentAddrs  config.ParentSockAddrs
@@ -269,9 +274,9 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		wg.Add(1)
 		go func(i int, conf config.Module) {
 			defer wg.Done()
-			moduleLogger := mgr.logger.Sublogger(conf.Name)
+			mgr.modulesLogger.CInfow(ctx, "Now adding module", "module", conf.Name)
 
-			moduleLogger.CInfow(ctx, "Now adding module", "module", conf.Name)
+			moduleLogger := mgr.logger.Sublogger(conf.Name)
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
 				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
@@ -291,7 +296,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		for modName := range seen {
 			addedModNames = append(addedModNames, modName)
 		}
-		mgr.logger.CInfow(ctx, "Modules successfully added", "modules", addedModNames)
+		mgr.modulesLogger.CInfow(ctx, "Modules successfully added", "modules", addedModNames)
 	}
 	return combinedErr
 }
@@ -349,6 +354,7 @@ func (mgr *Manager) startModuleProcess(mod *module, oue pexec.UnexpectedExitHand
 		oue,
 		mgr.viamHomeDir,
 		mgr.packagesDir,
+		mgr.modulesLogger,
 	)
 }
 
@@ -423,7 +429,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		handledResourceNameStrings = append(handledResourceNameStrings, name.String())
 	}
 
-	mod.logger.CInfow(ctx, "Module configuration changed. Stopping the existing module process", "module", conf.Name)
+	mgr.modulesLogger.CInfow(ctx, "Now reconfiguring module", "module", conf.Name)
 
 	if err := mgr.closeModule(mod, true); err != nil {
 		// If removal fails, assume all handled resources are orphaned.
@@ -450,6 +456,8 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 
 	mod.logger.CInfow(ctx, "Resources handled by reconfigured module will be re-added to new module process",
 		"module", mod.cfg.Name, "resources", handledResourceNameStrings)
+
+	mgr.modulesLogger.CInfow(ctx, "Module successfully reconfigured", "module", conf.Name)
 	return handledResourceNames, nil
 }
 
@@ -463,7 +471,7 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 		return nil, errors.Errorf("cannot remove module %s as it does not exist", modName)
 	}
 
-	mgr.logger.Infow("Now removing module", "module", modName)
+	mgr.modulesLogger.Infow("Now removing module", "module", modName)
 
 	handledResources := mod.resources
 
@@ -534,7 +542,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	}
 	mgr.modules.Delete(mod.cfg.Name)
 
-	mod.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
+	mgr.logger.Infow("Module successfully removed", "module", mod.cfg.Name)
 	return nil
 }
 

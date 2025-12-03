@@ -214,6 +214,7 @@ func (m *module) startProcess(
 	oue pexec.UnexpectedExitHandler,
 	viamHomeDir string,
 	packagesDir string,
+	modulesLogger logging.Logger,
 ) error {
 	var err error
 
@@ -257,8 +258,8 @@ func (m *module) startProcess(
 	// Create STDOUT and STDERR loggers for the module and turn off log deduplication for
 	// both. Module output through these loggers may contain data like stack traces, which
 	// are repetitive but are not actually "noisy."
-	stdoutLogger := m.logger.Sublogger("StdOut")
-	stderrLogger := m.logger.Sublogger("StdErr")
+	stdoutLogger := modulesLogger.Sublogger(m.cfg.Name).Sublogger("StdOut")
+	stderrLogger := modulesLogger.Sublogger(m.cfg.Name).Sublogger("StdErr")
 	stdoutLogger.NeverDeduplicate()
 	stderrLogger.NeverDeduplicate()
 

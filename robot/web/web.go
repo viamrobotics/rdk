@@ -179,12 +179,12 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 }
 
 // RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
-func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logger logging.Logger) (err error) {
+func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, shutdownLogger logging.Logger) (err error) {
 	defer func() {
 		if err != nil {
 			err = utils.FilterOutError(err, context.Canceled)
 			if err != nil {
-				logger.Errorw("error running web", "error", err)
+				shutdownLogger.Errorw("error running web", "error", err)
 			}
 		}
 	}()
@@ -193,7 +193,7 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 		return err
 	}
 	<-ctx.Done()
-	logger.Info("Viam RDK shutting down")
+	shutdownLogger.Info("viam-server shutting down")
 	return ctx.Err()
 }
 
@@ -440,8 +440,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	ioLogger := svc.logger.Sublogger("networking")
-	svc.rpcServer, err = rpc.NewServer(ioLogger, rpcOpts...)
+	svc.rpcServer, err = rpc.NewServer(svc.logger, rpcOpts...)
 	if err != nil {
 		return err
 	}

@@ -12,6 +12,7 @@ import (
 var globalLogger struct {
 	// These variables are initialized once at startup. No need for special synchronization.
 	logger           logging.Logger
+	configLogger     logging.Logger // used to log changes to global logger
 	cmdLineDebugFlag bool
 
 	// These variables can be changed while the `viam-server` is running. Additionally, every time one
@@ -23,11 +24,12 @@ var globalLogger struct {
 }
 
 // InitLoggingSettings initializes the global logging settings.
-func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
+func InitLoggingSettings(logger, configLogger logging.Logger, cmdLineDebugFlag bool) {
 	globalLogger.mu.Lock()
 	defer globalLogger.mu.Unlock()
 
 	globalLogger.logger = logger
+	globalLogger.configLogger = configLogger
 	globalLogger.cmdLineDebugFlag = cmdLineDebugFlag
 
 	if cmdLineDebugFlag {
@@ -38,7 +40,7 @@ func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
 		logger.SetLevel(logging.INFO)
 	}
 
-	globalLogger.logger.Info("Log level initialized:", logging.GlobalLogLevel.Level())
+	globalLogger.configLogger.Info("Log level initialized:", logging.GlobalLogLevel.Level())
 }
 
 // UpdateFileConfigDebug is used to update the debug flag whenever a file-based viam config is
@@ -82,7 +84,7 @@ func refreshLogLevelInLock() {
 	if logging.GlobalLogLevel.Level() == newLevelZap {
 		return
 	}
-	globalLogger.logger.Info("New log level:", newLevelZap)
+	globalLogger.configLogger.Info("New log level:", newLevelZap)
 
 	logging.GlobalLogLevel.SetLevel(newLevelZap)
 	globalLogger.logger.SetLevel(newLevel)

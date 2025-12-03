@@ -436,9 +436,12 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 	// trust module libraries to handle their own levels and only send us logs
 	// over gRPC that we should be outputting.
 	zEntry := zapcore.Entry{
-		Level:      level.AsZap(),
-		Time:       time.Now(),
-		LoggerName: log.LoggerName,
+		Level: level.AsZap(),
+		Time:  time.Now(),
+		// Prefix the logger name with "modules." to mimic a Sublogger of a "modules" logger.
+		// All module logs are user-facing, and app will hard-code the "modules" logger as
+		// user-facing.
+		LoggerName: "modules." + log.LoggerName,
 		Message:    log.Message,
 		// `Caller` is already encoded in `Message` above
 		// `Stack` is not included
