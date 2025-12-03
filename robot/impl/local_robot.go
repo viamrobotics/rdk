@@ -6,7 +6,9 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 	"slices"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -800,7 +802,14 @@ func (r *localRobot) newResource(
 	resName := conf.ResourceName()
 	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
-		return nil, errors.Errorf("unknown resource type: API %v with model %v not registered", resName.API, conf.Model)
+		failedModules := r.manager.moduleManager.FailedModules()
+		var modules string
+		if len(failedModules) > 0 {
+			sort.Strings(failedModules)
+			modules = fmt.Sprintf("May be in failing module: %v; ", failedModules)
+		}
+		return nil, errors.Errorf("unknown resource type: API %v with model %v not registered; "+
+			"%sThere may be no module in config that provides this model", resName.API, conf.Model, modules)
 	}
 
 	deps, err := r.getDependencies(resName, gNode)
@@ -1505,6 +1514,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			r.jobManager.UpdateJobs(diff)
 		}
 	}()
+
+	if r.manager.moduleManager != nil {
+		r.manager.moduleManager.ClearFailedModules()
+	}
 
 	if diff.ResourcesEqual {
 		return
