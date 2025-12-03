@@ -46,7 +46,7 @@ func makeGantryModel(cfg resource.Config, newConf *Config) (referenceframe.Model
 		model, err = referenceframe.UnmarshalModelJSON(gantryModelJSON, cfg.Name)
 	}
 
-	if (len(model.DoF()) != 1) {
+	if len(model.DoF()) != 1 {
 		return nil, fmt.Errorf("gantry model must have exactly one degree of freedom, got %d", len(model.DoF()))
 	}
 
