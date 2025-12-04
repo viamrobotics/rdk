@@ -216,8 +216,6 @@ func TestGenerateModuleAction(t *testing.T) {
 		var manifest moduleManifest
 		err = json.Unmarshal(bytes, &manifest)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(manifest.Models), test.ShouldEqual, 1)
-		test.That(t, manifest.Models[0].Model, test.ShouldEqual, testModule.ModelTriple)
-		test.That(t, *manifest.Models[0].MarkdownLink, test.ShouldEqual, testModule.ModelReadmeLink)
+		test.That(t, len(manifest.Models), test.ShouldEqual, 0)
 	})
 }

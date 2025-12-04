@@ -729,7 +729,7 @@ func (c *viamClient) shouldIgnoreFile(relPath string, matcher gitignore.Matcher)
 }
 
 func (c *viamClient) ensureModuleRegisteredInCloud(
-	ctx *cli.Context, moduleID moduleID, manifest *moduleManifest, pm *ProgressManager,
+	ctx *cli.Context, moduleID moduleID, pm *ProgressManager,
 ) error {
 	_, err := c.getModule(moduleID)
 	if err != nil {
@@ -779,12 +779,6 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 		if err != nil {
 			return err
 		}
-	}
-
-	// always update the cloud module before reloading
-	_, err = c.updateModule(moduleID, *manifest)
-	if err != nil {
-		return err
 	}
 
 	return nil
@@ -936,7 +930,7 @@ func (c *viamClient) moduleCloudReload(
 	if err := pm.Start("register"); err != nil {
 		return nil, err
 	}
-	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, &manifest, pm)
+	err = c.ensureModuleRegisteredInCloud(ctx, moduleID, pm)
 	if err != nil {
 		_ = pm.FailWithMessage("register", "Registration failed")   //nolint:errcheck
 		_ = pm.FailWithMessage("prepare", "Preparing for build...") //nolint:errcheck
