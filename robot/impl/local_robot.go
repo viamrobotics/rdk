@@ -479,6 +479,7 @@ func newWithResources(
 				untrustedEnv:       cfg.UntrustedEnv,
 				tlsConfig:          cfg.Network.TLSConfig,
 				ftdc:               ftdcWorker,
+				tracingEnabled:     rOpts.tracing.enabled,
 			},
 			logger,
 		),

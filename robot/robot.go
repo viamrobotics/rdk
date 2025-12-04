@@ -11,8 +11,8 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
-
 	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
+
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
