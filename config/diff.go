@@ -137,9 +137,6 @@ func prettyDiff(left, right Config) (string, error) {
 					conf.Cloud.LocationSecrets[i].Secret = mask
 				}
 			}
-			if conf.Cloud.APIKey.ID != "" {
-				conf.Cloud.APIKey.ID = mask
-			}
 			if conf.Cloud.APIKey.Value != "" {
 				conf.Cloud.APIKey.Value = mask
 			}

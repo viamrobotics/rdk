@@ -208,12 +208,12 @@ func TestCloudManagedWithAuth(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			testAuthenticationFlow(t, logger, tc.config, tc.shouldAuth)
+			testCloudConnectionAuth(t, logger, tc.config, tc.shouldAuth)
 		})
 	}
 }
 
-func testAuthenticationFlow(t *testing.T, logger logging.Logger, conf *config.Cloud, shouldAuth bool) {
+func testCloudConnectionAuth(t *testing.T, logger logging.Logger, conf *config.Cloud, shouldAuth bool) {
 	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, conf.Secret, conf.ID, conf.APIKey.Value, conf.APIKey.ID, logger)
 	test.That(t, err, test.ShouldBeNil)
 
