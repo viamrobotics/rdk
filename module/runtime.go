@@ -14,29 +14,25 @@ import (
 	"go.viam.com/rdk/robot/client"
 )
 
-func moduleStartWithContext(
+func moduleStart(
 	address string,
 	models ...resource.APIModel,
-) func(context.Context, []string, logging.Logger) (context.Context, *Module, error) {
-	return func(ctx context.Context, args []string, logger logging.Logger) (context.Context, *Module, error) {
+) func(context.Context, []string, func(), logging.Logger) (*Module, error) {
+	return func(ctx context.Context, args []string, cancelFunc func(), logger logging.Logger) (*Module, error) {
 		info, ok := debug.ReadBuildInfo()
 		if ok {
 			logger.Infof("module version: %s, go version: %s", info.Main.Version, info.GoVersion)
 		}
-
 		mod, err := NewModule(ctx, address, logger)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		for _, apiModel := range models {
 			if err = mod.AddModelFromRegistry(ctx, apiModel.API, apiModel.Model); err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
-
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
 		if os.Getenv(NoModuleParentEnvVar) != "true" {
 			// Register a connection change handler so that if the connection back to the
 			// viam-server fails, we try to reconnect but cancels the context
@@ -55,7 +51,7 @@ func moduleStartWithContext(
 			mod.RegisterParentConnectionChangeHandler(func(rc *client.RobotClient) {
 				if !rc.Connected() {
 					if testing.Testing() {
-						cancel()
+						cancelFunc()
 						return
 					}
 					// If viam-server is alive, these logs can be used to debug.
@@ -64,17 +60,16 @@ func moduleStartWithContext(
 					logger.Info("connection to viam-server lost; attempting to reconnect")
 					if err := rc.Connect(ctx); err != nil {
 						logger.Info("reconnect attempt failed; shutting down module")
-						cancel()
+						cancelFunc()
 					}
 				}
 			})
 		}
 		if err = mod.Start(ctx); err != nil {
 			mod.Close(ctx)
-			return nil, nil, err
+			return nil, err
 		}
-
-		return ctx, mod, nil
+		return mod, nil
 	}
 }
 
@@ -85,13 +80,15 @@ func ModularMain(models ...resource.APIModel) {
 		if len(os.Args) < 2 {
 			return errors.New("need socket path as command line argument")
 		}
-		modCtx, mod, err := moduleStartWithContext(os.Args[1], models...)(ctx, args, NewLoggerFromArgs(""))
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		mod, err := moduleStart(os.Args[1], models...)(ctx, args, cancel, NewLoggerFromArgs(""))
 		if err != nil {
 			return err
 		}
 		defer mod.Close(ctx)
-		<-modCtx.Done()
-		return utils.FilterOutError(modCtx.Err(), context.Canceled)
+		<-ctx.Done()
+		return utils.FilterOutError(ctx.Err(), context.Canceled)
 	}
 
 	// On systems with SIGPIPE such as Unix, using SIGPIPE to signal a module shutdown

@@ -48,9 +48,10 @@ func TestModularMainTCP(t *testing.T) {
 
 	var (
 		modAddr string
-		modCtx  context.Context
 		mod     *Module
 	)
+	modCtx, modCancel := context.WithCancel(context.Background())
+	defer modCancel()
 
 	// if port is taken, retry starting the module server a few times
 	for range 10 {
@@ -58,7 +59,7 @@ func TestModularMainTCP(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		modAddr = fmt.Sprintf(":%d", port)
 
-		modCtx, mod, err = moduleStartWithContext(modAddr)(context.Background(), nil, logger)
+		mod, err = moduleStart(modAddr)(modCtx, nil, modCancel, logger)
 		if err != nil && strings.Contains(err.Error(), "address already in use") {
 			logger.Infow("port in use; restarting on new port", "port", port, "err", err)
 			continue
@@ -68,7 +69,7 @@ func TestModularMainTCP(t *testing.T) {
 		break
 	}
 
-	conn, err := grpc.DialContext(context.Background(), //nolint:staticcheck
+	conn, err := grpc.Dial(
 		modAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(), //nolint:staticcheck
