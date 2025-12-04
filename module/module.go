@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -33,7 +34,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
-
 	// Register service APIs.
 	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"
@@ -165,6 +165,9 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 
 	// If the env variable does not exist, the empty string is returned.
 	modName, _ := os.LookupEnv("VIAM_MODULE_NAME")
+	tracingEnabledStr, _ := os.LookupEnv("VIAM_MODULE_TRACING")
+	logger.Errorw("TRACING_ENV_VAR", "var", tracingEnabledStr)
+	tracingEnabled := !slices.Contains([]string{"", "0", "false"}, tracingEnabledStr)
 
 	m := &Module{
 		name:                  modName,
@@ -181,21 +184,25 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		resLoggers:            map[resource.Resource]logging.Logger{},
 		internalDeps:          map[resource.Resource][]resConfigureArgs{},
 	}
-	otlpClient := &moduleOtelExporter{mod: m}
-	otelExporter, err := otlptrace.New(ctx, otlpClient)
-	if err != nil {
-		return nil, err
+
+	if tracingEnabled {
+		otlpClient := &moduleOtelExporter{mod: m}
+		otelExporter, err := otlptrace.New(ctx, otlpClient)
+		if err != nil {
+			return nil, err
+		}
+		trace.SetTracerWithExporters(
+			otelresource.NewWithAttributes(
+				semconv.SchemaURL,
+				attribute.String("viam.module.name", modName),
+				semconv.ServiceName(modName),
+				semconv.ServiceNamespace("viam.com"),
+				semconv.ServerAddress(address),
+			),
+			otelExporter,
+		)
 	}
-	trace.SetTracerWithExporters(
-		otelresource.NewWithAttributes(
-			semconv.SchemaURL,
-			attribute.String("viam.module.name", modName),
-			semconv.ServiceName(modName),
-			semconv.ServiceNamespace("viam.com"),
-			semconv.ServerAddress("address"),
-		),
-		otelExporter,
-	)
+
 	// MaxRecvMsgSize and MaxSendMsgSize by default are 4 MB & MaxInt32 (2.1 GB)
 	opts := []grpc.ServerOption{
 		grpc.MaxRecvMsgSize(rpc.MaxMessageSize),
