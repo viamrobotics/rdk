@@ -240,7 +240,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		// if SignalingAddress is specified and different from AppAddress, create a new connection to it. Otherwise reuse appConn.
 		if cloud.SignalingAddress != "" && cloud.SignalingAddress != cloud.AppAddress {
 			signalingConnLogger := networkingLogger.Sublogger("signaling_connection")
-			signalingConn, err = grpc.NewAppConn(ctx, cloud.SignalingAddress, cloud.Secret, cloud.ID, cloud.APIKey.Value, cloud.APIKey.ID, signalingConnLogger)
+			signalingConn, err = grpc.NewAppConn(
+				ctx, cloud.SignalingAddress, cloud.Secret, cloud.ID, cloud.APIKey.Value, cloud.APIKey.ID, signalingConnLogger)
 			if err != nil {
 				return err
 			}

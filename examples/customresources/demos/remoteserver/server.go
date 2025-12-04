@@ -44,7 +44,8 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 
 	var appConn rpc.ClientConn
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
-		appConn, err = grpc.NewAppConn(ctx, cfg.Cloud.AppAddress, cfg.Cloud.Secret, cfg.Cloud.ID, cfg.Cloud.APIKey.ID, cfg.Cloud.APIKey.Value, logger)
+		appConn, err = grpc.NewAppConn(
+			ctx, cfg.Cloud.AppAddress, cfg.Cloud.Secret, cfg.Cloud.ID, cfg.Cloud.APIKey.ID, cfg.Cloud.APIKey.Value, logger)
 		if err != nil {
 			return nil
 		}

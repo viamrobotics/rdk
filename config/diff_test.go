@@ -605,8 +605,8 @@ func TestDiffSanitize(t *testing.T) {
 			{ID: "id2", Secret: "sec2"},
 		},
 		APIKey: config.APIKey{
-			ID:  "a",
-			Key: "b",
+			ID:  "api_key_id",
+			Key: "sec3",
 		},
 		TLSCertificate: "foo",
 		TLSPrivateKey:  "bar",
