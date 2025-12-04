@@ -46,8 +46,7 @@ const (
 )
 
 var (
-	dockerVertexImageRegex = regexp.MustCompile(`^us-docker\.pkg\.dev/vertex-ai/training/[^:@\s]+(:[^@\s]+)?(@sha256:[A-Fa-f0-9]{64})?$`)
-	validArgumentKeyRegex  = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	validArgumentKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 )
 
 type mlSubmitCustomTrainingJobArgs struct {
@@ -722,7 +721,7 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 	cmd.Stdout = c.App.Writer
 	cmd.Stderr = c.App.ErrWriter
 
-	printf(c.App.Writer, "WARNING: If this is your first time running training, "+
+	warningf(c.App.ErrWriter, "If this is your first time running training, "+
 		"it may take a few minutes to download the container image. "+
 		"This is normal and will not affect the training process.")
 
@@ -951,10 +950,9 @@ func getContainerImageURI(c *viamClient, version string) (string, error) {
 
 	container, ok := res.ContainerMap[version]
 	if !ok {
-		if dockerVertexImageRegex.MatchString(version) {
-			return version, nil
-		}
-		return "", errors.Errorf("container version %s not found. Supported versions: %s", version, strings.Join(containerKeyList, ", "))
+		warningf(c.c.App.ErrWriter, "Container version %s not found. Supported versions: %s. "+
+			"Attempting to use provided value as container URI: %s", version, strings.Join(containerKeyList, ", "), version)
+		return version, nil
 	}
 	return container.Uri, nil
 }
