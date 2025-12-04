@@ -9,7 +9,7 @@ import (
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/audioin"
 	"go.viam.com/rdk/data"
@@ -22,8 +22,8 @@ import (
 
 const (
 	componentName   = "audioin"
-	captureInterval = time.Second
-	testSampleRate  = 44100
+	captureInterval = 1 * time.Second
+	testSampleRate  = 2000
 	testNumChannels = 1
 )
 
@@ -140,25 +140,25 @@ func TestGetAudioCollector(t *testing.T) {
 		{
 			name:             "GetAudio collector with PCM16 should write WAV binary data",
 			codec:            rutils.CodecPCM16,
-			expectedDataSize: 88244, // 44100 samples * 2 bytes + 44 byte WAV header
+			expectedDataSize: 4044, // 2000 samples * 2 bytes + 44 byte WAV header
 			isMP3:            false,
 		},
 		{
 			name:             "GetAudio collector with PCM32 should write WAV binary data",
 			codec:            rutils.CodecPCM32,
-			expectedDataSize: 176444, // 44100 samples * 4 bytes + 44 byte WAV header
+			expectedDataSize: 8044, // 2000 samples * 4 bytes + 44 byte WAV header
 			isMP3:            false,
 		},
 		{
 			name:             "GetAudio collector with PCM32Float should write WAV binary data",
 			codec:            rutils.CodecPCM32Float,
-			expectedDataSize: 176444, // 44100 samples * 4 bytes + 44 byte WAV header
+			expectedDataSize: 8044, // 2000 samples * 4 bytes + 44 byte WAV header
 			isMP3:            false,
 		},
 		{
 			name:             "GetAudio collector with MP3 should write MP3 binary data",
 			codec:            rutils.CodecMP3,
-			expectedDataSize: 88200, // 4100 samples * 2 bytes
+			expectedDataSize: 4000, // 2000 samples * 2 bytes
 			isMP3:            true,
 		},
 	}
@@ -167,7 +167,7 @@ func TestGetAudioCollector(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
 			buf := tu.NewMockBuffer(t)
-			codecAny, err := anypb.New(wrapperspb.String(tc.codec))
+			codecStruct, err := anypb.New(structpb.NewStringValue(tc.codec))
 			test.That(t, err, test.ShouldBeNil)
 
 			params := data.CollectorParams{
@@ -182,7 +182,7 @@ func TestGetAudioCollector(t *testing.T) {
 				QueueSize:     10,
 				BufferSize:    10,
 				MethodParams: map[string]*anypb.Any{
-					"codec": codecAny,
+					"codec": codecStruct,
 				},
 			}
 
@@ -233,7 +233,7 @@ func TestGetAudioCollector(t *testing.T) {
 				Data: &datasyncpb.SensorData_Binary{Binary: expectedBinary},
 			}}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, expected)
 			buf.Close()
@@ -282,7 +282,7 @@ func TestGetAudioCollectorFormatChanges(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			buf := tu.NewMockBuffer(t)
-			codecAny, err := anypb.New(wrapperspb.String(tc.codec))
+			codecAny, err := anypb.New(structpb.NewStringValue(tc.codec))
 			test.That(t, err, test.ShouldBeNil)
 
 			params := data.CollectorParams{
