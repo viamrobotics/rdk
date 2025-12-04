@@ -578,6 +578,7 @@ type cloudData struct {
 	TLSPrivateKey  string `json:"tls_private_key"`
 }
 
+// APIKey is the cloud app authentication credential
 type APIKey struct {
 	ID    string `json:"id"`
 	Value string `json:"value"`
