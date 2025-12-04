@@ -515,7 +515,7 @@ var app = &cli.App{
 				},
 				{
 					Name:  "fetch-remote",
-					Usage: "Download a traces from a viam machine and save them to disk",
+					Usage: "Download traces from a viam machine and save them to disk",
 					Flags: lo.Flatten([][]cli.Flag{
 						commonPartFlags,
 						{
