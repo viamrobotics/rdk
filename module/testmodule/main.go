@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/generic"
@@ -32,74 +31,42 @@ var (
 )
 
 func main() {
-	utils.ContextualMainWithSIGPIPE(mainWithArgs, module.NewLoggerFromArgs("TestModule"))
-}
-
-func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
 	if os.Getenv("VIAM_TESTMODULE_PANIC") != "" {
 		panic("there is no flavor town")
 	}
-	logger.Debug("debug mode enabled")
-
-	var err error
-	myMod, err = module.NewModuleFromArgs(ctx)
-	if err != nil {
-		return err
-	}
-
+	module.NewLoggerFromArgs("TestModule").Debug("debug mode enabled")
 	resource.RegisterComponent(
 		generic.API,
 		helperModel,
-		resource.Registration[resource.Resource, resource.NoNativeConfig]{
-			Constructor: newHelper,
-		})
-	err = myMod.AddModelFromRegistry(ctx, generic.API, helperModel)
-	if err != nil {
-		return err
-	}
-
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newHelper},
+	)
 	resource.RegisterService(
 		genericservice.API,
 		otherModel,
-		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newOther})
-	err = myMod.AddModelFromRegistry(ctx, genericservice.API, otherModel)
-	if err != nil {
-		return err
-	}
-
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newOther},
+	)
 	resource.RegisterComponent(
 		motor.API,
 		testMotorModel,
-		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newTestMotor})
-	err = myMod.AddModelFromRegistry(ctx, motor.API, testMotorModel)
-	if err != nil {
-		return err
-	}
-
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newTestMotor},
+	)
 	resource.RegisterComponent(
 		generic.API,
 		testSlowModel,
-		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newSlow})
-	err = myMod.AddModelFromRegistry(ctx, generic.API, testSlowModel)
-	if err != nil {
-		return err
-	}
-
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newSlow},
+	)
 	resource.RegisterComponent(
 		generic.API,
 		testFSDependentModel,
-		resource.Registration[resource.Resource, *fsDepConfig]{Constructor: newFSDependent})
-	err = myMod.AddModelFromRegistry(ctx, generic.API, testFSDependentModel)
-	if err != nil {
-		return err
-	}
-
-	err = myMod.Start(ctx)
-	defer myMod.Close(ctx)
-	if err != nil {
-		return err
-	}
-	<-ctx.Done()
+		resource.Registration[resource.Resource, *fsDepConfig]{Constructor: newFSDependent},
+	)
+	module.ModularMain(
+		resource.APIModel{generic.API, helperModel},
+		resource.APIModel{genericservice.API, otherModel},
+		resource.APIModel{motor.API, testMotorModel},
+		resource.APIModel{generic.API, testSlowModel},
+		resource.APIModel{generic.API, testFSDependentModel},
+	)
 
 	// If this is set, sleep to catch module slow shutdown logs.
 	sleepTime := os.Getenv("VIAM_TESTMODULE_SLOW_CLOSE")
@@ -107,12 +74,10 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	if sleepTime != "" {
 		sleepDuration, err := time.ParseDuration(sleepTime)
 		if err != nil {
-			return err
+			return
 		}
 		time.Sleep(sleepDuration)
 	}
-
-	return nil
 }
 
 var attemptedConstruction bool
