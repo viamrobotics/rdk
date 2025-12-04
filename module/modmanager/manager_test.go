@@ -183,7 +183,7 @@ func TestModManagerFunctions(t *testing.T) {
 				logger:  logger,
 			}
 
-			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), logger)
+			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
 			test.That(t, err, test.ShouldBeNil)
 
 			err = mod.dial()
@@ -227,7 +227,7 @@ func TestModManagerFunctions(t *testing.T) {
 			oldAddr := mod.addr
 			oldClient := mod.client
 
-			utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), logger))
+			utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
 			err = mod.dial()
 			test.That(t, err, test.ShouldBeNil)
 

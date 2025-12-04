@@ -71,7 +71,6 @@ type localRobot struct {
 	localPackages           packages.ManagerSyncer
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
-	reconfigureLogger       logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
 
 	// reconfigurationLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
@@ -495,7 +494,6 @@ func newWithResources(
 		),
 		operations:              operation.NewManager(logger),
 		logger:                  logger,
-		reconfigureLogger:       logger.Sublogger("reconfigure"),
 		closeContext:            closeCtx,
 		cancelBackgroundWorkers: cancel,
 		// triggerConfig buffers 1 message so that we can queue up to 1 reconfiguration attempt
@@ -551,7 +549,7 @@ func newWithResources(
 
 	// we assume these never appear in our configs and as such will not be removed from the
 	// resource graph
-	r.webSvc = web.New(r, logger.Sublogger("networking"), rOpts.webOptions...)
+	r.webSvc = web.New(r, logger, rOpts.webOptions...)
 	if r.ftdc != nil {
 		r.ftdc.Add("web", r.webSvc.RequestCounter())
 	}
@@ -1455,7 +1453,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		// `Sync` call is responsible for logging those errors in a readable way. We only need to
 		// log that reconfiguration is exited. To minimize the distraction of reading a list of
 		// verbose errors that was arleady logged.
-		r.reconfigureLogger.CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed")
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed")
 		return
 	}
 	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
@@ -1468,28 +1466,28 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		// Same as the above `Sync` call error handling. The returned error is rich, detailing each
 		// individual packages error. The underlying `Sync` call is responsible for logging those
 		// errors in a readable way.
-		r.reconfigureLogger.CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed")
+		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed")
 		return
 	}
 
 	// Run the setup phase for new and modified modules in new config modules before proceeding with reconfiguration.
 	diffMods, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
-		r.reconfigureLogger.CErrorw(ctx, "error diffing module configs before first run", "error", err)
+		r.logger.CErrorw(ctx, "error diffing module configs before first run", "error", err)
 		return
 	}
 	mods := slices.Concat[[]config.Module](diffMods.Added.Modules, diffMods.Modified.Modules)
 	for _, mod := range mods {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
-			r.reconfigureLogger.CErrorw(ctx, "error executing first run", "module", mod.Name, "error", err)
+			r.logger.CErrorw(ctx, "error executing first run", "module", mod.Name, "error", err)
 			return
 		}
 	}
 
 	if newConfig.Cloud != nil {
-		r.reconfigureLogger.CDebug(ctx, "updating cached config")
+		r.Logger().CDebug(ctx, "updating cached config")
 		if err := newConfig.StoreToCache(); err != nil {
-			r.reconfigureLogger.CErrorw(ctx, "error storing the config", "error", err)
+			r.logger.CErrorw(ctx, "error storing the config", "error", err)
 		}
 	}
 
@@ -1562,7 +1560,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// with the current generated config to see what has changed
 	diff, err := config.DiffConfigs(*existingConfig, *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
-		r.reconfigureLogger.CErrorw(ctx, "error diffing the configs", "error", err)
+		r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 		return
 	}
 
@@ -1590,14 +1588,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	var verbPrefix string
-	if !r.initializing.Load() {
-		verbPrefix = "re"
-	}
-	r.reconfigureLogger.CInfof(ctx, "Now %vconfiguring resources and/or modules", verbPrefix)
+	r.logger.CInfo(ctx, "(Re)configuring robot")
 
 	if r.revealSensitiveConfigDiffs {
-		r.reconfigureLogger.CDebugf(ctx, "Now %vconfiguring with %+v", verbPrefix, diff)
+		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
 	}
 
 	// First we mark diff.Removed resources and their children for removal. Modular resources removed this way
@@ -1648,13 +1642,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	if allErrs != nil {
-		r.reconfigureLogger.CErrorw(
-			ctx,
-			fmt.Sprintf("The following errors were gathered during %vconfiguration", verbPrefix),
-			"errors", allErrs,
-		)
+		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
 	} else {
-		r.reconfigureLogger.CInfof(ctx, "Completed %vconfiguration", verbPrefix)
+		r.logger.CInfow(ctx, "Robot (re)configured")
 	}
 }
 
