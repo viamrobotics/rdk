@@ -229,9 +229,9 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	var lis net.Listener
 	var addr string
 	if err := module.MakeSelfOwnedFilesFunc(func() error {
-		dir := os.Getenv("HOME")
-		svc.logger.Infow("!!!HOME!!!", "dir", dir)
-		dir, err := rutils.PlatformMkdirTemp(dir, "viam-module-*")
+		dir := os.Getenv("RUNNER_TEMP")
+		svc.logger.Infow("!!!RUNNER_TEMP!!!", "dir", dir)
+		dir, err := rutils.PlatformMkdirTemp(dir, "viam-*")
 		if err != nil {
 			return errors.WithMessage(err, "module startup failed")
 		}
