@@ -444,7 +444,9 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 
 	modelTriple := fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
 	newModule.ModelTriple = modelTriple
-	newModule.ModelReadmeLink = "README.md#" + generateAnchor(fmt.Sprintf("Model %s", modelTriple))
+	// Create separate model documentation file instead of README section
+	modelDocFilename := fmt.Sprintf("%s_%s_%s.md", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
+	newModule.ModelReadmeLink = modelDocFilename
 	newModule.ModuleReadmeLink = defaultReadmeFilename
 }
 
@@ -483,6 +485,11 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 	// Render README.md
 	if err := renderReadme(module); err != nil {
 		return errors.Wrap(err, "failed to render README.md")
+	}
+
+	// Render model documentation file
+	if err := renderModelDoc(module); err != nil {
+		return errors.Wrap(err, "failed to render model documentation")
 	}
 
 	// Render workflows for cloud build
@@ -848,6 +855,40 @@ func renderReadme(module modulegen.ModuleInputs) error {
 
 	//nolint:gosec
 	destFile, err := os.Create(readmeDest)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(destFile.Close)
+
+	err = tmpl.Execute(destFile, module)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Create the model documentation file.
+func renderModelDoc(module modulegen.ModuleInputs) error {
+	const modelDocTemplate = "MODEL_DOC.md"
+	modelDocTemplatePath, err := templates.Open(filepath.Join(templatesPath, modelDocTemplate))
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(modelDocTemplatePath.Close)
+
+	tBytes, err := io.ReadAll(modelDocTemplatePath)
+	if err != nil {
+		return err
+	}
+
+	tmpl, err := template.New(modelDocTemplate).Parse(string(tBytes))
+	if err != nil {
+		return err
+	}
+
+	modelDocDest := filepath.Join(module.ModuleName, module.ModelReadmeLink)
+	//nolint:gosec
+	destFile, err := os.Create(modelDocDest)
 	if err != nil {
 		return err
 	}

@@ -44,7 +44,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		ModelPascal:           "MyModel",
 		ModelSnake:            "my-model",
 		ModelTriple:           "my-org:my-module:my-model",
-		ModelReadmeLink:       "model-readme-link",
+		ModelReadmeLink:       "my-org_my-module_my-model.md",
 
 		SDKVersion: "0.0.0",
 	}
@@ -92,6 +92,17 @@ func TestGenerateModuleAction(t *testing.T) {
 		bytes, err = io.ReadAll(readme)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(bytes), test.ShouldContainSubstring, "Module "+testModule.ModuleName)
+		test.That(t, string(bytes), test.ShouldContainSubstring, testModule.ModelReadmeLink)
+
+		// Check that model documentation file was created
+		_, err = os.Stat(filepath.Join(modulePath, testModule.ModelReadmeLink))
+		test.That(t, err, test.ShouldBeNil)
+
+		modelDoc, err := os.Open(filepath.Join(modulePath, testModule.ModelReadmeLink))
+		test.That(t, err, test.ShouldBeNil)
+		defer modelDoc.Close()
+		bytes, err = io.ReadAll(modelDoc)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(bytes), test.ShouldContainSubstring, "Model "+testModule.ModelTriple)
 
 		// cloud build enabled
