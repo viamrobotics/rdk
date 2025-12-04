@@ -22,7 +22,7 @@ import (
 
 var tracesPath = path.Join("~", ".viam", "trace")
 
-type traceFetchRemoteArgs struct {
+type traceGetRemoteArgs struct {
 	Organization string
 	Location     string
 	Machine      string
@@ -64,9 +64,9 @@ func traceImportRemoteAction(ctx *cli.Context, args traceImportRemoteArgs) error
 	}
 	//nolint: errcheck
 	defer os.RemoveAll(tmp)
-	if err := client.tracesFetchRemoteAction(
+	if err := client.tracesGetRemoteAction(
 		ctx,
-		traceFetchRemoteArgs{
+		traceGetRemoteArgs{
 			Organization: args.Organization,
 			Location:     args.Location,
 			Machine:      args.Machine,
@@ -85,9 +85,9 @@ func traceImportRemoteAction(ctx *cli.Context, args traceImportRemoteArgs) error
 	})
 }
 
-func (c *viamClient) tracesFetchRemoteAction(
+func (c *viamClient) tracesGetRemoteAction(
 	ctx *cli.Context,
-	flagArgs traceFetchRemoteArgs,
+	flagArgs traceGetRemoteArgs,
 	debug bool,
 	logger logging.Logger,
 ) error {
@@ -151,9 +151,9 @@ func tracePrintRemoteAction(
 	}
 	//nolint: errcheck
 	defer os.RemoveAll(tmp)
-	if err := client.tracesFetchRemoteAction(
+	if err := client.tracesGetRemoteAction(
 		ctx,
-		traceFetchRemoteArgs{
+		traceGetRemoteArgs{
 			Organization: args.Organization,
 			Location:     args.Location,
 			Machine:      args.Machine,
@@ -168,7 +168,7 @@ func tracePrintRemoteAction(
 	return tracePrintLocalAction(ctx, tracePrintLocalArgs{Path: filepath.Join(tmp, "traces")})
 }
 
-func traceFetchRemoteAction(ctx *cli.Context, args traceFetchRemoteArgs) error {
+func traceGetRemoteAction(ctx *cli.Context, args traceGetRemoteArgs) error {
 	client, err := newViamClient(ctx)
 	if err != nil {
 		return err
@@ -180,7 +180,7 @@ func traceFetchRemoteAction(ctx *cli.Context, args traceFetchRemoteArgs) error {
 	}
 	logger := globalArgs.createLogger()
 
-	return client.tracesFetchRemoteAction(ctx, args, globalArgs.Debug, logger)
+	return client.tracesGetRemoteAction(ctx, args, globalArgs.Debug, logger)
 }
 
 func tracePrintLocalAction(

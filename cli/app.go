@@ -484,7 +484,12 @@ var app = &cli.App{
 					Action: createCommandWithT(traceImportLocalAction),
 				},
 				{
-					Name:  "import-remote",
+					Name: "import-remote",
+					Description: `
+In order to use the import-remote command, the machine must have a valid shell type service.
+Organization and location are required flags if using name (rather than ID) for the part.
+Note: There is no progress meter while copying is in progress.
+`,
 					Usage: "Import traces from a remote viam machine to an OTLP endpoint.",
 					Flags: lo.Flatten([][]cli.Flag{
 						commonOtlpFlags,
@@ -508,14 +513,24 @@ var app = &cli.App{
 				{
 					Name:  "print-remote",
 					Usage: "Print traces from a remote viam machine to the console",
+					Description: `
+In order to use the print-remote command, the machine must have a valid shell type service.
+Organization and location are required flags if using name (rather than ID) for the part.
+Note: There is no progress meter while copying is in progress.
+`,
 					Flags: lo.Flatten([][]cli.Flag{
 						commonPartFlags,
 					}),
 					Action: createCommandWithT(tracePrintRemoteAction),
 				},
 				{
-					Name:  "fetch-remote",
 					Usage: "Download traces from a viam machine and save them to disk",
+					Name:  "get-remote",
+					Description: `
+In order to use the get-remote command, the machine must have a valid shell type service.
+Organization and location are required flags if using name (rather than ID) for the part.
+Note: There is no progress meter while copying is in progress.
+`,
 					Flags: lo.Flatten([][]cli.Flag{
 						commonPartFlags,
 						{
@@ -526,7 +541,7 @@ var app = &cli.App{
 							},
 						},
 					}),
-					Action: createCommandWithT(traceFetchRemoteAction),
+					Action: createCommandWithT(traceGetRemoteAction),
 				},
 			},
 		},
