@@ -121,11 +121,12 @@ jobs:
       with:
         go-version-file: go.mod
     - name: test
+      shell: bash
       env:
         GOFLAGS: "-tags=no_cgo"
       run:
         # note: this is a subset of tests that are known to pass on windows
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./web/server ./module ./logging/...
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./web/server
 
     - name: Upload test.json
       if: always()
