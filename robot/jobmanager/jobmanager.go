@@ -134,7 +134,7 @@ func New(
 	if err != nil {
 		return nil, err
 	}
-	dialAddr := "unix://" + parentAddr.UnixAddr
+	dialAddr := parentAddr.UnixAddr
 	if rutils.ViamTCPSockets() {
 		dialAddr = parentAddr.TCPAddr
 	}

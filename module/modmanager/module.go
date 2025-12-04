@@ -68,9 +68,9 @@ func (m *module) dial() error {
 	// TODO(PRODUCT-343): session support probably means interceptors here
 	var err error
 	addrToDial := m.addr
-	if !rutils.TCPRegex.MatchString(addrToDial) {
-		addrToDial = "unix:" + addrToDial
-	}
+	// if !rutils.TCPRegex.MatchString(addrToDial) {
+	// 	addrToDial = "unix:" + addrToDial
+	// }
 
 	otelStatsHandler := otelgrpc.NewClientHandler(
 		otelgrpc.WithTracerProvider(trace.GetProvider()),
