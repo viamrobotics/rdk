@@ -3478,6 +3478,12 @@ This won't work unless you have an existing installation of our GitHub app on yo
 			Action:    createCommandWithT[emptyArgs](VersionAction),
 		},
 		{
+			Name:      "self-update",
+			Usage:     "update the CLI to the latest version",
+			UsageText: createUsageText("self-update", nil, false, false),
+			Action:    createCommandWithT[emptyArgs](SelfUpdateAction),
+		},
+		{
 			Name:  "parse-ftdc",
 			Usage: "parse an ftdc file and open a REPL with extra options",
 			UsageText: createUsageText(
