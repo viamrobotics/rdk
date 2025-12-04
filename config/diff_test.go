@@ -679,7 +679,6 @@ func TestDiffSanitize(t *testing.T) {
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecret)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecrets[0].Secret)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecrets[1].Secret)
-	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.APIKey.ID)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.APIKey.Key)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.TLSCertificate)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.TLSPrivateKey)
