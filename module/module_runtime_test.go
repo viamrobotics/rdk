@@ -38,6 +38,9 @@ func TestModularMain(t *testing.T) {
 		{"tcp", false},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
+			if runtime.GOOS == "windows" && tc.UdsMode {
+				t.Skip("todo: test currently does not work on windows CI runners")
+			}
 			t.Parallel()
 			logger := logging.NewTestLogger(t)
 
