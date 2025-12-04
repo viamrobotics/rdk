@@ -236,15 +236,18 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 
 		if tcpMode {
 			addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
+			svc.logger.Infof("list tcp", "addr", addr)
 			lis, err = net.Listen("tcp", addr)
 		} else {
 			addr, err = module.CreateSocketAddress(dir, "parent")
 			if err != nil {
 				return errors.WithMessage(err, "module startup failed")
 			}
+			svc.logger.Infof("list unix", "addr", addr)
 			lis, err = net.Listen("unix", addr)
 		}
 		if err != nil {
+			svc.logger.Error(err.Error())
 			return errors.WithMessage(err, "failed to listen")
 		}
 		if tcpMode {
