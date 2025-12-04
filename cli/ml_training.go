@@ -45,9 +45,7 @@ const (
 	trainFlagTrainingScriptDirectory = "training-script-directory"
 )
 
-var (
-	validArgumentKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
-)
+var validArgumentKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 type mlSubmitCustomTrainingJobArgs struct {
 	DatasetID        string
