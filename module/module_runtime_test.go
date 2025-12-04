@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -20,71 +21,103 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
-func TestModularMainTCP(t *testing.T) {
+func TestModularMain(t *testing.T) {
 	// This test tests that ModularMain exits with a context cancelled if connection to
 	// the parent robot server is lost.
 	// Since ModularMain takes in cmd-line args and hijacks signal handling, we test a
 	// private function that contains most of the main logic in ModularMain.
 
-	logger := logging.NewTestLogger(t)
-	// check tcp and unix
-	robotServerListener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
+	for _, tc := range []struct {
+		TestName string
+		UdsMode  bool
+	}{
+		{"uds", true},
+		{"tcp", false},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			t.Parallel()
+			logger := logging.NewTestLogger(t)
 
-	injectRobot := &inject.Robot{
-		ResourceNamesFunc: func() []resource.Name { return []resource.Name{} },
-		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
-			return robot.MachineStatus{State: robot.StateRunning}, nil
-		},
-		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+			var (
+				robotServerListener net.Listener
+				err                 error
+			)
+			if tc.UdsMode {
+				parentAddr, err := CreateSocketAddress(t.TempDir(), utils.RandomAlphaString(5))
+				test.That(t, err, test.ShouldBeNil)
+				robotServerListener, err = net.Listen("unix", parentAddr)
+				test.That(t, err, test.ShouldBeNil)
+			} else {
+				robotServerListener, err = net.Listen("tcp", "127.0.0.1:0")
+				test.That(t, err, test.ShouldBeNil)
+			}
+			injectRobot := &inject.Robot{
+				ResourceNamesFunc: func() []resource.Name { return []resource.Name{} },
+				MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+					return robot.MachineStatus{State: robot.StateRunning}, nil
+				},
+				ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+			}
+			gServer := grpc.NewServer()
+			robotpb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+			var wg sync.WaitGroup
+			wg.Go(func() { gServer.Serve(robotServerListener) })
+
+			var (
+				modAddr string
+				mod     *Module
+			)
+			modCtx, modCancel := context.WithCancel(context.Background())
+			defer modCancel()
+
+			// if port is taken, retry starting the module server a few times
+			for range 10 {
+				var port int
+				if tc.UdsMode {
+					modAddr, err = CreateSocketAddress(t.TempDir(), utils.RandomAlphaString(5))
+					test.That(t, err, test.ShouldBeNil)
+					modAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, modAddr)
+					test.That(t, err, test.ShouldBeNil)
+				} else {
+					port, err = utils.TryReserveRandomPort()
+					test.That(t, err, test.ShouldBeNil)
+					modAddr = fmt.Sprintf(":%d", port)
+				}
+
+				mod, err = moduleStart(modAddr)(modCtx, nil, modCancel, logger)
+				if err != nil && strings.Contains(err.Error(), "address already in use") {
+					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
+					continue
+				}
+				test.That(t, err, test.ShouldBeNil)
+				defer mod.Close(context.Background())
+				break
+			}
+			if tc.UdsMode {
+				modAddr = "unix:" + modAddr
+			}
+
+			conn, err := grpc.Dial( //nolint:staticcheck
+				modAddr,
+				grpc.WithTransportCredentials(insecure.NewCredentials()),
+				grpc.WithBlock(), //nolint:staticcheck
+			)
+			test.That(t, err, test.ShouldBeNil)
+			modClient := pb.NewModuleServiceClient(conn)
+
+			// This test depends on the module server not returning a response for Ready until its parent connection has
+			// been established.
+			_, err = modClient.Ready(context.Background(), &pb.ReadyRequest{ParentAddress: robotServerListener.Addr().String()})
+			test.That(t, err, test.ShouldBeNil)
+
+			gServer.Stop()
+			wg.Wait()
+			<-modCtx.Done()
+
+			test.That(t, modCtx.Err(), test.ShouldBeError, context.Canceled)
+		})
 	}
-
-	robotpb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
-	var wg sync.WaitGroup
-	wg.Go(func() { gServer.Serve(robotServerListener) })
-
-	var (
-		modAddr string
-		mod     *Module
-	)
-	modCtx, modCancel := context.WithCancel(context.Background())
-	defer modCancel()
-
-	// if port is taken, retry starting the module server a few times
-	for range 10 {
-		port, err := utils.TryReserveRandomPort()
-		test.That(t, err, test.ShouldBeNil)
-		modAddr = fmt.Sprintf(":%d", port)
-
-		mod, err = moduleStart(modAddr)(modCtx, nil, modCancel, logger)
-		if err != nil && strings.Contains(err.Error(), "address already in use") {
-			logger.Infow("port in use; restarting on new port", "port", port, "err", err)
-			continue
-		}
-		test.That(t, err, test.ShouldBeNil)
-		defer mod.Close(context.Background())
-		break
-	}
-
-	conn, err := grpc.Dial( //nolint:staticcheck
-		modAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(), //nolint:staticcheck
-	)
-	test.That(t, err, test.ShouldBeNil)
-	modClient := pb.NewModuleServiceClient(conn)
-
-	// This test depends on the module server not returning a response for Ready until its parent connection has
-	// been established.
-	_, err = modClient.Ready(context.Background(), &pb.ReadyRequest{ParentAddress: robotServerListener.Addr().String()})
-	test.That(t, err, test.ShouldBeNil)
-
-	gServer.Stop()
-	wg.Wait()
-	<-modCtx.Done()
-
-	test.That(t, modCtx.Err(), test.ShouldBeError, context.Canceled)
 }
