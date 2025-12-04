@@ -13,13 +13,10 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/viamrobotics/webrtc/v3"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/propagation"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
-	"go.opentelemetry.io/otel/trace/noop"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
@@ -164,19 +161,6 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		opMgr.StreamServerInterceptor,
 	}
 
-	otelStatsHandler := otelgrpc.NewServerHandler(
-		otelgrpc.WithTracerProvider(noop.NewTracerProvider()),
-		otelgrpc.WithPropagators(propagation.TraceContext{}),
-	)
-
-	// MaxRecvMsgSize and MaxSendMsgSize by default are 4 MB & MaxInt32 (2.1 GB)
-	opts := []grpc.ServerOption{
-		grpc.MaxRecvMsgSize(rpc.MaxMessageSize),
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaries...)),
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streams...)),
-		grpc.StatsHandler(otelStatsHandler),
-	}
-
 	cancelCtx, cancel := context.WithCancel(context.Background())
 
 	// If the env variable does not exist, the empty string is returned.
@@ -197,7 +181,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		resLoggers:            map[resource.Resource]logging.Logger{},
 		internalDeps:          map[resource.Resource][]resConfigureArgs{},
 	}
-	otlpClient := &moduleOtelExporter{}
+	otlpClient := &moduleOtelExporter{mod: m}
 	otelExporter, err := otlptrace.New(ctx, otlpClient)
 	if err != nil {
 		return nil, err
@@ -207,13 +191,17 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 			semconv.SchemaURL,
 			attribute.String("viam.module.name", modName),
 			semconv.ServiceName(modName),
-			semconv.ServiceName("viam.com"),
+			semconv.ServiceNamespace("viam.com"),
 			semconv.ServerAddress("address"),
 		),
 		otelExporter,
 	)
-
-	// This needs to come after tracing is set up.
+	// MaxRecvMsgSize and MaxSendMsgSize by default are 4 MB & MaxInt32 (2.1 GB)
+	opts := []grpc.ServerOption{
+		grpc.MaxRecvMsgSize(rpc.MaxMessageSize),
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaries...)),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streams...)),
+	}
 	m.server = NewServer(opts...)
 
 	if err := m.server.RegisterServiceServer(ctx, &pb.ModuleService_ServiceDesc, m); err != nil {
