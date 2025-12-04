@@ -1774,148 +1774,129 @@ func selfUpdate(c *cli.Context) bool {
 	return true
 }
 
-func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
-	// Check if installed via go install (source build)
-	execPath, err := os.Executable()
-	if err == nil {
-		realPath, _ := filepath.EvalSymlinks(execPath)
-		binaryDir, _ := filepath.Abs(filepath.Dir(realPath))
-
-		// Check if binary is in GOPATH/bin
-		goPath := os.Getenv("GOPATH")
-		if goPath == "" {
-			// Default GOPATH if not set
-			goPath = filepath.Join(os.Getenv("HOME"), "go")
+// Function variables for dependency injection (testable with file:// URLs)
+var (
+	buildBinaryURL = func(goos, goarch string) string {
+		baseURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-"
+		binaryURL := baseURL + fmt.Sprintf("%s-%s", goos, goarch)
+		if goos == "windows" {
+			binaryURL += ".exe"
 		}
-		goBinPath, _ := filepath.Abs(filepath.Join(goPath, "bin"))
-
-		// Check if binary directory matches GOPATH/bin
-		if binaryDir == goBinPath {
-			// Installed via go install - update using go install
-			cmd := exec.Command("go", "install", "go.viam.com/rdk/cli/viam@latest")
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				return errors.Errorf("go install failed: %v", err)
-			}
-			infof(c.App.Writer, "The CLI has been successfully updated.")
-			return nil
+		// Only allow supported platforms
+		switch goos {
+		case "darwin", "linux", "windows":
+			return binaryURL
+		default:
+			return ""
 		}
 	}
-	// Not a source build - use OS-specific update methods
-	switch runtime.GOOS {
-	case "darwin":
-		if _, err := exec.LookPath("brew"); err != nil {
-			return errors.New("please install brew to self-update")
-		}
-		cmd := exec.Command("brew", "upgrade", "viam")
+	osExecutable   = os.Executable
+	execLookPath   = exec.LookPath
+	execRunCommand = func(cmd *exec.Cmd) error {
+		return cmd.Run()
+	}
+)
 
-		if err := cmd.Run(); err != nil {
-			return errors.Errorf("brew upgrade viam failed: %v", err)
+func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
+	// Try brew upgrade first if brew is available - if it fails, fall back to direct binary replacement
+	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
+		if _, err := execLookPath("brew"); err == nil {
+			cmd := exec.Command("brew", "upgrade", "viam")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := execRunCommand(cmd); err == nil {
+				infof(c.App.Writer, "The CLI has been successfully updated.")
+				return nil
+			}
 		}
-	case "linux":
-		// Get binary path
-		execPath, err := os.Executable()
+	}
+
+	// Not installed via brew - download and replace binary directly
+	execPath, err := osExecutable()
+	if err != nil {
+		return errors.Errorf("failed to get executable path: %v", err)
+	}
+	realPath, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		realPath = execPath // Use original path if symlink resolution fails
+	}
+	binaryDir := filepath.Dir(realPath)
+
+	// Determine binary URL based on OS and architecture
+	binaryURL := buildBinaryURL(runtime.GOOS, runtime.GOARCH)
+	if binaryURL == "" {
+		return errors.Errorf("self-update not supported on %s", runtime.GOOS)
+	}
+	tempPattern := "viam-cli-update-*"
+	if runtime.GOOS == "windows" {
+		tempPattern += ".exe"
+	}
+
+	// Download the binary (supports file:// for testing)
+	var body io.ReadCloser
+	if strings.HasPrefix(binaryURL, "file://") {
+		// Handle file:// URLs for testing (like agent does)
+		filePath := strings.TrimPrefix(binaryURL, "file://")
+		file, err := os.Open(filePath)
 		if err != nil {
-			return errors.Errorf("failed to get executable path: %v", err)
+			return errors.Errorf("failed to open test file: %v", err)
 		}
-		realPath, _ := filepath.EvalSymlinks(execPath)
-		binaryDir := filepath.Dir(realPath)
-
-		// Construct download URL based on arch (arch64 or amd64)
-		goarch := runtime.GOARCH
-		binaryURL := fmt.Sprintf("https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-linux-%s", goarch)
-
-		// Download (equivalent to: curl -o /tmp/file URL)
+		body = file
+	} else {
+		// Normal HTTP download
 		resp, err := http.Get(binaryURL)
 		if err != nil {
-			warningf(c.App.ErrWriter, "Failed to download binary: %v", err)
 			return errors.Errorf("failed to download binary: %v", err)
 		}
 		defer resp.Body.Close()
 
-		// Create temp file in same directory (or system temp)
-		tmpFile, err := os.CreateTemp(binaryDir, "viam-cli-update-*")
-		if err != nil {
-			// Check if it's a permission error - user needs sudo
-			if os.IsPermission(err) {
-				return errors.New("lacked permission to write to binary directory: run sudo viam self-update")
-			}
-			// Other error - fallback to system temp
-			tmpFile, err = os.CreateTemp("", "viam-cli-update-*")
-			if err != nil {
-				return errors.Errorf("failed to create temp file: %v", err)
-			}
+		if resp.StatusCode != http.StatusOK {
+			return errors.Errorf("download failed: server returned status %d", resp.StatusCode)
 		}
-		tmpPath := tmpFile.Name()
-		defer os.Remove(tmpPath) // Clean up on failure
+		body = resp.Body
+	}
+	defer body.Close()
 
-		// Write downloaded content (equivalent to: curl -o)
-		_, err = io.Copy(tmpFile, resp.Body)
-		tmpFile.Close()
-		if err != nil {
-			return errors.Errorf("failed to write downloaded content: %v", err)
+	// Create temp file in binary directory (for atomic replacement), fall back to system temp
+	tmpFile, err := os.CreateTemp(binaryDir, tempPattern)
+	if err != nil {
+		if os.IsPermission(err) {
+			return errors.New("permission denied: run 'sudo viam self-update'")
 		}
-
-		// Set permissions (equivalent to: chmod a+rx)
-		// Get current permissions and add read+execute to all (preserves existing write permissions)
-		info, err := os.Stat(tmpPath)
-		if err != nil {
-			return errors.Errorf("failed to get file info: %v", err)
-		}
-		currentMode := info.Mode().Perm() // Get just permission bits (mask out file type)
-		// Add read (4) and execute (1) = 5 to all groups (user, group, others)
-		// 0555 = r-xr-xr-x (read+execute for all)
-		newMode := currentMode | 0555
-		if err := os.Chmod(tmpPath, newMode); err != nil {
-			if os.IsPermission(err) {
-				return errors.New("lacked permissions to set permissions: run sudo viam self-update")
-			}
-			return errors.Errorf("failed to set permissions: %v", err)
-		}
-
-		// Atomically replace binary (works even if binary is executing)
-		if err := os.Rename(tmpPath, realPath); err != nil {
-			if os.IsPermission(err) {
-				return errors.New("lacked permissions to replace binary: run sudo viam self-update")
-			}
-			return errors.Errorf("failed to replace binary: %v", err)
-		}
-	case "windows":
-		// Construct download URL for Windows (typically amd64)
-		binaryURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-windows-amd64.exe"
-
-		// Download the installer (equivalent to: curl -o /tmp/file URL)
-		resp, err := http.Get(binaryURL)
-		if err != nil {
-			return errors.Errorf("failed to download installer: %v", err)
-		}
-		defer resp.Body.Close()
-
-		// Create temp file for the installer
-		tmpFile, err := os.CreateTemp("", "viam-cli-update-*.exe")
+		// Fall back to system temp directory
+		tmpFile, err = os.CreateTemp("", tempPattern)
 		if err != nil {
 			return errors.Errorf("failed to create temp file: %v", err)
 		}
-		tmpPath := tmpFile.Name()
-		defer os.Remove(tmpPath) // Clean up on failure
-
-		// Write downloaded content to temp file
-		_, err = io.Copy(tmpFile, resp.Body)
-		tmpFile.Close()
-		if err != nil {
-			return errors.Errorf("failed to write installer to temp file: %v", err)
-		}
-
-		// Execute the installer directly - it handles the update process itself
-		cmd := exec.Command(tmpPath)
-
-		if err := cmd.Run(); err != nil {
-			return errors.Errorf("failed to execute Windows installer: %v", err)
-		}
-	default:
-		return errors.Errorf("CLI self-update not supported on %s", runtime.GOOS)
 	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	// Write downloaded content to temp file
+	_, err = io.Copy(tmpFile, body)
+	tmpFile.Close()
+	if err != nil {
+		return errors.Errorf("failed to write downloaded content: %v", err)
+	}
+
+	// Make executable on Unix-like systems
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(tmpPath, 0o755); err != nil {
+			if os.IsPermission(err) {
+				return errors.New("permission denied: run 'sudo viam self-update'")
+			}
+			return errors.Errorf("failed to set permissions: %v", err)
+		}
+	}
+
+	// Atomically replace the binary (works on all platforms)
+	if err := os.Rename(tmpPath, realPath); err != nil {
+		if os.IsPermission(err) {
+			return errors.New("permission denied: run 'sudo viam self-update'")
+		}
+		return errors.Errorf("failed to replace binary: %v", err)
+	}
+
 	infof(c.App.Writer, "The CLI has been successfully updated.")
 	return nil
 }
