@@ -229,21 +229,23 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	var lis net.Listener
 	var addr string
 	if err := module.MakeSelfOwnedFilesFunc(func() error {
-		dir, err := rutils.PlatformMkdirTemp("", "viam-module-*")
+		dir := os.Getenv("HOME")
+		svc.logger.Infow("!!!HOME!!!", "dir", dir)
+		dir, err := rutils.PlatformMkdirTemp(dir, "viam-module-*")
 		if err != nil {
 			return errors.WithMessage(err, "module startup failed")
 		}
 
 		if tcpMode {
 			addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
-			svc.logger.Infof("list tcp", "addr", addr)
+			svc.logger.Infow("list tcp", "addr", addr)
 			lis, err = net.Listen("tcp", addr)
 		} else {
 			addr, err = module.CreateSocketAddress(dir, "parent")
 			if err != nil {
 				return errors.WithMessage(err, "module startup failed")
 			}
-			svc.logger.Infof("list unix", "addr", addr)
+			svc.logger.Infow("list unix", "addr", addr)
 			lis, err = net.Listen("unix", addr)
 		}
 		if err != nil {
