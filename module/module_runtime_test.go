@@ -69,7 +69,7 @@ func TestModularMainTCP(t *testing.T) {
 		break
 	}
 
-	conn, err := grpc.Dial(
+	conn, err := grpc.Dial( //nolint:staticcheck
 		modAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(), //nolint:staticcheck
