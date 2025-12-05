@@ -32,7 +32,7 @@ var (
 )
 
 func main() {
-	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("TestModule"))
+	utils.ContextualMainWithSIGPIPE(mainWithArgs, module.NewLoggerFromArgs("TestModule"))
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {

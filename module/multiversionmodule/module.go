@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
@@ -53,29 +52,11 @@ func (cfg *config) Validate(_ string) ([]string, []string, error) {
 }
 
 func main() {
-	utils.ContextualMain(mainWithArgs, logging.NewLogger(fmt.Sprintf("MultiVersionModule-%s", VERSION)))
-}
-
-func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
-	myMod, err := module.NewModuleFromArgs(ctx)
-	if err != nil {
-		return err
-	}
+	logging.NewLogger(fmt.Sprintf("MultiVersionModule-%s", VERSION)).Info("starting module")
 	resource.RegisterComponent(generic.API, myModel, resource.Registration[resource.Resource, *config]{
 		Constructor: newComponent,
 	})
-	err = myMod.AddModelFromRegistry(ctx, generic.API, myModel)
-	if err != nil {
-		return err
-	}
-
-	err = myMod.Start(ctx)
-	defer myMod.Close(ctx)
-	if err != nil {
-		return err
-	}
-	<-ctx.Done()
-	return nil
+	module.ModularMain(resource.APIModel{generic.API, myModel})
 }
 
 func newComponent(_ context.Context,
