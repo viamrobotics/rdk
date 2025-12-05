@@ -63,6 +63,7 @@ func init() {
 // We should NOT add a strict deadline to this test - we had that before and it resulted
 // in flaky tests (see RSDK-2493).
 func TestSessions(t *testing.T) {
+	t.Parallel()
 	for _, windowSize := range []time.Duration{
 		config.DefaultSessionHeartbeatWindow,
 		time.Second * 5,

@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioin/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
@@ -19,6 +20,14 @@ func init() {
 		RPCServiceDesc:              &pb.AudioInService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: getAudio.String(),
+	}, newGetAudioCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the AudioIn resource subtype string.
