@@ -271,10 +271,10 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			defer wg.Done()
 			moduleLogger := mgr.logger.Sublogger(conf.Name)
 
-			moduleLogger.CInfow(ctx, "Now adding module", "module", conf.Name)
+			mgr.logger.CInfow(ctx, "Now adding module", "module", conf.Name)
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
-				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
+				mgr.logger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
 				mgr.AddToFailedModules(conf.Name)
 				errs[i] = err
 				return
@@ -423,7 +423,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		handledResourceNameStrings = append(handledResourceNameStrings, name.String())
 	}
 
-	mod.logger.CInfow(ctx, "Module configuration changed. Stopping the existing module process", "module", conf.Name)
+	mgr.logger.CInfow(ctx, "Module configuration changed. Stopping the existing module process", "module", conf.Name)
 
 	if err := mgr.closeModule(mod, true); err != nil {
 		// If removal fails, assume all handled resources are orphaned.
@@ -445,10 +445,10 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	// reconfiguration successful, remove from failed modules
 	mgr.deleteFromFailedModules(conf.Name)
 
-	mod.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
+	mgr.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
 
-	mod.logger.CInfow(ctx, "Resources handled by reconfigured module will be re-added to new module process",
+	mgr.logger.CInfow(ctx, "Resources handled by reconfigured module will be re-added to new module process",
 		"module", mod.cfg.Name, "resources", handledResourceNameStrings)
 	return handledResourceNames, nil
 }
@@ -534,7 +534,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	}
 	mgr.modules.Delete(mod.cfg.Name)
 
-	mod.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
+	mgr.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
 	return nil
 }
 
