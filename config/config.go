@@ -584,6 +584,10 @@ type APIKey struct {
 	Value string `json:"value"`
 }
 
+func (a APIKey) IsFullySet() bool {
+	return a.ID != "" && a.Value != ""
+}
+
 // UnmarshalJSON unmarshals JSON data into this config.
 func (config *Cloud) UnmarshalJSON(data []byte) error {
 	var temp cloudData
@@ -660,7 +664,7 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		if config.LocalFQDN == "" {
 			return resource.NewConfigValidationFieldRequiredError(path, "local_fqdn")
 		}
-	} else if config.Secret == "" && config.APIKey.Value == "" {
+	} else if config.Secret == "" && !config.APIKey.IsFullySet() {
 		return resource.NewConfigValidationFieldRequiredError(path, "auth")
 	}
 	if config.RefreshInterval == 0 {
@@ -1058,7 +1062,7 @@ func ProcessConfig(in *Config) (*Config, error) {
 			}
 			out.Network.TLSConfig = tlsConfig
 		}
-		if in.Cloud.APIKey.Value != "" && in.Cloud.APIKey.ID != "" {
+		if in.Cloud.APIKey.IsFullySet() {
 			selfCreds = &rpc.Credentials{rutils.CredentialsTypeAPIKey, in.Cloud.APIKey.Value}
 		} else {
 			selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}

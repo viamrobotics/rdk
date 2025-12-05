@@ -150,7 +150,7 @@ func FromConfig(cfg *config.Config) (Options, error) {
 		})
 
 		var signalingDialOpts []rpc.DialOption
-		if cfg.Cloud.APIKey.Value != "" && cfg.Cloud.APIKey.ID != "" {
+		if cfg.Cloud.APIKey.IsFullySet() {
 			signalingDialOpts = []rpc.DialOption{rpc.WithEntityCredentials(
 				cfg.Cloud.APIKey.ID,
 				rpc.Credentials{utils.CredentialsTypeAPIKey, cfg.Cloud.APIKey.Value},

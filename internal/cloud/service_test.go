@@ -53,7 +53,7 @@ func TestCloudManaged(t *testing.T) {
 		AppAddress: fmt.Sprintf("http://%s", addr),
 	}
 
-	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, "", "", "", "", logger)
+	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, conf.ID, "", "", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	svc := cloud.NewCloudConnectionService(conf, appConn, logger)
@@ -214,7 +214,7 @@ func TestCloudManagedWithAuth(t *testing.T) {
 }
 
 func testCloudConnectionAuth(t *testing.T, logger logging.Logger, conf *config.Cloud, shouldAuth bool) {
-	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, conf.Secret, conf.ID, conf.APIKey.Value, conf.APIKey.ID, logger)
+	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, conf.ID, "", "", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	svc := cloud.NewCloudConnectionService(conf, appConn, logger)
