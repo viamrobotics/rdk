@@ -574,9 +574,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		robotOptions = append(robotOptions, robotimpl.WithFTDC())
 	}
 
-	if s.args.EnableTracing {
-		robotOptions = append(robotOptions, robotimpl.WithTraceFile())
-	}
+	robotOptions = append(robotOptions, robotimpl.WithTraceFile())
 
 	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove
 	// all components, services, remotes, modules, processes, packages, and jobs from

@@ -88,6 +88,7 @@ type resourceManagerOptions struct {
 	untrustedEnv       bool
 	tlsConfig          *tls.Config
 	ftdc               *ftdc.FTDC
+	tracingEnabled     bool
 }
 
 // newResourceManager returns a properly initialized set of parts.
@@ -140,6 +141,7 @@ func (manager *resourceManager) startModuleManager(
 		PackagesDir:             packagesDir,
 		FTDC:                    manager.opts.ftdc,
 		ModPeerConnTracker:      modPeerConnTracker,
+		TracingEnabled:          manager.opts.tracingEnabled,
 	}
 	modmanager, err := modmanager.NewManager(ctx, parentAddrs, logger, mmOpts)
 	if err != nil {

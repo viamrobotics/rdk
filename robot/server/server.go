@@ -50,11 +50,11 @@ var defaultTunnelConnectionTimeout = 10 * time.Second
 // a robot.Robot as a gRPC server.
 type Server struct {
 	pb.UnimplementedRobotServiceServer
-	robot robot.Robot
+	robot robot.LocalRobot
 }
 
 // New constructs a gRPC service server for a Robot.
-func New(robot robot.Robot) pb.RobotServiceServer {
+func New(robot robot.LocalRobot) pb.RobotServiceServer {
 	return &Server{
 		robot: robot,
 	}
@@ -62,6 +62,12 @@ func New(robot robot.Robot) pb.RobotServiceServer {
 
 // Close cleanly shuts down the server.
 func (s *Server) Close() {
+}
+
+// SendTraces sends OTLP spans to be recorded by viam server. It should only be
+// called from modules.
+func (s *Server) SendTraces(ctx context.Context, req *pb.SendTracesRequest) (*pb.SendTracesResponse, error) {
+	return nil, s.robot.WriteTraceMessages(ctx, req.ResourceSpans)
 }
 
 // Tunnel tunnels traffic to/from the client from/to a specified port on the server.

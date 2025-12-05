@@ -27,7 +27,7 @@ type Client struct {
 func NewClient(dirPath, filename string) (*Client, error) {
 	logger := &lumberjack.Logger{
 		Filename:   filepath.Join(dirPath, filename),
-		MaxSize:    1024,
+		MaxSize:    1024 * 512,
 		MaxBackups: 2,
 		Compress:   true,
 	}
