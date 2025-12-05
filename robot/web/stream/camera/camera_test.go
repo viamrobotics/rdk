@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/rimage"
 	camerautils "go.viam.com/rdk/robot/web/stream/camera"
 	"go.viam.com/rdk/testutils/inject"
@@ -37,18 +38,28 @@ func TestVideoSourceFromCamera(t *testing.T) {
 	test.That(t, diffVal, test.ShouldEqual, 0)
 }
 
-func TestVideoSourceFromCameraFailure(t *testing.T) {
+func TestVideoSourceFromCameraFalsyVideoProps(t *testing.T) {
 	malformedCam := &inject.Camera{
 		ImageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 			return []byte("not a valid image"), camera.ImageMetadata{MimeType: utils.MimeTypePNG}, nil
 		},
 	}
 
+	// VideoSourceFromCamera should not fail even with a malformed camera,
+	// since we no longer call GetImage during the conversion.
+	// See: https://viam.atlassian.net/browse/RSDK-12744
+	//
+	// Instead, it should return a VideoSource with empty video props.
 	vs, err := camerautils.VideoSourceFromCamera(context.Background(), malformedCam)
-	test.That(t, err, test.ShouldNotBeNil)
-	expectedErrPrefix := "failed to decode lazy encoded image: "
-	test.That(t, err.Error(), test.ShouldStartWith, expectedErrPrefix)
-	test.That(t, vs, test.ShouldBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, vs, test.ShouldNotBeNil)
+
+	propProvider, ok := vs.(gostream.VideoPropertyProvider)
+	test.That(t, ok, test.ShouldBeTrue)
+	props, err := propProvider.MediaProperties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.Width, test.ShouldEqual, 0)
+	test.That(t, props.Height, test.ShouldEqual, 0)
 }
 
 func TestVideoSourceFromCameraWithNonsenseMimeType(t *testing.T) {

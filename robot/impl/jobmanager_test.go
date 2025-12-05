@@ -55,6 +55,7 @@ import (
 )
 
 func TestJobManagerDurationAndCronFromJson(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake_jobs.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -73,6 +74,7 @@ func TestJobManagerDurationAndCronFromJson(t *testing.T) {
 }
 
 func TestLogLevelChange(t *testing.T) {
+	t.Parallel()
 	// This is created at debug level
 	logger, logs := logging.NewObservedTestLogger(t)
 
@@ -316,6 +318,7 @@ func TestJobManagerHistory(t *testing.T) {
 
 // Test continuous mode, include switching to and from.
 func TestJobContinuousSchedule(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 
 	fakeSensorComponent := []resource.Config{
@@ -428,6 +431,7 @@ func TestJobContinuousSchedule(t *testing.T) {
 }
 
 func TestJobManagerConfigChanges(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 
@@ -605,6 +609,7 @@ func TestJobManagerConfigChanges(t *testing.T) {
 }
 
 func TestJobManagerComponents(t *testing.T) {
+	t.Parallel()
 	logger, logs := logging.NewObservedTestLogger(t)
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 
@@ -1213,6 +1218,7 @@ func TestJobManagerComponents(t *testing.T) {
 }
 
 func TestJobManagerServices(t *testing.T) {
+	t.Parallel()
 	logger, logs := logging.NewObservedTestLogger(t)
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
 
@@ -1542,6 +1548,7 @@ func TestJobManagerServices(t *testing.T) {
 }
 
 func TestJobManagerErrors(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake_jobs.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)

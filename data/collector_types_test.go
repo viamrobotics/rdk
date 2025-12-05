@@ -430,4 +430,12 @@ func TestGetFileExt(t *testing.T) {
 	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage",
 		map[string]interface{}{"mime_type": rutils.MimeTypePCD}),
 		test.ShouldResemble, ".pcd")
+	test.That(t, getFileExt(CaptureTypeBinary, "GetAudio",
+		map[string]interface{}{"codec": rutils.CodecPCM16}), test.ShouldResemble, ".wav")
+	test.That(t, getFileExt(CaptureTypeBinary, "GetAudio",
+		map[string]interface{}{"codec": rutils.CodecPCM32}), test.ShouldResemble, ".wav")
+	test.That(t, getFileExt(CaptureTypeBinary, "GetAudio",
+		map[string]interface{}{"codec": rutils.CodecPCM32Float}), test.ShouldResemble, ".wav")
+	test.That(t, getFileExt(CaptureTypeBinary, "GetAudio",
+		map[string]interface{}{"codec": rutils.CodecMP3}), test.ShouldResemble, ".mp3")
 }

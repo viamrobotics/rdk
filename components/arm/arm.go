@@ -107,7 +107,7 @@ func Named(name string) resource.Name {
 //
 // JointPositions example:
 //
-//	myArm , err := arm.FromProvider(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //
 //	// Get the current position of each joint on the arm as JointPositions.
 //	pos, err := myArm.JointPositions(context.Background(), nil)

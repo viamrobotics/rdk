@@ -58,24 +58,6 @@ jobs:
       - name: Chown
         run: chown -R testbot:testbot .
 
-      - name: Run CLI linter tests
-        run: |
-          cd cli/internal/cli_lint
-          go build .
-          ./cli_lint ../../
-
-      - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
-        run: |
-          sudo -Hu testbot bash -lc 'git init && git add . && make build-go lint-go generate-go'
-          GEN_DIFF=$(git status -s)
-          if [ -n "$GEN_DIFF" ]; then
-              echo '"make build-go lint-go generate-go" resulted in the following untracked changes:' 1>&2
-              git diff
-              echo '"make build-go lint-go generate-go" resulted in changes not in git' 1>&2
-              git status
-              exit 1
-          fi
-
       - name: Run go unit tests
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
@@ -89,6 +71,44 @@ jobs:
           name: test-${{ matrix.platform_name }}.json
           path: json.log
           retention-days: 30
+
+  lint:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64
+            platform: linux/amd64
+          - runner: github-linux-arm64-4core
+            image: ghcr.io/viamrobotics/rdk-devenv:arm64
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Verify no uncommitted changes from "make build-go lint-go generate-go"
+        run: |
+          git init && git add .
+          make build-go lint-go generate-go
+          GEN_DIFF=$(git status -s)
+          if [ -n "$GEN_DIFF" ]; then
+              echo '"make build-go lint-go generate-go" resulted in the following untracked changes:' 1>&2
+              git diff
+              echo '"make build-go lint-go generate-go" resulted in changes not in git' 1>&2
+              git status
+              exit 1
+          fi
+
+      - name: Run CLI linter tests
+        run: go run ./cli/internal/cli_lint ./cli
 
   test_win:
     name: windows
@@ -145,26 +165,9 @@ jobs:
     name: Test Longer-running Motion Plans if affected
     uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@main
 
-  jsonschema:
-    name: Test meta.json jsonschema
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-      - uses: actions/setup-python@v5
-        with:
-          cache-dependency-path: cli/test-requirements.txt
-      - run: |
-          go run -tags no_cgo ./cli/viam/ module create --local-only --name schematest --public-namespace ns
-          cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
-          python -m venv .venv
-          source .venv/bin/activate
-          pip install -r cli/test-requirements.txt
-          check-jsonschema --schemafile ./cli/module.schema.json meta2.json
-
   test_passing:
     name: All Tests Passing
-    needs: [test_go, test32, motion_tests, test_win]
+    needs: [test_go, test32, motion_tests, test_win, lint]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
@@ -174,10 +177,12 @@ jobs:
           echo Go 32-bit Tests: ${{ needs.test32.result }}
           echo Windows Tests: ${{ needs.test_win.result }}
           echo Motion Tests: ${{ needs.motion_tests.result }}
+          echo Lint: ${{ needs.lint.result }}
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
           [ "${{ needs.test_win.result }}" == "success" ] && \
-          [ "${{ needs.motion_tests.result }}" == "success" ]
+          [ "${{ needs.motion_tests.result }}" == "success" ] && \
+          [ "${{ needs.lint.result }}" == "success" ]
 
       - name: Mark appimage label
         if: contains(github.event.pull_request.labels.*.name, 'appimage') || contains(github.event.pull_request.labels.*.name, 'appimage-ignore-tests')

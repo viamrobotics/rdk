@@ -121,9 +121,13 @@ func newHelper(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
 	// VIAM_TESTMODULE_FAIL_ON_FIRST will always fail the first attempt at construction
-	if os.Getenv("VIAM_TESTMODULE_FAIL_ON_FIRST") != "" && !attemptedConstruction {
-		attemptedConstruction = true
-		return nil, errors.New("gotta fail fast")
+	if os.Getenv("VIAM_TESTMODULE_FAIL_ON_FIRST") != "" {
+		if !attemptedConstruction {
+			attemptedConstruction = true
+			logger.Warn("VIAM_TESTMODULE_FAIL_ON_FIRST causing intentional failure")
+			return nil, errors.New("gotta fail fast")
+		}
+		logger.Info("VIAM_TESTMODULE_FAIL_ON_FIRST not failing this time")
 	}
 	var dependsOnSensor sensor.Sensor
 	var err error

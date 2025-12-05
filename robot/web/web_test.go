@@ -6,11 +6,13 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,6 +23,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/lestrrat-go/jwx/jwk"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap/zapcore"
 	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
@@ -1565,10 +1568,11 @@ type clientCall = func(context.Context) error
 func testResourceLimitsAndFTDC(
 	t *testing.T,
 	keyPrefix string,
+	method string,
 	setupBlock func(onEnter, wait func()) setupRobotOption,
 	createCall func(string, logging.Logger) clientCall,
 ) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	blockCall := make(chan struct{})
 	callBlocking := make(chan struct{})
@@ -1599,7 +1603,7 @@ func testResourceLimitsAndFTDC(
 	// Create a caller to invoke the gRPC method used for testing
 	call := createCall(addr, logger)
 
-	// Check that the in flight request counter is zero
+	// Check that the in-flight request counter is zero
 	statsKey := keyPrefix + ".inFlightRequests"
 	stats := svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 0)
@@ -1617,7 +1621,7 @@ func testResourceLimitsAndFTDC(
 	// counters have been updated.
 	<-callBlocking
 
-	// Check that the in flight request counter has increased to 1
+	// Check that the in-flight request counter has increased to 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 1)
 
@@ -1626,9 +1630,53 @@ func testResourceLimitsAndFTDC(
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
 	test.That(t, err.Error(), test.ShouldEndWith,
-		fmt.Sprintf("exceeded request limit 1 on resource %v, see %v for troubleshooting steps", keyPrefix, web.ReqLimitExceededURL))
+		fmt.Sprintf(
+			"exceeded request limit 1 on resource %v (your client is responsible for 1). "+
+				"See %v for troubleshooting steps",
+			keyPrefix,
+			web.ReqLimitExceededURL,
+		),
+	)
 
-	// In flight requests counter should still only be 1
+	// Assert that an appropriate warning log was output by the server.
+	reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
+	test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
+	test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
+	expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", web.ReqLimitExceededURL)
+	test.That(t, reqLimitExceededLogs[0].Message, test.ShouldStartWith, expectedMsg)
+
+	var fields map[string]any
+	err = json.Unmarshal(
+		[]byte(strings.TrimPrefix(reqLimitExceededLogs[0].Message, expectedMsg)),
+		&fields,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fields["method"], test.ShouldEqual, method)
+	test.That(t, fields["resource"], test.ShouldEqual, keyPrefix)
+	{
+		offendingClientInformation := fields["offending_client_information"]
+		offendingClientInformationM, ok := offendingClientInformation.(map[string]any)
+		test.That(t, ok, test.ShouldBeTrue)
+		// Assert exact values on inflight_requests and rejected_requests and assert the rest
+		// of the fields simply exist.
+		inFlightRequests := offendingClientInformationM["inflight_requests"]
+		inFlightRequestsM, ok := inFlightRequests.(map[string]any)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, inFlightRequestsM[keyPrefix], test.ShouldEqual, 1)
+		rejectedRequests := offendingClientInformationM["rejected_requests"]
+		rejectedRequestsM, ok := rejectedRequests.(map[string]any)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, rejectedRequestsM[keyPrefix], test.ShouldEqual, 1)
+		test.That(t, offendingClientInformationM["client_metadata"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["connection_id"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["connect_time"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["time_since_connect"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["server_ip"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["client_ip"], test.ShouldNotBeNil)
+	}
+	test.That(t, fields["all_other_client_information"], test.ShouldResemble, []any{})
+
+	// In-flight requests counter should still only be 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 1)
 
@@ -1636,7 +1684,7 @@ func testResourceLimitsAndFTDC(
 	close(blockCall)
 	clientCallsWg.Wait()
 
-	// In flight requests counter should be back to 0
+	// In-flight requests counter should be back to 0
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 0)
 }
@@ -1646,6 +1694,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		testResourceLimitsAndFTDC(
 			t,
 			"arm1.viam.component.arm.v1.ArmService",
+			"/viam.component.arm.v1.ArmService/GetEndPosition",
 			func(onEnter, wait func()) setupRobotOption {
 				return withArmEndPosition(func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 					onEnter()
@@ -1675,6 +1724,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		testResourceLimitsAndFTDC(
 			t,
 			"viam.robot.v1.RobotService",
+			"/viam.robot.v1.RobotService/GetMachineStatus",
 			func(onEnter, wait func()) setupRobotOption {
 				return withMachineStatus(func(ctx context.Context) (robot.MachineStatus, error) {
 					onEnter()

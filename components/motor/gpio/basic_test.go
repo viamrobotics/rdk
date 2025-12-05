@@ -155,6 +155,7 @@ func TestMotorABPWM(t *testing.T) {
 
 // Test the DIR/PWM style IO.
 func TestMotorDirPWM(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := logging.NewTestLogger(t)
@@ -327,6 +328,7 @@ func TestMotorAB(t *testing.T) {
 }
 
 func TestMotorABNoEncoder(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := logging.NewTestLogger(t)

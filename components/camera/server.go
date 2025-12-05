@@ -129,10 +129,11 @@ func (s *serviceServer) GetImages(
 		}
 		format := utils.MimeTypeToFormat[img.MimeType()]
 		imgMes := &pb.Image{
-			SourceName: img.SourceName,
-			Format:     format,
-			MimeType:   img.MimeType(),
-			Image:      imgBytes,
+			SourceName:  img.SourceName,
+			Format:      format,
+			MimeType:    img.MimeType(),
+			Image:       imgBytes,
+			Annotations: img.Annotations().ToProto(),
 		}
 		imagesMessage = append(imagesMessage, imgMes)
 	}

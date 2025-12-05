@@ -212,7 +212,7 @@ func (dt CaptureType) ToProto() datasyncPB.DataType {
 // MethodToCaptureType returns the DataType of the method.
 func MethodToCaptureType(methodName string) CaptureType {
 	switch methodName {
-	case nextPointCloud, readImage, pointCloudMap, GetImages, captureAllFromCamera:
+	case nextPointCloud, readImage, pointCloudMap, GetImages, captureAllFromCamera, getAudio:
 		return CaptureTypeBinary
 	default:
 		return CaptureTypeTabular
@@ -365,6 +365,42 @@ type Annotations struct {
 	Classifications []Classification
 }
 
+// AnnotationsFromProto converts *dataPB.Annotations to Annotations.
+func AnnotationsFromProto(protoAnnotations *dataPB.Annotations) Annotations {
+	if protoAnnotations == nil {
+		return Annotations{}
+	}
+
+	var bboxes []BoundingBox
+	if protoAnnotations.Bboxes != nil {
+		for _, bb := range protoAnnotations.Bboxes {
+			bboxes = append(bboxes, BoundingBox{
+				Label:          bb.Label,
+				Confidence:     bb.Confidence,
+				XMinNormalized: bb.XMinNormalized,
+				XMaxNormalized: bb.XMaxNormalized,
+				YMinNormalized: bb.YMinNormalized,
+				YMaxNormalized: bb.YMaxNormalized,
+			})
+		}
+	}
+
+	var classifications []Classification
+	if protoAnnotations.Classifications != nil {
+		for _, c := range protoAnnotations.Classifications {
+			classifications = append(classifications, Classification{
+				Label:      c.Label,
+				Confidence: c.Confidence,
+			})
+		}
+	}
+
+	return Annotations{
+		BoundingBoxes:   bboxes,
+		Classifications: classifications,
+	}
+}
+
 // Empty returns true when Annotations are empty.
 func (mt Annotations) Empty() bool {
 	return len(mt.BoundingBoxes) == 0 && len(mt.Classifications) == 0
@@ -413,6 +449,10 @@ const (
 	ExtJpeg = ".jpeg"
 	// ExtPng is the file extension for png files.
 	ExtPng = ".png"
+	// ExtMP3 is the file extension for mp3 files.
+	ExtMP3 = ".mp3"
+	// ExtWav is the file extension for wav files.
+	ExtWav = ".wav"
 )
 
 // getFileExt gets the file extension for a capture file.
@@ -433,6 +473,16 @@ func getFileExt(dataType CaptureType, methodName string, parameters map[string]i
 				return ExtPng
 			case rutils.MimeTypePCD:
 				return ExtPcd
+			default:
+				return ExtDefault
+			}
+		}
+		if methodName == getAudio {
+			switch parameters["codec"] {
+			case rutils.CodecPCM16, rutils.CodecPCM32, rutils.CodecPCM32Float:
+				return ExtWav
+			case rutils.CodecMP3:
+				return ExtMP3
 			default:
 				return ExtDefault
 			}

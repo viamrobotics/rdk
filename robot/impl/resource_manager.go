@@ -63,6 +63,9 @@ type moduleManager interface {
 	RemoveResource(ctx context.Context, name resource.Name) error
 	ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
+	FailedModules() []string
+	ClearFailedModules()
+	AddToFailedModules(moduleName string)
 }
 
 // resourceManager manages the actual parts that make up a robot.
@@ -1252,6 +1255,7 @@ func (manager *resourceManager) updateResources(
 		// to reconfigure.
 		if err := mod.Validate(""); err != nil {
 			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
+			manager.moduleManager.AddToFailedModules(mod.Name)
 			continue
 		}
 		affectedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
