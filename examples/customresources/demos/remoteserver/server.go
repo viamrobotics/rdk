@@ -44,8 +44,16 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 
 	var appConn rpc.ClientConn
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
+		var authID, authSecret string
+		if cfg.Cloud.APIKey.IsFullySet() {
+			authID = cfg.Cloud.APIKey.ID
+			authSecret = cfg.Cloud.APIKey.Value
+		} else {
+			authID = cfg.Cloud.ID
+			authSecret = cfg.Cloud.Secret
+		}
 		appConn, err = grpc.NewAppConn(
-			ctx, cfg.Cloud.AppAddress, cfg.Cloud.Secret, cfg.Cloud.ID, cfg.Cloud.APIKey.ID, cfg.Cloud.APIKey.Value, logger)
+			ctx, cfg.Cloud.AppAddress, cfg.Cloud.ID, authID, authSecret, logger)
 		if err != nil {
 			return nil
 		}

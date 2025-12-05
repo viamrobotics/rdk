@@ -68,7 +68,7 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, protoConfig, certProto)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
-		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, "", "", logger)
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, secret, robotPartID, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
@@ -120,7 +120,7 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, nil, nil)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
-		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, "", "", logger)
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, secret, robotPartID, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
@@ -162,7 +162,7 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, protoConfig, certProto)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
-		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, "", "", logger)
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, secret, robotPartID, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
@@ -207,7 +207,7 @@ func TestStoreToCache(t *testing.T) {
 	}
 	cfg.Cloud = cloud
 
-	appConn, err := grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, cloud.APIKey.Key, cloud.APIKey.ID, logger)
+	appConn, err := grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, cloud.Secret, cloud.ID, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
 

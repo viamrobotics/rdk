@@ -199,12 +199,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 					return "", "", err
 				}
 
-<<<<<<< HEAD
 				return m.downloadFileWithChecksum(ctx, url, dstPath)
-=======
-				return m.downloadFileFromGCSURL(
-					ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret, m.cloudConfig.APIKey.Value, m.cloudConfig.APIKey.ID)
->>>>>>> ced4c4958 (Lint and fix tesT)
 			},
 		)
 		if err != nil {

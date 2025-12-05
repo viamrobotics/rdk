@@ -230,8 +230,18 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// serialized manner
 	if cfgFromDisk.Cloud != nil {
 		cloud := cfgFromDisk.Cloud
+
+		var authID, authSecret string
+		if cloud.APIKey.IsFullySet() {
+			authID = cloud.APIKey.ID
+			authSecret = cloud.APIKey.Key
+		} else {
+			authID = cloud.ID
+			authSecret = cloud.Secret
+		}
+
 		appConnLogger := networkingLogger.Sublogger("app_connection")
-		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, cloud.APIKey.Value, cloud.APIKey.ID, appConnLogger)
+		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, authID, authSecret, appConnLogger)
 		if err != nil {
 			return err
 		}
@@ -241,7 +251,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		if cloud.SignalingAddress != "" && cloud.SignalingAddress != cloud.AppAddress {
 			signalingConnLogger := networkingLogger.Sublogger("signaling_connection")
 			signalingConn, err = grpc.NewAppConn(
-				ctx, cloud.SignalingAddress, cloud.Secret, cloud.ID, cloud.APIKey.Value, cloud.APIKey.ID, signalingConnLogger)
+				ctx, cloud.SignalingAddress, cloud.ID, authID, authSecret, signalingConnLogger)
 			if err != nil {
 				return err
 			}
@@ -249,27 +259,26 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		} else {
 			signalingConn = appConn
 		}
-	}
 
-	// Start remote logging with config from disk.
-	// This is to ensure we make our best effort to write logs for failures loading the remote config.
-	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
-		netAppender, err := logging.NewNetAppender(
-			&logging.CloudConfig{
-				AppAddress:  cfgFromDisk.Cloud.AppAddress,
-				ID:          cfgFromDisk.Cloud.ID,
-				Secret:      cfgFromDisk.Cloud.Secret,
-				APIKeyID:    cfgFromDisk.Cloud.APIKey.ID,
-				APIKeyValue: cfgFromDisk.Cloud.APIKey.Value,
-			},
-			appConn, false, logging.NewLogger("NetAppender-loggerWithoutNet"),
-		)
-		if err != nil {
-			return err
+		// Start remote logging with config from disk.
+		// This is to ensure we make our best effort to write logs for failures loading the remote config.
+		if cloud.LogPath != "" || cloud.AppAddress != "" {
+			netAppender, err := logging.NewNetAppender(
+				&logging.CloudConfig{
+					AppAddress: cloud.AppAddress,
+					ID:         cloud.ID,
+					AuthID:     authID,
+					AuthSecret: authSecret,
+				},
+				appConn, false, logging.NewLogger("NetAppender-loggerWithoutNet"),
+			)
+			if err != nil {
+				return err
+			}
+			defer netAppender.Close()
+
+			registry.AddAppenderToAll(netAppender)
 		}
-		defer netAppender.Close()
-
-		registry.AddAppenderToAll(netAppender)
 	}
 	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(rootLogger)

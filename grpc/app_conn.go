@@ -34,7 +34,7 @@ type AppConn struct {
 // establishing a connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a
 // connection is made. If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not
 // start.
-func NewAppConn(ctx context.Context, appAddress, secret, id, apiKeyValue, apiKeyID string, logger logging.Logger) (rpc.ClientConn, error) {
+func NewAppConn(ctx context.Context, appAddress, partID, authEntityID, authSecret string, logger logging.Logger) (rpc.ClientConn, error) {
 	appConn := &AppConn{ReconfigurableClientConn: &ReconfigurableClientConn{Logger: logger.Sublogger("app_conn")}}
 
 	grpcURL, err := url.Parse(appAddress)
@@ -42,13 +42,13 @@ func NewAppConn(ctx context.Context, appAddress, secret, id, apiKeyValue, apiKey
 		return nil, err
 	}
 
-	dialOpts := dialOpts(secret, id, apiKeyValue, apiKeyID)
+	dialOpts := dialOpts(authEntityID, authSecret, partID)
 
 	if grpcURL.Scheme == "http" {
 		dialOpts = append(dialOpts, rpc.WithInsecure())
 	}
 
-	ctxWithTimeout, ctxWithTimeoutCancel := contextutils.GetTimeoutCtx(ctx, true, id, logger)
+	ctxWithTimeout, ctxWithTimeoutCancel := contextutils.GetTimeoutCtx(ctx, true, partID, logger)
 	defer ctxWithTimeoutCancel()
 	// there will always be a deadline
 	if deadline, ok := ctxWithTimeout.Deadline(); ok {
@@ -132,21 +132,16 @@ func (ac *AppConn) Close() error {
 	return ac.ReconfigurableClientConn.Close()
 }
 
-func dialOpts(secret, id, apiKeyValue, apiKeyID string) []rpc.DialOption {
+func dialOpts(authEntityID, authSecret, partID string) []rpc.DialOption {
 	dialOpts := make([]rpc.DialOption, 0, 2)
-	// Only add credentials when secret or API key is set.
-	if apiKeyValue != "" && apiKeyID != "" {
-		dialOpts = append(dialOpts, rpc.WithEntityCredentials(apiKeyID, rpc.Credentials{Type: rpc.CredentialsTypeAPIKey, Payload: apiKeyValue}))
-		return dialOpts
-	}
+	// Only add credentials when credentials are set.
+	if authEntityID != "" && authSecret != "" {
+		if authEntityID == partID {
+			dialOpts = append(dialOpts, rpc.WithEntityCredentials(partID, rpc.Credentials{Type: "robot-secret", Payload: authSecret}))
+		} else {
+			dialOpts = append(dialOpts, rpc.WithEntityCredentials(partID, rpc.Credentials{Type: rpc.CredentialsTypeAPIKey, Payload: authSecret}))
+		}
 
-	if secret != "" {
-		dialOpts = append(dialOpts, rpc.WithEntityCredentials(id,
-			rpc.Credentials{
-				Type:    "robot-secret",
-				Payload: secret,
-			},
-		))
 	}
 	return dialOpts
 }

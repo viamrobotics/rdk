@@ -28,8 +28,16 @@ func setupLocalRobot(
 	var conn rpc.ClientConn
 	var err error
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
+		var authID, authSecret string
+		if cfg.Cloud.APIKey.IsFullySet() {
+			authID = cfg.Cloud.APIKey.ID
+			authSecret = cfg.Cloud.APIKey.Value
+		} else {
+			authID = cfg.Cloud.ID
+			authSecret = cfg.Cloud.Secret
+		}
 		conn, err = grpc.NewAppConn(
-			ctx, cfg.Cloud.AppAddress, cfg.Cloud.Secret, cfg.Cloud.ID, cfg.Cloud.APIKey.Value, cfg.Cloud.APIKey.ID, logger.Sublogger("appconn"))
+			ctx, cfg.Cloud.AppAddress, cfg.Cloud.ID, authID, authSecret, logger.Sublogger("appconn"))
 		test.That(t, err, test.ShouldBeNil)
 	}
 

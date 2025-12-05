@@ -32,11 +32,10 @@ var (
 
 // CloudConfig contains the necessary inputs to send logs to the app backend over grpc.
 type CloudConfig struct {
-	AppAddress  string
-	ID          string
-	Secret      string
-	APIKeyID    string
-	APIKeyValue string
+	AppAddress string
+	ID         string
+	AuthID     string
+	AuthSecret string
 }
 
 // NewNetAppender creates a NetAppender to send log events to the app backend. NetAppenders ought to
@@ -519,21 +518,24 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig, logger Logg
 
 	dialOpts := make([]rpc.DialOption, 0, 2)
 
-	// Only add credentials when secret or API key is set.
-	if cloudCfg.APIKeyValue != "" && cloudCfg.APIKeyID != "" {
-		dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloudCfg.APIKeyID,
-			rpc.Credentials{
-				Type:    rpc.CredentialsTypeAPIKey,
-				Payload: cloudCfg.APIKeyValue,
-			},
-		))
-	} else if cloudCfg.Secret != "" {
-		dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloudCfg.ID,
-			rpc.Credentials{
-				Type:    "robot-secret",
-				Payload: cloudCfg.Secret,
-			},
-		))
+	// Only add credentials when they are set.
+	if cloudCfg.AuthSecret != "" && cloudCfg.AuthID != "" {
+		if cloudCfg.AuthID == cloudCfg.ID {
+			dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloudCfg.AuthID,
+				rpc.Credentials{
+					Type:    "robot-secret",
+					Payload: cloudCfg.AuthSecret,
+				},
+			))
+		} else {
+			dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloudCfg.AuthID,
+				rpc.Credentials{
+					Type:    rpc.CredentialsTypeAPIKey,
+					Payload: cloudCfg.AuthSecret,
+				},
+			))
+		}
+
 	}
 
 	if grpcURL.Scheme == "http" {

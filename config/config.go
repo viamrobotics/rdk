@@ -700,7 +700,7 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		if config.LocalFQDN == "" {
 			return resource.NewConfigValidationFieldRequiredError(path, "local_fqdn")
 		}
-	} else if config.Secret == "" && config.APIKey.Key == "" {
+	} else if config.Secret == "" && !config.APIKey.IsFullySet() {
 		return resource.NewConfigValidationFieldRequiredError(path, "auth")
 	}
 	if config.RefreshInterval == 0 {
