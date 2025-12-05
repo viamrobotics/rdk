@@ -4,6 +4,7 @@ package server_test
 import (
 	"context"
 	"net"
+	"os"
 	"runtime"
 	"sync"
 	"testing"
@@ -48,13 +49,28 @@ func TestWindows(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 
+	t.Log("checking parentAddr")
+	info, err := os.Stat(parentAddr)
+	if err != nil {
+		t.Logf("error %v", err.Error())
+	} else {
+		t.Logf("info %v", info.Name())
+	}
+	t.Log("checking cleanedAddr")
+	info, err = os.Stat(cleanedAddr)
+	if err != nil {
+		t.Logf("error %v", err.Error())
+	} else {
+		t.Logf("info %v", info.Name())
+	}
+
+	t.Log("no prefix")
+	t.Logf("dialing %v", cleanedAddr)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	unixAddr := "unix://" + cleanedAddr
-	t.Logf("unixAddr %v", unixAddr)
 	conn, err := grpc.DialContext( //nolint:staticcheck
 		ctx,
-		unixAddr,
+		cleanedAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(), //nolint:staticcheck
 	)
@@ -67,8 +83,9 @@ func TestWindows(t *testing.T) {
 
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	unixAddr = "unix:" + cleanedAddr
-	t.Logf("unixAddr %v", unixAddr)
+	unixAddr := "unix:" + cleanedAddr
+	t.Log("prefix unix:")
+	t.Logf("dialing %v", unixAddr)
 	conn, err = grpc.DialContext( //nolint:staticcheck
 		ctx,
 		unixAddr,
@@ -85,7 +102,26 @@ func TestWindows(t *testing.T) {
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	unixAddr = "unix:/" + cleanedAddr
-	t.Logf("unixAddr %v", unixAddr)
+	t.Log("prefix unix:/")
+	t.Logf("dialing %v", unixAddr)
+	conn, err = grpc.DialContext( //nolint:staticcheck
+		ctx,
+		unixAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(), //nolint:staticcheck
+	)
+	if err != nil {
+		t.Logf("error %v", err.Error())
+	} else {
+		t.Log("connection made")
+		defer conn.Close()
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	unixAddr = "unix://" + cleanedAddr
+	t.Log("prefix unix://")
+	t.Logf("dialing %v", unixAddr)
 	conn, err = grpc.DialContext( //nolint:staticcheck
 		ctx,
 		unixAddr,
