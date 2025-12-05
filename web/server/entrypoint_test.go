@@ -82,6 +82,23 @@ func TestWindows(t *testing.T) {
 		defer conn.Close()
 	}
 
+	addr := "unix:" + parentAddr
+	t.Logf("dialing %v", addr)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err = grpc.DialContext( //nolint:staticcheck
+		ctx,
+		addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(), //nolint:staticcheck
+	)
+	if err != nil {
+		t.Logf("error %v", err.Error())
+	} else {
+		t.Log("connection made")
+		defer conn.Close()
+	}
+
 	windowsPathRegex := regexp.MustCompile(`^(\w:)?(.+)$`)
 	match := windowsPathRegex.FindStringSubmatch(parentAddr)
 	matchedAddr := parentAddr
@@ -112,6 +129,23 @@ func TestWindows(t *testing.T) {
 	conn, err = grpc.DialContext( //nolint:staticcheck
 		ctx,
 		matchedAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(), //nolint:staticcheck
+	)
+	if err != nil {
+		t.Logf("error %v", err.Error())
+	} else {
+		t.Log("connection made")
+		defer conn.Close()
+	}
+
+	addr = "unix:" + matchedAddr
+	t.Logf("dialing %v", addr)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err = grpc.DialContext( //nolint:staticcheck
+		ctx,
+		addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(), //nolint:staticcheck
 	)
