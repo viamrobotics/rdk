@@ -5,6 +5,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"regexp"
 	"runtime"
 	"sync"
 	"testing"
@@ -27,7 +28,7 @@ import (
 func TestWindows(t *testing.T) {
 	parentAddr, err := module.CreateSocketAddress(t.TempDir(), utils.RandomAlphaString(5))
 	test.That(t, err, test.ShouldBeNil)
-	t.Logf("parentAddr %v", parentAddr)
+
 	robotServerListener, err := net.Listen("unix", parentAddr)
 	test.That(t, err, test.ShouldBeNil)
 	injectRobot := &inject.Robot{
@@ -43,13 +44,11 @@ func TestWindows(t *testing.T) {
 	wg.Go(func() { gServer.Serve(robotServerListener) })
 
 	t.Logf("runtime %v", runtime.GOOS)
-	cleanedAddr, err := rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr)
-	test.That(t, err, test.ShouldBeNil)
-	t.Logf("cleanedAddr %v", cleanedAddr)
 
 	time.Sleep(5 * time.Second)
 
 	t.Log("checking parentAddr")
+	t.Logf("parentAddr %v", parentAddr)
 	info, err := os.Stat(parentAddr)
 	if err != nil {
 		t.Logf("error %v", err.Error())
@@ -57,6 +56,9 @@ func TestWindows(t *testing.T) {
 		t.Logf("info %v", info.Name())
 	}
 	t.Log("checking cleanedAddr")
+	cleanedAddr, err := rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr)
+	test.That(t, err, test.ShouldBeNil)
+	t.Logf("cleanedAddr %v", cleanedAddr)
 	info, err = os.Stat(cleanedAddr)
 	if err != nil {
 		t.Logf("error %v", err.Error())
@@ -64,11 +66,50 @@ func TestWindows(t *testing.T) {
 		t.Logf("info %v", info.Name())
 	}
 
-	t.Log("no prefix")
-	t.Logf("dialing %v", cleanedAddr)
+	t.Logf("dialing %v", parentAddr)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	conn, err := grpc.DialContext( //nolint:staticcheck
+		ctx,
+		parentAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(), //nolint:staticcheck
+	)
+	if err != nil {
+		t.Logf("error %v", err.Error())
+	} else {
+		t.Log("connection made")
+		defer conn.Close()
+	}
+
+	windowsPathRegex := regexp.MustCompile(`^(\w:)?(.+)$`)
+	match := windowsPathRegex.FindStringSubmatch(parentAddr)
+	matchedAddr := parentAddr
+	if match != nil && match[1] != "" {
+		matchedAddr = match[2]
+	}
+
+	t.Logf("dialing %v", matchedAddr)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err = grpc.DialContext( //nolint:staticcheck
+		ctx,
+		matchedAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(), //nolint:staticcheck
+	)
+	if err != nil {
+		t.Logf("error %v", err.Error())
+	} else {
+		t.Log("connection made")
+		defer conn.Close()
+	}
+
+	t.Log("no prefix")
+	t.Logf("dialing %v", cleanedAddr)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err = grpc.DialContext( //nolint:staticcheck
 		ctx,
 		cleanedAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
