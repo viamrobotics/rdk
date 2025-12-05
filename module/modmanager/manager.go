@@ -269,27 +269,12 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		wg.Add(1)
 		go func(i int, conf config.Module) {
 			defer wg.Done()
-
-			// We create a new Sublogger for each module "rdk.modmanager.[modulename]". There
-			// are four module-related loggers. Most of them are user-facing in app (render by
-			// default), but the one we create here is not (user must opt-in to seeing them).
-			// Here is an enumeration of the four module-related loggers. The one we are about
-			// to create is the second in the list and the only diagnostic one:
-			//
-			// 1. "rdk.modmanager" (user-facing)
-			//   - Responsible for addition, reconfiguration, and removal of modules
-			// 2. "rdk.modmanager.[modulename]" (diagnostic)
-			//   - Responsible for communications and setup between the modmanager and a particular module [modulename]
-			// 3. "[modulename]" (user-facing)
-			//   - Responsible for all gRPC output from a single module [modulename]
-			// 4. "rdk.modmanager.[modulename].StdOut/StdErr" (user-facing)
-			//   - Responsible for all console output from a single module [modulename]
 			moduleLogger := mgr.logger.Sublogger(conf.Name)
 
-			mgr.logger.CInfow(ctx, "Now adding module", "module", conf.Name)
+			moduleLogger.CInfow(ctx, "Now adding module", "module", conf.Name)
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
-				mgr.logger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
+				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
 				mgr.AddToFailedModules(conf.Name)
 				errs[i] = err
 				return
@@ -438,7 +423,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		handledResourceNameStrings = append(handledResourceNameStrings, name.String())
 	}
 
-	mgr.logger.CInfow(ctx, "Module configuration changed. Stopping the existing module process", "module", conf.Name)
+	mod.logger.CInfow(ctx, "Module configuration changed. Stopping the existing module process", "module", conf.Name)
 
 	if err := mgr.closeModule(mod, true); err != nil {
 		// If removal fails, assume all handled resources are orphaned.
@@ -460,10 +445,10 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	// reconfiguration successful, remove from failed modules
 	mgr.deleteFromFailedModules(conf.Name)
 
-	mgr.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
+	mod.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
 
-	mgr.logger.CInfow(ctx, "Resources handled by reconfigured module will be re-added to new module process",
+	mod.logger.CInfow(ctx, "Resources handled by reconfigured module will be re-added to new module process",
 		"module", mod.cfg.Name, "resources", handledResourceNameStrings)
 	return handledResourceNames, nil
 }
@@ -549,7 +534,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	}
 	mgr.modules.Delete(mod.cfg.Name)
 
-	mgr.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
+	mod.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
 	return nil
 }
 
