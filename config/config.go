@@ -1249,7 +1249,7 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 	func() {
 		globalLogger.mu.Lock()
 		defer globalLogger.mu.Unlock()
-		nonDebugGlobalLogger = globalLogger.logger != nil && globalLogger.logger.GetLevel() != logging.DEBUG
+		nonDebugGlobalLogger = globalLogger.actualGlobalLogger != nil && globalLogger.actualGlobalLogger.GetLevel() != logging.DEBUG
 	}()
 	if nonDebugGlobalLogger {
 		for _, lpc := range cfg.LogConfig {
