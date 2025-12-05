@@ -48,13 +48,22 @@ func createFakeDeps() resource.Dependencies {
 	fakeGantry1.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return []float64{1}, nil
 	}
+	fakeGantry1.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel(""), nil
+	}
 	fakeGantry2 := inject.NewGantry("2")
 	fakeGantry2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return []float64{1}, nil
 	}
+	fakeGantry2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel(""), nil
+	}
 	fakeGantry3 := inject.NewGantry("3")
 	fakeGantry3.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return []float64{1}, nil
+	}
+	fakeGantry3.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel(""), nil
 	}
 	fakeMotor := &fm.Motor{
 		Named: motor.Named("fm1").AsNamed(),
@@ -305,6 +314,7 @@ func TestKinematics(t *testing.T) {
 		Named:     gantry.Named("foo").AsNamed(),
 		subAxes:   twoAxes,
 		lengthsMm: []float64{1, 1},
+		model:     referenceframe.NewSimpleModel(""),
 		opMgr:     operation.NewSingleOperationManager(),
 	}
 	model, err := fakemultiaxis.Kinematics(context.Background())
@@ -315,6 +325,7 @@ func TestKinematics(t *testing.T) {
 		Named:     gantry.Named("foo").AsNamed(),
 		subAxes:   threeAxes,
 		lengthsMm: []float64{1, 1, 1},
+		model:     referenceframe.NewSimpleModel(""),
 		opMgr:     operation.NewSingleOperationManager(),
 	}
 	model, err = fakemultiaxis.Kinematics(context.Background())
@@ -342,6 +353,9 @@ func createComplexDeps() resource.Dependencies {
 	mAx1.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return nil
 	}
+	mAx1.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel("mAx1"), nil
+	}
 
 	position2 := []float64{9, 8, 7}
 	mAx2 := inject.NewGantry("2")
@@ -361,6 +375,9 @@ func createComplexDeps() resource.Dependencies {
 	}
 	mAx2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return nil
+	}
+	mAx2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel("mAx2"), nil
 	}
 
 	fakeMotor := &fm.Motor{

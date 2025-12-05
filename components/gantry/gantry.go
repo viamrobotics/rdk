@@ -98,6 +98,7 @@ func Named(name string) resource.Name {
 // [Home method docs]: https://docs.viam.com/dev/reference/apis/components/gantry/#home
 type Gantry interface {
 	resource.Resource
+	resource.Shaped
 	resource.Actuator
 	framesystem.InputEnabled
 
