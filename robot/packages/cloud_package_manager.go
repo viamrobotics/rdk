@@ -436,7 +436,10 @@ func (m *cloudManager) downloadFileWithChecksum(
 		return "", "", err
 	}
 
-	g := getter.HttpGetter{MaxBytes: 2e6} // for testing
+	g := getter.HttpGetter{
+		// MaxBytes: 10e6, // set maxbytes for testing
+		Header: http.Header{"part_id": []string{partID}, "secret": []string{partSecret}},
+	}
 	g.SetClient(&getter.Client{Ctx: ctx})
 	if err := g.GetFile(downloadPath, parsedURL); err != nil {
 		return "", "", errw.Wrap(err, "downloading file")
