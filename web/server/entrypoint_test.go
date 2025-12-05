@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sync"
 	"testing"
+	"time"
 
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/rdk/components/motor"
@@ -46,6 +47,7 @@ func TestWindows(t *testing.T) {
 	t.Logf("cleanedAddr %v", cleanedAddr)
 	unixAddr := "unix:" + cleanedAddr
 	t.Logf("unixAddr %v", unixAddr)
+	time.Sleep(5 * time.Second)
 
 	conn, err := grpc.Dial( //nolint:staticcheck
 		unixAddr,
