@@ -45,7 +45,7 @@ func TestWindows(t *testing.T) {
 	cleanedAddr, err := rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr)
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("cleanedAddr %v", cleanedAddr)
-	unixAddr := "unix:" + cleanedAddr
+	unixAddr := "unix://" + cleanedAddr
 	t.Logf("unixAddr %v", unixAddr)
 	time.Sleep(5 * time.Second)
 
