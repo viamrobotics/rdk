@@ -3,13 +3,15 @@ package videosource
 import (
 	"fmt"
 	"math"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
-	"github.com/pion/mediadevices/pkg/driver/camera"
+	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
+	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/io/video"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
@@ -21,6 +23,104 @@ import (
 // It is further adapted from gostream's query.go
 // However, this is the minimum code needed for webcam to work, placed in this directory.
 // This vastly improves the debugging and feature development experience, by not over-DRY-ing.
+
+// makeConstraints is a helper that returns constraints to mediadevices in order to find and make a video source.
+// Constraints are specifications for the video stream such as frame format, resolution etc.
+func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.MediaStreamConstraints {
+	return mediadevices.MediaStreamConstraints{
+		Video: func(constraint *mediadevices.MediaTrackConstraints) {
+			if conf.Width > 0 {
+				constraint.Width = prop.IntExact(conf.Width)
+			} else {
+				constraint.Width = prop.IntRanged{Min: minResolutionDimension, Ideal: 640, Max: 4096}
+			}
+
+			if conf.Height > 0 {
+				constraint.Height = prop.IntExact(conf.Height)
+			} else {
+				constraint.Height = prop.IntRanged{Min: minResolutionDimension, Ideal: 480, Max: 2160}
+			}
+
+			if conf.FrameRate > 0.0 {
+				constraint.FrameRate = prop.FloatExact(conf.FrameRate)
+			} else {
+				constraint.FrameRate = prop.FloatRanged{Min: 0.0, Ideal: 30.0, Max: 140.0}
+			}
+
+			if conf.Format == "" {
+				constraint.FrameFormat = prop.FrameFormatOneOf{
+					frame.FormatI420,
+					frame.FormatI444,
+					frame.FormatYUY2,
+					frame.FormatUYVY,
+					frame.FormatRGBA,
+					frame.FormatMJPEG,
+					frame.FormatNV12,
+					frame.FormatNV21,
+					frame.FormatZ16,
+				}
+			} else {
+				constraint.FrameFormat = prop.FrameFormatExact(conf.Format)
+			}
+
+			logger.Debugf("constraints: %v", constraint)
+		},
+	}
+}
+
+// findReaderAndDriver finds a video device and returns an image reader and the driver instance,
+// as well as the path to the driver.
+func findReaderAndDriver(
+	conf *WebcamConfig,
+	path string,
+	logger logging.Logger,
+) (video.Reader, driver.Driver, string, error) {
+	mediadevicescamera.Initialize()
+	constraints := makeConstraints(conf, logger)
+
+	// Handle specific path
+	if path != "" {
+		resolvedPath, err := filepath.EvalSymlinks(path)
+		if err == nil {
+			path = resolvedPath
+		}
+		reader, driver, err := getReaderAndDriver(filepath.Base(path), constraints, logger)
+		if err != nil {
+			return nil, nil, "", err
+		}
+
+		img, release, err := reader.Read()
+		if release != nil {
+			defer release()
+		}
+		if err != nil {
+			return nil, nil, "", err
+		}
+
+		if conf.Width != 0 && conf.Height != 0 {
+			if img.Bounds().Dx() != conf.Width || img.Bounds().Dy() != conf.Height {
+				return nil, nil, "", errors.Errorf("requested width and height (%dx%d) are not available for this webcam"+
+					" (closest driver found supports resolution %dx%d)",
+					conf.Width, conf.Height, img.Bounds().Dx(), img.Bounds().Dy())
+			}
+		}
+		return reader, driver, path, nil
+	}
+
+	// Handle "any" path
+	reader, driver, err := getReaderAndDriver("", constraints, logger)
+	if err != nil {
+		return nil, nil, "", errors.Wrap(err, "found no webcams")
+	}
+	labels := strings.Split(driver.Info().Label, mediadevicescamera.LabelSeparator)
+	if len(labels) == 0 {
+		logger.Error("no labels parsed from driver")
+		return nil, nil, "", nil
+	}
+	path = labels[0] // path is always the first element
+
+	return reader, driver, path, nil
+}
 
 // GetNamedVideoSource attempts to find a device (not a screen) by the given name.
 // If name is empty, it finds any device.
@@ -88,7 +188,7 @@ func labelFilter(target string, useSep bool) driver.FilterFn {
 		if !useSep {
 			return d.Info().Label == target
 		}
-		labels := strings.Split(d.Info().Label, camera.LabelSeparator)
+		labels := strings.Split(d.Info().Label, mediadevicescamera.LabelSeparator)
 		for _, label := range labels {
 			if label == target {
 				return true

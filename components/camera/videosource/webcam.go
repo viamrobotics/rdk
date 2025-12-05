@@ -5,18 +5,13 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"path/filepath"
-	"strings"
+	"io"
 	"sync"
 	"time"
 
-	"github.com/pion/mediadevices"
 	driverutils "github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
-	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
-	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/io/video"
-	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 
@@ -95,104 +90,6 @@ func (c WebcamConfig) Validate(path string) ([]string, []string, error) {
 	return []string{}, nil, nil
 }
 
-// makeConstraints is a helper that returns constraints to mediadevices in order to find and make a video source.
-// Constraints are specifications for the video stream such as frame format, resolution etc.
-func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.MediaStreamConstraints {
-	return mediadevices.MediaStreamConstraints{
-		Video: func(constraint *mediadevices.MediaTrackConstraints) {
-			if conf.Width > 0 {
-				constraint.Width = prop.IntExact(conf.Width)
-			} else {
-				constraint.Width = prop.IntRanged{Min: minResolutionDimension, Ideal: 640, Max: 4096}
-			}
-
-			if conf.Height > 0 {
-				constraint.Height = prop.IntExact(conf.Height)
-			} else {
-				constraint.Height = prop.IntRanged{Min: minResolutionDimension, Ideal: 480, Max: 2160}
-			}
-
-			if conf.FrameRate > 0.0 {
-				constraint.FrameRate = prop.FloatExact(conf.FrameRate)
-			} else {
-				constraint.FrameRate = prop.FloatRanged{Min: 0.0, Ideal: 30.0, Max: 140.0}
-			}
-
-			if conf.Format == "" {
-				constraint.FrameFormat = prop.FrameFormatOneOf{
-					frame.FormatI420,
-					frame.FormatI444,
-					frame.FormatYUY2,
-					frame.FormatUYVY,
-					frame.FormatRGBA,
-					frame.FormatMJPEG,
-					frame.FormatNV12,
-					frame.FormatNV21,
-					frame.FormatZ16,
-				}
-			} else {
-				constraint.FrameFormat = prop.FrameFormatExact(conf.Format)
-			}
-
-			logger.Debugf("constraints: %v", constraint)
-		},
-	}
-}
-
-// findReaderAndDriver finds a video device and returns an image reader and the driver instance,
-// as well as the path to the driver.
-func findReaderAndDriver(
-	conf *WebcamConfig,
-	path string,
-	logger logging.Logger,
-) (video.Reader, driverutils.Driver, string, error) {
-	mediadevicescamera.Initialize()
-	constraints := makeConstraints(conf, logger)
-
-	// Handle specific path
-	if path != "" {
-		resolvedPath, err := filepath.EvalSymlinks(path)
-		if err == nil {
-			path = resolvedPath
-		}
-		reader, driver, err := getReaderAndDriver(filepath.Base(path), constraints, logger)
-		if err != nil {
-			return nil, nil, "", err
-		}
-
-		img, release, err := reader.Read()
-		if release != nil {
-			defer release()
-		}
-		if err != nil {
-			return nil, nil, "", err
-		}
-
-		if conf.Width != 0 && conf.Height != 0 {
-			if img.Bounds().Dx() != conf.Width || img.Bounds().Dy() != conf.Height {
-				return nil, nil, "", errors.Errorf("requested width and height (%dx%d) are not available for this webcam"+
-					" (closest driver found supports resolution %dx%d)",
-					conf.Width, conf.Height, img.Bounds().Dx(), img.Bounds().Dy())
-			}
-		}
-		return reader, driver, path, nil
-	}
-
-	// Handle "any" path
-	reader, driver, err := getReaderAndDriver("", constraints, logger)
-	if err != nil {
-		return nil, nil, "", errors.Wrap(err, "found no webcams")
-	}
-	labels := strings.Split(driver.Info().Label, mediadevicescamera.LabelSeparator)
-	if len(labels) == 0 {
-		logger.Error("no labels parsed from driver")
-		return nil, nil, "", nil
-	}
-	path = labels[0] // path is always the first element
-
-	return reader, driver, path, nil
-}
-
 // webcam is a video driver wrapper camera that ensures its underlying driver stays connected.
 type webcam struct {
 	resource.Named
@@ -248,10 +145,34 @@ func (c *webcam) Reconfigure(
 	if err != nil {
 		return err
 	}
-	c.buffer.worker.Stop() // Calling this before locking shuts down the goroutines, and allows stopBuffer() to handle rest of the shutdown.
+
+	// Stop the driver and frame buffer worker
+	c.mu.Lock()
+	driver := c.driver
+	frameBufferWorker := c.buffer.worker
+	c.mu.Unlock()
+
+	if driver != nil {
+		if err := driver.Close(); err != nil {
+			c.logger.Errorw("failed to close current camera before stopping buffer worker", "error", err)
+		}
+	}
+
+	if frameBufferWorker != nil {
+		frameBufferWorker.Stop()
+	}
+
+	// Release buffer
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.buffer.stopBuffer()
+	if c.buffer != nil {
+		if c.buffer.release != nil {
+			c.buffer.release()
+			c.buffer.release = nil
+		}
+	}
+	c.reader = nil
+	c.driver = nil
 
 	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
 	driverReinitNotNeeded := c.conf.Format == newConf.Format &&
@@ -279,7 +200,7 @@ func (c *webcam) Reconfigure(
 		c.conf.FrameRate = defaultFrameRate
 	}
 	c.buffer = NewWebcamBuffer(c.workers.Context())
-	c.startBuffer()
+	c.startFrameBufferWorker()
 
 	return nil
 }
@@ -368,13 +289,27 @@ func (c *webcam) Monitor() {
 						case <-ticker.C:
 							cont := func() bool {
 								c.mu.Lock()
-								defer c.mu.Unlock()
-
 								if err := c.reconnectCamera(&c.conf); err != nil {
+									c.mu.Unlock()
 									c.logger.Debugw("failed to reconnect camera", "error", err)
 									return true
 								}
 								c.logger.Infow("camera reconnected")
+
+								// Stop the buffer worker outside of the mutex to avoid deadlock
+								var oldWorker *goutils.StoppableWorkers
+								if c.buffer != nil && c.buffer.worker != nil {
+									oldWorker = c.buffer.worker
+								}
+
+								c.buffer = NewWebcamBuffer(c.workers.Context())
+								c.startFrameBufferWorker()
+								c.mu.Unlock()
+
+								if oldWorker != nil {
+									oldWorker.Stop()
+								}
+
 								return false
 							}()
 							if cont {
@@ -519,9 +454,9 @@ func (c *webcam) getLatestFrame() (image.Image, error) {
 	return c.buffer.frame, nil
 }
 
-func (c *webcam) startBuffer() {
+func (c *webcam) startFrameBufferWorker() {
 	if c.buffer.frame != nil {
-		return // webcam buffer already started
+		return // frame buffer worker already started
 	}
 
 	interFrameDuration := time.Duration(float32(time.Second) / c.conf.FrameRate)
@@ -533,45 +468,51 @@ func (c *webcam) startBuffer() {
 			case <-closedCtx.Done():
 				return
 			case <-ticker.C:
-				// We must unlock the mutex even if the release() or read() functions panic.
-				func() {
-					c.mu.Lock()
-					defer c.mu.Unlock()
-					if c.buffer.release != nil {
-						c.buffer.release()
-						c.buffer.release = nil
-						c.buffer.frame = nil
+				// Make a private copy of the previously published frame so consumers can continue to read it,
+				// then return the Reader-managed buffer before we kick off the next read. This avoids holding
+				// on to driver memory while still serving the last frame.
+				var prevRelease func()
+				c.mu.Lock()
+				if c.buffer.release != nil && c.buffer.frame != nil {
+					c.buffer.frame = rimage.CloneImage(c.buffer.frame)
+				}
+				prevRelease = c.buffer.release
+				c.buffer.release = nil
+				c.mu.Unlock()
+
+				if prevRelease != nil {
+					prevRelease()
+				}
+
+				img, release, err := c.reader.Read()
+
+				c.mu.Lock()
+				c.buffer.err = err
+				if err != nil {
+					c.buffer.release = nil
+					c.buffer.frame = nil
+					c.logger.Errorf("error reading frame: %v", err)
+					isEOF := errors.Is(err, io.EOF)
+					if isEOF {
+						c.logger.Warnf("camera disconnected (EOF), stopping buffer worker. Error: %v", err)
+						c.disconnected = true
 					}
-					img, release, err := c.reader.Read()
-					c.buffer.err = err
-					if err != nil {
-						c.logger.Errorf("error reading frame: %v", err)
-						return // next iteration of for loop
+					c.mu.Unlock()
+					if isEOF {
+						return
 					}
-					c.buffer.frame = img
-					c.buffer.release = release
-				}()
+					continue
+				}
+				c.buffer.frame = img
+				c.buffer.release = release
+				c.mu.Unlock()
 			}
 		}
 	})
 }
 
-// Must lock the mutex before using this function.
-func (buffer *WebcamBuffer) stopBuffer() {
-	if buffer == nil {
-		return
-	}
-
-	// Release the remaining frame.
-	if buffer.release != nil {
-		buffer.release()
-		buffer.release = nil
-	}
-}
-
 func (c *webcam) Close(ctx context.Context) error {
 	c.workers.Stop()
-	c.buffer.worker.Stop()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.closed {
@@ -579,5 +520,12 @@ func (c *webcam) Close(ctx context.Context) error {
 	}
 	c.closed = true
 
-	return c.driver.Close()
+	if c.buffer != nil && c.buffer.worker != nil {
+		c.buffer.worker.Stop()
+	}
+
+	if c.driver != nil {
+		return c.driver.Close()
+	}
+	return nil
 }
