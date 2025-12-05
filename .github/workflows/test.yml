@@ -126,6 +126,20 @@ jobs:
       run:
         # note: this is a subset of tests that are known to pass on windows
         go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./web/server
+    - name: test2
+      env:
+        GOFLAGS: "-tags=no_cgo"
+      shell: bash
+      run:
+        # note: this is a subset of tests that are known to pass on windows
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./web/server
+    - name: test3
+      env:
+        GOFLAGS: "-tags=no_cgo"
+      shell: cmd
+      run:
+        # note: this is a subset of tests that are known to pass on windows
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./web/server
 
     # - name: Upload test.json
     #   if: always()

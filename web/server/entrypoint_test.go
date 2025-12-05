@@ -105,6 +105,23 @@ func TestWindows(t *testing.T) {
 		defer conn.Close()
 	}
 
+	matchedAddr = "C:" + cleanedAddr
+	t.Logf("dialing %v", matchedAddr)
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err = grpc.DialContext( //nolint:staticcheck
+		ctx,
+		matchedAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(), //nolint:staticcheck
+	)
+	if err != nil {
+		t.Logf("error %v", err.Error())
+	} else {
+		t.Log("connection made")
+		defer conn.Close()
+	}
+
 	t.Log("no prefix")
 	t.Logf("dialing %v", cleanedAddr)
 	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
