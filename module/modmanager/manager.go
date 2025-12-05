@@ -269,6 +269,21 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		wg.Add(1)
 		go func(i int, conf config.Module) {
 			defer wg.Done()
+
+			// We create a new Sublogger for each module "rdk.modmanager.[modulename]". There
+			// are four module-related loggers. Most of them are user-facing in app (render by
+			// default), but the one we create here is not (user must opt-in to seeing them).
+			// Here is an enumeration of the four module-related loggers. The one we are about
+			// to create is the second in the list and the only diagnostic one:
+			//
+			// 1. "rdk.modmanager" (user-facing)
+			//   - Responsible for addition, reconfiguration, and removal of modules
+			// 2. "rdk.modmanager.[modulename]" (diagnostic)
+			//   - Responsible for communications and setup between the modmanager and a particular module [modulename]
+			// 3. "[modulename]" (user-facing)
+			//   - Responsible for all gRPC output from a single module [modulename]
+			// 4. "rdk.modmanager.[modulename].StdOut/StdErr" (user-facing)
+			//   - Responsible for all console output from a single module [modulename]
 			moduleLogger := mgr.logger.Sublogger(conf.Name)
 
 			mgr.logger.CInfow(ctx, "Now adding module", "module", conf.Name)
