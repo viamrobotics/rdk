@@ -3470,6 +3470,7 @@ NOTES:
   - Ensure Docker Desktop has sufficient resources allocated (memory, CPU)
   - The container's working directory will be set to the dataset root, so relative paths resolve correctly
   - Model output will be saved to the specified output directory on your host machine
+  - If using Windows, ensure the dataset file path is in Linux format by passing --force-linux-path to the 'viam dataset export' command
 `,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
