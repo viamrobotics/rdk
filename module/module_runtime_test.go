@@ -68,6 +68,7 @@ func TestModularMain(t *testing.T) {
 			robotpb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 			var wg sync.WaitGroup
 			wg.Go(func() { gServer.Serve(robotServerListener) })
+			defer gServer.Stop()
 
 			var (
 				modAddr string
@@ -109,6 +110,7 @@ func TestModularMain(t *testing.T) {
 				grpc.WithBlock(), //nolint:staticcheck
 			)
 			test.That(t, err, test.ShouldBeNil)
+			defer conn.Close()
 			modClient := pb.NewModuleServiceClient(conn)
 
 			// This test depends on the module server not returning a response for Ready until its parent connection has
