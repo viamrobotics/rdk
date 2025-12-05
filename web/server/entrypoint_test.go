@@ -45,19 +45,61 @@ func TestWindows(t *testing.T) {
 	cleanedAddr, err := rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr)
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("cleanedAddr %v", cleanedAddr)
-	unixAddr := "unix://" + cleanedAddr
-	t.Logf("unixAddr %v", unixAddr)
+
 	time.Sleep(5 * time.Second)
 
-	conn, err := grpc.Dial( //nolint:staticcheck
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	unixAddr := "unix://" + cleanedAddr
+	t.Logf("unixAddr %v", unixAddr)
+	conn, err := grpc.DialContext( //nolint:staticcheck
+		ctx,
 		unixAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(), //nolint:staticcheck
 	)
-	test.That(t, err, test.ShouldBeNil)
-	defer conn.Close()
+	if err != nil {
+		t.Logf("error %v", err.Error())
+	} else {
+		t.Log("connection made")
+		defer conn.Close()
+	}
 
-	t.Log("connection made")
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	unixAddr = "unix:" + cleanedAddr
+	t.Logf("unixAddr %v", unixAddr)
+	conn, err = grpc.DialContext( //nolint:staticcheck
+		ctx,
+		unixAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(), //nolint:staticcheck
+	)
+	if err != nil {
+		t.Logf("error %v", err.Error())
+	} else {
+		t.Log("connection made")
+		defer conn.Close()
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	unixAddr = "unix:/" + cleanedAddr
+	t.Logf("unixAddr %v", unixAddr)
+	conn, err = grpc.DialContext( //nolint:staticcheck
+		ctx,
+		unixAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(), //nolint:staticcheck
+	)
+	if err != nil {
+		t.Logf("error %v", err.Error())
+		t.FailNow()
+	} else {
+		t.Log("connection made")
+		defer conn.Close()
+	}
+
 	robotClient := robotpb.NewRobotServiceClient(conn)
 	resp, err := robotClient.ResourceNames(context.Background(), &robotpb.ResourceNamesRequest{})
 	test.That(t, err, test.ShouldBeNil)
