@@ -693,6 +693,8 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 		return err
 	}
 
+	// ensure the dataset file path is in Linux format
+	datasetFileRelative = filepath.ToSlash(datasetFileRelative)
 	// Create temporary training script
 	tmpScript, err := createTrainingScript(args.CustomArgs, datasetFileRelative)
 	if err != nil {

@@ -1576,6 +1576,10 @@ var app = &cli.App{
 							Usage: "number of seconds to wait for large file downloads",
 							Value: 30,
 						},
+						&cli.BoolFlag{
+							Name:  datasetFlagForceLinuxPath,
+							Usage: "force the use of Linux-style paths for the dataset.jsonl file",
+						},
 					},
 					Action: createCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
 				},
