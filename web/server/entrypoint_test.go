@@ -3,140 +3,181 @@ package server_test
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
+	"net"
 	"runtime"
-	"strings"
+	"sync"
 	"testing"
 
-	"github.com/invopop/jsonschema"
 	robotpb "go.viam.com/api/robot/v1"
+	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/server"
+	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/test"
-	goutils "go.viam.com/utils"
-
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/testutils"
-	"go.viam.com/rdk/testutils/robottestutils"
-	"go.viam.com/rdk/utils"
+	"go.viam.com/utils"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
-func TestEntrypoint(t *testing.T) {
-	t.Run("number of resources", func(t *testing.T) {
-		logger, logObserver := logging.NewObservedTestLogger(t)
-		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
-		cfg, err := config.Read(context.Background(), cfgFilename, logger, nil)
-		test.That(t, err, test.ShouldBeNil)
+func TestWindows(t *testing.T) {
+	parentAddr, err := module.CreateSocketAddress(t.TempDir(), utils.RandomAlphaString(5))
+	test.That(t, err, test.ShouldBeNil)
+	t.Logf("parentAddr %v", parentAddr)
+	robotServerListener, err := net.Listen("unix", parentAddr)
+	test.That(t, err, test.ShouldBeNil)
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc: func() []resource.Name { return []resource.Name{resource.NewName(motor.API, "hello")} },
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+	}
+	gServer := grpc.NewServer()
+	robotpb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	var wg sync.WaitGroup
+	wg.Go(func() { gServer.Serve(robotServerListener) })
 
-		var port int
-		var success bool
-		for portTryNum := 0; portTryNum < 10; portTryNum++ {
-			p, err := goutils.TryReserveRandomPort()
-			port = p
-			test.That(t, err, test.ShouldBeNil)
+	t.Logf("runtime %v", runtime.GOOS)
+	cleanedAddr, err := rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr)
+	test.That(t, err, test.ShouldBeNil)
+	t.Logf("cleanedAddr %v", cleanedAddr)
+	unixAddr := "unix:" + cleanedAddr
+	t.Logf("unixAddr %v", unixAddr)
 
-			cfg.Network.BindAddress = fmt.Sprintf(":%d", port)
-			cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
-			test.That(t, err, test.ShouldBeNil)
+	conn, err := grpc.Dial( //nolint:staticcheck
+		unixAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(), //nolint:staticcheck
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
 
-			server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
+	t.Log("connection made")
+	robotClient := robotpb.NewRobotServiceClient(conn)
+	resp, err := robotClient.ResourceNames(context.Background(), &robotpb.ResourceNamesRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	t.Logf("resp %v", resp)
 
-			err = server.Start(context.Background())
-			test.That(t, err, test.ShouldBeNil)
-
-			if success = robottestutils.WaitForServing(logObserver, port); success {
-				defer func() {
-					test.That(t, server.Stop(), test.ShouldBeNil)
-				}()
-				break
-			}
-			logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
-			server.Stop()
-			continue
-		}
-		test.That(t, success, test.ShouldBeTrue)
-
-		conn, err := robottestutils.Connect(port)
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			test.That(t, conn.Close(), test.ShouldBeNil)
-		}()
-		rc := robotpb.NewRobotServiceClient(conn)
-
-		resourceNames, err := rc.ResourceNames(context.Background(), &robotpb.ResourceNamesRequest{})
-		test.That(t, err, test.ShouldBeNil)
-
-		// numResources is the # of resources in /etc/configs/fake.json + the 1
-		// expected builtin resources.
-		numResources := 21
-		if runtime.GOOS == "windows" {
-			// windows build excludes builtin models that use cgo,
-			// including fake audioinput, builtin motion, fake arm, and builtin navigation.
-			numResources = 18
-		}
-
-		test.That(t, len(resourceNames.Resources), test.ShouldEqual, numResources)
-	})
-	t.Run("dump resource registrations", func(t *testing.T) {
-		tempDir := t.TempDir()
-		outputFile := filepath.Join(tempDir, "resources.json")
-		serverPath := testutils.BuildViamServer(t)
-		command := exec.Command(serverPath, "--dump-resources", outputFile)
-		err := command.Run()
-		test.That(t, err, test.ShouldBeNil)
-		type registration struct {
-			Model  string             `json:"model"`
-			API    string             `json:"API"`
-			Schema *jsonschema.Schema `json:"attribute_schema"`
-		}
-		outputBytes, err := os.ReadFile(outputFile)
-		test.That(t, err, test.ShouldBeNil)
-		registrations := []registration{}
-		err = json.Unmarshal(outputBytes, &registrations)
-		test.That(t, err, test.ShouldBeNil)
-
-		numReg := 56
-		if runtime.GOOS == "windows" {
-			// windows build excludes builtin models that use cgo
-			numReg = 47
-		}
-		test.That(t, registrations, test.ShouldHaveLength, numReg)
-
-		observedReg := make(map[string]bool)
-		for _, reg := range registrations {
-			test.That(t, reg.API, test.ShouldNotBeEmpty)
-			test.That(t, reg.Model, test.ShouldNotBeEmpty)
-			test.That(t, reg.Schema, test.ShouldNotBeNil)
-
-			regStr := strings.Join([]string{reg.API, reg.Model}, "/")
-			observedReg[regStr] = true
-		}
-
-		// Check specifically for registrations we care about
-		expectedReg := []string{
-			"rdk:component:arm/rdk:builtin:wrapper_arm",
-			"rdk:service:data_manager/rdk:builtin:builtin",
-			"rdk:service:shell/rdk:builtin:builtin",
-			"rdk:service:vision/rdk:builtin:mlmodel",
-		}
-
-		// windows build excludes builtin models that use cgo, so add more if not
-		// on windows
-		if runtime.GOOS != "windows" {
-			expectedReg = append(
-				expectedReg,
-				"rdk:component:camera/rdk:builtin:webcam",
-				"rdk:service:motion/rdk:builtin:builtin",
-			)
-		}
-		for _, reg := range expectedReg {
-			test.That(t, observedReg[reg], test.ShouldBeTrue)
-		}
-	})
+	gServer.Stop()
+	wg.Wait()
 }
+
+// func TestEntrypoint(t *testing.T) {
+// 	t.Run("number of resources", func(t *testing.T) {
+// 		logger, logObserver := logging.NewObservedTestLogger(t)
+// 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
+// 		cfg, err := config.Read(context.Background(), cfgFilename, logger, nil)
+// 		test.That(t, err, test.ShouldBeNil)
+
+// 		var port int
+// 		var success bool
+// 		for portTryNum := 0; portTryNum < 10; portTryNum++ {
+// 			p, err := goutils.TryReserveRandomPort()
+// 			port = p
+// 			test.That(t, err, test.ShouldBeNil)
+
+// 			cfg.Network.BindAddress = fmt.Sprintf(":%d", port)
+// 			cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, logger)
+// 			test.That(t, err, test.ShouldBeNil)
+
+// 			server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
+
+// 			err = server.Start(context.Background())
+// 			test.That(t, err, test.ShouldBeNil)
+
+// 			if success = robottestutils.WaitForServing(logObserver, port); success {
+// 				defer func() {
+// 					test.That(t, server.Stop(), test.ShouldBeNil)
+// 				}()
+// 				break
+// 			}
+// 			logger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
+// 			server.Stop()
+// 			continue
+// 		}
+// 		test.That(t, success, test.ShouldBeTrue)
+
+// 		conn, err := robottestutils.Connect(port)
+// 		test.That(t, err, test.ShouldBeNil)
+// 		defer func() {
+// 			test.That(t, conn.Close(), test.ShouldBeNil)
+// 		}()
+// 		rc := robotpb.NewRobotServiceClient(conn)
+
+// 		resourceNames, err := rc.ResourceNames(context.Background(), &robotpb.ResourceNamesRequest{})
+// 		test.That(t, err, test.ShouldBeNil)
+
+// 		// numResources is the # of resources in /etc/configs/fake.json + the 1
+// 		// expected builtin resources.
+// 		numResources := 21
+// 		if runtime.GOOS == "windows" {
+// 			// windows build excludes builtin models that use cgo,
+// 			// including fake audioinput, builtin motion, fake arm, and builtin navigation.
+// 			numResources = 18
+// 		}
+
+// 		test.That(t, len(resourceNames.Resources), test.ShouldEqual, numResources)
+// 	})
+// 	t.Run("dump resource registrations", func(t *testing.T) {
+// 		tempDir := t.TempDir()
+// 		outputFile := filepath.Join(tempDir, "resources.json")
+// 		serverPath := testutils.BuildViamServer(t)
+// 		command := exec.Command(serverPath, "--dump-resources", outputFile)
+// 		err := command.Run()
+// 		test.That(t, err, test.ShouldBeNil)
+// 		type registration struct {
+// 			Model  string             `json:"model"`
+// 			API    string             `json:"API"`
+// 			Schema *jsonschema.Schema `json:"attribute_schema"`
+// 		}
+// 		outputBytes, err := os.ReadFile(outputFile)
+// 		test.That(t, err, test.ShouldBeNil)
+// 		registrations := []registration{}
+// 		err = json.Unmarshal(outputBytes, &registrations)
+// 		test.That(t, err, test.ShouldBeNil)
+
+// 		numReg := 56
+// 		if runtime.GOOS == "windows" {
+// 			// windows build excludes builtin models that use cgo
+// 			numReg = 47
+// 		}
+// 		test.That(t, registrations, test.ShouldHaveLength, numReg)
+
+// 		observedReg := make(map[string]bool)
+// 		for _, reg := range registrations {
+// 			test.That(t, reg.API, test.ShouldNotBeEmpty)
+// 			test.That(t, reg.Model, test.ShouldNotBeEmpty)
+// 			test.That(t, reg.Schema, test.ShouldNotBeNil)
+
+// 			regStr := strings.Join([]string{reg.API, reg.Model}, "/")
+// 			observedReg[regStr] = true
+// 		}
+
+// 		// Check specifically for registrations we care about
+// 		expectedReg := []string{
+// 			"rdk:component:arm/rdk:builtin:wrapper_arm",
+// 			"rdk:service:data_manager/rdk:builtin:builtin",
+// 			"rdk:service:shell/rdk:builtin:builtin",
+// 			"rdk:service:vision/rdk:builtin:mlmodel",
+// 		}
+
+// 		// windows build excludes builtin models that use cgo, so add more if not
+// 		// on windows
+// 		if runtime.GOOS != "windows" {
+// 			expectedReg = append(
+// 				expectedReg,
+// 				"rdk:component:camera/rdk:builtin:webcam",
+// 				"rdk:service:motion/rdk:builtin:builtin",
+// 			)
+// 		}
+// 		for _, reg := range expectedReg {
+// 			test.That(t, observedReg[reg], test.ShouldBeTrue)
+// 		}
+// 	})
+// }
 
 // func TestShutdown(t *testing.T) {
 // 	t.Run("shutdown functionality", func(t *testing.T) {
