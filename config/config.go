@@ -589,9 +589,9 @@ func (a APIKey) IsFullySet() bool {
 	return a.ID != "" && a.Value != ""
 }
 
-// GetAuthCredentials returns the appropriate auth credentials for this cloud config. API keys are always
+// GetCloudCredsDialOpt returns the appropriate auth credentials for this cloud config. API keys are always
 // preferred over robot secrets. If neither are set, empty strings are returned.
-func (config *Cloud) GetAuthCredentials() rpc.DialOption {
+func (config *Cloud) GetCloudCredsDialOpt() rpc.DialOption {
 	if config.APIKey.IsFullySet() {
 		return rpc.WithEntityCredentials(config.APIKey.ID, rpc.Credentials{rutils.CredentialsTypeAPIKey, config.APIKey.Value})
 	} else if config.Secret != "" {
@@ -677,7 +677,7 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 			return resource.NewConfigValidationFieldRequiredError(path, "local_fqdn")
 		}
 	} else if config.Secret == "" && !config.APIKey.IsFullySet() {
-		return resource.NewConfigValidationFieldRequiredError(path, "auth")
+		return resource.NewConfigValidationFieldRequiredError(path, "cloud creds")
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second
@@ -1063,6 +1063,7 @@ func CreateTLSWithCert(cfg *Config) (*tls.Config, error) {
 func ProcessConfig(in *Config) (*Config, error) {
 	out := *in
 	var selfCreds *rpc.Credentials
+	var selfAuthEntity string
 	if in.Cloud != nil {
 		// We expect a cloud config from app to always contain a non-empty `TLSCertificate` field.
 		// We do this empty string check just to cope with unexpected input, such as cached configs
@@ -1076,8 +1077,10 @@ func ProcessConfig(in *Config) (*Config, error) {
 		}
 		if in.Cloud.APIKey.IsFullySet() {
 			selfCreds = &rpc.Credentials{rutils.CredentialsTypeAPIKey, in.Cloud.APIKey.Value}
+			selfAuthEntity = in.Cloud.APIKey.ID
 		} else {
 			selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
+			selfAuthEntity = in.Cloud.ID
 		}
 	}
 
@@ -1093,7 +1096,7 @@ func ProcessConfig(in *Config) (*Config, error) {
 			}
 			remoteCopy.Auth.Managed = true
 			remoteCopy.Auth.SignalingServerAddress = in.Cloud.SignalingAddress
-			remoteCopy.Auth.SignalingAuthEntity = in.Cloud.ID
+			remoteCopy.Auth.SignalingAuthEntity = selfAuthEntity
 			remoteCopy.Auth.SignalingCreds = selfCreds
 		}
 		out.Remotes[idx] = remoteCopy

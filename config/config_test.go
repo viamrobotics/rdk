@@ -201,7 +201,7 @@ func TestConfigEnsure(t *testing.T) {
 	invalidCloud.Cloud.ID = "some_id"
 	err = invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "auth")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "cloud creds")
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "fqdn")
@@ -479,7 +479,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	invalidCloud.Cloud.ID = "some_id"
 	err = invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "auth")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "cloud creds")
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "fqdn")

@@ -206,9 +206,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if cfgFromDisk.Cloud != nil {
 		cloud := cfgFromDisk.Cloud
 
-		authCreds := cfgFromDisk.Cloud.GetAuthCredentials()
+		cloudCreds := cfgFromDisk.Cloud.GetCloudCredsDialOpt()
 		appConnLogger := logger.Sublogger("networking").Sublogger("app_connection")
-		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, authCreds, appConnLogger)
+		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, cloudCreds, appConnLogger)
 		if err != nil {
 			return err
 		}
@@ -218,7 +218,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		if cloud.SignalingAddress != "" && cloud.SignalingAddress != cloud.AppAddress {
 			signalingConnLogger := logger.Sublogger("networking").Sublogger("signaling_connection")
 			signalingConn, err = grpc.NewAppConn(
-				ctx, cloud.SignalingAddress, cloud.ID, authCreds, signalingConnLogger)
+				ctx, cloud.SignalingAddress, cloud.ID, cloudCreds, signalingConnLogger)
 			if err != nil {
 				return err
 			}
@@ -234,7 +234,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				&logging.CloudConfig{
 					AppAddress: cloud.AppAddress,
 					ID:         cloud.ID,
-					AuthCred:   authCreds,
+					CloudCred:  cloudCreds,
 				},
 				appConn, false, logging.NewLogger("NetAppender-loggerWithoutNet"),
 			)
