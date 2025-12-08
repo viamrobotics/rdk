@@ -214,7 +214,8 @@ func TestCloudManagedWithAuth(t *testing.T) {
 }
 
 func testCloudConnectionAuth(t *testing.T, logger logging.Logger, conf *config.Cloud, shouldAuth bool) {
-	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, conf.ID, nil, logger)
+	cloudCreds := conf.GetCloudCredsDialOpt()
+	appConn, err := grpc.NewAppConn(context.Background(), conf.AppAddress, conf.ID, cloudCreds, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	svc := cloud.NewCloudConnectionService(conf, appConn, logger)
