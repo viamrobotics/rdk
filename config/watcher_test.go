@@ -13,7 +13,6 @@ import (
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
@@ -276,10 +275,8 @@ func TestNewWatcherCloud(t *testing.T) {
 
 	storeConfigInServer(confToReturn)
 
-	cloudCreds := rpc.WithEntityCredentials(
-		confToReturn.Cloud.ID, rpc.Credentials{rutils.CredentialsTypeRobotSecret, confToReturn.Cloud.Secret})
 	appConn, err := grpc.NewAppConn(
-		context.Background(), confToReturn.Cloud.AppAddress, confToReturn.Cloud.ID, cloudCreds, logger)
+		context.Background(), confToReturn.Cloud.AppAddress, confToReturn.Cloud.ID, confToReturn.Cloud.GetCloudCredsDialOpt(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
 	watcher, err := config.NewWatcher(context.Background(), &config.Config{Cloud: newCloudConf()}, logger, appConn)
