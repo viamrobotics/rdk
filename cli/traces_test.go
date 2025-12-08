@@ -95,7 +95,8 @@ func TestTraceGetRemote(t *testing.T) {
 			err = os.RemoveAll(tmpPartTracePath)
 			test.That(t, err, test.ShouldBeNil)
 		})
-		err = os.WriteFile(filepath.Join(tmpPartTracePath, "traces"), nil, 0o640)
+		testData := []byte("test")
+		err = os.WriteFile(filepath.Join(tmpPartTracePath, "traces"), testData, 0o640)
 		test.That(t, err, test.ShouldBeNil)
 		originalTracePath := tracesPath
 		tracesPath = tfs.Root
@@ -103,7 +104,21 @@ func TestTraceGetRemote(t *testing.T) {
 			tracesPath = originalTracePath
 		})
 
-		testDownload := func(t *testing.T, targetPath string) {
+		t.Run("only recent", func(t *testing.T) {
+			testFlags := maps.Collect(maps.All(basePartFlags))
+			output := t.TempDir()
+
+			cCtx, viamClient, _, _ := setupWithRunningPart(
+				t, asc, nil, nil, testFlags, "token", partFqdn)
+			test.That(t,
+				viamClient.tracesGetRemoteAction(cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, false, true, logger),
+				test.ShouldBeNil)
+
+			contents, err := os.ReadFile(filepath.Join(output, "traces"))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, contents, test.ShouldResemble, testData)
+		})
+		t.Run("full directory", func(t *testing.T) {
 			testFlags := maps.Collect(maps.All(basePartFlags))
 			output := t.TempDir()
 
@@ -113,21 +128,14 @@ func TestTraceGetRemote(t *testing.T) {
 				viamClient.tracesGetRemoteAction(cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, true, true, logger),
 				test.ShouldBeNil)
 
-			entries, err := os.ReadDir(targetPath)
+			contents, err := os.ReadDir(output)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, entries, test.ShouldHaveLength, 1)
-			traceFile := entries[0]
-			test.That(t, traceFile.Name(), test.ShouldEqual, "traces")
-			test.That(t, traceFile.IsDir(), test.ShouldBeFalse)
-		}
+			test.That(t, contents, test.ShouldHaveLength, 1)
+			subdir := contents[0]
 
-		t.Run("download to cwd", func(t *testing.T) {
-			tempDir := t.TempDir()
-			t.Chdir(tempDir)
-			testDownload(t, ".")
-		})
-		t.Run("download to specified path", func(t *testing.T) {
-			testDownload(t, t.TempDir())
+			fileContents, err := os.ReadFile(filepath.Join(output, subdir.Name(), "traces"))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, fileContents, test.ShouldResemble, testData)
 		})
 	})
 }
