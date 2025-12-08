@@ -96,7 +96,9 @@ type webcam struct {
 	targetPath string
 	conf       WebcamConfig
 
-	closed       bool
+	// Set by the Close method
+	closed bool
+	// Set by the Monitor worker
 	disconnected bool
 	logger       logging.Logger
 	// workers take the mutex when starting and stopping, so do not call them while holding mu
@@ -107,7 +109,15 @@ type webcam struct {
 // webcamBuffer is a buffer for webcam frames.
 // It must be protected by the mutex in the webcam struct.
 type webcamBuffer struct {
-	frame   image.Image
+	frame image.Image
+	// release is a function provided by the mediadevices camera driver that must be called
+	// to release resources associated with the frame after we're done using it.
+	// It is set by the buffer worker after reading a frame from reader.Read().
+	//
+	// Note: While the above is true in theory, mediadevices decoders currently
+	// return empty (no-op) release functions on all platforms (darwin, windows, linux).
+	// We still call release to comply with the Reader interface, and in case
+	// decoders eventually provide a non-nil release function.
 	release func()
 	err     error
 }
@@ -192,6 +202,9 @@ func (c *webcam) isCameraConnected() (bool, error) {
 
 // startMonitorWorker starts a worker that monitors camera connectivity and handles reconnection.
 // This worker runs continuously until the context is cancelled (via workers.Stop()).
+// It checks camera connectivity using isCameraConnected every ticker tick. If disconnected,
+// it marks the camera as disconnected and attempts reconnection every tick until successful.
+// Upon successful reconnection, it resets the buffer state and flags to resume healthy operation.
 func (c *webcam) startMonitorWorker() {
 	c.workers.Add(func(ctx context.Context) {
 		ticker := time.NewTicker(500 * time.Millisecond)
@@ -307,10 +320,6 @@ func (c *webcam) startBufferWorker() {
 				}
 
 				// Get the release function to call outside the lock to avoid potential deadlocks.
-				//
-				// Note: mediadevices decoders return empty release functions (no-ops),
-				// but we call it to follow the Reader interface, and in case the decoders
-				// do someday return a non-nil release function.
 				oldRelease := c.buffer.release
 				c.buffer.release = nil
 				c.mu.Unlock()
