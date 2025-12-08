@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"io"
 	"iter"
+	"math"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -134,11 +135,13 @@ func (o *RawDelimitedProtoReader) All() iter.Seq[[]byte] {
 	const protoMaxBytes = 1024 * 1024 * 1024 * 2
 	// Max message size + 4 bytes for the length header
 	const bufferMaxSize = protoMaxBytes + 4
+	// Fall back to max int size if necessary so the 32-bit tests pass.
+	const realMaxSize = min(bufferMaxSize, math.MaxInt)
 	return func(yield func([]byte) bool) {
 		scanner := bufio.NewScanner(o.reader)
 		// Start with no buffer and let bufio figure out the initial allocation +
 		// when it needs to be resized.
-		scanner.Buffer(nil, bufferMaxSize)
+		scanner.Buffer(nil, realMaxSize)
 		scanner.Split(splitMessages)
 
 		for scanner.Scan() {
