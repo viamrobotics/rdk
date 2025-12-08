@@ -1579,6 +1579,7 @@ func TestTunnelE2ECLI(t *testing.T) {
 }
 
 func TestSelfUpdateAction(t *testing.T) {
+	// if up to date, msg up to date
 	t.Run("brew upgrade path", func(t *testing.T) {
 		// Test that when brew is available, it's used for updates
 		originalExecLookPath := execLookPath

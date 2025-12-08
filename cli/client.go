@@ -1740,7 +1740,7 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
 		}
 		// if the self update fails or user declines, warn them to manually update
-		if selfUpdate(c) {
+		if !selfUpdate(c) {
 			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
 				"New CLI releases happen weekly; consider updating%s. See https://docs.viam.com/cli/#install", updateInstructions)
 		}
@@ -1774,21 +1774,16 @@ func selfUpdate(c *cli.Context) bool {
 	return true
 }
 
-// Function variables for dependency injection (testable with file:// URLs)
+// SelfUpdateAction downloads different binary URLs based on the OS
+// This seperate var is also necessary for testing with file:// URLs
 var (
 	buildBinaryURL = func(goos, goarch string) string {
-		baseURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-"
-		binaryURL := baseURL + fmt.Sprintf("%s-%s", goos, goarch)
+		binaryURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-" +
+			goos + "-" + goarch
 		if goos == "windows" {
 			binaryURL += ".exe"
 		}
-		// Only allow supported platforms
-		switch goos {
-		case "darwin", "linux", "windows":
-			return binaryURL
-		default:
-			return ""
-		}
+		return binaryURL
 	}
 	osExecutable   = os.Executable
 	execLookPath   = exec.LookPath
@@ -1798,20 +1793,38 @@ var (
 )
 
 func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
-	// Try brew upgrade first if brew is available - if it fails, fall back to direct binary replacement
+	latestRelease, _ := getLatestReleaseVersion()
+	latestVersion, _ := semver.NewVersion(latestRelease)
+	localVersion, _ := semver.NewVersion(rconfig.Version)
+	infof(c.App.Writer, "local version: %s", localVersion)
+	infof(c.App.Writer, "latest version: %s", latestVersion)
+	infof(c.App.Writer, "Build test - running at %s", time.Now().Format("2006-01-02 15:04:05"))
+
+	// Skip update if can determine that local version is up to date
+	if localVersion != nil && latestVersion != nil && !localVersion.LessThan(latestVersion) {
+		infof(c.App.Writer, "Your CLI is already up to date (version %s).", localVersion.Original())
+		return nil
+	}
+
+	// Try brew upgrade first if brew is available and managing the binary
 	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
 		if _, err := execLookPath("brew"); err == nil {
-			cmd := exec.Command("brew", "upgrade", "viam")
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
+			// Check if brew is actually managing viam (brew list viam)
+			cmd := exec.Command("brew", "list", "viam")
 			if err := execRunCommand(cmd); err == nil {
-				infof(c.App.Writer, "The CLI has been successfully updated.")
-				return nil
+				// Brew is managing viam, use brew upgrade only
+				cmd = exec.Command("brew", "upgrade", "viam")
+				if err := execRunCommand(cmd); err == nil {
+					infof(c.App.Writer, "Your CLI has been successfully updated")
+					return nil
+				}
+				// brew upgrade failed, but brew is managing it - don't fall back to avoid putting brew out of sync
+				return errors.Errorf("failed to upgrade CLI via brew: %v", err)
 			}
 		}
 	}
 
-	// Not installed via brew - download and replace binary directly
+	// Not installed via brew - start by getting binary path
 	execPath, err := osExecutable()
 	if err != nil {
 		return errors.Errorf("failed to get executable path: %v", err)
@@ -1824,18 +1837,14 @@ func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
 
 	// Determine binary URL based on OS and architecture
 	binaryURL := buildBinaryURL(runtime.GOOS, runtime.GOARCH)
-	if binaryURL == "" {
-		return errors.Errorf("self-update not supported on %s", runtime.GOOS)
-	}
 	tempPattern := "viam-cli-update-*"
 	if runtime.GOOS == "windows" {
 		tempPattern += ".exe"
 	}
 
-	// Download the binary (supports file:// for testing)
+	// Download the binary (file:// URLS used only for testing)
 	var body io.ReadCloser
 	if strings.HasPrefix(binaryURL, "file://") {
-		// Handle file:// URLs for testing (like agent does)
 		filePath := strings.TrimPrefix(binaryURL, "file://")
 		file, err := os.Open(filePath)
 		if err != nil {
@@ -1843,21 +1852,19 @@ func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
 		}
 		body = file
 	} else {
-		// Normal HTTP download
 		resp, err := http.Get(binaryURL)
 		if err != nil {
-			return errors.Errorf("failed to download binary: %v", err)
+			return errors.Errorf("binary download failed: %v", err)
 		}
-		defer resp.Body.Close()
-
 		if resp.StatusCode != http.StatusOK {
-			return errors.Errorf("download failed: server returned status %d", resp.StatusCode)
+			resp.Body.Close()
+			return errors.Errorf("binary download failed: server returned status %d", resp.StatusCode)
 		}
 		body = resp.Body
 	}
 	defer body.Close()
 
-	// Create temp file in binary directory (for atomic replacement), fall back to system temp
+	// Create temp file in binary directory to replace
 	tmpFile, err := os.CreateTemp(binaryDir, tempPattern)
 	if err != nil {
 		if os.IsPermission(err) {
@@ -1876,28 +1883,28 @@ func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
 	_, err = io.Copy(tmpFile, body)
 	tmpFile.Close()
 	if err != nil {
-		return errors.Errorf("failed to write downloaded content: %v", err)
+		return errors.Errorf("failed to write downloaded binary: %v", err)
 	}
 
-	// Make executable on Unix-like systems
+	// Make executable on Unix-like systems, if permissions are improperly set then no
+	// change will be made and user has to run sudo
 	if runtime.GOOS != "windows" {
 		if err := os.Chmod(tmpPath, 0o755); err != nil {
 			if os.IsPermission(err) {
 				return errors.New("permission denied: run 'sudo viam self-update'")
 			}
-			return errors.Errorf("failed to set permissions: %v", err)
+			return errors.Errorf("failed to make binary executable: %v", err)
 		}
 	}
 
-	// Atomically replace the binary (works on all platforms)
+	// Replace the old binary with the newly downloaded one
 	if err := os.Rename(tmpPath, realPath); err != nil {
 		if os.IsPermission(err) {
 			return errors.New("permission denied: run 'sudo viam self-update'")
 		}
 		return errors.Errorf("failed to replace binary: %v", err)
 	}
-
-	infof(c.App.Writer, "The CLI has been successfully updated.")
+	infof(c.App.Writer, "Your CLI has been successfully updated")
 	return nil
 }
 
