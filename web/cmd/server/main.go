@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/web/server"
 )
 
-var logger = logging.NewDebugLogger("entrypoint")
+var logger = logging.NewDebugLogger("entrypoint2")
 
 func main() {
 	utils.ContextualMain(server.RunServer, logger)
