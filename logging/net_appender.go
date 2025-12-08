@@ -535,7 +535,6 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig, logger Logg
 				},
 			))
 		}
-
 	}
 
 	if grpcURL.Scheme == "http" {

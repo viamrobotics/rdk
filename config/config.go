@@ -624,6 +624,28 @@ func (a APIKey) IsPartiallySet() bool {
 	return (a.ID == "" && a.Key != "") || (a.ID != "" && a.Key == "")
 }
 
+// GetAuthCredentials returns the appropriate auth credentials for this cloud config. API keys are always
+// preferred over robot secrets. If neither are set, empty strings are returned.
+func (config *Cloud) GetAuthCredentials() (authID string, authType rpc.CredentialsType, authSecret string) {
+	if config.APIKey.IsFullySet() {
+		return config.APIKey.ID, rutils.CredentialsTypeAPIKey, config.APIKey.Key
+	} else if config.Secret != "" {
+		return config.ID, rutils.CredentialsTypeRobotSecret, config.Secret
+	}
+	return "", "", ""
+}
+
+// GetAuthCredentials returns the appropriate auth credentials for this cloud config. API keys are always
+// preferred over robot secrets. If neither are set, empty strings are returned.
+func (config *Cloud) GetAuthCredentials() (authID string, authType rpc.CredentialsType, authSecret string) {
+	if config.APIKey.IsFullySet() {
+		return config.APIKey.ID, rutils.CredentialsTypeAPIKey, config.APIKey.Value
+	} else if config.Secret != "" {
+		return config.ID, rutils.CredentialsTypeRobotSecret, config.Secret
+	}
+	return "", "", ""
+}
+
 // UnmarshalJSON unmarshals JSON data into this config.
 func (config *Cloud) UnmarshalJSON(data []byte) error {
 	var temp cloudData
