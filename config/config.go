@@ -590,8 +590,8 @@ func (a APIKey) IsFullySet() bool {
 }
 
 // IsPartiallySet returns true if only one of the ID or Value fields are set.
-func (apiKey *APIKey) IsPartiallySet() bool {
-	return (apiKey.ID == "" && apiKey.Value != "") || (apiKey.ID != "" && apiKey.Value == "")
+func (a APIKey) IsPartiallySet() bool {
+	return (a.ID == "" && a.Value != "") || (a.ID != "" && a.Value == "")
 }
 
 // UnmarshalJSON unmarshals JSON data into this config.
