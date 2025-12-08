@@ -1655,6 +1655,20 @@ func getLatestReleaseVersion() (string, error) {
 }
 
 func (conf *Config) checkUpdate(c *cli.Context) error {
+	// isInteractive checks if stdin is available via terminal/character device
+	isInteractive := func() bool {
+		file, ok := c.App.Reader.(*os.File)
+		if !ok {
+			return false
+		}
+		stat, err := file.Stat()
+		if err != nil {
+			return false
+		}
+		// Check if stdin is a terminal/character device
+		return (stat.Mode() & os.ModeCharDevice) != 0
+	}
+
 	var shouldCheckUpdate bool
 
 	// if there has never been a last update check, then we should definitely alert as necessary
@@ -1712,10 +1726,13 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 		// the local version is out of date, so we know to warn
 		if localVersion.LessThan(latestVersion) {
 			// if the self update fails or user declines, warn them to manually update
-			if !selfUpdate(c) {
-				warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
-					"See https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
+			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s.",
+				localVersion.Original(), latestVersion.Original())
+			// Only prompt for self-update if stdin is available (interactive mode)
+			if isInteractive() && selfUpdate(c) {
+				return nil
 			}
+			warningf(c.App.ErrWriter, "See https://docs.viam.com/cli/#install for update instructions")
 		}
 		return nil
 	}
@@ -1740,12 +1757,13 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
 		}
 		// if the self update fails or user declines, warn them to manually update
-		if !selfUpdate(c) {
-			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
-				"New CLI releases happen weekly; consider updating%s. See https://docs.viam.com/cli/#install", updateInstructions)
+		warningf(c.App.ErrWriter, "Your CLI is more than a week old. New CLI releases happen weekly; consider updating%s.", updateInstructions)
+		// Only prompt for self-update if stdin is available (interactive mode)
+		if isInteractive() && selfUpdate(c) {
+			return nil
 		}
+		warningf(c.App.ErrWriter, "See https://docs.viam.com/cli/#install for update instructions")
 	}
-
 	return nil
 }
 
@@ -1763,7 +1781,7 @@ func selfUpdate(c *cli.Context) bool {
 
 	input := strings.ToUpper(strings.TrimSpace(rawInput))
 	if input != "Y" {
-		warningf(c.App.ErrWriter, "self-update not attempted")
+		infof(c.App.ErrWriter, "Self-update not attempted")
 		return false
 	}
 
@@ -1796,9 +1814,6 @@ func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
 	latestRelease, _ := getLatestReleaseVersion()
 	latestVersion, _ := semver.NewVersion(latestRelease)
 	localVersion, _ := semver.NewVersion(rconfig.Version)
-	infof(c.App.Writer, "local version: %s", localVersion)
-	infof(c.App.Writer, "latest version: %s", latestVersion)
-	infof(c.App.Writer, "Build test - running at %s", time.Now().Format("2006-01-02 15:04:05"))
 
 	// Skip update if can determine that local version is up to date
 	if localVersion != nil && latestVersion != nil && !localVersion.LessThan(latestVersion) {
@@ -1806,25 +1821,25 @@ func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
 		return nil
 	}
 
-	// Try brew upgrade first if brew is available and managing the binary
+	// Try brew upgrade first (if brew is available)
 	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
 		if _, err := execLookPath("brew"); err == nil {
-			// Check if brew is actually managing viam (brew list viam)
+			// Check if viam is actually managed by brew
 			cmd := exec.Command("brew", "list", "viam")
 			if err := execRunCommand(cmd); err == nil {
-				// Brew is managing viam, use brew upgrade only
+				// viam is managed by brew - try upgrade
 				cmd = exec.Command("brew", "upgrade", "viam")
 				if err := execRunCommand(cmd); err == nil {
 					infof(c.App.Writer, "Your CLI has been successfully updated")
 					return nil
 				}
-				// brew upgrade failed, but brew is managing it - don't fall back to avoid putting brew out of sync
+				// brew upgrade failed, but viam IS managed by brew - don't fall back to avoid putting brew out of sync
 				return errors.Errorf("failed to upgrade CLI via brew: %v", err)
 			}
 		}
 	}
 
-	// Not installed via brew - start by getting binary path
+	// Get executable path for direct binary replacement
 	execPath, err := osExecutable()
 	if err != nil {
 		return errors.Errorf("failed to get executable path: %v", err)
@@ -1868,6 +1883,9 @@ func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
 	tmpFile, err := os.CreateTemp(binaryDir, tempPattern)
 	if err != nil {
 		if os.IsPermission(err) {
+			if runtime.GOOS == "windows" {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
 			return errors.New("permission denied: run 'sudo viam self-update'")
 		}
 		// Fall back to system temp directory
@@ -1898,11 +1916,42 @@ func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
 	}
 
 	// Replace the old binary with the newly downloaded one
-	if err := os.Rename(tmpPath, realPath); err != nil {
-		if os.IsPermission(err) {
-			return errors.New("permission denied: run 'sudo viam self-update'")
+	// On Windows, handle file locking and cross-drive issues
+	if runtime.GOOS == "windows" {
+		// Windows doesn't allow replacing a running exe, so rename first
+		oldPath := realPath + ".old"
+
+		// Remove any existing .old file from previous update
+		os.Remove(oldPath)
+
+		// Rename current exe to .old (Windows allows renaming running executables)
+		if err := os.Rename(realPath, oldPath); err != nil {
+			if os.IsPermission(err) {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return errors.Errorf("failed to rename old binary: %v", err)
 		}
-		return errors.Errorf("failed to replace binary: %v", err)
+
+		// Move new binary to original location
+		if err := os.Rename(tmpPath, realPath); err != nil {
+			// Try to restore old binary if new one fails
+			if _, restoreErr := os.Stat(oldPath); restoreErr == nil {
+				os.Rename(oldPath, realPath)
+			}
+			if os.IsPermission(err) {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return errors.Errorf("failed to replace binary: %v", err)
+		}
+		// .old file will be cleaned up on next run or can be manually deleted
+	} else {
+		// Unix-like systems: direct rename
+		if err := os.Rename(tmpPath, realPath); err != nil {
+			if os.IsPermission(err) {
+				return errors.New("permission denied: run 'sudo viam self-update'")
+			}
+			return errors.Errorf("failed to replace binary: %v", err)
+		}
 	}
 	infof(c.App.Writer, "Your CLI has been successfully updated")
 	return nil
