@@ -470,18 +470,11 @@ var app = &cli.App{
 			Usage: "Work with viam-server traces",
 			Subcommands: []*cli.Command{
 				{
-					Name:  "import-local",
-					Usage: "Import traces from a local viam server trace file to an OTLP endpoint.",
-					Flags: lo.Flatten([][]cli.Flag{
-						{&cli.StringFlag{
-							Name:      "path",
-							TakesFile: true,
-							Required:  true,
-							Usage:     "path to file to import",
-						}},
-						commonOtlpFlags,
-					}),
-					Action: createCommandWithT(traceImportLocalAction),
+					Name:      "import-local",
+					Usage:     "Import traces from a local viam server trace file to an OTLP endpoint.",
+					ArgsUsage: "<traces file>",
+					Flags:     commonOtlpFlags,
+					Action:    createCommandWithT(traceImportLocalAction),
 				},
 				{
 					Name: "import-remote",
@@ -498,17 +491,10 @@ Note: There is no progress meter while copying is in progress.
 					Action: createCommandWithT(traceImportRemoteAction),
 				},
 				{
-					Name:  "print-local",
-					Usage: "Print traces in a local file to the console",
-					Flags: []cli.Flag{
-						&cli.StringFlag{
-							Name:      "path",
-							TakesFile: true,
-							Required:  true,
-							Usage:     "path to file to import",
-						},
-					},
-					Action: createCommandWithT(tracePrintLocalAction),
+					Name:      "print-local",
+					Usage:     "Print traces in a local file to the console",
+					ArgsUsage: "<traces file>",
+					Action:    createCommandWithT(tracePrintLocalAction),
 				},
 				{
 					Name:  "print-remote",
@@ -518,29 +504,20 @@ In order to use the print-remote command, the machine must have a valid shell ty
 Organization and location are required flags if using name (rather than ID) for the part.
 Note: There is no progress meter while copying is in progress.
 `,
-					Flags: lo.Flatten([][]cli.Flag{
-						commonPartFlags,
-					}),
+					Flags:  commonPartFlags,
 					Action: createCommandWithT(tracePrintRemoteAction),
 				},
 				{
-					Usage: "Download traces from a viam machine and save them to disk",
-					Name:  "get-remote",
+					Usage:     "Download traces from a viam machine and save them to disk",
+					Name:      "get-remote",
+					ArgsUsage: "[target]",
 					Description: `
 In order to use the get-remote command, the machine must have a valid shell type service.
 Organization and location are required flags if using name (rather than ID) for the part.
+If [target] is not specified then the traces file will be saved to the current working directory.
 Note: There is no progress meter while copying is in progress.
 `,
-					Flags: lo.Flatten([][]cli.Flag{
-						commonPartFlags,
-						{
-							&cli.PathFlag{
-								Name:     generalFlagDestination,
-								Required: true,
-								Usage:    "output directory for downloaded traces",
-							},
-						},
-					}),
+					Flags:  commonPartFlags,
 					Action: createCommandWithT(traceGetRemoteAction),
 				},
 			},

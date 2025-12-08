@@ -69,7 +69,6 @@ func TestTraceGetRemote(t *testing.T) {
 
 		output := t.TempDir()
 		testPartFlags := maps.Collect(maps.All(basePartFlags))
-		testPartFlags["destination"] = output
 
 		originalTracesPath := tracesPath
 		tracesPath = filepath.Join(tfs.Root, "FAKEDIR")
@@ -80,7 +79,7 @@ func TestTraceGetRemote(t *testing.T) {
 		cCtx, viamClient, _, _ := setupWithRunningPart(
 			t, asc, nil, nil, testPartFlags, "token", partFqdn)
 		test.That(t,
-			viamClient.tracesGetRemoteAction(cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), true, logger),
+			viamClient.tracesGetRemoteAction(cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, true, true, logger),
 			test.ShouldNotBeNil)
 
 		entries, err := os.ReadDir(tempDir)
@@ -106,12 +105,12 @@ func TestTraceGetRemote(t *testing.T) {
 
 		testDownload := func(t *testing.T, targetPath string) {
 			testFlags := maps.Collect(maps.All(basePartFlags))
-			testFlags["destination"] = targetPath
+			output := t.TempDir()
 
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, testFlags, "token", partFqdn)
 			test.That(t,
-				viamClient.tracesGetRemoteAction(cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), true, logger),
+				viamClient.tracesGetRemoteAction(cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, true, true, logger),
 				test.ShouldBeNil)
 
 			entries, err := os.ReadDir(targetPath)
