@@ -249,7 +249,7 @@ func UpdateModuleAction(c *cli.Context, args updateModuleArgs) error {
 
 	validateModels(c.App.ErrWriter, &manifest)
 
-	response, err := client.updateModule(moduleID, manifest)
+	response, err := client.updateModule(moduleID, manifest, filepath.Dir(manifestPath))
 	if err != nil {
 		return err
 	}
@@ -347,7 +347,7 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 
 		validateModels(c.App.ErrWriter, &manifest)
 
-		_, err = client.updateModule(moduleID, manifest)
+		_, err = client.updateModule(moduleID, manifest, filepath.Dir(manifestPath))
 		if err != nil {
 			return errors.Wrap(err, "Module update failed. Please correct the following issues in your meta.json")
 		}
@@ -422,20 +422,8 @@ func UpdateModelsAction(c *cli.Context, args updateModelsArgs) error {
 		return err
 	}
 
-	// Get the directory containing the meta.json file
-	manifestDir := filepath.Dir(args.Module)
-
-	// For each model, check if a corresponding markdown file exists
-	for i := range newModels {
-		markdownFilename := modelTripleToMarkdownFilename(newModels[i].Model)
-		markdownPath := filepath.Join(manifestDir, markdownFilename)
-
-		// Check if the markdown file exists
-		if _, err := os.Stat(markdownPath); err == nil {
-			// File exists, set the markdown link
-			newModels[i].MarkdownLink = &markdownFilename
-		}
-	}
+	// Check for existing markdown documentation files for each model
+	populateMarkdownLinks(newModels, filepath.Dir(args.Module))
 
 	if sameModels(newModels, manifest.Models) {
 		return nil
@@ -460,10 +448,10 @@ func (c *viamClient) getModule(moduleID moduleID) (*apppb.GetModuleResponse, err
 	return c.client.GetModule(c.c.Context, &req)
 }
 
-func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*apppb.UpdateModuleResponse, error) {
+func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest, manifestDir string) (*apppb.UpdateModuleResponse, error) {
 	var models []*apppb.Model
 	for _, moduleComponent := range manifest.Models {
-		models = append(models, moduleComponentToProto(moduleComponent))
+		models = append(models, moduleComponentToProto(moduleComponent, manifestDir))
 	}
 	var apps []*apppb.App
 	for _, appComponent := range manifest.Apps {
@@ -683,19 +671,33 @@ func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
 	}
 }
 
-func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
+func moduleComponentToProto(moduleComponent ModuleComponent, manifestDir string) *apppb.Model {
 	model := &apppb.Model{
 		Api:         moduleComponent.API,
 		Model:       moduleComponent.Model,
 		Description: moduleComponent.Description,
 	}
 
-	// If a markdown link is provided, read the content
+	// Determine the markdown path to use
+	var markdownPath string
 	if moduleComponent.MarkdownLink != nil {
-		if content, err := getMarkdownContent(*moduleComponent.MarkdownLink); err == nil {
+		// Use explicitly configured markdown link (relative to CWD or absolute)
+		markdownPath = *moduleComponent.MarkdownLink
+	} else {
+		// Check if a markdown file exists based on the model name in the manifest directory
+		markdownFilename := modelTripleToMarkdownFilename(moduleComponent.Model)
+		candidatePath := filepath.Join(manifestDir, markdownFilename)
+		if _, err := os.Stat(candidatePath); err == nil {
+			markdownPath = candidatePath
+		}
+	}
+
+	// Read the markdown content if we have a path
+	if markdownPath != "" {
+		if content, err := getMarkdownContent(markdownPath); err == nil {
 			model.MarkdownDocumentation = &content
 		} else {
-			warningf(os.Stderr, "Failed to read markdown content from %s: %v", *moduleComponent.MarkdownLink, err)
+			warningf(os.Stderr, "Failed to read markdown content from %s: %v", markdownPath, err)
 		}
 	}
 
@@ -993,6 +995,26 @@ func modelTripleToMarkdownFilename(modelTriple string) string {
 	// Replace colons with underscores
 	filename := strings.ReplaceAll(modelTriple, ":", "_")
 	return filename + ".md"
+}
+
+// populateMarkdownLinks checks for existing markdown documentation files for each model
+// and sets the MarkdownLink field if a corresponding file exists. Models that already
+// have a MarkdownLink set are skipped.
+func populateMarkdownLinks(models []ModuleComponent, manifestDir string) {
+	for i := range models {
+		// Skip if markdown link is already set
+		if models[i].MarkdownLink != nil {
+			continue
+		}
+		markdownFilename := modelTripleToMarkdownFilename(models[i].Model)
+		markdownPath := filepath.Join(manifestDir, markdownFilename)
+
+		// Check if the markdown file exists
+		if _, err := os.Stat(markdownPath); err == nil {
+			// File exists, set the markdown link
+			models[i].MarkdownLink = &markdownFilename
+		}
+	}
 }
 
 type sender[RequestT any] interface {
