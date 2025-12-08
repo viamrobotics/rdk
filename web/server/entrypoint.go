@@ -231,10 +231,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if cfgFromDisk.Cloud != nil {
 		cloud := cfgFromDisk.Cloud
 
-		authID, _, authSecret := cfgFromDisk.Cloud.GetAuthCredentials()
-
+		authCreds := cfgFromDisk.Cloud.GetAuthCredentials()
 		appConnLogger := networkingLogger.Sublogger("app_connection")
-		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, authID, authSecret, appConnLogger)
+		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, authCreds, appConnLogger)
 		if err != nil {
 			return err
 		}
@@ -244,7 +243,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		if cloud.SignalingAddress != "" && cloud.SignalingAddress != cloud.AppAddress {
 			signalingConnLogger := networkingLogger.Sublogger("signaling_connection")
 			signalingConn, err = grpc.NewAppConn(
-				ctx, cloud.SignalingAddress, cloud.ID, authID, authSecret, signalingConnLogger)
+				ctx, cloud.SignalingAddress, cloud.ID, authCreds, signalingConnLogger)
 			if err != nil {
 				return err
 			}
@@ -260,8 +259,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 				&logging.CloudConfig{
 					AppAddress: cloud.AppAddress,
 					ID:         cloud.ID,
-					AuthID:     authID,
-					AuthSecret: authSecret,
+					AuthCred:   authCreds,
 				},
 				appConn, false, logging.NewLogger("NetAppender-loggerWithoutNet"),
 			)

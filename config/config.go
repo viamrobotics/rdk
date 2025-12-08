@@ -637,13 +637,13 @@ func (config *Cloud) GetAuthCredentials() (authID string, authType rpc.Credentia
 
 // GetAuthCredentials returns the appropriate auth credentials for this cloud config. API keys are always
 // preferred over robot secrets. If neither are set, empty strings are returned.
-func (config *Cloud) GetAuthCredentials() (authID string, authType rpc.CredentialsType, authSecret string) {
+func (config *Cloud) GetAuthCredentials() rpc.DialOption {
 	if config.APIKey.IsFullySet() {
-		return config.APIKey.ID, rutils.CredentialsTypeAPIKey, config.APIKey.Value
+		return rpc.WithEntityCredentials(config.APIKey.ID, rpc.Credentials{rutils.CredentialsTypeAPIKey, config.APIKey.Value})
 	} else if config.Secret != "" {
-		return config.ID, rutils.CredentialsTypeRobotSecret, config.Secret
+		return rpc.WithEntityCredentials(config.ID, rpc.Credentials{rutils.CredentialsTypeRobotSecret, config.Secret})
 	}
-	return "", "", ""
+	return nil
 }
 
 // UnmarshalJSON unmarshals JSON data into this config.
