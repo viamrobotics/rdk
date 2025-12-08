@@ -30,6 +30,9 @@ import (
 
 // NewServer returns a new (module specific) rpc.Server.
 func NewServer(opts ...grpc.ServerOption) rpc.Server {
+	// Some modules depend on being able to propagate trace context even if
+	// viam-server isn't recording anything. Set up propagation here to avoid
+	// breaking that use case.
 	traceProvider := trace.GetProvider()
 	otelHandler := otelgrpc.NewServerHandler(
 		otelgrpc.WithTracerProvider(traceProvider),

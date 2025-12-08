@@ -34,6 +34,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+
 	// Register service APIs.
 	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"
@@ -166,7 +167,6 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	// If the env variable does not exist, the empty string is returned.
 	modName, _ := os.LookupEnv("VIAM_MODULE_NAME")
 	tracingEnabledStr, _ := os.LookupEnv("VIAM_MODULE_TRACING")
-	logger.Errorw("TRACING_ENV_VAR", "var", tracingEnabledStr)
 	tracingEnabled := !slices.Contains([]string{"", "0", "false"}, tracingEnabledStr)
 
 	m := &Module{
