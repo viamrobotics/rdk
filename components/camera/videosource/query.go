@@ -112,8 +112,7 @@ func findReaderAndDriver(
 
 		if conf.Width != 0 && conf.Height != 0 {
 			if img.Bounds().Dx() != conf.Width || img.Bounds().Dy() != conf.Height {
-				return nil, nil, "", errors.Errorf("requested width and height (%dx%d) are not available for this webcam"+
-					" (closest driver found supports resolution %dx%d)",
+				logger.Warnf("requested width and height (%dx%d) do not match actual webcam resolution (%dx%d); using actual resolution",
 					conf.Width, conf.Height, img.Bounds().Dx(), img.Bounds().Dy())
 			}
 		}
