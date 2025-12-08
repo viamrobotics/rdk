@@ -27,8 +27,9 @@ func TestFromReader(t *testing.T) {
 		secret      = testutils.FakeCredentialPayLoad
 	)
 	var (
-		logger = logging.NewTestLogger(t)
-		ctx    = context.Background()
+		logger    = logging.NewTestLogger(t)
+		ctx       = context.Background()
+		authCreds = rpc.WithEntityCredentials(robotPartID, rpc.Credentials{utils.CredentialsTypeRobotSecret, secret})
 	)
 
 	// clear cache
@@ -68,7 +69,7 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, protoConfig, certProto)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
-		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, secret, robotPartID, logger)
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, authCreds, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
@@ -120,7 +121,7 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, nil, nil)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
-		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, secret, robotPartID, logger)
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, authCreds, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
@@ -162,7 +163,7 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, protoConfig, certProto)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
-		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, secret, robotPartID, logger)
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, authCreds, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
@@ -206,8 +207,9 @@ func TestStoreToCache(t *testing.T) {
 		MachineID:        "the-machine",
 	}
 	cfg.Cloud = cloud
+	authCreds := rpc.WithEntityCredentials(cloud.ID, rpc.Credentials{utils.CredentialsTypeRobotSecret, cloud.Secret})
 
-	appConn, err := grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, cloud.Secret, cloud.ID, logger)
+	appConn, err := grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, authCreds, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
 
