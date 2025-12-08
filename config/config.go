@@ -589,8 +589,8 @@ func (a APIKey) IsFullySet() bool {
 	return a.ID != "" && a.Value != ""
 }
 
-// GetCloudCredsDialOpt returns the appropriate auth credentials for this cloud config. API keys are always
-// preferred over robot secrets. If neither are set, empty strings are returned.
+// GetCloudCredsDialOpt returns a dial option with the cloud credentials for this cloud config.
+// API keys are always preferred over robot secrets. If neither are set, nil is returned.
 func (config *Cloud) GetCloudCredsDialOpt() rpc.DialOption {
 	if config.APIKey.IsFullySet() {
 		return rpc.WithEntityCredentials(config.APIKey.ID, rpc.Credentials{rutils.CredentialsTypeAPIKey, config.APIKey.Value})
