@@ -63,11 +63,11 @@ func (c WebcamConfig) Validate(path string) ([]string, []string, error) {
 	if c.Width < 0 || c.Height < 0 {
 		return nil, nil, fmt.Errorf(
 			"got illegal negative dimensions for width_px and height_px (%d, %d) fields set for webcam camera",
-			c.Height, c.Width)
+			c.Width, c.Height)
 	}
 	if c.FrameRate < 0 {
 		return nil, nil, fmt.Errorf(
-			"got illegal non-positive dimension for frame rate (%.2f) field set for webcam camera",
+			"got illegal negative frame rate (%.2f) field set for webcam camera",
 			c.FrameRate)
 	}
 
@@ -212,54 +212,62 @@ func (c *webcam) startMonitorWorker() {
 					logger.Debugw("cannot determine camera status", "error", err)
 					continue
 				}
+				if ok {
+					continue
+				}
 
-				if !ok {
-					c.mu.Lock()
-					c.disconnected = true
-					c.mu.Unlock()
+				c.mu.Lock()
+				c.disconnected = true
+				c.mu.Unlock()
 
-					logger.Error("camera no longer connected; reconnecting")
-				reconnectLoop:
-					for {
-						select {
-						case <-ctx.Done():
-							c.logger.Debug("reconnect loop context done")
-							c.mu.Unlock()
-							return
-						case <-ticker.C:
-							c.mu.Lock()
+				logger.Error("camera no longer connected; reconnecting")
+			reconnectLoop:
+				for {
+					select {
+					case <-ctx.Done():
+						c.logger.Debug("reconnect loop context done")
+						return
+					case <-ticker.C:
+						c.mu.Lock()
 
-							// Close current driver if it exists
-							if c.driver != nil {
-								c.logger.Debug("closing current camera")
-								if err := c.driver.Close(); err != nil {
-									c.logger.Errorw("failed to close current camera", "error", err)
-								}
-								c.driver = nil
-								c.reader = nil
+						// Close current driver if it exists
+						if c.driver != nil {
+							c.logger.Debug("closing current camera")
+							if err := c.driver.Close(); err != nil {
+								c.logger.Errorw("failed to close current camera", "error", err)
 							}
-
-							// Try to find and reconnect to camera
-							reader, driver, label, err := findReaderAndDriver(&c.conf, c.targetPath, c.logger)
-							if err != nil {
-								c.logger.Debugw("failed to reconnect camera", "error", err)
-								c.mu.Unlock()
-								continue
-							}
-
-							// Successfully reconnected
-							c.reader = reader
-							c.driver = driver
-							c.disconnected = false
-							if c.targetPath == "" {
-								c.targetPath = label
-							}
-							c.logger = c.logger.WithFields("camera_name", c.Name().ShortName(), "camera_label", c.targetPath)
-
-							c.logger.Infow("camera reconnected")
-							c.mu.Unlock()
-							break reconnectLoop
+							c.driver = nil
+							c.reader = nil
 						}
+
+						// Try to find and reconnect to camera
+						reader, driver, label, err := findReaderAndDriver(&c.conf, c.targetPath, c.logger)
+						if err != nil {
+							c.logger.Debugw("failed to reconnect camera", "error", err)
+							c.mu.Unlock()
+							continue
+						}
+
+						// Successfully reconnected
+						c.reader = reader
+						c.driver = driver
+						c.disconnected = false
+						if c.targetPath == "" {
+							c.targetPath = label
+						}
+						c.logger = c.logger.WithFields("camera_name", c.Name().ShortName(), "camera_label", c.targetPath)
+
+						// Reset buffer state
+						c.buffer.err = nil
+						c.buffer.frame = nil
+						if c.buffer.release != nil {
+							c.buffer.release()
+							c.buffer.release = nil
+						}
+
+						c.logger.Infow("camera reconnected")
+						c.mu.Unlock()
+						break reconnectLoop
 					}
 				}
 			}
@@ -275,9 +283,9 @@ func (c *webcam) startBufferWorker() {
 	c.mu.Unlock()
 
 	interFrameDuration := time.Duration(float32(time.Second) / frameRate)
-	ticker := time.NewTicker(interFrameDuration)
 
 	c.workers.Add(func(ctx context.Context) {
+		ticker := time.NewTicker(interFrameDuration)
 		defer ticker.Stop()
 		for {
 			select {
@@ -318,7 +326,7 @@ func (c *webcam) startBufferWorker() {
 				if err != nil {
 					c.buffer.release = nil
 					c.buffer.frame = nil
-					c.logger.Errorf("error reading frame: %v", err)
+					c.logger.Errorw("error reading frame", "error", err)
 					c.mu.Unlock()
 					continue
 				}
