@@ -81,6 +81,10 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 		return err
 	}
 
+	if args.ModelName == args.ScriptName {
+		return errors.New("model name and script name must be different")
+	}
+
 	resp, err := client.uploadTrainingScript(true, args.ModelType, args.Framework,
 		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path)
 	if err != nil {

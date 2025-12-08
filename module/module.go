@@ -110,9 +110,10 @@ type Module struct {
 	activeResourceStreams map[resource.Name]peerResourceState
 	streamSourceByName    map[resource.Name]rtppassthrough.Source
 
-	ready                   bool
-	shutdownCtx             context.Context
-	shutdownFn              context.CancelFunc
+	ready       bool
+	shutdownCtx context.Context
+	shutdownFn  context.CancelFunc
+
 	activeBackgroundWorkers sync.WaitGroup
 	closeOnce               sync.Once
 
@@ -124,13 +125,14 @@ type Module struct {
 	streampb.UnimplementedStreamServiceServer
 	robotpb.UnimplementedRobotServiceServer
 
-	addr       string
-	parent     *client.RobotClient
-	parentAddr string
-	pc         *webrtc.PeerConnection
-	pcReady    <-chan struct{}
-	pcClosed   <-chan struct{}
-	pcFailed   <-chan struct{}
+	addr                 string
+	parent               *client.RobotClient
+	parentAddr           string
+	parentConnChangeFunc func(rc *client.RobotClient)
+	pc                   *webrtc.PeerConnection
+	pcReady              <-chan struct{}
+	pcClosed             <-chan struct{}
+	pcFailed             <-chan struct{}
 
 	logger logging.Logger
 }
@@ -332,7 +334,18 @@ func (m *Module) connectParent(ctx context.Context) error {
 	if m.pc != nil {
 		m.parent.SetPeerConnection(m.pc)
 	}
+	if m.parentConnChangeFunc != nil {
+		rc.SetParentNotifier(func() { m.parentConnChangeFunc(rc) })
+	}
 	return nil
+}
+
+// RegisterParentConnectionChangeHandler is used to register a function to run whenever the connection
+// back to the viam-server has changed.
+func (m *Module) RegisterParentConnectionChangeHandler(f func(rc *client.RobotClient)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.parentConnChangeFunc = f
 }
 
 // SetReady can be set to false if the module is not ready (ex. waiting on hardware).

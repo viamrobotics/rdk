@@ -203,11 +203,15 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, name, test.ShouldEqual, "digital1")
 
 		// SetPowerMode (currently unimplemented in RDK)
-		injectBoard.SetPowerModeFunc = func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error {
+		injectBoard.SetPowerModeFunc = func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration,
+			extra map[string]interface{},
+		) error {
+			actualExtra = extra
 			return viamgrpc.UnimplementedError
 		}
-		err = client.SetPowerMode(context.Background(), boardpb.PowerMode_POWER_MODE_OFFLINE_DEEP, nil)
+		err = client.SetPowerMode(context.Background(), boardpb.PowerMode_POWER_MODE_OFFLINE_DEEP, nil, expectedExtra)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		test.That(t, err, test.ShouldHaveSameTypeAs, viamgrpc.UnimplementedError)
 
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
