@@ -910,7 +910,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 		visibility = moduleVisibilityPublic
 	}
 
-	manifest := moduleManifest{
+	manifest := ModuleManifest{
 		Schema:       "https://dl.viam.dev/module.schema.json",
 		ModuleID:     moduleID,
 		Visibility:   visibility,
