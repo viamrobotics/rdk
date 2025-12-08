@@ -589,15 +589,9 @@ func (a APIKey) IsFullySet() bool {
 	return a.ID != "" && a.Value != ""
 }
 
-// GetCloudCredsDialOpt returns a dial option with the cloud credentials for this cloud config.
-// API keys are always preferred over robot secrets. If neither are set, nil is returned.
-func (config *Cloud) GetCloudCredsDialOpt() rpc.DialOption {
-	if config.APIKey.IsFullySet() {
-		return rpc.WithEntityCredentials(config.APIKey.ID, rpc.Credentials{rutils.CredentialsTypeAPIKey, config.APIKey.Value})
-	} else if config.Secret != "" {
-		return rpc.WithEntityCredentials(config.ID, rpc.Credentials{rutils.CredentialsTypeRobotSecret, config.Secret})
-	}
-	return nil
+// IsPartiallySet returns true if only one of the ID or Value fields are set.
+func (apiKey *APIKey) IsPartiallySet() bool {
+	return (apiKey.ID == "" && apiKey.Value != "") || (apiKey.ID != "" && apiKey.Value == "")
 }
 
 // UnmarshalJSON unmarshals JSON data into this config.
@@ -676,8 +670,10 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		if config.LocalFQDN == "" {
 			return resource.NewConfigValidationFieldRequiredError(path, "local_fqdn")
 		}
+	} else if config.APIKey.IsPartiallySet() {
+		return resource.NewConfigValidationFieldRequiredError(path, "api_key")
 	} else if config.Secret == "" && !config.APIKey.IsFullySet() {
-		return resource.NewConfigValidationFieldRequiredError(path, "cloud creds")
+		return resource.NewConfigValidationFieldRequiredError(path, "api_key")
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second
@@ -692,6 +688,17 @@ func (config *Cloud) ValidateTLS(path string) error {
 	}
 	if config.TLSPrivateKey == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "tls_private_key")
+	}
+	return nil
+}
+
+// GetCloudCredsDialOpt returns a dial option with the cloud credentials for this cloud config.
+// API keys are always preferred over robot secrets. If neither are set, nil is returned.
+func (config *Cloud) GetCloudCredsDialOpt() rpc.DialOption {
+	if config.APIKey.IsFullySet() {
+		return rpc.WithEntityCredentials(config.APIKey.ID, rpc.Credentials{rutils.CredentialsTypeAPIKey, config.APIKey.Value})
+	} else if config.Secret != "" {
+		return rpc.WithEntityCredentials(config.ID, rpc.Credentials{rutils.CredentialsTypeRobotSecret, config.Secret})
 	}
 	return nil
 }
