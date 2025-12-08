@@ -276,10 +276,10 @@ func TestNewWatcherCloud(t *testing.T) {
 
 	storeConfigInServer(confToReturn)
 
-	authCreds := rpc.WithEntityCredentials(
+	cloudCreds := rpc.WithEntityCredentials(
 		confToReturn.Cloud.ID, rpc.Credentials{rutils.CredentialsTypeRobotSecret, confToReturn.Cloud.Secret})
 	appConn, err := grpc.NewAppConn(
-		context.Background(), confToReturn.Cloud.AppAddress, confToReturn.Cloud.ID, authCreds, logger)
+		context.Background(), confToReturn.Cloud.AppAddress, confToReturn.Cloud.ID, cloudCreds, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
 	watcher, err := config.NewWatcher(context.Background(), &config.Config{Cloud: newCloudConf()}, logger, appConn)

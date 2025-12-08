@@ -149,8 +149,8 @@ func FromConfig(cfg *config.Config) (Options, error) {
 			},
 		})
 
-		authCreds := cfg.Cloud.GetAuthCredentials()
-		signalingDialOpts := []rpc.DialOption{authCreds}
+		cloudCreds := cfg.Cloud.GetCloudCredsDialOpt()
+		signalingDialOpts := []rpc.DialOption{cloudCreds}
 		if cfg.Cloud.SignalingInsecure {
 			signalingDialOpts = append(signalingDialOpts, rpc.WithInsecure())
 		}

@@ -34,7 +34,7 @@ type AppConn struct {
 // establishing a connection to App will continue to occur, however, in a background Goroutine. These attempts will continue until a
 // connection is made. If `cloud` is nil, an `AppConn` with a nil underlying connection will return, and the background dialer will not
 // start.
-func NewAppConn(ctx context.Context, appAddress, partID string, authCreds rpc.DialOption, logger logging.Logger) (rpc.ClientConn, error) {
+func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.DialOption, logger logging.Logger) (rpc.ClientConn, error) {
 	appConn := &AppConn{ReconfigurableClientConn: &ReconfigurableClientConn{Logger: logger.Sublogger("app_conn")}}
 
 	grpcURL, err := url.Parse(appAddress)
@@ -44,8 +44,8 @@ func NewAppConn(ctx context.Context, appAddress, partID string, authCreds rpc.Di
 
 	dialOpts := make([]rpc.DialOption, 0, 2)
 
-	if authCreds != nil {
-		dialOpts = append(dialOpts, authCreds)
+	if cloudCreds != nil {
+		dialOpts = append(dialOpts, cloudCreds)
 	}
 
 	if grpcURL.Scheme == "http" {
