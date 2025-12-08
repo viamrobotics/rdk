@@ -31,7 +31,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
-
 	// Register service APIs.
 	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"
@@ -337,7 +336,6 @@ func (m *Module) connectParent(ctx context.Context) error {
 	}
 	if m.parentConnChangeFunc != nil {
 		rc.SetParentNotifier(func() { m.parentConnChangeFunc(rc) })
-
 	}
 	return nil
 }
