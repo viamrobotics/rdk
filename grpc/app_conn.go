@@ -141,7 +141,6 @@ func dialOpts(authEntityID, authSecret, partID string) []rpc.DialOption {
 		} else {
 			dialOpts = append(dialOpts, rpc.WithEntityCredentials(partID, rpc.Credentials{Type: rpc.CredentialsTypeAPIKey, Payload: authSecret}))
 		}
-
 	}
 	return dialOpts
 }

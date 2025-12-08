@@ -584,8 +584,20 @@ type APIKey struct {
 	Value string `json:"value"`
 }
 
+// IsFullySet returns true if an APIKey has both the ID and Value fields set.
 func (a APIKey) IsFullySet() bool {
 	return a.ID != "" && a.Value != ""
+}
+
+// GetAuthCredentials returns the appropriate auth credentials for this cloud config. API keys are always
+// preferred over robot secrets. If neither are set, empty strings are returned.
+func (config *Cloud) GetAuthCredentials() (authID string, authType rpc.CredentialsType, authSecret string) {
+	if config.APIKey.IsFullySet() {
+		return config.APIKey.ID, rutils.CredentialsTypeAPIKey, config.APIKey.Value
+	} else if config.Secret != "" {
+		return config.ID, rutils.CredentialsTypeRobotSecret, config.Secret
+	}
+	return "", "", ""
 }
 
 // UnmarshalJSON unmarshals JSON data into this config.

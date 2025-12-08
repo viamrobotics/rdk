@@ -149,19 +149,11 @@ func FromConfig(cfg *config.Config) (Options, error) {
 			},
 		})
 
-		var signalingDialOpts []rpc.DialOption
-		if cfg.Cloud.APIKey.IsFullySet() {
-			signalingDialOpts = []rpc.DialOption{rpc.WithEntityCredentials(
-				cfg.Cloud.APIKey.ID,
-				rpc.Credentials{utils.CredentialsTypeAPIKey, cfg.Cloud.APIKey.Value},
-			)}
-		} else {
-			signalingDialOpts = []rpc.DialOption{rpc.WithEntityCredentials(
-				cfg.Cloud.ID,
-				rpc.Credentials{utils.CredentialsTypeRobotSecret, cfg.Cloud.Secret},
-			)}
-		}
-
+		authID, authType, authSecret := cfg.Cloud.GetAuthCredentials()
+		signalingDialOpts := []rpc.DialOption{rpc.WithEntityCredentials(
+			authID,
+			rpc.Credentials{authType, authSecret},
+		)}
 		if cfg.Cloud.SignalingInsecure {
 			signalingDialOpts = append(signalingDialOpts, rpc.WithInsecure())
 		}

@@ -206,14 +206,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	if cfgFromDisk.Cloud != nil {
 		cloud := cfgFromDisk.Cloud
 
-		var authID, authSecret string
-		if cloud.APIKey.IsFullySet() {
-			authID = cloud.APIKey.ID
-			authSecret = cloud.APIKey.Value
-		} else {
-			authID = cloud.ID
-			authSecret = cloud.Secret
-		}
+		authID, _, authSecret := cfgFromDisk.Cloud.GetAuthCredentials()
 
 		appConnLogger := logger.Sublogger("networking").Sublogger("app_connection")
 		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, authID, authSecret, appConnLogger)
