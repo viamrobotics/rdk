@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"io"
 	"sync"
 	"time"
 
@@ -20,8 +19,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -31,18 +28,14 @@ import (
 var ModelWebcam = resource.DefaultModelFamily.WithModel("webcam")
 
 var (
-	errClosed       = errors.New("camera has been closed")
-	errDisconnected = errors.New("camera is disconnected; please try again in a few moments")
+	errClosed       = errors.New("webcam has been closed")
+	errDisconnected = errors.New("webcam is disconnected; please try again in a few moments")
+	errNoFrames     = errors.New("no frames available to read")
+	errNoDriver     = errors.New("no camera driver set")
 )
 
-// minResolutionDimension is set to 2 to ensure proper fitness distance calculation for resolution selection.
-// Setting this to 0 would cause mediadevices' IntRanged.Compare() method to treat all values smaller than ideal
-// as equally acceptable. See https://github.com/pion/mediadevices/blob/c10fb000dbbb28597e068468f3175dc68a281bfd/pkg/prop/int.go#L104
-// Setting it to 1 could theoretically allow 1x1 resolutions. 2 is small enough and even,
-// allowing all real camera resolutions while ensuring proper distance calculations.
 const (
-	minResolutionDimension = 2
-	defaultFrameRate       = float32(30.0)
+	defaultFrameRate = float32(30.0)
 )
 
 func init() {
@@ -52,15 +45,6 @@ func init() {
 		resource.Registration[camera.Camera, *WebcamConfig]{
 			Constructor: NewWebcam,
 		})
-}
-
-// WebcamBuffer is a buffer for webcam frames.
-// WARNING: This struct is NOT thread safe. It must be protected by the mutex in the webcam struct.
-type WebcamBuffer struct {
-	frame   image.Image // Holds the frames and their release functions in the buffer
-	release func()
-	err     error
-	worker  *goutils.StoppableWorkers // A separate worker for the webcam buffer that allows stronger concurrency control.
 }
 
 // WebcamConfig is the native config attribute struct for webcams.
@@ -90,18 +74,24 @@ func (c WebcamConfig) Validate(path string) ([]string, []string, error) {
 	return []string{}, nil, nil
 }
 
-// webcam is a video driver wrapper camera that ensures its underlying driver stays connected.
+// webcam is a video driver wrapper camera that ensures its underlying driver stays connected,
+// handling hot unplugs/replugs, and provides a buffer to read frames from.
 type webcam struct {
 	resource.Named
-	mu                      sync.RWMutex
-	hasLoggedIntrinsicsInfo bool
+	resource.AlwaysRebuild
+	// mu protects all struct fields except workers.
+	//
+	// Lock ordering rules:
+	//   - Never hold mu when calling workers.Stop() or workers.Add()
+	//   - Workers may acquire mu, so stopping them while holding mu causes deadlock
+	mu sync.Mutex
 
 	cameraModel transform.PinholeCameraModel
 
 	reader video.Reader
 	driver driverutils.Driver
 
-	// this is returned to us as a label in mediadevices but our config
+	// This is returned to us as a label in mediadevices but our config
 	// treats it as a video path.
 	targetPath string
 	conf       WebcamConfig
@@ -109,9 +99,22 @@ type webcam struct {
 	closed       bool
 	disconnected bool
 	logger       logging.Logger
-	workers      *goutils.StoppableWorkers
+	// workers take the mutex when starting and stopping, so do not call them while holding mu
+	workers *goutils.StoppableWorkers
+	buffer  *webcamBuffer
+}
 
-	buffer *WebcamBuffer
+// webcamBuffer is a buffer for webcam frames.
+// It must be protected by the mutex in the webcam struct.
+type webcamBuffer struct {
+	frame   image.Image
+	release func()
+	err     error
+}
+
+// newWebcamBuffer creates a new WebcamBuffer struct.
+func newWebcamBuffer() *webcamBuffer {
+	return &webcamBuffer{}
 }
 
 // NewWebcam returns the webcam discovered based on the given config as the Camera interface type.
@@ -121,96 +124,65 @@ func NewWebcam(
 	conf resource.Config,
 	logger logging.Logger,
 ) (camera.Camera, error) {
-	cam := &webcam{
+	c := &webcam{
 		Named:   conf.ResourceName().AsNamed(),
 		logger:  logger.WithFields("camera_name", conf.ResourceName().ShortName()),
 		workers: goutils.NewBackgroundStoppableWorkers(),
+		buffer:  newWebcamBuffer(),
 	}
-	cam.buffer = NewWebcamBuffer(cam.workers.Context())
 
-	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
+	nativeConf, err := resource.NativeConfig[*WebcamConfig](conf)
+	if err != nil {
 		return nil, err
 	}
-	cam.Monitor()
 
-	return cam, nil
-}
+	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(nativeConf.CameraParameters, nativeConf.DistortionParameters)
 
-func (c *webcam) Reconfigure(
-	ctx context.Context,
-	_ resource.Dependencies,
-	conf resource.Config,
-) error {
-	newConf, err := resource.NativeConfig[*WebcamConfig](conf)
+	c.targetPath = nativeConf.Path
+	reader, driver, label, err := findReaderAndDriver(nativeConf, c.targetPath, c.logger)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to find camera: %w", err)
 	}
 
-	// Stop the driver and frame buffer worker
-	c.mu.Lock()
-	driver := c.driver
-	frameBufferWorker := c.buffer.worker
-	c.mu.Unlock()
-
-	if driver != nil {
-		if err := driver.Close(); err != nil {
-			c.logger.Errorw("failed to close current camera before stopping buffer worker", "error", err)
-		}
+	c.reader = reader
+	c.driver = driver
+	c.disconnected = false
+	if c.targetPath == "" {
+		c.targetPath = label
 	}
-
-	if frameBufferWorker != nil {
-		frameBufferWorker.Stop()
-	}
-
-	// Release buffer
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.buffer != nil {
-		if c.buffer.release != nil {
-			c.buffer.release()
-			c.buffer.release = nil
-		}
-	}
-	c.reader = nil
-	c.driver = nil
-
-	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
-	driverReinitNotNeeded := c.conf.Format == newConf.Format &&
-		c.conf.Path == newConf.Path &&
-		c.conf.Width == newConf.Width &&
-		c.conf.Height == newConf.Height
-
-	if c.driver != nil && c.reader != nil && driverReinitNotNeeded {
-		c.conf = *newConf
-		return nil
-	}
-	c.logger.CDebug(ctx, "reinitializing driver")
-
-	c.targetPath = newConf.Path
-	if err := c.reconnectCamera(newConf); err != nil {
-		return err
-	}
-
-	c.hasLoggedIntrinsicsInfo = false
+	c.logger = c.logger.WithFields("camera_name", c.Name().ShortName(), "camera_label", c.targetPath)
 
 	// only set once we're good
-	c.conf = *newConf
+	c.conf = *nativeConf
 
 	if c.conf.FrameRate == 0.0 {
 		c.conf.FrameRate = defaultFrameRate
 	}
-	c.buffer = NewWebcamBuffer(c.workers.Context())
-	c.startFrameBufferWorker()
 
+	// Start both workers after successful configuration
+	c.startMonitorWorker()
+	c.startBufferWorker()
+
+	return c, nil
+}
+
+// ensureActive checks the camera's state and returns the appropriate error if it is not active.
+// Must be called with mu held.
+func (c *webcam) ensureActive() error {
+	if c.closed {
+		return errClosed
+	}
+	if c.disconnected {
+		return errDisconnected
+	}
 	return nil
 }
 
 // isCameraConnected is a helper for monitoring connectivity to the driver.
+// Must be called with mu held.
 func (c *webcam) isCameraConnected() (bool, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	if c.driver == nil {
-		return true, errors.New("no configured camera")
+		return false, fmt.Errorf("cannot determine camera status: %w", errNoDriver)
 	}
 
 	// TODO(RSDK-1959): this only works for linux
@@ -218,44 +190,9 @@ func (c *webcam) isCameraConnected() (bool, error) {
 	return !errors.Is(err, availability.ErrNoDevice), nil
 }
 
-// reconnectCamera tries to reconnect the camera to a driver that matches the config.
-// Assumes a write lock is held.
-func (c *webcam) reconnectCamera(conf *WebcamConfig) error {
-	if c.driver != nil {
-		c.logger.Debug("closing current camera")
-		if err := c.driver.Close(); err != nil {
-			c.logger.Errorw("failed to close current camera", "error", err)
-		}
-		c.driver = nil
-		c.reader = nil
-	}
-
-	reader, driver, foundLabel, err := findReaderAndDriver(conf, c.targetPath, c.logger)
-	if err != nil {
-		return errors.Wrap(err, "failed to find camera")
-	}
-
-	c.reader = reader
-	c.driver = driver
-	c.disconnected = false
-	c.closed = false
-	if c.targetPath == "" {
-		c.targetPath = foundLabel
-	}
-
-	c.logger = c.logger.WithFields("camera_label", c.targetPath)
-
-	return nil
-}
-
-// Monitor is responsible for monitoring the liveness of a camera. An example
-// is connectivity. Since the model itself knows best about how to maintain this state,
-// the reconfigurable offers a safe way to notify if a state needs to be reset due
-// to some exceptional event (like a reconnect).
-// It is expected that the monitoring code is tied to the lifetime of the resource
-// and once the resource is closed, so should the monitor. That is, it should
-// no longer send any resets once a Close on its associated resource has returned.
-func (c *webcam) Monitor() {
+// startMonitorWorker starts a worker that monitors camera connectivity and handles reconnection.
+// This worker runs continuously until the context is cancelled (via workers.Stop()).
+func (c *webcam) startMonitorWorker() {
 	c.workers.Add(func(ctx context.Context) {
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
@@ -263,13 +200,14 @@ func (c *webcam) Monitor() {
 		for {
 			select {
 			case <-ctx.Done():
+				c.logger.Debug("monitor worker context done")
 				return
 			case <-ticker.C:
-				c.mu.RLock()
+				c.mu.Lock()
 				logger := c.logger
-				c.mu.RUnlock()
-
 				ok, err := c.isCameraConnected()
+				c.mu.Unlock()
+
 				if err != nil {
 					logger.Debugw("cannot determine camera status", "error", err)
 					continue
@@ -285,36 +223,41 @@ func (c *webcam) Monitor() {
 					for {
 						select {
 						case <-ctx.Done():
+							c.logger.Debug("reconnect loop context done")
+							c.mu.Unlock()
 							return
 						case <-ticker.C:
-							cont := func() bool {
-								c.mu.Lock()
-								if err := c.reconnectCamera(&c.conf); err != nil {
-									c.mu.Unlock()
-									c.logger.Debugw("failed to reconnect camera", "error", err)
-									return true
-								}
-								c.logger.Infow("camera reconnected")
+							c.mu.Lock()
 
-								// Stop the buffer worker outside of the mutex to avoid deadlock
-								var oldWorker *goutils.StoppableWorkers
-								if c.buffer != nil && c.buffer.worker != nil {
-									oldWorker = c.buffer.worker
+							// Close current driver if it exists
+							if c.driver != nil {
+								c.logger.Debug("closing current camera")
+								if err := c.driver.Close(); err != nil {
+									c.logger.Errorw("failed to close current camera", "error", err)
 								}
+								c.driver = nil
+								c.reader = nil
+							}
 
-								c.buffer = NewWebcamBuffer(c.workers.Context())
-								c.startFrameBufferWorker()
+							// Try to find and reconnect to camera
+							reader, driver, label, err := findReaderAndDriver(&c.conf, c.targetPath, c.logger)
+							if err != nil {
+								c.logger.Debugw("failed to reconnect camera", "error", err)
 								c.mu.Unlock()
-
-								if oldWorker != nil {
-									oldWorker.Stop()
-								}
-
-								return false
-							}()
-							if cont {
 								continue
 							}
+
+							// Successfully reconnected
+							c.reader = reader
+							c.driver = driver
+							c.disconnected = false
+							if c.targetPath == "" {
+								c.targetPath = label
+							}
+							c.logger = c.logger.WithFields("camera_name", c.Name().ShortName(), "camera_label", c.targetPath)
+
+							c.logger.Infow("camera reconnected")
+							c.mu.Unlock()
 							break reconnectLoop
 						}
 					}
@@ -324,167 +267,51 @@ func (c *webcam) Monitor() {
 	})
 }
 
-func (c *webcam) Images(
-	ctx context.Context,
-	filterSourceNames []string,
-	extra map[string]interface{},
-) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if err := c.ensureActive(); err != nil {
-		return nil, resource.ResponseMetadata{}, err
-	}
+// startBufferWorker starts a worker that continuously reads frames from the camera and writes them to the buffer.
+// When disconnected, it skips reading but continues running to resume immediately upon reconnection.
+func (c *webcam) startBufferWorker() {
+	c.mu.Lock()
+	frameRate := c.conf.FrameRate
+	c.mu.Unlock()
 
-	img, err := c.getLatestFrame()
-	if err != nil {
-		return nil, resource.ResponseMetadata{}, errors.Wrap(err, "monitoredWebcam: call to get Images failed")
-	}
-
-	namedImg, err := camera.NamedImageFromImage(img, c.Name().Name, utils.MimeTypeJPEG, data.Annotations{})
-	if err != nil {
-		return nil, resource.ResponseMetadata{}, err
-	}
-	return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
-}
-
-// ensureActive is a helper that guards logic that requires the camera to be actively connected.
-func (c *webcam) ensureActive() error {
-	if c.closed {
-		return errClosed
-	}
-	if c.disconnected {
-		return errDisconnected
-	}
-	return nil
-}
-
-func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if err := c.ensureActive(); err != nil {
-		return nil, camera.ImageMetadata{}, err
-	}
-	if c.reader == nil {
-		return nil, camera.ImageMetadata{}, errors.New("underlying reader is nil")
-	}
-	img, err := c.getLatestFrame()
-	if err != nil {
-		return nil, camera.ImageMetadata{}, err
-	}
-
-	if mimeType == "" {
-		mimeType = utils.MimeTypeJPEG
-	}
-	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
-	if err != nil {
-		return nil, camera.ImageMetadata{}, err
-	}
-	return imgBytes, camera.ImageMetadata{MimeType: mimeType}, nil
-}
-
-func (c *webcam) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if err := c.ensureActive(); err != nil {
-		return nil, err
-	}
-
-	if c.cameraModel.PinholeCameraIntrinsics == nil {
-		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
-	}
-
-	img, release, err := c.reader.Read()
-	if err != nil {
-		return nil, err
-	}
-	defer release()
-
-	dm, err := rimage.ConvertImageToDepthMap(ctx, img)
-	if err != nil {
-		return nil, errors.Wrapf(err, "cannot project to a point cloud")
-	}
-
-	return depthadapter.ToPointCloud(dm, c.cameraModel.PinholeCameraIntrinsics), nil
-}
-
-func (c *webcam) Properties(ctx context.Context) (camera.Properties, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if err := c.ensureActive(); err != nil {
-		return camera.Properties{}, err
-	}
-
-	var frameRate float32
-	if c.conf.FrameRate > 0 {
-		frameRate = c.conf.FrameRate
-	}
-	return camera.Properties{
-		SupportsPCD:      c.cameraModel.PinholeCameraIntrinsics != nil,
-		ImageType:        camera.ColorStream,
-		IntrinsicParams:  c.cameraModel.PinholeCameraIntrinsics,
-		DistortionParams: c.cameraModel.Distortion,
-		MimeTypes:        []string{utils.MimeTypeJPEG, utils.MimeTypePNG, utils.MimeTypeRawRGBA},
-		FrameRate:        frameRate,
-	}, nil
-}
-
-func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
-	return make([]spatialmath.Geometry, 0), nil
-}
-
-// NewWebcamBuffer creates a new WebcamBuffer struct.
-func NewWebcamBuffer(ctx context.Context) *WebcamBuffer {
-	return &WebcamBuffer{
-		worker: goutils.NewStoppableWorkers(ctx),
-	}
-}
-
-// Must lock the mutex before calling this function.
-func (c *webcam) getLatestFrame() (image.Image, error) {
-	if c.buffer.frame == nil {
-		if c.buffer.err != nil {
-			return nil, c.buffer.err
-		}
-		return nil, errors.New("no frames available to read")
-	}
-
-	return c.buffer.frame, nil
-}
-
-func (c *webcam) startFrameBufferWorker() {
-	if c.buffer.frame != nil {
-		return // frame buffer worker already started
-	}
-
-	interFrameDuration := time.Duration(float32(time.Second) / c.conf.FrameRate)
+	interFrameDuration := time.Duration(float32(time.Second) / frameRate)
 	ticker := time.NewTicker(interFrameDuration)
-	c.buffer.worker.Add(func(closedCtx context.Context) {
+
+	c.workers.Add(func(ctx context.Context) {
 		defer ticker.Stop()
 		for {
 			select {
-			case <-closedCtx.Done():
+			case <-ctx.Done():
+				c.logger.Debug("buffer worker context done")
 				return
 			case <-ticker.C:
-				// Make a private copy of the previously published frame so consumers can continue to read it,
-				// then return the Reader-managed buffer before we kick off the next read. This avoids holding
-				// on to driver memory while still serving the last frame.
-				var prevRelease func()
 				c.mu.Lock()
-				if c.buffer.release != nil && c.buffer.frame != nil {
-					c.buffer.frame = rimage.CloneImage(c.buffer.frame)
+
+				if c.disconnected {
+					c.mu.Unlock()
+					continue
 				}
-				prevRelease = c.buffer.release
+
+				reader := c.reader
+				if reader == nil {
+					c.mu.Unlock()
+					continue
+				}
+
+				// Get the release function to call outside the lock to avoid potential deadlocks.
+				//
+				// Note: mediadevices decoders return empty release functions (no-ops),
+				// but we call it to follow the Reader interface, and in case the decoders
+				// do someday return a non-nil release function.
+				oldRelease := c.buffer.release
 				c.buffer.release = nil
 				c.mu.Unlock()
 
-				if prevRelease != nil {
-					prevRelease()
+				// Call release and read outside the lock to avoid holding the lock during I/O
+				if oldRelease != nil {
+					oldRelease()
 				}
-
-				img, release, err := c.reader.Read()
+				img, release, err := reader.Read()
 
 				c.mu.Lock()
 				c.buffer.err = err
@@ -492,15 +319,7 @@ func (c *webcam) startFrameBufferWorker() {
 					c.buffer.release = nil
 					c.buffer.frame = nil
 					c.logger.Errorf("error reading frame: %v", err)
-					isEOF := errors.Is(err, io.EOF)
-					if isEOF {
-						c.logger.Warnf("camera disconnected (EOF), stopping buffer worker. Error: %v", err)
-						c.disconnected = true
-					}
 					c.mu.Unlock()
-					if isEOF {
-						return
-					}
 					continue
 				}
 				c.buffer.frame = img
@@ -511,21 +330,94 @@ func (c *webcam) startFrameBufferWorker() {
 	})
 }
 
-func (c *webcam) Close(ctx context.Context) error {
-	c.workers.Stop()
+func (c *webcam) Images(_ context.Context, _ []string, _ map[string]interface{}) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if err := c.ensureActive(); err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
+
+	if c.buffer.frame == nil {
+		if c.buffer.err != nil {
+			return nil, resource.ResponseMetadata{}, c.buffer.err
+		}
+		return nil, resource.ResponseMetadata{}, errNoFrames
+	}
+
+	img := c.buffer.frame
+	namedImg, err := camera.NamedImageFromImage(img, c.Name().Name, utils.MimeTypeJPEG, data.Annotations{})
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("failed to create named image: %w", err)
+	}
+
+	return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+}
+
+func (c *webcam) Image(ctx context.Context, _ string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+	imgBytes, resMetadata, err := camera.GetImageFromGetImages(ctx, nil, c, extra, nil)
+	if err != nil {
+		return nil, camera.ImageMetadata{}, err
+	}
+	return imgBytes, resMetadata, nil
+}
+
+func (c *webcam) Properties(ctx context.Context) (camera.Properties, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := c.ensureActive(); err != nil {
+		return camera.Properties{}, err
+	}
+
+	var frameRate float32
+	if c.conf.FrameRate > 0 {
+		frameRate = c.conf.FrameRate
+	}
+	return camera.Properties{
+		SupportsPCD:      false, // RGB webcams cannot generate point clouds
+		ImageType:        camera.ColorStream,
+		IntrinsicParams:  c.cameraModel.PinholeCameraIntrinsics,
+		DistortionParams: c.cameraModel.Distortion,
+		MimeTypes:        []string{utils.MimeTypeJPEG, utils.MimeTypePNG, utils.MimeTypeRawRGBA},
+		FrameRate:        frameRate,
+	}, nil
+}
+
+func (c *webcam) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+	return nil, errors.New("not supported for webcams")
+}
+
+func (c *webcam) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return make([]spatialmath.Geometry, 0), nil
+}
+
+func (c *webcam) Close(ctx context.Context) error {
+	// Stop workers before acquiring mu
+	c.workers.Stop()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.closed {
-		return errors.New("webcam already closed")
+		return fmt.Errorf("webcam failed to close: %w", errClosed)
 	}
 	c.closed = true
 
-	if c.buffer != nil && c.buffer.worker != nil {
-		c.buffer.worker.Stop()
+	if c.buffer.release != nil {
+		c.buffer.release()
 	}
+	c.buffer.release = nil
+	c.buffer.frame = nil
+
+	c.reader = nil
 
 	if c.driver != nil {
-		return c.driver.Close()
+		err := c.driver.Close()
+		c.driver = nil
+		if err != nil {
+			return fmt.Errorf("webcam failed to close (failed to close camera driver): %w", err)
+		}
 	}
+
 	return nil
 }

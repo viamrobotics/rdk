@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -18,6 +19,13 @@ import (
 
 	"go.viam.com/rdk/logging"
 )
+
+// minResolutionDimension is set to 2 to ensure proper fitness distance calculation for resolution selection.
+// Setting this to 0 would cause mediadevices' IntRanged.Compare() method to treat all values smaller than ideal
+// as equally acceptable. See https://github.com/pion/mediadevices/blob/c10fb000dbbb28597e068468f3175dc68a281bfd/pkg/prop/int.go#L104
+// Setting it to 1 could theoretically allow 1x1 resolutions. 2 is small enough and even,
+// allowing all real camera resolutions while ensuring proper distance calculations.
+const minResolutionDimension = 2
 
 // Below is adapted from github.com/pion/mediadevices.
 // It is further adapted from gostream's query.go
@@ -75,7 +83,12 @@ func findReaderAndDriver(
 	path string,
 	logger logging.Logger,
 ) (video.Reader, driver.Driver, string, error) {
-	mediadevicescamera.Initialize()
+	if runtime.GOOS == "linux" {
+		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
+		// So we can call Initialize() only once, and call discover() as many times as we need.
+		mediadevicescamera.Initialize()
+	}
+
 	constraints := makeConstraints(conf, logger)
 
 	// Handle specific path
