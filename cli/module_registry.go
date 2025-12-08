@@ -247,6 +247,9 @@ func UpdateModuleAction(c *cli.Context, args updateModuleArgs) error {
 		return err
 	}
 
+	// Check for existing markdown documentation files for each model
+	populateMarkdownLinks(manifest.Models, filepath.Dir(manifestPath))
+
 	validateModels(c.App.ErrWriter, &manifest)
 
 	response, err := client.updateModule(moduleID, manifest)
@@ -422,20 +425,8 @@ func UpdateModelsAction(c *cli.Context, args updateModelsArgs) error {
 		return err
 	}
 
-	// Get the directory containing the meta.json file
-	manifestDir := filepath.Dir(args.Module)
-
-	// For each model, check if a corresponding markdown file exists
-	for i := range newModels {
-		markdownFilename := modelTripleToMarkdownFilename(newModels[i].Model)
-		markdownPath := filepath.Join(manifestDir, markdownFilename)
-
-		// Check if the markdown file exists
-		if _, err := os.Stat(markdownPath); err == nil {
-			// File exists, set the markdown link
-			newModels[i].MarkdownLink = &markdownFilename
-		}
-	}
+	// Check for existing markdown documentation files for each model
+	populateMarkdownLinks(newModels, filepath.Dir(args.Module))
 
 	if sameModels(newModels, manifest.Models) {
 		return nil
@@ -993,6 +984,26 @@ func modelTripleToMarkdownFilename(modelTriple string) string {
 	// Replace colons with underscores
 	filename := strings.ReplaceAll(modelTriple, ":", "_")
 	return filename + ".md"
+}
+
+// populateMarkdownLinks checks for existing markdown documentation files for each model
+// and sets the MarkdownLink field if a corresponding file exists. Models that already
+// have a MarkdownLink set are skipped.
+func populateMarkdownLinks(models []ModuleComponent, manifestDir string) {
+	for i := range models {
+		// Skip if markdown link is already set
+		if models[i].MarkdownLink != nil {
+			continue
+		}
+		markdownFilename := modelTripleToMarkdownFilename(models[i].Model)
+		markdownPath := filepath.Join(manifestDir, markdownFilename)
+
+		// Check if the markdown file exists
+		if _, err := os.Stat(markdownPath); err == nil {
+			// File exists, set the markdown link
+			models[i].MarkdownLink = &markdownFilename
+		}
+	}
 }
 
 type sender[RequestT any] interface {
