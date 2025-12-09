@@ -95,7 +95,7 @@ func MakeTempConfig(t *testing.T, cfg *config.Config, logger logging.Logger) (st
 	return file.Name(), file.Close()
 }
 
-// ServerProcessConfig is an opaque type used to configure the viam server
+// ServerProcessCfg is an opaque type used to configure the viam server
 // started by [ServerAsSeparateProcess]. Use the opts arg to that function to
 // customize the server process's behavior.
 type ServerProcessCfg struct {
