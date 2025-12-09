@@ -152,7 +152,7 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 		args = append(args, "-tracing")
 	}
 
-	pcfg := pexec.ProcessConfig{
+	cfg.processConfig = pexec.ProcessConfig{
 		Name:        serverPath,
 		Args:        args,
 		CWD:         utils.ResolveFile("./"),
@@ -162,7 +162,7 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	server := pexec.NewManagedProcess(pcfg, logger)
+	server := pexec.NewManagedProcess(cfg.processConfig, logger)
 	return server
 }
 
