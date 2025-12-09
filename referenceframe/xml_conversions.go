@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"math"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,7 @@ type collision struct {
 		XMLName xml.Name `xml:"geometry"`
 		Box     *box     `xml:"box,omitempty"`
 		Sphere  *sphere  `xml:"sphere,omitempty"`
+		Mesh    *mesh    `xml:"mesh,omitempty"`
 	} `xml:"geometry"`
 }
 
@@ -35,6 +37,11 @@ type box struct {
 type sphere struct {
 	XMLName xml.Name `xml:"sphere"`
 	Radius  float64  `xml:"radius,attr"` // in meters
+}
+
+type mesh struct {
+	XMLName  xml.Name `xml:"mesh"`
+	Filename string   `xml:"filename,attr"` // path to mesh file (STL or PLY)
 }
 
 func newCollision(g spatialmath.Geometry) (*collision, error) {
@@ -51,6 +58,14 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 		urdf.Geometry.Box = &box{Size: fmt.Sprintf("%f %f %f", utils.MMToMeters(cfg.X), utils.MMToMeters(cfg.Y), utils.MMToMeters(cfg.Z))}
 	case spatialmath.SphereType:
 		urdf.Geometry.Sphere = &sphere{Radius: utils.MMToMeters(cfg.R)}
+	case spatialmath.MeshType:
+		// For mesh, we use the label as the filename if it looks like a path
+		// Otherwise, we can't serialize back to URDF without more context
+		if g.Label() != "" {
+			urdf.Geometry.Mesh = &mesh{Filename: g.Label()}
+		} else {
+			return nil, errors.New("mesh geometry must have a label (filename) to be serialized to URDF")
+		}
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", cfg.Type))
 	}
@@ -58,6 +73,10 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 }
 
 func (c *collision) toGeometry() (spatialmath.Geometry, error) {
+	return c.toGeometryWithBasePath("")
+}
+
+func (c *collision) toGeometryWithBasePath(basePath string) (spatialmath.Geometry, error) {
 	switch {
 	case c.Geometry.Box != nil:
 		dims := spaceDelimitedStringToFloatSlice(c.Geometry.Box.Size)
@@ -68,6 +87,35 @@ func (c *collision) toGeometry() (spatialmath.Geometry, error) {
 		)
 	case c.Geometry.Sphere != nil:
 		return spatialmath.NewSphere(c.Origin.Parse(), utils.MetersToMM(c.Geometry.Sphere.Radius), "")
+	case c.Geometry.Mesh != nil:
+		// Resolve mesh file path relative to URDF base directory
+		meshPath := c.Geometry.Mesh.Filename
+		if basePath != "" && !filepath.IsAbs(meshPath) {
+			meshPath = filepath.Join(basePath, meshPath)
+		}
+
+		// Determine file type and load accordingly
+		ext := strings.ToLower(filepath.Ext(meshPath))
+		var mesh *spatialmath.Mesh
+		var err error
+
+		switch ext {
+		case ".stl":
+			mesh, err = spatialmath.NewMeshFromSTLFile(meshPath)
+		case ".ply":
+			mesh, err = spatialmath.NewMeshFromPLYFile(meshPath)
+		default:
+			return nil, errors.Errorf("unsupported mesh file format: %s (must be .stl or .ply)", ext)
+		}
+
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to load mesh from %s", meshPath)
+		}
+
+		// Set label to the absolute mesh path so it can be reloaded later
+		mesh.SetLabel(meshPath)
+		// Apply the collision origin transform
+		return mesh.Transform(c.Origin.Parse()).(*spatialmath.Mesh), nil
 	default:
 		return nil, errors.New("couldn't parse xml: no geometry defined")
 	}

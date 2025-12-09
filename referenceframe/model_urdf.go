@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -78,6 +79,10 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 // same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
 func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, error) {
+	return unmarshalModelXMLWithBasePath(xmlData, modelName, "")
+}
+
+func unmarshalModelXMLWithBasePath(xmlData []byte, modelName, basePath string) (*ModelConfigJSON, error) {
 	// Unmarshal into a URDF ModelConfig
 	urdf := &ModelConfigURDF{}
 	err := xml.Unmarshal(xmlData, urdf)
@@ -100,7 +105,7 @@ func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, erro
 
 		link := &LinkConfig{ID: linkElem.Name}
 		if len(linkElem.Collision) > 0 {
-			geometry, err := linkElem.Collision[0].toGeometry()
+			geometry, err := linkElem.Collision[0].toGeometryWithBasePath(basePath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert collision geometry %v to geometry config: %w", linkElem.Name, err)
 			}
@@ -223,7 +228,10 @@ func ParseModelXMLFile(filename, modelName string) (Model, error) {
 		return nil, errors.Wrap(err, "failed to read URDF file")
 	}
 
-	mc, err := UnmarshalModelXML(xmlData, modelName)
+	// Extract the base directory for resolving relative mesh paths
+	basePath := filepath.Dir(filename)
+
+	mc, err := unmarshalModelXMLWithBasePath(xmlData, modelName, basePath)
 	if err != nil {
 		return nil, err
 	}

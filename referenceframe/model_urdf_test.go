@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"encoding/xml"
+	"fmt"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -50,4 +51,22 @@ func TestWorldStateConversion(t *testing.T) {
 	bytes, err := xml.MarshalIndent(cfg, "", "  ")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, bytes, test.ShouldNotBeNil)
+}
+
+func TestURDFWithMeshes(t *testing.T) {
+	// ufactory 850
+	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/uf850.urdf"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(u.DoF()), test.ShouldEqual, 6)
+
+	p, _ := u.Transform([]Input{0, 0, 0, 0, 0, 0})
+	fmt.Println(p)
+
+	// ur20
+	u, err = ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur20.urdf"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(u.DoF()), test.ShouldEqual, 6)
+
+	p, _ = u.Transform([]Input{0, 0, 0, 0, 0, 0})
+	fmt.Println(p)
 }

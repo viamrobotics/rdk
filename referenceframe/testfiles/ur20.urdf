@@ -1,0 +1,167 @@
+<?xml version="1.0" ?>
+
+<robot name="ur20">
+
+  <!-- create link fixed to the "world" -->
+  <link name="world"/>
+  <!-- links -  main serial chain -->
+  <!-- base_link serves as the root of the robot's kinematic tree. It follows REP-103
+        conventions (i.e., X+ forward, Y+ left, Z+ up).
+        Since some kinematic solvers forbid having inertia values attached to a root link, we've
+        added the base_link_inertia link that carries the visual, collision and inertia
+        information.
+    -->
+  <link name="base_link"/>
+
+  <link name="base_link_inertia">
+    <collision>
+      <origin rpy="0 0 3.141592653589793" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="ur20meshes/base.stl"/>
+      </geometry>
+    </collision>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+  </link>
+
+  <link name="shoulder_link">
+    <collision>
+      <origin rpy="0 0 3.141592653589793" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="ur20meshes/shoulder.stl"/>
+      </geometry>
+    </collision>
+    <origin rpy="1.570796326794897 0 0" xyz="0.0 -0.0062 -0.061"/>
+  </link>
+
+  <link name="upper_arm_link">
+    <collision>
+      <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.26"/>
+      <geometry>
+        <mesh filename="ur20meshes/upperarm.stl"/>
+      </geometry>
+    </collision>
+    <origin rpy="0 0 0" xyz="-0.3394 0.0 0.2098"/>
+  </link>
+
+  <link name="forearm_link">
+    <collision>
+      <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.043"/>
+      <geometry>
+        <mesh filename="ur20meshes/forearm.stl"/>
+      </geometry>
+    </collision>
+    <origin rpy="0 0 0" xyz="-0.4053 0.0 0.0604"/>
+  </link>
+
+  <link name="wrist_1_link">
+    <collision>
+      <origin rpy="1.5707963267948966 0 0" xyz="0 0 -0.0775"/>
+      <geometry>
+        <mesh filename="ur20meshes/wrist1.stl"/>
+      </geometry>
+    </collision>
+    <origin rpy="1.570796326794897 0 0" xyz="0.0 -0.0393 -0.0026"/>
+  </link>
+
+  <link name="wrist_2_link">
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 -0.0749"/>
+      <geometry>
+        <mesh filename="ur20meshes/wrist2.stl"/>
+      </geometry>
+    </collision>
+    <origin rpy="-1.570796326794897 0 0" xyz="0.0 0.0379 -0.0024"/>
+  </link>
+
+  <link name="wrist_3_link">
+    <collision>
+      <origin rpy="1.5707963267948966 0 0" xyz="0 0 -0.07"/>
+      <geometry>
+        <mesh filename="ur20meshes/wrist3.stl"/>
+      </geometry>
+    </collision>
+    <origin rpy="0 0 0" xyz="0.0 0.0 -0.0293"/>
+  </link>
+
+  <!-- base_joint fixes base_link to the environment -->
+  <joint name="base_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <parent link="world"/>
+    <child link="base_link"/>
+  </joint>
+  
+  <!-- joints - main serial chain -->
+  <joint name="base_link-base_link_inertia" type="fixed">
+    <parent link="base_link"/>
+    <child link="base_link_inertia"/>
+    <!-- 'base_link' is REP-103 aligned (so X+ forward), while the internal
+           frames of the robot/controller have X+ pointing backwards.
+           Use the joint between 'base_link' and 'base_link_inertia' (a dummy
+           link/frame) to introduce the necessary rotation over Z (of pi rad).
+      -->
+    <origin rpy="0 0 3.141592653589793" xyz="0 0 0"/>
+  </joint>
+  
+  <joint name="shoulder_pan_joint" type="revolute">
+    <parent link="base_link_inertia"/>
+    <child link="shoulder_link"/>
+    <origin rpy="0 0 0" xyz="0 0 0.2363"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="738.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="2.0943951023931953"/>
+    <dynamics damping="0" friction="0"/>
+  </joint>
+
+  <joint name="shoulder_lift_joint" type="revolute">
+    <parent link="shoulder_link"/>
+    <child link="upper_arm_link"/>
+    <origin rpy="1.570796327 0 0" xyz="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="738.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="2.0943951023931953"/>
+    <dynamics damping="0" friction="0"/>
+  </joint>
+
+  <joint name="elbow_joint" type="revolute">
+    <parent link="upper_arm_link"/>
+    <child link="forearm_link"/>
+    <origin rpy="0 0 0" xyz="-0.862 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="433.0" lower="-3.141592653589793" upper="3.141592653589793" velocity="2.6179938779914944"/>
+    <dynamics damping="0" friction="0"/>
+  </joint>
+
+  <joint name="wrist_1_joint" type="revolute">
+    <parent link="forearm_link"/>
+    <child link="wrist_1_link"/>
+    <origin rpy="0 0 0" xyz="-0.7287 0 0.201"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="107.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="3.6651914291880923"/>
+    <dynamics damping="0" friction="0"/>
+  </joint>
+
+  <joint name="wrist_2_joint" type="revolute">
+    <parent link="wrist_1_link"/>
+    <child link="wrist_2_link"/>
+    <origin rpy="1.570796327 0 0" xyz="0 -0.1593 -3.267297616249225e-11"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="107.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="3.6651914291880923"/>
+    <dynamics damping="0" friction="0"/>
+  </joint>
+
+  <joint name="wrist_3_joint" type="revolute">
+    <parent link="wrist_2_link"/>
+    <child link="wrist_3_link"/>
+    <origin rpy="1.570796326589793 3.141592653589793 3.141592653589793" xyz="0 0.1543 -3.1647459019915597e-11"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="107.0" lower="-6.283185307179586" upper="6.283185307179586" velocity="3.6651914291880923"/>
+    <dynamics damping="0" friction="0"/>
+  </joint>
+
+  <link name="ft_frame"/>
+
+  <joint name="wrist_3_link-ft_frame" type="fixed">
+    <parent link="wrist_3_link"/>
+    <child link="ft_frame"/>
+    <origin rpy="3.141592653589793 0 0" xyz="0 0 0"/>
+  </joint>
+
+</robot>
