@@ -133,7 +133,7 @@ func (s *serviceServer) GetImages(
 			Format:      format,
 			MimeType:    img.MimeType(),
 			Image:       imgBytes,
-			Annotations: img.Annotations().ToProto(),
+			Annotations: img.Annotations.ToProto(),
 		}
 		imagesMessage = append(imagesMessage, imgMes)
 	}
