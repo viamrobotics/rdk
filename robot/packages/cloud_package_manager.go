@@ -194,7 +194,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 					return "", "", err
 				}
 
-				return m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
+				return m.downloadFileFromGCSURL(ctx, url, dstPath)
 			},
 		)
 		if err != nil {
@@ -395,12 +395,17 @@ func (m *cloudManager) downloadFileFromGCSURL(
 	ctx context.Context,
 	url string,
 	downloadPath string,
-	partID string,
-	partSecret string,
 ) (string, string, error) {
 	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	getReq.Header.Add("part_id", partID)
-	getReq.Header.Add("secret", partSecret)
+
+	if m.cloudConfig.APIKey.IsFullySet() {
+		getReq.Header.Add("key_id", m.cloudConfig.APIKey.ID)
+		getReq.Header.Add("key", m.cloudConfig.APIKey.Value)
+	} else {
+		getReq.Header.Add("part_id", m.cloudConfig.ID)
+		getReq.Header.Add("secret", m.cloudConfig.Secret)
+	}
+
 	if err != nil {
 		return "", "", err
 	}
