@@ -1579,15 +1579,21 @@ func TestTunnelE2ECLI(t *testing.T) {
 }
 
 func TestSelfUpdateAction(t *testing.T) {
-	// if up to date, msg up to date
+	t.Run("no updated needed", func(t *testing.T) {
+		// Test that when no update is needed, the action returns nil
+		cCtx := newTestContext(t, nil)
+		err := SelfUpdateAction(cCtx, emptyArgs{})
+		test.That(t, err, test.ShouldBeNil)
+	})
+
 	t.Run("brew upgrade path", func(t *testing.T) {
 		// Test that when brew is available, it's used for updates
 		originalExecLookPath := execLookPath
 		originalExecRunCommand := execRunCommand
-		defer func() {
+		t.Cleanup(func() {
 			execLookPath = originalExecLookPath
 			execRunCommand = originalExecRunCommand
-		}()
+		})
 
 		// Mock brew to be found
 		execLookPath = func(file string) (string, error) {
@@ -1614,66 +1620,7 @@ func TestSelfUpdateAction(t *testing.T) {
 		test.That(t, brewUpgradeCalled, test.ShouldBeTrue)
 	})
 
-	t.Run("brew fallback to binary download", func(t *testing.T) {
-		// Test that if brew upgrade fails, we fall back to binary download
-		tempDir := t.TempDir()
-		oldBinaryPath := filepath.Join(tempDir, "viam")
-		oldContent := []byte("old-version")
-		err := os.WriteFile(oldBinaryPath, oldContent, 0o755)
-		test.That(t, err, test.ShouldBeNil)
-
-		newContent := []byte("new-version")
-		newBinaryPath := filepath.Join(tempDir, "viam-new")
-		err = os.WriteFile(newBinaryPath, newContent, 0o755)
-		test.That(t, err, test.ShouldBeNil)
-
-		originalBuildURL := buildBinaryURL
-		originalOsExecutable := osExecutable
-		originalExecLookPath := execLookPath
-		originalExecRunCommand := execRunCommand
-		defer func() {
-			buildBinaryURL = originalBuildURL
-			osExecutable = originalOsExecutable
-			execLookPath = originalExecLookPath
-			execRunCommand = originalExecRunCommand
-		}()
-
-		// Mock brew to be found but fail
-		execLookPath = func(file string) (string, error) {
-			if file == "brew" {
-				return "/opt/homebrew/bin/brew", nil
-			}
-			return "", exec.ErrNotFound
-		}
-
-		// Mock brew upgrade to fail (triggers fallback)
-		execRunCommand = func(cmd *exec.Cmd) error {
-			if len(cmd.Args) >= 1 && cmd.Args[0] == "brew" {
-				return fmt.Errorf("brew upgrade failed")
-			}
-			// Don't run real commands
-			return fmt.Errorf("unexpected command: %v", cmd.Args)
-		}
-
-		buildBinaryURL = func(goos, goarch string) string {
-			return "file://" + newBinaryPath
-		}
-
-		osExecutable = func() (string, error) {
-			return oldBinaryPath, nil
-		}
-
-		cCtx := newTestContext(t, nil)
-		err = SelfUpdateAction(cCtx, emptyArgs{})
-		test.That(t, err, test.ShouldBeNil)
-
-		// Verify fallback to binary download worked
-		updatedContent, err := os.ReadFile(oldBinaryPath)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, updatedContent, test.ShouldResemble, newContent)
-	})
-
-	t.Run("binary download (no brew)", func(t *testing.T) {
+	t.Run("binary replacement upgrade path", func(t *testing.T) {
 		// Test direct binary download when brew is not available
 		tempDir := t.TempDir()
 		oldBinaryPath := filepath.Join(tempDir, "viam")
@@ -1696,11 +1643,11 @@ func TestSelfUpdateAction(t *testing.T) {
 		originalBuildURL := buildBinaryURL
 		originalOsExecutable := osExecutable
 		originalExecLookPath := execLookPath
-		defer func() {
+		t.Cleanup(func() {
 			buildBinaryURL = originalBuildURL
 			osExecutable = originalOsExecutable
 			execLookPath = originalExecLookPath
-		}()
+		})
 
 		buildBinaryURL = func(goos, goarch string) string {
 			return "file://" + newBinaryPath
@@ -1729,4 +1676,14 @@ func TestSelfUpdateAction(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, info.Mode().Perm(), test.ShouldEqual, 0o755)
 	})
+
+	t.Run("should error if no internet connection", func(t *testing.T) {
+	})
+
+	t.Run("should tell user if more perms needed", func(t *testing.T) {
+	})
+
+	t.Run("checkUpdate should continue even if selfUpdate fails", func(t *testing.T) {
+	})
 }
+

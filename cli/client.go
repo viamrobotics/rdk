@@ -1628,7 +1628,7 @@ type getLatestReleaseResponse struct {
 	TarballURL string `json:"tarball_url"`
 }
 
-func getLatestReleaseVersion() (string, error) {
+func getLatestRelease() (getLatestReleaseResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -1636,38 +1636,65 @@ func getLatestReleaseVersion() (string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
 	if err != nil {
-		return "", err
+		return getLatestReleaseResponse{}, err
 	}
 
 	client := http.DefaultClient
 	res, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return getLatestReleaseResponse{}, err
 	}
 
 	err = json.NewDecoder(res.Body).Decode(&resp)
 	if err != nil {
-		return "", err
+		return getLatestReleaseResponse{}, err
 	}
 
 	defer utils.UncheckedError(res.Body.Close())
+	return resp, nil
+}
+
+func getLatestReleaseVersion() (string, error) {
+	resp, err := getLatestRelease()
+	if err != nil {
+		return "", err
+	}
 	return resp.TagName, err
 }
 
-func (conf *Config) checkUpdate(c *cli.Context) error {
-	// isInteractive checks if stdin is available via terminal/character device
-	isInteractive := func() bool {
-		file, ok := c.App.Reader.(*os.File)
-		if !ok {
-			return false
-		}
-		stat, err := file.Stat()
-		if err != nil {
-			return false
-		}
-		// Check if stdin is a terminal/character device
-		return (stat.Mode() & os.ModeCharDevice) != 0
+// if local version is less than latest version, return true with local and latest version
+func needsUpdate(c *cli.Context) (bool, string, string, error) {
+	globalArgs, err := getGlobalArgs(c)
+	if err != nil {
+		return false, "", "", err
 	}
+	if globalArgs.Quiet {
+		return false, "", "", nil
+	}
+	appVersion := rconfig.Version
+	latestRelease, err := getLatestReleaseVersion()
+	if err != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
+	}
+
+	latestVersion, err := semver.NewVersion(latestRelease)
+
+	// failure to parse `latestRelease` is expected for local builds; we don't want overly
+	// noisy warnings here so only alert in these cases if debug flag is on
+	if err != nil && globalArgs.Debug {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest release version")
+	}
+	localVersion, err := semver.NewVersion(appVersion)
+	if err != nil && globalArgs.Debug {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse build version")
+	}
+
+	// we know both the local version and the latest version so we can make a determination
+	// from that alone on whether or not to alert users to update
+	return localVersion.LessThan(latestVersion), localVersion.Original(), latestVersion.Original(), nil
+}
+
+func (conf *Config) checkUpdate(c *cli.Context) error {
 
 	var shouldCheckUpdate bool
 
@@ -1694,45 +1721,11 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 		return nil
 	}
 
-	globalArgs, err := getGlobalArgs(c)
-	if err != nil {
-		return err
-	}
-	if globalArgs.Quiet {
-		return nil
-	}
-
-	appVersion := rconfig.Version
-	latestRelease, err := getLatestReleaseVersion()
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
-	}
-
-	latestVersion, err := semver.NewVersion(latestRelease)
-
-	// failure to parse `latestRelease` is expected for local builds; we don't want overly
-	// noisy warnings here so only alert in these cases if debug flag is on
-	if err != nil && globalArgs.Debug {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest release version")
-	}
-	localVersion, err := semver.NewVersion(appVersion)
-	if err != nil && globalArgs.Debug {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse build version")
-	}
-
-	// we know both the local version and the latest version so we can make a determination
-	// from that alone on whether or not to alert users to update
-	if localVersion != nil && latestVersion != nil {
-		// the local version is out of date, so we know to warn
-		if localVersion.LessThan(latestVersion) {
-			// if the self update fails or user declines, warn them to manually update
-			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s.",
-				localVersion.Original(), latestVersion.Original())
-			// Only prompt for self-update if stdin is available (interactive mode)
-			if isInteractive() && selfUpdate(c) {
-				return nil
-			}
-			warningf(c.App.ErrWriter, "See https://docs.viam.com/cli/#install for update instructions")
+	var latestVersion string
+	if shouldUpdate, localVersion, latestVersion, err := needsUpdate(c); err != nil {
+		if shouldUpdate {
+			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
+				"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion, latestVersion)
 		}
 		return nil
 	}
@@ -1753,47 +1746,30 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 	// the local build is more than a week old, so we should warn
 	if time.Since(dateCompiled) > time.Hour*24*7 {
 		var updateInstructions string
-		if latestVersion != nil {
-			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
+		if latestVersion != "" {
+			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion)
 		}
 		// if the self update fails or user declines, warn them to manually update
-		warningf(c.App.ErrWriter, "Your CLI is more than a week old. New CLI releases happen weekly; consider updating%s.", updateInstructions)
-		// Only prompt for self-update if stdin is available (interactive mode)
-		if isInteractive() && selfUpdate(c) {
-			return nil
-		}
-		warningf(c.App.ErrWriter, "See https://docs.viam.com/cli/#install for update instructions")
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
+			"New CLI releases happen weekly; consider updating%s. Run 'viam update' or see https://docs.viam.com/cli/#install", updateInstructions)
 	}
 	return nil
 }
 
-func selfUpdate(c *cli.Context) bool {
-	// prompt user to agree to self-update
-	printf(c.App.Writer, yellow, "Do you want the CLI to self-update? (y/n):")
-	if err := c.Err(); err != nil {
-		return false
+func UpdateCLIAction(c *cli.Context) error {
+	var localVersion string
+	var latestVersion string
+	if needsUpdate, localVersion, latestVersion, err := needsUpdate(c); err != nil {
+		infof(c.App.ErrWriter, "Your CLI is already up to date (version %s).", localVersion)
 	}
 
-	rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
-	if err != nil {
-		return false
-	}
+	// try brew first 
+	// 
 
-	input := strings.ToUpper(strings.TrimSpace(rawInput))
-	if input != "Y" {
-		infof(c.App.ErrWriter, "Self-update not attempted")
-		return false
-	}
-
-	if err := SelfUpdateAction(c, emptyArgs{}); err != nil {
-		warningf(c.App.ErrWriter, "CLI self-update failed: %v", err)
-		return false
-	}
-	return true
 }
 
 // SelfUpdateAction downloads different binary URLs based on the OS
-// This seperate var is also necessary for testing with file:// URLs
+// This separate var is also necessary for testing with file:// URLs
 var (
 	buildBinaryURL = func(goos, goarch string) string {
 		binaryURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-" +
@@ -1811,15 +1787,6 @@ var (
 )
 
 func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
-	latestRelease, _ := getLatestReleaseVersion()
-	latestVersion, _ := semver.NewVersion(latestRelease)
-	localVersion, _ := semver.NewVersion(rconfig.Version)
-
-	// Skip update if can determine that local version is up to date
-	if localVersion != nil && latestVersion != nil && !localVersion.LessThan(latestVersion) {
-		infof(c.App.Writer, "Your CLI is already up to date (version %s).", localVersion.Original())
-		return nil
-	}
 
 	// Try brew upgrade first (if brew is available)
 	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
@@ -1872,12 +1839,12 @@ func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
 			return errors.Errorf("binary download failed: %v", err)
 		}
 		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
+			defer utils.UncheckedError(resp.Body.Close())
 			return errors.Errorf("binary download failed: server returned status %d", resp.StatusCode)
 		}
 		body = resp.Body
 	}
-	defer body.Close()
+	defer utils.UncheckedError(body.Close())
 
 	// Create temp file in binary directory to replace
 	tmpFile, err := os.CreateTemp(binaryDir, tempPattern)
@@ -1895,11 +1862,11 @@ func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
 		}
 	}
 	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
+	defer os.Remove(tmpPath) //nolint:errcheck
 
 	// Write downloaded content to temp file
 	_, err = io.Copy(tmpFile, body)
-	tmpFile.Close()
+	tmpFile.Close() //nolint:errcheck
 	if err != nil {
 		return errors.Errorf("failed to write downloaded binary: %v", err)
 	}
@@ -1918,30 +1885,48 @@ func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
 	// Replace the old binary with the newly downloaded one
 	// On Windows, handle file locking and cross-drive issues
 	if runtime.GOOS == "windows" {
-		// Windows doesn't allow replacing a running exe, so rename first
+		// Use a three-step process to avoid leaving realPath empty:
+		// 1. Move new binary to realPath.new (same directory, ensures same filesystem)
+		// 2. Rename old binary to .old
+		// 3. Rename .new to realPath
+		// This way, if any step fails, we can recover without leaving user without a binary
 		oldPath := realPath + ".old"
+		newPath := realPath + ".new"
+		// go from temp to real right away
 
-		// Remove any existing .old file from previous update
-		os.Remove(oldPath)
+		// Remove any existing .old or .new files from previous failed updates
+		os.Remove(oldPath) //nolint:errcheck
+		os.Remove(newPath) //nolint:errcheck
 
-		// Rename current exe to .old (Windows allows renaming running executables)
+		// Step 1: Move new binary to .new (in same directory as realPath)
+		if err := os.Rename(tmpPath, newPath); err != nil {
+			if os.IsPermission(err) {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return errors.Errorf("failed to move new binary to .new: %v", err)
+		}
+
+		// Step 2: Rename old binary to .old (Windows allows renaming running executables)
 		if err := os.Rename(realPath, oldPath); err != nil {
+			// If this fails, new binary is at .new, old is still at realPath - safe state
+			os.Remove(newPath) //nolint:errcheck
 			if os.IsPermission(err) {
 				return errors.New("permission denied: run PowerShell as Administrator")
 			}
 			return errors.Errorf("failed to rename old binary: %v", err)
 		}
 
-		// Move new binary to original location
-		if err := os.Rename(tmpPath, realPath); err != nil {
-			// Try to restore old binary if new one fails
-			if _, restoreErr := os.Stat(oldPath); restoreErr == nil {
-				os.Rename(oldPath, realPath)
+		// Step 3: Rename .new to realPath (final step)
+		if err := os.Rename(newPath, realPath); err != nil {
+			// If this fails, restore old binary from .old
+			if restoreErr := os.Rename(oldPath, realPath); restoreErr != nil {
+				// Both failed - user has old at .old and new at .new, can manually fix
+				return errors.Errorf("failed to replace binary: %v; failed to restore old binary: %v (old binary is at %s, new binary is at %s)", err, restoreErr, oldPath, newPath)
 			}
 			if os.IsPermission(err) {
 				return errors.New("permission denied: run PowerShell as Administrator")
 			}
-			return errors.Errorf("failed to replace binary: %v", err)
+			return errors.Errorf("failed to replace binary: %v (old binary restored)", err)
 		}
 		// .old file will be cleaned up on next run or can be manually deleted
 	} else {
@@ -3458,4 +3443,21 @@ func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) 
 		enabledGrantsProto = append(enabledGrantsProto, enabledGrant)
 	}
 	return enabledGrantsProto, nil
+}
+
+// this lives in the clinet_win.go file
+func replaceBinary(binaryPath string) error {
+	currBinPath := os.Executable()
+	if err := os.Rename(currBinPath, currBinPath+".old"); err != nil {
+		return err
+	}
+	if err := os.Rename(binaryPath, currBinPath); err != nil {
+		return err
+	}
+	return nil
+}
+
+// this lives in the clinet_unix.go file
+func replaceBinary(binaryPath string) error {
+
 }
