@@ -19,7 +19,7 @@ var gantryModelJSON []byte
 
 // Config is used for converting config attributes.
 type Config struct {
-	ModelFilePath string `json:"model-path,omitempty"`
+	ModelFilePath string `json:"model_path,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
