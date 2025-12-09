@@ -338,7 +338,7 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 		PartID:         datum.GetMetadata().GetCaptureMetadata().GetPartId(),
 		ComponentName:  datum.GetMetadata().GetCaptureMetadata().GetComponentName(),
 	}
-	_, _, err = utilsml.ImageMetadataToJSONLines([]*utilsml.ImageMetadata{imageMetadata}, nil, mlpb.ModelType_MODEL_TYPE_UNSPECIFIED, file)
+	_, err = utilsml.ImageMetadataToJSONLines([]*utilsml.ImageMetadata{imageMetadata}, nil, mlpb.ModelType_MODEL_TYPE_UNSPECIFIED, file)
 	if err != nil {
 		return errors.Wrap(err, "error writing to file")
 	}
