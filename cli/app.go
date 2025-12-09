@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/urfave/cli/v2"
 
 	"go.viam.com/rdk/logging"
@@ -186,6 +187,14 @@ var commonPartFlags = []cli.Flag{
 			Name:    generalFlagMachine,
 			Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 		},
+	},
+}
+
+var commonOtlpFlags = []cli.Flag{
+	&cli.StringFlag{
+		Name:        "endpoint",
+		DefaultText: "localhost:4317",
+		Usage:       "OTLP endpoint in host:port format",
 	},
 }
 
@@ -456,6 +465,69 @@ var app = &cli.App{
 		},
 	},
 	Commands: []*cli.Command{
+		{
+			Name:      "traces",
+			Usage:     "Work with viam-server traces",
+			UsageText: createUsageText("traces", nil, false, true),
+			Subcommands: []*cli.Command{
+				{
+					Name:      "import-local",
+					Usage:     "Import traces from a local viam server trace file to an OTLP endpoint.",
+					UsageText: createUsageText("traces import-local", nil, true, false, "<path>"),
+					ArgsUsage: "<traces file>",
+					Flags:     commonOtlpFlags,
+					Action:    createCommandWithT(traceImportLocalAction),
+				},
+				{
+					Name: "import-remote",
+					Description: `
+In order to use the import-remote command, the machine must have a valid shell type service.
+Organization and location are required flags if using name (rather than ID) for the part.
+Note: There is no progress meter while copying is in progress.
+`,
+					Usage:     "Import traces from a remote viam machine to an OTLP endpoint.",
+					UsageText: createUsageText("traces import-remote", []string{generalFlagPart}, true, false),
+					Flags: lo.Flatten([][]cli.Flag{
+						commonOtlpFlags,
+						commonPartFlags,
+					}),
+					Action: createCommandWithT(traceImportRemoteAction),
+				},
+				{
+					Name:      "print-local",
+					Usage:     "Print traces in a local file to the console",
+					UsageText: createUsageText("traces print-local", nil, true, false, "<path>"),
+					ArgsUsage: "<traces file>",
+					Action:    createCommandWithT(tracePrintLocalAction),
+				},
+				{
+					Name:      "print-remote",
+					Usage:     "Print traces from a remote viam machine to the console",
+					UsageText: createUsageText("traces print-remote", []string{generalFlagPart}, true, false),
+					Description: `
+In order to use the print-remote command, the machine must have a valid shell type service.
+Organization and location are required flags if using name (rather than ID) for the part.
+Note: There is no progress meter while copying is in progress.
+`,
+					Flags:  commonPartFlags,
+					Action: createCommandWithT(tracePrintRemoteAction),
+				},
+				{
+					Name:      "get-remote",
+					Usage:     "Download traces from a viam machine and save them to disk",
+					UsageText: createUsageText("traces get-remote", []string{generalFlagPart}, true, false, "[target]"),
+					ArgsUsage: "[target]",
+					Description: `
+In order to use the get-remote command, the machine must have a valid shell type service.
+Organization and location are required flags if using name (rather than ID) for the part.
+If [target] is not specified then the traces file will be saved to the current working directory.
+Note: There is no progress meter while copying is in progress.
+`,
+					Flags:  commonPartFlags,
+					Action: createCommandWithT(traceGetRemoteAction),
+				},
+			},
+		},
 		{
 			Name: "login",
 			// NOTE(benjirewis): maintain `auth` as an alias for backward compatibility.
