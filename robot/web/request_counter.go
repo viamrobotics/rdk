@@ -205,11 +205,30 @@ type ClientInformation struct {
 	RejectedRequests map[string]int64 `json:"rejected_requests"`
 }
 
+// Returns whether the passed in peer connection has a connection state indicating that it
+// has closed.
+func pcIsClosed(pc *webrtc.PeerConnection) bool {
+	cs := pc.ConnectionState()
+	switch cs {
+	case webrtc.PeerConnectionStateClosed, webrtc.PeerConnectionStateDisconnected, webrtc.PeerConnectionStateFailed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Creates a client information object for logging from a passed in peer connection.
+// Returns nil if passed in pc is nil or the passed in pc has been closed (pc will be
+// pruned from appropriate maps in that case).
 func (rc *RequestCounter) createClientInformationFromPC(
 	pc *webrtc.PeerConnection,
 ) *ClientInformation {
 	if pc == nil {
+		return nil
+	}
+	if pcIsClosed(pc) {
+		rc.requestsPerPC.Delete(pc)
+		rc.pcToClientMetadata.Delete(pc)
 		return nil
 	}
 
@@ -286,15 +305,6 @@ func (rc *RequestCounter) createClientInformationFromPC(
 		})
 	}
 
-	// If client has no in-flight requests, and connected >= 5 minutes ago, prune the client
-	// from the `rc.requestsForPC` and `rc.pcToClientMetadata` maps so the maps do not grow
-	// unboundedly. That client will re-appear in debug information if it makes another
-	// request.
-	if len(ci.InFlightRequests) == 0 && timeSinceConnect > 5*time.Minute {
-		rc.requestsPerPC.Delete(pc)
-		rc.pcToClientMetadata.Delete(pc)
-	}
-
 	return ci
 }
 
@@ -311,10 +321,16 @@ func (rc *RequestCounter) logRequestLimitExceeded(
 	apiMethodString, resource string,
 	pc *webrtc.PeerConnection,
 ) int64 {
+	var offendingClientInformationJSON []byte
 	offendingClientInformation := rc.createClientInformationFromPC(pc)
-	offendingClientInformationJSON, err := json.Marshal(offendingClientInformation)
-	if err != nil {
-		rc.logger.Errorf("Failed to marshal client information %+v", offendingClientInformation)
+	// offendingClientInformation will be nil if offending client's pc has already been
+	// closed. Leave offendingClientInformationJSON empty in that case.
+	if offendingClientInformation != nil {
+		var err error
+		offendingClientInformationJSON, err = json.Marshal(offendingClientInformation)
+		if err != nil {
+			rc.logger.Errorf("Failed to marshal client information %+v", offendingClientInformation)
+		}
 	}
 
 	var allOtherClientInformationStrs []string
@@ -325,6 +341,11 @@ func (rc *RequestCounter) logRequestLimitExceeded(
 		// Do not include offending client.
 		if pc != pcKey {
 			clientInformation := rc.createClientInformationFromPC(pcKey)
+			if clientInformation == nil {
+				// clientInformation will be nil if client's pc has already been closed. Do not
+				// include clientInformation in allOtherClientInformationStrs in that case.
+				return true
+			}
 			clientInformationJSON, err := json.Marshal(clientInformation)
 			if err != nil {
 				rc.logger.Errorf("Failed to marshal client information %+v", clientInformation)
