@@ -114,6 +114,185 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 	}, nil
 }
 
+func NewMeshFromSTLFile(path string) (*Mesh, error) {
+	//nolint:gosec
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	//nolint:errcheck
+	defer file.Close()
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	return newMeshFromSTLBytes(NewZeroPose(), bytes, path)
+}
+
+func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
+	var triangles []*Triangle
+	var err error
+
+	// Check if it's a binary STL (starts with 80-byte header, not "solid")
+	// Binary STL files may start with "solid" in their header, so we need to be more careful
+	if len(data) < 84 {
+		return nil, errors.New("STL file too small")
+	}
+
+	// Try to parse as binary first, then fall back to ASCII if that fails
+	triangles, err = parseSTLBinary(data)
+	if err != nil {
+		// Try ASCII format
+		triangles, err = parseSTLASCII(data)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse STL file as either binary or ASCII")
+		}
+	}
+
+	// Convert the triangles to PLY format for storage
+	mesh := &Mesh{
+		pose:      pose,
+		triangles: triangles,
+		label:     label,
+	}
+
+	// Convert to PLY for protobuf storage
+	plyBytes := mesh.TrianglesToPLYBytes(false) // THIS SEEMS SUSPICIOUS TO ME
+	mesh.fileType = plyType
+	mesh.rawBytes = plyBytes
+
+	return mesh, nil
+}
+
+// parseSTLBinary parses binary STL format.
+// Binary STL format:
+// - 80 bytes: header
+// - 4 bytes: number of triangles (uint32, little-endian)
+// - For each triangle:
+//   - 12 bytes: normal vector (3 float32s)
+//   - 12 bytes: vertex 1 (3 float32s)
+//   - 12 bytes: vertex 2 (3 float32s)
+//   - 12 bytes: vertex 3 (3 float32s)
+//   - 2 bytes: attribute byte count (usually 0)
+func parseSTLBinary(data []byte) ([]*Triangle, error) {
+	if len(data) < 84 {
+		return nil, errors.New("binary STL file too small")
+	}
+
+	// Read number of triangles (bytes 80-83, little-endian uint32)
+	numTriangles := uint32(data[80]) | uint32(data[81])<<8 | uint32(data[82])<<16 | uint32(data[83])<<24
+
+	// Verify file size matches expected size
+	expectedSize := 84 + int(numTriangles)*50
+	if len(data) < expectedSize {
+		return nil, errors.Errorf("binary STL file size mismatch: expected at least %d bytes, got %d", expectedSize, len(data))
+	}
+
+	triangles := make([]*Triangle, 0, numTriangles)
+	offset := 84
+
+	for i := uint32(0); i < numTriangles; i++ {
+		if offset+50 > len(data) {
+			return nil, errors.New("unexpected end of binary STL file")
+		}
+
+		// Skip normal vector (12 bytes)
+		offset += 12
+
+		// Read three vertices
+		v1 := r3.Vector{
+			X: float64(math.Float32frombits(uint32(data[offset]) | uint32(data[offset+1])<<8 | uint32(data[offset+2])<<16 | uint32(data[offset+3])<<24)) * 1000,
+			Y: float64(math.Float32frombits(uint32(data[offset+4]) | uint32(data[offset+5])<<8 | uint32(data[offset+6])<<16 | uint32(data[offset+7])<<24)) * 1000,
+			Z: float64(math.Float32frombits(uint32(data[offset+8]) | uint32(data[offset+9])<<8 | uint32(data[offset+10])<<16 | uint32(data[offset+11])<<24)) * 1000,
+		}
+		offset += 12
+
+		v2 := r3.Vector{
+			X: float64(math.Float32frombits(uint32(data[offset]) | uint32(data[offset+1])<<8 | uint32(data[offset+2])<<16 | uint32(data[offset+3])<<24)) * 1000,
+			Y: float64(math.Float32frombits(uint32(data[offset+4]) | uint32(data[offset+5])<<8 | uint32(data[offset+6])<<16 | uint32(data[offset+7])<<24)) * 1000,
+			Z: float64(math.Float32frombits(uint32(data[offset+8]) | uint32(data[offset+9])<<8 | uint32(data[offset+10])<<16 | uint32(data[offset+11])<<24)) * 1000,
+		}
+		offset += 12
+
+		v3 := r3.Vector{
+			X: float64(math.Float32frombits(uint32(data[offset]) | uint32(data[offset+1])<<8 | uint32(data[offset+2])<<16 | uint32(data[offset+3])<<24)) * 1000,
+			Y: float64(math.Float32frombits(uint32(data[offset+4]) | uint32(data[offset+5])<<8 | uint32(data[offset+6])<<16 | uint32(data[offset+7])<<24)) * 1000,
+			Z: float64(math.Float32frombits(uint32(data[offset+8]) | uint32(data[offset+9])<<8 | uint32(data[offset+10])<<16 | uint32(data[offset+11])<<24)) * 1000,
+		}
+		offset += 12
+
+		// Skip attribute byte count (2 bytes)
+		offset += 2
+
+		triangles = append(triangles, NewTriangle(v1, v2, v3))
+	}
+
+	return triangles, nil
+}
+
+// parseSTLASCII parses ASCII STL format.
+// ASCII STL format:
+// solid name
+//
+//	facet normal ni nj nk
+//	  outer loop
+//	    vertex v1x v1y v1z
+//	    vertex v2x v2y v2z
+//	    vertex v3x v3y v3z
+//	  endloop
+//	endfacet
+//
+// endsolid name
+func parseSTLASCII(data []byte) ([]*Triangle, error) {
+	lines := bytes.Split(data, []byte("\n"))
+	triangles := make([]*Triangle, 0)
+
+	var vertices []r3.Vector
+
+	for i := 0; i < len(lines); i++ {
+		line := bytes.TrimSpace(lines[i])
+		if len(line) == 0 {
+			continue
+		}
+
+		// Check for vertex line
+		if bytes.HasPrefix(line, []byte("vertex")) {
+			parts := bytes.Fields(line)
+			if len(parts) != 4 {
+				return nil, errors.Errorf("invalid vertex line: %s", string(line))
+			}
+
+			x, err := cast.ToFloat64E(string(parts[1]))
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to parse vertex x coordinate")
+			}
+			y, err := cast.ToFloat64E(string(parts[2]))
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to parse vertex y coordinate")
+			}
+			z, err := cast.ToFloat64E(string(parts[3]))
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to parse vertex z coordinate")
+			}
+
+			// Convert from meters to millimeters
+			vertices = append(vertices, r3.Vector{X: x * 1000, Y: y * 1000, Z: z * 1000})
+
+			// If we have 3 vertices, create a triangle
+			if len(vertices) == 3 {
+				triangles = append(triangles, NewTriangle(vertices[0], vertices[1], vertices[2]))
+				vertices = vertices[:0]
+			}
+		}
+	}
+
+	if len(triangles) == 0 {
+		return nil, errors.New("no triangles found in ASCII STL file")
+	}
+
+	return triangles, nil
+}
+
 // NewMeshFromProto creates a new mesh from a protobuf mesh.
 func NewMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) {
 	switch m.ContentType {

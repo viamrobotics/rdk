@@ -3,6 +3,8 @@ package spatialmath
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -65,6 +67,7 @@ const (
 	SphereType  = GeometryType("sphere")
 	CapsuleType = GeometryType("capsule")
 	PointType   = GeometryType("point")
+	MeshType   = GeometryType("mesh")
 )
 
 // GeometryConfig specifies the format of geometries specified through JSON configuration files.
@@ -81,6 +84,9 @@ type GeometryConfig struct {
 
 	// parameter used for defining a capsule's length
 	L float64 `json:"l"`
+
+	// parameter used for mesh file path
+	MeshFilePath string `json:"mesh_file_path,omitempty"`
 
 	// define an offset to position the geometry
 	TranslationOffset r3.Vector         `json:"translation,omitempty"`
@@ -111,6 +117,10 @@ func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 	case *point:
 		config.Type = PointType
 		config.Label = gType.label
+	case *Mesh:
+		config.Type = MeshType
+		config.Label = gType.label
+		config.MeshFilePath = gType.label // Store the file path from the label
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType))
 	}
@@ -144,6 +154,35 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		return NewCapsule(offset, config.R, config.L, config.Label)
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
+	case MeshType:
+		// For mesh types, load from the file path specified in the config
+		if config.MeshFilePath == "" {
+			return nil, fmt.Errorf("mesh geometry config must have a mesh_file_path specified")
+		}
+
+		// Determine file type and load accordingly
+		ext := strings.ToLower(filepath.Ext(config.MeshFilePath))
+		var mesh *Mesh
+		var err error
+
+		switch ext {
+		case ".stl":
+			mesh, err = NewMeshFromSTLFile(config.MeshFilePath)
+		case ".ply":
+			mesh, err = NewMeshFromPLYFile(config.MeshFilePath)
+		default:
+			return nil, fmt.Errorf("unsupported mesh file format: %s (must be .stl or .ply)", ext)
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to load mesh from %s: %w", config.MeshFilePath, err)
+		}
+
+		// Apply the offset transform and set label
+		if config.Label != "" {
+			mesh.SetLabel(config.Label)
+		}
+		return mesh.Transform(offset).(*Mesh), nil
 	case UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
 		boxDims := r3.Vector{X: config.X, Y: config.Y, Z: config.Z}
