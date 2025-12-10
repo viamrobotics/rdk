@@ -1663,6 +1663,7 @@ var getLatestReleaseVersionFunc = func() (string, error) {
 	}
 	return resp.TagName, err
 }
+var errVersionUnavailable = errors.New("failed to parse local or latest version")
 
 // if local version is less than latest version, return true with local and latest version
 func needsUpdate(c *cli.Context) (bool, string, string, error) {
@@ -1693,7 +1694,10 @@ func needsUpdate(c *cli.Context) (bool, string, string, error) {
 
 	// we know both the local version and the latest version so we can make a determination
 	// from that alone on whether or not to alert users to update
-	return localVersion.LessThan(latestVersion), localVersion.Original(), latestVersion.Original(), nil
+	if localVersion != nil && latestVersion != nil {
+		return localVersion.LessThan(latestVersion), localVersion.Original(), latestVersion.Original(), nil
+	}
+	return false, "", "", errVersionUnavailable
 }
 
 func (conf *Config) checkUpdate(c *cli.Context) error {
@@ -1722,11 +1726,13 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 		return nil
 	}
 
-	shouldUpdate, localVersion, latestVersion, err := needsUpdate(c)
-	if err != nil {
-		return err
-	}
-	if shouldUpdate {
+	var latestVersion string
+	if shouldUpdate, localVersion, latestVersion, err := needsUpdate(c); err != nil {
+		// if versions couldn't be parsed, don't return andcontinue to check if the local build is more than a week old
+		if !errors.Is(err, errVersionUnavailable) {
+			return err
+		}
+	} else if shouldUpdate {
 		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
 			"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion, latestVersion)
 		return nil
