@@ -59,6 +59,7 @@ const (
 	generalFlagPartID            = "part-id"
 	generalFlagID                = "id"
 	generalFlagName              = "name"
+	generalFlagNewName           = "new-name"
 	generalFlagMethod            = "method"
 	generalFlagDestination       = "destination"
 	generalFlagVersion           = "version"
@@ -2136,6 +2137,64 @@ var app = &cli.App{
 			UsageText:       createUsageText("machines", nil, false, true),
 			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
+				{
+					Name:      "create",
+					Usage:     "Create a new machine",
+					UsageText: createUsageText("machines create", []string{generalFlagName, generalFlagLocation}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     generalFlagName,
+							Required: true,
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagLocation,
+								Aliases:  []string{generalFlagLocationID, generalFlagAliasLocationName},
+								Required: true,
+							},
+						},
+					},
+					Action: createCommandWithT(CreateMachineAction),
+				},
+				{
+					Name:      "delete",
+					Usage:     "Delete a machine",
+					UsageText: createUsageText("machines delete", []string{generalFlagID}, true, false),
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagMachine,
+								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+								Required: true,
+							},
+						},
+					},
+					Action: createCommandWithT(DeleteMachineAction),
+				},
+				{
+					Name:      "update",
+					Usage:     "Move a machine from one location to another and/or rename the machine",
+					UsageText: createUsageText("machines move", []string{}, true, false),
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagMachine,
+								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+								Required: true,
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagLocation,
+								Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+							},
+						},
+						&cli.StringFlag{
+							Name: generalFlagNewName,
+						},
+					},
+					Action: createCommandWithT(UpdateMachineAction),
+				},
 				{
 					Name:      "list",
 					Usage:     "list machines in an organization and location",
