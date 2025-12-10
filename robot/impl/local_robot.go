@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
@@ -131,20 +130,11 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 }
 
 // WriteTraceMessages writes trace spans to any configured exporters.
-func (r *localRobot) WriteTraceMessages(ctx context.Context, spans [][]byte) error {
+func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.ResourceSpans) error {
 	if r.traceClient == nil {
 		return nil
 	}
-	messages := make([]*otlpv1.ResourceSpans, 0, len(spans))
-	for _, s := range spans {
-		m := &otlpv1.ResourceSpans{}
-		err := proto.Unmarshal(s, m)
-		if err != nil {
-			continue
-		}
-		messages = append(messages, m)
-	}
-	return r.traceClient.UploadTraces(ctx, messages)
+	return r.traceClient.UploadTraces(ctx, spans)
 }
 
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
@@ -489,6 +479,7 @@ func newWithResources(
 				untrustedEnv:       cfg.UntrustedEnv,
 				tlsConfig:          cfg.Network.TLSConfig,
 				ftdc:               ftdcWorker,
+				tracingEnabled:     rOpts.tracing.enabled,
 			},
 			logger,
 		),
@@ -505,6 +496,7 @@ func newWithResources(
 		shutdownCallback:           rOpts.shutdownCallback,
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
+		traceClient:                traceClient,
 	}
 
 	r.mostRecentCfg.Store(config.Config{})
