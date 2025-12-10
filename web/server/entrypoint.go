@@ -265,6 +265,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// a diagnostic logger.
 	golog.ReplaceGloabl(rootLogger.AsZap())
 
+	// RunNetworkChecks will create a (diagnostic) "rdk.network-checks" Sublogger.
 	go nc.RunNetworkChecks(ctx, rootLogger, true /* continueRunningTestDNS */)
 
 	server := robotServer{
