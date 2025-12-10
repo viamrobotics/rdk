@@ -3,8 +3,9 @@ package gantry
 
 import (
 	"context"
-	"errors"
+	"sync"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -13,16 +14,21 @@ import (
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // client implements GantryServiceClient.
 type client struct {
 	resource.Named
+	resource.Shaped
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
 	name   string
 	client pb.GantryServiceClient
 	logger logging.Logger
+
+	mu    sync.Mutex
+	model referenceframe.Model
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -118,8 +124,37 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return err
 }
 
+func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
+}
+
 func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
-	return nil, errors.New("unimplemented")
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.model == nil {
+		resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
+		if err != nil {
+			return nil, err
+		}
+		model, err := referenceframe.KinematicModelFromProtobuf(c.name, resp)
+		if err != nil {
+			return nil, err
+		}
+		c.model = model
+	}
+	return c.model, nil
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
