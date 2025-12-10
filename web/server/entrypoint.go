@@ -259,9 +259,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	logStartupInfo(rootLogger)
 	startupInfoLogged = true
 
-	// Have goutils use the networking Sublogger of the root logger we've just configured.
-	// most of goutils is related to networking logic.
-	golog.ReplaceGloabl(networkingLogger.AsZap())
+	// The golog global logger is unused in rdk. But, goutils still makes infrequent use of
+	// it for a hodgepodge of messages. Use the rootLogger ("rdk") here, as those goutils
+	// messages are not of one specific category and are not noisy enough to be put under
+	// a diagnostic logger.
+	golog.ReplaceGloabl(rootLogger.AsZap())
 
 	go nc.RunNetworkChecks(ctx, rootLogger, true /* continueRunningTestDNS */)
 
@@ -329,7 +331,9 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 			return weboptions.Options{}, err
 		}
 		if host == "" || host == "0.0.0.0" || host == "::" {
-			s.networkingLogger.Warn("binding to all interfaces without authentication")
+			// Use rootLogger instead of networkingLogger here to be user-facing. This log has
+			// important security implications that users have control over.
+			s.rootLogger.Warn("binding to all interfaces without authentication")
 		}
 	}
 	return options, nil
@@ -547,7 +551,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// Only start cloud restart checker if cloud config is non-nil, and viam-agent is not
 	// handling restart checking for us (relevant environment variable is unset).
 	if fullProcessedConfig.Cloud != nil && os.Getenv(rutils.ViamAgentHandlesNeedsRestartChecking) == "" {
-		s.networkingLogger.CInfo(ctx, "Agent does not handle checking needs restart functionality; will handle in server")
+		s.rootLogger.CInfo(ctx, "Agent does not handle checking needs restart functionality; will handle in server")
 		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {
 			defer close(cloudRestartCheckerActive)
