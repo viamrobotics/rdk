@@ -79,11 +79,12 @@ func (c WebcamConfig) Validate(path string) ([]string, []string, error) {
 type webcam struct {
 	resource.Named
 	resource.AlwaysRebuild
-	// mu protects all struct fields except workers.
-	//
-	// Lock ordering rules:
-	//   - Never hold mu when calling workers.Stop() or workers.Add()
-	//   - Workers may acquire mu, so stopping them while holding mu causes deadlock
+
+	// workers is not protected by mu. Workers may acquire mu, so holding mu while
+	// calling workers.Stop() or workers.Add() causes deadlock.
+	workers *goutils.StoppableWorkers
+
+	// mu protects all fields below
 	mu sync.Mutex
 
 	cameraModel transform.PinholeCameraModel
@@ -96,14 +97,11 @@ type webcam struct {
 	targetPath string
 	conf       WebcamConfig
 
-	// Set by the Close method
-	closed bool
-	// Set by the Monitor worker
-	disconnected bool
-	logger       logging.Logger
-	// workers take the mutex when starting and stopping, so do not call them while holding mu
-	workers *goutils.StoppableWorkers
-	buffer  *webcamBuffer
+	closed       bool // set by Close method
+	disconnected bool // set by monitor worker
+
+	logger logging.Logger
+	buffer *webcamBuffer
 }
 
 // webcamBuffer is a buffer for webcam frames.
@@ -189,14 +187,14 @@ func (c *webcam) ensureActive() error {
 }
 
 // isCameraConnected is a helper for monitoring connectivity to the driver.
-// Must be called with mu held.
-func (c *webcam) isCameraConnected() (bool, error) {
-	if c.driver == nil {
+// Performs I/O operations, so must be called without holding mu.
+func isCameraConnected(driver driverutils.Driver) (bool, error) {
+	if driver == nil {
 		return false, fmt.Errorf("cannot determine camera status: %w", errNoDriver)
 	}
 
 	// TODO(RSDK-1959): this only works for linux
-	_, err := driverutils.IsAvailable(c.driver)
+	_, err := driverutils.IsAvailable(driver)
 	return !errors.Is(err, availability.ErrNoDevice), nil
 }
 
@@ -218,9 +216,10 @@ func (c *webcam) startMonitorWorker() {
 			case <-ticker.C:
 				c.mu.Lock()
 				logger := c.logger
-				ok, err := c.isCameraConnected()
+				driver := c.driver
 				c.mu.Unlock()
 
+				ok, err := isCameraConnected(driver)
 				if err != nil {
 					logger.Debugw("cannot determine camera status", "error", err)
 					continue
@@ -241,27 +240,41 @@ func (c *webcam) startMonitorWorker() {
 						c.logger.Debug("reconnect loop context done")
 						return
 					case <-ticker.C:
+						// Get current state and clear driver/reader while holding lock
 						c.mu.Lock()
+						oldDriver := c.driver
+						oldRelease := c.buffer.release
+						conf := c.conf
+						targetPath := c.targetPath
 
-						// Close current driver if it exists
-						if c.driver != nil {
+						c.driver = nil
+						c.reader = nil
+						c.buffer.release = nil
+						c.buffer.frame = nil
+						c.mu.Unlock()
+
+						// Close old driver outside lock (I/O operation)
+						if oldDriver != nil {
 							c.logger.Debug("closing current camera")
-							if err := c.driver.Close(); err != nil {
+							if err := oldDriver.Close(); err != nil {
 								c.logger.Errorw("failed to close current camera", "error", err)
 							}
-							c.driver = nil
-							c.reader = nil
 						}
 
-						// Try to find and reconnect to camera
-						reader, driver, label, err := findReaderAndDriver(&c.conf, c.targetPath, c.logger)
+						// Release old buffer frame outside lock (I/O operation)
+						if oldRelease != nil {
+							oldRelease()
+						}
+
+						// Try to find and reconnect to camera outside lock (heavy I/O)
+						reader, driver, label, err := findReaderAndDriver(&conf, targetPath, c.logger)
 						if err != nil {
 							c.logger.Debugw("failed to reconnect camera", "error", err)
-							c.mu.Unlock()
 							continue
 						}
 
-						// Successfully reconnected
+						// Successfully reconnected, update state while holding lock
+						c.mu.Lock()
 						c.reader = reader
 						c.driver = driver
 						c.disconnected = false
@@ -270,13 +283,8 @@ func (c *webcam) startMonitorWorker() {
 						}
 						c.logger = c.logger.WithFields("camera_name", c.Name().ShortName(), "camera_label", c.targetPath)
 
-						// Reset buffer state
+						// Clear any error from before reconnection
 						c.buffer.err = nil
-						c.buffer.frame = nil
-						if c.buffer.release != nil {
-							c.buffer.release()
-							c.buffer.release = nil
-						}
 
 						c.logger.Infow("camera reconnected")
 						c.mu.Unlock()
@@ -413,24 +421,30 @@ func (c *webcam) Close(ctx context.Context) error {
 	c.workers.Stop()
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if c.closed {
-		return fmt.Errorf("webcam failed to close: %w", errClosed)
+		c.mu.Unlock()
+		return fmt.Errorf("webcam already closed: %w", errClosed)
 	}
 	c.closed = true
 
-	if c.buffer.release != nil {
-		c.buffer.release()
-	}
+	// Extract resources to clean up outside the lock
+	oldRelease := c.buffer.release
+	oldDriver := c.driver
+
+	// Clear state
 	c.buffer.release = nil
 	c.buffer.frame = nil
-
 	c.reader = nil
+	c.driver = nil
+	c.mu.Unlock()
 
-	if c.driver != nil {
-		err := c.driver.Close()
-		c.driver = nil
+	// Perform I/O operations outside the lock
+	if oldRelease != nil {
+		oldRelease()
+	}
+
+	if oldDriver != nil {
+		err := oldDriver.Close()
 		if err != nil {
 			return fmt.Errorf("webcam failed to close (failed to close camera driver): %w", err)
 		}
