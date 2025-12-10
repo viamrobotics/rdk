@@ -60,6 +60,7 @@ import (
 
 const (
 	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
+	osWindows     = "windows"
 	// defaultNumLogs is the same as the number of logs currently returned by app
 	// in a single GetRobotPartLogsResponse.
 	defaultNumLogs = 100
@@ -1696,7 +1697,6 @@ func needsUpdate(c *cli.Context) (bool, string, string, error) {
 }
 
 func (conf *Config) checkUpdate(c *cli.Context) error {
-
 	var shouldCheckUpdate bool
 
 	// if there has never been a last update check, then we should definitely alert as necessary
@@ -1722,12 +1722,13 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 		return nil
 	}
 
-	var latestVersion string
-	if shouldUpdate, localVersion, latestVersion, err := needsUpdate(c); err != nil {
-		if shouldUpdate {
-			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
-				"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion, latestVersion)
-		}
+	shouldUpdate, localVersion, latestVersion, err := needsUpdate(c)
+	if err != nil {
+		return err
+	}
+	if shouldUpdate {
+		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
+			"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion, latestVersion)
 		return nil
 	}
 
@@ -1757,6 +1758,7 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 	return nil
 }
 
+// UpdateCLIAction updates the CLI to the latest version.
 func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 	// 1. check CLI to see if update needed, if this fails then try update anyways
 	needsUpdate, localVersion, _, err := needsUpdate(c)
@@ -1826,15 +1828,19 @@ func binaryURL() string {
 	// Determine binary URL based on OS and architecture
 	binaryURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-" +
 		runtime.GOOS + "-" + runtime.GOARCH
-	if runtime.GOOS == "windows" {
-		binaryURL += ".exe"
+	if runtime.GOOS == osWindows {
+		binaryURL += ".exe" //nolint:goconst
 	}
 	return binaryURL
 }
 
-func downloadBinaryIntoDir(binaryURL string, directoryPath string) (string, error) {
+func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 	// Download the binary
-	resp, err := http.Get(binaryURL)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, binaryURL, nil)
+	if err != nil {
+		return "", errors.Errorf("binary download failed: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", errors.Errorf("binary download failed: %v", err)
 	}
@@ -1846,18 +1852,18 @@ func downloadBinaryIntoDir(binaryURL string, directoryPath string) (string, erro
 	// create a temp file that we write the downloaded binary into
 	goos := runtime.GOOS
 	tempFileName := "viam-cli-update"
-	if goos == "windows" {
+	if goos == osWindows {
 		tempFileName += ".exe"
 	}
 	tempFileName += ".new"
 
 	// Create the temp file in the same directory as the binary
 	latestBinaryPath := filepath.Join(directoryPath, tempFileName)
-	latestBinaryFile, err := os.Create(latestBinaryPath)
+	latestBinaryFile, err := os.Create(latestBinaryPath) //nolint:gosec
 	if err != nil {
 		utils.UncheckedError(resp.Body.Close())
 		if os.IsPermission(err) {
-			if goos == "windows" {
+			if goos == osWindows {
 				return "", errors.New("permission denied: run PowerShell as Administrator")
 			}
 			return "", errors.New("permission denied: run 'sudo viam self-update'")
@@ -1875,8 +1881,8 @@ func downloadBinaryIntoDir(binaryURL string, directoryPath string) (string, erro
 
 	// Make executable on Unix-like systems, if permissions are improperly set then no
 	// change will be made and user has to run sudo
-	if goos != "windows" {
-		if err := os.Chmod(latestBinaryPath, 0o755); err != nil {
+	if goos != osWindows {
+		if err := os.Chmod(latestBinaryPath, 0o755); err != nil { //nolint:gosec
 			if os.IsPermission(err) {
 				return "", errors.New("permission denied: run 'sudo viam self-update'")
 			}
@@ -1889,10 +1895,10 @@ func downloadBinaryIntoDir(binaryURL string, directoryPath string) (string, erro
 func replaceBinary(localBinaryPath, latestBinaryPath string) error {
 	// Windows doesn't allow renaming running executables, so we rename the old one
 	// and put the new one in the original location to be used next run
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		// make sure no leftover binary files with .old
 		oldPath := localBinaryPath + ".old"
-		os.Remove(oldPath) //nolint:errcheck
+		os.Remove(oldPath) //nolint:errcheck, gosec
 		// 1. rename old binary to .old
 		if err := os.Rename(localBinaryPath, oldPath); err != nil {
 			if os.IsPermission(err) {
@@ -1913,7 +1919,7 @@ func replaceBinary(localBinaryPath, latestBinaryPath string) error {
 			return errors.Errorf("failed to replace old binary: %v", err)
 		}
 		// Clean up .old file after successful update
-		os.Remove(oldPath) //nolint:errcheck
+		os.Remove(oldPath) //nolint:errcheck, gosec
 	} else {
 		if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
 			if os.IsPermission(err) {

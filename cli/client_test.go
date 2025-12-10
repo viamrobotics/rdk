@@ -1458,6 +1458,7 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 		test.That(t, len(out.messages), test.ShouldEqual, 0)
 	})
 }
+
 func TestTunnelE2ECLI(t *testing.T) {
 	t.Parallel()
 	// `TestTunnelE2ECLI` attempts to send "Hello, World!" across a tunnel created by the
@@ -1618,7 +1619,7 @@ func TestCLIUpdateAction(t *testing.T) {
 	test.That(t, actualURL, test.ShouldContainSubstring, "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-")
 	test.That(t, actualURL, test.ShouldContainSubstring, runtime.GOOS)
 	test.That(t, actualURL, test.ShouldContainSubstring, runtime.GOARCH)
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		test.That(t, strings.HasSuffix(actualURL, ".exe"), test.ShouldBeTrue)
 	} else {
 		test.That(t, actualURL, test.ShouldNotContainSubstring, ".exe")
@@ -1636,7 +1637,7 @@ func TestCLIUpdateAction(t *testing.T) {
 	tempDir := t.TempDir()
 
 	filename := "/viam-cli-stable"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		filename += ".exe"
 	}
 	downloadURL := server.URL + filename
@@ -1644,7 +1645,7 @@ func TestCLIUpdateAction(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// downloadBinaryIntoDir creates a file with a fixed name pattern, not the URL filename
 	expectedFileName := "viam-cli-update"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		expectedFileName += ".exe"
 	}
 	expectedFileName += ".new"
