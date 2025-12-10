@@ -1654,7 +1654,8 @@ func getLatestRelease() (getLatestReleaseResponse, error) {
 	return resp, nil
 }
 
-func getLatestReleaseVersion() (string, error) {
+// getLatestReleaseVersionFunc can be overridden in tests to mock GitHub API calls
+var getLatestReleaseVersionFunc = func() (string, error) {
 	resp, err := getLatestRelease()
 	if err != nil {
 		return "", err
@@ -1672,7 +1673,7 @@ func needsUpdate(c *cli.Context) (bool, string, string, error) {
 		return false, "", "", nil
 	}
 	appVersion := rconfig.Version
-	latestRelease, err := getLatestReleaseVersion()
+	latestRelease, err := getLatestReleaseVersionFunc()
 	if err != nil {
 		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
 	}
@@ -1757,13 +1758,6 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 }
 
 func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
-	// updateError wraps an error with a standard "CLI update failed" prefix
-	updateError := func(err error) error {
-		if err == nil {
-			return nil
-		}
-		return errors.Errorf("CLI update failed: %v", err)
-	}
 	// 1. check CLI to see if update needed, if this fails then try update anyways
 	needsUpdate, localVersion, _, err := needsUpdate(c)
 	if err == nil && !needsUpdate {
@@ -1771,19 +1765,18 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 		return nil
 	}
 
-	// 2. check if cli managed by brew, if so attempt update. If it fails, don't
-	// continue with binary to avoid putting brew out of sync
+	// 2. check if cli managed by brew, if so attempt update. If it fails
+	// dont continue with binary to avoid putting brew out of sync
 	success, err := checkAndTryBrewUpdate()
 	if err != nil {
-		return updateError(err)
+		return errors.Errorf("CLI update failed: %v", err)
 	}
-	// if successful, tells user and returns
-	// if not, then try downloading binary to manually replace
+	// brew update not returning false (not successful) but no error means not managed by brew
 	if !success {
 		// 3. get the local version binary path (use full path if no symlinks)
 		execPath, err := os.Executable()
 		if err != nil {
-			return updateError(errors.Errorf("failed to get executable path: %v", err))
+			return errors.Errorf("CLI update failed: failed to get executable path: %v", err)
 		}
 		localBinaryPath, err := filepath.EvalSymlinks(execPath)
 		if err != nil {
@@ -1792,17 +1785,19 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 		directoryPath := filepath.Dir(localBinaryPath)
 
 		// 4. get the latest binary (from storage.googleapis.com) and write it into a temp file
-		latestBinaryPath, err := downloadBinaryIntoDir(directoryPath)
+		binaryURL := binaryURL()
+		latestBinaryPath, err := downloadBinaryIntoDir(binaryURL, directoryPath)
 		if err != nil {
-			return updateError(err)
+			return errors.Errorf("CLI update failed: failed to download binary: %v", err)
 		}
+
 		// if replaceBinary succeeds, file is moved so Remove fails (harmless);
 		// if replaceBinary fails, file still exists so Remove cleans it up
 		defer os.Remove(latestBinaryPath) //nolint:errcheck
 
 		// 5. replace the old binary with the new one
 		if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
-			return updateError(err)
+			return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
 		}
 	}
 	infof(c.App.Writer, "Your CLI has been successfully updated")
@@ -1827,29 +1822,30 @@ func checkAndTryBrewUpdate() (bool, error) {
 	return false, nil
 }
 
-func downloadBinaryIntoDir(directoryPath string) (string, error) {
-	goos := runtime.GOOS
-	goarch := runtime.GOARCH
+func binaryURL() string {
 	// Determine binary URL based on OS and architecture
 	binaryURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-" +
-		goos + "-" + goarch
-	if goos == "windows" {
+		runtime.GOOS + "-" + runtime.GOARCH
+	if runtime.GOOS == "windows" {
 		binaryURL += ".exe"
 	}
+	return binaryURL
+}
 
+func downloadBinaryIntoDir(binaryURL string, directoryPath string) (string, error) {
 	// Download the binary
 	resp, err := http.Get(binaryURL)
 	if err != nil {
 		return "", errors.Errorf("binary download failed: %v", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		defer utils.UncheckedError(resp.Body.Close())
+		utils.UncheckedError(resp.Body.Close())
 		return "", errors.Errorf("binary download failed: server returned status %d", resp.StatusCode)
 	}
-	defer utils.UncheckedError(resp.Body.Close())
 
 	// create a temp file that we write the downloaded binary into
-	tempFileName := "viam-cli-update-"
+	goos := runtime.GOOS
+	tempFileName := "viam-cli-update"
 	if goos == "windows" {
 		tempFileName += ".exe"
 	}
@@ -1859,6 +1855,7 @@ func downloadBinaryIntoDir(directoryPath string) (string, error) {
 	latestBinaryPath := filepath.Join(directoryPath, tempFileName)
 	latestBinaryFile, err := os.Create(latestBinaryPath)
 	if err != nil {
+		utils.UncheckedError(resp.Body.Close())
 		if os.IsPermission(err) {
 			if goos == "windows" {
 				return "", errors.New("permission denied: run PowerShell as Administrator")
@@ -1870,7 +1867,8 @@ func downloadBinaryIntoDir(directoryPath string) (string, error) {
 
 	// Write downloaded content to temp file
 	_, err = io.Copy(latestBinaryFile, resp.Body)
-	latestBinaryFile.Close() //nolint:errcheck
+	utils.UncheckedError(resp.Body.Close())
+	utils.UncheckedError(latestBinaryFile.Close())
 	if err != nil {
 		return "", errors.Errorf("failed to write downloaded binary: %v", err)
 	}

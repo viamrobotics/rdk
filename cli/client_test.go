@@ -10,8 +10,11 @@ import (
 	"io/fs"
 	"maps"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -1455,7 +1458,6 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 		test.That(t, len(out.messages), test.ShouldEqual, 0)
 	})
 }
-
 func TestTunnelE2ECLI(t *testing.T) {
 	t.Parallel()
 	// `TestTunnelE2ECLI` attempts to send "Hello, World!" across a tunnel created by the
@@ -1577,5 +1579,112 @@ func TestTunnelE2ECLI(t *testing.T) {
 }
 
 func TestCLIUpdateAction(t *testing.T) {
+	// Setup: Create a cli.Context with fake auth
+	cCtx, _, _, errOut := setup(
+		&inject.AppServiceClient{},
+		nil,
+		nil,
+		map[string]any{},
+		"token",
+	)
 
+	// Save original version to restore later
+	originalVersion := robotconfig.Version
+	defer func() {
+		robotconfig.Version = originalVersion
+	}()
+
+	// Test that needsUpdate returns true after setting robotconfig.Version to previous version
+	mockLatestVersion := "0.104.0"
+	originalGetLatestReleaseVersion := getLatestReleaseVersionFunc
+	getLatestReleaseVersionFunc = func() (string, error) {
+		return mockLatestVersion, nil
+	}
+	defer func() {
+		getLatestReleaseVersionFunc = originalGetLatestReleaseVersion
+	}()
+
+	// Set local version to 0.100.0 (older than mockLatestVersion 0.104.0)
+	robotconfig.Version = "0.100.0"
+	needsUpdateResult, localVersion, latestVersion, err := needsUpdate(cCtx)
+	test.That(t, err, test.ShouldBeNil)
+	// Should detect that update is needed (0.100.0 < 0.104.0)
+	test.That(t, needsUpdateResult, test.ShouldBeTrue)
+	test.That(t, localVersion, test.ShouldEqual, "0.100.0")
+	test.That(t, latestVersion, test.ShouldEqual, mockLatestVersion)
+
+	// Test that binaryURL returns a valid URL with correct OS/arch and .exe for Windows
+	actualURL := binaryURL()
+	test.That(t, actualURL, test.ShouldContainSubstring, "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-")
+	test.That(t, actualURL, test.ShouldContainSubstring, runtime.GOOS)
+	test.That(t, actualURL, test.ShouldContainSubstring, runtime.GOARCH)
+	if runtime.GOOS == "windows" {
+		test.That(t, strings.HasSuffix(actualURL, ".exe"), test.ShouldBeTrue)
+	} else {
+		test.That(t, actualURL, test.ShouldNotContainSubstring, ".exe")
+	}
+
+	// Test that downloadBinaryIntoDir succeeds
+	// Create a test HTTP server that serves a mock binary
+	newBinaryContent := []byte("new-binary-content")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(newBinaryContent)
+	}))
+	defer server.Close()
+
+	// Create temp directory for download
+	tempDir := t.TempDir()
+
+	filename := "/viam-cli-stable"
+	if runtime.GOOS == "windows" {
+		filename += ".exe"
+	}
+	downloadURL := server.URL + filename
+	downloadedPath, err := downloadBinaryIntoDir(downloadURL, tempDir)
+	test.That(t, err, test.ShouldBeNil)
+	// downloadBinaryIntoDir creates a file with a fixed name pattern, not the URL filename
+	expectedFileName := "viam-cli-update"
+	if runtime.GOOS == "windows" {
+		expectedFileName += ".exe"
+	}
+	expectedFileName += ".new"
+	expectedPath := filepath.Join(tempDir, expectedFileName)
+	test.That(t, downloadedPath, test.ShouldEqual, expectedPath)
+
+	// Verify file was created and has correct content
+	downloadedContent, err := os.ReadFile(downloadedPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, downloadedContent, test.ShouldResemble, newBinaryContent)
+
+	// Test that replaceBinary works (create two temp binaries and see if replaced)
+	oldBinaryPath := filepath.Join(tempDir, "old-binary")
+	newBinaryPath := downloadedPath // Use the downloaded file as the "new" binary
+
+	// Create old binary file
+	err = os.WriteFile(oldBinaryPath, []byte("old-binary-content"), 0o755)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Replace old binary with new binary
+	err = replaceBinary(oldBinaryPath, newBinaryPath)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Verify that old binary location now contains the new binary content
+	// (os.Rename moves the new binary to the old location, so newBinaryPath no longer exists)
+	oldBinary, err := os.ReadFile(oldBinaryPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, oldBinary, test.ShouldResemble, newBinaryContent)
+	// Verify that newBinaryPath no longer exists (it was moved to oldBinaryPath)
+	_, err = os.ReadFile(newBinaryPath)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+
+	// Test that needsUpdate called again and says no update needed (as we just updated it)
+	robotconfig.Version = mockLatestVersion
+	needsUpdateResult2, localVersion2, _, err := needsUpdate(cCtx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, needsUpdateResult2, test.ShouldBeFalse) // Should be false (no update needed)
+	test.That(t, localVersion2, test.ShouldEqual, mockLatestVersion)
+
+	// Verify no errors were written to stderr
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 }
